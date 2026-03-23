@@ -4877,6 +4877,7 @@
         "exportedHtml": "Exported HTML file",
         "allowPopup": "Please allow popups to export PDF",
         "cannotGenerateShareLink": "Cannot generate share link",
+        "shareConfirm": "This will generate a public share link and set the topic to public access. Continue?",
         "shareLinkCopied": "Share link copied (topic set to public)",
         "setPublicFailed": "Failed to set public, please retry",
         "feedbackSubmitted": "Feedback submitted",

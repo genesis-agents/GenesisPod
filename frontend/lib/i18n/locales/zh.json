@@ -4553,6 +4553,7 @@
         "exportedHtml": "已导出 HTML 文件",
         "allowPopup": "请允许弹出窗口以导出 PDF",
         "cannotGenerateShareLink": "无法生成分享链接",
+        "shareConfirm": "将生成公开分享链接，专题将设为公开可访问。是否继续？",
         "shareLinkCopied": "分享链接已复制（专题已设为公开）",
         "setPublicFailed": "设置公开失败，请重试",
         "feedbackSubmitted": "反馈已提交",

@@ -561,12 +561,17 @@ export function TopicContentPanel({
       return;
     }
 
-    try {
-      // ★ 先将专题设置为公开，确保分享链接可访问
-      await updateTopicVisibility(topicId, 'PUBLIC');
+    // ★ 先确认：会将专题设为公开
+    const shareUrl = `${window.location.origin}/share/topic/${topicId}`;
+    const confirmed = window.confirm(
+      t('topicResearch.contentPanel.shareConfirm') ||
+        '将生成公开分享链接，专题将设为公开可访问。是否继续？'
+    );
+    if (!confirmed) return;
 
-      // 使用公开分享页面
-      const shareUrl = `${window.location.origin}/share/topic/${topicId}`;
+    try {
+      // ★ 将专题设置为公开，确保分享链接可访问
+      await updateTopicVisibility(topicId, 'PUBLIC');
       try {
         await navigator.clipboard.writeText(shareUrl);
         setToast({
