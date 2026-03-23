@@ -667,12 +667,15 @@ export class ProxyController {
       // 使用高级提取服务，实现4层容错机制
       let result = await this.advancedExtractor.extract(html, url, 30000);
 
-      // SPA/CSR 检测：内容过短或置信度过低时，用 Puppeteer 执行 JS 后重试
+      // SPA/CSR 检测：内容过短时，用 Puppeteer 执行 JS 后重试
+      const strippedTextReader = (result.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
       const isLowQualityReader =
-        !usedJinaReader && (result.length < 200 || result.confidence < 50);
+        !usedJinaReader && strippedTextReader.length < 500;
       if (isLowQualityReader) {
         this.logger.log(
-          `Low quality extraction (${result.length} chars, confidence: ${result.confidence}%), likely SPA/CSR. Trying Puppeteer...`,
+          `Low quality extraction (stripped: ${strippedTextReader.length} chars), likely SPA/CSR. Trying Puppeteer...`,
         );
         const puppeteerResult = await this.puppeteerFetcher.fetchPage(url, {
           timeout: 30000,
@@ -965,15 +968,19 @@ export class ProxyController {
         30000,
       );
 
-      // SPA/CSR 检测：如果直接 HTML 提取内容过短或置信度过低，
+      // SPA/CSR 检测：如果直接 HTML 提取内容质量不佳，
       // 说明页面可能是客户端渲染（如 TrendForce、React SPA），
       // 需要用 Puppeteer 执行 JS 后再提取
+      const strippedText = (contentResult.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const urlRedirected =
+        new URL(url).pathname !== new URL(currentUrl).pathname;
       const isLowQuality =
-        !usedJinaReader &&
-        (contentResult.length < 200 || contentResult.confidence < 50);
+        !usedJinaReader && (strippedText.length < 500 || urlRedirected);
       if (isLowQuality) {
         this.logger.log(
-          `Low quality extraction (${contentResult.length} chars, confidence: ${contentResult.confidence}%), likely SPA/CSR page. Trying Puppeteer...`,
+          `Low quality extraction (stripped: ${strippedText.length} chars, redirected: ${urlRedirected}), likely SPA/CSR page. Trying Puppeteer...`,
         );
         const puppeteerResult = await this.puppeteerFetcher.fetchPage(
           currentUrl,

@@ -30,7 +30,11 @@ describe("ProxyController - Reader Mode Fallback Chain", () => {
           <h1>Test Article</h1>
           <p>This is the main content of the article. It contains enough text to pass the validation checks.
           Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt
-          ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation.</p>
+          ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
+          laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in
+          voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat
+          non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Curabitur pretium
+          tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra.</p>
         </article>
       </body>
     </html>
@@ -57,13 +61,16 @@ This connection needs to review the security of your connection.`;
     const mockAdvancedExtractor = {
       extract: jest.fn().mockResolvedValue({
         title: "Test Article",
-        content: "<article><p>Test content</p></article>",
-        textContent: "Test content",
+        content:
+          "<article><p>This is the main content of the article. It contains enough text to pass the validation checks. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p></article>",
+        textContent:
+          "This is the main content of the article. It contains enough text to pass the validation checks. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Curabitur pretium tincidunt lacus.",
         excerpt: "This is a test article description.",
         siteName: "Example Site",
         length: 500,
         plan: "readability",
         confidence: 85,
+        success: true,
       }),
     };
 
