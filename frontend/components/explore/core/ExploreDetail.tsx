@@ -25,7 +25,10 @@ export default function ExploreDetail() {
 
   const isPDF =
     selectedResource.type === 'PAPER' &&
-    selectedResource.sourceUrl?.endsWith('.pdf');
+    !selectedResource.sourceUrl?.includes('/html/') &&
+    (selectedResource.sourceUrl?.endsWith('.pdf') ||
+      selectedResource.pdfUrl?.endsWith('.pdf') ||
+      selectedResource.pdfUrl?.includes('/pdf/'));
   const isHTML = !isPDF && selectedResource.sourceUrl;
 
   return (
@@ -197,7 +200,7 @@ export default function ExploreDetail() {
       <div className="flex-1 overflow-auto bg-gray-50">
         {isPDF && (
           <PDFViewer
-            url={selectedResource.sourceUrl}
+            url={selectedResource.pdfUrl || selectedResource.sourceUrl}
             className="h-full w-full"
           />
         )}
