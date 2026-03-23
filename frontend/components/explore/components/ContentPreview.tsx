@@ -37,7 +37,7 @@ export default function ContentPreview({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
       {/* PDF Viewer — only when displayMode is 'pdf' */}
-      {displayMode === 'pdf' && selectedResource.pdfUrl ? (
+      {displayMode === 'pdf' ? (
         <TextSelectionToolbar
           resourceId={selectedResource.id}
           onAddToNotes={onAddToNotes}
@@ -46,7 +46,7 @@ export default function ContentPreview({
           className="h-full w-full flex-1"
         >
           <PDFViewer
-            url={selectedResource.pdfUrl}
+            url={selectedResource.pdfUrl || selectedResource.sourceUrl}
             title={selectedResource.title}
             className="h-full w-full"
           />
