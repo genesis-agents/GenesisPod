@@ -474,18 +474,32 @@ export class ProxyController {
 
       // ★ Blob URL 中 <base> 标签不生效（Blob URL 没有真实域名信息）
       // 必须将相对路径的资源 URL 直接替换为绝对路径
-      // 处理 src="./xxx" 和 src="/xxx" 以及 href="/xxx" (CSS/JS)
+      const origin = `${urlObj.protocol}//${urlObj.hostname}`;
       html = html.replace(
-        /(src|href)=(["'])(\.\/|(?!https?:\/\/|data:|blob:|#)\/?)([^"']*?)\2/gi,
-        (match, attr, quote, prefix, path) => {
-          // 跳过已有绝对路径、data URI、锚点链接
-          if (path.startsWith("http://") || path.startsWith("https://")) {
+        /(src|href)=(["'])(\.\/|\.\.\/|(?!https?:\/\/|data:|blob:|#|javascript:)[^"']*?)\2/gi,
+        (match, attr, quote, rawPath) => {
+          // 跳过空属性和绝对 URL
+          if (
+            !rawPath ||
+            rawPath.startsWith("http") ||
+            rawPath.startsWith("data:")
+          ) {
             return match;
           }
-          const absoluteUrl =
-            prefix === "./"
-              ? `${baseUrl}${path}`
-              : `${urlObj.protocol}//${urlObj.hostname}/${path}`;
+          let absoluteUrl: string;
+          if (rawPath.startsWith("./")) {
+            // ./path → relative to current page directory
+            absoluteUrl = `${baseUrl}${rawPath.slice(2)}`;
+          } else if (rawPath.startsWith("../")) {
+            // ../path → resolve relative to page (simplified: use origin + path)
+            absoluteUrl = `${origin}${rawPath}`;
+          } else if (rawPath.startsWith("/")) {
+            // /path → root-relative
+            absoluteUrl = `${origin}${rawPath}`;
+          } else {
+            // bare relative (image.png) → relative to current page directory
+            absoluteUrl = `${baseUrl}${rawPath}`;
+          }
           return `${attr}=${quote}${absoluteUrl}${quote}`;
         },
       );

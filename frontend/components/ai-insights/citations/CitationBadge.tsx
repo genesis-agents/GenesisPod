@@ -60,12 +60,30 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
   }, []);
 
   // Scroll to in-page reference entry [N]
+  // Uses querySelectorAll to find the closest match when multiple chapters
+  // have the same ref-N id (chapter view renders refs per chapter).
   const scrollToRef = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsHovered(false);
-    const refEl = document.getElementById(`ref-${index}`);
-    if (!refEl) return;
+    const candidates = document.querySelectorAll(`[id="ref-${index}"]`);
+    if (candidates.length === 0) return;
+    // Pick the one closest to the clicked badge
+    const badge = triggerRef.current;
+    let refEl: HTMLElement = candidates[0] as HTMLElement;
+    if (badge && candidates.length > 1) {
+      const badgeY = badge.getBoundingClientRect().top;
+      let minDist = Infinity;
+      for (const el of candidates) {
+        const dist = Math.abs(
+          (el as HTMLElement).getBoundingClientRect().top - badgeY
+        );
+        if (dist < minDist) {
+          minDist = dist;
+          refEl = el as HTMLElement;
+        }
+      }
+    }
     let container: HTMLElement | null = refEl.parentElement;
     while (container) {
       const style = getComputedStyle(container);
