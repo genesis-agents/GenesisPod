@@ -164,6 +164,9 @@ model User {
   // BYOK: 用户自有 API Key
   apiKeys UserApiKey[]
 
+  // 意识上传系统
+  consciousnessProfiles ConsciousnessProfile[]
+
   @@map("users")
 }
 
@@ -8606,4 +8609,186 @@ model ProcessMessage {
   @@index([toProcessId, acknowledged])
   @@index([channel])
   @@map("process_messages")
+}
+
+// ============ 意识上传系统 (Consciousness Upload) ============
+
+enum ConsciousnessStatus {
+  DRAFT
+  COLLECTING
+  ANALYZING
+  READY
+  ARCHIVED
+}
+
+enum ConsciousnessDataSourceType {
+  TEXT
+  DOCUMENT
+  CHAT_HISTORY
+  SOCIAL_MEDIA
+  KNOWLEDGE_BASE
+  NOTES
+}
+
+enum ConsciousnessSharePermission {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+model ConsciousnessProfile {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
+  // 基本信息
+  name        String  @db.VarChar(200)
+  description String? @db.Text
+  avatarUrl   String? @map("avatar_url")
+
+  // 状态
+  status ConsciousnessStatus @default(DRAFT)
+
+  // 人格模型 (Big Five + custom traits)
+  personalityModel Json? @map("personality_model")
+
+  // 表达风格分析结果
+  writingStyle Json? @map("writing_style")
+
+  // 知识领域标签
+  knowledgeDomains Json? @map("knowledge_domains")
+
+  // 隐私权限
+  sharePermission ConsciousnessSharePermission @default(PRIVATE) @map("share_permission")
+
+  // 统计
+  totalDataSources   Int @default(0) @map("total_data_sources")
+  totalMemories      Int @default(0) @map("total_memories")
+  totalConversations Int @default(0) @map("total_conversations")
+
+  // 时间戳
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  analyzedAt DateTime? @map("analyzed_at")
+
+  // 关系
+  user          User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dataSources   ConsciousnessDataSource[]
+  memories      ConsciousnessMemory[]
+  conversations ConsciousnessConversation[]
+  sharedWith    ConsciousnessShare[]
+
+  @@index([userId, status])
+  @@index([userId, updatedAt])
+  @@map("consciousness_profiles")
+}
+
+model ConsciousnessDataSource {
+  id        String @id @default(uuid())
+  profileId String @map("profile_id")
+
+  // 数据源信息
+  type     ConsciousnessDataSourceType
+  name     String  @db.VarChar(300)
+  content  String? @db.Text
+  fileUrl  String? @map("file_url")
+  fileSize Int?    @map("file_size")
+  mimeType String? @map("mime_type") @db.VarChar(100)
+
+  // 处理状态
+  isProcessed   Boolean   @default(false) @map("is_processed")
+  processedAt   DateTime? @map("processed_at")
+  extractedData Json?     @map("extracted_data") // 提取的知识/风格数据
+
+  // 元数据
+  metadata Json? // 来源相关的元数据
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile ConsciousnessProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, type])
+  @@index([profileId, isProcessed])
+  @@map("consciousness_data_sources")
+}
+
+model ConsciousnessMemory {
+  id        String @id @default(uuid())
+  profileId String @map("profile_id")
+
+  // 记忆内容
+  category  String  @db.VarChar(100) // knowledge, experience, preference, opinion
+  topic     String  @db.VarChar(300)
+  content   String  @db.Text
+  embedding String? @db.Text // 向量嵌入 (JSON array)
+
+  // 重要性和置信度
+  importance Float @default(0.5)
+  confidence Float @default(0.5)
+
+  // 来源追踪
+  sourceId String? @map("source_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile ConsciousnessProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, category])
+  @@index([profileId, importance])
+  @@map("consciousness_memories")
+}
+
+model ConsciousnessConversation {
+  id        String @id @default(uuid())
+  profileId String @map("profile_id")
+  userId    String @map("user_id") // 对话发起者
+
+  title   String  @db.VarChar(200)
+  summary String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile  ConsciousnessProfile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  messages ConsciousnessMessage[]
+
+  @@index([profileId, updatedAt])
+  @@index([userId, updatedAt])
+  @@map("consciousness_conversations")
+}
+
+model ConsciousnessMessage {
+  id             String @id @default(uuid())
+  conversationId String @map("conversation_id")
+
+  role    String @db.VarChar(20) // user, avatar
+  content String @db.Text
+
+  // 元数据
+  memoriesUsed Json? @map("memories_used") // 使用了哪些记忆
+  tokens       Int?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  conversation ConsciousnessConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("consciousness_messages")
+}
+
+model ConsciousnessShare {
+  id               String @id @default(uuid())
+  profileId        String @map("profile_id")
+  sharedWithUserId String @map("shared_with_user_id")
+
+  // 权限
+  canChat         Boolean @default(true) @map("can_chat")
+  canViewMemories Boolean @default(false) @map("can_view_memories")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile ConsciousnessProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, sharedWithUserId])
+  @@map("consciousness_shares")
 }
