@@ -684,13 +684,14 @@ export class PdfRenderer implements ExportRenderer {
     if (headings.length === 0) return "";
 
     const items = headings
-      .map(
-        (h) => `
+      .map((h) => {
+        const anchor = this.slugify(h.content || "");
+        return `
       <div class="toc-item toc-item-level-${h.level}">
-        <span>${this.escapeHtml(h.content || "")}</span>
+        <a href="#${anchor}" style="text-decoration:none;color:inherit">${this.escapeHtml(h.content || "")}</a>
       </div>
-    `,
-      )
+    `;
+      })
       .join("");
 
     return `
@@ -719,9 +720,11 @@ export class PdfRenderer implements ExportRenderer {
    */
   private renderSection(section: ContentSection): string {
     switch (section.type) {
-      case "heading":
+      case "heading": {
         const level = Math.min(section.level || 1, 6);
-        return `<h${level}>${this.escapeHtml(section.content || "")}</h${level}>`;
+        const anchor = this.slugify(section.content || "");
+        return `<h${level} id="${anchor}">${this.escapeHtml(section.content || "")}</h${level}>`;
+      }
 
       case "paragraph":
         return `<p>${this.formatContent(section.content || "")}</p>`;
@@ -785,7 +788,7 @@ export class PdfRenderer implements ExportRenderer {
     const items = references
       .map(
         (ref) => `
-      <div class="reference-item">
+      <div class="reference-item" id="ref-${ref.id}">
         <span class="reference-number">[${ref.id}]</span>
         <div class="reference-content">
           <div class="reference-title">${this.escapeHtml(ref.title)}</div>
@@ -817,11 +820,21 @@ export class PdfRenderer implements ExportRenderer {
    * 格式化内容（处理引用标记等）
    */
   private formatContent(content: string): string {
-    // 处理引用标记 [1], [2] 等
+    // 处理引用标记 [1], [2] 等 — 使用 <a href> 让 PDF 内锚点可跳转
     return this.escapeHtml(content).replace(
       /\[(\d+)\]/g,
-      '<span class="citation">[$1]</span>',
+      '<a href="#ref-$1" class="citation" style="text-decoration:none">[$1]</a>',
     );
+  }
+
+  /**
+   * 生成 URL-safe 的锚点 slug（与 html.renderer.ts 一致）
+   */
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\u4e00-\u9fa5]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   /**

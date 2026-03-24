@@ -393,7 +393,7 @@ describe("PdfRenderer", () => {
         content: "Title",
         level: 2,
       });
-      expect(html).toContain("<h2>");
+      expect(html).toContain('<h2 id="title">');
     });
 
     it("caps heading level at 6", async () => {
@@ -403,7 +403,7 @@ describe("PdfRenderer", () => {
         content: "Deep",
         level: 9,
       });
-      expect(html).toContain("<h6>");
+      expect(html).toContain('<h6 id="deep">');
     });
 
     it("renders paragraph", async () => {

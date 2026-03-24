@@ -814,7 +814,7 @@ export class HtmlRenderer implements ExportRenderer {
   private formatContent(content: string): string {
     return this.escapeHtml(content).replace(
       /\[(\d+)\]/g,
-      '<span class="citation" data-ref="$1">[$1]</span>',
+      '<a href="#ref-$1" class="citation" data-ref="$1" style="text-decoration:none">[$1]</a>',
     );
   }
 
