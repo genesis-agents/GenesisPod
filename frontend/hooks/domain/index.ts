@@ -81,3 +81,21 @@ export {
   useCreditsCheck,
 } from './useCredits';
 export type { CreditsStats, CreditRule } from './useCredits';
+
+// Consciousness hooks
+export {
+  useConsciousness,
+  useConsciousnessProfiles,
+  useConsciousnessProfile,
+  useConsciousnessMemories,
+  useConsciousnessConversations,
+  useConsciousnessConversation,
+} from './useConsciousness';
+export type {
+  ConsciousnessProfile,
+  ConsciousnessDataSource,
+  ConsciousnessMemory,
+  ConsciousnessConversation,
+  ConsciousnessMessage,
+  AnalysisResult,
+} from './useConsciousness';
