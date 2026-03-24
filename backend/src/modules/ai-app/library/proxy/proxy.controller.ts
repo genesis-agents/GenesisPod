@@ -465,12 +465,30 @@ export class ProxyController {
         "",
       );
 
-      // 在 <head> 标签后插入 <base> 标签以正确加载相对路径资源
+      // 在 <head> 标签后插入 <base> 标签
       if (html.includes("<head>")) {
         html = html.replace("<head>", `<head><base href="${baseUrl}">`);
       } else if (html.includes("<HEAD>")) {
         html = html.replace("<HEAD>", `<HEAD><base href="${baseUrl}">`);
       }
+
+      // ★ Blob URL 中 <base> 标签不生效（Blob URL 没有真实域名信息）
+      // 必须将相对路径的资源 URL 直接替换为绝对路径
+      // 处理 src="./xxx" 和 src="/xxx" 以及 href="/xxx" (CSS/JS)
+      html = html.replace(
+        /(src|href)=(["'])(\.\/|(?!https?:\/\/|data:|blob:|#)\/?)([^"']*?)\2/gi,
+        (match, attr, quote, prefix, path) => {
+          // 跳过已有绝对路径、data URI、锚点链接
+          if (path.startsWith("http://") || path.startsWith("https://")) {
+            return match;
+          }
+          const absoluteUrl =
+            prefix === "./"
+              ? `${baseUrl}${path}`
+              : `${urlObj.protocol}//${urlObj.hostname}/${path}`;
+          return `${attr}=${quote}${absoluteUrl}${quote}`;
+        },
+      );
 
       this.logger.log(
         `Successfully processed HTML (${html.length} characters) from ${urlObj.hostname}`,
