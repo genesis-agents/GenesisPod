@@ -86,6 +86,7 @@ describe("DimensionResearchExecutor", () => {
     topicDimension: {
       findUnique: jest.Mock;
       findFirst: jest.Mock;
+      findMany: jest.Mock;
       create: jest.Mock;
     };
   };
@@ -101,6 +102,7 @@ describe("DimensionResearchExecutor", () => {
       topicDimension: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
       },
     };
@@ -887,7 +889,8 @@ describe("SynthesisReportExecutor", () => {
     mockPrisma = {
       researchTask: { findMany: jest.fn() },
       topicEvidence: { findMany: jest.fn() },
-    };
+      topicDimension: { findMany: jest.fn().mockResolvedValue([]) },
+    } as typeof mockPrisma;
 
     mockReportSynthesisService = {
       saveDimensionAnalysis: jest.fn().mockResolvedValue(undefined),
