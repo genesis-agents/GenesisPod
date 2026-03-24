@@ -1528,6 +1528,293 @@ body.gloss .v12-content { display: none; }
 body.v6 .v6-content { display: block; }
 body.v6 .v12-content { display: none; }
 
+/* ===== V7 REPORT OUTLINE ===== */
+.v7-content { display: none; }
+body.v7 .v7-content { display: block; }
+body.v7 .v12-content { display: none; }
+
+.v7-intro {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  line-height: 1.75;
+  max-width: 780px;
+  margin: 0 auto 32px;
+  text-align: center;
+}
+
+.v7-intro strong { color: var(--text); }
+
+.v7-flow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 20px 0 36px;
+  flex-wrap: wrap;
+}
+
+.v7-flow-step {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 650;
+  padding: 5px 12px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.v7-flow-step.demand { background: var(--blue-soft); color: var(--blue); }
+.v7-flow-step.challenge { background: var(--orange-soft); color: var(--orange); }
+.v7-flow-step.industry { background: var(--green-soft); color: var(--green); }
+.v7-flow-step.deep { background: var(--purple-soft); color: var(--purple); }
+.v7-flow-step.frontier { background: var(--teal-soft); color: var(--teal); }
+.v7-flow-step.choose { background: var(--red-soft); color: var(--red); }
+
+.v7-flow-arrow {
+  color: var(--text-3);
+  font-size: 0.8rem;
+}
+
+.v7-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  padding-left: 32px;
+}
+
+.v7-outline::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--blue), var(--orange), var(--purple), var(--teal), var(--red));
+  opacity: 0.2;
+  border-radius: 1px;
+}
+
+.v7-ch {
+  position: relative;
+  padding: 8px 0;
+}
+
+.v7-ch::before {
+  content: '';
+  position: absolute;
+  left: -32px;
+  top: 20px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: var(--bg);
+}
+
+.v7-ch::after {
+  content: '';
+  position: absolute;
+  left: -28px;
+  top: 24px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.v7-ch[data-phase="demand"]::before { border-color: var(--blue); }
+.v7-ch[data-phase="demand"]::after { background: var(--blue); }
+.v7-ch[data-phase="challenge"]::before { border-color: var(--orange); }
+.v7-ch[data-phase="challenge"]::after { background: var(--orange); }
+.v7-ch[data-phase="industry"]::before { border-color: var(--green); }
+.v7-ch[data-phase="industry"]::after { background: var(--green); }
+.v7-ch[data-phase="deep"]::before { border-color: var(--purple); }
+.v7-ch[data-phase="deep"]::after { background: var(--purple); }
+.v7-ch[data-phase="frontier"]::before { border-color: var(--teal); }
+.v7-ch[data-phase="frontier"]::after { background: var(--teal); }
+.v7-ch[data-phase="choose"]::before { border-color: var(--red); }
+.v7-ch[data-phase="choose"]::after { background: var(--red); }
+
+.v7-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  transition: border-color 0.2s;
+}
+
+.v7-card:hover { border-color: #c0c8d4; }
+
+.v7-card-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.v7-card-num {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-3);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+.v7-card-title {
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.v7-card-role {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.v7-card-role.demand { background: var(--blue-soft); color: var(--blue); }
+.v7-card-role.challenge { background: var(--orange-soft); color: var(--orange); }
+.v7-card-role.industry { background: var(--green-soft); color: var(--green); }
+.v7-card-role.deep { background: var(--purple-soft); color: var(--purple); }
+.v7-card-role.frontier { background: var(--teal-soft); color: var(--teal); }
+.v7-card-role.choose { background: var(--red-soft); color: var(--red); }
+
+.v7-card-desc {
+  font-size: 0.75rem;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+.v7-card-desc strong {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.v7-card-tags {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.v7-card-tag {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--bg-soft);
+  color: var(--text-3);
+  border: 1px solid var(--border-light);
+}
+
+/* insights block within card */
+.v7-insights {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v7-ins-row {
+  display: flex;
+  gap: 8px;
+  font-size: 0.73rem;
+  line-height: 1.55;
+}
+
+.v7-ins-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  font-weight: 650;
+  padding: 2px 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  height: fit-content;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+.v7-ins-label.thought { background: var(--blue-soft); color: var(--blue); }
+.v7-ins-label.viewpoint { background: var(--orange-soft); color: var(--orange); }
+.v7-ins-label.advice { background: var(--green-soft); color: var(--green); }
+
+.v7-ins-text {
+  color: var(--text-2);
+}
+
+.v7-ins-text strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.v7-wall-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 2px;
+  padding: 0;
+}
+
+.v7-wall-divider .v7-wd-icon {
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.v7-wall-divider .v7-wd-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 650;
+  flex-shrink: 0;
+}
+
+.v7-wall-divider .v7-wd-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-light);
+}
+
+.v7-wall-divider.memory .v7-wd-label { color: var(--blue); }
+.v7-wall-divider.interconnect .v7-wd-label { color: var(--teal); }
+.v7-wall-divider.thermal .v7-wd-label { color: var(--orange); }
+.v7-wall-divider.energy .v7-wd-label { color: var(--red); }
+
+.v7-summary {
+  margin-top: 36px;
+  padding: 28px 24px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.v7-summary-q {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.85;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.v7-summary-q em {
+  font-style: normal;
+  font-weight: 650;
+}
+
+.v7-summary-q .bl { color: var(--blue); }
+.v7-summary-q .or { color: var(--orange); }
+.v7-summary-q .pu { color: var(--purple); }
+.v7-summary-q .tl { color: var(--teal); }
+.v7-summary-q .rd { color: var(--red); }
+
 /* v6 step color theming — reuse .ts component with new data-step numbers */
 .ts[data-step="6-1"] .ts-dot { border-color: var(--blue); color: var(--blue); }
 .ts[data-step="6-1"] .ts-dot::after { color: var(--blue); }
@@ -2255,6 +2542,7 @@ body.v6 .v6-power-bar { animation-play-state: running; }
     <button class="ver-btn" onclick="setVer('v3')">V3 Deep Dive</button>
     <button class="ver-btn" onclick="setVer('v5')">V5 Thesis</button>
     <button class="ver-btn" onclick="setVer('v6')">V6 Hardware</button>
+    <button class="ver-btn" onclick="setVer('v7')">V7 Report</button>
     <button class="ver-btn" onclick="setVer('gloss')">Glossary</button>
   </div>
 
@@ -4798,6 +5086,557 @@ body.v6 .v6-power-bar { animation-play-state: running; }
 
 
   <!-- ============================================================ -->
+  <!-- V7: Report Outline v2 — 深度研究报告大纲                       -->
+  <!-- ============================================================ -->
+  <div class="v7-content">
+
+    <div class="sec rv"><span class="n">V7</span><span class="t">深度研究报告大纲 &mdash; 推理算力底座的范式迁移与架构演进</span><span class="l"></span></div>
+
+    <div class="v7-intro rv">
+      <p>
+        从 <strong>Chatbot 到 Agent</strong> 的范式迁移，驱动推理算力需求暴涨 <strong>100&times;</strong>。<br>
+        本报告以 <strong>GTC 2026</strong> 与 <strong>OFC 2026</strong> 两大顶会的最新信号为锚点，<br>
+        系统拆解内存墙、互联墙、散热墙、能效墙在 Agent 时代的瓶颈升级与突围路径。
+      </p>
+      <p style="margin-top:14px;font-family:var(--mono);font-size:0.68rem;color:var(--text-3);letter-spacing:0.05em">
+        16 章 &nbsp;&bull;&nbsp; 4 面墙 &nbsp;&bull;&nbsp; 2 场顶会 &nbsp;&bull;&nbsp; 1 个前瞻 &nbsp;&bull;&nbsp; 预计全文 3&ndash;4 万字
+      </p>
+    </div>
+
+    <!-- Logic chain flow -->
+    <div class="v7-flow rv">
+      <span class="v7-flow-step demand">需求变了</span>
+      <span class="v7-flow-arrow">&rarr;</span>
+      <span class="v7-flow-step challenge">挑战是什么</span>
+      <span class="v7-flow-arrow">&rarr;</span>
+      <span class="v7-flow-step industry">业界怎么看</span>
+      <span class="v7-flow-arrow">&rarr;</span>
+      <span class="v7-flow-step deep">逐一深挖</span>
+      <span class="v7-flow-arrow">&rarr;</span>
+      <span class="v7-flow-step frontier">前瞻探索</span>
+      <span class="v7-flow-arrow">&rarr;</span>
+      <span class="v7-flow-step choose">我们怎么选</span>
+    </div>
+
+    <!-- Outline -->
+    <div class="v7-outline rv">
+
+      <!-- CH1 -->
+      <div class="v7-ch" data-phase="demand">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.01</span>
+            <span class="v7-card-title">从 Chatbot 到 Agent：产业范式迁移与推理算力需求的百倍跃迁</span>
+            <span class="v7-card-role demand">需求变了</span>
+          </div>
+          <div class="v7-card-desc">
+            Chatbot 一问一答消耗 <strong>~1K tokens</strong>，Agent 自主多步执行消耗 <strong>~70K tokens</strong>。机器不再等人，推理从秒级单次变为小时级持续运行。OpenClaw 三个月 <strong>247K Star</strong>，30+ 衍生项目百花齐放，推动 Agent 从开发者工具走向全民基础设施。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">OpenClaw 生态</span>
+            <span class="v7-card-tag">Chatbot &rarr; Agent 对比</span>
+            <span class="v7-card-tag">Token 经济学曲线</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">以 OpenClaw 生态爆发为切入点，用 Chatbot vs Agent 十大维度对比建立认知，用黄仁勋 Token 经济学曲线量化需求变化</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">Agent 不是"更好的 Chatbot"，而是<strong>软件使用者从人变成 AI</strong>。推理从秒级变为小时级，X 轴右移将十亿用户从 Free 推向 Premium，这是算力需求百倍跃迁的根本原因</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">算力基础设施的设计目标必须从"服务人的对话"转向"支撑机器的持续执行"——高并发、低延迟、长时运行成为新的设计约束</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://stackoverflow.blog/2026/03/20/was-2025-really-the-year-of-ai-agents/" style="color:var(--blue);text-decoration:none">Stack Overflow: Year of AI Agents?</a> &bull;
+            <a href="https://fortune.com/2026/03/14/openclaw-china-ai-agent-boom-open-source-lobster-craze-minimax-qwen/" style="color:var(--blue);text-decoration:none">Fortune: OpenClaw Boom</a> &bull;
+            <a href="https://github.com/openclaw/openclaw" style="color:var(--blue);text-decoration:none">OpenClaw GitHub 247K&starf;</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH2 -->
+      <div class="v7-ch" data-phase="challenge">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.02</span>
+            <span class="v7-card-title">从训练到推理：传统四面墙在 Agent 时代的瓶颈升级与新挑战</span>
+            <span class="v7-card-role challenge">挑战是什么</span>
+          </div>
+          <div class="v7-card-desc">
+            内存墙、互联墙、散热墙、能效墙不是新概念，但 Agent 工作负载以 <strong>KV Cache 爆炸、多步推理、多 Agent 并发</strong>三个特征加速了瓶颈升级。传统四面墙在推理时代的新表现：显存不够（内存墙）、多机协同慢（互联墙）、功耗密度飙升（散热墙）、每瓦产出不足（能效墙）。两大架构趋势正在重塑基础设施设计：<strong>解聚推理架构</strong>（Prefill/Decode 拆分到不同硬件，NVIDIA Dynamo 框架 2026.3 投产，将 GPU 集群转化为高效 Token 工厂）与 <strong>MoE 稀疏架构</strong>（DeepSeek V3/V4 万亿参数仅激活 32B，推理成本降 20-50&times;，但 Expert 分布式部署对互联带宽和显存分配提出全新要求）。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">四面墙总纲</span>
+            <span class="v7-card-tag">训练 vs 推理对比</span>
+            <span class="v7-card-tag">Agent 特有瓶颈</span>
+            <span class="v7-card-tag">解聚推理 Disaggregated</span>
+            <span class="v7-card-tag">MoE 稀疏架构</span>
+            <span class="v7-card-tag">NVIDIA Dynamo</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">不重复"四面墙"老概念，而是聚焦"老墙在 Agent 时代的新表现"——解聚推理和 MoE 是两个贯穿四面墙的架构变量</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text"><strong>Prefill 是计算密集，Decode 是带宽密集</strong>——两者对硬件的需求完全不同，解聚后各用最优硬件是推理效率的结构性突破。MoE 稀疏激活让万亿参数模型在推理端成为可能，但 Expert 路由的 All-to-All 通信让互联墙更紧迫</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">基础设施设计必须从"一种硬件做所有事"转向"异构硬件各司其职"——GPU 做 Prefill、LPU 做 Decode、CXL 池化共享 KV Cache，这是推理工厂的基本架构范式</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models/" style="color:var(--blue);text-decoration:none">NVIDIA Dynamo Blog</a> &bull;
+            <a href="https://arxiv.org/html/2602.14516" style="color:var(--blue);text-decoration:none">Disaggregated Multi-round Inference, arXiv 2026</a> &bull;
+            <a href="https://arxiv.org/html/2505.09343v1" style="color:var(--blue);text-decoration:none">DeepSeek-V3 Scaling Challenges</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH3 -->
+      <div class="v7-ch" data-phase="industry">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.03</span>
+            <span class="v7-card-title">GTC 2026：从算力巨头的全栈布局看推理基础设施的战略转型</span>
+            <span class="v7-card-role industry">产业界怎么看</span>
+          </div>
+          <div class="v7-card-desc">
+            NVIDIA 七芯片五机架全栈重构：<strong>Vera Rubin GPU</strong>（性能/瓦 10&times;）、<strong>Vera CPU</strong>（首款自研服务器 CPU）、<strong>Groq 3 LPU</strong>（1500 tok/s 推理专用）、<strong>NVLink 6 + ConnectX-9 + Spectrum-6</strong>（网络层）、<strong>BlueField-4 STX</strong>（存储层）、<strong>NemoClaw</strong>（企业级 Agent 软件栈）。黄仁勋：<em>&ldquo;Revenue = Tokens/Watt &times; GW&rdquo;</em>。同期，AMD MI400 系列瞄准推理市场、Google TPU v6 强化 MoE 推理效率、Broadcom 加速定制 AI 芯片布局，算力巨头在推理赛道全面展开军备竞赛。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">Vera Rubin</span>
+            <span class="v7-card-tag">Groq 3 LPU</span>
+            <span class="v7-card-tag">NemoClaw</span>
+            <span class="v7-card-tag">Token 工厂</span>
+            <span class="v7-card-tag">$1T by 2027</span>
+            <span class="v7-card-tag">AMD MI400</span>
+            <span class="v7-card-tag">Google TPU v6</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">以 NVIDIA 全栈为主线（信息最完整），辅以 AMD/Google/Broadcom 对比，展现算力巨头从训练到推理的战略转向</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">NVIDIA 不再只是"GPU 公司"，而是<strong>推理基础设施全栈供应商</strong>——七芯片五机架是一个完整系统。黄仁勋的公式 Revenue = Tokens/Watt &times; GW 重新定义了数据中心的商业本质：<strong>Token 工厂</strong></span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">关注 NVIDIA 从训练到推理的资源倾斜信号（Keynote 提 inference 40 次 vs training 10 次），评估推理专用芯片（Groq LPU）对现有 GPU 集群的补充价值</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://nvidianews.nvidia.com/news/nvidia-vera-rubin-platform" style="color:var(--blue);text-decoration:none">NVIDIA Vera Rubin Newsroom</a> &bull;
+            <a href="https://www.cnbc.com/2026/03/16/nvidia-gtc-2026-ceo-jensen-huang-keynote-blackwell-vera-rubin.html" style="color:var(--blue);text-decoration:none">CNBC: GTC 2026 $1T</a> &bull;
+            <a href="https://www.eetimes.com/gtc-2026-keynote-long-live-the-inference-king/" style="color:var(--blue);text-decoration:none">EE Times: Inference King</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH4 -->
+      <div class="v7-ch" data-phase="industry">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.04</span>
+            <span class="v7-card-title">OFC 2026：光互联、CPO 与硅光子 &mdash; 互联墙与能效墙的前沿突围</span>
+            <span class="v7-card-role industry">前沿技术怎么破</span>
+          </div>
+          <div class="v7-card-desc">
+            OFC 2026 三大核心议题：<strong>OCS 光交换</strong>（亚 700ns 重配置，取代电包交换）、<strong>XPO 超密光模块</strong>（Arista 主导，带宽密度 4&times; OSFP，机架占地 -75%）、<strong>OCI 光计算互联标准</strong>（AMD/NVIDIA/OpenAI 等六巨头联合定义 Scale-Up 光互联规范，GEN2 800Gbps/光纤）。光电混合互联成为破解互联墙与能效墙的共识路径。（详见 CH.07&ndash;10 逐层拆解）
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">OCS 光交换</span>
+            <span class="v7-card-tag">XPO MSA</span>
+            <span class="v7-card-tag">OCI 标准</span>
+            <span class="v7-card-tag">CPO 共封装光学</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">OFC 2026 从传统电信会议转型为 AI 基础设施会议，三大 MSA（OCS/XPO/OCI）同期发布标志着光互联进入标准化加速期</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text"><strong>光互联不再是"未来技术"，而是"在建基础设施"</strong>——OCI 六巨头联盟（含 NVIDIA 和 OpenAI）意味着光 Scale-Up 已获得需求侧和供给侧的共同背书</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">跟踪 OCI GEN1→GEN2 标准演进节奏，评估 800G 光模块部署窗口，关注 CPO 与 Pluggable 的路线竞争</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://oci-msa.org/" style="color:var(--blue);text-decoration:none">OCI MSA 官方</a> &bull;
+            <a href="https://www.comnen.com/ofc-2026-special-arista-leads-xpo-launch-as-three-ai-optical-interconnect-msas-debut/" style="color:var(--blue);text-decoration:none">OFC 2026: 三大 MSA</a> &bull;
+            <a href="https://www.futuriom.com/articles/news/ofc-2026-heralds-optical-shift-for-ai-factories/2026/03" style="color:var(--blue);text-decoration:none">Futuriom: Optical Shift</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- WALL: 内存墙 -->
+      <div class="v7-wall-divider memory rv">
+        <span class="v7-wd-icon">&#9638;</span>
+        <span class="v7-wd-label">内存墙 Memory Wall</span>
+        <span class="v7-wd-line"></span>
+      </div>
+
+      <!-- CH5 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.05</span>
+            <span class="v7-card-title">内存墙（一）：KV Cache 爆炸与显存容量-带宽的双重瓶颈</span>
+            <span class="v7-card-role deep">深挖 &middot; 问题</span>
+          </div>
+          <div class="v7-card-desc">
+            Agent 多轮推理导致 KV Cache 随上下文长度线性膨胀。以 70B 参数模型为例，128K 上下文下 KV Cache 单请求占用约 <strong>40GB</strong>，而一块 H100 总显存仅 80GB &mdash; 一个用户就吃掉一半显存。Agent 多任务并发下，<strong>显存容量</strong>（装不下）与<strong>显存带宽</strong>（读不快）成为推理侧特有的双重瓶颈。HBM 供应受限于物理堆叠极限和产能瓶颈。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">KV Cache</span>
+            <span class="v7-card-tag">显存墙</span>
+            <span class="v7-card-tag">带宽瓶颈</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">用量化数据（70B/128K/40GB）让读者直观感受"显存为什么不够"，区分训练侧内存墙（参数+梯度）与推理侧内存墙（KV Cache 主导）的本质差异</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">推理侧内存墙的核心矛盾不是"参数太大"，而是<strong>KV Cache 随上下文线性膨胀且无法压缩</strong>。Agent 多轮推理使这一问题从"偶尔触顶"变为"常态溢出"</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">内存容量和带宽必须同时解决——只扩容不提速（如加 CXL 但延迟高）或只提速不扩容（如 HBM4 但容量有限）都只能解决一半问题</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH6 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.06</span>
+            <span class="v7-card-title">内存墙（二）：HBM4/HBM4E、CXL 3.0 内存池化与近存计算的突围路径</span>
+            <span class="v7-card-role deep">深挖 &middot; 破局</span>
+          </div>
+          <div class="v7-card-desc">
+            三条并行突围路径：<strong>HBM4</strong>（SK 海力士 16 层 48GB, 11.7Gbps/pin）&amp; <strong>HBM4E</strong>（三星 16Gbps/pin, 4TB/s 带宽）垂直扩容；<strong>CXL 3.0 内存池化</strong>（Marvell Structera S, 48TB 共享内存, 4TB/s 聚合带宽）水平扩展；<strong>PIM 近存计算</strong>将算力嵌入存储，减少数据搬运。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">HBM4 / HBM4E</span>
+            <span class="v7-card-tag">CXL 3.0 池化</span>
+            <span class="v7-card-tag">Marvell Structera S</span>
+            <span class="v7-card-tag">PIM 近存计算</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">三条路径不是替代关系而是互补关系——HBM 解决"近处快"，CXL 解决"远处大"，PIM 解决"不搬运"</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text"><strong>HBM 扩容已逼近物理堆叠极限</strong>（16 层是当前量产上限），CXL 3.0 内存池化是突破单机显存天花板的关键路径——Marvell Structera S 的 48TB 共享内存意味着 KV Cache 可以"溢出"到池化内存</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">关注 CXL 3.0 池化方案的延迟表现（是否满足 Decode 阶段的带宽需求），评估 HBM4E 4TB/s 带宽对长上下文推理的实际提升</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://investor.marvell.com/news-events/press-releases/detail/1017/marvell-launches-next-generation-cxl-switch-enabling-memory-pooling-to-break-through-the-ai-memory-wall" style="color:var(--blue);text-decoration:none">Marvell CXL Switch</a> &bull;
+            <a href="https://news.samsung.com/global/samsung-unveils-hbm4e-showcasing-comprehensive-ai-solutions-nvidia-partnership-and-vision-at-nvidia-gtc-2026" style="color:var(--blue);text-decoration:none">Samsung HBM4E @ GTC</a> &bull;
+            <a href="https://news.skhynix.com/gtc-2026-exhibition-booth/" style="color:var(--blue);text-decoration:none">SK hynix HBM4 @ GTC</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- WALL: 互联墙 -->
+      <div class="v7-wall-divider interconnect rv">
+        <span class="v7-wd-icon">&#9638;</span>
+        <span class="v7-wd-label">互联墙 Interconnect Wall</span>
+        <span class="v7-wd-line"></span>
+      </div>
+
+      <!-- CH7 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.07</span>
+            <span class="v7-card-title">互联墙（一）：OCS 光交换 &mdash; 从电包交换到光路径重构 AI 集群架构</span>
+            <span class="v7-card-role deep">深挖 &middot; 交换层</span>
+          </div>
+          <div class="v7-card-desc">
+            OCS 在光域建立可重配置光路径，消除 OEO 转换，降低延迟和功耗。<strong>Eoptolink NX200/NX300</strong>（140/320 端口）、<strong>Lumentum R300</strong> + Marvell DSP 联合方案。LLM 推理场景下，亚 700ns 重配置速度是 OCS 性能超越电包交换的核心阈值。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">OCS</span>
+            <span class="v7-card-tag">Eoptolink</span>
+            <span class="v7-card-tag">Lumentum R300</span>
+            <span class="v7-card-tag">&lt;700ns 重配置</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">OCS 的核心价值不是"更快的交换"，而是"在光域完成路径重构"——消除 OEO 转换从根本上降低延迟和功耗</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">亚 <strong>700ns 重配置</strong>是关键阈值——低于此值 OCS 才能在 LLM 推理场景中超越电包交换。这意味着 OCS 目前适合<strong>长时稳定的推理流量</strong>（Agent 持续运行），而非突发短时的 Chatbot 请求</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">Agent 工作负载的流量模式（长时间、高带宽、可预测）天然适合 OCS——这是 Agent 时代对互联基础设施最直接的利好</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH8 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.08</span>
+            <span class="v7-card-title">互联墙（二）：XPO 超密光模块 &mdash; 4 倍带宽密度重塑机架互联形态</span>
+            <span class="v7-card-role deep">深挖 &middot; 模块层</span>
+          </div>
+          <div class="v7-card-desc">
+            Arista Networks 主导的 <strong>eXtra-dense Pluggable Optics（XPO）MSA</strong>，单机架带宽 <strong>4&times; OSFP</strong>，机架占地缩小 <strong>75%</strong>，面向 <strong>12.8T</strong> AI 互联。2027 年量产的新形态模块，解决当前光模块密度天花板。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">XPO MSA</span>
+            <span class="v7-card-tag">Arista</span>
+            <span class="v7-card-tag">12.8T</span>
+            <span class="v7-card-tag">4&times; OSFP</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">光模块的瓶颈不只是速率（已到 800G/1.6T），更是<strong>物理密度</strong>——同样的机架空间能插多少模块决定了总带宽上限</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">XPO 用 <strong>75% 的空间缩减换来 4&times; 带宽密度</strong>，这不是渐进式升级而是形态革新。2027 量产意味着 12.8T 交换机时代的光模块瓶颈将被系统性解决</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">关注 XPO 与 CPO 的路线竞争——XPO 是 Pluggable 的极致进化，CPO 是封装范式变革，两者可能在不同互联层级共存</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH9 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.09</span>
+            <span class="v7-card-title">互联墙（三）：OCI 光计算互联标准 &mdash; 六巨头定义下一代 Scale-Up 光互联规范</span>
+            <span class="v7-card-role deep">深挖 &middot; 标准层</span>
+          </div>
+          <div class="v7-card-desc">
+            <strong>AMD、Broadcom、Meta、Microsoft、NVIDIA、OpenAI</strong> 六家联合成立 Optical Scale-up Consortium，定义 OCI MSA 开放标准。从模块中心（module-centric）转向硅中心（silicon-centric）模型，<strong>GEN1</strong> 4&lambda; &times; 50Gbps NRZ (200Gbps/方向)，<strong>GEN2</strong> 800Gbps/光纤 BiDi，功耗、延迟与成本全面优化。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">OCI MSA</span>
+            <span class="v7-card-tag">Optical Scale-up Consortium</span>
+            <span class="v7-card-tag">Silicon-centric</span>
+            <span class="v7-card-tag">GEN2 800Gbps</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">OCI 标准的意义不在于技术指标本身，而在于<strong>六巨头联合定义</strong>意味着光 Scale-Up 获得了生态共识——标准战争已经结束</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">从 module-centric 到 <strong>silicon-centric</strong> 的转变是本质性的——光学集成从"插在交换机上的模块"变为"嵌入芯片封装的接口"，这将重塑整个光模块产业链</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">OCI GEN2 800Gbps/光纤为 2028-2030 的 Scale-Up 光互联提供了确定性路标，建议据此规划下一代集群互联架构</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://hyperframeresearch.com/2026/03/16/the-oci-msa-building-the-universal-optical-foundation-for-next-generation-ai-clusters/" style="color:var(--blue);text-decoration:none">HyperFRAME: OCI MSA Deep Dive</a> &bull;
+            <a href="https://finance.yahoo.com/news/optical-scale-consortium-established-create-130000256.html" style="color:var(--blue);text-decoration:none">Optical Scale-up Consortium</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH10 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.10</span>
+            <span class="v7-card-title">互联墙（四）：光互联生态占位 &mdash; 产业链关键玩家与竞争格局</span>
+            <span class="v7-card-role deep">深挖 &middot; 生态</span>
+          </div>
+          <div class="v7-card-desc">
+            从芯片到模块到系统，光互联产业链关键玩家布局：<strong>Broadcom</strong>（光 DSP + 交换芯片）、<strong>Marvell</strong>（CXL 交换 + 光 DSP）、<strong>Lightmatter</strong>（光计算互联芯片）、<strong>Eoptolink</strong>（OCS 交换机）、<strong>Lumentum</strong>（光源 + OCS 平台）。巨头联盟 vs 垂直整合 vs 创业公司的三方博弈。同时，<strong>Scale-across（跨数据中心互联）</strong>成为 OFC 2026 新兴议题——当单个数据中心逼近电力和散热极限，算力必须跨园区甚至跨城市协同。Bank of America 预测 Scale-across AI 网络市场 2026 年增长 <strong>11 倍</strong>至 $80.8M，Lumen 计划 3-5 年内光纤里程从 1700 万增至 5800 万英里，面向 GW 级集群互联。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">Broadcom</span>
+            <span class="v7-card-tag">Marvell</span>
+            <span class="v7-card-tag">Lightmatter</span>
+            <span class="v7-card-tag">Eoptolink</span>
+            <span class="v7-card-tag">Lumentum</span>
+            <span class="v7-card-tag">Scale-across / DCI</span>
+            <span class="v7-card-tag">800G 部署</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">从产业链全景出发，分析芯片/模块/系统/标准四个维度的玩家布局，并引入 Scale-across 作为互联的第三维度</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">光互联竞争呈现<strong>三方博弈</strong>格局：巨头联盟（OCI 六巨头推标准）vs 垂直整合（Broadcom 端到端）vs 创新公司（Lightmatter 光计算）。Scale-across 跨数据中心互联市场 2026 年 <strong>11 倍增长</strong>，Lumen 光纤扩容 3.4 倍，预示着算力将突破单园区边界</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">当单个数据中心逼近 GW 级电力和散热极限时，Scale-across 跨园区互联将成为刚需——关注 DCI 光模块和光放大器的容量规划</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://investor.lumentum.com/financial-news-releases/news-details/2026/Lumentum-Demonstrates-Industry-Leading-Technologies-and-Products-for-Scale-Out-Scale-Up-and-Scale-Across-AI-Infrastructure-at-OFC-2026/default.aspx" style="color:var(--blue);text-decoration:none">Lumentum Scale-Across @ OFC</a> &bull;
+            <a href="https://jianshiapp.com/ofc-2026-preview-scale-across-initiates-a-new-super-cycle-for-optical-modules/" style="color:var(--blue);text-decoration:none">Scale-Across Super Cycle Preview</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- WALL: 散热墙 -->
+      <div class="v7-wall-divider thermal rv">
+        <span class="v7-wd-icon">&#9638;</span>
+        <span class="v7-wd-label">散热墙 Thermal Wall</span>
+        <span class="v7-wd-line"></span>
+      </div>
+
+      <!-- CH11 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.11</span>
+            <span class="v7-card-title">散热墙（一）：机架级 &mdash; 单柜 30kW+ 下的直接芯片液冷与浸没式方案演进</span>
+            <span class="v7-card-role deep">深挖 &middot; 机架级</span>
+          </div>
+          <div class="v7-card-desc">
+            GPU TDP 从 H100 <strong>700W</strong> 飙升至 Vera Rubin VR200 NVL44 <strong>3700W</strong>，风冷彻底失效。2026 年单柜功率突破 <strong>30kW</strong>（占比 29%）。技术路径：单向冷板 &rarr; 全冷板液冷（GB300, 1400W）&rarr; 两相冷板 + 浸没耦合（Rubin 时代）。直接芯片液冷（D2C）成为主流方案。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">700W &rarr; 3700W</span>
+            <span class="v7-card-tag">D2C 液冷</span>
+            <span class="v7-card-tag">浸没式</span>
+            <span class="v7-card-tag">两相冷板</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">用 GPU TDP 演进数据（700W→1000W→2300W→3700W）建立"风冷必死"的直觉，然后展开液冷技术路径的三代演进</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">散热不再是"配套设施"，而是<strong>决定算力密度上限的硬约束</strong>。Vera Rubin 3700W TDP 意味着没有液冷就没有下一代推理集群</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">液冷方案选型需匹配芯片路线图——GB300 冷板液冷已是标配，Rubin 时代需评估两相冷板+浸没耦合的 TCO 和部署复杂度</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH12 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.12</span>
+            <span class="v7-card-title">散热墙（二）：数据中心级 &mdash; 液对气到液对液，散热基础设施的系统性重构</span>
+            <span class="v7-card-role deep">深挖 &middot; 园区级</span>
+          </div>
+          <div class="v7-card-desc">
+            受限于现有数据中心建筑结构，短期 <strong>液对气（L2A）</strong>为过渡方案。随着新一代数据中心自 2025 年陆续完工，<strong>液对液（L2L）</strong>将于 2027 年加速普及。2026 年液冷渗透率预计 <strong>37%</strong>，国内 AI 服务器液冷渗透率将超 <strong>50%</strong>，市场规模突破 <strong>200 亿元</strong>。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">L2A &rarr; L2L</span>
+            <span class="v7-card-tag">渗透率 37%</span>
+            <span class="v7-card-tag">200 亿市场</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">散热基础设施的重构不是技术问题，而是<strong>建筑和工程问题</strong>——现有数据中心的水循环设施决定了 L2A→L2L 的过渡节奏</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">2026 年液冷渗透率 37% 只是起点，2027 年 L2L 加速普及意味着<strong>新建数据中心将以液冷为原生设计</strong>，而非改造——这是一个建设周期 2-3 年的基础设施投资窗口</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">关注液冷产业链上游（冷板、CDU、管路）的产能瓶颈，国内 200 亿市场催生液冷专业化服务商机会</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WALL: 能效墙 -->
+      <div class="v7-wall-divider energy rv">
+        <span class="v7-wd-icon">&#9638;</span>
+        <span class="v7-wd-label">能效墙 Energy Wall</span>
+        <span class="v7-wd-line"></span>
+      </div>
+
+      <!-- CH13 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.13</span>
+            <span class="v7-card-title">能效墙（一）：从 FLOPS/Watt 到 Tokens/Watt &mdash; 推理时代的效率度量重构</span>
+            <span class="v7-card-role deep">深挖 &middot; 问题</span>
+          </div>
+          <div class="v7-card-desc">
+            黄仁勋在 GTC 2026 重新定义效率度量：<strong>Tokens/Watt</strong> 取代 FLOPS/Watt。数据中心受电力物理约束（1GW 不会变 2GW），每瓦 Token 产出直接决定企业营收。Agent 时代推理 7&times;24 持续运行，能效从"技术指标"升级为"商业生死线"。2026 年 Hyperscaler CapEx 超 <strong>$600B</strong>，但组成结构正在从训练集群转向推理工厂，能效决定了每一美元资本支出的回报率。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">Tokens/Watt</span>
+            <span class="v7-card-tag">FLOPS/Watt 过时</span>
+            <span class="v7-card-tag">$600B+ CapEx</span>
+            <span class="v7-card-tag">PUE</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">从黄仁勋的 Token 经济学出发，论证为什么 FLOPS/Watt 已经不能衡量推理时代的效率，Tokens/Watt 才是正确度量</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">数据中心的物理约束是<strong>电力不可扩展</strong>（1GW 不会变 2GW），因此能效不是"优化项"而是"天花板"——每瓦 Token 产出直接决定了一座 Token 工厂的营收上限</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">评估推理集群时，应建立 Tokens/Watt 基准测试体系，替代传统 MLPerf 训练基准，关注实际推理场景下的 PUE 表现</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://www.morganstanley.com/insights/articles/nvidia-jensen-huang-compute-new-economic-engine-tmt-2026" style="color:var(--blue);text-decoration:none">Morgan Stanley: Compute as Economic Engine</a> &bull;
+            <a href="https://www.digitimes.com/news/a20260323VL214/nvidia-gtc-jensen-huang-ai-performance.html" style="color:var(--blue);text-decoration:none">Digitimes: Inference Economics</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH14 -->
+      <div class="v7-ch" data-phase="deep">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.14</span>
+            <span class="v7-card-title">能效墙（二）：Chiplet 异构封装、解聚推理与 GPU+LPU 协同的效率突围</span>
+            <span class="v7-card-role deep">深挖 &middot; 破局</span>
+          </div>
+          <div class="v7-card-desc">
+            三条效率突围路径：<strong>Chiplet 异构封装</strong> &mdash; 不同工艺节点的芯粒组合，计算/存储/IO 各用最优工艺；<strong>解聚推理架构</strong> &mdash; Prefill（计算密集）用 GPU，Decode（带宽密集）用 LPU/专用芯片，NVIDIA Dynamo 框架实现 Prefill/Decode 自动调度；<strong>GPU + Groq 3 LPU 协同</strong> &mdash; 协同吞吐 <strong>35&times;/MW</strong>，Vera Rubin Token 成本降至 <strong>1/10</strong>。MoE 稀疏激活进一步放大能效优势——万亿参数仅激活数十B，每 token 计算量显著降低。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">Chiplet</span>
+            <span class="v7-card-tag">GPU + LPU 协同</span>
+            <span class="v7-card-tag">35&times;/MW</span>
+            <span class="v7-card-tag">NVIDIA Dynamo</span>
+            <span class="v7-card-tag">MoE 稀疏激活</span>
+            <span class="v7-card-tag">解聚推理</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">能效墙的破局不靠单一技术，而是<strong>三层协同</strong>——封装层（Chiplet）、架构层（解聚 Prefill/Decode）、硬件层（GPU+LPU 混合）</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">NVIDIA Dynamo + Groq 3 LPU 的 <strong>35&times;/MW</strong> 协同吞吐是能效墙突破的标杆数据。MoE 稀疏激活进一步放大了异构协同的价值——万亿参数模型只需激活数十B，每 token 的实际计算量远低于 Dense 模型</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">下一代推理集群的采购决策应从"买多少 GPU"转向"如何组合 GPU+LPU+CXL 实现最优 Tokens/Watt"——异构混合部署将成为常态</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models/" style="color:var(--blue);text-decoration:none">NVIDIA Dynamo Framework</a> &bull;
+            <a href="https://the-decoder.com/gtc-2026-with-groq-3-lpx-nvidia-adds-dedicated-inference-hardware-to-its-platform-for-the-first-time/" style="color:var(--blue);text-decoration:none">The Decoder: Groq 3 LPU</a> &bull;
+            <a href="https://intuitionlabs.ai/articles/deepseek-inference-cost-explained" style="color:var(--blue);text-decoration:none">IntuitionLabs: DeepSeek MoE Cost</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH15 -->
+      <div class="v7-ch" data-phase="frontier">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.15</span>
+            <span class="v7-card-title">太空数据中心：当算力突破地面物理极限 &mdash; 散热、能效与互联的终极重构</span>
+            <span class="v7-card-role frontier">前瞻探索</span>
+          </div>
+          <div class="v7-card-desc">
+            SpaceX 2026.1 向 FCC 提交百万颗卫星算力集群申请。太空同时突破三面墙：<strong>散热墙</strong>（-270&deg;C 真空辐射散热，效率 3&times;，零水耗）、<strong>能效墙</strong>（太阳能 24h 直供，单位能耗降 70%）、<strong>互联墙</strong>（星间激光通信）。北京十年规划打造全球首个太空算力枢纽，首期 200KW / 1000 POPS。市场规模 2035 年达 <strong>$39B</strong>（CAGR 67.4%）。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">SpaceX</span>
+            <span class="v7-card-tag">-270&deg;C 辐射散热</span>
+            <span class="v7-card-tag">星间激光通信</span>
+            <span class="v7-card-tag">$39B by 2035</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">太空数据中心不是科幻构想——SpaceX 已向 FCC 提交正式申请，北京已启动十年规划。用"同时突破三面墙"建立太空方案的独立价值</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">太空数据中心的核心优势不只是散热，而是<strong>三墙同破</strong>：-270&deg;C 辐射散热（散热墙）、太阳能 24h 直供且能耗降 70%（能效墙）、星间激光通信（互联墙）。但挑战同样跨领域：供电、辐射防护、维护成本</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text">短期（2026-2028）关注技术验证进展，中期（2028-2030）评估首批商业太空算力的 TCO 与地面方案对比，长期作为地面算力极限后的补充路径</span></div>
+          </div>
+          <div style="margin-top:8px;font-size:0.62rem;color:var(--text-3)">
+            <strong style="color:var(--text-2)">Ref:</strong>
+            <a href="https://www.ibm.com/think/news/data-centers-space" style="color:var(--blue);text-decoration:none">IBM: Data Centers in Space</a> &bull;
+            <a href="https://www.cnbc.com/2026/03/12/china-openclaw-ai-agent-adoption-tech-companies-government-support-lobster-shrimp.html" style="color:var(--blue);text-decoration:none">CNBC: AI Agent Adoption</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- CH16 -->
+      <div class="v7-ch" data-phase="choose">
+        <div class="v7-card">
+          <div class="v7-card-hd">
+            <span class="v7-card-num">CH.16</span>
+            <span class="v7-card-title">技术路线展望：推理算力底座的架构演进方向与产业关键抉择</span>
+            <span class="v7-card-role choose">我们怎么选</span>
+          </div>
+          <div class="v7-card-desc">
+            总结四面墙的突围路径与产业博弈格局，提炼架构演进的四大关键抉择：<strong>HBM 垂直扩容 vs CXL 水平池化</strong>、<strong>电互联渐进升级 vs 光互联范式替代</strong>、<strong>地面液冷深化 vs 太空算力补充</strong>、<strong>通用 GPU 堆叠 vs 异构芯片协同</strong>。分阶段建议：<strong>2026&ndash;2027 近期</strong> &mdash; HBM4 + 液冷为主，OCS/XPO 试点部署，CXL 池化验证；<strong>2028&ndash;2030 中期</strong> &mdash; OCI 标准成熟推动光互联规模替代，Chiplet 异构成为主流，L2L 液冷全面普及；<strong>2030+ 远期</strong> &mdash; 太空数据中心从验证走向商业补充，光电融合架构定型。
+          </div>
+          <div class="v7-card-tags">
+            <span class="v7-card-tag">HBM vs CXL</span>
+            <span class="v7-card-tag">电 vs 光</span>
+            <span class="v7-card-tag">地面 vs 太空</span>
+            <span class="v7-card-tag">通用 vs 异构</span>
+            <span class="v7-card-tag">2026&ndash;2027 近期</span>
+            <span class="v7-card-tag">2028&ndash;2030 中期</span>
+            <span class="v7-card-tag">2030+ 远期</span>
+          </div>
+          <div class="v7-insights">
+            <div class="v7-ins-row"><span class="v7-ins-label thought">核心思路</span><span class="v7-ins-text">不做技术预测，而是提炼<strong>四组关键抉择</strong>并给出分阶段建议，让决策者可以据此制定 3-5 年的基础设施投资策略</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label viewpoint">关键观点</span><span class="v7-ins-text">推理算力底座的演进不是单一技术路线的胜出，而是<strong>多技术协同演进</strong>——HBM 与 CXL 共存、电互联与光互联分层部署、GPU 与 LPU 异构协同。押注单一路线的风险大于组合对冲</span></div>
+            <div class="v7-ins-row"><span class="v7-ins-label advice">技术启示</span><span class="v7-ins-text"><strong>近期（2026-2027）</strong>：HBM4+液冷为主，OCS/XPO 试点，CXL 池化 PoC；<strong>中期（2028-2030）</strong>：OCI 标准成熟推动光互联规模替代，Chiplet 异构成为主流，L2L 液冷全面普及；<strong>远期（2030+）</strong>：太空数据中心从验证走向商业补充，光电融合架构定型</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end v7-outline -->
+
+    <!-- Summary -->
+    <div class="v7-summary rv">
+      <div class="v7-summary-q">
+        <em class="bl">需求变了</em>（Chatbot &rarr; Agent，推理 100&times;）&rarr;
+        <em class="or">四面墙升级</em>（解聚推理 + MoE 重塑内存/互联/散热/能效）&rarr;
+        <em style="color:var(--green)">两大顶会指路</em>（GTC 全栈转型 + OFC 光互联突围）&rarr;<br>
+        <em class="pu">逐墙深挖</em>（12 章拆解 &times; 技术细节 + 产业数据 + 技术启示）&rarr;
+        <em class="tl">前瞻探索</em>（太空数据中心）&rarr;
+        <em class="rd">关键抉择</em>（四组路线 &times; 三个阶段）<br><br>
+        <span style="font-size:0.78rem;color:var(--text-2)">
+          Agent 越普及，推理 token 消耗越大，算力基础设施越值钱 &mdash;&mdash; 这就是 2026 年 AI 产业的增长飞轮。<br>
+          每一面墙的突破都不是单点技术突破，而是硬件架构、产业生态与商业模式的协同演进。
+        </span>
+      </div>
+    </div>
+
+  </div><!-- end v7-content -->
+
+
+  <!-- ============================================================ -->
   <!-- GLOSSARY / 原理库                                             -->
   <!-- ============================================================ -->
   <div class="g-content">
@@ -5666,7 +6505,7 @@ Agent A、B、C 共用同一份 prefix KV Cache &rarr; <span class="hl">收益 3
 <script>
 function setVer(v) {
   document.body.className = v === 'v1' ? '' : v;
-  var map = { v1: 0, v2: 1, v3: 2, v5: 3, v6: 4, gloss: 5 };
+  var map = { v1: 0, v2: 1, v3: 2, v5: 3, v6: 4, v7: 5, gloss: 6 };
   document.querySelectorAll('.ver-btn').forEach((b, i) => {
     b.classList.toggle('active', i === map[v]);
   });
