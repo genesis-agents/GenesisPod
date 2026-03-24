@@ -1109,6 +1109,7 @@ function ChapterizedReportViewInner({
                       {refs.map((ref) => (
                         <div
                           key={ref!.idx}
+                          id={`ref-${ref!.idx}`}
                           className="flex gap-2.5 leading-relaxed"
                         >
                           <span className="font-mono shrink-0 text-xs text-gray-400 dark:text-gray-500">

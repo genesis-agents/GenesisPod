@@ -1255,7 +1255,16 @@ export class ReportSynthesisService {
       `[buildFullReportFromDimensions] assembleFullReport: ${assembled.length}c, ${assembledDims} dims`,
     );
 
-    const sanitized = this.teamFacade.sanitizeReport(assembled);
+    // ★ 轻量清理：不调用 sanitizeReport（其内部的 sanitizeMarkdownContent
+    // 下划线清理会破坏未被 $...$ 包裹的 LaTeX 下标）。
+    // Topic Insights 内容已经过 QualityGate + SelfEval + Remediation 三层质量控制，
+    // 只需做基础的格式清理。
+    const sanitized = assembled
+      .replace(/^```markdown\s*\n?/i, "")
+      .replace(/\n?```\s*$/i, "")
+      .replace(/\n{4,}/g, "\n\n\n")
+      .replace(/[ \t]+$/gm, "")
+      .trim();
 
     // ★ 诊断：sanitizeReport 后维度标题数
     const sanitizedDims = (sanitized.match(/^## \d+\./gm) || []).length;
