@@ -628,6 +628,14 @@ export class ImportManagerController {
       }
     }
 
+    // 用户手动提供的标题/描述优先于自动解析的
+    if (body.title && metadata) {
+      metadata.title = body.title;
+    }
+    if (body.description && metadata) {
+      metadata.description = body.description;
+    }
+
     // 导入资源
     const importTask = await this.importManagerService.importWithMetadata(
       body.url,
