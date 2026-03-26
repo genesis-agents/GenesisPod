@@ -87,7 +87,7 @@ describe('other academic sources', () => {
     ).toBe('html');
   });
 
-  it('OpenReview with pdfUrl → PDF', () => {
+  it('OpenReview with pdfUrl → PDF (pathname /pdf detected)', () => {
     expect(
       getResourceDisplayMode(
         r(
@@ -95,7 +95,13 @@ describe('other academic sources', () => {
           'https://openreview.net/pdf?id=abc123'
         )
       )
-    ).toBe('html'); // /pdf? is in query not path — includes('/pdf/') is false
+    ).toBe('pdf');
+  });
+
+  it('OpenReview direct PDF link as sourceUrl → PDF', () => {
+    expect(
+      getResourceDisplayMode(r('https://openreview.net/pdf?id=0iLbiYYIpC'))
+    ).toBe('pdf');
   });
 
   it('Semantic Scholar PDF → PDF', () => {

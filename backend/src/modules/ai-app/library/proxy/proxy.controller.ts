@@ -305,20 +305,31 @@ export class ProxyController {
       this.logger.log(`Fetching PDF from: ${urlObj.hostname}`);
 
       // 从远程服务器获取 PDF
+      // 使用完整的浏览器请求头以绕过学术网站（如 openreview.net）的反爬策略
+      const urlObj2 = new URL(url);
       const response = await axios.get(url, {
         responseType: "arraybuffer",
         timeout: 30000, // 30 seconds timeout
         maxRedirects: 5, // 跟随重定向
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
           Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.5",
+            "application/pdf,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
           "Accept-Encoding": "gzip, deflate, br",
           DNT: "1",
           Connection: "keep-alive",
           "Upgrade-Insecure-Requests": "1",
+          Referer: `${urlObj2.protocol}//${urlObj2.hostname}/`,
+          "sec-ch-ua":
+            '"Microsoft Edge";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "same-origin",
+          "Sec-Fetch-User": "?1",
         },
       });
 

@@ -37,9 +37,32 @@ export function getResourceDisplayMode(
     return 'pdf';
   }
 
+  // PDF detection: sourceUrl path is a PDF endpoint (e.g. openreview.net/pdf?id=xxx)
+  if (sourceUrl) {
+    try {
+      const pathname = new URL(sourceUrl).pathname;
+      if (pathname === '/pdf' || pathname.endsWith('/pdf')) {
+        return 'pdf';
+      }
+    } catch {
+      // invalid URL, skip
+    }
+  }
+
   // PDF detection: pdfUrl points to a real PDF
-  if (pdfUrl && (pdfUrl.endsWith('.pdf') || pdfUrl.includes('/pdf/'))) {
-    return 'pdf';
+  if (pdfUrl) {
+    if (pdfUrl.endsWith('.pdf') || pdfUrl.includes('/pdf/')) {
+      return 'pdf';
+    }
+    // pdfUrl path is a PDF endpoint (e.g. openreview.net/pdf?id=xxx)
+    try {
+      const pathname = new URL(pdfUrl).pathname;
+      if (pathname === '/pdf' || pathname.endsWith('/pdf')) {
+        return 'pdf';
+      }
+    } catch {
+      // invalid URL, skip
+    }
   }
 
   // Fallback: any resource with a sourceUrl → HTML viewer
