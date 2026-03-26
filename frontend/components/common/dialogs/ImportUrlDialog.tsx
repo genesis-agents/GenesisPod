@@ -162,6 +162,7 @@ export function ImportUrlDialog({
       await apiClient.post('/data-management/import-auto', {
         url,
         resourceType: selectedResourceType,
+        title: editedTitle || undefined,
       });
 
       handleClose();
