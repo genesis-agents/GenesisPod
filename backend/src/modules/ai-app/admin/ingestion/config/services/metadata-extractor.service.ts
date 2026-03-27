@@ -185,11 +185,35 @@ export class MetadataExtractorService {
     const filename = decodeURIComponent(pathname.split("/").pop() || "");
 
     // 清理文件名作为标题（移除扩展名和特殊字符）
-    const title = filename
+    let title = filename
       .replace(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i, "")
       .replace(/[-_]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+
+    // 垃圾标题检测：如果提取出的标题是无意义的通用词（如 "pdf"、"download"、"file"），
+    // 尝试从 query 参数中提取更有意义的标识符作为标题
+    const junkTitles = [
+      "pdf",
+      "download",
+      "file",
+      "document",
+      "view",
+      "get",
+      "fetch",
+    ];
+    if (!title || junkTitles.includes(title.toLowerCase())) {
+      // 尝试从 query 参数提取标识符（如 openreview.net/pdf?id=xxx）
+      const idParam =
+        urlObj.searchParams.get("id") ||
+        urlObj.searchParams.get("paperId") ||
+        urlObj.searchParams.get("doi");
+      if (idParam) {
+        title = `${domain.replace("www.", "")} - ${idParam}`;
+      } else {
+        title = `${domain.replace("www.", "")} - ${pathname.replace(/\//g, "")}`;
+      }
+    }
 
     // 生成描述
     const fileSize = headInfo.contentLength
@@ -201,6 +225,12 @@ export class MetadataExtractorService {
     // 使用 URL 作为内容 hash（因为不下载内容）
     const contentHash = this.calculateContentHash(url);
 
+    // 检测 PDF URL：除了 .pdf 结尾，还检查路径是否为 /pdf（如 openreview.net/pdf?id=xxx）
+    const isPdfEndpoint =
+      url.toLowerCase().endsWith(".pdf") ||
+      pathname === "/pdf" ||
+      pathname.endsWith("/pdf");
+
     return {
       title: title || filename || "未知文件",
       description,
@@ -210,7 +240,7 @@ export class MetadataExtractorService {
       siteName: domain,
       language: "unknown",
       contentType: headInfo.contentType || this.getContentTypeFromUrl(url),
-      pdfUrl: url.toLowerCase().endsWith(".pdf") ? url : undefined,
+      pdfUrl: isPdfEndpoint ? url : undefined,
     };
   }
 

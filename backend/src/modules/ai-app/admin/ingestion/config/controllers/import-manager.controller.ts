@@ -529,12 +529,36 @@ export class ImportManagerController {
       if (pathParts.length > 0) {
         const lastPart = pathParts[pathParts.length - 1];
         // 将连字符和下划线转换为空格，移除文件扩展名
-        return lastPart
+        let title = lastPart
           .replace(/[-_]/g, " ")
-          .replace(/\.(html?|php|aspx?)$/i, "")
+          .replace(/\.(html?|php|aspx?|pdf)$/i, "")
           .split(" ")
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join(" ");
+
+        // 垃圾标题检测（如 openreview.net/pdf?id=xxx → "Pdf"）
+        const junkTitles = [
+          "pdf",
+          "download",
+          "file",
+          "document",
+          "view",
+          "get",
+          "fetch",
+        ];
+        if (junkTitles.includes(title.toLowerCase())) {
+          const idParam =
+            urlObj.searchParams.get("id") ||
+            urlObj.searchParams.get("paperId") ||
+            urlObj.searchParams.get("doi");
+          if (idParam) {
+            title = `${urlObj.hostname.replace("www.", "")} - ${idParam}`;
+          } else {
+            title = urlObj.hostname;
+          }
+        }
+
+        return title;
       }
       return urlObj.hostname;
     } catch {
