@@ -1250,6 +1250,17 @@ export class TableManagementService {
       if (policy.type === "custom") {
         deletedCount = await this.executeCustomCleanup(tableName);
       } else if (policy.type === "age" && policy.field && policy.threshold) {
+        // Pre-cleanup: clear foreign key references pointing to rows about to be deleted
+        if (tableName === "raw_data") {
+          await this.prisma.$executeRawUnsafe(`
+            UPDATE "resources" SET "raw_data_id" = NULL
+            WHERE "raw_data_id" IN (
+              SELECT "id" FROM "raw_data"
+              WHERE "${policy.field}" < NOW() - INTERVAL '${policy.threshold} days'
+            )
+          `);
+        }
+
         const result = await this.prisma.$executeRawUnsafe(`
           DELETE FROM "${tableName}"
           WHERE "${policy.field}" < NOW() - INTERVAL '${policy.threshold} days'

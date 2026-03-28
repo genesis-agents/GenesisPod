@@ -808,23 +808,41 @@ export class ImportManagerService {
             `✅ Linked raw data ${rawDataId} to existing resource ${resourceId}`,
           );
         } else {
-          // 情形 2：Resource 已有 rawDataId（需要更新现有的 MongoDB 数据）
-          rawDataId = existingResource.rawDataId;
+          // 情形 2：Resource 已有 rawDataId — 验证 raw_data 记录是否真的存在
+          const rawDataExists = await this.prisma.rawData.findUnique({
+            where: { id: existingResource.rawDataId },
+            select: { id: true },
+          });
 
-          // 1. 更新 MongoDB 中的原始数据
-          await this.mongodb.updateRawData(rawDataId, rawData, resourceId);
-          this.logger.log(
-            `Updated raw data in MongoDB: ${rawDataId} for existing resource ${resourceId}`,
-          );
+          if (rawDataExists) {
+            // 2a: raw_data 记录存在，更新它
+            rawDataId = existingResource.rawDataId;
+            await this.mongodb.updateRawData(rawDataId, rawData, resourceId);
+            this.logger.log(
+              `Updated raw data: ${rawDataId} for existing resource ${resourceId}`,
+            );
+          } else {
+            // 2b: rawDataId 是孤儿引用（如 MongoDB 迁移遗留），重新创建
+            this.logger.warn(
+              `Orphaned rawDataId ${existingResource.rawDataId} for resource ${resourceId}, re-creating`,
+            );
+            rawDataId = await this.mongodb.insertRawData(
+              "manual_import",
+              rawData,
+              resourceId,
+            );
+            await this.mongodb.linkResourceToRawData(rawDataId, resourceId);
+          }
 
-          // 2. 更新 PostgreSQL Resource 记录
+          // 更新 PostgreSQL Resource 记录
           await this.prisma.resource.update({
             where: { id: resourceId },
             data: {
-              type: resourceType, // ⚠️ 关键：更新资源类型
+              type: resourceType,
               title,
               abstract,
               pdfUrl: pdfUrl || existingResource.pdfUrl,
+              rawDataId,
               publishedAt: metadata.publishedDate
                 ? new Date(metadata.publishedDate)
                 : existingResource.publishedAt,

@@ -28,6 +28,9 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
   },
+  rawData: {
+    findUnique: jest.fn(),
+  },
 };
 
 const mockMongodb = {
@@ -591,6 +594,7 @@ describe("ImportManagerService", () => {
         publishedAt: new Date(),
       };
       mockPrisma.resource.findFirst.mockResolvedValueOnce(existingResource);
+      mockPrisma.rawData.findUnique.mockResolvedValueOnce({ id: "raw-old" });
       mockMongodb.updateRawData.mockResolvedValueOnce(undefined);
       mockPrisma.resource.update.mockResolvedValueOnce({ id: "res-existing" });
       mockPrisma.importTask.create.mockResolvedValueOnce({ id: "task-3" });
