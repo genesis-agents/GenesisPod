@@ -5,6 +5,7 @@ import { ResourcesRepository } from "./resources.repository";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
+import { ResourceHealthCheckScheduler } from "./resource-health-check.scheduler";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../../../common/mongodb/mongodb.module";
 import { IngestionConfigModule } from "../../admin/ingestion/config/config.module";
@@ -29,6 +30,7 @@ import { ProxyModule } from "../../library/proxy/proxy.module";
     AIEnrichmentService,
     PdfThumbnailService,
     DynamicThumbnailService,
+    ResourceHealthCheckScheduler,
   ],
   exports: [
     ResourcesRepository,

@@ -31,6 +31,7 @@ export interface Resource {
     [key: string]: unknown;
   };
   sourceType?: string;
+  linkHealth?: string;
   // GitHub/原始数据增强
   rawData?: {
     readme?: string;

@@ -302,6 +302,11 @@ model Resource {
   // 向量引用
   embeddingId String? @map("embedding_id")
 
+  // 链接健康检查
+  linkHealth         String?   @default("UNKNOWN") @map("link_health") @db.VarChar(20) // HEALTHY, BROKEN, UNKNOWN
+  lastHealthCheckAt  DateTime? @map("last_health_check_at")
+  linkCheckFailCount Int       @default(0) @map("link_check_fail_count")
+
   // 数据采集相关（新增）
   sourceType       String?         @map("source_type") // arxiv, medium, youtube等
   externalId       String?         @map("external_id") // 外部系统ID
@@ -343,6 +348,7 @@ model Resource {
   @@index([normalizedUrl])
   @@index([contentFingerprint])
   @@index([titleFingerprint])
+  @@index([linkHealth, lastHealthCheckAt])
   @@map("resources")
 }
 
