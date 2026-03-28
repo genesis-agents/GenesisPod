@@ -33,7 +33,13 @@ export type HealthStatus = "healthy" | "warning" | "critical";
 /**
  * Cleanup Policy Type
  */
-export type CleanupPolicyType = "age" | "status" | "orphan" | "size" | "none";
+export type CleanupPolicyType =
+  | "age"
+  | "status"
+  | "orphan"
+  | "size"
+  | "custom"
+  | "none";
 
 /**
  * Cleanup Policy DTO

@@ -4,6 +4,8 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import * as fs from "fs/promises";
+import * as path from "path";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   TableCategory,
@@ -462,6 +464,33 @@ const CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
     field: "created_at",
     threshold: 14,
     description: "Delete writing mission logs older than 14 days",
+  },
+
+  // ==================== EXPORT tables (high storage, safe to age-out) ====================
+  export_jobs: {
+    type: "status",
+    field: "status",
+    condition: "COMPLETED OR FAILED",
+    threshold: 7,
+    dateField: "created_at",
+    description:
+      "Delete completed/failed export jobs older than 7 days (sourceData + physical files cleaned)",
+  },
+
+  // ==================== RESEARCH data tables (large JSON payloads) ====================
+  research_tasks: {
+    type: "status",
+    field: "status",
+    condition: "COMPLETED OR FAILED",
+    threshold: 30,
+    dateField: "created_at",
+    description:
+      "Delete completed/failed research tasks older than 30 days (result JSON is the main bloat)",
+  },
+  topic_reports: {
+    type: "custom",
+    description:
+      "Keep only latest 3 report versions per topic; older versions and their dimension_analyses cascade-delete",
   },
 
   // ==================== SYSTEM / CACHE tables ====================
@@ -1218,7 +1247,9 @@ export class TableManagementService {
 
       // Execute cleanup based on policy type
       // SAFETY: tableName validated by validateTableName() whitelist; policy fields come from hardcoded CLEANUP_POLICIES
-      if (policy.type === "age" && policy.field && policy.threshold) {
+      if (policy.type === "custom") {
+        deletedCount = await this.executeCustomCleanup(tableName);
+      } else if (policy.type === "age" && policy.field && policy.threshold) {
         const result = await this.prisma.$executeRawUnsafe(`
           DELETE FROM "${tableName}"
           WHERE "${policy.field}" < NOW() - INTERVAL '${policy.threshold} days'
@@ -1228,6 +1259,16 @@ export class TableManagementService {
         // SAFETY: conditions come from hardcoded CLEANUP_POLICIES, not user input
         const conditions = policy.condition.split(" OR ").map((s) => s.trim());
         const dateField = policy.dateField || "created_at";
+
+        // Pre-cleanup hook: clear export physical files before deleting DB records
+        if (tableName === "export_jobs") {
+          await this.cleanupExportFiles(
+            conditions,
+            dateField,
+            policy.threshold ?? 7,
+          );
+        }
+
         const result = await this.prisma.$executeRawUnsafe(`
           DELETE FROM "${tableName}"
           WHERE "${policy.field}" IN (${conditions.map((c) => `'${c}'`).join(", ")})
@@ -1263,6 +1304,92 @@ export class TableManagementService {
         message: `Cleanup failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         duration: Date.now() - startTime,
       };
+    }
+  }
+
+  // ==================== Custom cleanup handlers ====================
+
+  /**
+   * Route custom cleanup policies to their specific handlers
+   */
+  private async executeCustomCleanup(tableName: string): Promise<number> {
+    switch (tableName) {
+      case "topic_reports":
+        return this.cleanupOldReportVersions();
+      default:
+        this.logger.warn(`No custom cleanup handler for table: ${tableName}`);
+        return 0;
+    }
+  }
+
+  /**
+   * Keep only latest 3 report versions per topic.
+   * Older versions are deleted; dimension_analyses and topic_evidences cascade-delete automatically.
+   */
+  private async cleanupOldReportVersions(keepLatest = 3): Promise<number> {
+    // Find report IDs to delete: all except the latest N versions per topic
+    const result = await this.prisma.$executeRawUnsafe(`
+      DELETE FROM "topic_reports"
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY version DESC) AS rn
+          FROM "topic_reports"
+        ) ranked
+        WHERE rn > ${keepLatest}
+      )
+    `);
+
+    this.logger.log(
+      `Cleaned ${result} old report versions (kept latest ${keepLatest} per topic)`,
+    );
+    return result;
+  }
+
+  /**
+   * Pre-cleanup: remove physical export files before deleting DB records.
+   * Queries file_path for rows matching the cleanup criteria, then deletes directories.
+   */
+  private async cleanupExportFiles(
+    statuses: string[],
+    dateField: string,
+    thresholdDays: number,
+  ): Promise<void> {
+    const exportDir = process.env.EXPORT_DIR || "./exports";
+
+    const jobs = await this.prisma.$queryRawUnsafe<
+      Array<{ file_path: string | null }>
+    >(
+      `SELECT file_path FROM "export_jobs"
+       WHERE "status" IN (${statuses.map((s) => `'${s}'`).join(", ")})
+       AND "${dateField}" < NOW() - INTERVAL '${thresholdDays} days'
+       AND file_path IS NOT NULL`,
+    );
+
+    let cleaned = 0;
+    for (const job of jobs) {
+      if (!job.file_path) continue;
+      try {
+        const dir = path.dirname(job.file_path);
+        const resolvedDir = path.resolve(dir);
+        const resolvedExportDir = path.resolve(exportDir);
+
+        // Safety: only delete within the export directory
+        if (!resolvedDir.startsWith(resolvedExportDir)) {
+          this.logger.warn(`Skipping suspicious export path: ${job.file_path}`);
+          continue;
+        }
+
+        await fs.rm(dir, { recursive: true, force: true });
+        cleaned++;
+      } catch (error) {
+        this.logger.warn(
+          `Failed to cleanup export file ${job.file_path}: ${error}`,
+        );
+      }
+    }
+
+    if (cleaned > 0) {
+      this.logger.log(`Cleaned ${cleaned} export file directories`);
     }
   }
 

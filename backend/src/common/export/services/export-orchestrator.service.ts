@@ -259,7 +259,7 @@ export class ExportOrchestratorService implements OnModuleInit {
         transformOptions.exportScope = options.exportScope as string;
       }
       const content = await this.contentTransformer.transform(
-        source as ExportRequest["source"],
+        source,
         transformOptions,
       );
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 30);
@@ -333,18 +333,18 @@ export class ExportOrchestratorService implements OnModuleInit {
         Date.now() + this.urlExpireHours * 60 * 60 * 1000,
       );
 
-      // 5.5 清理大型 WYSIWYG 数据，避免数据库膨胀
+      // 5.5 清理大型数据，避免数据库膨胀
+      // - WYSIWYG HTML/CSS 渲染完即可丢弃
+      // - sourceData 原始内容已生成文件，不再需要存储在 DB
+      let cleanOptions: Prisma.InputJsonValue | undefined;
       if (exportOptions.wysiwygHtml || exportOptions.wysiwygCss) {
-        const cleanOptions = { ...(job.options as Record<string, unknown>) };
-        delete cleanOptions.wysiwygHtml;
-        delete cleanOptions.wysiwygCss;
-        await this.prisma.exportJob.update({
-          where: { id: jobId },
-          data: { options: cleanOptions as Prisma.InputJsonValue },
-        });
+        const opts = { ...(job.options as Record<string, unknown>) };
+        delete opts.wysiwygHtml;
+        delete opts.wysiwygCss;
+        cleanOptions = opts as Prisma.InputJsonValue;
       }
 
-      // 6. 完成
+      // 6. 完成 — 同时清理 sourceData 和 WYSIWYG 数据
       await this.prisma.exportJob.update({
         where: { id: jobId },
         data: {
@@ -356,6 +356,8 @@ export class ExportOrchestratorService implements OnModuleInit {
           downloadUrl,
           expiresAt,
           completedAt: new Date(),
+          sourceData: Prisma.DbNull, // 清理原始内容，文件已生成
+          ...(cleanOptions ? { options: cleanOptions } : {}),
         },
       });
 
