@@ -470,22 +470,22 @@ const CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
   export_jobs: {
     type: "status",
     field: "status",
-    condition: "COMPLETED OR FAILED",
+    condition: "COMPLETED OR FAILED OR PROCESSING",
     threshold: 7,
     dateField: "created_at",
     description:
-      "Delete completed/failed export jobs older than 7 days (sourceData + physical files cleaned)",
+      "Delete completed/failed/stuck-processing export jobs older than 7 days",
   },
 
   // ==================== RESEARCH data tables (large JSON payloads) ====================
   research_tasks: {
     type: "status",
     field: "status",
-    condition: "COMPLETED OR FAILED",
+    condition: "COMPLETED OR FAILED OR EXECUTING OR PENDING",
     threshold: 30,
     dateField: "created_at",
     description:
-      "Delete completed/failed research tasks older than 30 days (result JSON is the main bloat)",
+      "Delete completed/failed/stuck research tasks older than 30 days (result JSON is the main bloat)",
   },
   topic_reports: {
     type: "custom",
