@@ -1277,6 +1277,18 @@ export class TableManagementService {
         deletedCount = result;
       }
 
+      // VACUUM to reclaim dead tuples before measuring size reduction
+      if (deletedCount > 0) {
+        try {
+          // SAFETY: tableName validated by validateTableName() whitelist
+          await this.prisma.$executeRawUnsafe(`VACUUM "${tableName}"`);
+        } catch (vacuumError) {
+          this.logger.warn(
+            `VACUUM failed for ${tableName} (non-critical): ${vacuumError}`,
+          );
+        }
+      }
+
       // Get size after
       const sizeAfter = await this.prisma.$queryRawUnsafe<
         Array<{ size: string }>
@@ -1338,6 +1350,24 @@ export class TableManagementService {
         WHERE rn > ${keepLatest}
       )
     `);
+
+    // VACUUM cascade-affected child tables to reclaim space
+    if (result > 0) {
+      const cascadeTables = [
+        "dimension_analyses",
+        "topic_evidences",
+        "topic_report_revisions",
+        "report_changes",
+        "report_annotations",
+      ];
+      for (const table of cascadeTables) {
+        try {
+          await this.prisma.$executeRawUnsafe(`VACUUM "${table}"`);
+        } catch {
+          // Non-critical: table may not exist or VACUUM may fail in transaction
+        }
+      }
+    }
 
     this.logger.log(
       `Cleaned ${result} old report versions (kept latest ${keepLatest} per topic)`,
