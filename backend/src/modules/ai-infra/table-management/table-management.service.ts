@@ -493,6 +493,22 @@ const CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
       "Keep only latest 3 report versions per topic; older versions and their dimension_analyses cascade-delete",
   },
 
+  // ==================== MEMORY tables ====================
+  long_term_memories: {
+    type: "age",
+    field: "created_at",
+    threshold: 30,
+    description:
+      "Delete long-term memory entries older than 30 days (expired entries cleaned first)",
+  },
+  process_memories: {
+    type: "age",
+    field: "created_at",
+    threshold: 7,
+    description:
+      "Delete process memory entries older than 7 days (expired entries cleaned first)",
+  },
+
   // ==================== SYSTEM / CACHE tables ====================
   provider_quota_cache: {
     type: "age",
@@ -862,7 +878,7 @@ export class TableManagementService {
       const indexSizeBytes = parseInt(info.index_bytes, 10) || 0;
       const toastSizeBytes = parseInt(info.toast_bytes, 10) || 0;
 
-      // Get column info
+      // Get column info using pg_catalog (faster than information_schema)
       const columns = await this.prisma.$queryRawUnsafe<
         Array<{
           column_name: string;
@@ -875,28 +891,40 @@ export class TableManagementService {
       >(
         `
         SELECT
-          c.column_name,
-          c.data_type,
-          c.is_nullable,
-          c.column_default,
-          COALESCE(pk.is_pk, false) as is_pk,
-          fk.foreign_table_name as fk_table
-        FROM information_schema.columns c
+          a.attname AS column_name,
+          pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+          CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
+          pg_get_expr(d.adbin, d.adrelid) AS column_default,
+          COALESCE(pk.is_pk, false) AS is_pk,
+          fk.fk_table
+        FROM pg_attribute a
+        JOIN pg_class cls ON cls.oid = a.attrelid
+        JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+        LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
         LEFT JOIN (
-          SELECT kcu.column_name, true as is_pk
-          FROM information_schema.table_constraints tc
-          JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-          WHERE tc.table_name = $1 AND tc.constraint_type = 'PRIMARY KEY'
-        ) pk ON c.column_name = pk.column_name
-        LEFT JOIN (
-          SELECT kcu.column_name, ccu.table_name as foreign_table_name
-          FROM information_schema.table_constraints tc
-          JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-          JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name
-          WHERE tc.table_name = $1 AND tc.constraint_type = 'FOREIGN KEY'
-        ) fk ON c.column_name = fk.column_name
-        WHERE c.table_name = $1
-        ORDER BY c.ordinal_position
+          SELECT unnest(con.conkey) AS attnum, con.conrelid, true AS is_pk
+          FROM pg_constraint con
+          WHERE con.contype = 'p'
+            AND con.conrelid = (
+              SELECT c2.oid FROM pg_class c2
+              JOIN pg_namespace n2 ON n2.oid = c2.relnamespace
+              WHERE c2.relname = $1 AND n2.nspname = 'public'
+            )
+        ) pk ON pk.conrelid = a.attrelid AND pk.attnum = a.attnum
+        LEFT JOIN LATERAL (
+          SELECT fkcls.relname AS fk_table
+          FROM pg_constraint con
+          JOIN pg_class fkcls ON fkcls.oid = con.confrelid
+          WHERE con.contype = 'f'
+            AND con.conrelid = a.attrelid
+            AND a.attnum = ANY(con.conkey)
+          LIMIT 1
+        ) fk ON true
+        WHERE cls.relname = $1
+          AND ns.nspname = 'public'
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+        ORDER BY a.attnum
       `,
         tableName,
       );
@@ -911,13 +939,30 @@ export class TableManagementService {
         references: col.fk_table || undefined,
       }));
 
-      // Get sample data (limit to 10 rows)
+      // Get sample data (limit to 5 rows, truncate large columns to prevent OOM)
       // SAFETY: tableName validated by validateTableName() whitelist at method entry
       let sampleData: Record<string, unknown>[] = [];
       try {
+        // Build column list with truncation for large types (json/jsonb/text/bytea)
+        const largeTypes = new Set([
+          "jsonb",
+          "json",
+          "text",
+          "bytea",
+          "character varying",
+        ]);
+        const selectCols = columns
+          .map((col) => {
+            if (largeTypes.has(col.data_type)) {
+              return `LEFT("${col.column_name}"::text, 200) AS "${col.column_name}"`;
+            }
+            return `"${col.column_name}"`;
+          })
+          .join(", ");
+
         sampleData = await this.prisma.$queryRawUnsafe(
-          `SELECT * FROM "${tableName}" LIMIT $1`,
-          10,
+          `SELECT ${selectCols} FROM "${tableName}" LIMIT $1`,
+          5,
         );
       } catch (e) {
         this.logger.warn(`Failed to get sample data for ${tableName}:`, e);
@@ -930,7 +975,7 @@ export class TableManagementService {
         ),
       ];
 
-      // Get constraints
+      // Get constraints using pg_catalog (faster than information_schema)
       const constraintRows = await this.prisma.$queryRawUnsafe<
         Array<{
           constraint_name: string;
@@ -939,10 +984,24 @@ export class TableManagementService {
         }>
       >(
         `
-        SELECT tc.constraint_name, tc.constraint_type, kcu.column_name
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-        WHERE tc.table_name = $1
+        SELECT
+          con.conname AS constraint_name,
+          CASE con.contype
+            WHEN 'p' THEN 'PRIMARY KEY'
+            WHEN 'f' THEN 'FOREIGN KEY'
+            WHEN 'u' THEN 'UNIQUE'
+            WHEN 'c' THEN 'CHECK'
+          END AS constraint_type,
+          a.attname AS column_name
+        FROM pg_constraint con
+        JOIN pg_class cls ON cls.oid = con.conrelid
+        JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+        CROSS JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
+        JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+        WHERE cls.relname = $1
+          AND ns.nspname = 'public'
+          AND con.contype IN ('p', 'f', 'u', 'c')
+        ORDER BY con.conname, k.ord
       `,
         tableName,
       );
@@ -1046,10 +1105,36 @@ export class TableManagementService {
         throw new NotFoundException(`Table ${tableName} not found`);
       }
 
+      // Get column types to truncate large columns (json/text/bytea)
+      const colTypes = await this.prisma.$queryRawUnsafe<
+        Array<{ attname: string; typname: string }>
+      >(
+        `
+        SELECT a.attname, t.typname
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_type t ON t.oid = a.atttypid
+        WHERE c.relname = $1 AND n.nspname = 'public'
+          AND a.attnum > 0 AND NOT a.attisdropped
+        ORDER BY a.attnum
+      `,
+        tableName,
+      );
+
+      const largeTypes = new Set(["jsonb", "json", "text", "bytea", "varchar"]);
+      const selectCols = colTypes
+        .map((col) =>
+          largeTypes.has(col.typname)
+            ? `LEFT("${col.attname}"::text, 200) AS "${col.attname}"`
+            : `"${col.attname}"`,
+        )
+        .join(", ");
+
       // SAFETY: tableName validated by pg_class existence check above
       return await this.prisma.$queryRawUnsafe(
-        `SELECT * FROM "${tableName}" LIMIT $1`,
-        Math.min(limit, 100),
+        `SELECT ${selectCols} FROM "${tableName}" LIMIT $1`,
+        Math.min(limit, 50),
       );
     } catch (error) {
       this.logger.error(`Failed to get sample for ${tableName}:`, error);
@@ -1249,7 +1334,21 @@ export class TableManagementService {
       // SAFETY: tableName validated by validateTableName() whitelist; policy fields come from hardcoded CLEANUP_POLICIES
       if (policy.type === "custom") {
         deletedCount = await this.executeCustomCleanup(tableName);
-      } else if (policy.type === "age" && policy.field && policy.threshold) {
+      }
+
+      // Memory tables: always delete expired entries first (they have expires_at)
+      if (
+        (tableName === "long_term_memories" ||
+          tableName === "process_memories") &&
+        policy.type === "age"
+      ) {
+        const expiredResult = await this.prisma.$executeRawUnsafe(
+          `DELETE FROM "${tableName}" WHERE "expires_at" IS NOT NULL AND "expires_at" < NOW()`,
+        );
+        deletedCount += expiredResult;
+      }
+
+      if (policy.type !== "custom" && policy.type === "age" && policy.field && policy.threshold) {
         // Pre-cleanup: clear foreign key references pointing to rows about to be deleted
         if (tableName === "raw_data") {
           await this.prisma.$executeRawUnsafe(`
@@ -1265,8 +1364,8 @@ export class TableManagementService {
           DELETE FROM "${tableName}"
           WHERE "${policy.field}" < NOW() - INTERVAL '${policy.threshold} days'
         `);
-        deletedCount = result;
-      } else if (policy.type === "status" && policy.field && policy.condition) {
+        deletedCount += result;
+      } else if (policy.type !== "custom" && policy.type === "status" && policy.field && policy.condition) {
         // SAFETY: conditions come from hardcoded CLEANUP_POLICIES, not user input
         const conditions = policy.condition.split(" OR ").map((s) => s.trim());
         const dateField = policy.dateField || "created_at";
