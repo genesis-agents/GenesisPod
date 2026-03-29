@@ -944,16 +944,20 @@ export class TableManagementService {
       let sampleData: Record<string, unknown>[] = [];
       try {
         // Build column list with truncation for large types (json/jsonb/text/bytea)
-        const largeTypes = new Set([
-          "jsonb",
-          "json",
-          "text",
-          "bytea",
-          "character varying",
-        ]);
+        // Note: format_type() returns "character varying(255)" so we use startsWith
+        const isLargeType = (dt: string): boolean => {
+          const lower = dt.toLowerCase();
+          return (
+            lower === "jsonb" ||
+            lower === "json" ||
+            lower === "text" ||
+            lower === "bytea" ||
+            lower.startsWith("character varying")
+          );
+        };
         const selectCols = columns
           .map((col) => {
-            if (largeTypes.has(col.data_type)) {
+            if (isLargeType(col.data_type)) {
               return `LEFT("${col.column_name}"::text, 200) AS "${col.column_name}"`;
             }
             return `"${col.column_name}"`;
