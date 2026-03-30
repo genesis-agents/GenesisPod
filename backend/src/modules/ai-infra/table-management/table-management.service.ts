@@ -622,6 +622,91 @@ export class TableManagementService {
   }
 
   /**
+   * Build WHERE clause from a cleanup policy (same logic as cleanupTable uses for DELETE).
+   * Returns null for custom policies (no generic WHERE possible).
+   */
+  private buildCleanupWhereClause(policy: CleanupPolicyDto): string | null {
+    if (policy.type === "age" && policy.field && policy.threshold) {
+      return `"${policy.field}" < NOW() - INTERVAL '${policy.threshold} days'`;
+    }
+    if (policy.type === "status" && policy.field && policy.condition) {
+      const conditions = policy.condition.split(" OR ").map((s) => s.trim());
+      const dateField = policy.dateField || "created_at";
+      const statusClause = `"${policy.field}" IN (${conditions.map((c) => `'${c}'`).join(", ")})`;
+      return policy.threshold
+        ? `${statusClause} AND "${dateField}" < NOW() - INTERVAL '${policy.threshold} days'`
+        : statusClause;
+    }
+    return null;
+  }
+
+  /**
+   * Estimate cleanable rows and bytes for tables that have a cleanup policy.
+   * Runs actual COUNT queries against the DB using the same WHERE clause as cleanup.
+   * Returns a map of tableName -> { cleanableRows, cleanableBytes }.
+   */
+  private async estimateCleanable(
+    tableNames: string[],
+  ): Promise<Map<string, { cleanableRows: number; cleanableBytes: number }>> {
+    const result = new Map<
+      string,
+      { cleanableRows: number; cleanableBytes: number }
+    >();
+
+    // Build UNION ALL query for all tables with age/status policies
+    const parts: Array<{
+      tableName: string;
+      where: string;
+    }> = [];
+    for (const name of tableNames) {
+      const policy = CLEANUP_POLICIES[name];
+      if (!policy) continue;
+      const where = this.buildCleanupWhereClause(policy);
+      if (where) {
+        parts.push({ tableName: name, where });
+      }
+    }
+
+    if (parts.length === 0) return result;
+
+    // Run individual count queries in parallel (UNION ALL doesn't work well with different tables)
+    const queries = parts.map(async ({ tableName, where }) => {
+      try {
+        // Count rows and estimate their size based on average row size
+        const rows = await this.prisma.$queryRawUnsafe<
+          Array<{
+            cleanable_rows: string;
+            total_rows: string;
+            total_size: string;
+          }>
+        >(
+          `SELECT
+            (SELECT COUNT(*)::text FROM "${tableName}" WHERE ${where}) as cleanable_rows,
+            c.reltuples::bigint::text as total_rows,
+            pg_total_relation_size(c.oid)::text as total_size
+          FROM pg_class c
+          WHERE c.relname = $1
+            AND c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')`,
+          tableName,
+        );
+        const cleanableRows = parseInt(rows[0]?.cleanable_rows || "0", 10);
+        const totalRows = parseInt(rows[0]?.total_rows || "1", 10) || 1;
+        const totalSize = parseInt(rows[0]?.total_size || "0", 10);
+        // Estimate cleanable bytes proportional to row count
+        const cleanableBytes = Math.floor(
+          (cleanableRows / totalRows) * totalSize,
+        );
+        result.set(tableName, { cleanableRows, cleanableBytes });
+      } catch {
+        // If a query fails (e.g. column doesn't exist), skip silently
+      }
+    });
+
+    await Promise.all(queries);
+    return result;
+  }
+
+  /**
    * Get list of all tables with their statistics
    */
   async getTableList(query: TableListQueryDto): Promise<TableListResponseDto> {
@@ -660,6 +745,12 @@ export class TableManagementService {
         ORDER BY pg_total_relation_size(c.oid) DESC
       `);
 
+      // Collect table names that have cleanup policies for actual estimation
+      const tableNamesWithPolicies = tableSizes
+        .map((t) => String(t.table_name))
+        .filter((name) => CLEANUP_POLICIES[name]);
+      const cleanableMap = await this.estimateCleanable(tableNamesWithPolicies);
+
       // Transform to TableInfoDto array
       let tables: TableInfoDto[] = tableSizes.map((t) => {
         const tableName = String(t.table_name);
@@ -672,11 +763,9 @@ export class TableManagementService {
         const cleanupPolicy = CLEANUP_POLICIES[tableName];
         const hasCleanupPolicy = !!cleanupPolicy;
 
-        // Estimate cleanable bytes (rough estimate based on policy)
-        let cleanableBytes = 0;
-        if (cleanupPolicy?.type === "age" || cleanupPolicy?.type === "status") {
-          cleanableBytes = Math.floor(sizeBytes * 0.3); // Estimate 30% cleanable
-        }
+        const estimated = cleanableMap.get(tableName);
+        const cleanableBytes = estimated?.cleanableBytes ?? 0;
+        const cleanableRows = estimated?.cleanableRows ?? 0;
 
         const healthStatus = this.determineHealthStatus(
           rowCount,
@@ -696,7 +785,7 @@ export class TableManagementService {
           indexSizeBytes,
           toastSizeBytes,
           lastUpdated: null, // Would need trigger to track this
-          cleanableRows: cleanupPolicy ? Math.floor(rowCount * 0.3) : 0,
+          cleanableRows,
           cleanableBytes,
           healthStatus,
           hasCleanupPolicy,
@@ -962,7 +1051,14 @@ export class TableManagementService {
       const tableCategory = this.getCategory(tableName);
       const cleanupPolicy = CLEANUP_POLICIES[tableName];
       const hasCleanupPolicy = !!cleanupPolicy;
-      const cleanableBytes = cleanupPolicy ? Math.floor(sizeBytes * 0.3) : 0;
+
+      const cleanableMap = await this.estimateCleanable(
+        hasCleanupPolicy ? [tableName] : [],
+      );
+      const estimated = cleanableMap.get(tableName);
+      const cleanableBytes = estimated?.cleanableBytes ?? 0;
+      const cleanableRows = estimated?.cleanableRows ?? 0;
+
       const healthStatus = this.determineHealthStatus(
         rowCount,
         sizeBytes,
@@ -981,7 +1077,7 @@ export class TableManagementService {
         indexSizeBytes,
         toastSizeBytes,
         lastUpdated: null,
-        cleanableRows: cleanupPolicy ? Math.floor(rowCount * 0.3) : 0,
+        cleanableRows,
         cleanableBytes,
         healthStatus,
         hasCleanupPolicy,
