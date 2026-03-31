@@ -1791,12 +1791,10 @@ describe('useTopicInsightsStore', () => {
     });
 
     it('sets error and throws for non-report-not-found errors', async () => {
-      mockApi.getEvidence.mockRejectedValue(new Error('Server error'));
+      mockApi.getEvidence.mockRejectedValueOnce(new Error('Server error'));
 
       await expect(
-        act(async () => {
-          await useTopicInsightsStore.getState().fetchEvidence('t1', 'r1');
-        })
+        useTopicInsightsStore.getState().fetchEvidence('t1', 'r1')
       ).rejects.toThrow('Server error');
 
       expect(useTopicInsightsStore.getState().error).toBe('Server error');
