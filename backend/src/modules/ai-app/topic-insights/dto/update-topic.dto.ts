@@ -16,7 +16,7 @@ export class UpdateTopicDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(10000)
+  @MaxLength(50000)
   description?: string;
 
   @IsOptional()

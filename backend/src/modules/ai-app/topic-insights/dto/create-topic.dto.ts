@@ -52,7 +52,7 @@ export class CreateTopicDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(10000)
+  @MaxLength(50000)
   description?: string;
 
   @IsEnum(ResearchTopicType)
