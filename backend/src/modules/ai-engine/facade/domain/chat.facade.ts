@@ -322,6 +322,12 @@ export class ChatFacade {
         result.apiKeySource,
         tokensUsed,
         result.model,
+        {
+          inputTokens: result.usage?.inputTokens,
+          outputTokens: result.usage?.outputTokens,
+          cacheCreationTokens: result.usage?.cacheCreationTokens,
+          cacheReadTokens: result.usage?.cacheReadTokens,
+        },
       );
 
       this.logger.log(
@@ -417,6 +423,12 @@ export class ChatFacade {
           result.apiKeySource,
           tokensUsed,
           result.model,
+          {
+            inputTokens: result.usage?.inputTokens,
+            outputTokens: result.usage?.outputTokens,
+            cacheCreationTokens: result.usage?.cacheCreationTokens,
+            cacheReadTokens: result.usage?.cacheReadTokens,
+          },
         );
       }
 
@@ -885,6 +897,12 @@ export class ChatFacade {
     apiKeySource: string | undefined,
     tokensUsed: number,
     modelName: string,
+    tokenDetails?: {
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheCreationTokens?: number;
+      cacheReadTokens?: number;
+    },
   ): Promise<void> {
     if (apiKeySource === "personal") {
       this.logger.debug(`[Billing] Skipped: user is using personal API key`);
@@ -898,6 +916,10 @@ export class ChatFacade {
         moduleType: billing.moduleType,
         operationType: billing.operationType,
         tokenCount: tokensUsed,
+        inputTokens: tokenDetails?.inputTokens,
+        outputTokens: tokenDetails?.outputTokens,
+        cacheCreationTokens: tokenDetails?.cacheCreationTokens,
+        cacheReadTokens: tokenDetails?.cacheReadTokens,
         modelName,
         referenceId: billing.referenceId,
         description: billing.description,

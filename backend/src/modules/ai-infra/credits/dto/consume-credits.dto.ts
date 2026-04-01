@@ -16,6 +16,26 @@ export class ConsumeCreditsDto {
   tokenCount?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  inputTokens?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  outputTokens?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  cacheCreationTokens?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  cacheReadTokens?: number;
+
+  @IsOptional()
   @IsString()
   modelName?: string;
 
@@ -40,6 +60,10 @@ export interface ConsumeCreditsParams {
   moduleType: string;
   operationType: string;
   tokenCount?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
   modelName?: string;
   referenceId?: string;
   description?: string;

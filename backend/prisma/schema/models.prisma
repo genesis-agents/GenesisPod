@@ -4265,6 +4265,10 @@ model CreditTransaction {
   operationType  String?               @map("operation_type") // chat, research-deep 等
   referenceId    String?               @map("reference_id") // 关联的业务ID
   tokenCount     Int?                  @map("token_count") // AI调用消耗的token数
+  inputTokens    Int?                  @map("input_tokens") // 输入token数
+  outputTokens   Int?                  @map("output_tokens") // 输出token数
+  cacheCreationTokens Int?             @map("cache_creation_tokens") // Prompt Cache 写入token数
+  cacheReadTokens     Int?             @map("cache_read_tokens") // Prompt Cache 命中token数
   modelName      String?               @map("model_name") // 使用的AI模型
   idempotencyKey String?               @unique @map("idempotency_key") // 幂等性key
   createdAt      DateTime              @default(now()) @map("created_at")

@@ -81,6 +81,14 @@ export interface ChatCompletionResult {
   content: string;
   model: string;
   tokensUsed: number;
+  /** 输入 token 数 */
+  inputTokens?: number;
+  /** 输出 token 数 */
+  outputTokens?: number;
+  /** Prompt Cache 写入 token 数（Anthropic） */
+  cacheCreationTokens?: number;
+  /** Prompt Cache 命中 token 数（Anthropic / OpenAI） */
+  cacheReadTokens?: number;
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
 }
@@ -336,10 +344,15 @@ export class AiApiCallerService {
       throw new Error(`AI 返回空响应 (原因: ${finishReason || "unknown"})`);
     }
 
+    const openaiUsage = data.usage || {};
+    const promptTokensDetails = openaiUsage.prompt_tokens_details || {};
     return {
       content,
       model: modelId,
-      tokensUsed: data.usage?.total_tokens || 0,
+      tokensUsed: openaiUsage.total_tokens || 0,
+      inputTokens: openaiUsage.prompt_tokens || 0,
+      outputTokens: openaiUsage.completion_tokens || 0,
+      cacheReadTokens: promptTokensDetails.cached_tokens || 0,
     };
   }
 
@@ -418,11 +431,17 @@ export class AiApiCallerService {
     );
 
     const data = response.data;
+    const anthropicUsage = data.usage || {};
     return {
       content: data.content?.[0]?.text || "",
       model: modelId,
       tokensUsed:
-        (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+        (anthropicUsage.input_tokens || 0) +
+        (anthropicUsage.output_tokens || 0),
+      inputTokens: anthropicUsage.input_tokens || 0,
+      outputTokens: anthropicUsage.output_tokens || 0,
+      cacheCreationTokens: anthropicUsage.cache_creation_input_tokens || 0,
+      cacheReadTokens: anthropicUsage.cache_read_input_tokens || 0,
     };
   }
 

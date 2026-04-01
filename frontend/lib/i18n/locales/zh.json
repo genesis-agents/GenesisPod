@@ -6022,7 +6022,15 @@
       "input": "输入",
       "output": "输出",
       "total": "合计",
-      "tokenTimeline": "Token 消耗趋势"
+      "tokenTimeline": "Token 消耗趋势",
+      "contextAccumulation": "上下文窗口累积",
+      "cacheHitRate": "Prompt Cache 命中率",
+      "cacheSavings": "缓存节省",
+      "cacheCreation": "Cache 写入",
+      "cacheRead": "Cache 命中",
+      "nonCached": "未缓存",
+      "callIndex": "调用序号",
+      "inputTokensPerCall": "输入 Token / 次"
     },
     "topics": {
       "credibilityPanel": {

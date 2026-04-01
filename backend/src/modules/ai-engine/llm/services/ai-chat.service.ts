@@ -55,6 +55,14 @@ export interface ChatCompletionResult {
   content: string;
   model: string;
   tokensUsed: number;
+  /** 输入 token 数 */
+  inputTokens?: number;
+  /** 输出 token 数 */
+  outputTokens?: number;
+  /** Prompt Cache 写入 token 数（Anthropic） */
+  cacheCreationTokens?: number;
+  /** Prompt Cache 命中 token 数（Anthropic / OpenAI） */
+  cacheReadTokens?: number;
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
   /** 错误分类类型（仅在 isError=true 时有值，用于 fallback 决策） */
@@ -837,7 +845,13 @@ export class AiChatService {
     outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
   }): Promise<{
     content: string;
-    usage?: { totalTokens: number };
+    usage?: {
+      totalTokens: number;
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheCreationTokens?: number;
+      cacheReadTokens?: number;
+    };
     model: string;
     isError?: boolean;
     apiKeySource?: "personal" | "donated" | "system";
@@ -972,7 +986,13 @@ export class AiChatService {
 
         return {
           content: result.content,
-          usage: { totalTokens: result.tokensUsed },
+          usage: {
+            totalTokens: result.tokensUsed,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            cacheCreationTokens: result.cacheCreationTokens,
+            cacheReadTokens: result.cacheReadTokens,
+          },
           model: result.model,
           isError: result.isError,
         };
@@ -1215,7 +1235,13 @@ export class AiChatService {
 
         return {
           content: result.content,
-          usage: { totalTokens: result.tokensUsed },
+          usage: {
+            totalTokens: result.tokensUsed,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            cacheCreationTokens: result.cacheCreationTokens,
+            cacheReadTokens: result.cacheReadTokens,
+          },
           model: result.model,
           isError: false,
           apiKeySource: result.apiKeySource,

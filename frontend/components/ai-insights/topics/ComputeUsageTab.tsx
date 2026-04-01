@@ -10,6 +10,8 @@ import {
   Layers,
   Cpu,
   TrendingUp,
+  Database,
+  Shield,
 } from 'lucide-react';
 import {
   PieChart,
@@ -19,6 +21,8 @@ import {
   Bar,
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -38,6 +42,8 @@ interface ComputeUsageSummary {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   totalCreditsConsumed: number;
   estimatedCostUsd: number;
   totalLlmCalls: number;
@@ -59,6 +65,8 @@ interface ModelDistributionItem {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   estimatedCost: number;
   percentage: number;
 }
@@ -67,6 +75,10 @@ interface CreditHistoryItem {
   operationType: string;
   amount: number;
   tokenCount: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheCreationTokens: number | null;
+  cacheReadTokens: number | null;
   modelName: string | null;
   createdAt: string;
 }
@@ -310,6 +322,66 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
     return { chartData, models };
   }, [data]);
 
+  // ── Context accumulation curve (input tokens per call) ──
+  const contextAccumulationData = useMemo(() => {
+    if (!data || data.creditHistory.length === 0) return [];
+    const sorted = [...data.creditHistory]
+      .filter((c) => c.inputTokens != null && c.inputTokens > 0)
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+    return sorted.map((item, idx) => ({
+      index: idx + 1,
+      inputTokens: item.inputTokens ?? 0,
+      cacheRead: item.cacheReadTokens ?? 0,
+      cacheCreation: item.cacheCreationTokens ?? 0,
+      model: item.modelName ?? '',
+    }));
+  }, [data]);
+
+  // ── Cache hit rate over time (stacked area) ──
+  const cacheHitRateData = useMemo(() => {
+    if (!data || data.creditHistory.length === 0) return [];
+    const sorted = [...data.creditHistory]
+      .filter(
+        (c) =>
+          c.inputTokens != null &&
+          c.inputTokens > 0 &&
+          (c.cacheReadTokens || c.cacheCreationTokens)
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+    return sorted.map((item, idx) => {
+      const input = item.inputTokens ?? 0;
+      const cacheRead = item.cacheReadTokens ?? 0;
+      const cacheCreate = item.cacheCreationTokens ?? 0;
+      const nonCached = Math.max(0, input - cacheRead);
+      const totalInput = input + cacheCreate;
+      const hitRate =
+        totalInput > 0 ? Math.round((cacheRead / totalInput) * 100) : 0;
+      return {
+        index: idx + 1,
+        cacheRead,
+        cacheCreation: cacheCreate,
+        nonCached,
+        hitRate,
+      };
+    });
+  }, [data]);
+
+  // ── Cache savings estimate ──
+  const cacheSavings = useMemo(() => {
+    if (!data) return { savedTokens: 0, savedUsd: 0 };
+    const savedTokens = data.summary.cacheReadTokens;
+    // Anthropic cache read = 0.1x input price, so savings = 0.9x
+    // Average input price ~$3/1M tokens → savings ~$2.7/1M cached tokens
+    const savedUsd = savedTokens > 0 ? (savedTokens * 2.7) / 1_000_000 : 0;
+    return { savedTokens, savedUsd };
+  }, [data]);
+
   // ── Loading / Error states ──
   if (loading) {
     return (
@@ -340,7 +412,7 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
     <div className="space-y-6 overflow-y-auto p-4">
       {/* ═══ Section 1: Summary Cards ═══ */}
       <section>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
           <SummaryCard
             icon={<Zap className="h-4 w-4 text-indigo-600" />}
             label={t('topicResearch.computeUsage.totalTokens')}
@@ -396,6 +468,15 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
             }
             colorClass="bg-sky-50"
           />
+          {cacheSavings.savedTokens > 0 && (
+            <SummaryCard
+              icon={<Shield className="h-4 w-4 text-teal-600" />}
+              label={t('topicResearch.computeUsage.cacheSavings')}
+              value={`~$${cacheSavings.savedUsd.toFixed(2)}`}
+              subText={`${formatNumber(cacheSavings.savedTokens)} tokens cached`}
+              colorClass="bg-teal-50"
+            />
+          )}
         </div>
       </section>
 
@@ -725,7 +806,185 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
         </section>
       )}
 
-      {/* ═══ Section 6: Credit History ═══ */}
+      {/* ═══ Section 6: Context Accumulation + Cache Hit Rate ═══ */}
+      {(contextAccumulationData.length > 2 || cacheHitRateData.length > 2) && (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {/* Context Window Accumulation Curve */}
+          {contextAccumulationData.length > 2 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Database className="h-4 w-4 text-gray-400" />
+                {t('topicResearch.computeUsage.contextAccumulation')}
+              </h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart
+                  data={contextAccumulationData}
+                  margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="index"
+                    tick={{ fontSize: 10 }}
+                    label={{
+                      value: t('topicResearch.computeUsage.callIndex'),
+                      position: 'insideBottom',
+                      offset: -2,
+                      fontSize: 10,
+                      fill: '#9ca3af',
+                    }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v: number) => formatNumber(v)}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [
+                      formatNumberFull(Number(value)) + ' tokens',
+                      name === 'inputTokens'
+                        ? t('topicResearch.computeUsage.input')
+                        : name === 'cacheRead'
+                          ? t('topicResearch.computeUsage.cacheRead')
+                          : String(name),
+                    ]}
+                    labelFormatter={(label) =>
+                      `${t('topicResearch.computeUsage.callIndex')} ${label}`
+                    }
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="inputTokens"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    dot={{ r: 2 }}
+                    name="inputTokens"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cacheRead"
+                    stroke="#14b8a6"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={{ r: 2 }}
+                    name="cacheRead"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-0.5 w-4 bg-indigo-500" />
+                  <span className="text-xs text-gray-500">
+                    {t('topicResearch.computeUsage.inputTokensPerCall')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-0.5 w-4 border-t-2 border-dashed border-teal-500" />
+                  <span className="text-xs text-gray-500">
+                    {t('topicResearch.computeUsage.cacheRead')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cache Hit Rate Stacked Area */}
+          {cacheHitRateData.length > 2 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Shield className="h-4 w-4 text-gray-400" />
+                {t('topicResearch.computeUsage.cacheHitRate')}
+              </h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <AreaChart
+                  data={cacheHitRateData}
+                  margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="index"
+                    tick={{ fontSize: 10 }}
+                    label={{
+                      value: t('topicResearch.computeUsage.callIndex'),
+                      position: 'insideBottom',
+                      offset: -2,
+                      fontSize: 10,
+                      fill: '#9ca3af',
+                    }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v: number) => formatNumber(v)}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [
+                      formatNumberFull(Number(value)) + ' tokens',
+                      name === 'cacheRead'
+                        ? t('topicResearch.computeUsage.cacheRead')
+                        : name === 'cacheCreation'
+                          ? t('topicResearch.computeUsage.cacheCreation')
+                          : t('topicResearch.computeUsage.nonCached'),
+                    ]}
+                    labelFormatter={(label, payload) => {
+                      const item = payload?.[0]?.payload as
+                        | { hitRate?: number }
+                        | undefined;
+                      return `#${label} — Hit rate: ${item?.hitRate ?? 0}%`;
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cacheRead"
+                    stackId="1"
+                    fill="#14b8a6"
+                    fillOpacity={0.6}
+                    stroke="#14b8a6"
+                    name="cacheRead"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cacheCreation"
+                    stackId="1"
+                    fill="#f59e0b"
+                    fillOpacity={0.4}
+                    stroke="#f59e0b"
+                    name="cacheCreation"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="nonCached"
+                    stackId="1"
+                    fill="#e5e7eb"
+                    fillOpacity={0.5}
+                    stroke="#d1d5db"
+                    name="nonCached"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 rounded-sm bg-teal-500/60" />
+                  <span className="text-xs text-gray-500">
+                    {t('topicResearch.computeUsage.cacheRead')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 rounded-sm bg-amber-400/40" />
+                  <span className="text-xs text-gray-500">
+                    {t('topicResearch.computeUsage.cacheCreation')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 rounded-sm bg-gray-200/50" />
+                  <span className="text-xs text-gray-500">
+                    {t('topicResearch.computeUsage.nonCached')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ═══ Section 7: Credit History ═══ */}
       {creditHistory.length > 0 && (
         <section className="rounded-xl border border-gray-100 bg-white shadow-sm">
           <h3 className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700">

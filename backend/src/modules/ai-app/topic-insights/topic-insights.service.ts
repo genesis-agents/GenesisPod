@@ -1454,6 +1454,8 @@ export class TopicInsightsService {
       totalTokens: number;
       inputTokens: number;
       outputTokens: number;
+      cacheCreationTokens: number;
+      cacheReadTokens: number;
       totalCreditsConsumed: number;
       estimatedCostUsd: number;
       totalLlmCalls: number;
@@ -1473,6 +1475,8 @@ export class TopicInsightsService {
       totalTokens: number;
       inputTokens: number;
       outputTokens: number;
+      cacheCreationTokens: number;
+      cacheReadTokens: number;
       estimatedCost: number;
       percentage: number;
     }>;
@@ -1480,6 +1484,10 @@ export class TopicInsightsService {
       operationType: string;
       amount: number;
       tokenCount: number | null;
+      inputTokens: number | null;
+      outputTokens: number | null;
+      cacheCreationTokens: number | null;
+      cacheReadTokens: number | null;
       modelName: string | null;
       createdAt: string;
     }>;
@@ -1552,6 +1560,10 @@ export class TopicInsightsService {
       model_name: string | null;
       call_count: bigint;
       total_tokens: bigint | null;
+      total_input_tokens: bigint | null;
+      total_output_tokens: bigint | null;
+      total_cache_creation_tokens: bigint | null;
+      total_cache_read_tokens: bigint | null;
     };
 
     const creditAggGroups: CreditAggRow[] = await this.prisma.$queryRaw<
@@ -1560,7 +1572,11 @@ export class TopicInsightsService {
         SELECT
           model_name,
           COUNT(*) AS call_count,
-          SUM(COALESCE(token_count, 0)) AS total_tokens
+          SUM(COALESCE(token_count, 0)) AS total_tokens,
+          SUM(COALESCE(input_tokens, 0)) AS total_input_tokens,
+          SUM(COALESCE(output_tokens, 0)) AS total_output_tokens,
+          SUM(COALESCE(cache_creation_tokens, 0)) AS total_cache_creation_tokens,
+          SUM(COALESCE(cache_read_tokens, 0)) AS total_cache_read_tokens
         FROM credit_transactions
         WHERE reference_id = ${topicId}
           AND amount < 0
@@ -1577,6 +1593,10 @@ export class TopicInsightsService {
         operationType: true,
         amount: true,
         tokenCount: true,
+        inputTokens: true,
+        outputTokens: true,
+        cacheCreationTokens: true,
+        cacheReadTokens: true,
         modelName: true,
         createdAt: true,
       },
@@ -1592,10 +1612,18 @@ export class TopicInsightsService {
     // totalLlmCalls / totalTokens from credit aggregation
     let totalLlmCalls = 0;
     let creditTotalTokens = 0;
+    let creditInputTokens = 0;
+    let creditOutputTokens = 0;
+    let creditCacheCreationTokens = 0;
+    let creditCacheReadTokens = 0;
 
     for (const g of creditAggGroups) {
       totalLlmCalls += Number(g.call_count);
       creditTotalTokens += Number(g.total_tokens ?? 0);
+      creditInputTokens += Number(g.total_input_tokens ?? 0);
+      creditOutputTokens += Number(g.total_output_tokens ?? 0);
+      creditCacheCreationTokens += Number(g.total_cache_creation_tokens ?? 0);
+      creditCacheReadTokens += Number(g.total_cache_read_tokens ?? 0);
     }
 
     // 优先使用 CreditTransaction 的 token 汇总（最可靠），fallback 到 TopicReport.totalTokens
@@ -1623,8 +1651,10 @@ export class TopicInsightsService {
           modelId: g.model_name as string,
           callCount: Number(g.call_count),
           totalTokens: tokens,
-          inputTokens: 0, // CreditTransaction does not split input/output
-          outputTokens: 0,
+          inputTokens: Number(g.total_input_tokens ?? 0),
+          outputTokens: Number(g.total_output_tokens ?? 0),
+          cacheCreationTokens: Number(g.total_cache_creation_tokens ?? 0),
+          cacheReadTokens: Number(g.total_cache_read_tokens ?? 0),
           estimatedCost: tokens > 0 ? (tokens * 2) / 1_000_000 : 0,
           percentage:
             totalLlmCalls > 0
@@ -1637,8 +1667,10 @@ export class TopicInsightsService {
     return {
       summary: {
         totalTokens: finalTotalTokens,
-        inputTokens: 0, // CreditTransaction does not split input/output
-        outputTokens: 0,
+        inputTokens: creditInputTokens,
+        outputTokens: creditOutputTokens,
+        cacheCreationTokens: creditCacheCreationTokens,
+        cacheReadTokens: creditCacheReadTokens,
         totalCreditsConsumed,
         estimatedCostUsd,
         totalLlmCalls,
@@ -1657,6 +1689,10 @@ export class TopicInsightsService {
         operationType: t.operationType ?? "",
         amount: t.amount,
         tokenCount: t.tokenCount,
+        inputTokens: t.inputTokens,
+        outputTokens: t.outputTokens,
+        cacheCreationTokens: t.cacheCreationTokens,
+        cacheReadTokens: t.cacheReadTokens,
         modelName: t.modelName,
         createdAt: t.createdAt.toISOString(),
       })),

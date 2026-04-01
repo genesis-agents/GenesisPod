@@ -5945,7 +5945,15 @@
       "input": "Input",
       "output": "Output",
       "total": "Total",
-      "tokenTimeline": "Token Consumption Trend"
+      "tokenTimeline": "Token Consumption Trend",
+      "contextAccumulation": "Context Window Accumulation",
+      "cacheHitRate": "Prompt Cache Hit Rate",
+      "cacheSavings": "Cache Savings",
+      "cacheCreation": "Cache Write",
+      "cacheRead": "Cache Hit",
+      "nonCached": "Non-cached",
+      "callIndex": "Call #",
+      "inputTokensPerCall": "Input Tokens / Call"
     },
     "topics": {
       "credibilityPanel": {
