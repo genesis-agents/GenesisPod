@@ -306,6 +306,7 @@ export function TopicReferencesPanel({
         <div className="grid gap-4 md:grid-cols-2">
           {filteredEvidence.map((item) => {
             const citationIndex =
+              item.citationIndex ??
               safeEvidence.findIndex((e) => e.id === item.id) + 1;
             const isExpanded = expandedIds.has(item.id);
             return (
