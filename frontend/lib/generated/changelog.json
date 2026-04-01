@@ -1,5 +1,4051 @@
 [
   {
+    "version": "33.0.0",
+    "date": "2026-04-01",
+    "changes": [
+      {
+        "type": "improvement",
+        "description": "Docs paths have changed, update all links"
+      },
+      {
+        "type": "feature",
+        "description": "integrate A2AMessageBus into MissionOrchestrator and DebateService"
+      },
+      {
+        "type": "feature",
+        "description": "integrate A2AMessageBus into Research Discussion pipeline"
+      },
+      {
+        "type": "feature",
+        "description": "add fallback chain when ArXiv is rate-limited"
+      },
+      {
+        "type": "feature",
+        "description": "add Agent OS layer to architecture diagram"
+      },
+      {
+        "type": "feature",
+        "description": "add API Keys tab to MCP Server management page"
+      },
+      {
+        "type": "feature",
+        "description": "add CODE model type for coding models"
+      },
+      {
+        "type": "feature",
+        "description": "add config-driven module dependency diagram system"
+      },
+      {
+        "type": "feature",
+        "description": "add MCP Server admin page with monitoring UI"
+      },
+      {
+        "type": "feature",
+        "description": "add missing stats to all admin overview architecture cards"
+      },
+      {
+        "type": "feature",
+        "description": "add Open API layer to architecture diagram"
+      },
+      {
+        "type": "feature",
+        "description": "add RAG, MCP Clients, Guardrails to AI Engine layer"
+      },
+      {
+        "type": "feature",
+        "description": "add user-adjustable scale control to dependency diagram"
+      },
+      {
+        "type": "feature",
+        "description": "implement pgvector, memory feedback, module registry and AI bar"
+      },
+      {
+        "type": "feature",
+        "description": "phase 1+2 - traces, replanning, A2A bus"
+      },
+      {
+        "type": "feature",
+        "description": "expose Registry getters via Facade, re-export types from facade/index"
+      },
+      {
+        "type": "feature",
+        "description": "update ESLint no-restricted-imports to enforce facade boundary"
+      },
+      {
+        "type": "feature",
+        "description": "add ai os unified entry with intent detection and action cards"
+      },
+      {
+        "type": "feature",
+        "description": "add 4 search tools and reorganize information directory"
+      },
+      {
+        "type": "feature",
+        "description": "add Groq and OpenRouter provider support"
+      },
+      {
+        "type": "feature",
+        "description": "add Groq, OpenRouter, MiniMax to admin UI and backend"
+      },
+      {
+        "type": "feature",
+        "description": "add image search tool with Bing/Google/SerpAPI providers"
+      },
+      {
+        "type": "feature",
+        "description": "add OpenAlex academic search tool"
+      },
+      {
+        "type": "feature",
+        "description": "add reasoningDepth, cachePolicy, outputSchema to LLM pipeline"
+      },
+      {
+        "type": "feature",
+        "description": "add responseFormat passthrough to ChatFacade"
+      },
+      {
+        "type": "feature",
+        "description": "observability, prompt registry, structured output, cost attribution, CI/CD"
+      },
+      {
+        "type": "feature",
+        "description": "system hardening — honest errors, taskProfile, JSON mode, Redis, DB traces"
+      },
+      {
+        "type": "feature",
+        "description": "integrate TraceCollector into TopicTeamOrchestratorService"
+      },
+      {
+        "type": "feature",
+        "description": "complete KernelContext.run() integration for remaining AI Apps"
+      },
+      {
+        "type": "feature",
+        "description": "full Kernel integration via KernelContext + ProgressTracker + Memory"
+      },
+      {
+        "type": "feature",
+        "description": "make all 8 kernel cards configurable and integrate process tracking across AI apps"
+      },
+      {
+        "type": "feature",
+        "description": "production fixes + deep Kernel integration across all layers"
+      },
+      {
+        "type": "feature",
+        "description": "add AI Planning module — multi-agent collaborative planning platform"
+      },
+      {
+        "type": "feature",
+        "description": "add credibility scoring, LLM queries, citation rendering, and report overhaul"
+      },
+      {
+        "type": "feature",
+        "description": "add inline edit for plan name on list cards"
+      },
+      {
+        "type": "feature",
+        "description": "add replan functionality for completed plans"
+      },
+      {
+        "type": "feature",
+        "description": "add web search references and fix polling reliability"
+      },
+      {
+        "type": "feature",
+        "description": "rebuild execution engine aligned with AI Insights"
+      },
+      {
+        "type": "feature",
+        "description": "refactor plan detail page UX with split layout"
+      },
+      {
+        "type": "feature",
+        "description": "rewrite plan detail panels matching AI Insights UX"
+      },
+      {
+        "type": "feature",
+        "description": "upgrade Phase 6 delivery report to consulting-grade quality"
+      },
+      {
+        "type": "feature",
+        "description": "add PRIVATE/PUBLIC visibility control + improve demo prototype prompt"
+      },
+      {
+        "type": "feature",
+        "description": "add Topic Insights report import to WeChat publishing"
+      },
+      {
+        "type": "feature",
+        "description": "series publishing — split Topic Insights reports into multiple articles"
+      },
+      {
+        "type": "feature",
+        "description": "add 6 advanced writing skills for novel quality improvement"
+      },
+      {
+        "type": "feature",
+        "description": "animate logo spoke lines with flowing signal effect"
+      },
+      {
+        "type": "feature",
+        "description": "enlarge logo with colorful CSS glow and version badge as superscript"
+      },
+      {
+        "type": "feature",
+        "description": "rebrand to Genesis.ai with new squirrel logo"
+      },
+      {
+        "type": "feature",
+        "description": "redesign logo for light background with hexagonal agent network"
+      },
+      {
+        "type": "feature",
+        "description": "redesign logo to Orbital Core - AI team concept"
+      },
+      {
+        "type": "feature",
+        "description": "rename Gens.Team → Genesis"
+      },
+      {
+        "type": "feature",
+        "description": "use original PNG logo and clean up all remaining brand refs"
+      },
+      {
+        "type": "feature",
+        "description": "add context accumulation curve and prompt cache hit rate tracking"
+      },
+      {
+        "type": "feature",
+        "description": "initialize @genesis-ai/core package with extracted pure TS abstractions"
+      },
+      {
+        "type": "feature",
+        "description": "implement ai insights → research → slides integration"
+      },
+      {
+        "type": "feature",
+        "description": "add V7 Report tab — 16-chapter deep research outline on inference infrastructure"
+      },
+      {
+        "type": "feature",
+        "description": "update V7 report to 14-chapter structure with logic architecture diagram"
+      },
+      {
+        "type": "feature",
+        "description": "add resource link health check scheduler with auto-archive"
+      },
+      {
+        "type": "feature",
+        "description": "add WeChat Official Account article import support"
+      },
+      {
+        "type": "feature",
+        "description": "widen ReaderView content when more space is available"
+      },
+      {
+        "type": "feature",
+        "description": "add Topic Insights export and fix config change state reset"
+      },
+      {
+        "type": "feature",
+        "description": "unified WYSIWYG export system for all AI modules"
+      },
+      {
+        "type": "feature",
+        "description": "upgrade fonts to Inter + Microsoft YaHei/Noto Sans SC"
+      },
+      {
+        "type": "feature",
+        "description": "replace Vision LLM with Embedding in Stage 2 + fix B1 race condition"
+      },
+      {
+        "type": "feature",
+        "description": "add image search to tool management UI and fix i18n"
+      },
+      {
+        "type": "feature",
+        "description": "upgrade team topology panels with kawaii cartoon avatars"
+      },
+      {
+        "type": "feature",
+        "description": "wire LaTeX and Mermaid rendering into report pipeline"
+      },
+      {
+        "type": "feature",
+        "description": "replace WeChat Work with Feishu integration"
+      },
+      {
+        "type": "feature",
+        "description": "add Perplexity provider support in connection test"
+      },
+      {
+        "type": "feature",
+        "description": "connect tools to backend, add admin monitoring"
+      },
+      {
+        "type": "feature",
+        "description": "full MCP protocol with dynamic tool bridge, resources, prompts, and capability gateway"
+      },
+      {
+        "type": "feature",
+        "description": "switch genesis_deep_research to async mode with SSE delivery"
+      },
+      {
+        "type": "feature",
+        "description": "add DataRetentionService for automated DB cleanup"
+      },
+      {
+        "type": "feature",
+        "description": "unified health check, MCP observability bridge"
+      },
+      {
+        "type": "feature",
+        "description": "add TraceCollector to AI Writing and AI Office"
+      },
+      {
+        "type": "feature",
+        "description": "refactor slides engine to AI-adaptive HTML generation (v6.0)"
+      },
+      {
+        "type": "feature",
+        "description": "add public REST API, agent config, research templates, MCP registry"
+      },
+      {
+        "type": "feature",
+        "description": "add IntentRouterService + TaskPlannerService (GenesisAgent orchestration)"
+      },
+      {
+        "type": "feature",
+        "description": "add MemoryCoordinatorService — unified 4-layer memory OS"
+      },
+      {
+        "type": "feature",
+        "description": "wire KnowledgeGraphTool as Layer 4 in MemoryCoordinator"
+      },
+      {
+        "type": "feature",
+        "description": "add ComplexityAnalyzer + IntelligentModelRouter"
+      },
+      {
+        "type": "feature",
+        "description": "add Eval Dashboard admin page + POST traces/:id/evaluate endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "add EvalPipelineService — 3-layer AI quality evaluation"
+      },
+      {
+        "type": "feature",
+        "description": "add quality history feedback loop to IntelligentModelRouter"
+      },
+      {
+        "type": "feature",
+        "description": "add AgentTimeline UI component with real-time span polling"
+      },
+      {
+        "type": "feature",
+        "description": "add capability search entry to sidebar"
+      },
+      {
+        "type": "feature",
+        "description": "add chat mode to Knowledge Graph page"
+      },
+      {
+        "type": "feature",
+        "description": "add Global AI Bar — Cmd+K AI command palette"
+      },
+      {
+        "type": "feature",
+        "description": "add Human-in-the-Loop approval UI and admin API"
+      },
+      {
+        "type": "feature",
+        "description": "add MultimodalInput component with drag-drop image/PDF/doc support"
+      },
+      {
+        "type": "feature",
+        "description": "add financial, insurance, academic, career planning templates"
+      },
+      {
+        "type": "feature",
+        "description": "add full planning process WYSIWYG export"
+      },
+      {
+        "type": "feature",
+        "description": "add XML tags + few-shot examples to enforce format across all models"
+      },
+      {
+        "type": "feature",
+        "description": "add Groq, OpenRouter, MiniMax quota monitoring providers"
+      },
+      {
+        "type": "feature",
+        "description": "add in-page scroll option for citation badges"
+      },
+      {
+        "type": "feature",
+        "description": "5-tab refactor with insights/creative ideas separation"
+      },
+      {
+        "type": "feature",
+        "description": "add bilingual (zh-CN/en-US) support for discussion research"
+      },
+      {
+        "type": "feature",
+        "description": "add evaluation card, references tab, session filtering"
+      },
+      {
+        "type": "feature",
+        "description": "add iteration resilience, session tracking, and record UI"
+      },
+      {
+        "type": "feature",
+        "description": "add project naming dialog before creating new research"
+      },
+      {
+        "type": "feature",
+        "description": "add rename and delete actions to project cards"
+      },
+      {
+        "type": "feature",
+        "description": "add self-iterating research system (Karpathy autoresearch)"
+      },
+      {
+        "type": "feature",
+        "description": "display user feedback as visible chat message"
+      },
+      {
+        "type": "feature",
+        "description": "fix iteration persistence, session filters, auto-extract and topic display"
+      },
+      {
+        "type": "feature",
+        "description": "fix OOM crash, recovery, and creation dialog"
+      },
+      {
+        "type": "feature",
+        "description": "implement discussion-driven deep research"
+      },
+      {
+        "type": "feature",
+        "description": "implement iterative research UX improvements (B1-B7)"
+      },
+      {
+        "type": "feature",
+        "description": "improve iteration quality with context accumulation and record visualization"
+      },
+      {
+        "type": "feature",
+        "description": "structured idea cards with click-to-expand detail"
+      },
+      {
+        "type": "feature",
+        "description": "structured idea extraction with expandable cards"
+      },
+      {
+        "type": "feature",
+        "description": "upgrade tools and skills system"
+      },
+      {
+        "type": "feature",
+        "description": "wire iterative mode UI trigger and controller routing"
+      },
+      {
+        "type": "feature",
+        "description": "add comprehensive report quality audit script v2.0"
+      },
+      {
+        "type": "feature",
+        "description": "per-AI-app skills management with effectiveness tracking"
+      },
+      {
+        "type": "feature",
+        "description": "skills system upgrade with editing, versioning, analytics"
+      },
+      {
+        "type": "feature",
+        "description": "add 6 quality enhancement skills with generate-validate-fix loop"
+      },
+      {
+        "type": "feature",
+        "description": "implement AI chat edit for slide pages"
+      },
+      {
+        "type": "feature",
+        "description": "redesign left panel as AI chat center, improve edit reply quality"
+      },
+      {
+        "type": "feature",
+        "description": "redesign workspace with slide navigator + AI chat panel"
+      },
+      {
+        "type": "feature",
+        "description": "add type filter tabs and time-range for explore source selector"
+      },
+      {
+        "type": "feature",
+        "description": "add cleanup policies for export_jobs, research_tasks, topic_reports"
+      },
+      {
+        "type": "feature",
+        "description": "add comprehensive test plan and full-spectrum ui-iteration coverage"
+      },
+      {
+        "type": "feature",
+        "description": "add Alpha Vantage finance API to external tools management"
+      },
+      {
+        "type": "feature",
+        "description": "add finance-data capability to tools management UI"
+      },
+      {
+        "type": "feature",
+        "description": "add multi-key rotation with health tracking to PolicyDataService"
+      },
+      {
+        "type": "feature",
+        "description": "complete multi-key rotation and secret category fixes"
+      },
+      {
+        "type": "feature",
+        "description": "activate RAG-Fusion multi-query retrieval in research pipeline"
+      },
+      {
+        "type": "feature",
+        "description": "add AI quality review toggle and redesign create dialog"
+      },
+      {
+        "type": "feature",
+        "description": "add citation accuracy defense with 3-layer verification"
+      },
+      {
+        "type": "feature",
+        "description": "add click-to-expand quality defect details in probe panel"
+      },
+      {
+        "type": "feature",
+        "description": "add configurable industry report sources tool"
+      },
+      {
+        "type": "feature",
+        "description": "add evaluation-driven quality optimization"
+      },
+      {
+        "type": "feature",
+        "description": "add EVENT framework skills and fix skill discovery bug"
+      },
+      {
+        "type": "feature",
+        "description": "add EVENT type frontend UI and Prisma schema"
+      },
+      {
+        "type": "feature",
+        "description": "add EventSourceParsingService with WeChat support and security hardening"
+      },
+      {
+        "type": "feature",
+        "description": "add i18n writing standards and table repair for report pipeline ([e6246aa](https://github.com/your-org/ai-teams-engine/commit/e6246aace3e8ddad51de42570c33953198b16ff4)), closes [#15](https://github.com/your-org/ai-teams-engine/issues/15)"
+      },
+      {
+        "type": "feature",
+        "description": "add i18n writing standards and table repair for report pipeline"
+      },
+      {
+        "type": "feature",
+        "description": "add infinite scroll pagination for topic cards"
+      },
+      {
+        "type": "feature",
+        "description": "add multimodal Vision LLM figure relevance filtering"
+      },
+      {
+        "type": "feature",
+        "description": "add pipeline phase indicator and persist lifecycle events"
+      },
+      {
+        "type": "feature",
+        "description": "add reprocess API and LLM prompt hardening for report quality"
+      },
+      {
+        "type": "feature",
+        "description": "auto image search supplement when extracted figures insufficient"
+      },
+      {
+        "type": "feature",
+        "description": "clickable citations, bare LaTeX wrapping, dead code removal"
+      },
+      {
+        "type": "feature",
+        "description": "dimension-aware dynamic evidence weights"
+      },
+      {
+        "type": "feature",
+        "description": "enable reasoningDepth and cachePolicy on LLM calls"
+      },
+      {
+        "type": "feature",
+        "description": "enhance report writing standards with industry benchmarks"
+      },
+      {
+        "type": "feature",
+        "description": "extract 19 skill files and migrate 28 LLM calls to chatWithSkills"
+      },
+      {
+        "type": "feature",
+        "description": "extract 5 skill files and wire into code"
+      },
+      {
+        "type": "feature",
+        "description": "implement Direction B dimension opening conclusion"
+      },
+      {
+        "type": "feature",
+        "description": "implement EVENT core pipeline — prompts, anchor, templates"
+      },
+      {
+        "type": "feature",
+        "description": "implement quality review -> auto-revision loop"
+      },
+      {
+        "type": "feature",
+        "description": "implement v4 quality system core changes"
+      },
+      {
+        "type": "feature",
+        "description": "improve figure matching via citation injection and snippet context"
+      },
+      {
+        "type": "feature",
+        "description": "improve report quality and fix rendering/export"
+      },
+      {
+        "type": "feature",
+        "description": "improve report quality with prompt trimming, quick view, and citation folding"
+      },
+      {
+        "type": "feature",
+        "description": "increase description limit from 2000 to 10000 chars"
+      },
+      {
+        "type": "feature",
+        "description": "integrate batch 2+3 services for coverage uplift"
+      },
+      {
+        "type": "feature",
+        "description": "integrate kernel services for observability and resilience"
+      },
+      {
+        "type": "feature",
+        "description": "integrate OpenAlex into research data source pipeline"
+      },
+      {
+        "type": "feature",
+        "description": "modular search pipeline architecture + fix OpenAlex secret linking"
+      },
+      {
+        "type": "feature",
+        "description": "P0/P1 competitive advantage improvements (+4754 lines)"
+      },
+      {
+        "type": "feature",
+        "description": "phase 2 core capabilities - chatStructured, constraints, skills alignment"
+      },
+      {
+        "type": "feature",
+        "description": "quality observability system + report quality fixes"
+      },
+      {
+        "type": "feature",
+        "description": "redesign credibility page with per-chapter AI evaluation and model comparison"
+      },
+      {
+        "type": "feature",
+        "description": "register Agent/Team, add function calling, wire trace lifecycle"
+      },
+      {
+        "type": "feature",
+        "description": "relax dimension count limits, let model decide based on complexity"
+      },
+      {
+        "type": "feature",
+        "description": "replace Related Research tab with Compute Usage"
+      },
+      {
+        "type": "feature",
+        "description": "report quality upgrade v3 — prompts, formatting, SVG fallback"
+      },
+      {
+        "type": "feature",
+        "description": "type-aware report standards — Layer 3 framework skills"
+      },
+      {
+        "type": "feature",
+        "description": "unify report formatting pipeline and fix 4 core rendering issues"
+      },
+      {
+        "type": "feature",
+        "description": "upgrade Compute Usage tab with professional charts"
+      },
+      {
+        "type": "feature",
+        "description": "v4 report quality system redesign"
+      },
+      {
+        "type": "feature",
+        "description": "wire agent-skill pipeline and activate dimension-aware skills"
+      },
+      {
+        "type": "feature",
+        "description": "wire V5 cognitive loop with iterative gap search"
+      },
+      {
+        "type": "feature",
+        "description": "add comprehensive Topic Insights test coverage"
+      },
+      {
+        "type": "fix",
+        "description": "admin kernel UI bugs — circuit breaker NaN, monitoring card stats, memory table"
+      },
+      {
+        "type": "fix",
+        "description": "admin console enhancements + architecture audit compliance (8.5→9.3) ([5c1786d](https://github.com/your-org/ai-teams-engine/commit/5c1786dafd11d38c54b7f77942c838cc07951323)), closes [E-1/E-2/E-3/K-1/I-1/I-2/#39](https://github.com/E-1/E-2/E-3/K-1/I-1/I-2//issues/39) [#40](https://github.com/your-org/ai-teams-engine/issues/40) [#41](https://github.com/your-org/ai-teams-engine/issues/41) [#42](https://github.com/your-org/ai-teams-engine/issues/42) [#39](https://github.com/your-org/ai-teams-engine/issues/39) [#40](https://github.com/your-org/ai-teams-engine/issues/40) [#41](https://github.com/your-org/ai-teams-engine/issues/41) [#42](https://github.com/your-org/ai-teams-engine/issues/42)"
+      },
+      {
+        "type": "fix",
+        "description": "allow test button for unconfigured tools"
+      },
+      {
+        "type": "fix",
+        "description": "bridge provider↔registry ID gap in secretKey loading"
+      },
+      {
+        "type": "fix",
+        "description": "resolve config persistence loss on restart for provider-ID tools"
+      },
+      {
+        "type": "fix",
+        "description": "add Cohere format option to API format dropdown"
+      },
+      {
+        "type": "fix",
+        "description": "add EVALUATOR model type to AI model management dropdown"
+      },
+      {
+        "type": "fix",
+        "description": "add FINANCE category to SecretsManager CATEGORY_OPTIONS"
+      },
+      {
+        "type": "fix",
+        "description": "add forwardRef for AiEngineModule import"
+      },
+      {
+        "type": "fix",
+        "description": "add PrismaModule to AiKernel and reorganize architecture diagram"
+      },
+      {
+        "type": "fix",
+        "description": "align agent page to light theme and add AI auto-fill"
+      },
+      {
+        "type": "fix",
+        "description": "audit and fix architecture diagram card placement"
+      },
+      {
+        "type": "fix",
+        "description": "complete table categories (148 missing) and add cleanup policies"
+      },
+      {
+        "type": "fix",
+        "description": "correct Agent OS card navigation and architecture layout"
+      },
+      {
+        "type": "fix",
+        "description": "fix academic tools default-off and missing test buttons"
+      },
+      {
+        "type": "fix",
+        "description": "fix all broken overview stats, links and missing data"
+      },
+      {
+        "type": "fix",
+        "description": "fix API Keys tab not visible due to i18n key mismatch"
+      },
+      {
+        "type": "fix",
+        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
+      },
+      {
+        "type": "fix",
+        "description": "fix observability 24h default period and security process listing"
+      },
+      {
+        "type": "fix",
+        "description": "fix provider icon 404s and dashboard resilience"
+      },
+      {
+        "type": "fix",
+        "description": "fix test buttons for policy, finance, devtools and free tools"
+      },
+      {
+        "type": "fix",
+        "description": "fix tool test endpoint missing context parameter (all tests failing)"
+      },
+      {
+        "type": "fix",
+        "description": "make monitoring fetchData endpoints independent"
+      },
+      {
+        "type": "fix",
+        "description": "preserve provider casing when creating/updating AI models"
+      },
+      {
+        "type": "fix",
+        "description": "prevent type column text wrapping in model table"
+      },
+      {
+        "type": "fix",
+        "description": "resolve stat inconsistencies between overview and detail pages"
+      },
+      {
+        "type": "fix",
+        "description": "show incremental progress in batch collection drawer"
+      },
+      {
+        "type": "fix",
+        "description": "update tool test assertions to include context parameter"
+      },
+      {
+        "type": "fix",
+        "description": "address code review issues"
+      },
+      {
+        "type": "fix",
+        "description": "fix confidence threshold, logging, urlTemplate guard, image phase and tests"
+      },
+      {
+        "type": "fix",
+        "description": "address P1/P2 audit items and code quality issues"
+      },
+      {
+        "type": "fix",
+        "description": "address P2/P3 issues from code review"
+      },
+      {
+        "type": "fix",
+        "description": "apply code review findings from Batch 7/8 deep review"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate 13 hardcoded LLM model strings (P1-4)"
+      },
+      {
+        "type": "fix",
+        "description": "resolve all P1/P2 issues from v3 architecture audit"
+      },
+      {
+        "type": "fix",
+        "description": "address code review findings"
+      },
+      {
+        "type": "fix",
+        "description": "fix ActionCards visibility and insight auto-create from ?q= param"
+      },
+      {
+        "type": "fix",
+        "description": "use step.input (LLM-extracted topic) instead of raw userInput for ActionCard URL"
+      },
+      {
+        "type": "fix",
+        "description": "pass isDark to AIMessageRenderer for readable contrast on dark bg"
+      },
+      {
+        "type": "fix",
+        "description": "render markdown in bar result, fix sessionId navigation to ai-ask"
+      },
+      {
+        "type": "fix",
+        "description": "remove hardcoded model=\"gemini\" defaults in controller"
+      },
+      {
+        "type": "fix",
+        "description": "enable JSON mode for reasoning models and fix vision model selection"
+      },
+      {
+        "type": "fix",
+        "description": "add 30s zero-balance cache to suppress credit error flood"
+      },
+      {
+        "type": "fix",
+        "description": "add global rate limiter to ArxivSearchTool to prevent 429 cascading"
+      },
+      {
+        "type": "fix",
+        "description": "add Groq, OpenRouter, MiniMax to BYOK and direct-key"
+      },
+      {
+        "type": "fix",
+        "description": "add Groq, OpenRouter, MiniMax to connection test switch"
+      },
+      {
+        "type": "fix",
+        "description": "address remaining review defects to restore quality score"
+      },
+      {
+        "type": "fix",
+        "description": "address second-round review issues + unblock tsc"
+      },
+      {
+        "type": "fix",
+        "description": "address W1-W6 code review issues"
+      },
+      {
+        "type": "fix",
+        "description": "close 3 review defects from system hardening"
+      },
+      {
+        "type": "fix",
+        "description": "enforce architecture boundary — AI Apps must use AIEngineFacade"
+      },
+      {
+        "type": "fix",
+        "description": "fix flaky cost-controller test — floating point daysDiff comparison"
+      },
+      {
+        "type": "fix",
+        "description": "fix long-term-memory full table scan and executeParallel stub"
+      },
+      {
+        "type": "fix",
+        "description": "fix reasoning model detection for non-reasoning variants"
+      },
+      {
+        "type": "fix",
+        "description": "fix xAI reasoning model 412 - force max_tokens, skip response_format"
+      },
+      {
+        "type": "fix",
+        "description": "force openai apiFormat for OpenAI-compatible providers"
+      },
+      {
+        "type": "fix",
+        "description": "inject JSON constraint prompt for deepseek-reasoner instead of silent strip"
+      },
+      {
+        "type": "fix",
+        "description": "model config lookup excludes MULTIMODAL/CODE types — all enabled models now queryable"
+      },
+      {
+        "type": "fix",
+        "description": "pass caller strictMode in chatWithFallback instead of hardcoding true"
+      },
+      {
+        "type": "fix",
+        "description": "replace hardcoded temperature with taskProfile in AgentExecutorService"
+      },
+      {
+        "type": "fix",
+        "description": "resolve false orphan warnings for provider-aliased ToolConfig entries"
+      },
+      {
+        "type": "fix",
+        "description": "resolve preferred model by modelType instead of passing raw enum string"
+      },
+      {
+        "type": "fix",
+        "description": "resolve review findings - L2/L4 boundary, model fallback, test quality"
+      },
+      {
+        "type": "fix",
+        "description": "resolve xAI reasoning 400/412, search 0 results, skill loading"
+      },
+      {
+        "type": "fix",
+        "description": "respect caller strictMode in chatStructured, fix all schema violations"
+      },
+      {
+        "type": "fix",
+        "description": "strip response_format for deepseek-reasoner to prevent INVALID_REQUEST"
+      },
+      {
+        "type": "fix",
+        "description": "sync non-reasoning exclusion to all reasoning detection sites"
+      },
+      {
+        "type": "fix",
+        "description": "thread strictMode to OpenAI strict schema flag in API caller"
+      },
+      {
+        "type": "fix",
+        "description": "update ai-chat.service tests for new API caller params"
+      },
+      {
+        "type": "fix",
+        "description": "v11 — rate limit cascade fix for Vision LLM chatStructured"
+      },
+      {
+        "type": "fix",
+        "description": "add Groq, OpenRouter, MiniMax display names and icons"
+      },
+      {
+        "type": "fix",
+        "description": "fix orphaned trace spans on quality review and synthesis errors"
+      },
+      {
+        "type": "fix",
+        "description": "hide 申请加入 button for PUBLIC topics, only show for SHARED"
+      },
+      {
+        "type": "fix",
+        "description": "fix observability page crash and rename L4 to AI Agents"
+      },
+      {
+        "type": "fix",
+        "description": "gracefully disable scheduler when agent_processes table is missing"
+      },
+      {
+        "type": "fix",
+        "description": "probe table existence before starting DB-dependent schedulers"
+      },
+      {
+        "type": "fix",
+        "description": "remove A2AApiKeyGuard from DI providers to fix production crash"
+      },
+      {
+        "type": "fix",
+        "description": "remove A2ATeamMemberAdapter from DI providers to fix production crash"
+      },
+      {
+        "type": "fix",
+        "description": "mark themes/list as @Public to allow unauthenticated access"
+      },
+      {
+        "type": "fix",
+        "description": "add citation links to phase output and fix paragraph breaks"
+      },
+      {
+        "type": "fix",
+        "description": "add proper markdown rendering with tables, mermaid, and scroll UX"
+      },
+      {
+        "type": "fix",
+        "description": "address code review issues for quality parity with AI Insights"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate placeholder text and duplicate references in delivery report"
+      },
+      {
+        "type": "fix",
+        "description": "fix polling gap during auto-advance between phases"
+      },
+      {
+        "type": "fix",
+        "description": "fix status corruption and empty phase completion"
+      },
+      {
+        "type": "fix",
+        "description": "fix table rendering with narrow columns and <br> tags"
+      },
+      {
+        "type": "fix",
+        "description": "overhaul detail page UX to match AI Insights quality"
+      },
+      {
+        "type": "fix",
+        "description": "Phase 6 produces single refined report instead of concatenated duplicates"
+      },
+      {
+        "type": "fix",
+        "description": "prevent context overflow for delivery phase"
+      },
+      {
+        "type": "fix",
+        "description": "render <br> line breaks in table cells instead of stripping them"
+      },
+      {
+        "type": "fix",
+        "description": "report tab shows formal Phase 6 delivery only, not process log"
+      },
+      {
+        "type": "fix",
+        "description": "show both debaters (pro + con) for comprehensive depth"
+      },
+      {
+        "type": "fix",
+        "description": "show full report with Phase 6 as primary, not replacement"
+      },
+      {
+        "type": "fix",
+        "description": "stabilize polling and fix phase skip"
+      },
+      {
+        "type": "fix",
+        "description": "support table style alignment and clickable citation links"
+      },
+      {
+        "type": "fix",
+        "description": "add Topic Insights to ContentsTab create modal and i18n"
+      },
+      {
+        "type": "fix",
+        "description": "add type annotations to $queryRaw calls to fix TS18046 errors"
+      },
+      {
+        "type": "fix",
+        "description": "auto-enable keepFormat for Topic Insights source type"
+      },
+      {
+        "type": "fix",
+        "description": "fix series publish crash and reduce over-splitting"
+      },
+      {
+        "type": "fix",
+        "description": "pass keepFormat to processSource API call"
+      },
+      {
+        "type": "fix",
+        "description": "raise content max length to 200k for long reports"
+      },
+      {
+        "type": "fix",
+        "description": "revert test mock change, make series fields optional"
+      },
+      {
+        "type": "fix",
+        "description": "add heartbeat to all long LLM phases to prevent stuck detection"
+      },
+      {
+        "type": "fix",
+        "description": "fix runtime crash in executor architecture"
+      },
+      {
+        "type": "fix",
+        "description": "generate book title from outline and update project name"
+      },
+      {
+        "type": "fix",
+        "description": "generate book title from outline and update project name"
+      },
+      {
+        "type": "fix",
+        "description": "remove heartbeat progress cap to prevent recurring stuck detection"
+      },
+      {
+        "type": "fix",
+        "description": "stop heartbeat before executor runs to prevent progress overwrite"
+      },
+      {
+        "type": "fix",
+        "description": "remove all hardcoded model names, use empty string fallback"
+      },
+      {
+        "type": "fix",
+        "description": "bypass CDN proxy for all browser API calls in production"
+      },
+      {
+        "type": "fix",
+        "description": "forward Authorization header in insights and quick-action API routes"
+      },
+      {
+        "type": "fix",
+        "description": "remove ServeStaticModule to fix scanner-triggered 500 errors"
+      },
+      {
+        "type": "fix",
+        "description": "address P0+P1 findings from architecture audit v2.0"
+      },
+      {
+        "type": "fix",
+        "description": "resolve circular dependency chains in facade exports"
+      },
+      {
+        "type": "fix",
+        "description": "update ESLint paths for bounded contexts and remove LLM hardcoding"
+      },
+      {
+        "type": "fix",
+        "description": "bypass CDN proxy for OAuth token exchange"
+      },
+      {
+        "type": "fix",
+        "description": "harden auth against CDN outages and fix fallback ports"
+      },
+      {
+        "type": "fix",
+        "description": "use LoginDto/RegisterDto in controller to enforce validation"
+      },
+      {
+        "type": "fix",
+        "description": "add --max-old-space-size=3072 to nixpacks start command"
+      },
+      {
+        "type": "fix",
+        "description": "increase Node.js heap limit to 3GB for large PDF exports"
+      },
+      {
+        "type": "fix",
+        "description": "pgvector JSONB fallback, reasoning tokens, billing, credits"
+      },
+      {
+        "type": "fix",
+        "description": "resolve youtube crash, slides outline loss, and scheduler interval not applying"
+      },
+      {
+        "type": "fix",
+        "description": "restore Record<string, any> with eslint-disable in google-drive-auth updateConnection"
+      },
+      {
+        "type": "fix",
+        "description": "use node directly instead of nest start for heap limit"
+      },
+      {
+        "type": "fix",
+        "description": "add BillingContextInterceptor to all TI controllers"
+      },
+      {
+        "type": "fix",
+        "description": "propagate BillingContext through fire-and-forget TODO execution"
+      },
+      {
+        "type": "fix",
+        "description": "fix irregular hexagon — normalize all node radii to R=22"
+      },
+      {
+        "type": "fix",
+        "description": "move version badge inline next to brand name"
+      },
+      {
+        "type": "fix",
+        "description": "add BrowserModule import to SlidesSkillsModule"
+      },
+      {
+        "type": "fix",
+        "description": "fix infographic.service tests for PuppeteerPoolService"
+      },
+      {
+        "type": "fix",
+        "description": "fix slide-visual-validator tests and add anti-detection flag"
+      },
+      {
+        "type": "fix",
+        "description": "map Puppeteer Cookie sameSite to SessionData-compatible values"
+      },
+      {
+        "type": "fix",
+        "description": "handle Docker build where root package.json is absent"
+      },
+      {
+        "type": "fix",
+        "description": "capability guard empty detail + credits raw description display"
+      },
+      {
+        "type": "fix",
+        "description": "deduplicate cumulative entries and consolidate patch versions"
+      },
+      {
+        "type": "fix",
+        "description": "fix tag push and regenerate deduplicated CHANGELOG"
+      },
+      {
+        "type": "fix",
+        "description": "pre-push lint check should not block on pre-existing warnings"
+      },
+      {
+        "type": "fix",
+        "description": "add hover delay so tooltip card stays interactive"
+      },
+      {
+        "type": "fix",
+        "description": "add @Public() to all read-only and upvote endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "break circular dependency via optional YoutubeService injection"
+      },
+      {
+        "type": "fix",
+        "description": "wire YoutubeService into ContentFetchModule to fix YouTube transcript injection"
+      },
+      {
+        "type": "fix",
+        "description": "add forwardRef to break circular dependency chain"
+      },
+      {
+        "type": "fix",
+        "description": "guard Server-Timing header against ERR_HTTP_HEADERS_SENT crash"
+      },
+      {
+        "type": "fix",
+        "description": "allow health check and server-to-server requests without Origin header"
+      },
+      {
+        "type": "fix",
+        "description": "allow opaque origin 'null' string from browser preflight"
+      },
+      {
+        "type": "fix",
+        "description": "return false instead of throwing error for rejected origins"
+      },
+      {
+        "type": "fix",
+        "description": "add INT4 overflow guard and reasoning model JSON dedup"
+      },
+      {
+        "type": "fix",
+        "description": "add missing CreditTransactionType enum values to deploy script"
+      },
+      {
+        "type": "fix",
+        "description": "correct module name and transaction type in credit billing"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate ADJUSTMENT leak by attributing explore/planning charges correctly"
+      },
+      {
+        "type": "fix",
+        "description": "rename transaction types to match sidebar menu, fix AI Planning billing"
+      },
+      {
+        "type": "fix",
+        "description": "address code review findings"
+      },
+      {
+        "type": "fix",
+        "description": "fix two critical subscription chain bugs found in simulation"
+      },
+      {
+        "type": "fix",
+        "description": "fix response unwrapping causing batch collection failure"
+      },
+      {
+        "type": "fix",
+        "description": "restore .data access for self-wrapped list endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "use correct timestamp column for secret_access_logs"
+      },
+      {
+        "type": "fix",
+        "description": "add automatic migration deploy on production startup"
+      },
+      {
+        "type": "fix",
+        "description": "add missing migration for agent_traces and agent_spans tables"
+      },
+      {
+        "type": "fix",
+        "description": "remove toxic DO/EXCEPTION migration template and 550-line fallback"
+      },
+      {
+        "type": "fix",
+        "description": "clear A2A bus session on debate completion to prevent memory leak"
+      },
+      {
+        "type": "fix",
+        "description": "set NODE_OPTIONS globally to prevent OOM in diagnose/deploy scripts"
+      },
+      {
+        "type": "fix",
+        "description": "update deploy-migrations for renamed credit types and missing columns"
+      },
+      {
+        "type": "fix",
+        "description": "resolve circular dependency in DiscussionModule and MCPServerModule"
+      },
+      {
+        "type": "fix",
+        "description": "add --legacy-peer-deps for npm install compatibility"
+      },
+      {
+        "type": "fix",
+        "description": "add post-COPY diagnostic for tiptap resolution"
+      },
+      {
+        "type": "fix",
+        "description": "add standalone package-lock.json for deterministic builds"
+      },
+      {
+        "type": "fix",
+        "description": "add tiptap verification step and bust build cache"
+      },
+      {
+        "type": "fix",
+        "description": "allow CHANGELOG.md in Docker build context"
+      },
+      {
+        "type": "fix",
+        "description": "copy package-lock.json and use npm ci for reliable builds"
+      },
+      {
+        "type": "fix",
+        "description": "copy package-lock.json for deterministic tiptap resolution"
+      },
+      {
+        "type": "fix",
+        "description": "guarantee @genesis-ai/core as real files after prune"
+      },
+      {
+        "type": "fix",
+        "description": "install git in builder stage for changelog and commit hash"
+      },
+      {
+        "type": "fix",
+        "description": "monorepo-aware build for @genesis-ai/core package"
+      },
+      {
+        "type": "fix",
+        "description": "remove package-lock.json copy for monorepo compatibility"
+      },
+      {
+        "type": "fix",
+        "description": "revert to npm install for frontend build compatibility"
+      },
+      {
+        "type": "fix",
+        "description": "use npm install with .npmrc legacy-peer-deps"
+      },
+      {
+        "type": "fix",
+        "description": "improve page load waits and fix insights create API DTO"
+      },
+      {
+        "type": "fix",
+        "description": "resolve all remaining E2E test failures"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate circular dependency chain by extracting SystemSettingService"
+      },
+      {
+        "type": "fix",
+        "description": "enforce facade imports and add BillingContext to unmetered AI App entry points"
+      },
+      {
+        "type": "fix",
+        "description": "extend memory no-restricted-imports to cover abstractions and coordinator"
+      },
+      {
+        "type": "fix",
+        "description": "add copy button and fix markdown list markers in YouTube tab chat"
+      },
+      {
+        "type": "fix",
+        "description": "add copy button to AI messages and fix markdown list markers in Papers/News tabs"
+      },
+      {
+        "type": "fix",
+        "description": "add copy button to YouTube video AI chat messages"
+      },
+      {
+        "type": "fix",
+        "description": "add missing auth header to resource PATCH request"
+      },
+      {
+        "type": "fix",
+        "description": "add missing auth header to thumbnail extract request"
+      },
+      {
+        "type": "fix",
+        "description": "detect OpenReview /pdf?id= URLs as PDF and enhance proxy headers"
+      },
+      {
+        "type": "fix",
+        "description": "fix AI chat bubble width and add TextSelectionToolbar to Papers chat"
+      },
+      {
+        "type": "fix",
+        "description": "fix ContentPreview PDF fallback when pdfUrl is null"
+      },
+      {
+        "type": "fix",
+        "description": "fix ExploreContent PDF detection treating HTML URLs as PDF"
+      },
+      {
+        "type": "fix",
+        "description": "fix PDF detection in ExploreDetail sidebar preview"
+      },
+      {
+        "type": "fix",
+        "description": "fix WeChat article Reader mode content and images"
+      },
+      {
+        "type": "fix",
+        "description": "handle 403 sites with content fallback and async fetch"
+      },
+      {
+        "type": "fix",
+        "description": "increase AI panel width with responsive defaults"
+      },
+      {
+        "type": "fix",
+        "description": "move AppShell outside dynamic import to eliminate white flash"
+      },
+      {
+        "type": "fix",
+        "description": "prevent arXiv HTML pages from opening as PDF"
+      },
+      {
+        "type": "fix",
+        "description": "prevent setState-on-unmount warning in AIChatMessages copy timer"
+      },
+      {
+        "type": "fix",
+        "description": "remove duplicate thinking spinner during chat streaming"
+      },
+      {
+        "type": "fix",
+        "description": "remove prose max-width cap on AI chat response bubble"
+      },
+      {
+        "type": "fix",
+        "description": "send user-edited title when importing URL"
+      },
+      {
+        "type": "fix",
+        "description": "show Reader/Original toggle for PAPER type HTML pages"
+      },
+      {
+        "type": "fix",
+        "description": "unify AI Summary subtitle font to text-xs (12px)"
+      },
+      {
+        "type": "fix",
+        "description": "use HTML viewer when sourceUrl is HTML paper link"
+      },
+      {
+        "type": "fix",
+        "description": "use uniform p-4 padding for AI panel consistency"
+      },
+      {
+        "type": "fix",
+        "description": "add dedicated API route to bypass rewrite proxy for large bodies"
+      },
+      {
+        "type": "fix",
+        "description": "add toast warning when WYSIWYG export falls back to editable mode"
+      },
+      {
+        "type": "fix",
+        "description": "add white background to WYSIWYG export and fix floating promises"
+      },
+      {
+        "type": "fix",
+        "description": "align topic report editable export with frontend rendering pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "align transformPlanning with actual PlanningTopicMetadata structure"
+      },
+      {
+        "type": "fix",
+        "description": "allow Google Fonts in Puppeteer, use domcontentloaded + fonts.ready"
+      },
+      {
+        "type": "fix",
+        "description": "allow images in PDF export + fix ordinal comma placement"
+      },
+      {
+        "type": "fix",
+        "description": "enable TOC and citation anchor navigation in PDF exports"
+      },
+      {
+        "type": "fix",
+        "description": "extract base64 images to temp files before Puppeteer render"
+      },
+      {
+        "type": "fix",
+        "description": "fix CSS deduplication destroying nested @media/[@keyframes](https://github.com/keyframes) rules"
+      },
+      {
+        "type": "fix",
+        "description": "fix pptxgenjs import for CommonJS compatibility"
+      },
+      {
+        "type": "fix",
+        "description": "increase timeout for export POST to prevent ECONNRESET"
+      },
+      {
+        "type": "fix",
+        "description": "inline images as data URLs in WYSIWYG capture to fix missing images"
+      },
+      {
+        "type": "fix",
+        "description": "move temp file cleanup AFTER page.pdf() completes"
+      },
+      {
+        "type": "fix",
+        "description": "override overflow-hidden/flex-1 CSS to fix TipTap content missing in PDF"
+      },
+      {
+        "type": "fix",
+        "description": "pass exportScope to backend for full planning export"
+      },
+      {
+        "type": "fix",
+        "description": "reduce memory usage to prevent OOM on Railway"
+      },
+      {
+        "type": "fix",
+        "description": "reduce WYSIWYG payload size and add editable fallback"
+      },
+      {
+        "type": "fix",
+        "description": "reset export state when user changes format or render mode"
+      },
+      {
+        "type": "fix",
+        "description": "resolve cascading export failures in Puppeteer and PDFKit paths"
+      },
+      {
+        "type": "fix",
+        "description": "revert networkidle0, use explicit image wait instead"
+      },
+      {
+        "type": "fix",
+        "description": "route DOCX/PPTX through proper renderers in WYSIWYG mode"
+      },
+      {
+        "type": "fix",
+        "description": "support TOC and citation anchor navigation in PDF/HTML exports"
+      },
+      {
+        "type": "fix",
+        "description": "white background for WYSIWYG HTML export"
+      },
+      {
+        "type": "fix",
+        "description": "graceful degradation when feishu_items table does not exist"
+      },
+      {
+        "type": "fix",
+        "description": "fix fail-open in embedding fallback paths (BUG-1 + WARN-1)"
+      },
+      {
+        "type": "fix",
+        "description": "fix 3 root causes for missing high-quality figures in reports"
+      },
+      {
+        "type": "fix",
+        "description": "fix academic figure type mis-classification and over-aggressive rejection"
+      },
+      {
+        "type": "fix",
+        "description": "fix 10 topic-insights report quality issues from production audit"
+      },
+      {
+        "type": "fix",
+        "description": "fix rate limit exhaustion caused by error message leaking as search query"
+      },
+      {
+        "type": "fix",
+        "description": "resolve type errors in store test fixtures"
+      },
+      {
+        "type": "fix",
+        "description": "add --insecure-http-parser to tolerate Railway CDN chunked encoding"
+      },
+      {
+        "type": "fix",
+        "description": "add @tiptap/core and @tiptap/pm as explicit dependencies"
+      },
+      {
+        "type": "fix",
+        "description": "add sharp as optional dependency for standalone image optimization"
+      },
+      {
+        "type": "fix",
+        "description": "add transpilePackages for tiptap v3 ESM resolution"
+      },
+      {
+        "type": "fix",
+        "description": "add webpack aliases for tiptap v3 module resolution"
+      },
+      {
+        "type": "fix",
+        "description": "fix html-capture recharts test with valid SVG structure"
+      },
+      {
+        "type": "fix",
+        "description": "fix url params not applied when searchParams null on first render"
+      },
+      {
+        "type": "fix",
+        "description": "override all [@tiptap](https://github.com/tiptap) transitive deps to 3.20.2"
+      },
+      {
+        "type": "fix",
+        "description": "pin tiptap to 3.20.2 — 3.20.3 published without dist/"
+      },
+      {
+        "type": "fix",
+        "description": "remove /api/v1 prefix from apiClient paths (double-prefix bug)"
+      },
+      {
+        "type": "fix",
+        "description": "resolve explore AI summary garbage, SSE stream hang, and slides theme improvements"
+      },
+      {
+        "type": "fix",
+        "description": "unify [@tiptap](https://github.com/tiptap) packages to ^3.15.3"
+      },
+      {
+        "type": "fix",
+        "description": "update architecture layer naming for consistency"
+      },
+      {
+        "type": "fix",
+        "description": "use !== undefined check for Promise-typed inFlight guard in creditsStore"
+      },
+      {
+        "type": "fix",
+        "description": "add skipGuardrails to chatStream and fix useResearchIdeas tests"
+      },
+      {
+        "type": "fix",
+        "description": "add HTML error break and expand DAN regex coverage"
+      },
+      {
+        "type": "fix",
+        "description": "add OpenAlex switch-case and raise input complexity thresholds"
+      },
+      {
+        "type": "fix",
+        "description": "propagate skipGuardrails through all ChatFacade call paths"
+      },
+      {
+        "type": "fix",
+        "description": "skip guardrails for internal AI-to-AI calls"
+      },
+      {
+        "type": "fix",
+        "description": "unwrap API response data before setting state"
+      },
+      {
+        "type": "fix",
+        "description": "add missing ReviewResultCard translation keys for quality review"
+      },
+      {
+        "type": "fix",
+        "description": "complete AI 团队 → AI 探讨 rename in zh.json"
+      },
+      {
+        "type": "fix",
+        "description": "detect junk titles from PDF query URLs (e.g. openreview.net/pdf?id=xxx)"
+      },
+      {
+        "type": "fix",
+        "description": "handle orphaned rawDataId when raw_data cleanup deletes referenced records"
+      },
+      {
+        "type": "fix",
+        "description": "user-provided title must override auto-parsed metadata"
+      },
+      {
+        "type": "fix",
+        "description": "enforce Redis auth and complete env documentation"
+      },
+      {
+        "type": "fix",
+        "description": "remove --single-process flag and increase DB pool timeout"
+      },
+      {
+        "type": "fix",
+        "description": "enforce 15min YouTube duration filter and fix dedup bugs"
+      },
+      {
+        "type": "fix",
+        "description": "add data-export-content='insights' to normal view tab container"
+      },
+      {
+        "type": "fix",
+        "description": "replace old export dropdown with unified export service"
+      },
+      {
+        "type": "fix",
+        "description": "add @Public() to OAuth callback endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "improve insight module detection for 洞察/analyse intents"
+      },
+      {
+        "type": "fix",
+        "description": "unwrap API response envelope in all 8 kernel admin pages"
+      },
+      {
+        "type": "fix",
+        "description": "inline calculateOverallProgress to break circular import"
+      },
+      {
+        "type": "fix",
+        "description": "cycle icon colors per card and remove batch delete"
+      },
+      {
+        "type": "fix",
+        "description": "match knowledge base card icons to team card style"
+      },
+      {
+        "type": "fix",
+        "description": "prevent knowledge base detail dialog flash on vectorize refresh"
+      },
+      {
+        "type": "fix",
+        "description": "replace emoji icons with Lucide icons on knowledge base cards"
+      },
+      {
+        "type": "fix",
+        "description": "use bolder icons with more visual weight for knowledge base cards"
+      },
+      {
+        "type": "fix",
+        "description": "remove unused VersionComparison import in version-diff test"
+      },
+      {
+        "type": "fix",
+        "description": "use npx -w workspace for cross-platform lint-staged"
+      },
+      {
+        "type": "fix",
+        "description": "demote expected billing fallback and skill-not-found to debug level"
+      },
+      {
+        "type": "fix",
+        "description": "add toolCount field to getDetailedStatus response"
+      },
+      {
+        "type": "fix",
+        "description": "convert guard exceptions to JSON-RPC error format"
+      },
+      {
+        "type": "fix",
+        "description": "fix crash on null response and ensure raw JSON-RPC output"
+      },
+      {
+        "type": "fix",
+        "description": "handle null response for JSON-RPC notifications"
+      },
+      {
+        "type": "fix",
+        "description": "resolve critical race condition, memory leak, and security issues"
+      },
+      {
+        "type": "fix",
+        "description": "return raw JSON-RPC responses without envelope wrapper"
+      },
+      {
+        "type": "fix",
+        "description": "guard createdAt?.toISOString() to handle missing mock field in tests"
+      },
+      {
+        "type": "fix",
+        "description": "overview stats display, 401 auth fixes, YouTube duration filter"
+      },
+      {
+        "type": "fix",
+        "description": "clean up persistedTraceIds on trace eviction"
+      },
+      {
+        "type": "fix",
+        "description": "add ContentAnalysisModule import to AIOfficeCommonModule"
+      },
+      {
+        "type": "fix",
+        "description": "update test to match corrected getApiKey(\"openalex-search\") call"
+      },
+      {
+        "type": "fix",
+        "description": "route /.well-known/agent.json correctly + fix SSE test timer leak"
+      },
+      {
+        "type": "fix",
+        "description": "improve orchestrator execution architecture for output quality"
+      },
+      {
+        "type": "fix",
+        "description": "strengthen Phase 1 to focus on problem decomposition not solutions"
+      },
+      {
+        "type": "fix",
+        "description": "register PLAN_READY and CANCELLED enum values in deploy script"
+      },
+      {
+        "type": "fix",
+        "description": "add SPA/CSR detection with Puppeteer fallback for reader mode"
+      },
+      {
+        "type": "fix",
+        "description": "improve SPA detection with stripped text length and redirect check"
+      },
+      {
+        "type": "fix",
+        "description": "remove domain whitelist from HTML proxy endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "rewrite relative URLs to absolute in proxied HTML"
+      },
+      {
+        "type": "fix",
+        "description": "support Railway private network URL via API_INTERNAL_URL env var"
+      },
+      {
+        "type": "fix",
+        "description": "use full page path for base tag instead of hostname only"
+      },
+      {
+        "type": "fix",
+        "description": "use original URL for Puppeteer fallback when redirect detected"
+      },
+      {
+        "type": "fix",
+        "description": "activate AgentConfig runtime, MCP tool proxy, and clean 84 any instances"
+      },
+      {
+        "type": "fix",
+        "description": "address P0/P1 issues found in AI App quality audit"
+      },
+      {
+        "type": "fix",
+        "description": "deep code review fixes across security, API, frontend, and CI/CD"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate 84+ any types across 6 backend production files"
+      },
+      {
+        "type": "fix",
+        "description": "fix checkTablesExist query that never returned false"
+      },
+      {
+        "type": "fix",
+        "description": "pgvector startup check + topic-insights:research billing rule"
+      },
+      {
+        "type": "fix",
+        "description": "add 5 missing FIG-N strip patterns in formatting pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "add deterministic post-processing for bold and ordinal bullet issues"
+      },
+      {
+        "type": "fix",
+        "description": "add prose-strong:text-blue-600 to ReportEditor — bold text now renders blue"
+      },
+      {
+        "type": "fix",
+        "description": "collapse consecutive dashes in heading slugs"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate purple body-bold and fix contradictory bold instructions"
+      },
+      {
+        "type": "fix",
+        "description": "fix 5 quality issues — telegram style, arxiv figures, blue bold, elapsed time ([959e080](https://github.com/your-org/ai-teams-engine/commit/959e080f1f8372d02d4d4ec1e67b74fcafa40d19)), closes [#2563](https://github.com/your-org/ai-teams-engine/issues/2563)"
+      },
+      {
+        "type": "fix",
+        "description": "fix fullReport completeness check dropping chart placeholders"
+      },
+      {
+        "type": "fix",
+        "description": "fix in-page TOC and footnote anchor navigation"
+      },
+      {
+        "type": "fix",
+        "description": "fix repairLatexCommands destroying nested \\text{} braces"
+      },
+      {
+        "type": "fix",
+        "description": "merge fragmented LaTeX formulas with misplaced $ delimiters"
+      },
+      {
+        "type": "fix",
+        "description": "protect existing math blocks in wrapInlineLatex"
+      },
+      {
+        "type": "fix",
+        "description": "proxy external figure images to avoid CORS/hotlink failures"
+      },
+      {
+        "type": "fix",
+        "description": "remove stripOrphanedChartComments from postProcessFinalReport"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 6 report rendering issues from full audit"
+      },
+      {
+        "type": "fix",
+        "description": "stop sanitizeReport from breaking LaTeX formulas + fix chapter view citation anchors"
+      },
+      {
+        "type": "fix",
+        "description": "use brace-counting for \\text{}} repair instead of lookbehind"
+      },
+      {
+        "type": "fix",
+        "description": "re-query insight IDs before createMany to prevent FK violation race condition"
+      },
+      {
+        "type": "fix",
+        "description": "add auth header to SSE stream and ensure DB migration runs"
+      },
+      {
+        "type": "fix",
+        "description": "add context size guardrails to iteration history injection"
+      },
+      {
+        "type": "fix",
+        "description": "add empty state for session history with no discussion messages"
+      },
+      {
+        "type": "fix",
+        "description": "add IterativeResearchService mock to controller tests"
+      },
+      {
+        "type": "fix",
+        "description": "add markdown formatting to all discussion phase prompts"
+      },
+      {
+        "type": "fix",
+        "description": "add SSE heartbeat and safe write to prevent proxy idle disconnect"
+      },
+      {
+        "type": "fix",
+        "description": "ai-powered idea extraction + multi-call report generation"
+      },
+      {
+        "type": "fix",
+        "description": "auto-correct stale discussion sessions stuck in intermediate states"
+      },
+      {
+        "type": "fix",
+        "description": "auto-detect background research on page load"
+      },
+      {
+        "type": "fix",
+        "description": "case-insensitive feasibility filter for creative ideas"
+      },
+      {
+        "type": "fix",
+        "description": "deep review fixes for AgentPanel, DiscussionChat, and history viewing"
+      },
+      {
+        "type": "fix",
+        "description": "distinguish single/iterative modes and fix premature exit"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate double report generation in synthesis phase"
+      },
+      {
+        "type": "fix",
+        "description": "extend recovery polling to 15 minutes to match synthesis timeout"
+      },
+      {
+        "type": "fix",
+        "description": "fix 8 critical issues in iterative research (P0+P1)"
+      },
+      {
+        "type": "fix",
+        "description": "fix broken connector lines in PhaseIndicator"
+      },
+      {
+        "type": "fix",
+        "description": "fix DB migration for discussion-driven research"
+      },
+      {
+        "type": "fix",
+        "description": "fix demos tab flickering caused by polling loop"
+      },
+      {
+        "type": "fix",
+        "description": "fix empty reports/ideas with timeout increase and recovery"
+      },
+      {
+        "type": "fix",
+        "description": "fix ideas extraction state management"
+      },
+      {
+        "type": "fix",
+        "description": "fix iteration data loss — sync discussion, ideas, and session status"
+      },
+      {
+        "type": "fix",
+        "description": "fix iteration data loss, session dedup, and context passing"
+      },
+      {
+        "type": "fix",
+        "description": "fix iteration score=0, data loss, and premature exit"
+      },
+      {
+        "type": "fix",
+        "description": "fix jsonb[] type mismatch and create research_memories table"
+      },
+      {
+        "type": "fix",
+        "description": "fix left panel and chat overflow with proper flex height chain"
+      },
+      {
+        "type": "fix",
+        "description": "fix project list parsing, ideas extraction, and report quality"
+      },
+      {
+        "type": "fix",
+        "description": "fix SSE parser losing events across TCP chunks"
+      },
+      {
+        "type": "fix",
+        "description": "fix SSE streaming and agent hexagon layout"
+      },
+      {
+        "type": "fix",
+        "description": "fix stale closure causing empty discussion history"
+      },
+      {
+        "type": "fix",
+        "description": "improve discussion output hierarchy and add team panel controls"
+      },
+      {
+        "type": "fix",
+        "description": "improve generate demo button UX with feedback and duplicate guard"
+      },
+      {
+        "type": "fix",
+        "description": "improve h3 heading styling and add missing i18n keys"
+      },
+      {
+        "type": "fix",
+        "description": "increase synthesis timeout to 8min and protect streaming"
+      },
+      {
+        "type": "fix",
+        "description": "limit insights to top 30 for creative idea extraction"
+      },
+      {
+        "type": "fix",
+        "description": "parallelize report section generation to prevent synthesis timeout"
+      },
+      {
+        "type": "fix",
+        "description": "prevent score regression, premature exit, and phantom sessions"
+      },
+      {
+        "type": "fix",
+        "description": "refactor left panel collapse to match AI Insights pattern"
+      },
+      {
+        "type": "fix",
+        "description": "remove checkbox syntax from gaps and make truncated lists expandable"
+      },
+      {
+        "type": "fix",
+        "description": "remove hardcoded English gap strings from iteration defaults"
+      },
+      {
+        "type": "fix",
+        "description": "rename mode column to research_mode to avoid PostgreSQL conflict"
+      },
+      {
+        "type": "fix",
+        "description": "render JSON directions as cards and fix layout overflow"
+      },
+      {
+        "type": "fix",
+        "description": "render report content as markdown with proper formatting"
+      },
+      {
+        "type": "fix",
+        "description": "show live discussion during iterative research"
+      },
+      {
+        "type": "fix",
+        "description": "skip guardrails for internal LLM calls to prevent false positives"
+      },
+      {
+        "type": "fix",
+        "description": "use text markers for citations in markdown rendering"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 37+ TS errors, fix critical bugs, update test suites"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 6 production issues from railway log monitoring ([6681b10](https://github.com/your-org/ai-teams-engine/commit/6681b10242950f3af4b0d4d7f5457d119cf83935)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1) [#2](https://github.com/your-org/ai-teams-engine/issues/2) [#4](https://github.com/your-org/ai-teams-engine/issues/4) [#6](https://github.com/your-org/ai-teams-engine/issues/6)"
+      },
+      {
+        "type": "fix",
+        "description": "resolve code review issues (P1/P3) and archive old doc"
+      },
+      {
+        "type": "fix",
+        "description": "resolve code review P1 issues"
+      },
+      {
+        "type": "fix",
+        "description": "resolve merge conflict markers in ai-engine-llm.module.ts"
+      },
+      {
+        "type": "fix",
+        "description": "resolve pre-push type-check errors"
+      },
+      {
+        "type": "fix",
+        "description": "restore broad signed URL filter to prevent Vision LLM rate limit exhaustion"
+      },
+      {
+        "type": "fix",
+        "description": "restore forwardRef in AdminModule to fix circular dependency crash"
+      },
+      {
+        "type": "fix",
+        "description": "address 13 issues found in deep code review"
+      },
+      {
+        "type": "fix",
+        "description": "address code review findings across planning, social, and MCP modules"
+      },
+      {
+        "type": "fix",
+        "description": "handle RSS guid as object instead of string"
+      },
+      {
+        "type": "fix",
+        "description": "persist enabled/interval config to database via SettingsService"
+      },
+      {
+        "type": "fix",
+        "description": "sync collection rules with actual data source categories"
+      },
+      {
+        "type": "fix",
+        "description": "fix key rotation bugs and MCP proxy timeout handling"
+      },
+      {
+        "type": "fix",
+        "description": "production log issues batch fix"
+      },
+      {
+        "type": "fix",
+        "description": "improve URL fetch robustness and reduce log noise"
+      },
+      {
+        "type": "fix",
+        "description": "pass filtered validKeys to getHealthyKey in key retry loop"
+      },
+      {
+        "type": "fix",
+        "description": "use 24h cooldown for quota-exhausted API keys instead of 5min"
+      },
+      {
+        "type": "fix",
+        "description": "add ACADEMIC, WEATHER, USER_DONATED categories to SecretForm"
+      },
+      {
+        "type": "fix",
+        "description": "critical security fixes and ui-iteration skill optimization"
+      },
+      {
+        "type": "fix",
+        "description": "patch 4 HIGH vulnerabilities found in ui-iteration"
+      },
+      {
+        "type": "fix",
+        "description": "patch IDOR in updateSubscription + fix fonts.ready wait + add tests"
+      },
+      {
+        "type": "fix",
+        "description": "resolve architecture audit findings - command injection, JWT security, DTO validation"
+      },
+      {
+        "type": "fix",
+        "description": "upgrade remotion 4.0.417→4.0.427 to fix webpack HIGH vulns"
+      },
+      {
+        "type": "fix",
+        "description": "add automatic skill usage logging to chatWithSkills for analytics"
+      },
+      {
+        "type": "fix",
+        "description": "add missing test mocks for new dependencies"
+      },
+      {
+        "type": "fix",
+        "description": "fallback to in-memory content when DB promptContent is null"
+      },
+      {
+        "type": "fix",
+        "description": "improve analytics dashboard color contrast"
+      },
+      {
+        "type": "fix",
+        "description": "prioritize additionalSkills over auto-matched skills in token budget"
+      },
+      {
+        "type": "fix",
+        "description": "rewrite dashboard to match admin light theme"
+      },
+      {
+        "type": "fix",
+        "description": "robust 3-tier content resolution for Prompt Editor"
+      },
+      {
+        "type": "fix",
+        "description": "add slidesMission mock to fix controller unit tests"
+      },
+      {
+        "type": "fix",
+        "description": "bypass LLM planning call, use fixed default task pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "enforce real FA icons, layout variety, clean cover, and 4 KPI cards ([6a943fe](https://github.com/your-org/ai-teams-engine/commit/6a943fe81df4ec0dd16dbe67f2cede4c711e1dc4)), closes [#16-19](https://github.com/your-org/ai-teams-engine/issues/16-19)"
+      },
+      {
+        "type": "fix",
+        "description": "fallback to checkpoint stateJson when mission.pages empty in chatEdit"
+      },
+      {
+        "type": "fix",
+        "description": "fix checkpoint restore - read-only GET endpoint, session title, empty state"
+      },
+      {
+        "type": "fix",
+        "description": "fix left panel layout clipping and button no-op feedback"
+      },
+      {
+        "type": "fix",
+        "description": "improve design system prompt and fix skill runtime issues"
+      },
+      {
+        "type": "fix",
+        "description": "regenerate button goes to gallery and opens new form"
+      },
+      {
+        "type": "fix",
+        "description": "remove broken audit skill calls in executeAuditPhase"
+      },
+      {
+        "type": "fix",
+        "description": "remove h-full from SlidesWorkspace root to fix layout clipping"
+      },
+      {
+        "type": "fix",
+        "description": "remove quality-audit from task plan, fix dependency-failed log"
+      },
+      {
+        "type": "fix",
+        "description": "resolve pre-existing TS errors blocking push"
+      },
+      {
+        "type": "fix",
+        "description": "resolve prompt SKILL.md not found at runtime"
+      },
+      {
+        "type": "fix",
+        "description": "restore workspace height by adding overflow-hidden to root"
+      },
+      {
+        "type": "fix",
+        "description": "show generation progress in left panel during generating"
+      },
+      {
+        "type": "fix",
+        "description": "strip redundant data from PromptSkillAdapter user message"
+      },
+      {
+        "type": "fix",
+        "description": "sync mission.pages on checkpoint restore for chatEdit"
+      },
+      {
+        "type": "fix",
+        "description": "tighten design system prompt for title brevity and visual balance"
+      },
+      {
+        "type": "fix",
+        "description": "unwrap double-nested data in useChatEdit response"
+      },
+      {
+        "type": "fix",
+        "description": "wire regenerate button to back-to-gallery navigation"
+      },
+      {
+        "type": "fix",
+        "description": "resolve XHS type errors and increase proxy timeout"
+      },
+      {
+        "type": "fix",
+        "description": "enrich explore source selector with thumbnails, descriptions, and type badges"
+      },
+      {
+        "type": "fix",
+        "description": "fix verifyConnection test failure in NODE_ENV=test environment"
+      },
+      {
+        "type": "fix",
+        "description": "implement actual WeChat mass send + fix content injection and API matching"
+      },
+      {
+        "type": "fix",
+        "description": "overhaul publishing pipeline with 8 critical fixes"
+      },
+      {
+        "type": "fix",
+        "description": "skip xiaohongshu MCP registration when XHS_MCP_URL not set"
+      },
+      {
+        "type": "fix",
+        "description": "update test for single atomic create in processUrl"
+      },
+      {
+        "type": "fix",
+        "description": "system optimization - LaTeX preservation, ArXiv rate limiting, log noise reduction"
+      },
+      {
+        "type": "fix",
+        "description": "add VACUUM after cleanup to reclaim disk space"
+      },
+      {
+        "type": "fix",
+        "description": "calculate actual cleanable space instead of hardcoded 30% estimate"
+      },
+      {
+        "type": "fix",
+        "description": "include stuck PROCESSING/EXECUTING/PENDING in cleanup policies"
+      },
+      {
+        "type": "fix",
+        "description": "exclude planning topics from teams list and add playwright"
+      },
+      {
+        "type": "fix",
+        "description": "handle nullable metadata in planning topic exclusion filter"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 49 chronic mcp-server test failures and remove hardcoded model names"
+      },
+      {
+        "type": "fix",
+        "description": "add mcp-server to test:quick ignore list for pre-existing timeout failures"
+      },
+      {
+        "type": "fix",
+        "description": "correct test expectations for review stats and API key rotation"
+      },
+      {
+        "type": "fix",
+        "description": "fix 5 failing frontend test files"
+      },
+      {
+        "type": "fix",
+        "description": "fix flaky search service test and improve pre-push hook debugging"
+      },
+      {
+        "type": "fix",
+        "description": "fix OpenAlex test to match dynamic mailto from getApiKey"
+      },
+      {
+        "type": "fix",
+        "description": "repair 4 test suites broken by audit changes"
+      },
+      {
+        "type": "fix",
+        "description": "resolve unhandled rejection in fetchEvidence test"
+      },
+      {
+        "type": "fix",
+        "description": "restore IMAGE_MODELS import removed by lint fix"
+      },
+      {
+        "type": "fix",
+        "description": "fix 5 broken test suites across topic-insights, skills, billing"
+      },
+      {
+        "type": "fix",
+        "description": "increase tolerance for timezone-sensitive date assertions"
+      },
+      {
+        "type": "fix",
+        "description": "skip broken frontend test (no jest config for frontend)"
+      },
+      {
+        "type": "fix",
+        "description": "update architecture test to match actual aiEngine layer cards"
+      },
+      {
+        "type": "fix",
+        "description": "sync brand config test mocks + add new DI mocks for coordinator tests"
+      },
+      {
+        "type": "fix",
+        "description": "update architecture test expectations for L2↔L3 swap"
+      },
+      {
+        "type": "fix",
+        "description": "update stale test expectations for brand name and empty response"
+      },
+      {
+        "type": "fix",
+        "description": "use getAttribute instead of .src/.alt in ModelBadge test"
+      },
+      {
+        "type": "fix",
+        "description": "add .unref() to all module-level timers and fix floating promises"
+      },
+      {
+        "type": "fix",
+        "description": "400/401/403 errors incorrectly triggering 24h key cooldown"
+      },
+      {
+        "type": "fix",
+        "description": "add missing openalex/arxiv/hackernews to EXTERNAL_TOOL_DEFINITIONS"
+      },
+      {
+        "type": "fix",
+        "description": "image search keys cross-contaminating + add unlink button"
+      },
+      {
+        "type": "fix",
+        "description": "image search tools not persisting secret key after save"
+      },
+      {
+        "type": "fix",
+        "description": "prevent unlink from overwriting legacy API keys with empty string"
+      },
+      {
+        "type": "fix",
+        "description": "remove hardcoded secretKeyName, use category-based secret matching"
+      },
+      {
+        "type": "fix",
+        "description": "resolve chart parse, skill validation, memory P2021, credits timeout"
+      },
+      {
+        "type": "fix",
+        "description": "production log issues batch fix"
+      },
+      {
+        "type": "fix",
+        "description": "code review fixes — guard empty body + remove duplicate CSS rule"
+      },
+      {
+        "type": "fix",
+        "description": "fix base64 figure placeholder URLs and add i18n fallbacks"
+      },
+      {
+        "type": "fix",
+        "description": "3 generalized report rendering fixes"
+      },
+      {
+        "type": "fix",
+        "description": "4 generalized report rendering fixes for frontend compatibility"
+      },
+      {
+        "type": "fix",
+        "description": "add additionalProperties: false to all structured output schemas"
+      },
+      {
+        "type": "fix",
+        "description": "add confirmation before generating public share link"
+      },
+      {
+        "type": "fix",
+        "description": "add CritiqueRefineService mock to orchestrator test"
+      },
+      {
+        "type": "fix",
+        "description": "add CritiqueRefineService mock to supplemental orchestrator tests"
+      },
+      {
+        "type": "fix",
+        "description": "add diagnostic logs to trace dimension content loss"
+      },
+      {
+        "type": "fix",
+        "description": "add dimension count diagnostics at each pipeline stage"
+      },
+      {
+        "type": "fix",
+        "description": "add EVENT case to getDefaultDimensionsByType"
+      },
+      {
+        "type": "fix",
+        "description": "add final report dimension loss diagnostic before DB write"
+      },
+      {
+        "type": "fix",
+        "description": "add getDefaultModelByType mock to figure-relevance test"
+      },
+      {
+        "type": "fix",
+        "description": "add hard rules against bold-only lines and raw keyPoints lists"
+      },
+      {
+        "type": "fix",
+        "description": "add in-place highlights normalization to postProcessFinalReport"
+      },
+      {
+        "type": "fix",
+        "description": "add industry-report to leader planning prompt"
+      },
+      {
+        "type": "fix",
+        "description": "add isValidFigureUrl check in validateAllocatedFigures"
+      },
+      {
+        "type": "fix",
+        "description": "add missing DI mocks in dimension-writing tests"
+      },
+      {
+        "type": "fix",
+        "description": "add missing mock methods in mission.controller.spec"
+      },
+      {
+        "type": "fix",
+        "description": "add null guard for evidence response in fetchEvidence"
+      },
+      {
+        "type": "fix",
+        "description": "add numbering and bold labels to risk/opportunity overview"
+      },
+      {
+        "type": "fix",
+        "description": "add Quick View button to actual report toolbar"
+      },
+      {
+        "type": "fix",
+        "description": "add ReportQualityTraceService mock to synthesis test"
+      },
+      {
+        "type": "fix",
+        "description": "add ReportQualityTraceService mock to test module"
+      },
+      {
+        "type": "fix",
+        "description": "add safety net for fullReport truncation in synthesis"
+      },
+      {
+        "type": "fix",
+        "description": "add throughput awareness to data source planner ([05a267a](https://github.com/your-org/ai-teams-engine/commit/05a267abed611373d53227fe39888e2f39ea62f3)), closes [#5](https://github.com/your-org/ai-teams-engine/issues/5)"
+      },
+      {
+        "type": "fix",
+        "description": "add void prefix to 12 fire-and-forget promises"
+      },
+      {
+        "type": "fix",
+        "description": "additional safety guards and test fixes for audit findings"
+      },
+      {
+        "type": "fix",
+        "description": "align emitAgentWorking progress with stage-aware ranges"
+      },
+      {
+        "type": "fix",
+        "description": "align paragraph counting with injectChartsByPosition"
+      },
+      {
+        "type": "fix",
+        "description": "align task progress between list view and detail panel"
+      },
+      {
+        "type": "fix",
+        "description": "apply isValidFigureUrl to report-data collectAllCharts"
+      },
+      {
+        "type": "fix",
+        "description": "auto-prepend fallback 核心判断 when model omits Direction B opening"
+      },
+      {
+        "type": "fix",
+        "description": "bilingual search queries and quality review revision"
+      },
+      {
+        "type": "fix",
+        "description": "bilingual search, circuit breaker isolation, and rag-fusion crash fix"
+      },
+      {
+        "type": "fix",
+        "description": "block-level ordinal bullet stripping + fix rehypeRaw import"
+      },
+      {
+        "type": "fix",
+        "description": "bold only for core arguments; raise figure visibility to Leader"
+      },
+      {
+        "type": "fix",
+        "description": "build 5-layer image defense net and fix LaTeX rendering"
+      },
+      {
+        "type": "fix",
+        "description": "bypass isToolEnabled check for industry-report adapter"
+      },
+      {
+        "type": "fix",
+        "description": "classifyFigureType now returns \"photo\" for non-chart images"
+      },
+      {
+        "type": "fix",
+        "description": "code review — regex safety and evidence filter cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "coerce fig.id to string before calling startsWith"
+      },
+      {
+        "type": "fix",
+        "description": "complete iron wall coverage for all pipeline stages"
+      },
+      {
+        "type": "fix",
+        "description": "complete skill naming kebab-case migration"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive fixes for 8 runtime issues"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive report quality fixes addressing 30 rendering and formatting issues"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive report quality fixes addressing citation, LaTeX, and formatting issues"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive report quality fixes and reference cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive report quality fixes for 14 rendering/structural issues"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive report rendering fixes for 7 issues"
+      },
+      {
+        "type": "fix",
+        "description": "consistent section style + strip word count from keyFindings"
+      },
+      {
+        "type": "fix",
+        "description": "context menu only shows on right-click, not left-click selection"
+      },
+      {
+        "type": "fix",
+        "description": "convert figure positions from section-local to dimension-global"
+      },
+      {
+        "type": "fix",
+        "description": "convert plain numbered items to bullets under hierarchical headings"
+      },
+      {
+        "type": "fix",
+        "description": "correct i18n key for insights team panel title"
+      },
+      {
+        "type": "fix",
+        "description": "correct misplaced jsdoc for numberSubHeadings and resolveChartPlaceholders"
+      },
+      {
+        "type": "fix",
+        "description": "dedup recovered charts by URL and apply keyword filter to auto-injected figures"
+      },
+      {
+        "type": "fix",
+        "description": "deduplicate figures across dimensions to eliminate repeated images"
+      },
+      {
+        "type": "fix",
+        "description": "delete dead services and fix floating promise"
+      },
+      {
+        "type": "fix",
+        "description": "demote citation_concentration from error to warning"
+      },
+      {
+        "type": "fix",
+        "description": "differentiate dimension planning by topic type (MACRO/TECHNOLOGY/COMPANY)"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate bare keyPoints, fix 8 leak patterns"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate reportId race condition by chaining evidence fetch"
+      },
+      {
+        "type": "fix",
+        "description": "enforce ai-infra facade boundary for SecretsService imports"
+      },
+      {
+        "type": "fix",
+        "description": "exempt data: URIs from URL length check in isGarbageFigureUrl"
+      },
+      {
+        "type": "fix",
+        "description": "fast-fail mission on insufficient credits"
+      },
+      {
+        "type": "fix",
+        "description": "filter SVG from Vision API while preserving semantic eval"
+      },
+      {
+        "type": "fix",
+        "description": "filter unsupported image formats before Vision API call"
+      },
+      {
+        "type": "fix",
+        "description": "fix 0 tokens/calls and add model timeline chart"
+      },
+      {
+        "type": "fix",
+        "description": "fix 10 report quality issues for LaTeX, citations, images"
+      },
+      {
+        "type": "fix",
+        "description": "fix 12 report content quality issues"
+      },
+      {
+        "type": "fix",
+        "description": "fix 12 report quality issues with root-cause pipeline fixes"
+      },
+      {
+        "type": "fix",
+        "description": "fix 13 chapter view issues — images, formatting, citations, content"
+      },
+      {
+        "type": "fix",
+        "description": "fix 3 report quality issues from production data audit"
+      },
+      {
+        "type": "fix",
+        "description": "fix 4 chapter view content issues — bullets, ordinals, LaTeX, chart position"
+      },
+      {
+        "type": "fix",
+        "description": "fix 4 more report quality issues ([c2e9742](https://github.com/your-org/ai-teams-engine/commit/c2e9742ebdafbdb67bc1ebb13476c99775b2e6a5)), closes [#6](https://github.com/your-org/ai-teams-engine/issues/6) [#8](https://github.com/your-org/ai-teams-engine/issues/8) [#13](https://github.com/your-org/ai-teams-engine/issues/13) [#24](https://github.com/your-org/ai-teams-engine/issues/24)"
+      },
+      {
+        "type": "fix",
+        "description": "fix 4 report quality issues from production scan"
+      },
+      {
+        "type": "fix",
+        "description": "fix 5 report view issues — scroll, charts, bullets, word count, quick view"
+      },
+      {
+        "type": "fix",
+        "description": "fix 5 root causes of report structure collapse"
+      },
+      {
+        "type": "fix",
+        "description": "fix 6 report quality issues with minimal approach"
+      },
+      {
+        "type": "fix",
+        "description": "fix 7 report quality issues from deep analysis"
+      },
+      {
+        "type": "fix",
+        "description": "fix ACADEMIC tool availability check in search orchestrator"
+      },
+      {
+        "type": "fix",
+        "description": "fix arrow corruption, add HTML comment/citation dedup cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "fix bare keyPoints, citation stacking, double headings"
+      },
+      {
+        "type": "fix",
+        "description": "fix bare keyPoints, citation stacking, JSON cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "fix bare LaTeX wrapping threshold and filter invalid chart URLs"
+      },
+      {
+        "type": "fix",
+        "description": "fix bold color, strip bullets, normalize transition headings"
+      },
+      {
+        "type": "fix",
+        "description": "fix completion time, model unknown, and model backfill"
+      },
+      {
+        "type": "fix",
+        "description": "fix dialog width, status badge wrapping, and figure JSON leak"
+      },
+      {
+        "type": "fix",
+        "description": "fix dimension loss caused by cross-dimension paragraph dedup"
+      },
+      {
+        "type": "fix",
+        "description": "fix dimension loss caused by LaTeX bracket regex"
+      },
+      {
+        "type": "fix",
+        "description": "fix EVALUATOR model fallback — use CHAT modelType when falling back to CHAT model"
+      },
+      {
+        "type": "fix",
+        "description": "fix evidence linking, status update, and JSON cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "fix figure index mismatch causing zero figures in reports"
+      },
+      {
+        "type": "fix",
+        "description": "fix figure pipeline — bypass keyword filter for Leader charts"
+      },
+      {
+        "type": "fix",
+        "description": "fix figure pipeline bugs, report formatting, and quality gates"
+      },
+      {
+        "type": "fix",
+        "description": "fix figure-content mismatch and LaTeX fragmentation in reports"
+      },
+      {
+        "type": "fix",
+        "description": "fix figure-source mismatch — arxiv relative URL + supplement attribution"
+      },
+      {
+        "type": "fix",
+        "description": "fix figure/source mismatch by using citationIndex as map key"
+      },
+      {
+        "type": "fix",
+        "description": "fix hardcoded 30% progress in dimension-research executor"
+      },
+      {
+        "type": "fix",
+        "description": "fix hardcoded strings and lint issues in ComputeUsageTab"
+      },
+      {
+        "type": "fix",
+        "description": "fix heading hierarchy, numbering, dedup, and meta-notes"
+      },
+      {
+        "type": "fix",
+        "description": "fix infinite scroll and beautify research depth selector"
+      },
+      {
+        "type": "fix",
+        "description": "fix irrelevant image injection with 3-layer relevance enforcement"
+      },
+      {
+        "type": "fix",
+        "description": "fix LaTeX delimiter repair and bold enumeration"
+      },
+      {
+        "type": "fix",
+        "description": "fix LaTeX formula corruption caused by optional-backslash bracket regex"
+      },
+      {
+        "type": "fix",
+        "description": "fix LaTeX rendering — nested braces, orphaned slots, bare expression wrapping"
+      },
+      {
+        "type": "fix",
+        "description": "fix leader chat 400 error and improve error messages"
+      },
+      {
+        "type": "fix",
+        "description": "fix misplaced JSDoc comment on reviewResearchQuality"
+      },
+      {
+        "type": "fix",
+        "description": "fix P0/P1 issues from quality audit"
+      },
+      {
+        "type": "fix",
+        "description": "fix quality review badge showing needsRevision for passing scores"
+      },
+      {
+        "type": "fix",
+        "description": "fix report structural formatting root causes"
+      },
+      {
+        "type": "fix",
+        "description": "fix section granularity, bold formatting, and figure filtering"
+      },
+      {
+        "type": "fix",
+        "description": "fix Semantic Scholar 429, extractClaims logging, and review data mismatch"
+      },
+      {
+        "type": "fix",
+        "description": "fix stale reportId race condition when switching topics"
+      },
+      {
+        "type": "fix",
+        "description": "fix standalone 无 leak and broken LaTeX $$$"
+      },
+      {
+        "type": "fix",
+        "description": "fix standalone 无 leak and broken LaTeX $$$"
+      },
+      {
+        "type": "fix",
+        "description": "fix triple-filter cascade killing all report figures"
+      },
+      {
+        "type": "fix",
+        "description": "fix Vision API AVIF/HEIC rejection and OVERSIZED REQUEST (v15)"
+      },
+      {
+        "type": "fix",
+        "description": "fix Vision schema — strictMode=false so 'reason' can be optional"
+      },
+      {
+        "type": "fix",
+        "description": "guard missing executionPlan + add FIG-N strip patterns"
+      },
+      {
+        "type": "fix",
+        "description": "handle h4-before-h3 in numberSubHeadings"
+      },
+      {
+        "type": "fix",
+        "description": "handle indented bullets + preserve paragraph breaks"
+      },
+      {
+        "type": "fix",
+        "description": "handle LLM-leaked base64 placeholder URLs in figure pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "harden report formatting, bold auto-limit, and expand test coverage"
+      },
+      {
+        "type": "fix",
+        "description": "hide input/output subtext when both are 0"
+      },
+      {
+        "type": "fix",
+        "description": "image URL validation, cross-section dedup, and quality review persistence"
+      },
+      {
+        "type": "fix",
+        "description": "improve figure quality by filtering blog decorations and prioritizing credible sources"
+      },
+      {
+        "type": "fix",
+        "description": "improve figure URL backfill, caption cleanup, export footer"
+      },
+      {
+        "type": "fix",
+        "description": "improve logging, billing context, and polling frequency"
+      },
+      {
+        "type": "fix",
+        "description": "improve report quality, collaboration UX, and citation rendering"
+      },
+      {
+        "type": "fix",
+        "description": "improve source ranking, figure quality, and review format"
+      },
+      {
+        "type": "fix",
+        "description": "improve Vision fallback to keep captioned photos on failure"
+      },
+      {
+        "type": "fix",
+        "description": "increase description character limit from 10k to 50k"
+      },
+      {
+        "type": "fix",
+        "description": "increase saveEvidence transaction timeout to 120s"
+      },
+      {
+        "type": "fix",
+        "description": "inline figure/chart placement with numbering, remove standalone section"
+      },
+      {
+        "type": "fix",
+        "description": "inline word-count stripping and audit false-positive fixes"
+      },
+      {
+        "type": "fix",
+        "description": "integrate industry-report into main research pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "lower validateAllocatedFigures threshold for long captions"
+      },
+      {
+        "type": "fix",
+        "description": "migrate reviseSection to chatWithSkills and fix review findings"
+      },
+      {
+        "type": "fix",
+        "description": "move iron wall before chart position resolution"
+      },
+      {
+        "type": "fix",
+        "description": "normalize bold enumeration commas and strip verbose bold leads"
+      },
+      {
+        "type": "fix",
+        "description": "only extract images with meaningful captions"
+      },
+      {
+        "type": "fix",
+        "description": "overhaul figure pipeline — GET+Range validation, strict rejection, no base64"
+      },
+      {
+        "type": "fix",
+        "description": "p0 audit fixes — missionId index, ws rate limit, cors hardening"
+      },
+      {
+        "type": "fix",
+        "description": "pass topicLanguage in dimension-writing writeInputs and reviseSection"
+      },
+      {
+        "type": "fix",
+        "description": "persist modelUsed in dimension_analyses for per-chapter evaluation"
+      },
+      {
+        "type": "fix",
+        "description": "prevent base64 data URL injection into LLM prompts and add safety guards"
+      },
+      {
+        "type": "fix",
+        "description": "prevent extractFinalConclusion from stripping conclusion content"
+      },
+      {
+        "type": "fix",
+        "description": "prevent orphaned tasks on mission execution failure"
+      },
+      {
+        "type": "fix",
+        "description": "prevent sub-topics from being split into separate ### sections"
+      },
+      {
+        "type": "fix",
+        "description": "quality gate enhancements, OL repair, LaTeX expansion, and test coverage"
+      },
+      {
+        "type": "fix",
+        "description": "query all executing tasks in health check, not just top 5"
+      },
+      {
+        "type": "fix",
+        "description": "raise citation coverage threshold from 2 to 100 unique sources"
+      },
+      {
+        "type": "fix",
+        "description": "rebuild continuous view from dimensionAnalyses when fullReport is truncated"
+      },
+      {
+        "type": "fix",
+        "description": "recover all EXECUTING missions on startup without threshold"
+      },
+      {
+        "type": "fix",
+        "description": "recover orphan chart placeholders and validate figure URLs before injection"
+      },
+      {
+        "type": "fix",
+        "description": "redesign figure captions and add report cleanup patterns"
+      },
+      {
+        "type": "fix",
+        "description": "reduce Vision image size limit to 100KB to stop OVERSIZED retry storm"
+      },
+      {
+        "type": "fix",
+        "description": "refactor figure pipeline to figureId registry + fix LaTeX rendering chain"
+      },
+      {
+        "type": "fix",
+        "description": "reject SVG images in figure validation pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "relax isLikelyChart filter to pass figures with meaningful captions"
+      },
+      {
+        "type": "fix",
+        "description": "remove chapter highlights, add H3 limit, fix fallback logging"
+      },
+      {
+        "type": "fix",
+        "description": "remove old QualityProbePanel, add language-adaptive evaluation"
+      },
+      {
+        "type": "fix",
+        "description": "rename team label, fix duration, merge undersized sections"
+      },
+      {
+        "type": "fix",
+        "description": "render quality review results and enable phase nav click-to-scroll"
+      },
+      {
+        "type": "fix",
+        "description": "render reference figures in shared report view"
+      },
+      {
+        "type": "fix",
+        "description": "renumber bold list items under all headings, not just demoted ones"
+      },
+      {
+        "type": "fix",
+        "description": "renumberHeadings handles demoted #### N.M. headings and bold lists"
+      },
+      {
+        "type": "fix",
+        "description": "replace blunt bullet-stripping with semantic list/prose distinction"
+      },
+      {
+        "type": "fix",
+        "description": "replace broken IIFE expression with proper handler in DAG workflow"
+      },
+      {
+        "type": "fix",
+        "description": "replace in-process mutex with Redis distributed lock for citationIndex safety"
+      },
+      {
+        "type": "fix",
+        "description": "replace wrapBareLatex with mergeAdjacentMathBlocks to fix 15 KaTeX errors"
+      },
+      {
+        "type": "fix",
+        "description": "replace ZWSP bold hack with direct HTML strong tags"
+      },
+      {
+        "type": "fix",
+        "description": "report quality audit — 6 root cause fixes"
+      },
+      {
+        "type": "fix",
+        "description": "report quality audit [#2](https://github.com/your-org/ai-teams-engine/issues/2) — 7 root cause fixes"
+      },
+      {
+        "type": "fix",
+        "description": "report quality audit [#3](https://github.com/your-org/ai-teams-engine/issues/3) — LaTeX pipeline, figure source, image quality"
+      },
+      {
+        "type": "fix",
+        "description": "report quality audit fixes — KaTeX, bold, source, highlights, word count"
+      },
+      {
+        "type": "fix",
+        "description": "report quality audit fixes — KaTeX, bold, source, highlights, word count"
+      },
+      {
+        "type": "fix",
+        "description": "reset downstream tasks on new dimension and update skill docs"
+      },
+      {
+        "type": "fix",
+        "description": "reset stale progress when starting new research"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 15 production issues from Railway log monitoring"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 4 additional report quality issues"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 4 report rendering issues - LaTeX, figures, bullets, hierarchy ([00fd219](https://github.com/your-org/ai-teams-engine/commit/00fd219d815e000d075743607abe91b8219b52fa)), closes [#56](https://github.com/your-org/ai-teams-engine/issues/56) [#57](https://github.com/your-org/ai-teams-engine/issues/57) [#58](https://github.com/your-org/ai-teams-engine/issues/58) [#59](https://github.com/your-org/ai-teams-engine/issues/59)"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 6 audit issues (P1/P2/P3)"
+      },
+      {
+        "type": "fix",
+        "description": "resolve FK race, prompt overflow, and guardrails blocking"
+      },
+      {
+        "type": "fix",
+        "description": "resolve report stuck + format rendering bugs"
+      },
+      {
+        "type": "fix",
+        "description": "resolve type errors in leader-planning quota detection"
+      },
+      {
+        "type": "fix",
+        "description": "restore ReactMarkdown for quick view executive summary"
+      },
+      {
+        "type": "fix",
+        "description": "reverse image pipeline from aggressive rejection to prefer-keep"
+      },
+      {
+        "type": "fix",
+        "description": "revert citation threshold to 3, fix backfill-figures tests"
+      },
+      {
+        "type": "fix",
+        "description": "rewrite stripSectionOpeningShortLines to fix 2 bugs"
+      },
+      {
+        "type": "fix",
+        "description": "rewrite Vision filter — individual processing + concurrency semaphore"
+      },
+      {
+        "type": "fix",
+        "description": "root cause fix for report having too few images ([e4e38bc](https://github.com/your-org/ai-teams-engine/commit/e4e38bc6d76d95502697891867dc11138e2d62d7)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1)"
+      },
+      {
+        "type": "fix",
+        "description": "root cause fixes for 3 systemic report rendering issues"
+      },
+      {
+        "type": "fix",
+        "description": "root cause fixes for 5 runtime warnings"
+      },
+      {
+        "type": "fix",
+        "description": "root cause fixes for 5 runtime warnings"
+      },
+      {
+        "type": "fix",
+        "description": "root cause fixes for duplicate 结语 and heading citations"
+      },
+      {
+        "type": "fix",
+        "description": "round review scores to avoid long decimals like 91.714.../100"
+      },
+      {
+        "type": "fix",
+        "description": "scrollbar regression, missing guards, and CORS bypass"
+      },
+      {
+        "type": "fix",
+        "description": "serialize per-source queries to reduce ArXiv 429 rate limiting"
+      },
+      {
+        "type": "fix",
+        "description": "serialize saveEvidence per-report to prevent citationIndex race condition"
+      },
+      {
+        "type": "fix",
+        "description": "shared stripProseBullets for both views, cover bold markers"
+      },
+      {
+        "type": "fix",
+        "description": "show all key findings and strip word count from todo detail"
+      },
+      {
+        "type": "fix",
+        "description": "split inline bold enumeration into list items"
+      },
+      {
+        "type": "fix",
+        "description": "stop filtering base64 figure URLs as garbage in report assembler"
+      },
+      {
+        "type": "fix",
+        "description": "strengthen ** stripping and chart Source backfill"
+      },
+      {
+        "type": "fix",
+        "description": "strengthen prompts and add post-processing for 7 report quality issues"
+      },
+      {
+        "type": "fix",
+        "description": "strip bold from enumeration markers entirely"
+      },
+      {
+        "type": "fix",
+        "description": "strip Gemini-format chapter highlights and enforce inline bold"
+      },
+      {
+        "type": "fix",
+        "description": "strip GPT opening short-line blocks + show figuresUsed per dimension"
+      },
+      {
+        "type": "fix",
+        "description": "strip leaked internal figure/evidence notation from report content"
+      },
+      {
+        "type": "fix",
+        "description": "strip leaked internal notation + reject non-research figures"
+      },
+      {
+        "type": "fix",
+        "description": "strip ordinal bullets at render time for legacy data"
+      },
+      {
+        "type": "fix",
+        "description": "strip section summary bullets + fix share page text"
+      },
+      {
+        "type": "fix",
+        "description": "structural bullet stripping + fix CJK bold rendering"
+      },
+      {
+        "type": "fix",
+        "description": "sync enableAiQualityReview toggle to research-mission.service"
+      },
+      {
+        "type": "fix",
+        "description": "sync ResearchTask.progress in emitDimensionResearchProgress"
+      },
+      {
+        "type": "fix",
+        "description": "sync store after visibility change so UI updates without reload"
+      },
+      {
+        "type": "fix",
+        "description": "systematic rendering fixes for chapter and continuous views"
+      },
+      {
+        "type": "fix",
+        "description": "systemic overhaul of data collection pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "task retry scheduling — 3 bugs causing stuck tasks and false completion"
+      },
+      {
+        "type": "fix",
+        "description": "tighten JSON heading filter and caption exclusion"
+      },
+      {
+        "type": "fix",
+        "description": "unify chapter and continuous view rendering consistency"
+      },
+      {
+        "type": "fix",
+        "description": "unify continuous view references with chapter view React style"
+      },
+      {
+        "type": "fix",
+        "description": "unify evidence index system for figure allocation and backfill"
+      },
+      {
+        "type": "fix",
+        "description": "unify figure source display and fix report formatting"
+      },
+      {
+        "type": "fix",
+        "description": "unify language detection in i18n writing standards"
+      },
+      {
+        "type": "fix",
+        "description": "unify reference format and upgrade card/reference styles"
+      },
+      {
+        "type": "fix",
+        "description": "unify skill names to kebab-case and restore debug log level"
+      },
+      {
+        "type": "fix",
+        "description": "update evidence-summary tests for photo caption v11"
+      },
+      {
+        "type": "fix",
+        "description": "update supplemental3 test for cancelMission FK race fix"
+      },
+      {
+        "type": "fix",
+        "description": "upgrade orphaned bold section headers to ### headings"
+      },
+      {
+        "type": "fix",
+        "description": "use citationIndex from evidence instead of array index"
+      },
+      {
+        "type": "fix",
+        "description": "use dimension sortOrder for chapter numbering"
+      },
+      {
+        "type": "fix",
+        "description": "use string literals instead of Prisma enum in framework-skills config"
+      },
+      {
+        "type": "fix",
+        "description": "v10 type-aware figure filtering — reject decorative photos, keep informational charts"
+      },
+      {
+        "type": "fix",
+        "description": "v14 proxy image via Railway base64 to bypass CDN blocks on Vision API"
+      },
+      {
+        "type": "fix",
+        "description": "v14 proxy image via Railway base64 to bypass CDN blocks on Vision API"
+      },
+      {
+        "type": "fix",
+        "description": "widen report_synthesis task query in revision handler"
+      },
+      {
+        "type": "fix",
+        "description": "wysiwyg export fallback, executive summary dedup, unified section numbering"
+      },
+      {
+        "type": "fix",
+        "description": "exclude spec files from backend type-check; revert character dto"
+      },
+      {
+        "type": "fix",
+        "description": "bold text black + strip short citation lines (v2 rewrite) ([d831bde](https://github.com/your-org/ai-teams-engine/commit/d831bde4119488fad2802e8aa6aeae967a16d496)), closes [#111827](https://github.com/your-org/ai-teams-engine/issues/111827)"
+      },
+      {
+        "type": "fix",
+        "description": "add prominent regeneration overlay when report is being regenerated"
+      },
+      {
+        "type": "fix",
+        "description": "citation badge font 10px + remove blue color override on strong"
+      },
+      {
+        "type": "fix",
+        "description": "enhance logo visibility and fix version auto-bump"
+      },
+      {
+        "type": "fix",
+        "description": "enlarge sidebar logo and improve text alignment"
+      },
+      {
+        "type": "fix",
+        "description": "fallback to main-thread mermaid when CDN importScripts fails"
+      },
+      {
+        "type": "fix",
+        "description": "fix 3 production bugs - export wysiwyg, related research error, snippet quality"
+      },
+      {
+        "type": "fix",
+        "description": "fix data source connection status and export white background"
+      },
+      {
+        "type": "fix",
+        "description": "increase spacing between logo and nav in Sidebar"
+      },
+      {
+        "type": "fix",
+        "description": "make notification cards clickable and add What's New to sidebar"
+      },
+      {
+        "type": "fix",
+        "description": "move changelog link to header version badge, remove sidebar item"
+      },
+      {
+        "type": "fix",
+        "description": "remove debug console.log and fix remaining emoji violations"
+      },
+      {
+        "type": "fix",
+        "description": "replace all direct JSX emoji with Lucide icons (ISSUE-004)"
+      },
+      {
+        "type": "fix",
+        "description": "restore blue bold text with purple underline in prose reports"
+      },
+      {
+        "type": "fix",
+        "description": "update initial notifications with useful actionUrls"
+      },
+      {
+        "type": "fix",
+        "description": "replace all alert() with toast, fix dead /login redirects, add admin URL redirects"
+      },
+      {
+        "type": "fix",
+        "description": "add debug endpoint for analysis-dashboard 500 diagnosis"
+      },
+      {
+        "type": "fix",
+        "description": "deep flatten world settings and harden analysis dashboard"
+      },
+      {
+        "type": "fix",
+        "description": "fix premise [object Object] and harden analysis dashboard"
+      },
+      {
+        "type": "fix",
+        "description": "prevent frontend stuck detection during long LLM calls"
+      },
+      {
+        "type": "fix",
+        "description": "readable world settings + graceful analysis dashboard"
+      },
+      {
+        "type": "fix",
+        "description": "remove LLM calls from analysis dashboard endpoint"
+      },
+      {
+        "type": "fix",
+        "description": "rewrite analysis dashboard with sequential try-catch"
+      },
+      {
+        "type": "fix",
+        "description": "stringify world setting description before Prisma save"
+      },
+      {
+        "type": "improvement",
+        "description": "fix slow page load - 6 api endpoints optimized"
+      },
+      {
+        "type": "improvement",
+        "description": "optimize slow endpoints and enable request performance tracking"
+      },
+      {
+        "type": "improvement",
+        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
+      },
+      {
+        "type": "improvement",
+        "description": "bypass Next.js rewrite proxy for credits and topic-insights requests"
+      },
+      {
+        "type": "improvement",
+        "description": "fix pre-commit hook timeout with function-based lint-staged config"
+      },
+      {
+        "type": "improvement",
+        "description": "fix sourceText over-sending to LLM pipeline"
+      },
+      {
+        "type": "improvement",
+        "description": "optimize model management from card grid to table layout"
+      },
+      {
+        "type": "improvement",
+        "description": "rename architecture layer descriptions to Agent-centric naming"
+      },
+      {
+        "type": "improvement",
+        "description": "rename L6 \"Agent OS\" to \"Gateway\" (智能网关)"
+      },
+      {
+        "type": "improvement",
+        "description": "clean up P3 audit items (Batch 8)"
+      },
+      {
+        "type": "improvement",
+        "description": "fix any types across ai-app and ai-engine modules (Batch 7)"
+      },
+      {
+        "type": "improvement",
+        "description": "route all ai-app engine imports through AIEngineFacade"
+      },
+      {
+        "type": "improvement",
+        "description": "route ContentFetchService through AIEngineFacade in social module"
+      },
+      {
+        "type": "improvement",
+        "description": "consolidate 30 flat dirs into 9 bounded contexts"
+      },
+      {
+        "type": "improvement",
+        "description": "DB persistence, model resolver extraction, unit tests"
+      },
+      {
+        "type": "improvement",
+        "description": "expose EmbeddingService/VectorService getters via Facade, fix RAG violations"
+      },
+      {
+        "type": "improvement",
+        "description": "expose EmbeddingService/VectorService/MCPManager/Capability via Facade"
+      },
+      {
+        "type": "improvement",
+        "description": "expose IntentRouter and A2ABus through AIEngineFacade"
+      },
+      {
+        "type": "improvement",
+        "description": "expose LongContentEngine/ContinuationProtocol/TeamInfo via Facade"
+      },
+      {
+        "type": "improvement",
+        "description": "expose MemoryCoordinator through AIEngineFacade"
+      },
+      {
+        "type": "improvement",
+        "description": "expose orchestration services via Facade, fix teams violations"
+      },
+      {
+        "type": "improvement",
+        "description": "expose ReflectionService and ContextCompressionService through AIEngineFacade"
+      },
+      {
+        "type": "improvement",
+        "description": "expose TraceCollector through AIEngineFacade"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate 6 remaining engine violations to Facade"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate 6 services from AI Apps to AI Engine core"
+      },
+      {
+        "type": "improvement",
+        "description": "move business agents to AI App modules"
+      },
+      {
+        "type": "improvement",
+        "description": "p0-p2 architecture improvements and security hardening"
+      },
+      {
+        "type": "improvement",
+        "description": "p0+p1 architecture improvements"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 1 - consolidate safety domain into safety/"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 5 - split God Facade into 5 domain facades"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 6 - export domain facades and begin consumer migration"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 6 - migrate 137 consumers from AIEngineFacade to domain facades"
+      },
+      {
+        "type": "improvement",
+        "description": "push generic orchestration capabilities down to Engine/Kernel layer"
+      },
+      {
+        "type": "improvement",
+        "description": "remove all shim dirs, make bounded contexts canonical"
+      },
+      {
+        "type": "improvement",
+        "description": "remove LLMFactory and A2AMessageBus from app layer"
+      },
+      {
+        "type": "improvement",
+        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
+      },
+      {
+        "type": "improvement",
+        "description": "slim AIEngineFacade constructor via Feature Token expansion (38→20 params)"
+      },
+      {
+        "type": "improvement",
+        "description": "unify TaskProfile and ChatMessage types"
+      },
+      {
+        "type": "improvement",
+        "description": "extract kernel facade and move KernelContext to common layer"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 4 - kernel L3 compliance, zero ai-engine imports"
+      },
+      {
+        "type": "improvement",
+        "description": "replace inline edit with dialog-based plan editing"
+      },
+      {
+        "type": "improvement",
+        "description": "remove dead VotingManager and HandoffCoordinator injections"
+      },
+      {
+        "type": "improvement",
+        "description": "align WritingTeamPanel with TopicTeamPanel visual style"
+      },
+      {
+        "type": "improvement",
+        "description": "complete god service removal — full switch to executor architecture"
+      },
+      {
+        "type": "improvement",
+        "description": "extract god service into executor architecture"
+      },
+      {
+        "type": "improvement",
+        "description": "system-wide evaluation fixes — 23 tasks across AI Engine and AI Apps"
+      },
+      {
+        "type": "improvement",
+        "description": "achieve zero facade violations and remove all ESLint exclusions"
+      },
+      {
+        "type": "improvement",
+        "description": "decouple research via Facade late-registration pattern"
+      },
+      {
+        "type": "improvement",
+        "description": "enforce 3-layer facade pattern across all modules"
+      },
+      {
+        "type": "improvement",
+        "description": "enforce facade imports for all ai-app/core/mcp-server modules"
+      },
+      {
+        "type": "improvement",
+        "description": "fix P3 cross-App module direct dependencies"
+      },
+      {
+        "type": "improvement",
+        "description": "split facade into base-classes.ts to eliminate all exceptions"
+      },
+      {
+        "type": "improvement",
+        "description": "swap AI Engine (L2→L3) and AI Kernel (L3→L2) layer definitions"
+      },
+      {
+        "type": "improvement",
+        "description": "reduce deployment size ~115MB, consolidate browser engines and fix duplication"
+      },
+      {
+        "type": "improvement",
+        "description": "reorganize modules into 6-layer architecture"
+      },
+      {
+        "type": "improvement",
+        "description": "comprehensive cleanup of all raven/deepdive references"
+      },
+      {
+        "type": "improvement",
+        "description": "replace inline SVG logo with new AI-generated PNG logo"
+      },
+      {
+        "type": "improvement",
+        "description": "replace PNG logo with SVG orbital icon"
+      },
+      {
+        "type": "improvement",
+        "description": "replace remaining raven references with genesis"
+      },
+      {
+        "type": "improvement",
+        "description": "restore node-ring SVG logo from original design"
+      },
+      {
+        "type": "improvement",
+        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+      },
+      {
+        "type": "improvement",
+        "description": "centralize Puppeteer lifecycle via PuppeteerPoolService"
+      },
+      {
+        "type": "improvement",
+        "description": "centralize brand configuration with env var support"
+      },
+      {
+        "type": "improvement",
+        "description": "move BrowserService from ai-engine to common/browser"
+      },
+      {
+        "type": "improvement",
+        "description": "complete 8-batch architecture improvement (P0-P4)"
+      },
+      {
+        "type": "improvement",
+        "description": "replace 42 backend source files with @genesis-ai/core re-export bridges"
+      },
+      {
+        "type": "improvement",
+        "description": "flatten docs directory structure"
+      },
+      {
+        "type": "improvement",
+        "description": "extract getResourceDisplayMode as single source of truth"
+      },
+      {
+        "type": "improvement",
+        "description": "remove dead isImportedResource prop from HTMLViewer"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate AIEngineFacade consumers to domain facades"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate API key to Secrets Manager"
+      },
+      {
+        "type": "improvement",
+        "description": "replace emoji icons with Lucide React in AI Store tabs"
+      },
+      {
+        "type": "improvement",
+        "description": "unify team topology panels with shared TeamTopologyCanvas component"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate from agent-os to standalone module with service implementation"
+      },
+      {
+        "type": "improvement",
+        "description": "extract shared utilities and push common patterns to Kernel layer (Phase 2)"
+      },
+      {
+        "type": "improvement",
+        "description": "unified timeout, research facade, and SKILL.md manifest"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 2 complete - finalize ai-app directory framework"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 2 directory restructuring - batch 1"
+      },
+      {
+        "type": "improvement",
+        "description": "phase 3 - move content business modules from ai-engine to ai-app"
+      },
+      {
+        "type": "improvement",
+        "description": "separate AI Insights and AI Research into independent modules"
+      },
+      {
+        "type": "improvement",
+        "description": "move AI Teams to planning group and rename to AI 探讨"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate ai-app/office from AIEngineFacade to domain facades (phase 6)"
+      },
+      {
+        "type": "improvement",
+        "description": "quality overhaul for AI planning output"
+      },
+      {
+        "type": "improvement",
+        "description": "extract project dialogs into standalone components"
+      },
+      {
+        "type": "improvement",
+        "description": "restructure AI Research into discussion-ideas-demos pipeline"
+      },
+      {
+        "type": "improvement",
+        "description": "simplify strategy-loader to use nest-cli asset copying"
+      },
+      {
+        "type": "improvement",
+        "description": "systematic architecture improvement across 3 phases"
+      },
+      {
+        "type": "improvement",
+        "description": "rewrite share page with chapter view rendering pipeline"
+      },
+      {
+        "type": "improvement",
+        "description": "rename skill domains - insights/research归位"
+      },
+      {
+        "type": "improvement",
+        "description": "unify runtime skills to Anthropic format with description-based matching"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate all Playwright APIs to Puppeteer across social module"
+      },
+      {
+        "type": "improvement",
+        "description": "add files to new locations after directory restructure"
+      },
+      {
+        "type": "improvement",
+        "description": "colocate tests, reorganize skills, remove duplicates"
+      },
+      {
+        "type": "improvement",
+        "description": "consolidate god service and fix zero figures bug"
+      },
+      {
+        "type": "improvement",
+        "description": "continuous view reuses chapter content, strip word count leaks"
+      },
+      {
+        "type": "improvement",
+        "description": "decompose God Service into 3 focused sub-services"
+      },
+      {
+        "type": "improvement",
+        "description": "decompose god services, add strategy pattern, 136 new tests"
+      },
+      {
+        "type": "improvement",
+        "description": "delete dead LeaderChatService (~2,590 lines)"
+      },
+      {
+        "type": "improvement",
+        "description": "embed chart placeholders at save time, unify rendering"
+      },
+      {
+        "type": "improvement",
+        "description": "extract DimensionProgressService from DimensionMissionService"
+      },
+      {
+        "type": "improvement",
+        "description": "extract ReportAssemblerService and push cleanup into quality gate"
+      },
+      {
+        "type": "improvement",
+        "description": "iron wall architecture for report quality"
+      },
+      {
+        "type": "improvement",
+        "description": "prioritize OpenAlex over ArXiv as primary academic source"
+      },
+      {
+        "type": "improvement",
+        "description": "push pipeline orchestration down to AI Engine via Handler pattern"
+      },
+      {
+        "type": "improvement",
+        "description": "remove dead sanitizeImageUrl function"
+      },
+      {
+        "type": "improvement",
+        "description": "remove dead services, utils, and unused method"
+      },
+      {
+        "type": "improvement",
+        "description": "remove unused DAG workflow path (path A)"
+      },
+      {
+        "type": "improvement",
+        "description": "rename 研究历史 to 洞察历史"
+      },
+      {
+        "type": "improvement",
+        "description": "restructure core/ into domain subdirectories"
+      },
+      {
+        "type": "improvement",
+        "description": "structural audit fixes batch 2"
+      },
+      {
+        "type": "improvement",
+        "description": "systematic architecture improvements (78→85/100)"
+      },
+      {
+        "type": "improvement",
+        "description": "upgrade extractClaims/verifyHypotheses to chatStructured"
+      }
+    ]
+  },
+  {
     "version": "32.0.0",
     "date": "2026-04-01",
     "changes": [
