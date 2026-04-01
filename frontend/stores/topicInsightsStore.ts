@@ -1040,10 +1040,41 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
   fetchEvidence: async (topicId, reportId, options) => {
     set({ isLoadingEvidence: true, error: null });
     try {
-      const response = await api.getEvidence(topicId, reportId, options);
+      const pageSize = options?.pageSize ?? 500;
+      const firstPage = await api.getEvidence(topicId, reportId, {
+        ...options,
+        pageSize,
+        page: 1,
+      });
+      let allEvidence = firstPage?.evidence ?? [];
+      const total = firstPage?.total ?? 0;
+
+      // ★ 自动加载剩余页，确保 500+ 条证据时引用链接不失效
+      if (total > pageSize) {
+        const totalPages = Math.ceil(total / pageSize);
+        const remainingPages = Array.from(
+          { length: totalPages - 1 },
+          (_, i) => i + 2
+        );
+        const results = await Promise.all(
+          remainingPages.map((page) =>
+            api.getEvidence(topicId, reportId, {
+              ...options,
+              pageSize,
+              page,
+            })
+          )
+        );
+        for (const r of results) {
+          if (r?.evidence) {
+            allEvidence = allEvidence.concat(r.evidence);
+          }
+        }
+      }
+
       set({
-        evidence: response?.evidence ?? [],
-        evidenceTotal: response?.total ?? 0,
+        evidence: allEvidence,
+        evidenceTotal: total,
         isLoadingEvidence: false,
       });
     } catch (error) {
