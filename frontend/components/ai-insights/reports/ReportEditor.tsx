@@ -855,7 +855,15 @@ function ReportEditorInner({
       });
     }
 
-    return parts.join('\n') || t('topicResearch.reportEditor.noReportContent');
+    const assembled = preprocessLatex(parts.join('\n'));
+    const boldFixed = assembled.replace(
+      /\*\*([^*\n]+?)\*\*/g,
+      '<strong>$1</strong>'
+    );
+    return (
+      stripProseBullets(boldFixed) ||
+      t('topicResearch.reportEditor.noReportContent')
+    );
   }, [report, formatCitations, t]);
 
   // Initialize edit content when report changes
