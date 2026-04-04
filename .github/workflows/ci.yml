@@ -173,7 +173,8 @@ jobs:
         run: npm ci
 
       - name: Run ESLint
-        run: npm run lint:frontend
+        run: npx next lint --max-warnings -1
+        working-directory: ./frontend
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
