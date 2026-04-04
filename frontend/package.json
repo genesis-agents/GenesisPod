@@ -33,6 +33,8 @@
     "@tanstack/react-virtual": "^3.13.12",
     "@tiptap/core": "3.20.2",
     "@tiptap/extension-code-block-lowlight": "3.20.2",
+    "@tiptap/extension-gapcursor": "3.20.2",
+    "@tiptap/extensions": "3.20.2",
     "@tiptap/extension-highlight": "3.20.2",
     "@tiptap/extension-placeholder": "3.20.2",
     "@tiptap/extension-typography": "3.20.2",
