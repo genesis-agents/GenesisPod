@@ -10,6 +10,14 @@
       {
         "type": "fix",
         "description": "resolve ESLint OOM, rollup missing dep, and prettier scope"
+      },
+      {
+        "type": "fix",
+        "description": "address W2 + W4 from business chain simulation"
+      },
+      {
+        "type": "fix",
+        "description": "allow ESLint warnings in frontend build (532 pre-existing)"
       }
     ]
   },
