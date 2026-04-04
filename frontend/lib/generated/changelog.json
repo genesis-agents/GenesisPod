@@ -1,5 +1,15 @@
 [
   {
+    "version": "40.1.0",
+    "date": "2026-04-04",
+    "changes": [
+      {
+        "type": "feature",
+        "description": "infrastructure upgrade phase 2 — cache sharing, synthesis, sidecar, hierarchical memory, agent lifecycle, auto-dream"
+      }
+    ]
+  },
+  {
     "version": "40.0.0",
     "date": "2026-04-04",
     "changes": [
