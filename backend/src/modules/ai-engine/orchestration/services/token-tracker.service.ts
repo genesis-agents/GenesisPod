@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 
 /**
  * Token usage snapshot for a tracking session
@@ -37,14 +37,15 @@ interface SessionInternal extends TokenUsageSnapshot {
  * Each "session" is a logical unit (e.g., one query loop execution, one section write).
  */
 @Injectable()
-export class TokenTrackerService {
+export class TokenTrackerService implements OnModuleDestroy {
   private readonly logger = new Logger(TokenTrackerService.name);
   private readonly sessions = new Map<string, SessionInternal>();
   private readonly SESSION_TTL_MS = 30 * 60 * 1000; // 30 min
+  private cleanupTimer: ReturnType<typeof setInterval>;
 
   constructor() {
     // Cleanup stale sessions every 5 minutes
-    const cleanup = setInterval(() => {
+    this.cleanupTimer = setInterval(() => {
       const expiry = Date.now() - this.SESSION_TTL_MS;
       for (const [id, session] of this.sessions) {
         if ((session as SessionInternal)._createdAt < expiry) {
@@ -53,7 +54,11 @@ export class TokenTrackerService {
         }
       }
     }, 5 * 60 * 1000);
-    cleanup.unref(); // Don't prevent Node.js process from exiting
+    this.cleanupTimer.unref(); // Don't prevent Node.js process from exiting
+  }
+
+  onModuleDestroy(): void {
+    clearInterval(this.cleanupTimer);
   }
 
   /**

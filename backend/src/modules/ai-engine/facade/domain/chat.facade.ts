@@ -249,6 +249,9 @@ export class ChatFacade {
       content: loopResult.content,
       model: request.model || "",
       tokensUsed: loopResult.totalInputTokens + loopResult.totalOutputTokens,
+      inputTokens: loopResult.totalInputTokens,
+      outputTokens: loopResult.totalOutputTokens,
+      finishReason: loopResult.stoppedReason === "complete" ? "stop" : "length",
       isError: loopResult.stoppedReason === "error",
     };
   }
