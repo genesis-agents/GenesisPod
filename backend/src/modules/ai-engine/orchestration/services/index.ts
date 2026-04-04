@@ -80,3 +80,48 @@ export {
   type AgentContext,
   type RouteResult,
 } from "./intent-router.service";
+
+// Query Loop 自动续写引擎
+export {
+  QueryLoopService,
+  type QueryLoopConfig,
+  type QueryLoopResult,
+  type QueryLoopStopReason,
+  type ChatFn,
+  type ChatFnResult,
+  type ChatMessage as QueryLoopMessage,
+} from "./query-loop.service";
+
+// Token 追踪服务
+export {
+  TokenTrackerService,
+  type TokenUsageSnapshot,
+  type TokenUsageEntry,
+} from "./token-tracker.service";
+
+// 上下文压缩管线
+export {
+  ContextCompactionPipelineService,
+  type CompactionConfig,
+  type CompactionResult,
+  type CompactionLevel,
+  type LLMMessage,
+  type SummarizeFn,
+} from "./context-compaction-pipeline.service";
+
+// 执行断点服务
+export {
+  ExecutionCheckpointService,
+  type ExecutionCheckpoint,
+} from "./execution-checkpoint.service";
+
+// 自适应重规划服务
+export {
+  AdaptiveReplannerService,
+  type ReplanTrigger,
+  type ReplanTriggerType,
+  type ReplanResult,
+  type StepExecutionResult,
+  type ExecutionStep,
+  type MissionExecutionPlan,
+} from "./adaptive-replanner.service";

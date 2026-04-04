@@ -4,4 +4,6 @@
 export * from "./middleware.interface";
 export * from "./validation.middleware";
 export * from "./timeout.middleware";
+export * from "./permission.middleware";
+export * from "./progress.middleware";
 export * from "./tool-pipeline";

@@ -42,6 +42,7 @@ import {
   CONSTRAINT_FEATURE,
 } from "../facade.providers";
 import type { CreditBillingInfo } from "../types/facade.types";
+import type { QueryLoopConfig } from "../index";
 import type {
   ChatRequest,
   ChatResponse,
@@ -169,6 +170,87 @@ export class ChatFacade {
     }
 
     return this.chatSingleModel(request, modelId, entityId);
+  }
+
+  // ==================== chatWithLoop ====================
+
+  /**
+   * Execute a chat request with automatic multi-turn continuation on truncated output.
+   *
+   * Falls back to regular `chat()` when QueryLoopService is not available in the
+   * current DI context (e.g. lightweight module configurations).
+   *
+   * @param request - Same parameters as `chat()`
+   * @param loopConfig - Optional QueryLoop configuration overrides
+   * @returns Assembled ChatResponse with full content across all continuations
+   */
+  async chatWithLoop(
+    request: ChatRequest,
+    loopConfig?: QueryLoopConfig,
+  ): Promise<ChatResponse> {
+    const queryLoopService = this.orchestration?.queryLoop;
+
+    if (!queryLoopService) {
+      this.logger.debug(
+        "[chatWithLoop] QueryLoopService not available, falling back to chat()",
+      );
+      return this.chat(request);
+    }
+
+    const chatFn = async (
+      messages: Array<{ role: string; content: string }>,
+    ): Promise<{
+      content: string;
+      model: string;
+      tokensUsed: number;
+      inputTokens?: number;
+      outputTokens?: number;
+      isError?: boolean;
+      finishReason?: string;
+    }> => {
+      // QueryLoopService passes plain-string messages; ChatRequest accepts string | ContentPart[]
+      const result = await this.chat({
+        ...request,
+        messages: messages as ChatRequest["messages"],
+      });
+      return {
+        content: result.content,
+        model: result.model,
+        tokensUsed: result.tokensUsed,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        isError: result.isError,
+        finishReason: result.finishReason,
+      };
+    };
+
+    // QueryLoopService requires plain-string content; stringify multipart messages
+    const initialMessages = request.messages.map((m) => ({
+      role: m.role,
+      content:
+        typeof m.content === "string"
+          ? m.content
+          : JSON.stringify(m.content),
+    }));
+
+    const loopResult = await queryLoopService.executeWithLoop(
+      chatFn,
+      initialMessages,
+      loopConfig,
+    );
+
+    if (loopResult.continuations > 0) {
+      this.logger.log(
+        `[chatWithLoop] Completed with ${loopResult.continuations} continuation(s), stoppedReason=${loopResult.stoppedReason}, totalTokens=${loopResult.totalInputTokens + loopResult.totalOutputTokens}`,
+      );
+    }
+
+    return {
+      content: loopResult.content,
+      model: request.model || "",
+      tokensUsed: loopResult.totalInputTokens + loopResult.totalOutputTokens,
+      isError: loopResult.stoppedReason === "error",
+    };
   }
 
   private async handleSkillProxy(
@@ -338,6 +420,9 @@ export class ChatFacade {
         content: result.content,
         model: result.model,
         tokensUsed,
+        inputTokens: result.usage?.inputTokens,
+        outputTokens: result.usage?.outputTokens,
+        finishReason: result.finishReason,
         isError: false,
       };
     }
@@ -436,6 +521,9 @@ export class ChatFacade {
         content: result.content,
         model: result.model,
         tokensUsed,
+        inputTokens: result.usage?.inputTokens,
+        outputTokens: result.usage?.outputTokens,
+        finishReason: result.finishReason,
         isError: result.isError,
       };
     } catch (error) {

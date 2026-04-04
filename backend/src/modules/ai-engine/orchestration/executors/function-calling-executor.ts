@@ -17,6 +17,12 @@ import {
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
 import { MCPManager } from "../../mcp/manager/mcp-manager";
+import { QueryLoopService } from "../services/query-loop.service";
+import { TokenTrackerService } from "../services/token-tracker.service";
+import { ContextCompactionPipelineService } from "../services/context-compaction-pipeline.service";
+import { ExecutionCheckpointService } from "../services/execution-checkpoint.service";
+import { ToolConcurrencyService } from "../../tools/concurrency/tool-concurrency.service";
+import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.service";
 
 // ============================================================================
 // Types
@@ -131,6 +137,12 @@ export interface ExecutionConfig {
   maxTokens?: number;
   /** ★ TaskProfile for semantic parameter mapping */
   taskProfile?: import("../../llm/types").TaskProfile;
+  /** Enable auto-continuation when LLM output is truncated (default: false) */
+  enableQueryLoop?: boolean;
+  /** Enable fine-grained checkpointing per iteration (default: false) */
+  enableCheckpoints?: boolean;
+  /** Token budget limit for the entire execution */
+  tokenBudgetLimit?: number;
 }
 
 /**
@@ -161,6 +173,7 @@ export interface ExecutionMetrics {
 export type AgentEvent =
   | { type: "tool_call"; tool: string; input: unknown }
   | { type: "tool_result"; tool: string; output: unknown; duration: number }
+  | { type: "tool_progress"; tool: string; progress: number; message?: string }
   | {
       type: "complete";
       result: {
@@ -201,6 +214,12 @@ export class FunctionCallingExecutor {
     private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly capabilityResolver?: AICapabilityResolver,
     @Optional() private readonly mcpManager?: MCPManager,
+    @Optional() private readonly queryLoop?: QueryLoopService,
+    @Optional() private readonly tokenTracker?: TokenTrackerService,
+    @Optional() private readonly contextCompaction?: ContextCompactionPipelineService,
+    @Optional() private readonly checkpoint?: ExecutionCheckpointService,
+    @Optional() private readonly toolConcurrency?: ToolConcurrencyService,
+    @Optional() private readonly modelFallback?: ModelFallbackService,
   ) {
     this.retryStrategy = new RetryStrategy();
   }
@@ -221,6 +240,9 @@ export class FunctionCallingExecutor {
       ...config,
     };
     const startTime = Date.now();
+
+    const executionId = context.executionId || `exec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    this.tokenTracker?.createSession(executionId);
 
     const metrics: ExecutionMetrics = {
       iterations: 0,
@@ -243,25 +265,541 @@ export class FunctionCallingExecutor {
       `[execute] Starting with ${functionDefinitions.length} tools`,
     );
 
+    try {
+      while (
+        metrics.iterations < cfg.maxIterations &&
+        metrics.toolCalls < cfg.maxToolCalls
+      ) {
+        metrics.iterations++;
+
+        this.logger.log(`[execute] Iteration ${metrics.iterations}`);
+
+        // Context compaction — BEFORE each LLM call
+        if (this.contextCompaction) {
+          const currentTokens = this.estimateTokens(messages);
+          // Save originals before compaction to preserve tool_calls/tool_call_id/name fields
+          const originalMessages = [...messages];
+          const compactionResult = await this.contextCompaction.compact(
+            messages.map((m) => ({
+              role: m.role as "system" | "user" | "assistant" | "tool",
+              content: m.content ?? "",
+              isToolUse: !!m.tool_calls,
+              isToolResult: m.role === "tool",
+              toolUseId: m.tool_calls?.[0]?.id,
+              toolResultFor: m.tool_call_id,
+            })),
+            currentTokens,
+          );
+          if (compactionResult.levelApplied !== "none") {
+            messages.length = 0;
+            for (const compactedMsg of compactionResult.messages) {
+              // Try to find the original message to preserve tool fields
+              const original = originalMessages.find(
+                (o) => o.role === compactedMsg.role && o.content === compactedMsg.content,
+              );
+              if (original) {
+                messages.push(original); // preserve all original fields
+              } else {
+                // New message (e.g., summary) — construct with basic fields
+                messages.push({
+                  role: compactedMsg.role as LLMMessage["role"],
+                  content: (compactedMsg.content as string) ?? "",
+                });
+              }
+            }
+            this.logger.log(
+              `[execute] Context compacted: level=${compactionResult.levelApplied}, saved=${compactionResult.tokensSaved} tokens`,
+            );
+          }
+        }
+
+        let response: LLMResponse;
+        const primaryRequestOptions: LLMRequestOptions = {
+          messages,
+          functions: functionDefinitions,
+          temperature: cfg.temperature,
+          maxTokens: cfg.maxTokens,
+          tool_choice: "auto",
+        };
+        try {
+          response = await llmAdapter.chat(primaryRequestOptions);
+        } catch (error) {
+          if (this.modelFallback) {
+            this.logger.warn(`[execute] Primary model failed, attempting fallback`);
+            const fallbackResult = await this.modelFallback.executeWithFallback(
+              primaryRequestOptions.model || "",
+              async (modelConfig) => {
+                return llmAdapter.chat({
+                  ...primaryRequestOptions,
+                  model: modelConfig.modelId,
+                });
+              },
+              { operation: "function-calling-loop" },
+            );
+            if (fallbackResult.success && fallbackResult.data) {
+              response = fallbackResult.data;
+              this.logger.log(
+                `[execute] Fallback successful: model=${fallbackResult.modelUsed}`,
+              );
+            } else {
+              yield {
+                type: "error",
+                error: fallbackResult.error?.message || "All models failed",
+              };
+              break;
+            }
+          } else {
+            this.logger.error(`[execute] LLM call failed: ${error}`);
+            yield {
+              type: "error",
+              error: error instanceof Error ? error.message : "LLM call failed",
+            };
+            break;
+          }
+        }
+
+        if (response.usage) {
+          metrics.tokensUsed.prompt += response.usage.promptTokens;
+          metrics.tokensUsed.completion += response.usage.completionTokens;
+          metrics.tokensUsed.total += response.usage.totalTokens;
+        }
+
+        // Token tracking — after each LLM response
+        if (this.tokenTracker && response.usage) {
+          this.tokenTracker.recordUsage(executionId, {
+            inputTokens: response.usage.promptTokens,
+            outputTokens: response.usage.completionTokens,
+          });
+        }
+
+        const toolCalls = llmAdapter.parseToolCalls(response);
+
+        if (toolCalls.length === 0) {
+          // Auto-continuation via QueryLoop when output is truncated
+          if (
+            cfg.enableQueryLoop &&
+            this.queryLoop &&
+            response.finishReason === "length"
+          ) {
+            this.logger.log(
+              "[execute] Output truncated, using QueryLoop for continuation",
+            );
+            const requestOptions: LLMRequestOptions = {
+              messages,
+              functions: functionDefinitions,
+              temperature: cfg.temperature,
+              maxTokens: cfg.maxTokens,
+              tool_choice: "auto",
+            };
+            const loopResult = await this.queryLoop.executeWithLoop(
+              async (msgs) => {
+                const loopResponse = await llmAdapter.chat({
+                  ...requestOptions,
+                  messages: msgs.map((m) => ({
+                    role: m.role as LLMMessage["role"],
+                    content: m.content,
+                  })),
+                });
+                return {
+                  content: loopResponse.content ?? "",
+                  model: loopResponse.model ?? "",
+                  tokensUsed: loopResponse.usage?.totalTokens ?? 0,
+                  inputTokens: loopResponse.usage?.promptTokens,
+                  outputTokens: loopResponse.usage?.completionTokens,
+                  finishReason: loopResponse.finishReason,
+                };
+              },
+              messages.map((m) => ({
+                role: m.role,
+                content: typeof m.content === "string" ? m.content : "",
+              })),
+            );
+
+            metrics.totalDuration = Date.now() - startTime;
+            yield {
+              type: "complete",
+              result: {
+                success: true,
+                artifacts: [],
+                summary: loopResult.content,
+                tokensUsed:
+                  metrics.tokensUsed.total +
+                  loopResult.totalInputTokens +
+                  loopResult.totalOutputTokens,
+                duration: metrics.totalDuration,
+              },
+            };
+            return;
+          }
+
+          this.logger.log("[execute] No tool calls, task completed");
+
+          metrics.totalDuration = Date.now() - startTime;
+
+          yield {
+            type: "complete",
+            result: {
+              success: true,
+              artifacts: [],
+              summary: response.content || "",
+              tokensUsed: metrics.tokensUsed.total,
+              duration: metrics.totalDuration,
+            },
+          };
+
+          return;
+        }
+
+        messages.push({
+          role: "assistant",
+          content: response.content,
+          tool_calls: response.tool_calls,
+        });
+
+        this.logger.log(`[execute] Executing ${toolCalls.length} tool calls`);
+
+        // Tool execution — parallel or serial
+        if (cfg.parallelToolCalls && this.toolConcurrency) {
+          const partition = this.toolConcurrency.partition(
+            toolCalls.map((tc) => ({
+              toolId: tc.name,
+              category: this.toolRegistry.has(tc.name)
+                ? this.toolRegistry.get(tc.name).category
+                : undefined,
+            })),
+          );
+
+          // Build a lookup from toolId to ToolCallRequest (last wins if duplicated)
+          const toolCallByName = new Map<string, ToolCallRequest>();
+          for (const tc of toolCalls) {
+            toolCallByName.set(tc.name, tc);
+          }
+
+          // Execute parallel groups
+          for (const group of partition.parallelGroups) {
+            const groupResults = await Promise.allSettled(
+              group.map((toolId) => {
+                const toolCall = toolCallByName.get(toolId);
+                if (!toolCall) return Promise.resolve(null);
+
+                let input: unknown;
+                try {
+                  input = JSON.parse(toolCall.arguments);
+                } catch {
+                  input = toolCall.arguments;
+                }
+                return this.executeTool(
+                  toolId,
+                  input,
+                  context,
+                  cfg.enableRetry,
+                ).then((toolResult) => ({ toolId, toolCall, input, toolResult }));
+              }),
+            );
+
+            for (const settled of groupResults) {
+              if (settled.status === "fulfilled" && settled.value !== null) {
+                const { toolId, toolCall, input, toolResult } = settled.value as {
+                  toolId: string;
+                  toolCall: ToolCallRequest;
+                  input: unknown;
+                  toolResult: ToolResult;
+                };
+
+                metrics.toolCalls++;
+
+                yield { type: "tool_call", tool: toolId, input };
+
+                metrics.toolCallDetails.push({
+                  tool: toolId,
+                  duration: toolResult.metadata?.duration || 0,
+                  success: toolResult.success,
+                });
+
+                if (toolResult.success) {
+                  metrics.successfulToolCalls++;
+                } else {
+                  metrics.failedToolCalls++;
+                }
+
+                yield {
+                  type: "tool_result",
+                  tool: toolId,
+                  output: toolResult.data,
+                  duration: toolResult.metadata?.duration || 0,
+                };
+
+                messages.push(
+                  llmAdapter.buildToolResultMessage(
+                    toolCall.id,
+                    toolCall.name,
+                    toolResult.success
+                      ? toolResult.data
+                      : { error: toolResult.error },
+                  ),
+                );
+              }
+            }
+          }
+
+          // Execute sequential tools
+          for (const seqToolId of partition.sequential) {
+            const toolCall = toolCallByName.get(seqToolId);
+            if (!toolCall) continue;
+
+            metrics.toolCalls++;
+
+            let input: unknown;
+            try {
+              input = JSON.parse(toolCall.arguments);
+            } catch {
+              input = toolCall.arguments;
+            }
+
+            yield { type: "tool_call", tool: seqToolId, input };
+
+            const toolResult = await this.executeTool(
+              seqToolId,
+              input,
+              context,
+              cfg.enableRetry,
+            );
+
+            metrics.toolCallDetails.push({
+              tool: seqToolId,
+              duration: toolResult.metadata?.duration || 0,
+              success: toolResult.success,
+            });
+
+            if (toolResult.success) {
+              metrics.successfulToolCalls++;
+            } else {
+              metrics.failedToolCalls++;
+            }
+
+            yield {
+              type: "tool_result",
+              tool: seqToolId,
+              output: toolResult.data,
+              duration: toolResult.metadata?.duration || 0,
+            };
+
+            messages.push(
+              llmAdapter.buildToolResultMessage(
+                toolCall.id,
+                toolCall.name,
+                toolResult.success
+                  ? toolResult.data
+                  : { error: toolResult.error },
+              ),
+            );
+          }
+
+        } else {
+          // Original serial execution
+          for (const toolCall of toolCalls) {
+            metrics.toolCalls++;
+
+            const toolId = toolCall.name;
+            let input: unknown;
+
+            try {
+              input = JSON.parse(toolCall.arguments);
+            } catch {
+              input = toolCall.arguments;
+            }
+
+            yield {
+              type: "tool_call",
+              tool: toolId,
+              input,
+            };
+
+            yield {
+              type: "tool_progress",
+              tool: toolId,
+              progress: 0,
+              message: `Starting ${toolId}`,
+            };
+
+            const toolResult = await this.executeTool(
+              toolId,
+              input,
+              context,
+              cfg.enableRetry,
+            );
+
+            yield {
+              type: "tool_progress",
+              tool: toolId,
+              progress: 100,
+              message: `Completed ${toolId}`,
+            };
+
+            metrics.toolCallDetails.push({
+              tool: toolId,
+              duration: toolResult.metadata?.duration || 0,
+              success: toolResult.success,
+            });
+
+            if (toolResult.success) {
+              metrics.successfulToolCalls++;
+            } else {
+              metrics.failedToolCalls++;
+            }
+
+            yield {
+              type: "tool_result",
+              tool: toolId,
+              output: toolResult.data,
+              duration: toolResult.metadata?.duration || 0,
+            };
+
+            const toolResultMessage = llmAdapter.buildToolResultMessage(
+              toolCall.id,
+              toolCall.name,
+              toolResult.success ? toolResult.data : { error: toolResult.error },
+            );
+            messages.push(toolResultMessage);
+          }
+        }
+
+        // Checkpoint at end of each iteration
+        if (cfg.enableCheckpoints && this.checkpoint) {
+          this.checkpoint.save({
+            executionId,
+            iteration: metrics.iterations,
+            messages: [...messages],
+            toolResults: metrics.toolCallDetails.map((d) => ({
+              toolId: d.tool,
+              result: { duration: d.duration, success: d.success },
+            })),
+            tokenUsage: this.tokenTracker?.getUsage(executionId) ?? {
+              inputTokens: 0,
+              outputTokens: 0,
+              cacheCreationTokens: 0,
+              cacheReadTokens: 0,
+              totalTokens: 0,
+              callCount: 0,
+            },
+            timestamp: new Date(),
+          });
+        }
+      }
+
+      if (metrics.iterations >= cfg.maxIterations) {
+        this.logger.warn("[execute] Max iterations reached");
+        yield {
+          type: "error",
+          error: "Max iterations reached, task may be incomplete",
+        };
+      }
+
+      if (metrics.toolCalls >= cfg.maxToolCalls) {
+        this.logger.warn("[execute] Max tool calls reached");
+        yield {
+          type: "error",
+          error: "Max tool calls reached, task may be incomplete",
+        };
+      }
+
+      metrics.totalDuration = Date.now() - startTime;
+
+      yield {
+        type: "complete",
+        result: {
+          success: true,
+          artifacts: [],
+          summary: "Task execution completed",
+          tokensUsed: metrics.tokensUsed.total,
+          duration: metrics.totalDuration,
+        },
+      };
+    } finally {
+      this.tokenTracker?.endSession(executionId);
+      this.checkpoint?.endExecution(executionId);
+    }
+  }
+
+  /**
+   * Resume execution from a checkpoint (for crash recovery)
+   */
+  async *resumeFromCheckpoint(
+    llmAdapter: ILLMAdapter,
+    executionId: string,
+    tools: ToolId[],
+    context: ToolContext,
+    config?: Partial<ExecutionConfig>,
+  ): AsyncGenerator<AgentEvent> {
+    if (!this.checkpoint) {
+      this.logger.error(
+        "[resumeFromCheckpoint] ExecutionCheckpointService not available",
+      );
+      yield { type: "error", error: "Checkpoint service not available" };
+      return;
+    }
+
+    const cp = this.checkpoint.restore(executionId);
+    if (!cp) {
+      this.logger.error(
+        `[resumeFromCheckpoint] No checkpoint found for ${executionId}`,
+      );
+      yield {
+        type: "error",
+        error: `No checkpoint found for execution ${executionId}`,
+      };
+      return;
+    }
+
+    this.logger.log(
+      `[resumeFromCheckpoint] Resuming ${executionId} from iteration ${cp.iteration}`,
+    );
+
+    const cfg: ExecutionConfig = {
+      ...FunctionCallingExecutor.DEFAULT_CONFIG,
+      ...config,
+    };
+    const functionDefinitions = this.getFunctionDefinitions(tools);
+    const messages: LLMMessage[] = cp.messages.map((m) => ({
+      role: m.role as LLMMessage["role"],
+      content: m.content as string,
+    }));
+
+    const startTime = Date.now();
+    const metrics: ExecutionMetrics = {
+      iterations: cp.iteration,
+      toolCalls: cp.toolResults.length,
+      successfulToolCalls: cp.toolResults.filter((r) => !!r.result).length,
+      failedToolCalls: cp.toolResults.filter((r) => !r.result).length,
+      tokensUsed: {
+        prompt: cp.tokenUsage.inputTokens,
+        completion: cp.tokenUsage.outputTokens,
+        total: cp.tokenUsage.totalTokens,
+      },
+      totalDuration: 0,
+      toolCallDetails: [],
+    };
+
     while (
       metrics.iterations < cfg.maxIterations &&
       metrics.toolCalls < cfg.maxToolCalls
     ) {
       metrics.iterations++;
-
-      this.logger.log(`[execute] Iteration ${metrics.iterations}`);
+      this.logger.log(
+        `[resumeFromCheckpoint] Iteration ${metrics.iterations}`,
+      );
 
       let response: LLMResponse;
       try {
         response = await llmAdapter.chat({
           messages,
           functions: functionDefinitions,
-          temperature: cfg.temperature,
-          maxTokens: cfg.maxTokens,
           tool_choice: "auto",
         });
       } catch (error) {
-        this.logger.error(`[execute] LLM call failed: ${error}`);
+        this.logger.error(
+          `[resumeFromCheckpoint] LLM call failed: ${error}`,
+        );
         yield {
           type: "error",
           error: error instanceof Error ? error.message : "LLM call failed",
@@ -278,10 +816,7 @@ export class FunctionCallingExecutor {
       const toolCalls = llmAdapter.parseToolCalls(response);
 
       if (toolCalls.length === 0) {
-        this.logger.log("[execute] No tool calls, task completed");
-
         metrics.totalDuration = Date.now() - startTime;
-
         yield {
           type: "complete",
           result: {
@@ -292,7 +827,6 @@ export class FunctionCallingExecutor {
             duration: metrics.totalDuration,
           },
         };
-
         return;
       }
 
@@ -302,24 +836,23 @@ export class FunctionCallingExecutor {
         tool_calls: response.tool_calls,
       });
 
-      this.logger.log(`[execute] Executing ${toolCalls.length} tool calls`);
-
       for (const toolCall of toolCalls) {
         metrics.toolCalls++;
-
         const toolId = toolCall.name;
         let input: unknown;
-
         try {
           input = JSON.parse(toolCall.arguments);
         } catch {
           input = toolCall.arguments;
         }
 
+        yield { type: "tool_call", tool: toolId, input };
+
         yield {
-          type: "tool_call",
+          type: "tool_progress",
           tool: toolId,
-          input,
+          progress: 0,
+          message: `Starting ${toolId}`,
         };
 
         const toolResult = await this.executeTool(
@@ -329,11 +862,12 @@ export class FunctionCallingExecutor {
           cfg.enableRetry,
         );
 
-        metrics.toolCallDetails.push({
+        yield {
+          type: "tool_progress",
           tool: toolId,
-          duration: toolResult.metadata?.duration || 0,
-          success: toolResult.success,
-        });
+          progress: 100,
+          message: `Completed ${toolId}`,
+        };
 
         if (toolResult.success) {
           metrics.successfulToolCalls++;
@@ -348,39 +882,44 @@ export class FunctionCallingExecutor {
           duration: toolResult.metadata?.duration || 0,
         };
 
-        const toolResultMessage = llmAdapter.buildToolResultMessage(
-          toolCall.id,
-          toolCall.name,
-          toolResult.success ? toolResult.data : { error: toolResult.error },
+        messages.push(
+          llmAdapter.buildToolResultMessage(
+            toolCall.id,
+            toolCall.name,
+            toolResult.success ? toolResult.data : { error: toolResult.error },
+          ),
         );
-        messages.push(toolResultMessage);
+      }
+
+      if (cfg.enableCheckpoints && this.checkpoint) {
+        this.checkpoint.save({
+          executionId,
+          iteration: metrics.iterations,
+          messages: [...messages],
+          toolResults: metrics.toolCallDetails.map((d) => ({
+            toolId: d.tool,
+            result: { duration: d.duration, success: d.success },
+          })),
+          tokenUsage: this.tokenTracker?.getUsage(executionId) ?? {
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            totalTokens: 0,
+            callCount: 0,
+          },
+          timestamp: new Date(),
+        });
       }
     }
 
-    if (metrics.iterations >= cfg.maxIterations) {
-      this.logger.warn("[execute] Max iterations reached");
-      yield {
-        type: "error",
-        error: "Max iterations reached, task may be incomplete",
-      };
-    }
-
-    if (metrics.toolCalls >= cfg.maxToolCalls) {
-      this.logger.warn("[execute] Max tool calls reached");
-      yield {
-        type: "error",
-        error: "Max tool calls reached, task may be incomplete",
-      };
-    }
-
     metrics.totalDuration = Date.now() - startTime;
-
     yield {
       type: "complete",
       result: {
         success: true,
         artifacts: [],
-        summary: "Task execution completed",
+        summary: "Resumed execution completed",
         tokensUsed: metrics.tokensUsed.total,
         duration: metrics.totalDuration,
       },
@@ -666,6 +1205,9 @@ export class FunctionCallingExecutor {
     };
     const startTime = Date.now();
 
+    const executionId = context.executionId || `exec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    this.tokenTracker?.createSession(executionId);
+
     const metrics: ExecutionMetrics = {
       iterations: 0,
       toolCalls: 0,
@@ -703,148 +1245,474 @@ export class FunctionCallingExecutor {
       };
     }
 
-    while (
-      metrics.iterations < cfg.maxIterations &&
-      metrics.toolCalls < cfg.maxToolCalls
-    ) {
-      metrics.iterations++;
+    try {
+      while (
+        metrics.iterations < cfg.maxIterations &&
+        metrics.toolCalls < cfg.maxToolCalls
+      ) {
+        metrics.iterations++;
 
-      this.logger.log(
-        `[executeWithDefinitions] Iteration ${metrics.iterations}`,
-      );
-
-      let response: LLMResponse;
-      try {
-        response = await llmAdapter.chat(requestOptions);
-      } catch (error) {
-        this.logger.error(`[executeWithDefinitions] LLM call failed: ${error}`);
-        yield {
-          type: "error",
-          error: error instanceof Error ? error.message : "LLM call failed",
-        };
-        break;
-      }
-
-      if (response.usage) {
-        metrics.tokensUsed.prompt += response.usage.promptTokens;
-        metrics.tokensUsed.completion += response.usage.completionTokens;
-        metrics.tokensUsed.total += response.usage.totalTokens;
-      }
-
-      const toolCalls = llmAdapter.parseToolCalls(response);
-
-      if (toolCalls.length === 0) {
         this.logger.log(
-          "[executeWithDefinitions] No tool calls, task completed",
+          `[executeWithDefinitions] Iteration ${metrics.iterations}`,
         );
 
-        metrics.totalDuration = Date.now() - startTime;
-
-        yield {
-          type: "complete",
-          result: {
-            success: true,
-            artifacts: [],
-            summary: response.content || "",
-            tokensUsed: metrics.tokensUsed.total,
-            duration: metrics.totalDuration,
-          },
-        };
-
-        return;
-      }
-
-      messages.push({
-        role: "assistant",
-        content: response.content,
-        tool_calls: response.tool_calls,
-      });
-
-      this.logger.log(
-        `[executeWithDefinitions] Executing ${toolCalls.length} tool calls`,
-      );
-
-      for (const toolCall of toolCalls) {
-        metrics.toolCalls++;
-
-        const toolId = toolCall.name;
-        let input: unknown;
-
-        try {
-          input = JSON.parse(toolCall.arguments);
-        } catch {
-          input = toolCall.arguments;
+        // Context compaction — BEFORE each LLM call
+        if (this.contextCompaction) {
+          const currentTokens = this.estimateTokens(messages);
+          // Save originals before compaction to preserve tool_calls/tool_call_id/name fields
+          const originalMessages = [...messages];
+          const compactionResult = await this.contextCompaction.compact(
+            messages.map((m) => ({
+              role: m.role as "system" | "user" | "assistant" | "tool",
+              content: m.content ?? "",
+              isToolUse: !!m.tool_calls,
+              isToolResult: m.role === "tool",
+              toolUseId: m.tool_calls?.[0]?.id,
+              toolResultFor: m.tool_call_id,
+            })),
+            currentTokens,
+          );
+          if (compactionResult.levelApplied !== "none") {
+            messages.length = 0;
+            for (const compactedMsg of compactionResult.messages) {
+              // Try to find the original message to preserve tool fields
+              const original = originalMessages.find(
+                (o) => o.role === compactedMsg.role && o.content === compactedMsg.content,
+              );
+              if (original) {
+                messages.push(original); // preserve all original fields
+              } else {
+                // New message (e.g., summary) — construct with basic fields
+                messages.push({
+                  role: compactedMsg.role as LLMMessage["role"],
+                  content: (compactedMsg.content as string) ?? "",
+                });
+              }
+            }
+            this.logger.log(
+              `[executeWithDefinitions] Context compacted: level=${compactionResult.levelApplied}, saved=${compactionResult.tokensSaved} tokens`,
+            );
+          }
         }
 
-        yield {
-          type: "tool_call",
-          tool: toolId,
-          input,
-        };
+        let response: LLMResponse;
+        try {
+          response = await llmAdapter.chat(requestOptions);
+        } catch (error) {
+          if (this.modelFallback) {
+            this.logger.warn(
+              `[executeWithDefinitions] Primary model failed, attempting fallback`,
+            );
+            const fallbackResult = await this.modelFallback.executeWithFallback(
+              requestOptions.model || "",
+              async (modelConfig) => {
+                return llmAdapter.chat({
+                  ...requestOptions,
+                  model: modelConfig.modelId,
+                });
+              },
+              { operation: "function-calling-loop" },
+            );
+            if (fallbackResult.success && fallbackResult.data) {
+              response = fallbackResult.data;
+              this.logger.log(
+                `[executeWithDefinitions] Fallback successful: model=${fallbackResult.modelUsed}`,
+              );
+            } else {
+              yield {
+                type: "error",
+                error: fallbackResult.error?.message || "All models failed",
+              };
+              break;
+            }
+          } else {
+            this.logger.error(
+              `[executeWithDefinitions] LLM call failed: ${error}`,
+            );
+            yield {
+              type: "error",
+              error: error instanceof Error ? error.message : "LLM call failed",
+            };
+            break;
+          }
+        }
 
-        const toolResult = await this.executeTool(
-          toolId,
-          input,
-          context,
-          cfg.enableRetry,
-        );
+        if (response.usage) {
+          metrics.tokensUsed.prompt += response.usage.promptTokens;
+          metrics.tokensUsed.completion += response.usage.completionTokens;
+          metrics.tokensUsed.total += response.usage.totalTokens;
+        }
 
-        metrics.toolCallDetails.push({
-          tool: toolId,
-          duration: toolResult.metadata?.duration || 0,
-          success: toolResult.success,
+        // Token tracking — after each LLM response
+        if (this.tokenTracker && response.usage) {
+          this.tokenTracker.recordUsage(executionId, {
+            inputTokens: response.usage.promptTokens,
+            outputTokens: response.usage.completionTokens,
+          });
+        }
+
+        const toolCalls = llmAdapter.parseToolCalls(response);
+
+        if (toolCalls.length === 0) {
+          // Auto-continuation via QueryLoop when output is truncated
+          if (
+            cfg.enableQueryLoop &&
+            this.queryLoop &&
+            response.finishReason === "length"
+          ) {
+            this.logger.log(
+              "[executeWithDefinitions] Output truncated, using QueryLoop for continuation",
+            );
+            const loopResult = await this.queryLoop.executeWithLoop(
+              async (msgs) => {
+                const loopResponse = await llmAdapter.chat({
+                  ...requestOptions,
+                  messages: msgs.map((m) => ({
+                    role: m.role as LLMMessage["role"],
+                    content: m.content,
+                  })),
+                });
+                return {
+                  content: loopResponse.content ?? "",
+                  model: loopResponse.model ?? "",
+                  tokensUsed: loopResponse.usage?.totalTokens ?? 0,
+                  inputTokens: loopResponse.usage?.promptTokens,
+                  outputTokens: loopResponse.usage?.completionTokens,
+                  finishReason: loopResponse.finishReason,
+                };
+              },
+              messages.map((m) => ({
+                role: m.role,
+                content: typeof m.content === "string" ? m.content : "",
+              })),
+            );
+
+            metrics.totalDuration = Date.now() - startTime;
+            yield {
+              type: "complete",
+              result: {
+                success: true,
+                artifacts: [],
+                summary: loopResult.content,
+                tokensUsed:
+                  metrics.tokensUsed.total +
+                  loopResult.totalInputTokens +
+                  loopResult.totalOutputTokens,
+                duration: metrics.totalDuration,
+              },
+            };
+            return;
+          }
+
+          this.logger.log(
+            "[executeWithDefinitions] No tool calls, task completed",
+          );
+
+          metrics.totalDuration = Date.now() - startTime;
+
+          yield {
+            type: "complete",
+            result: {
+              success: true,
+              artifacts: [],
+              summary: response.content || "",
+              tokensUsed: metrics.tokensUsed.total,
+              duration: metrics.totalDuration,
+            },
+          };
+
+          return;
+        }
+
+        messages.push({
+          role: "assistant",
+          content: response.content,
+          tool_calls: response.tool_calls,
         });
 
-        if (toolResult.success) {
-          metrics.successfulToolCalls++;
+        this.logger.log(
+          `[executeWithDefinitions] Executing ${toolCalls.length} tool calls`,
+        );
+
+        // Tool execution — parallel or serial
+        if (cfg.parallelToolCalls && this.toolConcurrency) {
+          const partition = this.toolConcurrency.partition(
+            toolCalls.map((tc) => ({
+              toolId: tc.name,
+              category: this.toolRegistry.has(tc.name)
+                ? this.toolRegistry.get(tc.name).category
+                : undefined,
+            })),
+          );
+
+          // Build a lookup from toolId to ToolCallRequest (last wins if duplicated)
+          const toolCallByName = new Map<string, ToolCallRequest>();
+          for (const tc of toolCalls) {
+            toolCallByName.set(tc.name, tc);
+          }
+
+          // Execute parallel groups
+          for (const group of partition.parallelGroups) {
+            const groupResults = await Promise.allSettled(
+              group.map((toolId) => {
+                const toolCall = toolCallByName.get(toolId);
+                if (!toolCall) return Promise.resolve(null);
+
+                let input: unknown;
+                try {
+                  input = JSON.parse(toolCall.arguments);
+                } catch {
+                  input = toolCall.arguments;
+                }
+                return this.executeTool(
+                  toolId,
+                  input,
+                  context,
+                  cfg.enableRetry,
+                ).then((toolResult) => ({ toolId, toolCall, input, toolResult }));
+              }),
+            );
+
+            for (const settled of groupResults) {
+              if (
+                settled.status === "fulfilled" &&
+                settled.value !== null &&
+                settled.value !== undefined
+              ) {
+                const { toolId, toolCall, input, toolResult } =
+                  settled.value as {
+                    toolId: string;
+                    toolCall: ToolCallRequest;
+                    input: unknown;
+                    toolResult: ToolResult;
+                  };
+
+                metrics.toolCalls++;
+
+                yield { type: "tool_call", tool: toolId, input };
+
+                metrics.toolCallDetails.push({
+                  tool: toolId,
+                  duration: toolResult.metadata?.duration || 0,
+                  success: toolResult.success,
+                });
+
+                if (toolResult.success) {
+                  metrics.successfulToolCalls++;
+                } else {
+                  metrics.failedToolCalls++;
+                }
+
+                yield {
+                  type: "tool_result",
+                  tool: toolId,
+                  output: toolResult.data,
+                  duration: toolResult.metadata?.duration || 0,
+                };
+
+                messages.push(
+                  llmAdapter.buildToolResultMessage(
+                    toolCall.id,
+                    toolCall.name,
+                    toolResult.success
+                      ? toolResult.data
+                      : { error: toolResult.error },
+                  ),
+                );
+              }
+            }
+          }
+
+          // Execute sequential tools
+          for (const seqToolId of partition.sequential) {
+            const toolCall = toolCallByName.get(seqToolId);
+            if (!toolCall) continue;
+
+            metrics.toolCalls++;
+
+            let input: unknown;
+            try {
+              input = JSON.parse(toolCall.arguments);
+            } catch {
+              input = toolCall.arguments;
+            }
+
+            yield { type: "tool_call", tool: seqToolId, input };
+
+            const toolResult = await this.executeTool(
+              seqToolId,
+              input,
+              context,
+              cfg.enableRetry,
+            );
+
+            metrics.toolCallDetails.push({
+              tool: seqToolId,
+              duration: toolResult.metadata?.duration || 0,
+              success: toolResult.success,
+            });
+
+            if (toolResult.success) {
+              metrics.successfulToolCalls++;
+            } else {
+              metrics.failedToolCalls++;
+            }
+
+            yield {
+              type: "tool_result",
+              tool: seqToolId,
+              output: toolResult.data,
+              duration: toolResult.metadata?.duration || 0,
+            };
+
+            messages.push(
+              llmAdapter.buildToolResultMessage(
+                toolCall.id,
+                toolCall.name,
+                toolResult.success
+                  ? toolResult.data
+                  : { error: toolResult.error },
+              ),
+            );
+          }
         } else {
-          metrics.failedToolCalls++;
+          // Original serial execution
+          for (const toolCall of toolCalls) {
+            metrics.toolCalls++;
+
+            const toolId = toolCall.name;
+            let input: unknown;
+
+            try {
+              input = JSON.parse(toolCall.arguments);
+            } catch {
+              input = toolCall.arguments;
+            }
+
+            yield {
+              type: "tool_call",
+              tool: toolId,
+              input,
+            };
+
+            yield {
+              type: "tool_progress",
+              tool: toolId,
+              progress: 0,
+              message: `Starting ${toolId}`,
+            };
+
+            const toolResult = await this.executeTool(
+              toolId,
+              input,
+              context,
+              cfg.enableRetry,
+            );
+
+            yield {
+              type: "tool_progress",
+              tool: toolId,
+              progress: 100,
+              message: `Completed ${toolId}`,
+            };
+
+            metrics.toolCallDetails.push({
+              tool: toolId,
+              duration: toolResult.metadata?.duration || 0,
+              success: toolResult.success,
+            });
+
+            if (toolResult.success) {
+              metrics.successfulToolCalls++;
+            } else {
+              metrics.failedToolCalls++;
+            }
+
+            yield {
+              type: "tool_result",
+              tool: toolId,
+              output: toolResult.data,
+              duration: toolResult.metadata?.duration || 0,
+            };
+
+            const toolResultMessage = llmAdapter.buildToolResultMessage(
+              toolCall.id,
+              toolCall.name,
+              toolResult.success ? toolResult.data : { error: toolResult.error },
+            );
+            messages.push(toolResultMessage);
+          }
         }
 
-        yield {
-          type: "tool_result",
-          tool: toolId,
-          output: toolResult.data,
-          duration: toolResult.metadata?.duration || 0,
-        };
-
-        const toolResultMessage = llmAdapter.buildToolResultMessage(
-          toolCall.id,
-          toolCall.name,
-          toolResult.success ? toolResult.data : { error: toolResult.error },
-        );
-        messages.push(toolResultMessage);
+        // Checkpoint at end of each iteration
+        if (cfg.enableCheckpoints && this.checkpoint) {
+          this.checkpoint.save({
+            executionId,
+            iteration: metrics.iterations,
+            messages: [...messages],
+            toolResults: metrics.toolCallDetails.map((d) => ({
+              toolId: d.tool,
+              result: { duration: d.duration, success: d.success },
+            })),
+            tokenUsage: this.tokenTracker?.getUsage(executionId) ?? {
+              inputTokens: 0,
+              outputTokens: 0,
+              cacheCreationTokens: 0,
+              cacheReadTokens: 0,
+              totalTokens: 0,
+              callCount: 0,
+            },
+            timestamp: new Date(),
+          });
+        }
       }
-    }
 
-    if (metrics.iterations >= cfg.maxIterations) {
-      this.logger.warn("[executeWithDefinitions] Max iterations reached");
+      if (metrics.iterations >= cfg.maxIterations) {
+        this.logger.warn("[executeWithDefinitions] Max iterations reached");
+        yield {
+          type: "error",
+          error: "Max iterations reached, task may be incomplete",
+        };
+      }
+
+      if (metrics.toolCalls >= cfg.maxToolCalls) {
+        this.logger.warn("[executeWithDefinitions] Max tool calls reached");
+        yield {
+          type: "error",
+          error: "Max tool calls reached, task may be incomplete",
+        };
+      }
+
+      metrics.totalDuration = Date.now() - startTime;
+
       yield {
-        type: "error",
-        error: "Max iterations reached, task may be incomplete",
+        type: "complete",
+        result: {
+          success: true,
+          artifacts: [],
+          summary: "Task execution completed",
+          tokensUsed: metrics.tokensUsed.total,
+          duration: metrics.totalDuration,
+        },
       };
+    } finally {
+      this.tokenTracker?.endSession(executionId);
+      this.checkpoint?.endExecution(executionId);
     }
+  }
 
-    if (metrics.toolCalls >= cfg.maxToolCalls) {
-      this.logger.warn("[executeWithDefinitions] Max tool calls reached");
-      yield {
-        type: "error",
-        error: "Max tool calls reached, task may be incomplete",
-      };
+  /**
+   * Estimate token count for messages (used by context compaction)
+   */
+  private estimateTokens(messages: LLMMessage[]): number {
+    let chars = 0;
+    for (const msg of messages) {
+      chars +=
+        typeof msg.content === "string"
+          ? msg.content.length
+          : JSON.stringify(msg.content).length;
     }
-
-    metrics.totalDuration = Date.now() - startTime;
-
-    yield {
-      type: "complete",
-      result: {
-        success: true,
-        artifacts: [],
-        summary: "Task execution completed",
-        tokensUsed: metrics.tokensUsed.total,
-        duration: metrics.totalDuration,
-      },
-    };
+    return Math.ceil(chars * 0.6); // avg tokens per char for mixed CJK/EN
   }
 
   /**

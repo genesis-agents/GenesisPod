@@ -49,6 +49,12 @@ import { ComplexityAnalyzerService } from "./orchestration/services/complexity-a
 import { IntelligentModelRouterService } from "./orchestration/services/intelligent-model-router.service";
 import { TaskPlannerService } from "./orchestration/services/task-planner.service";
 import { IntentRouterService } from "./orchestration/services/intent-router.service";
+// ★ Phase 1-4: 基础设施升级新增服务
+import { QueryLoopService } from "./orchestration/services/query-loop.service";
+import { TokenTrackerService } from "./orchestration/services/token-tracker.service";
+import { ContextCompactionPipelineService } from "./orchestration/services/context-compaction-pipeline.service";
+import { ExecutionCheckpointService } from "./orchestration/services/execution-checkpoint.service";
+import { AdaptiveReplannerService } from "./orchestration/services/adaptive-replanner.service";
 
 // State Machine
 import { ProcessSupervisorService as ExecutionStateManager } from "../ai-kernel/facade";
@@ -210,6 +216,12 @@ const checkpointManagerFactory = {
     IntelligentModelRouterService,
     TaskPlannerService,
     IntentRouterService,
+    // ★ Phase 1-4: 基础设施升级
+    QueryLoopService,
+    TokenTrackerService,
+    ContextCompactionPipelineService,
+    ExecutionCheckpointService,
+    AdaptiveReplannerService,
 
     // State Machine
     ExecutionStateManager,
@@ -249,6 +261,12 @@ const checkpointManagerFactory = {
     TaskPlannerService,
     IntentRouterService,
     ExecutionStateManager,
+    // ★ Phase 1-4: 基础设施升级
+    QueryLoopService,
+    TokenTrackerService,
+    ContextCompactionPipelineService,
+    ExecutionCheckpointService,
+    AdaptiveReplannerService,
   ],
 })
 export class AiEngineOrchestrationModule {}

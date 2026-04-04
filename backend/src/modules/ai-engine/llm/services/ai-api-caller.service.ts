@@ -89,6 +89,8 @@ export interface ChatCompletionResult {
   cacheCreationTokens?: number;
   /** Prompt Cache 命中 token 数（Anthropic / OpenAI） */
   cacheReadTokens?: number;
+  /** API 返回的完成原因（"stop"=正常完成, "length"=截断） */
+  finishReason?: string;
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
 }
@@ -353,6 +355,7 @@ export class AiApiCallerService {
       inputTokens: openaiUsage.prompt_tokens || 0,
       outputTokens: openaiUsage.completion_tokens || 0,
       cacheReadTokens: promptTokensDetails.cached_tokens || 0,
+      finishReason: data.choices?.[0]?.finish_reason || undefined,
     };
   }
 
@@ -442,6 +445,7 @@ export class AiApiCallerService {
       outputTokens: anthropicUsage.output_tokens || 0,
       cacheCreationTokens: anthropicUsage.cache_creation_input_tokens || 0,
       cacheReadTokens: anthropicUsage.cache_read_input_tokens || 0,
+      finishReason: data.stop_reason === "max_tokens" ? "length" : data.stop_reason || undefined,
     };
   }
 

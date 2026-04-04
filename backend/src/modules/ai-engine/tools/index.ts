@@ -18,6 +18,9 @@ export * from "./base";
 // Middleware
 export * from "./middleware";
 
+// Concurrency
+export * from "./concurrency";
+
 // Registry
 export * from "./registry";
 

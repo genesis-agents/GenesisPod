@@ -404,6 +404,30 @@ export class TokenBudgetService {
   }
 
   /**
+   * Count actual tokens from an LLM response (uses real API-reported values).
+   * Falls back to character-based estimation if response lacks token data.
+   */
+  countTokensFromResponse(response: {
+    inputTokens?: number;
+    outputTokens?: number;
+    tokensUsed?: number;
+    content?: string;
+  }): number {
+    // Prefer actual API-reported tokens
+    if (response.inputTokens && response.outputTokens) {
+      return response.inputTokens + response.outputTokens;
+    }
+    if (response.tokensUsed && response.tokensUsed > 0) {
+      return response.tokensUsed;
+    }
+    // Fallback to character estimation
+    if (response.content) {
+      return this.countTokens(response.content);
+    }
+    return 0;
+  }
+
+  /**
    * 格式化预算报告
    */
   formatBudgetReport(budget: TokenBudget, used: number): string {

@@ -25,6 +25,10 @@ import { TimeoutMiddleware } from "./tools/middleware/timeout.middleware";
 
 // Policy Data Service
 import { PolicyDataService } from "./tools/categories/information/policy";
+// ★ Phase 3: 工具并发 + 中间件
+import { ToolConcurrencyService } from "./tools/concurrency/tool-concurrency.service";
+import { PermissionMiddleware } from "./tools/middleware/permission.middleware";
+import { ProgressMiddleware } from "./tools/middleware/progress.middleware";
 
 // All Tools
 import {
@@ -38,12 +42,18 @@ import {
  */
 const toolPipelineFactory = {
   provide: ToolPipeline,
-  useFactory: () => {
+  useFactory: (
+    permissionMiddleware: PermissionMiddleware,
+    progressMiddleware: ProgressMiddleware,
+  ) => {
     const pipeline = new ToolPipeline();
-    pipeline.use(new ValidationMiddleware());
-    pipeline.use(new TimeoutMiddleware());
+    pipeline.use(permissionMiddleware);          // ★ Phase 3: permission check (priority 5, runs first)
+    pipeline.use(new ValidationMiddleware());    // existing
+    pipeline.use(new TimeoutMiddleware());       // existing
+    pipeline.use(progressMiddleware);            // ★ Phase 3: progress tracking (priority 90, runs last)
     return pipeline;
   },
+  inject: [PermissionMiddleware, ProgressMiddleware],
 };
 
 /**
@@ -75,6 +85,10 @@ const toolExecutorFactory = {
 
     // Policy Data Service
     PolicyDataService,
+    // ★ Phase 3: 工具并发 + 中间件
+    ToolConcurrencyService,
+    PermissionMiddleware,
+    ProgressMiddleware,
 
     // All 46 Built-in Tools
     ...ALL_TOOL_PROVIDERS,
@@ -87,6 +101,10 @@ const toolExecutorFactory = {
     PolicyDataService,
     ...ALL_TOOL_PROVIDERS,
     ALL_TOOLS_TOKEN, // Export token for AiEngineModule injection
+    // ★ Phase 3
+    ToolConcurrencyService,
+    PermissionMiddleware,
+    ProgressMiddleware,
   ],
 })
 export class AiEngineToolsModule {}

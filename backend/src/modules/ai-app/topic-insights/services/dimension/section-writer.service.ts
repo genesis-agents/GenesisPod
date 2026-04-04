@@ -15,9 +15,13 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { InsufficientCreditsException } from "../../types/research.exceptions";
-import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  AIEngineFacade,
+  inferIsReasoning,
+} from "@/modules/ai-engine/facade";
+import type { QueryLoopConfig } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import { inferIsReasoning } from "@/modules/ai-engine/facade";
 import type { SectionPlan } from "../core/research/research-leader.service";
 import type { FigureRegistryEntry } from "./evidence-summary.utils";
 import {
@@ -362,21 +366,33 @@ export class SectionWriterService {
     }
 
     const startTime = Date.now();
-    // ★ 使用 chatWithSkills 自动注入 skill 内容到 system message，并记录 analytics
-    const response = await this.chatFacade.chatWithSkills({
-      messages: [
-        { role: "system", content: effectiveSystemPrompt },
-        { role: "user", content: finalUserPrompt },
-      ],
-      // 不传 domain（避免加载全部 11 个 research skills）
-      // 只传 additionalSkills：精确加载 Leader 分配的 skill
-      additionalSkills: skillIds,
-      modelType: AIModelType.CHAT,
-      model: modelId, // ★ 使用指定模型（如果提供）
-      skipGuardrails: true, // 内部系统调用，章节写作含外部研究数据
-      cachePolicy: "auto",
-      taskProfile: tierAdaptation.taskProfile,
-    });
+    // ★ Phase 1: Use chatWithLoop for auto-continuation on truncated sections.
+    // Falls back to chat() internally if QueryLoopService is unavailable.
+    // Skills are injected via additionalSkills → chat() → chatWithSkills().
+    const loopConfig: QueryLoopConfig = {
+      maxContinuations: 3,
+      diminishingThreshold: 500,
+      minContinuationsForDiminishing: 2,
+      continuationPrompt:
+        "Your previous response was truncated. Continue writing from exactly where you left off. Do not repeat any content already written. Do not add any preamble or transition — continue the text seamlessly.",
+    };
+    const response = await this.chatFacade.chatWithLoop(
+      {
+        messages: [
+          { role: "system", content: effectiveSystemPrompt },
+          { role: "user", content: finalUserPrompt },
+        ],
+        // 不传 domain（避免加载全部 11 个 research skills）
+        // 只传 additionalSkills：精确加载 Leader 分配的 skill
+        additionalSkills: skillIds,
+        modelType: AIModelType.CHAT,
+        model: modelId, // ★ 使用指定模型（如果提供）
+        skipGuardrails: true, // 内部系统调用，章节写作含外部研究数据
+        cachePolicy: "auto",
+        taskProfile: tierAdaptation.taskProfile,
+      },
+      loopConfig,
+    );
     const latencyMs = Date.now() - startTime;
 
     // ★ 检查 API 错误状态

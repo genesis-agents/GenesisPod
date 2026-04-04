@@ -544,3 +544,44 @@ export type {
 } from "../tools/categories/information/image-search/image-search.types";
 
 // ★ Phase 8: Kernel re-exports REMOVED — all AI App consumers now import from "../../ai-kernel/facade" directly.
+
+// Query Loop auto-continuation engine
+export {
+  QueryLoopService,
+  type QueryLoopConfig,
+  type QueryLoopResult,
+  type QueryLoopStopReason,
+} from "../orchestration/services";
+
+// Token usage tracker
+export {
+  TokenTrackerService,
+  type TokenUsageSnapshot,
+  type TokenUsageEntry,
+} from "../orchestration/services";
+
+export {
+  ContextCompactionPipelineService,
+  type CompactionConfig,
+  type CompactionResult,
+  type CompactionLevel,
+} from "../orchestration/services";
+
+export {
+  ExecutionCheckpointService,
+  type ExecutionCheckpoint,
+} from "../orchestration/services";
+
+export {
+  AdaptiveReplannerService,
+  type ReplanTrigger,
+  type ReplanResult,
+  type MissionExecutionPlan,
+} from "../orchestration/services";
+
+// ★ Phase 3: Tool Concurrency
+export { ToolConcurrencyService } from "../tools/concurrency/tool-concurrency.service";
+export type {
+  ConcurrencyMetadata,
+  ExecutionPartition,
+} from "../tools/concurrency/tool-concurrency.service";

@@ -222,7 +222,7 @@ describe("FunctionCallingExecutor", () => {
       }
 
       // Verify event sequence
-      expect(events).toHaveLength(3);
+      expect(events).toHaveLength(5);
 
       // Event 1: tool_call
       expect(events[0]).toMatchObject({
@@ -231,15 +231,29 @@ describe("FunctionCallingExecutor", () => {
         input: { query: "test" },
       });
 
-      // Event 2: tool_result
+      // Event 2: tool_progress (progress: 0, before tool execution)
       expect(events[1]).toMatchObject({
+        type: "tool_progress",
+        tool: "test-tool",
+        progress: 0,
+      });
+
+      // Event 3: tool_progress (progress: 100, after tool execution)
+      expect(events[2]).toMatchObject({
+        type: "tool_progress",
+        tool: "test-tool",
+        progress: 100,
+      });
+
+      // Event 4: tool_result
+      expect(events[3]).toMatchObject({
         type: "tool_result",
         tool: "test-tool",
         output: { result: "tool execution result" },
       });
 
-      // Event 3: complete
-      expect(events[2]).toMatchObject({
+      // Event 5: complete
+      expect(events[4]).toMatchObject({
         type: "complete",
         result: {
           success: true,

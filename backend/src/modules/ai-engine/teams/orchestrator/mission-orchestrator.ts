@@ -14,7 +14,7 @@
  * - HandoffCoordinator: Leader→Member 委派 ★ 新增
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { v4 as uuidv4 } from "uuid";
 import { ITeam } from "../abstractions/team.interface";
@@ -79,6 +79,10 @@ import {
 } from "../../orchestration/abstractions/orchestrator.interface";
 import { MissionExecutorService } from "../../../ai-kernel/facade";
 import { EventJournalService } from "../../../ai-kernel/facade";
+import {
+  AdaptiveReplannerService,
+  type StepExecutionResult as ReplanStepExecutionResult,
+} from "../../orchestration/services/adaptive-replanner.service";
 
 /**
  * 步骤执行结果（内部使用）
@@ -136,6 +140,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   // ★ AI Kernel 进程生命周期（可选，用于 Durable Execution）
   private readonly missionExecutor?: MissionExecutorService;
   private readonly kernelJournal?: EventJournalService;
+  // ★ Phase 4: 自适应重规划（可选）
+  private readonly adaptiveReplanner?: AdaptiveReplannerService;
   // missionId → kernel processId 映射
   private readonly kernelProcessIds = new LruMap<string, string>(500);
 
@@ -155,6 +161,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     config?: Partial<OrchestratorConfig>,
     missionExecutor?: MissionExecutorService,
     kernelJournal?: EventJournalService,
+    @Optional() adaptiveReplanner?: AdaptiveReplannerService,
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
     this.handoffCoordinator = new HandoffCoordinator({
@@ -206,6 +213,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       this.logger.log(
         "AI Kernel MissionExecutor initialized for durable execution",
       );
+    }
+
+    // ★ Phase 4: 自适应重规划（可选依赖）
+    this.adaptiveReplanner = adaptiveReplanner;
+    if (this.adaptiveReplanner) {
+      this.logger.log("AdaptiveReplanner initialized for dynamic replanning");
     }
   }
 
@@ -1104,6 +1117,54 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
             stepId: step.id,
             error: (error as Error).message,
           });
+
+          // ★ Phase 4: Check if replanning is needed after step failure
+          if (this.adaptiveReplanner) {
+            const trigger = {
+              type: "task_failed" as const,
+              taskId: step.id,
+              details: (error as Error).message ?? "Step failed",
+            };
+            // Map local ExecutionStep[] to AdaptiveReplanner's ExecutionStep[] by
+            // adding the required `status` field (steps here are either pending or failed).
+            const replanSteps = plan.steps.map((s) => ({
+              ...s,
+              status: (state.failedSteps.includes(s.id)
+                ? "failed"
+                : state.completedSteps.includes(s.id)
+                  ? "completed"
+                  : "pending") as "pending" | "running" | "completed" | "failed" | "skipped",
+            }));
+            const currentPlan = {
+              steps: replanSteps,
+              totalSteps: plan.steps.length,
+              completedSteps: completedSteps.size,
+            };
+            const executionHistory: ReplanStepExecutionResult[] =
+              state.completedSteps.map((id) => ({
+                stepId: id,
+                success: true,
+              }));
+            const shouldReplan = this.adaptiveReplanner.shouldReplan(
+              trigger,
+              currentPlan,
+              executionHistory,
+            );
+            if (shouldReplan) {
+              const replanResult = this.adaptiveReplanner.replan(
+                trigger,
+                currentPlan,
+                executionHistory,
+              );
+              this.logger.log(
+                `[MissionOrchestrator] Replanned: ${replanResult.reasoning}`,
+              );
+              // TODO(Phase 4): Apply replanResult to plan:
+              // - plan.steps.push(...replanResult.addedSteps)
+              // - plan.steps = plan.steps.filter(s => !replanResult.removedSteps.includes(s.id))
+              // - replanResult.modifiedSteps.forEach(m => { /* update step */ })
+            }
+          }
 
           if (!this.config.enableAutoRetry) {
             throw error;

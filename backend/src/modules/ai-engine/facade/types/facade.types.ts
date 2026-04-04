@@ -144,6 +144,15 @@ export interface ChatResponse {
   /** 使用的 token 数 */
   tokensUsed: number;
 
+  /** 输入 token 数 */
+  inputTokens?: number;
+
+  /** 输出 token 数 */
+  outputTokens?: number;
+
+  /** API 返回的完成原因（"stop"=正常完成, "length"=截断, "end_turn"等） */
+  finishReason?: string;
+
   /** 是否为错误响应 */
   isError?: boolean;
 }

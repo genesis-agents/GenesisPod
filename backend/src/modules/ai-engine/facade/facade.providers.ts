@@ -27,6 +27,8 @@ import { IntentDetectionService } from "../orchestration/services/intent-detecti
 import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-kernel/facade";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
+import { QueryLoopService } from "../orchestration/services/query-loop.service";
+import { TokenTrackerService } from "../orchestration/services/token-tracker.service";
 // ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../llm/adapters/ai-chat-llm-adapter";
 import { InputBindingResolver } from "../skills/runtime/input-binding-resolver";
@@ -101,6 +103,8 @@ export interface OrchestrationFeature {
   execStateManager?: ExecutionStateManager;
   outputReviewer?: OutputReviewerService;
   contextEvolution?: ContextEvolutionService;
+  queryLoop?: QueryLoopService;
+  tokenTracker?: TokenTrackerService;
 }
 
 /** Parameters for fire-and-forget skill usage logging */
@@ -298,6 +302,8 @@ export const orchestrationFeatureProvider: Provider = {
     execStateManager?: ExecutionStateManager,
     outputReviewer?: OutputReviewerService,
     contextEvolution?: ContextEvolutionService,
+    queryLoop?: QueryLoopService,
+    tokenTracker?: TokenTrackerService,
   ): OrchestrationFeature | undefined => {
     if (!circuitBreaker || !agentExecutor) return undefined;
     return {
@@ -308,6 +314,8 @@ export const orchestrationFeatureProvider: Provider = {
       execStateManager,
       outputReviewer,
       contextEvolution,
+      queryLoop,
+      tokenTracker,
     };
   },
   inject: [
@@ -318,6 +326,8 @@ export const orchestrationFeatureProvider: Provider = {
     { token: ExecutionStateManager, optional: true },
     { token: OutputReviewerService, optional: true },
     { token: ContextEvolutionService, optional: true },
+    { token: QueryLoopService, optional: true },
+    { token: TokenTrackerService, optional: true },
   ],
 };
 

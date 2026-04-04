@@ -640,42 +640,43 @@ function ReportEditorInner({
       );
     }
 
-    // ★ Priority 1: Use resolvedFullReport if it's valid AND reasonably complete
-    // Count all ## headings (not just "## N." — cross-dimension, risk, strategy sections don't have numbers)
-    const expectedDimCount = report.dimensionAnalyses?.length || 0;
-    const actualH2Count = (resolvedFullReport?.match(/^## /gm) || []).length;
-    const hasChartPlaceholders =
-      resolvedFullReport?.includes('<!-- chart:') || false;
-    // Consider complete if: enough h2 headings, OR has chart placeholders (fullReport with embedded figures)
-    const isFullReportComplete =
-      expectedDimCount <= 1 ||
-      actualH2Count >= expectedDimCount ||
-      hasChartPlaceholders;
+    // ★ Priority 1: Prefer dimensionAnalyses.detailedContent when available
+    // detailedContent preserves correct LaTeX formatting ($...$) from the original
+    // dimension research output, while fullReport may have LaTeX corrupted by LLM
+    // synthesis (e.g., $B_{\text{dtype}}$ → B_{\text{dtype}$$}).
+    // This ensures continuous view matches chapter view's rendering quality.
+    const hasDimensionContent =
+      report.dimensionAnalyses &&
+      report.dimensionAnalyses.length > 0 &&
+      report.dimensionAnalyses.some((da) => da.detailedContent);
 
-    if (
-      resolvedFullReport &&
-      resolvedFullReport.trim().length > 100 &&
-      isFullReportComplete
-    ) {
-      const looksLikeMarkdown =
-        resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
-      if (hasChartPlaceholders || looksLikeMarkdown) {
-        // Strip the ## 参考文献/References section — rendered separately as React component
-        const stripped = resolvedFullReport.replace(
-          /\n*---\n*\n*##\s*(?:参考文献|References)\n[\s\S]*$/,
-          ''
-        );
-        // ★ Runtime cleanup: strip prose bullets (shared with chapter view)
-        return stripProseBullets(stripped);
+    // ★ Priority 1.5 fallback: Use fullReport only when detailedContent is unavailable
+    if (!hasDimensionContent && resolvedFullReport) {
+      const expectedDimCount = report.dimensionAnalyses?.length || 0;
+      const actualH2Count = (resolvedFullReport.match(/^## /gm) || []).length;
+      const hasChartPlaceholders = resolvedFullReport.includes('<!-- chart:');
+      const isFullReportComplete =
+        expectedDimCount <= 1 ||
+        actualH2Count >= expectedDimCount ||
+        hasChartPlaceholders;
+
+      if (
+        resolvedFullReport.trim().length > 100 &&
+        isFullReportComplete
+      ) {
+        const looksLikeMarkdown =
+          resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
+        if (hasChartPlaceholders || looksLikeMarkdown) {
+          const stripped = resolvedFullReport.replace(
+            /\n*---\n*\n*##\s*(?:参考文献|References)\n[\s\S]*$/,
+            ''
+          );
+          return stripProseBullets(stripped);
+        }
       }
     }
 
-    // ★ Priority 1.5: fullReport is truncated — rebuild from dimensionAnalyses
-    if (
-      report.dimensionAnalyses &&
-      report.dimensionAnalyses.length > 0 &&
-      report.dimensionAnalyses.some((da) => da.detailedContent)
-    ) {
+    if (hasDimensionContent) {
       const parts: string[] = [];
       if (report.title) {
         parts.push(`# ${report.title}\n`);
@@ -687,7 +688,7 @@ function ReportEditorInner({
         );
       }
       // Add each dimension's detailedContent
-      report.dimensionAnalyses.forEach((da, idx) => {
+      (report.dimensionAnalyses ?? []).forEach((da, idx) => {
         const dimName = da.dimension?.name || `Dimension ${idx + 1}`;
         const content = da.detailedContent || da.summary || '';
         if (content.trim()) {

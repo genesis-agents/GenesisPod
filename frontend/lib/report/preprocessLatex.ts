@@ -640,6 +640,23 @@ export function preprocessLatex(markdown: string): string {
   // Step 3: Repair broken bold markers (**，text or ** [N])
   result = repairBrokenBoldMarkers(result);
 
+  // Step 3.5: Clean stray $ and $$ around LaTeX command closing braces
+  // LLM sometimes produces broken patterns like:
+  //   B_{\text{dtype}$$}  →  should be B_{\text{dtype}}
+  //   B_{\text{dtype}$$$1$$L$  →  completely garbled
+  // Strategy: strip $ signs adjacent to } in LaTeX contexts
+  // Pattern 1: }$+} — extra $ between closing braces → }}
+  result = result.replace(/\}\$+\}/g, '}}');
+  // Pattern 2: }$+; or }$+， — $ after } before punctuation → }punct
+  result = result.replace(/\}\$+([;；,，。.：:）)])/g, '}$1');
+  // Pattern 3: }$$$1$$L$ — garbled formula fragments: strip sequences of $+digit+$
+  result = result.replace(/\}\$+(\d+)\$+/g, '}$1');
+  // Pattern 4: \text{...}$$ at end of inline formula — strip trailing $$
+  result = result.replace(
+    /(\\(?:text|mathrm|mathbf|mathit|operatorname)\{[^}]*\})\$\$/g,
+    '$1'
+  );
+
   // Step 4: Convert \[...\] display math to $$...$$
   result = convertDisplayMath(result);
 

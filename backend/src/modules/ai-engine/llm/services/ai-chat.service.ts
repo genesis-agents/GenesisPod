@@ -63,6 +63,8 @@ export interface ChatCompletionResult {
   cacheCreationTokens?: number;
   /** Prompt Cache 命中 token 数（Anthropic / OpenAI） */
   cacheReadTokens?: number;
+  /** API 返回的完成原因（"stop"=正常完成, "length"=截断） */
+  finishReason?: string;
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
   /** 错误分类类型（仅在 isError=true 时有值，用于 fallback 决策） */
@@ -853,6 +855,7 @@ export class AiChatService {
       cacheReadTokens?: number;
     };
     model: string;
+    finishReason?: string;
     isError?: boolean;
     apiKeySource?: "personal" | "donated" | "system";
   }> {
@@ -994,6 +997,7 @@ export class AiChatService {
             cacheReadTokens: result.cacheReadTokens,
           },
           model: result.model,
+          finishReason: result.finishReason,
           isError: result.isError,
         };
       } catch (error) {
@@ -1243,6 +1247,7 @@ export class AiChatService {
             cacheReadTokens: result.cacheReadTokens,
           },
           model: result.model,
+          finishReason: result.finishReason,
           isError: false,
           apiKeySource: result.apiKeySource,
         };
