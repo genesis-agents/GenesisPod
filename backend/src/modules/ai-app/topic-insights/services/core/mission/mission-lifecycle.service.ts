@@ -932,6 +932,7 @@ export class MissionLifecycleService {
   async retryTask(taskId: string): Promise<ResearchTask> {
     const task = await this.prisma.researchTask.findUnique({
       where: { id: taskId },
+      include: { mission: true },
     });
 
     if (!task) {
@@ -947,7 +948,8 @@ export class MissionLifecycleService {
       );
     }
 
-    return this.prisma.researchTask.update({
+    // ★ Reset task to PENDING
+    const updatedTask = await this.prisma.researchTask.update({
       where: { id: taskId },
       data: {
         status: ResearchTaskStatus.PENDING,
@@ -958,6 +960,35 @@ export class MissionLifecycleService {
         resultSummary: null,
       },
     });
+
+    // ★ If mission is not EXECUTING (e.g., FAILED/COMPLETED), resume it
+    // and trigger re-execution so the scheduler picks up the PENDING task
+    if (
+      task.mission &&
+      task.mission.status !== ResearchMissionStatus.EXECUTING
+    ) {
+      this.logger.log(
+        `[retryTask] Mission ${task.mission.id} is ${task.mission.status}, resuming to EXECUTING`,
+      );
+      await this.prisma.researchMission.update({
+        where: { id: task.mission.id },
+        data: {
+          status: ResearchMissionStatus.EXECUTING,
+          completedAt: null,
+        },
+      });
+
+      // ★ Fire-and-forget: trigger mission re-execution
+      void this.executionService
+        .startExecution(task.mission.id, task.mission.topicId)
+        .catch((err: unknown) => {
+          this.logger.error(
+            `[retryTask] Failed to restart execution: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
+
+    return updatedTask;
   }
 
   /**
