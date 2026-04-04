@@ -38,11 +38,12 @@ export class ProgressMiddleware implements IToolMiddleware {
    * before→execute→after lifecycle without requiring instance-level state
    * (which would break concurrent executions).
    */
-  before(
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async before(
     _input: unknown,
     context: ToolContext,
     tool: ITool,
-  ): void {
+  ): Promise<void> {
     const startTime = Date.now();
 
     // Initialise metadata map if the context arrived without one
@@ -61,11 +62,12 @@ export class ProgressMiddleware implements IToolMiddleware {
    *
    * The result is returned unchanged — this middleware is purely observational.
    */
-  after(
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async after(
     result: ToolResult,
     context: ToolContext,
     tool: ITool,
-  ): ToolResult {
+  ): Promise<ToolResult> {
     const startTime =
       typeof context.metadata?.[START_TIME_KEY] === "number"
         ? (context.metadata[START_TIME_KEY] as number)

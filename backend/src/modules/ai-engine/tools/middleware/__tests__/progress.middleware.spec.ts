@@ -109,12 +109,12 @@ describe('ProgressMiddleware', () => {
   // -------------------------------------------------------------------------
 
   describe('before()', () => {
-    it('sets START_TIME_KEY in context.metadata', () => {
+    it('sets START_TIME_KEY in context.metadata', async () => {
       const context = makeContext(true);
       const tool = makeTool();
 
       const before = Date.now();
-      middleware.before(undefined, context, tool);
+      await middleware.before(undefined, context, tool);
       const after = Date.now();
 
       const recorded = context.metadata?.[START_TIME_KEY];
@@ -123,12 +123,12 @@ describe('ProgressMiddleware', () => {
       expect(recorded as number).toBeLessThanOrEqual(after);
     });
 
-    it('creates context.metadata if it is missing before recording the timestamp', () => {
+    it('creates context.metadata if it is missing before recording the timestamp', async () => {
       const context = makeContext(false); // no metadata
       expect(context.metadata).toBeUndefined();
 
       const tool = makeTool();
-      middleware.before(undefined, context, tool);
+      await middleware.before(undefined, context, tool);
 
       expect(context.metadata).toBeDefined();
       expect(typeof context.metadata?.[START_TIME_KEY]).toBe('number');
@@ -140,34 +140,34 @@ describe('ProgressMiddleware', () => {
   // -------------------------------------------------------------------------
 
   describe('after()', () => {
-    it('returns the result object unchanged (successful result)', () => {
+    it('returns the result object unchanged (successful result)', async () => {
       const context = makeContext(true);
       const tool = makeTool();
       const result = makeResult(true);
 
-      middleware.before(undefined, context, tool);
-      const returned = middleware.after(result, context, tool);
+      await middleware.before(undefined, context, tool);
+      const returned = await middleware.after(result, context, tool);
 
       expect(returned).toBe(result);
     });
 
-    it('returns the result object unchanged (failed result)', () => {
+    it('returns the result object unchanged (failed result)', async () => {
       const context = makeContext(true);
       const tool = makeTool();
       const result = makeResult(false);
 
-      middleware.before(undefined, context, tool);
-      const returned = middleware.after(result, context, tool);
+      await middleware.before(undefined, context, tool);
+      const returned = await middleware.after(result, context, tool);
 
       expect(returned).toBe(result);
     });
 
-    it('reports duration 0 when before() was never called (no START_TIME_KEY)', () => {
+    it('reports duration 0 when before() was never called (no START_TIME_KEY)', async () => {
       const context = makeContext(true);
       const tool = makeTool();
       const result = makeResult(true);
 
-      const returned = middleware.after(result, context, tool);
+      const returned = await middleware.after(result, context, tool);
       expect(returned).toBe(result);
     });
   });
