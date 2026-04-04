@@ -85,7 +85,9 @@ describe("ReportValidationService", () => {
 
       const result = await service.validateReport("topic-001", "report-001");
 
-      expect(result.errors.some((e) => e.type === "INVALID_CITATION_INDEX")).toBe(true);
+      expect(
+        result.errors.some((e) => e.type === "INVALID_CITATION_INDEX"),
+      ).toBe(true);
     });
 
     it("should warn about unused evidence", async () => {
@@ -100,14 +102,26 @@ describe("ReportValidationService", () => {
 
       const result = await service.validateReport("topic-001", "report-001");
 
-      expect(result.warnings.some((w) => w.type === "UNUSED_EVIDENCE")).toBe(true);
+      expect(result.warnings.some((w) => w.type === "UNUSED_EVIDENCE")).toBe(
+        true,
+      );
     });
 
     it("should detect duplicate chart IDs", async () => {
       const report = makeReport({
         charts: [
-          { id: "chart-001", chartType: "reference", title: "Chart A", imageUrl: "https://example.com/a.png" },
-          { id: "chart-001", chartType: "reference", title: "Chart B duplicate", imageUrl: "https://example.com/b.png" },
+          {
+            id: "chart-001",
+            chartType: "reference",
+            title: "Chart A",
+            imageUrl: "https://example.com/a.png",
+          },
+          {
+            id: "chart-001",
+            chartType: "reference",
+            title: "Chart B duplicate",
+            imageUrl: "https://example.com/b.png",
+          },
         ],
         fullReport: "",
         evidences: [],
@@ -116,7 +130,9 @@ describe("ReportValidationService", () => {
 
       const result = await service.validateReport("topic-001", "report-001");
 
-      expect(result.warnings.some((e) => e.type === "DUPLICATE_CHART_ID")).toBe(true);
+      expect(result.warnings.some((e) => e.type === "DUPLICATE_CHART_ID")).toBe(
+        true,
+      );
     });
 
     it("should error on reference chart with invalid evidence index", async () => {
@@ -138,9 +154,7 @@ describe("ReportValidationService", () => {
       const result = await service.validateReport("topic-001", "report-001");
 
       expect(
-        result.errors.some(
-          (e) => e.type === "INVALID_FIGURE_EVIDENCE_INDEX",
-        ),
+        result.errors.some((e) => e.type === "INVALID_FIGURE_EVIDENCE_INDEX"),
       ).toBe(true);
     });
 
@@ -161,9 +175,9 @@ describe("ReportValidationService", () => {
 
       const result = await service.validateReport("topic-001", "report-001");
 
-      expect(
-        result.errors.some((e) => e.type === "MISSING_IMAGE_URL"),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.type === "MISSING_IMAGE_URL")).toBe(
+        true,
+      );
     });
   });
 
@@ -188,9 +202,9 @@ describe("ReportValidationService", () => {
 
       const result = await service.validateReport("topic-001", "report-001");
 
-      expect(
-        result.warnings.some((w) => w.type === "INVALID_DATA_VALUE"),
-      ).toBe(true);
+      expect(result.warnings.some((w) => w.type === "INVALID_DATA_VALUE")).toBe(
+        true,
+      );
     });
 
     it("should warn on empty chart label", async () => {
@@ -211,9 +225,9 @@ describe("ReportValidationService", () => {
 
       const result = await service.validateReport("topic-001", "report-001");
 
-      expect(
-        result.warnings.some((w) => w.type === "EMPTY_DATA_LABEL"),
-      ).toBe(true);
+      expect(result.warnings.some((w) => w.type === "EMPTY_DATA_LABEL")).toBe(
+        true,
+      );
     });
 
     it("should warn when pie chart does not sum to 100", async () => {
@@ -260,9 +274,9 @@ describe("ReportValidationService", () => {
 
       const result = await service.validateReport("topic-001", "report-001");
 
-      expect(
-        result.warnings.some((w) => w.type === "EMPTY_CHART_DATA"),
-      ).toBe(true);
+      expect(result.warnings.some((w) => w.type === "EMPTY_CHART_DATA")).toBe(
+        true,
+      );
     });
 
     it("should warn when chart has too many data points", async () => {
@@ -337,9 +351,7 @@ describe("ReportValidationService", () => {
         id: "report-001",
         fullReport: "",
         evidences: [],
-        charts: [
-          { id: "ch-1", chartType: "reference", imageUrl: null },
-        ],
+        charts: [{ id: "ch-1", chartType: "reference", imageUrl: null }],
       });
 
       const result = await service.quickValidate("report-001");

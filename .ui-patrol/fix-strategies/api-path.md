@@ -1,9 +1,11 @@
 # Fix Strategy: API Path
 
 ## Issue
+
 API request returns 404, indicating wrong endpoint path.
 
 ## Steps
+
 1. From the network error evidence, identify the failing URL
 2. Check backend controller for the correct route:
    - Search `backend/src/modules/` for the controller

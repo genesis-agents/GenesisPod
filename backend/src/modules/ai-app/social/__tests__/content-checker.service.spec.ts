@@ -49,7 +49,11 @@ describe("ContentCheckerService", () => {
       const result = await service.check(content);
 
       expect(result.passed).toBe(false);
-      expect(result.issues.some((i) => i.type === "length_issue" && i.severity === "error")).toBe(true);
+      expect(
+        result.issues.some(
+          (i) => i.type === "length_issue" && i.severity === "error",
+        ),
+      ).toBe(true);
     });
 
     it("should detect multiple consecutive newlines", async () => {
@@ -66,7 +70,9 @@ describe("ContentCheckerService", () => {
 
       const result = await service.check(content);
 
-      expect(result.issues.filter((i) => i.type === "format_issue")).toHaveLength(0);
+      expect(
+        result.issues.filter((i) => i.type === "format_issue"),
+      ).toHaveLength(0);
     });
 
     it("should calculate score based on error and warning count", async () => {
@@ -76,9 +82,16 @@ describe("ContentCheckerService", () => {
       const result = await service.check(content);
 
       // 0 errors, 1 warning + 1 info
-      const warningCount = result.issues.filter((i) => i.severity === "warning").length;
-      const errorCount = result.issues.filter((i) => i.severity === "error").length;
-      const expectedScore = Math.max(0, 100 - errorCount * 20 - warningCount * 5);
+      const warningCount = result.issues.filter(
+        (i) => i.severity === "warning",
+      ).length;
+      const errorCount = result.issues.filter(
+        (i) => i.severity === "error",
+      ).length;
+      const expectedScore = Math.max(
+        0,
+        100 - errorCount * 20 - warningCount * 5,
+      );
       expect(result.score).toBe(expectedScore);
     });
 
@@ -105,7 +118,9 @@ describe("ContentCheckerService", () => {
 
       const result = await service.check(content);
 
-      expect(result.suggestions).toContain("建议优化标记为警告的内容以提高发布成功率");
+      expect(result.suggestions).toContain(
+        "建议优化标记为警告的内容以提高发布成功率",
+      );
     });
 
     it("should have no suggestions for perfect content", async () => {

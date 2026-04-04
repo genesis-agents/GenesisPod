@@ -18,9 +18,10 @@ import { MCPManager } from "../manager/mcp-manager";
  * MCP 工具适配器
  * 将 MCP 工具包装为 ITool
  */
-export class MCPToolAdapter
-  implements ITool<Record<string, unknown>, MCPToolResult>
-{
+export class MCPToolAdapter implements ITool<
+  Record<string, unknown>,
+  MCPToolResult
+> {
   readonly id: string;
   readonly name: string;
   readonly description: string;

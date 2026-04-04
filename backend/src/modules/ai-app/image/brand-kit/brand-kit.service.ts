@@ -63,7 +63,9 @@ export class BrandKitService {
       SELECT * FROM brand_kits WHERE user_id = ${userId} ORDER BY updated_at DESC
     `;
 
-    return brandKits.map((kit: Record<string, unknown>) => this.mapToBrandKit(kit));
+    return brandKits.map((kit: Record<string, unknown>) =>
+      this.mapToBrandKit(kit),
+    );
   }
 
   /**
@@ -183,10 +185,17 @@ export class BrandKitService {
       fonts: (dbKit["fonts"] as BrandKit["fonts"]) || [],
       logos: (dbKit["logos"] as BrandKit["logos"]) || {},
       voice: dbKit["voice"] as BrandKit["voice"] | undefined,
-      defaultStyle: ((dbKit["defaultStyle"] as string) || "consulting") as BrandKit["defaultStyle"],
+      defaultStyle: ((dbKit["defaultStyle"] as string) ||
+        "consulting") as BrandKit["defaultStyle"],
       userId: (dbKit["userId"] as string) || "",
-      createdAt: ((dbKit["createdAt"] as { toISOString?: () => string } | undefined)?.toISOString?.()) || "",
-      updatedAt: ((dbKit["updatedAt"] as { toISOString?: () => string } | undefined)?.toISOString?.()) || "",
+      createdAt:
+        (
+          dbKit["createdAt"] as { toISOString?: () => string } | undefined
+        )?.toISOString?.() || "",
+      updatedAt:
+        (
+          dbKit["updatedAt"] as { toISOString?: () => string } | undefined
+        )?.toISOString?.() || "",
     };
   }
 

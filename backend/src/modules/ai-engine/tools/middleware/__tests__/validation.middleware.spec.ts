@@ -5,32 +5,32 @@
 import {
   ValidationMiddleware,
   createValidationMiddleware,
-} from '../validation.middleware';
-import { ValidationError } from '../../../core/errors';
+} from "../validation.middleware";
+import { ValidationError } from "../../../core/errors";
 import {
   ITool,
   ToolCategory,
   ToolContext,
   ToolResult,
   JSONSchema,
-} from '../../abstractions/tool.interface';
+} from "../../abstractions/tool.interface";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function makeTool(
-  id: string = 'test-tool',
-  inputSchema: JSONSchema = { type: 'object' },
+  id: string = "test-tool",
+  inputSchema: JSONSchema = { type: "object" },
   overrides: Partial<ITool> = {},
 ): ITool {
   return {
     id,
     name: `Tool ${id}`,
-    description: 'Test',
-    category: 'information' as ToolCategory,
+    description: "Test",
+    category: "information" as ToolCategory,
     inputSchema,
-    outputSchema: { type: 'object' },
+    outputSchema: { type: "object" },
     enabled: true,
     cancellable: true,
     async execute(_input: unknown, _context: ToolContext): Promise<ToolResult> {
@@ -38,19 +38,23 @@ function makeTool(
         success: true,
         data: {},
         metadata: {
-          executionId: 'e',
+          executionId: "e",
           startTime: new Date(),
           endTime: new Date(),
           duration: 0,
         },
       };
     },
-    toFunctionDefinition: () => ({ name: id, description: 'Test', parameters: {} }),
+    toFunctionDefinition: () => ({
+      name: id,
+      description: "Test",
+      parameters: {},
+    }),
     toCompactSummary: () => ({
       id,
       name: `Tool ${id}`,
-      brief: 'Test',
-      category: 'information' as ToolCategory,
+      brief: "Test",
+      category: "information" as ToolCategory,
     }),
     ...overrides,
   };
@@ -58,8 +62,8 @@ function makeTool(
 
 function makeContext(): ToolContext {
   return {
-    executionId: 'exec-1',
-    toolId: 'test-tool',
+    executionId: "exec-1",
+    toolId: "test-tool",
     createdAt: new Date(),
   };
 }
@@ -67,9 +71,9 @@ function makeContext(): ToolContext {
 function makeSuccessResult(): ToolResult {
   return {
     success: true,
-    data: { value: 'ok' },
+    data: { value: "ok" },
     metadata: {
-      executionId: 'e',
+      executionId: "e",
       startTime: new Date(),
       endTime: new Date(),
       duration: 10,
@@ -81,28 +85,31 @@ function makeSuccessResult(): ToolResult {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('ValidationMiddleware', () => {
+describe("ValidationMiddleware", () => {
   // -------------------------------------------------------------------------
   // Constructor and metadata
   // -------------------------------------------------------------------------
 
-  describe('constructor', () => {
+  describe("constructor", () => {
     it('has name "validation"', () => {
       const mw = new ValidationMiddleware();
-      expect(mw.name).toBe('validation');
+      expect(mw.name).toBe("validation");
     });
 
-    it('has priority 10', () => {
+    it("has priority 10", () => {
       const mw = new ValidationMiddleware();
       expect(mw.priority).toBe(10);
     });
 
-    it('defaults validateInput to true', async () => {
+    it("defaults validateInput to true", async () => {
       const tool = makeTool(
-        't',
-        { type: 'object', required: ['name'] },
+        "t",
+        { type: "object", required: ["name"] },
         {
-          validateInput: () => ({ valid: false, errors: [{ path: 'name', message: 'required', type: 'required' }] }),
+          validateInput: () => ({
+            valid: false,
+            errors: [{ path: "name", message: "required", type: "required" }],
+          }),
         },
       );
       const mw = new ValidationMiddleware(); // default validateInput=true
@@ -112,10 +119,10 @@ describe('ValidationMiddleware', () => {
       );
     });
 
-    it('can disable validateInput via config', async () => {
+    it("can disable validateInput via config", async () => {
       const tool = makeTool(
-        't',
-        { type: 'object', required: ['name'] },
+        "t",
+        { type: "object", required: ["name"] },
         {
           validateInput: () => ({ valid: false, errors: [] }),
         },
@@ -130,58 +137,82 @@ describe('ValidationMiddleware', () => {
   // before() — tool.validateInput() used
   // -------------------------------------------------------------------------
 
-  describe('before() — tool.validateInput()', () => {
-    it('passes validation when tool.validateInput returns { valid: true }', async () => {
-      const tool = makeTool('t', { type: 'object' }, {
-        validateInput: () => ({ valid: true }),
-      });
+  describe("before() — tool.validateInput()", () => {
+    it("passes validation when tool.validateInput returns { valid: true }", async () => {
+      const tool = makeTool(
+        "t",
+        { type: "object" },
+        {
+          validateInput: () => ({ valid: true }),
+        },
+      );
       const mw = new ValidationMiddleware();
-      await expect(mw.before({ key: 'val' }, makeContext(), tool)).resolves.toBeUndefined();
+      await expect(
+        mw.before({ key: "val" }, makeContext(), tool),
+      ).resolves.toBeUndefined();
     });
 
-    it('throws ValidationError when tool.validateInput returns { valid: false }', async () => {
-      const tool = makeTool('t', { type: 'object' }, {
-        validateInput: () => ({
-          valid: false,
-          errors: [{ path: 'field', message: 'Required', type: 'required' }],
-        }),
-      });
+    it("throws ValidationError when tool.validateInput returns { valid: false }", async () => {
+      const tool = makeTool(
+        "t",
+        { type: "object" },
+        {
+          validateInput: () => ({
+            valid: false,
+            errors: [{ path: "field", message: "Required", type: "required" }],
+          }),
+        },
+      );
       const mw = new ValidationMiddleware();
       await expect(mw.before({}, makeContext(), tool)).rejects.toThrow(
         ValidationError,
       );
     });
 
-    it('throws ValidationError when tool.validateInput returns boolean false', async () => {
-      const tool = makeTool('t', { type: 'object' }, {
-        validateInput: () => false,
-      });
+    it("throws ValidationError when tool.validateInput returns boolean false", async () => {
+      const tool = makeTool(
+        "t",
+        { type: "object" },
+        {
+          validateInput: () => false,
+        },
+      );
       const mw = new ValidationMiddleware();
       await expect(mw.before({}, makeContext(), tool)).rejects.toThrow(
         ValidationError,
       );
     });
 
-    it('does not throw when tool.validateInput returns boolean true', async () => {
-      const tool = makeTool('t', { type: 'object' }, {
-        validateInput: () => true,
-      });
+    it("does not throw when tool.validateInput returns boolean true", async () => {
+      const tool = makeTool(
+        "t",
+        { type: "object" },
+        {
+          validateInput: () => true,
+        },
+      );
       const mw = new ValidationMiddleware();
-      await expect(mw.before({ data: 1 }, makeContext(), tool)).resolves.toBeUndefined();
+      await expect(
+        mw.before({ data: 1 }, makeContext(), tool),
+      ).resolves.toBeUndefined();
     });
 
-    it('error message includes tool id when validateInput fails', async () => {
-      const tool = makeTool('my-tool', { type: 'object' }, {
-        validateInput: () => ({ valid: false, errors: [] }),
-      });
+    it("error message includes tool id when validateInput fails", async () => {
+      const tool = makeTool(
+        "my-tool",
+        { type: "object" },
+        {
+          validateInput: () => ({ valid: false, errors: [] }),
+        },
+      );
       const mw = new ValidationMiddleware();
-      let errorMsg = '';
+      let errorMsg = "";
       try {
         await mw.before({}, makeContext(), tool);
       } catch (e) {
         errorMsg = (e as Error).message;
       }
-      expect(errorMsg).toContain('my-tool');
+      expect(errorMsg).toContain("my-tool");
     });
   });
 
@@ -189,157 +220,167 @@ describe('ValidationMiddleware', () => {
   // before() — schema validation (no tool.validateInput)
   // -------------------------------------------------------------------------
 
-  describe('before() — JSON schema validation', () => {
-    it('passes when input matches the schema type', async () => {
-      const tool = makeTool('t', { type: 'object' });
-      const mw = new ValidationMiddleware();
-      await expect(mw.before({ key: 'val' }, makeContext(), tool)).resolves.toBeUndefined();
-    });
-
-    it('throws when input does not match schema type', async () => {
-      const tool = makeTool('t', { type: 'object' });
-      const mw = new ValidationMiddleware();
-      // passing a string instead of object
-      await expect(mw.before('not-an-object', makeContext(), tool)).rejects.toThrow(
-        ValidationError,
-      );
-    });
-
-    it('validates required properties', async () => {
-      const tool = makeTool('t', {
-        type: 'object',
-        required: ['name', 'value'],
-      });
-      const mw = new ValidationMiddleware();
-      // missing "value"
-      await expect(mw.before({ name: 'Alice' }, makeContext(), tool)).rejects.toThrow(
-        ValidationError,
-      );
-    });
-
-    it('passes when all required properties are present', async () => {
-      const tool = makeTool('t', {
-        type: 'object',
-        required: ['name'],
-        properties: { name: { type: 'string' } },
-      });
+  describe("before() — JSON schema validation", () => {
+    it("passes when input matches the schema type", async () => {
+      const tool = makeTool("t", { type: "object" });
       const mw = new ValidationMiddleware();
       await expect(
-        mw.before({ name: 'Alice' }, makeContext(), tool),
+        mw.before({ key: "val" }, makeContext(), tool),
       ).resolves.toBeUndefined();
     });
 
-    it('validates nested property types', async () => {
-      const tool = makeTool('t', {
-        type: 'object',
+    it("throws when input does not match schema type", async () => {
+      const tool = makeTool("t", { type: "object" });
+      const mw = new ValidationMiddleware();
+      // passing a string instead of object
+      await expect(
+        mw.before("not-an-object", makeContext(), tool),
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it("validates required properties", async () => {
+      const tool = makeTool("t", {
+        type: "object",
+        required: ["name", "value"],
+      });
+      const mw = new ValidationMiddleware();
+      // missing "value"
+      await expect(
+        mw.before({ name: "Alice" }, makeContext(), tool),
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it("passes when all required properties are present", async () => {
+      const tool = makeTool("t", {
+        type: "object",
+        required: ["name"],
+        properties: { name: { type: "string" } },
+      });
+      const mw = new ValidationMiddleware();
+      await expect(
+        mw.before({ name: "Alice" }, makeContext(), tool),
+      ).resolves.toBeUndefined();
+    });
+
+    it("validates nested property types", async () => {
+      const tool = makeTool("t", {
+        type: "object",
         properties: {
-          count: { type: 'number' },
+          count: { type: "number" },
         },
       });
       const mw = new ValidationMiddleware();
       // count should be number, not string
       await expect(
-        mw.before({ count: 'not-a-number' }, makeContext(), tool),
+        mw.before({ count: "not-a-number" }, makeContext(), tool),
       ).rejects.toThrow(ValidationError);
     });
 
-    it('validates string minLength', async () => {
-      const tool = makeTool('t', {
-        type: 'string',
+    it("validates string minLength", async () => {
+      const tool = makeTool("t", {
+        type: "string",
         minLength: 5,
       });
       const mw = new ValidationMiddleware();
-      await expect(mw.before('hi', makeContext(), tool)).rejects.toThrow(
+      await expect(mw.before("hi", makeContext(), tool)).rejects.toThrow(
         ValidationError,
       );
     });
 
-    it('passes string that meets minLength', async () => {
-      const tool = makeTool('t', {
-        type: 'string',
+    it("passes string that meets minLength", async () => {
+      const tool = makeTool("t", {
+        type: "string",
         minLength: 3,
       });
       const mw = new ValidationMiddleware();
-      await expect(mw.before('hello', makeContext(), tool)).resolves.toBeUndefined();
+      await expect(
+        mw.before("hello", makeContext(), tool),
+      ).resolves.toBeUndefined();
     });
 
-    it('validates string maxLength', async () => {
-      const tool = makeTool('t', {
-        type: 'string',
+    it("validates string maxLength", async () => {
+      const tool = makeTool("t", {
+        type: "string",
         maxLength: 5,
       });
       const mw = new ValidationMiddleware();
       await expect(
-        mw.before('too-long-string', makeContext(), tool),
+        mw.before("too-long-string", makeContext(), tool),
       ).rejects.toThrow(ValidationError);
     });
 
-    it('validates number minimum', async () => {
-      const tool = makeTool('t', { type: 'number', minimum: 10 });
+    it("validates number minimum", async () => {
+      const tool = makeTool("t", { type: "number", minimum: 10 });
       const mw = new ValidationMiddleware();
       await expect(mw.before(5, makeContext(), tool)).rejects.toThrow(
         ValidationError,
       );
     });
 
-    it('validates number maximum', async () => {
-      const tool = makeTool('t', { type: 'number', maximum: 100 });
+    it("validates number maximum", async () => {
+      const tool = makeTool("t", { type: "number", maximum: 100 });
       const mw = new ValidationMiddleware();
       await expect(mw.before(200, makeContext(), tool)).rejects.toThrow(
         ValidationError,
       );
     });
 
-    it('passes number within range', async () => {
-      const tool = makeTool('t', { type: 'number', minimum: 1, maximum: 100 });
+    it("passes number within range", async () => {
+      const tool = makeTool("t", { type: "number", minimum: 1, maximum: 100 });
       const mw = new ValidationMiddleware();
       await expect(mw.before(50, makeContext(), tool)).resolves.toBeUndefined();
     });
 
-    it('validates enum constraint', async () => {
-      const tool = makeTool('t', {
-        type: 'string',
-        enum: ['a', 'b', 'c'],
+    it("validates enum constraint", async () => {
+      const tool = makeTool("t", {
+        type: "string",
+        enum: ["a", "b", "c"],
       });
       const mw = new ValidationMiddleware();
-      await expect(mw.before('d', makeContext(), tool)).rejects.toThrow(
+      await expect(mw.before("d", makeContext(), tool)).rejects.toThrow(
         ValidationError,
       );
     });
 
-    it('passes enum value that matches', async () => {
-      const tool = makeTool('t', {
-        type: 'string',
-        enum: ['a', 'b', 'c'],
-      });
-      const mw = new ValidationMiddleware();
-      await expect(mw.before('b', makeContext(), tool)).resolves.toBeUndefined();
-    });
-
-    it('validates array item types', async () => {
-      const tool = makeTool('t', {
-        type: 'array',
-        items: { type: 'number' },
+    it("passes enum value that matches", async () => {
+      const tool = makeTool("t", {
+        type: "string",
+        enum: ["a", "b", "c"],
       });
       const mw = new ValidationMiddleware();
       await expect(
-        mw.before([1, 'two', 3], makeContext(), tool),
+        mw.before("b", makeContext(), tool),
+      ).resolves.toBeUndefined();
+    });
+
+    it("validates array item types", async () => {
+      const tool = makeTool("t", {
+        type: "array",
+        items: { type: "number" },
+      });
+      const mw = new ValidationMiddleware();
+      await expect(
+        mw.before([1, "two", 3], makeContext(), tool),
       ).rejects.toThrow(ValidationError);
     });
 
-    it('passes a valid array with correct item types', async () => {
-      const tool = makeTool('t', {
-        type: 'array',
-        items: { type: 'number' },
+    it("passes a valid array with correct item types", async () => {
+      const tool = makeTool("t", {
+        type: "array",
+        items: { type: "number" },
       });
       const mw = new ValidationMiddleware();
-      await expect(mw.before([1, 2, 3], makeContext(), tool)).resolves.toBeUndefined();
+      await expect(
+        mw.before([1, 2, 3], makeContext(), tool),
+      ).resolves.toBeUndefined();
     });
 
-    it('passes when schema has no type (permissive)', async () => {
-      const tool = makeTool('t', {});
+    it("passes when schema has no type (permissive)", async () => {
+      const tool = makeTool("t", {});
       const mw = new ValidationMiddleware();
-      await expect(mw.before({ anything: true }, makeContext(), tool)).resolves.toBeUndefined();
+      await expect(
+        mw.before({ anything: true }, makeContext(), tool),
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -347,28 +388,31 @@ describe('ValidationMiddleware', () => {
   // before() — custom validator
   // -------------------------------------------------------------------------
 
-  describe('before() — customValidator', () => {
-    it('calls custom validator when provided', async () => {
+  describe("before() — customValidator", () => {
+    it("calls custom validator when provided", async () => {
       const customValidator = jest.fn().mockReturnValue({ valid: true });
-      const tool = makeTool('t', { type: 'object' });
+      const tool = makeTool("t", { type: "object" });
       const mw = new ValidationMiddleware({ customValidator });
 
-      await mw.before({ key: 'val' }, makeContext(), tool);
+      await mw.before({ key: "val" }, makeContext(), tool);
 
-      expect(customValidator).toHaveBeenCalledWith({ key: 'val' }, tool.inputSchema);
+      expect(customValidator).toHaveBeenCalledWith(
+        { key: "val" },
+        tool.inputSchema,
+      );
     });
 
-    it('throws when custom validator returns invalid', async () => {
+    it("throws when custom validator returns invalid", async () => {
       const customValidator = jest.fn().mockReturnValue({
         valid: false,
-        errors: [{ path: '', message: 'Custom fail', type: 'custom' }],
+        errors: [{ path: "", message: "Custom fail", type: "custom" }],
       });
-      const tool = makeTool('t', { type: 'object' });
+      const tool = makeTool("t", { type: "object" });
       const mw = new ValidationMiddleware({ customValidator });
 
-      await expect(mw.before({ key: 'val' }, makeContext(), tool)).rejects.toThrow(
-        ValidationError,
-      );
+      await expect(
+        mw.before({ key: "val" }, makeContext(), tool),
+      ).rejects.toThrow(ValidationError);
     });
   });
 
@@ -376,9 +420,9 @@ describe('ValidationMiddleware', () => {
   // after() — output validation
   // -------------------------------------------------------------------------
 
-  describe('after() — output validation disabled (default)', () => {
-    it('returns result unchanged when validateOutput is false (default)', async () => {
-      const tool = makeTool('t', { type: 'object' });
+  describe("after() — output validation disabled (default)", () => {
+    it("returns result unchanged when validateOutput is false (default)", async () => {
+      const tool = makeTool("t", { type: "object" });
       const mw = new ValidationMiddleware(); // validateOutput defaults to false
       const result = makeSuccessResult();
 
@@ -386,14 +430,14 @@ describe('ValidationMiddleware', () => {
       expect(out).toBe(result);
     });
 
-    it('returns result unchanged for failed results even when validateOutput true', async () => {
-      const tool = makeTool('t');
+    it("returns result unchanged for failed results even when validateOutput true", async () => {
+      const tool = makeTool("t");
       const mw = new ValidationMiddleware({ validateOutput: true });
       const failResult: ToolResult = {
         success: false,
-        error: { code: 'ERR', message: 'Fail' },
+        error: { code: "ERR", message: "Fail" },
         metadata: {
-          executionId: 'e',
+          executionId: "e",
           startTime: new Date(),
           endTime: new Date(),
           duration: 0,
@@ -405,11 +449,15 @@ describe('ValidationMiddleware', () => {
     });
   });
 
-  describe('after() — output validation enabled', () => {
-    it('returns result when output matches output schema', async () => {
-      const tool = makeTool('t', { type: 'object' }, {
-        outputSchema: { type: 'object' },
-      });
+  describe("after() — output validation enabled", () => {
+    it("returns result when output matches output schema", async () => {
+      const tool = makeTool(
+        "t",
+        { type: "object" },
+        {
+          outputSchema: { type: "object" },
+        },
+      );
       const mw = new ValidationMiddleware({ validateOutput: true });
       const result = makeSuccessResult();
 
@@ -417,10 +465,14 @@ describe('ValidationMiddleware', () => {
       expect(out).toBe(result);
     });
 
-    it('returns result (with warning) when output does not match schema — does not throw', async () => {
-      const tool = makeTool('t', { type: 'object' }, {
-        outputSchema: { type: 'string' }, // output should be string
-      });
+    it("returns result (with warning) when output does not match schema — does not throw", async () => {
+      const tool = makeTool(
+        "t",
+        { type: "object" },
+        {
+          outputSchema: { type: "string" }, // output should be string
+        },
+      );
       const mw = new ValidationMiddleware({ validateOutput: true });
       // data is an object, output schema says string
       const result = makeSuccessResult();
@@ -435,17 +487,21 @@ describe('ValidationMiddleware', () => {
   // createValidationMiddleware factory
   // -------------------------------------------------------------------------
 
-  describe('createValidationMiddleware()', () => {
-    it('returns a ValidationMiddleware instance', () => {
+  describe("createValidationMiddleware()", () => {
+    it("returns a ValidationMiddleware instance", () => {
       const mw = createValidationMiddleware();
       expect(mw).toBeInstanceOf(ValidationMiddleware);
     });
 
-    it('accepts config options', async () => {
+    it("accepts config options", async () => {
       const mw = createValidationMiddleware({ validateInput: false });
-      const tool = makeTool('t', { type: 'object' }, {
-        validateInput: () => false, // would fail if validateInput were enabled
-      });
+      const tool = makeTool(
+        "t",
+        { type: "object" },
+        {
+          validateInput: () => false, // would fail if validateInput were enabled
+        },
+      );
       // Should not throw since validateInput is disabled
       await expect(mw.before({}, makeContext(), tool)).resolves.toBeUndefined();
     });
@@ -455,30 +511,36 @@ describe('ValidationMiddleware', () => {
   // Type detection helpers
   // -------------------------------------------------------------------------
 
-  describe('type detection', () => {
+  describe("type detection", () => {
     it('detects null as "null"', async () => {
-      const tool = makeTool('t', { type: 'string' });
+      const tool = makeTool("t", { type: "string" });
       const mw = new ValidationMiddleware();
-      await expect(mw.before(null, makeContext(), tool)).rejects.toThrow(ValidationError);
+      await expect(mw.before(null, makeContext(), tool)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('detects array correctly (not as "object")', async () => {
-      const tool = makeTool('t', { type: 'object' });
+      const tool = makeTool("t", { type: "object" });
       const mw = new ValidationMiddleware();
       // Array should fail object type check
-      await expect(mw.before([], makeContext(), tool)).rejects.toThrow(ValidationError);
+      await expect(mw.before([], makeContext(), tool)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('accepts array when schema type is "array"', async () => {
-      const tool = makeTool('t', { type: 'array' });
+      const tool = makeTool("t", { type: "array" });
       const mw = new ValidationMiddleware();
       await expect(mw.before([], makeContext(), tool)).resolves.toBeUndefined();
     });
 
-    it('accepts boolean type', async () => {
-      const tool = makeTool('t', { type: 'boolean' });
+    it("accepts boolean type", async () => {
+      const tool = makeTool("t", { type: "boolean" });
       const mw = new ValidationMiddleware();
-      await expect(mw.before(true, makeContext(), tool)).resolves.toBeUndefined();
+      await expect(
+        mw.before(true, makeContext(), tool),
+      ).resolves.toBeUndefined();
     });
   });
 });

@@ -97,7 +97,8 @@ describe("JSON Extraction Utilities", () => {
 
       it("should handle JSON with markdown code blocks inside string values", () => {
         // Arrange
-        const content = '```json\n{"description": "Use ```code``` blocks", "value": 1}\n```';
+        const content =
+          '```json\n{"description": "Use ```code``` blocks", "value": 1}\n```';
 
         // Act
         const result = extractJsonFromAIResponse(content);
@@ -502,7 +503,8 @@ This contains the requested information.`;
 
       it("should handle streaming-like partial JSON", () => {
         // Arrange - simulate truncated streaming response
-        const content = '{"status": "processing", "progress": 0.5, "items": [{"id": 1, "name": "first"}, {"id": 2, "na';
+        const content =
+          '{"status": "processing", "progress": 0.5, "items": [{"id": 1, "name": "first"}, {"id": 2, "na';
 
         // Act
         const result = extractJsonFromAIResponse(content);
@@ -601,7 +603,8 @@ This contains the requested information.`;
 
       it("should handle escaped quotes correctly", () => {
         // Arrange
-        const content = '```json\n{"text": "Quote: \\"test\\" with braces {}", "v": 1}\n```';
+        const content =
+          '```json\n{"text": "Quote: \\"test\\" with braces {}", "v": 1}\n```';
 
         // Act
         const result = extractJsonFromAIResponse(content);

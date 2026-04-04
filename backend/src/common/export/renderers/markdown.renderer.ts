@@ -9,7 +9,11 @@ import {
   MIME_TYPES,
   FILE_EXTENSIONS,
 } from "./renderer.interface";
-import { UnifiedContent, ContentSection, Reference } from "../types/unified-content";
+import {
+  UnifiedContent,
+  ContentSection,
+  Reference,
+} from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
 
@@ -147,7 +151,11 @@ export class MarkdownRenderer implements ExportRenderer {
       content: string;
       children?: ListItemType[];
     }
-    const renderItems = (items: ListItemType[], prefix: string, depth: number) => {
+    const renderItems = (
+      items: ListItemType[],
+      prefix: string,
+      depth: number,
+    ) => {
       const marker = section.ordered ? `1.` : `-`;
       for (const item of items) {
         lines.push(`${"  ".repeat(depth)}${marker} ${item.content}`);

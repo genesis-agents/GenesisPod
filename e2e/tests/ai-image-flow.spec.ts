@@ -76,10 +76,9 @@ test.describe("AI Image UI (/ai-image)", () => {
 
     const hasCreate =
       (await createButton.count()) > 0 || (await createLink.count()) > 0;
-    expect(
-      hasCreate,
-      "Image page should have a create/generate option",
-    ).toBe(true);
+    expect(hasCreate, "Image page should have a create/generate option").toBe(
+      true,
+    );
   });
 });
 
@@ -142,7 +141,7 @@ test.describe("Image API", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.generations ?? [];
+      : (payload.items ?? payload.generations ?? []);
     expect(Array.isArray(list), "Image generations should be an array").toBe(
       true,
     );
@@ -155,10 +154,10 @@ test.describe("Image API", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/image/models`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/image/models`, {
+      headers,
+      timeout: 15000,
+    });
 
     // Models endpoint may or may not exist
     expect(

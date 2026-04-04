@@ -170,11 +170,9 @@ describe("AdminService (supplemental)", () => {
     creditAccount: {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
-      aggregate: jest
-        .fn()
-        .mockResolvedValue({
-          _sum: { balance: 0, totalEarned: 0, totalSpent: 0 },
-        }),
+      aggregate: jest.fn().mockResolvedValue({
+        _sum: { balance: 0, totalEarned: 0, totalSpent: 0 },
+      }),
       findUnique: jest.fn().mockResolvedValue(null),
     },
     creditTransaction: {

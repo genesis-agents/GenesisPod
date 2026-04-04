@@ -15,7 +15,9 @@ function makeAiChatService(): jest.Mocked<Pick<AiChatService, "chat">> {
   } as unknown as jest.Mocked<Pick<AiChatService, "chat">>;
 }
 
-function makePrismaService(models: object[] = []): jest.Mocked<Pick<PrismaService, "aIModel">> {
+function makePrismaService(
+  models: object[] = [],
+): jest.Mocked<Pick<PrismaService, "aIModel">> {
   const findMany = jest.fn().mockResolvedValue(models);
   const findFirst = jest.fn().mockResolvedValue(models[0] ?? null);
 
@@ -229,7 +231,10 @@ describe("UniversalLLMAdapter", () => {
 
     it("passes taskProfile to aiChatService", async () => {
       const options: LLMRequestOptions = {
-        messages: [{ role: "system", content: "Be concise" }, { role: "user", content: "Hi" }],
+        messages: [
+          { role: "system", content: "Be concise" },
+          { role: "user", content: "Hi" },
+        ],
         model: "gpt-4o",
         taskProfile: { creativity: "low", outputLength: "short" },
       };
@@ -276,7 +281,10 @@ describe("UniversalLLMAdapter", () => {
       aiChatService.chat.mockRejectedValueOnce(new Error("API quota exceeded"));
 
       await expect(
-        adapter.chat({ messages: [{ role: "user", content: "Hi" }], model: "gpt-4o" }),
+        adapter.chat({
+          messages: [{ role: "user", content: "Hi" }],
+          model: "gpt-4o",
+        }),
       ).rejects.toThrow("API quota exceeded");
     });
 
@@ -317,7 +325,9 @@ describe("UniversalLLMAdapter", () => {
       }
 
       expect(chunks).toHaveLength(1);
-      expect((chunks[0] as { delta: { content: string } }).delta.content).toBe("Stream reply");
+      expect((chunks[0] as { delta: { content: string } }).delta.content).toBe(
+        "Stream reply",
+      );
     });
   });
 

@@ -52,7 +52,13 @@ const mockReasoningModel = {
   isAvailable: true,
 };
 
-function buildMission(tasks: Array<{ assignedAgent: string; modelId?: string | null; status: string }>) {
+function buildMission(
+  tasks: Array<{
+    assignedAgent: string;
+    modelId?: string | null;
+    status: string;
+  }>,
+) {
   return {
     id: "mission-001",
     tasks: tasks.map((t) => ({
@@ -107,7 +113,11 @@ describe("LeaderAgentSelectionService", () => {
           { assignedAgent: "researcher_1", modelId: "gpt-4", status: "done" },
           { assignedAgent: "researcher_1", modelId: "gpt-4", status: "done" },
           { assignedAgent: "researcher_1", modelId: "gpt-4", status: "done" },
-          { assignedAgent: "researcher_2", modelId: "gpt-4o", status: "running" },
+          {
+            assignedAgent: "researcher_2",
+            modelId: "gpt-4o",
+            status: "running",
+          },
         ]),
       );
       mocks.mockChatFacade.getAvailableModelsExtended.mockResolvedValue([
@@ -128,7 +138,11 @@ describe("LeaderAgentSelectionService", () => {
     it("should reuse the single existing agent when only one exists", async () => {
       mocks.mockPrisma.researchMission.findUnique.mockResolvedValue(
         buildMission([
-          { assignedAgent: "researcher_5", modelId: "claude-3", status: "done" },
+          {
+            assignedAgent: "researcher_5",
+            modelId: "claude-3",
+            status: "done",
+          },
         ]),
       );
       mocks.mockChatFacade.getAvailableModelsExtended.mockResolvedValue([
@@ -296,7 +310,11 @@ describe("LeaderAgentSelectionService", () => {
         "a brief summary",
       );
 
-      expect(result.skills).toEqual(["deep-dive", "synthesis", "data-interpretation"]);
+      expect(result.skills).toEqual([
+        "deep-dive",
+        "synthesis",
+        "data-interpretation",
+      ]);
       expect(result.tools).toEqual(["web-search"]);
     });
 

@@ -36,10 +36,7 @@ export function createConcurrencyLimiter(concurrency: number) {
 
   const enqueue = async <T>(fn: () => Promise<T>): Promise<T> => {
     return new Promise<T>((resolve, reject) => {
-      const runTask = () =>
-        run(fn)
-          .then(resolve)
-          .catch(reject);
+      const runTask = () => run(fn).then(resolve).catch(reject);
 
       if (activeCount < concurrency) {
         runTask();

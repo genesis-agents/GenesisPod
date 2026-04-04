@@ -122,10 +122,10 @@ test.describe("Collections API (L4 App)", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/collections`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/collections`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       response.ok(),
@@ -136,7 +136,7 @@ test.describe("Collections API (L4 App)", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.collections ?? [];
+      : (payload.items ?? payload.collections ?? []);
     expect(Array.isArray(list), "Collections should be an array").toBe(true);
   });
 
@@ -144,17 +144,14 @@ test.describe("Collections API (L4 App)", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.post(
-      `${apiBase}/api/v1/collections`,
-      {
-        headers: { ...headers, "Content-Type": "application/json" },
-        data: {
-          name: "E2E Test Collection",
-          description: "Created by Playwright E2E test",
-        },
-        timeout: 15000,
+    const response = await page.request.post(`${apiBase}/api/v1/collections`, {
+      headers: { ...headers, "Content-Type": "application/json" },
+      data: {
+        name: "E2E Test Collection",
+        description: "Created by Playwright E2E test",
       },
-    );
+      timeout: 15000,
+    });
 
     expect(
       [200, 201].includes(response.status()),
@@ -174,17 +171,17 @@ test.describe("Collections API (L4 App)", () => {
     const headers = await getAuthHeader(page);
 
     // Get list first
-    const listRes = await page.request.get(
-      `${apiBase}/api/v1/collections`,
-      { headers, timeout: 15000 },
-    );
+    const listRes = await page.request.get(`${apiBase}/api/v1/collections`, {
+      headers,
+      timeout: 15000,
+    });
     if (!listRes.ok()) return;
 
     const listBody = await listRes.json();
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.collections ?? [];
+      : (listPayload.items ?? listPayload.collections ?? []);
     if (list.length === 0) return;
 
     const collectionId = list[0].id ?? list[0]._id;
@@ -210,17 +207,17 @@ test.describe("Collections API (L4 App)", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const listRes = await page.request.get(
-      `${apiBase}/api/v1/collections`,
-      { headers, timeout: 15000 },
-    );
+    const listRes = await page.request.get(`${apiBase}/api/v1/collections`, {
+      headers,
+      timeout: 15000,
+    });
     if (!listRes.ok()) return;
 
     const listBody = await listRes.json();
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.collections ?? [];
+      : (listPayload.items ?? listPayload.collections ?? []);
     if (list.length === 0) return;
 
     const collectionId = list[0].id ?? list[0]._id;
@@ -247,14 +244,11 @@ test.describe("Collections API (L4 App)", () => {
     const headers = await getAuthHeader(page);
 
     // Create a collection to delete
-    const createRes = await page.request.post(
-      `${apiBase}/api/v1/collections`,
-      {
-        headers: { ...headers, "Content-Type": "application/json" },
-        data: { name: "E2E Delete Collection" },
-        timeout: 15000,
-      },
-    );
+    const createRes = await page.request.post(`${apiBase}/api/v1/collections`, {
+      headers: { ...headers, "Content-Type": "application/json" },
+      data: { name: "E2E Delete Collection" },
+      timeout: 15000,
+    });
     if (!createRes.ok()) return;
 
     const createBody = await createRes.json();
@@ -307,10 +301,11 @@ test.describe("Knowledge Graph API (L4 → L3 Engine)", () => {
       const payload = body.data ?? body;
       const nodes = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.nodes ?? [];
-      expect(Array.isArray(nodes), "Knowledge graph nodes should be an array").toBe(
-        true,
-      );
+        : (payload.items ?? payload.nodes ?? []);
+      expect(
+        Array.isArray(nodes),
+        "Knowledge graph nodes should be an array",
+      ).toBe(true);
     }
   });
 });
@@ -368,7 +363,7 @@ test.describe("Notes API (L4 App)", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.notes ?? [];
+      : (payload.items ?? payload.notes ?? []);
     expect(Array.isArray(list), "Notes should be an array").toBe(true);
   });
 });
@@ -456,7 +451,7 @@ test.describe("Export & Templates API (L4 App)", () => {
       const payload = body.data ?? body;
       const templates = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.templates ?? [];
+        : (payload.items ?? payload.templates ?? []);
       expect(Array.isArray(templates), "Templates should be an array").toBe(
         true,
       );

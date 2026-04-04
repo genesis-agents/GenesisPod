@@ -109,8 +109,11 @@ interface ExecutionResult<T> {
 ### 3.2 ITool - 工具接口
 
 ```typescript
-interface ITool<TInput = unknown, TOutput = unknown>
-  extends IExecutable<TInput, TOutput, ToolContext> {
+interface ITool<TInput = unknown, TOutput = unknown> extends IExecutable<
+  TInput,
+  TOutput,
+  ToolContext
+> {
   readonly category: ToolCategory;
   readonly inputSchema: JSONSchema;
   readonly outputSchema: JSONSchema;
@@ -134,8 +137,11 @@ type ToolCategory =
 ### 3.3 ISkill - 技能接口
 
 ```typescript
-interface ISkill<TInput, TOutput>
-  extends IExecutable<TInput, TOutput, SkillContext> {
+interface ISkill<TInput, TOutput> extends IExecutable<
+  TInput,
+  TOutput,
+  SkillContext
+> {
   readonly layer: SkillLayer;
   readonly domain: string;
   readonly requiredTools?: string[];
@@ -158,8 +164,10 @@ type SkillLayer =
 ### 3.4 IAgent - Agent 接口
 
 ```typescript
-interface IAgent<TInput = AgentInput, TOutput = AgentResult>
-  extends IExecutable<TInput, TOutput, AgentContext> {
+interface IAgent<
+  TInput = AgentInput,
+  TOutput = AgentResult,
+> extends IExecutable<TInput, TOutput, AgentContext> {
   readonly capabilities: string[];
   readonly supportedModes: ExecutionMode[];
   readonly requiredSkills?: string[];

@@ -48,12 +48,10 @@ describe("ImportTaskProcessorService", () => {
     mockPrisma = {
       importTask: {
         findMany: jest.fn().mockResolvedValue([mockPendingTask]),
-        update: jest
-          .fn()
-          .mockResolvedValue({
-            ...mockPendingTask,
-            status: ImportTaskStatus.SUCCESS,
-          }),
+        update: jest.fn().mockResolvedValue({
+          ...mockPendingTask,
+          status: ImportTaskStatus.SUCCESS,
+        }),
         count: jest.fn().mockResolvedValue(0),
       },
       resource: {

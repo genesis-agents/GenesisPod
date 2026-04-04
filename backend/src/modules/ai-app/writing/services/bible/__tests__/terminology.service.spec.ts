@@ -116,7 +116,9 @@ describe("TerminologyService", () => {
 
   describe("findByCategory", () => {
     it("should return terms filtered by category", async () => {
-      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue([mockTerm]);
+      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue([
+        mockTerm,
+      ]);
 
       const result = await service.findByCategory("bible-1", "武学");
 
@@ -137,7 +139,9 @@ describe("TerminologyService", () => {
 
   describe("search", () => {
     it("should search by term name (case-insensitive)", async () => {
-      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue([mockTerm]);
+      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue([
+        mockTerm,
+      ]);
 
       const result = await service.search("bible-1", "内功");
 
@@ -154,16 +158,16 @@ describe("TerminologyService", () => {
     });
 
     it("should search by variant name", async () => {
-      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue([mockTerm]);
+      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue([
+        mockTerm,
+      ]);
 
       const result = await service.search("bible-1", "真气");
 
       expect(mockPrisma.terminology.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              { variants: { has: "真气" } },
-            ]),
+            OR: expect.arrayContaining([{ variants: { has: "真气" } }]),
           }),
         }),
       );
@@ -181,7 +185,9 @@ describe("TerminologyService", () => {
   describe("update", () => {
     it("should update terminology entry", async () => {
       const updatedTerm = { ...mockTerm, definition: "新的定义" };
-      (mockPrisma.terminology.update as jest.Mock).mockResolvedValue(updatedTerm);
+      (mockPrisma.terminology.update as jest.Mock).mockResolvedValue(
+        updatedTerm,
+      );
 
       const result = await service.update("term-1", { definition: "新的定义" });
 

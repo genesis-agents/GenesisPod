@@ -31,9 +31,10 @@ export interface StandardResponse<T = unknown> {
  * 将所有响应转换为统一格式
  */
 @Injectable()
-export class ResponseTransformInterceptor<T>
-  implements NestInterceptor<T, StandardResponse<T>>
-{
+export class ResponseTransformInterceptor<T> implements NestInterceptor<
+  T,
+  StandardResponse<T>
+> {
   constructor(private readonly reflector: Reflector) {}
 
   intercept(

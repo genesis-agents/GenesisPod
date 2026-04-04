@@ -124,7 +124,10 @@ export class MongoDBService {
   /**
    * Batch insert
    */
-  async insertManyRawData(source: string, dataArray: Record<string, unknown>[]): Promise<string[]> {
+  async insertManyRawData(
+    source: string,
+    dataArray: Record<string, unknown>[],
+  ): Promise<string[]> {
     return this.rawDataService.insertManyRawData(source, dataArray);
   }
 

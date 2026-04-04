@@ -4742,16 +4742,12 @@ describe("DataSourceRouterService", () => {
       mockToolRegistry.tryGet.mockImplementation((toolId: string) => {
         if (toolId === "openalex-search") {
           return {
-            execute: jest
-              .fn()
-              .mockImplementation(() => new Promise(() => {})), // never resolves
+            execute: jest.fn().mockImplementation(() => new Promise(() => {})), // never resolves
           };
         }
         if (toolId === "pubmed") {
           return {
-            execute: jest
-              .fn()
-              .mockImplementation(() => new Promise(() => {})), // never resolves
+            execute: jest.fn().mockImplementation(() => new Promise(() => {})), // never resolves
           };
         }
         if (toolId === "web-search") return { execute: mockWebSearchExecute };

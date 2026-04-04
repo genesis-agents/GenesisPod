@@ -187,7 +187,10 @@ describe("Image Utility Functions", () => {
   describe("mergeNegativePrompts", () => {
     it("should merge base and extra prompts without duplicates", () => {
       // Use a custom term that's not in ENFORCED_NEGATIVE_KEYWORDS
-      const result = mergeNegativePrompts("custom-term-xyz, low quality", ["custom-term-xyz", "distorted"]);
+      const result = mergeNegativePrompts("custom-term-xyz, low quality", [
+        "custom-term-xyz",
+        "distorted",
+      ]);
 
       expect(result).toContain("custom-term-xyz");
       expect(result).toContain("low quality");
@@ -210,7 +213,8 @@ describe("Image Utility Functions", () => {
       // Use a term not already in ENFORCED_NEGATIVE_KEYWORDS
       const result = mergeNegativePrompts("MY-UNIQUE-TERM", ["my-unique-term"]);
 
-      const termCount = (result || "").toLowerCase().split("my-unique-term").length - 1;
+      const termCount =
+        (result || "").toLowerCase().split("my-unique-term").length - 1;
       expect(termCount).toBe(1);
     });
 
@@ -284,14 +288,14 @@ describe("Image Utility Functions", () => {
             title: "Section 1",
             summary: "Summary text",
             bullets: ["bullet a", "bullet b"],
-            metrics: [
-              { label: "Revenue", value: "$10M", comparison: "+20%" },
-            ],
+            metrics: [{ label: "Revenue", value: "$10M", comparison: "+20%" }],
           },
         ],
       };
 
-      const result = formatInformationArchitectureStep(info as Parameters<typeof formatInformationArchitectureStep>[0]);
+      const result = formatInformationArchitectureStep(
+        info as Parameters<typeof formatInformationArchitectureStep>[0],
+      );
 
       expect(result).toContain("Section 1");
       expect(result).toContain("Summary text");
@@ -307,7 +311,9 @@ describe("Image Utility Functions", () => {
         sections: [],
       };
 
-      const result = formatInformationArchitectureStep(info as Parameters<typeof formatInformationArchitectureStep>[0]);
+      const result = formatInformationArchitectureStep(
+        info as Parameters<typeof formatInformationArchitectureStep>[0],
+      );
 
       expect(result).toBeUndefined();
     });
@@ -324,7 +330,9 @@ describe("Image Utility Functions", () => {
         ],
       };
 
-      const result = formatInformationArchitectureStep(info as Parameters<typeof formatInformationArchitectureStep>[0]);
+      const result = formatInformationArchitectureStep(
+        info as Parameters<typeof formatInformationArchitectureStep>[0],
+      );
 
       expect(result).toContain("Section 1");
     });
@@ -399,7 +407,10 @@ describe("Image Utility Functions", () => {
 
   describe("getUrlStepTitle", () => {
     it("should return YouTube extracting title", () => {
-      const title = getUrlStepTitle("https://youtube.com/watch?v=1", "extracting");
+      const title = getUrlStepTitle(
+        "https://youtube.com/watch?v=1",
+        "extracting",
+      );
       expect(title).toBe("Extracting YouTube Subtitles");
     });
 
@@ -409,12 +420,18 @@ describe("Image Utility Functions", () => {
     });
 
     it("should return Bilibili extracting title", () => {
-      const title = getUrlStepTitle("https://bilibili.com/video/BV1", "extracting");
+      const title = getUrlStepTitle(
+        "https://bilibili.com/video/BV1",
+        "extracting",
+      );
       expect(title).toBe("Extracting Bilibili Content");
     });
 
     it("should return Bilibili extracted title", () => {
-      const title = getUrlStepTitle("https://bilibili.com/video/BV1", "extracted");
+      const title = getUrlStepTitle(
+        "https://bilibili.com/video/BV1",
+        "extracted",
+      );
       expect(title).toBe("Bilibili Content Extracted");
     });
 
@@ -452,9 +469,7 @@ describe("Image Utility Functions", () => {
 
   describe("extractCleanContent", () => {
     it("should remove markdown-style brackets", () => {
-      const result = extractCleanContent(
-        "Some [important] content [here]",
-      );
+      const result = extractCleanContent("Some [important] content [here]");
       expect(result).toBe("Some  content");
     });
 

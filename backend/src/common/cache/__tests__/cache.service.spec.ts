@@ -92,11 +92,7 @@ describe("CacheService", () => {
     it("should set value with custom TTL", async () => {
       await service.set("key", "value", 60);
 
-      expect(mockCacheManager.set).toHaveBeenCalledWith(
-        "key",
-        "value",
-        60000,
-      );
+      expect(mockCacheManager.set).toHaveBeenCalledWith("key", "value", 60000);
     });
 
     it("should not throw on error (fault tolerant)", async () => {

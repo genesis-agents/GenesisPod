@@ -63,23 +63,19 @@ describe("TopicJoinRequestService", () => {
       findMany: jest.fn().mockResolvedValue([mockJoinRequest]),
       findFirst: jest.fn().mockResolvedValue(mockJoinRequest),
       findUnique: jest.fn().mockResolvedValue(mockJoinRequest),
-      update: jest
-        .fn()
-        .mockResolvedValue({
-          ...mockJoinRequest,
-          status: JoinRequestStatus.APPROVED,
-        }),
+      update: jest.fn().mockResolvedValue({
+        ...mockJoinRequest,
+        status: JoinRequestStatus.APPROVED,
+      }),
       count: jest.fn().mockResolvedValue(1),
     },
     $transaction: jest.fn().mockImplementation(async (fn) => {
       return fn({
         topicJoinRequest: {
-          update: jest
-            .fn()
-            .mockResolvedValue({
-              ...mockJoinRequest,
-              status: JoinRequestStatus.APPROVED,
-            }),
+          update: jest.fn().mockResolvedValue({
+            ...mockJoinRequest,
+            status: JoinRequestStatus.APPROVED,
+          }),
         },
         topicMember: {
           create: jest.fn().mockResolvedValue({ id: "member-1" }),

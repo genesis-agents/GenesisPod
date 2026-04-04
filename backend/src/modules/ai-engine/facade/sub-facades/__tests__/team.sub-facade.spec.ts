@@ -57,25 +57,43 @@ describe("TeamSubFacade", () => {
   describe("startTeamMission — success", () => {
     it("should complete mission and return success", async () => {
       mockTeamsService.executeMission.mockResolvedValue("mission-001");
-      mockTeamsService.getMissionStatus
-        .mockReturnValueOnce({ status: "completed", progress: 100, currentPhase: "done" });
+      mockTeamsService.getMissionStatus.mockReturnValueOnce({
+        status: "completed",
+        progress: 100,
+        currentPhase: "done",
+      });
 
       const facade = createFacade();
       const result = await facade.startTeamMission({
         teamType: "research",
-        missionInput: { goal: "Do research", userId: "user-1", sessionId: "sess-1" },
+        missionInput: {
+          goal: "Do research",
+          userId: "user-1",
+          sessionId: "sess-1",
+        },
       });
 
       expect(result.success).toBe(true);
-      expect(result.output).toEqual({ missionId: "mission-001", status: "completed" });
+      expect(result.output).toEqual({
+        missionId: "mission-001",
+        status: "completed",
+      });
       expect(result.summary).toContain("Mission completed successfully");
     });
 
     it("should call progressCallback during polling", async () => {
       mockTeamsService.executeMission.mockResolvedValue("mission-002");
       mockTeamsService.getMissionStatus
-        .mockReturnValueOnce({ status: "running", progress: 50, currentPhase: "research" })
-        .mockReturnValueOnce({ status: "completed", progress: 100, currentPhase: "done" });
+        .mockReturnValueOnce({
+          status: "running",
+          progress: 50,
+          currentPhase: "research",
+        })
+        .mockReturnValueOnce({
+          status: "completed",
+          progress: 100,
+          currentPhase: "done",
+        });
 
       const progressCallback = jest.fn();
       const facade = createFacade();
@@ -348,7 +366,9 @@ describe("TeamSubFacade", () => {
       const result = facade.cancelMission("mission-001");
 
       expect(result).toBe(true);
-      expect(mockTeamsService.cancelMission).toHaveBeenCalledWith("mission-001");
+      expect(mockTeamsService.cancelMission).toHaveBeenCalledWith(
+        "mission-001",
+      );
     });
 
     it("should return false when teamsService fails to cancel", () => {
@@ -385,7 +405,9 @@ describe("TeamSubFacade", () => {
       const result = facade.getMissionStatus("mission-001");
 
       expect(result).toBe(status);
-      expect(mockTeamsService.getMissionStatus).toHaveBeenCalledWith("mission-001");
+      expect(mockTeamsService.getMissionStatus).toHaveBeenCalledWith(
+        "mission-001",
+      );
     });
 
     it("should return null when mission not found", () => {

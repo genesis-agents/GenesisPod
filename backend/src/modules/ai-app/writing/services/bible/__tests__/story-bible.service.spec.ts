@@ -97,8 +97,12 @@ describe("StoryBibleService", () => {
 
   describe("getByProject", () => {
     it("should return bible when project exists and user is owner", async () => {
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(mockProject);
-      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(mockBible);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        mockProject,
+      );
+      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(
+        mockBible,
+      );
 
       const result = await service.getByProject("proj-1", "user-1");
 
@@ -107,7 +111,9 @@ describe("StoryBibleService", () => {
     });
 
     it("should throw ForbiddenException when project not found", async () => {
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(service.getByProject("proj-1", "user-1")).rejects.toThrow(
         ForbiddenException,
@@ -115,7 +121,9 @@ describe("StoryBibleService", () => {
     });
 
     it("should return null when bible not found", async () => {
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(mockProject);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        mockProject,
+      );
       (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await service.getByProject("proj-1", "user-1");
@@ -134,8 +142,12 @@ describe("StoryBibleService", () => {
         ],
       };
 
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(mockProject);
-      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(bibleWithJsonDesc);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        mockProject,
+      );
+      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(
+        bibleWithJsonDesc,
+      );
 
       const result = await service.getByProject("proj-1", "user-1");
 
@@ -148,8 +160,12 @@ describe("StoryBibleService", () => {
         premise: "正常前提\n[object Object]\n更多内容",
       };
 
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(mockProject);
-      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(bibleWithBadPremise);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        mockProject,
+      );
+      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(
+        bibleWithBadPremise,
+      );
 
       const result = await service.getByProject("proj-1", "user-1");
 
@@ -159,7 +175,9 @@ describe("StoryBibleService", () => {
 
   describe("update", () => {
     it("should update bible successfully", async () => {
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(mockProject);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        mockProject,
+      );
       (mockPrisma.storyBible.update as jest.Mock).mockResolvedValue({
         ...mockBible,
         premise: "新的故事前提",
@@ -179,7 +197,9 @@ describe("StoryBibleService", () => {
     });
 
     it("should throw ForbiddenException when project not found", async () => {
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.update("proj-1", "user-1", { premise: "test" }),
@@ -187,7 +207,9 @@ describe("StoryBibleService", () => {
     });
 
     it("should increment version on update", async () => {
-      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(mockProject);
+      (mockPrisma.writingProject.findFirst as jest.Mock).mockResolvedValue(
+        mockProject,
+      );
       (mockPrisma.storyBible.update as jest.Mock).mockResolvedValue(mockBible);
 
       await service.update("proj-1", "user-1", {});
@@ -202,7 +224,9 @@ describe("StoryBibleService", () => {
 
   describe("getSnapshot", () => {
     it("should return bible snapshot with snapshotAt timestamp", async () => {
-      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(mockBible);
+      (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(
+        mockBible,
+      );
 
       const result = await service.getSnapshot("proj-1");
 
@@ -213,14 +237,18 @@ describe("StoryBibleService", () => {
     it("should throw NotFoundException when bible not found", async () => {
       (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.getSnapshot("proj-1")).rejects.toThrow(NotFoundException);
+      await expect(service.getSnapshot("proj-1")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe("getCharactersByIds", () => {
     it("should return characters filtered by ids", async () => {
       const mockChars = [{ id: "char-1", name: "苏曼" }];
-      (mockPrisma.writingCharacter.findMany as jest.Mock).mockResolvedValue(mockChars);
+      (mockPrisma.writingCharacter.findMany as jest.Mock).mockResolvedValue(
+        mockChars,
+      );
 
       const result = await service.getCharactersByIds("bible-1", ["char-1"]);
 
@@ -236,7 +264,9 @@ describe("StoryBibleService", () => {
   describe("getWorldSettings", () => {
     it("should return all world settings when no categories filter", async () => {
       const mockSettings = [{ id: "ws-1", category: "geography" }];
-      (mockPrisma.worldSetting.findMany as jest.Mock).mockResolvedValue(mockSettings);
+      (mockPrisma.worldSetting.findMany as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const result = await service.getWorldSettings("bible-1");
 
@@ -266,7 +296,9 @@ describe("StoryBibleService", () => {
   describe("getTerminology", () => {
     it("should return all terminology when no terms filter", async () => {
       const mockTerms = [{ id: "term-1", term: "内功" }];
-      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue(mockTerms);
+      (mockPrisma.terminology.findMany as jest.Mock).mockResolvedValue(
+        mockTerms,
+      );
 
       const result = await service.getTerminology("bible-1");
 
@@ -294,7 +326,9 @@ describe("StoryBibleService", () => {
         { id: "ev-1", storyTime: "第一年" },
         { id: "ev-2", storyTime: "第二年" },
       ];
-      (mockPrisma.timelineEvent.findMany as jest.Mock).mockResolvedValue(mockEvents);
+      (mockPrisma.timelineEvent.findMany as jest.Mock).mockResolvedValue(
+        mockEvents,
+      );
 
       const result = await service.getTimelineContext("bible-1");
 

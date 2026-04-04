@@ -38,7 +38,10 @@ class BuiltinTestAgent extends PlanBasedAgent {
   }
 
   async *execute(_plan: AgentPlan): AsyncGenerator<AgentEvent> {
-    yield { type: "complete", result: { success: true, artifacts: [], tokensUsed: 0, duration: 0 } };
+    yield {
+      type: "complete",
+      result: { success: true, artifacts: [], tokensUsed: 0, duration: 0 },
+    };
   }
 }
 
@@ -75,7 +78,10 @@ class CustomTestAgent extends PlanBasedAgent {
   }
 
   async *execute(_plan: AgentPlan): AsyncGenerator<AgentEvent> {
-    yield { type: "complete", result: { success: true, artifacts: [], tokensUsed: 0, duration: 0 } };
+    yield {
+      type: "complete",
+      result: { success: true, artifacts: [], tokensUsed: 0, duration: 0 },
+    };
   }
 }
 
@@ -127,7 +133,9 @@ describe("PlanBasedAgent", () => {
       });
 
       it("merges selectionKeywords into the predefined config", () => {
-        (agent as unknown as { selectionKeywords: string[] }).selectionKeywords = ["ppt", "deck"];
+        (
+          agent as unknown as { selectionKeywords: string[] }
+        ).selectionKeywords = ["ppt", "deck"];
         const config = agent.getConfig();
         expect(config.selectionKeywords).toContain("ppt");
       });
@@ -211,7 +219,8 @@ describe("PlanBasedAgent", () => {
     it("setSystemPromptOverride stores the prompt", () => {
       agent.setSystemPromptOverride("You are an expert.");
       expect(
-        (agent as unknown as { _systemPromptOverride: string })._systemPromptOverride,
+        (agent as unknown as { _systemPromptOverride: string })
+          ._systemPromptOverride,
       ).toBe("You are an expert.");
     });
 
@@ -226,7 +235,8 @@ describe("PlanBasedAgent", () => {
       const profile = { creativity: "high", outputLength: "long" };
       agent.setTaskProfileOverride(profile);
       expect(
-        (agent as unknown as { _taskProfileOverride: Record<string, unknown> })._taskProfileOverride,
+        (agent as unknown as { _taskProfileOverride: Record<string, unknown> })
+          ._taskProfileOverride,
       ).toEqual(profile);
     });
 
@@ -261,16 +271,31 @@ describe("PlanBasedAgent", () => {
       readonly requiredTools: ToolId[] = [];
 
       async plan(_input: AgentInput): Promise<AgentPlan> {
-        return { taskId: "t", agentId: this.id, steps: [], estimatedTime: 0, toolsRequired: [], modelsRequired: [] };
+        return {
+          taskId: "t",
+          agentId: this.id,
+          steps: [],
+          estimatedTime: 0,
+          toolsRequired: [],
+          modelsRequired: [],
+        };
       }
-      async *execute(_plan: AgentPlan): AsyncGenerator<AgentEvent> { return; }
+      async *execute(_plan: AgentPlan): AsyncGenerator<AgentEvent> {
+        return;
+      }
 
-      public getStepId() { return this.generateStepId(); }
-      public getTaskId() { return this.generateTaskId(); }
+      public getStepId() {
+        return this.generateStepId();
+      }
+      public getTaskId() {
+        return this.generateTaskId();
+      }
     }
 
     let exposed: ExposedAgent;
-    beforeEach(() => { exposed = new ExposedAgent(); });
+    beforeEach(() => {
+      exposed = new ExposedAgent();
+    });
 
     it("generateStepId returns a non-empty string starting with step_", () => {
       const id = exposed.getStepId();
@@ -283,7 +308,11 @@ describe("PlanBasedAgent", () => {
     });
 
     it("generateStepId produces unique values on successive calls", () => {
-      const ids = new Set([exposed.getStepId(), exposed.getStepId(), exposed.getStepId()]);
+      const ids = new Set([
+        exposed.getStepId(),
+        exposed.getStepId(),
+        exposed.getStepId(),
+      ]);
       expect(ids.size).toBeGreaterThanOrEqual(1);
     });
   });

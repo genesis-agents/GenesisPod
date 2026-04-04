@@ -20,21 +20,25 @@ describe("PostWriteValidationService", () => {
       ],
     }).compile();
 
-    service = module.get<PostWriteValidationService>(PostWriteValidationService);
+    service = module.get<PostWriteValidationService>(
+      PostWriteValidationService,
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  const makeChapterWithBible = (overrides: {
-    characters?: Array<{ name: string; appearance?: Record<string, string> }>;
-    terminologies?: Array<{
-      term: string;
-      variants?: string[];
-    }>;
-    worldSettings?: Array<{ rules?: string[] }>;
-  } = {}) => ({
+  const makeChapterWithBible = (
+    overrides: {
+      characters?: Array<{ name: string; appearance?: Record<string, string> }>;
+      terminologies?: Array<{
+        term: string;
+        variants?: string[];
+      }>;
+      worldSettings?: Array<{ rules?: string[] }>;
+    } = {},
+  ) => ({
     id: "chapter-1",
     volumeId: "volume-1",
     volume: {
@@ -69,7 +73,9 @@ describe("PostWriteValidationService", () => {
     });
 
     it("should return PASSED status when chapter not found (no bible)", async () => {
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.validate("nonexistent", "Some content");
 
@@ -79,13 +85,13 @@ describe("PostWriteValidationService", () => {
 
     it("should return PASSED when content is consistent with bible", async () => {
       const chapter = makeChapterWithBible({
-        characters: [
-          { name: "萧炎", appearance: { eyes: "black" } },
-        ],
+        characters: [{ name: "萧炎", appearance: { eyes: "black" } }],
         terminologies: [],
         worldSettings: [],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       const content = "萧炎走过花园，内心平静。";
       const result = await service.validate("chapter-1", content);
@@ -105,7 +111,9 @@ describe("PostWriteValidationService", () => {
         ],
         worldSettings: [],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       // Both variants appear in content
       const content = "他的dou qi提升了，斗力也增强了，令人震惊。";
@@ -119,11 +127,11 @@ describe("PostWriteValidationService", () => {
 
     it("should not flag terminology when only one variant is used", async () => {
       const chapter = makeChapterWithBible({
-        terminologies: [
-          { term: "斗气", variants: ["dou qi", "斗力"] },
-        ],
+        terminologies: [{ term: "斗气", variants: ["dou qi", "斗力"] }],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       // Only one variant
       const content = "他的斗气提升了，令人震惊。";
@@ -136,11 +144,11 @@ describe("PostWriteValidationService", () => {
 
     it("should return ISSUES_FOUND when issues are found", async () => {
       const chapter = makeChapterWithBible({
-        terminologies: [
-          { term: "斗气", variants: ["dou qi", "斗力"] },
-        ],
+        terminologies: [{ term: "斗气", variants: ["dou qi", "斗力"] }],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       const content = "dou qi和斗力的说法都存在于本章。";
       const result = await service.validate("chapter-1", content);
@@ -150,11 +158,11 @@ describe("PostWriteValidationService", () => {
 
     it("should collect suggestions from all issues", async () => {
       const chapter = makeChapterWithBible({
-        terminologies: [
-          { term: "斗气", variants: ["dou qi", "斗力"] },
-        ],
+        terminologies: [{ term: "斗气", variants: ["dou qi", "斗力"] }],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       const content = "dou qi和斗力都出现了。";
       const result = await service.validate("chapter-1", content);
@@ -171,7 +179,9 @@ describe("PostWriteValidationService", () => {
         terminologies: [],
         worldSettings: [],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       const result = await service.validate("chapter-1", "一些内容");
 
@@ -182,7 +192,9 @@ describe("PostWriteValidationService", () => {
       const chapter = makeChapterWithBible({
         worldSettings: [{ rules: undefined }],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       const result = await service.validate("chapter-1", "内容");
 
@@ -191,11 +203,11 @@ describe("PostWriteValidationService", () => {
 
     it("should handle terminology with no variants", async () => {
       const chapter = makeChapterWithBible({
-        terminologies: [
-          { term: "斗气", variants: [] },
-        ],
+        terminologies: [{ term: "斗气", variants: [] }],
       });
-      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(chapter);
+      (mockPrisma.writingChapter.findUnique as jest.Mock).mockResolvedValue(
+        chapter,
+      );
 
       const result = await service.validate("chapter-1", "斗气很强");
 

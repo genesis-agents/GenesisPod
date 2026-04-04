@@ -6,7 +6,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AgentRegistry } from "../agent-registry";
 import { IPlanBasedAgent } from "../../base/plan-based-agent";
-import { AgentConfig, AgentId, AgentPlan } from "../../../core/types/agent.types";
+import {
+  AgentConfig,
+  AgentId,
+  AgentPlan,
+} from "../../../core/types/agent.types";
 
 // ---------------------------------------------------------------------------
 // Helper: create a mock IPlanBasedAgent
@@ -31,7 +35,11 @@ function makeAgent(id: AgentId, name = `Agent ${id}`): IPlanBasedAgent {
     capabilities: config.capabilities,
     requiredTools: [],
     plan: jest.fn().mockResolvedValue({} as AgentPlan),
-    execute: jest.fn().mockReturnValue((async function* () { return; })()),
+    execute: jest.fn().mockReturnValue(
+      (async function* () {
+        return;
+      })(),
+    ),
     getTemplates: jest.fn().mockReturnValue([]),
     getConfig: jest.fn().mockReturnValue(config),
   };

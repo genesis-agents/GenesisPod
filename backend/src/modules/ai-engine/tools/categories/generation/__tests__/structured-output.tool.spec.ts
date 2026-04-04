@@ -530,7 +530,9 @@ describe("StructuredOutputTool", () => {
 
       expect(result.data?.success).toBe(true);
       expect(result.data?.validated).toBe(false);
-      expect(result.data?.validationErrors).toContain("Missing required field: age");
+      expect(result.data?.validationErrors).toContain(
+        "Missing required field: age",
+      );
     });
 
     it("should skip schema validation when schema is a non-JSON string (description)", async () => {
@@ -572,7 +574,11 @@ describe("StructuredOutputTool", () => {
 
       expect(result.data?.success).toBe(true);
       expect(result.data?.validated).toBe(false);
-      expect(result.data?.validationErrors?.some((e: string) => e.includes("Expected type 'object'"))).toBe(true);
+      expect(
+        result.data?.validationErrors?.some((e: string) =>
+          e.includes("Expected type 'object'"),
+        ),
+      ).toBe(true);
     });
 
     it("should detect type mismatch when schema expects array but gets object", async () => {
@@ -592,7 +598,11 @@ describe("StructuredOutputTool", () => {
 
       expect(result.data?.success).toBe(true);
       expect(result.data?.validated).toBe(false);
-      expect(result.data?.validationErrors?.some((e: string) => e.includes("Expected type 'array'"))).toBe(true);
+      expect(
+        result.data?.validationErrors?.some((e: string) =>
+          e.includes("Expected type 'array'"),
+        ),
+      ).toBe(true);
     });
 
     it("should skip required check when data is null", async () => {

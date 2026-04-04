@@ -82,14 +82,17 @@ Read: path/to/__tests__/file.spec.ts
 ## 查询: [功能名称] 在哪里?
 
 ### 主要位置
+
 - `path/to/main.ts:line` - 主要实现
 - `path/to/interface.ts:line` - 接口定义
 
 ### 相关文件
+
 - `path/to/related.ts` - 相关功能
 - `path/to/test.spec.ts` - 测试文件
 
 ### 模块归属
+
 - 模块: `XXXModule`
 - 服务: `XXXService`
 ```
@@ -100,20 +103,23 @@ Read: path/to/__tests__/file.spec.ts
 ## 查询: [功能名称] 怎么工作?
 
 ### 调用流程
+
 1. 入口: `Controller.method()`
 2. 处理: `Service.process()`
 3. 数据: `Repository.query()`
 4. 返回: 响应数据
 
 ### 关键代码
+
 \`\`\`typescript
 // path/to/file.ts:45
 async process(data: Input): Promise<Output> {
-  // 核心逻辑
+// 核心逻辑
 }
 \`\`\`
 
 ### 依赖关系
+
 - 依赖: ServiceA, ServiceB
 - 被依赖: ControllerX
 ```

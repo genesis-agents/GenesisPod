@@ -292,7 +292,10 @@ export class GlobalDeduplicationService {
    *
    * 返回用于去重检查的关键字段
    */
-  extractDeduplicationKey(rawData: { data?: Record<string, unknown>; [key: string]: unknown }): {
+  extractDeduplicationKey(rawData: {
+    data?: Record<string, unknown>;
+    [key: string]: unknown;
+  }): {
     url: string | null;
     contentHash: string | null;
     simhash: string | null;

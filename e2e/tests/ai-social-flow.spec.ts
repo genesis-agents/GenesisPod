@@ -77,10 +77,7 @@ test.describe("AI Social UI (/ai-social)", () => {
 
     const hasCreate =
       (await createButton.count()) > 0 || (await createLink.count()) > 0;
-    expect(
-      hasCreate,
-      "Social page should have a create option",
-    ).toBe(true);
+    expect(hasCreate, "Social page should have a create option").toBe(true);
   });
 });
 
@@ -143,7 +140,7 @@ test.describe("Social API — Content", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.contents ?? [];
+      : (payload.items ?? payload.contents ?? []);
     expect(Array.isArray(list), "Social contents should be an array").toBe(
       true,
     );
@@ -170,14 +167,11 @@ test.describe("Social API — Content", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.connections ?? [];
+      : (payload.items ?? payload.connections ?? []);
     expect(Array.isArray(list), "Connections should be an array").toBe(true);
   });
 
-  test("POST /social/contents — create content", async ({
-    page,
-    baseURL,
-  }) => {
+  test("POST /social/contents — create content", async ({ page, baseURL }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 

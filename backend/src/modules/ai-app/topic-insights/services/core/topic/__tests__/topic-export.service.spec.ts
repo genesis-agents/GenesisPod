@@ -66,7 +66,10 @@ describe("TopicExportService", () => {
       providers: [
         TopicExportService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: ExportOrchestratorService, useValue: mockExportOrchestrator },
+        {
+          provide: ExportOrchestratorService,
+          useValue: mockExportOrchestrator,
+        },
         { provide: ReportSynthesisService, useValue: mockReportService },
       ],
     }).compile();
@@ -77,7 +80,9 @@ describe("TopicExportService", () => {
 
   describe("exportReport", () => {
     it("should create a PDF export job for authorized user", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "user-1",
+      });
       mockReportService.getReport.mockResolvedValue(baseReport);
       mockExportOrchestrator.createExportJob.mockResolvedValue({
         jobId: "job-1",
@@ -86,7 +91,12 @@ describe("TopicExportService", () => {
       });
 
       const dto: ExportReportDto = { format: "pdf" };
-      const result = await service.exportReport("user-1", "topic-1", "report-1", dto);
+      const result = await service.exportReport(
+        "user-1",
+        "topic-1",
+        "report-1",
+        dto,
+      );
 
       expect(result).toHaveProperty("jobId", "job-1");
       expect(mockExportOrchestrator.createExportJob).toHaveBeenCalledWith(
@@ -99,7 +109,9 @@ describe("TopicExportService", () => {
     });
 
     it("should create a DOCX export job", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "user-1",
+      });
       mockReportService.getReport.mockResolvedValue(baseReport);
       mockExportOrchestrator.createExportJob.mockResolvedValue({
         jobId: "job-2",
@@ -117,7 +129,9 @@ describe("TopicExportService", () => {
     });
 
     it("should return downloadUrl directly when job is already completed", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "user-1",
+      });
       mockReportService.getReport.mockResolvedValue(baseReport);
       mockExportOrchestrator.createExportJob.mockResolvedValue({
         jobId: "job-1",
@@ -128,9 +142,17 @@ describe("TopicExportService", () => {
       });
 
       const dto: ExportReportDto = { format: "pdf" };
-      const result = await service.exportReport("user-1", "topic-1", "report-1", dto);
+      const result = await service.exportReport(
+        "user-1",
+        "topic-1",
+        "report-1",
+        dto,
+      );
 
-      expect(result).toHaveProperty("downloadUrl", "https://example.com/report.pdf");
+      expect(result).toHaveProperty(
+        "downloadUrl",
+        "https://example.com/report.pdf",
+      );
       expect(result).not.toHaveProperty("jobId");
     });
 
@@ -144,7 +166,9 @@ describe("TopicExportService", () => {
     });
 
     it("should throw ForbiddenException when user is not the owner", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ userId: "other-user" });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "other-user",
+      });
 
       const dto: ExportReportDto = { format: "pdf" };
       await expect(
@@ -153,7 +177,9 @@ describe("TopicExportService", () => {
     });
 
     it("should throw NotFoundException when report not found", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "user-1",
+      });
       mockReportService.getReport.mockResolvedValue(null);
 
       const dto: ExportReportDto = { format: "pdf" };
@@ -163,7 +189,9 @@ describe("TopicExportService", () => {
     });
 
     it("should throw NotFoundException when report belongs to different topic", async () => {
-      mockPrisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        userId: "user-1",
+      });
       mockReportService.getReport.mockResolvedValue({
         ...baseReport,
         topicId: "other-topic",
@@ -185,7 +213,11 @@ describe("TopicExportService", () => {
         visibility: "PUBLIC",
       });
 
-      const result = await service.updateVisibility("user-1", "topic-1", "PUBLIC");
+      const result = await service.updateVisibility(
+        "user-1",
+        "topic-1",
+        "PUBLIC",
+      );
 
       expect(result.success).toBe(true);
       expect(result.visibility).toBe("PUBLIC");
@@ -219,7 +251,10 @@ describe("TopicExportService", () => {
     });
 
     it("should include publicLink when visibility is PUBLIC", async () => {
-      mockPrisma.researchTopic.findFirst.mockResolvedValue({ ...baseTopic, visibility: "PUBLIC" });
+      mockPrisma.researchTopic.findFirst.mockResolvedValue({
+        ...baseTopic,
+        visibility: "PUBLIC",
+      });
       mockPrisma.topicCollaborator.count.mockResolvedValue(0);
       mockPrisma.$queryRaw.mockResolvedValue([{ visibility: "PUBLIC" }]);
 
@@ -261,7 +296,9 @@ describe("TopicExportService", () => {
     it("should throw NotFoundException when topic not found", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.getSharedTopic("bad-topic")).rejects.toThrow(NotFoundException);
+      await expect(service.getSharedTopic("bad-topic")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should throw NotFoundException when topic is not PUBLIC", async () => {
@@ -270,7 +307,9 @@ describe("TopicExportService", () => {
         visibility: "PRIVATE",
       });
 
-      await expect(service.getSharedTopic("topic-1")).rejects.toThrow(NotFoundException);
+      await expect(service.getSharedTopic("topic-1")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -283,7 +322,12 @@ describe("TopicExportService", () => {
       });
       mockPrisma.topicReport.findFirst.mockResolvedValue({
         ...baseReport,
-        topic: { id: "topic-1", name: "Test Topic", type: "TECHNOLOGY", description: "" },
+        topic: {
+          id: "topic-1",
+          name: "Test Topic",
+          type: "TECHNOLOGY",
+          description: "",
+        },
         dimensionAnalyses: [],
       });
 
@@ -301,7 +345,9 @@ describe("TopicExportService", () => {
       });
       mockPrisma.topicReport.findFirst.mockResolvedValue(null);
 
-      await expect(service.getSharedTopicLatestReport("topic-1")).rejects.toThrow(NotFoundException);
+      await expect(
+        service.getSharedTopicLatestReport("topic-1"),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw NotFoundException when topic is not PUBLIC", async () => {
@@ -311,7 +357,9 @@ describe("TopicExportService", () => {
         visibility: "PRIVATE",
       });
 
-      await expect(service.getSharedTopicLatestReport("topic-1")).rejects.toThrow(NotFoundException);
+      await expect(
+        service.getSharedTopicLatestReport("topic-1"),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

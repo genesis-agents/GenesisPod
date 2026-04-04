@@ -107,8 +107,7 @@ describe("ChapterQualityEvaluatorService", () => {
         "在一个美丽的世界里，有一个少年叫萧炎。".repeat(10) +
         "他非常厉害但却很弱。".repeat(20);
       const result = service.quickEvaluate(contentWithBadOpening, 1);
-      const openingScore =
-        result.contentQuality?.openingHook.score ?? 100;
+      const openingScore = result.contentQuality?.openingHook.score ?? 100;
       expect(openingScore).toBeLessThan(100);
     });
 

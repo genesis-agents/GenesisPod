@@ -80,7 +80,7 @@ export interface StreamConfig {
 /**
  * 背压控制策略
  */
-export type BackpressureStrategy = 'drop' | 'pause' | 'error';
+export type BackpressureStrategy = "drop" | "pause" | "error";
 
 /**
  * 流式处理选项（支持背压控制）

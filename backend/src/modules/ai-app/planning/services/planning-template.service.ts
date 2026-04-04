@@ -75,8 +75,7 @@ const PLANNING_TEMPLATES: PlanningTemplate[] = [
     name: "金融策划",
     description: "投资理财、资产配置、财富管理",
     icon: "trending-up",
-    defaultGoalPrompt:
-      "请分析以下金融理财目标，制定资产配置与投资策划方案：",
+    defaultGoalPrompt: "请分析以下金融理财目标，制定资产配置与投资策划方案：",
     phasePrompts: {
       1: "分析理财目标，明确投资期限、风险承受能力、预期收益率、现有资产状况和财务约束条件。",
       2: "调研当前宏观经济环境、各类资产（股票、债券、基金、黄金、房产等）的市场表现、历史回报率和风险特征，收集权威机构的投资展望和行业研报。",
@@ -91,8 +90,7 @@ const PLANNING_TEMPLATES: PlanningTemplate[] = [
     name: "保险策划",
     description: "保障规划、险种配置、家庭保障",
     icon: "shield",
-    defaultGoalPrompt:
-      "请分析以下保障需求，制定全面的保险配置策划方案：",
+    defaultGoalPrompt: "请分析以下保障需求，制定全面的保险配置策划方案：",
     phasePrompts: {
       1: "分析保障需求，明确家庭结构、收入状况、负债情况、已有保障缺口和核心风险点（如重疾、意外、身故、养老）。",
       2: "调研当前保险市场主流产品（重疾险、医疗险、意外险、寿险、年金险等），比较不同保司的产品特点、保障范围、理赔率和性价比。",
@@ -107,8 +105,7 @@ const PLANNING_TEMPLATES: PlanningTemplate[] = [
     name: "学业策划",
     description: "升学规划、考试备考、学术发展",
     icon: "graduation-cap",
-    defaultGoalPrompt:
-      "请分析以下学业目标，制定系统的学业规划方案：",
+    defaultGoalPrompt: "请分析以下学业目标，制定系统的学业规划方案：",
     phasePrompts: {
       1: "分析学业目标，明确当前学业阶段、目标院校或专业方向、时间节点、学术基础和个人优劣势。",
       2: "调研目标院校或考试的录取要求、竞争态势、备考资源、成功案例和常见失误，收集招生政策和行业趋势。",
@@ -123,8 +120,7 @@ const PLANNING_TEMPLATES: PlanningTemplate[] = [
     name: "事业策划",
     description: "职业发展、转型规划、创业筹备",
     icon: "briefcase",
-    defaultGoalPrompt:
-      "请分析以下职业发展目标，制定事业发展策划方案：",
+    defaultGoalPrompt: "请分析以下职业发展目标，制定事业发展策划方案：",
     phasePrompts: {
       1: "分析职业目标，明确当前职业阶段、期望发展方向、核心技能储备、行业偏好和个人价值观。",
       2: "调研目标行业发展前景、岗位需求、薪酬水平、技能要求、成功路径案例和潜在风险，收集职场趋势和专家建议。",

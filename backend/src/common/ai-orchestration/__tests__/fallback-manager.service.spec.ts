@@ -106,9 +106,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("Primary failed"));
       const fallbackCall = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
 
       // Act
       const result = await service.executeWithFallback(
@@ -132,9 +130,7 @@ describe("FallbackManagerService", () => {
         .mockResolvedValue(createFailureResult("gpt-4o", "openai"));
       const fallbackCall = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
 
       // Act
       const result = await service.executeWithFallback(
@@ -159,9 +155,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("First fallback failed"));
       const secondFallback = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("gemini-2.0-flash", "google"),
-        );
+        .mockResolvedValue(createSuccessResult("gemini-2.0-flash", "google"));
 
       // Act
       const result = await service.executeWithFallback(
@@ -187,9 +181,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("Primary failed"));
       const firstFallback = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
       const secondFallback = jest.fn();
 
       // Act
@@ -399,9 +391,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("Primary failed"));
       const fallbackCall = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
 
       // Act
       await service.executeWithFallback(
@@ -452,9 +442,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("Primary failed"));
       const fallbackCall = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
 
       // Act - Execute only 10 fallbacks for test speed
       for (let i = 0; i < 10; i++) {
@@ -479,9 +467,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("Primary failed"));
       const fallbackCall = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
 
       await service.executeWithFallback(
         primaryCall,
@@ -507,9 +493,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("Primary failed"));
       const fallbackCall = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
 
       // Act - Execute 12 fallbacks
       for (let i = 0; i < 12; i++) {
@@ -533,9 +517,7 @@ describe("FallbackManagerService", () => {
         .mockRejectedValue(new Error("Primary failed"));
       const fallbackCall = jest
         .fn()
-        .mockResolvedValue(
-          createSuccessResult("claude-3-opus", "anthropic"),
-        );
+        .mockResolvedValue(createSuccessResult("claude-3-opus", "anthropic"));
 
       // Act
       await service.executeWithFallback(

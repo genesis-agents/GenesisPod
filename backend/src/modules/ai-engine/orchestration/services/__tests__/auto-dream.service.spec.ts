@@ -25,7 +25,11 @@ function makeEntries(
 }
 
 /** Advance lastRunTimes to simulate time having passed */
-function backdateLastRun(service: AutoDreamService, scopeId: string, hoursAgo: number): void {
+function backdateLastRun(
+  service: AutoDreamService,
+  scopeId: string,
+  hoursAgo: number,
+): void {
   const past = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
   // Access private map via bracket notation for white-box testing
   (service as unknown as { lastRunTimes: Map<string, Date> }).lastRunTimes.set(
@@ -34,11 +38,14 @@ function backdateLastRun(service: AutoDreamService, scopeId: string, hoursAgo: n
   );
 }
 
-function setSessionCount(service: AutoDreamService, scopeId: string, count: number): void {
-  (service as unknown as { sessionCounts: Map<string, number> }).sessionCounts.set(
-    scopeId,
-    count,
-  );
+function setSessionCount(
+  service: AutoDreamService,
+  scopeId: string,
+  count: number,
+): void {
+  (
+    service as unknown as { sessionCounts: Map<string, number> }
+  ).sessionCounts.set(scopeId, count);
 }
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
@@ -124,7 +131,9 @@ describe("AutoDreamService", () => {
     it("respects custom config overrides", () => {
       // Arrange: use lower threshold — 2 sessions is enough
       setSessionCount(service, "scope-6", 2);
-      const customConfig: Partial<AutoDreamConfig> = { minCompletedSessions: 2 };
+      const customConfig: Partial<AutoDreamConfig> = {
+        minCompletedSessions: 2,
+      };
 
       // Act
       const result = service.shouldRun("scope-6", customConfig);
@@ -140,7 +149,9 @@ describe("AutoDreamService", () => {
     it("increments counter from 0 to 1 on first call", () => {
       service.recordCompletedSession("scope-rc");
 
-      const counts = (service as unknown as { sessionCounts: Map<string, number> }).sessionCounts;
+      const counts = (
+        service as unknown as { sessionCounts: Map<string, number> }
+      ).sessionCounts;
       expect(counts.get("scope-rc")).toBe(1);
     });
 
@@ -149,7 +160,9 @@ describe("AutoDreamService", () => {
       service.recordCompletedSession("scope-rc2");
       service.recordCompletedSession("scope-rc2");
 
-      const counts = (service as unknown as { sessionCounts: Map<string, number> }).sessionCounts;
+      const counts = (
+        service as unknown as { sessionCounts: Map<string, number> }
+      ).sessionCounts;
       expect(counts.get("scope-rc2")).toBe(3);
     });
   });
@@ -243,11 +256,7 @@ describe("AutoDreamService", () => {
         .mockRejectedValue(new Error("LLM timeout"));
 
       // Act
-      const result = await service.execute(
-        "scope-err",
-        entries,
-        consolidateFn,
-      );
+      const result = await service.execute("scope-err", entries, consolidateFn);
 
       // Assert — run must complete all phases
       expect(result.phasesCompleted).toContain("prune");
@@ -263,8 +272,12 @@ describe("AutoDreamService", () => {
       await service.execute("scope-reset", entries);
 
       // Assert
-      const counts = (service as unknown as { sessionCounts: Map<string, number> }).sessionCounts;
-      const lastRuns = (service as unknown as { lastRunTimes: Map<string, Date> }).lastRunTimes;
+      const counts = (
+        service as unknown as { sessionCounts: Map<string, number> }
+      ).sessionCounts;
+      const lastRuns = (
+        service as unknown as { lastRunTimes: Map<string, Date> }
+      ).lastRunTimes;
       expect(counts.get("scope-reset")).toBe(0);
       expect(lastRuns.has("scope-reset")).toBe(true);
     });
@@ -301,10 +314,7 @@ describe("AutoDreamService", () => {
         return { key: "k", value: "v" };
       });
 
-      const entries = [
-        makeEntry("group:x", "v1"),
-        makeEntry("group:y", "v2"),
-      ];
+      const entries = [makeEntry("group:x", "v1"), makeEntry("group:y", "v2")];
 
       // Act
       await service.execute("scope-status", entries, fakeFn);
@@ -326,7 +336,9 @@ describe("AutoDreamService", () => {
   describe("cancel", () => {
     it("removes active run and returns true", async () => {
       // Arrange: inject a fake active run entry
-      const activeRuns = (service as unknown as { activeRuns: Map<string, unknown> }).activeRuns;
+      const activeRuns = (
+        service as unknown as { activeRuns: Map<string, unknown> }
+      ).activeRuns;
       activeRuns.set("scope-cancel", {
         phase: "gather",
         progress: 30,
@@ -361,7 +373,9 @@ describe("AutoDreamService", () => {
         makeEntry("marketing:ctr", 0.05),
       ];
 
-      const consolidateFn = jest.fn().mockResolvedValue({ key: "k", value: "v" });
+      const consolidateFn = jest
+        .fn()
+        .mockResolvedValue({ key: "k", value: "v" });
 
       await service.execute("scope-group", entries, consolidateFn);
 
@@ -375,7 +389,9 @@ describe("AutoDreamService", () => {
         makeEntry("reports/q2", "data-b"),
       ];
 
-      const consolidateFn = jest.fn().mockResolvedValue({ key: "k", value: "v" });
+      const consolidateFn = jest
+        .fn()
+        .mockResolvedValue({ key: "k", value: "v" });
 
       await service.execute("scope-slash", entries, consolidateFn);
 

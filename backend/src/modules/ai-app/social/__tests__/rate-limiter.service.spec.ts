@@ -48,7 +48,10 @@ describe("RateLimiterService", () => {
         mockPrisma.socialPublishLog.count.mockResolvedValue(0);
         mockPrisma.socialPublishLog.findFirst.mockResolvedValue(null);
 
-        const result = await service.canPublish(userId, SocialPlatformType.WECHAT_MP);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.WECHAT_MP,
+        );
 
         expect(result.allowed).toBe(true);
         expect(result.remainingToday).toBe(1); // maxPerDay - 0
@@ -58,7 +61,10 @@ describe("RateLimiterService", () => {
       it("should deny when daily limit reached (maxPerDay=1)", async () => {
         mockPrisma.socialPublishLog.count.mockResolvedValue(1);
 
-        const result = await service.canPublish(userId, SocialPlatformType.WECHAT_MP);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.WECHAT_MP,
+        );
 
         expect(result.allowed).toBe(false);
         expect(result.reason).toContain("今日发布已达上限");
@@ -69,10 +75,13 @@ describe("RateLimiterService", () => {
       it("should deny when hourly limit reached", async () => {
         // First call (todayCount) returns 0, second call (hourCount) returns 1
         mockPrisma.socialPublishLog.count
-          .mockResolvedValueOnce(0)   // todayCount = 0 (under daily limit)
-          .mockResolvedValueOnce(1);  // hourCount = 1 (at hourly limit)
+          .mockResolvedValueOnce(0) // todayCount = 0 (under daily limit)
+          .mockResolvedValueOnce(1); // hourCount = 1 (at hourly limit)
 
-        const result = await service.canPublish(userId, SocialPlatformType.WECHAT_MP);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.WECHAT_MP,
+        );
 
         expect(result.allowed).toBe(false);
         expect(result.reason).toContain("本小时发布已达上限");
@@ -84,10 +93,14 @@ describe("RateLimiterService", () => {
         // For WECHAT_MP: minIntervalMinutes=0, so step 3 (getLastPublishTime) is SKIPPED
         // Only step 4 (getLastFailTime) calls findFirst
         const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
-        mockPrisma.socialPublishLog.findFirst
-          .mockResolvedValueOnce({ createdAt: tenMinsAgo }); // last fail (only one call)
+        mockPrisma.socialPublishLog.findFirst.mockResolvedValueOnce({
+          createdAt: tenMinsAgo,
+        }); // last fail (only one call)
 
-        const result = await service.canPublish(userId, SocialPlatformType.WECHAT_MP);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.WECHAT_MP,
+        );
 
         expect(result.allowed).toBe(false);
         expect(result.reason).toContain("冷却中");
@@ -99,10 +112,14 @@ describe("RateLimiterService", () => {
         // For WECHAT_MP: minIntervalMinutes=0, so step 3 is SKIPPED
         // Last fail time is 31 minutes ago (cooldown is 30 min) - should be allowed
         const thirtyOneMinsAgo = new Date(Date.now() - 31 * 60 * 1000);
-        mockPrisma.socialPublishLog.findFirst
-          .mockResolvedValueOnce({ createdAt: thirtyOneMinsAgo }); // old fail - cooldown passed
+        mockPrisma.socialPublishLog.findFirst.mockResolvedValueOnce({
+          createdAt: thirtyOneMinsAgo,
+        }); // old fail - cooldown passed
 
-        const result = await service.canPublish(userId, SocialPlatformType.WECHAT_MP);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.WECHAT_MP,
+        );
 
         expect(result.allowed).toBe(true);
       });
@@ -113,7 +130,10 @@ describe("RateLimiterService", () => {
         mockPrisma.socialPublishLog.count.mockResolvedValue(0);
         mockPrisma.socialPublishLog.findFirst.mockResolvedValue(null);
 
-        const result = await service.canPublish(userId, SocialPlatformType.XIAOHONGSHU);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.XIAOHONGSHU,
+        );
 
         expect(result.allowed).toBe(true);
         expect(result.remainingToday).toBe(3); // maxPerDay is 3
@@ -122,7 +142,10 @@ describe("RateLimiterService", () => {
       it("should deny when daily limit of 3 reached", async () => {
         mockPrisma.socialPublishLog.count.mockResolvedValue(3);
 
-        const result = await service.canPublish(userId, SocialPlatformType.XIAOHONGSHU);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.XIAOHONGSHU,
+        );
 
         expect(result.allowed).toBe(false);
         expect(result.reason).toContain("今日发布已达上限 (3篇)");
@@ -132,10 +155,14 @@ describe("RateLimiterService", () => {
         mockPrisma.socialPublishLog.count.mockResolvedValue(0);
         // Last publish was 1 hour ago (60 min < 240 min interval)
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-        mockPrisma.socialPublishLog.findFirst
-          .mockResolvedValueOnce({ createdAt: oneHourAgo }); // last success
+        mockPrisma.socialPublishLog.findFirst.mockResolvedValueOnce({
+          createdAt: oneHourAgo,
+        }); // last success
 
-        const result = await service.canPublish(userId, SocialPlatformType.XIAOHONGSHU);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.XIAOHONGSHU,
+        );
 
         expect(result.allowed).toBe(false);
         expect(result.reason).toContain("发布间隔不足");
@@ -149,7 +176,10 @@ describe("RateLimiterService", () => {
           .mockResolvedValueOnce({ createdAt: fiveHoursAgo }) // last success
           .mockResolvedValueOnce(null); // no fail
 
-        const result = await service.canPublish(userId, SocialPlatformType.XIAOHONGSHU);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.XIAOHONGSHU,
+        );
 
         expect(result.allowed).toBe(true);
       });
@@ -158,10 +188,13 @@ describe("RateLimiterService", () => {
         mockPrisma.socialPublishLog.count.mockResolvedValue(0);
         const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
         mockPrisma.socialPublishLog.findFirst
-          .mockResolvedValueOnce(null)         // no last success
+          .mockResolvedValueOnce(null) // no last success
           .mockResolvedValueOnce({ createdAt: thirtyMinsAgo }); // last fail 30 min ago
 
-        const result = await service.canPublish(userId, SocialPlatformType.XIAOHONGSHU);
+        const result = await service.canPublish(
+          userId,
+          SocialPlatformType.XIAOHONGSHU,
+        );
 
         expect(result.allowed).toBe(false);
         expect(result.reason).toContain("冷却中");
@@ -177,7 +210,11 @@ describe("RateLimiterService", () => {
     });
 
     it("should record failed publish", async () => {
-      await service.recordPublish(userId, SocialPlatformType.XIAOHONGSHU, false);
+      await service.recordPublish(
+        userId,
+        SocialPlatformType.XIAOHONGSHU,
+        false,
+      );
 
       expect(mockPrisma.$executeRaw).toHaveBeenCalled();
     });
@@ -205,13 +242,16 @@ describe("RateLimiterService", () => {
   describe("getStatus", () => {
     it("should return status summary with all fields", async () => {
       mockPrisma.socialPublishLog.count
-        .mockResolvedValueOnce(0)  // todayCount (first canPublish call via getStatus)
-        .mockResolvedValueOnce(0)  // hourCount (first canPublish call via getStatus)
-        .mockResolvedValueOnce(0)  // todayCount (internal canPublish call in getStatus)
+        .mockResolvedValueOnce(0) // todayCount (first canPublish call via getStatus)
+        .mockResolvedValueOnce(0) // hourCount (first canPublish call via getStatus)
+        .mockResolvedValueOnce(0) // todayCount (internal canPublish call in getStatus)
         .mockResolvedValueOnce(0); // hourCount (internal canPublish call in getStatus)
       mockPrisma.socialPublishLog.findFirst.mockResolvedValue(null);
 
-      const status = await service.getStatus(userId, SocialPlatformType.WECHAT_MP);
+      const status = await service.getStatus(
+        userId,
+        SocialPlatformType.WECHAT_MP,
+      );
 
       expect(status).toBeDefined();
       expect(status.config).toBeDefined();
@@ -231,7 +271,10 @@ describe("RateLimiterService", () => {
         .mockResolvedValueOnce({ createdAt: publishTime }) // getLastPublishTime (in canPublish)
         .mockResolvedValueOnce(null); // getLastFailTime
 
-      const status = await service.getStatus(userId, SocialPlatformType.WECHAT_MP);
+      const status = await service.getStatus(
+        userId,
+        SocialPlatformType.WECHAT_MP,
+      );
 
       expect(status.lastPublishAt).toEqual(publishTime);
     });

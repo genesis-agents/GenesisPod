@@ -60,26 +60,22 @@ function makeMockModelConfigService() {
     getDefaultModel: jest.fn().mockResolvedValue(null),
     getModelById: jest.fn().mockResolvedValue(null),
     refreshModelConfigCache: jest.fn(),
-    getEnabledModelsForFrontend: jest
-      .fn()
-      .mockResolvedValue([
-        {
-          modelId: "gpt-4o",
-          name: "GPT-4o",
-          displayName: "GPT-4o",
-          provider: "openai",
-        },
-      ]),
-    getAllEnabledModelsByType: jest
-      .fn()
-      .mockResolvedValue([
-        {
-          modelId: "gpt-4o",
-          name: "GPT-4o",
-          provider: "openai",
-          isReasoning: false,
-        },
-      ]),
+    getEnabledModelsForFrontend: jest.fn().mockResolvedValue([
+      {
+        modelId: "gpt-4o",
+        name: "GPT-4o",
+        displayName: "GPT-4o",
+        provider: "openai",
+      },
+    ]),
+    getAllEnabledModelsByType: jest.fn().mockResolvedValue([
+      {
+        modelId: "gpt-4o",
+        name: "GPT-4o",
+        provider: "openai",
+        isReasoning: false,
+      },
+    ]),
   };
 }
 

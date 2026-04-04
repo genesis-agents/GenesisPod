@@ -192,7 +192,11 @@ describe("assessCredibility — source type", () => {
 describe("assessCredibility — snippet length (content depth)", () => {
   it("adds 15 for snippet longer than 500 chars", () => {
     const score = assessCredibility(
-      makeEvidence({ domain: null, sourceType: null, snippet: "x".repeat(501) }),
+      makeEvidence({
+        domain: null,
+        sourceType: null,
+        snippet: "x".repeat(501),
+      }),
     );
     // domain=15, sourceType=15, snippet=15
     expect(score).toBe(45);
@@ -200,7 +204,11 @@ describe("assessCredibility — snippet length (content depth)", () => {
 
   it("adds 10 for snippet longer than 200 chars (but ≤500)", () => {
     const score = assessCredibility(
-      makeEvidence({ domain: null, sourceType: null, snippet: "x".repeat(201) }),
+      makeEvidence({
+        domain: null,
+        sourceType: null,
+        snippet: "x".repeat(201),
+      }),
     );
     expect(score).toBe(40);
   });
@@ -331,10 +339,10 @@ describe("assessCredibility — combined scenarios", () => {
   it("scores maximum for top academic source with long snippet and fresh date", () => {
     const score = assessCredibility(
       makeEvidence({
-        domain: "arxiv.org",         // TOP_AUTHORITY → 40
-        sourceType: "academic",      // → 30
-        snippet: "x".repeat(600),   // > 500 → 15
-        publishedAt: daysAgo(5),    // ≤30 days → 15
+        domain: "arxiv.org", // TOP_AUTHORITY → 40
+        sourceType: "academic", // → 30
+        snippet: "x".repeat(600), // > 500 → 15
+        publishedAt: daysAgo(5), // ≤30 days → 15
       }),
     );
     // 40 + 30 + 15 + 15 = 100
@@ -345,10 +353,10 @@ describe("assessCredibility — combined scenarios", () => {
     // Construct a score that would naturally exceed 100
     const score = assessCredibility(
       makeEvidence({
-        domain: "nature.com",        // 40
-        sourceType: "academic",      // 30
-        snippet: "x".repeat(600),   // 15
-        publishedAt: daysAgo(5),    // 15
+        domain: "nature.com", // 40
+        sourceType: "academic", // 30
+        snippet: "x".repeat(600), // 15
+        publishedAt: daysAgo(5), // 15
       }),
     );
     expect(score).toBeLessThanOrEqual(100);
@@ -403,9 +411,19 @@ describe("assessCredibility — return value bounds", () => {
   it("always returns a number between 15 and 100 inclusive", () => {
     const inputs: Partial<EvidenceData>[] = [
       {},
-      { domain: "arxiv.org", sourceType: "academic", snippet: "x".repeat(600), publishedAt: daysAgo(1) },
+      {
+        domain: "arxiv.org",
+        sourceType: "academic",
+        snippet: "x".repeat(600),
+        publishedAt: daysAgo(1),
+      },
       { domain: null, sourceType: null, snippet: null, publishedAt: null },
-      { domain: "unknown.xyz", sourceType: "random", snippet: "short", publishedAt: daysAgo(1000) },
+      {
+        domain: "unknown.xyz",
+        sourceType: "random",
+        snippet: "short",
+        publishedAt: daysAgo(1000),
+      },
     ];
 
     for (const override of inputs) {

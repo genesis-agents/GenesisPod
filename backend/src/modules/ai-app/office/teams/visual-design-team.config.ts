@@ -20,10 +20,7 @@ import {
   createConstraintProfile,
   BUILTIN_TOOLS,
 } from "../../../ai-engine/facade";
-import type {
-  TeamConfig,
-  WorkflowConfig,
-} from "../../../ai-engine/facade";
+import type { TeamConfig, WorkflowConfig } from "../../../ai-engine/facade";
 
 // ============================================================================
 // Agent System Prompts - 针对 Imagen 4 优化的专业提示词

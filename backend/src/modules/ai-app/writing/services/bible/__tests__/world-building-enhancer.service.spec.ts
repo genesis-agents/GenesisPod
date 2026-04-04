@@ -9,7 +9,9 @@ describe("WorldBuildingEnhancerService", () => {
       providers: [WorldBuildingEnhancerService],
     }).compile();
 
-    service = module.get<WorldBuildingEnhancerService>(WorldBuildingEnhancerService);
+    service = module.get<WorldBuildingEnhancerService>(
+      WorldBuildingEnhancerService,
+    );
   });
 
   it("should be defined", () => {
@@ -96,9 +98,10 @@ describe("WorldBuildingEnhancerService", () => {
 
   describe("enhanceWorldBuildingPrompt", () => {
     it("should enhance prompt with era knowledge when era detected", () => {
-      const result = service.enhanceWorldBuildingPrompt(
-        "清朝宫廷故事，主角是化妆品配方工程师",
-      );
+      const result =
+        service.enhanceWorldBuildingPrompt(
+          "清朝宫廷故事，主角是化妆品配方工程师",
+        );
 
       expect(result.detectedEra).toBeDefined();
       expect(result.enhancedPrompt).toContain("原始故事创意");
@@ -106,26 +109,21 @@ describe("WorldBuildingEnhancerService", () => {
     });
 
     it("should return validation suggestions when era is known", () => {
-      const result = service.enhanceWorldBuildingPrompt(
-        "清朝紫禁城的故事",
-      );
+      const result = service.enhanceWorldBuildingPrompt("清朝紫禁城的故事");
 
       expect(result.validationSuggestions.length).toBeGreaterThan(0);
     });
 
     it("should detect profession and include professional knowledge", () => {
-      const result = service.enhanceWorldBuildingPrompt(
-        "清朝宫廷化妆品配方专家的故事",
-      );
+      const result =
+        service.enhanceWorldBuildingPrompt("清朝宫廷化妆品配方专家的故事");
 
       expect(result.detectedEra).toBeDefined();
       expect(result.professionalKnowledge).toBeDefined();
     });
 
     it("should handle prompt with no era or profession", () => {
-      const result = service.enhanceWorldBuildingPrompt(
-        "一个普通的故事",
-      );
+      const result = service.enhanceWorldBuildingPrompt("一个普通的故事");
 
       expect(result.detectedEra).toBeNull();
       expect(result.eraKnowledge).toBeNull();
@@ -142,7 +140,13 @@ describe("WorldBuildingEnhancerService", () => {
   describe("validateWorldSettings", () => {
     it("should return invalid when core is missing", () => {
       const result = service.validateWorldSettings(
-        { characters: [{ name: "苏曼", role: "protagonist" }, { name: "反派", role: "antagonist" }], world: {} },
+        {
+          characters: [
+            { name: "苏曼", role: "protagonist" },
+            { name: "反派", role: "antagonist" },
+          ],
+          world: {},
+        },
         null,
       );
 
@@ -211,10 +215,7 @@ describe("WorldBuildingEnhancerService", () => {
       const result = service.validateWorldSettings(
         {
           core: {},
-          characters: [
-            { name: "主角" },
-            { name: "配角" },
-          ],
+          characters: [{ name: "主角" }, { name: "配角" }],
           world: {},
         },
         null,

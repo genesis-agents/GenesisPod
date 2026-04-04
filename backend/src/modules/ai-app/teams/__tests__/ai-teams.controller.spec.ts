@@ -8,9 +8,12 @@ jest.mock("../../../../common/content-processing", () => ({
   ContentProcessingModule: {},
 }));
 
-jest.mock("../../../../common/content-processing/content-processing.module", () => ({
-  ContentProcessingModule: class MockContentProcessingModule {},
-}));
+jest.mock(
+  "../../../../common/content-processing/content-processing.module",
+  () => ({
+    ContentProcessingModule: class MockContentProcessingModule {},
+  }),
+);
 
 import { MissionStatus, TopicRole, TopicType } from "@prisma/client";
 import {
@@ -106,7 +109,7 @@ const mockUrlParserService = {
 };
 
 // Request helper
-const mockRequest = (userId = "user-1") => ({ user: { id: userId } } as never);
+const mockRequest = (userId = "user-1") => ({ user: { id: userId } }) as never;
 
 describe("AiTeamsController", () => {
   let controller: AiTeamsController;
@@ -128,11 +131,17 @@ describe("AiTeamsController", () => {
   describe("createTopic", () => {
     it("calls aiGroupService.createTopic with userId and dto", async () => {
       const dto = { name: "New Topic" };
-      mockAiGroupService.createTopic.mockResolvedValue({ id: "topic-1", ...dto });
+      mockAiGroupService.createTopic.mockResolvedValue({
+        id: "topic-1",
+        ...dto,
+      });
 
       const result = await controller.createTopic(mockRequest(), dto as never);
 
-      expect(mockAiGroupService.createTopic).toHaveBeenCalledWith("user-1", dto);
+      expect(mockAiGroupService.createTopic).toHaveBeenCalledWith(
+        "user-1",
+        dto,
+      );
       expect(result).toMatchObject({ id: "topic-1" });
     });
   });
@@ -191,13 +200,17 @@ describe("AiTeamsController", () => {
 
       await controller.getMyJoinRequests(mockRequest());
 
-      expect(mockAiGroupService.getMyJoinRequests).toHaveBeenCalledWith("user-1");
+      expect(mockAiGroupService.getMyJoinRequests).toHaveBeenCalledWith(
+        "user-1",
+      );
     });
   });
 
   describe("reviewJoinRequest", () => {
     it("calls aiGroupService.reviewJoinRequest with correct args", async () => {
-      mockAiGroupService.reviewJoinRequest.mockResolvedValue({ approved: true });
+      mockAiGroupService.reviewJoinRequest.mockResolvedValue({
+        approved: true,
+      });
 
       await controller.reviewJoinRequest(mockRequest(), "req-1", {
         approve: true,
@@ -215,11 +228,16 @@ describe("AiTeamsController", () => {
 
   describe("cancelJoinRequest", () => {
     it("delegates to aiGroupService.cancelJoinRequest", async () => {
-      mockAiGroupService.cancelJoinRequest.mockResolvedValue({ cancelled: true });
+      mockAiGroupService.cancelJoinRequest.mockResolvedValue({
+        cancelled: true,
+      });
 
       await controller.cancelJoinRequest(mockRequest(), "req-1");
 
-      expect(mockAiGroupService.cancelJoinRequest).toHaveBeenCalledWith("req-1", "user-1");
+      expect(mockAiGroupService.cancelJoinRequest).toHaveBeenCalledWith(
+        "req-1",
+        "user-1",
+      );
     });
   });
 
@@ -229,18 +247,30 @@ describe("AiTeamsController", () => {
 
       const result = await controller.getTopicById(mockRequest(), "topic-1");
 
-      expect(mockAiGroupService.getTopicById).toHaveBeenCalledWith("topic-1", "user-1");
+      expect(mockAiGroupService.getTopicById).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+      );
       expect(result).toEqual({ id: "topic-1" });
     });
   });
 
   describe("updateTopic", () => {
     it("delegates to aiGroupService.updateTopic", async () => {
-      mockAiGroupService.updateTopic.mockResolvedValue({ id: "topic-1", name: "Updated" });
+      mockAiGroupService.updateTopic.mockResolvedValue({
+        id: "topic-1",
+        name: "Updated",
+      });
 
-      await controller.updateTopic(mockRequest(), "topic-1", { name: "Updated" } as never);
+      await controller.updateTopic(mockRequest(), "topic-1", {
+        name: "Updated",
+      } as never);
 
-      expect(mockAiGroupService.updateTopic).toHaveBeenCalledWith("topic-1", "user-1", { name: "Updated" });
+      expect(mockAiGroupService.updateTopic).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        { name: "Updated" },
+      );
     });
   });
 
@@ -250,7 +280,10 @@ describe("AiTeamsController", () => {
 
       await controller.archiveTopic(mockRequest(), "topic-1");
 
-      expect(mockAiGroupService.archiveTopic).toHaveBeenCalledWith("topic-1", "user-1");
+      expect(mockAiGroupService.archiveTopic).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+      );
     });
   });
 
@@ -260,7 +293,10 @@ describe("AiTeamsController", () => {
 
       await controller.deleteTopic(mockRequest(), "topic-1");
 
-      expect(mockAiGroupService.deleteTopic).toHaveBeenCalledWith("topic-1", "user-1");
+      expect(mockAiGroupService.deleteTopic).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+      );
     });
   });
 
@@ -269,7 +305,10 @@ describe("AiTeamsController", () => {
   describe("getMembers", () => {
     it("returns topic members", async () => {
       const members = [{ id: "m-1", userId: "user-1" }];
-      mockAiGroupService.getTopicById.mockResolvedValue({ id: "topic-1", members });
+      mockAiGroupService.getTopicById.mockResolvedValue({
+        id: "topic-1",
+        members,
+      });
 
       const result = await controller.getMembers(mockRequest(), "topic-1");
 
@@ -281,9 +320,15 @@ describe("AiTeamsController", () => {
     it("delegates to aiGroupService.addMember", async () => {
       mockAiGroupService.addMember.mockResolvedValue({ id: "m-1" });
 
-      await controller.addMember(mockRequest(), "topic-1", { userId: "user-2" } as never);
+      await controller.addMember(mockRequest(), "topic-1", {
+        userId: "user-2",
+      } as never);
 
-      expect(mockAiGroupService.addMember).toHaveBeenCalledWith("topic-1", "user-1", { userId: "user-2" });
+      expect(mockAiGroupService.addMember).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        { userId: "user-2" },
+      );
     });
   });
 
@@ -309,9 +354,15 @@ describe("AiTeamsController", () => {
     it("delegates to aiGroupService.addMembers", async () => {
       mockAiGroupService.addMembers.mockResolvedValue({ added: 2 });
 
-      await controller.addMembers(mockRequest(), "topic-1", { userIds: ["u2", "u3"] } as never);
+      await controller.addMembers(mockRequest(), "topic-1", {
+        userIds: ["u2", "u3"],
+      } as never);
 
-      expect(mockAiGroupService.addMembers).toHaveBeenCalledWith("topic-1", "user-1", { userIds: ["u2", "u3"] });
+      expect(mockAiGroupService.addMembers).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        { userIds: ["u2", "u3"] },
+      );
     });
   });
 
@@ -319,9 +370,16 @@ describe("AiTeamsController", () => {
     it("delegates to aiGroupService.updateMember", async () => {
       mockAiGroupService.updateMember.mockResolvedValue({ id: "m-1" });
 
-      await controller.updateMember(mockRequest(), "topic-1", "m-1", { role: TopicRole.ADMIN } as never);
+      await controller.updateMember(mockRequest(), "topic-1", "m-1", {
+        role: TopicRole.ADMIN,
+      } as never);
 
-      expect(mockAiGroupService.updateMember).toHaveBeenCalledWith("topic-1", "user-1", "m-1", { role: TopicRole.ADMIN });
+      expect(mockAiGroupService.updateMember).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        "m-1",
+        { role: TopicRole.ADMIN },
+      );
     });
   });
 
@@ -331,7 +389,11 @@ describe("AiTeamsController", () => {
 
       await controller.removeMember(mockRequest(), "topic-1", "m-1");
 
-      expect(mockAiGroupService.removeMember).toHaveBeenCalledWith("topic-1", "user-1", "m-1");
+      expect(mockAiGroupService.removeMember).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        "m-1",
+      );
     });
   });
 
@@ -341,7 +403,10 @@ describe("AiTeamsController", () => {
 
       await controller.leaveTopic(mockRequest(), "topic-1");
 
-      expect(mockAiGroupService.leaveTopic).toHaveBeenCalledWith("topic-1", "user-1");
+      expect(mockAiGroupService.leaveTopic).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+      );
     });
   });
 
@@ -349,7 +414,9 @@ describe("AiTeamsController", () => {
     it("delegates to aiGroupService.requestToJoinTopic", async () => {
       mockAiGroupService.requestToJoinTopic.mockResolvedValue({ id: "req-1" });
 
-      await controller.requestToJoinTopic(mockRequest(), "topic-1", { requestMessage: "Please add me" });
+      await controller.requestToJoinTopic(mockRequest(), "topic-1", {
+        requestMessage: "Please add me",
+      });
 
       expect(mockAiGroupService.requestToJoinTopic).toHaveBeenCalledWith(
         "topic-1",
@@ -365,7 +432,10 @@ describe("AiTeamsController", () => {
 
       await controller.getJoinRequests(mockRequest(), "topic-1");
 
-      expect(mockAiGroupService.getJoinRequests).toHaveBeenCalledWith("topic-1", "user-1");
+      expect(mockAiGroupService.getJoinRequests).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+      );
     });
   });
 
@@ -374,7 +444,10 @@ describe("AiTeamsController", () => {
   describe("getAIMembers", () => {
     it("returns AI members from topic", async () => {
       const aiMembers = [{ id: "ai-1", displayName: "Bot" }];
-      mockAiGroupService.getTopicById.mockResolvedValue({ id: "topic-1", aiMembers });
+      mockAiGroupService.getTopicById.mockResolvedValue({
+        id: "topic-1",
+        aiMembers,
+      });
 
       const result = await controller.getAIMembers(mockRequest(), "topic-1");
 
@@ -386,11 +459,19 @@ describe("AiTeamsController", () => {
 
   describe("createMission", () => {
     it("delegates to teamMissionService.createMission", async () => {
-      mockTeamMissionService.createMission.mockResolvedValue({ id: "mission-1" });
+      mockTeamMissionService.createMission.mockResolvedValue({
+        id: "mission-1",
+      });
 
-      await controller.createMission(mockRequest(), "topic-1", { objective: "Test" } as never);
+      await controller.createMission(mockRequest(), "topic-1", {
+        objective: "Test",
+      } as never);
 
-      expect(mockTeamMissionService.createMission).toHaveBeenCalledWith("topic-1", "user-1", { objective: "Test" });
+      expect(mockTeamMissionService.createMission).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        { objective: "Test" },
+      );
     });
   });
 
@@ -400,9 +481,12 @@ describe("AiTeamsController", () => {
 
       await controller.getMissions("topic-1", MissionStatus.PENDING);
 
-      expect(mockTeamMissionService.getMissions).toHaveBeenCalledWith("topic-1", {
-        status: MissionStatus.PENDING,
-      });
+      expect(mockTeamMissionService.getMissions).toHaveBeenCalledWith(
+        "topic-1",
+        {
+          status: MissionStatus.PENDING,
+        },
+      );
     });
 
     it("passes undefined status when not provided", async () => {
@@ -410,55 +494,79 @@ describe("AiTeamsController", () => {
 
       await controller.getMissions("topic-1");
 
-      expect(mockTeamMissionService.getMissions).toHaveBeenCalledWith("topic-1", {
-        status: undefined,
-      });
+      expect(mockTeamMissionService.getMissions).toHaveBeenCalledWith(
+        "topic-1",
+        {
+          status: undefined,
+        },
+      );
     });
   });
 
   describe("getMissionById", () => {
     it("delegates to teamMissionService.getMissionById", async () => {
-      mockTeamMissionService.getMissionById.mockResolvedValue({ id: "mission-1" });
+      mockTeamMissionService.getMissionById.mockResolvedValue({
+        id: "mission-1",
+      });
 
       await controller.getMissionById("topic-1", "mission-1");
 
-      expect(mockTeamMissionService.getMissionById).toHaveBeenCalledWith("mission-1");
+      expect(mockTeamMissionService.getMissionById).toHaveBeenCalledWith(
+        "mission-1",
+      );
     });
   });
 
   describe("cancelMission", () => {
     it("delegates to teamMissionService.cancelMission", async () => {
-      mockTeamMissionService.cancelMission.mockResolvedValue({ id: "mission-1" });
+      mockTeamMissionService.cancelMission.mockResolvedValue({
+        id: "mission-1",
+      });
 
       await controller.cancelMission(mockRequest(), "topic-1", "mission-1");
 
-      expect(mockTeamMissionService.cancelMission).toHaveBeenCalledWith("mission-1", "user-1");
+      expect(mockTeamMissionService.cancelMission).toHaveBeenCalledWith(
+        "mission-1",
+        "user-1",
+      );
     });
   });
 
   describe("pauseMission", () => {
     it("delegates to teamMissionService.pauseMission", async () => {
-      mockTeamMissionService.pauseMission.mockResolvedValue({ id: "mission-1" });
+      mockTeamMissionService.pauseMission.mockResolvedValue({
+        id: "mission-1",
+      });
 
       await controller.pauseMission(mockRequest(), "topic-1", "mission-1");
 
-      expect(mockTeamMissionService.pauseMission).toHaveBeenCalledWith("mission-1", "user-1");
+      expect(mockTeamMissionService.pauseMission).toHaveBeenCalledWith(
+        "mission-1",
+        "user-1",
+      );
     });
   });
 
   describe("resumeMission", () => {
     it("delegates to teamMissionService.resumeMission", async () => {
-      mockTeamMissionService.resumeMission.mockResolvedValue({ id: "mission-1" });
+      mockTeamMissionService.resumeMission.mockResolvedValue({
+        id: "mission-1",
+      });
 
       await controller.resumeMission(mockRequest(), "topic-1", "mission-1");
 
-      expect(mockTeamMissionService.resumeMission).toHaveBeenCalledWith("mission-1", "user-1");
+      expect(mockTeamMissionService.resumeMission).toHaveBeenCalledWith(
+        "mission-1",
+        "user-1",
+      );
     });
   });
 
   describe("retryMission", () => {
     it("delegates to teamMissionService.retryMission with mode and reason", async () => {
-      mockTeamMissionService.retryMission.mockResolvedValue({ id: "mission-1" });
+      mockTeamMissionService.retryMission.mockResolvedValue({
+        id: "mission-1",
+      });
 
       await controller.retryMission(mockRequest(), "topic-1", "mission-1", {
         mode: "full",
@@ -473,7 +581,9 @@ describe("AiTeamsController", () => {
     });
 
     it("delegates with undefined mode/reason when not provided", async () => {
-      mockTeamMissionService.retryMission.mockResolvedValue({ id: "mission-1" });
+      mockTeamMissionService.retryMission.mockResolvedValue({
+        id: "mission-1",
+      });
 
       await controller.retryMission(mockRequest(), "topic-1", "mission-1", {});
 
@@ -487,21 +597,29 @@ describe("AiTeamsController", () => {
 
   describe("getFullReport", () => {
     it("delegates to teamMissionService.getFullReport", async () => {
-      mockTeamMissionService.getFullReport.mockResolvedValue({ content: "full report" });
+      mockTeamMissionService.getFullReport.mockResolvedValue({
+        content: "full report",
+      });
 
       await controller.getFullReport("topic-1", "mission-1");
 
-      expect(mockTeamMissionService.getFullReport).toHaveBeenCalledWith("mission-1");
+      expect(mockTeamMissionService.getFullReport).toHaveBeenCalledWith(
+        "mission-1",
+      );
     });
   });
 
   describe("regenerateFinalReport", () => {
     it("delegates to teamMissionService.regenerateFinalReport", async () => {
-      mockTeamMissionService.regenerateFinalReport.mockResolvedValue({ success: true });
+      mockTeamMissionService.regenerateFinalReport.mockResolvedValue({
+        success: true,
+      });
 
       await controller.regenerateFinalReport("topic-1", "mission-1");
 
-      expect(mockTeamMissionService.regenerateFinalReport).toHaveBeenCalledWith("mission-1");
+      expect(mockTeamMissionService.regenerateFinalReport).toHaveBeenCalledWith(
+        "mission-1",
+      );
     });
   });
 
@@ -509,29 +627,47 @@ describe("AiTeamsController", () => {
     it("delegates to teamMissionService.getMissionLogs with parsed options", async () => {
       mockTeamMissionService.getMissionLogs.mockResolvedValue([]);
 
-      await controller.getMissionLogs("topic-1", "mission-1", "10", "cursor-abc");
+      await controller.getMissionLogs(
+        "topic-1",
+        "mission-1",
+        "10",
+        "cursor-abc",
+      );
 
-      expect(mockTeamMissionService.getMissionLogs).toHaveBeenCalledWith("mission-1", {
-        limit: 10,
-        cursor: "cursor-abc",
-      });
+      expect(mockTeamMissionService.getMissionLogs).toHaveBeenCalledWith(
+        "mission-1",
+        {
+          limit: 10,
+          cursor: "cursor-abc",
+        },
+      );
     });
 
     it("passes undefined limit when not provided", async () => {
       mockTeamMissionService.getMissionLogs.mockResolvedValue([]);
 
-      await controller.getMissionLogs("topic-1", "mission-1", undefined, undefined);
+      await controller.getMissionLogs(
+        "topic-1",
+        "mission-1",
+        undefined,
+        undefined,
+      );
 
-      expect(mockTeamMissionService.getMissionLogs).toHaveBeenCalledWith("mission-1", {
-        limit: undefined,
-        cursor: undefined,
-      });
+      expect(mockTeamMissionService.getMissionLogs).toHaveBeenCalledWith(
+        "mission-1",
+        {
+          limit: undefined,
+          cursor: undefined,
+        },
+      );
     });
   });
 
   describe("updateMissionNotification", () => {
     it("delegates to teamMissionService.updateMissionNotification", async () => {
-      mockTeamMissionService.updateMissionNotification.mockResolvedValue({ updated: true });
+      mockTeamMissionService.updateMissionNotification.mockResolvedValue({
+        updated: true,
+      });
 
       await controller.updateMissionNotification(
         mockRequest(),
@@ -540,11 +676,12 @@ describe("AiTeamsController", () => {
         { email: "user@example.com", enabled: true } as never,
       );
 
-      expect(mockTeamMissionService.updateMissionNotification).toHaveBeenCalledWith(
-        "mission-1",
-        "user-1",
-        { email: "user@example.com", enabled: true },
-      );
+      expect(
+        mockTeamMissionService.updateMissionNotification,
+      ).toHaveBeenCalledWith("mission-1", "user-1", {
+        email: "user@example.com",
+        enabled: true,
+      });
     });
   });
 
@@ -554,7 +691,10 @@ describe("AiTeamsController", () => {
 
       await controller.deleteMission(mockRequest(), "topic-1", "mission-1");
 
-      expect(mockTeamMissionService.deleteMission).toHaveBeenCalledWith("mission-1", "user-1");
+      expect(mockTeamMissionService.deleteMission).toHaveBeenCalledWith(
+        "mission-1",
+        "user-1",
+      );
     });
   });
 
@@ -566,13 +706,18 @@ describe("AiTeamsController", () => {
 
       await controller.setLeader("topic-1", "ai-1");
 
-      expect(mockTeamMissionService.setLeader).toHaveBeenCalledWith("topic-1", "ai-1");
+      expect(mockTeamMissionService.setLeader).toHaveBeenCalledWith(
+        "topic-1",
+        "ai-1",
+      );
     });
   });
 
   describe("updateTeamRole", () => {
     it("delegates to aiGroupService.updateAIMemberTeamRole", async () => {
-      mockAiGroupService.updateAIMemberTeamRole.mockResolvedValue({ updated: true });
+      mockAiGroupService.updateAIMemberTeamRole.mockResolvedValue({
+        updated: true,
+      });
 
       await controller.updateTeamRole(mockRequest(), "topic-1", "ai-1", {
         isLeader: true,
@@ -593,7 +738,9 @@ describe("AiTeamsController", () => {
 
       await controller.getTeamMembers("topic-1");
 
-      expect(mockTeamMissionService.getTeamMembers).toHaveBeenCalledWith("topic-1");
+      expect(mockTeamMissionService.getTeamMembers).toHaveBeenCalledWith(
+        "topic-1",
+      );
     });
   });
 
@@ -605,7 +752,9 @@ describe("AiTeamsController", () => {
 
       await controller.parseUrl({ url: "https://example.com" });
 
-      expect(mockUrlParserService.parseUrl).toHaveBeenCalledWith("https://example.com");
+      expect(mockUrlParserService.parseUrl).toHaveBeenCalledWith(
+        "https://example.com",
+      );
     });
   });
 
@@ -615,7 +764,10 @@ describe("AiTeamsController", () => {
 
       await controller.parseUrls({ urls: ["https://a.com", "https://b.com"] });
 
-      expect(mockUrlParserService.parseUrls).toHaveBeenCalledWith(["https://a.com", "https://b.com"]);
+      expect(mockUrlParserService.parseUrls).toHaveBeenCalledWith([
+        "https://a.com",
+        "https://b.com",
+      ]);
     });
   });
 
@@ -625,17 +777,25 @@ describe("AiTeamsController", () => {
 
       await controller.detectUrls({ text: "Check https://example.com" });
 
-      expect(mockUrlParserService.detectUrls).toHaveBeenCalledWith("Check https://example.com");
+      expect(mockUrlParserService.detectUrls).toHaveBeenCalledWith(
+        "Check https://example.com",
+      );
     });
   });
 
   describe("detectAndParseUrls", () => {
     it("delegates to urlParserService.detectAndParseUrls", async () => {
-      mockUrlParserService.detectAndParseUrls.mockResolvedValue({ parsedUrls: [] });
+      mockUrlParserService.detectAndParseUrls.mockResolvedValue({
+        parsedUrls: [],
+      });
 
-      await controller.detectAndParseUrls({ text: "Visit https://example.com" });
+      await controller.detectAndParseUrls({
+        text: "Visit https://example.com",
+      });
 
-      expect(mockUrlParserService.detectAndParseUrls).toHaveBeenCalledWith("Visit https://example.com");
+      expect(mockUrlParserService.detectAndParseUrls).toHaveBeenCalledWith(
+        "Visit https://example.com",
+      );
     });
   });
 });
@@ -656,7 +816,9 @@ describe("BookmarksController", () => {
 
       await controller.getBookmarks(mockRequest(), "important");
 
-      expect(mockAiGroupService.getBookmarks).toHaveBeenCalledWith("user-1", { category: "important" });
+      expect(mockAiGroupService.getBookmarks).toHaveBeenCalledWith("user-1", {
+        category: "important",
+      });
     });
 
     it("delegates with undefined category when not provided", async () => {
@@ -664,7 +826,9 @@ describe("BookmarksController", () => {
 
       await controller.getBookmarks(mockRequest());
 
-      expect(mockAiGroupService.getBookmarks).toHaveBeenCalledWith("user-1", { category: undefined });
+      expect(mockAiGroupService.getBookmarks).toHaveBeenCalledWith("user-1", {
+        category: undefined,
+      });
     });
   });
 
@@ -674,7 +838,9 @@ describe("BookmarksController", () => {
 
       const result = await controller.getBookmarkCategories(mockRequest());
 
-      expect(mockAiGroupService.getBookmarkCategories).toHaveBeenCalledWith("user-1");
+      expect(mockAiGroupService.getBookmarkCategories).toHaveBeenCalledWith(
+        "user-1",
+      );
       expect(result).toEqual(["cat1"]);
     });
   });
@@ -695,9 +861,15 @@ describe("UsersController", () => {
       const user = { id: "user-1", email: "test@example.com" };
       mockAiGroupService.searchUserByEmail.mockResolvedValue(user);
 
-      const result = await controller.searchUsers("test@example.com", undefined, undefined);
+      const result = await controller.searchUsers(
+        "test@example.com",
+        undefined,
+        undefined,
+      );
 
-      expect(mockAiGroupService.searchUserByEmail).toHaveBeenCalledWith("test@example.com");
+      expect(mockAiGroupService.searchUserByEmail).toHaveBeenCalledWith(
+        "test@example.com",
+      );
       expect(result).toEqual(user);
     });
 
@@ -720,7 +892,11 @@ describe("UsersController", () => {
     });
 
     it("returns empty array when neither email nor query provided", async () => {
-      const result = await controller.searchUsers(undefined, undefined, undefined);
+      const result = await controller.searchUsers(
+        undefined,
+        undefined,
+        undefined,
+      );
 
       expect(result).toEqual([]);
       expect(mockAiGroupService.searchUserByEmail).not.toHaveBeenCalled();
@@ -741,11 +917,15 @@ describe("PublicReportsController", () => {
 
   describe("getPublicReport", () => {
     it("delegates to teamMissionService.getPublicReport", async () => {
-      mockTeamMissionService.getPublicReport.mockResolvedValue({ content: "report" });
+      mockTeamMissionService.getPublicReport.mockResolvedValue({
+        content: "report",
+      });
 
       const result = await controller.getPublicReport("mission-1");
 
-      expect(mockTeamMissionService.getPublicReport).toHaveBeenCalledWith("mission-1");
+      expect(mockTeamMissionService.getPublicReport).toHaveBeenCalledWith(
+        "mission-1",
+      );
       expect(result).toEqual({ content: "report" });
     });
   });
@@ -884,9 +1064,7 @@ describe("AiTeamsController - sendMessage", () => {
 
     const dto = {
       content: "@user2 hello",
-      mentions: [
-        { mentionType: MentionType.USER, userId: "user-2" },
-      ],
+      mentions: [{ mentionType: MentionType.USER, userId: "user-2" }],
     };
 
     await controller.sendMessage(mockRequest(), "topic-1", dto as never);
@@ -907,10 +1085,7 @@ describe("AiTeamsController - sendMessage", () => {
     };
     const topic = {
       aiMembers: [],
-      members: [
-        { userId: "user-2" },
-        { userId: "user-3" },
-      ],
+      members: [{ userId: "user-2" }, { userId: "user-3" }],
     };
 
     mockAiGroupService.sendMessage.mockResolvedValue(message);
@@ -948,24 +1123,28 @@ describe("AiTeamsController - sendMessage", () => {
 
     mockAiGroupService.sendMessage.mockResolvedValue(message);
     mockAiGroupService.getTopicById.mockResolvedValue(topic);
-    mockTeamMissionService.handleLeaderMentionCommand = jest.fn().mockResolvedValue({
-      handled: true,
-      action: "continue",
-      missionId: "mission-1",
-    });
+    mockTeamMissionService.handleLeaderMentionCommand = jest
+      .fn()
+      .mockResolvedValue({
+        handled: true,
+        action: "continue",
+        missionId: "mission-1",
+      });
 
     const dto = {
       content: "继续执行",
       mentions: [{ mentionType: MentionType.AI, aiMemberId: "leader-1" }],
     };
 
-    const result = await controller.sendMessage(mockRequest(), "topic-1", dto as never);
-
-    expect(mockTeamMissionService.handleLeaderMentionCommand).toHaveBeenCalledWith(
+    const result = await controller.sendMessage(
+      mockRequest(),
       "topic-1",
-      "user-1",
-      "继续执行",
+      dto as never,
     );
+
+    expect(
+      mockTeamMissionService.handleLeaderMentionCommand,
+    ).toHaveBeenCalledWith("topic-1", "user-1", "继续执行");
     // Should return early after command handled
     expect(result).toEqual(message);
   });
@@ -1009,7 +1188,11 @@ describe("AiTeamsController - sendMessage", () => {
       ],
     };
 
-    const result = await controller.sendMessage(mockRequest(), "topic-1", dto as never);
+    const result = await controller.sendMessage(
+      mockRequest(),
+      "topic-1",
+      dto as never,
+    );
 
     expect(result).toEqual(message);
   });
@@ -1041,10 +1224,12 @@ describe("AiTeamsController - sendMessage", () => {
     await controller.sendMessage(mockRequest(), "topic-1", dto as never);
 
     // ai:typing should be emitted only once for ai-1
-    const typingCalls = (mockAiGroupGateway.emitToTopic as jest.Mock).mock.calls.filter(
-      ([, event]) => event === "ai:typing",
+    const typingCalls = (
+      mockAiGroupGateway.emitToTopic as jest.Mock
+    ).mock.calls.filter(([, event]) => event === "ai:typing");
+    const aiTypingForAi1 = typingCalls.filter(
+      ([, , data]) => data.aiMemberId === "ai-1",
     );
-    const aiTypingForAi1 = typingCalls.filter(([, , data]) => data.aiMemberId === "ai-1");
     expect(aiTypingForAi1).toHaveLength(1);
   });
 
@@ -1142,7 +1327,10 @@ describe("AiTeamsController - AI Member CRUD", () => {
 
   describe("setupDebate", () => {
     it("delegates to aiGroupService.setupDebateAIs", async () => {
-      mockAiGroupService.setupDebateAIs.mockResolvedValue({ red: "ai-1", blue: "ai-2" });
+      mockAiGroupService.setupDebateAIs.mockResolvedValue({
+        red: "ai-1",
+        blue: "ai-2",
+      });
 
       await controller.setupDebate(mockRequest(), "topic-1", {
         redAiModel: "grok-3",
@@ -1196,23 +1384,41 @@ describe("AiTeamsController - Messages and Reactions", () => {
     it("delegates with parsed limit and cursor", async () => {
       mockAiGroupService.getMessages.mockResolvedValue({ messages: [] });
 
-      await controller.getMessages(mockRequest(), "topic-1", "cursor-abc", "20");
+      await controller.getMessages(
+        mockRequest(),
+        "topic-1",
+        "cursor-abc",
+        "20",
+      );
 
-      expect(mockAiGroupService.getMessages).toHaveBeenCalledWith("topic-1", "user-1", {
-        cursor: "cursor-abc",
-        limit: 20,
-      });
+      expect(mockAiGroupService.getMessages).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        {
+          cursor: "cursor-abc",
+          limit: 20,
+        },
+      );
     });
 
     it("passes undefined limit when not provided", async () => {
       mockAiGroupService.getMessages.mockResolvedValue({ messages: [] });
 
-      await controller.getMessages(mockRequest(), "topic-1", undefined, undefined);
+      await controller.getMessages(
+        mockRequest(),
+        "topic-1",
+        undefined,
+        undefined,
+      );
 
-      expect(mockAiGroupService.getMessages).toHaveBeenCalledWith("topic-1", "user-1", {
-        cursor: undefined,
-        limit: undefined,
-      });
+      expect(mockAiGroupService.getMessages).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        {
+          cursor: undefined,
+          limit: undefined,
+        },
+      );
     });
   });
 
@@ -1323,7 +1529,9 @@ describe("AiTeamsController - AI Generate", () => {
     });
 
     it("passes empty array when contextMessageIds not provided", async () => {
-      mockAiGroupService.generateAIResponse.mockResolvedValue({ id: "ai-msg-1" });
+      mockAiGroupService.generateAIResponse.mockResolvedValue({
+        id: "ai-msg-1",
+      });
 
       await controller.generateAIResponse(
         mockRequest(),
@@ -1365,7 +1573,10 @@ describe("AiTeamsController - AI Generate", () => {
         res as never,
       );
 
-      expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "text/event-stream");
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Content-Type",
+        "text/event-stream",
+      );
       expect(res.flushHeaders).toHaveBeenCalled();
       expect(res.write).toHaveBeenCalledWith(expect.stringContaining("start"));
     });
@@ -1387,7 +1598,9 @@ describe("AiTeamsController - AI Generate", () => {
       );
 
       // sendSSEEvent writes: "event: chunk\n" then "data: {...}\n\n"
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(([arg]) => arg as string);
+      const writeCalls = (res.write as jest.Mock).mock.calls.map(
+        ([arg]) => arg as string,
+      );
       const chunkEventCalls = writeCalls.filter((c) => c === "event: chunk\n");
       expect(chunkEventCalls.length).toBeGreaterThan(0);
     });
@@ -1409,7 +1622,9 @@ describe("AiTeamsController - AI Generate", () => {
       );
 
       // sendSSEEvent writes "event: complete\n" for the complete event
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(([arg]) => arg as string);
+      const writeCalls = (res.write as jest.Mock).mock.calls.map(
+        ([arg]) => arg as string,
+      );
       expect(writeCalls.some((c) => c === "event: complete\n")).toBe(true);
       expect(res.end).toHaveBeenCalled();
     });
@@ -1429,7 +1644,9 @@ describe("AiTeamsController - AI Generate", () => {
       );
 
       // sendSSEEvent writes "event: error\n" for error events
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(([arg]) => arg as string);
+      const writeCalls = (res.write as jest.Mock).mock.calls.map(
+        ([arg]) => arg as string,
+      );
       expect(writeCalls.some((c) => c === "event: error\n")).toBe(true);
       expect(res.write).toHaveBeenCalledWith("data: [DONE]\n\n");
       expect(res.end).toHaveBeenCalled();
@@ -1473,7 +1690,10 @@ describe("AiTeamsController - Resources and Summaries", () => {
 
       await controller.getResources(mockRequest(), "topic-1");
 
-      expect(mockAiGroupService.getResources).toHaveBeenCalledWith("topic-1", "user-1");
+      expect(mockAiGroupService.getResources).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+      );
     });
   });
 
@@ -1513,7 +1733,10 @@ describe("AiTeamsController - Resources and Summaries", () => {
 
       await controller.getSummaries(mockRequest(), "topic-1");
 
-      expect(mockAiGroupService.getSummaries).toHaveBeenCalledWith("topic-1", "user-1");
+      expect(mockAiGroupService.getSummaries).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+      );
     });
   });
 
@@ -1665,18 +1888,24 @@ describe("AiTeamsController - Debates", () => {
 
       await controller.getDebates("topic-1");
 
-      expect(mockDebateService.getDebatesByTopic).toHaveBeenCalledWith("topic-1");
+      expect(mockDebateService.getDebatesByTopic).toHaveBeenCalledWith(
+        "topic-1",
+      );
     });
   });
 
   describe("getDebate", () => {
     it("delegates to debateService.getDebateSession with debateId", async () => {
-      mockDebateService.getDebateSession = jest.fn().mockResolvedValue({ id: "debate-1" });
+      mockDebateService.getDebateSession = jest
+        .fn()
+        .mockResolvedValue({ id: "debate-1" });
 
       // Note: getDebate(@Param("debateId") debateId: string) — only one param
       const result = await controller.getDebate("debate-1");
 
-      expect(mockDebateService.getDebateSession).toHaveBeenCalledWith("debate-1");
+      expect(mockDebateService.getDebateSession).toHaveBeenCalledWith(
+        "debate-1",
+      );
       expect(result).toEqual({ id: "debate-1" });
     });
   });
@@ -1696,7 +1925,15 @@ describe("AiTeamsController - detectDebateMode (private, tested via sendMessage)
     );
   });
 
-  const debateKeywords = ["辩论", "PK", "pk", "debate", "思辨", "对决", "讨论一下"];
+  const debateKeywords = [
+    "辩论",
+    "PK",
+    "pk",
+    "debate",
+    "思辨",
+    "对决",
+    "讨论一下",
+  ];
 
   debateKeywords.forEach((keyword) => {
     it(`detects debate with keyword "${keyword}" and 2+ AI members`, async () => {
@@ -1721,7 +1958,12 @@ describe("AiTeamsController - detectDebateMode (private, tested via sendMessage)
         id: "debate-session-1",
         agents: [
           { id: "agent-1", role: "RED", aiMemberId: "ai-1", aiModel: "gpt-4o" },
-          { id: "agent-2", role: "BLUE", aiMemberId: "ai-2", aiModel: "gpt-4o" },
+          {
+            id: "agent-2",
+            role: "BLUE",
+            aiMemberId: "ai-2",
+            aiModel: "gpt-4o",
+          },
         ],
       });
       mockDebateService.executeDebateRound = jest
@@ -1772,7 +2014,11 @@ describe("AiTeamsController - detectDebateMode (private, tested via sendMessage)
 
   it("does NOT detect debate without debate keywords", async () => {
     const { MentionType } = require("@prisma/client");
-    const message = { id: "msg-1", content: "Hello all", createdAt: new Date() };
+    const message = {
+      id: "msg-1",
+      content: "Hello all",
+      createdAt: new Date(),
+    };
     const ai1 = { id: "ai-1", displayName: "Bot1", isLeader: false };
     const ai2 = { id: "ai-2", displayName: "Bot2", isLeader: false };
     const topic = { aiMembers: [ai1, ai2], members: [] };
@@ -1794,9 +2040,9 @@ describe("AiTeamsController - detectDebateMode (private, tested via sendMessage)
     await controller.sendMessage(mockRequest(), "topic-1", dto as never);
 
     // Should use normal parallel AI triggering, not debate
-    const typingCalls = (mockAiGroupGateway.emitToTopic as jest.Mock).mock.calls.filter(
-      ([, event]) => event === "ai:typing",
-    );
+    const typingCalls = (
+      mockAiGroupGateway.emitToTopic as jest.Mock
+    ).mock.calls.filter(([, event]) => event === "ai:typing");
     expect(typingCalls.length).toBeGreaterThanOrEqual(2);
   });
 });

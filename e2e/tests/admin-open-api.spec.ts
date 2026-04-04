@@ -51,8 +51,7 @@ test.describe("MCP Server Admin Page", () => {
     // Wait for MCP data to load
     try {
       await page.waitForResponse(
-        (r) =>
-          r.url().includes("/admin/ai/mcp-servers") && r.status() === 200,
+        (r) => r.url().includes("/admin/ai/mcp-servers") && r.status() === 200,
         { timeout: 15000 },
       );
     } catch {
@@ -63,8 +62,9 @@ test.describe("MCP Server Admin Page", () => {
 
     // Should show server list or empty state
     const hasContent =
-      (await page.locator("table, [class*='card'], [class*='server']").count()) > 0 ||
-      (await page.getByText(/no.*server/i).count()) > 0;
+      (await page
+        .locator("table, [class*='card'], [class*='server']")
+        .count()) > 0 || (await page.getByText(/no.*server/i).count()) > 0;
     expect(hasContent).toBeTruthy();
   });
 });
@@ -158,10 +158,10 @@ test.describe("Webhooks API", () => {
   }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
-    const res = await page.request.get(
-      `${apiBase}/api/v1/webhooks/events`,
-      { headers, timeout: 15000 },
-    );
+    const res = await page.request.get(`${apiBase}/api/v1/webhooks/events`, {
+      headers,
+      timeout: 15000,
+    });
 
     // May return 200 or 404
     expect([200, 404].includes(res.status())).toBeTruthy();
@@ -278,10 +278,10 @@ test.describe("Cache Admin API", () => {
   }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
-    const res = await page.request.get(
-      `${apiBase}/api/v1/admin/cache/status`,
-      { headers, timeout: 15000 },
-    );
+    const res = await page.request.get(`${apiBase}/api/v1/admin/cache/status`, {
+      headers,
+      timeout: 15000,
+    });
     expect(res.ok()).toBeTruthy();
 
     const body = await res.json();
@@ -307,10 +307,10 @@ test.describe("Cross-Layer AI System Diagnosis", () => {
   }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
-    const res = await page.request.get(
-      `${apiBase}/api/v1/admin/ai/diagnose`,
-      { headers, timeout: 15000 },
-    );
+    const res = await page.request.get(`${apiBase}/api/v1/admin/ai/diagnose`, {
+      headers,
+      timeout: 15000,
+    });
     expect(res.ok()).toBeTruthy();
 
     const body = await res.json();

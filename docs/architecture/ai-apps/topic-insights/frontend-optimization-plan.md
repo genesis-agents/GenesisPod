@@ -11,75 +11,75 @@
 
 ### 1.1 审计结论
 
-| 层面 | 满分 | 得分 | 等级 |
-|------|------|------|------|
-| 后端架构 | 120 | 100 | A- (83%) |
-| 前端工程 | 80 | 44 | D+ (55%) |
+| 层面     | 满分    | 得分    | 等级         |
+| -------- | ------- | ------- | ------------ |
+| 后端架构 | 120     | 100     | A- (83%)     |
+| 前端工程 | 80      | 44      | D+ (55%)     |
 | **综合** | **200** | **144** | **C+ (72%)** |
 
 **核心问题**: 后端是 A- 级的研究引擎，前端是 D+ 级的展示层，整体被短板限制在 C+ 水平。
 
 ### 1.2 前端各维度得分
 
-| 维度 | 分数 | 关键问题 |
-|------|------|----------|
-| 组件架构 | 4/10 | `TopicContentPanel.tsx` 6021 行单体组件 |
+| 维度     | 分数 | 关键问题                                    |
+| -------- | ---- | ------------------------------------------- |
+| 组件架构 | 4/10 | `TopicContentPanel.tsx` 6021 行单体组件     |
 | 状态管理 | 6/10 | 死代码 store、`NodeJS.Timeout` 存入 Zustand |
-| 用户体验 | 6/10 | 搜索无防抖，每次按键触发 API |
-| 实时更新 | 7/10 | events 无界增长，轮询与 WS 冗余 |
-| 类型安全 | 5/10 | 核心接口 3-6 处重复定义 |
-| 代码质量 | 4/10 | 6021 行组件、emoji 违规、console.error |
-| 性能 | 5/10 | TopicCard 无 memo、polling+WS 双发 |
-| 安全 | 7/10 | `ReportEditor.innerHTML` 需确认消毒 |
+| 用户体验 | 6/10 | 搜索无防抖，每次按键触发 API                |
+| 实时更新 | 7/10 | events 无界增长，轮询与 WS 冗余             |
+| 类型安全 | 5/10 | 核心接口 3-6 处重复定义                     |
+| 代码质量 | 4/10 | 6021 行组件、emoji 违规、console.error      |
+| 性能     | 5/10 | TopicCard 无 memo、polling+WS 双发          |
+| 安全     | 7/10 | `ReportEditor.innerHTML` 需确认消毒         |
 
 ### 1.3 SOTA 差距
 
-| 能力 | 当前 | SOTA (Perplexity/Gemini) | 差距 |
-|------|------|--------------------------|------|
-| 流式内容输出 | 仅进度条 | 全文流式 | 严重落后 |
-| 引用交互 | 纯链接 `[1]` | 悬停预览 + 侧边栏联动 | 落后 |
-| 组件可维护性 | 6021 行单体 | 200-500 行/组件 | 严重落后 |
+| 能力         | 当前         | SOTA (Perplexity/Gemini) | 差距     |
+| ------------ | ------------ | ------------------------ | -------- |
+| 流式内容输出 | 仅进度条     | 全文流式                 | 严重落后 |
+| 引用交互     | 纯链接 `[1]` | 悬停预览 + 侧边栏联动    | 落后     |
+| 组件可维护性 | 6021 行单体  | 200-500 行/组件          | 严重落后 |
 
 ### 1.4 TopicContentPanel.tsx 解剖数据
 
-| 指标 | 值 |
-|------|-----|
-| 总行数 | 6021 |
-| useState | 24 个 |
-| useEffect | 13 个 |
-| useCallback | 11 个 |
-| useMemo | 11 个 |
-| Tab 数量 | 7 个 |
+| 指标           | 值               |
+| -------------- | ---------------- |
+| 总行数         | 6021             |
+| useState       | 24 个            |
+| useEffect      | 13 个            |
+| useCallback    | 11 个            |
+| useMemo        | 11 个            |
+| Tab 数量       | 7 个             |
 | 内联 Icon 定义 | 14 个（~190 行） |
-| 内部子组件 | 10+ 个 |
+| 内部子组件     | 10+ 个           |
 
 ---
 
 ## 2. 优化目标
 
-| 指标 | 优化前 | 优化后 | 提升 |
-|------|--------|--------|------|
-| TopicContentPanel 行数 | 6021 | ~600 | -90% |
-| 最大文件行数 | 6021 | ~500 | -92% |
-| 前端审计总分 | 44/80 | ~66/80 | +50% |
-| 综合评分 | 144/200 (72%) | ~166/200 (83%) | +15% |
-| 类型重复 | 3-6 处 | 0 | -100% |
-| 内存泄漏风险 | 高（无界 events） | 低（LRU 200） | 消除 |
-| API 调用冗余 | 高（轮询+WS 双发） | 低（WS 优先，轮询降级） | -70% |
+| 指标                   | 优化前             | 优化后                  | 提升  |
+| ---------------------- | ------------------ | ----------------------- | ----- |
+| TopicContentPanel 行数 | 6021               | ~600                    | -90%  |
+| 最大文件行数           | 6021               | ~500                    | -92%  |
+| 前端审计总分           | 44/80              | ~66/80                  | +50%  |
+| 综合评分               | 144/200 (72%)      | ~166/200 (83%)          | +15%  |
+| 类型重复               | 3-6 处             | 0                       | -100% |
+| 内存泄漏风险           | 高（无界 events）  | 低（LRU 200）           | 消除  |
+| API 调用冗余           | 高（轮询+WS 双发） | 低（WS 优先，轮询降级） | -70%  |
 
 ---
 
 ## 3. 方案总览
 
-| 阶段 | 内容 | 耗时 | 风险 |
-|------|------|------|------|
-| Phase 0 | 清理死代码 | 0.5 天 | 极低 |
-| Phase 1 | 组件拆分 | 3-4 天 | 中 |
-| Phase 2 | 类型统一 | 1 天 | 低 |
-| Phase 3 | 性能优化 | 2 天 | 低 |
-| Phase 4 | UX 对标 SOTA | 2 天 | 中 |
-| Phase 5 | 架构治理 | 1 天 | 低 |
-| **总计** | | **9.5-10.5 天** | |
+| 阶段     | 内容         | 耗时            | 风险 |
+| -------- | ------------ | --------------- | ---- |
+| Phase 0  | 清理死代码   | 0.5 天          | 极低 |
+| Phase 1  | 组件拆分     | 3-4 天          | 中   |
+| Phase 2  | 类型统一     | 1 天            | 低   |
+| Phase 3  | 性能优化     | 2 天            | 低   |
+| Phase 4  | UX 对标 SOTA | 2 天            | 中   |
+| Phase 5  | 架构治理     | 1 天            | 低   |
+| **总计** |              | **9.5-10.5 天** |      |
 
 ---
 
@@ -156,24 +156,24 @@ frontend/components/ai-insights/topics/
 
 ### 5.2 行号 → 新文件映射表
 
-| 原始行号 | 行数 | 目标文件 | 说明 |
-|----------|------|---------|------|
-| 204-396 | 190 | **删除** | Phase 0 已处理：内联 Icon → Lucide |
-| 438-502 | 65 | `hooks/useReportActions.ts` | isRegenerating、轮询、再生成 |
-| 504-569 | 65 | `hooks/useReportActions.ts` | 分享链接、对话框 |
-| 578-669 | 90 | `hooks/useReportView.ts` | viewMode、isMaximized、快捷键 |
-| 671-695 | 25 | `hooks/useReportView.ts` | 键盘快捷键 useEffect |
-| 726-1017 | 290 | `hooks/useAnnotations.ts` | 批注 CRUD 全部逻辑 |
-| 1026-1083 | 57 | TopicContentPanel（保留） | Tab 配置 |
-| 1085-1656 | 570 | `tabs/ReportTab.tsx` + `shared/ReportToolbar.tsx` | 报告工具栏 |
-| 1667-1913 | 250 | `tabs/ReportTab.tsx` | 报告 3 视图渲染 |
-| 1915-1993 | 78 | TopicContentPanel（保留） | Tab 路由分发 |
-| 2113-2305 | 190 | `hooks/useCitationRenderer.ts` + `shared/CitationTooltip.tsx` | 引用渲染 |
-| 2349-2842 | 490 | `tabs/ReportTab.tsx` | 章节解析、section 状态 |
-| 3020-3250 | 230 | `shared/MessageCards.tsx` | 5 种消息卡片 |
-| 3298-3737 | 440 | `tabs/CollaborationMessagesTab.tsx` | 消息聚合 + 过滤 |
-| 4507-4792 | 285 | `tabs/CredibilityTab.tsx` | Agent 活动时间线 |
-| 5449-5625 | 175 | `tabs/ReferencesTab.tsx` | 证据过滤/排序/统计 |
+| 原始行号  | 行数 | 目标文件                                                      | 说明                               |
+| --------- | ---- | ------------------------------------------------------------- | ---------------------------------- |
+| 204-396   | 190  | **删除**                                                      | Phase 0 已处理：内联 Icon → Lucide |
+| 438-502   | 65   | `hooks/useReportActions.ts`                                   | isRegenerating、轮询、再生成       |
+| 504-569   | 65   | `hooks/useReportActions.ts`                                   | 分享链接、对话框                   |
+| 578-669   | 90   | `hooks/useReportView.ts`                                      | viewMode、isMaximized、快捷键      |
+| 671-695   | 25   | `hooks/useReportView.ts`                                      | 键盘快捷键 useEffect               |
+| 726-1017  | 290  | `hooks/useAnnotations.ts`                                     | 批注 CRUD 全部逻辑                 |
+| 1026-1083 | 57   | TopicContentPanel（保留）                                     | Tab 配置                           |
+| 1085-1656 | 570  | `tabs/ReportTab.tsx` + `shared/ReportToolbar.tsx`             | 报告工具栏                         |
+| 1667-1913 | 250  | `tabs/ReportTab.tsx`                                          | 报告 3 视图渲染                    |
+| 1915-1993 | 78   | TopicContentPanel（保留）                                     | Tab 路由分发                       |
+| 2113-2305 | 190  | `hooks/useCitationRenderer.ts` + `shared/CitationTooltip.tsx` | 引用渲染                           |
+| 2349-2842 | 490  | `tabs/ReportTab.tsx`                                          | 章节解析、section 状态             |
+| 3020-3250 | 230  | `shared/MessageCards.tsx`                                     | 5 种消息卡片                       |
+| 3298-3737 | 440  | `tabs/CollaborationMessagesTab.tsx`                           | 消息聚合 + 过滤                    |
+| 4507-4792 | 285  | `tabs/CredibilityTab.tsx`                                     | Agent 活动时间线                   |
+| 5449-5625 | 175  | `tabs/ReferencesTab.tsx`                                      | 证据过滤/排序/统计                 |
 
 ### 5.3 瘦身后的 TopicContentPanel
 
@@ -181,29 +181,37 @@ frontend/components/ai-insights/topics/
 // TopicContentPanel.tsx (~600 行)
 // 职责: Tab 路由 + 共享 props 分发 + Toast
 
-import { FileText, Users, ShieldCheck, History, Link, CheckSquare, FolderOpen } from 'lucide-react';
-import { ReportTab } from './tabs/ReportTab';
-import { CollaborationMessagesTab } from './tabs/CollaborationMessagesTab';
-import { CredibilityTab } from './tabs/CredibilityTab';
-import { ReferencesTab } from './tabs/ReferencesTab';
-import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborationPanel';
-import { TopicCollaborationPanel } from './TopicCollaborationPanel';
-import { ResearchTimeline } from '../collaboration/ResearchTimeline';
-import { RelatedResearchTab } from './RelatedResearchTab';
+import {
+  FileText,
+  Users,
+  ShieldCheck,
+  History,
+  Link,
+  CheckSquare,
+  FolderOpen,
+} from "lucide-react";
+import { ReportTab } from "./tabs/ReportTab";
+import { CollaborationMessagesTab } from "./tabs/CollaborationMessagesTab";
+import { CredibilityTab } from "./tabs/CredibilityTab";
+import { ReferencesTab } from "./tabs/ReferencesTab";
+import { ResearchCollaborationPanel } from "../collaboration/ResearchCollaborationPanel";
+import { TopicCollaborationPanel } from "./TopicCollaborationPanel";
+import { ResearchTimeline } from "../collaboration/ResearchTimeline";
+import { RelatedResearchTab } from "./RelatedResearchTab";
 
 export function TopicContentPanel(props: TopicContentPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('research_collab');
+  const [activeTab, setActiveTab] = useState<TabType>("research_collab");
   const [toast, setToast] = useState<Toast | null>(null);
 
   // Tab 配置
   const tabs = [
-    { key: 'research_collab',  label: 'TODO List',     icon: CheckSquare },
-    { key: 'collaboration',    label: 'Collaboration',  icon: Users },
-    { key: 'report',           label: 'Report',         icon: FileText },
-    { key: 'history',          label: 'History',         icon: History },
-    { key: 'credibility',      label: 'Credibility',    icon: ShieldCheck },
-    { key: 'references',       label: 'References',     icon: Link },
-    { key: 'related_research', label: 'Related',        icon: FolderOpen },
+    { key: "research_collab", label: "TODO List", icon: CheckSquare },
+    { key: "collaboration", label: "Collaboration", icon: Users },
+    { key: "report", label: "Report", icon: FileText },
+    { key: "history", label: "History", icon: History },
+    { key: "credibility", label: "Credibility", icon: ShieldCheck },
+    { key: "references", label: "References", icon: Link },
+    { key: "related_research", label: "Related", icon: FolderOpen },
   ];
 
   return (
@@ -211,16 +219,26 @@ export function TopicContentPanel(props: TopicContentPanelProps) {
       <TabHeader tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'report' && <ReportTab {...reportProps} onToast={setToast} />}
-        {activeTab === 'research_collab' && <ResearchCollaborationPanel {...collabProps} />}
-        {activeTab === 'collaboration' && <CollaborationMessagesTab {...msgProps} />}
-        {activeTab === 'credibility' && <CredibilityTab {...credProps} />}
-        {activeTab === 'history' && <ResearchTimeline {...historyProps} />}
-        {activeTab === 'references' && <ReferencesTab {...refProps} />}
-        {activeTab === 'related_research' && <RelatedResearchTab {...relatedProps} />}
+        {activeTab === "report" && (
+          <ReportTab {...reportProps} onToast={setToast} />
+        )}
+        {activeTab === "research_collab" && (
+          <ResearchCollaborationPanel {...collabProps} />
+        )}
+        {activeTab === "collaboration" && (
+          <CollaborationMessagesTab {...msgProps} />
+        )}
+        {activeTab === "credibility" && <CredibilityTab {...credProps} />}
+        {activeTab === "history" && <ResearchTimeline {...historyProps} />}
+        {activeTab === "references" && <ReferencesTab {...refProps} />}
+        {activeTab === "related_research" && (
+          <RelatedResearchTab {...relatedProps} />
+        )}
       </div>
 
-      {toast && <ToastNotification {...toast} onDismiss={() => setToast(null)} />}
+      {toast && (
+        <ToastNotification {...toast} onDismiss={() => setToast(null)} />
+      )}
     </div>
   );
 }
@@ -253,12 +271,12 @@ interface UseAnnotationsReturn {
 
 ```typescript
 interface UseReportViewReturn {
-  viewMode: 'continuous' | 'chapter' | 'quick';
+  viewMode: "continuous" | "chapter" | "quick";
   isMaximized: boolean;
-  sidePanelType: 'history' | 'annotations' | null;
+  sidePanelType: "history" | "annotations" | null;
   setViewMode(mode: ReportViewMode): void;
   toggleMaximize(): void;
-  setSidePanel(type: 'history' | 'annotations' | null): void;
+  setSidePanel(type: "history" | "annotations" | null): void;
 }
 ```
 
@@ -305,12 +323,12 @@ Step 5: 逐组件 git diff 验证，确保零行为变更
 
 ### 6.1 问题：核心接口重复定义
 
-| 接口 | 重复位置数 | 字段差异 |
-|------|-----------|---------|
-| `UIMessage` | 4 处 | type 枚举值不一致 |
-| `WsEvent` / `ResearchEvent` | 3 处 | data 字段类型不统一 |
-| `ReportRevision` | 3 处 | 部分缺少 `generatedAt` |
-| `AgentThinking` | 2 处 | `modelId` 可选性不同 |
+| 接口                        | 重复位置数 | 字段差异               |
+| --------------------------- | ---------- | ---------------------- |
+| `UIMessage`                 | 4 处       | type 枚举值不一致      |
+| `WsEvent` / `ResearchEvent` | 3 处       | data 字段类型不统一    |
+| `ReportRevision`            | 3 处       | 部分缺少 `generatedAt` |
+| `AgentThinking`             | 2 处       | `modelId` 可选性不同   |
 
 ### 6.2 方案：单一来源
 
@@ -332,13 +350,13 @@ export interface ResearchWsEvent {
 /** 统一 UI 消息（由 WS 事件聚合而来） */
 export interface UIMessage {
   id: string;
-  type: 'system' | 'agent' | 'progress' | 'leader' | 'error' | 'review';
+  type: "system" | "agent" | "progress" | "leader" | "error" | "review";
   agentName?: string;
   agentRole?: string;
   content: string;
   timestamp: Date;
   progress?: number;
-  status?: 'success' | 'error' | 'in_progress';
+  status?: "success" | "error" | "in_progress";
   dimensionName?: string;
   detail?: Record<string, unknown>;
 }
@@ -379,7 +397,7 @@ export interface AgentThinking {
 // 修改: 限制最多 200 条，FIFO
 const MAX_EVENTS = 200;
 
-setEvents(prev => {
+setEvents((prev) => {
   const next = [...prev, event];
   return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
 });
@@ -474,7 +492,9 @@ emitContentChunk(topicId: string, data: {
 
 for await (const chunk of stream) {
   this.eventEmitter.emitContentChunk(topicId, {
-    missionId, dimensionId, dimensionName,
+    missionId,
+    dimensionId,
+    dimensionName,
     chunk: chunk.content,
     isComplete: false,
     totalLength: accumulated.length,
@@ -490,7 +510,7 @@ for await (const chunk of stream) {
 
 interface StreamingContentCardProps {
   dimensionName: string;
-  content: string;        // 累积的 markdown
+  content: string; // 累积的 markdown
   isComplete: boolean;
   totalLength: number;
 }
@@ -541,7 +561,7 @@ missionPollingTimer: NodeJS.Timeout | null;
 const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
 // 修改方案 B: store 只存 boolean 标志
-pollingActive: boolean;  // 定时器由 middleware 管理
+pollingActive: boolean; // 定时器由 middleware 管理
 ```
 
 推荐方案 A（改动最小）。
@@ -566,14 +586,14 @@ pollingActive: boolean;  // 定时器由 middleware 管理
 
 ### 10.1 每阶段验证
 
-| 阶段 | 验证方式 |
-|------|---------|
-| Phase 0 | `grep -r "topicInsightsStore" frontend/` 确认零引用；`npm run type-check` |
-| Phase 1 | 逐组件 `git diff` 审查；`npm run type-check`；手动测试 7 个 Tab 功能不变 |
+| 阶段    | 验证方式                                                                     |
+| ------- | ---------------------------------------------------------------------------- |
+| Phase 0 | `grep -r "topicInsightsStore" frontend/` 确认零引用；`npm run type-check`    |
+| Phase 1 | 逐组件 `git diff` 审查；`npm run type-check`；手动测试 7 个 Tab 功能不变     |
 | Phase 2 | `grep -r "interface UIMessage" frontend/` 确认唯一定义；`npm run type-check` |
-| Phase 3 | 长时间研究场景测试内存稳定；搜索输入延迟感知测试 |
-| Phase 4 | 流式内容在 3+ 维度并行时展示正确；引用 Tooltip 数据完整 |
-| Phase 5 | `npm run verify:full` 全量验证 |
+| Phase 3 | 长时间研究场景测试内存稳定；搜索输入延迟感知测试                             |
+| Phase 4 | 流式内容在 3+ 维度并行时展示正确；引用 Tooltip 数据完整                      |
+| Phase 5 | `npm run verify:full` 全量验证                                               |
 
 ### 10.2 回归测试重点
 
@@ -592,12 +612,12 @@ pollingActive: boolean;  // 定时器由 middleware 管理
 
 ## 11. 风险与缓解
 
-| 风险 | 概率 | 影响 | 缓解措施 |
-|------|------|------|---------|
-| Phase 1 拆分引入回归 | 中 | 高 | 逐文件 diff 审查；每提取一个模块立即验证 |
-| 类型统一遗漏消费者 | 低 | 中 | `grep -r` 全量搜索；TypeScript 编译器捕获 |
-| 流式输出后端改造范围扩大 | 中 | 中 | 先用 mock 数据实现前端，后端独立迭代 |
-| 性能优化引入竞态 | 低 | 高 | WS/轮询仲裁用状态机管理，明确状态转换 |
+| 风险                     | 概率 | 影响 | 缓解措施                                  |
+| ------------------------ | ---- | ---- | ----------------------------------------- |
+| Phase 1 拆分引入回归     | 中   | 高   | 逐文件 diff 审查；每提取一个模块立即验证  |
+| 类型统一遗漏消费者       | 低   | 中   | `grep -r` 全量搜索；TypeScript 编译器捕获 |
+| 流式输出后端改造范围扩大 | 中   | 中   | 先用 mock 数据实现前端，后端独立迭代      |
+| 性能优化引入竞态         | 低   | 高   | WS/轮询仲裁用状态机管理，明确状态转换     |
 
 ---
 
@@ -605,16 +625,16 @@ pollingActive: boolean;  // 定时器由 middleware 管理
 
 ### A. 已有外部组件（无需重写，直接复用）
 
-| 组件 | 路径 | 说明 |
-|------|------|------|
+| 组件                         | 路径                                           | 说明          |
+| ---------------------------- | ---------------------------------------------- | ------------- |
 | `ResearchCollaborationPanel` | `collaboration/ResearchCollaborationPanel.tsx` | TODO List Tab |
-| `TopicCollaborationPanel` | `topics/TopicCollaborationPanel.tsx` | 协作者管理 |
-| `ResearchTimeline` | `collaboration/ResearchTimeline.tsx` | 历史 Tab |
-| `RelatedResearchTab` | `topics/RelatedResearchTab.tsx` | 相关研究 Tab |
-| `ChapterizedReportView` | `reports/ChapterizedReportView.tsx` | 章节视图 |
-| `QuickViewReport` | `reports/QuickViewReport.tsx` | Quick 视图 |
-| `AIEditInputModal` | `ai-edit/AIEditInputModal.tsx` | AI 编辑输入 |
-| `AIEditPreviewModal` | `ai-edit/AIEditPreviewModal.tsx` | AI 编辑预览 |
+| `TopicCollaborationPanel`    | `topics/TopicCollaborationPanel.tsx`           | 协作者管理    |
+| `ResearchTimeline`           | `collaboration/ResearchTimeline.tsx`           | 历史 Tab      |
+| `RelatedResearchTab`         | `topics/RelatedResearchTab.tsx`                | 相关研究 Tab  |
+| `ChapterizedReportView`      | `reports/ChapterizedReportView.tsx`            | 章节视图      |
+| `QuickViewReport`            | `reports/QuickViewReport.tsx`                  | Quick 视图    |
+| `AIEditInputModal`           | `ai-edit/AIEditInputModal.tsx`                 | AI 编辑输入   |
+| `AIEditPreviewModal`         | `ai-edit/AIEditPreviewModal.tsx`               | AI 编辑预览   |
 
 ### B. Store 架构（当前活跃）
 

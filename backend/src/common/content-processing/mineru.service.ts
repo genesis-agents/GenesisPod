@@ -168,7 +168,8 @@ export class MinerUService {
         error: "All MinerU parsing methods failed",
       };
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(`[parsePdf] Error: ${errorMessage}`);
       return {
         success: false,
@@ -257,7 +258,8 @@ export class MinerUService {
 
       throw new Error(response.data?.error || "API returned empty result");
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.warn(`[parseViaApi] Failed: ${errorMessage}`);
       return {
         success: false,
@@ -363,7 +365,8 @@ export class MinerUService {
         images,
       };
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.warn(`[parseViaCli] Failed: ${errorMessage}`);
       return {
         success: false,

@@ -395,9 +395,12 @@ export class StyleTemplateService {
             description: template.description,
             category: template.category,
             isSystem: true,
-            dialogueRules: template.dialogueRules as unknown as Prisma.InputJsonValue,
-            descriptionRules: template.descriptionRules as unknown as Prisma.InputJsonValue,
-            pacingRules: template.pacingRules as unknown as Prisma.InputJsonValue,
+            dialogueRules:
+              template.dialogueRules as unknown as Prisma.InputJsonValue,
+            descriptionRules:
+              template.descriptionRules as unknown as Prisma.InputJsonValue,
+            pacingRules:
+              template.pacingRules as unknown as Prisma.InputJsonValue,
             avoidPatterns: template.avoidPatterns,
             referenceWorks: template.referenceWorks,
             systemPromptFragment: template.systemPromptFragment,
@@ -573,9 +576,12 @@ export class StyleTemplateService {
         category: data.category || "自定义",
         isSystem: false,
         ownerId: userId,
-        dialogueRules: (data.dialogueRules as unknown as Prisma.InputJsonValue) || {},
-        descriptionRules: (data.descriptionRules as unknown as Prisma.InputJsonValue) || {},
-        pacingRules: (data.pacingRules as unknown as Prisma.InputJsonValue) || {},
+        dialogueRules:
+          (data.dialogueRules as unknown as Prisma.InputJsonValue) || {},
+        descriptionRules:
+          (data.descriptionRules as unknown as Prisma.InputJsonValue) || {},
+        pacingRules:
+          (data.pacingRules as unknown as Prisma.InputJsonValue) || {},
         avoidPatterns: data.avoidPatterns || [],
         referenceWorks: data.referenceWorks || [],
         systemPromptFragment: data.systemPromptFragment,
@@ -610,7 +616,8 @@ export class StyleTemplateService {
         name: data.name,
         description: data.description,
         dialogueRules: data.dialogueRules as unknown as Prisma.InputJsonValue,
-        descriptionRules: data.descriptionRules as unknown as Prisma.InputJsonValue,
+        descriptionRules:
+          data.descriptionRules as unknown as Prisma.InputJsonValue,
         pacingRules: data.pacingRules as unknown as Prisma.InputJsonValue,
         avoidPatterns: data.avoidPatterns,
         systemPromptFragment: data.systemPromptFragment,
@@ -680,11 +687,7 @@ export class StyleTemplateService {
    * - 数组：追加合并（去重）
    * - 基本类型：后者覆盖前者
    */
-  private mergeRules<T>(
-    defaults: T,
-    template?: T,
-    overrides?: T,
-  ): T {
+  private mergeRules<T>(defaults: T, template?: T, overrides?: T): T {
     const result = { ...defaults } as Record<string, unknown>;
 
     // 合并 template
@@ -734,7 +737,10 @@ export class StyleTemplateService {
         !Array.isArray(targetVal)
       ) {
         // 对象：递归合并
-        this.deepMergeInto(targetVal as Record<string, unknown>, sourceVal as Record<string, unknown>);
+        this.deepMergeInto(
+          targetVal as Record<string, unknown>,
+          sourceVal as Record<string, unknown>,
+        );
       } else {
         // 基本类型：直接覆盖
         target[key] = sourceVal;

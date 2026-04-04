@@ -236,7 +236,10 @@ export class CharacterConsistencyService {
       }
 
       // 读取当前状态
-      const currentState = (character.currentState || {}) as Record<string, unknown>;
+      const currentState = (character.currentState || {}) as Record<
+        string,
+        unknown
+      >;
       const stateTimeline = (character.stateTimeline || []) as unknown[];
 
       // 创建状态快照
@@ -245,17 +248,24 @@ export class CharacterConsistencyService {
         sourceChapterId: `chapter-${chapterNumber}`,
         state: {
           location:
-            stateUpdates.physicalState?.location || (currentState.location as string | undefined),
+            stateUpdates.physicalState?.location ||
+            (currentState.location as string | undefined),
           condition:
             this.serializeHealthCondition(stateUpdates.physicalState) ||
             (currentState.condition as string | undefined),
           mood:
-            stateUpdates.emotionalState?.mood || (currentState.mood as string | undefined) || "平静",
+            stateUpdates.emotionalState?.mood ||
+            (currentState.mood as string | undefined) ||
+            "平静",
           relationships:
-            stateUpdates.relationships || (currentState.relationships as Record<string, unknown> | undefined),
-          secrets: stateUpdates.knownSecrets || (currentState.secrets as string[] | undefined),
+            stateUpdates.relationships ||
+            (currentState.relationships as Record<string, unknown> | undefined),
+          secrets:
+            stateUpdates.knownSecrets ||
+            (currentState.secrets as string[] | undefined),
           goals:
-            stateUpdates.goals?.map((g) => g.description) || (currentState.goals as string[] | undefined),
+            stateUpdates.goals?.map((g) => g.description) ||
+            (currentState.goals as string[] | undefined),
         },
       };
 
@@ -275,7 +285,10 @@ export class CharacterConsistencyService {
         where: { id: characterId },
         data: {
           currentState: newCurrentState as Prisma.InputJsonValue,
-          stateTimeline: [...stateTimeline, snapshot] as unknown as Prisma.InputJsonValue[],
+          stateTimeline: [
+            ...stateTimeline,
+            snapshot,
+          ] as unknown as Prisma.InputJsonValue[],
         },
       });
 
@@ -514,8 +527,9 @@ export class CharacterConsistencyService {
 
     // 4. 根据当前状态生成约束
     if (currentState) {
-      constraints.currentStateConstraints =
-        this.deriveStateConstraints(currentState as unknown as Record<string, unknown>);
+      constraints.currentStateConstraints = this.deriveStateConstraints(
+        currentState as unknown as Record<string, unknown>,
+      );
     }
 
     // 5. 根据关系生成约束
@@ -599,31 +613,41 @@ export class CharacterConsistencyService {
    * 从数据库角色构建 CharacterState
    */
   private buildCharacterState(character: WritingCharacter): CharacterState {
-    const currentState = (character.currentState || {}) as Record<string, unknown>;
-    const personality = (character.personality || {}) as Record<string, unknown>;
+    const currentState = (character.currentState || {}) as Record<
+      string,
+      unknown
+    >;
+    const personality = (character.personality || {}) as Record<
+      string,
+      unknown
+    >;
     const stateTimeline = (character.stateTimeline || []) as unknown[];
 
     return {
       characterId: character.id,
       name: character.name,
-      physicalState: (currentState.physicalState as CharacterState["physicalState"]) || {
-        health: "healthy" as const,
-        injuries: [],
-        location: undefined,
-        condition: undefined,
-      },
-      emotionalState: (currentState.emotionalState as CharacterState["emotionalState"]) || {
-        mood: "平静",
-        moodHistory: [],
-      },
-      relationships: (currentState.relationships as CharacterState["relationships"]) || {},
+      physicalState:
+        (currentState.physicalState as CharacterState["physicalState"]) || {
+          health: "healthy" as const,
+          injuries: [],
+          location: undefined,
+          condition: undefined,
+        },
+      emotionalState:
+        (currentState.emotionalState as CharacterState["emotionalState"]) || {
+          mood: "平静",
+          moodHistory: [],
+        },
+      relationships:
+        (currentState.relationships as CharacterState["relationships"]) || {},
       knownSecrets: (currentState.knownSecrets as string[]) || [],
       knownEvents: (currentState.knownEvents as string[]) || [],
       beliefs: (currentState.beliefs as string[]) || [],
       hiddenSecrets: (personality.hiddenSecrets as string[]) || [],
       goals: (currentState.goals as CharacterState["goals"]) || [],
       stateTimeline: stateTimeline as CharacterStateSnapshot[],
-      stateTransitions: ((currentState.stateTransitions || []) as CharacterStateTransition[]),
+      stateTransitions: (currentState.stateTransitions ||
+        []) as CharacterStateTransition[],
     };
   }
 
@@ -855,10 +879,14 @@ export class CharacterConsistencyService {
   /**
    * 从当前状态推导约束
    */
-  private deriveStateConstraints(currentState: Record<string, unknown>): string[] {
+  private deriveStateConstraints(
+    currentState: Record<string, unknown>,
+  ): string[] {
     const constraints: string[] = [];
 
-    const physicalState = currentState.physicalState as CharacterState["physicalState"] | undefined;
+    const physicalState = currentState.physicalState as
+      | CharacterState["physicalState"]
+      | undefined;
     if (physicalState) {
       const health = physicalState.health;
       const location = physicalState.location;
@@ -877,7 +905,9 @@ export class CharacterConsistencyService {
       }
     }
 
-    const emotionalState = currentState.emotionalState as CharacterState["emotionalState"] | undefined;
+    const emotionalState = currentState.emotionalState as
+      | CharacterState["emotionalState"]
+      | undefined;
     if (emotionalState) {
       const mood = emotionalState.mood;
       if (mood) {
@@ -896,7 +926,8 @@ export class CharacterConsistencyService {
     involvedCharacters: string[],
   ): string[] {
     const constraints: string[] = [];
-    const relationships = (currentState.relationships || {}) as CharacterState["relationships"];
+    const relationships = (currentState.relationships ||
+      {}) as CharacterState["relationships"];
 
     for (const charName of involvedCharacters) {
       const rel = relationships[charName];

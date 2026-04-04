@@ -4,7 +4,12 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MessageContentType, TopicType, Prisma, MergeMode } from "@prisma/client";
+import {
+  MessageContentType,
+  TopicType,
+  Prisma,
+  MergeMode,
+} from "@prisma/client";
 import { ForwardMessagesDto, BookmarkMessageDto } from "../../dto";
 
 /**

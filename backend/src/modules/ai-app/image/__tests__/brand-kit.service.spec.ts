@@ -138,9 +138,9 @@ describe("BrandKitService", () => {
     it("should throw NotFoundException when brand kit not found", async () => {
       mockPrisma.$queryRaw.mockResolvedValue([]);
 
-      await expect(
-        service.findById("not-found", "user-001"),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findById("not-found", "user-001")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -151,9 +151,7 @@ describe("BrandKitService", () => {
       // First call for findById validation, second for findById after update
       mockPrisma.$queryRaw
         .mockResolvedValueOnce([mockBrandKitRow])
-        .mockResolvedValueOnce([
-          { ...mockBrandKitRow, name: "Updated Name" },
-        ]);
+        .mockResolvedValueOnce([{ ...mockBrandKitRow, name: "Updated Name" }]);
       mockPrisma.$executeRaw.mockResolvedValue(1);
 
       const result = await service.update("kit-001", "user-001", {
@@ -188,9 +186,9 @@ describe("BrandKitService", () => {
     it("should throw when brand kit not found for deletion", async () => {
       mockPrisma.$queryRaw.mockResolvedValue([]);
 
-      await expect(
-        service.delete("not-found", "user-001"),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.delete("not-found", "user-001")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -216,13 +214,21 @@ describe("BrandKitService", () => {
         textColor: "#1a202c",
       };
 
-      const result = service.applyToVisualLanguage(brandKit, baseVisualLanguage);
+      const result = service.applyToVisualLanguage(
+        brandKit,
+        baseVisualLanguage,
+      );
 
       expect(result.primaryColor).toBe("#ff0000");
       expect(result.accentColor).toBe("#00ff00");
       expect(result.backgroundColor).toBe("#ffffff");
       expect(result.textColor).toBe("#000000");
-      expect(result.colorPalette).toEqual(["#ff0000", "#00ff00", "#ffffff", "#000000"]);
+      expect(result.colorPalette).toEqual([
+        "#ff0000",
+        "#00ff00",
+        "#ffffff",
+        "#000000",
+      ]);
     });
 
     it("should fall back to base colors when usage not found in brand kit", () => {
@@ -230,7 +236,11 @@ describe("BrandKitService", () => {
         ...mockBrandKit,
         colors: [
           // No primary/accent/background/text usage colors
-          { name: "Decorative", hex: "#ffaa00", usage: "custom" as unknown as "primary" },
+          {
+            name: "Decorative",
+            hex: "#ffaa00",
+            usage: "custom" as unknown as "primary",
+          },
         ],
       };
 
@@ -242,7 +252,10 @@ describe("BrandKitService", () => {
         textColor: "#1a202c",
       };
 
-      const result = service.applyToVisualLanguage(brandKit, baseVisualLanguage);
+      const result = service.applyToVisualLanguage(
+        brandKit,
+        baseVisualLanguage,
+      );
 
       expect(result.primaryColor).toBe("#1e3a5f"); // fell back to base
       expect(result.accentColor).toBe("#0891b2"); // fell back to base
@@ -256,7 +269,12 @@ describe("BrandKitService", () => {
         designStyle: "consulting",
       };
 
-      const result = service.applyToVisualLanguage(brandKit, baseVisualLanguage as Parameters<typeof service.applyToVisualLanguage>[1]);
+      const result = service.applyToVisualLanguage(
+        brandKit,
+        baseVisualLanguage as Parameters<
+          typeof service.applyToVisualLanguage
+        >[1],
+      );
 
       expect(result.designStyle).toBe("tech");
     });

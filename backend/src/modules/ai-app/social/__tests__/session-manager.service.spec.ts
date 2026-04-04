@@ -9,7 +9,9 @@ import { SocialPlatformType } from "../types";
 
 // Mock session-crypto to avoid env var dependency
 jest.mock("../utils/session-crypto", () => ({
-  encryptSession: jest.fn((data) => JSON.stringify({ encrypted: true, data: JSON.stringify(data) })),
+  encryptSession: jest.fn((data) =>
+    JSON.stringify({ encrypted: true, data: JSON.stringify(data) }),
+  ),
   decryptSession: jest.fn((str) => {
     const parsed = JSON.parse(str);
     if (parsed.encrypted) {
@@ -130,7 +132,10 @@ describe("SessionManagerService", () => {
     });
 
     it("should return decrypted session data when found", async () => {
-      const encryptedSession = JSON.stringify({ encrypted: true, data: JSON.stringify(mockSessionData) });
+      const encryptedSession = JSON.stringify({
+        encrypted: true,
+        data: JSON.stringify(mockSessionData),
+      });
       mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue({
         id: connectionId,
         sessionData: encryptedSession,
@@ -148,7 +153,10 @@ describe("SessionManagerService", () => {
 
     it("should handle non-string sessionData (Prisma JSON type)", async () => {
       // When sessionData is a JSON object (Prisma may return it as object)
-      const sessionObj = { encrypted: true, data: JSON.stringify(mockSessionData) };
+      const sessionObj = {
+        encrypted: true,
+        data: JSON.stringify(mockSessionData),
+      };
       mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue({
         id: connectionId,
         sessionData: sessionObj, // object, not string
@@ -163,7 +171,9 @@ describe("SessionManagerService", () => {
 
     it("should return null when decryption fails", async () => {
       const { decryptSession } = require("../utils/session-crypto");
-      decryptSession.mockImplementationOnce(() => { throw new Error("Decryption failed"); });
+      decryptSession.mockImplementationOnce(() => {
+        throw new Error("Decryption failed");
+      });
 
       mockPrisma.socialPlatformConnection.findFirst.mockResolvedValue({
         id: connectionId,
@@ -179,12 +189,19 @@ describe("SessionManagerService", () => {
 
   describe("saveSession", () => {
     it("should upsert the connection with encrypted session data", async () => {
-      mockPrisma.socialPlatformConnection.upsert.mockResolvedValue({ id: connectionId });
-
-      const result = await service.saveSession(userId, platform, mockSessionData, {
-        accountName: "TestAccount",
-        accountId: "acc-123",
+      mockPrisma.socialPlatformConnection.upsert.mockResolvedValue({
+        id: connectionId,
       });
+
+      const result = await service.saveSession(
+        userId,
+        platform,
+        mockSessionData,
+        {
+          accountName: "TestAccount",
+          accountId: "acc-123",
+        },
+      );
 
       expect(result).toBe(connectionId);
       expect(mockPrisma.socialPlatformConnection.upsert).toHaveBeenCalledWith(
@@ -206,9 +223,15 @@ describe("SessionManagerService", () => {
     });
 
     it("should save without account info", async () => {
-      mockPrisma.socialPlatformConnection.upsert.mockResolvedValue({ id: connectionId });
+      mockPrisma.socialPlatformConnection.upsert.mockResolvedValue({
+        id: connectionId,
+      });
 
-      const result = await service.saveSession(userId, platform, mockSessionData);
+      const result = await service.saveSession(
+        userId,
+        platform,
+        mockSessionData,
+      );
 
       expect(result).toBe(connectionId);
     });
@@ -243,7 +266,10 @@ describe("SessionManagerService", () => {
         ],
       };
 
-      const result = service.validateSessionData(sessionWithOneCookie, platform);
+      const result = service.validateSessionData(
+        sessionWithOneCookie,
+        platform,
+      );
       expect(result.valid).toBe(false);
       expect(result.reason).toContain("缺少必要的 Cookie");
       expect(result.missingCookies).toBeDefined();
@@ -304,7 +330,10 @@ describe("SessionManagerService", () => {
         ],
       };
 
-      const result = service.validateSessionData(session, SocialPlatformType.XIAOHONGSHU);
+      const result = service.validateSessionData(
+        session,
+        SocialPlatformType.XIAOHONGSHU,
+      );
       // Due to the code logic (criticalExpired.length === requiredCookies.length when both are 0),
       // XIAOHONGSHU validation returns false. This is the actual code behavior.
       expect(result.valid).toBe(false);
@@ -316,15 +345,58 @@ describe("SessionManagerService", () => {
       // Mix of expired and non-expired required cookies
       const sessionWithSomeExpired = {
         cookies: [
-          { name: "slave_user", value: "abc", domain: ".weixin.qq.com", path: "/", expires: now - 1000, httpOnly: true, secure: true },
-          { name: "slave_sid", value: "def", domain: ".weixin.qq.com", path: "/", expires: now + 86400, httpOnly: true, secure: true },
-          { name: "bizuin", value: "ghi", domain: ".weixin.qq.com", path: "/", expires: now + 86400, httpOnly: true, secure: true },
-          { name: "data_bizuin", value: "jkl", domain: ".weixin.qq.com", path: "/", expires: now + 86400, httpOnly: true, secure: true },
-          { name: "data_ticket", value: "mno", domain: ".weixin.qq.com", path: "/", expires: now + 86400, httpOnly: true, secure: true },
+          {
+            name: "slave_user",
+            value: "abc",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now - 1000,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "slave_sid",
+            value: "def",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now + 86400,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "bizuin",
+            value: "ghi",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now + 86400,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "data_bizuin",
+            value: "jkl",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now + 86400,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "data_ticket",
+            value: "mno",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now + 86400,
+            httpOnly: true,
+            secure: true,
+          },
         ],
       };
 
-      const result = service.validateSessionData(sessionWithSomeExpired, platform);
+      const result = service.validateSessionData(
+        sessionWithSomeExpired,
+        platform,
+      );
       // Only fails if ALL critical cookies are expired
       expect(result.valid).toBe(true);
     });
@@ -333,11 +405,51 @@ describe("SessionManagerService", () => {
       const now = Date.now() / 1000;
       const allExpiredSession = {
         cookies: [
-          { name: "slave_user", value: "abc", domain: ".weixin.qq.com", path: "/", expires: now - 1000, httpOnly: true, secure: true },
-          { name: "slave_sid", value: "def", domain: ".weixin.qq.com", path: "/", expires: now - 1000, httpOnly: true, secure: true },
-          { name: "bizuin", value: "ghi", domain: ".weixin.qq.com", path: "/", expires: now - 1000, httpOnly: true, secure: true },
-          { name: "data_bizuin", value: "jkl", domain: ".weixin.qq.com", path: "/", expires: now - 1000, httpOnly: true, secure: true },
-          { name: "data_ticket", value: "mno", domain: ".weixin.qq.com", path: "/", expires: now - 1000, httpOnly: true, secure: true },
+          {
+            name: "slave_user",
+            value: "abc",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now - 1000,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "slave_sid",
+            value: "def",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now - 1000,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "bizuin",
+            value: "ghi",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now - 1000,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "data_bizuin",
+            value: "jkl",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now - 1000,
+            httpOnly: true,
+            secure: true,
+          },
+          {
+            name: "data_ticket",
+            value: "mno",
+            domain: ".weixin.qq.com",
+            path: "/",
+            expires: now - 1000,
+            httpOnly: true,
+            secure: true,
+          },
         ],
       };
 
@@ -365,7 +477,9 @@ describe("SessionManagerService", () => {
     it("should delete all connections for user on platform", async () => {
       await service.deleteSession(userId, platform);
 
-      expect(mockPrisma.socialPlatformConnection.deleteMany).toHaveBeenCalledWith({
+      expect(
+        mockPrisma.socialPlatformConnection.deleteMany,
+      ).toHaveBeenCalledWith({
         where: { userId, platformType: platform },
       });
     });
@@ -382,7 +496,9 @@ describe("SessionManagerService", () => {
           lastCheckAt: new Date(),
         },
       ];
-      mockPrisma.socialPlatformConnection.findMany.mockResolvedValue(mockConnections);
+      mockPrisma.socialPlatformConnection.findMany.mockResolvedValue(
+        mockConnections,
+      );
 
       const result = await service.getActiveConnections();
 
@@ -418,9 +534,33 @@ describe("SessionManagerService", () => {
       const now = Date.now() / 1000;
       const sessionWithExpiredCookies = {
         cookies: [
-          { name: "valid", value: "v1", domain: "example.com", path: "/", expires: now + 86400, httpOnly: false, secure: false },
-          { name: "expired", value: "v2", domain: "example.com", path: "/", expires: now - 1000, httpOnly: false, secure: false },
-          { name: "no_expiry", value: "v3", domain: "example.com", path: "/", expires: 0, httpOnly: false, secure: false }, // 0 means no expiry
+          {
+            name: "valid",
+            value: "v1",
+            domain: "example.com",
+            path: "/",
+            expires: now + 86400,
+            httpOnly: false,
+            secure: false,
+          },
+          {
+            name: "expired",
+            value: "v2",
+            domain: "example.com",
+            path: "/",
+            expires: now - 1000,
+            httpOnly: false,
+            secure: false,
+          },
+          {
+            name: "no_expiry",
+            value: "v3",
+            domain: "example.com",
+            path: "/",
+            expires: 0,
+            httpOnly: false,
+            secure: false,
+          }, // 0 means no expiry
         ],
       };
 
@@ -441,10 +581,22 @@ describe("SessionManagerService", () => {
   describe("getConnectionStats", () => {
     it("should return correct stats for user connections", async () => {
       const mockConnections = [
-        { platformType: "WECHAT_MP", isActive: true, accountName: "Account1", lastCheckAt: new Date() },
-        { platformType: "XIAOHONGSHU", isActive: false, accountName: null, lastCheckAt: null },
+        {
+          platformType: "WECHAT_MP",
+          isActive: true,
+          accountName: "Account1",
+          lastCheckAt: new Date(),
+        },
+        {
+          platformType: "XIAOHONGSHU",
+          isActive: false,
+          accountName: null,
+          lastCheckAt: null,
+        },
       ];
-      mockPrisma.socialPlatformConnection.findMany.mockResolvedValue(mockConnections);
+      mockPrisma.socialPlatformConnection.findMany.mockResolvedValue(
+        mockConnections,
+      );
 
       const stats = await service.getConnectionStats(userId);
 

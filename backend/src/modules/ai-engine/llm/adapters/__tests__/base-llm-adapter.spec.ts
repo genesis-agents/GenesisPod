@@ -135,7 +135,10 @@ describe("BaseLLMAdapter (via TestLLMAdapter)", () => {
     });
 
     it("increments success stats after successful chat", async () => {
-      await adapter.chat({ messages: [{ role: "user", content: "Hi" }], maxTokens: 100 });
+      await adapter.chat({
+        messages: [{ role: "user", content: "Hi" }],
+        maxTokens: 100,
+      });
       const stats = adapter.getStats();
       expect(stats.totalRequests).toBe(1);
       expect(stats.successCount).toBe(1);
@@ -170,7 +173,9 @@ describe("BaseLLMAdapter (via TestLLMAdapter)", () => {
   describe("processOptions (via protected)", () => {
     it("fills in defaults for missing options", () => {
       const process = (
-        adapter as unknown as { processOptions(o: LLMRequestOptions): LLMRequestOptions }
+        adapter as unknown as {
+          processOptions(o: LLMRequestOptions): LLMRequestOptions;
+        }
       ).processOptions;
 
       const result = process.call(adapter, { messages: [] });
@@ -181,7 +186,9 @@ describe("BaseLLMAdapter (via TestLLMAdapter)", () => {
 
     it("preserves explicitly provided options", () => {
       const process = (
-        adapter as unknown as { processOptions(o: LLMRequestOptions): LLMRequestOptions }
+        adapter as unknown as {
+          processOptions(o: LLMRequestOptions): LLMRequestOptions;
+        }
       ).processOptions;
 
       const result = process.call(adapter, {
@@ -197,7 +204,9 @@ describe("BaseLLMAdapter (via TestLLMAdapter)", () => {
 
     it("sets temperature to 0 when explicitly passed 0", () => {
       const process = (
-        adapter as unknown as { processOptions(o: LLMRequestOptions): LLMRequestOptions }
+        adapter as unknown as {
+          processOptions(o: LLMRequestOptions): LLMRequestOptions;
+        }
       ).processOptions;
 
       const result = process.call(adapter, { messages: [], temperature: 0 });
@@ -211,9 +220,13 @@ describe("BaseLLMAdapter (via TestLLMAdapter)", () => {
     it("throws an error if chatStream is called on base class", async () => {
       // TestLLMAdapter inherits the default chatStream? implementation
       // The optional method is defined on BaseLLMAdapter.
-      const stream = adapter.chatStream?.({ messages: [{ role: "user", content: "Hi" }] });
+      const stream = adapter.chatStream?.({
+        messages: [{ role: "user", content: "Hi" }],
+      });
       if (stream) {
-        await expect(stream.next()).rejects.toThrow("Streaming not supported by this adapter");
+        await expect(stream.next()).rejects.toThrow(
+          "Streaming not supported by this adapter",
+        );
       }
     });
   });
@@ -253,7 +266,9 @@ describe("createLLMAdapter", () => {
   });
 
   it("delegates chat() to the provided function", async () => {
-    const result = await adapter.chat({ messages: [{ role: "user", content: "Hi" }] });
+    const result = await adapter.chat({
+      messages: [{ role: "user", content: "Hi" }],
+    });
     expect(result.content).toBe("World");
     expect(chatFn).toHaveBeenCalledTimes(1);
   });

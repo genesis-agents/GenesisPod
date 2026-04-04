@@ -54,16 +54,14 @@ describe("PlanningController", () => {
     const mockOrchestrator = {
       createPlan: jest.fn().mockResolvedValue({ planId: "plan-123" }),
       getPlans: jest.fn().mockResolvedValue([mockPlanSummary]),
-      getPlanDetail: jest
-        .fn()
-        .mockResolvedValue({
-          ...mockPlanSummary,
-          description: null,
-          depth: PlanningDepth.STANDARD,
-          autoAdvance: true,
-          members: [],
-          references: [],
-        }),
+      getPlanDetail: jest.fn().mockResolvedValue({
+        ...mockPlanSummary,
+        description: null,
+        depth: PlanningDepth.STANDARD,
+        autoAdvance: true,
+        members: [],
+        references: [],
+      }),
       updatePlan: jest.fn().mockResolvedValue(mockPlanSummary),
       advancePhase: jest.fn().mockResolvedValue({ currentPhase: 2 }),
       retryPhase: jest.fn().mockResolvedValue({ currentPhase: 2 }),

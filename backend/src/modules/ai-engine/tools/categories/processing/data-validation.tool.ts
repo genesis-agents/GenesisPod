@@ -330,7 +330,9 @@ export class DataValidationTool extends BaseTool<
     }
     const ajv = new Ajv.default(ajvOptions);
 
-    addFormats.default(ajv as unknown as Parameters<typeof addFormats.default>[0]);
+    addFormats.default(
+      ajv as unknown as Parameters<typeof addFormats.default>[0],
+    );
 
     const validate = ajv.compile(schema);
     const valid = validate(data);
@@ -346,7 +348,9 @@ export class DataValidationTool extends BaseTool<
         const errorRecord = error as unknown as Record<string, unknown>;
         errors.push({
           field:
-            (errorRecord.instancePath as string) || (errorRecord.dataPath as string) || "root",
+            (errorRecord.instancePath as string) ||
+            (errorRecord.dataPath as string) ||
+            "root",
           message: error.message || "Validation failed",
           type: "error",
           value: errorRecord.data,
@@ -539,7 +543,8 @@ export class DataValidationTool extends BaseTool<
     let count = 0;
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        count += 1 + this.countFields((obj as Record<string, unknown>)[key], visited);
+        count +=
+          1 + this.countFields((obj as Record<string, unknown>)[key], visited);
       }
     }
 

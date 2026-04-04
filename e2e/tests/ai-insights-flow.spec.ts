@@ -129,7 +129,7 @@ test.describe("Insights API — Topics", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.topics ?? [];
+      : (payload.items ?? payload.topics ?? []);
     expect(Array.isArray(list), "Topics should be an array").toBe(true);
   });
 
@@ -176,7 +176,7 @@ test.describe("Insights API — Topics", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;

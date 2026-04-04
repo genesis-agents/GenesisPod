@@ -320,7 +320,10 @@ export abstract class ReactiveAgent<
     context: AgentContext,
   ): LLMMessage[] {
     if (!this.isAgentInput(input)) {
-      throw AgentError.executionFailed(this.id, 'Input missing required prompt field');
+      throw AgentError.executionFailed(
+        this.id,
+        "Input missing required prompt field",
+      );
     }
     return this.buildMessages(input.prompt, context);
   }
@@ -329,7 +332,7 @@ export abstract class ReactiveAgent<
    * 类型守卫：检查 input 是否符合 AgentInput
    */
   private isAgentInput(v: unknown): v is AgentInput {
-    return typeof v === 'object' && v !== null && 'prompt' in v;
+    return typeof v === "object" && v !== null && "prompt" in v;
   }
 
   /**

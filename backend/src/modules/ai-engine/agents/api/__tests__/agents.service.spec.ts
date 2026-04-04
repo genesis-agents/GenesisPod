@@ -67,7 +67,8 @@ describe("AgentsService", () => {
             id: "artifact-1",
             type: OfficeArtifactType.DOCX,
             name: "output.docx",
-            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            mimeType:
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             size: 1024,
             url: "https://storage.example.com/output.docx",
             content: null,
@@ -77,7 +78,8 @@ describe("AgentsService", () => {
           id: "artifact-1",
           type: OfficeArtifactType.DOCX,
           name: "output.docx",
-          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           size: 1024,
           url: "https://storage.example.com/output.docx",
           content: null,
@@ -332,7 +334,8 @@ describe("AgentsService", () => {
         id: "art-1",
         type: "pptx",
         name: "presentation.pptx",
-        mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         size: 2048,
         url: "https://storage.example.com/presentation.pptx",
       });

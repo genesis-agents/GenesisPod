@@ -53,7 +53,10 @@ setup("authenticate", async ({ page, baseURL }) => {
   const payload = body.data ?? body;
   const { accessToken, refreshToken } = payload;
 
-  expect(accessToken, "accessToken must be present in login response").toBeTruthy();
+  expect(
+    accessToken,
+    "accessToken must be present in login response",
+  ).toBeTruthy();
 
   // Inject tokens into localStorage (mirrors frontend auth.ts)
   await page.goto(baseURL || "http://localhost:3000");

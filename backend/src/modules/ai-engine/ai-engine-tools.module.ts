@@ -47,10 +47,10 @@ const toolPipelineFactory = {
     progressMiddleware: ProgressMiddleware,
   ) => {
     const pipeline = new ToolPipeline();
-    pipeline.use(permissionMiddleware);          // ★ Phase 3: permission check (priority 5, runs first)
-    pipeline.use(new ValidationMiddleware());    // existing
-    pipeline.use(new TimeoutMiddleware());       // existing
-    pipeline.use(progressMiddleware);            // ★ Phase 3: progress tracking (priority 90, runs last)
+    pipeline.use(permissionMiddleware); // ★ Phase 3: permission check (priority 5, runs first)
+    pipeline.use(new ValidationMiddleware()); // existing
+    pipeline.use(new TimeoutMiddleware()); // existing
+    pipeline.use(progressMiddleware); // ★ Phase 3: progress tracking (priority 90, runs last)
     return pipeline;
   },
   inject: [PermissionMiddleware, ProgressMiddleware],

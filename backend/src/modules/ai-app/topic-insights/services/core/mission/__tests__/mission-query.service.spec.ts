@@ -730,8 +730,9 @@ describe("MissionQueryService", () => {
       await service.updateMissionProgress("mission-1");
 
       // When tasks still running, no terminal status update should be called
-      const updateManyCalls = prisma.researchMission.updateMany.mock
-        .calls as { data?: { status?: string } }[][];
+      const updateManyCalls = prisma.researchMission.updateMany.mock.calls as {
+        data?: { status?: string };
+      }[][];
       const statusUpdateCalls = updateManyCalls.filter(
         (call) => call[0]?.data?.status !== undefined,
       );

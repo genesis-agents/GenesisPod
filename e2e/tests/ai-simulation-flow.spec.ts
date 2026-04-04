@@ -76,10 +76,7 @@ test.describe("AI Simulation UI (/ai-simulation)", () => {
 
     const hasCreate =
       (await createButton.count()) > 0 || (await createLink.count()) > 0;
-    expect(
-      hasCreate,
-      "Simulation page should have a create option",
-    ).toBe(true);
+    expect(hasCreate, "Simulation page should have a create option").toBe(true);
   });
 });
 
@@ -114,7 +111,7 @@ test.describe("Simulation API", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.scenarios ?? [];
+      : (payload.items ?? payload.scenarios ?? []);
     expect(Array.isArray(list), "Scenarios should be an array").toBe(true);
   });
 

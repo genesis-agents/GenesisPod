@@ -349,9 +349,7 @@ export class SharedScratchpadService {
 
       await this.saveToDatabase(scratchpad);
 
-      this.logger.debug(
-        `Resolved entry ${entryId} by ${resolvedBy}`,
-      );
+      this.logger.debug(`Resolved entry ${entryId} by ${resolvedBy}`);
     }
   }
 
@@ -463,17 +461,13 @@ export class SharedScratchpadService {
     missionId: string,
     agentId: string,
   ): Promise<string> {
-    const [
-      unresolvedQuestions,
-      highPriority,
-      recentFacts,
-      decisions,
-    ] = await Promise.all([
-      this.getUnresolvedQuestions(missionId, agentId),
-      this.getHighPriorityEntries(missionId, agentId),
-      this.getEntries(missionId, { type: "FACT", limit: 10 }),
-      this.getDecisions(missionId),
-    ]);
+    const [unresolvedQuestions, highPriority, recentFacts, decisions] =
+      await Promise.all([
+        this.getUnresolvedQuestions(missionId, agentId),
+        this.getHighPriorityEntries(missionId, agentId),
+        this.getEntries(missionId, { type: "FACT", limit: 10 }),
+        this.getDecisions(missionId),
+      ]);
 
     const parts: string[] = [];
 
@@ -486,9 +480,7 @@ export class SharedScratchpadService {
 
     // 高优先级条目
     if (highPriority.length > 0) {
-      const filtered = highPriority.filter(
-        (e) => e.type !== "QUESTION",
-      );
+      const filtered = highPriority.filter((e) => e.type !== "QUESTION");
       if (filtered.length > 0) {
         parts.push(
           `【重要信息】\n${filtered.map((e) => `- [${e.type}] ${e.content}`).join("\n")}`,
@@ -598,10 +590,12 @@ export class SharedScratchpadService {
       await this.prisma.writingMission.update({
         where: { id: scratchpad.missionId },
         data: {
-          result: JSON.parse(JSON.stringify({
-            ...existingResult,
-            scratchpad,
-          })),
+          result: JSON.parse(
+            JSON.stringify({
+              ...existingResult,
+              scratchpad,
+            }),
+          ),
         },
       });
     } catch (error) {

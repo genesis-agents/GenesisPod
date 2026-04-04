@@ -1,9 +1,11 @@
 # Fix Strategy: Loading State
 
 ## Issue
+
 Page shows no loading indicator while data is being fetched, causing flash of empty content or layout shift.
 
 ## Pattern
+
 ```typescript
 // Before (no loading state)
 const { data } = useApiGet("/api/items");
@@ -18,6 +20,7 @@ return <ItemList items={data?.items ?? []} />;
 ```
 
 ## Steps
+
 1. Read {{source_file}}
 2. Find the data fetching hook (useApiGet, useSWR, useQuery, etc.)
 3. Extract the `isLoading` or `loading` state

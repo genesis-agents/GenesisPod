@@ -29,7 +29,9 @@ test.describe("Home Page (/)", () => {
     await expect(body).toBeVisible();
 
     // Home page should have some meaningful content
-    const mainContent = page.locator("main, [class*='main'], [class*='home'], [class*='dashboard']");
+    const mainContent = page.locator(
+      "main, [class*='main'], [class*='home'], [class*='dashboard']",
+    );
     const heading = page.locator("h1, h2");
 
     const hasContent = (await mainContent.count()) > 0;

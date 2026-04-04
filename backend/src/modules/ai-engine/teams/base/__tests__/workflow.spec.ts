@@ -9,7 +9,10 @@ import {
   createWorkflowBuilder,
   createWorkflow,
 } from "../workflow";
-import { WorkflowStepConfig, WorkflowConfig } from "../../abstractions/workflow.interface";
+import {
+  WorkflowStepConfig,
+  WorkflowConfig,
+} from "../../abstractions/workflow.interface";
 
 // ==================== Helpers ====================
 
@@ -59,7 +62,10 @@ describe("WorkflowStep", () => {
   it("should default description to empty string when not provided", () => {
     const config = makeStepConfig({ id: "s1" });
     delete (config as Partial<WorkflowStepConfig>).description;
-    const step = new WorkflowStep({ ...config, description: undefined as unknown as string });
+    const step = new WorkflowStep({
+      ...config,
+      description: undefined as unknown as string,
+    });
     expect(step.description).toBe("");
   });
 
@@ -78,7 +84,11 @@ describe("WorkflowStep", () => {
   });
 
   it("should serialize to JSON correctly", () => {
-    const config = makeStepConfig({ id: "s1", name: "Test", executorRoles: ["writer"] });
+    const config = makeStepConfig({
+      id: "s1",
+      name: "Test",
+      executorRoles: ["writer"],
+    });
     const step = new WorkflowStep(config);
     const json = step.toJSON();
 
@@ -272,7 +282,9 @@ describe("Workflow - Validation", () => {
     const result = wf.validate();
 
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.code === "INVALID_DEPENDENCY")).toBe(true);
+    expect(result.errors.some((e) => e.code === "INVALID_DEPENDENCY")).toBe(
+      true,
+    );
   });
 
   it("should warn ISOLATED_STEP for isolated non-entry steps", () => {
@@ -289,13 +301,13 @@ describe("Workflow - Validation", () => {
   });
 
   it("should warn MISSING_REVIEW_CONFIG for review step without config", () => {
-    const steps = [
-      makeStepConfig({ id: "a", dependsOn: [], type: "review" }),
-    ];
+    const steps = [makeStepConfig({ id: "a", dependsOn: [], type: "review" })];
     const wf = new Workflow(makeWorkflowConfig(steps));
     const result = wf.validate();
 
-    expect(result.warnings.some((w) => w.code === "MISSING_REVIEW_CONFIG")).toBe(true);
+    expect(
+      result.warnings.some((w) => w.code === "MISSING_REVIEW_CONFIG"),
+    ).toBe(true);
   });
 });
 
@@ -336,8 +348,13 @@ describe("Workflow - getTopologicalOrder", () => {
 
 describe("Workflow - toJSON", () => {
   it("should serialize to config format", () => {
-    const steps = [makeStepConfig({ id: "a" }), makeStepConfig({ id: "b", dependsOn: ["a"] })];
-    const wf = new Workflow(makeWorkflowConfig(steps, { timeout: 60000, metadata: { env: "test" } }));
+    const steps = [
+      makeStepConfig({ id: "a" }),
+      makeStepConfig({ id: "b", dependsOn: ["a"] }),
+    ];
+    const wf = new Workflow(
+      makeWorkflowConfig(steps, { timeout: 60000, metadata: { env: "test" } }),
+    );
     const json = wf.toJSON();
 
     expect(json.id).toBe("wf-1");
@@ -367,8 +384,18 @@ describe("WorkflowBuilder", () => {
     const builder = new WorkflowBuilder()
       .setId("wf-seq")
       .setName("Seq WF")
-      .addSequentialStep({ id: "s1", name: "Step 1", type: "task", executorRoles: ["researcher"] })
-      .addSequentialStep({ id: "s2", name: "Step 2", type: "task", executorRoles: ["writer"] });
+      .addSequentialStep({
+        id: "s1",
+        name: "Step 1",
+        type: "task",
+        executorRoles: ["researcher"],
+      })
+      .addSequentialStep({
+        id: "s2",
+        name: "Step 2",
+        type: "task",
+        executorRoles: ["writer"],
+      });
 
     const wf = builder.build();
     expect(wf.getStep("s2")!.dependsOn).toContain("s1");
@@ -378,7 +405,12 @@ describe("WorkflowBuilder", () => {
     const wf = new WorkflowBuilder()
       .setId("wf-1")
       .setName("WF")
-      .addSequentialStep({ id: "first", name: "First", type: "task", executorRoles: ["researcher"] })
+      .addSequentialStep({
+        id: "first",
+        name: "First",
+        type: "task",
+        executorRoles: ["researcher"],
+      })
       .build();
 
     expect(wf.getStep("first")!.dependsOn).toHaveLength(0);

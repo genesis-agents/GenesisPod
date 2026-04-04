@@ -36,11 +36,17 @@ export function parsePagination(
   maxTake: number = PaginationLimits.MAX_TAKE,
 ): PaginationResult {
   const skipNum = typeof skip === "string" ? parseInt(skip, 10) : (skip ?? 0);
-  const takeNum = typeof take === "string" ? parseInt(take, 10) : (take ?? PaginationLimits.DEFAULT_TAKE);
+  const takeNum =
+    typeof take === "string"
+      ? parseInt(take, 10)
+      : (take ?? PaginationLimits.DEFAULT_TAKE);
 
   return {
     skip: Math.max(0, isNaN(skipNum) ? 0 : skipNum),
-    take: Math.min(Math.max(1, isNaN(takeNum) ? PaginationLimits.DEFAULT_TAKE : takeNum), maxTake),
+    take: Math.min(
+      Math.max(1, isNaN(takeNum) ? PaginationLimits.DEFAULT_TAKE : takeNum),
+      maxTake,
+    ),
   };
 }
 

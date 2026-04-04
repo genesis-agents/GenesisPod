@@ -109,9 +109,15 @@ describe("AiImageGenerationService", () => {
     });
 
     it("returns false for non-image requests", () => {
-      expect(service.isImageGenerationRequest("What is the capital of France?")).toBe(false);
-      expect(service.isImageGenerationRequest("Write a poem about love")).toBe(false);
-      expect(service.isImageGenerationRequest("Summarize this document")).toBe(false);
+      expect(
+        service.isImageGenerationRequest("What is the capital of France?"),
+      ).toBe(false);
+      expect(service.isImageGenerationRequest("Write a poem about love")).toBe(
+        false,
+      );
+      expect(service.isImageGenerationRequest("Summarize this document")).toBe(
+        false,
+      );
       expect(service.isImageGenerationRequest("")).toBe(false);
     });
   });
@@ -136,9 +142,7 @@ describe("AiImageGenerationService", () => {
 
       expect(result.model).toBe("dall-e-3");
       expect(result.tokensUsed).toBe(0);
-      expect(result.content).toContain(
-        `data:image/png;base64,${b64}`,
-      );
+      expect(result.content).toContain(`data:image/png;base64,${b64}`);
       expect(result.content).toContain(revisedPrompt);
     });
 
@@ -166,9 +170,7 @@ describe("AiImageGenerationService", () => {
     });
 
     it("returns error message when API returns no image data", async () => {
-      httpService.post.mockReturnValue(
-        of(buildAxiosResponse({ data: [{}] })),
-      );
+      httpService.post.mockReturnValue(of(buildAxiosResponse({ data: [{}] })));
 
       const result = await service.callDallE3("test-key", "empty");
 
@@ -177,9 +179,7 @@ describe("AiImageGenerationService", () => {
     });
 
     it("returns error message when data array is empty", async () => {
-      httpService.post.mockReturnValue(
-        of(buildAxiosResponse({ data: [] })),
-      );
+      httpService.post.mockReturnValue(of(buildAxiosResponse({ data: [] })));
 
       const result = await service.callDallE3("test-key", "nothing");
 
@@ -282,7 +282,11 @@ describe("AiImageGenerationService", () => {
         ),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "a cat");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "a cat",
+      );
 
       expect(result.content).toContain(`data:image/png;base64,${b64}`);
       expect(result.model).toBe("imagen-4.0-generate-001");
@@ -299,7 +303,11 @@ describe("AiImageGenerationService", () => {
         ),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       expect(result.content).toContain(b64);
     });
@@ -314,7 +322,11 @@ describe("AiImageGenerationService", () => {
         ),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "a dog");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "a dog",
+      );
 
       expect(result.content).toContain(`data:image/png;base64,${b64}`);
       expect(result.model).toBe("imagen-4.0-generate-001");
@@ -330,7 +342,11 @@ describe("AiImageGenerationService", () => {
         ),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       expect(result.content).toContain(b64);
     });
@@ -345,7 +361,11 @@ describe("AiImageGenerationService", () => {
         ),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       // The base64 portion should have whitespace stripped to "abcdefghi"
       expect(result.content).toContain("abcdefghi");
@@ -367,7 +387,11 @@ describe("AiImageGenerationService", () => {
         ),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       expect(result.content).toContain("Generated Image 1");
       expect(result.content).toContain("Generated Image 2");
@@ -409,7 +433,11 @@ describe("AiImageGenerationService", () => {
         of(buildAxiosResponse({ predictions: [], generatedImages: [] })),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       expect(result.content).toContain("Imagen 图像生成失败");
     });
@@ -419,7 +447,11 @@ describe("AiImageGenerationService", () => {
       const axiosErr = buildAxiosError(401, "API key invalid");
       httpService.post.mockReturnValue(throwError(() => axiosErr));
 
-      const result = await service.callImagenApi("bad-key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "bad-key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       expect(result.content).toContain("Imagen 图像生成失败");
       // error classifier maps 401 -> "Invalid API key"
@@ -437,7 +469,11 @@ describe("AiImageGenerationService", () => {
         .mockReturnValueOnce(of(successResponse));
 
       // setTimeout is mocked to run immediately, so retries resolve without real delay
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       expect(result.content).toContain("retry_success");
       expect(httpService.post).toHaveBeenCalledTimes(2);
@@ -445,10 +481,18 @@ describe("AiImageGenerationService", () => {
 
     it("uses x-goog-api-key header", async () => {
       httpService.post.mockReturnValue(
-        of(buildAxiosResponse({ generatedImages: [{ image: { imageBytes: "x" } }] })),
+        of(
+          buildAxiosResponse({
+            generatedImages: [{ image: { imageBytes: "x" } }],
+          }),
+        ),
       );
 
-      await service.callImagenApi("google-api-key", "imagen-4.0-generate-001", "test");
+      await service.callImagenApi(
+        "google-api-key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       const callArgs = httpService.post.mock.calls[0];
       expect(callArgs[2]?.headers?.["x-goog-api-key"]).toBe("google-api-key");
@@ -456,10 +500,18 @@ describe("AiImageGenerationService", () => {
 
     it("sends correct request body with aspect ratio 16:9", async () => {
       httpService.post.mockReturnValue(
-        of(buildAxiosResponse({ generatedImages: [{ image: { imageBytes: "x" } }] })),
+        of(
+          buildAxiosResponse({
+            generatedImages: [{ image: { imageBytes: "x" } }],
+          }),
+        ),
       );
 
-      await service.callImagenApi("key", "imagen-4.0-generate-001", "a landscape");
+      await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "a landscape",
+      );
 
       const callArgs = httpService.post.mock.calls[0];
       expect(callArgs[1]).toMatchObject({
@@ -483,7 +535,11 @@ describe("AiImageGenerationService", () => {
         ),
       );
 
-      const result = await service.callImagenApi("key", "imagen-4.0-generate-001", "test");
+      const result = await service.callImagenApi(
+        "key",
+        "imagen-4.0-generate-001",
+        "test",
+      );
 
       expect(result.content).toContain("valid_img");
       // Only one image should appear

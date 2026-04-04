@@ -36,11 +36,36 @@ const makeMockReport = (overrides: Record<string, unknown> = {}) => ({
     ],
   },
   evidences: [
-    { id: "ev-001", sourceType: "academic", domain: "arxiv.org", publishedAt: daysAgo(10) },
-    { id: "ev-002", sourceType: "news", domain: "reuters.com", publishedAt: daysAgo(60) },
-    { id: "ev-003", sourceType: "government", domain: "whitehouse.gov", publishedAt: daysAgo(200) },
-    { id: "ev-004", sourceType: "web", domain: "randomsite.com", publishedAt: null },
-    { id: "ev-005", sourceType: "web", domain: "medium.com", publishedAt: daysAgo(400) },
+    {
+      id: "ev-001",
+      sourceType: "academic",
+      domain: "arxiv.org",
+      publishedAt: daysAgo(10),
+    },
+    {
+      id: "ev-002",
+      sourceType: "news",
+      domain: "reuters.com",
+      publishedAt: daysAgo(60),
+    },
+    {
+      id: "ev-003",
+      sourceType: "government",
+      domain: "whitehouse.gov",
+      publishedAt: daysAgo(200),
+    },
+    {
+      id: "ev-004",
+      sourceType: "web",
+      domain: "randomsite.com",
+      publishedAt: null,
+    },
+    {
+      id: "ev-005",
+      sourceType: "web",
+      domain: "medium.com",
+      publishedAt: daysAgo(400),
+    },
   ],
   dimensionAnalyses: [
     { dimensionId: "dim-001", dimension: { name: "Market Size" } },
@@ -56,10 +81,32 @@ const mockCredibilityDbRecord = {
   diversityScore: 60,
   timelinessScore: 70,
   coverageScore: 80,
-  sourceBreakdown: { government: 1, academic: 1, industry: 0, news: 1, blog: 1, other: 1, total: 5 },
-  timeBreakdown: { within1Month: 1, within3Months: 0, within6Months: 1, within1Year: 0, older: 2, unknown: 1, total: 5 },
+  sourceBreakdown: {
+    government: 1,
+    academic: 1,
+    industry: 0,
+    news: 1,
+    blog: 1,
+    other: 1,
+    total: 5,
+  },
+  timeBreakdown: {
+    within1Month: 1,
+    within3Months: 0,
+    within6Months: 1,
+    within1Year: 0,
+    older: 2,
+    unknown: 1,
+    total: 5,
+  },
   coverageDetails: [],
-  aiQualityMetrics: { planningRounds: 1, revisionAverage: 0, approvalRate: 80, averageConfidence: "medium", totalAgentActivities: 5 },
+  aiQualityMetrics: {
+    planningRounds: 1,
+    revisionAverage: 0,
+    approvalRate: 80,
+    averageConfidence: "medium",
+    totalAgentActivities: 5,
+  },
   limitations: ["来源数量有限"],
 };
 
@@ -187,8 +234,7 @@ describe("CredibilityReportService", () => {
       mockPrisma.researchAgentActivity.findMany.mockResolvedValue([]);
       mockPrisma.credibilityReport.upsert.mockResolvedValue({});
 
-      const result =
-        await service.getOrGenerateCredibilityReport("report-001");
+      const result = await service.getOrGenerateCredibilityReport("report-001");
 
       expect(result).toBeDefined();
       expect(mockPrisma.topicReport.findUnique).toHaveBeenCalled();
@@ -201,7 +247,12 @@ describe("CredibilityReportService", () => {
     it("should include academic sources from arxiv domain", async () => {
       const report = makeMockReport({
         evidences: [
-          { id: "ev-1", sourceType: "web", domain: "arxiv.org", publishedAt: daysAgo(5) },
+          {
+            id: "ev-1",
+            sourceType: "web",
+            domain: "arxiv.org",
+            publishedAt: daysAgo(5),
+          },
         ],
       });
       mockPrisma.topicReport.findUnique.mockResolvedValue(report);
@@ -216,7 +267,12 @@ describe("CredibilityReportService", () => {
     it("should include government sources from .gov domains", async () => {
       const report = makeMockReport({
         evidences: [
-          { id: "ev-1", sourceType: "web", domain: "census.gov", publishedAt: daysAgo(5) },
+          {
+            id: "ev-1",
+            sourceType: "web",
+            domain: "census.gov",
+            publishedAt: daysAgo(5),
+          },
         ],
       });
       mockPrisma.topicReport.findUnique.mockResolvedValue(report);
@@ -231,7 +287,12 @@ describe("CredibilityReportService", () => {
     it("should identify blog sources from medium.com", async () => {
       const report = makeMockReport({
         evidences: [
-          { id: "ev-1", sourceType: "web", domain: "medium.com", publishedAt: daysAgo(30) },
+          {
+            id: "ev-1",
+            sourceType: "web",
+            domain: "medium.com",
+            publishedAt: daysAgo(30),
+          },
         ],
       });
       mockPrisma.topicReport.findUnique.mockResolvedValue(report);
@@ -250,7 +311,12 @@ describe("CredibilityReportService", () => {
     it("should count unknown publishedAt as unknown", async () => {
       const report = makeMockReport({
         evidences: [
-          { id: "ev-1", sourceType: "web", domain: "site.com", publishedAt: null },
+          {
+            id: "ev-1",
+            sourceType: "web",
+            domain: "site.com",
+            publishedAt: null,
+          },
         ],
       });
       mockPrisma.topicReport.findUnique.mockResolvedValue(report);
@@ -265,7 +331,12 @@ describe("CredibilityReportService", () => {
     it("should count sources within 1 month", async () => {
       const report = makeMockReport({
         evidences: [
-          { id: "ev-1", sourceType: "academic", domain: "arxiv.org", publishedAt: daysAgo(10) },
+          {
+            id: "ev-1",
+            sourceType: "academic",
+            domain: "arxiv.org",
+            publishedAt: daysAgo(10),
+          },
         ],
       });
       mockPrisma.topicReport.findUnique.mockResolvedValue(report);
@@ -284,7 +355,12 @@ describe("CredibilityReportService", () => {
     it("should flag limited sources when fewer than 10", async () => {
       const report = makeMockReport({
         evidences: [
-          { id: "ev-1", sourceType: "web", domain: "site.com", publishedAt: null },
+          {
+            id: "ev-1",
+            sourceType: "web",
+            domain: "site.com",
+            publishedAt: null,
+          },
         ],
       });
       mockPrisma.topicReport.findUnique.mockResolvedValue(report);
@@ -293,9 +369,9 @@ describe("CredibilityReportService", () => {
 
       const result = await service.generateCredibilityReport("report-001");
 
-      expect(
-        result.limitations.some((l) => l.includes("来源数量有限")),
-      ).toBe(true);
+      expect(result.limitations.some((l) => l.includes("来源数量有限"))).toBe(
+        true,
+      );
     });
 
     it("should add default disclaimer when no issues detected", async () => {

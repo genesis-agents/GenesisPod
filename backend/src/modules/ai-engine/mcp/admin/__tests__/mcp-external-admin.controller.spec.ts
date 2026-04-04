@@ -40,7 +40,9 @@ describe("MCPExternalAdminController", () => {
         { id: "1", name: "Server A", connected: true },
         { id: "2", name: "Server B", connected: false },
       ];
-      registryService.getConnectionStatuses.mockResolvedValue(statuses as never);
+      registryService.getConnectionStatuses.mockResolvedValue(
+        statuses as never,
+      );
 
       const result = await controller.findAll();
       expect(result).toEqual(statuses);
@@ -48,7 +50,9 @@ describe("MCPExternalAdminController", () => {
     });
 
     it("should propagate errors from registry service", async () => {
-      registryService.getConnectionStatuses.mockRejectedValue(new Error("DB error"));
+      registryService.getConnectionStatuses.mockRejectedValue(
+        new Error("DB error"),
+      );
       await expect(controller.findAll()).rejects.toThrow("DB error");
     });
   });
@@ -88,7 +92,10 @@ describe("MCPExternalAdminController", () => {
         metadata: { category: "data" },
       };
 
-      registryService.addServer.mockResolvedValue({ id: "db-2", ...dto } as never);
+      registryService.addServer.mockResolvedValue({
+        id: "db-2",
+        ...dto,
+      } as never);
 
       await controller.create(dto);
       expect(registryService.addServer).toHaveBeenCalledWith(
@@ -101,7 +108,10 @@ describe("MCPExternalAdminController", () => {
 
   describe("update", () => {
     it("should call updateServer with correct id and DTO", async () => {
-      const dto: UpdateExternalServerDto = { name: "Updated Name", enabled: true };
+      const dto: UpdateExternalServerDto = {
+        name: "Updated Name",
+        enabled: true,
+      };
       const updated = { id: "db-1", serverId: "s1", name: "Updated Name" };
       registryService.updateServer.mockResolvedValue(updated as never);
 
@@ -132,7 +142,9 @@ describe("MCPExternalAdminController", () => {
     it("should throw NotFoundException when server not found", async () => {
       registryService.findById.mockResolvedValue(null as never);
 
-      await expect(controller.connect("db-999")).rejects.toThrow(NotFoundException);
+      await expect(controller.connect("db-999")).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(controller.connect("db-999")).rejects.toThrow(
         "External MCP server not found: db-999",
       );
@@ -151,9 +163,13 @@ describe("MCPExternalAdminController", () => {
     it("should propagate error from connectServer", async () => {
       const server = { id: "db-1", serverId: "s1", name: "Server 1" };
       registryService.findById.mockResolvedValue(server as never);
-      registryService.connectServer.mockRejectedValue(new Error("Connection failed"));
+      registryService.connectServer.mockRejectedValue(
+        new Error("Connection failed"),
+      );
 
-      await expect(controller.connect("db-1")).rejects.toThrow("Connection failed");
+      await expect(controller.connect("db-1")).rejects.toThrow(
+        "Connection failed",
+      );
     });
   });
 
@@ -163,7 +179,9 @@ describe("MCPExternalAdminController", () => {
     it("should throw NotFoundException when server not found", async () => {
       registryService.findById.mockResolvedValue(null as never);
 
-      await expect(controller.disconnect("db-999")).rejects.toThrow(NotFoundException);
+      await expect(controller.disconnect("db-999")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should disconnect and return status", async () => {
@@ -183,7 +201,9 @@ describe("MCPExternalAdminController", () => {
     it("should throw NotFoundException when server not found", async () => {
       registryService.findById.mockResolvedValue(null as never);
 
-      await expect(controller.listTools("db-999")).rejects.toThrow(NotFoundException);
+      await expect(controller.listTools("db-999")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should return discovered tools", async () => {
@@ -200,9 +220,13 @@ describe("MCPExternalAdminController", () => {
     it("should propagate error from discoverTools", async () => {
       const server = { id: "db-1", serverId: "s1", name: "Server 1" };
       registryService.findById.mockResolvedValue(server as never);
-      registryService.discoverTools.mockRejectedValue(new Error("Discovery failed"));
+      registryService.discoverTools.mockRejectedValue(
+        new Error("Discovery failed"),
+      );
 
-      await expect(controller.listTools("db-1")).rejects.toThrow("Discovery failed");
+      await expect(controller.listTools("db-1")).rejects.toThrow(
+        "Discovery failed",
+      );
     });
   });
 });

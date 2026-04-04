@@ -22,7 +22,9 @@ describe("platform-limits.config", () => {
       expect(PLATFORM_LIMITS[SocialPlatformType.XIAOHONGSHU]).toBeDefined();
       expect(PLATFORM_LIMITS[SocialPlatformType.XIAOHONGSHU].maxTitle).toBe(20);
       expect(PLATFORM_LIMITS[SocialPlatformType.XIAOHONGSHU].maxDigest).toBe(0);
-      expect(PLATFORM_LIMITS[SocialPlatformType.XIAOHONGSHU].maxContent).toBe(1000);
+      expect(PLATFORM_LIMITS[SocialPlatformType.XIAOHONGSHU].maxContent).toBe(
+        1000,
+      );
     });
   });
 

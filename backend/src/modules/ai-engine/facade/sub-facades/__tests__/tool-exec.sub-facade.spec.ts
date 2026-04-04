@@ -18,12 +18,14 @@ let mockLlmAdapter: any;
 let mockCapabilityResolver: any;
 let mockChatFn: jest.MockedFunction<(req: unknown) => Promise<unknown>>;
 
-function createFacade(options: {
-  withRegistry?: boolean;
-  withExecutor?: boolean;
-  withLlmAdapter?: boolean;
-  withCapabilityResolver?: boolean;
-} = {}): ToolExecSubFacade {
+function createFacade(
+  options: {
+    withRegistry?: boolean;
+    withExecutor?: boolean;
+    withLlmAdapter?: boolean;
+    withCapabilityResolver?: boolean;
+  } = {},
+): ToolExecSubFacade {
   const toolFeature = options.withRegistry
     ? {
         registry: mockToolRegistry,
@@ -202,7 +204,11 @@ describe("ToolExecSubFacade", () => {
         execute: jest.fn().mockResolvedValue({
           success: false,
           data: undefined,
-          error: { code: "RATE_LIMIT", message: "Too many requests", retryable: true },
+          error: {
+            code: "RATE_LIMIT",
+            message: "Too many requests",
+            retryable: true,
+          },
           metadata: { tokensUsed: 0 },
         }),
       };
@@ -302,7 +308,10 @@ describe("ToolExecSubFacade", () => {
       mockToolRegistry.tryGet.mockReturnValue(mockTool);
 
       const facade = createFacade({ withRegistry: true });
-      const result = await facade.executeTool({ toolId: "buggy_tool", input: {} });
+      const result = await facade.executeTool({
+        toolId: "buggy_tool",
+        input: {},
+      });
 
       expect(result.error?.message).toBe("plain string error");
     });
@@ -322,8 +331,22 @@ describe("ToolExecSubFacade", () => {
 
     it("should return all enabled tools when no category filter", () => {
       const toolList = [
-        { id: "web_search", name: "Web Search", description: "Search", category: "information", enabled: true, tags: ["search"] },
-        { id: "code_gen", name: "Code Gen", description: "Code", category: "generation", enabled: true, tags: [] },
+        {
+          id: "web_search",
+          name: "Web Search",
+          description: "Search",
+          category: "information",
+          enabled: true,
+          tags: ["search"],
+        },
+        {
+          id: "code_gen",
+          name: "Code Gen",
+          description: "Code",
+          category: "generation",
+          enabled: true,
+          tags: [],
+        },
       ];
       mockToolRegistry.getEnabled.mockReturnValue(toolList);
 
@@ -337,21 +360,37 @@ describe("ToolExecSubFacade", () => {
 
     it("should filter tools by category when provided", () => {
       const infoTools = [
-        { id: "web_search", name: "Web Search", description: "desc", category: "information", enabled: true, tags: [] },
+        {
+          id: "web_search",
+          name: "Web Search",
+          description: "desc",
+          category: "information",
+          enabled: true,
+          tags: [],
+        },
       ];
       mockToolRegistry.getByCategory.mockReturnValue(infoTools);
 
       const facade = createFacade({ withRegistry: true });
       const tools = facade.getAvailableTools("information");
 
-      expect(mockToolRegistry.getByCategory).toHaveBeenCalledWith("information");
+      expect(mockToolRegistry.getByCategory).toHaveBeenCalledWith(
+        "information",
+      );
       expect(tools).toHaveLength(1);
       expect(tools[0].category).toBe("information");
     });
 
     it("should mark tool as enabled=true when tool.enabled is undefined", () => {
       const toolList = [
-        { id: "tool1", name: "Tool 1", description: "desc", category: "processing", enabled: undefined, tags: [] },
+        {
+          id: "tool1",
+          name: "Tool 1",
+          description: "desc",
+          category: "processing",
+          enabled: undefined,
+          tags: [],
+        },
       ];
       mockToolRegistry.getEnabled.mockReturnValue(toolList);
 
@@ -413,13 +452,17 @@ describe("ToolExecSubFacade", () => {
     });
 
     it("should return filtered definitions when toolIds provided", () => {
-      const filteredDefs = [{ name: "web_search", description: "Search", parameters: {} }];
+      const filteredDefs = [
+        { name: "web_search", description: "Search", parameters: {} },
+      ];
       mockToolRegistry.getFunctionDefinitions.mockReturnValue(filteredDefs);
 
       const facade = createFacade({ withRegistry: true });
       const defs = facade.getToolFunctionDefinitions(["web_search"]);
 
-      expect(mockToolRegistry.getFunctionDefinitions).toHaveBeenCalledWith(["web_search"]);
+      expect(mockToolRegistry.getFunctionDefinitions).toHaveBeenCalledWith([
+        "web_search",
+      ]);
       expect(defs).toBe(filteredDefs);
     });
   });
@@ -431,7 +474,9 @@ describe("ToolExecSubFacade", () => {
   describe("getAvailableCapabilities", () => {
     it("should return empty capability summary when no resolver", async () => {
       const facade = createFacade();
-      const result = await facade.getAvailableCapabilities({ agentId: "agent-1" });
+      const result = await facade.getAvailableCapabilities({
+        agentId: "agent-1",
+      });
 
       expect(result.tools).toEqual([]);
       expect(result.skills).toEqual([]);
@@ -442,7 +487,13 @@ describe("ToolExecSubFacade", () => {
       mockCapabilityResolver.resolveAllCapabilities.mockResolvedValue({
         tools: ["web_search", "code_gen"],
         skills: ["research_skill"],
-        mcpTools: [{ serverId: "server-1", toolName: "mcp-tool", description: "MCP tool" }],
+        mcpTools: [
+          {
+            serverId: "server-1",
+            toolName: "mcp-tool",
+            description: "MCP tool",
+          },
+        ],
       });
 
       // Registry lookup for tool details
@@ -454,14 +505,23 @@ describe("ToolExecSubFacade", () => {
             description: "Search the web",
             category: "information",
             enabled: true,
-            toFunctionDefinition: () => ({ name: "web_search", description: "Search", parameters: {} }),
+            toFunctionDefinition: () => ({
+              name: "web_search",
+              description: "Search",
+              parameters: {},
+            }),
           };
         }
         return null;
       });
 
-      const facade = createFacade({ withRegistry: true, withCapabilityResolver: true });
-      const result = await facade.getAvailableCapabilities({ agentId: "agent-1" });
+      const facade = createFacade({
+        withRegistry: true,
+        withCapabilityResolver: true,
+      });
+      const result = await facade.getAvailableCapabilities({
+        agentId: "agent-1",
+      });
 
       expect(result.tools).toHaveLength(2);
       expect(result.tools[0].id).toBe("web_search");
@@ -482,8 +542,13 @@ describe("ToolExecSubFacade", () => {
       });
       mockToolRegistry.tryGet.mockReturnValue(null);
 
-      const facade = createFacade({ withRegistry: true, withCapabilityResolver: true });
-      const result = await facade.getAvailableCapabilities({ agentId: "agent-1" });
+      const facade = createFacade({
+        withRegistry: true,
+        withCapabilityResolver: true,
+      });
+      const result = await facade.getAvailableCapabilities({
+        agentId: "agent-1",
+      });
 
       expect(result.tools[0].name).toBe("unknown_tool");
       expect(result.tools[0].description).toBe("");
@@ -509,7 +574,10 @@ describe("ToolExecSubFacade", () => {
     });
 
     it("should fall back to plain chat when no executor", async () => {
-      const facade = createFacade({ withRegistry: true, withCapabilityResolver: true });
+      const facade = createFacade({
+        withRegistry: true,
+        withCapabilityResolver: true,
+      });
       const result = await facade.chatWithTools({
         messages: [{ role: "user", content: "Test" }],
         context: { agentId: "agent-1" },
@@ -588,7 +656,9 @@ describe("ToolExecSubFacade", () => {
         for (const e of fakeEvents) yield e;
       }
 
-      mockToolExecutor.executeWithContext = jest.fn().mockReturnValue(eventStream());
+      mockToolExecutor.executeWithContext = jest
+        .fn()
+        .mockReturnValue(eventStream());
 
       const facade = createFacade({
         withRegistry: true,

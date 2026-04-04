@@ -3,10 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
+import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ProjectService } from "../project.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
@@ -58,10 +55,7 @@ describe("ProjectService", () => {
     prisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ProjectService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [ProjectService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<ProjectService>(ProjectService);
@@ -147,9 +141,7 @@ describe("ProjectService", () => {
 
       prisma.writingProject.findMany
         .mockResolvedValueOnce([writingProject])
-        .mockResolvedValueOnce([
-          { ...writingProject, status: "REVISING" },
-        ]);
+        .mockResolvedValueOnce([{ ...writingProject, status: "REVISING" }]);
       prisma.writingMission.findFirst.mockResolvedValue(null);
       prisma.writingProject.findUnique.mockResolvedValue(writingProject);
       prisma.writingProject.update.mockResolvedValue({
@@ -235,9 +227,9 @@ describe("ProjectService", () => {
     it("should throw ForbiddenException for non-owner", async () => {
       prisma.writingProject.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.delete("project-1", "other-user"),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.delete("project-1", "other-user")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -293,9 +285,10 @@ describe("ProjectService", () => {
       });
       prisma.writingProject.update.mockResolvedValue(mockProject);
 
-      const result = await service.resetChaptersByNumbers("project-1", [
-        1, 2, 3,
-      ]);
+      const result = await service.resetChaptersByNumbers(
+        "project-1",
+        [1, 2, 3],
+      );
 
       expect(prisma.writingChapter.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({

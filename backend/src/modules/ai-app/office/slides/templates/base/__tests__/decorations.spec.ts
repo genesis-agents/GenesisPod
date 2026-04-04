@@ -63,8 +63,22 @@ function makeFullDecorationConfig(): DecorationConfig {
     geometricShapes: {
       enabled: true,
       shapes: [
-        { type: "circle", x: "80%", y: "20%", size: 50, color: "#D4AF37", opacity: 0.1 },
-        { type: "ring", x: "10%", y: "80%", size: 30, color: "#3B82F6", opacity: 0.15 },
+        {
+          type: "circle",
+          x: "80%",
+          y: "20%",
+          size: 50,
+          color: "#D4AF37",
+          opacity: 0.1,
+        },
+        {
+          type: "ring",
+          x: "10%",
+          y: "80%",
+          size: 30,
+          color: "#3B82F6",
+          opacity: 0.15,
+        },
       ],
     },
   };
@@ -532,11 +546,46 @@ describe("generateDecorationCSS", () => {
       color: string;
       opacity: number;
     }> = [
-      { type: "circle", x: "10%", y: "10%", size: 40, color: "#D4AF37", opacity: 0.1 },
-      { type: "ring", x: "20%", y: "20%", size: 30, color: "#3B82F6", opacity: 0.15 },
-      { type: "diamond", x: "30%", y: "30%", size: 25, color: "#A855F7", opacity: 0.12 },
-      { type: "square", x: "40%", y: "40%", size: 35, color: "#10B981", opacity: 0.08 },
-      { type: "triangle", x: "50%", y: "50%", size: 20, color: "#F97316", opacity: 0.1 },
+      {
+        type: "circle",
+        x: "10%",
+        y: "10%",
+        size: 40,
+        color: "#D4AF37",
+        opacity: 0.1,
+      },
+      {
+        type: "ring",
+        x: "20%",
+        y: "20%",
+        size: 30,
+        color: "#3B82F6",
+        opacity: 0.15,
+      },
+      {
+        type: "diamond",
+        x: "30%",
+        y: "30%",
+        size: 25,
+        color: "#A855F7",
+        opacity: 0.12,
+      },
+      {
+        type: "square",
+        x: "40%",
+        y: "40%",
+        size: 35,
+        color: "#10B981",
+        opacity: 0.08,
+      },
+      {
+        type: "triangle",
+        x: "50%",
+        y: "50%",
+        size: 20,
+        color: "#F97316",
+        opacity: 0.1,
+      },
     ];
 
     const config: DecorationConfig = {
@@ -549,11 +598,11 @@ describe("generateDecorationCSS", () => {
 
     const css = generateDecorationCSS(config);
 
-    expect(css).toContain("border-radius: 50%");  // circle
-    expect(css).toContain("border: 2px solid");    // ring
-    expect(css).toContain("rotate(45deg)");        // diamond
-    expect(css).toContain("border-radius: 4px");   // square
-    expect(css).toContain("border-left:");         // triangle
+    expect(css).toContain("border-radius: 50%"); // circle
+    expect(css).toContain("border: 2px solid"); // ring
+    expect(css).toContain("rotate(45deg)"); // diamond
+    expect(css).toContain("border-radius: 4px"); // square
+    expect(css).toContain("border-left:"); // triangle
   });
 
   it("should include blur CSS for shapes with blur property", () => {
@@ -600,7 +649,12 @@ describe("generateDecorationCSS", () => {
 // ============================================================================
 
 describe("getCornerAccentInlineStyle", () => {
-  const positions = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
+  const positions = [
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right",
+  ] as const;
 
   positions.forEach((position) => {
     it(`should return inline style string for ${position}`, () => {
@@ -675,7 +729,11 @@ describe("getGradientBarInlineStyle", () => {
   });
 
   it("should return inline style for bottom position", () => {
-    const style = getGradientBarInlineStyle("bottom", ["transparent", "#D4AF37", "transparent"]);
+    const style = getGradientBarInlineStyle("bottom", [
+      "transparent",
+      "#D4AF37",
+      "transparent",
+    ]);
 
     expect(style).toContain("bottom: 0;");
     expect(style).toContain("90deg");
@@ -955,11 +1013,22 @@ describe("generateAccentBarCSS", () => {
 // ============================================================================
 
 describe("getTransparentBorderInlineStyle", () => {
-  const positions = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
+  const positions = [
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right",
+  ] as const;
 
   positions.forEach((position) => {
     it(`should return inline style for ${position}`, () => {
-      const style = getTransparentBorderInlineStyle(position, "#D4AF37", 80, 2.5, 0.3);
+      const style = getTransparentBorderInlineStyle(
+        position,
+        "#D4AF37",
+        80,
+        2.5,
+        0.3,
+      );
 
       expect(typeof style).toBe("string");
       expect(style).toContain("position: absolute");
@@ -1004,7 +1073,13 @@ describe("getTransparentBorderInlineStyle", () => {
 
   it("should embed opacity in color hex", () => {
     // opacity 0.5 * 255 = 127.5 -> Math.round(127.5) = 128 -> 80
-    const style = getTransparentBorderInlineStyle("top-left", "#D4AF37", 80, 2.5, 0.5);
+    const style = getTransparentBorderInlineStyle(
+      "top-left",
+      "#D4AF37",
+      80,
+      2.5,
+      0.5,
+    );
 
     expect(style).toContain("80");
   });

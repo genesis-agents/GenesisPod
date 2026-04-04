@@ -11,23 +11,23 @@
 
 ### 当前资产统计
 
-| 类型 | 数量 | 行业基准 | 状态 |
-|------|------|----------|------|
-| Skills (SKILL.md) | 30 | 20-40 | ✅ 优秀 |
-| Subagents | 9 | 5-10 | ✅ 优秀 |
-| Commands | 14 | 10-15 | ✅ 优秀 |
-| Rules (条件规则) | 0 | 5-10 | ❌ 缺失 |
-| Hooks | 0 | 3-5 | ❌ 缺失 |
+| 类型              | 数量 | 行业基准 | 状态    |
+| ----------------- | ---- | -------- | ------- |
+| Skills (SKILL.md) | 30   | 20-40    | ✅ 优秀 |
+| Subagents         | 9    | 5-10     | ✅ 优秀 |
+| Commands          | 14   | 10-15    | ✅ 优秀 |
+| Rules (条件规则)  | 0    | 5-10     | ❌ 缺失 |
+| Hooks             | 0    | 3-5      | ❌ 缺失 |
 
 ### 整体评分
 
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 覆盖度 | ⭐⭐⭐⭐ (4/5) | 领域覆盖全面 |
-| 结构化 | ⭐⭐⭐⭐ (4/5) | 分类清晰，组织合理 |
-| 最佳实践 | ⭐⭐⭐ (3/5) | 部分缺失 frontmatter |
-| 自动化 | ⭐⭐ (2/5) | 缺少 hooks 和条件规则 |
-| 可验证性 | ⭐⭐ (2/5) | 缺少 TDD 和验证机制 |
+| 维度     | 评分           | 说明                  |
+| -------- | -------------- | --------------------- |
+| 覆盖度   | ⭐⭐⭐⭐ (4/5) | 领域覆盖全面          |
+| 结构化   | ⭐⭐⭐⭐ (4/5) | 分类清晰，组织合理    |
+| 最佳实践 | ⭐⭐⭐ (3/5)   | 部分缺失 frontmatter  |
+| 自动化   | ⭐⭐ (2/5)     | 缺少 hooks 和条件规则 |
+| 可验证性 | ⭐⭐ (2/5)     | 缺少 TDD 和验证机制   |
 
 ---
 
@@ -56,20 +56,20 @@
 
 ### 2.2 Superpowers 框架对比
 
-| Superpowers 核心能力 | 本项目对应 | 差距 |
-|---------------------|-----------|------|
-| test-driven-development | testing-suite | 缺少 RED-GREEN-REFACTOR 循环 |
-| systematic-debugging | debug-ops | 缺少 4-phase 根因分析 |
-| verification-before-completion | complex-feature-implementation | 部分覆盖 |
-| brainstorming | prompt-engineering | 缺少苏格拉底式设计精炼 |
-| writing-plans | 无 | ❌ 缺失 |
-| executing-plans | 无 | ❌ 缺失 |
-| dispatching-parallel-agents | 无 | ❌ 缺失 |
-| subagent-driven-development | 部分有 | 缺少两阶段审查 |
-| requesting-code-review | code-reviewer | ✅ 有 |
-| receiving-code-review | 无 | ❌ 缺失 |
-| using-git-worktrees | git-workflow | 缺少并行分支隔离 |
-| finishing-a-development-branch | merge-to-main | ✅ 有 |
+| Superpowers 核心能力           | 本项目对应                     | 差距                         |
+| ------------------------------ | ------------------------------ | ---------------------------- |
+| test-driven-development        | testing-suite                  | 缺少 RED-GREEN-REFACTOR 循环 |
+| systematic-debugging           | debug-ops                      | 缺少 4-phase 根因分析        |
+| verification-before-completion | complex-feature-implementation | 部分覆盖                     |
+| brainstorming                  | prompt-engineering             | 缺少苏格拉底式设计精炼       |
+| writing-plans                  | 无                             | ❌ 缺失                      |
+| executing-plans                | 无                             | ❌ 缺失                      |
+| dispatching-parallel-agents    | 无                             | ❌ 缺失                      |
+| subagent-driven-development    | 部分有                         | 缺少两阶段审查               |
+| requesting-code-review         | code-reviewer                  | ✅ 有                        |
+| receiving-code-review          | 无                             | ❌ 缺失                      |
+| using-git-worktrees            | git-workflow                   | 缺少并行分支隔离             |
+| finishing-a-development-branch | merge-to-main                  | ✅ 有                        |
 
 ---
 
@@ -80,6 +80,7 @@
 #### P0: 必须添加
 
 1. **writing-plans** - 计划编写技能
+
    ```yaml
    ---
    name: writing-plans
@@ -87,9 +88,11 @@
    disable-model-invocation: true
    ---
    ```
+
    **价值**: 确保任务分解合理，避免大块未定义工作
 
 2. **executing-plans** - 计划执行技能
+
    ```yaml
    ---
    name: executing-plans
@@ -97,6 +100,7 @@
    disable-model-invocation: true
    ---
    ```
+
    **价值**: 控制执行节奏，及时获取反馈
 
 3. **verification-skill** - 验证技能
@@ -111,6 +115,7 @@
 #### P1: 建议添加
 
 4. **parallel-investigation** - 并行调查技能
+
    ```yaml
    ---
    name: parallel-investigation
@@ -129,10 +134,14 @@
 
 ```markdown
 # .claude/rules/typescript.md
+
 ---
+
 paths:
-  - "**/*.ts"
-  - "**/*.tsx"
+
+- "\*_/_.ts"
+- "\*_/_.tsx"
+
 ---
 
 # TypeScript 规则
@@ -144,9 +153,13 @@ paths:
 
 ```markdown
 # .claude/rules/ai-engine.md
+
 ---
+
 paths:
-  - "backend/src/modules/ai-engine/**"
+
+- "backend/src/modules/ai-engine/\*\*"
+
 ---
 
 # AI Engine 开发规则
@@ -158,10 +171,14 @@ paths:
 
 ```markdown
 # .claude/rules/testing.md
+
 ---
+
 paths:
-  - "**/*.spec.ts"
-  - "**/*.test.ts"
+
+- "\*_/_.spec.ts"
+- "\*_/_.test.ts"
+
 ---
 
 # 测试规则
@@ -208,16 +225,16 @@ paths:
 
 当前许多 SKILL.md 缺少关键 frontmatter 字段：
 
-| 字段 | 已使用 | 应使用 |
-|------|--------|--------|
-| name | ✅ 部分 | 全部 |
-| description | ✅ 部分 | 全部 |
-| allowed-tools | ✅ 部分 | 全部 |
-| disable-model-invocation | ❌ 无 | 有副作用的技能 |
-| user-invocable | ❌ 无 | 背景知识技能 |
-| context | ❌ 无 | 隔离执行的技能 |
-| model | ❌ 无 | 特定模型需求 |
-| hooks | ❌ 无 | 技能级别钩子 |
+| 字段                     | 已使用  | 应使用         |
+| ------------------------ | ------- | -------------- |
+| name                     | ✅ 部分 | 全部           |
+| description              | ✅ 部分 | 全部           |
+| allowed-tools            | ✅ 部分 | 全部           |
+| disable-model-invocation | ❌ 无   | 有副作用的技能 |
+| user-invocable           | ❌ 无   | 背景知识技能   |
+| context                  | ❌ 无   | 隔离执行的技能 |
+| model                    | ❌ 无   | 特定模型需求   |
+| hooks                    | ❌ 无   | 技能级别钩子   |
 
 ---
 
@@ -290,23 +307,24 @@ skills/
 
 ### 5.1 当前 Agents
 
-| Agent | 职责 | 工具限制 | 模型 | 评价 |
-|-------|------|----------|------|------|
-| architect | 系统架构设计 | 全部 | inherit | ✅ |
-| coder | 代码编写 | 全部 | inherit | ✅ |
-| docs-specialist | 文档处理 | 全部 | inherit | ✅ |
-| merge-to-main | 代码合并 | 部分 | inherit | ✅ |
-| monitoring | 生产监控 | 全部 | inherit | ✅ |
-| pm | 产品管理 | 全部 | inherit | ✅ |
-| reviewer | 代码审查 | Read-only + Edit | sonnet | ✅ |
-| scripts-guardian | 脚本检查 | 部分 | inherit | ✅ |
-| tester | 测试专家 | 全部 | inherit | ✅ |
+| Agent            | 职责         | 工具限制         | 模型    | 评价 |
+| ---------------- | ------------ | ---------------- | ------- | ---- |
+| architect        | 系统架构设计 | 全部             | inherit | ✅   |
+| coder            | 代码编写     | 全部             | inherit | ✅   |
+| docs-specialist  | 文档处理     | 全部             | inherit | ✅   |
+| merge-to-main    | 代码合并     | 部分             | inherit | ✅   |
+| monitoring       | 生产监控     | 全部             | inherit | ✅   |
+| pm               | 产品管理     | 全部             | inherit | ✅   |
+| reviewer         | 代码审查     | Read-only + Edit | sonnet  | ✅   |
+| scripts-guardian | 脚本检查     | 部分             | inherit | ✅   |
+| tester           | 测试专家     | 全部             | inherit | ✅   |
 
 ### 5.2 缺失的 Agents
 
 建议添加：
 
 1. **explorer** - 代码库探索专家
+
    ```yaml
    ---
    name: explorer
@@ -317,6 +335,7 @@ skills/
    ```
 
 2. **security-auditor** - 安全审计专家
+
    ```yaml
    ---
    name: security-auditor
@@ -379,17 +398,16 @@ skills/
 ```yaml
 # 必须的 frontmatter
 ---
-name: skill-name              # 必须：小写字母和连字符
-description: 详细描述           # 必须：Claude 用此决定何时使用
-allowed-tools: Read, Grep     # 推荐：限制工具访问
+name: skill-name # 必须：小写字母和连字符
+description: 详细描述 # 必须：Claude 用此决定何时使用
+allowed-tools: Read, Grep # 推荐：限制工具访问
 ---
-
 # 可选的 frontmatter
-disable-model-invocation: true  # 有副作用的操作
-user-invocable: false           # 背景知识技能
-context: fork                   # 隔离执行
-agent: Explore                  # 指定 subagent
-model: haiku                    # 指定模型
+disable-model-invocation: true # 有副作用的操作
+user-invocable: false # 背景知识技能
+context: fork # 隔离执行
+agent: Explore # 指定 subagent
+model: haiku # 指定模型
 ```
 
 ### Skill 内容最佳实践

@@ -76,10 +76,9 @@ test.describe("AI Planning UI (/ai-planning)", () => {
 
     const hasCreate =
       (await createButton.count()) > 0 || (await createLink.count()) > 0;
-    expect(
-      hasCreate,
-      "Planning page should have a create plan option",
-    ).toBe(true);
+    expect(hasCreate, "Planning page should have a create plan option").toBe(
+      true,
+    );
   });
 });
 
@@ -111,7 +110,7 @@ test.describe("Planning API — Plans", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.plans ?? [];
+      : (payload.items ?? payload.plans ?? []);
     expect(Array.isArray(list), "Plans should be an array").toBe(true);
   });
 
@@ -145,17 +144,17 @@ test.describe("Planning API — Plans", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const listRes = await page.request.get(
-      `${apiBase}/api/v1/planning/plans`,
-      { headers, timeout: 15000 },
-    );
+    const listRes = await page.request.get(`${apiBase}/api/v1/planning/plans`, {
+      headers,
+      timeout: 15000,
+    });
     if (!listRes.ok()) return;
 
     const listBody = await listRes.json();
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.plans ?? [];
+      : (listPayload.items ?? listPayload.plans ?? []);
     if (list.length === 0) return;
 
     const planId = list[0].id ?? list[0]._id;

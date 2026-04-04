@@ -119,26 +119,22 @@ describe("GoogleDriveController", () => {
     };
 
     importService = {
-      importFiles: jest
-        .fn()
-        .mockResolvedValue({
-          imported: 2,
-          totalFiles: 2,
-          failed: 0,
-          errors: [],
-        }),
+      importFiles: jest.fn().mockResolvedValue({
+        imported: 2,
+        totalFiles: 2,
+        failed: 0,
+        errors: [],
+      }),
     };
 
     exportService = {
-      exportResources: jest
-        .fn()
-        .mockResolvedValue({
-          exported: 1,
-          totalResources: 1,
-          failed: 0,
-          fileIds: ["f1"],
-          errors: [],
-        }),
+      exportResources: jest.fn().mockResolvedValue({
+        exported: 1,
+        totalResources: 1,
+        failed: 0,
+        fileIds: ["f1"],
+        errors: [],
+      }),
     };
 
     syncService = {

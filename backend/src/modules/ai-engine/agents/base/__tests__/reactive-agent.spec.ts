@@ -130,7 +130,9 @@ describe("ReactiveAgent", () => {
   describe("execute – direct LLM response", () => {
     it("returns success with processed output when LLM responds without tool calls", async () => {
       const adapter: ILLMAdapter = {
-        chat: jest.fn().mockResolvedValue(makeLLMResponse({ content: "Direct answer" })),
+        chat: jest
+          .fn()
+          .mockResolvedValue(makeLLMResponse({ content: "Direct answer" })),
       } as unknown as ILLMAdapter;
       agent.setLLMAdapter(adapter);
 
@@ -149,7 +151,9 @@ describe("ReactiveAgent", () => {
     it("executes tool call and processes final response", async () => {
       const toolResult = { success: true, data: { hits: ["result1"] } };
       const tool = { execute: jest.fn().mockResolvedValue(toolResult) };
-      const registry = { tryGet: jest.fn().mockReturnValue(tool) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       let callCount = 0;
@@ -161,7 +165,12 @@ describe("ReactiveAgent", () => {
             return makeLLMResponse({
               content: "",
               toolCalls: [
-                { id: "call-1", type: "function" as const, name: "search", arguments: { q: "AI" } },
+                {
+                  id: "call-1",
+                  type: "function" as const,
+                  name: "search",
+                  arguments: { q: "AI" },
+                },
               ],
             });
           }
@@ -181,7 +190,9 @@ describe("ReactiveAgent", () => {
     it("records tool call in processOutput's toolResults argument", async () => {
       const toolResult = { success: true, data: "found" };
       const tool = { execute: jest.fn().mockResolvedValue(toolResult) };
-      const registry = { tryGet: jest.fn().mockReturnValue(tool) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       let iteration = 0;
@@ -189,7 +200,17 @@ describe("ReactiveAgent", () => {
         chat: jest.fn().mockImplementation(async () => {
           iteration++;
           return iteration === 1
-            ? makeLLMResponse({ content: "", toolCalls: [{ id: "c1", type: "function" as const, name: "search", arguments: {} }] })
+            ? makeLLMResponse({
+                content: "",
+                toolCalls: [
+                  {
+                    id: "c1",
+                    type: "function" as const,
+                    name: "search",
+                    arguments: {},
+                  },
+                ],
+              })
             : makeLLMResponse({ content: "done" });
         }),
       } as unknown as ILLMAdapter;
@@ -215,7 +236,9 @@ describe("ReactiveAgent", () => {
 
   describe("execute – tool call failure", () => {
     it("records tool failure and continues to next LLM call", async () => {
-      const registry = { tryGet: jest.fn().mockReturnValue(undefined) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(undefined),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       let iteration = 0;
@@ -223,7 +246,17 @@ describe("ReactiveAgent", () => {
         chat: jest.fn().mockImplementation(async () => {
           iteration++;
           return iteration === 1
-            ? makeLLMResponse({ content: "", toolCalls: [{ id: "c1", type: "function" as const, name: "search", arguments: {} }] })
+            ? makeLLMResponse({
+                content: "",
+                toolCalls: [
+                  {
+                    id: "c1",
+                    type: "function" as const,
+                    name: "search",
+                    arguments: {},
+                  },
+                ],
+              })
             : makeLLMResponse({ content: "fallback answer" });
         }),
       } as unknown as ILLMAdapter;
@@ -247,7 +280,11 @@ describe("ReactiveAgent", () => {
 
   describe("execute – max iterations", () => {
     it("returns failure result when maxIterations is exhausted", async () => {
-      const registry = { tryGet: jest.fn().mockReturnValue({ execute: jest.fn().mockResolvedValue({ success: true, data: null }) }) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue({
+          execute: jest.fn().mockResolvedValue({ success: true, data: null }),
+        }),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       // Always respond with a tool call → infinite loop, but capped by maxIterations
@@ -255,7 +292,14 @@ describe("ReactiveAgent", () => {
         chat: jest.fn().mockResolvedValue(
           makeLLMResponse({
             content: "",
-            toolCalls: [{ id: "c1", type: "function" as const, name: "search", arguments: {} }],
+            toolCalls: [
+              {
+                id: "c1",
+                type: "function" as const,
+                name: "search",
+                arguments: {},
+              },
+            ],
           }),
         ),
       } as unknown as ILLMAdapter;
@@ -285,7 +329,10 @@ describe("ReactiveAgent", () => {
       } as unknown as ILLMAdapter;
       agent.setLLMAdapter(adapter);
 
-      const result = await agent.execute(makeInput(), makeContext({ signal: controller.signal }));
+      const result = await agent.execute(
+        makeInput(),
+        makeContext({ signal: controller.signal }),
+      );
       expect(result.success).toBe(false);
       expect(result.error?.message).toMatch(/cancelled/i);
     });
@@ -298,7 +345,9 @@ describe("ReactiveAgent", () => {
   describe("executeStream", () => {
     it("yields started, thinking, message, and completed events on success", async () => {
       const adapter: ILLMAdapter = {
-        chat: jest.fn().mockResolvedValue(makeLLMResponse({ content: "streamed answer" })),
+        chat: jest
+          .fn()
+          .mockResolvedValue(makeLLMResponse({ content: "streamed answer" })),
       } as unknown as ILLMAdapter;
       agent.setLLMAdapter(adapter);
 
@@ -316,8 +365,12 @@ describe("ReactiveAgent", () => {
     });
 
     it("yields tool_call and tool_result events during tool execution", async () => {
-      const tool = { execute: jest.fn().mockResolvedValue({ success: true, data: "found" }) };
-      const registry = { tryGet: jest.fn().mockReturnValue(tool) } as unknown as ToolRegistry;
+      const tool = {
+        execute: jest.fn().mockResolvedValue({ success: true, data: "found" }),
+      };
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       let iteration = 0;
@@ -325,7 +378,17 @@ describe("ReactiveAgent", () => {
         chat: jest.fn().mockImplementation(async () => {
           iteration++;
           return iteration === 1
-            ? makeLLMResponse({ content: "", toolCalls: [{ id: "c1", type: "function" as const, name: "search", arguments: {} }] })
+            ? makeLLMResponse({
+                content: "",
+                toolCalls: [
+                  {
+                    id: "c1",
+                    type: "function" as const,
+                    name: "search",
+                    arguments: {},
+                  },
+                ],
+              })
             : makeLLMResponse({ content: "final" });
         }),
       } as unknown as ILLMAdapter;
@@ -351,7 +414,10 @@ describe("ReactiveAgent", () => {
       } as unknown as ILLMAdapter;
       agent.setLLMAdapter(adapter);
 
-      const gen = agent.executeStream(makeInput(), makeContext({ signal: controller.signal }));
+      const gen = agent.executeStream(
+        makeInput(),
+        makeContext({ signal: controller.signal }),
+      );
       const types: string[] = [];
 
       for await (const event of gen) {
@@ -400,7 +466,10 @@ describe("ReactiveAgent", () => {
     });
 
     it("merges custom config with defaults", () => {
-      const custom = new TestReactiveAgent({ maxIterations: 5, autoExecuteTools: false });
+      const custom = new TestReactiveAgent({
+        maxIterations: 5,
+        autoExecuteTools: false,
+      });
       const cfg = (custom as unknown as { config: ReactAgentConfig }).config;
       expect(cfg.maxIterations).toBe(5);
       expect(cfg.autoExecuteTools).toBe(false);

@@ -2,7 +2,12 @@ import { Injectable, Logger } from "@nestjs/common";
 
 // ─── Types ───
 
-export type SidecarCategory = "finding" | "decision" | "source" | "insight" | "error";
+export type SidecarCategory =
+  | "finding"
+  | "decision"
+  | "source"
+  | "insight"
+  | "error";
 
 export interface SidecarEntry {
   timestamp: Date;
@@ -152,7 +157,13 @@ export class SessionMemorySidecarService {
     const limit = maxChars ?? session.config.maxSummaryChars;
 
     // Prioritize: findings > insights > decisions > sources > errors
-    const priorityOrder: SidecarCategory[] = ["finding", "insight", "decision", "source", "error"];
+    const priorityOrder: SidecarCategory[] = [
+      "finding",
+      "insight",
+      "decision",
+      "source",
+      "error",
+    ];
     const lines: string[] = [
       `[Session Memory — ${session.entries.length} items, ${session.compactionCount} compactions]\n`,
     ];

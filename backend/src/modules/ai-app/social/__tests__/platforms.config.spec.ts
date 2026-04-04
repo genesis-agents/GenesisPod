@@ -44,11 +44,15 @@ describe("platforms.config", () => {
     });
 
     it("WECHAT_MP should not need click login", () => {
-      expect(PLATFORM_CONFIGS[SocialPlatformType.WECHAT_MP].needClickLogin).toBe(false);
+      expect(
+        PLATFORM_CONFIGS[SocialPlatformType.WECHAT_MP].needClickLogin,
+      ).toBe(false);
     });
 
     it("XIAOHONGSHU should need click login", () => {
-      expect(PLATFORM_CONFIGS[SocialPlatformType.XIAOHONGSHU].needClickLogin).toBe(true);
+      expect(
+        PLATFORM_CONFIGS[SocialPlatformType.XIAOHONGSHU].needClickLogin,
+      ).toBe(true);
     });
   });
 

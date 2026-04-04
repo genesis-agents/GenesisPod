@@ -266,11 +266,19 @@ describe("HierarchicalMemoryCascadeService", () => {
       );
 
       // Resolve scoped only to project confirms the value is there
-      const ra = service.resolve({ projectId, sessionId: "no-session", key: "finding-a" });
+      const ra = service.resolve({
+        projectId,
+        sessionId: "no-session",
+        key: "finding-a",
+      });
       expect(ra?.resolvedFrom).toBe("project");
       expect(ra?.value).toBe("result-a");
 
-      const rb = service.resolve({ projectId, sessionId: "no-session", key: "finding-b" });
+      const rb = service.resolve({
+        projectId,
+        sessionId: "no-session",
+        key: "finding-b",
+      });
       expect(rb?.resolvedFrom).toBe("project");
       expect(rb?.value).toBe("result-b");
     });

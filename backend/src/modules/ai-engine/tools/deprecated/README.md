@@ -6,11 +6,11 @@ This directory contains tools that have been **disabled for security reasons**.
 
 These tools pose significant **Remote Code Execution (RCE)** risks:
 
-| Tool | Risk | Alternative |
-|------|------|-------------|
-| `PythonExecutorTool` | Arbitrary Python code execution | `ContainerExecutorTool` |
-| `JavaScriptExecutorTool` | Arbitrary JavaScript execution | `ContainerExecutorTool` |
-| `ShellExecutorTool` | Arbitrary shell commands | `ContainerExecutorTool` |
+| Tool                     | Risk                            | Alternative             |
+| ------------------------ | ------------------------------- | ----------------------- |
+| `PythonExecutorTool`     | Arbitrary Python code execution | `ContainerExecutorTool` |
+| `JavaScriptExecutorTool` | Arbitrary JavaScript execution  | `ContainerExecutorTool` |
+| `ShellExecutorTool`      | Arbitrary shell commands        | `ContainerExecutorTool` |
 
 ## Security Reference
 
@@ -20,6 +20,7 @@ These tools pose significant **Remote Code Execution (RCE)** risks:
 ## Safe Alternative
 
 Use `ContainerExecutorTool` which provides:
+
 - Docker container isolation
 - Resource limits (CPU, memory)
 - Network isolation
@@ -40,4 +41,4 @@ If you absolutely need these tools for a controlled environment:
 
 ---
 
-*Last updated: 2025-01-24*
+_Last updated: 2025-01-24_

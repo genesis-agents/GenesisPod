@@ -82,9 +82,7 @@ describe("PubMedConnector", () => {
       expect(results).toHaveLength(2);
       expect(results[0].sourceType).toBe(DataSourceType.PUBMED);
       expect(results[0].title).toBe("COVID-19 Treatment Study");
-      expect(results[0].url).toBe(
-        "https://pubmed.ncbi.nlm.nih.gov/12345678/",
-      );
+      expect(results[0].url).toBe("https://pubmed.ncbi.nlm.nih.gov/12345678/");
       expect(results[0].domain).toBe("pubmed.ncbi.nlm.nih.gov");
       expect(results[0].metadata?.pmid).toBe("12345678");
       expect(results[0].metadata?.journal).toBe(
@@ -189,13 +187,12 @@ describe("PubMedConnector", () => {
     });
 
     it("should cap maxResults at 50", async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            esearchresult: { idlist: [] },
-          }),
-        });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          esearchresult: { idlist: [] },
+        }),
+      });
 
       await connector.search("test", 200);
 

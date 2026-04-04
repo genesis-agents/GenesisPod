@@ -184,7 +184,9 @@ describe("AiChatLLMAdapter", () => {
   describe("getDefaultModel", () => {
     it("should return a string fallback model", async () => {
       // When configService returns a string, getDefaultModel uses it as fallback
-      mockConfigService.get.mockImplementation((key: string, defaultVal: string) => defaultVal || "gemini");
+      mockConfigService.get.mockImplementation(
+        (key: string, defaultVal: string) => defaultVal || "gemini",
+      );
       adapter.clearCache();
       const model = await adapter.getDefaultModel();
       // This should be "gemini" (the default value passed to configService.get)

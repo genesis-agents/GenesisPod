@@ -155,7 +155,9 @@ describe("SequentialExecutor", () => {
           .fn()
           .mockResolvedValue({ success: true, data: "output-1" }),
       };
-      mockToolRegistry.tryGet.mockReturnValue(tool as unknown as ReturnType<ToolRegistry["tryGet"]>);
+      mockToolRegistry.tryGet.mockReturnValue(
+        tool as unknown as ReturnType<ToolRegistry["tryGet"]>,
+      );
       executor.setRegistries(
         mockToolRegistry as unknown as ToolRegistry,
         {} as SkillRegistry,
@@ -217,9 +219,15 @@ describe("SequentialExecutor", () => {
       });
 
       mockToolRegistry.tryGet
-        .mockReturnValueOnce(makeTool("tool-a") as unknown as ReturnType<ToolRegistry["tryGet"]>)
-        .mockReturnValueOnce(makeTool("tool-b") as unknown as ReturnType<ToolRegistry["tryGet"]>)
-        .mockReturnValueOnce(makeTool("tool-c") as unknown as ReturnType<ToolRegistry["tryGet"]>);
+        .mockReturnValueOnce(
+          makeTool("tool-a") as unknown as ReturnType<ToolRegistry["tryGet"]>,
+        )
+        .mockReturnValueOnce(
+          makeTool("tool-b") as unknown as ReturnType<ToolRegistry["tryGet"]>,
+        )
+        .mockReturnValueOnce(
+          makeTool("tool-c") as unknown as ReturnType<ToolRegistry["tryGet"]>,
+        );
 
       executor.setRegistries(
         mockToolRegistry as unknown as ToolRegistry,
@@ -268,11 +276,11 @@ describe("SequentialExecutor", () => {
 
     it("should stop processing remaining steps after cancellation", async () => {
       const tool = {
-        execute: jest
-          .fn()
-          .mockResolvedValue({ success: true, data: "ran" }),
+        execute: jest.fn().mockResolvedValue({ success: true, data: "ran" }),
       };
-      mockToolRegistry.tryGet.mockReturnValue(tool as unknown as ReturnType<ToolRegistry["tryGet"]>);
+      mockToolRegistry.tryGet.mockReturnValue(
+        tool as unknown as ReturnType<ToolRegistry["tryGet"]>,
+      );
       executor.setRegistries(
         mockToolRegistry as unknown as ToolRegistry,
         {} as SkillRegistry,
@@ -317,7 +325,9 @@ describe("SequentialExecutor", () => {
           .fn()
           .mockResolvedValue({ success: false, error: { message: "boom" } }),
       };
-      mockToolRegistry.tryGet.mockReturnValue(tool as unknown as ReturnType<ToolRegistry["tryGet"]>);
+      mockToolRegistry.tryGet.mockReturnValue(
+        tool as unknown as ReturnType<ToolRegistry["tryGet"]>,
+      );
       executor.setRegistries(
         mockToolRegistry as unknown as ToolRegistry,
         {} as SkillRegistry,
@@ -339,11 +349,14 @@ describe("SequentialExecutor", () => {
 
     it("should abort workflow and emit workflow_failed when onError.strategy is abort", async () => {
       const tool = {
-        execute: jest
-          .fn()
-          .mockResolvedValue({ success: false, error: { message: "step error" } }),
+        execute: jest.fn().mockResolvedValue({
+          success: false,
+          error: { message: "step error" },
+        }),
       };
-      mockToolRegistry.tryGet.mockReturnValue(tool as unknown as ReturnType<ToolRegistry["tryGet"]>);
+      mockToolRegistry.tryGet.mockReturnValue(
+        tool as unknown as ReturnType<ToolRegistry["tryGet"]>,
+      );
       executor.setRegistries(
         mockToolRegistry as unknown as ToolRegistry,
         {} as SkillRegistry,
@@ -386,7 +399,10 @@ describe("SequentialExecutor", () => {
     it("should continue to next step when onError.strategy is skip", async () => {
       const tool = jest.fn();
       tool
-        .mockResolvedValueOnce({ success: false, error: { message: "skip me" } })
+        .mockResolvedValueOnce({
+          success: false,
+          error: { message: "skip me" },
+        })
         .mockResolvedValueOnce({ success: true, data: "step-2 output" });
 
       mockToolRegistry.tryGet.mockReturnValue({
@@ -474,11 +490,11 @@ describe("SequentialExecutor", () => {
   describe("result structure", () => {
     it("should include stepResults array in result", async () => {
       const tool = {
-        execute: jest
-          .fn()
-          .mockResolvedValue({ success: true, data: "out" }),
+        execute: jest.fn().mockResolvedValue({ success: true, data: "out" }),
       };
-      mockToolRegistry.tryGet.mockReturnValue(tool as unknown as ReturnType<ToolRegistry["tryGet"]>);
+      mockToolRegistry.tryGet.mockReturnValue(
+        tool as unknown as ReturnType<ToolRegistry["tryGet"]>,
+      );
       executor.setRegistries(
         mockToolRegistry as unknown as ToolRegistry,
         {} as SkillRegistry,

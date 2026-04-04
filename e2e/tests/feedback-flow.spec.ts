@@ -129,7 +129,7 @@ test.describe("Feedback API", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.feedbacks ?? [];
+      : (payload.items ?? payload.feedbacks ?? []);
     expect(Array.isArray(list), "Feedback should be an array").toBe(true);
   });
 

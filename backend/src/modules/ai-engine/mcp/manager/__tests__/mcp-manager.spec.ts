@@ -26,7 +26,10 @@ const mockCreateMCPClient = createMCPClient as jest.MockedFunction<
 
 // ----- helpers -----
 
-function makeConfig(id: string, overrides?: Partial<MCPServerConfig>): MCPServerConfig {
+function makeConfig(
+  id: string,
+  overrides?: Partial<MCPServerConfig>,
+): MCPServerConfig {
   return {
     id,
     name: `Server-${id}`,
@@ -138,7 +141,9 @@ describe("MCPManager", () => {
 
     it("should update when server already exists", async () => {
       manager.registerServer(makeConfig("s1", { url: "http://old" }));
-      await manager.registerOrUpdateServer(makeConfig("s1", { url: "http://updated" }));
+      await manager.registerOrUpdateServer(
+        makeConfig("s1", { url: "http://updated" }),
+      );
 
       const configs = manager.getServerConfigs();
       expect(configs.find((c) => c.id === "s1")?.url).toBe("http://updated");
@@ -182,7 +187,9 @@ describe("MCPManager", () => {
     });
 
     it("should throw when server is not registered", async () => {
-      await expect(manager.connect("unknown")).rejects.toThrow("not registered");
+      await expect(manager.connect("unknown")).rejects.toThrow(
+        "not registered",
+      );
     });
 
     it("should not reconnect an already connected client", async () => {
@@ -367,7 +374,11 @@ describe("MCPManager", () => {
     it("should return a map of serverId -> tools for connected clients", async () => {
       const c1 = makeMockClient("s1");
       const mockTools: MCPTool[] = [
-        { name: "search", description: "Search", inputSchema: { type: "object" } },
+        {
+          name: "search",
+          description: "Search",
+          inputSchema: { type: "object" },
+        },
       ];
       c1.listTools.mockResolvedValue(mockTools);
       mockCreateMCPClient.mockReturnValueOnce(c1 as any);
@@ -443,14 +454,16 @@ describe("MCPManager", () => {
 
       const result = await manager.callTool("s1", "search", { query: "test" });
 
-      expect(mockClient.callTool).toHaveBeenCalledWith("search", { query: "test" });
+      expect(mockClient.callTool).toHaveBeenCalledWith("search", {
+        query: "test",
+      });
       expect(result).toEqual(mockResult);
     });
 
     it("should throw when the server is not found", async () => {
-      await expect(
-        manager.callTool("unknown", "tool", {}),
-      ).rejects.toThrow("not found");
+      await expect(manager.callTool("unknown", "tool", {})).rejects.toThrow(
+        "not found",
+      );
     });
 
     it("should throw when the client is not connected", async () => {
@@ -462,9 +475,9 @@ describe("MCPManager", () => {
       await manager.connect("s1");
       mockClient.connected = false;
 
-      await expect(
-        manager.callTool("s1", "tool", {}),
-      ).rejects.toThrow("not connected");
+      await expect(manager.callTool("s1", "tool", {})).rejects.toThrow(
+        "not connected",
+      );
     });
   });
 
@@ -473,9 +486,15 @@ describe("MCPManager", () => {
   describe("callToolAuto", () => {
     it("should auto-route to the server that provides the tool", async () => {
       const mockClient = makeMockClient("s1");
-      const tool: MCPTool = { name: "magic-tool", description: "magic", inputSchema: { type: "object" } };
+      const tool: MCPTool = {
+        name: "magic-tool",
+        description: "magic",
+        inputSchema: { type: "object" },
+      };
       mockClient.listTools.mockResolvedValue([tool]);
-      const mockResult: MCPToolResult = { content: [{ type: "text", text: "ok" }] };
+      const mockResult: MCPToolResult = {
+        content: [{ type: "text", text: "ok" }],
+      };
       mockClient.callTool.mockResolvedValue(mockResult);
       mockCreateMCPClient.mockReturnValueOnce(mockClient as any);
 

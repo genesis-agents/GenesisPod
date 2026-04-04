@@ -1,5 +1,9 @@
 import { BaseTool, createTool } from "../base-tool";
-import { ToolCategory, ToolContext, JSONSchema } from "../../abstractions/tool.interface";
+import {
+  ToolCategory,
+  ToolContext,
+  JSONSchema,
+} from "../../abstractions/tool.interface";
 import { ToolError } from "../../../core/errors";
 
 // ============================================================================
@@ -174,7 +178,10 @@ describe("BaseTool", () => {
       const controller = new AbortController();
       controller.abort();
       const ctx = createMockContext({ signal: controller.signal });
-      const spy = jest.spyOn(tool as unknown as { doExecute: jest.Mock }, "doExecute");
+      const spy = jest.spyOn(
+        tool as unknown as { doExecute: jest.Mock },
+        "doExecute",
+      );
 
       await tool.execute({ value: "x" }, ctx);
 
@@ -194,7 +201,9 @@ describe("BaseTool", () => {
     });
 
     it("should return failure result when doExecute throws a ToolError", async () => {
-      tool.setThrowError(ToolError.executionFailed("test-tool", "custom reason"));
+      tool.setThrowError(
+        ToolError.executionFailed("test-tool", "custom reason"),
+      );
       const ctx = createMockContext();
       const result = await tool.execute({ value: "x" }, ctx);
 
@@ -517,7 +526,10 @@ describe("createTool", () => {
   it("should use provided validate function", () => {
     const tool = createTool({
       ...baseOptions,
-      validate: (_input: { query: string }) => ({ valid: false, errors: [{ message: "bad" }] }),
+      validate: (_input: { query: string }) => ({
+        valid: false,
+        errors: [{ message: "bad" }],
+      }),
     });
     const validation = tool.validateInput!({ query: "any" });
     expect(validation).toEqual({ valid: false, errors: [{ message: "bad" }] });

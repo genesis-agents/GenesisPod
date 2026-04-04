@@ -217,7 +217,8 @@ export class FunctionCallingExecutor {
     @Optional() private readonly mcpManager?: MCPManager,
     @Optional() private readonly queryLoop?: QueryLoopService,
     @Optional() private readonly tokenTracker?: TokenTrackerService,
-    @Optional() private readonly contextCompaction?: ContextCompactionPipelineService,
+    @Optional()
+    private readonly contextCompaction?: ContextCompactionPipelineService,
     @Optional() private readonly checkpoint?: ExecutionCheckpointService,
     @Optional() private readonly toolConcurrency?: ToolConcurrencyService,
     @Optional() private readonly modelFallback?: ModelFallbackService,
@@ -243,7 +244,9 @@ export class FunctionCallingExecutor {
     };
     const startTime = Date.now();
 
-    const executionId = context.executionId || `exec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const executionId =
+      context.executionId ||
+      `exec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     this.tokenTracker?.createSession(executionId);
 
     const metrics: ExecutionMetrics = {
@@ -312,7 +315,9 @@ export class FunctionCallingExecutor {
             for (const compactedMsg of compactionResult.messages) {
               // Try to find the original message to preserve tool fields
               const original = originalMessages.find(
-                (o) => o.role === compactedMsg.role && o.content === compactedMsg.content,
+                (o) =>
+                  o.role === compactedMsg.role &&
+                  o.content === compactedMsg.content,
               );
               if (original) {
                 messages.push(original); // preserve all original fields
@@ -332,7 +337,9 @@ export class FunctionCallingExecutor {
             if (this.sidecar) {
               const summary = this.sidecar.onCompaction(executionId);
               if (summary) {
-                const insertIdx = messages.findIndex((m) => m.role !== "system");
+                const insertIdx = messages.findIndex(
+                  (m) => m.role !== "system",
+                );
                 if (insertIdx >= 0) {
                   messages.splice(insertIdx, 0, {
                     role: "system" as const,
@@ -356,7 +363,9 @@ export class FunctionCallingExecutor {
           response = await llmAdapter.chat(primaryRequestOptions);
         } catch (error) {
           if (this.modelFallback) {
-            this.logger.warn(`[execute] Primary model failed, attempting fallback`);
+            this.logger.warn(
+              `[execute] Primary model failed, attempting fallback`,
+            );
             const fallbackResult = await this.modelFallback.executeWithFallback(
               primaryRequestOptions.model || "",
               async (modelConfig) => {
@@ -524,18 +533,24 @@ export class FunctionCallingExecutor {
                   input,
                   context,
                   cfg.enableRetry,
-                ).then((toolResult) => ({ toolId, toolCall, input, toolResult }));
+                ).then((toolResult) => ({
+                  toolId,
+                  toolCall,
+                  input,
+                  toolResult,
+                }));
               }),
             );
 
-            for (const settled of groupResults) {
+            for (const [settledIdx, settled] of groupResults.entries()) {
               if (settled.status === "fulfilled" && settled.value !== null) {
-                const { toolId, toolCall, input, toolResult } = settled.value as {
-                  toolId: string;
-                  toolCall: ToolCallRequest;
-                  input: unknown;
-                  toolResult: ToolResult;
-                };
+                const { toolId, toolCall, input, toolResult } =
+                  settled.value as {
+                    toolId: string;
+                    toolCall: ToolCallRequest;
+                    input: unknown;
+                    toolResult: ToolResult;
+                  };
 
                 metrics.toolCalls++;
 
@@ -561,7 +576,11 @@ export class FunctionCallingExecutor {
                 };
 
                 // ★ Phase 7: SessionMemorySidecar — record meaningful tool findings
-                if (this.sidecar && toolResult.success && toolResult.data !== undefined) {
+                if (
+                  this.sidecar &&
+                  toolResult.success &&
+                  toolResult.data !== undefined
+                ) {
                   const dataStr =
                     typeof toolResult.data === "string"
                       ? toolResult.data
@@ -584,6 +603,37 @@ export class FunctionCallingExecutor {
                       : { error: toolResult.error },
                   ),
                 );
+              } else if (settled.status === "rejected") {
+                const rejectedToolId = group[settledIdx];
+                const rejectedToolCall = rejectedToolId
+                  ? toolCallByName.get(rejectedToolId)
+                  : undefined;
+                metrics.toolCalls++;
+                metrics.failedToolCalls++;
+                const reason =
+                  settled.reason instanceof Error
+                    ? settled.reason.message
+                    : String(settled.reason);
+                this.logger.warn(
+                  `[execute] Parallel tool rejected: ${rejectedToolId} — ${reason}`,
+                );
+                if (rejectedToolId) {
+                  yield {
+                    type: "tool_result" as const,
+                    tool: rejectedToolId,
+                    output: { error: reason },
+                    duration: 0,
+                  };
+                }
+                if (rejectedToolCall) {
+                  messages.push(
+                    llmAdapter.buildToolResultMessage(
+                      rejectedToolCall.id,
+                      rejectedToolCall.name,
+                      { error: reason },
+                    ),
+                  );
+                }
               }
             }
           }
@@ -631,7 +681,11 @@ export class FunctionCallingExecutor {
             };
 
             // ★ Phase 7: SessionMemorySidecar — record meaningful tool findings
-            if (this.sidecar && toolResult.success && toolResult.data !== undefined) {
+            if (
+              this.sidecar &&
+              toolResult.success &&
+              toolResult.data !== undefined
+            ) {
               const dataStr =
                 typeof toolResult.data === "string"
                   ? toolResult.data
@@ -655,7 +709,6 @@ export class FunctionCallingExecutor {
               ),
             );
           }
-
         } else {
           // Original serial execution
           for (const toolCall of toolCalls) {
@@ -717,7 +770,11 @@ export class FunctionCallingExecutor {
             };
 
             // ★ Phase 7: SessionMemorySidecar — record meaningful tool findings
-            if (this.sidecar && toolResult.success && toolResult.data !== undefined) {
+            if (
+              this.sidecar &&
+              toolResult.success &&
+              toolResult.data !== undefined
+            ) {
               const dataStr =
                 typeof toolResult.data === "string"
                   ? toolResult.data
@@ -734,7 +791,9 @@ export class FunctionCallingExecutor {
             const toolResultMessage = llmAdapter.buildToolResultMessage(
               toolCall.id,
               toolCall.name,
-              toolResult.success ? toolResult.data : { error: toolResult.error },
+              toolResult.success
+                ? toolResult.data
+                : { error: toolResult.error },
             );
             messages.push(toolResultMessage);
           }
@@ -861,9 +920,7 @@ export class FunctionCallingExecutor {
       metrics.toolCalls < cfg.maxToolCalls
     ) {
       metrics.iterations++;
-      this.logger.log(
-        `[resumeFromCheckpoint] Iteration ${metrics.iterations}`,
-      );
+      this.logger.log(`[resumeFromCheckpoint] Iteration ${metrics.iterations}`);
 
       let response: LLMResponse;
       try {
@@ -873,9 +930,7 @@ export class FunctionCallingExecutor {
           tool_choice: "auto",
         });
       } catch (error) {
-        this.logger.error(
-          `[resumeFromCheckpoint] LLM call failed: ${error}`,
-        );
+        this.logger.error(`[resumeFromCheckpoint] LLM call failed: ${error}`);
         yield {
           type: "error",
           error: error instanceof Error ? error.message : "LLM call failed",
@@ -1281,7 +1336,9 @@ export class FunctionCallingExecutor {
     };
     const startTime = Date.now();
 
-    const executionId = context.executionId || `exec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const executionId =
+      context.executionId ||
+      `exec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     this.tokenTracker?.createSession(executionId);
 
     const metrics: ExecutionMetrics = {
@@ -1368,7 +1425,9 @@ export class FunctionCallingExecutor {
             for (const compactedMsg of compactionResult.messages) {
               // Try to find the original message to preserve tool fields
               const original = originalMessages.find(
-                (o) => o.role === compactedMsg.role && o.content === compactedMsg.content,
+                (o) =>
+                  o.role === compactedMsg.role &&
+                  o.content === compactedMsg.content,
               );
               if (original) {
                 messages.push(original); // preserve all original fields
@@ -1560,11 +1619,16 @@ export class FunctionCallingExecutor {
                   input,
                   context,
                   cfg.enableRetry,
-                ).then((toolResult) => ({ toolId, toolCall, input, toolResult }));
+                ).then((toolResult) => ({
+                  toolId,
+                  toolCall,
+                  input,
+                  toolResult,
+                }));
               }),
             );
 
-            for (const settled of groupResults) {
+            for (const [settledIdx, settled] of groupResults.entries()) {
               if (
                 settled.status === "fulfilled" &&
                 settled.value !== null &&
@@ -1610,6 +1674,37 @@ export class FunctionCallingExecutor {
                       : { error: toolResult.error },
                   ),
                 );
+              } else if (settled.status === "rejected") {
+                const rejectedToolId = group[settledIdx];
+                const rejectedToolCall = rejectedToolId
+                  ? toolCallByName.get(rejectedToolId)
+                  : undefined;
+                metrics.toolCalls++;
+                metrics.failedToolCalls++;
+                const reason =
+                  settled.reason instanceof Error
+                    ? settled.reason.message
+                    : String(settled.reason);
+                this.logger.warn(
+                  `[executeWithDefinitions] Parallel tool rejected: ${rejectedToolId} — ${reason}`,
+                );
+                if (rejectedToolId) {
+                  yield {
+                    type: "tool_result" as const,
+                    tool: rejectedToolId,
+                    output: { error: reason },
+                    duration: 0,
+                  };
+                }
+                if (rejectedToolCall) {
+                  messages.push(
+                    llmAdapter.buildToolResultMessage(
+                      rejectedToolCall.id,
+                      rejectedToolCall.name,
+                      { error: reason },
+                    ),
+                  );
+                }
               }
             }
           }
@@ -1729,7 +1824,9 @@ export class FunctionCallingExecutor {
             const toolResultMessage = llmAdapter.buildToolResultMessage(
               toolCall.id,
               toolCall.name,
-              toolResult.success ? toolResult.data : { error: toolResult.error },
+              toolResult.success
+                ? toolResult.data
+                : { error: toolResult.error },
             );
             messages.push(toolResultMessage);
           }

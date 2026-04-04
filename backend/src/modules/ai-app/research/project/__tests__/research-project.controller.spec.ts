@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  UnauthorizedException,
-} from "@nestjs/common";
+import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { ResearchProjectController } from "../research-project.controller";
 import type { ResearchProjectService } from "../research-project.service";
 import type { ResearchProjectSourceService } from "../research-project-source.service";
@@ -175,9 +172,9 @@ describe("ResearchProjectController", () => {
 
     it("should throw UnauthorizedException if user is missing", async () => {
       const reqNoUser = { user: { id: undefined }, headers: {} };
-      await expect(
-        controller.getProjects(reqNoUser as never),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(controller.getProjects(reqNoUser as never)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 

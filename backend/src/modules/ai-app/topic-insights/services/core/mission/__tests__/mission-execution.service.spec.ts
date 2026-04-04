@@ -1557,9 +1557,11 @@ describe("MissionExecutionService", () => {
       prisma.researchTask.updateMany.mockResolvedValueOnce({ count: 1 });
 
       const mockDimExecutor = (service as any).dimensionResearchExecutor;
-      mockDimExecutor.execute = jest.fn().mockRejectedValue(
-        new Error("Dimension research failed due to timeout"),
-      );
+      mockDimExecutor.execute = jest
+        .fn()
+        .mockRejectedValue(
+          new Error("Dimension research failed due to timeout"),
+        );
 
       await service.executeTask(
         mockPendingTask as any,

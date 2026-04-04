@@ -533,7 +533,9 @@ describe("AgentCommunicationTool", () => {
       };
       // Inject mock cache service via @Optional() constructor param
       toolWithCache = new AgentCommunicationTool(
-        mockCacheService as unknown as Parameters<typeof AgentCommunicationTool>[0],
+        mockCacheService as unknown as Parameters<
+          typeof AgentCommunicationTool
+        >[0],
       );
     });
 
@@ -658,7 +660,9 @@ describe("AgentCommunicationTool", () => {
     });
 
     it("should handle Redis load failure gracefully", async () => {
-      mockCacheService.get.mockRejectedValue(new Error("Redis connection failed"));
+      mockCacheService.get.mockRejectedValue(
+        new Error("Redis connection failed"),
+      );
 
       await expect(toolWithCache.onModuleInit()).resolves.not.toThrow();
     });
@@ -717,7 +721,9 @@ describe("AgentCommunicationTool", () => {
         createMockContext(),
       );
 
-      expect(receiveResult.data?.messages?.some((m) => m.id === "msg-redis-1")).toBe(true);
+      expect(
+        receiveResult.data?.messages?.some((m) => m.id === "msg-redis-1"),
+      ).toBe(true);
     });
   });
 
@@ -834,7 +840,11 @@ describe("AgentCommunicationTool", () => {
         context,
       );
 
-      expect(result.data?.messages?.every((m) => m.type === MessageType.NOTIFICATION)).toBe(true);
+      expect(
+        result.data?.messages?.every(
+          (m) => m.type === MessageType.NOTIFICATION,
+        ),
+      ).toBe(true);
     });
 
     it("should filter by message priority", async () => {
@@ -845,7 +855,11 @@ describe("AgentCommunicationTool", () => {
           operation: CommunicationOperation.SEND,
           fromAgent: BUILTIN_AGENTS.DOCS,
           toAgent: BUILTIN_AGENTS.SLIDES,
-          message: { subject: "Low", content: "Low priority", priority: MessagePriority.LOW },
+          message: {
+            subject: "Low",
+            content: "Low priority",
+            priority: MessagePriority.LOW,
+          },
         },
         context,
       );
@@ -855,7 +869,11 @@ describe("AgentCommunicationTool", () => {
           operation: CommunicationOperation.SEND,
           fromAgent: BUILTIN_AGENTS.DOCS,
           toAgent: BUILTIN_AGENTS.SLIDES,
-          message: { subject: "Urgent", content: "High priority", priority: MessagePriority.URGENT },
+          message: {
+            subject: "Urgent",
+            content: "High priority",
+            priority: MessagePriority.URGENT,
+          },
         },
         context,
       );
@@ -869,7 +887,11 @@ describe("AgentCommunicationTool", () => {
         context,
       );
 
-      expect(result.data?.messages?.every((m) => m.priority === MessagePriority.URGENT)).toBe(true);
+      expect(
+        result.data?.messages?.every(
+          (m) => m.priority === MessagePriority.URGENT,
+        ),
+      ).toBe(true);
     });
 
     it("should filter by message status", async () => {
@@ -906,7 +928,9 @@ describe("AgentCommunicationTool", () => {
         context,
       );
 
-      expect(result.data?.messages?.every((m) => m.status === MessageStatus.READ)).toBe(true);
+      expect(
+        result.data?.messages?.every((m) => m.status === MessageStatus.READ),
+      ).toBe(true);
     });
 
     it("should filter by unreadOnly", async () => {
@@ -956,7 +980,9 @@ describe("AgentCommunicationTool", () => {
       // Only unread messages should be returned
       expect(
         messages.every(
-          (m) => m.status !== MessageStatus.READ && m.status !== MessageStatus.REPLIED,
+          (m) =>
+            m.status !== MessageStatus.READ &&
+            m.status !== MessageStatus.REPLIED,
         ),
       ).toBe(true);
     });
@@ -1088,7 +1114,11 @@ describe("AgentCommunicationTool", () => {
           operation: CommunicationOperation.SEND,
           fromAgent: BUILTIN_AGENTS.DOCS,
           toAgent: BUILTIN_AGENTS.RESEARCHER,
-          message: { subject: "Low msg", content: "Low", priority: MessagePriority.LOW },
+          message: {
+            subject: "Low msg",
+            content: "Low",
+            priority: MessagePriority.LOW,
+          },
         },
         context,
       );

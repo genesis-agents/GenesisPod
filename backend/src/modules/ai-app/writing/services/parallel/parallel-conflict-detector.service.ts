@@ -18,7 +18,9 @@ export class ParallelConflictDetectorService {
     void this.prisma;
   }
 
-  async detect(chapterResults: Array<Record<string, unknown>>): Promise<ParallelConflict[]> {
+  async detect(
+    chapterResults: Array<Record<string, unknown>>,
+  ): Promise<ParallelConflict[]> {
     const conflicts: ParallelConflict[] = [];
 
     // Detect character state conflicts
@@ -41,7 +43,9 @@ export class ParallelConflictDetectorService {
     return conflicts;
   }
 
-  private detectCharacterStateConflicts(results: Array<Record<string, unknown>>): ParallelConflict[] {
+  private detectCharacterStateConflicts(
+    results: Array<Record<string, unknown>>,
+  ): ParallelConflict[] {
     const conflicts: ParallelConflict[] = [];
 
     // Group by character mentions across chapters
@@ -77,7 +81,9 @@ export class ParallelConflictDetectorService {
     return conflicts;
   }
 
-  private detectNewSettingConflicts(results: Array<Record<string, unknown>>): ParallelConflict[] {
+  private detectNewSettingConflicts(
+    results: Array<Record<string, unknown>>,
+  ): ParallelConflict[] {
     const conflicts: ParallelConflict[] = [];
 
     // Detect if same new entity is introduced in multiple chapters
@@ -109,12 +115,16 @@ export class ParallelConflictDetectorService {
     return conflicts;
   }
 
-  private detectTimelineConflicts(_results: Array<Record<string, unknown>>): ParallelConflict[] {
+  private detectTimelineConflicts(
+    _results: Array<Record<string, unknown>>,
+  ): ParallelConflict[] {
     // Placeholder - would need more sophisticated analysis
     return [];
   }
 
-  private detectTerminologyConflicts(_results: Array<Record<string, unknown>>): ParallelConflict[] {
+  private detectTerminologyConflicts(
+    _results: Array<Record<string, unknown>>,
+  ): ParallelConflict[] {
     // Placeholder - would need NLP analysis
     return [];
   }

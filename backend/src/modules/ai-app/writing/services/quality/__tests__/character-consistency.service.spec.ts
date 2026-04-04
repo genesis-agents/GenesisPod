@@ -248,17 +248,18 @@ describe("CharacterConsistencyService", () => {
   });
 
   describe("detectOOC", () => {
-    const makeCharacterEntity = (traits: string[]): WritingCharacterEntity => ({
-      id: "char-1",
-      name: "萧炎",
-      personality: {
-        traits,
-        strengths: [],
-        weaknesses: [],
-        relationships: {},
-      },
-      currentState: {},
-    } as unknown as WritingCharacterEntity);
+    const makeCharacterEntity = (traits: string[]): WritingCharacterEntity =>
+      ({
+        id: "char-1",
+        name: "萧炎",
+        personality: {
+          traits,
+          strengths: [],
+          weaknesses: [],
+          relationships: {},
+        },
+        currentState: {},
+      }) as unknown as WritingCharacterEntity;
 
     it("should return not OOC when personality is missing", async () => {
       const char: WritingCharacterEntity = {
@@ -294,11 +295,7 @@ describe("CharacterConsistencyService", () => {
     it("should detect OOC for cautious character acting impulsively", async () => {
       const char = makeCharacterEntity(["谨慎", "深思熟虑"]);
 
-      const result = await service.detectOOC(
-        char,
-        "他毫不犹豫地冲上去",
-        "",
-      );
+      const result = await service.detectOOC(char, "他毫不犹豫地冲上去", "");
 
       expect(result.isOOC).toBe(true);
       expect(result.violationType).toBe("impulsive_decision");
@@ -342,11 +339,7 @@ describe("CharacterConsistencyService", () => {
         currentState: {},
       } as unknown as WritingCharacterEntity;
 
-      const result = await service.detectOOC(
-        char,
-        "他做出了愚蠢的决定",
-        "",
-      );
+      const result = await service.detectOOC(char, "他做出了愚蠢的决定", "");
 
       expect(result.isOOC).toBe(true);
     });
@@ -365,9 +358,7 @@ describe("CharacterConsistencyService", () => {
       );
 
       expect(result.isValid).toBe(false);
-      const noTriggerIssue = result.issues.find(
-        (i) => i.type === "no_trigger",
-      );
+      const noTriggerIssue = result.issues.find((i) => i.type === "no_trigger");
       expect(noTriggerIssue).toBeDefined();
     });
 
@@ -383,9 +374,7 @@ describe("CharacterConsistencyService", () => {
         "触发事件发生了",
       );
 
-      const tooSuddenIssue = result.issues.find(
-        (i) => i.type === "too_sudden",
-      );
+      const tooSuddenIssue = result.issues.find((i) => i.type === "too_sudden");
       expect(tooSuddenIssue).toBeDefined();
     });
 
@@ -421,9 +410,8 @@ describe("CharacterConsistencyService", () => {
         relationships: {},
       } as any;
 
-      const constraints = await service.generateCharacterBehaviorConstraints(
-        char,
-      );
+      const constraints =
+        await service.generateCharacterBehaviorConstraints(char);
 
       expect(constraints.characterName).toBe("萧炎");
       expect(constraints.coreTraits).toContain("谨慎");
@@ -437,9 +425,8 @@ describe("CharacterConsistencyService", () => {
         personality: null,
       } as unknown as WritingCharacterEntity;
 
-      const constraints = await service.generateCharacterBehaviorConstraints(
-        char,
-      );
+      const constraints =
+        await service.generateCharacterBehaviorConstraints(char);
 
       expect(constraints.coreTraits).toHaveLength(0);
     });
@@ -447,16 +434,20 @@ describe("CharacterConsistencyService", () => {
     it("should generate state constraints when currentState has physical state", async () => {
       const char = {
         ...mockCharacter,
-        personality: { traits: ["谨慎"], strengths: [], weaknesses: [], relationships: {} },
+        personality: {
+          traits: ["谨慎"],
+          strengths: [],
+          weaknesses: [],
+          relationships: {},
+        },
         currentState: {
           physicalState: { health: "injured", location: "乌坦城" },
           emotionalState: { mood: "痛苦" },
         },
       } as unknown as WritingCharacterEntity;
 
-      const constraints = await service.generateCharacterBehaviorConstraints(
-        char,
-      );
+      const constraints =
+        await service.generateCharacterBehaviorConstraints(char);
 
       expect(constraints.currentStateConstraints.length).toBeGreaterThan(0);
       const hasInjuredConstraint = constraints.currentStateConstraints.some(
@@ -476,9 +467,8 @@ describe("CharacterConsistencyService", () => {
         relationships: {},
       } as any;
 
-      const constraints = await service.generateCharacterBehaviorConstraints(
-        char,
-      );
+      const constraints =
+        await service.generateCharacterBehaviorConstraints(char);
       const prompt = service.formatBehaviorConstraintsAsPrompt(constraints);
 
       expect(prompt).toContain("萧炎");
@@ -532,10 +522,7 @@ describe("CharacterConsistencyService", () => {
 
       // Content mentions a completely unknown character
       const content = `李四心中暗想，萧炎走过来了。`;
-      const result = await service.validateCharacterNames(
-        "project-1",
-        content,
-      );
+      const result = await service.validateCharacterNames("project-1", content);
 
       // The result should have processed without crashing
       expect(result).toBeDefined();
@@ -559,10 +546,7 @@ describe("CharacterConsistencyService", () => {
       });
 
       const content = `小炎走过来了，小炎心想如何应对。`;
-      const result = await service.validateCharacterNames(
-        "project-1",
-        content,
-      );
+      const result = await service.validateCharacterNames("project-1", content);
 
       // Alias usage generates warnings
       const aliasWarnings = result.issues.filter(
@@ -598,14 +582,9 @@ describe("CharacterConsistencyService", () => {
 
       // Content uses multiple exclusive titles
       const content = `王妃娘娘走进殿内，夫人向她行礼。`;
-      const result = await service.validateCharacterNames(
-        "project-1",
-        content,
-      );
+      const result = await service.validateCharacterNames("project-1", content);
 
-      const titleIssues = result.issues.filter(
-        (i) => i.type === "wrong_title",
-      );
+      const titleIssues = result.issues.filter((i) => i.type === "wrong_title");
       expect(titleIssues.length).toBeGreaterThan(0);
     });
   });

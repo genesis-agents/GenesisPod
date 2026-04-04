@@ -14,7 +14,10 @@ import { TeamConfig } from "../../abstractions/team.interface";
 
 // ==================== Helpers ====================
 
-function makeRole(type: "leader" | "member" = "member", id = "researcher"): IRole {
+function makeRole(
+  type: "leader" | "member" = "member",
+  id = "researcher",
+): IRole {
   return new Role({
     id,
     name: type === "leader" ? "Research Lead" : "Researcher",
@@ -53,7 +56,8 @@ function makeTeamConfig(overrides: Partial<TeamConfig> = {}): TeamConfig {
     type: "predefined",
     leaderRoleId: "research-lead",
     memberRoles: [],
-    workflow: makeWorkflow() as unknown as import("../../abstractions/workflow.interface").WorkflowConfig,
+    workflow:
+      makeWorkflow() as unknown as import("../../abstractions/workflow.interface").WorkflowConfig,
     availableSkills: [],
     availableTools: [],
     constraintProfile: getDefaultConstraintProfile(),
@@ -64,7 +68,10 @@ function makeTeamConfig(overrides: Partial<TeamConfig> = {}): TeamConfig {
 
 function makeLeader(): ITeamMember {
   const role = makeRole("leader", "research-lead");
-  return createLeader({ id: "leader-1", model: "default", roleId: role.id }, role);
+  return createLeader(
+    { id: "leader-1", model: "default", roleId: role.id },
+    role,
+  );
 }
 
 function makeMember(id: string, roleId = "researcher"): ITeamMember {
@@ -87,9 +94,18 @@ describe("Team", () => {
     const memberRole = makeRole("member", "researcher");
     const memberRole2 = makeRole("member", "analyst");
 
-    leader = createLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole);
-    member1 = createMember({ id: "m1", model: "default", roleId: "researcher" }, memberRole);
-    member2 = createMember({ id: "m2", model: "default", roleId: "analyst" }, memberRole2);
+    leader = createLeader(
+      { id: "leader-1", model: "default", roleId: "research-lead" },
+      leaderRole,
+    );
+    member1 = createMember(
+      { id: "m1", model: "default", roleId: "researcher" },
+      memberRole,
+    );
+    member2 = createMember(
+      { id: "m2", model: "default", roleId: "analyst" },
+      memberRole2,
+    );
 
     roleRegistry = new Map([
       ["research-lead", leaderRole],
@@ -98,13 +114,10 @@ describe("Team", () => {
     ]);
     workflow = makeWorkflow();
 
-    team = new Team(
-      makeTeamConfig(),
-      roleRegistry,
-      workflow,
-      leader,
-      [member1, member2],
-    );
+    team = new Team(makeTeamConfig(), roleRegistry, workflow, leader, [
+      member1,
+      member2,
+    ]);
   });
 
   it("should have correct id, name, description, type", () => {
@@ -198,8 +211,14 @@ describe("TeamBuilder", () => {
     return new TeamBuilder()
       .setName("My Team")
       .setDescription("A test team")
-      .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
-      .addMember({ id: "m1", model: "default", roleId: "researcher" }, memberRole)
+      .setLeader(
+        { id: "leader-1", model: "default", roleId: "research-lead" },
+        leaderRole,
+      )
+      .addMember(
+        { id: "m1", model: "default", roleId: "researcher" },
+        memberRole,
+      )
       .setWorkflow(workflow)
       .build();
   }
@@ -220,7 +239,10 @@ describe("TeamBuilder", () => {
       .setId("custom-id")
       .setName("My Team")
       .setDescription("desc")
-      .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+      .setLeader(
+        { id: "leader-1", model: "default", roleId: "research-lead" },
+        leaderRole,
+      )
       .setWorkflow(workflow)
       .build();
 
@@ -235,7 +257,10 @@ describe("TeamBuilder", () => {
       .setName("My Team")
       .setDescription("desc")
       .setType("predefined")
-      .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+      .setLeader(
+        { id: "leader-1", model: "default", roleId: "research-lead" },
+        leaderRole,
+      )
       .setWorkflow(workflow)
       .build();
 
@@ -250,7 +275,10 @@ describe("TeamBuilder", () => {
     const team = new TeamBuilder()
       .setName("My Team")
       .setDescription("desc")
-      .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+      .setLeader(
+        { id: "leader-1", model: "default", roleId: "research-lead" },
+        leaderRole,
+      )
       .setWorkflow(workflow)
       .setConstraintProfile(profile)
       .build();
@@ -266,7 +294,10 @@ describe("TeamBuilder", () => {
     const team = new TeamBuilder()
       .setName("My Team")
       .setDescription("desc")
-      .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+      .setLeader(
+        { id: "leader-1", model: "default", roleId: "research-lead" },
+        leaderRole,
+      )
       .addRole(memberRole)
       .setWorkflow(workflow)
       .build();
@@ -281,7 +312,10 @@ describe("TeamBuilder", () => {
     expect(() =>
       new TeamBuilder()
         .setDescription("desc")
-        .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+        .setLeader(
+          { id: "leader-1", model: "default", roleId: "research-lead" },
+          leaderRole,
+        )
         .setWorkflow(workflow)
         .build(),
     ).toThrow("Team name is required");
@@ -294,7 +328,10 @@ describe("TeamBuilder", () => {
     expect(() =>
       new TeamBuilder()
         .setName("My Team")
-        .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+        .setLeader(
+          { id: "leader-1", model: "default", roleId: "research-lead" },
+          leaderRole,
+        )
         .setWorkflow(workflow)
         .build(),
     ).toThrow("Team description is required");
@@ -319,7 +356,10 @@ describe("TeamBuilder", () => {
       new TeamBuilder()
         .setName("My Team")
         .setDescription("desc")
-        .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+        .setLeader(
+          { id: "leader-1", model: "default", roleId: "research-lead" },
+          leaderRole,
+        )
         .build(),
     ).toThrow("Team workflow is required");
   });
@@ -336,7 +376,10 @@ describe("TeamBuilder", () => {
     const team = new TeamBuilder()
       .setName("My Team")
       .setDescription("desc")
-      .setLeader({ id: "leader-1", model: "default", roleId: "research-lead" }, leaderRole)
+      .setLeader(
+        { id: "leader-1", model: "default", roleId: "research-lead" },
+        leaderRole,
+      )
       .setWorkflow(workflow)
       .setAvailableSkills(["search", "analyze"])
       .setAvailableTools(["web-browser"])

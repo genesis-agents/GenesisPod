@@ -135,7 +135,10 @@ export class CustomTeamsController {
   @ApiResponse({ status: 200, description: "团队删除成功" })
   @ApiResponse({ status: 400, description: "不可删除预定义团队" })
   @ApiResponse({ status: 404, description: "团队不存在" })
-  async deleteCustomTeam(@Request() req: AuthenticatedRequest, @Param("teamId") teamId: string) {
+  async deleteCustomTeam(
+    @Request() req: AuthenticatedRequest,
+    @Param("teamId") teamId: string,
+  ) {
     this.logger.log(
       `[deleteCustomTeam] User ${req.user.id} deleting team: ${teamId}`,
     );

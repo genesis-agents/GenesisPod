@@ -89,12 +89,14 @@ async cleanupSession(sessionId: string): Promise<void>              // 删除 wo
 ```
 
 **执行方式**:
+
 - `child_process.spawn('claude', ['--print', task], { cwd: worktreePath })`
 - stdout 实时转发至 `StreamingService`（复用现有 `/backend/src/common/streaming/streaming.service.ts`）
 - stderr 作为错误事件
 - 每次执行创建临时 git worktree，执行完毕自动清理
 
 **安全约束**:
+
 - 仅允许在 `.claude/worktrees/evolution-*` 下运行
 - 禁止执行 `git push`、`rm -rf`、`git reset --hard` 等危险命令
 - 超时 10 分钟强制终止
@@ -235,6 +237,7 @@ model ConfigSnapshot {
 **触发条件**: 每 24h 定时，或累计 50 次低分执行后触发
 
 **逻辑**:
+
 1. 查询最近 N 次执行的 feedback，过滤低分样本（evalScore < 60）
 2. 调用 Claude（`AiChatService.chat()` + `taskProfile: { creativity: 'low' }`）分析失败模式
 3. 输出结构化 `PatternReport`
@@ -247,6 +250,7 @@ model ConfigSnapshot {
 **输出**: EvolutionProposal（含 unified diff）
 
 **逻辑**:
+
 1. 读取当前配置的最新 ConfigSnapshot
 2. 调用 Claude："基于以下失败模式，对此配置提出具体修改，输出 unified diff 格式"
 3. 解析 diff，交由 SafetyClassifier 判断风险级别
@@ -257,21 +261,22 @@ model ConfigSnapshot {
 
 **风险分级规则**:
 
-| 目标类型 | 变更规模 | 风险级别 | 处理方式 |
-|---------|---------|---------|---------|
-| prompt | 只改文字描述 | low | 自动应用 |
-| prompt | 改结构/格式要求 | medium | 需人工审核 |
-| skill/agent 配置 | 参数调整 | low | 自动应用 |
-| claude_md | 新增规则 | medium | 需人工审核 |
-| claude_md | 修改/删除规则 | high | 需人工审核 |
-| code | 任何变更 | high | 需人工审核 |
-| 任何 | diff > 50 行 | high | 需人工审核 |
+| 目标类型         | 变更规模        | 风险级别 | 处理方式   |
+| ---------------- | --------------- | -------- | ---------- |
+| prompt           | 只改文字描述    | low      | 自动应用   |
+| prompt           | 改结构/格式要求 | medium   | 需人工审核 |
+| skill/agent 配置 | 参数调整        | low      | 自动应用   |
+| claude_md        | 新增规则        | medium   | 需人工审核 |
+| claude_md        | 修改/删除规则   | high     | 需人工审核 |
+| code             | 任何变更        | high     | 需人工审核 |
+| 任何             | diff > 50 行    | high     | 需人工审核 |
 
 ### 3.4 EvolutionApplyService
 
 **文件**: `evolution/services/evolution-apply.service.ts`
 
 **职责**:
+
 1. 备份当前版本到 ConfigSnapshot
 2. 应用 unified diff 到目标文件/配置
 3. 启动 A/B 测试（针对低风险变更）
@@ -310,21 +315,25 @@ GET    /api/v1/evolution/dashboard             → 仪表盘指标
 **路由**: `frontend/app/admin/evolution/`（独立一级菜单「AI 进化」，不归属 `/admin/ai/`）
 
 ### Playground (`playground/page.tsx`)
+
 - 左侧：任务提交表单（类型选择、prompt 输入、关联文件）
 - 右侧：Claude Code 执行实时流（复用现有 `useStream` hook）
 - 底部：反馈区（1-5 星 + 维度评分 + 问题注释 + 建议文本）
 
 ### Proposals (`proposals/page.tsx`)
+
 - 高/中风险变更的审核队列（Badge 显示待审核数量）
 - Syntax-highlighted unified diff 查看器
 - 一键 Approve / Reject（带 note 输入框）
 
 ### Patterns (`patterns/page.tsx`)
+
 - 各 targetType 的失败模式分析
 - 平均质量分趋势图
 - 手动触发分析按钮
 
 ### History (`history/page.tsx`)
+
 - 已应用变更时间线
 - 每条变更显示应用前/后分数对比
 - 一键回滚按钮
@@ -333,13 +342,13 @@ GET    /api/v1/evolution/dashboard             → 仪表盘指标
 
 ## 六、进化目标的具体实现
 
-| targetType | 存储位置 | 变更方式 | 默认风险 |
-|-----------|---------|---------|---------|
-| `prompt` | DB PromptTemplate | 更新 DB + 重新加载缓存 | low |
-| `skill` | AgentConfigService DB | 更新 DB + 通知 Registry 重载 | low |
-| `agent` | AgentConfigService DB | 更新 DB + 通知 Registry 重载 | medium |
-| `claude_md` | 磁盘 `.claude/CLAUDE.md` | git patch + commit | medium/high |
-| `code` | git worktree | Claude Code 生成 PR 草稿（不自动 merge）| high |
+| targetType  | 存储位置                 | 变更方式                                 | 默认风险    |
+| ----------- | ------------------------ | ---------------------------------------- | ----------- |
+| `prompt`    | DB PromptTemplate        | 更新 DB + 重新加载缓存                   | low         |
+| `skill`     | AgentConfigService DB    | 更新 DB + 通知 Registry 重载             | low         |
+| `agent`     | AgentConfigService DB    | 更新 DB + 通知 Registry 重载             | medium      |
+| `claude_md` | 磁盘 `.claude/CLAUDE.md` | git patch + commit                       | medium/high |
+| `code`      | git worktree             | Claude Code 生成 PR 草稿（不自动 merge） | high        |
 
 ---
 
@@ -355,22 +364,23 @@ GET    /api/v1/evolution/dashboard             → 仪表盘指标
 
 ## 八、复用现有基础设施
 
-| 已有组件 | 路径 | 用途 |
-|---------|-----|-----|
-| `StreamingService` | `common/streaming/streaming.service.ts` | Claude Code 输出 SSE 流 |
-| `useStream` hook | `frontend/hooks/core/useStream.ts` | 前端消费执行流 |
-| `TraceCollectorService` | `ai-engine/observability/trace-collector.service.ts` | 自动记录执行 trace |
-| `EvalPipelineService` | `ai-engine/observability/eval-pipeline.service.ts` | Layer1/2 自动质量评分 |
-| `AiChatService.chat()` | `ai-engine/core/` | Pattern 分析 + Proposal 生成 |
-| `AgentConfigService` | `ai-engine/agents/config/` | Skill/Agent 配置动态更新 |
-| `AdminGuard` | `common/guards/` | API 权限控制 |
-| `OfficeDocumentVersion` 模式 | `ai-app/office/` | ConfigSnapshot 版本化参考 |
+| 已有组件                     | 路径                                                 | 用途                         |
+| ---------------------------- | ---------------------------------------------------- | ---------------------------- |
+| `StreamingService`           | `common/streaming/streaming.service.ts`              | Claude Code 输出 SSE 流      |
+| `useStream` hook             | `frontend/hooks/core/useStream.ts`                   | 前端消费执行流               |
+| `TraceCollectorService`      | `ai-engine/observability/trace-collector.service.ts` | 自动记录执行 trace           |
+| `EvalPipelineService`        | `ai-engine/observability/eval-pipeline.service.ts`   | Layer1/2 自动质量评分        |
+| `AiChatService.chat()`       | `ai-engine/core/`                                    | Pattern 分析 + Proposal 生成 |
+| `AgentConfigService`         | `ai-engine/agents/config/`                           | Skill/Agent 配置动态更新     |
+| `AdminGuard`                 | `common/guards/`                                     | API 权限控制                 |
+| `OfficeDocumentVersion` 模式 | `ai-app/office/`                                     | ConfigSnapshot 版本化参考    |
 
 ---
 
 ## 九、关键文件路径
 
 **新增后端**:
+
 ```
 backend/src/modules/ai-engine/evolution/
   evolution.module.ts
@@ -386,6 +396,7 @@ backend/prisma/migrations/YYYYMMDD_add_evolution/migration.sql
 ```
 
 **新增前端**:
+
 ```
 frontend/app/admin/evolution/
   layout.tsx
@@ -397,6 +408,7 @@ frontend/app/admin/evolution/
 ```
 
 **修改**:
+
 ```
 backend/prisma/schema/models.prisma         ← 新增 5 个 model
 backend/src/modules/ai-engine/ai-engine.module.ts  ← 注册 Evolution 模块
@@ -410,17 +422,20 @@ frontend/lib/i18n/locales/en.json           ← 同上
 ## 十、分阶段实施
 
 ### Phase 1 — 基础执行层
+
 - Prisma 新模型 + 手写迁移 SQL
 - `ClaudeCodeGatewayService`（subprocess + worktree + SSE）
 - `ExecutionFeedback` API
 - 前端 Playground 页面 + 侧边栏入口
 
 ### Phase 2 — 进化引擎
+
 - `PatternAnalysisService` + `ProposalGeneratorService`
 - `SafetyClassifierService` + `EvolutionApplyService`（Prompt/Skill 目标）
 - 前端 Proposals / History 页面
 
 ### Phase 3 — 高级特性
+
 - A/B 测试引擎
 - CLAUDE.md 自动更新（git patch + commit）
 - 代码变更 PR 草稿生成（`targetType: 'code'`）

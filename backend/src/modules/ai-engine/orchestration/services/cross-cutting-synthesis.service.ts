@@ -190,9 +190,7 @@ export class CrossCuttingSynthesisService {
   /**
    * Parse the LLM response into structured SynthesisResult
    */
-  parseResponse(
-    content: string,
-  ): Omit<SynthesisResult, "synthesisMetadata"> {
+  parseResponse(content: string): Omit<SynthesisResult, "synthesisMetadata"> {
     try {
       // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);

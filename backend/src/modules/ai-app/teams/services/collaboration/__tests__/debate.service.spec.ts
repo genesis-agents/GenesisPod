@@ -76,12 +76,10 @@ describe("DebateService", () => {
   let aiFacade: jest.Mocked<ChatFacade>;
 
   const mockAiFacade = {
-    chat: jest
-      .fn()
-      .mockResolvedValue({
-        content: "Debate response content",
-        tokensUsed: 150,
-      }),
+    chat: jest.fn().mockResolvedValue({
+      content: "Debate response content",
+      tokensUsed: 150,
+    }),
     getModelById: jest.fn().mockResolvedValue({ id: "gpt-4", name: "GPT-4" }),
     a2aPublish: jest.fn().mockResolvedValue(undefined),
     a2aClearSession: jest.fn(),

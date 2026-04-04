@@ -19,7 +19,9 @@ jest.mock("../../loader/skill-parser", () => ({
 }));
 
 import { estimateTokens } from "../../loader/skill-parser";
-const mockEstimateTokens = estimateTokens as jest.MockedFunction<typeof estimateTokens>;
+const mockEstimateTokens = estimateTokens as jest.MockedFunction<
+  typeof estimateTokens
+>;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -168,12 +170,12 @@ describe("SkillPromptBuilder", () => {
       // 5. 裁剪后的 estimateTokens → 300
       // 6. currentTokens 累加: estimateTokens(trimmedContent) → 300
       mockEstimateTokens
-        .mockReturnValueOnce(100)    // skill-1 的 token 检查 (skillTokens)
-        .mockReturnValueOnce(100)    // currentTokens 累加时
-        .mockReturnValueOnce(500)    // skill-2 的 token 检查 (skillTokens)
-        .mockReturnValueOnce(500)    // trimToTokenLimit 内的 currentTokens
-        .mockReturnValueOnce(150)    // 裁剪后内容的 estimateTokens
-        .mockReturnValueOnce(150);   // currentTokens 累加时
+        .mockReturnValueOnce(100) // skill-1 的 token 检查 (skillTokens)
+        .mockReturnValueOnce(100) // currentTokens 累加时
+        .mockReturnValueOnce(500) // skill-2 的 token 检查 (skillTokens)
+        .mockReturnValueOnce(500) // trimToTokenLimit 内的 currentTokens
+        .mockReturnValueOnce(150) // 裁剪后内容的 estimateTokens
+        .mockReturnValueOnce(150); // currentTokens 累加时
 
       const skills = [
         makeSkillDefinition("skill-1", "Short content"),
@@ -188,9 +190,9 @@ describe("SkillPromptBuilder", () => {
     it("剩余 token 小于 200 时跳过该 skill", () => {
       // skill-1 消耗 300 token，剩余 = 350-300 = 50 < 200 → 跳过 skill-2
       mockEstimateTokens
-        .mockReturnValueOnce(300)    // skill-1 的 skillTokens
-        .mockReturnValueOnce(300)    // currentTokens 累加时
-        .mockReturnValueOnce(150);   // skill-2 的 skillTokens（剩余 50，跳过）
+        .mockReturnValueOnce(300) // skill-1 的 skillTokens
+        .mockReturnValueOnce(300) // currentTokens 累加时
+        .mockReturnValueOnce(150); // skill-2 的 skillTokens（剩余 50，跳过）
 
       const skills = [
         makeSkillDefinition("skill-1", "Medium content"),
@@ -286,7 +288,7 @@ describe("SkillPromptBuilder", () => {
     it("处理 {{variable | default: 'value'}} 格式的默认值", () => {
       const skill = makeSkillDefinition(
         "default-skill",
-        "Hello {{name | default: \"Unknown\"}}!",
+        'Hello {{name | default: "Unknown"}}!',
       );
 
       const result = builder.buildSystemPrompt([skill], {
@@ -297,7 +299,10 @@ describe("SkillPromptBuilder", () => {
     });
 
     it("上下文中不存在的变量保持原样", () => {
-      const skill = makeSkillDefinition("missing-skill", "Hello ${MISSING_VAR}!");
+      const skill = makeSkillDefinition(
+        "missing-skill",
+        "Hello ${MISSING_VAR}!",
+      );
 
       const result = builder.buildSystemPrompt([skill], {
         context: {},

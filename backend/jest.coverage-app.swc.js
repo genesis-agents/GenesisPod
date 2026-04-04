@@ -1,5 +1,5 @@
 module.exports = {
-  ...require('./jest.config.swc.js'),
+  ...require("./jest.config.swc.js"),
   collectCoverageFrom: [
     "modules/ai-app/**/*.ts",
     "!**/*.module.ts",

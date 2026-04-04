@@ -46,9 +46,7 @@ function makeTeamConfig(overrides: Partial<TeamConfig> = {}): TeamConfig {
     description: "A research team for AI topics",
     type: "predefined",
     leaderRoleId: "research-lead",
-    memberRoles: [
-      { roleId: "researcher", minCount: 1, maxCount: 3 },
-    ],
+    memberRoles: [{ roleId: "researcher", minCount: 1, maxCount: 3 }],
     workflow: {
       id: "wf-1",
       name: "Research Workflow",
@@ -72,10 +70,12 @@ function makeTeamConfig(overrides: Partial<TeamConfig> = {}): TeamConfig {
   };
 }
 
-function makeRegistries(overrides: {
-  roleRegistry?: Partial<RoleRegistry>;
-  teamRegistry?: Partial<TeamRegistry>;
-} = {}): { roleRegistry: RoleRegistry; teamRegistry: TeamRegistry } {
+function makeRegistries(
+  overrides: {
+    roleRegistry?: Partial<RoleRegistry>;
+    teamRegistry?: Partial<TeamRegistry>;
+  } = {},
+): { roleRegistry: RoleRegistry; teamRegistry: TeamRegistry } {
   const leaderRole = makeLeaderRole();
   const memberRole = makeMemberRole();
 
@@ -315,7 +315,9 @@ describe("TeamFactory - validateConfig", () => {
     const { roleRegistry, teamRegistry } = makeRegistries({
       roleRegistry: {
         has: jest.fn().mockReturnValue(false),
-        get: jest.fn().mockImplementation(() => { throw new Error("Not found"); }),
+        get: jest.fn().mockImplementation(() => {
+          throw new Error("Not found");
+        }),
         tryGet: jest.fn().mockReturnValue(undefined),
       },
     });
@@ -375,7 +377,12 @@ describe("TeamFactory - validateConfig", () => {
     const { roleRegistry, teamRegistry } = makeRegistries();
     const factory = new TeamFactory(roleRegistry, teamRegistry);
     const config = makeTeamConfig({
-      workflow: { id: "wf-empty", name: "Empty WF", type: "sequential", steps: [] } as TeamConfig["workflow"],
+      workflow: {
+        id: "wf-empty",
+        name: "Empty WF",
+        type: "sequential",
+        steps: [],
+      } as TeamConfig["workflow"],
     });
 
     const result = factory.validateConfig(config);
@@ -386,7 +393,9 @@ describe("TeamFactory - validateConfig", () => {
   it("should report error when workflow is missing", () => {
     const { roleRegistry, teamRegistry } = makeRegistries();
     const factory = new TeamFactory(roleRegistry, teamRegistry);
-    const config = makeTeamConfig({ workflow: undefined as unknown as TeamConfig["workflow"] });
+    const config = makeTeamConfig({
+      workflow: undefined as unknown as TeamConfig["workflow"],
+    });
 
     const result = factory.validateConfig(config);
     expect(result.valid).toBe(false);

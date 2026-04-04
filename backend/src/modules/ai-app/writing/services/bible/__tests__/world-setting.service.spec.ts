@@ -48,7 +48,9 @@ describe("WorldSettingService", () => {
 
   describe("create", () => {
     it("should create a world setting with all fields", async () => {
-      (mockPrisma.worldSetting.create as jest.Mock).mockResolvedValue(mockSetting);
+      (mockPrisma.worldSetting.create as jest.Mock).mockResolvedValue(
+        mockSetting,
+      );
 
       const result = await service.create("bible-1", {
         category: "geography",
@@ -112,7 +114,9 @@ describe("WorldSettingService", () => {
         { ...mockSetting, name: "皇宫" },
         { ...mockSetting, id: "ws-2", name: "御花园" },
       ];
-      (mockPrisma.worldSetting.findMany as jest.Mock).mockResolvedValue(settings);
+      (mockPrisma.worldSetting.findMany as jest.Mock).mockResolvedValue(
+        settings,
+      );
 
       const result = await service.findAll("bible-1");
 
@@ -134,7 +138,9 @@ describe("WorldSettingService", () => {
 
   describe("findByCategory", () => {
     it("should return settings filtered by category", async () => {
-      (mockPrisma.worldSetting.findMany as jest.Mock).mockResolvedValue([mockSetting]);
+      (mockPrisma.worldSetting.findMany as jest.Mock).mockResolvedValue([
+        mockSetting,
+      ]);
 
       const result = await service.findByCategory("bible-1", "geography");
 
@@ -156,7 +162,9 @@ describe("WorldSettingService", () => {
   describe("update", () => {
     it("should update world setting", async () => {
       const updatedSetting = { ...mockSetting, description: "更新后的描述" };
-      (mockPrisma.worldSetting.update as jest.Mock).mockResolvedValue(updatedSetting);
+      (mockPrisma.worldSetting.update as jest.Mock).mockResolvedValue(
+        updatedSetting,
+      );
 
       const result = await service.update("ws-1", {
         description: "更新后的描述",
@@ -201,7 +209,9 @@ describe("WorldSettingService", () => {
 
   describe("delete", () => {
     it("should delete world setting by id", async () => {
-      (mockPrisma.worldSetting.delete as jest.Mock).mockResolvedValue(mockSetting);
+      (mockPrisma.worldSetting.delete as jest.Mock).mockResolvedValue(
+        mockSetting,
+      );
 
       await service.delete("ws-1");
 
@@ -211,7 +221,9 @@ describe("WorldSettingService", () => {
     });
 
     it("should return the deleted setting", async () => {
-      (mockPrisma.worldSetting.delete as jest.Mock).mockResolvedValue(mockSetting);
+      (mockPrisma.worldSetting.delete as jest.Mock).mockResolvedValue(
+        mockSetting,
+      );
 
       const result = await service.delete("ws-1");
 
@@ -223,7 +235,9 @@ describe("WorldSettingService", () => {
         new Error("Record not found"),
       );
 
-      await expect(service.delete("nonexistent")).rejects.toThrow("Record not found");
+      await expect(service.delete("nonexistent")).rejects.toThrow(
+        "Record not found",
+      );
     });
   });
 });

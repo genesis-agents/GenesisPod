@@ -2,7 +2,10 @@
  * Unit tests for LeaderLLMAdapter
  */
 
-import { LeaderLLMAdapter, createLeaderLLMAdapter } from "../leader-llm-adapter";
+import {
+  LeaderLLMAdapter,
+  createLeaderLLMAdapter,
+} from "../leader-llm-adapter";
 import { LLMFactory } from "../../../llm/factory/llm-factory";
 import { ILLMAdapter } from "../../../llm/abstractions/llm-adapter.interface";
 import { TaskInput, MemberOutput } from "../../abstractions/member.interface";
@@ -20,7 +23,9 @@ function makeMockLLMAdapter(responseContent: string): ILLMAdapter {
 function makeLLMFactory(adapter?: ILLMAdapter): LLMFactory {
   return {
     getDefaultModel: jest.fn().mockReturnValue("default-model"),
-    getAdapterForModel: jest.fn().mockReturnValue(adapter ?? makeMockLLMAdapter("")),
+    getAdapterForModel: jest
+      .fn()
+      .mockReturnValue(adapter ?? makeMockLLMAdapter("")),
   } as unknown as LLMFactory;
 }
 
@@ -88,7 +93,11 @@ describe("LeaderLLMAdapter - decomposeTask", () => {
     const factory = makeLLMFactory(mockLLM);
     const adapter = new LeaderLLMAdapter(factory);
 
-    const subtasks = await adapter.decomposeTask(makeTask(), ["researcher", "analyst"], "I am a leader");
+    const subtasks = await adapter.decomposeTask(
+      makeTask(),
+      ["researcher", "analyst"],
+      "I am a leader",
+    );
 
     expect(subtasks).toHaveLength(2);
     expect(subtasks[0].description).toBe("Search for AI papers");
@@ -103,7 +112,11 @@ describe("LeaderLLMAdapter - decomposeTask", () => {
     const factory = makeLLMFactory(mockLLM);
     const adapter = new LeaderLLMAdapter(factory);
 
-    const subtasks = await adapter.decomposeTask(makeTask(), ["researcher"], "Persona");
+    const subtasks = await adapter.decomposeTask(
+      makeTask(),
+      ["researcher"],
+      "Persona",
+    );
 
     expect(subtasks).toHaveLength(1);
     expect(subtasks[0].parentTaskId).toBe("task-1");
@@ -117,7 +130,11 @@ describe("LeaderLLMAdapter - decomposeTask", () => {
     const factory = makeLLMFactory(mockLLM);
     const adapter = new LeaderLLMAdapter(factory);
 
-    const subtasks = await adapter.decomposeTask(makeTask(), ["writer"], "Persona");
+    const subtasks = await adapter.decomposeTask(
+      makeTask(),
+      ["writer"],
+      "Persona",
+    );
 
     expect(subtasks).toHaveLength(1);
     expect(subtasks[0].suggestedRole).toBe("writer");
@@ -130,21 +147,30 @@ describe("LeaderLLMAdapter - decomposeTask", () => {
     } as unknown as LLMFactory;
     const adapter = new LeaderLLMAdapter(factory);
 
-    await expect(adapter.decomposeTask(makeTask(), [], "Persona")).rejects.toThrow(
-      "No LLM adapter available",
-    );
+    await expect(
+      adapter.decomposeTask(makeTask(), [], "Persona"),
+    ).rejects.toThrow("No LLM adapter available");
   });
 
   it("should handle subtasks without requirements and context", async () => {
     const responseJson = JSON.stringify([
-      { description: "Simple task", suggestedRole: "researcher", estimatedDuration: 10, priority: 1 },
+      {
+        description: "Simple task",
+        suggestedRole: "researcher",
+        estimatedDuration: 10,
+        priority: 1,
+      },
     ]);
     const mockLLM = makeMockLLMAdapter(responseJson);
     const factory = makeLLMFactory(mockLLM);
     const adapter = new LeaderLLMAdapter(factory);
 
     const task: TaskInput = { id: "t1", description: "Simple" };
-    const subtasks = await adapter.decomposeTask(task, ["researcher"], "Persona");
+    const subtasks = await adapter.decomposeTask(
+      task,
+      ["researcher"],
+      "Persona",
+    );
     expect(subtasks).toHaveLength(1);
   });
 });
@@ -157,14 +183,24 @@ describe("LeaderLLMAdapter - reviewOutput", () => {
       passed: true,
       score: 9,
       feedback: "Excellent work",
-      issues: [{ type: "suggestion", description: "Add more examples", suggestion: "Include case studies" }],
+      issues: [
+        {
+          type: "suggestion",
+          description: "Add more examples",
+          suggestion: "Include case studies",
+        },
+      ],
     });
 
     const mockLLM = makeMockLLMAdapter(reviewJson);
     const factory = makeLLMFactory(mockLLM);
     const adapter = new LeaderLLMAdapter(factory);
 
-    const review = await adapter.reviewOutput(makeOutput(), ["Accuracy", "Completeness"], "Leader persona");
+    const review = await adapter.reviewOutput(
+      makeOutput(),
+      ["Accuracy", "Completeness"],
+      "Leader persona",
+    );
 
     expect(review.passed).toBe(true);
     expect(review.score).toBe(9);
@@ -197,7 +233,11 @@ describe("LeaderLLMAdapter - reviewOutput", () => {
   });
 
   it("should handle object content type in output", async () => {
-    const reviewJson = JSON.stringify({ passed: true, score: 8, feedback: "OK" });
+    const reviewJson = JSON.stringify({
+      passed: true,
+      score: 8,
+      feedback: "OK",
+    });
     const mockLLM = makeMockLLMAdapter(reviewJson);
     const factory = makeLLMFactory(mockLLM);
     const adapter = new LeaderLLMAdapter(factory);
@@ -231,7 +271,11 @@ describe("LeaderLLMAdapter - integrateResults", () => {
     const adapter = new LeaderLLMAdapter(factory);
 
     const results = [makeOutput("out-1"), makeOutput("out-2")];
-    const integrated = await adapter.integrateResults(results, "Write comprehensive report", "Persona");
+    const integrated = await adapter.integrateResults(
+      results,
+      "Write comprehensive report",
+      "Persona",
+    );
 
     expect(integrated.content).toBe("Integrated report with all findings");
     expect(integrated.summary).toBe("Comprehensive AI market analysis");
@@ -246,7 +290,11 @@ describe("LeaderLLMAdapter - integrateResults", () => {
     const adapter = new LeaderLLMAdapter(factory);
 
     const results = [makeOutput("out-1")];
-    const integrated = await adapter.integrateResults(results, "Goal", "Persona");
+    const integrated = await adapter.integrateResults(
+      results,
+      "Goal",
+      "Persona",
+    );
 
     expect(integrated.sourceOutputIds).toContain("out-1");
     expect(integrated.contentType).toBe("integrated");
@@ -260,13 +308,20 @@ describe("LeaderLLMAdapter - integrateResults", () => {
     const adapter = new LeaderLLMAdapter(factory);
 
     const results = [makeOutput("out-1"), makeOutput("out-2")];
-    const integrated = await adapter.integrateResults(results, "Goal", "Persona");
+    const integrated = await adapter.integrateResults(
+      results,
+      "Goal",
+      "Persona",
+    );
 
     expect(integrated.sourceOutputIds).toHaveLength(2);
   });
 
   it("should handle empty results array", async () => {
-    const integrationJson = JSON.stringify({ content: "Nothing to integrate", summary: "Empty" });
+    const integrationJson = JSON.stringify({
+      content: "Nothing to integrate",
+      summary: "Empty",
+    });
     const mockLLM = makeMockLLMAdapter(integrationJson);
     const factory = makeLLMFactory(mockLLM);
     const adapter = new LeaderLLMAdapter(factory);

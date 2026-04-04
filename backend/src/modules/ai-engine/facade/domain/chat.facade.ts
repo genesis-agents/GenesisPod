@@ -228,9 +228,7 @@ export class ChatFacade {
     const initialMessages = request.messages.map((m) => ({
       role: m.role,
       content:
-        typeof m.content === "string"
-          ? m.content
-          : JSON.stringify(m.content),
+        typeof m.content === "string" ? m.content : JSON.stringify(m.content),
     }));
 
     const loopResult = await queryLoopService.executeWithLoop(

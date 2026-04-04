@@ -8,10 +8,7 @@ import {
   extractTextFromMCPResult,
   extractImagesFromMCPResult,
 } from "../mcp-tool-adapter";
-import type {
-  MCPTool,
-  MCPToolResult,
-} from "../../abstractions/mcp.interface";
+import type { MCPTool, MCPToolResult } from "../../abstractions/mcp.interface";
 import { MCPManager } from "../../manager/mcp-manager";
 
 // ----- helpers -----
@@ -38,10 +35,7 @@ function makeMockMCPManager() {
   } as unknown as jest.Mocked<MCPManager>;
 }
 
-function makeToolResult(
-  text: string,
-  isError = false,
-): MCPToolResult {
+function makeToolResult(text: string, isError = false): MCPToolResult {
   return {
     content: [{ type: "text", text }],
     isError,
@@ -82,9 +76,7 @@ describe("MCPToolAdapter", () => {
     });
 
     it("should expose the tool description", () => {
-      expect(adapter.description).toBe(
-        "Search the web for information",
-      );
+      expect(adapter.description).toBe("Search the web for information");
     });
 
     it("should have category 'mcp'", () => {
@@ -110,11 +102,9 @@ describe("MCPToolAdapter", () => {
 
       await adapter.execute({ query: "test" }, makeToolContext());
 
-      expect(mockManager.callTool).toHaveBeenCalledWith(
-        "server-1",
-        "search",
-        { query: "test" },
-      );
+      expect(mockManager.callTool).toHaveBeenCalledWith("server-1", "search", {
+        query: "test",
+      });
     });
 
     it("should return success=true when isError is false", async () => {

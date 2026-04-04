@@ -19,10 +19,7 @@ import {
   createConstraintProfile,
   BUILTIN_TOOLS,
 } from "../../../ai-engine/facade";
-import type {
-  TeamConfig,
-  WorkflowConfig,
-} from "../../../ai-engine/facade";
+import type { TeamConfig, WorkflowConfig } from "../../../ai-engine/facade";
 
 /**
  * Slides 团队工作流配置

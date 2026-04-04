@@ -45,10 +45,9 @@ test.describe("Public API — Health Check (L5 Open API)", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     const apiBase = process.env.API_BASE_URL || baseURL || "";
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/public/status`,
-      { timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/public/status`, {
+      timeout: 15000,
+    });
 
     expect(
       response.ok(),
@@ -60,10 +59,9 @@ test.describe("Public API — Health Check (L5 Open API)", () => {
 
     // Status endpoint must return a status field
     expect(data, "Status response should be truthy").toBeTruthy();
-    expect(
-      data,
-      'Status response should have a "status" field',
-    ).toHaveProperty("status");
+    expect(data, 'Status response should have a "status" field').toHaveProperty(
+      "status",
+    );
     expect(
       ["healthy", "ok", "running", "operational"].includes(
         (data.status as string).toLowerCase(),
@@ -144,7 +142,7 @@ test.describe("Public API — Capability Discovery (L5 Open API)", () => {
     const body = await response.json();
     const data = body.data ?? body;
     // Tools discovery should return an array of tool definitions
-    const tools = Array.isArray(data) ? data : data.tools ?? data.items ?? [];
+    const tools = Array.isArray(data) ? data : (data.tools ?? data.items ?? []);
     expect(Array.isArray(tools), "Tools should be an array").toBe(true);
 
     // Each tool should have name and schema
@@ -177,7 +175,7 @@ test.describe("Public API — Capability Discovery (L5 Open API)", () => {
     const data = body.data ?? body;
     const models = Array.isArray(data)
       ? data
-      : data.models ?? data.items ?? [];
+      : (data.models ?? data.items ?? []);
     expect(Array.isArray(models), "Models should be an array").toBe(true);
   });
 
@@ -200,10 +198,9 @@ test.describe("Public API — Capability Discovery (L5 Open API)", () => {
     const body = await response.json();
     const data = body.data ?? body;
     expect(data, "Discovery capabilities should be truthy").toBeTruthy();
-    expect(
-      typeof data,
-      "Discovery capabilities should be an object",
-    ).toBe("object");
+    expect(typeof data, "Discovery capabilities should be an object").toBe(
+      "object",
+    );
   });
 });
 
@@ -224,14 +221,11 @@ test.describe("Public API — Protected Endpoints (MCP API Key Auth)", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
 
     // Send without any auth header — should be rejected
-    const response = await page.request.post(
-      `${apiBase}/api/v1/public/ask`,
-      {
-        headers: { "Content-Type": "application/json" },
-        data: { question: "What is 2+2?" },
-        timeout: 15000,
-      },
-    );
+    const response = await page.request.post(`${apiBase}/api/v1/public/ask`, {
+      headers: { "Content-Type": "application/json" },
+      data: { question: "What is 2+2?" },
+      timeout: 15000,
+    });
 
     // Public API requires MCP API key — unauthenticated requests must be rejected
     expect(
@@ -246,16 +240,13 @@ test.describe("Public API — Protected Endpoints (MCP API Key Auth)", () => {
   }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
 
-    const response = await page.request.post(
-      `${apiBase}/api/v1/public/chat`,
-      {
-        headers: { "Content-Type": "application/json" },
-        data: {
-          messages: [{ role: "user", content: "Hello" }],
-        },
-        timeout: 15000,
+    const response = await page.request.post(`${apiBase}/api/v1/public/chat`, {
+      headers: { "Content-Type": "application/json" },
+      data: {
+        messages: [{ role: "user", content: "Hello" }],
       },
-    );
+      timeout: 15000,
+    });
 
     expect(
       [401, 403].includes(response.status()),
@@ -340,7 +331,7 @@ test.describe("Admin Open API Management (L5 → Admin)", () => {
     if (response.ok()) {
       const body = await response.json();
       const data = body.data ?? body;
-      const keys = Array.isArray(data) ? data : data.items ?? data.keys ?? [];
+      const keys = Array.isArray(data) ? data : (data.items ?? data.keys ?? []);
       expect(Array.isArray(keys), "API keys should be an array").toBe(true);
     }
   });

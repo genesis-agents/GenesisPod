@@ -47,8 +47,8 @@ describe("AiDirectKeyService", () => {
 
     // retryService wraps calls - just pass through to the underlying fn
     mockRetryService = {
-      withExponentialBackoff: jest.fn(
-        async (fn: () => Promise<unknown>) => fn(),
+      withExponentialBackoff: jest.fn(async (fn: () => Promise<unknown>) =>
+        fn(),
       ),
     };
 
@@ -60,9 +60,7 @@ describe("AiDirectKeyService", () => {
 
     mockModelDiscoveryService = {
       formatModelDisplayName: jest.fn().mockReturnValue("GPT-4o"),
-      getEnvVarNameForProvider: jest
-        .fn()
-        .mockReturnValue("OPENAI_API_KEY"),
+      getEnvVarNameForProvider: jest.fn().mockReturnValue("OPENAI_API_KEY"),
     };
 
     mockPromptService = {
@@ -299,9 +297,7 @@ describe("AiDirectKeyService", () => {
 
     it("should use taskProfile parameters when provided", async () => {
       const apiResponse = {
-        choices: [
-          { message: { content: "OK" }, finish_reason: "stop" },
-        ],
+        choices: [{ message: { content: "OK" }, finish_reason: "stop" }],
         usage: { total_tokens: 10 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -323,9 +319,7 @@ describe("AiDirectKeyService", () => {
 
     it("should use explicit maxTokens/temperature when provided", async () => {
       const apiResponse = {
-        choices: [
-          { message: { content: "OK" }, finish_reason: "stop" },
-        ],
+        choices: [{ message: { content: "OK" }, finish_reason: "stop" }],
         usage: { total_tokens: 10 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -344,9 +338,7 @@ describe("AiDirectKeyService", () => {
 
     it("should include systemPrompt in messages", async () => {
       const apiResponse = {
-        choices: [
-          { message: { content: "OK" }, finish_reason: "stop" },
-        ],
+        choices: [{ message: { content: "OK" }, finish_reason: "stop" }],
         usage: { total_tokens: 10 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -363,8 +355,7 @@ describe("AiDirectKeyService", () => {
       expect(
         body.messages.some(
           (m: any) =>
-            m.role === "system" &&
-            m.content === "You are a helpful assistant",
+            m.role === "system" && m.content === "You are a helpful assistant",
         ),
       ).toBe(true);
     });
@@ -382,9 +373,7 @@ describe("AiDirectKeyService", () => {
     });
 
     it("should rethrow context-related errors", async () => {
-      const contextError = new Error(
-        "AI 响应被完全截断（上下文可能过大）",
-      );
+      const contextError = new Error("AI 响应被完全截断（上下文可能过大）");
       mockRetryService.withExponentialBackoff.mockRejectedValueOnce(
         contextError,
       );
@@ -396,9 +385,7 @@ describe("AiDirectKeyService", () => {
 
     it("should rethrow token-related errors", async () => {
       const tokenError = new Error("token limit exceeded");
-      mockRetryService.withExponentialBackoff.mockRejectedValueOnce(
-        tokenError,
-      );
+      mockRetryService.withExponentialBackoff.mockRejectedValueOnce(tokenError);
 
       await expect(
         service.generateChatCompletionWithKey(baseOptions),
@@ -576,9 +563,7 @@ describe("AiDirectKeyService", () => {
 
     it("should use custom apiEndpoint when provided", async () => {
       const apiResponse = {
-        choices: [
-          { message: { content: "OK" }, finish_reason: "stop" },
-        ],
+        choices: [{ message: { content: "OK" }, finish_reason: "stop" }],
         usage: { total_tokens: 10 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -605,9 +590,7 @@ describe("AiDirectKeyService", () => {
       );
 
       const apiResponse = {
-        choices: [
-          { message: { content: "OK" }, finish_reason: "stop" },
-        ],
+        choices: [{ message: { content: "OK" }, finish_reason: "stop" }],
         usage: { total_tokens: 10 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -616,7 +599,9 @@ describe("AiDirectKeyService", () => {
 
       await service.generateChatCompletionWithKey(baseOptions);
 
-      expect(mockPromptService.augmentMessagesWithUrlContent).toHaveBeenCalled();
+      expect(
+        mockPromptService.augmentMessagesWithUrlContent,
+      ).toHaveBeenCalled();
     });
 
     it("should handle OpenAI refusal in response (caught by outer handler)", async () => {
@@ -689,9 +674,7 @@ describe("AiDirectKeyService", () => {
 
     it("should handle OpenAI API error in response body", async () => {
       const apiResponse = {
-        choices: [
-          { message: { content: "OK" }, finish_reason: "stop" },
-        ],
+        choices: [{ message: { content: "OK" }, finish_reason: "stop" }],
         error: { message: "Some API error occurred" },
         usage: { total_tokens: 10 },
       };
@@ -750,7 +733,9 @@ describe("AiDirectKeyService", () => {
     });
 
     it("should switch to gemini-2.0-flash-exp for image-only model without image request", async () => {
-      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(false);
+      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(
+        false,
+      );
 
       const apiResponse = {
         candidates: [
@@ -779,7 +764,9 @@ describe("AiDirectKeyService", () => {
     });
 
     it("should add google search tools when enableSearch=true and not image request", async () => {
-      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(false);
+      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(
+        false,
+      );
 
       const apiResponse = {
         candidates: [
@@ -809,7 +796,9 @@ describe("AiDirectKeyService", () => {
     });
 
     it("should not add google search tools when enableSearch=false", async () => {
-      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(false);
+      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(
+        false,
+      );
 
       const apiResponse = {
         candidates: [
@@ -838,7 +827,9 @@ describe("AiDirectKeyService", () => {
     });
 
     it("should add responseMimeType for json format with Gemini", async () => {
-      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(false);
+      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(
+        false,
+      );
 
       const apiResponse = {
         candidates: [
@@ -869,7 +860,9 @@ describe("AiDirectKeyService", () => {
     });
 
     it("should add systemInstruction when systemPrompt provided for Gemini", async () => {
-      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(false);
+      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(
+        false,
+      );
 
       const apiResponse = {
         candidates: [
@@ -900,7 +893,9 @@ describe("AiDirectKeyService", () => {
     });
 
     it("should clean base64 images from Gemini messages", async () => {
-      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(false);
+      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(
+        false,
+      );
 
       const apiResponse = {
         candidates: [
@@ -1002,7 +997,9 @@ describe("AiDirectKeyService", () => {
         candidates: [
           {
             content: {
-              parts: [{ text: "Here is what I would draw: a beautiful sunset" }],
+              parts: [
+                { text: "Here is what I would draw: a beautiful sunset" },
+              ],
             },
             finishReason: "STOP",
           },

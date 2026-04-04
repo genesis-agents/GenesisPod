@@ -39,7 +39,12 @@ describe("PublishQueueService", () => {
 
   describe("addJob", () => {
     it("should add a job to the queue and return a job ID", async () => {
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
 
       expect(jobId).toBeDefined();
       expect(typeof jobId).toBe("string");
@@ -47,7 +52,12 @@ describe("PublishQueueService", () => {
     });
 
     it("should create a waiting job for immediate publishing", async () => {
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
       const status = service.getJobStatus(jobId);
 
       expect(status).not.toBeNull();
@@ -80,7 +90,12 @@ describe("PublishQueueService", () => {
     });
 
     it("should return status info for existing job", async () => {
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
       const status = service.getJobStatus(jobId);
 
       expect(status).not.toBeNull();
@@ -89,7 +104,12 @@ describe("PublishQueueService", () => {
     });
 
     it("should show 0 progress for waiting job", async () => {
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
       const status = service.getJobStatus(jobId);
 
       expect(status!.progress).toBe(0);
@@ -98,7 +118,12 @@ describe("PublishQueueService", () => {
 
   describe("cancelJob", () => {
     it("should cancel a waiting job and return true", async () => {
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
 
       const result = service.cancelJob(jobId);
 
@@ -133,14 +158,24 @@ describe("PublishQueueService", () => {
     });
 
     it("should return false for non-failed job", async () => {
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
       // Job is in "waiting" state, not "failed"
       const result = service.retryJob(jobId);
       expect(result).toBe(false);
     });
 
     it("should reset a failed job to waiting state", async () => {
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
 
       // Cancel it to make it "failed"
       service.cancelJob(jobId);
@@ -176,7 +211,12 @@ describe("PublishQueueService", () => {
       });
 
       // Create a failed job
-      const failedJobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const failedJobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
       service.cancelJob(failedJobId);
 
       const stats = service.getQueueStats();
@@ -196,7 +236,12 @@ describe("PublishQueueService", () => {
     it("should return all jobs for a user", async () => {
       await service.addJob(contentId, userId, platform, defaultOptions);
       await service.addJob("content-2", userId, platform, defaultOptions);
-      await service.addJob("other-content", "other-user", platform, defaultOptions);
+      await service.addJob(
+        "other-content",
+        "other-user",
+        platform,
+        defaultOptions,
+      );
 
       const jobs = service.getUserJobs(userId);
       expect(jobs).toHaveLength(2);
@@ -205,7 +250,12 @@ describe("PublishQueueService", () => {
 
     it("should filter by status when provided", async () => {
       await service.addJob(contentId, userId, platform, defaultOptions);
-      const failedJobId = await service.addJob("content-2", userId, platform, defaultOptions);
+      const failedJobId = await service.addJob(
+        "content-2",
+        userId,
+        platform,
+        defaultOptions,
+      );
       service.cancelJob(failedJobId);
 
       const failedJobs = service.getUserJobs(userId, { status: "failed" });
@@ -225,10 +275,20 @@ describe("PublishQueueService", () => {
     });
 
     it("should sort jobs by creation time (newest first)", async () => {
-      const jobId1 = await service.addJob("content-1", userId, platform, defaultOptions);
+      const jobId1 = await service.addJob(
+        "content-1",
+        userId,
+        platform,
+        defaultOptions,
+      );
       // Advance fake timer to ensure job2 has a later timestamp
       jest.advanceTimersByTime(100);
-      const jobId2 = await service.addJob("content-2", userId, platform, defaultOptions);
+      const jobId2 = await service.addJob(
+        "content-2",
+        userId,
+        platform,
+        defaultOptions,
+      );
 
       const jobs = service.getUserJobs(userId);
       // Should have 2 jobs sorted by creation time
@@ -261,7 +321,12 @@ describe("PublishQueueService", () => {
 
     it("should skip processing when no processor is set", async () => {
       // Without calling setProcessor, no processor is registered
-      const jobId = await service.addJob(contentId, userId, platform, defaultOptions);
+      const jobId = await service.addJob(
+        contentId,
+        userId,
+        platform,
+        defaultOptions,
+      );
 
       jest.advanceTimersByTime(5001);
       await Promise.resolve();

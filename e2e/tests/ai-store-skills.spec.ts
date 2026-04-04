@@ -78,9 +78,7 @@ test.describe("AI Skills UI (/ai-skills)", () => {
     const skillCards = page.locator(
       "[class*='skill'], [class*='card'], [class*='grid'], table",
     );
-    const emptyState = page.getByText(
-      /no.*skill|empty|get started|install/i,
-    );
+    const emptyState = page.getByText(/no.*skill|empty|get started|install/i);
 
     const hasSkills = (await skillCards.count()) > 0;
     const hasEmptyState = (await emptyState.count()) > 0;

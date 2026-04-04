@@ -63,10 +63,7 @@ describe("DataSourceConnectorRegistry", () => {
 
   describe("register", () => {
     it("should register a connector successfully", () => {
-      const connector = createMockConnector(
-        DataSourceType.PUBMED,
-        "PubMed",
-      );
+      const connector = createMockConnector(DataSourceType.PUBMED, "PubMed");
 
       registry.register(connector);
 
@@ -99,8 +96,14 @@ describe("DataSourceConnectorRegistry", () => {
     });
 
     it("should overwrite existing connector when registering same type", () => {
-      const connector1 = createMockConnector(DataSourceType.PUBMED, "PubMed v1");
-      const connector2 = createMockConnector(DataSourceType.PUBMED, "PubMed v2");
+      const connector1 = createMockConnector(
+        DataSourceType.PUBMED,
+        "PubMed v1",
+      );
+      const connector2 = createMockConnector(
+        DataSourceType.PUBMED,
+        "PubMed v2",
+      );
 
       registry.register(connector1);
       registry.register(connector2);
@@ -113,7 +116,10 @@ describe("DataSourceConnectorRegistry", () => {
 
   describe("get", () => {
     it("should return registered connector", () => {
-      const connector = createMockConnector(DataSourceType.FINANCE_API, "Finance");
+      const connector = createMockConnector(
+        DataSourceType.FINANCE_API,
+        "Finance",
+      );
 
       registry.register(connector);
 
@@ -151,9 +157,7 @@ describe("DataSourceConnectorRegistry", () => {
     });
 
     it("should return all registered types", () => {
-      registry.register(
-        createMockConnector(DataSourceType.PUBMED, "PubMed"),
-      );
+      registry.register(createMockConnector(DataSourceType.PUBMED, "PubMed"));
       registry.register(
         createMockConnector(DataSourceType.SEMANTIC_SCHOLAR, "SS"),
       );
@@ -172,9 +176,7 @@ describe("DataSourceConnectorRegistry", () => {
     });
 
     it("should return correct count after registrations", () => {
-      registry.register(
-        createMockConnector(DataSourceType.PUBMED, "PubMed"),
-      );
+      registry.register(createMockConnector(DataSourceType.PUBMED, "PubMed"));
       registry.register(
         createMockConnector(DataSourceType.WEATHER_API, "Weather"),
       );
@@ -208,7 +210,11 @@ describe("DataSourceConnectorRegistry", () => {
 
       expect(results).toEqual(mockResults);
       expect(connector.isAvailable).toHaveBeenCalled();
-      expect(connector.search).toHaveBeenCalledWith("test query", 10, undefined);
+      expect(connector.search).toHaveBeenCalledWith(
+        "test query",
+        10,
+        undefined,
+      );
     });
 
     it("should return empty array when no connector is registered", async () => {
@@ -272,7 +278,11 @@ describe("DataSourceConnectorRegistry", () => {
 
   describe("getStatus", () => {
     it("should return status for all registered connectors", async () => {
-      const connector1 = createMockConnector(DataSourceType.PUBMED, "PubMed", true);
+      const connector1 = createMockConnector(
+        DataSourceType.PUBMED,
+        "PubMed",
+        true,
+      );
       const connector2 = createMockConnector(
         DataSourceType.FINANCE_API,
         "Finance",

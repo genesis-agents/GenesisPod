@@ -1,9 +1,11 @@
 # Fix Strategy: Empty State
 
 ## Issue
+
 Page renders nothing or broken layout when data array is empty.
 
 ## Pattern
+
 ```typescript
 // Before (no empty state handling)
 {items.map(item => <Card key={item.id} />)}
@@ -19,6 +21,7 @@ Page renders nothing or broken layout when data array is empty.
 ```
 
 ## Steps
+
 1. Read {{source_file}}
 2. Find the list/grid rendering section
 3. Add a conditional check for empty data

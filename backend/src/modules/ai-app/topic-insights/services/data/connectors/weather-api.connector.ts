@@ -12,7 +12,10 @@ import {
   ConnectorSearchOptions,
   ConnectorHealthStatus,
 } from "../../../types/data-source-connector.types";
-import { DataSourceType, DataSourceResult } from "../../../types/data-source.types";
+import {
+  DataSourceType,
+  DataSourceResult,
+} from "../../../types/data-source.types";
 
 @Injectable()
 export class WeatherApiConnector implements IDataSourceConnector {
@@ -21,7 +24,8 @@ export class WeatherApiConnector implements IDataSourceConnector {
   readonly displayName = "Weather Data API";
   readonly requiresApiKey = false;
 
-  private readonly geocodingUrl = "https://geocoding-api.open-meteo.com/v1/search";
+  private readonly geocodingUrl =
+    "https://geocoding-api.open-meteo.com/v1/search";
   private readonly weatherUrl = "https://api.open-meteo.com/v1/forecast";
 
   async search(
@@ -54,10 +58,9 @@ export class WeatherApiConnector implements IDataSourceConnector {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${this.geocodingUrl}?name=London&count=1`,
-        { signal: AbortSignal.timeout(5000) },
-      );
+      const response = await fetch(`${this.geocodingUrl}?name=London&count=1`, {
+        signal: AbortSignal.timeout(5000),
+      });
       return response.ok;
     } catch {
       return false;
@@ -67,10 +70,9 @@ export class WeatherApiConnector implements IDataSourceConnector {
   async healthCheck(): Promise<ConnectorHealthStatus> {
     const start = Date.now();
     try {
-      const response = await fetch(
-        `${this.geocodingUrl}?name=test&count=1`,
-        { signal: AbortSignal.timeout(5000) },
-      );
+      const response = await fetch(`${this.geocodingUrl}?name=test&count=1`, {
+        signal: AbortSignal.timeout(5000),
+      });
 
       return {
         available: response.ok,
@@ -87,20 +89,16 @@ export class WeatherApiConnector implements IDataSourceConnector {
     }
   }
 
-  private async geocode(
-    query: string,
-    count: number,
-  ): Promise<GeoLocation[]> {
+  private async geocode(query: string, count: number): Promise<GeoLocation[]> {
     const params = new URLSearchParams({
       name: query,
       count: String(count),
       language: "en",
     });
 
-    const response = await fetch(
-      `${this.geocodingUrl}?${params.toString()}`,
-      { signal: AbortSignal.timeout(5000) },
-    );
+    const response = await fetch(`${this.geocodingUrl}?${params.toString()}`, {
+      signal: AbortSignal.timeout(5000),
+    });
 
     if (!response.ok) return [];
 
@@ -116,17 +114,17 @@ export class WeatherApiConnector implements IDataSourceConnector {
     const params = new URLSearchParams({
       latitude: String(location.latitude),
       longitude: String(location.longitude),
-      current: "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
+      current:
+        "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
       daily: "temperature_2m_max,temperature_2m_min,weather_code",
       forecast_days: "7",
       timezone: "auto",
     });
 
     try {
-      const response = await fetch(
-        `${this.weatherUrl}?${params.toString()}`,
-        { signal: AbortSignal.timeout(5000) },
-      );
+      const response = await fetch(`${this.weatherUrl}?${params.toString()}`, {
+        signal: AbortSignal.timeout(5000),
+      });
 
       if (!response.ok) return null;
 

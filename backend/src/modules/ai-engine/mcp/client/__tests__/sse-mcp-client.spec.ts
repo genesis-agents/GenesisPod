@@ -24,7 +24,11 @@ function makeConfig(overrides?: Partial<MCPServerConfig>): MCPServerConfig {
 }
 
 /** SSE event block string */
-function sseBlock(fields: { event?: string; data?: string; id?: string }): string {
+function sseBlock(fields: {
+  event?: string;
+  data?: string;
+  id?: string;
+}): string {
   const lines: string[] = [];
   if (fields.id) lines.push(`id: ${fields.id}`);
   if (fields.event) lines.push(`event: ${fields.event}`);
@@ -107,9 +111,15 @@ async function fullyConnect(client: SSEMCPClient, endpoint = "/messages") {
   const { mockClient, stream } = buildSseSetup(endpoint);
 
   // initialize (id=1)
-  wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 1, result: INIT_RESULT });
+  wireSseResponse(mockClient, stream, {
+    jsonrpc: "2.0",
+    id: 1,
+    result: INIT_RESULT,
+  });
   // notifications/initialized has no id, POST just returns 202
-  mockClient.post.mockImplementationOnce(() => Promise.resolve({ status: 202 }));
+  mockClient.post.mockImplementationOnce(() =>
+    Promise.resolve({ status: 202 }),
+  );
 
   await client.connect();
   return { mockClient, stream };
@@ -153,7 +163,9 @@ describe("SSEMCPClient", () => {
       await fullyConnect(client);
       const createCalls = (mockedAxios.create as jest.Mock).mock.calls.length;
       await client.connect(); // second call – no-op
-      expect((mockedAxios.create as jest.Mock).mock.calls.length).toBe(createCalls);
+      expect((mockedAxios.create as jest.Mock).mock.calls.length).toBe(
+        createCalls,
+      );
     });
 
     it("throws when URL is missing", async () => {
@@ -163,16 +175,26 @@ describe("SSEMCPClient", () => {
     });
 
     it("includes Authorization header when API_KEY is set", async () => {
-      const c = new SSEMCPClient(makeConfig({ env: { API_KEY: "secret-123" } }));
+      const c = new SSEMCPClient(
+        makeConfig({ env: { API_KEY: "secret-123" } }),
+      );
       const { mockClient, stream } = buildSseSetup();
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 1, result: INIT_RESULT });
-      mockClient.post.mockImplementationOnce(() => Promise.resolve({ status: 202 }));
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 1,
+        result: INIT_RESULT,
+      });
+      mockClient.post.mockImplementationOnce(() =>
+        Promise.resolve({ status: 202 }),
+      );
 
       await c.connect();
 
       expect(mockedAxios.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: "Bearer secret-123" }),
+          headers: expect.objectContaining({
+            Authorization: "Bearer secret-123",
+          }),
         }),
       );
     });
@@ -213,7 +235,9 @@ describe("SSEMCPClient", () => {
           method: "tools/list",
           params: {},
         }),
-      ).rejects.toThrow("SSE client not connected or message endpoint not discovered");
+      ).rejects.toThrow(
+        "SSE client not connected or message endpoint not discovered",
+      );
     });
 
     it("throws formatted HTTP error on non-200 POST response", async () => {
@@ -222,7 +246,9 @@ describe("SSEMCPClient", () => {
       const axiosError = Object.assign(new Error("Service Unavailable"), {
         response: { status: 503, data: "down" },
       });
-      (axios.isAxiosError as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
+      (axios.isAxiosError as unknown as jest.Mock) = jest
+        .fn()
+        .mockReturnValue(true);
       mockClient.post.mockRejectedValueOnce(axiosError);
 
       await expect(client.listTools()).rejects.toThrow("HTTP 503");
@@ -236,7 +262,11 @@ describe("SSEMCPClient", () => {
       const { mockClient, stream } = await fullyConnect(client);
 
       const tools = [{ name: "echo", description: "echoes", inputSchema: {} }];
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: { tools } });
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: { tools },
+      });
 
       expect(await client.listTools()).toEqual(tools);
     });
@@ -245,16 +275,26 @@ describe("SSEMCPClient", () => {
       const { mockClient, stream } = await fullyConnect(client);
 
       const toolResult = { content: [{ type: "text", text: "42" }] };
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: toolResult });
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: toolResult,
+      });
 
-      expect(await client.callTool("echo", { input: "hello" })).toEqual(toolResult);
+      expect(await client.callTool("echo", { input: "hello" })).toEqual(
+        toolResult,
+      );
     });
 
     it("listResources returns resources", async () => {
       const { mockClient, stream } = await fullyConnect(client);
 
       const resources = [{ uri: "file://data.txt", name: "data" }];
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: { resources } });
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: { resources },
+      });
 
       expect(await client.listResources()).toEqual(resources);
     });
@@ -263,7 +303,11 @@ describe("SSEMCPClient", () => {
       const { mockClient, stream } = await fullyConnect(client);
 
       const contents = [{ uri: "file://a.txt", text: "content" }];
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: { contents } });
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: { contents },
+      });
 
       expect(await client.readResource("file://a.txt")).toEqual(contents[0]);
     });
@@ -272,7 +316,11 @@ describe("SSEMCPClient", () => {
       const { mockClient, stream } = await fullyConnect(client);
 
       const prompts = [{ name: "summarize", description: "Summarizes text" }];
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: { prompts } });
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: { prompts },
+      });
 
       expect(await client.listPrompts()).toEqual(prompts);
     });
@@ -280,14 +328,22 @@ describe("SSEMCPClient", () => {
     it("getPrompt returns messages", async () => {
       const { mockClient, stream } = await fullyConnect(client);
 
-      const messages = [{ role: "user", content: { type: "text", text: "Summarize this" } }];
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: { messages } });
+      const messages = [
+        { role: "user", content: { type: "text", text: "Summarize this" } },
+      ];
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: { messages },
+      });
 
       expect(await client.getPrompt("summarize")).toEqual(messages);
     });
 
     it("throws when calling API methods while not connected", async () => {
-      await expect(client.listTools()).rejects.toThrow("Not connected to MCP server");
+      await expect(client.listTools()).rejects.toThrow(
+        "Not connected to MCP server",
+      );
     });
 
     it("rejects pending request on JSON-RPC error response", async () => {
@@ -308,15 +364,27 @@ describe("SSEMCPClient", () => {
   describe("endpoint resolution", () => {
     it("uses absolute endpoint URL unchanged", async () => {
       const c = new SSEMCPClient(makeConfig());
-      const { mockClient, stream } = buildSseSetup("http://other.host/api/messages");
+      const { mockClient, stream } = buildSseSetup(
+        "http://other.host/api/messages",
+      );
 
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 1, result: INIT_RESULT });
-      mockClient.post.mockImplementationOnce(() => Promise.resolve({ status: 202 }));
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 1,
+        result: INIT_RESULT,
+      });
+      mockClient.post.mockImplementationOnce(() =>
+        Promise.resolve({ status: 202 }),
+      );
 
       await c.connect();
 
       // Trigger a call that goes to the endpoint
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: { tools: [] } });
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: { tools: [] },
+      });
       await c.listTools();
 
       const postCalls = mockClient.post.mock.calls;
@@ -325,15 +393,27 @@ describe("SSEMCPClient", () => {
     });
 
     it("resolves relative endpoint against base URL", async () => {
-      const c = new SSEMCPClient(makeConfig({ url: "http://localhost:3002/sse" }));
+      const c = new SSEMCPClient(
+        makeConfig({ url: "http://localhost:3002/sse" }),
+      );
       const { mockClient, stream } = buildSseSetup("/api/messages");
 
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 1, result: INIT_RESULT });
-      mockClient.post.mockImplementationOnce(() => Promise.resolve({ status: 202 }));
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 1,
+        result: INIT_RESULT,
+      });
+      mockClient.post.mockImplementationOnce(() =>
+        Promise.resolve({ status: 202 }),
+      );
 
       await c.connect();
 
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 2, result: { tools: [] } });
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 2,
+        result: { tools: [] },
+      });
       await c.listTools();
 
       const postCalls = mockClient.post.mock.calls;
@@ -410,8 +490,14 @@ describe("SSEMCPClient", () => {
       // Use original mockClient for first connection
       (mockedAxios.create as jest.Mock).mockReturnValue(mockClient);
 
-      wireSseResponse(mockClient, stream, { jsonrpc: "2.0", id: 1, result: INIT_RESULT });
-      mockClient.post.mockImplementationOnce(() => Promise.resolve({ status: 202 }));
+      wireSseResponse(mockClient, stream, {
+        jsonrpc: "2.0",
+        id: 1,
+        result: INIT_RESULT,
+      });
+      mockClient.post.mockImplementationOnce(() =>
+        Promise.resolve({ status: 202 }),
+      );
 
       // connectHold synchronization
       const connectPromise = client.connect();
@@ -435,7 +521,11 @@ describe("SSEMCPClient", () => {
       const { mockClient, stream } = await fullyConnect(client);
 
       // Send a listTools response in two chunks
-      const response = JSON.stringify({ jsonrpc: "2.0", id: 2, result: { tools: [] } });
+      const response = JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        result: { tools: [] },
+      });
       const fullEvent = `data: ${response}\n\n`;
       const half = Math.floor(fullEvent.length / 2);
 

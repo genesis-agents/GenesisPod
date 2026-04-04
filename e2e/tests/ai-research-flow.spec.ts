@@ -153,7 +153,7 @@ test.describe("Research API — Projects (L4 App)", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.projects ?? [];
+      : (payload.items ?? payload.projects ?? []);
     expect(Array.isArray(list), "Projects should be an array").toBe(true);
   });
 
@@ -176,7 +176,7 @@ test.describe("Research API — Projects (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
 
     if (list.length === 0) {
       // No projects to test with — pass gracefully
@@ -217,7 +217,7 @@ test.describe("Research API — Projects (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -266,7 +266,7 @@ test.describe("Research API — Sources (L4 → L3 RAG)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -307,7 +307,7 @@ test.describe("Research API — Sources (L4 → L3 RAG)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -349,7 +349,7 @@ test.describe("Research API — Sources (L4 → L3 RAG)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -368,11 +368,8 @@ test.describe("Research API — Sources (L4 → L3 RAG)", () => {
       const payload = body.data ?? body;
       const sources = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.sources ?? [];
-      expect(
-        Array.isArray(sources),
-        "Sources should be an array",
-      ).toBe(true);
+        : (payload.items ?? payload.sources ?? []);
+      expect(Array.isArray(sources), "Sources should be an array").toBe(true);
     }
   });
 });
@@ -404,7 +401,7 @@ test.describe("Research API — Chat (L4 → L3 Engine LLM)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -424,7 +421,7 @@ test.describe("Research API — Chat (L4 → L3 Engine LLM)", () => {
       const payload = body.data ?? body;
       const messages = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.messages ?? [];
+        : (payload.items ?? payload.messages ?? []);
       expect(Array.isArray(messages), "Chat history should be an array").toBe(
         true,
       );
@@ -448,7 +445,7 @@ test.describe("Research API — Chat (L4 → L3 Engine LLM)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -496,7 +493,7 @@ test.describe("Research API — Notes (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -535,7 +532,7 @@ test.describe("Research API — Notes (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -554,7 +551,7 @@ test.describe("Research API — Notes (L4 App)", () => {
       const payload = body.data ?? body;
       const notes = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.notes ?? [];
+        : (payload.items ?? payload.notes ?? []);
       expect(Array.isArray(notes), "Notes should be an array").toBe(true);
     }
   });
@@ -607,7 +604,7 @@ test.describe("Research API — Cross-layer Verification", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     expect(Array.isArray(list)).toBe(true);
 
     // Cleanup: delete the test project
@@ -676,7 +673,7 @@ test.describe("Research API — Cross-layer Verification", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;

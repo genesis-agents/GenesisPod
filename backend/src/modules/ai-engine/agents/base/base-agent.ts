@@ -31,9 +31,10 @@ import {
 /**
  * 基础 Agent 抽象类
  */
-export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
-  implements IAgent<TInput, TOutput>
-{
+export abstract class BaseAgent<
+  TInput = AgentInput,
+  TOutput = AgentOutput,
+> implements IAgent<TInput, TOutput> {
   /**
    * Agent ID
    */
@@ -320,7 +321,9 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       createdAt: new Date(),
     };
 
-    const result = await (tool.execute(toolInput, toolContext) as Promise<ToolResult<T>>);
+    const result = await (tool.execute(toolInput, toolContext) as Promise<
+      ToolResult<T>
+    >);
     if (result.success) {
       this.stats.toolsCalled.push(toolId);
     }
@@ -444,7 +447,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       // 1. Markdown 代码块
       () => {
         const match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (!match) throw new Error('no markdown block');
+        if (!match) throw new Error("no markdown block");
         return JSON.parse(match[1].trim()) as T;
       },
       // 2. 直接解析
@@ -452,7 +455,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       // 3. 提取第一个 JSON 对象或数组
       () => {
         const objMatch = content.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-        if (!objMatch) throw new Error('no json structure found');
+        if (!objMatch) throw new Error("no json structure found");
         return JSON.parse(objMatch[1]) as T;
       },
     ];
@@ -469,7 +472,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       this.logger.warn(`[${this.id}] Failed to parse JSON, using fallback`);
       return fallback;
     }
-    throw new Error('Failed to parse JSON response: no valid JSON found');
+    throw new Error("Failed to parse JSON response: no valid JSON found");
   }
 
   /**

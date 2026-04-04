@@ -63,16 +63,25 @@ describe("session-crypto", () => {
     });
 
     it("should encrypt complex objects as JSON strings", () => {
-      const { encryptSessionData, decryptSessionData } = require("../utils/session-crypto");
+      const {
+        encryptSessionData,
+        decryptSessionData,
+      } = require("../utils/session-crypto");
 
-      const complexData = JSON.stringify({ cookies: [{ name: "session", value: "abc" }], token: "xyz" });
+      const complexData = JSON.stringify({
+        cookies: [{ name: "session", value: "abc" }],
+        token: "xyz",
+      });
       const encrypted = encryptSessionData(complexData);
       const decrypted = decryptSessionData(encrypted);
       expect(decrypted).toBe(complexData);
     });
 
     it("should handle unicode content", () => {
-      const { encryptSessionData, decryptSessionData } = require("../utils/session-crypto");
+      const {
+        encryptSessionData,
+        decryptSessionData,
+      } = require("../utils/session-crypto");
 
       const unicode = "中文内容 🎉 日本語";
       const encrypted = encryptSessionData(unicode);
@@ -83,7 +92,10 @@ describe("session-crypto", () => {
 
   describe("isEncrypted", () => {
     it("should return true for properly encrypted data", () => {
-      const { encryptSessionData, isEncrypted } = require("../utils/session-crypto");
+      const {
+        encryptSessionData,
+        isEncrypted,
+      } = require("../utils/session-crypto");
 
       const encrypted = encryptSessionData("test");
       expect(isEncrypted(encrypted)).toBe(true);
@@ -125,7 +137,10 @@ describe("session-crypto", () => {
 
   describe("encryptSession / decryptSession", () => {
     it("should encrypt and decrypt objects", () => {
-      const { encryptSession, decryptSession } = require("../utils/session-crypto");
+      const {
+        encryptSession,
+        decryptSession,
+      } = require("../utils/session-crypto");
 
       const sessionData = { cookies: [{ name: "session", value: "abc123" }] };
       const encrypted = encryptSession(sessionData);
@@ -139,16 +154,31 @@ describe("session-crypto", () => {
       const { decryptSession } = require("../utils/session-crypto");
 
       const legacy = JSON.stringify({ cookies: [], token: "old-format" });
-      const result = decryptSession<{ cookies: unknown[]; token: string }>(legacy);
+      const result = decryptSession<{ cookies: unknown[]; token: string }>(
+        legacy,
+      );
 
       expect(result.token).toBe("old-format");
     });
 
     it("should encrypt nested objects correctly", () => {
-      const { encryptSession, decryptSession } = require("../utils/session-crypto");
+      const {
+        encryptSession,
+        decryptSession,
+      } = require("../utils/session-crypto");
 
       const data = {
-        cookies: [{ name: "a", value: "b", domain: "example.com", path: "/", expires: 0, httpOnly: false, secure: false }],
+        cookies: [
+          {
+            name: "a",
+            value: "b",
+            domain: "example.com",
+            path: "/",
+            expires: 0,
+            httpOnly: false,
+            secure: false,
+          },
+        ],
         localStorage: { key: "value" },
         sessionStorage: {},
         wechatToken: "token-123",

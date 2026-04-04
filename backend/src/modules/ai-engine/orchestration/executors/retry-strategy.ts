@@ -83,7 +83,6 @@ export class RetryStrategy {
     jitter: true,
   };
 
-
   constructor(config?: Partial<RetryStrategyConfig>) {
     this.config = { ...RetryStrategy.DEFAULT_CONFIG, ...config };
   }

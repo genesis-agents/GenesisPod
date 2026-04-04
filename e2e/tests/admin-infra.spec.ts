@@ -70,7 +70,9 @@ test.describe("Admin Infrastructure — Access Pages", () => {
       await gotoAndWait(page, "/admin/access/users");
 
       // UsersSearchBar renders an <input>
-      await expect(page.locator("input[type='text'], input[type='search']").first()).toBeVisible();
+      await expect(
+        page.locator("input[type='text'], input[type='search']").first(),
+      ).toBeVisible();
     });
   });
 
@@ -115,7 +117,9 @@ test.describe("Admin Infrastructure — Access Pages", () => {
       await gotoAndWait(page, "/admin/access/permissions");
 
       // The page renders a button to add admin users
-      const addButton = page.getByRole("button", { name: /add admin|添加管理员/i });
+      const addButton = page.getByRole("button", {
+        name: /add admin|添加管理员/i,
+      });
       await expect(addButton).toBeVisible({ timeout: 10000 });
     });
   });
@@ -132,7 +136,9 @@ test.describe("Admin Infrastructure — Access Pages", () => {
     test("page shows 'Secret Management' heading text", async ({ page }) => {
       await gotoAndWait(page, "/admin/access/secrets");
       // The page hardcodes title "Secret Management"
-      await expect(page.getByText("Secret Management", { exact: false })).toBeVisible({ timeout: 10000 });
+      await expect(
+        page.getByText("Secret Management", { exact: false }),
+      ).toBeVisible({ timeout: 10000 });
     });
 
     test("Add Secret button is present", async ({ page }) => {
@@ -145,7 +151,9 @@ test.describe("Admin Infrastructure — Access Pages", () => {
       await gotoAndWait(page, "/admin/access/secrets");
 
       // SecretsManager renders a list or empty-state
-      const listOrEmpty = page.locator("table, [data-testid='secrets-list'], .rounded-xl").first();
+      const listOrEmpty = page
+        .locator("table, [data-testid='secrets-list'], .rounded-xl")
+        .first();
       await expect(listOrEmpty).toBeVisible({ timeout: 10000 });
     });
   });
@@ -201,7 +209,9 @@ test.describe("Admin Infrastructure — Access Pages", () => {
       await gotoAndWait(page, "/admin/access/billing");
 
       // Page should show some billing or cost content
-      const content = page.locator("main, [role='main'], .admin-page-content, article").first();
+      const content = page
+        .locator("main, [role='main'], .admin-page-content, article")
+        .first();
       await expect(content).toBeVisible({ timeout: 10000 });
     });
   });
@@ -242,8 +252,7 @@ test.describe("Admin Infrastructure — System Pages", () => {
     test("MCP server list or empty state renders", async ({ page }) => {
       await page.goto("/admin/system/mcp-server");
       await page.waitForResponse(
-        (r) =>
-          r.url().includes("/admin/ai/mcp-servers") && r.status() === 200,
+        (r) => r.url().includes("/admin/ai/mcp-servers") && r.status() === 200,
         { timeout: 15000 },
       );
       await page.waitForTimeout(500);
@@ -258,8 +267,7 @@ test.describe("Admin Infrastructure — System Pages", () => {
     test("external MCP server section is rendered", async ({ page }) => {
       await page.goto("/admin/system/mcp-server");
       await page.waitForResponse(
-        (r) =>
-          r.url().includes("/admin/ai/mcp-servers") && r.status() === 200,
+        (r) => r.url().includes("/admin/ai/mcp-servers") && r.status() === 200,
         { timeout: 15000 },
       );
       await page.waitForTimeout(500);
@@ -340,8 +348,7 @@ test.describe("Admin Infrastructure — System Pages", () => {
     test("log stats render after data load", async ({ page }) => {
       await page.goto("/admin/system/logs");
       await page.waitForResponse(
-        (r) =>
-          r.url().includes("/admin/logs/stats") && r.status() === 200,
+        (r) => r.url().includes("/admin/logs/stats") && r.status() === 200,
         { timeout: 15000 },
       );
       await page.waitForTimeout(500);
@@ -354,8 +361,7 @@ test.describe("Admin Infrastructure — System Pages", () => {
     test("login history section is present", async ({ page }) => {
       await page.goto("/admin/system/logs");
       await page.waitForResponse(
-        (r) =>
-          r.url().includes("/admin/logs/stats") && r.status() === 200,
+        (r) => r.url().includes("/admin/logs/stats") && r.status() === 200,
         { timeout: 15000 },
       );
       await page.waitForTimeout(500);
@@ -421,7 +427,9 @@ test.describe("Admin Infrastructure — System Pages", () => {
       await gotoAndWait(page, "/admin/system/email");
 
       // EmailSettings component should render
-      const content = page.locator("main, .admin-page-content, .rounded-xl").first();
+      const content = page
+        .locator("main, .admin-page-content, .rounded-xl")
+        .first();
       await expect(content).toBeVisible({ timeout: 10000 });
     });
   });
@@ -439,7 +447,9 @@ test.describe("Admin Infrastructure — System Pages", () => {
       await gotoAndWait(page, "/admin/system/site");
 
       // SystemSettings component should render
-      const content = page.locator("main, .admin-page-content, .rounded-xl").first();
+      const content = page
+        .locator("main, .admin-page-content, .rounded-xl")
+        .first();
       await expect(content).toBeVisible({ timeout: 10000 });
     });
   });
@@ -469,7 +479,10 @@ test.describe("Cross-Layer Admin API Contracts", () => {
       headers,
       timeout: 15000,
     });
-    expect(response.ok(), `GET /admin/users returned ${response.status()}`).toBeTruthy();
+    expect(
+      response.ok(),
+      `GET /admin/users returned ${response.status()}`,
+    ).toBeTruthy();
 
     const body = await response.json();
     const data = body.data ?? body;
@@ -498,10 +511,10 @@ test.describe("Cross-Layer Admin API Contracts", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/admin/secrets`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/admin/secrets`, {
+      headers,
+      timeout: 15000,
+    });
     expect(
       response.ok(),
       `GET /admin/secrets returned ${response.status()}`,
@@ -666,10 +679,9 @@ test.describe("Cross-Layer Admin API Contracts", () => {
         stats,
         `L1 key "${key}" must be present in overview-stats`,
       ).toHaveProperty(key);
-      expect(
-        typeof stats[key],
-        `L1 key "${key}" must be a number`,
-      ).toBe("number");
+      expect(typeof stats[key], `L1 key "${key}" must be a number`).toBe(
+        "number",
+      );
     }
 
     // L5 Open API keys that relate to MCP infrastructure

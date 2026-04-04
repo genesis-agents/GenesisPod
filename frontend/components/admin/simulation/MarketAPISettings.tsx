@@ -25,9 +25,15 @@ interface APITemplate {
 interface MarketAPISettingsProps {
   providers: SimulationAPIProvider[];
   onAddProvider: (template?: APITemplate) => void;
-  onUpdateProvider: (providerId: string, updates: Partial<SimulationAPIProvider>) => void;
+  onUpdateProvider: (
+    providerId: string,
+    updates: Partial<SimulationAPIProvider>
+  ) => void;
   onRemoveProvider: (providerId: string) => void;
-  onTestProvider: (categoryId: string, provider: SimulationAPIProvider) => Promise<void>;
+  onTestProvider: (
+    categoryId: string,
+    provider: SimulationAPIProvider
+  ) => Promise<void>;
   testResults?: Record<string, { success: boolean; message: string }>;
   testing?: string | null;
 }

@@ -61,7 +61,9 @@ describe("TopicScheduleService", () => {
 
     it("should allow non-owner to read PUBLIC topic schedule", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(ownerTopic);
-      mockPrisma.$queryRaw.mockResolvedValue([{ visibility: "PUBLIC", is_collaborator: false }]);
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { visibility: "PUBLIC", is_collaborator: false },
+      ]);
       mockScheduler.getSchedule.mockResolvedValue(mockScheduleResult);
 
       const result = await service.getSchedule("user-2", "topic-1");
@@ -72,19 +74,27 @@ describe("TopicScheduleService", () => {
     it("should throw NotFoundException when topic not found", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.getSchedule("user-1", "bad-topic")).rejects.toThrow(NotFoundException);
+      await expect(service.getSchedule("user-1", "bad-topic")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should throw ForbiddenException for non-owner of PRIVATE topic", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(ownerTopic);
-      mockPrisma.$queryRaw.mockResolvedValue([{ visibility: "PRIVATE", is_collaborator: false }]);
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { visibility: "PRIVATE", is_collaborator: false },
+      ]);
 
-      await expect(service.getSchedule("user-2", "topic-1")).rejects.toThrow(ForbiddenException);
+      await expect(service.getSchedule("user-2", "topic-1")).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it("should allow collaborator to read SHARED topic schedule", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(ownerTopic);
-      mockPrisma.$queryRaw.mockResolvedValue([{ visibility: "SHARED", is_collaborator: true }]);
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { visibility: "SHARED", is_collaborator: true },
+      ]);
       mockScheduler.getSchedule.mockResolvedValue(mockScheduleResult);
 
       const result = await service.getSchedule("collaborator-1", "topic-1");
@@ -96,7 +106,10 @@ describe("TopicScheduleService", () => {
   describe("updateSchedule", () => {
     it("should update schedule when called by topic owner", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(ownerTopic);
-      mockScheduler.updateSchedule.mockResolvedValue({ ...mockScheduleResult, frequency: "DAILY" });
+      mockScheduler.updateSchedule.mockResolvedValue({
+        ...mockScheduleResult,
+        frequency: "DAILY",
+      });
 
       const dto: UpdateScheduleDto = {
         frequency: "DAILY" as never,
@@ -117,14 +130,18 @@ describe("TopicScheduleService", () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
 
       const dto: UpdateScheduleDto = { frequency: "WEEKLY" as never };
-      await expect(service.updateSchedule("user-1", "bad-topic", dto)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.updateSchedule("user-1", "bad-topic", dto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw ForbiddenException when non-owner tries to update", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(ownerTopic);
 
       const dto: UpdateScheduleDto = { frequency: "DAILY" as never };
-      await expect(service.updateSchedule("user-2", "topic-1", dto)).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.updateSchedule("user-2", "topic-1", dto),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it("should pass all schedule options to scheduler", async () => {

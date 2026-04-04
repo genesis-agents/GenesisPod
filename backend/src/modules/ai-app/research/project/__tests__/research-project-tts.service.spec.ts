@@ -5,10 +5,7 @@ import type { ConfigService } from "@nestjs/config";
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-function createMockConfigService(
-  elevenLabsKey?: string,
-  googleKey?: string,
-) {
+function createMockConfigService(elevenLabsKey?: string, googleKey?: string) {
   return {
     get: jest.fn().mockImplementation((key: string) => {
       if (key === "ELEVENLABS_API_KEY") return elevenLabsKey;
@@ -23,8 +20,16 @@ function createMockScript() {
     title: "AI Research Overview",
     script: {
       segments: [
-        { speaker: "Host1", text: "Welcome to our AI research podcast.", emotion: "excited" },
-        { speaker: "Host2", text: "Today we explore large language models.", emotion: "thoughtful" },
+        {
+          speaker: "Host1",
+          text: "Welcome to our AI research podcast.",
+          emotion: "excited",
+        },
+        {
+          speaker: "Host2",
+          text: "Today we explore large language models.",
+          emotion: "thoughtful",
+        },
       ],
       estimatedDuration: "5 minutes",
     },
@@ -46,7 +51,10 @@ describe("ResearchProjectTTSService", () => {
 
     it("should return true when Google TTS key is set", () => {
       const service = new ResearchProjectTTSService(
-        createMockConfigService(undefined, "google-api-key") as unknown as ConfigService,
+        createMockConfigService(
+          undefined,
+          "google-api-key",
+        ) as unknown as ConfigService,
       );
       expect(service.isAvailable()).toBe(true);
     });
@@ -69,7 +77,10 @@ describe("ResearchProjectTTSService", () => {
 
     it("should return google when only Google key is set", () => {
       const service = new ResearchProjectTTSService(
-        createMockConfigService(undefined, "goog-key") as unknown as ConfigService,
+        createMockConfigService(
+          undefined,
+          "goog-key",
+        ) as unknown as ConfigService,
       );
       expect(service.getProvider()).toBe("google");
     });
@@ -83,7 +94,10 @@ describe("ResearchProjectTTSService", () => {
 
     it("should prefer ElevenLabs over Google when both are set", () => {
       const service = new ResearchProjectTTSService(
-        createMockConfigService("el-key", "goog-key") as unknown as ConfigService,
+        createMockConfigService(
+          "el-key",
+          "goog-key",
+        ) as unknown as ConfigService,
       );
       expect(service.getProvider()).toBe("elevenlabs");
     });
@@ -161,7 +175,11 @@ describe("ResearchProjectTTSService", () => {
         ...createMockScript(),
         script: {
           segments: [
-            { speaker: "Host1", text: "Amazing discovery!", emotion: "excited" },
+            {
+              speaker: "Host1",
+              text: "Amazing discovery!",
+              emotion: "excited",
+            },
           ],
           estimatedDuration: "1 min",
         },
@@ -183,7 +201,13 @@ describe("ResearchProjectTTSService", () => {
       const scriptWithThoughtful = {
         ...createMockScript(),
         script: {
-          segments: [{ speaker: "Host1", text: "Consider this carefully.", emotion: "thoughtful" }],
+          segments: [
+            {
+              speaker: "Host1",
+              text: "Consider this carefully.",
+              emotion: "thoughtful",
+            },
+          ],
           estimatedDuration: "1 min",
         },
       };
@@ -204,7 +228,13 @@ describe("ResearchProjectTTSService", () => {
       const scriptUnknownEmotion = {
         ...createMockScript(),
         script: {
-          segments: [{ speaker: "Host1", text: "Neutral statement.", emotion: "neutral" }],
+          segments: [
+            {
+              speaker: "Host1",
+              text: "Neutral statement.",
+              emotion: "neutral",
+            },
+          ],
           estimatedDuration: "1 min",
         },
       };
@@ -221,7 +251,10 @@ describe("ResearchProjectTTSService", () => {
 
     beforeEach(() => {
       service = new ResearchProjectTTSService(
-        createMockConfigService(undefined, "google-tts-key") as unknown as ConfigService,
+        createMockConfigService(
+          undefined,
+          "google-tts-key",
+        ) as unknown as ConfigService,
       );
     });
 

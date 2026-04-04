@@ -119,7 +119,10 @@ describe("RetryStrategy", () => {
 
       // Mock sleep to skip actual delays
       jest
-        .spyOn(strategy as unknown as { sleep: (ms: number) => Promise<void> }, "sleep")
+        .spyOn(
+          strategy as unknown as { sleep: (ms: number) => Promise<void> },
+          "sleep",
+        )
         .mockResolvedValue(undefined);
 
       const operation = jest
@@ -139,7 +142,10 @@ describe("RetryStrategy", () => {
       const strategy = new RetryStrategy(makeConfig({ maxRetries: 2 }));
 
       jest
-        .spyOn(strategy as unknown as { sleep: (ms: number) => Promise<void> }, "sleep")
+        .spyOn(
+          strategy as unknown as { sleep: (ms: number) => Promise<void> },
+          "sleep",
+        )
         .mockResolvedValue(undefined);
 
       const operation = jest
@@ -173,7 +179,10 @@ describe("RetryStrategy", () => {
       const strategy = new RetryStrategy(makeConfig({ maxRetries: 3 }));
 
       jest
-        .spyOn(strategy as unknown as { sleep: (ms: number) => Promise<void> }, "sleep")
+        .spyOn(
+          strategy as unknown as { sleep: (ms: number) => Promise<void> },
+          "sleep",
+        )
         .mockResolvedValue(undefined);
 
       // PERMISSION_DENIED is not retryable
@@ -305,7 +314,10 @@ describe("RetryStrategy", () => {
     });
 
     it("should classify 429 status in message as RATE_LIMIT", () => {
-      const err = strategy.classifyError(new Error("HTTP 429 too many"), toolId);
+      const err = strategy.classifyError(
+        new Error("HTTP 429 too many"),
+        toolId,
+      );
       expect(err.type).toBe(ToolErrorType.RATE_LIMIT);
       expect(err.retryable).toBe(true);
     });
@@ -325,10 +337,7 @@ describe("RetryStrategy", () => {
     });
 
     it("should classify network error as NETWORK_ERROR (retryable)", () => {
-      const err = strategy.classifyError(
-        new Error("network failure"),
-        toolId,
-      );
+      const err = strategy.classifyError(new Error("network failure"), toolId);
       expect(err.type).toBe(ToolErrorType.NETWORK_ERROR);
       expect(err.retryable).toBe(true);
     });
@@ -361,19 +370,13 @@ describe("RetryStrategy", () => {
     });
 
     it("should classify quota exceeded as QUOTA_EXCEEDED (not retryable)", () => {
-      const err = strategy.classifyError(
-        new Error("quota exceeded"),
-        toolId,
-      );
+      const err = strategy.classifyError(new Error("quota exceeded"), toolId);
       expect(err.type).toBe(ToolErrorType.QUOTA_EXCEEDED);
       expect(err.retryable).toBe(false);
     });
 
     it("should classify 'limit exceeded' as QUOTA_EXCEEDED", () => {
-      const err = strategy.classifyError(
-        new Error("limit exceeded"),
-        toolId,
-      );
+      const err = strategy.classifyError(new Error("limit exceeded"), toolId);
       expect(err.type).toBe(ToolErrorType.QUOTA_EXCEEDED);
       expect(err.retryable).toBe(false);
     });
@@ -394,7 +397,10 @@ describe("RetryStrategy", () => {
     });
 
     it("should classify 400 status in message as INVALID_INPUT", () => {
-      const err = strategy.classifyError(new Error("HTTP 400 bad request"), toolId);
+      const err = strategy.classifyError(
+        new Error("HTTP 400 bad request"),
+        toolId,
+      );
       expect(err.type).toBe(ToolErrorType.INVALID_INPUT);
       expect(err.retryable).toBe(false);
     });
@@ -421,7 +427,10 @@ describe("RetryStrategy", () => {
     });
 
     it("should classify 'not found' as RESOURCE_NOT_FOUND (not retryable)", () => {
-      const err = strategy.classifyError(new Error("resource not found"), toolId);
+      const err = strategy.classifyError(
+        new Error("resource not found"),
+        toolId,
+      );
       expect(err.type).toBe(ToolErrorType.RESOURCE_NOT_FOUND);
       expect(err.retryable).toBe(false);
     });
@@ -560,7 +569,10 @@ describe("RetryStrategy", () => {
       const strategy = new RetryStrategy(makeConfig({ maxRetries: 3 }));
 
       jest
-        .spyOn(strategy as unknown as { sleep: (ms: number) => Promise<void> }, "sleep")
+        .spyOn(
+          strategy as unknown as { sleep: (ms: number) => Promise<void> },
+          "sleep",
+        )
         .mockResolvedValue(undefined);
 
       const operation = jest
@@ -581,7 +593,10 @@ describe("RetryStrategy", () => {
       const strategy = new RetryStrategy(makeConfig({ maxRetries: 1 }));
 
       jest
-        .spyOn(strategy as unknown as { sleep: (ms: number) => Promise<void> }, "sleep")
+        .spyOn(
+          strategy as unknown as { sleep: (ms: number) => Promise<void> },
+          "sleep",
+        )
         .mockResolvedValue(undefined);
 
       const operation = jest
@@ -598,7 +613,10 @@ describe("RetryStrategy", () => {
       const strategy = new RetryStrategy(makeConfig({ maxRetries: 1 }));
 
       jest
-        .spyOn(strategy as unknown as { sleep: (ms: number) => Promise<void> }, "sleep")
+        .spyOn(
+          strategy as unknown as { sleep: (ms: number) => Promise<void> },
+          "sleep",
+        )
         .mockResolvedValue(undefined);
 
       const operation = jest

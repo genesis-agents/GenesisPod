@@ -139,7 +139,9 @@ describe("ParallelExecutor", () => {
 
   describe("successful parallel execution", () => {
     it("should execute independent steps and succeed", async () => {
-      const toolFn = jest.fn().mockResolvedValue({ success: true, data: "out" });
+      const toolFn = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: "out" });
       const toolRegistry = {
         tryGet: jest.fn().mockReturnValue({ execute: toolFn }),
       } as unknown as ToolRegistry;
@@ -499,7 +501,9 @@ describe("ParallelExecutor", () => {
 
   describe("result structure", () => {
     it("should record stepResults in the result", async () => {
-      const toolFn = jest.fn().mockResolvedValue({ success: true, data: "out" });
+      const toolFn = jest
+        .fn()
+        .mockResolvedValue({ success: true, data: "out" });
       const toolRegistry = {
         tryGet: jest.fn().mockReturnValue({ execute: toolFn }),
       } as unknown as ToolRegistry;

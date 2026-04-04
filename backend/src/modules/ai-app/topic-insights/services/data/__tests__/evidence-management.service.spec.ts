@@ -158,7 +158,10 @@ describe("EvidenceManagementService", () => {
     });
 
     it("should clamp score above 100 to 100", async () => {
-      mockPrisma.topicEvidence.update.mockResolvedValue({ id: "e1", credibilityScore: 100 });
+      mockPrisma.topicEvidence.update.mockResolvedValue({
+        id: "e1",
+        credibilityScore: 100,
+      });
 
       await service.updateCredibilityScore("e1", 150);
 
@@ -170,7 +173,10 @@ describe("EvidenceManagementService", () => {
     });
 
     it("should clamp score below 0 to 0", async () => {
-      mockPrisma.topicEvidence.update.mockResolvedValue({ id: "e1", credibilityScore: 0 });
+      mockPrisma.topicEvidence.update.mockResolvedValue({
+        id: "e1",
+        credibilityScore: 0,
+      });
 
       await service.updateCredibilityScore("e1", -10);
 
@@ -188,11 +194,7 @@ describe("EvidenceManagementService", () => {
 
   describe("reindexCitations", () => {
     it("should reindex citations and update indices", async () => {
-      const evidences = [
-        { id: "e1" },
-        { id: "e2" },
-        { id: "e3" },
-      ];
+      const evidences = [{ id: "e1" }, { id: "e2" }, { id: "e3" }];
       mockPrisma.topicEvidence.findMany.mockResolvedValue(evidences);
       mockPrisma.$transaction.mockImplementation(async (ops: any[]) => {
         for (const op of ops) await op;
@@ -219,7 +221,10 @@ describe("EvidenceManagementService", () => {
     it("should return true when URL already exists", async () => {
       mockPrisma.topicEvidence.findFirst.mockResolvedValue({ id: "e1" });
 
-      const result = await service.isDuplicateUrl("r1", "https://example.com/article");
+      const result = await service.isDuplicateUrl(
+        "r1",
+        "https://example.com/article",
+      );
 
       expect(result).toBe(true);
     });
@@ -227,7 +232,10 @@ describe("EvidenceManagementService", () => {
     it("should return false when URL does not exist", async () => {
       mockPrisma.topicEvidence.findFirst.mockResolvedValue(null);
 
-      const result = await service.isDuplicateUrl("r1", "https://new.com/article");
+      const result = await service.isDuplicateUrl(
+        "r1",
+        "https://new.com/article",
+      );
 
       expect(result).toBe(false);
     });
@@ -235,12 +243,17 @@ describe("EvidenceManagementService", () => {
     it("should strip UTM parameters before checking", async () => {
       mockPrisma.topicEvidence.findFirst.mockResolvedValue(null);
 
-      await service.isDuplicateUrl("r1", "https://example.com?utm_source=twitter&utm_medium=social");
+      await service.isDuplicateUrl(
+        "r1",
+        "https://example.com?utm_source=twitter&utm_medium=social",
+      );
 
       expect(mockPrisma.topicEvidence.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            url: expect.objectContaining({ contains: expect.not.stringContaining("utm_source") }),
+            url: expect.objectContaining({
+              contains: expect.not.stringContaining("utm_source"),
+            }),
           }),
         }),
       );
@@ -330,8 +343,22 @@ describe("EvidenceManagementService", () => {
 
     it("should recalculate and update scores for all evidences", async () => {
       const evidences = [
-        { id: "e1", url: "https://arxiv.org/paper", domain: "arxiv.org", sourceType: "academic", snippet: "X".repeat(600), publishedAt: new Date() },
-        { id: "e2", url: "https://nytimes.com/article", domain: null, sourceType: "news", snippet: "Y".repeat(300), publishedAt: null },
+        {
+          id: "e1",
+          url: "https://arxiv.org/paper",
+          domain: "arxiv.org",
+          sourceType: "academic",
+          snippet: "X".repeat(600),
+          publishedAt: new Date(),
+        },
+        {
+          id: "e2",
+          url: "https://nytimes.com/article",
+          domain: null,
+          sourceType: "news",
+          snippet: "Y".repeat(300),
+          publishedAt: null,
+        },
       ];
       mockPrisma.topicEvidence.findMany.mockResolvedValue(evidences);
       mockPrisma.$transaction.mockImplementation(async (ops: any[]) => {

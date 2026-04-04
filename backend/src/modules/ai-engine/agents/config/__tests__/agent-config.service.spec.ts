@@ -137,7 +137,9 @@ describe("AgentConfigService", () => {
     it("throws NotFoundException when not found", async () => {
       prismaMock.agentConfig.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne("non-existent")).rejects.toThrow(NotFoundException);
+      await expect(service.findOne("non-existent")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -288,7 +290,9 @@ describe("AgentConfigService", () => {
         isBuiltIn: true,
       });
 
-      await expect(service.delete("cfg-1")).rejects.toThrow(BadRequestException);
+      await expect(service.delete("cfg-1")).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it("throws NotFoundException when config does not exist", async () => {
@@ -384,7 +388,7 @@ describe("AgentConfigService", () => {
     it("creates missing configs and skips existing ones", async () => {
       // First agent does not exist, second does
       prismaMock.agentConfig.findUnique
-        .mockResolvedValueOnce(null)   // agent-1: not found → create
+        .mockResolvedValueOnce(null) // agent-1: not found → create
         .mockResolvedValueOnce(AGENT_CONFIG_FIXTURE); // agent-2: found → skip
 
       prismaMock.agentConfig.create.mockResolvedValue(AGENT_CONFIG_FIXTURE);

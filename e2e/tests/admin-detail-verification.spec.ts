@@ -281,10 +281,7 @@ test.describe("Admin API Health", () => {
     await page.waitForTimeout(500);
   });
 
-  test("GET /admin/overview — dashboard stats", async ({
-    page,
-    baseURL,
-  }) => {
+  test("GET /admin/overview — dashboard stats", async ({ page, baseURL }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 

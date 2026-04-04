@@ -7,10 +7,7 @@ import {
   createConstraintProfile,
   BUILTIN_TOOLS,
 } from "../../../ai-engine/facade";
-import type {
-  TeamConfig,
-  WorkflowConfig,
-} from "../../../ai-engine/facade";
+import type { TeamConfig, WorkflowConfig } from "../../../ai-engine/facade";
 
 export const PLANNING_WORKFLOW: WorkflowConfig = {
   id: "planning-workflow",

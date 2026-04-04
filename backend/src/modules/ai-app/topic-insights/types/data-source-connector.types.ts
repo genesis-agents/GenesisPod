@@ -5,7 +5,11 @@
  * 定义通用数据源连接器接口，支持可插拔的数据源适配器
  */
 
-import { DataSourceType, DataSourceResult, SearchOptions } from "./data-source.types";
+import {
+  DataSourceType,
+  DataSourceResult,
+  SearchOptions,
+} from "./data-source.types";
 
 /**
  * 数据源连接器接口

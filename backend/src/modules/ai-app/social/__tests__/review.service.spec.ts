@@ -98,7 +98,10 @@ describe("ReviewService", () => {
 
   describe("approveContent", () => {
     it("should approve a draft content and set status to PENDING", async () => {
-      const draftContent = { ...mockContent, status: SocialContentStatus.DRAFT };
+      const draftContent = {
+        ...mockContent,
+        status: SocialContentStatus.DRAFT,
+      };
       mockPrisma.socialContent.findUnique.mockResolvedValue(draftContent);
 
       await service.approveContent(reviewerId, contentId, "Looks good");
@@ -116,7 +119,10 @@ describe("ReviewService", () => {
     });
 
     it("should keep status unchanged when content is not DRAFT", async () => {
-      const pendingContent = { ...mockContent, status: SocialContentStatus.PENDING };
+      const pendingContent = {
+        ...mockContent,
+        status: SocialContentStatus.PENDING,
+      };
       mockPrisma.socialContent.findUnique.mockResolvedValue(pendingContent);
 
       await service.approveContent(reviewerId, contentId);

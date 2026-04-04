@@ -437,12 +437,10 @@ describe("CapabilityOrchestratorService", () => {
     });
 
     it("stops the pipeline and returns failure when a step fails", async () => {
-      const executeMock = jest
-        .fn()
-        .mockResolvedValueOnce({
-          success: false,
-          error: { code: "ERR", message: "step failed" },
-        });
+      const executeMock = jest.fn().mockResolvedValueOnce({
+        success: false,
+        error: { code: "ERR", message: "step failed" },
+      });
 
       const cap = makeCapability({ execute: executeMock });
       registry.get.mockReturnValue(cap);

@@ -24,7 +24,9 @@ jest.mock("@/common/config/app.config", () => ({
   },
 }));
 
-const mockParseSkillMd = parseSkillMd as jest.MockedFunction<typeof parseSkillMd>;
+const mockParseSkillMd = parseSkillMd as jest.MockedFunction<
+  typeof parseSkillMd
+>;
 
 function buildMockCacheService(): jest.Mocked<SkillCacheService> {
   return {
@@ -78,7 +80,10 @@ describe("SkillsMPClientService", () => {
     });
 
     it("configure merges partial config", () => {
-      service.configure({ baseUrl: "https://custom.skillsmp.com/api", timeout: 5000 });
+      service.configure({
+        baseUrl: "https://custom.skillsmp.com/api",
+        timeout: 5000,
+      });
       // Verify by checking that requests go to the custom URL
       // (verified indirectly via search test)
       expect(service.isEnabled()).toBe(true); // service still enabled
@@ -97,11 +102,26 @@ describe("SkillsMPClientService", () => {
 
     it("returns skills from API on success", async () => {
       const mockSkills = [
-        { id: "skill-1", name: "Skill One", description: "desc", author: "author" },
-        { id: "skill-2", name: "Skill Two", description: "desc", author: "author" },
+        {
+          id: "skill-1",
+          name: "Skill One",
+          description: "desc",
+          author: "author",
+        },
+        {
+          id: "skill-2",
+          name: "Skill Two",
+          description: "desc",
+          author: "author",
+        },
       ];
       mockFetch.mockResolvedValueOnce(
-        buildSuccessResponse({ skills: mockSkills, total: 2, page: 1, pageSize: 10 })
+        buildSuccessResponse({
+          skills: mockSkills,
+          total: 2,
+          page: 1,
+          pageSize: 10,
+        }),
       );
 
       const results = await service.searchSkills("research");
@@ -116,7 +136,7 @@ describe("SkillsMPClientService", () => {
 
     it("passes filters as query params", async () => {
       mockFetch.mockResolvedValueOnce(
-        buildSuccessResponse({ skills: [], total: 0, page: 1, pageSize: 10 })
+        buildSuccessResponse({ skills: [], total: 0, page: 1, pageSize: 10 }),
       );
 
       await service.searchSkills("test", {
@@ -151,7 +171,9 @@ describe("SkillsMPClientService", () => {
     });
 
     it("returns cached skill without fetching", async () => {
-      const cachedSkill = { metadata: { id: "test-skill", name: "Test", description: "desc" } } as any;
+      const cachedSkill = {
+        metadata: { id: "test-skill", name: "Test", description: "desc" },
+      } as any;
       cacheService.get.mockResolvedValueOnce(cachedSkill);
 
       const result = await service.getSkill("test-skill");
@@ -173,7 +195,7 @@ describe("SkillsMPClientService", () => {
           rating: 4.5,
           tags: [],
           updatedAt: new Date().toISOString(),
-        })
+        }),
       );
       const parsedSkill = {
         metadata: { id: "test-skill", name: "Test Skill", description: "desc" },
@@ -207,7 +229,7 @@ describe("SkillsMPClientService", () => {
           rating: 0,
           tags: [],
           updatedAt: new Date().toISOString(),
-        })
+        }),
       );
 
       const result = await service.getSkill("big-skill");
@@ -226,7 +248,7 @@ describe("SkillsMPClientService", () => {
           rating: 0,
           tags: [],
           updatedAt: new Date().toISOString(),
-        })
+        }),
       );
 
       const result = await service.getSkill("empty-skill");
@@ -246,7 +268,7 @@ describe("SkillsMPClientService", () => {
           rating: 0,
           tags: [],
           updatedAt: new Date().toISOString(),
-        })
+        }),
       );
 
       const result = await service.getSkill("xss-skill");
@@ -266,7 +288,7 @@ describe("SkillsMPClientService", () => {
           rating: 0,
           tags: [],
           updatedAt: new Date().toISOString(),
-        })
+        }),
       );
 
       const result = await service.getSkill("js-skill");
@@ -286,11 +308,15 @@ describe("SkillsMPClientService", () => {
           rating: 0,
           tags: [],
           updatedAt: new Date().toISOString(),
-        })
+        }),
       );
       // Parsed skill has different id
       mockParseSkillMd.mockReturnValue({
-        metadata: { id: "different-id", name: "Different", description: "desc" },
+        metadata: {
+          id: "different-id",
+          name: "Different",
+          description: "desc",
+        },
         sections: [],
       } as any);
 
@@ -321,10 +347,14 @@ describe("SkillsMPClientService", () => {
           rating: 4.0,
           tags: [],
           updatedAt: new Date().toISOString(),
-        })
+        }),
       );
       const parsedSkill = {
-        metadata: { id: "install-skill", name: "Install Me", description: "desc" },
+        metadata: {
+          id: "install-skill",
+          name: "Install Me",
+          description: "desc",
+        },
         sections: [],
       } as any;
       mockParseSkillMd.mockReturnValue(parsedSkill);
@@ -333,7 +363,11 @@ describe("SkillsMPClientService", () => {
 
       expect(result).toBe(true);
       // Should be called twice: once in getSkill, once in installSkill with persist=true
-      expect(cacheService.set).toHaveBeenCalledWith("install-skill", parsedSkill, true);
+      expect(cacheService.set).toHaveBeenCalledWith(
+        "install-skill",
+        parsedSkill,
+        true,
+      );
     });
   });
 
@@ -355,7 +389,9 @@ describe("SkillsMPClientService", () => {
       const updates = [{ id: "skill-1", version: "2.0.0", changelog: "new" }];
       mockFetch.mockResolvedValueOnce(buildSuccessResponse({ updates }));
 
-      const result = await service.checkUpdates([{ id: "skill-1", version: "1.0.0" }]);
+      const result = await service.checkUpdates([
+        { id: "skill-1", version: "1.0.0" },
+      ]);
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/skills/check-updates"),
@@ -384,7 +420,7 @@ describe("SkillsMPClientService", () => {
     it("calls popular endpoint with correct params", async () => {
       const skills = [{ id: "popular-1", name: "Popular Skill" }];
       mockFetch.mockResolvedValueOnce(
-        buildSuccessResponse({ skills, total: 1, page: 1, pageSize: 10 })
+        buildSuccessResponse({ skills, total: 1, page: 1, pageSize: 10 }),
       );
 
       await service.getPopularSkills("writing", 5);
@@ -416,13 +452,19 @@ describe("SkillsMPClientService", () => {
       const skills = [{ id: "rec-1", name: "Rec Skill" }];
       mockFetch.mockResolvedValueOnce(buildSuccessResponse({ skills }));
 
-      const result = await service.getRecommendedSkills(["installed-1", "installed-2"], 3);
+      const result = await service.getRecommendedSkills(
+        ["installed-1", "installed-2"],
+        3,
+      );
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/skills/recommend"),
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({ installed: ["installed-1", "installed-2"], limit: 3 }),
+          body: JSON.stringify({
+            installed: ["installed-1", "installed-2"],
+            limit: 3,
+          }),
         }),
       );
       expect(result).toEqual(skills);
@@ -466,26 +508,28 @@ describe("SkillsMPClientService", () => {
     it("includes Authorization header when apiKey configured", async () => {
       service.configure({ apiKey: "test-api-key-123" });
       mockFetch.mockResolvedValueOnce(
-        buildSuccessResponse({ skills: [], total: 0, page: 1, pageSize: 10 })
+        buildSuccessResponse({ skills: [], total: 0, page: 1, pageSize: 10 }),
       );
 
       await service.searchSkills("test");
 
       const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
-      expect((callOptions.headers as Record<string, string>)?.Authorization).toBe(
-        "Bearer test-api-key-123"
-      );
+      expect(
+        (callOptions.headers as Record<string, string>)?.Authorization,
+      ).toBe("Bearer test-api-key-123");
     });
 
     it("does not include Authorization header when apiKey not set", async () => {
       mockFetch.mockResolvedValueOnce(
-        buildSuccessResponse({ skills: [], total: 0, page: 1, pageSize: 10 })
+        buildSuccessResponse({ skills: [], total: 0, page: 1, pageSize: 10 }),
       );
 
       await service.searchSkills("test");
 
       const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
-      expect((callOptions.headers as Record<string, string>)?.Authorization).toBeUndefined();
+      expect(
+        (callOptions.headers as Record<string, string>)?.Authorization,
+      ).toBeUndefined();
     });
   });
 });

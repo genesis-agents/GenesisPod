@@ -18,7 +18,10 @@ describe("ProfessionalVoiceService", () => {
 
   describe("generateProfessionalVoicePrompt", () => {
     it("should generate prompt for a known profession (化妆品配方工程师)", () => {
-      const result = service.generateProfessionalVoicePrompt("苏曼", "化妆品配方工程师");
+      const result = service.generateProfessionalVoicePrompt(
+        "苏曼",
+        "化妆品配方工程师",
+      );
 
       expect(result.characterName).toBe("苏曼");
       expect(result.profession).toBe("化妆品配方工程师");
@@ -61,14 +64,20 @@ describe("ProfessionalVoiceService", () => {
     });
 
     it("should return default template for unknown profession", () => {
-      const result = service.generateProfessionalVoicePrompt("未知", "未知职业");
+      const result = service.generateProfessionalVoicePrompt(
+        "未知",
+        "未知职业",
+      );
 
       expect(result.thinkingModePrompt).toBeDefined();
       expect(result.forbiddenExpressions.length).toBeGreaterThan(0);
     });
 
     it("should match profession by keyword (配方 -> 化妆品配方工程师)", () => {
-      const result = service.generateProfessionalVoicePrompt("小红", "配方研究员");
+      const result = service.generateProfessionalVoicePrompt(
+        "小红",
+        "配方研究员",
+      );
 
       expect(result.thinkingModePrompt).toContain("小红");
       // Should match 化妆品配方工程师 template based on keyword '配方'
@@ -76,7 +85,10 @@ describe("ProfessionalVoiceService", () => {
     });
 
     it("should match 侠客 template for 剑客 profession", () => {
-      const result = service.generateProfessionalVoicePrompt("剑神", "剑客高手");
+      const result = service.generateProfessionalVoicePrompt(
+        "剑神",
+        "剑客高手",
+      );
 
       expect(result.thinkingModePrompt).toContain("剑神");
     });
@@ -84,12 +96,14 @@ describe("ProfessionalVoiceService", () => {
 
   describe("extractProfessionFromBackground", () => {
     it("should extract 化妆品配方工程师 from background", () => {
-      const result = service.extractProfessionFromBackground("曾担任化妆品配方工程师多年");
+      const result =
+        service.extractProfessionFromBackground("曾担任化妆品配方工程师多年");
       expect(result).toBe("化妆品配方工程师");
     });
 
     it("should extract 女官 from background mentioning 尚宫", () => {
-      const result = service.extractProfessionFromBackground("尚宫局出身，在宫中任职");
+      const result =
+        service.extractProfessionFromBackground("尚宫局出身，在宫中任职");
       expect(result).toBe("女官");
     });
 
@@ -104,7 +118,8 @@ describe("ProfessionalVoiceService", () => {
     });
 
     it("should return null for unrecognized background", () => {
-      const result = service.extractProfessionFromBackground("普通的百姓，没有特殊职业");
+      const result =
+        service.extractProfessionFromBackground("普通的百姓，没有特殊职业");
       expect(result).toBeNull();
     });
 
@@ -114,7 +129,8 @@ describe("ProfessionalVoiceService", () => {
     });
 
     it("should extract 医者 from background mentioning 大夫", () => {
-      const result = service.extractProfessionFromBackground("本是一名乡间大夫");
+      const result =
+        service.extractProfessionFromBackground("本是一名乡间大夫");
       expect(result).toBe("医者");
     });
   });

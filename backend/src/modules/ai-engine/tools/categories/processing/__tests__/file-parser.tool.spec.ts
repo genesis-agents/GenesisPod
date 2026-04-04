@@ -72,12 +72,16 @@ jest.mock("cheerio", () => {
   const load = jest.fn().mockReturnValue(
     Object.assign(
       (selector: string) => ({
-        text: jest.fn().mockReturnValue("Document Title Paragraph content here"),
+        text: jest
+          .fn()
+          .mockReturnValue("Document Title Paragraph content here"),
         each: jest.fn(),
         nextUntil: jest.fn().mockReturnValue({ each: jest.fn() }),
       }),
       {
-        text: jest.fn().mockReturnValue("Document Title\nParagraph content here"),
+        text: jest
+          .fn()
+          .mockReturnValue("Document Title\nParagraph content here"),
       },
     ),
   );
@@ -440,36 +444,48 @@ describe("FileParserTool", () => {
       const ExcelJS = require("exceljs");
       const mockWb = {
         xlsx: { load: jest.fn().mockResolvedValue(undefined) },
-        eachSheet: jest.fn().mockImplementation(
-          (cb: (ws: unknown, id: number) => void) => {
+        eachSheet: jest
+          .fn()
+          .mockImplementation((cb: (ws: unknown, id: number) => void) => {
             const mockWs = {
               name: "DataSheet",
-              eachRow: jest.fn().mockImplementation(
-                (rowCb: (row: unknown, rowNum: number) => void) => {
-                  const header = {
-                    eachCell: jest.fn().mockImplementation(
-                      (_: unknown, cellCb: (c: { value: unknown }) => void) => {
-                        cellCb({ value: "Name" });
-                        cellCb({ value: "Score" });
-                      },
-                    ),
-                  };
-                  const dataRow = {
-                    eachCell: jest.fn().mockImplementation(
-                      (_: unknown, cellCb: (c: { value: unknown }) => void) => {
-                        cellCb({ value: "Alice" });
-                        cellCb({ value: 95 });
-                      },
-                    ),
-                  };
-                  rowCb(header, 1);
-                  rowCb(dataRow, 2);
-                },
-              ),
+              eachRow: jest
+                .fn()
+                .mockImplementation(
+                  (rowCb: (row: unknown, rowNum: number) => void) => {
+                    const header = {
+                      eachCell: jest
+                        .fn()
+                        .mockImplementation(
+                          (
+                            _: unknown,
+                            cellCb: (c: { value: unknown }) => void,
+                          ) => {
+                            cellCb({ value: "Name" });
+                            cellCb({ value: "Score" });
+                          },
+                        ),
+                    };
+                    const dataRow = {
+                      eachCell: jest
+                        .fn()
+                        .mockImplementation(
+                          (
+                            _: unknown,
+                            cellCb: (c: { value: unknown }) => void,
+                          ) => {
+                            cellCb({ value: "Alice" });
+                            cellCb({ value: 95 });
+                          },
+                        ),
+                    };
+                    rowCb(header, 1);
+                    rowCb(dataRow, 2);
+                  },
+                ),
             };
             cb(mockWs, 1);
-          },
-        ),
+          }),
         creator: "ExcelAuthor",
         worksheets: [{}],
       };
@@ -500,26 +516,37 @@ describe("FileParserTool", () => {
       const ExcelJS = require("exceljs");
       const mockWb = {
         xlsx: { load: jest.fn().mockResolvedValue(undefined) },
-        eachSheet: jest.fn().mockImplementation(
-          (cb: (ws: unknown, id: number) => void) => {
+        eachSheet: jest
+          .fn()
+          .mockImplementation((cb: (ws: unknown, id: number) => void) => {
             const mockWs = {
               name: "Sheet1",
-              eachRow: jest.fn().mockImplementation(
-                (rowCb: (row: unknown, rowNum: number) => void) => {
-                  const row = {
-                    eachCell: jest.fn().mockImplementation(
-                      (_: unknown, cellCb: (c: { value: unknown }) => void) => {
-                        cellCb({ value: { richText: [{ text: "Bold" }, { text: " Text" }] } });
-                      },
-                    ),
-                  };
-                  rowCb(row, 1);
-                },
-              ),
+              eachRow: jest
+                .fn()
+                .mockImplementation(
+                  (rowCb: (row: unknown, rowNum: number) => void) => {
+                    const row = {
+                      eachCell: jest
+                        .fn()
+                        .mockImplementation(
+                          (
+                            _: unknown,
+                            cellCb: (c: { value: unknown }) => void,
+                          ) => {
+                            cellCb({
+                              value: {
+                                richText: [{ text: "Bold" }, { text: " Text" }],
+                              },
+                            });
+                          },
+                        ),
+                    };
+                    rowCb(row, 1);
+                  },
+                ),
             };
             cb(mockWs, 1);
-          },
-        ),
+          }),
         creator: "",
         worksheets: [{}],
       };
@@ -545,26 +572,33 @@ describe("FileParserTool", () => {
       const ExcelJS = require("exceljs");
       const mockWb = {
         xlsx: { load: jest.fn().mockResolvedValue(undefined) },
-        eachSheet: jest.fn().mockImplementation(
-          (cb: (ws: unknown, id: number) => void) => {
+        eachSheet: jest
+          .fn()
+          .mockImplementation((cb: (ws: unknown, id: number) => void) => {
             const mockWs = {
               name: "Links",
-              eachRow: jest.fn().mockImplementation(
-                (rowCb: (row: unknown, rowNum: number) => void) => {
-                  const row = {
-                    eachCell: jest.fn().mockImplementation(
-                      (_: unknown, cellCb: (c: { value: unknown }) => void) => {
-                        cellCb({ value: { text: "Click Here" } });
-                      },
-                    ),
-                  };
-                  rowCb(row, 1);
-                },
-              ),
+              eachRow: jest
+                .fn()
+                .mockImplementation(
+                  (rowCb: (row: unknown, rowNum: number) => void) => {
+                    const row = {
+                      eachCell: jest
+                        .fn()
+                        .mockImplementation(
+                          (
+                            _: unknown,
+                            cellCb: (c: { value: unknown }) => void,
+                          ) => {
+                            cellCb({ value: { text: "Click Here" } });
+                          },
+                        ),
+                    };
+                    rowCb(row, 1);
+                  },
+                ),
             };
             cb(mockWs, 1);
-          },
-        ),
+          }),
         creator: "",
         worksheets: [{}],
       };
@@ -590,26 +624,33 @@ describe("FileParserTool", () => {
       const ExcelJS = require("exceljs");
       const mockWb = {
         xlsx: { load: jest.fn().mockResolvedValue(undefined) },
-        eachSheet: jest.fn().mockImplementation(
-          (cb: (ws: unknown, id: number) => void) => {
+        eachSheet: jest
+          .fn()
+          .mockImplementation((cb: (ws: unknown, id: number) => void) => {
             const mockWs = {
               name: "Sheet1",
-              eachRow: jest.fn().mockImplementation(
-                (rowCb: (row: unknown, rowNum: number) => void) => {
-                  const row = {
-                    eachCell: jest.fn().mockImplementation(
-                      (_: unknown, cellCb: (c: { value: unknown }) => void) => {
-                        cellCb({ value: "Header" });
-                      },
-                    ),
-                  };
-                  rowCb(row, 1);
-                },
-              ),
+              eachRow: jest
+                .fn()
+                .mockImplementation(
+                  (rowCb: (row: unknown, rowNum: number) => void) => {
+                    const row = {
+                      eachCell: jest
+                        .fn()
+                        .mockImplementation(
+                          (
+                            _: unknown,
+                            cellCb: (c: { value: unknown }) => void,
+                          ) => {
+                            cellCb({ value: "Header" });
+                          },
+                        ),
+                    };
+                    rowCb(row, 1);
+                  },
+                ),
             };
             cb(mockWs, 1);
-          },
-        ),
+          }),
         creator: "Author",
         worksheets: [{}],
       };
@@ -636,29 +677,36 @@ describe("FileParserTool", () => {
       const ExcelJS = require("exceljs");
       const mockWb = {
         xlsx: { load: jest.fn().mockResolvedValue(undefined) },
-        eachSheet: jest.fn().mockImplementation(
-          (cb: (ws: unknown, id: number) => void) => {
+        eachSheet: jest
+          .fn()
+          .mockImplementation((cb: (ws: unknown, id: number) => void) => {
             const mockWs = {
               name: "NullSheet",
-              eachRow: jest.fn().mockImplementation(
-                (rowCb: (row: unknown, rowNum: number) => void) => {
-                  const row = {
-                    eachCell: jest.fn().mockImplementation(
-                      (_: unknown, cellCb: (c: { value: unknown }) => void) => {
-                        cellCb({ value: null });
-                        cellCb({ value: undefined });
-                        cellCb({ value: 42 });
-                        cellCb({ value: "text" });
-                      },
-                    ),
-                  };
-                  rowCb(row, 1);
-                },
-              ),
+              eachRow: jest
+                .fn()
+                .mockImplementation(
+                  (rowCb: (row: unknown, rowNum: number) => void) => {
+                    const row = {
+                      eachCell: jest
+                        .fn()
+                        .mockImplementation(
+                          (
+                            _: unknown,
+                            cellCb: (c: { value: unknown }) => void,
+                          ) => {
+                            cellCb({ value: null });
+                            cellCb({ value: undefined });
+                            cellCb({ value: 42 });
+                            cellCb({ value: "text" });
+                          },
+                        ),
+                    };
+                    rowCb(row, 1);
+                  },
+                ),
             };
             cb(mockWs, 1);
-          },
-        ),
+          }),
         creator: undefined,
         worksheets: [{}],
       };
@@ -693,9 +741,15 @@ describe("FileParserTool", () => {
 
       const mockZip = {
         files: {
-          "ppt/slides/slide10.xml": { async: jest.fn().mockResolvedValue("<xml/>") },
-          "ppt/slides/slide2.xml": { async: jest.fn().mockResolvedValue("<xml/>") },
-          "ppt/slides/slide1.xml": { async: jest.fn().mockResolvedValue("<xml/>") },
+          "ppt/slides/slide10.xml": {
+            async: jest.fn().mockResolvedValue("<xml/>"),
+          },
+          "ppt/slides/slide2.xml": {
+            async: jest.fn().mockResolvedValue("<xml/>"),
+          },
+          "ppt/slides/slide1.xml": {
+            async: jest.fn().mockResolvedValue("<xml/>"),
+          },
           // non-slide file should be ignored
           "ppt/slideLayouts/slideLayout1.xml": { async: jest.fn() },
         },
@@ -734,8 +788,12 @@ describe("FileParserTool", () => {
 
       const mockZip = {
         files: {
-          "ppt/slides/slide1.xml": { async: jest.fn().mockResolvedValue("<xml/>") },
-          "docProps/core.xml": { async: jest.fn().mockResolvedValue("<core/>") },
+          "ppt/slides/slide1.xml": {
+            async: jest.fn().mockResolvedValue("<xml/>"),
+          },
+          "docProps/core.xml": {
+            async: jest.fn().mockResolvedValue("<core/>"),
+          },
         },
       };
 
@@ -759,7 +817,9 @@ describe("FileParserTool", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.data?.structure.metadata.author).toBe("Presentation Author");
+      expect(result.data?.structure.metadata.author).toBe(
+        "Presentation Author",
+      );
     });
 
     it("should handle PPTX slides with empty text (skip section)", async () => {
@@ -768,7 +828,9 @@ describe("FileParserTool", () => {
 
       const mockZip = {
         files: {
-          "ppt/slides/slide1.xml": { async: jest.fn().mockResolvedValue("<xml/>") },
+          "ppt/slides/slide1.xml": {
+            async: jest.fn().mockResolvedValue("<xml/>"),
+          },
         },
       };
 
@@ -798,8 +860,12 @@ describe("FileParserTool", () => {
 
       const mockZip = {
         files: {
-          "ppt/slides/slide1.xml": { async: jest.fn().mockResolvedValue("<xml/>") },
-          "docProps/core.xml": { async: jest.fn().mockResolvedValue("<core/>") },
+          "ppt/slides/slide1.xml": {
+            async: jest.fn().mockResolvedValue("<xml/>"),
+          },
+          "docProps/core.xml": {
+            async: jest.fn().mockResolvedValue("<core/>"),
+          },
         },
       };
 
@@ -830,7 +896,9 @@ describe("FileParserTool", () => {
 
       const mockZip = {
         files: {
-          "ppt/slides/slide1.xml": { async: jest.fn().mockResolvedValue("<xml/>") },
+          "ppt/slides/slide1.xml": {
+            async: jest.fn().mockResolvedValue("<xml/>"),
+          },
         },
       };
 
@@ -1186,11 +1254,11 @@ describe("FileParserTool", () => {
       // Build a cheerio-like $ that handles all call patterns from parseDOCX
       const siblingElement = { _isSibling: true };
       const nextUntilResult = {
-        each: jest.fn().mockImplementation(
-          (cb: (i: number, el: unknown) => void) => {
+        each: jest
+          .fn()
+          .mockImplementation((cb: (i: number, el: unknown) => void) => {
             cb(0, siblingElement);
-          },
-        ),
+          }),
       };
       const headingWrapper = {
         text: jest.fn().mockReturnValue("Intro"),
@@ -1208,11 +1276,11 @@ describe("FileParserTool", () => {
           if (typeof sel === "string" && sel.includes("h")) {
             // Heading selector call — invoke each with a heading element
             return {
-              each: jest.fn().mockImplementation(
-                (cb: (i: number, el: unknown) => void) => {
+              each: jest
+                .fn()
+                .mockImplementation((cb: (i: number, el: unknown) => void) => {
                   cb(0, headingElement);
-                },
-              ),
+                }),
             };
           }
           if (sel === headingElement) {
@@ -1255,7 +1323,8 @@ describe("FileParserTool", () => {
 
     it("should extract HTML tables from DOCX when extractTables=true", async () => {
       mockConvertToHtml.mockResolvedValueOnce({
-        value: "<table><tr><th>Name</th><th>Score</th></tr><tr><td>Alice</td><td>95</td></tr></table>",
+        value:
+          "<table><tr><th>Name</th><th>Score</th></tr><tr><td>Alice</td><td>95</td></tr></table>",
         messages: [],
       });
 
@@ -1270,25 +1339,25 @@ describe("FileParserTool", () => {
       //                    $(tableEl).find("tbody tr ...") → rows
       //                    $(trEl).find("td, th") → cells
       const headerFindResult = {
-        each: jest.fn().mockImplementation(
-          (cb: (i: number, el: unknown) => void) => {
+        each: jest
+          .fn()
+          .mockImplementation((cb: (i: number, el: unknown) => void) => {
             thElements.forEach((el, i) => cb(i, el));
-          },
-        ),
+          }),
       };
       const rowsFindResult = {
-        each: jest.fn().mockImplementation(
-          (cb: (i: number, el: unknown) => void) => {
+        each: jest
+          .fn()
+          .mockImplementation((cb: (i: number, el: unknown) => void) => {
             cb(0, trElement);
-          },
-        ),
+          }),
       };
       const cellsFindResult = {
-        each: jest.fn().mockImplementation(
-          (cb: (i: number, el: unknown) => void) => {
+        each: jest
+          .fn()
+          .mockImplementation((cb: (i: number, el: unknown) => void) => {
             tdElements.forEach((el, i) => cb(i, el));
-          },
-        ),
+          }),
       };
 
       const tableWrapper = {
@@ -1305,11 +1374,11 @@ describe("FileParserTool", () => {
         jest.fn().mockImplementation((sel: unknown) => {
           if (typeof sel === "string" && sel.includes("table")) {
             return {
-              each: jest.fn().mockImplementation(
-                (cb: (i: number, el: unknown) => void) => {
+              each: jest
+                .fn()
+                .mockImplementation((cb: (i: number, el: unknown) => void) => {
                   cb(0, tableElement);
-                },
-              ),
+                }),
             };
           }
           if (typeof sel === "string" && sel.includes("h")) {
@@ -1317,8 +1386,18 @@ describe("FileParserTool", () => {
           }
           if (sel === tableElement) return tableWrapper;
           if (sel === trElement) return rowWrapper;
-          if (sel && typeof sel === "object" && (sel as Record<string, unknown>)._text !== undefined) {
-            return { text: jest.fn().mockReturnValue((sel as Record<string, unknown>)._text as string) };
+          if (
+            sel &&
+            typeof sel === "object" &&
+            (sel as Record<string, unknown>)._text !== undefined
+          ) {
+            return {
+              text: jest
+                .fn()
+                .mockReturnValue(
+                  (sel as Record<string, unknown>)._text as string,
+                ),
+            };
           }
           return {
             text: jest.fn().mockReturnValue(""),

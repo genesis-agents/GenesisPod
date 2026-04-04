@@ -41,9 +41,15 @@ interface APISettingsFormProps {
   providers: APIProviderConfig[];
   templates: APITemplate[];
   onAddProvider: (template?: APITemplate) => void;
-  onUpdateProvider: (providerId: string, updates: Partial<APIProviderConfig>) => void;
+  onUpdateProvider: (
+    providerId: string,
+    updates: Partial<APIProviderConfig>
+  ) => void;
   onRemoveProvider: (providerId: string) => void;
-  onTestProvider: (categoryId: string, provider: APIProviderConfig) => Promise<void>;
+  onTestProvider: (
+    categoryId: string,
+    provider: APIProviderConfig
+  ) => Promise<void>;
   testResults?: Record<string, { success: boolean; message: string }>;
   testing?: string | null;
 }
@@ -63,7 +69,9 @@ export function APISettingsForm({
   testing = null,
 }: APISettingsFormProps) {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [visibleApiKeys, setVisibleApiKeys] = useState<Record<string, boolean>>({});
+  const [visibleApiKeys, setVisibleApiKeys] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const toggleApiKeyVisibility = (providerId: string) => {
     setVisibleApiKeys((prev) => ({ ...prev, [providerId]: !prev[providerId] }));
@@ -80,7 +88,9 @@ export function APISettingsForm({
       <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{categoryName}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {categoryName}
+            </h3>
             <p className="mt-1 text-sm text-gray-600">{categoryDescription}</p>
           </div>
           <div className="flex gap-2">
@@ -133,10 +143,12 @@ export function APISettingsForm({
                         type="text"
                         value={provider.name}
                         onChange={(e) =>
-                          onUpdateProvider(provider.id, { name: e.target.value })
+                          onUpdateProvider(provider.id, {
+                            name: e.target.value,
+                          })
                         }
                         placeholder="Provider Name"
-                        className="text-lg font-semibold border-0 border-b border-transparent bg-transparent px-0 py-1 focus:border-purple-500 focus:outline-none focus:ring-0"
+                        className="border-0 border-b border-transparent bg-transparent px-0 py-1 text-lg font-semibold focus:border-purple-500 focus:outline-none focus:ring-0"
                       />
                       {provider.isDefault && (
                         <span className="rounded-full bg-purple-600 px-2 py-0.5 text-xs font-medium text-white">
@@ -190,7 +202,9 @@ export function APISettingsForm({
                       type="text"
                       value={provider.baseUrl}
                       onChange={(e) =>
-                        onUpdateProvider(provider.id, { baseUrl: e.target.value })
+                        onUpdateProvider(provider.id, {
+                          baseUrl: e.target.value,
+                        })
                       }
                       placeholder="https://api.example.com/endpoint?query=..."
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
@@ -207,10 +221,12 @@ export function APISettingsForm({
                         type={visibleApiKeys[provider.id] ? 'text' : 'password'}
                         value={provider.apiKey}
                         onChange={(e) =>
-                          onUpdateProvider(provider.id, { apiKey: e.target.value })
+                          onUpdateProvider(provider.id, {
+                            apiKey: e.target.value,
+                          })
                         }
                         placeholder="API Key (if required)"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                       />
                       <button
                         type="button"
@@ -235,10 +251,12 @@ export function APISettingsForm({
                       type="text"
                       value={provider.headers || ''}
                       onChange={(e) =>
-                        onUpdateProvider(provider.id, { headers: e.target.value })
+                        onUpdateProvider(provider.id, {
+                          headers: e.target.value,
+                        })
                       }
                       placeholder='{"X-Custom-Header": "value"}'
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                     />
                   </div>
 
@@ -305,7 +323,9 @@ export function APISettingsForm({
                 >
                   <div className="mb-2 flex items-start justify-between">
                     <div>
-                      <h4 className="font-semibold text-gray-900">{template.name}</h4>
+                      <h4 className="font-semibold text-gray-900">
+                        {template.name}
+                      </h4>
                       <p className="mt-1 text-sm text-gray-600">
                         {template.description}
                       </p>

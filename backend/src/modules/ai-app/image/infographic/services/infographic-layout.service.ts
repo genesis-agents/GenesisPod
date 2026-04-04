@@ -7,15 +7,10 @@ import { InfographicSection } from "../types";
  */
 @Injectable()
 export class InfographicLayoutService {
-
   /**
    * 计算卡片列数
    */
-  calculateColumns(
-    totalItems: number,
-    width: number,
-    height: number,
-  ): number {
+  calculateColumns(totalItems: number, width: number, height: number): number {
     const isVertical = height > width;
 
     if (isVertical) {

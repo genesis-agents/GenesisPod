@@ -3,10 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
+import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ChapterAnnotationService } from "../chapter-annotation.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AnnotationStatus } from "@prisma/client";
@@ -238,11 +235,11 @@ describe("ChapterAnnotationService", () => {
       prisma.writingChapter.findUnique.mockResolvedValue(mockChapterWithAccess);
       prisma.chapterAnnotation.updateMany.mockResolvedValue({ count: 3 });
 
-      const result = await service.resolveAnnotations(
-        "chapter-1",
-        "user-1",
-        ["annotation-1", "annotation-2", "annotation-3"],
-      );
+      const result = await service.resolveAnnotations("chapter-1", "user-1", [
+        "annotation-1",
+        "annotation-2",
+        "annotation-3",
+      ]);
 
       expect(result.resolved).toBe(3);
       expect(prisma.chapterAnnotation.updateMany).toHaveBeenCalledWith(

@@ -605,6 +605,7 @@ export class DimensionWritingService {
           sectionMap,
           outline,
         ),
+        missionId: effectiveMissionId ?? missionId, // ★ 传递 missionId
         modelId,
         temporalContext,
         allocatedFigures: section.allocatedFigures,

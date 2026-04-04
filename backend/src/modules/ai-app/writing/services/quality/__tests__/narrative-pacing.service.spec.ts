@@ -37,7 +37,8 @@ describe("NarrativePacingService", () => {
 
   describe("analyzeChapterPacing", () => {
     it("should detect action keywords and return high pacing score", () => {
-      const content = "主角决定采取行动，主动出手反击，选择了正确的方案，做出了决断";
+      const content =
+        "主角决定采取行动，主动出手反击，选择了正确的方案，做出了决断";
       const result = service.analyzeChapterPacing(content);
 
       expect(result.hasProtagonistAction).toBe(true);
@@ -46,7 +47,8 @@ describe("NarrativePacingService", () => {
     });
 
     it("should detect passive keywords and mark chapter as passive", () => {
-      const content = "她只能看着，无能为力，只好袖手旁观，默默注视，束手无策，不敢，无法";
+      const content =
+        "她只能看着，无能为力，只好袖手旁观，默默注视，束手无策，不敢，无法";
       const result = service.analyzeChapterPacing(content);
 
       expect(result.passiveKeywords.length).toBeGreaterThan(3);
@@ -140,7 +142,8 @@ describe("NarrativePacingService", () => {
     });
 
     it("should force protagonist action after 2 consecutive passive chapters", async () => {
-      const passiveContent = "只能看着，默默注视，无能为力，只好，束手无策，不敢，无法，只好袖手旁观";
+      const passiveContent =
+        "只能看着，默默注视，无能为力，只好，束手无策，不敢，无法，只好袖手旁观";
       (mockPrisma.writingChapter.findMany as jest.Mock).mockResolvedValue([
         { content: passiveContent, chapterNumber: 2 },
         { content: passiveContent, chapterNumber: 1 },
@@ -190,7 +193,12 @@ describe("NarrativePacingService", () => {
     });
 
     it("should handle empty content in record", async () => {
-      const result = await service.recordChapterPacing("proj-1", "chap-1", 1, "");
+      const result = await service.recordChapterPacing(
+        "proj-1",
+        "chap-1",
+        1,
+        "",
+      );
 
       expect(result).toBeDefined();
       expect(result.openingType).toBe("SCENE_DESCRIPTION");

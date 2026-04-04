@@ -96,7 +96,12 @@ describe("ForeshadowingService", () => {
         importance: "major",
       });
 
-      const success = service.revealForeshadow("proj-1", planted.id, 5, "secret revealed");
+      const success = service.revealForeshadow(
+        "proj-1",
+        planted.id,
+        5,
+        "secret revealed",
+      );
 
       expect(success).toBe(true);
       const pending = service.getPendingForeshadows("proj-1");
@@ -229,9 +234,15 @@ describe("ForeshadowingService", () => {
     });
 
     it("should indicate climax chapter suggestions for 高潮 type", () => {
-      const result = service.generateForeshadowingGuidance("proj-1", 10, "高潮决战");
+      const result = service.generateForeshadowingGuidance(
+        "proj-1",
+        10,
+        "高潮决战",
+      );
 
-      expect(result.suggestedNewForeshadows.some((s) => s.includes("高潮"))).toBe(true);
+      expect(
+        result.suggestedNewForeshadows.some((s) => s.includes("高潮")),
+      ).toBe(true);
     });
 
     it("should list pending foreshadows that should be revealed", () => {

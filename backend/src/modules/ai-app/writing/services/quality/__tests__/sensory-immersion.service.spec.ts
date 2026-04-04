@@ -168,7 +168,10 @@ describe("SensoryImmersionService", () => {
     });
 
     it("should handle multiple scene types", () => {
-      const result = service.generateSceneSensoryGuide(["cold_dark", "illness"]);
+      const result = service.generateSceneSensoryGuide([
+        "cold_dark",
+        "illness",
+      ]);
 
       expect(result).toContain("阴冷幽暗");
       expect(result).toContain("病痛折磨");
@@ -203,7 +206,8 @@ describe("SensoryImmersionService", () => {
 
   describe("analyzeSensoryRichness", () => {
     it("should return score and details for content with sensory words", () => {
-      const content = "冰冷的触感让她颤抖，香气扑鼻而来，远处传来嘈杂的声响，她看到了红色的光芒，苦涩的味道涌上嘴头";
+      const content =
+        "冰冷的触感让她颤抖，香气扑鼻而来，远处传来嘈杂的声响，她看到了红色的光芒，苦涩的味道涌上嘴头";
       const result = service.analyzeSensoryRichness(content);
 
       expect(result.score).toBeGreaterThan(0);

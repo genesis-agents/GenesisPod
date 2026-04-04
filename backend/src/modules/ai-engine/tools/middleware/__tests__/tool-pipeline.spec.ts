@@ -2,9 +2,18 @@
  * Tests for ToolPipeline and ToolExecutor
  */
 
-import { ToolPipeline, ToolExecutor, createDefaultPipeline } from '../tool-pipeline';
-import { IToolMiddleware } from '../middleware.interface';
-import { ITool, ToolContext, ToolResult, ToolCategory } from '../../abstractions/tool.interface';
+import {
+  ToolPipeline,
+  ToolExecutor,
+  createDefaultPipeline,
+} from "../tool-pipeline";
+import { IToolMiddleware } from "../middleware.interface";
+import {
+  ITool,
+  ToolContext,
+  ToolResult,
+  ToolCategory,
+} from "../../abstractions/tool.interface";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -12,21 +21,21 @@ import { ITool, ToolContext, ToolResult, ToolCategory } from '../../abstractions
 
 function createMockTool(overrides: Partial<ITool> = {}): ITool {
   return {
-    id: 'test-tool',
-    name: 'Test Tool',
-    description: 'A test tool',
-    category: 'information' as ToolCategory,
-    inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
-    outputSchema: { type: 'object' },
+    id: "test-tool",
+    name: "Test Tool",
+    description: "A test tool",
+    category: "information" as ToolCategory,
+    inputSchema: { type: "object", properties: { query: { type: "string" } } },
+    outputSchema: { type: "object" },
     enabled: true,
     cancellable: true,
     defaultTimeout: 5000,
     async execute(_input, _context) {
       return {
         success: true,
-        data: { result: 'ok' },
+        data: { result: "ok" },
         metadata: {
-          executionId: 'exec-1',
+          executionId: "exec-1",
           startTime: new Date(),
           endTime: new Date(),
           duration: 0,
@@ -35,14 +44,14 @@ function createMockTool(overrides: Partial<ITool> = {}): ITool {
     },
     validateInput: () => ({ valid: true }),
     toFunctionDefinition() {
-      return { name: 'test-tool', description: 'A test tool', parameters: {} };
+      return { name: "test-tool", description: "A test tool", parameters: {} };
     },
     toCompactSummary() {
       return {
-        id: 'test-tool',
-        name: 'Test Tool',
-        brief: 'A test tool',
-        category: 'information' as ToolCategory,
+        id: "test-tool",
+        name: "Test Tool",
+        brief: "A test tool",
+        category: "information" as ToolCategory,
       };
     },
     ...overrides,
@@ -51,9 +60,9 @@ function createMockTool(overrides: Partial<ITool> = {}): ITool {
 
 function createMockContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
-    executionId: 'exec-123',
-    toolId: 'test-tool',
-    userId: 'user-1',
+    executionId: "exec-123",
+    toolId: "test-tool",
+    userId: "user-1",
     createdAt: new Date(),
     ...overrides,
   };
@@ -78,7 +87,7 @@ function createMockMiddleware(
 // ToolPipeline
 // ---------------------------------------------------------------------------
 
-describe('ToolPipeline', () => {
+describe("ToolPipeline", () => {
   let pipeline: ToolPipeline;
 
   beforeEach(() => {
@@ -89,18 +98,18 @@ describe('ToolPipeline', () => {
   // use() — adds and sorts by priority
   // -------------------------------------------------------------------------
 
-  describe('use()', () => {
-    it('adds a single middleware', () => {
-      const mw = createMockMiddleware('mw-a', 50);
+  describe("use()", () => {
+    it("adds a single middleware", () => {
+      const mw = createMockMiddleware("mw-a", 50);
       pipeline.use(mw);
       expect(pipeline.getAll()).toHaveLength(1);
       expect(pipeline.getAll()[0]).toBe(mw);
     });
 
-    it('sorts middlewares by priority ascending', () => {
-      const mwHigh = createMockMiddleware('mw-high', 10);
-      const mwLow = createMockMiddleware('mw-low', 100);
-      const mwMid = createMockMiddleware('mw-mid', 50);
+    it("sorts middlewares by priority ascending", () => {
+      const mwHigh = createMockMiddleware("mw-high", 10);
+      const mwLow = createMockMiddleware("mw-low", 100);
+      const mwMid = createMockMiddleware("mw-mid", 50);
 
       pipeline.use(mwLow).use(mwHigh).use(mwMid);
 
@@ -110,15 +119,15 @@ describe('ToolPipeline', () => {
       expect(all[2]).toBe(mwLow);
     });
 
-    it('returns this for chaining', () => {
-      const mw = createMockMiddleware('mw', 10);
+    it("returns this for chaining", () => {
+      const mw = createMockMiddleware("mw", 10);
       const ret = pipeline.use(mw);
       expect(ret).toBe(pipeline);
     });
 
-    it('treats undefined priority as 100', () => {
-      const mwNoPriority: IToolMiddleware = { name: 'no-priority' };
-      const mwPriority50 = createMockMiddleware('mw-50', 50);
+    it("treats undefined priority as 100", () => {
+      const mwNoPriority: IToolMiddleware = { name: "no-priority" };
+      const mwPriority50 = createMockMiddleware("mw-50", 50);
 
       pipeline.use(mwNoPriority).use(mwPriority50);
 
@@ -132,28 +141,28 @@ describe('ToolPipeline', () => {
   // remove()
   // -------------------------------------------------------------------------
 
-  describe('remove()', () => {
-    it('removes an existing middleware and returns true', () => {
-      const mw = createMockMiddleware('target', 10);
+  describe("remove()", () => {
+    it("removes an existing middleware and returns true", () => {
+      const mw = createMockMiddleware("target", 10);
       pipeline.use(mw);
 
-      const result = pipeline.remove('target');
+      const result = pipeline.remove("target");
 
       expect(result).toBe(true);
       expect(pipeline.getAll()).toHaveLength(0);
     });
 
-    it('returns false when middleware name does not exist', () => {
-      const result = pipeline.remove('nonexistent');
+    it("returns false when middleware name does not exist", () => {
+      const result = pipeline.remove("nonexistent");
       expect(result).toBe(false);
     });
 
-    it('only removes the matched middleware, leaving others intact', () => {
-      const mwA = createMockMiddleware('mw-a', 10);
-      const mwB = createMockMiddleware('mw-b', 20);
+    it("only removes the matched middleware, leaving others intact", () => {
+      const mwA = createMockMiddleware("mw-a", 10);
+      const mwB = createMockMiddleware("mw-b", 20);
       pipeline.use(mwA).use(mwB);
 
-      pipeline.remove('mw-a');
+      pipeline.remove("mw-a");
 
       const all = pipeline.getAll();
       expect(all).toHaveLength(1);
@@ -165,9 +174,9 @@ describe('ToolPipeline', () => {
   // getAll() — returns a copy
   // -------------------------------------------------------------------------
 
-  describe('getAll()', () => {
-    it('returns a copy, not the internal array', () => {
-      const mw = createMockMiddleware('mw', 10);
+  describe("getAll()", () => {
+    it("returns a copy, not the internal array", () => {
+      const mw = createMockMiddleware("mw", 10);
       pipeline.use(mw);
 
       const copy = pipeline.getAll();
@@ -176,7 +185,7 @@ describe('ToolPipeline', () => {
       expect(pipeline.getAll()).toHaveLength(1);
     });
 
-    it('returns empty array when no middlewares', () => {
+    it("returns empty array when no middlewares", () => {
       expect(pipeline.getAll()).toEqual([]);
     });
   });
@@ -185,26 +194,41 @@ describe('ToolPipeline', () => {
   // execute() — happy path
   // -------------------------------------------------------------------------
 
-  describe('execute() — success path', () => {
-    it('calls before → tool.execute → after (reverse) in order', async () => {
+  describe("execute() — success path", () => {
+    it("calls before → tool.execute → after (reverse) in order", async () => {
       const callOrder: string[] = [];
 
-      const mwA = createMockMiddleware('mw-a', 10, {
-        before: jest.fn(async () => { callOrder.push('before-a'); }),
-        after: jest.fn(async (r) => { callOrder.push('after-a'); return r; }),
+      const mwA = createMockMiddleware("mw-a", 10, {
+        before: jest.fn(async () => {
+          callOrder.push("before-a");
+        }),
+        after: jest.fn(async (r) => {
+          callOrder.push("after-a");
+          return r;
+        }),
       });
-      const mwB = createMockMiddleware('mw-b', 20, {
-        before: jest.fn(async () => { callOrder.push('before-b'); }),
-        after: jest.fn(async (r) => { callOrder.push('after-b'); return r; }),
+      const mwB = createMockMiddleware("mw-b", 20, {
+        before: jest.fn(async () => {
+          callOrder.push("before-b");
+        }),
+        after: jest.fn(async (r) => {
+          callOrder.push("after-b");
+          return r;
+        }),
       });
 
       const tool = createMockTool({
         execute: jest.fn(async () => {
-          callOrder.push('tool');
+          callOrder.push("tool");
           return {
             success: true,
             data: {},
-            metadata: { executionId: 'e', startTime: new Date(), endTime: new Date(), duration: 0 },
+            metadata: {
+              executionId: "e",
+              startTime: new Date(),
+              endTime: new Date(),
+              duration: 0,
+            },
           };
         }),
       });
@@ -212,16 +236,27 @@ describe('ToolPipeline', () => {
       pipeline.use(mwA).use(mwB);
       await pipeline.execute(tool, {}, createMockContext());
 
-      expect(callOrder).toEqual(['before-a', 'before-b', 'tool', 'after-b', 'after-a']);
+      expect(callOrder).toEqual([
+        "before-a",
+        "before-b",
+        "tool",
+        "after-b",
+        "after-a",
+      ]);
     });
 
-    it('returns the result from tool.execute when no middleware modifies it', async () => {
+    it("returns the result from tool.execute when no middleware modifies it", async () => {
       const expectedData = { answer: 42 };
       const tool = createMockTool({
         execute: jest.fn(async () => ({
           success: true,
           data: expectedData,
-          metadata: { executionId: 'e', startTime: new Date(), endTime: new Date(), duration: 0 },
+          metadata: {
+            executionId: "e",
+            startTime: new Date(),
+            endTime: new Date(),
+            duration: 0,
+          },
         })),
       });
 
@@ -230,9 +265,13 @@ describe('ToolPipeline', () => {
       expect(result.data).toEqual(expectedData);
     });
 
-    it('works with no middlewares registered', async () => {
+    it("works with no middlewares registered", async () => {
       const tool = createMockTool();
-      const result = await pipeline.execute(tool, { query: 'hello' }, createMockContext());
+      const result = await pipeline.execute(
+        tool,
+        { query: "hello" },
+        createMockContext(),
+      );
       expect(result.success).toBe(true);
     });
   });
@@ -241,17 +280,17 @@ describe('ToolPipeline', () => {
   // execute() — before can modify input
   // -------------------------------------------------------------------------
 
-  describe('execute() — before middleware modifies input', () => {
-    it('passes the modified input to the next middleware and tool', async () => {
+  describe("execute() — before middleware modifies input", () => {
+    it("passes the modified input to the next middleware and tool", async () => {
       const capturedInputs: unknown[] = [];
 
-      const mwA = createMockMiddleware('mw-a', 10, {
+      const mwA = createMockMiddleware("mw-a", 10, {
         before: jest.fn(async (input) => {
           capturedInputs.push(input);
-          return { ...( input as object), extra: 'added-by-a' };
+          return { ...(input as object), extra: "added-by-a" };
         }),
       });
-      const mwB = createMockMiddleware('mw-b', 20, {
+      const mwB = createMockMiddleware("mw-b", 20, {
         before: jest.fn(async (input) => {
           capturedInputs.push(input);
         }),
@@ -263,7 +302,12 @@ describe('ToolPipeline', () => {
           return {
             success: true,
             data: {},
-            metadata: { executionId: 'e', startTime: new Date(), endTime: new Date(), duration: 0 },
+            metadata: {
+              executionId: "e",
+              startTime: new Date(),
+              endTime: new Date(),
+              duration: 0,
+            },
           };
         }),
       });
@@ -272,25 +316,36 @@ describe('ToolPipeline', () => {
       await pipeline.execute(tool, { original: true }, createMockContext());
 
       expect(capturedInputs[0]).toEqual({ original: true });
-      expect(capturedInputs[1]).toEqual({ original: true, extra: 'added-by-a' });
-      expect(capturedInputs[2]).toEqual({ original: true, extra: 'added-by-a' });
+      expect(capturedInputs[1]).toEqual({
+        original: true,
+        extra: "added-by-a",
+      });
+      expect(capturedInputs[2]).toEqual({
+        original: true,
+        extra: "added-by-a",
+      });
     });
 
-    it('does not replace input when before returns undefined', async () => {
+    it("does not replace input when before returns undefined", async () => {
       const capturedByTool: unknown[] = [];
 
-      const mw = createMockMiddleware('mw', 10, {
+      const mw = createMockMiddleware("mw", 10, {
         before: jest.fn(async () => undefined),
       });
 
-      const originalInput = { keep: 'me' };
+      const originalInput = { keep: "me" };
       const tool = createMockTool({
         execute: jest.fn(async (input) => {
           capturedByTool.push(input);
           return {
             success: true,
             data: {},
-            metadata: { executionId: 'e', startTime: new Date(), endTime: new Date(), duration: 0 },
+            metadata: {
+              executionId: "e",
+              startTime: new Date(),
+              endTime: new Date(),
+              duration: 0,
+            },
           };
         }),
       });
@@ -306,24 +361,24 @@ describe('ToolPipeline', () => {
   // execute() — executionId auto-assigned
   // -------------------------------------------------------------------------
 
-  describe('execute() — executionId', () => {
-    it('assigns a new executionId when context has none', async () => {
-      const context = createMockContext({ executionId: '' });
+  describe("execute() — executionId", () => {
+    it("assigns a new executionId when context has none", async () => {
+      const context = createMockContext({ executionId: "" });
       const tool = createMockTool();
 
       await pipeline.execute(tool, {}, context);
 
       expect(context.executionId).toBeTruthy();
-      expect(typeof context.executionId).toBe('string');
+      expect(typeof context.executionId).toBe("string");
     });
 
-    it('preserves existing executionId when context already has one', async () => {
-      const context = createMockContext({ executionId: 'existing-id' });
+    it("preserves existing executionId when context already has one", async () => {
+      const context = createMockContext({ executionId: "existing-id" });
       const tool = createMockTool();
 
       await pipeline.execute(tool, {}, context);
 
-      expect(context.executionId).toBe('existing-id');
+      expect(context.executionId).toBe("existing-id");
     });
   });
 
@@ -331,13 +386,19 @@ describe('ToolPipeline', () => {
   // execute() — error path with recovery
   // -------------------------------------------------------------------------
 
-  describe('execute() — error recovery via onError', () => {
-    it('calls onError on all middlewares when tool throws', async () => {
-      const mwA = createMockMiddleware('mw-a', 10, { onError: jest.fn(async () => undefined) });
-      const mwB = createMockMiddleware('mw-b', 20, { onError: jest.fn(async () => undefined) });
+  describe("execute() — error recovery via onError", () => {
+    it("calls onError on all middlewares when tool throws", async () => {
+      const mwA = createMockMiddleware("mw-a", 10, {
+        onError: jest.fn(async () => undefined),
+      });
+      const mwB = createMockMiddleware("mw-b", 20, {
+        onError: jest.fn(async () => undefined),
+      });
 
       const tool = createMockTool({
-        execute: jest.fn(async () => { throw new Error('boom'); }),
+        execute: jest.fn(async () => {
+          throw new Error("boom");
+        }),
       });
 
       pipeline.use(mwA).use(mwB);
@@ -347,22 +408,29 @@ describe('ToolPipeline', () => {
       expect(mwB.onError).toHaveBeenCalled();
     });
 
-    it('returns recovery result from first middleware that provides one', async () => {
+    it("returns recovery result from first middleware that provides one", async () => {
       const recovery: ToolResult = {
         success: true,
         data: { recovered: true },
-        metadata: { executionId: 'r', startTime: new Date(), endTime: new Date(), duration: 0 },
+        metadata: {
+          executionId: "r",
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 0,
+        },
       };
 
-      const mwA = createMockMiddleware('mw-a', 10, {
+      const mwA = createMockMiddleware("mw-a", 10, {
         onError: jest.fn(async () => recovery),
       });
-      const mwB = createMockMiddleware('mw-b', 20, {
+      const mwB = createMockMiddleware("mw-b", 20, {
         onError: jest.fn(async () => undefined),
       });
 
       const tool = createMockTool({
-        execute: jest.fn(async () => { throw new Error('boom'); }),
+        execute: jest.fn(async () => {
+          throw new Error("boom");
+        }),
       });
 
       pipeline.use(mwA).use(mwB);
@@ -373,10 +441,12 @@ describe('ToolPipeline', () => {
       expect(mwB.onError).not.toHaveBeenCalled();
     });
 
-    it('wraps error into ToolError result when no middleware provides recovery', async () => {
+    it("wraps error into ToolError result when no middleware provides recovery", async () => {
       const tool = createMockTool({
-        id: 'failing-tool',
-        execute: jest.fn(async () => { throw new Error('unexpected'); }),
+        id: "failing-tool",
+        execute: jest.fn(async () => {
+          throw new Error("unexpected");
+        }),
       });
 
       const result = await pipeline.execute(tool, {}, createMockContext());
@@ -388,15 +458,17 @@ describe('ToolPipeline', () => {
       expect(result.metadata).toBeDefined();
     });
 
-    it('wraps error result includes executionId in metadata', async () => {
-      const context = createMockContext({ executionId: 'err-exec-id' });
+    it("wraps error result includes executionId in metadata", async () => {
+      const context = createMockContext({ executionId: "err-exec-id" });
       const tool = createMockTool({
-        execute: jest.fn(async () => { throw new Error('fail'); }),
+        execute: jest.fn(async () => {
+          throw new Error("fail");
+        }),
       });
 
       const result = await pipeline.execute(tool, {}, context);
 
-      expect(result.metadata.executionId).toBe('err-exec-id');
+      expect(result.metadata.executionId).toBe("err-exec-id");
     });
   });
 });
@@ -405,8 +477,8 @@ describe('ToolPipeline', () => {
 // ToolExecutor
 // ---------------------------------------------------------------------------
 
-describe('ToolExecutor', () => {
-  it('creates a context with executionId, toolId, createdAt and calls pipeline.execute', async () => {
+describe("ToolExecutor", () => {
+  it("creates a context with executionId, toolId, createdAt and calls pipeline.execute", async () => {
     const mockPipeline = {
       execute: jest.fn(async (_tool, _input, context: ToolContext) => ({
         success: true,
@@ -421,22 +493,24 @@ describe('ToolExecutor', () => {
     } as unknown as ToolPipeline;
 
     const executor = new ToolExecutor(mockPipeline);
-    const tool = createMockTool({ id: 'my-tool' });
-    const input = { query: 'test' };
+    const tool = createMockTool({ id: "my-tool" });
+    const input = { query: "test" };
 
     await executor.execute(tool, input);
 
     expect(mockPipeline.execute).toHaveBeenCalledTimes(1);
 
-    const [calledTool, calledInput, calledContext] = (mockPipeline.execute as jest.Mock).mock.calls[0];
+    const [calledTool, calledInput, calledContext] = (
+      mockPipeline.execute as jest.Mock
+    ).mock.calls[0];
     expect(calledTool).toBe(tool);
     expect(calledInput).toEqual(input);
-    expect(calledContext.toolId).toBe('my-tool');
+    expect(calledContext.toolId).toBe("my-tool");
     expect(calledContext.executionId).toBeTruthy();
     expect(calledContext.createdAt).toBeInstanceOf(Date);
   });
 
-  it('merges options into context', async () => {
+  it("merges options into context", async () => {
     const mockPipeline = {
       execute: jest.fn(async (_tool, _input, context: ToolContext) => ({
         success: true,
@@ -453,18 +527,27 @@ describe('ToolExecutor', () => {
     const executor = new ToolExecutor(mockPipeline);
     const tool = createMockTool();
 
-    await executor.execute(tool, {}, { userId: 'user-42', sessionId: 'sess-1' } as Partial<ToolContext>);
+    await executor.execute(tool, {}, {
+      userId: "user-42",
+      sessionId: "sess-1",
+    } as Partial<ToolContext>);
 
-    const [, , calledContext] = (mockPipeline.execute as jest.Mock).mock.calls[0];
-    expect(calledContext.userId).toBe('user-42');
-    expect(calledContext.sessionId).toBe('sess-1');
+    const [, , calledContext] = (mockPipeline.execute as jest.Mock).mock
+      .calls[0];
+    expect(calledContext.userId).toBe("user-42");
+    expect(calledContext.sessionId).toBe("sess-1");
   });
 
-  it('returns the pipeline result', async () => {
+  it("returns the pipeline result", async () => {
     const expectedResult: ToolResult = {
       success: true,
       data: { value: 99 },
-      metadata: { executionId: 'x', startTime: new Date(), endTime: new Date(), duration: 5 },
+      metadata: {
+        executionId: "x",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 5,
+      },
     };
 
     const mockPipeline = {
@@ -483,13 +566,13 @@ describe('ToolExecutor', () => {
 // createDefaultPipeline
 // ---------------------------------------------------------------------------
 
-describe('createDefaultPipeline()', () => {
-  it('returns a ToolPipeline instance', () => {
+describe("createDefaultPipeline()", () => {
+  it("returns a ToolPipeline instance", () => {
     const pipeline = createDefaultPipeline();
     expect(pipeline).toBeInstanceOf(ToolPipeline);
   });
 
-  it('returns a pipeline with no middlewares by default', () => {
+  it("returns a pipeline with no middlewares by default", () => {
     const pipeline = createDefaultPipeline();
     expect(pipeline.getAll()).toHaveLength(0);
   });

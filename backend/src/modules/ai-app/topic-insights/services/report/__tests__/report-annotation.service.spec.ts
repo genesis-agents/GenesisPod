@@ -189,9 +189,9 @@ describe("ReportAnnotationService", () => {
     it("should throw NotFoundException when annotation not found", async () => {
       mockPrisma.reportAnnotation.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.deleteAnnotation("nonexistent-id"),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.deleteAnnotation("nonexistent-id")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should delete annotation and return success", async () => {

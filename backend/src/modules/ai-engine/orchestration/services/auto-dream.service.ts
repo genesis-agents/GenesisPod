@@ -177,9 +177,7 @@ export class AutoDreamService {
       result.itemsPruned = entriesToProcess.length;
       result.phasesCompleted.push("prune");
 
-      this.logger.log(
-        `[execute] Prune: ${result.itemsPruned} entries marked`,
-      );
+      this.logger.log(`[execute] Prune: ${result.itemsPruned} entries marked`);
 
       this.finishRun(scopeId, result, startTime);
       return result;

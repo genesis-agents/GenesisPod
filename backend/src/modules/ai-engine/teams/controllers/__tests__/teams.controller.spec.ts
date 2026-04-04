@@ -4,7 +4,11 @@
 
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { TeamsController } from "../teams.controller";
-import { TeamsService, TeamInfo, MissionStatus } from "../../services/teams.service";
+import {
+  TeamsService,
+  TeamInfo,
+  MissionStatus,
+} from "../../services/teams.service";
 import { MissionResult } from "../../abstractions/mission.interface";
 import { TeamId } from "../../abstractions/team.interface";
 
@@ -22,7 +26,10 @@ function makeTeamInfo(id = "team-1"): TeamInfo {
   };
 }
 
-function makeMissionStatus(missionId: string, status: MissionStatus["status"] = "running"): MissionStatus {
+function makeMissionStatus(
+  missionId: string,
+  status: MissionStatus["status"] = "running",
+): MissionStatus {
   return {
     missionId,
     teamId: "team-1" as TeamId,
@@ -138,7 +145,10 @@ describe("TeamsController - createMission", () => {
     service.executeMission.mockResolvedValue("mission-xyz");
     const controller = new TeamsController(service);
 
-    const result = await controller.createMission({ teamId: "team-1", goal: "Research AI" });
+    const result = await controller.createMission({
+      teamId: "team-1",
+      goal: "Research AI",
+    });
     expect(result.missionId).toBe("mission-xyz");
     expect(result.message).toContain("mission-xyz");
   });
@@ -147,9 +157,9 @@ describe("TeamsController - createMission", () => {
     const service = makeMockTeamsService();
     const controller = new TeamsController(service);
 
-    await expect(controller.createMission({ teamId: "", goal: "Research AI" })).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      controller.createMission({ teamId: "", goal: "Research AI" }),
+    ).rejects.toThrow(BadRequestException);
     expect(service.executeMission).not.toHaveBeenCalled();
   });
 
@@ -157,9 +167,9 @@ describe("TeamsController - createMission", () => {
     const service = makeMockTeamsService();
     const controller = new TeamsController(service);
 
-    await expect(controller.createMission({ teamId: "team-1", goal: "" })).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      controller.createMission({ teamId: "team-1", goal: "" }),
+    ).rejects.toThrow(BadRequestException);
     expect(service.executeMission).not.toHaveBeenCalled();
   });
 
@@ -197,14 +207,24 @@ describe("TeamsController - streamMission", () => {
       yield { type: "mission_completed", data: { result: { success: true } } };
     }
 
-    service.executeMissionStream.mockReturnValue(mockStream() as unknown as ReturnType<TeamsService["executeMissionStream"]>);
+    service.executeMissionStream.mockReturnValue(
+      mockStream() as unknown as ReturnType<
+        TeamsService["executeMissionStream"]
+      >,
+    );
 
     const controller = new TeamsController(service);
     const res = makeMockResponse();
 
-    await controller.streamMission({ teamId: "team-1", goal: "Research" }, res as unknown as import("express").Response);
+    await controller.streamMission(
+      { teamId: "team-1", goal: "Research" },
+      res as unknown as import("express").Response,
+    );
 
-    expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "text/event-stream");
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "Content-Type",
+      "text/event-stream",
+    );
     expect(res.setHeader).toHaveBeenCalledWith("Cache-Control", "no-cache");
     expect(res.write).toHaveBeenCalled();
     expect(res.end).toHaveBeenCalled();
@@ -215,10 +235,15 @@ describe("TeamsController - streamMission", () => {
     const controller = new TeamsController(service);
     const res = makeMockResponse();
 
-    await controller.streamMission({ teamId: "", goal: "Research" }, res as unknown as import("express").Response);
+    await controller.streamMission(
+      { teamId: "", goal: "Research" },
+      res as unknown as import("express").Response,
+    );
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false }),
+    );
   });
 
   it("should return 400 when goal is missing", async () => {
@@ -226,7 +251,10 @@ describe("TeamsController - streamMission", () => {
     const controller = new TeamsController(service);
     const res = makeMockResponse();
 
-    await controller.streamMission({ teamId: "team-1", goal: "" }, res as unknown as import("express").Response);
+    await controller.streamMission(
+      { teamId: "team-1", goal: "" },
+      res as unknown as import("express").Response,
+    );
 
     expect(res.status).toHaveBeenCalledWith(400);
   });
@@ -239,14 +267,23 @@ describe("TeamsController - streamMission", () => {
       throw new Error("Stream failure");
     }
 
-    service.executeMissionStream.mockReturnValue(failingStream() as unknown as ReturnType<TeamsService["executeMissionStream"]>);
+    service.executeMissionStream.mockReturnValue(
+      failingStream() as unknown as ReturnType<
+        TeamsService["executeMissionStream"]
+      >,
+    );
 
     const controller = new TeamsController(service);
     const res = makeMockResponse();
 
-    await controller.streamMission({ teamId: "team-1", goal: "Research" }, res as unknown as import("express").Response);
+    await controller.streamMission(
+      { teamId: "team-1", goal: "Research" },
+      res as unknown as import("express").Response,
+    );
 
-    const writeCalls = (res.write as jest.Mock).mock.calls.map((c) => String(c[0]));
+    const writeCalls = (res.write as jest.Mock).mock.calls.map((c) =>
+      String(c[0]),
+    );
     const hasErrorEvent = writeCalls.some((c) => c.includes("error"));
     expect(hasErrorEvent).toBe(true);
     expect(res.end).toHaveBeenCalled();
@@ -260,14 +297,23 @@ describe("TeamsController - streamMission", () => {
       yield { type: "should_not_emit", data: {} }; // should not be reached
     }
 
-    service.executeMissionStream.mockReturnValue(mockStream() as unknown as ReturnType<TeamsService["executeMissionStream"]>);
+    service.executeMissionStream.mockReturnValue(
+      mockStream() as unknown as ReturnType<
+        TeamsService["executeMissionStream"]
+      >,
+    );
 
     const controller = new TeamsController(service);
     const res = makeMockResponse();
 
-    await controller.streamMission({ teamId: "team-1", goal: "Research" }, res as unknown as import("express").Response);
+    await controller.streamMission(
+      { teamId: "team-1", goal: "Research" },
+      res as unknown as import("express").Response,
+    );
 
-    const writeCalls = (res.write as jest.Mock).mock.calls.map((c) => String(c[0]));
+    const writeCalls = (res.write as jest.Mock).mock.calls.map((c) =>
+      String(c[0]),
+    );
     expect(writeCalls.some((c) => c.includes("should_not_emit"))).toBe(false);
     expect(writeCalls.some((c) => c.includes("done"))).toBe(true);
   });
@@ -294,7 +340,9 @@ describe("TeamsController - getMissionStatus", () => {
     });
     const controller = new TeamsController(service);
 
-    expect(() => controller.getMissionStatus("unknown")).toThrow(NotFoundException);
+    expect(() => controller.getMissionStatus("unknown")).toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -314,10 +362,14 @@ describe("TeamsController - getMissionResult", () => {
 
   it("should propagate NotFoundException for unknown mission", async () => {
     const service = makeMockTeamsService();
-    service.getMissionResult.mockRejectedValue(new NotFoundException("Not found"));
+    service.getMissionResult.mockRejectedValue(
+      new NotFoundException("Not found"),
+    );
     const controller = new TeamsController(service);
 
-    await expect(controller.getMissionResult("unknown")).rejects.toThrow(NotFoundException);
+    await expect(controller.getMissionResult("unknown")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -349,6 +401,8 @@ describe("TeamsController - cancelMission", () => {
     });
     const controller = new TeamsController(service);
 
-    expect(() => controller.cancelMission("unknown")).toThrow(NotFoundException);
+    expect(() => controller.cancelMission("unknown")).toThrow(
+      NotFoundException,
+    );
   });
 });

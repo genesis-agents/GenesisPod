@@ -107,7 +107,7 @@ export function MonitoringView({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">最后更新</p>
-              <p className="mt-3 font-mono text-sm text-gray-900">
+              <p className="font-mono mt-3 text-sm text-gray-900">
                 {stats.lastUpdate}
               </p>
             </div>

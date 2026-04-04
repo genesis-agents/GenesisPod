@@ -114,9 +114,21 @@ describe("SkillsApiService", () => {
 
     it("存在配置值时使用该值", async () => {
       prisma.systemSetting.findUnique
-        .mockResolvedValueOnce({ id: "1", key: "skillsmp.totalSkills", value: "10000" })
-        .mockResolvedValueOnce({ id: "2", key: "skillsmp.lastSync", value: '"2024-01-01T00:00:00Z"' })
-        .mockResolvedValueOnce({ id: "3", key: "skillsmp.syncedSkills", value: "[]" });
+        .mockResolvedValueOnce({
+          id: "1",
+          key: "skillsmp.totalSkills",
+          value: "10000",
+        })
+        .mockResolvedValueOnce({
+          id: "2",
+          key: "skillsmp.lastSync",
+          value: '"2024-01-01T00:00:00Z"',
+        })
+        .mockResolvedValueOnce({
+          id: "3",
+          key: "skillsmp.syncedSkills",
+          value: "[]",
+        });
 
       const stats = await service.getStats();
 
@@ -132,7 +144,11 @@ describe("SkillsApiService", () => {
       prisma.systemSetting.findUnique
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: "3", key: "skillsmp.syncedSkills", value: JSON.stringify(skills) });
+        .mockResolvedValueOnce({
+          id: "3",
+          key: "skillsmp.syncedSkills",
+          value: JSON.stringify(skills),
+        });
 
       const stats = await service.getStats();
 
@@ -148,7 +164,11 @@ describe("SkillsApiService", () => {
       prisma.systemSetting.findUnique
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: "3", key: "skillsmp.syncedSkills", value: JSON.stringify(skills) });
+        .mockResolvedValueOnce({
+          id: "3",
+          key: "skillsmp.syncedSkills",
+          value: JSON.stringify(skills),
+        });
 
       const stats = await service.getStats();
 
@@ -202,9 +222,28 @@ describe("SkillsApiService", () => {
 
   describe("searchSkills", () => {
     const skillsData = [
-      makeSkillItem({ id: "ai-skill", name: "AI Tool", category: "ai-agents", tags: ["ai"], stars: 500 }),
-      makeSkillItem({ id: "dev-skill", name: "Dev Helper", category: "development", tags: ["dev"], stars: 200 }),
-      makeSkillItem({ id: "test-skill", name: "Test Runner", category: "testing", tags: ["test"], stars: 50, downloads: "500K+" }),
+      makeSkillItem({
+        id: "ai-skill",
+        name: "AI Tool",
+        category: "ai-agents",
+        tags: ["ai"],
+        stars: 500,
+      }),
+      makeSkillItem({
+        id: "dev-skill",
+        name: "Dev Helper",
+        category: "development",
+        tags: ["dev"],
+        stars: 200,
+      }),
+      makeSkillItem({
+        id: "test-skill",
+        name: "Test Runner",
+        category: "testing",
+        tags: ["test"],
+        stars: 50,
+        downloads: "500K+",
+      }),
     ];
 
     beforeEach(() => {
@@ -278,7 +317,11 @@ describe("SkillsApiService", () => {
 
     it("通过 description 搜索", async () => {
       const skillsWithDesc = [
-        makeSkillItem({ id: "desc-search", name: "Tool", description: "Unique description here" }),
+        makeSkillItem({
+          id: "desc-search",
+          name: "Tool",
+          description: "Unique description here",
+        }),
       ];
       prisma.systemSetting.findUnique.mockResolvedValue({
         id: "1",
@@ -286,7 +329,9 @@ describe("SkillsApiService", () => {
         value: JSON.stringify(skillsWithDesc),
       });
 
-      const result = await service.searchSkills({ query: "unique description" });
+      const result = await service.searchSkills({
+        query: "unique description",
+      });
 
       expect(result.skills).toHaveLength(1);
     });
@@ -443,7 +488,9 @@ describe("SkillsApiService", () => {
     });
 
     it("category 未定义的 skill 被归类为 other", async () => {
-      const skills = [{ ...makeSkillItem(), category: undefined as unknown as string }];
+      const skills = [
+        { ...makeSkillItem(), category: undefined as unknown as string },
+      ];
       prisma.systemSetting.findUnique.mockResolvedValue({
         id: "1",
         key: "skillsmp.syncedSkills",
@@ -471,7 +518,11 @@ describe("SkillsApiService", () => {
     it("正确计算 effectiveness 数据", async () => {
       prisma.aIUsageLog.groupBy
         .mockResolvedValueOnce([
-          { capabilityId: "skill-a", _count: { id: 10 }, _avg: { duration: 1500 } },
+          {
+            capabilityId: "skill-a",
+            _count: { id: 10 },
+            _avg: { duration: 1500 },
+          },
         ])
         .mockResolvedValueOnce([
           { capabilityId: "skill-a", _count: { id: 8 } },
@@ -497,7 +548,11 @@ describe("SkillsApiService", () => {
     it("avgDuration 为 null 时返回 null", async () => {
       prisma.aIUsageLog.groupBy
         .mockResolvedValueOnce([
-          { capabilityId: "skill-b", _count: { id: 5 }, _avg: { duration: null } },
+          {
+            capabilityId: "skill-b",
+            _count: { id: 5 },
+            _avg: { duration: null },
+          },
         ])
         .mockResolvedValueOnce([]);
 
@@ -627,7 +682,9 @@ describe("SkillsApiService", () => {
 
       const result = await service.getSkillsByDomain("writing");
 
-      expect(result.skills.some((s) => s.skillId === "registry-only-skill")).toBe(true);
+      expect(
+        result.skills.some((s) => s.skillId === "registry-only-skill"),
+      ).toBe(true);
     });
   });
 
@@ -704,7 +761,11 @@ describe("SkillsApiService", () => {
       });
       prisma.skillConfig.update.mockResolvedValue({} as never);
 
-      await service.setSkillDomainOverride("multi-domain-skill", "writing", false);
+      await service.setSkillDomainOverride(
+        "multi-domain-skill",
+        "writing",
+        false,
+      );
 
       expect(prisma.skillConfig.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -783,7 +844,8 @@ describe("SkillsApiService", () => {
       });
       prisma.systemSetting.upsert.mockResolvedValue({} as never);
 
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         // 主 API 首次调用（skills.length=0 则 hasMore=false）
         .mockResolvedValueOnce({
           ok: true,
@@ -826,7 +888,8 @@ describe("SkillsApiService", () => {
         },
       ];
 
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValue({
@@ -861,7 +924,8 @@ describe("SkillsApiService", () => {
 
       const timeline = [{ date: "Jan 1", count: 100, cumulative: 100 }];
 
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValue({ data: [] }),
@@ -889,9 +953,12 @@ describe("SkillsApiService", () => {
       });
 
       // upsert 抛出异常
-      prisma.systemSetting.upsert.mockRejectedValue(new Error("Unexpected DB error"));
+      prisma.systemSetting.upsert.mockRejectedValue(
+        new Error("Unexpected DB error"),
+      );
 
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValue({ data: [] }),
@@ -922,9 +989,16 @@ describe("SkillsApiService", () => {
 
     it("stars 超过 10000 的 skill 设置 featured=true", async () => {
       const rawSkills = [
-        { id: "hot-skill", name: "Hot Skill", stars: 15000, downloads: 0, tags: [] },
+        {
+          id: "hot-skill",
+          name: "Hot Skill",
+          stars: 15000,
+          downloads: 0,
+          tags: [],
+        },
       ];
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValue({ data: rawSkills }),
@@ -947,7 +1021,8 @@ describe("SkillsApiService", () => {
         { id: "skill-k", name: "Thousand", downloads: 5000, tags: [] },
         { id: "skill-small", name: "Small", downloads: 50, tags: [] },
       ];
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValue({ data: rawSkills }),
@@ -970,9 +1045,15 @@ describe("SkillsApiService", () => {
       const rawSkills = [
         { id: "ai-skill", name: "AI", category: "ai", tags: [] },
         { id: "dev-skill", name: "Dev", category: "dev", tags: [] },
-        { id: "unknown-skill", name: "Unknown", category: "custom-unknown", tags: [] },
+        {
+          id: "unknown-skill",
+          name: "Unknown",
+          category: "custom-unknown",
+          tags: [],
+        },
       ];
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValue({ data: rawSkills }),
@@ -996,7 +1077,8 @@ describe("SkillsApiService", () => {
         { id: "dup-skill", name: "Dup A", tags: [] },
         { id: "dup-skill", name: "Dup B", tags: [] },
       ];
-      const mockFetch = jest.fn()
+      const mockFetch = jest
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValue({ data: rawSkills }),

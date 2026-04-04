@@ -107,10 +107,7 @@ test.describe("Teams API — Topics (L4 App)", () => {
     expect(topic.id ?? topic._id, "Topic must have an id").toBeTruthy();
   });
 
-  test("GET /topics — list topics returns array", async ({
-    page,
-    baseURL,
-  }) => {
+  test("GET /topics — list topics returns array", async ({ page, baseURL }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
@@ -128,7 +125,7 @@ test.describe("Teams API — Topics (L4 App)", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.topics ?? [];
+      : (payload.items ?? payload.topics ?? []);
     expect(Array.isArray(list), "Topics should be an array").toBe(true);
   });
 
@@ -146,7 +143,7 @@ test.describe("Teams API — Topics (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -182,7 +179,7 @@ test.describe("Teams API — Topics (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -229,7 +226,7 @@ test.describe("Teams API — AI Members (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -271,7 +268,7 @@ test.describe("Teams API — AI Members (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -322,7 +319,7 @@ test.describe("Teams API — AI Members (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -338,7 +335,8 @@ test.describe("Teams API — AI Members (L4 App)", () => {
 
     if (members.length === 0) return;
 
-    const memberId = members[members.length - 1].id ?? members[members.length - 1]._id;
+    const memberId =
+      members[members.length - 1].id ?? members[members.length - 1]._id;
     const response = await page.request.delete(
       `${apiBase}/api/v1/topics/${topicId}/ai-members/${memberId}`,
       { headers, timeout: 15000 },
@@ -378,7 +376,7 @@ test.describe("Teams API — Messages (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -418,7 +416,7 @@ test.describe("Teams API — Messages (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -437,7 +435,7 @@ test.describe("Teams API — Messages (L4 App)", () => {
       const payload = body.data ?? body;
       const messages = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.messages ?? [];
+        : (payload.items ?? payload.messages ?? []);
       expect(Array.isArray(messages), "Messages should be an array").toBe(true);
     }
   });
@@ -470,7 +468,7 @@ test.describe("Teams API — Summary (L4 → L3 Engine)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.topics ?? [];
+      : (listPayload.items ?? listPayload.topics ?? []);
     if (list.length === 0) return;
 
     const topicId = list[0].id ?? list[0]._id;
@@ -555,18 +553,15 @@ test.describe("Teams API — Full Flow & Cleanup", () => {
     expect(topicId, "Topic should have id after creation").toBeTruthy();
 
     // Step 2: Add AI member
-    await page.request.post(
-      `${apiBase}/api/v1/topics/${topicId}/ai-members`,
-      {
-        headers: { ...headers, "Content-Type": "application/json" },
-        data: {
-          name: "Flow Test AI",
-          role: "participant",
-          persona: "A test AI for the full flow",
-        },
-        timeout: 15000,
+    await page.request.post(`${apiBase}/api/v1/topics/${topicId}/ai-members`, {
+      headers: { ...headers, "Content-Type": "application/json" },
+      data: {
+        name: "Flow Test AI",
+        role: "participant",
+        persona: "A test AI for the full flow",
       },
-    );
+      timeout: 15000,
+    });
 
     // Step 3: Send a message
     const msgRes = await page.request.post(

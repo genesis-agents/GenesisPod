@@ -159,7 +159,10 @@ describe("ExpressionMemoryService", () => {
 
     it("should calculate remainingCooldown for each expression", async () => {
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([
-        makeCoolingExpressionRecord({ lastUsedChapter: 5, expressionType: "EMOTION" }),
+        makeCoolingExpressionRecord({
+          lastUsedChapter: 5,
+          expressionType: "EMOTION",
+        }),
       ]);
 
       const result = await service.getCoolingExpressions("project-1", 10);
@@ -239,7 +242,12 @@ describe("ExpressionMemoryService", () => {
 
     it("should handle null category and cooldownUntil", async () => {
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([
-        { ...makeExpressionRecord(), category: null, cooldownUntil: null, lastChapterId: null },
+        {
+          ...makeExpressionRecord(),
+          category: null,
+          cooldownUntil: null,
+          lastChapterId: null,
+        },
       ]);
 
       const result = await service.getHighFrequencyExpressions("project-1");
@@ -261,7 +269,9 @@ describe("ExpressionMemoryService", () => {
     it("should return empty string when no cooling or high-frequency expressions", async () => {
       // All findMany calls return empty arrays
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([]);
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       const result = await service.generateAvoidancePrompt("project-1", 5);
 
@@ -273,7 +283,9 @@ describe("ExpressionMemoryService", () => {
         .mockResolvedValueOnce([]) // refreshCooldownStatus → findMany(isCoolingDown:true)
         .mockResolvedValueOnce([makeCoolingExpressionRecord()]) // getCoolingExpressions → findMany
         .mockResolvedValueOnce([]); // getHighFrequencyExpressions → findMany
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       const result = await service.generateAvoidancePrompt("project-1", 10);
 
@@ -284,9 +296,13 @@ describe("ExpressionMemoryService", () => {
     it("should include alternative suggestions when available", async () => {
       mockPrisma.writingExpressionMemory.findMany
         .mockResolvedValueOnce([]) // refreshCooldownStatus
-        .mockResolvedValueOnce([makeCoolingExpressionRecord({ expression: "心中一震" })]) // getCoolingExpressions
+        .mockResolvedValueOnce([
+          makeCoolingExpressionRecord({ expression: "心中一震" }),
+        ]) // getCoolingExpressions
         .mockResolvedValueOnce([]); // getHighFrequencyExpressions
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       const result = await service.generateAvoidancePrompt("project-1", 10);
 
@@ -299,7 +315,9 @@ describe("ExpressionMemoryService", () => {
         .mockResolvedValueOnce([]) // refreshCooldownStatus
         .mockResolvedValueOnce([]) // getCoolingExpressions → no cooling
         .mockResolvedValueOnce([{ ...makeExpressionRecord(), useCount: 8 }]); // getHighFrequencyExpressions
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       const result = await service.generateAvoidancePrompt("project-1", 10);
 
@@ -311,11 +329,21 @@ describe("ExpressionMemoryService", () => {
       mockPrisma.writingExpressionMemory.findMany
         .mockResolvedValueOnce([]) // refreshCooldownStatus
         .mockResolvedValueOnce([
-          makeCoolingExpressionRecord({ expression: "心中一震", expressionType: "EMOTION" }),
-          { ...makeCoolingExpressionRecord(), id: "expr-2", expression: "微微一笑", expressionType: "ACTION" },
+          makeCoolingExpressionRecord({
+            expression: "心中一震",
+            expressionType: "EMOTION",
+          }),
+          {
+            ...makeCoolingExpressionRecord(),
+            id: "expr-2",
+            expression: "微微一笑",
+            expressionType: "ACTION",
+          },
         ]) // getCoolingExpressions
         .mockResolvedValueOnce([]); // getHighFrequencyExpressions
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       const result = await service.generateAvoidancePrompt("project-1", 10);
 
@@ -326,9 +354,13 @@ describe("ExpressionMemoryService", () => {
     it("should show 'create new expression' message when no alternatives available", async () => {
       mockPrisma.writingExpressionMemory.findMany
         .mockResolvedValueOnce([]) // refreshCooldownStatus
-        .mockResolvedValueOnce([makeCoolingExpressionRecord({ expression: "极其罕见的独特表达" })]) // getCoolingExpressions
+        .mockResolvedValueOnce([
+          makeCoolingExpressionRecord({ expression: "极其罕见的独特表达" }),
+        ]) // getCoolingExpressions
         .mockResolvedValueOnce([]); // getHighFrequencyExpressions
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       const result = await service.generateAvoidancePrompt("project-1", 10);
 
@@ -337,12 +369,16 @@ describe("ExpressionMemoryService", () => {
 
     it("should call refreshCooldownStatus (findMany for cooling) before generating prompt", async () => {
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([]);
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       await service.generateAvoidancePrompt("project-1", 5);
 
       // findMany should be called at least 3 times: refreshCooldownStatus + getCoolingExpressions + getHighFrequency
-      expect(mockPrisma.writingExpressionMemory.findMany).toHaveBeenCalledTimes(3);
+      expect(mockPrisma.writingExpressionMemory.findMany).toHaveBeenCalledTimes(
+        3,
+      );
     });
   });
 
@@ -352,7 +388,10 @@ describe("ExpressionMemoryService", () => {
     it("should return empty result for content with no matching patterns", async () => {
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([]);
 
-      const result = await service.analyzeExpressionsOnly("project-1", "普通内容，没有特殊表达");
+      const result = await service.analyzeExpressionsOnly(
+        "project-1",
+        "普通内容，没有特殊表达",
+      );
 
       expect(result.newExpressions).toHaveLength(0);
       expect(result.violatedExpressions).toHaveLength(0);
@@ -365,20 +404,28 @@ describe("ExpressionMemoryService", () => {
       const content = "她心中一震，手指微微颤抖。";
       const result = await service.analyzeExpressionsOnly("project-1", content);
 
-      const newExpr = result.newExpressions.find((e) => e.expression === "心中一震");
+      const newExpr = result.newExpressions.find(
+        (e) => e.expression === "心中一震",
+      );
       expect(newExpr).toBeDefined();
       expect(newExpr!.type).toBe("EMOTION");
     });
 
     it("should flag cooling expression as violated", async () => {
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([
-        makeCoolingExpressionRecord({ expression: "心中一震", isCoolingDown: true, useCount: 3 }),
+        makeCoolingExpressionRecord({
+          expression: "心中一震",
+          isCoolingDown: true,
+          useCount: 3,
+        }),
       ]);
 
       const content = "她心中一震，停下脚步。";
       const result = await service.analyzeExpressionsOnly("project-1", content);
 
-      const violated = result.violatedExpressions.find((e) => e.expression === "心中一震");
+      const violated = result.violatedExpressions.find(
+        (e) => e.expression === "心中一震",
+      );
       expect(violated).toBeDefined();
     });
 
@@ -395,7 +442,9 @@ describe("ExpressionMemoryService", () => {
       const content = "她心中一震，不知所措。";
       const result = await service.analyzeExpressionsOnly("project-1", content);
 
-      const warning = result.highFrequencyWarnings.find((e) => e.expression === "心中一震");
+      const warning = result.highFrequencyWarnings.find(
+        (e) => e.expression === "心中一震",
+      );
       expect(warning).toBeDefined();
       expect(warning!.useCount).toBeGreaterThanOrEqual(5);
     });
@@ -433,7 +482,12 @@ describe("ExpressionMemoryService", () => {
       mockPrisma.writingExpressionMemory.upsert.mockResolvedValue({});
 
       const content = "她心中一震，呆立原地。";
-      await service.analyzeAndRecordExpressions("project-1", "chapter-1", 1, content);
+      await service.analyzeAndRecordExpressions(
+        "project-1",
+        "chapter-1",
+        1,
+        content,
+      );
 
       // Service uses upsert (not create) to prevent unique index conflicts
       expect(mockPrisma.writingExpressionMemory.upsert).toHaveBeenCalled();
@@ -447,13 +501,22 @@ describe("ExpressionMemoryService", () => {
         expressionType: "EMOTION",
       });
       // analyzeAndRecordExpressions batch-queries existing expressions
-      mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([existingRecord]);
+      mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([
+        existingRecord,
+      ]);
       // updateExpressionRecord calls findUnique internally to get latest data
-      mockPrisma.writingExpressionMemory.findUnique.mockResolvedValue(existingRecord);
+      mockPrisma.writingExpressionMemory.findUnique.mockResolvedValue(
+        existingRecord,
+      );
       mockPrisma.writingExpressionMemory.update.mockResolvedValue({});
 
       const content = "她心中一震，脚步停住了。";
-      await service.analyzeAndRecordExpressions("project-1", "chapter-2", 2, content);
+      await service.analyzeAndRecordExpressions(
+        "project-1",
+        "chapter-2",
+        2,
+        content,
+      );
 
       expect(mockPrisma.writingExpressionMemory.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -468,7 +531,9 @@ describe("ExpressionMemoryService", () => {
         isCoolingDown: true,
         useCount: 3,
       });
-      mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([coolingRecord]);
+      mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([
+        coolingRecord,
+      ]);
       mockPrisma.writingExpressionMemory.update.mockResolvedValue({});
 
       const content = "她心中一震，慌乱起来。";
@@ -479,7 +544,9 @@ describe("ExpressionMemoryService", () => {
         content,
       );
 
-      const violated = result.violatedExpressions.find((e) => e.expression === "心中一震");
+      const violated = result.violatedExpressions.find(
+        (e) => e.expression === "心中一震",
+      );
       expect(violated).toBeDefined();
     });
 
@@ -527,12 +594,16 @@ describe("ExpressionMemoryService", () => {
           cooldownUntilChapter: 10, // expired since currentChapter=20 >= 10
         },
       ]);
-      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.writingExpressionMemory.updateMany.mockResolvedValue({
+        count: 1,
+      });
 
       await service.refreshCooldownStatus("project-1", 20);
 
       // Should call updateMany to release expired cooldowns
-      expect(mockPrisma.writingExpressionMemory.updateMany).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingExpressionMemory.updateMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             id: { in: ["expr-1"] },
@@ -557,7 +628,9 @@ describe("ExpressionMemoryService", () => {
 
       await service.refreshCooldownStatus("project-1", 5);
 
-      expect(mockPrisma.writingExpressionMemory.updateMany).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingExpressionMemory.updateMany,
+      ).not.toHaveBeenCalled();
     });
 
     it("should query with correct projectId filter", async () => {
@@ -579,7 +652,9 @@ describe("ExpressionMemoryService", () => {
       await service.refreshCooldownStatus("project-1");
 
       // Should not query database when chapter number is missing
-      expect(mockPrisma.writingExpressionMemory.findMany).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingExpressionMemory.findMany,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -629,20 +704,59 @@ describe("ExpressionMemoryService", () => {
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([]);
     });
 
-    const patternTests: Array<{ content: string; expectedExpression: string; expectedType: ExpressionType }> = [
-      { content: "她心中一震，停下脚步", expectedExpression: "心中一震", expectedType: "EMOTION" },
-      { content: "他微微一笑，转身离去", expectedExpression: "微微一笑", expectedType: "ACTION" },
-      { content: "眉头微皱，若有所思", expectedExpression: "眉头微皱", expectedType: "ACTION" },
-      { content: "就在这时，门突然打开", expectedExpression: "就在这时", expectedType: "TRANSITION" },
-      { content: "烛光摇曳，照亮了她的脸庞", expectedExpression: "烛光摇曳", expectedType: "DESCRIPTION" },
-      { content: "心中一喜，难掩笑意", expectedExpression: "心中一喜", expectedType: "EMOTION" },
-      { content: "轻声道：'请进'", expectedExpression: "轻声道", expectedType: "ACTION" },
-      { content: "不由得心头一紧，后退一步", expectedExpression: "心头一紧", expectedType: "EMOTION" },
+    const patternTests: Array<{
+      content: string;
+      expectedExpression: string;
+      expectedType: ExpressionType;
+    }> = [
+      {
+        content: "她心中一震，停下脚步",
+        expectedExpression: "心中一震",
+        expectedType: "EMOTION",
+      },
+      {
+        content: "他微微一笑，转身离去",
+        expectedExpression: "微微一笑",
+        expectedType: "ACTION",
+      },
+      {
+        content: "眉头微皱，若有所思",
+        expectedExpression: "眉头微皱",
+        expectedType: "ACTION",
+      },
+      {
+        content: "就在这时，门突然打开",
+        expectedExpression: "就在这时",
+        expectedType: "TRANSITION",
+      },
+      {
+        content: "烛光摇曳，照亮了她的脸庞",
+        expectedExpression: "烛光摇曳",
+        expectedType: "DESCRIPTION",
+      },
+      {
+        content: "心中一喜，难掩笑意",
+        expectedExpression: "心中一喜",
+        expectedType: "EMOTION",
+      },
+      {
+        content: "轻声道：'请进'",
+        expectedExpression: "轻声道",
+        expectedType: "ACTION",
+      },
+      {
+        content: "不由得心头一紧，后退一步",
+        expectedExpression: "心头一紧",
+        expectedType: "EMOTION",
+      },
     ];
 
     for (const { content, expectedExpression, expectedType } of patternTests) {
       it(`should detect "${expectedExpression}" as ${expectedType}`, async () => {
-        const result = await service.analyzeExpressionsOnly("project-1", content);
+        const result = await service.analyzeExpressionsOnly(
+          "project-1",
+          content,
+        );
 
         const detected = result.newExpressions.find(
           (e) => e.expression === expectedExpression,
@@ -692,7 +806,12 @@ describe("ExpressionMemoryService", () => {
     it("should handle empty content in analyzeAndRecordExpressions", async () => {
       mockPrisma.writingExpressionMemory.findMany.mockResolvedValue([]);
 
-      const result = await service.analyzeAndRecordExpressions("project-1", "ch-1", 1, "");
+      const result = await service.analyzeAndRecordExpressions(
+        "project-1",
+        "ch-1",
+        1,
+        "",
+      );
 
       expect(result.newExpressions).toHaveLength(0);
       expect(result.violatedExpressions).toHaveLength(0);
@@ -718,7 +837,12 @@ describe("ExpressionMemoryService", () => {
         .join("，各种情节发生，")
         .repeat(3);
 
-      await service.analyzeAndRecordExpressions("project-1", "ch-1", 1, content);
+      await service.analyzeAndRecordExpressions(
+        "project-1",
+        "ch-1",
+        1,
+        content,
+      );
 
       // Should do a single batch query for all expressions, not one per expression
       // The actual number of findMany calls depends on implementation

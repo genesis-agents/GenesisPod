@@ -49,8 +49,8 @@ export interface LLMMessage {
 }
 
 const DEFAULT_CONFIG: CompactionConfig = {
-  pruneThreshold: 0.60,
-  summarizeThreshold: 0.80,
+  pruneThreshold: 0.6,
+  summarizeThreshold: 0.8,
   emergencyThreshold: 0.95,
   preserveToolPairs: true,
   preserveSystemPrompt: true,
@@ -100,7 +100,7 @@ export class ContextCompactionPipelineService {
 
     this.logger.debug(
       `[compact] utilization=${(utilization * 100).toFixed(1)}%, ` +
-      `messages=${messages.length}, tokens=${currentTokens}`,
+        `messages=${messages.length}, tokens=${currentTokens}`,
     );
 
     // No compaction needed
@@ -147,8 +147,10 @@ export class ContextCompactionPipelineService {
   ): CompactionResult {
     void currentTokens; // used by caller for utilization, not needed inside prune
 
-    const { systemMessages, conversationMessages } =
-      this.splitSystemMessages(messages, cfg);
+    const { systemMessages, conversationMessages } = this.splitSystemMessages(
+      messages,
+      cfg,
+    );
 
     // Identify the boundary: keep last N turns (1 turn = user + assistant)
     const keepFromIndex = this.findTurnBoundary(
@@ -174,7 +176,7 @@ export class ContextCompactionPipelineService {
 
     this.logger.log(
       `[pruneCompact] Removed ${removedCount} messages, ` +
-      `saved ~${removedTokens} tokens`,
+        `saved ~${removedTokens} tokens`,
     );
 
     return {
@@ -195,8 +197,10 @@ export class ContextCompactionPipelineService {
     cfg: CompactionConfig,
     summarizeFn: SummarizeFn,
   ): Promise<CompactionResult> {
-    const { systemMessages, conversationMessages } =
-      this.splitSystemMessages(messages, cfg);
+    const { systemMessages, conversationMessages } = this.splitSystemMessages(
+      messages,
+      cfg,
+    );
 
     const keepFromIndex = this.findTurnBoundary(
       conversationMessages,
@@ -233,7 +237,7 @@ export class ContextCompactionPipelineService {
 
       this.logger.log(
         `[summarizeCompact] Summarized ${toSummarize.length} messages → 1 summary, ` +
-        `saved ~${removedTokens} tokens`,
+          `saved ~${removedTokens} tokens`,
       );
 
       return {
@@ -261,8 +265,10 @@ export class ContextCompactionPipelineService {
   ): CompactionResult {
     void currentTokens;
 
-    const { systemMessages, conversationMessages } =
-      this.splitSystemMessages(messages, cfg);
+    const { systemMessages, conversationMessages } = this.splitSystemMessages(
+      messages,
+      cfg,
+    );
 
     // Keep only the last turn (last user + last assistant)
     const lastTurnIndex = this.findTurnBoundary(conversationMessages, 1);
@@ -274,7 +280,7 @@ export class ContextCompactionPipelineService {
 
     this.logger.warn(
       `[emergencyCompact] Emergency: kept ${result.length} of ${messages.length} messages, ` +
-      `saved ~${removedTokens} tokens`,
+        `saved ~${removedTokens} tokens`,
     );
 
     return {

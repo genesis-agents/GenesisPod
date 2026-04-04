@@ -1,9 +1,11 @@
 # Fix Strategy: CSS Overflow
 
 ## Issue
+
 Content overflows its container horizontally, causing layout breaks.
 
 ## Pattern
+
 ```typescript
 // For text overflow:
 <p className="truncate">Long text...</p>
@@ -17,6 +19,7 @@ Content overflows its container horizontally, causing layout breaks.
 ```
 
 ## Steps
+
 1. Identify the overflowing element from the evidence
 2. Read {{source_file}}
 3. For text: add `truncate` or `overflow-hidden text-ellipsis` class

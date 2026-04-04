@@ -3,11 +3,19 @@
  */
 
 import { LLMFactory } from "../llm-factory";
-import { ILLMAdapter, LLM_PROVIDERS, LLM_MODELS } from "../../abstractions/llm-adapter.interface";
+import {
+  ILLMAdapter,
+  LLM_PROVIDERS,
+  LLM_MODELS,
+} from "../../abstractions/llm-adapter.interface";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeAdapter(id: string, supportedModels: string[] = [], defaultModel = ""): ILLMAdapter {
+function makeAdapter(
+  id: string,
+  supportedModels: string[] = [],
+  defaultModel = "",
+): ILLMAdapter {
   return {
     id,
     name: `${id} Adapter`,
@@ -34,7 +42,11 @@ describe("LLMFactory", () => {
     it("sets defaultProvider from config", () => {
       factory.initialize({ defaultProvider: LLM_PROVIDERS.ANTHROPIC });
       // Register anthropic adapter
-      const adapter = makeAdapter(LLM_PROVIDERS.ANTHROPIC, [LLM_MODELS.CLAUDE_35_SONNET], LLM_MODELS.CLAUDE_35_SONNET);
+      const adapter = makeAdapter(
+        LLM_PROVIDERS.ANTHROPIC,
+        [LLM_MODELS.CLAUDE_35_SONNET],
+        LLM_MODELS.CLAUDE_35_SONNET,
+      );
       factory.registerAdapter(adapter);
 
       expect(factory.getAdapter()).toBe(adapter);
@@ -126,7 +138,9 @@ describe("LLMFactory", () => {
       factory.registerAdapter(anthropic);
 
       expect(factory.getAdapterForModel(LLM_MODELS.GPT4O)).toBe(openai);
-      expect(factory.getAdapterForModel(LLM_MODELS.CLAUDE_35_SONNET)).toBe(anthropic);
+      expect(factory.getAdapterForModel(LLM_MODELS.CLAUDE_35_SONNET)).toBe(
+        anthropic,
+      );
     });
 
     it("returns undefined when no adapter supports the model", () => {
@@ -166,8 +180,15 @@ describe("LLMFactory", () => {
     });
 
     it("aggregates and deduplicates models from all adapters", () => {
-      factory.registerAdapter(makeAdapter("openai", [LLM_MODELS.GPT4O, LLM_MODELS.GPT4O_MINI]));
-      factory.registerAdapter(makeAdapter("anthropic", [LLM_MODELS.CLAUDE_35_SONNET, LLM_MODELS.GPT4O]));
+      factory.registerAdapter(
+        makeAdapter("openai", [LLM_MODELS.GPT4O, LLM_MODELS.GPT4O_MINI]),
+      );
+      factory.registerAdapter(
+        makeAdapter("anthropic", [
+          LLM_MODELS.CLAUDE_35_SONNET,
+          LLM_MODELS.GPT4O,
+        ]),
+      );
 
       const models = factory.getSupportedModels();
       // GPT4O appears in both – should be deduplicated
@@ -191,7 +212,11 @@ describe("LLMFactory", () => {
     });
 
     it("falls back to adapter defaultModel when no factory-level default", () => {
-      const adapter = makeAdapter("openai", [LLM_MODELS.GPT4O], LLM_MODELS.GPT4O);
+      const adapter = makeAdapter(
+        "openai",
+        [LLM_MODELS.GPT4O],
+        LLM_MODELS.GPT4O,
+      );
       factory.registerAdapter(adapter);
       factory.initialize({ defaultProvider: LLM_PROVIDERS.OPENAI });
       expect(factory.getDefaultModel()).toBe(LLM_MODELS.GPT4O);
@@ -201,7 +226,9 @@ describe("LLMFactory", () => {
       const adapter = makeAdapter("openai", [LLM_MODELS.GPT4O], ""); // empty default
       factory.initialize({ defaultProvider: LLM_PROVIDERS.OPENAI });
       factory.registerAdapter(adapter);
-      expect(() => factory.getDefaultModel()).toThrow("No default AI model configured");
+      expect(() => factory.getDefaultModel()).toThrow(
+        "No default AI model configured",
+      );
     });
   });
 
@@ -230,7 +257,11 @@ describe("LLMFactory", () => {
     it("returns config after initialize()", () => {
       factory.initialize({
         providers: {
-          [LLM_PROVIDERS.OPENAI]: { apiKey: "key123", enabled: true, baseUrl: "https://api.openai.com" },
+          [LLM_PROVIDERS.OPENAI]: {
+            apiKey: "key123",
+            enabled: true,
+            baseUrl: "https://api.openai.com",
+          },
         } as never,
       });
       const config = factory.getProviderConfig(LLM_PROVIDERS.OPENAI);

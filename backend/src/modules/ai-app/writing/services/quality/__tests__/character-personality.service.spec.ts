@@ -91,7 +91,9 @@ describe("CharacterPersonalityService", () => {
       ],
     }).compile();
 
-    service = module.get<CharacterPersonalityService>(CharacterPersonalityService);
+    service = module.get<CharacterPersonalityService>(
+      CharacterPersonalityService,
+    );
   });
 
   afterEach(() => {
@@ -147,7 +149,9 @@ describe("CharacterPersonalityService", () => {
 
   describe("getProjectPersonalityVectors", () => {
     it("should return vectors for all characters in project", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       const result = await service.getProjectPersonalityVectors("project-1");
 
@@ -156,7 +160,9 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should return empty array when project has no storyBible", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue({ storyBible: null });
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        storyBible: null,
+      });
 
       const result = await service.getProjectPersonalityVectors("project-1");
 
@@ -175,7 +181,12 @@ describe("CharacterPersonalityService", () => {
       mockPrisma.writingProject.findUnique.mockResolvedValue({
         storyBible: {
           characters: [
-            { id: "char-3", name: "路人甲", aliases: [], personalityProfile: null },
+            {
+              id: "char-3",
+              name: "路人甲",
+              aliases: [],
+              personalityProfile: null,
+            },
           ],
         },
       });
@@ -201,13 +212,17 @@ describe("CharacterPersonalityService", () => {
         speechStyle: "更新后的风格",
       });
 
-      expect(mockPrisma.writingCharacterPersonality.update).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingCharacterPersonality.update,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { characterId: "char-1" },
           data: expect.objectContaining({ speechStyle: "更新后的风格" }),
         }),
       );
-      expect(mockPrisma.writingCharacterPersonality.create).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingCharacterPersonality.create,
+      ).not.toHaveBeenCalled();
     });
 
     it("should create new profile when none exists", async () => {
@@ -220,7 +235,9 @@ describe("CharacterPersonalityService", () => {
         assertiveness: 4,
       });
 
-      expect(mockPrisma.writingCharacterPersonality.create).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingCharacterPersonality.create,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             characterId: "char-new",
@@ -230,7 +247,9 @@ describe("CharacterPersonalityService", () => {
           }),
         }),
       );
-      expect(mockPrisma.writingCharacterPersonality.update).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingCharacterPersonality.update,
+      ).not.toHaveBeenCalled();
     });
 
     it("should use default trustLevel and assertiveness when creating without them", async () => {
@@ -241,7 +260,9 @@ describe("CharacterPersonalityService", () => {
         speechStyle: "新风格",
       });
 
-      expect(mockPrisma.writingCharacterPersonality.create).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingCharacterPersonality.create,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             trustLevel: 5,
@@ -263,7 +284,9 @@ describe("CharacterPersonalityService", () => {
 
       await service.initializeFromTemplate("char-1", "noble_lady");
 
-      expect(mockPrisma.writingCharacterPersonality.create).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingCharacterPersonality.create,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             characterId: "char-1",
@@ -279,7 +302,9 @@ describe("CharacterPersonalityService", () => {
 
       await service.initializeFromTemplate("char-2", "maid_servant");
 
-      expect(mockPrisma.writingCharacterPersonality.create).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingCharacterPersonality.create,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             speechStyle: expect.stringContaining("活泼"),
@@ -293,7 +318,9 @@ describe("CharacterPersonalityService", () => {
         service.initializeFromTemplate("char-1", "unknown_type" as never),
       ).resolves.toBeUndefined();
 
-      expect(mockPrisma.writingCharacterPersonality.create).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingCharacterPersonality.create,
+      ).not.toHaveBeenCalled();
     });
 
     it("should initialize scheming_villain template", async () => {
@@ -302,7 +329,9 @@ describe("CharacterPersonalityService", () => {
 
       await service.initializeFromTemplate("char-3", "scheming_villain");
 
-      expect(mockPrisma.writingCharacterPersonality.create).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingCharacterPersonality.create,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             speechStyle: expect.stringContaining("圆滑"),
@@ -324,7 +353,9 @@ describe("CharacterPersonalityService", () => {
     it("should include character name and speech style in prompt", async () => {
       mockPrisma.writingCharacter.findUnique.mockResolvedValue(mockCharacter);
 
-      const result = await service.generatePersonalityConstraintPrompt(["char-1"]);
+      const result = await service.generatePersonalityConstraintPrompt([
+        "char-1",
+      ]);
 
       expect(result).toContain("苏清婉");
       expect(result).toContain("正式、含蓄、书卷气");
@@ -333,7 +364,9 @@ describe("CharacterPersonalityService", () => {
     it("should include forbidden phrases in prompt", async () => {
       mockPrisma.writingCharacter.findUnique.mockResolvedValue(mockCharacter);
 
-      const result = await service.generatePersonalityConstraintPrompt(["char-1"]);
+      const result = await service.generatePersonalityConstraintPrompt([
+        "char-1",
+      ]);
 
       expect(result).toContain("哎呀");
     });
@@ -341,7 +374,9 @@ describe("CharacterPersonalityService", () => {
     it("should return empty string when all characters have no vector", async () => {
       mockPrisma.writingCharacter.findUnique.mockResolvedValue(null);
 
-      const result = await service.generatePersonalityConstraintPrompt(["nonexistent"]);
+      const result = await service.generatePersonalityConstraintPrompt([
+        "nonexistent",
+      ]);
 
       expect(result).toBe("");
     });
@@ -360,7 +395,10 @@ describe("CharacterPersonalityService", () => {
           },
         });
 
-      const result = await service.generatePersonalityConstraintPrompt(["char-1", "char-2"]);
+      const result = await service.generatePersonalityConstraintPrompt([
+        "char-1",
+        "char-2",
+      ]);
 
       expect(result).toContain("苏清婉");
       expect(result).toContain("太后");
@@ -372,7 +410,9 @@ describe("CharacterPersonalityService", () => {
 
   describe("getCharacterByName", () => {
     it("should return character when matched by exact name", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       const result = await service.getCharacterByName("project-1", "苏清婉");
 
@@ -381,7 +421,9 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should return character when matched by alias", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       const result = await service.getCharacterByName("project-1", "婉儿");
 
@@ -390,15 +432,22 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should return null when character not found", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
-      const result = await service.getCharacterByName("project-1", "不存在的人");
+      const result = await service.getCharacterByName(
+        "project-1",
+        "不存在的人",
+      );
 
       expect(result).toBeNull();
     });
 
     it("should return null when project has no storyBible", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue({ storyBible: null });
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        storyBible: null,
+      });
 
       const result = await service.getCharacterByName("project-1", "苏清婉");
 
@@ -416,9 +465,13 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should return PersonalityConstraint for each found character", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
-      const result = await service.getPersonalityConstraints("project-1", ["苏清婉"]);
+      const result = await service.getPersonalityConstraints("project-1", [
+        "苏清婉",
+      ]);
 
       expect(result).toHaveLength(1);
       expect(result[0].characterId).toBe("char-1");
@@ -429,7 +482,9 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should skip characters not found in project", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       const result = await service.getPersonalityConstraints("project-1", [
         "苏清婉",
@@ -441,9 +496,13 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should infer formal vocabulary level from speech style", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
-      const result = await service.getPersonalityConstraints("project-1", ["苏清婉"]);
+      const result = await service.getPersonalityConstraints("project-1", [
+        "苏清婉",
+      ]);
 
       // mockProfile has speechStyle "正式、含蓄、书卷气"
       expect(result[0].vocabularyLevel).toBe("formal");
@@ -466,7 +525,9 @@ describe("CharacterPersonalityService", () => {
         },
       });
 
-      const result = await service.getPersonalityConstraints("project-1", ["小翠"]);
+      const result = await service.getPersonalityConstraints("project-1", [
+        "小翠",
+      ]);
 
       expect(result[0].vocabularyLevel).toBe("casual");
     });
@@ -474,7 +535,9 @@ describe("CharacterPersonalityService", () => {
     it("should return empty array when project not found", async () => {
       mockPrisma.writingProject.findUnique.mockResolvedValue(null);
 
-      const result = await service.getPersonalityConstraints("nonexistent", ["苏清婉"]);
+      const result = await service.getPersonalityConstraints("nonexistent", [
+        "苏清婉",
+      ]);
 
       expect(result).toEqual([]);
     });
@@ -591,7 +654,9 @@ describe("CharacterPersonalityService", () => {
 
   describe("validateDialogue", () => {
     beforeEach(() => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
     });
 
     it("should return valid result when dialogue has no issues", async () => {
@@ -608,7 +673,9 @@ describe("CharacterPersonalityService", () => {
         { characterName: "苏清婉", dialogue: "哎呀，这可怎么好" }, // 哎呀 is taboo for this character
       ]);
 
-      const tabooIssue = result.issues.find((i) => i.issue.includes("禁用词汇"));
+      const tabooIssue = result.issues.find((i) =>
+        i.issue.includes("禁用词汇"),
+      );
       expect(tabooIssue).toBeDefined();
       expect(tabooIssue!.characterName).toBe("苏清婉");
     });
@@ -619,20 +686,23 @@ describe("CharacterPersonalityService", () => {
       ]);
 
       // No issues because character not found, just skipped
-      expect(result.issues.filter((i) => i.characterName === "不存在的人")).toHaveLength(0);
+      expect(
+        result.issues.filter((i) => i.characterName === "不存在的人"),
+      ).toHaveLength(0);
     });
 
     it("should check style mismatch for long dialogue", async () => {
       // Formal character saying very casual things (长对话)
-      const casualDialogue =
-        "哎呀！真的假的！人家才不管呢！嘛！".repeat(3); // casual indicators, length > 20
+      const casualDialogue = "哎呀！真的假的！人家才不管呢！嘛！".repeat(3); // casual indicators, length > 20
 
       const result = await service.validateDialogue("project-1", [
         { characterName: "苏清婉", dialogue: casualDialogue },
       ]);
 
       // Should detect style mismatch (formal character using casual speech)
-      const styleMismatch = result.issues.find((i) => i.issue.includes("语言风格不符合"));
+      const styleMismatch = result.issues.find((i) =>
+        i.issue.includes("语言风格不符合"),
+      );
       expect(styleMismatch).toBeDefined();
     });
 
@@ -642,7 +712,9 @@ describe("CharacterPersonalityService", () => {
         { characterName: "苏清婉", dialogue: "哎呀，不好了" }, // taboo
       ]);
 
-      const tabooIssues = result.issues.filter((i) => i.issue.includes("禁用词汇"));
+      const tabooIssues = result.issues.filter((i) =>
+        i.issue.includes("禁用词汇"),
+      );
       expect(tabooIssues.length).toBeGreaterThan(0);
     });
   });
@@ -651,7 +723,9 @@ describe("CharacterPersonalityService", () => {
 
   describe("addDialogueSample", () => {
     it("should extract high-frequency phrases and update commonPhrases", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
       mockPrisma.writingCharacterPersonality.findUnique.mockResolvedValue({
         characterId: "char-1",
         commonPhrases: ["确实"],
@@ -663,9 +737,16 @@ describe("CharacterPersonalityService", () => {
       //   "此事不妥", "此事不妥", "还是算了" → count["此事不妥"]=2 >= 2 → significantPhrases
       const dialogue = "此事不妥，此事不妥，还是算了";
 
-      await service.addDialogueSample("project-1", "苏清婉", dialogue, "test context");
+      await service.addDialogueSample(
+        "project-1",
+        "苏清婉",
+        dialogue,
+        "test context",
+      );
 
-      expect(mockPrisma.writingCharacterPersonality.update).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingCharacterPersonality.update,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { characterId: "char-1" },
           data: expect.objectContaining({
@@ -676,7 +757,9 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should not update when no high-frequency phrases found", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
       mockPrisma.writingCharacterPersonality.findUnique.mockResolvedValue({
         characterId: "char-1",
         commonPhrases: [],
@@ -687,26 +770,36 @@ describe("CharacterPersonalityService", () => {
 
       await service.addDialogueSample("project-1", "苏清婉", dialogue);
 
-      expect(mockPrisma.writingCharacterPersonality.update).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingCharacterPersonality.update,
+      ).not.toHaveBeenCalled();
     });
 
     it("should skip when character not found", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       await service.addDialogueSample("project-1", "不存在的角色", "对话内容");
 
-      expect(mockPrisma.writingCharacterPersonality.update).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingCharacterPersonality.update,
+      ).not.toHaveBeenCalled();
     });
 
     it("should skip when personality profile not found", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
       mockPrisma.writingCharacterPersonality.findUnique.mockResolvedValue(null);
 
       const dialogue = "想来想来想来";
 
       await service.addDialogueSample("project-1", "苏清婉", dialogue);
 
-      expect(mockPrisma.writingCharacterPersonality.update).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingCharacterPersonality.update,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -775,9 +868,14 @@ describe("CharacterPersonalityService", () => {
 
   describe("checkPersonalityConsistency", () => {
     it("should return consistent=true when no personality vectors found", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue({ storyBible: null });
+      mockPrisma.writingProject.findUnique.mockResolvedValue({
+        storyBible: null,
+      });
 
-      const result = await service.checkPersonalityConsistency("project-1", "任意内容");
+      const result = await service.checkPersonalityConsistency(
+        "project-1",
+        "任意内容",
+      );
 
       expect(result.isConsistent).toBe(true);
       expect(result.score).toBe(1.0);
@@ -785,12 +883,17 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should detect forbidden phrase violations", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       // Content contains dialogue with 苏清婉 saying a forbidden word
       const content = `苏清婉说："哎呀，这可如何是好？"`;
 
-      const result = await service.checkPersonalityConsistency("project-1", content);
+      const result = await service.checkPersonalityConsistency(
+        "project-1",
+        content,
+      );
 
       const forbiddenViolation = result.violations.find(
         (v) => v.type === "forbidden_phrase",
@@ -800,21 +903,31 @@ describe("CharacterPersonalityService", () => {
     });
 
     it("should calculate lower score when violations are found", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       const content = `苏清婉道："哎呀！天哪！"`;
 
-      const result = await service.checkPersonalityConsistency("project-1", content);
+      const result = await service.checkPersonalityConsistency(
+        "project-1",
+        content,
+      );
 
       expect(result.score).toBeLessThan(1.0);
     });
 
     it("should return consistent=false when violations exist", async () => {
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       const content = `苏清婉说："哎呀，真的假的！"`;
 
-      const result = await service.checkPersonalityConsistency("project-1", content);
+      const result = await service.checkPersonalityConsistency(
+        "project-1",
+        content,
+      );
 
       expect(result.isConsistent).toBe(false);
     });
@@ -826,7 +939,11 @@ describe("CharacterPersonalityService", () => {
     it("should return empty object when no dialogues found for character", async () => {
       const content = "苏清婉走进宫殿。（无对话内容）";
 
-      const result = await service.learnFromContent("char-1", "苏清婉", content);
+      const result = await service.learnFromContent(
+        "char-1",
+        "苏清婉",
+        content,
+      );
 
       expect(result).toEqual({});
     });
@@ -837,17 +954,26 @@ describe("CharacterPersonalityService", () => {
       // regex on "不妥，不妥，不妥，此事真是麻烦" matches: "不妥","不妥","不妥","此事真是","麻烦"
       const content = `苏清婉道："不妥，不妥，不妥，此事真是麻烦。"`;
 
-      const result = await service.learnFromContent("char-1", "苏清婉", content);
+      const result = await service.learnFromContent(
+        "char-1",
+        "苏清婉",
+        content,
+      );
 
       // "不妥" appears 3 times, satisfies count >= 3 threshold
       expect(result.commonPhrases).toContain("不妥");
     });
 
     it("should analyze speech style based on dialogue length", async () => {
-      const longDialogue = "这是一段非常非常长的对话，充满了各种各样的描述和说明，包含很多内容和细节。";
+      const longDialogue =
+        "这是一段非常非常长的对话，充满了各种各样的描述和说明，包含很多内容和细节。";
       const content = `苏清婉说："${longDialogue}"`;
 
-      const result = await service.learnFromContent("char-1", "苏清婉", content);
+      const result = await service.learnFromContent(
+        "char-1",
+        "苏清婉",
+        content,
+      );
 
       // Long average length → 话多、详细
       if (result.speechStyle) {
@@ -858,7 +984,11 @@ describe("CharacterPersonalityService", () => {
     it("should analyze assertiveness based on exclamation marks", async () => {
       const content = `苏清婉道："不行！绝对不行！我不允许！"`;
 
-      const result = await service.learnFromContent("char-1", "苏清婉", content);
+      const result = await service.learnFromContent(
+        "char-1",
+        "苏清婉",
+        content,
+      );
 
       if (result.assertiveness !== undefined) {
         expect(result.assertiveness).toBeGreaterThanOrEqual(4);
@@ -871,15 +1001,22 @@ describe("CharacterPersonalityService", () => {
   describe("evaluateStyleMatch (indirect)", () => {
     it("should score higher for dialogues matching character's common phrases", async () => {
       // This tests that using common phrases doesn't trigger style_mismatch
-      mockPrisma.writingProject.findUnique.mockResolvedValue(mockProjectWithBible);
+      mockPrisma.writingProject.findUnique.mockResolvedValue(
+        mockProjectWithBible,
+      );
 
       // Dialogue with character's common phrases
       const content = `苏清婉说："确实如此，想来不妨先行此策。"`;
 
-      const result = await service.checkPersonalityConsistency("project-1", content);
+      const result = await service.checkPersonalityConsistency(
+        "project-1",
+        content,
+      );
 
       // Should not have style_mismatch violation since phrase matches
-      const styleMismatch = result.violations.filter((v) => v.type === "style_mismatch");
+      const styleMismatch = result.violations.filter(
+        (v) => v.type === "style_mismatch",
+      );
       // There may or may not be a style_mismatch, but result should be processed
       expect(result).toBeDefined();
     });

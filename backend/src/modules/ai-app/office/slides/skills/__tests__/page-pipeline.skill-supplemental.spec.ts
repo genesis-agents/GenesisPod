@@ -55,17 +55,15 @@ describe("PagePipelineSkill (supplemental)", () => {
   const mockEventEmitter = { emit: jest.fn() };
   const mockImageFetcher = {
     extractKeywords: jest.fn().mockReturnValue(["business"]),
-    searchImages: jest
-      .fn()
-      .mockResolvedValue([
-        {
-          id: "img1",
-          url: "https://images.example.com/1.jpg",
-          thumbnailUrl: "",
-          width: 800,
-          height: 600,
-        },
-      ]),
+    searchImages: jest.fn().mockResolvedValue([
+      {
+        id: "img1",
+        url: "https://images.example.com/1.jpg",
+        thumbnailUrl: "",
+        width: 800,
+        height: 600,
+      },
+    ]),
   };
   const mockSlideHtmlGeneration = { execute: jest.fn() };
   const mockDesignTokenInjector = { execute: jest.fn() };

@@ -189,10 +189,10 @@ test.describe("User API", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/credits/usage`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/credits/usage`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       [200, 404].includes(response.status()),

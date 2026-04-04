@@ -19,9 +19,24 @@ describe("StyleTemplateService", () => {
     isSystem: true,
     ownerId: null,
     useCount: 100,
-    dialogueRules: { techniques: [], voiceByRole: {}, examples: [], avoidPatterns: [] },
-    descriptionRules: { microExpressions: [], atmosphereElements: [], examples: [], avoidPatterns: [] },
-    pacingRules: { protagonistAction: { required: true, minPerChapter: 1 }, maxConsecutivePassive: 2, foreshadowing: { required: true }, chapterOpeningVariety: { cooldownChapters: 5 } },
+    dialogueRules: {
+      techniques: [],
+      voiceByRole: {},
+      examples: [],
+      avoidPatterns: [],
+    },
+    descriptionRules: {
+      microExpressions: [],
+      atmosphereElements: [],
+      examples: [],
+      avoidPatterns: [],
+    },
+    pacingRules: {
+      protagonistAction: { required: true, minPerChapter: 1 },
+      maxConsecutivePassive: 2,
+      foreshadowing: { required: true },
+      chapterOpeningVariety: { cooldownChapters: 5 },
+    },
     avoidPatterns: [],
     referenceWorks: [],
     systemPromptFragment: null,
@@ -69,8 +84,12 @@ describe("StyleTemplateService", () => {
 
   describe("initializeSystemTemplates", () => {
     it("should create system templates that do not yet exist", async () => {
-      (mockPrisma.writingStyleTemplate.findFirst as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.writingStyleTemplate.create as jest.Mock).mockResolvedValue(mockTemplate);
+      (
+        mockPrisma.writingStyleTemplate.findFirst as jest.Mock
+      ).mockResolvedValue(null);
+      (mockPrisma.writingStyleTemplate.create as jest.Mock).mockResolvedValue(
+        mockTemplate,
+      );
 
       await service.initializeSystemTemplates();
 
@@ -78,7 +97,9 @@ describe("StyleTemplateService", () => {
     });
 
     it("should NOT create template when it already exists", async () => {
-      (mockPrisma.writingStyleTemplate.findFirst as jest.Mock).mockResolvedValue(mockTemplate);
+      (
+        mockPrisma.writingStyleTemplate.findFirst as jest.Mock
+      ).mockResolvedValue(mockTemplate);
 
       await service.initializeSystemTemplates();
 
@@ -88,7 +109,9 @@ describe("StyleTemplateService", () => {
 
   describe("getAvailableTemplates", () => {
     it("should return formatted list of templates", async () => {
-      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue([mockTemplate]);
+      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue(
+        [mockTemplate],
+      );
 
       const result = await service.getAvailableTemplates("user-1");
 
@@ -101,7 +124,9 @@ describe("StyleTemplateService", () => {
     });
 
     it("should include user templates in the query", async () => {
-      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue(
+        [],
+      );
 
       await service.getAvailableTemplates("user-1");
 
@@ -118,7 +143,9 @@ describe("StyleTemplateService", () => {
     });
 
     it("should only include system templates when no userId provided", async () => {
-      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue(
+        [],
+      );
 
       await service.getAvailableTemplates();
 
@@ -134,7 +161,9 @@ describe("StyleTemplateService", () => {
 
   describe("getTemplate", () => {
     it("should return template when found", async () => {
-      (mockPrisma.writingStyleTemplate.findUnique as jest.Mock).mockResolvedValue(mockTemplate);
+      (
+        mockPrisma.writingStyleTemplate.findUnique as jest.Mock
+      ).mockResolvedValue(mockTemplate);
 
       const result = await service.getTemplate("template-1");
 
@@ -142,7 +171,9 @@ describe("StyleTemplateService", () => {
     });
 
     it("should throw NotFoundException when template not found", async () => {
-      (mockPrisma.writingStyleTemplate.findUnique as jest.Mock).mockResolvedValue(null);
+      (
+        mockPrisma.writingStyleTemplate.findUnique as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(service.getTemplate("nonexistent")).rejects.toThrow(
         NotFoundException,
@@ -152,7 +183,9 @@ describe("StyleTemplateService", () => {
 
   describe("getRecommendedTemplates", () => {
     it("should query templates by category containing the search term", async () => {
-      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue([mockTemplate]);
+      (mockPrisma.writingStyleTemplate.findMany as jest.Mock).mockResolvedValue(
+        [mockTemplate],
+      );
 
       await service.getRecommendedTemplates("宫斗");
 
@@ -170,7 +203,9 @@ describe("StyleTemplateService", () => {
 
   describe("getMergedStyleConfig", () => {
     it("should return null when project not found", async () => {
-      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.getMergedStyleConfig("nonexistent");
 
@@ -178,7 +213,9 @@ describe("StyleTemplateService", () => {
     });
 
     it("should return merged config for project with base style", async () => {
-      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(mockProject);
+      (mockPrisma.writingProject.findUnique as jest.Mock).mockResolvedValue(
+        mockProject,
+      );
 
       const result = await service.getMergedStyleConfig("proj-1");
 
@@ -215,8 +252,14 @@ describe("StyleTemplateService", () => {
 
   describe("createTemplate", () => {
     it("should create a user template with provided data", async () => {
-      const newTemplate = { ...mockTemplate, isSystem: false, ownerId: "user-1" };
-      (mockPrisma.writingStyleTemplate.create as jest.Mock).mockResolvedValue(newTemplate);
+      const newTemplate = {
+        ...mockTemplate,
+        isSystem: false,
+        ownerId: "user-1",
+      };
+      (mockPrisma.writingStyleTemplate.create as jest.Mock).mockResolvedValue(
+        newTemplate,
+      );
 
       const data: Partial<StyleTemplateData> = {
         name: "My Custom Template",
@@ -240,7 +283,9 @@ describe("StyleTemplateService", () => {
 
   describe("updateTemplate", () => {
     it("should throw NotFoundException when template not found", async () => {
-      (mockPrisma.writingStyleTemplate.findUnique as jest.Mock).mockResolvedValue(null);
+      (
+        mockPrisma.writingStyleTemplate.findUnique as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(
         service.updateTemplate("nonexistent", "user-1", { name: "New Name" }),
@@ -248,7 +293,9 @@ describe("StyleTemplateService", () => {
     });
 
     it("should throw Error when template is a system template", async () => {
-      (mockPrisma.writingStyleTemplate.findUnique as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.writingStyleTemplate.findUnique as jest.Mock
+      ).mockResolvedValue({
         ...mockTemplate,
         isSystem: true,
         ownerId: "user-1",
@@ -260,7 +307,9 @@ describe("StyleTemplateService", () => {
     });
 
     it("should throw Error when user does not own the template", async () => {
-      (mockPrisma.writingStyleTemplate.findUnique as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.writingStyleTemplate.findUnique as jest.Mock
+      ).mockResolvedValue({
         ...mockTemplate,
         isSystem: false,
         ownerId: "other-user",
@@ -272,12 +321,16 @@ describe("StyleTemplateService", () => {
     });
 
     it("should update template when user is owner and template is not system", async () => {
-      (mockPrisma.writingStyleTemplate.findUnique as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.writingStyleTemplate.findUnique as jest.Mock
+      ).mockResolvedValue({
         ...mockTemplate,
         isSystem: false,
         ownerId: "user-1",
       });
-      (mockPrisma.writingStyleTemplate.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingStyleTemplate.update as jest.Mock).mockResolvedValue(
+        {},
+      );
 
       await service.updateTemplate("template-1", "user-1", {
         name: "Updated Name",
@@ -289,7 +342,9 @@ describe("StyleTemplateService", () => {
 
   describe("setProjectTemplate", () => {
     it("should increment template use count and update project", async () => {
-      (mockPrisma.writingStyleTemplate.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.writingStyleTemplate.update as jest.Mock).mockResolvedValue(
+        {},
+      );
       (mockPrisma.writingProject.update as jest.Mock).mockResolvedValue({});
 
       await service.setProjectTemplate("proj-1", "template-1");

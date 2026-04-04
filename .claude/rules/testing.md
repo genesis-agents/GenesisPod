@@ -15,19 +15,19 @@ paths:
 ## AAA 模式
 
 ```typescript
-describe('UserService', () => {
-  describe('create', () => {
-    it('should create user with valid data', async () => {
+describe("UserService", () => {
+  describe("create", () => {
+    it("should create user with valid data", async () => {
       // Arrange - 准备测试数据
-      const createDto = { name: 'Test', email: 'test@example.com' };
+      const createDto = { name: "Test", email: "test@example.com" };
 
       // Act - 执行被测方法
       const result = await service.create(createDto);
 
       // Assert - 验证结果
       expect(result).toMatchObject({
-        name: 'Test',
-        email: 'test@example.com',
+        name: "Test",
+        email: "test@example.com",
       });
     });
   });
@@ -44,12 +44,12 @@ describe('UserService', () => {
 
 ```typescript
 // 使用 jest.mock 隔离依赖
-jest.mock('@/modules/ai-engine/llm/services/ai-chat.service');
+jest.mock("@/modules/ai-engine/llm/services/ai-chat.service");
 
 // Mock 实现要有意义
 const mockAiChatService = {
   chat: jest.fn().mockResolvedValue({
-    content: 'mock response',
+    content: "mock response",
     tokensUsed: 100,
   }),
 };

@@ -24,14 +24,11 @@ import { AgentActivityType } from "@prisma/client";
 // Module-level mock for getModelDisplayNameMap
 // ──────────────────────────────────────────────────────────────────────────────
 
-jest.mock(
-  "../../../utils/model-display-name",
-  () => ({
-    getModelDisplayNameMap: jest
-      .fn()
-      .mockResolvedValue(new Map([["model-001", "GPT-4"]])),
-  }),
-);
+jest.mock("../../../utils/model-display-name", () => ({
+  getModelDisplayNameMap: jest
+    .fn()
+    .mockResolvedValue(new Map([["model-001", "GPT-4"]])),
+}));
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Mock fixtures
@@ -127,7 +124,8 @@ describe("AgentActivityService", () => {
         modelId: "model-001",
       });
 
-      const createCall = mockPrisma.researchAgentActivity.create.mock.calls[0][0];
+      const createCall =
+        mockPrisma.researchAgentActivity.create.mock.calls[0][0];
       expect(createCall.data.agentName).toContain("GPT-4");
     });
 
@@ -168,7 +166,8 @@ describe("AgentActivityService", () => {
       });
 
       expect(id).toBe("activity-001");
-      const createCall = mockPrisma.researchAgentActivity.create.mock.calls[0][0];
+      const createCall =
+        mockPrisma.researchAgentActivity.create.mock.calls[0][0];
       expect(createCall.data.phaseStartedAt).toBeDefined();
     });
   });
@@ -338,10 +337,7 @@ describe("AgentActivityService", () => {
         { ...mockActivity, id: "act-002" },
       ]);
 
-      const result = await service.getDimensionTimeline(
-        "topic-001",
-        "dim-001",
-      );
+      const result = await service.getDimensionTimeline("topic-001", "dim-001");
 
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe("act-001");
@@ -374,9 +370,21 @@ describe("AgentActivityService", () => {
   describe("getActivityStats", () => {
     it("should compute stats by role and thinking phase", async () => {
       mockPrisma.researchAgentActivity.findMany.mockResolvedValue([
-        { agentRole: "leader", thinkingPhase: "understanding", durationMs: 5000 },
-        { agentRole: "researcher", thinkingPhase: "searching", durationMs: 10000 },
-        { agentRole: "researcher", thinkingPhase: "searching", durationMs: 8000 },
+        {
+          agentRole: "leader",
+          thinkingPhase: "understanding",
+          durationMs: 5000,
+        },
+        {
+          agentRole: "researcher",
+          thinkingPhase: "searching",
+          durationMs: 10000,
+        },
+        {
+          agentRole: "researcher",
+          thinkingPhase: "searching",
+          durationMs: 8000,
+        },
       ]);
 
       const stats = await service.getActivityStats("topic-001");

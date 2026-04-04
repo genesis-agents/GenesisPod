@@ -88,7 +88,9 @@ describe("TeamCollaborationService", () => {
   beforeEach(async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockPrismaService: any = {
-      $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(mockPrismaService)),
+      $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
+        fn(mockPrismaService),
+      ),
       topicAIMember: {
         findFirst: jest.fn(),
         findMany: jest.fn(),

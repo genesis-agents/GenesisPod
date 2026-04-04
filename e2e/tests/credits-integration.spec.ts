@@ -44,8 +44,7 @@ test.describe("Credits Admin Page (/admin/access/credits)", () => {
     await page.goto("/admin/access/credits");
     try {
       await page.waitForResponse(
-        (r) =>
-          r.url().includes("/admin/credits") && r.status() === 200,
+        (r) => r.url().includes("/admin/credits") && r.status() === 200,
         { timeout: 15000 },
       );
     } catch {
@@ -132,11 +131,8 @@ test.describe("Credits API — Account & Balance (L1 Infra)", () => {
     const balance =
       typeof payload === "number"
         ? payload
-        : payload.balance ?? payload.amount;
-    expect(
-      typeof balance,
-      "Balance should be a number",
-    ).toBe("number");
+        : (payload.balance ?? payload.amount);
+    expect(typeof balance, "Balance should be a number").toBe("number");
   });
 
   test("GET /credits/stats — get usage statistics", async ({
@@ -146,10 +142,10 @@ test.describe("Credits API — Account & Balance (L1 Infra)", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/credits/stats`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/credits/stats`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       response.ok(),
@@ -196,7 +192,7 @@ test.describe("Credits API — Transactions (L1 Infra)", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.transactions ?? [];
+      : (payload.items ?? payload.transactions ?? []);
     expect(Array.isArray(list), "Transactions should be an array").toBe(true);
   });
 
@@ -204,10 +200,10 @@ test.describe("Credits API — Transactions (L1 Infra)", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/credits/rules`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/credits/rules`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       response.ok(),
@@ -260,7 +256,10 @@ test.describe("Credits API — Daily Checkin (L1 Infra)", () => {
       "hasCheckedIn" in status ||
       "checked" in status ||
       typeof status === "object";
-    expect(hasCheckedIn, "Checkin status should have a checked-in indicator").toBe(true);
+    expect(
+      hasCheckedIn,
+      "Checkin status should have a checked-in indicator",
+    ).toBe(true);
   });
 
   test("POST /credits/checkin — perform daily checkin", async ({
@@ -308,7 +307,7 @@ test.describe("Credits API — Daily Checkin (L1 Infra)", () => {
       const payload = body.data ?? body;
       const list = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.history ?? [];
+        : (payload.items ?? payload.history ?? []);
       expect(Array.isArray(list), "Checkin history should be an array").toBe(
         true,
       );
@@ -479,7 +478,7 @@ test.describe("Credits Admin API — Management", () => {
     const userBalance =
       typeof balancePayload === "number"
         ? balancePayload
-        : balancePayload.balance ?? 0;
+        : (balancePayload.balance ?? 0);
 
     // Admin endpoint shows accounts with balances
     const accountsRes = await page.request.get(

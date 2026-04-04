@@ -153,7 +153,7 @@ test.describe("Writing API — Projects (L4 App)", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.projects ?? [];
+      : (payload.items ?? payload.projects ?? []);
     expect(Array.isArray(list), "Writing projects should be an array").toBe(
       true,
     );
@@ -177,7 +177,7 @@ test.describe("Writing API — Projects (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -213,7 +213,7 @@ test.describe("Writing API — Projects (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -283,7 +283,7 @@ test.describe("Writing API — Chapters (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -302,7 +302,7 @@ test.describe("Writing API — Chapters (L4 App)", () => {
       const payload = body.data ?? body;
       const chapters = Array.isArray(payload)
         ? payload
-        : payload.items ?? payload.chapters ?? [];
+        : (payload.items ?? payload.chapters ?? []);
       expect(Array.isArray(chapters), "Chapters should be an array").toBe(true);
     }
   });
@@ -335,7 +335,7 @@ test.describe("Writing API — Story Bible & World (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -368,7 +368,7 @@ test.describe("Writing API — Story Bible & World (L4 App)", () => {
     const listPayload = listBody.data ?? listBody;
     const list = Array.isArray(listPayload)
       ? listPayload
-      : listPayload.items ?? listPayload.projects ?? [];
+      : (listPayload.items ?? listPayload.projects ?? []);
     if (list.length === 0) return;
 
     const projectId = list[0].id ?? list[0]._id;
@@ -469,7 +469,7 @@ test.describe("Writing API — Validation & Cleanup", () => {
 
     const body = await response.json();
     const payload = body.data ?? body;
-    const presets = Array.isArray(payload) ? payload : payload.items ?? [];
+    const presets = Array.isArray(payload) ? payload : (payload.items ?? []);
     expect(Array.isArray(presets), "Style presets should be an array").toBe(
       true,
     );

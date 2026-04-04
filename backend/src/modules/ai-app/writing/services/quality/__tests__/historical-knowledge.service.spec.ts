@@ -39,7 +39,9 @@ describe("HistoricalKnowledgeService", () => {
     }).compile();
 
     // Run onModuleInit manually - count mock returns 10 so it won't seed
-    service = module.get<HistoricalKnowledgeService>(HistoricalKnowledgeService);
+    service = module.get<HistoricalKnowledgeService>(
+      HistoricalKnowledgeService,
+    );
     await service.onModuleInit();
   });
 
@@ -53,15 +55,21 @@ describe("HistoricalKnowledgeService", () => {
 
   describe("onModuleInit", () => {
     it("should not seed data when count > 0", async () => {
-      (mockPrisma.writingHistoricalKnowledge.count as jest.Mock).mockResolvedValue(10);
+      (
+        mockPrisma.writingHistoricalKnowledge.count as jest.Mock
+      ).mockResolvedValue(10);
 
       await service.onModuleInit();
 
-      expect(mockPrisma.writingHistoricalKnowledge.upsert).not.toHaveBeenCalled();
+      expect(
+        mockPrisma.writingHistoricalKnowledge.upsert,
+      ).not.toHaveBeenCalled();
     });
 
     it("should seed data when count is 0", async () => {
-      (mockPrisma.writingHistoricalKnowledge.count as jest.Mock).mockResolvedValue(0);
+      (
+        mockPrisma.writingHistoricalKnowledge.count as jest.Mock
+      ).mockResolvedValue(0);
 
       await service.onModuleInit();
 
@@ -71,13 +79,15 @@ describe("HistoricalKnowledgeService", () => {
 
   describe("getKnowledgeByDynasty", () => {
     it("should return knowledge entries for a dynasty", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock).mockResolvedValue([
-        mockEntry,
-      ]);
+      (
+        mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock
+      ).mockResolvedValue([mockEntry]);
 
       const result = await service.getKnowledgeByDynasty("秦朝");
 
-      expect(mockPrisma.writingHistoricalKnowledge.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingHistoricalKnowledge.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ dynasty: "秦朝" }),
         }),
@@ -87,7 +97,9 @@ describe("HistoricalKnowledgeService", () => {
     });
 
     it("should return empty array when no entries found", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock).mockResolvedValue([]);
+      (
+        mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.getKnowledgeByDynasty("不存在的朝代");
 
@@ -97,13 +109,15 @@ describe("HistoricalKnowledgeService", () => {
 
   describe("getKnowledgeByCategory", () => {
     it("should filter entries by dynasty and category", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock).mockResolvedValue([
-        mockEntry,
-      ]);
+      (
+        mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock
+      ).mockResolvedValue([mockEntry]);
 
       const result = await service.getKnowledgeByCategory("秦朝", "称谓");
 
-      expect(mockPrisma.writingHistoricalKnowledge.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrisma.writingHistoricalKnowledge.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ dynasty: "秦朝", category: "称谓" }),
         }),
@@ -114,9 +128,9 @@ describe("HistoricalKnowledgeService", () => {
 
   describe("searchTerm", () => {
     it("should search knowledge by term", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findFirst as jest.Mock).mockResolvedValue(
-        mockEntry,
-      );
+      (
+        mockPrisma.writingHistoricalKnowledge.findFirst as jest.Mock
+      ).mockResolvedValue(mockEntry);
 
       const result = await service.searchTerm("皇帝");
 
@@ -125,9 +139,9 @@ describe("HistoricalKnowledgeService", () => {
     });
 
     it("should return null when term not found", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findFirst as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (
+        mockPrisma.writingHistoricalKnowledge.findFirst as jest.Mock
+      ).mockResolvedValue(null);
 
       const result = await service.searchTerm("不存在的词");
 
@@ -137,7 +151,9 @@ describe("HistoricalKnowledgeService", () => {
 
   describe("detectHistoricalErrors", () => {
     it("should return error result with hasErrors property", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock).mockResolvedValue([]);
+      (
+        mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.detectHistoricalErrors(
         "皇上亲临，众人跪拜",
@@ -150,7 +166,9 @@ describe("HistoricalKnowledgeService", () => {
     });
 
     it("should detect no errors in content without anachronisms", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock).mockResolvedValue([]);
+      (
+        mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.detectHistoricalErrors(
         "皇上龙颜大悦",
@@ -163,9 +181,9 @@ describe("HistoricalKnowledgeService", () => {
 
   describe("generateHistoricalConstraintPrompt", () => {
     it("should generate a prompt for a known dynasty", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock).mockResolvedValue([
-        mockEntry,
-      ]);
+      (
+        mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock
+      ).mockResolvedValue([mockEntry]);
 
       const result = await service.generateHistoricalConstraintPrompt("秦朝");
 
@@ -174,7 +192,9 @@ describe("HistoricalKnowledgeService", () => {
     });
 
     it("should return non-empty prompt even with empty knowledge entries", async () => {
-      (mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock).mockResolvedValue([]);
+      (
+        mockPrisma.writingHistoricalKnowledge.findMany as jest.Mock
+      ).mockResolvedValue([]);
 
       const result = await service.generateHistoricalConstraintPrompt("汉朝");
 
@@ -191,7 +211,9 @@ describe("HistoricalKnowledgeService", () => {
         definition: "唐代对皇帝的尊称",
         examples: ["圣人龙颜大悦"],
       };
-      (mockPrisma.writingHistoricalKnowledge.create as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.writingHistoricalKnowledge.create as jest.Mock
+      ).mockResolvedValue({
         id: "new-entry",
         ...newEntry,
         createdAt: new Date(),
@@ -206,7 +228,9 @@ describe("HistoricalKnowledgeService", () => {
 
   describe("getKnowledgeStats", () => {
     it("should return statistics about knowledge base", async () => {
-      (mockPrisma.writingHistoricalKnowledge.count as jest.Mock).mockResolvedValue(50);
+      (
+        mockPrisma.writingHistoricalKnowledge.count as jest.Mock
+      ).mockResolvedValue(50);
       (mockPrisma.writingHistoricalKnowledge.groupBy as jest.Mock)
         .mockResolvedValueOnce([
           { dynasty: "秦朝", _count: { dynasty: 10 } },

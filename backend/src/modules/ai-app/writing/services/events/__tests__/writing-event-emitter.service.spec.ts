@@ -54,11 +54,9 @@ describe("WritingEventEmitterService", () => {
 
   describe("emitToProject", () => {
     it("should call realtimeAdapter.emitToProject when adapter is available", async () => {
-      await service.emitToProject(
-        "proj-1",
-        WritingEventType.MISSION_STARTED,
-        { missionId: "m-1" },
-      );
+      await service.emitToProject("proj-1", WritingEventType.MISSION_STARTED, {
+        missionId: "m-1",
+      });
 
       expect(mockRealtimeAdapter.emitToProject).toHaveBeenCalledWith(
         "proj-1",
@@ -106,11 +104,9 @@ describe("WritingEventEmitterService", () => {
       const handler = jest.fn().mockResolvedValue(undefined);
       service.registerEmitHandler(handler);
 
-      await service.emitToProject(
-        "proj-1",
-        WritingEventType.AGENT_WORKING,
-        { agentId: "agent-1" },
-      );
+      await service.emitToProject("proj-1", WritingEventType.AGENT_WORKING, {
+        agentId: "agent-1",
+      });
 
       expect(mockRealtimeAdapter.emitToProject).toHaveBeenCalled();
       expect(handler).toHaveBeenCalled();
@@ -170,7 +166,11 @@ describe("WritingEventEmitterService", () => {
 
   describe("emitMissionFailed", () => {
     it("should emit MISSION_FAILED event with error info", async () => {
-      await service.emitMissionFailed("proj-1", "mission-1", "AI service error");
+      await service.emitMissionFailed(
+        "proj-1",
+        "mission-1",
+        "AI service error",
+      );
 
       expect(mockRealtimeAdapter.emitToProject).toHaveBeenCalledWith(
         "proj-1",
@@ -194,7 +194,13 @@ describe("WritingEventEmitterService", () => {
 
   describe("emitChapterStarted", () => {
     it("should emit CHAPTER_STARTED event", async () => {
-      await service.emitChapterStarted("proj-1", 1, "Chapter 1", 0, "mission-1");
+      await service.emitChapterStarted(
+        "proj-1",
+        1,
+        "Chapter 1",
+        0,
+        "mission-1",
+      );
 
       expect(mockRealtimeAdapter.emitToProject).toHaveBeenCalledWith(
         "proj-1",
@@ -208,7 +214,13 @@ describe("WritingEventEmitterService", () => {
     });
 
     it("should trigger planning->writing phase transition for chapter 1", async () => {
-      await service.emitChapterStarted("proj-1", 1, "Chapter 1", 0, "mission-1");
+      await service.emitChapterStarted(
+        "proj-1",
+        1,
+        "Chapter 1",
+        0,
+        "mission-1",
+      );
 
       expect(mockRealtimeAdapter.completePhase).toHaveBeenCalledWith(
         "mission-1",
@@ -223,7 +235,13 @@ describe("WritingEventEmitterService", () => {
     });
 
     it("should NOT trigger phase transition for chapters after first", async () => {
-      await service.emitChapterStarted("proj-1", 2, "Chapter 2", 0, "mission-1");
+      await service.emitChapterStarted(
+        "proj-1",
+        2,
+        "Chapter 2",
+        0,
+        "mission-1",
+      );
 
       expect(mockRealtimeAdapter.completePhase).not.toHaveBeenCalled();
     });

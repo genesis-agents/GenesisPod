@@ -910,7 +910,10 @@ export class DimensionMissionService {
 
     // ★ Phase 5: Create frozen cache prefix once for this mission so all subagent LLM calls
     // share identical system-prompt bytes → Anthropic prompt cache hit rate ≥ 98%.
-    if (this.promptCacheCoordinator && !this.promptCacheCoordinator.hasPrefix(effectiveMissionId)) {
+    if (
+      this.promptCacheCoordinator &&
+      !this.promptCacheCoordinator.hasPrefix(effectiveMissionId)
+    ) {
       this.promptCacheCoordinator.createPrefix(
         effectiveMissionId,
         DIMENSION_RESEARCH_SYSTEM_PROMPT,
@@ -1687,6 +1690,7 @@ export class DimensionMissionService {
           sectionMap,
           outline,
         ),
+        missionId: effectiveMissionId ?? missionId, // ★ 传递 missionId
         modelId, // ★ 传递模型
         temporalContext, // ★ 传递时间上下文
         allocatedFigures: section.allocatedFigures, // ★ 传递 Leader 预分配的图表

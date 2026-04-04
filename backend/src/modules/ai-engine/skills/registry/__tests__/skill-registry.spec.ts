@@ -4,7 +4,11 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SkillRegistry } from "../skill-registry";
-import { ISkill, SkillLayer, TriggerRule } from "../../abstractions/skill.interface";
+import {
+  ISkill,
+  SkillLayer,
+  TriggerRule,
+} from "../../abstractions/skill.interface";
 import { SkillDefinition } from "../../abstractions/skill.interface";
 
 // ---------------------------------------------------------------------------
@@ -80,7 +84,10 @@ describe("SkillRegistry", () => {
     });
 
     it("构建 tag 索引", () => {
-      const skill = makeSkill("tagged-skill", "content", "writing", ["ai", "writing"]);
+      const skill = makeSkill("tagged-skill", "content", "writing", [
+        "ai",
+        "writing",
+      ]);
       registry.register(skill);
 
       const tags = registry.getTags();
@@ -142,7 +149,9 @@ describe("SkillRegistry", () => {
     });
 
     it("注销时同步更新 tag 索引", () => {
-      const skill = makeSkill("tag-unregister", "content", "writing", ["special-tag"]);
+      const skill = makeSkill("tag-unregister", "content", "writing", [
+        "special-tag",
+      ]);
       registry.register(skill);
       registry.unregister("tag-unregister");
 
@@ -260,8 +269,12 @@ describe("SkillRegistry", () => {
 
   describe("getByTag", () => {
     it("返回指定 tag 的 skill", () => {
-      registry.register(makeSkill("ai-skill", "content", "writing", ["ai", "nlp"]));
-      registry.register(makeSkill("writing-skill", "content", "writing", ["writing"]));
+      registry.register(
+        makeSkill("ai-skill", "content", "writing", ["ai", "nlp"]),
+      );
+      registry.register(
+        makeSkill("writing-skill", "content", "writing", ["writing"]),
+      );
 
       const aiSkills = registry.getByTag("ai");
 
@@ -310,7 +323,9 @@ describe("SkillRegistry", () => {
 
   describe("getTags", () => {
     it("返回所有已注册的 tag", () => {
-      registry.register(makeSkill("s1", "content", "writing", ["tag-a", "tag-b"]));
+      registry.register(
+        makeSkill("s1", "content", "writing", ["tag-a", "tag-b"]),
+      );
 
       const tags = registry.getTags();
 
@@ -380,14 +395,22 @@ describe("SkillRegistry", () => {
 
   describe("isVersionCompatible", () => {
     it("相同主版本号时兼容", () => {
-      registry.register(makeSkill("versioned-skill", "content", "writing", undefined, "2.3.4"));
+      registry.register(
+        makeSkill("versioned-skill", "content", "writing", undefined, "2.3.4"),
+      );
 
-      expect(registry.isVersionCompatible("versioned-skill", "2.0.0")).toBe(true);
-      expect(registry.isVersionCompatible("versioned-skill", "2.9.9")).toBe(true);
+      expect(registry.isVersionCompatible("versioned-skill", "2.0.0")).toBe(
+        true,
+      );
+      expect(registry.isVersionCompatible("versioned-skill", "2.9.9")).toBe(
+        true,
+      );
     });
 
     it("不同主版本号时不兼容", () => {
-      registry.register(makeSkill("v2-skill", "content", "writing", undefined, "2.0.0"));
+      registry.register(
+        makeSkill("v2-skill", "content", "writing", undefined, "2.0.0"),
+      );
 
       expect(registry.isVersionCompatible("v2-skill", "1.0.0")).toBe(false);
       expect(registry.isVersionCompatible("v2-skill", "3.0.0")).toBe(false);
@@ -400,7 +423,9 @@ describe("SkillRegistry", () => {
     it("没有版本信息的 skill 返回 true", () => {
       registry.register(makeSkill("no-version-skill"));
 
-      expect(registry.isVersionCompatible("no-version-skill", "1.0.0")).toBe(true);
+      expect(registry.isVersionCompatible("no-version-skill", "1.0.0")).toBe(
+        true,
+      );
     });
   });
 
@@ -410,9 +435,14 @@ describe("SkillRegistry", () => {
 
   describe("matchByTrigger", () => {
     it("通过 keyword 触发器匹配 skill", () => {
-      const skill = makeSkill("keyword-skill", "content", "writing", undefined, undefined, [
-        { type: "keyword", condition: "hello", priority: 10 },
-      ]);
+      const skill = makeSkill(
+        "keyword-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "keyword", condition: "hello", priority: 10 }],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("keyword", "hello world");
@@ -422,9 +452,14 @@ describe("SkillRegistry", () => {
     });
 
     it("keyword 匹配不区分大小写", () => {
-      const skill = makeSkill("case-skill", "content", "writing", undefined, undefined, [
-        { type: "keyword", condition: "HELLO" },
-      ]);
+      const skill = makeSkill(
+        "case-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "keyword", condition: "HELLO" }],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("keyword", "hello world");
@@ -433,22 +468,35 @@ describe("SkillRegistry", () => {
     });
 
     it("通过 intent 触发器完全匹配 skill", () => {
-      const skill = makeSkill("intent-skill", "content", "writing", undefined, undefined, [
-        { type: "intent", condition: "write-chapter" },
-      ]);
+      const skill = makeSkill(
+        "intent-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "intent", condition: "write-chapter" }],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("intent", "write-chapter");
       expect(matched).toHaveLength(1);
 
-      const notMatched = registry.matchByTrigger("intent", "write-chapter-partial");
+      const notMatched = registry.matchByTrigger(
+        "intent",
+        "write-chapter-partial",
+      );
       expect(notMatched).toHaveLength(0);
     });
 
     it("通过 context 触发器正则匹配 skill", () => {
-      const skill = makeSkill("context-skill", "content", "writing", undefined, undefined, [
-        { type: "context", condition: "document.*editing" },
-      ]);
+      const skill = makeSkill(
+        "context-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "context", condition: "document.*editing" }],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("context", "document is editing");
@@ -457,9 +505,14 @@ describe("SkillRegistry", () => {
     });
 
     it("通过 event 触发器正则匹配 skill", () => {
-      const skill = makeSkill("event-skill", "content", "writing", undefined, undefined, [
-        { type: "event", condition: "file.saved" },
-      ]);
+      const skill = makeSkill(
+        "event-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "event", condition: "file.saved" }],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("event", "file.saved");
@@ -467,12 +520,22 @@ describe("SkillRegistry", () => {
     });
 
     it("按优先级从高到低排序", () => {
-      const lowSkill = makeSkill("low-priority-skill", "content", "writing", undefined, undefined, [
-        { type: "keyword", condition: "test", priority: 1 },
-      ]);
-      const highSkill = makeSkill("high-priority-skill", "content", "writing", undefined, undefined, [
-        { type: "keyword", condition: "test", priority: 10 },
-      ]);
+      const lowSkill = makeSkill(
+        "low-priority-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "keyword", condition: "test", priority: 1 }],
+      );
+      const highSkill = makeSkill(
+        "high-priority-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "keyword", condition: "test", priority: 10 }],
+      );
       registry.register(lowSkill);
       registry.register(highSkill);
 
@@ -492,9 +555,14 @@ describe("SkillRegistry", () => {
     });
 
     it("触发器类型不匹配的 skill 被排除", () => {
-      const skill = makeSkill("intent-only-skill", "content", "writing", undefined, undefined, [
-        { type: "intent", condition: "specific-intent" },
-      ]);
+      const skill = makeSkill(
+        "intent-only-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "intent", condition: "specific-intent" }],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("keyword", "specific-intent");
@@ -503,10 +571,17 @@ describe("SkillRegistry", () => {
     });
 
     it("同一 skill 匹配多个触发器时只返回一次", () => {
-      const skill = makeSkill("multi-trigger-skill", "content", "writing", undefined, undefined, [
-        { type: "keyword", condition: "hello" },
-        { type: "keyword", condition: "world" },
-      ]);
+      const skill = makeSkill(
+        "multi-trigger-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [
+          { type: "keyword", condition: "hello" },
+          { type: "keyword", condition: "world" },
+        ],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("keyword", "hello world");
@@ -521,9 +596,15 @@ describe("SkillRegistry", () => {
 
   describe("search", () => {
     beforeEach(() => {
-      registry.register(makeSkill("ai-writing-skill", "content", "writing", ["ai", "nlp"]));
-      registry.register(makeSkill("office-planning", "planning", "office", ["productivity"]));
-      registry.register(makeSkill("research-tool", "content", "research", ["ai", "search"]));
+      registry.register(
+        makeSkill("ai-writing-skill", "content", "writing", ["ai", "nlp"]),
+      );
+      registry.register(
+        makeSkill("office-planning", "planning", "office", ["productivity"]),
+      );
+      registry.register(
+        makeSkill("research-tool", "content", "research", ["ai", "search"]),
+      );
     });
 
     it("通过关键字搜索 skill", () => {
@@ -587,9 +668,14 @@ describe("SkillRegistry", () => {
 
   describe("matchByTrigger ReDoS 防护", () => {
     it("危险正则 (a+)+ 模式被跳过，不抛出异常", () => {
-      const skill = makeSkill("redos-skill", "content", "writing", undefined, undefined, [
-        { type: "context", condition: "(a+)+b", priority: 0 },
-      ]);
+      const skill = makeSkill(
+        "redos-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "context", condition: "(a+)+b", priority: 0 }],
+      );
       registry.register(skill);
 
       expect(() =>
@@ -602,9 +688,14 @@ describe("SkillRegistry", () => {
     });
 
     it("无效正则被 try-catch 捕获，不崩溃", () => {
-      const skill = makeSkill("invalid-regex-skill", "content", "writing", undefined, undefined, [
-        { type: "context", condition: "[invalid", priority: 0 },
-      ]);
+      const skill = makeSkill(
+        "invalid-regex-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "context", condition: "[invalid", priority: 0 }],
+      );
       registry.register(skill);
 
       expect(() =>
@@ -613,9 +704,14 @@ describe("SkillRegistry", () => {
     });
 
     it("合法正则仍然正常匹配", () => {
-      const skill = makeSkill("valid-regex-skill", "content", "writing", undefined, undefined, [
-        { type: "context", condition: "^hello\\s+world$", priority: 0 },
-      ]);
+      const skill = makeSkill(
+        "valid-regex-skill",
+        "content",
+        "writing",
+        undefined,
+        undefined,
+        [{ type: "context", condition: "^hello\\s+world$", priority: 0 }],
+      );
       registry.register(skill);
 
       const matched = registry.matchByTrigger("context", "hello   world");

@@ -296,7 +296,11 @@ describe("QueryLoopService", () => {
       const service = new QueryLoopService();
       const chatFn: jest.MockedFunction<ChatFn> = jest.fn();
       chatFn.mockResolvedValueOnce(
-        makeResult({ content: "done", finishReason: "stop", outputTokens: 500 }),
+        makeResult({
+          content: "done",
+          finishReason: "stop",
+          outputTokens: 500,
+        }),
       );
 
       const result = await service.executeWithLoop(chatFn, INITIAL_MESSAGES);

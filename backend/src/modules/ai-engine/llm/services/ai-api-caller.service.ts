@@ -445,7 +445,10 @@ export class AiApiCallerService {
       outputTokens: anthropicUsage.output_tokens || 0,
       cacheCreationTokens: anthropicUsage.cache_creation_input_tokens || 0,
       cacheReadTokens: anthropicUsage.cache_read_input_tokens || 0,
-      finishReason: data.stop_reason === "max_tokens" ? "length" : data.stop_reason || undefined,
+      finishReason:
+        data.stop_reason === "max_tokens"
+          ? "length"
+          : data.stop_reason || undefined,
     };
   }
 

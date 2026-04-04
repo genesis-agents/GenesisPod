@@ -20,12 +20,12 @@ scripts/
 
 部署和发布相关脚本。
 
-| 脚本                           | 命令                  | 描述                     |
-| ------------------------------ | --------------------- | ------------------------ |
-| `docker-entrypoint.sh`         | (Docker 内部使用)     | Docker 容器启动脚本      |
-| `send-release-notification.ts` | `npm run release:*`   | 发送版本发布通知         |
-| `studio-railway.bat`           | (手动执行)            | Railway 环境 Prisma 管理 |
-| `studio-railway.ps1`           | (手动执行)            | Railway 环境 Prisma 管理 |
+| 脚本                           | 命令                | 描述                     |
+| ------------------------------ | ------------------- | ------------------------ |
+| `docker-entrypoint.sh`         | (Docker 内部使用)   | Docker 容器启动脚本      |
+| `send-release-notification.ts` | `npm run release:*` | 发送版本发布通知         |
+| `studio-railway.bat`           | (手动执行)          | Railway 环境 Prisma 管理 |
+| `studio-railway.ps1`           | (手动执行)          | Railway 环境 Prisma 管理 |
 
 **常用命令:**
 
@@ -41,8 +41,8 @@ npm run release:notify
 
 开发和调试工具。
 
-| 脚本                      | 命令                 | 描述             |
-| ------------------------- | -------------------- | ---------------- |
+| 脚本                      | 命令                   | 描述             |
+| ------------------------- | ---------------------- | ---------------- |
 | `detect-circular-deps.ts` | `npm run dev:circular` | 检测循环依赖问题 |
 
 **常用命令:**
@@ -56,10 +56,10 @@ npm run dev:circular
 
 数据库数据清理和验证脚本。
 
-| 脚本                          | 命令                      | 描述               |
-| ----------------------------- | ------------------------- | ------------------ |
-| `update-policy-whitelist.ts`  | `npm run maintenance:policy` | 更新政策白名单     |
-| `validate-data-integrity.ts`  | `npm run maintenance:validate` | 验证数据完整性     |
+| 脚本                         | 命令                           | 描述           |
+| ---------------------------- | ------------------------------ | -------------- |
+| `update-policy-whitelist.ts` | `npm run maintenance:policy`   | 更新政策白名单 |
+| `validate-data-integrity.ts` | `npm run maintenance:validate` | 验证数据完整性 |
 
 **常用命令:**
 
@@ -75,11 +75,11 @@ npm run maintenance:validate
 
 初始化和填充数据库数据。
 
-| 脚本                           | 命令                  | 描述                 |
-| ------------------------------ | --------------------- | -------------------- |
-| `seed-report-templates.ts`     | `npm run seed:templates` | 导入报告模板         |
-| `seed-simulation-providers.ts` | `npm run seed:simulation` | 导入模拟提供商       |
-| `seed-youtube-sources.ts`      | `npm run seed:youtube` | 导入 YouTube 数据源  |
+| 脚本                           | 命令                      | 描述                |
+| ------------------------------ | ------------------------- | ------------------- |
+| `seed-report-templates.ts`     | `npm run seed:templates`  | 导入报告模板        |
+| `seed-simulation-providers.ts` | `npm run seed:simulation` | 导入模拟提供商      |
+| `seed-youtube-sources.ts`      | `npm run seed:youtube`    | 导入 YouTube 数据源 |
 
 **常用命令:**
 
@@ -98,11 +98,11 @@ npm run seed:youtube
 
 缩略图生成和更新脚本。
 
-| 脚本                          | 命令                     | 描述                   |
-| ----------------------------- | ------------------------ | ---------------------- |
-| `generate-thumbnails.ts`      | `npm run thumbnails:generate` | 生成缺失的缩略图       |
-| `generate-all-thumbnails.ts`  | `npm run thumbnails:all` | 重新生成所有缩略图     |
-| `update-arxiv-thumbnails.ts`  | `npm run thumbnails:arxiv` | 更新 arXiv 论文缩略图  |
+| 脚本                         | 命令                          | 描述                  |
+| ---------------------------- | ----------------------------- | --------------------- |
+| `generate-thumbnails.ts`     | `npm run thumbnails:generate` | 生成缺失的缩略图      |
+| `generate-all-thumbnails.ts` | `npm run thumbnails:all`      | 重新生成所有缩略图    |
+| `update-arxiv-thumbnails.ts` | `npm run thumbnails:arxiv`    | 更新 arXiv 论文缩略图 |
 
 **常用命令:**
 
@@ -117,17 +117,17 @@ npm run thumbnails:all
 npm run thumbnails:arxiv
 ```
 
-## 归档脚本 (_archive/)
+## 归档脚本 (\_archive/)
 
 历史脚本，已废弃或为一次性修复，保留用于参考。
 
-| 脚本                              | 描述                     | 归档原因         |
-| --------------------------------- | ------------------------ | ---------------- |
-| `check-datasources.ts`            | 检查数据源表             | 诊断脚本，已完成 |
-| `fix-mcp-package-names.ts`        | 修复 MCP 包名            | 一次性修复，已完成 |
-| `2025-01-create-export-tables.sql` | 创建导出表 SQL           | 已合并到迁移     |
-| `2025-01-fix-export-tables.js`    | 修复导出表               | 一次性修复，已完成 |
-| `2025-01-fix-invalid-models.ts`   | 修复无效模型             | 一次性修复，已完成 |
+| 脚本                               | 描述           | 归档原因           |
+| ---------------------------------- | -------------- | ------------------ |
+| `check-datasources.ts`             | 检查数据源表   | 诊断脚本，已完成   |
+| `fix-mcp-package-names.ts`         | 修复 MCP 包名  | 一次性修复，已完成 |
+| `2025-01-create-export-tables.sql` | 创建导出表 SQL | 已合并到迁移       |
+| `2025-01-fix-export-tables.js`     | 修复导出表     | 一次性修复，已完成 |
+| `2025-01-fix-invalid-models.ts`    | 修复无效模型   | 一次性修复，已完成 |
 
 ## 使用指南
 

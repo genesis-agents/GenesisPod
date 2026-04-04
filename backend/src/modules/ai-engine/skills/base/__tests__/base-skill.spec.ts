@@ -226,7 +226,7 @@ describe("BaseSkill", () => {
           { role: "system", content: "system prompt" },
           { role: "user", content: "user prompt" },
         ],
-      })
+      }),
     );
   });
 
@@ -272,7 +272,10 @@ describe("BaseSkill", () => {
       }
     }
     const s = new ValidateSkill();
-    const result = s.validate({}, { type: "object", required: ["name", "age"] });
+    const result = s.validate(
+      {},
+      { type: "object", required: ["name", "age"] },
+    );
     expect(result.valid).toBe(false);
     expect(result.errors!.length).toBe(2);
   });
@@ -340,7 +343,9 @@ describe("BaseSkill", () => {
       }
     }
     const s = new ParseSkill();
-    expect(() => s.parse("not valid json")).toThrow("Failed to parse JSON response");
+    expect(() => s.parse("not valid json")).toThrow(
+      "Failed to parse JSON response",
+    );
   });
 });
 
@@ -425,7 +430,9 @@ describe("createSkill", () => {
       description: "desc",
       layer: "content",
       domain: "test",
-      execute: async () => { throw new Error("factory error"); },
+      execute: async () => {
+        throw new Error("factory error");
+      },
     });
 
     const result = await skill.execute(null, buildContext());

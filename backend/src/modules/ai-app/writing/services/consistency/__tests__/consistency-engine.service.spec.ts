@@ -93,8 +93,14 @@ describe("ConsistencyEngineService", () => {
       providers: [
         ConsistencyEngineService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: PostWriteValidationService, useValue: mockPostWriteValidation },
-        { provide: ConflictResolutionService, useValue: mockConflictResolution },
+        {
+          provide: PostWriteValidationService,
+          useValue: mockPostWriteValidation,
+        },
+        {
+          provide: ConflictResolutionService,
+          useValue: mockConflictResolution,
+        },
         { provide: ChapterCoherenceService, useValue: mockChapterCoherence },
         { provide: ContextBuilderService, useValue: mockContextBuilder },
       ],
@@ -193,7 +199,10 @@ describe("ConsistencyEngineService", () => {
 
       const result = await service.validateChapter("chapter-1", "user-1");
 
-      expect(result).toEqual({ status: "SKIPPED", reason: "No content to validate" });
+      expect(result).toEqual({
+        status: "SKIPPED",
+        reason: "No content to validate",
+      });
       expect(mockPostWriteValidation.validate).not.toHaveBeenCalled();
     });
 
@@ -295,9 +304,7 @@ describe("ConsistencyEngineService", () => {
 
   describe("resolveConflicts", () => {
     it("should delegate to conflict resolution service", async () => {
-      const issues = [
-        { type: "TERMINOLOGY", description: "斗气用词不一致" },
-      ];
+      const issues = [{ type: "TERMINOLOGY", description: "斗气用词不一致" }];
 
       await service.resolveConflicts("chapter-1", issues);
 

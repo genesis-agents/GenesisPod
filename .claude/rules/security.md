@@ -45,7 +45,7 @@ const user = await prisma.user.findFirst({
 // React 默认转义，但要注意：
 // 禁止使用 dangerouslySetInnerHTML
 // 如必须使用，必须先 sanitize
-import DOMPurify from 'dompurify';
+import DOMPurify from "dompurify";
 const clean = DOMPurify.sanitize(userInput);
 ```
 

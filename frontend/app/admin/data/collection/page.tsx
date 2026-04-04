@@ -330,10 +330,7 @@ export default function ConfigPage() {
             hasChanges = true;
 
             // Remove completed/failed tasks after 5 seconds
-            if (
-              task.status === 'COMPLETED' ||
-              task.status === 'FAILED'
-            ) {
+            if (task.status === 'COMPLETED' || task.status === 'FAILED') {
               setTimeout(() => {
                 setRunningTasks((prev) => {
                   const next = new Map(prev);
@@ -620,7 +617,9 @@ export default function ConfigPage() {
       toast.success('Data source added successfully!');
     } catch (err) {
       logger.error('Failed to add source:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to add data source');
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to add data source'
+      );
     }
   };
 
@@ -1367,7 +1366,7 @@ export default function ConfigPage() {
                   Frequency
                 </label>
                 <select
-                  value={(editForm).scheduleFrequency || 'manual'}
+                  value={editForm.scheduleFrequency || 'manual'}
                   onChange={(e) =>
                     setEditForm({
                       ...editForm,
@@ -1647,7 +1646,7 @@ export default function ConfigPage() {
                   <div className="mb-2 text-sm font-medium text-gray-900">
                     Activity Log
                   </div>
-                  <div className="space-y-1 font-mono text-xs text-gray-600">
+                  <div className="font-mono space-y-1 text-xs text-gray-600">
                     {task.startedAt && (
                       <div>
                         [{new Date(task.startedAt).toLocaleTimeString()}] Task

@@ -18,7 +18,10 @@ export class ConsistencyEngineService {
     private readonly contextBuilder: ContextBuilderService,
   ) {}
 
-  async buildWritingContext(chapterId: string, bibleSnapshot?: Record<string, unknown>) {
+  async buildWritingContext(
+    chapterId: string,
+    bibleSnapshot?: Record<string, unknown>,
+  ) {
     return this.contextBuilder.buildWritingContext(chapterId, bibleSnapshot);
   }
 
@@ -100,7 +103,10 @@ export class ConsistencyEngineService {
   }
 
   async resolveConflicts(chapterId: string, issues: unknown[]) {
-    return this.conflictResolution.resolve(chapterId, issues as ConsistencyIssue[]);
+    return this.conflictResolution.resolve(
+      chapterId,
+      issues as ConsistencyIssue[],
+    );
   }
 
   /**

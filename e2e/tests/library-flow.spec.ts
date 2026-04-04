@@ -108,10 +108,10 @@ test.describe("Library API — Resources", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/resources`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/resources`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       response.ok(),
@@ -122,7 +122,7 @@ test.describe("Library API — Resources", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.resources ?? [];
+      : (payload.items ?? payload.resources ?? []);
     expect(Array.isArray(list), "Resources should be an array").toBe(true);
   });
 
@@ -144,10 +144,7 @@ test.describe("Library API — Resources", () => {
     ).toBeTruthy();
   });
 
-  test("GET /resources/:id — reject invalid id", async ({
-    page,
-    baseURL,
-  }) => {
+  test("GET /resources/:id — reject invalid id", async ({ page, baseURL }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 

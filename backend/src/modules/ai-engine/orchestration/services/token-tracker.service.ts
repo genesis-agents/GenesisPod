@@ -45,15 +45,18 @@ export class TokenTrackerService implements OnModuleDestroy {
 
   constructor() {
     // Cleanup stale sessions every 5 minutes
-    this.cleanupTimer = setInterval(() => {
-      const expiry = Date.now() - this.SESSION_TTL_MS;
-      for (const [id, session] of this.sessions) {
-        if ((session as SessionInternal)._createdAt < expiry) {
-          this.logger.warn(`[cleanup] Evicting stale session: ${id}`);
-          this.sessions.delete(id);
+    this.cleanupTimer = setInterval(
+      () => {
+        const expiry = Date.now() - this.SESSION_TTL_MS;
+        for (const [id, session] of this.sessions) {
+          if ((session as SessionInternal)._createdAt < expiry) {
+            this.logger.warn(`[cleanup] Evicting stale session: ${id}`);
+            this.sessions.delete(id);
+          }
         }
-      }
-    }, 5 * 60 * 1000);
+      },
+      5 * 60 * 1000,
+    );
     this.cleanupTimer.unref(); // Don't prevent Node.js process from exiting
   }
 
@@ -82,7 +85,9 @@ export class TokenTrackerService implements OnModuleDestroy {
   recordUsage(sessionId: string, usage: TokenUsageEntry): void {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      this.logger.warn(`[recordUsage] Session ${sessionId} not found, creating`);
+      this.logger.warn(
+        `[recordUsage] Session ${sessionId} not found, creating`,
+      );
       this.createSession(sessionId);
       this.recordUsage(sessionId, usage);
       return;

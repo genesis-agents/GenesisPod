@@ -35,7 +35,9 @@ describe("OutputValidatorService", () => {
     it("should return valid for correct JSON object", () => {
       const result = service.validateJsonCompleteness('{"key": "value"}');
       expect(result.valid).toBe(true);
-      expect(result.issues.filter((i) => i.severity === "ERROR")).toHaveLength(0);
+      expect(result.issues.filter((i) => i.severity === "ERROR")).toHaveLength(
+        0,
+      );
     });
 
     it("should return valid for correct JSON array", () => {
@@ -46,14 +48,18 @@ describe("OutputValidatorService", () => {
     it("should detect mismatched curly braces", () => {
       const result = service.validateJsonCompleteness('{"key": "value"');
       expect(result.valid).toBe(false);
-      const bracketIssue = result.issues.find((i) => i.type === "bracket_mismatch");
+      const bracketIssue = result.issues.find(
+        (i) => i.type === "bracket_mismatch",
+      );
       expect(bracketIssue).toBeDefined();
     });
 
     it("should detect mismatched square brackets", () => {
-      const result = service.validateJsonCompleteness('[1, 2, 3');
+      const result = service.validateJsonCompleteness("[1, 2, 3");
       expect(result.valid).toBe(false);
-      const bracketIssue = result.issues.find((i) => i.type === "bracket_mismatch");
+      const bracketIssue = result.issues.find(
+        (i) => i.type === "bracket_mismatch",
+      );
       expect(bracketIssue).toBeDefined();
     });
 
@@ -69,7 +75,9 @@ describe("OutputValidatorService", () => {
     it("should detect JSON parse errors", () => {
       const result = service.validateJsonCompleteness("{invalid json}");
       expect(result.valid).toBe(false);
-      const parseError = result.issues.find((i) => i.type === "json_parse_error");
+      const parseError = result.issues.find(
+        (i) => i.type === "json_parse_error",
+      );
       expect(parseError).toBeDefined();
     });
 
@@ -100,7 +108,9 @@ describe("OutputValidatorService", () => {
       const outline = makeOutline(34);
       const result = service.validateOutline(outline, defaultConfig);
       expect(result.valid).toBe(true);
-      expect(result.issues.filter((i) => i.severity === "ERROR")).toHaveLength(0);
+      expect(result.issues.filter((i) => i.severity === "ERROR")).toHaveLength(
+        0,
+      );
     });
 
     it("should report error for insufficient chapter count", () => {

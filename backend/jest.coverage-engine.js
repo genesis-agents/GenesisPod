@@ -1,5 +1,5 @@
 module.exports = {
-  ...require('./jest.config.js'),
+  ...require("./jest.config.js"),
   collectCoverageFrom: [
     "modules/ai-engine/**/*.ts",
     "!**/*.module.ts",

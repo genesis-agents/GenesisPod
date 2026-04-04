@@ -11,9 +11,10 @@ import {
 /**
  * 能力基类 - 提供通用实现
  */
-export abstract class BaseCapability<TInput = unknown, TOutput = unknown>
-  implements ICapability<TInput, TOutput>
-{
+export abstract class BaseCapability<
+  TInput = unknown,
+  TOutput = unknown,
+> implements ICapability<TInput, TOutput> {
   protected abstract readonly id: string;
   protected abstract readonly name: string;
   protected abstract readonly description: string;

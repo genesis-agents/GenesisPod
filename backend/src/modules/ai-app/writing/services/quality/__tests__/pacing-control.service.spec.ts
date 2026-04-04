@@ -173,9 +173,7 @@ describe("PacingControlService", () => {
       });
 
       const analysis = service.analyzePacing("project-1", 4);
-      const chapterNumbers = analysis.recentPacings.map(
-        (p) => p.chapterNumber,
-      );
+      const chapterNumbers = analysis.recentPacings.map((p) => p.chapterNumber);
       expect(chapterNumbers).not.toContain(5);
     });
 

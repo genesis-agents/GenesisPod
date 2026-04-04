@@ -579,9 +579,9 @@ export class ReportSynthesisService {
       try {
         const dimensionResultsForSynthesis = dimensionAnalyses.map((da) => {
           const dataPoints = da.dataPoints as Record<string, unknown> | null;
-          const keyFindingsRaw = da.keyFindings as
-            | Array<{ finding?: string }>
-            | null;
+          const keyFindingsRaw = da.keyFindings as Array<{
+            finding?: string;
+          }> | null;
           return {
             dimensionId: da.dimensionId,
             dimensionName: da.dimension?.name ?? "",
@@ -589,9 +589,7 @@ export class ReportSynthesisService {
               (dataPoints?.detailedContent as string | undefined) ??
               da.summary ??
               "",
-            keyFindings: (keyFindingsRaw ?? []).map(
-              (kf) => kf.finding ?? "",
-            ),
+            keyFindings: (keyFindingsRaw ?? []).map((kf) => kf.finding ?? ""),
             sources: (da.evidences ?? []).map((e) => ({
               title: e.title ?? "",
               url: e.url ?? undefined,
@@ -599,20 +597,21 @@ export class ReportSynthesisService {
           };
         });
 
-        crossCuttingSynthesisResult = await this.crossCuttingSynthesis.synthesize(
-          dimensionResultsForSynthesis,
-          async (systemPrompt, userPrompt) => {
-            const result = await this.chatFacade.chat({
-              messages: [
-                { role: "system" as const, content: systemPrompt },
-                { role: "user" as const, content: userPrompt },
-              ],
-              skipGuardrails: true,
-              taskProfile: { creativity: "low", outputLength: "long" },
-            });
-            return { content: result.content, tokensUsed: result.tokensUsed };
-          },
-        );
+        crossCuttingSynthesisResult =
+          await this.crossCuttingSynthesis.synthesize(
+            dimensionResultsForSynthesis,
+            async (systemPrompt, userPrompt) => {
+              const result = await this.chatFacade.chat({
+                messages: [
+                  { role: "system" as const, content: systemPrompt },
+                  { role: "user" as const, content: userPrompt },
+                ],
+                skipGuardrails: true,
+                taskProfile: { creativity: "low", outputLength: "long" },
+              });
+              return { content: result.content, tokensUsed: result.tokensUsed };
+            },
+          );
 
         if (crossCuttingSynthesisResult.crossCuttingThemes.length > 0) {
           this.logger.log(
@@ -1335,7 +1334,9 @@ export class ReportSynthesisService {
       for (const theme of synthesisResult.crossCuttingThemes) {
         const confidence = Math.round(theme.confidence * 100);
         const dims = theme.supportingDimensions.join("、");
-        lines.push(`- **${theme.theme}**（置信度 ${confidence}%，覆盖维度：${dims}）`);
+        lines.push(
+          `- **${theme.theme}**（置信度 ${confidence}%，覆盖维度：${dims}）`,
+        );
       }
       lines.push("");
     }

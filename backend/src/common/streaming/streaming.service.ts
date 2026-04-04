@@ -240,14 +240,16 @@ export class StreamingService {
     const subject = new Subject<NestSSEMessageEvent>();
     const buffer: T[] = [];
     const maxBuffer = options?.bufferSize || 10;
-    const backpressureStrategy = options?.backpressureStrategy || 'pause';
+    const backpressureStrategy = options?.backpressureStrategy || "pause";
 
     const processGenerator = async () => {
       try {
         for await (const item of generator) {
           // 1. 检查客户端是否断连
           if (subject.observers.length === 0) {
-            this.logger.warn('[fromAsyncGenerator] Client disconnected, cleaning up');
+            this.logger.warn(
+              "[fromAsyncGenerator] Client disconnected, cleaning up",
+            );
             await generator.return?.(undefined);
             options?.onClientDisconnect?.();
             break;
@@ -256,21 +258,24 @@ export class StreamingService {
           // 2. 背压控制
           if (buffer.length >= maxBuffer) {
             switch (backpressureStrategy) {
-              case 'drop':
+              case "drop":
                 this.logger.warn(
                   `[fromAsyncGenerator] Buffer full (${buffer.length}/${maxBuffer}), dropping item`,
                 );
                 continue; // 丢弃当前项
-              case 'error':
+              case "error":
                 throw new Error(
                   `Buffer overflow: ${buffer.length}/${maxBuffer} items`,
                 );
-              case 'pause':
+              case "pause":
               default:
                 this.logger.debug(
                   `[fromAsyncGenerator] Buffer full (${buffer.length}/${maxBuffer}), pausing`,
                 );
-                await this.waitForBufferDrain(buffer, Math.floor(maxBuffer / 2));
+                await this.waitForBufferDrain(
+                  buffer,
+                  Math.floor(maxBuffer / 2),
+                );
             }
           }
 
@@ -309,7 +314,10 @@ export class StreamingService {
 
         subject.complete();
       } catch (error) {
-        this.logger.error('[fromAsyncGenerator] Error processing generator', error);
+        this.logger.error(
+          "[fromAsyncGenerator] Error processing generator",
+          error,
+        );
 
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
@@ -340,7 +348,10 @@ export class StreamingService {
    * @param buffer 缓冲区数组
    * @param target 目标大小
    */
-  private async waitForBufferDrain(buffer: unknown[], target: number): Promise<void> {
+  private async waitForBufferDrain(
+    buffer: unknown[],
+    target: number,
+  ): Promise<void> {
     return new Promise((resolve) => {
       const check = () => {
         if (buffer.length <= target) {

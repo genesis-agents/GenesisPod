@@ -50,12 +50,14 @@ function buildMocks() {
   return { mockPrisma, mockChatFacade };
 }
 
-function buildReasoningModelInfo(overrides: Partial<{
-  id: string;
-  name: string;
-  provider: string;
-  isReasoning: boolean;
-}> = {}) {
+function buildReasoningModelInfo(
+  overrides: Partial<{
+    id: string;
+    name: string;
+    provider: string;
+    isReasoning: boolean;
+  }> = {},
+) {
   return {
     id: overrides.id ?? "o3-mini",
     name: overrides.name ?? "o3-mini",
@@ -64,13 +66,15 @@ function buildReasoningModelInfo(overrides: Partial<{
   };
 }
 
-function buildModelEntry(overrides: Partial<{
-  id: string;
-  name: string;
-  provider: string;
-  isReasoning: boolean;
-  isAvailable: boolean;
-}> = {}) {
+function buildModelEntry(
+  overrides: Partial<{
+    id: string;
+    name: string;
+    provider: string;
+    isReasoning: boolean;
+    isAvailable: boolean;
+  }> = {},
+) {
   return {
     id: overrides.id ?? "gpt-4o",
     name: overrides.name ?? "GPT-4o",
@@ -80,14 +84,16 @@ function buildModelEntry(overrides: Partial<{
   };
 }
 
-function buildTopic(overrides: Partial<{
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  language: string | null;
-  dimensions: unknown[];
-}> = {}) {
+function buildTopic(
+  overrides: Partial<{
+    id: string;
+    name: string;
+    type: string;
+    description: string | null;
+    language: string | null;
+    dimensions: unknown[];
+  }> = {},
+) {
   return {
     id: overrides.id ?? "topic-1",
     name: overrides.name ?? "AI Trends",
@@ -179,7 +185,10 @@ async function createService() {
 
   // Speed up delay so tests don't take seconds
   jest
-    .spyOn(service as unknown as { delay: (ms: number) => Promise<void> }, "delay")
+    .spyOn(
+      service as unknown as { delay: (ms: number) => Promise<void> },
+      "delay",
+    )
     .mockResolvedValue(undefined);
 
   // Default: getAvailableModelsExtended returns empty array (getReasoningModel calls it internally)
@@ -810,7 +819,10 @@ describe("LeaderPlanningService", () => {
         buildReasoningModelInfo(),
       );
       mockChatFacade.chat.mockResolvedValue(
-        buildChatResponse("context_too_long: reduce the length of the messages", true),
+        buildChatResponse(
+          "context_too_long: reduce the length of the messages",
+          true,
+        ),
       );
 
       // isError handler throws ContextTooLongException inside try,
@@ -854,7 +866,9 @@ describe("LeaderPlanningService", () => {
       );
       // All attempts return HTML
       mockChatFacade.chat.mockResolvedValue(
-        buildChatResponse("<!DOCTYPE html><html><body>502 Bad Gateway</body></html>"),
+        buildChatResponse(
+          "<!DOCTYPE html><html><body>502 Bad Gateway</body></html>",
+        ),
       );
 
       await expect(
@@ -1170,7 +1184,9 @@ describe("LeaderPlanningService", () => {
         .mockResolvedValueOnce(
           buildChatResponse("429 rate limit exceeded quota", true),
         )
-        .mockResolvedValueOnce(buildChatResponse(JSON.stringify(globalOutline)));
+        .mockResolvedValueOnce(
+          buildChatResponse(JSON.stringify(globalOutline)),
+        );
 
       const result = await service.planGlobalOutline(
         topic,
@@ -1188,7 +1204,9 @@ describe("LeaderPlanningService", () => {
         buildReasoningModelInfo(),
       );
       // All 3 attempts return invalid JSON
-      mockChatFacade.chat.mockResolvedValue(buildChatResponse("not-valid-json"));
+      mockChatFacade.chat.mockResolvedValue(
+        buildChatResponse("not-valid-json"),
+      );
 
       await expect(
         service.planGlobalOutline(topic, dimensionSearchResults),
@@ -1249,7 +1267,9 @@ describe("LeaderPlanningService", () => {
         .mockResolvedValueOnce(
           buildChatResponse("402 billing payment error", true),
         )
-        .mockResolvedValueOnce(buildChatResponse(JSON.stringify(globalOutline)));
+        .mockResolvedValueOnce(
+          buildChatResponse(JSON.stringify(globalOutline)),
+        );
 
       const result = await service.planGlobalOutline(
         topic,

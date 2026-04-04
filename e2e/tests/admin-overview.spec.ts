@@ -151,9 +151,7 @@ test.describe("Admin Overview — Architecture Diagram", () => {
   test("every card displays at least one stat value", async ({ page }) => {
     // Find all stat value elements: <span class="...font-semibold tabular-nums...">
     // In ArchitectureCard.tsx, stats render as: <span class="text-xs font-semibold tabular-nums ...">
-    const statValues = page.locator(
-      "span.tabular-nums",
-    );
+    const statValues = page.locator("span.tabular-nums");
 
     const count = await statValues.count();
     // We expect at least one stat per card. With 11 new cards + existing,
@@ -175,10 +173,7 @@ test.describe("Admin Overview — Architecture Diagram", () => {
   test("clickable cards have valid navigation links", async ({ page }) => {
     for (const href of CLICKABLE_CARDS_HREFS) {
       const link = page.locator(`a[href="${href}"]`);
-      await expect(
-        link,
-        `Card link to ${href} should exist`,
-      ).toHaveCount(1);
+      await expect(link, `Card link to ${href} should exist`).toHaveCount(1);
     }
   });
 
@@ -210,11 +205,7 @@ test.describe("Admin Overview — Architecture Diagram", () => {
 
   test("non-clickable cards are not wrapped in links", async ({ page }) => {
     // Cards like "webhooks", "intentRouter" should not be links
-    const nonClickableIds = [
-      "webhooks",
-      "intentRouter",
-      "aiPlanning",
-    ];
+    const nonClickableIds = ["webhooks", "intentRouter", "aiPlanning"];
 
     for (const id of nonClickableIds) {
       // These cards should NOT be wrapped in <a> tags
@@ -250,7 +241,10 @@ test.describe("Admin Overview — Architecture Diagram", () => {
     );
     // At minimum: models, agents, teams, skills, tools, mcp-clients = 6 clickable cards (mcp-clients shares tools href)
     const count = await engineLinks.count();
-    expect(count, "L3 should have at least 5 clickable engine cards").toBeGreaterThanOrEqual(5);
+    expect(
+      count,
+      "L3 should have at least 5 clickable engine cards",
+    ).toBeGreaterThanOrEqual(5);
   });
 
   test("static stat values are correct", async ({ page, baseURL }) => {

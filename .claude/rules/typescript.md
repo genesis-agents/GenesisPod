@@ -23,7 +23,7 @@ interface UserProfile {
 }
 
 // 类型别名用于联合类型和工具类型
-type Status = 'pending' | 'active' | 'inactive';
+type Status = "pending" | "active" | "inactive";
 type Nullable<T> = T | null;
 ```
 
@@ -31,16 +31,16 @@ type Nullable<T> = T | null;
 
 ```typescript
 // 1. 外部库
-import { useState, useEffect } from 'react';
-import { Injectable } from '@nestjs/common';
+import { useState, useEffect } from "react";
+import { Injectable } from "@nestjs/common";
 
 // 2. 内部模块 (@/)
-import { useApiGet } from '@/hooks/core';
-import { UserService } from '@/modules/user';
+import { useApiGet } from "@/hooks/core";
+import { UserService } from "@/modules/user";
 
 // 3. 相对导入
-import { formatDate } from './utils';
-import type { Config } from './types';
+import { formatDate } from "./utils";
+import type { Config } from "./types";
 ```
 
 ## 错误处理
@@ -49,7 +49,7 @@ import type { Config } from './types';
 // 必须使用 try-catch 包裹异步操作
 async function fetchData(): Promise<Data> {
   try {
-    const response = await api.get('/data');
+    const response = await api.get("/data");
     return response.data;
   } catch (error) {
     if (error instanceof ApiError) {

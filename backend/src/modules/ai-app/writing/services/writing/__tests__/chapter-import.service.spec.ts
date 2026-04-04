@@ -380,8 +380,20 @@ describe("ChapterImportService", () => {
     const importId = "import-1";
 
     const parsedChapters = [
-      { index: 0, title: "第一章", content: "内容一", wordCount: 100, preview: "内容一" },
-      { index: 1, title: "第二章", content: "内容二", wordCount: 150, preview: "内容二" },
+      {
+        index: 0,
+        title: "第一章",
+        content: "内容一",
+        wordCount: 100,
+        preview: "内容一",
+      },
+      {
+        index: 1,
+        title: "第二章",
+        content: "内容二",
+        wordCount: 150,
+        preview: "内容二",
+      },
     ];
 
     beforeEach(() => {
@@ -873,7 +885,8 @@ describe("ChapterImportService", () => {
     });
 
     it("should return single chapter when no pattern matches", async () => {
-      const content = "This is plain text without any chapter markers whatsoever.";
+      const content =
+        "This is plain text without any chapter markers whatsoever.";
 
       const result = await service.parseImport(projectId, userId, {
         source: ImportSource.PASTE,
@@ -905,8 +918,20 @@ describe("ChapterImportService", () => {
     const importId = "import-exec";
 
     const parsedChapters = [
-      { index: 0, title: "第一章", content: "内容一", wordCount: 100, preview: "内容一" },
-      { index: 1, title: "第二章", content: "内容二", wordCount: 150, preview: "内容二" },
+      {
+        index: 0,
+        title: "第一章",
+        content: "内容一",
+        wordCount: 100,
+        preview: "内容一",
+      },
+      {
+        index: 1,
+        title: "第二章",
+        content: "内容二",
+        wordCount: 150,
+        preview: "内容二",
+      },
     ];
 
     beforeEach(() => {

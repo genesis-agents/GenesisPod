@@ -77,10 +77,7 @@ test.describe("AI Office UI (/ai-office)", () => {
 
     const hasCreate =
       (await createButton.count()) > 0 || (await createLink.count()) > 0;
-    expect(
-      hasCreate,
-      "Office page should have a create option",
-    ).toBe(true);
+    expect(hasCreate, "Office page should have a create option").toBe(true);
   });
 });
 
@@ -125,10 +122,10 @@ test.describe("Office API — Slides", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/office/slides`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/office/slides`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       response.ok(),
@@ -139,14 +136,11 @@ test.describe("Office API — Slides", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.slides ?? [];
+      : (payload.items ?? payload.slides ?? []);
     expect(Array.isArray(list), "Slides should be an array").toBe(true);
   });
 
-  test("POST /office/slides — create slide deck", async ({
-    page,
-    baseURL,
-  }) => {
+  test("POST /office/slides — create slide deck", async ({ page, baseURL }) => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 

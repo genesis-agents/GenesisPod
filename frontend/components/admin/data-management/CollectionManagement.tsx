@@ -527,7 +527,7 @@ export default function CollectionManagement() {
                       <Clock className="h-4 w-4" />
                       <span className="text-xs">Schedule</span>
                     </div>
-                    <div className="mt-1 font-mono text-sm text-gray-900">
+                    <div className="font-mono mt-1 text-sm text-gray-900">
                       {selectedRule.cronExpression}
                     </div>
                   </div>
@@ -667,7 +667,7 @@ export default function CollectionManagement() {
                     setNewRule({ ...newRule, cronExpression: e.target.value })
                   }
                   placeholder="0 */6 * * *"
-                  className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="font-mono mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   e.g., '0 */6 * * *' = every 6 hours

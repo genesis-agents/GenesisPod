@@ -141,9 +141,7 @@ function extractFromBoldPatterns(
       sectionKeywords.some((kw) => label.includes(kw.toLowerCase())) &&
       value.length >= 10
     ) {
-      items.push(
-        value.length > 120 ? value.substring(0, 120) + "..." : value,
-      );
+      items.push(value.length > 120 ? value.substring(0, 120) + "..." : value);
       if (items.length >= 5) break;
     }
   }
@@ -166,9 +164,7 @@ function extractFromSentences(
     .slice(0, 5)
     .map((s) => {
       const trimmed = s.replace(/^[，、：:;\s]+/, "").trim();
-      return trimmed.length > 120
-        ? trimmed.substring(0, 120) + "..."
-        : trimmed;
+      return trimmed.length > 120 ? trimmed.substring(0, 120) + "..." : trimmed;
     });
 }
 
@@ -191,10 +187,7 @@ export function replaceEvidenceIds(
       const pattern = new RegExp(`\\[${promptIndex}\\]`, "g");
       result = result.replace(pattern, `[${actualCitationIndex}]`);
       // Replace figure placeholders <!-- figure:N:M -->
-      const figPattern = new RegExp(
-        `(<!--\\s*figure:)${promptIndex}(:)`,
-        "g",
-      );
+      const figPattern = new RegExp(`(<!--\\s*figure:)${promptIndex}(:)`, "g");
       result = result.replace(figPattern, `$1${actualCitationIndex}$2`);
     }
   }

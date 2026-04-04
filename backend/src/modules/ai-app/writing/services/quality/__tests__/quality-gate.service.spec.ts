@@ -48,7 +48,9 @@ describe("QualityGateService", () => {
     } as unknown as jest.Mocked<ExpressionMemoryService>;
 
     mockCharacterPersonality = {
-      checkPersonalityConsistency: jest.fn().mockResolvedValue(mockPersonalityResult),
+      checkPersonalityConsistency: jest
+        .fn()
+        .mockResolvedValue(mockPersonalityResult),
     } as unknown as jest.Mocked<CharacterPersonalityService>;
 
     mockSemanticConsistency = {
@@ -92,7 +94,8 @@ describe("QualityGateService", () => {
     jest.clearAllMocks();
   });
 
-  const makeGoodContent = () => `
+  const makeGoodContent = () =>
+    `
 她推开窗户，清晨的空气扑面而来。
 "阿翠，"她没有回头，"今天谁值班验粉？"
 丫鬟站在门边，犹豫了一下。
@@ -312,11 +315,9 @@ describe("QualityGateService", () => {
 
       await service.checkSemanticConsistency(content, [], []);
 
-      expect(mockSemanticConsistency.checkSemanticConsistency).toHaveBeenCalledWith(
-        content,
-        [],
-        [],
-      );
+      expect(
+        mockSemanticConsistency.checkSemanticConsistency,
+      ).toHaveBeenCalledWith(content, [], []);
     });
   });
 
@@ -341,16 +342,11 @@ describe("QualityGateService", () => {
         examples: ["example1"],
       });
 
-      await service.recordIssuePattern(
-        "project-1",
-        "repetition",
-        "pattern",
-        ["example2"],
-      );
+      await service.recordIssuePattern("project-1", "repetition", "pattern", [
+        "example2",
+      ]);
 
-      expect(
-        mockPrisma.writingQualityIssuePattern.update,
-      ).toHaveBeenCalled();
+      expect(mockPrisma.writingQualityIssuePattern.update).toHaveBeenCalled();
     });
 
     it("should handle null projectId", async () => {

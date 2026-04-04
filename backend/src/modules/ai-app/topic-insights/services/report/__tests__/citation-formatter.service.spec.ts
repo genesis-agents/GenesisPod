@@ -10,10 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { CitationFormatterService } from "../citation-formatter.service";
-import {
-  CitationStyle,
-  SourceCategory,
-} from "../../../types/citation.types";
+import { CitationStyle, SourceCategory } from "../../../types/citation.types";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared fixtures

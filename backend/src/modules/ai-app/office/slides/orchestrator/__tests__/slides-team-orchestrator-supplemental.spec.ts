@@ -100,15 +100,13 @@ function makeMockLeader(): jest.Mocked<SlidesLeader> {
   const singleTask = [makeTask()];
   return {
     planTasks: jest.fn().mockResolvedValue(makeTaskBreakdown()),
-    createDefaultTasks: jest
-      .fn()
-      .mockReturnValue([
-        {
-          skillId: "task-decomposition",
-          assignee: "analyst",
-          priority: "high",
-        },
-      ]),
+    createDefaultTasks: jest.fn().mockReturnValue([
+      {
+        skillId: "task-decomposition",
+        assignee: "analyst",
+        priority: "high",
+      },
+    ]),
     createTasksFromBreakdown: jest.fn().mockReturnValue(singleTask),
     reviewTask: jest.fn().mockResolvedValue({
       decision: "approved",

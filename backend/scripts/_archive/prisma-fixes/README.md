@@ -5,12 +5,14 @@
 ## 归档文件
 
 ### fix-enum-values.ts
+
 - **原用途**: 修复 PostgreSQL 枚举值（绕过事务限制）
 - **归档原因**: 功能已整合到 `deploy-migrations.ts` 的 Step 4.5
 - **归档时间**: 2026-01-23
 - **新位置**: `backend/prisma/deploy-migrations.ts` (lines 280-348)
 
 ### fix-all-missing-structures.sql
+
 - **原用途**: 一次性修复所有缺失的表、列和索引
 - **归档原因**: 功能已整合到 `deploy-migrations.ts` 的 Step 3.5
 - **归档时间**: 2026-01-23

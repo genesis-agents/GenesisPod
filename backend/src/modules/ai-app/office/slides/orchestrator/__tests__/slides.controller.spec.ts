@@ -36,7 +36,10 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { RateLimitGuard } from "@/common/guards/rate-limit.guard";
 
-import { mockAuthenticatedRequest, mockUserId } from "../../__tests__/fixtures/slides.fixture";
+import {
+  mockAuthenticatedRequest,
+  mockUserId,
+} from "../../__tests__/fixtures/slides.fixture";
 
 // ============================================================================
 // Mock factories
@@ -165,7 +168,9 @@ describe("SlidesController (extended)", () => {
       const result = await controller.getThemesList();
 
       expect(result).toHaveProperty("themes");
-      expect(Array.isArray((result as { themes: unknown[] }).themes)).toBe(true);
+      expect(Array.isArray((result as { themes: unknown[] }).themes)).toBe(
+        true,
+      );
     });
 
     it("should include theme id, name, colors in each theme", async () => {
@@ -210,15 +215,13 @@ describe("SlidesController (extended)", () => {
         id: `ckpt-${i}`,
         type: "page_rendered",
       }));
-      mocks.checkpointService.list.mockResolvedValue(
-        manyCheckpoints as never,
-      );
+      mocks.checkpointService.list.mockResolvedValue(manyCheckpoints as never);
 
       const result = await controller.getCheckpoints("session-1", "5");
 
-      expect(
-        (result as { checkpoints: unknown[] }).checkpoints,
-      ).toHaveLength(5);
+      expect((result as { checkpoints: unknown[] }).checkpoints).toHaveLength(
+        5,
+      );
     });
 
     it("should throw InternalServerErrorException on service error", async () => {
@@ -270,9 +273,9 @@ describe("SlidesController (extended)", () => {
       });
 
       expect(mocks.checkpointService.create).toHaveBeenCalled();
-      expect(
-        (result as { checkpoint: { name: string } }).checkpoint.name,
-      ).toBe("My Checkpoint");
+      expect((result as { checkpoint: { name: string } }).checkpoint.name).toBe(
+        "My Checkpoint",
+      );
     });
   });
 
@@ -290,9 +293,9 @@ describe("SlidesController (extended)", () => {
 
       const result = await controller.getCheckpoint("ckpt-abc");
 
-      expect(
-        (result as { checkpointId: string }).checkpointId,
-      ).toBe("ckpt-abc");
+      expect((result as { checkpointId: string }).checkpointId).toBe(
+        "ckpt-abc",
+      );
       expect((result as { sessionId: string }).sessionId).toBe("session-1");
     });
 
@@ -324,12 +327,12 @@ describe("SlidesController (extended)", () => {
 
       const result = await controller.restoreCheckpoint("ckpt-xyz");
 
-      expect(
-        (result as { message: string }).message,
-      ).toBe("Checkpoint restored successfully");
-      expect(
-        (result as { sessionId: string }).sessionId,
-      ).toBe("session-restored");
+      expect((result as { message: string }).message).toBe(
+        "Checkpoint restored successfully",
+      );
+      expect((result as { sessionId: string }).sessionId).toBe(
+        "session-restored",
+      );
     });
 
     it("should throw InternalServerErrorException on failure", async () => {
@@ -337,9 +340,9 @@ describe("SlidesController (extended)", () => {
         new Error("Restore failed") as never,
       );
 
-      await expect(
-        controller.restoreCheckpoint("ckpt-fail"),
-      ).rejects.toThrow(InternalServerErrorException);
+      await expect(controller.restoreCheckpoint("ckpt-fail")).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -353,11 +356,9 @@ describe("SlidesController (extended)", () => {
         { type: "slide:generated", data: { pageNumber: 2 } },
       ] as never);
 
-      const result = await controller.rerenderPage(
-        "session-1",
-        "2",
-        { feedback: "Make it more visual" },
-      );
+      const result = await controller.rerenderPage("session-1", "2", {
+        feedback: "Make it more visual",
+      });
 
       expect(mocks.slidesEngine.regeneratePage).toHaveBeenCalledWith(
         "session-1",
@@ -395,9 +396,7 @@ describe("SlidesController (extended)", () => {
         timestamp: new Date(),
         state: { pages: [{ pageNumber: 1 }] },
       } as never);
-      mocks.prismaService.slidesMission.findFirst.mockResolvedValue(
-        null,
-      );
+      mocks.prismaService.slidesMission.findFirst.mockResolvedValue(null);
 
       const result = await controller.getSession("session-1");
 
@@ -456,7 +455,9 @@ describe("SlidesController (extended)", () => {
 
   describe("deleteSession()", () => {
     it("should delete session and return success message", async () => {
-      mocks.checkpointService.deleteSession.mockResolvedValue(undefined as never);
+      mocks.checkpointService.deleteSession.mockResolvedValue(
+        undefined as never,
+      );
 
       const result = await controller.deleteSession("session-1");
 
@@ -607,9 +608,9 @@ describe("SlidesController (extended)", () => {
 
   describe("updateSubscription()", () => {
     it("should unsubscribe by setting sourceSubscription to null", async () => {
-      mocks.prismaService.slidesMission.updateMany.mockResolvedValue(
-        { count: 1 },
-      );
+      mocks.prismaService.slidesMission.updateMany.mockResolvedValue({
+        count: 1,
+      });
 
       const result = await controller.updateSubscription(
         mockAuthenticatedRequest as unknown as import("../../../../../common/types/express-request.types").RequestWithUser,
@@ -877,9 +878,7 @@ describe("SlidesController (extended)", () => {
   describe("factCheck()", () => {
     it("should run fact check in normal mode", async () => {
       const factCheckResult = { issues: [], accuracy: 95 };
-      mocks.aiEditService.factCheck.mockResolvedValue(
-        factCheckResult as never,
-      );
+      mocks.aiEditService.factCheck.mockResolvedValue(factCheckResult as never);
 
       await controller.factCheck(
         mockAuthenticatedRequest as unknown as import("../../../../../common/types/express-request.types").RequestWithUser,
@@ -895,9 +894,7 @@ describe("SlidesController (extended)", () => {
     });
 
     it("should run fact check in strict mode", async () => {
-      mocks.aiEditService.factCheck.mockResolvedValue(
-        { issues: [] } as never,
-      );
+      mocks.aiEditService.factCheck.mockResolvedValue({ issues: [] } as never);
 
       await controller.factCheck(
         mockAuthenticatedRequest as unknown as import("../../../../../common/types/express-request.types").RequestWithUser,
@@ -973,7 +970,10 @@ describe("SlidesController (extended)", () => {
         .mockResolvedValueOnce(null as never);
 
       mocks.prismaService.slidesMission.findMany.mockResolvedValue([
-        { sessionId: "session-1", sourceSubscription: { type: "topic-insights", sourceId: "t1" } },
+        {
+          sessionId: "session-1",
+          sourceSubscription: { type: "topic-insights", sourceId: "t1" },
+        },
       ]);
 
       const result = await controller.getSessions(
@@ -989,14 +989,18 @@ describe("SlidesController (extended)", () => {
       mocks.checkpointService.getSessions.mockResolvedValue([
         { id: "session-1", title: "Test" },
       ] as never);
-      mocks.checkpointService.getLatestCheckpoint.mockResolvedValue(null as never);
+      mocks.checkpointService.getLatestCheckpoint.mockResolvedValue(
+        null as never,
+      );
       mocks.prismaService.slidesMission.findMany.mockResolvedValue([]);
 
       const result = await controller.getSessions(
         mockAuthenticatedRequest as unknown as import("../../../../../common/types/express-request.types").RequestWithUser,
       );
 
-      const sessions = (result as { sessions: Array<{ sourceSubscription: unknown }> }).sessions;
+      const sessions = (
+        result as { sessions: Array<{ sourceSubscription: unknown }> }
+      ).sessions;
       expect(sessions[0].sourceSubscription).toBeNull();
     });
 
@@ -1020,7 +1024,9 @@ describe("SlidesController (extended)", () => {
   describe("listResearchSources()", () => {
     it("should return research sources list", async () => {
       const sources = [{ id: "topic-1", name: "AI Research" }];
-      mocks.dataImportService.listResearchTopics.mockResolvedValue(sources as never);
+      mocks.dataImportService.listResearchTopics.mockResolvedValue(
+        sources as never,
+      );
 
       const result = await controller.listResearchSources(
         mockAuthenticatedRequest as unknown as import("../../../../../common/types/express-request.types").RequestWithUser,
@@ -1102,7 +1108,10 @@ describe("SlidesController (extended)", () => {
 
   describe("fixLayout()", () => {
     it("should fix layout for specified mission and page", async () => {
-      const fixResult = { html: "<div>Fixed HTML</div>", changes: ["Aligned columns"] };
+      const fixResult = {
+        html: "<div>Fixed HTML</div>",
+        changes: ["Aligned columns"],
+      };
       mocks.aiEditService.fixLayout.mockResolvedValue(fixResult as never);
 
       const result = await controller.fixLayout(
@@ -1417,7 +1426,9 @@ describe("SlidesController (extended)", () => {
         id: "session-1",
         title: "Test",
       } as never);
-      mocks.checkpointService.getLatestCheckpoint.mockResolvedValue(null as never);
+      mocks.checkpointService.getLatestCheckpoint.mockResolvedValue(
+        null as never,
+      );
       mocks.prismaService.slidesMission.findFirst.mockResolvedValue({
         sourceSubscription: { type: "research-project", sourceId: "proj-1" },
       });
@@ -1508,9 +1519,7 @@ describe("SlidesController (extended)", () => {
         id: "mission-1",
         userId: mockUserId,
         sourceText: "Source content",
-        pages: [
-          { index: 0, title: "Slide 1", html: "<div>Content</div>" },
-        ],
+        pages: [{ index: 0, title: "Slide 1", html: "<div>Content</div>" }],
       };
       mocks.prismaService.slidesMission.findUnique.mockResolvedValue(
         mockMission,

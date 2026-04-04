@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { Prisma, WritingProject, WritingVolume, WritingChapter } from "@prisma/client";
+import {
+  Prisma,
+  WritingProject,
+  WritingVolume,
+  WritingChapter,
+} from "@prisma/client";
 
 /**
  * Writing Repository
@@ -96,9 +101,7 @@ export class WritingRepository {
   /**
    * 统计项目数量
    */
-  async countProjects(
-    where: Prisma.WritingProjectWhereInput,
-  ): Promise<number> {
+  async countProjects(where: Prisma.WritingProjectWhereInput): Promise<number> {
     return this.prisma.writingProject.count({ where });
   }
 
@@ -205,10 +208,7 @@ export class WritingRepository {
     return this.prisma.writingChapter.findMany({
       where: { volume: { projectId } },
       include,
-      orderBy: [
-        { volume: { volumeNumber: "asc" } },
-        { chapterNumber: "asc" },
-      ],
+      orderBy: [{ volume: { volumeNumber: "asc" } }, { chapterNumber: "asc" }],
     });
   }
 

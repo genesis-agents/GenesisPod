@@ -5,11 +5,20 @@
 
 import { Logger } from "@nestjs/common";
 import { BaseAgent } from "../base-agent";
-import { AgentContext, AgentInput, AgentOutput, AgentCapability } from "../../abstractions/agent.interface";
+import {
+  AgentContext,
+  AgentInput,
+  AgentOutput,
+  AgentCapability,
+} from "../../abstractions/agent.interface";
 import { ExecutionMode } from "../../../core";
 import { ToolRegistry } from "../../../tools/registry";
 import { SkillRegistry } from "../../../skills/registry";
-import { ILLMAdapter, LLMResponse, LLMToolDefinition } from "../../../llm/abstractions";
+import {
+  ILLMAdapter,
+  LLMResponse,
+  LLMToolDefinition,
+} from "../../../llm/abstractions";
 
 // ---------------------------------------------------------------------------
 // Concrete test double
@@ -25,8 +34,10 @@ class TestAgent extends BaseAgent<AgentInput, AgentOutput> {
   ];
 
   // allow injection of custom doExecute behaviour
-  doExecuteImpl: (input: AgentInput, context: AgentContext) => Promise<AgentOutput> =
-    async (_input, _context) => ({ message: "ok" });
+  doExecuteImpl: (
+    input: AgentInput,
+    context: AgentContext,
+  ) => Promise<AgentOutput> = async (_input, _context) => ({ message: "ok" });
 
   protected async doExecute(
     input: AgentInput,
@@ -36,11 +47,19 @@ class TestAgent extends BaseAgent<AgentInput, AgentOutput> {
   }
 
   // Expose protected helpers for testing
-  public exposedCallTool<T>(toolId: string, toolInput: unknown, ctx: AgentContext) {
+  public exposedCallTool<T>(
+    toolId: string,
+    toolInput: unknown,
+    ctx: AgentContext,
+  ) {
     return this.callTool<T>(toolId, toolInput, ctx);
   }
 
-  public exposedCallSkill<TIn, TOut>(skillId: string, input: TIn, ctx: AgentContext) {
+  public exposedCallSkill<TIn, TOut>(
+    skillId: string,
+    input: TIn,
+    ctx: AgentContext,
+  ) {
     return this.callSkill<TIn, TOut>(skillId, input, ctx);
   }
 
@@ -127,24 +146,32 @@ describe("BaseAgent", () => {
     it("setToolRegistry stores the registry", () => {
       const registry = {} as ToolRegistry;
       agent.setToolRegistry(registry);
-      expect((agent as unknown as { toolRegistry: ToolRegistry }).toolRegistry).toBe(registry);
+      expect(
+        (agent as unknown as { toolRegistry: ToolRegistry }).toolRegistry,
+      ).toBe(registry);
     });
 
     it("setSkillRegistry stores the registry", () => {
       const registry = {} as SkillRegistry;
       agent.setSkillRegistry(registry);
-      expect((agent as unknown as { skillRegistry: SkillRegistry }).skillRegistry).toBe(registry);
+      expect(
+        (agent as unknown as { skillRegistry: SkillRegistry }).skillRegistry,
+      ).toBe(registry);
     });
 
     it("setLLMAdapter stores the adapter", () => {
       const adapter = {} as ILLMAdapter;
       agent.setLLMAdapter(adapter);
-      expect((agent as unknown as { llmAdapter: ILLMAdapter }).llmAdapter).toBe(adapter);
+      expect((agent as unknown as { llmAdapter: ILLMAdapter }).llmAdapter).toBe(
+        adapter,
+      );
     });
 
     it("setSystemPrompt stores the prompt", () => {
       agent.setSystemPrompt("You are helpful.");
-      expect((agent as unknown as { systemPrompt: string }).systemPrompt).toBe("You are helpful.");
+      expect((agent as unknown as { systemPrompt: string }).systemPrompt).toBe(
+        "You are helpful.",
+      );
     });
   });
 
@@ -308,7 +335,9 @@ describe("BaseAgent", () => {
     });
 
     it("throws when tool is not registered in the registry", async () => {
-      const registry = { tryGet: jest.fn().mockReturnValue(undefined) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(undefined),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       await expect(
@@ -319,7 +348,9 @@ describe("BaseAgent", () => {
     it("calls tool.execute and returns its result", async () => {
       const toolResult = { success: true, data: { answer: 42 } };
       const tool = { execute: jest.fn().mockResolvedValue(toolResult) };
-      const registry = { tryGet: jest.fn().mockReturnValue(tool) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       const result = await agent.exposedCallTool<{ answer: number }>(
@@ -345,7 +376,9 @@ describe("BaseAgent", () => {
     });
 
     it("throws when skill is not found in registry", async () => {
-      const registry = { tryGet: jest.fn().mockReturnValue(undefined) } as unknown as SkillRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(undefined),
+      } as unknown as SkillRegistry;
       agent.setSkillRegistry(registry);
 
       await expect(
@@ -356,7 +389,9 @@ describe("BaseAgent", () => {
     it("calls skill.execute and returns its result", async () => {
       const skillResult = { success: true, data: "done" };
       const skill = { execute: jest.fn().mockResolvedValue(skillResult) };
-      const registry = { tryGet: jest.fn().mockReturnValue(skill) } as unknown as SkillRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(skill),
+      } as unknown as SkillRegistry;
       agent.setSkillRegistry(registry);
 
       const result = await agent.exposedCallSkill<unknown, string>(
@@ -393,7 +428,9 @@ describe("BaseAgent", () => {
       } as unknown as ILLMAdapter;
       agent.setLLMAdapter(adapter);
 
-      const response = await agent.exposedCallLLM([{ role: "user", content: "hi" }]);
+      const response = await agent.exposedCallLLM([
+        { role: "user", content: "hi" },
+      ]);
 
       expect(response.content).toBe("Hello!");
       expect(agent.getStats().totalTokensUsed).toBe(10);
@@ -468,7 +505,10 @@ describe("BaseAgent", () => {
 
   describe("buildMessages", () => {
     it("returns a message list with only user message when no systemPrompt or memory", () => {
-      const messages = agent.exposedBuildMessages("What is 2+2?", makeContext());
+      const messages = agent.exposedBuildMessages(
+        "What is 2+2?",
+        makeContext(),
+      );
       expect(messages).toHaveLength(1);
       expect(messages[0]).toEqual({ role: "user", content: "What is 2+2?" });
     });
@@ -476,16 +516,17 @@ describe("BaseAgent", () => {
     it("prepends system prompt when set", () => {
       agent.setSystemPrompt("You are helpful.");
       const messages = agent.exposedBuildMessages("hi", makeContext());
-      expect(messages[0]).toEqual({ role: "system", content: "You are helpful." });
+      expect(messages[0]).toEqual({
+        role: "system",
+        content: "You are helpful.",
+      });
       expect(messages[1]).toEqual({ role: "user", content: "hi" });
     });
 
     it("includes history messages from context.memory", () => {
       const ctx = makeContext({
         memory: {
-          messages: [
-            { role: "assistant", content: "previous reply" },
-          ],
+          messages: [{ role: "assistant", content: "previous reply" }],
         },
       });
       const messages = agent.exposedBuildMessages("next question", ctx);
@@ -506,14 +547,17 @@ describe("BaseAgent", () => {
     });
 
     it("parses JSON wrapped in markdown code fence", () => {
-      const content = "```json\n{\"x\": 2}\n```";
+      const content = '```json\n{"x": 2}\n```';
       const result = agent.exposedParseJsonResponse<{ x: number }>(content);
       expect(result).toEqual({ x: 2 });
     });
 
     it("returns fallback on parse failure when fallback is provided", () => {
       const fallback = { x: 99 };
-      const result = agent.exposedParseJsonResponse<{ x: number }>("not json", fallback);
+      const result = agent.exposedParseJsonResponse<{ x: number }>(
+        "not json",
+        fallback,
+      );
       expect(result).toEqual(fallback);
     });
 

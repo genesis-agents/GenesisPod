@@ -215,7 +215,8 @@ describe("extractSectionItems — strategy fallthrough", () => {
 
 describe("extractTrendsFromContent", () => {
   it("returns an array of Trend objects", () => {
-    const content = "## 趋势\n- **AI adoption** is accelerating rapidly globally";
+    const content =
+      "## 趋势\n- **AI adoption** is accelerating rapidly globally";
     const trends = extractTrendsFromContent(content);
     expect(Array.isArray(trends)).toBe(true);
     if (trends.length > 0) {
@@ -233,7 +234,8 @@ describe("extractTrendsFromContent", () => {
   });
 
   it("uses the trend keyword to find relevant sections", () => {
-    const content = "## trend\n- **rapid growth** across multiple sectors globally";
+    const content =
+      "## trend\n- **rapid growth** across multiple sectors globally";
     const trends = extractTrendsFromContent(content);
     expect(trends.length).toBeGreaterThan(0);
     expect(trends[0].trend).toContain("rapid growth");

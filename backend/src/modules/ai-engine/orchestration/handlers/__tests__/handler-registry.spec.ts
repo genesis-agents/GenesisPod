@@ -93,9 +93,7 @@ describe("WorkflowHandlerRegistry", () => {
       registry.register(makeHandler("ti:dup"));
 
       expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("ti:dup"),
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("ti:dup"));
     });
 
     it("does not warn on the first registration", () => {

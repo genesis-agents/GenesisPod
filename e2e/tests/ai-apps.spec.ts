@@ -69,13 +69,10 @@ test.describe("Ask Module (/ai-ask)", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.post(
-      `${apiBase}/api/v1/ask/sessions`,
-      {
-        headers: { ...headers, "Content-Type": "application/json" },
-        data: { title: "E2E test session" },
-      },
-    );
+    const response = await page.request.post(`${apiBase}/api/v1/ask/sessions`, {
+      headers: { ...headers, "Content-Type": "application/json" },
+      data: { title: "E2E test session" },
+    });
 
     // Expect 201 Created or 200 OK
     expect(
@@ -99,12 +96,15 @@ test.describe("Ask Module (/ai-ask)", () => {
       headers,
     });
 
-    expect(response.ok(), `GET /ask/sessions returned ${response.status()}`).toBeTruthy();
+    expect(
+      response.ok(),
+      `GET /ask/sessions returned ${response.status()}`,
+    ).toBeTruthy();
 
     const body = await response.json();
     const sessions = body.data ?? body;
     // May be an array directly or wrapped in { items, total }
-    const list = Array.isArray(sessions) ? sessions : sessions.items ?? [];
+    const list = Array.isArray(sessions) ? sessions : (sessions.items ?? []);
     expect(Array.isArray(list), "Sessions should be an array").toBe(true);
   });
 });
@@ -126,7 +126,9 @@ test.describe("Explore / Library (/explore)", () => {
     const bodyText = await page.locator("body").innerText();
     expect(
       bodyText.length > 50,
-      "Explore page should have meaningful content (got " + bodyText.length + " chars)",
+      "Explore page should have meaningful content (got " +
+        bodyText.length +
+        " chars)",
     ).toBe(true);
   });
 
@@ -142,10 +144,14 @@ test.describe("Explore / Library (/explore)", () => {
   test("page shows search or resource list interface", async ({ page }) => {
     // Either a search input or a list of resource cards must be visible.
     // ExploreContent renders a search bar or tabs for resource browsing.
-    const searchInput = page.locator("input[type='search'], input[type='text'], input[placeholder]");
+    const searchInput = page.locator(
+      "input[type='search'], input[type='text'], input[placeholder]",
+    );
     const hasSearch = (await searchInput.count()) > 0;
 
-    const resourceList = page.locator("main, [role='main'], .resource, article");
+    const resourceList = page.locator(
+      "main, [role='main'], .resource, article",
+    );
     const hasContent = (await resourceList.count()) > 0;
 
     expect(
@@ -174,8 +180,13 @@ test.describe("Explore / Library (/explore)", () => {
     const body = await response.json();
     const payload = body.data ?? body;
     // Response should be an object with items array (or array directly)
-    const items = Array.isArray(payload) ? payload : payload.items ?? payload.data ?? [];
-    expect(Array.isArray(items), "Resources response should contain an items array").toBe(true);
+    const items = Array.isArray(payload)
+      ? payload
+      : (payload.items ?? payload.data ?? []);
+    expect(
+      Array.isArray(items),
+      "Resources response should contain an items array",
+    ).toBe(true);
   });
 });
 
@@ -190,16 +201,24 @@ test.describe("Research Module (/ai-research)", () => {
   });
 
   test("page loads and shows research interface", async ({ page }) => {
-    await expect(page.locator("h1, h2").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("h1, h2").first()).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test("page shows project list or creation option", async ({ page }) => {
     // Either project cards, a "create" button, or any interactive content
-    const createButton = page.getByRole("button", { name: /create|new|start/i });
-    const projectCard = page.locator(
-      "[class*='project'], [class*='card'], [class*='research'], [class*='topic']",
-    ).first();
-    const emptyState = page.getByText(/no.*topic|no.*research|empty|get started|create/i);
+    const createButton = page.getByRole("button", {
+      name: /create|new|start/i,
+    });
+    const projectCard = page
+      .locator(
+        "[class*='project'], [class*='card'], [class*='research'], [class*='topic']",
+      )
+      .first();
+    const emptyState = page.getByText(
+      /no.*topic|no.*research|empty|get started|create/i,
+    );
 
     await page.waitForTimeout(3000);
     const hasCreate = (await createButton.count()) > 0;
@@ -240,8 +259,12 @@ test.describe("Research Module (/ai-research)", () => {
     const body = await response.json();
     const payload = body.data ?? body;
     // May be array or paginated { items, total }
-    const list = Array.isArray(payload) ? payload : payload.items ?? payload.projects ?? [];
-    expect(Array.isArray(list), "Projects response should be an array").toBe(true);
+    const list = Array.isArray(payload)
+      ? payload
+      : (payload.items ?? payload.projects ?? []);
+    expect(Array.isArray(list), "Projects response should be an array").toBe(
+      true,
+    );
   });
 });
 
@@ -267,7 +290,9 @@ test.describe("Writing Module (/ai-writing)", () => {
     await page.waitForTimeout(3000);
 
     // Writing page renders a list of projects or a create/start button
-    const createButton = page.getByRole("button", { name: /create|new|start|write/i });
+    const createButton = page.getByRole("button", {
+      name: /create|new|start|write/i,
+    });
     const hasCreate = (await createButton.count()) > 0;
 
     // Or an h1/h2 heading should be present
@@ -299,8 +324,13 @@ test.describe("Writing Module (/ai-writing)", () => {
 
     const body = await response.json();
     const payload = body.data ?? body;
-    const list = Array.isArray(payload) ? payload : payload.items ?? payload.projects ?? [];
-    expect(Array.isArray(list), "Writing projects response should be an array").toBe(true);
+    const list = Array.isArray(payload)
+      ? payload
+      : (payload.items ?? payload.projects ?? []);
+    expect(
+      Array.isArray(list),
+      "Writing projects response should be an array",
+    ).toBe(true);
   });
 
   test("API: GET /ai-writing/style-presets returns presets", async ({
@@ -323,7 +353,7 @@ test.describe("Writing Module (/ai-writing)", () => {
 
     const body = await response.json();
     const payload = body.data ?? body;
-    const list = Array.isArray(payload) ? payload : payload.items ?? [];
+    const list = Array.isArray(payload) ? payload : (payload.items ?? []);
     expect(Array.isArray(list), "Style presets should be an array").toBe(true);
   });
 });
@@ -381,8 +411,10 @@ test.describe("Teams Module (/ai-teams)", () => {
     const payload = body.data ?? body;
     const list = Array.isArray(payload)
       ? payload
-      : payload.items ?? payload.topics ?? [];
-    expect(Array.isArray(list), "Topics response should be an array").toBe(true);
+      : (payload.items ?? payload.topics ?? []);
+    expect(Array.isArray(list), "Topics response should be an array").toBe(
+      true,
+    );
   });
 
   test("API: GET /api/ai/teams returns engine team configs", async ({
@@ -394,10 +426,9 @@ test.describe("Teams Module (/ai-teams)", () => {
     const headers = await getAuthHeader(page);
 
     // AI Engine teams registry endpoint — lists registered team configs
-    const response = await page.request.get(
-      `${apiBase}/api/v1/api/ai/teams`,
-      { headers },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/api/ai/teams`, {
+      headers,
+    });
 
     expect(
       response.ok(),
@@ -406,7 +437,7 @@ test.describe("Teams Module (/ai-teams)", () => {
 
     const body = await response.json();
     const payload = body.data ?? body;
-    const list = Array.isArray(payload) ? payload : payload.items ?? [];
+    const list = Array.isArray(payload) ? payload : (payload.items ?? []);
     expect(Array.isArray(list), "Team configs should be an array").toBe(true);
   });
 });
@@ -416,7 +447,9 @@ test.describe("Teams Module (/ai-teams)", () => {
 // ---------------------------------------------------------------------------
 test.describe("Data Management Page (/admin/data-management)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/data-management", { waitUntil: "domcontentloaded" });
+    await page.goto("/admin/data-management", {
+      waitUntil: "domcontentloaded",
+    });
     await page.waitForTimeout(1000);
   });
 
@@ -455,7 +488,10 @@ test.describe("Data Management Page (/admin/data-management)", () => {
 
     const body = await response.json();
     const payload = body.data ?? body;
-    expect(payload, "Dashboard summary should be a non-null object").toBeTruthy();
+    expect(
+      payload,
+      "Dashboard summary should be a non-null object",
+    ).toBeTruthy();
   });
 });
 
@@ -497,8 +533,13 @@ test.describe("Feedback Page (/admin/feedback)", () => {
 
     const body = await response.json();
     const payload = body.data ?? body;
-    const list = Array.isArray(payload) ? payload : payload.items ?? payload.feedbacks ?? [];
-    expect(Array.isArray(list), "Feedback response should contain an array").toBe(true);
+    const list = Array.isArray(payload)
+      ? payload
+      : (payload.items ?? payload.feedbacks ?? []);
+    expect(
+      Array.isArray(list),
+      "Feedback response should contain an array",
+    ).toBe(true);
   });
 
   test("API: GET /feedback/stats returns counts by type and status", async ({
@@ -562,10 +603,9 @@ test.describe("Cross-Layer Integration", () => {
     // Diagnosis should be a non-empty object (not null, not an empty array)
     expect(diagnosis, "Diagnosis result should be truthy").toBeTruthy();
     // Should be an object with status or breakdown keys
-    expect(
-      typeof diagnosis,
-      "Diagnosis result should be an object",
-    ).toBe("object");
+    expect(typeof diagnosis, "Diagnosis result should be an object").toBe(
+      "object",
+    );
   });
 
   /**
@@ -630,7 +670,10 @@ test.describe("Cross-Layer Integration", () => {
       { headers },
     );
 
-    expect(response.ok(), `GET /admin/overview-stats returned ${response.status()}`).toBeTruthy();
+    expect(
+      response.ok(),
+      `GET /admin/overview-stats returned ${response.status()}`,
+    ).toBeTruthy();
 
     const body = await response.json();
     const stats = body.data ?? body;
@@ -706,7 +749,9 @@ test.describe("Cross-Layer Integration", () => {
 
     const body = await response.json();
     const payload = body.data ?? body;
-    const list = Array.isArray(payload) ? payload : payload.items ?? payload.feed ?? [];
+    const list = Array.isArray(payload)
+      ? payload
+      : (payload.items ?? payload.feed ?? []);
     expect(Array.isArray(list), "Feed should return an array").toBe(true);
   });
 });

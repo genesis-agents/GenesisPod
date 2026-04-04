@@ -45,20 +45,25 @@ tags:
 ## 调查报告: [方向名称]
 
 ### 调查范围
+
 - 检查了哪些文件/模块
 
 ### 发现
+
 - 关键发现 1
 - 关键发现 2
 
 ### 文件引用
+
 - `path/to/file1.ts:line` - 描述
 - `path/to/file2.ts:line` - 描述
 
 ### 结论
+
 - [初步结论]
 
 ### 建议
+
 - [后续建议]
 ```
 
@@ -72,20 +77,24 @@ tags:
 ### 调查方向
 
 #### 方向 1: 前端层
+
 - 目标: 检查 UI 组件和事件处理
 - 范围: frontend/components/**, frontend/hooks/**
 
 #### 方向 2: API 层
+
 - 目标: 检查 API 调用和数据传输
-- 范围: backend/src/modules/**/controller.ts
+- 范围: backend/src/modules/\*\*/controller.ts
 
 #### 方向 3: 服务层
+
 - 目标: 检查业务逻辑
-- 范围: backend/src/modules/**/service.ts
+- 范围: backend/src/modules/\*\*/service.ts
 
 #### 方向 4: 数据层
+
 - 目标: 检查数据模型和查询
-- 范围: backend/prisma/schema.prisma, **/*.repository.ts
+- 范围: backend/prisma/schema.prisma, \*_/_.repository.ts
 ```
 
 ### 架构并行分析
@@ -96,20 +105,24 @@ tags:
 ### 分析方向
 
 #### 方向 1: 入口分析
+
 - 目标: 找到所有入口点
 - 关键词: @Controller, @Get, @Post
 
 #### 方向 2: 依赖分析
+
 - 目标: 找到所有依赖关系
 - 关键词: import, @Inject
 
 #### 方向 3: 导出分析
+
 - 目标: 找到对外暴露的 API
 - 关键词: export, @Public
 
 #### 方向 4: 配置分析
+
 - 目标: 找到相关配置
-- 文件: *.module.ts, *.config.ts
+- 文件: _.module.ts, _.config.ts
 ```
 
 ## 执行流程
@@ -149,19 +162,22 @@ Read: 相关文件
 
 ### 各方向发现
 
-| 方向 | 关键发现 | 置信度 |
-|------|----------|--------|
-| 方向1 | 发现 X | 高 |
-| 方向2 | 发现 Y | 中 |
-| 方向3 | 无发现 | - |
+| 方向  | 关键发现 | 置信度 |
+| ----- | -------- | ------ |
+| 方向1 | 发现 X   | 高     |
+| 方向2 | 发现 Y   | 中     |
+| 方向3 | 无发现   | -      |
 
 ### 交叉验证
+
 - 方向1 和方向2 的发现相互印证
 
 ### 最终结论
+
 根据并行调查结果，问题最可能在 [...]
 
 ### 建议行动
+
 1. 首先检查 [...]
 2. 然后验证 [...]
 ```

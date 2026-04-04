@@ -64,7 +64,9 @@ describe("ContextEvolutionService", () => {
       taskId: "task-1",
       taskTitle: "第一章：宫廷初遇",
       // Content longer than minOutputLength (200 chars) - use ASCII to be safe
-      taskOutput: "A".repeat(250) + " Lin Qingyao is a mute palace maid who meets Prince Xiao Jingchen. They develop feelings for each other under the surveillance of the Eastern Factory.",
+      taskOutput:
+        "A".repeat(250) +
+        " Lin Qingyao is a mute palace maid who meets Prince Xiao Jingchen. They develop feelings for each other under the surveillance of the Eastern Factory.",
       existingFacts: [],
       existingEntities: [],
     };

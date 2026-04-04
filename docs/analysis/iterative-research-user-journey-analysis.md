@@ -288,6 +288,7 @@ void extractInsights(sessionId)
   - 还剩多少轮次
 
 - 前端 `IterationTimeline` 的进度指示器 (line 879-882):
+
   ```
   进度 {iterations.length}/{maxIterations + 1}
   ```

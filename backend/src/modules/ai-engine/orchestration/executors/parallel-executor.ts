@@ -170,7 +170,7 @@ export class ParallelExecutor extends BaseExecutor {
       // 死锁检测：所有 pending 步骤的依赖都指向已失败/跳过节点
       if (!startedAny && running.size === 0) {
         this.logger.error(
-          'Deadlock detected: unresolvable step dependencies, breaking execution loop',
+          "Deadlock detected: unresolvable step dependencies, breaking execution loop",
         );
         break;
       }

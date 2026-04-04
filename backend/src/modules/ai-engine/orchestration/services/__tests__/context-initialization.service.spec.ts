@@ -79,10 +79,7 @@ describe("ContextInitializationService", () => {
     });
 
     it("should detect research content", () => {
-      const result = service.detectContentType(
-        "市场调研报告",
-        "行业分析研究",
-      );
+      const result = service.detectContentType("市场调研报告", "行业分析研究");
 
       expect(result.needed).toBe(true);
       expect(result.contentType).toBe("research");
@@ -106,10 +103,7 @@ describe("ContextInitializationService", () => {
     });
 
     it("should detect based on combined title and description", () => {
-      const result = service.detectContentType(
-        "穿越",
-        "创作一部古代言情故事",
-      );
+      const result = service.detectContentType("穿越", "创作一部古代言情故事");
 
       expect(result.needed).toBe(true);
       expect(result.contentType).toBe("novel");
@@ -284,9 +278,7 @@ describe("ContextInitializationService", () => {
 
       const charConstraints = constraints.filter((c) => c.id.includes("CHAR"));
       expect(charConstraints.length).toBeGreaterThan(0);
-      expect(charConstraints.some((c) => c.rule.includes("林清瑶"))).toBe(
-        true,
-      );
+      expect(charConstraints.some((c) => c.rule.includes("林清瑶"))).toBe(true);
     });
 
     it("should include character special constraints", () => {
@@ -505,7 +497,9 @@ describe("ContextInitializationService", () => {
 
     it("should handle settings with no prohibitions", () => {
       const settingsNoProhibitions = { ...mockSettings, prohibitions: [] };
-      const message = service.formatWorldSettingsMessage(settingsNoProhibitions);
+      const message = service.formatWorldSettingsMessage(
+        settingsNoProhibitions,
+      );
 
       expect(message).not.toContain("禁止事项");
     });

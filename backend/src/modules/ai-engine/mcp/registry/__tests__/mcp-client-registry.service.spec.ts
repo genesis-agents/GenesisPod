@@ -230,7 +230,11 @@ describe("MCPClientRegistryService", () => {
       const mockClient = {
         connected: true,
         listTools: jest.fn().mockResolvedValue([
-          { name: "tool-x", description: "X", inputSchema: { type: "object" } },
+          {
+            name: "tool-x",
+            description: "X",
+            inputSchema: { type: "object" },
+          },
         ]),
       };
       mockMCPManager.getClient.mockReturnValue(mockClient);
@@ -271,9 +275,13 @@ describe("MCPClientRegistryService", () => {
     });
 
     it("should not throw when MCPManager.disconnect errors", async () => {
-      mockMCPManager.disconnect.mockRejectedValue(new Error("disconnect error"));
+      mockMCPManager.disconnect.mockRejectedValue(
+        new Error("disconnect error"),
+      );
 
-      await expect(service.disconnectServer("server-1")).resolves.toBeUndefined();
+      await expect(
+        service.disconnectServer("server-1"),
+      ).resolves.toBeUndefined();
     });
 
     it("should unregister MCP tools from ToolRegistry before disconnecting", async () => {
@@ -286,8 +294,12 @@ describe("MCPClientRegistryService", () => {
 
       await service.disconnectServer("server-1");
 
-      expect(mockToolRegistry.unregister).toHaveBeenCalledWith("mcp:server-1:tool-a");
-      expect(mockToolRegistry.unregister).toHaveBeenCalledWith("mcp:server-1:tool-b");
+      expect(mockToolRegistry.unregister).toHaveBeenCalledWith(
+        "mcp:server-1:tool-a",
+      );
+      expect(mockToolRegistry.unregister).toHaveBeenCalledWith(
+        "mcp:server-1:tool-b",
+      );
       expect(mockToolRegistry.unregister).not.toHaveBeenCalledWith(
         "mcp:other-server:tool-c",
       );
@@ -302,7 +314,13 @@ describe("MCPClientRegistryService", () => {
     });
 
     it("should return tools from the connected client", async () => {
-      const tools = [{ name: "search", description: "Search", inputSchema: { type: "object" } }];
+      const tools = [
+        {
+          name: "search",
+          description: "Search",
+          inputSchema: { type: "object" },
+        },
+      ];
       mockMCPManager.getClient.mockReturnValue({
         connected: true,
         listTools: jest.fn().mockResolvedValue(tools),
@@ -453,7 +471,9 @@ describe("MCPClientRegistryService", () => {
 
     it("should not throw if MCPManager.unregisterServer errors", async () => {
       mockPrisma.mCPServerConfig.findUnique.mockResolvedValue(mockServerRecord);
-      mockMCPManager.unregisterServer.mockRejectedValue(new Error("unreg error"));
+      mockMCPManager.unregisterServer.mockRejectedValue(
+        new Error("unreg error"),
+      );
 
       await expect(service.removeServer("db-id-1")).resolves.toBeDefined();
     });

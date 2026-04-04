@@ -42,13 +42,21 @@ export class ConflictResolutionService {
         case "WARNING":
           // Auto-resolve warning issues with suggestion
           if (issue.suggestion) {
-            return { resolved: true, issue, action: "auto-resolved with suggestion" };
+            return {
+              resolved: true,
+              issue,
+              action: "auto-resolved with suggestion",
+            };
           }
           return { resolved: false, issue, action: "requires manual review" };
 
         case "CRITICAL":
           // Critical issues always require manual resolution
-          return { resolved: false, issue, action: "requires manual resolution" };
+          return {
+            resolved: false,
+            issue,
+            action: "requires manual resolution",
+          };
 
         default:
           return { resolved: false, issue, action: "unknown severity" };

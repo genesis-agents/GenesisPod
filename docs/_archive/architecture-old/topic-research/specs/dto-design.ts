@@ -23,58 +23,58 @@ import {
   IsObject,
   IsDateString,
   IsNumber,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 // ==================== Enums ====================
 
 export enum ResearchTopicType {
-  MACRO = 'MACRO',           // 宏观洞察
-  TECHNOLOGY = 'TECHNOLOGY', // 技术专项
-  COMPANY = 'COMPANY',       // 企业洞察
+  MACRO = "MACRO", // 宏观洞察
+  TECHNOLOGY = "TECHNOLOGY", // 技术专项
+  COMPANY = "COMPANY", // 企业洞察
 }
 
 export enum ResearchTopicStatus {
-  DRAFT = 'DRAFT',       // 草稿
-  ACTIVE = 'ACTIVE',     // 活跃
-  PAUSED = 'PAUSED',     // 暂停
-  ARCHIVED = 'ARCHIVED', // 归档
+  DRAFT = "DRAFT", // 草稿
+  ACTIVE = "ACTIVE", // 活跃
+  PAUSED = "PAUSED", // 暂停
+  ARCHIVED = "ARCHIVED", // 归档
 }
 
 export enum RefreshFrequency {
-  MANUAL = 'MANUAL',       // 手动
-  DAILY = 'DAILY',         // 每日
-  WEEKLY = 'WEEKLY',       // 每周
-  BIWEEKLY = 'BIWEEKLY',   // 双周
-  MONTHLY = 'MONTHLY',     // 每月
+  MANUAL = "MANUAL", // 手动
+  DAILY = "DAILY", // 每日
+  WEEKLY = "WEEKLY", // 每周
+  BIWEEKLY = "BIWEEKLY", // 双周
+  MONTHLY = "MONTHLY", // 每月
 }
 
 export enum DimensionStatus {
-  PENDING = 'PENDING',         // 待处理
-  RESEARCHING = 'RESEARCHING', // 研究中
-  COMPLETED = 'COMPLETED',     // 已完成
-  FAILED = 'FAILED',           // 失败
+  PENDING = "PENDING", // 待处理
+  RESEARCHING = "RESEARCHING", // 研究中
+  COMPLETED = "COMPLETED", // 已完成
+  FAILED = "FAILED", // 失败
 }
 
 export enum RefreshType {
-  FULL = 'FULL',             // 全量刷新
-  INCREMENTAL = 'INCREMENTAL', // 增量刷新
-  DIMENSION = 'DIMENSION',     // 维度刷新
+  FULL = "FULL", // 全量刷新
+  INCREMENTAL = "INCREMENTAL", // 增量刷新
+  DIMENSION = "DIMENSION", // 维度刷新
 }
 
 export enum RefreshPriority {
-  LOW = 'LOW',
-  NORMAL = 'NORMAL',
-  HIGH = 'HIGH',
+  LOW = "LOW",
+  NORMAL = "NORMAL",
+  HIGH = "HIGH",
 }
 
 export enum SourceType {
-  WEB = 'web',
-  ACADEMIC = 'academic',
-  NEWS = 'news',
-  GITHUB = 'github',
-  RSS = 'rss',
-  LOCAL = 'local',
+  WEB = "web",
+  ACADEMIC = "academic",
+  NEWS = "news",
+  GITHUB = "github",
+  RSS = "rss",
+  LOCAL = "local",
 }
 
 // ==================== Topic CRUD DTOs ====================
@@ -269,7 +269,7 @@ export class RefreshStatusDto {
   type!: RefreshType;
 
   @IsString()
-  status!: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status!: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
 
   @IsOptional()
   @IsInt()
@@ -439,8 +439,8 @@ export class ListReportsDto {
  * 导出报告 DTO
  */
 export class ExportReportDto {
-  @IsEnum(['pdf', 'docx'])
-  format!: 'pdf' | 'docx';
+  @IsEnum(["pdf", "docx"])
+  format!: "pdf" | "docx";
 
   @IsOptional()
   @IsBoolean()
@@ -485,8 +485,8 @@ export class ListEvidenceDto {
   minCredibility?: number;
 
   @IsOptional()
-  @IsEnum(['citationIndex', 'credibilityScore', 'publishedAt'])
-  sortBy?: 'citationIndex' | 'credibilityScore' | 'publishedAt';
+  @IsEnum(["citationIndex", "credibilityScore", "publishedAt"])
+  sortBy?: "citationIndex" | "credibilityScore" | "publishedAt";
 
   @IsOptional()
   @IsInt()
@@ -584,8 +584,8 @@ export class ListLogsDto {
   limit?: number;
 
   @IsOptional()
-  @IsEnum(['completed', 'failed', 'running'])
-  status?: 'completed' | 'failed' | 'running';
+  @IsEnum(["completed", "failed", "running"])
+  status?: "completed" | "failed" | "running";
 }
 
 // ==================== Response DTOs ====================
@@ -741,7 +741,7 @@ export class ReportResponseDto {
     title: string;
     content: string;
     dimensionId?: string;
-    importance?: 'LOW' | 'MEDIUM' | 'HIGH';
+    importance?: "LOW" | "MEDIUM" | "HIGH";
   }>;
 
   @IsOptional()
@@ -908,7 +908,7 @@ export class RefreshJobResponseDto {
   type!: RefreshType;
 
   @IsString()
-  status!: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status!: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
 
   @IsOptional()
   @IsInt()
@@ -931,8 +931,8 @@ export class ExportResultDto {
   @IsInt()
   fileSize!: number; // bytes
 
-  @IsEnum(['pdf', 'docx'])
-  format!: 'pdf' | 'docx';
+  @IsEnum(["pdf", "docx"])
+  format!: "pdf" | "docx";
 }
 
 /**
@@ -1005,7 +1005,7 @@ export class RefreshLogResponseDto {
   topicId!: string;
 
   @IsString()
-  triggerType!: 'manual' | 'scheduled';
+  triggerType!: "manual" | "scheduled";
 
   @IsDateString()
   startedAt!: string;
@@ -1015,7 +1015,7 @@ export class RefreshLogResponseDto {
   completedAt?: string;
 
   @IsString()
-  status!: 'pending' | 'running' | 'completed' | 'failed';
+  status!: "pending" | "running" | "completed" | "failed";
 
   @IsOptional()
   @IsString()
@@ -1123,7 +1123,7 @@ export class SSEEventDto {
  * 刷新开始事件
  */
 export class RefreshStartEventDto extends SSEEventDto {
-  event = 'start';
+  event = "start";
   data!: {
     topicId: string;
     type: RefreshType;
@@ -1135,7 +1135,7 @@ export class RefreshStartEventDto extends SSEEventDto {
  * 维度进度事件
  */
 export class DimensionProgressEventDto extends SSEEventDto {
-  event!: 'dimension:start' | 'dimension:progress' | 'dimension:complete';
+  event!: "dimension:start" | "dimension:progress" | "dimension:complete";
   data!: {
     dimensionId: string;
     name?: string;
@@ -1152,7 +1152,7 @@ export class DimensionProgressEventDto extends SSEEventDto {
  * 报告生成事件
  */
 export class ReportGenerationEventDto extends SSEEventDto {
-  event!: 'report:start' | 'report:progress' | 'report:complete';
+  event!: "report:start" | "report:progress" | "report:complete";
   data!: {
     reportId?: string;
     version?: number;
@@ -1165,7 +1165,7 @@ export class ReportGenerationEventDto extends SSEEventDto {
  * 完成/错误事件
  */
 export class CompletionEventDto extends SSEEventDto {
-  event!: 'complete' | 'error';
+  event!: "complete" | "error";
   data!: {
     reportId?: string;
     totalSources?: number;

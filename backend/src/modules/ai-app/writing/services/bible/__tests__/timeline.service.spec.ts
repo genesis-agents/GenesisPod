@@ -49,7 +49,9 @@ describe("TimelineService", () => {
 
   describe("create", () => {
     it("should create a timeline event with all fields", async () => {
-      (mockPrisma.timelineEvent.create as jest.Mock).mockResolvedValue(mockEvent);
+      (mockPrisma.timelineEvent.create as jest.Mock).mockResolvedValue(
+        mockEvent,
+      );
 
       const result = await service.create("bible-1", {
         eventName: "初次进宫",
@@ -121,7 +123,9 @@ describe("TimelineService", () => {
         { ...mockEvent, storyTime: "大汉元年" },
         { ...mockEvent, id: "event-2", storyTime: "大汉二年" },
       ];
-      (mockPrisma.timelineEvent.findMany as jest.Mock).mockResolvedValue(events);
+      (mockPrisma.timelineEvent.findMany as jest.Mock).mockResolvedValue(
+        events,
+      );
 
       const result = await service.findAll("bible-1");
 
@@ -144,9 +148,13 @@ describe("TimelineService", () => {
   describe("update", () => {
     it("should update timeline event", async () => {
       const updatedEvent = { ...mockEvent, eventName: "更新后的事件" };
-      (mockPrisma.timelineEvent.update as jest.Mock).mockResolvedValue(updatedEvent);
+      (mockPrisma.timelineEvent.update as jest.Mock).mockResolvedValue(
+        updatedEvent,
+      );
 
-      const result = await service.update("event-1", { eventName: "更新后的事件" });
+      const result = await service.update("event-1", {
+        eventName: "更新后的事件",
+      });
 
       expect(mockPrisma.timelineEvent.update).toHaveBeenCalledWith({
         where: { id: "event-1" },
@@ -172,7 +180,9 @@ describe("TimelineService", () => {
 
   describe("delete", () => {
     it("should delete timeline event by id", async () => {
-      (mockPrisma.timelineEvent.delete as jest.Mock).mockResolvedValue(mockEvent);
+      (mockPrisma.timelineEvent.delete as jest.Mock).mockResolvedValue(
+        mockEvent,
+      );
 
       await service.delete("event-1");
 
@@ -182,7 +192,9 @@ describe("TimelineService", () => {
     });
 
     it("should return the deleted event", async () => {
-      (mockPrisma.timelineEvent.delete as jest.Mock).mockResolvedValue(mockEvent);
+      (mockPrisma.timelineEvent.delete as jest.Mock).mockResolvedValue(
+        mockEvent,
+      );
 
       const result = await service.delete("event-1");
 

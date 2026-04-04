@@ -29,20 +29,20 @@ const response = await this.aiChatService.chat({
 
 ### TaskProfile 预设
 
-| creativity | temperature | 场景 |
-|------------|-------------|------|
-| deterministic | 0.1 | 分类、提取、JSON |
-| low | 0.3 | 分析、总结 |
-| medium | 0.7 | 对话、研究 |
-| high | 0.9 | 创意写作 |
+| creativity    | temperature | 场景             |
+| ------------- | ----------- | ---------------- |
+| deterministic | 0.1         | 分类、提取、JSON |
+| low           | 0.3         | 分析、总结       |
+| medium        | 0.7         | 对话、研究       |
+| high          | 0.9         | 创意写作         |
 
-| outputLength | maxTokens | 场景 |
-|--------------|-----------|------|
-| minimal | 500 | 分类标签 |
-| short | 1500 | 摘要 |
-| medium | 4000 | 标准分析 |
-| long | 8000 | 报告章节 |
-| extended | 16000 | 完整文档 |
+| outputLength | maxTokens | 场景     |
+| ------------ | --------- | -------- |
+| minimal      | 500       | 分类标签 |
+| short        | 1500      | 摘要     |
+| medium       | 4000      | 标准分析 |
+| long         | 8000      | 报告章节 |
+| extended     | 16000     | 完整文档 |
 
 ## 架构原则
 

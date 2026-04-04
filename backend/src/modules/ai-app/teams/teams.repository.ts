@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { Prisma, Topic, TopicMember, TopicAIMember, TopicMessage } from "@prisma/client";
+import {
+  Prisma,
+  Topic,
+  TopicMember,
+  TopicAIMember,
+  TopicMessage,
+} from "@prisma/client";
 
 /**
  * Teams Repository
@@ -361,10 +367,7 @@ export class TeamsRepository {
   /**
    * 查找话题的资源
    */
-  async findResources(
-    topicId: string,
-    include?: Prisma.TopicResourceInclude,
-  ) {
+  async findResources(topicId: string, include?: Prisma.TopicResourceInclude) {
     return this.prisma.topicResource.findMany({
       where: { topicId },
       include,
@@ -406,10 +409,7 @@ export class TeamsRepository {
   /**
    * 查找话题的摘要
    */
-  async findSummaries(
-    topicId: string,
-    include?: Prisma.TopicSummaryInclude,
-  ) {
+  async findSummaries(topicId: string, include?: Prisma.TopicSummaryInclude) {
     return this.prisma.topicSummary.findMany({
       where: { topicId },
       include,

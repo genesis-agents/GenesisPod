@@ -21,9 +21,10 @@ import {
  * 基础工具抽象类
  * 提供最小化的工具实现框架
  */
-export abstract class BaseTool<TInput = unknown, TOutput = unknown>
-  implements ITool<TInput, TOutput>
-{
+export abstract class BaseTool<
+  TInput = unknown,
+  TOutput = unknown,
+> implements ITool<TInput, TOutput> {
   /**
    * 工具 ID
    */

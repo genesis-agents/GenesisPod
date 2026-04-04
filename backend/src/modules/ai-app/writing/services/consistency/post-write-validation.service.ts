@@ -100,7 +100,9 @@ export class PostWriteValidationService {
         if (appearance) {
           // Check for conflicting descriptions
           // This is a simplified check - could be enhanced with NLP
-          for (const [_key, value] of Object.entries(appearance as Record<string, unknown>)) {
+          for (const [_key, value] of Object.entries(
+            appearance as Record<string, unknown>,
+          )) {
             if (typeof value === "string" && value.length > 0) {
               // Look for contradicting descriptions
               // Placeholder logic - would need NLP in production

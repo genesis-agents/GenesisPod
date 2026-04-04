@@ -91,7 +91,11 @@ describe("SessionMemorySidecarService", () => {
       const entries = service.getEntries("sess-prune");
       expect(entries).toHaveLength(3);
       // 'first' is the evicted entry
-      expect(entries.map((e) => e.content)).toEqual(["second", "third", "fourth"]);
+      expect(entries.map((e) => e.content)).toEqual([
+        "second",
+        "third",
+        "fourth",
+      ]);
     });
   });
 
@@ -169,7 +173,10 @@ describe("SessionMemorySidecarService", () => {
       for (let i = 0; i < 20; i++) {
         service.addEntry(
           "limit-sess",
-          makeEntry("finding", `This is finding number ${i} with some extra text to pad`),
+          makeEntry(
+            "finding",
+            `This is finding number ${i} with some extra text to pad`,
+          ),
         );
       }
 

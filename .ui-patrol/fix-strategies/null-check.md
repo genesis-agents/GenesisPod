@@ -1,9 +1,11 @@
 # Fix Strategy: Null Check
 
 ## Issue
+
 Data is undefined or null, causing runtime errors or displaying raw "[object Object]", "undefined", or "NaN".
 
 ## Pattern
+
 ```typescript
 // Before (crashes when data is undefined)
 {data.items.map(item => <Card key={item.id} />)}
@@ -13,6 +15,7 @@ Data is undefined or null, causing runtime errors or displaying raw "[object Obj
 ```
 
 ## Steps
+
 1. Read {{source_file}}
 2. Find the component that renders data from API
 3. Add optional chaining (?.) on all data access chains

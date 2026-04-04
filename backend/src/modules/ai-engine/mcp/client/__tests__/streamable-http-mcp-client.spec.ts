@@ -82,7 +82,10 @@ function setupConnectMocks(options?: { sessionId?: string }) {
 
   mockClient.post
     .mockResolvedValueOnce(
-      jsonResponse({ jsonrpc: "2.0", id: 1, result: INIT_RESULT }, options?.sessionId),
+      jsonResponse(
+        { jsonrpc: "2.0", id: 1, result: INIT_RESULT },
+        options?.sessionId,
+      ),
     )
     .mockResolvedValueOnce(acceptedResponse());
 
@@ -119,7 +122,9 @@ describe("StreamableHttpMCPClient", () => {
 
   describe("doConnect", () => {
     it("throws when URL is missing", async () => {
-      const noUrlClient = new StreamableHttpMCPClient(makeConfig({ url: undefined }));
+      const noUrlClient = new StreamableHttpMCPClient(
+        makeConfig({ url: undefined }),
+      );
       setupConnectMocks();
       await expect(noUrlClient.connect()).rejects.toThrow(
         "URL is required for HTTP transport",
@@ -143,13 +148,17 @@ describe("StreamableHttpMCPClient", () => {
     });
 
     it("includes Authorization header when API_KEY env is set", async () => {
-      const c = new StreamableHttpMCPClient(makeConfig({ env: { API_KEY: "my-secret" } }));
+      const c = new StreamableHttpMCPClient(
+        makeConfig({ env: { API_KEY: "my-secret" } }),
+      );
       setupConnectMocks();
       await c.connect();
 
       expect(mockedAxios.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: "Bearer my-secret" }),
+          headers: expect.objectContaining({
+            Authorization: "Bearer my-secret",
+          }),
         }),
       );
     });
@@ -177,7 +186,9 @@ describe("StreamableHttpMCPClient", () => {
       await client.connect();
       const callsBefore = (mockedAxios.create as jest.Mock).mock.calls.length;
       await client.connect(); // second call should be no-op
-      expect((mockedAxios.create as jest.Mock).mock.calls.length).toBe(callsBefore);
+      expect((mockedAxios.create as jest.Mock).mock.calls.length).toBe(
+        callsBefore,
+      );
     });
 
     it("is disconnected after disconnect()", async () => {
@@ -235,7 +246,9 @@ describe("StreamableHttpMCPClient", () => {
       const axiosError = Object.assign(new Error("Bad Request"), {
         response: { status: 400, data: "bad input" },
       });
-      (axios.isAxiosError as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
+      (axios.isAxiosError as unknown as jest.Mock) = jest
+        .fn()
+        .mockReturnValue(true);
       mockClient.post.mockRejectedValueOnce(axiosError);
 
       await expect(client.listTools()).rejects.toThrow("HTTP 400");
@@ -253,7 +266,9 @@ describe("StreamableHttpMCPClient", () => {
       // Actually: requestId increments in sendRequest only, not sendNotification
       // initialize = id 1; notifications/initialized uses sendNotification (no id increment)
       // listTools = id 2
-      const toolsResult = { tools: [{ name: "my-tool", description: "desc", inputSchema: {} }] };
+      const toolsResult = {
+        tools: [{ name: "my-tool", description: "desc", inputSchema: {} }],
+      };
       mockClient.post.mockResolvedValueOnce(
         jsonResponse({ jsonrpc: "2.0", id: 2, result: toolsResult }),
       );
@@ -277,7 +292,9 @@ describe("StreamableHttpMCPClient", () => {
         "",
         expect.anything(),
         expect.objectContaining({
-          headers: expect.objectContaining({ "Mcp-Session-Id": "initial-sess" }),
+          headers: expect.objectContaining({
+            "Mcp-Session-Id": "initial-sess",
+          }),
         }),
       );
     });
@@ -303,9 +320,10 @@ describe("StreamableHttpMCPClient", () => {
       const mockClient = setupConnectMocks();
       await client.connect();
 
-      const toolsResult = { tools: [{ name: "sse-tool", description: "t", inputSchema: {} }] };
-      const sseBody =
-        `id: evt-1\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: 2, result: toolsResult })}\n\n`;
+      const toolsResult = {
+        tools: [{ name: "sse-tool", description: "t", inputSchema: {} }],
+      };
+      const sseBody = `id: evt-1\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: 2, result: toolsResult })}\n\n`;
 
       mockClient.post.mockResolvedValueOnce(sseResponse(sseBody));
 
@@ -329,8 +347,16 @@ describe("StreamableHttpMCPClient", () => {
       await client.connect();
 
       // Server sends a notification followed by the actual response
-      const notification = JSON.stringify({ jsonrpc: "2.0", method: "notifications/message", params: {} });
-      const response = JSON.stringify({ jsonrpc: "2.0", id: 2, result: { tools: [] } });
+      const notification = JSON.stringify({
+        jsonrpc: "2.0",
+        method: "notifications/message",
+        params: {},
+      });
+      const response = JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        result: { tools: [] },
+      });
       const sseBody = `data: ${notification}\n\ndata: ${response}\n\n`;
 
       mockClient.post.mockResolvedValueOnce(sseResponse(sseBody));
@@ -343,7 +369,11 @@ describe("StreamableHttpMCPClient", () => {
       await client.connect();
 
       // One bad event then a good one
-      const response = JSON.stringify({ jsonrpc: "2.0", id: 2, result: { tools: [] } });
+      const response = JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        result: { tools: [] },
+      });
       const sseBody = `data: {invalid json}\n\ndata: ${response}\n\n`;
 
       mockClient.post.mockResolvedValueOnce(sseResponse(sseBody));
@@ -456,7 +486,10 @@ describe("StreamableHttpMCPClient", () => {
       mockClient.post.mockResolvedValueOnce(
         jsonResponse({ jsonrpc: "2.0", id: 2, result: { contents: [] } }),
       );
-      expect(await client.readResource("file://a")).toEqual({ uri: "file://a", text: "" });
+      expect(await client.readResource("file://a")).toEqual({
+        uri: "file://a",
+        text: "",
+      });
     });
 
     it("listPrompts returns prompts", async () => {
@@ -468,7 +501,9 @@ describe("StreamableHttpMCPClient", () => {
     });
 
     it("getPrompt returns messages", async () => {
-      const messages = [{ role: "user", content: { type: "text", text: "hi" } }];
+      const messages = [
+        { role: "user", content: { type: "text", text: "hi" } },
+      ];
       mockClient.post.mockResolvedValueOnce(
         jsonResponse({ jsonrpc: "2.0", id: 2, result: { messages } }),
       );
@@ -477,12 +512,18 @@ describe("StreamableHttpMCPClient", () => {
 
     it("throws when calling API methods while not connected", async () => {
       await client.disconnect();
-      await expect(client.listTools()).rejects.toThrow("Not connected to MCP server");
+      await expect(client.listTools()).rejects.toThrow(
+        "Not connected to MCP server",
+      );
     });
 
     it("rejects with error response from JSON-RPC", async () => {
       mockClient.post.mockResolvedValueOnce(
-        jsonResponse({ jsonrpc: "2.0", id: 2, error: { code: -32600, message: "Invalid request" } }),
+        jsonResponse({
+          jsonrpc: "2.0",
+          id: 2,
+          error: { code: -32600, message: "Invalid request" },
+        }),
       );
       await expect(client.listTools()).rejects.toThrow("Invalid request");
     });
@@ -498,15 +539,19 @@ describe("StreamableHttpMCPClient", () => {
       const axiosError = Object.assign(new Error("Not Found"), {
         response: { status: 404, data: "not found" },
       });
-      (axios.isAxiosError as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
+      (axios.isAxiosError as unknown as jest.Mock) = jest
+        .fn()
+        .mockReturnValue(true);
 
       mockClient.post
-        .mockRejectedValueOnce(axiosError)               // tools/list -> 404
-        .mockResolvedValueOnce(                           // re-initialize
+        .mockRejectedValueOnce(axiosError) // tools/list -> 404
+        .mockResolvedValueOnce(
+          // re-initialize
           jsonResponse({ jsonrpc: "2.0", id: 2, result: INIT_RESULT }),
         )
-        .mockResolvedValueOnce(acceptedResponse())        // notifications/initialized
-        .mockResolvedValueOnce(                           // retry tools/list
+        .mockResolvedValueOnce(acceptedResponse()) // notifications/initialized
+        .mockResolvedValueOnce(
+          // retry tools/list
           jsonResponse({ jsonrpc: "2.0", id: 3, result: { tools: [] } }),
         );
 
@@ -531,7 +576,9 @@ describe("StreamableHttpMCPClient", () => {
       );
 
       // 101st should be rejected immediately
-      await expect(client.listTools()).rejects.toThrow("Too many pending MCP requests");
+      await expect(client.listTools()).rejects.toThrow(
+        "Too many pending MCP requests",
+      );
 
       // Clean up
       await client.disconnect();

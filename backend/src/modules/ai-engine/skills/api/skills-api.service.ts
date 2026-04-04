@@ -117,19 +117,25 @@ export class SkillsApiService {
    */
   async getStats(): Promise<SkillsStats> {
     const totalSkillsSetting = await this.getSetting("skillsmp.totalSkills");
-    const totalSkills = typeof totalSkillsSetting === "number" ? totalSkillsSetting : 66541;
+    const totalSkills =
+      typeof totalSkillsSetting === "number" ? totalSkillsSetting : 66541;
 
     const lastSyncSetting = await this.getSetting("skillsmp.lastSync");
-    const lastSync = typeof lastSyncSetting === "string" ? lastSyncSetting : null;
+    const lastSync =
+      typeof lastSyncSetting === "string" ? lastSyncSetting : null;
 
     const skillsSetting = await this.getSetting("skillsmp.syncedSkills");
     const skills = Array.isArray(skillsSetting) ? skillsSetting : [];
 
     // Calculate featured count
-    const featuredCount = skills.filter((s: unknown): s is SkillItem => (s as SkillItem).featured).length;
+    const featuredCount = skills.filter(
+      (s: unknown): s is SkillItem => (s as SkillItem).featured,
+    ).length;
 
     // Get unique categories
-    const categories = new Set(skills.map((s: unknown) => (s as SkillItem).category));
+    const categories = new Set(
+      skills.map((s: unknown) => (s as SkillItem).category),
+    );
 
     return {
       totalSkills,
@@ -184,7 +190,8 @@ export class SkillsApiService {
     skills: SkillItem[];
     total: number;
   }> {
-    let skills = ((await this.getSetting("skillsmp.syncedSkills")) ?? []) as SkillItem[];
+    let skills = ((await this.getSetting("skillsmp.syncedSkills")) ??
+      []) as SkillItem[];
 
     if (!Array.isArray(skills)) {
       skills = [];
@@ -194,11 +201,10 @@ export class SkillsApiService {
     if (params.query) {
       const q = params.query.toLowerCase();
       skills = skills.filter(
-        (skill) => (
-            skill.name?.toLowerCase().includes(q) ||
-            skill.description?.toLowerCase().includes(q) ||
-            skill.tags?.some((t: string) => t.toLowerCase().includes(q))
-        ),
+        (skill) =>
+          skill.name?.toLowerCase().includes(q) ||
+          skill.description?.toLowerCase().includes(q) ||
+          skill.tags?.some((t: string) => t.toLowerCase().includes(q)),
       );
     }
 
@@ -221,7 +227,9 @@ export class SkillsApiService {
             (d.includes("M") ? 1000000 : d.includes("K") ? 1000 : 1)
           );
         };
-        return parseDownloads(skillB.downloads) - parseDownloads(skillA.downloads);
+        return (
+          parseDownloads(skillB.downloads) - parseDownloads(skillA.downloads)
+        );
       }
       return (skillA.name || "").localeCompare(skillB.name || "");
     });
@@ -256,7 +264,10 @@ export class SkillsApiService {
 
     return skills
       .filter((s: unknown) => (s as SkillItem).featured)
-      .sort((a: unknown, b: unknown) => ((b as SkillItem).stars || 0) - ((a as SkillItem).stars || 0))
+      .sort(
+        (a: unknown, b: unknown) =>
+          ((b as SkillItem).stars || 0) - ((a as SkillItem).stars || 0),
+      )
       .slice(0, limit);
   }
 
@@ -335,7 +346,10 @@ export class SkillsApiService {
       // Helper function to extract skills from response
       const extractSkills = (data: unknown): unknown[] => {
         const response = data as Record<string, unknown>;
-        const dataField = response.data as Record<string, unknown> | unknown[] | undefined;
+        const dataField = response.data as
+          | Record<string, unknown>
+          | unknown[]
+          | undefined;
 
         if (Array.isArray(dataField)) return dataField;
         if (dataField && typeof dataField === "object") {
@@ -345,7 +359,8 @@ export class SkillsApiService {
           if (Array.isArray(items)) return items;
         }
         if (Array.isArray(response.skills)) return response.skills as unknown[];
-        if (Array.isArray(response.results)) return response.results as unknown[];
+        if (Array.isArray(response.results))
+          return response.results as unknown[];
         return [];
       };
 
@@ -433,9 +448,15 @@ export class SkillsApiService {
           // Capture total count from pagination
           if (totalFromApi === 0) {
             const responseData = data as Record<string, unknown>;
-            const dataField = responseData.data as Record<string, unknown> | undefined;
-            const metaField = responseData.meta as Record<string, unknown> | undefined;
-            const paginationField = dataField?.pagination as Record<string, unknown> | undefined;
+            const dataField = responseData.data as
+              | Record<string, unknown>
+              | undefined;
+            const metaField = responseData.meta as
+              | Record<string, unknown>
+              | undefined;
+            const paginationField = dataField?.pagination as
+              | Record<string, unknown>
+              | undefined;
 
             totalFromApi =
               (paginationField?.total as number) ||
@@ -457,7 +478,9 @@ export class SkillsApiService {
             const skillData = skill as Record<string, unknown>;
             const id =
               (skillData.id as string | undefined) ||
-              (skillData.name as string | undefined)?.toLowerCase().replace(/\s+/g, "-");
+              (skillData.name as string | undefined)
+                ?.toLowerCase()
+                .replace(/\s+/g, "-");
             if (id && !seenIds.has(id)) {
               seenIds.add(id);
               allSkills.push(skill);
@@ -546,21 +569,34 @@ export class SkillsApiService {
       const skillData = skill as Record<string, unknown>;
       const tags = skillData.tags as string[] | undefined;
       const firstTag = tags?.[0];
-      const stars = (skillData.stars as number | undefined) || (skillData.rating as number | undefined) || 0;
+      const stars =
+        (skillData.stars as number | undefined) ||
+        (skillData.rating as number | undefined) ||
+        0;
 
       return {
         id:
           (skillData.id as string | undefined) ||
-          (skillData.name as string | undefined)?.toLowerCase().replace(/\s+/g, "-") ||
+          (skillData.name as string | undefined)
+            ?.toLowerCase()
+            .replace(/\s+/g, "-") ||
           `skill-${index}`,
         name: (skillData.name as string | undefined) || "Unknown Skill",
         description: (skillData.description as string | undefined) || "",
-        category: this.mapCategory((skillData.category as string | undefined) || firstTag || "other"),
-        author: (skillData.author as string | undefined) || (skillData.owner as string | undefined) || "unknown",
+        category: this.mapCategory(
+          (skillData.category as string | undefined) || firstTag || "other",
+        ),
+        author:
+          (skillData.author as string | undefined) ||
+          (skillData.owner as string | undefined) ||
+          "unknown",
         stars,
-        downloads: this.formatDownloads((skillData.downloads as number | undefined) || 0),
+        downloads: this.formatDownloads(
+          (skillData.downloads as number | undefined) || 0,
+        ),
         tags: tags || [],
-        featured: (skillData.featured as boolean | undefined) || stars > 10000 || false,
+        featured:
+          (skillData.featured as boolean | undefined) || stars > 10000 || false,
         url:
           (skillData.url as string | undefined) ||
           (skillData.github_url as string | undefined) ||

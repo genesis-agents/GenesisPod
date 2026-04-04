@@ -8,9 +8,12 @@ jest.mock("../../../../common/content-processing", () => ({
   ContentProcessingModule: {},
 }));
 
-jest.mock("../../../../common/content-processing/content-processing.module", () => ({
-  ContentProcessingModule: class MockContentProcessingModule {},
-}));
+jest.mock(
+  "../../../../common/content-processing/content-processing.module",
+  () => ({
+    ContentProcessingModule: class MockContentProcessingModule {},
+  }),
+);
 
 import { AiTeamsGateway } from "../ai-teams.gateway";
 
@@ -107,13 +110,18 @@ describe("AiTeamsGateway", () => {
     });
 
     it("emit handler calls emitToTopic on the gateway", async () => {
-      const spy = jest.spyOn(gateway, "emitToTopic").mockResolvedValue(undefined);
+      const spy = jest
+        .spyOn(gateway, "emitToTopic")
+        .mockResolvedValue(undefined);
       gateway.afterInit();
 
-      const handler = mockTopicEventEmitter.registerEmitHandler.mock.calls[0][0];
+      const handler =
+        mockTopicEventEmitter.registerEmitHandler.mock.calls[0][0];
       await handler("topic-1", "test:event", { data: "test" });
 
-      expect(spy).toHaveBeenCalledWith("topic-1", "test:event", { data: "test" });
+      expect(spy).toHaveBeenCalledWith("topic-1", "test:event", {
+        data: "test",
+      });
     });
   });
 
@@ -235,7 +243,9 @@ describe("AiTeamsGateway", () => {
       // Register socket
       await gateway.handleConnection(client as never);
 
-      const result = await gateway.handleJoinTopic(client as never, { topicId: "topic-1" });
+      const result = await gateway.handleJoinTopic(client as never, {
+        topicId: "topic-1",
+      });
 
       expect(client.join).toHaveBeenCalledWith("topic:topic-1");
       expect(client.currentTopicId).toBe("topic-1");
@@ -245,7 +255,9 @@ describe("AiTeamsGateway", () => {
     it("returns error when user is not authenticated", async () => {
       const client = createMockSocket({ userId: undefined });
 
-      const result = await gateway.handleJoinTopic(client as never, { topicId: "topic-1" });
+      const result = await gateway.handleJoinTopic(client as never, {
+        topicId: "topic-1",
+      });
 
       expect(result).toEqual({ error: "Not authenticated" });
     });
@@ -259,22 +271,33 @@ describe("AiTeamsGateway", () => {
         userId: "user-1",
         currentTopicId: "topic-1",
       });
-      await gateway.handleConnection(Object.assign(
-        createMockSocket({ id: "socket-1", handshake: { auth: { userId: "user-1" }, query: {} } }),
-      ) as never);
+      await gateway.handleConnection(
+        Object.assign(
+          createMockSocket({
+            id: "socket-1",
+            handshake: { auth: { userId: "user-1" }, query: {} },
+          }),
+        ) as never,
+      );
 
-      const result = await gateway.handleJoinTopic(client as never, { topicId: "topic-2" });
+      const result = await gateway.handleJoinTopic(client as never, {
+        topicId: "topic-2",
+      });
 
       expect(client.leave).toHaveBeenCalledWith("topic:topic-1");
       expect(result).toMatchObject({ success: true });
     });
 
     it("returns error when topic access is denied", async () => {
-      mockAiGroupService.getTopicById.mockRejectedValue(new Error("Access denied"));
+      mockAiGroupService.getTopicById.mockRejectedValue(
+        new Error("Access denied"),
+      );
 
       const client = createMockSocket({ userId: "user-1" });
 
-      const result = await gateway.handleJoinTopic(client as never, { topicId: "topic-1" });
+      const result = await gateway.handleJoinTopic(client as never, {
+        topicId: "topic-1",
+      });
 
       expect(result).toEqual({ error: "Access denied" });
     });
@@ -285,17 +308,27 @@ describe("AiTeamsGateway", () => {
       mockServerFetchSockets.mockResolvedValue([]);
 
       const serverToEmit = jest.fn();
-      mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit, fetchSockets: mockServerFetchSockets });
+      mockServer.to = jest.fn().mockReturnValue({
+        emit: serverToEmit,
+        fetchSockets: mockServerFetchSockets,
+      });
 
       const client = createMockSocket({ userId: "user-1" });
-      await gateway.handleConnection(Object.assign(
-        createMockSocket({ id: "socket-1", handshake: { auth: { userId: "user-1" }, query: {} } }),
-      ) as never);
+      await gateway.handleConnection(
+        Object.assign(
+          createMockSocket({
+            id: "socket-1",
+            handshake: { auth: { userId: "user-1" }, query: {} },
+          }),
+        ) as never,
+      );
 
       await gateway.handleJoinTopic(client as never, { topicId: "topic-1" });
 
       expect(mockServer.to).toHaveBeenCalledWith("topic:topic-1");
-      expect(serverToEmit).toHaveBeenCalledWith("member:online", { userId: "user-1" });
+      expect(serverToEmit).toHaveBeenCalledWith("member:online", {
+        userId: "user-1",
+      });
     });
   });
 
@@ -310,7 +343,9 @@ describe("AiTeamsGateway", () => {
         to: jest.fn().mockReturnValue({ emit: clientToEmit }),
       });
 
-      const result = await gateway.handleLeaveTopic(client as never, { topicId: "topic-1" });
+      const result = await gateway.handleLeaveTopic(client as never, {
+        topicId: "topic-1",
+      });
 
       expect(client.leave).toHaveBeenCalledWith("topic:topic-1");
       expect(client.currentTopicId).toBeUndefined();
@@ -323,7 +358,9 @@ describe("AiTeamsGateway", () => {
         currentTopicId: "topic-2", // different topic
       });
 
-      const result = await gateway.handleLeaveTopic(client as never, { topicId: "topic-1" });
+      const result = await gateway.handleLeaveTopic(client as never, {
+        topicId: "topic-1",
+      });
 
       expect(client.leave).not.toHaveBeenCalled();
       expect(result).toEqual({ success: true });
@@ -342,10 +379,13 @@ describe("AiTeamsGateway", () => {
 
       const client = createMockSocket({ userId: "user-1" });
 
-      const result = await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "Hello",
-      } as never);
+      const result = await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "Hello",
+        } as never,
+      );
 
       expect(mockAiGroupService.sendMessage).toHaveBeenCalledWith(
         "topic-1",
@@ -359,29 +399,41 @@ describe("AiTeamsGateway", () => {
     it("returns error when user is not authenticated", async () => {
       const client = createMockSocket({ userId: undefined });
 
-      const result = await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "Hello",
-      } as never);
+      const result = await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "Hello",
+        } as never,
+      );
 
       expect(result).toEqual({ error: "Not authenticated" });
     });
 
     it("triggers AI response for AI mentions", async () => {
-      const message = { id: "msg-1", content: "@Bot Hello", createdAt: new Date() };
+      const message = {
+        id: "msg-1",
+        content: "@Bot Hello",
+        createdAt: new Date(),
+      };
       mockAiGroupService.sendMessage.mockResolvedValue(message);
-      mockAiGroupService.generateAIResponse.mockResolvedValue({ id: "ai-msg-1" });
+      mockAiGroupService.generateAIResponse.mockResolvedValue({
+        id: "ai-msg-1",
+      });
 
       const serverToEmit = jest.fn();
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
 
       const client = createMockSocket({ userId: "user-1" });
 
-      await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "@Bot Hello",
-        mentions: [{ mentionType: "AI", aiMemberId: "ai-1" }],
-      } as never);
+      await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "@Bot Hello",
+          mentions: [{ mentionType: "AI", aiMemberId: "ai-1" }],
+        } as never,
+      );
 
       expect(serverToEmit).toHaveBeenCalledWith("ai:typing", {
         topicId: "topic-1",
@@ -390,26 +442,41 @@ describe("AiTeamsGateway", () => {
     });
 
     it("triggers all AI responses for ALL_AI mention", async () => {
-      const message = { id: "msg-1", content: "@all Hello", createdAt: new Date() };
-      const topic = { id: "topic-1", aiMembers: [{ id: "ai-1" }, { id: "ai-2" }] };
+      const message = {
+        id: "msg-1",
+        content: "@all Hello",
+        createdAt: new Date(),
+      };
+      const topic = {
+        id: "topic-1",
+        aiMembers: [{ id: "ai-1" }, { id: "ai-2" }],
+      };
 
       mockAiGroupService.sendMessage.mockResolvedValue(message);
       mockAiGroupService.getTopicById.mockResolvedValue(topic);
-      mockAiGroupService.generateAIResponse.mockResolvedValue({ id: "ai-msg-1" });
+      mockAiGroupService.generateAIResponse.mockResolvedValue({
+        id: "ai-msg-1",
+      });
 
       const serverToEmit = jest.fn();
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
 
       const client = createMockSocket({ userId: "user-1" });
 
-      await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "@all Hello",
-        mentions: [{ mentionType: "ALL_AI" }],
-      } as never);
+      await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "@all Hello",
+          mentions: [{ mentionType: "ALL_AI" }],
+        } as never,
+      );
 
       // Should emit ai:typing for each AI member
-      expect(serverToEmit).toHaveBeenCalledWith("ai:typing", expect.objectContaining({ topicId: "topic-1" }));
+      expect(serverToEmit).toHaveBeenCalledWith(
+        "ai:typing",
+        expect.objectContaining({ topicId: "topic-1" }),
+      );
     });
 
     it("emits user mention notification for USER mention type", async () => {
@@ -432,23 +499,33 @@ describe("AiTeamsGateway", () => {
 
       const client = createMockSocket({ userId: "user-1" });
 
-      await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "@John Hello there",
-        mentions: [{ mentionType: "USER", userId: "user-2" }],
-      } as never);
+      await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "@John Hello there",
+          mentions: [{ mentionType: "USER", userId: "user-2" }],
+        } as never,
+      );
 
       // emitToUser sends to specific socket
       expect(mockServer.to).toHaveBeenCalledWith("socket-user2");
-      expect(serverToEmit).toHaveBeenCalledWith("mention:new", expect.objectContaining({
-        topicId: "topic-1",
-        fromUserId: "user-1",
-      }));
+      expect(serverToEmit).toHaveBeenCalledWith(
+        "mention:new",
+        expect.objectContaining({
+          topicId: "topic-1",
+          fromUserId: "user-1",
+        }),
+      );
     });
 
     it("truncates long messages in mention notification", async () => {
       const longContent = "A".repeat(200);
-      const message = { id: "msg-1", content: longContent, createdAt: new Date() };
+      const message = {
+        id: "msg-1",
+        content: longContent,
+        createdAt: new Date(),
+      };
       mockAiGroupService.sendMessage.mockResolvedValue(message);
 
       const user2Socket = createMockSocket({
@@ -462,11 +539,14 @@ describe("AiTeamsGateway", () => {
 
       const client = createMockSocket({ userId: "user-1" });
 
-      await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: longContent,
-        mentions: [{ mentionType: "USER", userId: "user-2" }],
-      } as never);
+      await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: longContent,
+          mentions: [{ mentionType: "USER", userId: "user-2" }],
+        } as never,
+      );
 
       expect(serverToEmit).toHaveBeenCalledWith(
         "mention:new",
@@ -477,14 +557,19 @@ describe("AiTeamsGateway", () => {
     });
 
     it("returns error when sendMessage throws", async () => {
-      mockAiGroupService.sendMessage.mockRejectedValue(new Error("Topic not found"));
+      mockAiGroupService.sendMessage.mockRejectedValue(
+        new Error("Topic not found"),
+      );
 
       const client = createMockSocket({ userId: "user-1" });
 
-      const result = await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "Hello",
-      } as never);
+      const result = await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "Hello",
+        } as never,
+      );
 
       expect(result).toEqual({ error: "Topic not found" });
     });
@@ -504,7 +589,9 @@ describe("AiTeamsGateway", () => {
 
       const toFn = client.to as jest.Mock;
       expect(toFn).toHaveBeenCalledWith("topic:topic-1");
-      expect(clientToEmit).toHaveBeenCalledWith("member:typing", { userId: "user-1" });
+      expect(clientToEmit).toHaveBeenCalledWith("member:typing", {
+        userId: "user-1",
+      });
     });
 
     it("does nothing when user is not authenticated", async () => {
@@ -522,7 +609,9 @@ describe("AiTeamsGateway", () => {
 
   describe("handleReadMessage", () => {
     it("marks message as read", async () => {
-      mockAiGroupService.markAsRead.mockResolvedValue({ lastReadAt: new Date() });
+      mockAiGroupService.markAsRead.mockResolvedValue({
+        lastReadAt: new Date(),
+      });
 
       const client = createMockSocket({ userId: "user-1" });
 
@@ -531,7 +620,11 @@ describe("AiTeamsGateway", () => {
         messageId: "msg-1",
       });
 
-      expect(mockAiGroupService.markAsRead).toHaveBeenCalledWith("topic-1", "user-1", "msg-1");
+      expect(mockAiGroupService.markAsRead).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        "msg-1",
+      );
       expect(result).toEqual({ success: true });
     });
 
@@ -547,7 +640,9 @@ describe("AiTeamsGateway", () => {
     });
 
     it("returns error when markAsRead throws", async () => {
-      mockAiGroupService.markAsRead.mockRejectedValue(new Error("Not a member"));
+      mockAiGroupService.markAsRead.mockRejectedValue(
+        new Error("Not a member"),
+      );
 
       const client = createMockSocket({ userId: "user-1" });
 
@@ -564,7 +659,10 @@ describe("AiTeamsGateway", () => {
 
   describe("handleAddReaction", () => {
     it("adds reaction and broadcasts to room", async () => {
-      mockAiGroupService.addReaction.mockResolvedValue({ messageId: "msg-1", emoji: "👍" });
+      mockAiGroupService.addReaction.mockResolvedValue({
+        messageId: "msg-1",
+        emoji: "👍",
+      });
 
       const serverToEmit = jest.fn();
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
@@ -577,7 +675,12 @@ describe("AiTeamsGateway", () => {
         emoji: "👍",
       });
 
-      expect(mockAiGroupService.addReaction).toHaveBeenCalledWith("topic-1", "user-1", "msg-1", "👍");
+      expect(mockAiGroupService.addReaction).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        "msg-1",
+        "👍",
+      );
       expect(serverToEmit).toHaveBeenCalledWith("reaction:add", {
         messageId: "msg-1",
         userId: "user-1",
@@ -599,7 +702,9 @@ describe("AiTeamsGateway", () => {
     });
 
     it("returns error when addReaction throws", async () => {
-      mockAiGroupService.addReaction.mockRejectedValue(new Error("Message not found"));
+      mockAiGroupService.addReaction.mockRejectedValue(
+        new Error("Message not found"),
+      );
 
       const client = createMockSocket({ userId: "user-1" });
 
@@ -630,7 +735,12 @@ describe("AiTeamsGateway", () => {
         emoji: "👍",
       });
 
-      expect(mockAiGroupService.removeReaction).toHaveBeenCalledWith("topic-1", "user-1", "msg-1", "👍");
+      expect(mockAiGroupService.removeReaction).toHaveBeenCalledWith(
+        "topic-1",
+        "user-1",
+        "msg-1",
+        "👍",
+      );
       expect(serverToEmit).toHaveBeenCalledWith("reaction:remove", {
         messageId: "msg-1",
         userId: "user-1",
@@ -652,7 +762,9 @@ describe("AiTeamsGateway", () => {
     });
 
     it("returns error when removeReaction throws", async () => {
-      mockAiGroupService.removeReaction.mockRejectedValue(new Error("Cannot remove"));
+      mockAiGroupService.removeReaction.mockRejectedValue(
+        new Error("Cannot remove"),
+      );
 
       const client = createMockSocket({ userId: "user-1" });
 
@@ -689,7 +801,9 @@ describe("AiTeamsGateway", () => {
 
       expect(mockServer.to).toHaveBeenCalledWith("socket-1");
       expect(mockServer.to).toHaveBeenCalledWith("socket-2");
-      expect(serverToEmit).toHaveBeenCalledWith("custom:event", { value: "data" });
+      expect(serverToEmit).toHaveBeenCalledWith("custom:event", {
+        value: "data",
+      });
     });
 
     it("does nothing when user has no active sockets", () => {
@@ -708,37 +822,51 @@ describe("AiTeamsGateway", () => {
       const serverToEmit = jest.fn();
       const serverInFetch = jest.fn().mockResolvedValue([]);
 
-      mockServer.in = jest.fn().mockReturnValue({ fetchSockets: serverInFetch });
+      mockServer.in = jest
+        .fn()
+        .mockReturnValue({ fetchSockets: serverInFetch });
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
 
       await gateway.emitToTopic("topic-1", "topic:event", { data: "test" });
 
       expect(mockServer.to).toHaveBeenCalledWith("topic:topic-1");
-      expect(serverToEmit).toHaveBeenCalledWith("topic:event", { data: "test" });
+      expect(serverToEmit).toHaveBeenCalledWith("topic:event", {
+        data: "test",
+      });
     });
 
     it("skips fetchSockets for heartbeat events (performance optimization)", async () => {
       const serverToEmit = jest.fn();
       const serverInFetch = jest.fn();
 
-      mockServer.in = jest.fn().mockReturnValue({ fetchSockets: serverInFetch });
+      mockServer.in = jest
+        .fn()
+        .mockReturnValue({ fetchSockets: serverInFetch });
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
 
-      await gateway.emitToTopic("topic-1", "mission:agent_working", { heartbeat: true });
+      await gateway.emitToTopic("topic-1", "mission:agent_working", {
+        heartbeat: true,
+      });
 
       // Should not call fetchSockets for heartbeat events
       expect(serverInFetch).not.toHaveBeenCalled();
-      expect(serverToEmit).toHaveBeenCalledWith("mission:agent_working", { heartbeat: true });
+      expect(serverToEmit).toHaveBeenCalledWith("mission:agent_working", {
+        heartbeat: true,
+      });
     });
 
     it("calls fetchSockets for non-heartbeat events", async () => {
       const serverToEmit = jest.fn();
       const serverInFetch = jest.fn().mockResolvedValue([]);
 
-      mockServer.in = jest.fn().mockReturnValue({ fetchSockets: serverInFetch });
+      mockServer.in = jest
+        .fn()
+        .mockReturnValue({ fetchSockets: serverInFetch });
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
 
-      await gateway.emitToTopic("topic-1", "mission:completed", { result: "done" });
+      await gateway.emitToTopic("topic-1", "mission:completed", {
+        result: "done",
+      });
 
       expect(serverInFetch).toHaveBeenCalled();
     });
@@ -762,11 +890,12 @@ describe("AiTeamsGateway", () => {
       await gateway.handleConnection(client2 as never);
 
       // Mock fetchSockets to return the two connected sockets
-      const mockFetchSockets = jest.fn().mockResolvedValue([
-        { id: "socket-1" },
-        { id: "socket-2" },
-      ]);
-      mockServer.in = jest.fn().mockReturnValue({ fetchSockets: mockFetchSockets });
+      const mockFetchSockets = jest
+        .fn()
+        .mockResolvedValue([{ id: "socket-1" }, { id: "socket-2" }]);
+      mockServer.in = jest
+        .fn()
+        .mockReturnValue({ fetchSockets: mockFetchSockets });
 
       const result = await gateway.getOnlineUsersInTopic("topic-1");
 
@@ -789,11 +918,12 @@ describe("AiTeamsGateway", () => {
       await gateway.handleConnection(client1 as never);
       await gateway.handleConnection(client2 as never);
 
-      const mockFetchSockets = jest.fn().mockResolvedValue([
-        { id: "socket-1" },
-        { id: "socket-2" },
-      ]);
-      mockServer.in = jest.fn().mockReturnValue({ fetchSockets: mockFetchSockets });
+      const mockFetchSockets = jest
+        .fn()
+        .mockResolvedValue([{ id: "socket-1" }, { id: "socket-2" }]);
+      mockServer.in = jest
+        .fn()
+        .mockReturnValue({ fetchSockets: mockFetchSockets });
 
       const result = await gateway.getOnlineUsersInTopic("topic-1");
 
@@ -804,7 +934,9 @@ describe("AiTeamsGateway", () => {
 
     it("returns empty array when no sockets in room", async () => {
       const mockFetchSockets = jest.fn().mockResolvedValue([]);
-      mockServer.in = jest.fn().mockReturnValue({ fetchSockets: mockFetchSockets });
+      mockServer.in = jest
+        .fn()
+        .mockReturnValue({ fetchSockets: mockFetchSockets });
 
       const result = await gateway.getOnlineUsersInTopic("empty-topic");
 
@@ -825,25 +957,31 @@ describe("AiTeamsGateway", () => {
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
 
       // The AI response is generated async; we need to wait for it
-      mockAiGroupService.generateAIResponse.mockImplementation(
-        () => Promise.resolve(aiMessage),
+      mockAiGroupService.generateAIResponse.mockImplementation(() =>
+        Promise.resolve(aiMessage),
       );
 
       const client = createMockSocket({ userId: "user-1" });
 
-      await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "Hello",
-        mentions: [{ mentionType: "AI", aiMemberId: "ai-1" }],
-      } as never);
+      await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "Hello",
+          mentions: [{ mentionType: "AI", aiMemberId: "ai-1" }],
+        } as never,
+      );
 
       // Give async operations time to complete
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      expect(serverToEmit).toHaveBeenCalledWith("ai:response", expect.objectContaining({
-        aiMemberId: "ai-1",
-        messageId: "ai-msg-1",
-      }));
+      expect(serverToEmit).toHaveBeenCalledWith(
+        "ai:response",
+        expect.objectContaining({
+          aiMemberId: "ai-1",
+          messageId: "ai-msg-1",
+        }),
+      );
       expect(serverToEmit).toHaveBeenCalledWith("message:new", aiMessage);
     });
 
@@ -851,18 +989,23 @@ describe("AiTeamsGateway", () => {
       const message = { id: "msg-1", content: "Hello", createdAt: new Date() };
 
       mockAiGroupService.sendMessage.mockResolvedValue(message);
-      mockAiGroupService.generateAIResponse.mockRejectedValue(new Error("AI error"));
+      mockAiGroupService.generateAIResponse.mockRejectedValue(
+        new Error("AI error"),
+      );
 
       const serverToEmit = jest.fn();
       mockServer.to = jest.fn().mockReturnValue({ emit: serverToEmit });
 
       const client = createMockSocket({ userId: "user-1" });
 
-      await gateway.handleSendMessage(client as never, {
-        topicId: "topic-1",
-        content: "Hello",
-        mentions: [{ mentionType: "AI", aiMemberId: "ai-1" }],
-      } as never);
+      await gateway.handleSendMessage(
+        client as never,
+        {
+          topicId: "topic-1",
+          content: "Hello",
+          mentions: [{ mentionType: "AI", aiMemberId: "ai-1" }],
+        } as never,
+      );
 
       // Wait for the async AI response
       await new Promise((resolve) => setTimeout(resolve, 10));

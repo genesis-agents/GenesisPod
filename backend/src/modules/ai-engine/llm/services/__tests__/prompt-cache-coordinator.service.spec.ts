@@ -42,8 +42,16 @@ describe("PromptCacheCoordinatorService", () => {
       const toolDefinitions = [{ name: "tool-a" }];
 
       // Act
-      const prefix1 = service.createPrefix("m-1", systemPromptText, toolDefinitions);
-      const prefix2 = service.createPrefix("m-2", systemPromptText, toolDefinitions);
+      const prefix1 = service.createPrefix(
+        "m-1",
+        systemPromptText,
+        toolDefinitions,
+      );
+      const prefix2 = service.createPrefix(
+        "m-2",
+        systemPromptText,
+        toolDefinitions,
+      );
 
       // Assert
       expect(prefix1.hash).toBe(prefix2.hash);

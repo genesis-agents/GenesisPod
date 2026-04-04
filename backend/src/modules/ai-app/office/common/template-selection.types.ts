@@ -20,10 +20,7 @@ export {
   IMAGE_MATCHING_RULES,
 } from "../../../ai-engine/facade";
 
-import {
-  ImageType,
-  ImagePlacement,
-} from "../../../ai-engine/facade";
+import { ImageType, ImagePlacement } from "../../../ai-engine/facade";
 import type { ImageRequirement } from "../../../ai-engine/facade";
 
 // ============================================================================

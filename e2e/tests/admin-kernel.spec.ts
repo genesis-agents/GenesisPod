@@ -42,8 +42,7 @@ test.describe("Admin Kernel — Processes (/admin/kernel/processes)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/admin/kernel/processes");
     await page.waitForResponse(
-      (r) =>
-        r.url().includes("/admin/kernel/processes") && r.status() === 200,
+      (r) => r.url().includes("/admin/kernel/processes") && r.status() === 200,
       { timeout: 15000 },
     );
     await page.waitForTimeout(300);
@@ -51,7 +50,9 @@ test.describe("Admin Kernel — Processes (/admin/kernel/processes)", () => {
 
   test("page loads with correct heading", async ({ page }) => {
     // The AdminPageLayout renders the title as an h1
-    await expect(page.getByRole("heading", { name: /AI Kernel Processes/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /AI Kernel Processes/i }),
+    ).toBeVisible();
   });
 
   test("no error boundary is shown", async ({ page }) => {
@@ -60,12 +61,20 @@ test.describe("Admin Kernel — Processes (/admin/kernel/processes)", () => {
 
   test("shows process list or empty state", async ({ page }) => {
     // Either the table with headers is visible, or the empty-state message
-    const hasTable = await page.locator("table").count() > 0;
-    const hasEmptyState = await page.getByText("No processes found").isVisible().catch(() => false);
-    expect(hasTable || hasEmptyState, "Should show process table or empty state").toBeTruthy();
+    const hasTable = (await page.locator("table").count()) > 0;
+    const hasEmptyState = await page
+      .getByText("No processes found")
+      .isVisible()
+      .catch(() => false);
+    expect(
+      hasTable || hasEmptyState,
+      "Should show process table or empty state",
+    ).toBeTruthy();
   });
 
-  test("shows stat cards for Total, Running, Paused, Completed, Failed", async ({ page }) => {
+  test("shows stat cards for Total, Running, Paused, Completed, Failed", async ({
+    page,
+  }) => {
     await expect(page.getByText("Total")).toBeVisible();
     await expect(page.getByText("Running")).toBeVisible();
     await expect(page.getByText("Paused")).toBeVisible();
@@ -77,7 +86,9 @@ test.describe("Admin Kernel — Processes (/admin/kernel/processes)", () => {
     // State filter buttons: ALL, RUNNING, PAUSED, etc.
     await expect(page.getByRole("button", { name: /^ALL$/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /^RUNNING$/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^COMPLETED$/ })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^COMPLETED$/ }),
+    ).toBeVisible();
   });
 
   test("shows Refresh button", async ({ page }) => {
@@ -93,46 +104,54 @@ test.describe("Admin Kernel — Journal (/admin/kernel/journal)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/admin/kernel/journal");
     await page.waitForResponse(
-      (r) =>
-        r.url().includes("/admin/kernel/journal") && r.status() === 200,
+      (r) => r.url().includes("/admin/kernel/journal") && r.status() === 200,
       { timeout: 15000 },
     );
     await page.waitForTimeout(300);
   });
 
   test("page loads with correct heading", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /Event Journal/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Event Journal/i }),
+    ).toBeVisible();
   });
 
   test("no error boundary is shown", async ({ page }) => {
     await expect(page.getByText("出错了")).not.toBeVisible();
   });
 
-  test("shows stat cards with Total Events and Shown counts", async ({ page }) => {
+  test("shows stat cards with Total Events and Shown counts", async ({
+    page,
+  }) => {
     await expect(page.getByText("Total Events")).toBeVisible();
     await expect(page.getByText("Shown")).toBeVisible();
     await expect(page.getByText("Limit")).toBeVisible();
   });
 
-  test("shows filter inputs for Process ID and Event Type", async ({ page }) => {
-    await expect(
-      page.getByPlaceholder("Filter by Process ID"),
-    ).toBeVisible();
-    await expect(
-      page.getByPlaceholder("Filter by Event Type"),
-    ).toBeVisible();
+  test("shows filter inputs for Process ID and Event Type", async ({
+    page,
+  }) => {
+    await expect(page.getByPlaceholder("Filter by Process ID")).toBeVisible();
+    await expect(page.getByPlaceholder("Filter by Event Type")).toBeVisible();
   });
 
   test("shows journal entries table or empty state", async ({ page }) => {
-    const hasTable = await page.locator("table").count() > 0;
-    const hasEmptyState =
-      (await page.getByText("No journal entries found").isVisible().catch(() => false));
-    expect(hasTable || hasEmptyState, "Should show events table or empty state").toBeTruthy();
+    const hasTable = (await page.locator("table").count()) > 0;
+    const hasEmptyState = await page
+      .getByText("No journal entries found")
+      .isVisible()
+      .catch(() => false);
+    expect(
+      hasTable || hasEmptyState,
+      "Should show events table or empty state",
+    ).toBeTruthy();
   });
 
   test("shows Refresh and Search buttons", async ({ page }) => {
     await expect(page.getByRole("button", { name: /Refresh/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Search/i }).first()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Search/i }).first(),
+    ).toBeVisible();
   });
 });
 
@@ -150,7 +169,9 @@ test.describe("Admin Kernel — Memory (/admin/kernel/memory)", () => {
   });
 
   test("page loads with correct heading", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /Process Memory/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Process Memory/i }),
+    ).toBeVisible();
   });
 
   test("no error boundary is shown", async ({ page }) => {
@@ -158,9 +179,7 @@ test.describe("Admin Kernel — Memory (/admin/kernel/memory)", () => {
   });
 
   test("shows process ID input field", async ({ page }) => {
-    await expect(
-      page.getByPlaceholder(/Enter process ID/i),
-    ).toBeVisible();
+    await expect(page.getByPlaceholder(/Enter process ID/i)).toBeVisible();
   });
 
   test("shows layer filter dropdown", async ({ page }) => {
@@ -176,15 +195,23 @@ test.describe("Admin Kernel — Memory (/admin/kernel/memory)", () => {
     await expect(page.getByRole("button", { name: /^Search$/i })).toBeVisible();
   });
 
-  test("shows initial empty/prompt state before any query", async ({ page }) => {
+  test("shows initial empty/prompt state before any query", async ({
+    page,
+  }) => {
     // Without a process ID entered, either a prompt or empty state is shown
-    const promptVisible =
-      await page.getByText(/Enter a Process ID/i).isVisible().catch(() => false);
-    const emptyVisible =
-      await page.getByText(/No memory entries/i).isVisible().catch(() => false);
+    const promptVisible = await page
+      .getByText(/Enter a Process ID/i)
+      .isVisible()
+      .catch(() => false);
+    const emptyVisible = await page
+      .getByText(/No memory entries/i)
+      .isVisible()
+      .catch(() => false);
     // At minimum, Search button should be present (covered above)
     // And the page should not have crashed
-    await expect(page.getByRole("heading", { name: /Process Memory/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Process Memory/i }),
+    ).toBeVisible();
     // Accept either prompt state or empty state as valid
     void promptVisible;
     void emptyVisible;
@@ -199,8 +226,7 @@ test.describe("Admin Kernel — IPC (/admin/kernel/ipc)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/admin/kernel/ipc");
     await page.waitForResponse(
-      (r) =>
-        r.url().includes("/admin/kernel/ipc/stats") && r.status() === 200,
+      (r) => r.url().includes("/admin/kernel/ipc/stats") && r.status() === 200,
       { timeout: 15000 },
     );
     await page.waitForTimeout(300);
@@ -225,13 +251,13 @@ test.describe("Admin Kernel — IPC (/admin/kernel/ipc)", () => {
     ).toBeVisible();
   });
 
-  test("shows Message History section with session ID input", async ({ page }) => {
+  test("shows Message History section with session ID input", async ({
+    page,
+  }) => {
     await expect(
       page.getByRole("heading", { name: /Message History/i }),
     ).toBeVisible();
-    await expect(
-      page.getByPlaceholder(/Enter session ID/i),
-    ).toBeVisible();
+    await expect(page.getByPlaceholder(/Enter session ID/i)).toBeVisible();
   });
 
   test("shows Refresh button", async ({ page }) => {
@@ -239,10 +265,15 @@ test.describe("Admin Kernel — IPC (/admin/kernel/ipc)", () => {
   });
 
   test("shows task table or empty tasks message", async ({ page }) => {
-    const hasTable = await page.locator("table").count() > 0;
-    const hasEmptyState =
-      await page.getByText(/No active tasks found/i).isVisible().catch(() => false);
-    expect(hasTable || hasEmptyState, "Should show tasks table or empty state").toBeTruthy();
+    const hasTable = (await page.locator("table").count()) > 0;
+    const hasEmptyState = await page
+      .getByText(/No active tasks found/i)
+      .isVisible()
+      .catch(() => false);
+    expect(
+      hasTable || hasEmptyState,
+      "Should show tasks table or empty state",
+    ).toBeTruthy();
   });
 });
 
@@ -263,7 +294,9 @@ test.describe("Admin Kernel — Resources (/admin/kernel/resources)", () => {
   });
 
   test("page loads with correct heading", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /Resource Control/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Resource Control/i }),
+    ).toBeVisible();
   });
 
   test("no error boundary is shown", async ({ page }) => {
@@ -284,10 +317,15 @@ test.describe("Admin Kernel — Resources (/admin/kernel/resources)", () => {
   });
 
   test("shows circuit breaker table or empty state", async ({ page }) => {
-    const hasTable = await page.locator("table").count() > 0;
-    const hasEmptyState =
-      await page.getByText(/No circuit breakers registered/i).isVisible().catch(() => false);
-    expect(hasTable || hasEmptyState, "Should show circuit breakers table or empty state").toBeTruthy();
+    const hasTable = (await page.locator("table").count()) > 0;
+    const hasEmptyState = await page
+      .getByText(/No circuit breakers registered/i)
+      .isVisible()
+      .catch(() => false);
+    expect(
+      hasTable || hasEmptyState,
+      "Should show circuit breakers table or empty state",
+    ).toBeTruthy();
   });
 
   test("shows Refresh button", async ({ page }) => {
@@ -312,7 +350,9 @@ test.describe("Admin Kernel — Observability (/admin/kernel/observability)", ()
   });
 
   test("page loads with correct heading", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /Observability/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Observability/i }),
+    ).toBeVisible();
   });
 
   test("no error boundary is shown", async ({ page }) => {
@@ -320,7 +360,9 @@ test.describe("Admin Kernel — Observability (/admin/kernel/observability)", ()
   });
 
   test("shows Metrics and Costs tabs", async ({ page }) => {
-    await expect(page.getByRole("button", { name: /^Metrics$/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Metrics$/i }),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: /^Costs$/i })).toBeVisible();
   });
 
@@ -330,7 +372,9 @@ test.describe("Admin Kernel — Observability (/admin/kernel/observability)", ()
     await expect(page.getByRole("button", { name: "60m" })).toBeVisible();
   });
 
-  test("shows LLM stat cards: Total Calls, Total Tokens, Total Cost", async ({ page }) => {
+  test("shows LLM stat cards: Total Calls, Total Tokens, Total Cost", async ({
+    page,
+  }) => {
     await expect(page.getByText("Total Calls")).toBeVisible();
     await expect(page.getByText("Total Tokens")).toBeVisible();
     await expect(page.getByText("Total Cost")).toBeVisible();
@@ -375,7 +419,9 @@ test.describe("Admin Kernel — Security (/admin/kernel/security)", () => {
   });
 
   test("page loads with correct heading", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /Capability Guard/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Capability Guard/i }),
+    ).toBeVisible();
   });
 
   test("no error boundary is shown", async ({ page }) => {
@@ -393,10 +439,14 @@ test.describe("Admin Kernel — Security (/admin/kernel/security)", () => {
   });
 
   test("shows initial prompt to enter a Process ID", async ({ page }) => {
-    await expect(page.getByText(/Enter a Process ID to view its capabilities/i)).toBeVisible();
+    await expect(
+      page.getByText(/Enter a Process ID to view its capabilities/i),
+    ).toBeVisible();
   });
 
-  test("Query button is disabled when no process ID is entered", async ({ page }) => {
+  test("Query button is disabled when no process ID is entered", async ({
+    page,
+  }) => {
     const queryButton = page.getByRole("button", { name: /^Query$/i });
     await expect(queryButton).toBeDisabled();
   });
@@ -418,7 +468,9 @@ test.describe("Admin Kernel — Scheduler (/admin/kernel/scheduler)", () => {
   });
 
   test("page loads with correct heading", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /Kernel Scheduler/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Kernel Scheduler/i }),
+    ).toBeVisible();
   });
 
   test("no error boundary is shown", async ({ page }) => {
@@ -428,27 +480,47 @@ test.describe("Admin Kernel — Scheduler (/admin/kernel/scheduler)", () => {
   test("shows scheduler stat cards", async ({ page }) => {
     // Stats: Running, Ready, Max Concurrent, Max Per Tenant
     // Either stats are loaded (stat cards visible) or loading spinner is shown
-    const statsLoaded = await page.getByText("Max Concurrent").isVisible().catch(() => false);
-    const isLoading = await page.getByText(/Loading scheduler stats/i).isVisible().catch(() => false);
-    const isUnavailable = await page.getByText(/Scheduler stats unavailable/i).isVisible().catch(() => false);
-    expect(statsLoaded || isLoading || isUnavailable, "Page should show stats, loading state, or unavailable message").toBeTruthy();
+    const statsLoaded = await page
+      .getByText("Max Concurrent")
+      .isVisible()
+      .catch(() => false);
+    const isLoading = await page
+      .getByText(/Loading scheduler stats/i)
+      .isVisible()
+      .catch(() => false);
+    const isUnavailable = await page
+      .getByText(/Scheduler stats unavailable/i)
+      .isVisible()
+      .catch(() => false);
+    expect(
+      statsLoaded || isLoading || isUnavailable,
+      "Page should show stats, loading state, or unavailable message",
+    ).toBeTruthy();
   });
 
-  test("shows Running and Ready stat labels when data is available", async ({ page }) => {
+  test("shows Running and Ready stat labels when data is available", async ({
+    page,
+  }) => {
     // Wait a bit more in case stats are still loading
     await page.waitForTimeout(1000);
-    const isUnavailable =
-      await page.getByText(/Scheduler stats unavailable/i).isVisible().catch(() => false);
+    const isUnavailable = await page
+      .getByText(/Scheduler stats unavailable/i)
+      .isVisible()
+      .catch(() => false);
     if (!isUnavailable) {
       await expect(page.getByText("Running")).toBeVisible();
       await expect(page.getByText("Ready")).toBeVisible();
     }
   });
 
-  test("shows concurrency utilization bar when data is available", async ({ page }) => {
+  test("shows concurrency utilization bar when data is available", async ({
+    page,
+  }) => {
     await page.waitForTimeout(500);
-    const isUnavailable =
-      await page.getByText(/Scheduler stats unavailable/i).isVisible().catch(() => false);
+    const isUnavailable = await page
+      .getByText(/Scheduler stats unavailable/i)
+      .isVisible()
+      .catch(() => false);
     if (!isUnavailable) {
       await expect(page.getByText(/Concurrency Utilization/i)).toBeVisible();
     }
@@ -456,10 +528,14 @@ test.describe("Admin Kernel — Scheduler (/admin/kernel/scheduler)", () => {
 
   test("shows auto-refresh notice", async ({ page }) => {
     await page.waitForTimeout(500);
-    const isUnavailable =
-      await page.getByText(/Scheduler stats unavailable/i).isVisible().catch(() => false);
+    const isUnavailable = await page
+      .getByText(/Scheduler stats unavailable/i)
+      .isVisible()
+      .catch(() => false);
     if (!isUnavailable) {
-      await expect(page.getByText(/Auto-refreshes every 5 seconds/i)).toBeVisible();
+      await expect(
+        page.getByText(/Auto-refreshes every 5 seconds/i),
+      ).toBeVisible();
     }
   });
 
@@ -498,7 +574,10 @@ test.describe("Kernel API Integration Tests", () => {
     // Must have processes array and total count
     expect(data).toHaveProperty("processes");
     expect(data).toHaveProperty("total");
-    expect(Array.isArray(data.processes), "processes should be an array").toBeTruthy();
+    expect(
+      Array.isArray(data.processes),
+      "processes should be an array",
+    ).toBeTruthy();
     expect(typeof data.total, "total should be a number").toBe("number");
 
     // Each process must have required fields
@@ -551,7 +630,10 @@ test.describe("Kernel API Integration Tests", () => {
 
     expect(data).toHaveProperty("entries");
     expect(data).toHaveProperty("total");
-    expect(Array.isArray(data.entries), "entries should be an array").toBeTruthy();
+    expect(
+      Array.isArray(data.entries),
+      "entries should be an array",
+    ).toBeTruthy();
     expect(typeof data.total, "total should be a number").toBe("number");
   });
 
@@ -582,15 +664,30 @@ test.describe("Kernel API Integration Tests", () => {
     expect(data).toHaveProperty("period");
 
     // Types
-    expect(typeof data.totalCalls, "totalCalls should be a number").toBe("number");
-    expect(typeof data.totalCost, "totalCost should be a number").toBe("number");
-    expect(typeof data.successRate, "successRate should be a number").toBe("number");
-    expect(Array.isArray(data.byModel), "byModel should be an array").toBeTruthy();
-    expect(Array.isArray(data.byModule), "byModule should be an array").toBeTruthy();
+    expect(typeof data.totalCalls, "totalCalls should be a number").toBe(
+      "number",
+    );
+    expect(typeof data.totalCost, "totalCost should be a number").toBe(
+      "number",
+    );
+    expect(typeof data.successRate, "successRate should be a number").toBe(
+      "number",
+    );
+    expect(
+      Array.isArray(data.byModel),
+      "byModel should be an array",
+    ).toBeTruthy();
+    expect(
+      Array.isArray(data.byModule),
+      "byModule should be an array",
+    ).toBeTruthy();
 
     // totalTokens shape
     expect(data.totalTokens).toHaveProperty("total");
-    expect(typeof data.totalTokens.total, "totalTokens.total should be a number").toBe("number");
+    expect(
+      typeof data.totalTokens.total,
+      "totalTokens.total should be a number",
+    ).toBe("number");
 
     // latency shape
     expect(data.latency).toHaveProperty("p50");
@@ -670,7 +767,10 @@ test.describe("Kernel API Integration Tests", () => {
 
     expect(data).toHaveProperty("breakers");
     expect(data).toHaveProperty("total");
-    expect(Array.isArray(data.breakers), "breakers should be an array").toBeTruthy();
+    expect(
+      Array.isArray(data.breakers),
+      "breakers should be an array",
+    ).toBeTruthy();
     expect(typeof data.total, "total should be a number").toBe("number");
 
     // If any breakers exist, validate their shape
@@ -700,7 +800,9 @@ test.describe("Kernel API Integration Tests", () => {
     const data = body.data ?? body;
 
     expect(data).toHaveProperty("totalBreakers");
-    expect(typeof data.totalBreakers, "totalBreakers should be a number").toBe("number");
+    expect(typeof data.totalBreakers, "totalBreakers should be a number").toBe(
+      "number",
+    );
   });
 
   test("GET /api/v1/admin/kernel/scheduler/stats — returns scheduler capacity", async ({
@@ -727,8 +829,12 @@ test.describe("Kernel API Integration Tests", () => {
 
     expect(typeof data.running, "running should be a number").toBe("number");
     expect(typeof data.ready, "ready should be a number").toBe("number");
-    expect(typeof data.maxConcurrent, "maxConcurrent should be a number").toBe("number");
-    expect(typeof data.maxPerTenant, "maxPerTenant should be a number").toBe("number");
+    expect(typeof data.maxConcurrent, "maxConcurrent should be a number").toBe(
+      "number",
+    );
+    expect(typeof data.maxPerTenant, "maxPerTenant should be a number").toBe(
+      "number",
+    );
 
     // Sanity: running cannot exceed maxConcurrent (unless maxConcurrent is 0)
     if (data.maxConcurrent > 0) {
@@ -759,10 +865,21 @@ test.describe("Kernel API Integration Tests", () => {
     expect(data).toHaveProperty("byModule");
     expect(data).toHaveProperty("byModel");
 
-    expect(typeof data.totalCost, "totalCost should be a number").toBe("number");
-    expect(Array.isArray(data.byUser), "byUser should be an array").toBeTruthy();
-    expect(Array.isArray(data.byModule), "byModule should be an array").toBeTruthy();
-    expect(Array.isArray(data.byModel), "byModel should be an array").toBeTruthy();
+    expect(typeof data.totalCost, "totalCost should be a number").toBe(
+      "number",
+    );
+    expect(
+      Array.isArray(data.byUser),
+      "byUser should be an array",
+    ).toBeTruthy();
+    expect(
+      Array.isArray(data.byModule),
+      "byModule should be an array",
+    ).toBeTruthy();
+    expect(
+      Array.isArray(data.byModel),
+      "byModel should be an array",
+    ).toBeTruthy();
 
     // period shape
     expect(data.period).toHaveProperty("hours");

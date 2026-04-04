@@ -28,8 +28,12 @@ import * as fs from "fs/promises";
 import { parseSkillMd, serializeSkillMd } from "../skill-parser";
 
 const mockFs = fs as jest.Mocked<typeof fs>;
-const mockParseSkillMd = parseSkillMd as jest.MockedFunction<typeof parseSkillMd>;
-const mockSerializeSkillMd = serializeSkillMd as jest.MockedFunction<typeof serializeSkillMd>;
+const mockParseSkillMd = parseSkillMd as jest.MockedFunction<
+  typeof parseSkillMd
+>;
+const mockSerializeSkillMd = serializeSkillMd as jest.MockedFunction<
+  typeof serializeSkillMd
+>;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -114,7 +118,9 @@ describe("SkillCacheService", () => {
 
     it("不存在的 ID 返回 null", async () => {
       // 模拟磁盘上也不存在的状态
-      mockFs.readFile.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+      mockFs.readFile.mockRejectedValue(
+        Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+      );
 
       const result = await service.get("nonexistent");
 
@@ -165,7 +171,9 @@ describe("SkillCacheService", () => {
       await service.set("expired-skill", skill, false);
 
       // 从磁盘读取的模拟设置
-      mockFs.readFile.mockResolvedValue("---\nid: expired-skill\n---\nContent" as unknown as Buffer);
+      mockFs.readFile.mockResolvedValue(
+        "---\nid: expired-skill\n---\nContent" as unknown as Buffer,
+      );
       mockParseSkillMd.mockReturnValue(skill);
 
       const retrieved = await service.get("expired-skill");
@@ -178,7 +186,9 @@ describe("SkillCacheService", () => {
 
       await service.set("expired-no-disk-skill", skill, false);
 
-      mockFs.readFile.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+      mockFs.readFile.mockRejectedValue(
+        Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+      );
 
       const retrieved = await service.get("expired-no-disk-skill");
       expect(retrieved).toBeNull();
@@ -348,7 +358,9 @@ describe("SkillCacheService", () => {
       mockFs.readdir.mockResolvedValue([
         "warmup-skill.skill.md",
       ] as unknown as string[]);
-      mockFs.readFile.mockResolvedValue("---\nid: warmup-skill\n---\nContent" as unknown as Buffer);
+      mockFs.readFile.mockResolvedValue(
+        "---\nid: warmup-skill\n---\nContent" as unknown as Buffer,
+      );
       mockParseSkillMd.mockReturnValue(skill);
 
       const count = await service.warmup();

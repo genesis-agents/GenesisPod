@@ -72,9 +72,9 @@ describe("MessagePersistenceService", () => {
       const pending = service.loadPending(SESSION, AGENT_B);
 
       expect(pending).toHaveLength(2);
-      expect(pending.every((m: PersistedMessage) => m.toAgentId === AGENT_B)).toBe(
-        true,
-      );
+      expect(
+        pending.every((m: PersistedMessage) => m.toAgentId === AGENT_B),
+      ).toBe(true);
     });
 
     // ─── 3. loadPending excludes delivered messages ────────────────────────
@@ -90,9 +90,16 @@ describe("MessagePersistenceService", () => {
     // ─── 4. loadPending excludes expired messages ──────────────────────────
     it("excludes messages whose TTL has elapsed", () => {
       // Persist with a TTL that has already passed by backdating expiresAt
-      const id = service.persist(SESSION, AGENT_A, AGENT_B, "info_share", {}, {
-        ttlMs: 1, // 1ms
-      });
+      const id = service.persist(
+        SESSION,
+        AGENT_A,
+        AGENT_B,
+        "info_share",
+        {},
+        {
+          ttlMs: 1, // 1ms
+        },
+      );
       // Advance time conceptually: wait for TTL to expire
       // We manipulate the stored message's expiresAt directly to simulate expiry
       // without using fake timers (keeps test deterministic)
@@ -109,15 +116,36 @@ describe("MessagePersistenceService", () => {
 
     // ─── 5. loadPending sorts by priority then time ────────────────────────
     it("sorts messages: high priority first, then normal, then low; stable by createdAt", () => {
-      const lowId = service.persist(SESSION, AGENT_A, AGENT_B, "t", {}, {
-        priority: "low",
-      });
-      const highId = service.persist(SESSION, AGENT_A, AGENT_B, "t", {}, {
-        priority: "high",
-      });
-      const normalId = service.persist(SESSION, AGENT_A, AGENT_B, "t", {}, {
-        priority: "normal",
-      });
+      const lowId = service.persist(
+        SESSION,
+        AGENT_A,
+        AGENT_B,
+        "t",
+        {},
+        {
+          priority: "low",
+        },
+      );
+      const highId = service.persist(
+        SESSION,
+        AGENT_A,
+        AGENT_B,
+        "t",
+        {},
+        {
+          priority: "high",
+        },
+      );
+      const normalId = service.persist(
+        SESSION,
+        AGENT_A,
+        AGENT_B,
+        "t",
+        {},
+        {
+          priority: "normal",
+        },
+      );
 
       const pending = service.loadPending(SESSION, AGENT_B);
 
@@ -188,9 +216,16 @@ describe("MessagePersistenceService", () => {
     });
 
     it("removes expired undelivered messages", () => {
-      const id = service.persist(SESSION, AGENT_A, AGENT_B, "info_share", {}, {
-        ttlMs: 1,
-      });
+      const id = service.persist(
+        SESSION,
+        AGENT_A,
+        AGENT_B,
+        "info_share",
+        {},
+        {
+          ttlMs: 1,
+        },
+      );
       const messages: Map<string, PersistedMessage> = (
         service as unknown as { messages: Map<string, PersistedMessage> }
       ).messages;

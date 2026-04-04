@@ -40,7 +40,11 @@ function makeConfig(
   };
 }
 
-function makeTeam(id: string, name: string, type: "predefined" | "custom" = "predefined"): ITeam {
+function makeTeam(
+  id: string,
+  name: string,
+  type: "predefined" | "custom" = "predefined",
+): ITeam {
   const config = makeConfig(id, name, type);
   return {
     id,
@@ -317,9 +321,15 @@ describe("TeamRegistry", () => {
 
   describe("search", () => {
     beforeEach(() => {
-      registry.registerConfig(makeConfig("research", "Research Team", "predefined"));
-      registry.registerConfig(makeConfig("debate", "Debate Team", "predefined"));
-      registry.registerConfig(makeConfig("custom-1", "Custom Analysis", "custom"));
+      registry.registerConfig(
+        makeConfig("research", "Research Team", "predefined"),
+      );
+      registry.registerConfig(
+        makeConfig("debate", "Debate Team", "predefined"),
+      );
+      registry.registerConfig(
+        makeConfig("custom-1", "Custom Analysis", "custom"),
+      );
     });
 
     it("should find configs by name (case-insensitive)", () => {

@@ -1,6 +1,9 @@
 import { XhsMcpAdapter } from "../xhs-mcp.adapter";
 import type { MCPClientService } from "../../../core/mcp-client.service";
-import type { SessionData, PublishOptions } from "../../../types/platform.types";
+import type {
+  SessionData,
+  PublishOptions,
+} from "../../../types/platform.types";
 import type { SocialContent } from "../../../types";
 import { SocialPlatformType } from "../../../types";
 
@@ -354,7 +357,10 @@ describe("XhsMcpAdapter", () => {
         .mockResolvedValueOnce({ success: true, data: {} }) // validateSession
         .mockResolvedValueOnce({
           success: true,
-          data: { noteId: "note-no-img", noteUrl: "https://xhs.com/note/no-img" },
+          data: {
+            noteId: "note-no-img",
+            noteUrl: "https://xhs.com/note/no-img",
+          },
         }); // createNote
 
       const contentNoImages: SocialContent = {
@@ -455,7 +461,10 @@ describe("XhsMcpAdapter", () => {
 
   describe("getNotes", () => {
     it("should return notes list on success", async () => {
-      const mockNotes = [{ id: "1", title: "Note 1" }, { id: "2", title: "Note 2" }];
+      const mockNotes = [
+        { id: "1", title: "Note 1" },
+        { id: "2", title: "Note 2" },
+      ];
       mockMCPClient.callTool.mockResolvedValue({
         success: true,
         data: { notes: mockNotes },
@@ -490,7 +499,10 @@ describe("XhsMcpAdapter", () => {
         data: { views: 1000, likes: 100, comments: 50, shares: 20 },
       });
 
-      const result = await adapter.getNoteStats("note-1", createMockSessionData());
+      const result = await adapter.getNoteStats(
+        "note-1",
+        createMockSessionData(),
+      );
 
       expect(result.success).toBe(true);
       expect(result.stats?.views).toBe(1000);
@@ -503,7 +515,10 @@ describe("XhsMcpAdapter", () => {
         error: "Note not found",
       });
 
-      const result = await adapter.getNoteStats("bad-id", createMockSessionData());
+      const result = await adapter.getNoteStats(
+        "bad-id",
+        createMockSessionData(),
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Note not found");
@@ -514,7 +529,10 @@ describe("XhsMcpAdapter", () => {
     it("should return success on deletion", async () => {
       mockMCPClient.callTool.mockResolvedValue({ success: true });
 
-      const result = await adapter.deleteNote("note-1", createMockSessionData());
+      const result = await adapter.deleteNote(
+        "note-1",
+        createMockSessionData(),
+      );
 
       expect(result.success).toBe(true);
       expect(result.error).toBeUndefined();
@@ -526,7 +544,10 @@ describe("XhsMcpAdapter", () => {
         error: "Cannot delete published note",
       });
 
-      const result = await adapter.deleteNote("note-pub", createMockSessionData());
+      const result = await adapter.deleteNote(
+        "note-pub",
+        createMockSessionData(),
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Cannot delete published note");

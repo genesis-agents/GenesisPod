@@ -291,7 +291,9 @@ export class GraphService {
     edges: Array<Record<string, unknown>>;
   }> {
     // 查找该作者的所有资源
-    const resources = await this.prisma.$queryRaw<Array<Record<string, unknown>>>`
+    const resources = await this.prisma.$queryRaw<
+      Array<Record<string, unknown>>
+    >`
       SELECT *
       FROM resources
       WHERE jsonb_path_exists(
@@ -321,7 +323,10 @@ export class GraphService {
           id: resource.id,
           type: resource.type,
           title: resource.title,
-          abstract: typeof resource.abstract === "string" ? resource.abstract.substring(0, 200) : null,
+          abstract:
+            typeof resource.abstract === "string"
+              ? resource.abstract.substring(0, 200)
+              : null,
         },
       });
 
@@ -362,7 +367,9 @@ export class GraphService {
     edges: Array<Record<string, unknown>>;
   }> {
     // 查找该主题下的所有资源
-    const resources = await this.prisma.$queryRaw<Array<Record<string, unknown>>>`
+    const resources = await this.prisma.$queryRaw<
+      Array<Record<string, unknown>>
+    >`
       SELECT *
       FROM resources
       WHERE
@@ -396,7 +403,10 @@ export class GraphService {
           id: resource.id,
           type: resource.type,
           title: resource.title,
-          abstract: typeof resource.abstract === "string" ? resource.abstract.substring(0, 200) : null,
+          abstract:
+            typeof resource.abstract === "string"
+              ? resource.abstract.substring(0, 200)
+              : null,
         },
       });
 
@@ -407,7 +417,8 @@ export class GraphService {
       });
 
       // 收集作者
-      const authors = (resource.authors as Array<Record<string, unknown>>) || [];
+      const authors =
+        (resource.authors as Array<Record<string, unknown>>) || [];
       authors.forEach((author) => {
         const authorId = (author.name || author.username) as string;
         if (authorId) {
@@ -428,9 +439,11 @@ export class GraphService {
 
         // 找该作者的资源并建立关系
         resources.forEach((resource) => {
-          const authors = (resource.authors as Array<Record<string, unknown>>) || [];
+          const authors =
+            (resource.authors as Array<Record<string, unknown>>) || [];
           const hasAuthor = authors.some(
-            (a: Record<string, unknown>) => a.name === authorId || a.username === authorId,
+            (a: Record<string, unknown>) =>
+              a.name === authorId || a.username === authorId,
           );
           if (hasAuthor) {
             edges.push({
@@ -628,10 +641,12 @@ export class GraphService {
         });
 
         // 处理作者
-        const authors = (resource.authors as Array<Record<string, unknown>>) || [];
+        const authors =
+          (resource.authors as Array<Record<string, unknown>>) || [];
         for (const author of authors) {
-          const authorName =
-            (author?.name || author?.username || author?.displayName) as string;
+          const authorName = (author?.name ||
+            author?.username ||
+            author?.displayName) as string;
           if (authorName && !authorSet.has(authorName)) {
             authorSet.add(authorName);
             nodes.push({

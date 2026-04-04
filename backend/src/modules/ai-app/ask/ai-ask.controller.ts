@@ -34,7 +34,10 @@ export class AiAskController {
   @ApiOperation({ summary: "创建新会话" })
   @ApiResponse({ status: 201, description: "创建成功" })
   @ApiResponse({ status: 401, description: "未授权" })
-  async createSession(@Request() req: { user: { id: string } }, @Body() dto: CreateSessionDto) {
+  async createSession(
+    @Request() req: { user: { id: string } },
+    @Body() dto: CreateSessionDto,
+  ) {
     this.logger.log(`Creating session for user ${req.user.id}`);
     return this.aiAskService.createSession(req.user.id, dto);
   }
@@ -89,7 +92,10 @@ export class AiAskController {
   @ApiResponse({ status: 200, description: "成功" })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "未找到" })
-  async getSession(@Request() req: { user: { id: string } }, @Param("id") id: string) {
+  async getSession(
+    @Request() req: { user: { id: string } },
+    @Param("id") id: string,
+  ) {
     return this.aiAskService.getSession(id, req.user.id);
   }
 
@@ -119,7 +125,10 @@ export class AiAskController {
   @ApiResponse({ status: 200, description: "成功" })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "未找到" })
-  async deleteSession(@Request() req: { user: { id: string } }, @Param("id") id: string) {
+  async deleteSession(
+    @Request() req: { user: { id: string } },
+    @Param("id") id: string,
+  ) {
     return this.aiAskService.deleteSession(id, req.user.id);
   }
 

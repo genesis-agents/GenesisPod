@@ -169,9 +169,9 @@ describe("StoryBibleAuditService", () => {
     it("should throw NotFoundException when bible not found", async () => {
       (mockPrisma.storyBible.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(
-        service.getChangeHistory("nonexistent", {}),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getChangeHistory("nonexistent", {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should return paginated audit logs", async () => {
@@ -276,7 +276,11 @@ describe("StoryBibleAuditService", () => {
       expect(result).toEqual([mockAuditLog]);
       expect(mockPrisma.storyBibleAuditLog.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { bibleId: "bible-1", entityType: "CHARACTER", entityId: "char-1" },
+          where: {
+            bibleId: "bible-1",
+            entityType: "CHARACTER",
+            entityId: "char-1",
+          },
           orderBy: { createdAt: "asc" },
         }),
       );
@@ -373,9 +377,24 @@ describe("StoryBibleAuditService", () => {
   describe("getVersionStats", () => {
     it("should return statistics for a specific version", async () => {
       (mockPrisma.storyBibleAuditLog.findMany as jest.Mock).mockResolvedValue([
-        { ...mockAuditLog, changeType: "UPDATE", entityType: "CHARACTER", changedBy: "user" },
-        { ...mockAuditLog, changeType: "CREATE", entityType: "WORLD_SETTING", changedBy: "story-architect" },
-        { ...mockAuditLog, changeType: "UPDATE", entityType: "CHARACTER", changedBy: "user" },
+        {
+          ...mockAuditLog,
+          changeType: "UPDATE",
+          entityType: "CHARACTER",
+          changedBy: "user",
+        },
+        {
+          ...mockAuditLog,
+          changeType: "CREATE",
+          entityType: "WORLD_SETTING",
+          changedBy: "story-architect",
+        },
+        {
+          ...mockAuditLog,
+          changeType: "UPDATE",
+          entityType: "CHARACTER",
+          changedBy: "user",
+        },
       ]);
 
       const result = await service.getVersionStats("bible-1", 1);

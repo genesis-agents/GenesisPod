@@ -140,7 +140,9 @@ describe("ReportChangeService", () => {
         "Short text.\n\nA much longer new paragraph with many additional words added here.",
       );
 
-      const addedChange = changes.find((c) => c.changeType === ChangeType.ADDED);
+      const addedChange = changes.find(
+        (c) => c.changeType === ChangeType.ADDED,
+      );
       expect(addedChange?.wordsDiff).toBeGreaterThan(0);
     });
 

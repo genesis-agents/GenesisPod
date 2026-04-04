@@ -13,7 +13,10 @@ import {
   ConnectorSearchOptions,
   ConnectorHealthStatus,
 } from "../../../types/data-source-connector.types";
-import { DataSourceType, DataSourceResult } from "../../../types/data-source.types";
+import {
+  DataSourceType,
+  DataSourceResult,
+} from "../../../types/data-source.types";
 
 @Injectable()
 export class PubMedConnector implements IDataSourceConnector {
@@ -102,7 +105,10 @@ export class PubMedConnector implements IDataSourceConnector {
     }
 
     if (options?.since) {
-      const minDate = options.since.toISOString().split("T")[0].replace(/-/g, "/");
+      const minDate = options.since
+        .toISOString()
+        .split("T")[0]
+        .replace(/-/g, "/");
       params.set("mindate", minDate);
       params.set("datetype", "pdat");
     }
@@ -165,9 +171,7 @@ export class PubMedConnector implements IDataSourceConnector {
         domain: "pubmed.ncbi.nlm.nih.gov",
         metadata: {
           pmid,
-          authors: article.authors?.map(
-            (a: { name: string }) => a.name,
-          ),
+          authors: article.authors?.map((a: { name: string }) => a.name),
           journal: article.fulljournalname || article.source,
           doi: article.elocationid,
           sourceConnector: "pubmed",

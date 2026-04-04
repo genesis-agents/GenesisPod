@@ -45,7 +45,10 @@ interface SimulationAPITabProps {
   saving: boolean;
   testResults: Record<string, { success: boolean; message: string }>;
   testing: string | null;
-  onTestProvider: (categoryId: string, provider: SimulationAPIProvider) => Promise<void>;
+  onTestProvider: (
+    categoryId: string,
+    provider: SimulationAPIProvider
+  ) => Promise<void>;
 }
 
 export function SimulationAPITab({
@@ -210,7 +213,9 @@ export function SimulationAPITab({
 
         <RegulationAPISettings
           providers={getCategoryProviders('regulation')}
-          onAddProvider={(template) => handleAddProvider('regulation', template)}
+          onAddProvider={(template) =>
+            handleAddProvider('regulation', template)
+          }
           onUpdateProvider={(providerId, updates) =>
             handleUpdateProvider('regulation', providerId, updates)
           }

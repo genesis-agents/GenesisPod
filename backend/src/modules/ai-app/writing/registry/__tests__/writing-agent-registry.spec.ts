@@ -33,7 +33,10 @@ import {
   WritingAgentAdapter,
   IWritingAgent,
 } from "../writing-agent-registry";
-import type { AgentContext, AgentCapability } from "../../../../ai-engine/facade";
+import type {
+  AgentContext,
+  AgentCapability,
+} from "../../../../ai-engine/facade";
 
 // ==================== Helpers ====================
 
@@ -168,7 +171,10 @@ describe("WritingAgentRegistry", () => {
       registry.register(makeAgent("writer-1"));
 
       expect(() =>
-        registry.registerMultiple([makeAgent("writer-1"), makeAgent("checker-1")]),
+        registry.registerMultiple([
+          makeAgent("writer-1"),
+          makeAgent("checker-1"),
+        ]),
       ).toThrow();
     });
   });
@@ -197,8 +203,12 @@ describe("WritingAgentRegistry", () => {
     });
 
     it("should keep capability in index if another agent still has it", () => {
-      const agent1 = makeAgent("writer-1", [makeCapability("creative-writing")]);
-      const agent2 = makeAgent("writer-2", [makeCapability("creative-writing")]);
+      const agent1 = makeAgent("writer-1", [
+        makeCapability("creative-writing"),
+      ]);
+      const agent2 = makeAgent("writer-2", [
+        makeCapability("creative-writing"),
+      ]);
       registry.register(agent1);
       registry.register(agent2);
 
@@ -217,7 +227,9 @@ describe("WritingAgentRegistry", () => {
 
   describe("replace", () => {
     it("should replace an existing agent", () => {
-      const oldAgent = makeAgent("writer-1", [makeCapability("creative-writing")]);
+      const oldAgent = makeAgent("writer-1", [
+        makeCapability("creative-writing"),
+      ]);
       const newAgent = makeAgent("writer-1", [makeCapability("editing")]);
 
       registry.register(oldAgent);
@@ -331,7 +343,9 @@ describe("WritingAgentRegistry", () => {
 
   describe("getByCapability", () => {
     it("should return agents with that capability", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
       registry.register(makeAgent("checker-1", [makeCapability("fact-check")]));
 
       const writers = registry.getByCapability("creative-writing");
@@ -341,14 +355,20 @@ describe("WritingAgentRegistry", () => {
     });
 
     it("should return empty array for unknown capability", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
 
       expect(registry.getByCapability("unknown-cap")).toHaveLength(0);
     });
 
     it("should return multiple agents with same capability", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
-      registry.register(makeAgent("writer-2", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
+      registry.register(
+        makeAgent("writer-2", [makeCapability("creative-writing")]),
+      );
 
       const writers = registry.getByCapability("creative-writing");
 
@@ -358,28 +378,40 @@ describe("WritingAgentRegistry", () => {
 
   describe("getByAnyCapability", () => {
     it("should return agents with any of the given capabilities", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
       registry.register(makeAgent("checker-1", [makeCapability("fact-check")]));
       registry.register(makeAgent("editor-1", [makeCapability("editing")]));
 
-      const result = registry.getByAnyCapability(["creative-writing", "fact-check"]);
+      const result = registry.getByAnyCapability([
+        "creative-writing",
+        "fact-check",
+      ]);
 
       expect(result).toHaveLength(2);
     });
 
     it("should deduplicate when agent has multiple matching capabilities", () => {
-      registry.register(makeAgent("multi-1", [
-        makeCapability("creative-writing"),
-        makeCapability("editing"),
-      ]));
+      registry.register(
+        makeAgent("multi-1", [
+          makeCapability("creative-writing"),
+          makeCapability("editing"),
+        ]),
+      );
 
-      const result = registry.getByAnyCapability(["creative-writing", "editing"]);
+      const result = registry.getByAnyCapability([
+        "creative-writing",
+        "editing",
+      ]);
 
       expect(result).toHaveLength(1);
     });
 
     it("should return empty array when no capabilities match", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
 
       const result = registry.getByAnyCapability(["unknown-1", "unknown-2"]);
 
@@ -389,20 +421,29 @@ describe("WritingAgentRegistry", () => {
 
   describe("getByAllCapabilities", () => {
     it("should return only agents that have ALL given capabilities", () => {
-      registry.register(makeAgent("writer-1", [
-        makeCapability("creative-writing"),
-        makeCapability("dialogue"),
-      ]));
-      registry.register(makeAgent("writer-2", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [
+          makeCapability("creative-writing"),
+          makeCapability("dialogue"),
+        ]),
+      );
+      registry.register(
+        makeAgent("writer-2", [makeCapability("creative-writing")]),
+      );
 
-      const result = registry.getByAllCapabilities(["creative-writing", "dialogue"]);
+      const result = registry.getByAllCapabilities([
+        "creative-writing",
+        "dialogue",
+      ]);
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("writer-1");
     });
 
     it("should return empty array when no agent has all capabilities", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
 
       const result = registry.getByAllCapabilities([
         "creative-writing",
@@ -413,7 +454,9 @@ describe("WritingAgentRegistry", () => {
     });
 
     it("should return empty array for empty capability list", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
 
       const result = registry.getByAllCapabilities([]);
 
@@ -421,9 +464,14 @@ describe("WritingAgentRegistry", () => {
     });
 
     it("should return empty array when first capability has no agents", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
 
-      const result = registry.getByAllCapabilities(["nonexistent", "creative-writing"]);
+      const result = registry.getByAllCapabilities([
+        "nonexistent",
+        "creative-writing",
+      ]);
 
       expect(result).toHaveLength(0);
     });
@@ -431,10 +479,12 @@ describe("WritingAgentRegistry", () => {
 
   describe("getAllCapabilities", () => {
     it("should list all distinct capability IDs", () => {
-      registry.register(makeAgent("writer-1", [
-        makeCapability("creative-writing"),
-        makeCapability("dialogue"),
-      ]));
+      registry.register(
+        makeAgent("writer-1", [
+          makeCapability("creative-writing"),
+          makeCapability("dialogue"),
+        ]),
+      );
       registry.register(makeAgent("checker-1", [makeCapability("fact-check")]));
 
       const caps = registry.getAllCapabilities();
@@ -459,7 +509,9 @@ describe("WritingAgentRegistry", () => {
 
   describe("getStatus", () => {
     it("should return correct summary shape", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
 
       const status = registry.getStatus();
 
@@ -481,7 +533,9 @@ describe("WritingAgentRegistry", () => {
 
   describe("printStatus", () => {
     it("should not throw when called with agents registered", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
 
       expect(() => registry.printStatus()).not.toThrow();
     });
@@ -495,7 +549,9 @@ describe("WritingAgentRegistry", () => {
 
   describe("clear", () => {
     it("should remove all agents and capabilities", () => {
-      registry.register(makeAgent("writer-1", [makeCapability("creative-writing")]));
+      registry.register(
+        makeAgent("writer-1", [makeCapability("creative-writing")]),
+      );
       registry.register(makeAgent("checker-1", [makeCapability("fact-check")]));
 
       registry.clear();
@@ -518,7 +574,9 @@ describe("WritingAgentRegistry", () => {
 // ==================== WritingAgentAdapter ====================
 
 describe("WritingAgentAdapter", () => {
-  function makeFullAgent(overrides: Partial<IWritingAgent> = {}): IWritingAgent {
+  function makeFullAgent(
+    overrides: Partial<IWritingAgent> = {},
+  ): IWritingAgent {
     return {
       id: "test-agent",
       name: "Test Agent",
@@ -598,7 +656,10 @@ describe("WritingAgentAdapter", () => {
       const adapter = new WritingAgentAdapter(agent);
       const context = makeAgentContext();
 
-      const result = await adapter.execute({ prompt: "write something" }, context);
+      const result = await adapter.execute(
+        { prompt: "write something" },
+        context,
+      );
 
       expect(agent.execute).toHaveBeenCalledWith(
         { prompt: "write something" },
@@ -616,7 +677,10 @@ describe("WritingAgentAdapter", () => {
       const adapter = new WritingAgentAdapter(agent);
       const context = makeAgentContext();
 
-      const generator = adapter.executeStream({ prompt: "stream test" }, context);
+      const generator = adapter.executeStream(
+        { prompt: "stream test" },
+        context,
+      );
 
       // Consuming the generator should return the final result
       const result = await generator.next();
@@ -695,7 +759,10 @@ describe("WritingAgentAdapter", () => {
 
     it("should delegate to agent.validateInput when available", () => {
       const agent = makeFullAgent({
-        validateInput: jest.fn().mockReturnValue({ valid: false, errors: ["Missing required field"] }),
+        validateInput: jest.fn().mockReturnValue({
+          valid: false,
+          errors: ["Missing required field"],
+        }),
       });
       const adapter = new WritingAgentAdapter(agent);
 

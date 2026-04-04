@@ -72,10 +72,7 @@ class TestExecutor extends BaseExecutor {
     return this.evaluateCondition(expression, context);
   }
 
-  public exposeEvaluateExpression(
-    expression: string,
-    scope: object,
-  ): unknown {
+  public exposeEvaluateExpression(expression: string, scope: object): unknown {
     return this.evaluateExpression(expression, scope);
   }
 
@@ -444,9 +441,10 @@ describe("BaseExecutor", () => {
 
     it("should throw when tool.execute returns success: false", async () => {
       const tool = {
-        execute: jest
-          .fn()
-          .mockResolvedValue({ success: false, error: { message: "bad call" } }),
+        execute: jest.fn().mockResolvedValue({
+          success: false,
+          error: { message: "bad call" },
+        }),
       };
       const toolRegistry = {
         tryGet: jest.fn().mockReturnValue(tool),
@@ -925,10 +923,7 @@ describe("BaseExecutor", () => {
     });
 
     it("should return false for falsy expression", () => {
-      const result = executor.exposeEvaluateCondition(
-        "false",
-        makeContext(),
-      );
+      const result = executor.exposeEvaluateCondition("false", makeContext());
       expect(result).toBe(false);
     });
 
@@ -956,9 +951,9 @@ describe("BaseExecutor", () => {
 
   describe("evaluateExpression()", () => {
     it("should throw an error and not execute any code", () => {
-      expect(() =>
-        executor.exposeEvaluateExpression("2 + 3", {}),
-      ).toThrow('evaluateExpression is disabled for security reasons');
+      expect(() => executor.exposeEvaluateExpression("2 + 3", {})).toThrow(
+        "evaluateExpression is disabled for security reasons",
+      );
     });
 
     it("should throw regardless of the expression provided", () => {
@@ -968,9 +963,7 @@ describe("BaseExecutor", () => {
     });
 
     it("should throw even for safe-looking expressions", () => {
-      expect(() =>
-        executor.exposeEvaluateExpression('"hello"', {}),
-      ).toThrow();
+      expect(() => executor.exposeEvaluateExpression('"hello"', {})).toThrow();
     });
   });
 

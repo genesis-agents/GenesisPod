@@ -4,11 +4,7 @@
  */
 
 import { Logger } from "@nestjs/common";
-import {
-  PlanAgent,
-  PlanAgentConfig,
-  StepResult,
-} from "../plan-agent";
+import { PlanAgent, PlanAgentConfig, StepResult } from "../plan-agent";
 import {
   AgentContext,
   AgentInput,
@@ -29,15 +25,21 @@ class TestPlanAgent extends PlanAgent<AgentInput, AgentOutput> {
   readonly description = "Used in unit tests";
   readonly capabilities: AgentCapability[] = [];
 
-  planImpl: (input: AgentInput, context: AgentContext) => Promise<ExecutionPlan> =
-    async (_input, _context) => ({
-      id: "plan-1",
-      agentId: this.id,
-      steps: [],
-    });
+  planImpl: (
+    input: AgentInput,
+    context: AgentContext,
+  ) => Promise<ExecutionPlan> = async (_input, _context) => ({
+    id: "plan-1",
+    agentId: this.id,
+    steps: [],
+  });
 
-  processResultsImpl: (results: StepResult[], context: AgentContext) => Promise<AgentOutput> =
-    async (_results, _context) => ({ message: "processed" });
+  processResultsImpl: (
+    results: StepResult[],
+    context: AgentContext,
+  ) => Promise<AgentOutput> = async (_results, _context) => ({
+    message: "processed",
+  });
 
   async plan(input: AgentInput, context: AgentContext): Promise<ExecutionPlan> {
     return this.planImpl(input, context);
@@ -133,8 +135,14 @@ describe("PlanAgent", () => {
   describe("execute – tool step", () => {
     it("calls the registered tool and passes its output to processResults", async () => {
       const toolOutput = { found: true };
-      const tool = { execute: jest.fn().mockResolvedValue({ success: true, data: toolOutput }) };
-      const registry = { tryGet: jest.fn().mockReturnValue(tool) } as unknown as ToolRegistry;
+      const tool = {
+        execute: jest
+          .fn()
+          .mockResolvedValue({ success: true, data: toolOutput }),
+      };
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
       agent.planImpl = async () =>
@@ -160,8 +168,14 @@ describe("PlanAgent", () => {
   describe("execute – skill step", () => {
     it("calls the registered skill", async () => {
       const skillOutput = { result: "ok" };
-      const skill = { execute: jest.fn().mockResolvedValue({ success: true, data: skillOutput }) };
-      const skillRegistry = { tryGet: jest.fn().mockReturnValue(skill) } as unknown as import("../../../skills/registry").SkillRegistry;
+      const skill = {
+        execute: jest
+          .fn()
+          .mockResolvedValue({ success: true, data: skillOutput }),
+      };
+      const skillRegistry = {
+        tryGet: jest.fn().mockReturnValue(skill),
+      } as unknown as import("../../../skills/registry").SkillRegistry;
       agent.setSkillRegistry(skillRegistry);
 
       agent.planImpl = async () =>
@@ -181,7 +195,9 @@ describe("PlanAgent", () => {
     it("waits and returns waited output", async () => {
       // Use a very short wait time (1ms) so the test completes quickly without fake timers
       agent.planImpl = async () =>
-        makePlan([makeStep({ id: "w1", type: "wait", executor: "", input: 1 })]);
+        makePlan([
+          makeStep({ id: "w1", type: "wait", executor: "", input: 1 }),
+        ]);
 
       const result = await agent.execute(makeInput(), makeContext());
 
@@ -196,7 +212,14 @@ describe("PlanAgent", () => {
   describe("execute – decision step", () => {
     it("returns a decision object from the default executeDecision", async () => {
       agent.planImpl = async () =>
-        makePlan([makeStep({ id: "d1", type: "decision", executor: "", condition: "a > b" })]);
+        makePlan([
+          makeStep({
+            id: "d1",
+            type: "decision",
+            executor: "",
+            condition: "a > b",
+          }),
+        ]);
 
       const collectedResults: StepResult[][] = [];
       agent.processResultsImpl = async (results) => {
@@ -216,16 +239,33 @@ describe("PlanAgent", () => {
 
   describe("execute – parallel step", () => {
     it("executes substeps in parallel and collects results", async () => {
-      const tool = { execute: jest.fn().mockResolvedValue({ success: true, data: "x" }) };
-      const registry = { tryGet: jest.fn().mockReturnValue(tool) } as unknown as ToolRegistry;
+      const tool = {
+        execute: jest.fn().mockResolvedValue({ success: true, data: "x" }),
+      };
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
-      const subStep1: ReActPlanStep = { id: "sub-1", type: "tool", executor: "my-tool" };
-      const subStep2: ReActPlanStep = { id: "sub-2", type: "tool", executor: "my-tool" };
+      const subStep1: ReActPlanStep = {
+        id: "sub-1",
+        type: "tool",
+        executor: "my-tool",
+      };
+      const subStep2: ReActPlanStep = {
+        id: "sub-2",
+        type: "tool",
+        executor: "my-tool",
+      };
 
       agent.planImpl = async () =>
         makePlan([
-          makeStep({ id: "p1", type: "parallel", executor: "", input: [subStep1, subStep2] }),
+          makeStep({
+            id: "p1",
+            type: "parallel",
+            executor: "",
+            input: [subStep1, subStep2],
+          }),
         ]);
 
       const result = await agent.execute(makeInput(), makeContext());
@@ -252,14 +292,24 @@ describe("PlanAgent", () => {
     it("marks the step as failed (step error is caught internally)", async () => {
       agent.planImpl = async () =>
         makePlan([
-          makeStep({ id: "u1", type: "agent" as ReActPlanStep["type"], executor: "" }),
+          makeStep({
+            id: "u1",
+            type: "agent" as ReActPlanStep["type"],
+            executor: "",
+          }),
         ]);
 
       // onStepFailure default is 'replan' → will replan until maxReplans is exceeded
       // Set onStepFailure to 'skip' so we can reach processResults
       const agentWithSkip = new TestPlanAgent({ onStepFailure: "skip" });
       agentWithSkip.planImpl = async () =>
-        makePlan([makeStep({ id: "u1", type: "agent" as ReActPlanStep["type"], executor: "" })]);
+        makePlan([
+          makeStep({
+            id: "u1",
+            type: "agent" as ReActPlanStep["type"],
+            executor: "",
+          }),
+        ]);
 
       const result = await agentWithSkip.execute(makeInput(), makeContext());
       // With 'skip', failed step is skipped and processResults is called
@@ -276,7 +326,9 @@ describe("PlanAgent", () => {
       // Tool not found → executeStep returns { success: false }
       // With onStepFailure: 'abort', executePlan returns { needReplan: false }
       // doExecute then calls processResults with the collected results (including failed step).
-      const registry = { tryGet: jest.fn().mockReturnValue(undefined) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(undefined),
+      } as unknown as ToolRegistry;
 
       const agentAbort = new TestPlanAgent({ onStepFailure: "abort" });
       agentAbort.setToolRegistry(registry);
@@ -313,9 +365,14 @@ describe("PlanAgent", () => {
 
   describe("execute – onStepFailure: replan", () => {
     it("replans and eventually exhausts maxReplans", async () => {
-      const registry = { tryGet: jest.fn().mockReturnValue(undefined) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(undefined),
+      } as unknown as ToolRegistry;
 
-      const agentReplan = new TestPlanAgent({ onStepFailure: "replan", maxReplans: 2 });
+      const agentReplan = new TestPlanAgent({
+        onStepFailure: "replan",
+        maxReplans: 2,
+      });
       agentReplan.setToolRegistry(registry);
       agentReplan.planImpl = async () =>
         makePlan([makeStep({ id: "bad", type: "tool", executor: "missing" })]);
@@ -327,15 +384,22 @@ describe("PlanAgent", () => {
 
     it("succeeds on replan if second plan has no failing steps", async () => {
       let callCount = 0;
-      const registry = { tryGet: jest.fn().mockReturnValue(undefined) } as unknown as ToolRegistry;
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(undefined),
+      } as unknown as ToolRegistry;
 
-      const agentReplan = new TestPlanAgent({ onStepFailure: "replan", maxReplans: 2 });
+      const agentReplan = new TestPlanAgent({
+        onStepFailure: "replan",
+        maxReplans: 2,
+      });
       agentReplan.setToolRegistry(registry);
       agentReplan.planImpl = async () => {
         callCount++;
         if (callCount === 1) {
           // First plan has a bad step
-          return makePlan([makeStep({ id: "bad", type: "tool", executor: "missing" })]);
+          return makePlan([
+            makeStep({ id: "bad", type: "tool", executor: "missing" }),
+          ]);
         }
         // Second plan is empty → succeeds
         return makePlan([]);
@@ -369,11 +433,19 @@ describe("PlanAgent", () => {
 
   describe("execute – step dependency", () => {
     it("skips a step whose dependency was not met", async () => {
-      const tool = { execute: jest.fn().mockResolvedValue({ success: true, data: "x" }) };
-      const registry = { tryGet: jest.fn().mockReturnValue(tool) } as unknown as ToolRegistry;
+      const tool = {
+        execute: jest.fn().mockResolvedValue({ success: true, data: "x" }),
+      };
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
       agent.setToolRegistry(registry);
 
-      const step1: ReActPlanStep = { id: "s1", type: "tool", executor: "my-tool" };
+      const step1: ReActPlanStep = {
+        id: "s1",
+        type: "tool",
+        executor: "my-tool",
+      };
       // step2 depends on "non-existent-step"
       const step2: ReActPlanStep = {
         id: "s2",

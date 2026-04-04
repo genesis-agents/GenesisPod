@@ -328,9 +328,7 @@ describe("AiStreamHandlerService", () => {
     });
 
     it("should separate system messages", async () => {
-      const mockStream = createMockStream([
-        'data: {"type":"message_stop"}',
-      ]);
+      const mockStream = createMockStream(['data: {"type":"message_stop"}']);
 
       mockHttpService.post.mockReturnValueOnce(
         of({ data: mockStream } as any) as any,
@@ -350,9 +348,7 @@ describe("AiStreamHandlerService", () => {
       const body = callArgs[1];
       expect(body.system).toBe("You are helpful");
       expect(body.messages).not.toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ role: "system" }),
-        ]),
+        expect.arrayContaining([expect.objectContaining({ role: "system" })]),
       );
     });
 

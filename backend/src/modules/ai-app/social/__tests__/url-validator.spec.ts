@@ -39,40 +39,60 @@ describe("url-validator", () => {
     });
 
     it("should throw for unsupported protocols", () => {
-      expect(() => validateUrl("ftp://example.com")).toThrow(BadRequestException);
-      expect(() => validateUrl("file:///etc/passwd")).toThrow(BadRequestException);
+      expect(() => validateUrl("ftp://example.com")).toThrow(
+        BadRequestException,
+      );
+      expect(() => validateUrl("file:///etc/passwd")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for localhost", () => {
-      expect(() => validateUrl("http://localhost/api")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://localhost/api")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for 127.0.0.1", () => {
-      expect(() => validateUrl("http://127.0.0.1/api")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://127.0.0.1/api")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for private IP 10.x.x.x", () => {
-      expect(() => validateUrl("http://10.0.0.1/api")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://10.0.0.1/api")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for private IP 192.168.x.x", () => {
-      expect(() => validateUrl("http://192.168.1.1/api")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://192.168.1.1/api")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for private IP 172.16.x.x", () => {
-      expect(() => validateUrl("http://172.16.0.1/api")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://172.16.0.1/api")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for link-local address 169.254.x.x", () => {
-      expect(() => validateUrl("http://169.254.169.254/latest/meta-data")).toThrow(BadRequestException);
+      expect(() =>
+        validateUrl("http://169.254.169.254/latest/meta-data"),
+      ).toThrow(BadRequestException);
     });
 
     it("should throw for GCP metadata endpoint", () => {
-      expect(() => validateUrl("http://metadata.google.internal/")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://metadata.google.internal/")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for non-standard ports", () => {
-      expect(() => validateUrl("http://example.com:8080/api")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://example.com:8080/api")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should allow standard port 80", () => {
@@ -86,7 +106,9 @@ describe("url-validator", () => {
     });
 
     it("should throw for IPv6 addresses", () => {
-      expect(() => validateUrl("http://[::1]/api")).toThrow(BadRequestException);
+      expect(() => validateUrl("http://[::1]/api")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw for 0.x.x.x addresses", () => {
@@ -131,11 +153,15 @@ describe("url-validator", () => {
     });
 
     it("should throw for valid URL not in whitelist", () => {
-      expect(() => validateUrlStrict("https://unknown-domain.com/page")).toThrow(BadRequestException);
+      expect(() =>
+        validateUrlStrict("https://unknown-domain.com/page"),
+      ).toThrow(BadRequestException);
     });
 
     it("should throw for blocked IPs even if they would match whitelist", () => {
-      expect(() => validateUrlStrict("http://192.168.1.1/")).toThrow(BadRequestException);
+      expect(() => validateUrlStrict("http://192.168.1.1/")).toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -181,7 +207,9 @@ describe("url-validator", () => {
 
     it("should throw for XIAOHONGSHU content exceeding 1000 chars", () => {
       const content = "A".repeat(1001);
-      expect(() => validateContentLength(content, "XIAOHONGSHU")).toThrow(BadRequestException);
+      expect(() => validateContentLength(content, "XIAOHONGSHU")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should not throw for XIAOHONGSHU content within 1000 chars", () => {
@@ -196,7 +224,9 @@ describe("url-validator", () => {
 
     it("should throw for TWITTER content exceeding 280 chars", () => {
       const content = "A".repeat(281);
-      expect(() => validateContentLength(content, "TWITTER")).toThrow(BadRequestException);
+      expect(() => validateContentLength(content, "TWITTER")).toThrow(
+        BadRequestException,
+      );
     });
 
     it("should not throw for empty content", () => {

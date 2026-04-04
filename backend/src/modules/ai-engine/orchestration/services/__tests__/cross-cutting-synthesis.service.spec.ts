@@ -19,12 +19,14 @@ function makeDimension(
   };
 }
 
-function makeValidLlmResponse(overrides: {
-  themes?: unknown;
-  contradictions?: unknown;
-  gaps?: unknown;
-  executiveSummary?: string;
-} = {}): string {
+function makeValidLlmResponse(
+  overrides: {
+    themes?: unknown;
+    contradictions?: unknown;
+    gaps?: unknown;
+    executiveSummary?: string;
+  } = {},
+): string {
   const payload = {
     crossCuttingThemes: overrides.themes ?? [
       {
@@ -90,7 +92,10 @@ describe("CrossCuttingSynthesisService", () => {
   describe("synthesize() — valid dimensions with successful LLM", () => {
     it("returns correctly populated SynthesisResult", async () => {
       const dims = [
-        makeDimension({ dimensionId: "dim-1", dimensionName: "Economic Impact" }),
+        makeDimension({
+          dimensionId: "dim-1",
+          dimensionName: "Economic Impact",
+        }),
         makeDimension({
           dimensionId: "dim-2",
           dimensionName: "Policy Landscape",
@@ -349,9 +354,13 @@ describe("CrossCuttingSynthesisService", () => {
       };
 
       // All keys must be present
-      expect(emptyResult.synthesisMetadata).toHaveProperty("dimensionsAnalyzed");
+      expect(emptyResult.synthesisMetadata).toHaveProperty(
+        "dimensionsAnalyzed",
+      );
       expect(emptyResult.synthesisMetadata).toHaveProperty("themesIdentified");
-      expect(emptyResult.synthesisMetadata).toHaveProperty("contradictionsFound");
+      expect(emptyResult.synthesisMetadata).toHaveProperty(
+        "contradictionsFound",
+      );
       expect(emptyResult.synthesisMetadata).toHaveProperty("gapsIdentified");
       expect(emptyResult.synthesisMetadata).toHaveProperty("tokensUsed");
     });

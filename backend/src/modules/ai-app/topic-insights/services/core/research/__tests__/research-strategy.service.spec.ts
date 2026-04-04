@@ -46,7 +46,13 @@ const mockTopicNeverResearched = {
   name: "Brand New Topic",
   totalReports: 0,
   lastRefreshAt: null,
-  dimensions: [{ ...mockDimension, lastResearchedAt: null, status: DimensionStatus.PENDING }],
+  dimensions: [
+    {
+      ...mockDimension,
+      lastResearchedAt: null,
+      status: DimensionStatus.PENDING,
+    },
+  ],
   reports: [],
 };
 
@@ -78,11 +84,15 @@ describe("ResearchStrategyService", () => {
     it("should throw error when topic not found", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(null);
 
-      await expect(service.analyzeAndRecommend("nonexistent")).rejects.toThrow("Topic not found");
+      await expect(service.analyzeAndRecommend("nonexistent")).rejects.toThrow(
+        "Topic not found",
+      );
     });
 
     it("should recommend NEW strategy for topic never researched", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicNeverResearched);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicNeverResearched,
+      );
 
       const result = await service.analyzeAndRecommend("topic-2");
       expect(result.strategy).toBe(ResearchStrategyType.NEW);
@@ -90,7 +100,9 @@ describe("ResearchStrategyService", () => {
     });
 
     it("should recommend UP_TO_DATE when all dimensions are fresh", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithFreshDimensions);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithFreshDimensions,
+      );
 
       const result = await service.analyzeAndRecommend("topic-1");
       expect(result.strategy).toBe(ResearchStrategyType.UP_TO_DATE);
@@ -113,7 +125,13 @@ describe("ResearchStrategyService", () => {
       prisma.researchTopic.findUnique.mockResolvedValue({
         ...mockTopicWithFreshDimensions,
         totalReports: 2,
-        dimensions: [staleDimension, freshDimension, freshDimension, freshDimension, freshDimension],
+        dimensions: [
+          staleDimension,
+          freshDimension,
+          freshDimension,
+          freshDimension,
+          freshDimension,
+        ],
       });
 
       const result = await service.analyzeAndRecommend("topic-1");
@@ -138,16 +156,22 @@ describe("ResearchStrategyService", () => {
     });
 
     it("should include dimension freshness info in response", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithFreshDimensions);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithFreshDimensions,
+      );
 
       const result = await service.analyzeAndRecommend("topic-1");
       expect(result.dimensions).toHaveLength(1);
       expect(result.dimensions[0].dimensionName).toBe("Market Analysis");
-      expect(result.dimensions[0].freshnessLevel).toBe(DimensionFreshnessLevel.FRESH);
+      expect(result.dimensions[0].freshnessLevel).toBe(
+        DimensionFreshnessLevel.FRESH,
+      );
     });
 
     it("should include estimated scope in response", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicNeverResearched);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicNeverResearched,
+      );
 
       const result = await service.analyzeAndRecommend("topic-2");
       expect(result.estimatedScope).toBeDefined();
@@ -159,7 +183,9 @@ describe("ResearchStrategyService", () => {
 
   describe("quickCheck", () => {
     it("should return needsResearch=false for up-to-date topic", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithFreshDimensions);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithFreshDimensions,
+      );
 
       const result = await service.quickCheck("topic-1");
       expect(result.needsResearch).toBe(false);
@@ -167,7 +193,9 @@ describe("ResearchStrategyService", () => {
     });
 
     it("should return needsResearch=true and isNewResearch=true for new topic", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicNeverResearched);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicNeverResearched,
+      );
 
       const result = await service.quickCheck("topic-2");
       expect(result.needsResearch).toBe(true);
@@ -176,7 +204,9 @@ describe("ResearchStrategyService", () => {
     });
 
     it("should include dimensionsNeedingUpdate count", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicNeverResearched);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicNeverResearched,
+      );
 
       const result = await service.quickCheck("topic-2");
       expect(result.dimensionsNeedingUpdate).toBe(1);
@@ -187,7 +217,9 @@ describe("ResearchStrategyService", () => {
 
   describe("getSmartRefreshOptions", () => {
     it("should return forceRefresh=true for NEW strategy", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicNeverResearched);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicNeverResearched,
+      );
 
       const result = await service.getSmartRefreshOptions("topic-2");
       expect(result.forceRefresh).toBe(true);
@@ -202,7 +234,10 @@ describe("ResearchStrategyService", () => {
         lastResearchedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
         status: DimensionStatus.COMPLETED,
       };
-      const freshDimensions = Array(4).fill({ ...mockDimension, lastResearchedAt: new Date() });
+      const freshDimensions = Array(4).fill({
+        ...mockDimension,
+        lastResearchedAt: new Date(),
+      });
 
       prisma.researchTopic.findUnique.mockResolvedValue({
         ...mockTopicWithFreshDimensions,
@@ -215,7 +250,9 @@ describe("ResearchStrategyService", () => {
     });
 
     it("should return no-op for UP_TO_DATE strategy", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopicWithFreshDimensions);
+      prisma.researchTopic.findUnique.mockResolvedValue(
+        mockTopicWithFreshDimensions,
+      );
 
       const result = await service.getSmartRefreshOptions("topic-1");
       expect(result.strategy).toBe(ResearchStrategyType.UP_TO_DATE);

@@ -190,7 +190,9 @@ test.describe("Admin AI — Agents Page (/admin/ai/agents)", () => {
     }
   });
 
-  test("agent table columns are present when agents exist", async ({ page }) => {
+  test("agent table columns are present when agents exist", async ({
+    page,
+  }) => {
     const tableHeaders = page.locator("th");
     const headerCount = await tableHeaders.count();
     if (headerCount > 0) {

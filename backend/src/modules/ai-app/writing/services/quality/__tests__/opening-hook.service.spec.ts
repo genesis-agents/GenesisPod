@@ -180,9 +180,7 @@ describe("OpeningHookService", () => {
     it("should penalize for 一阵...袭来 pattern", () => {
       const opening = "一阵寒风袭来，她不禁打了个寒颤。";
       const result = service.analyzeOpeningQuality(opening);
-      const hasRelevantIssue = result.issues.some((i) =>
-        i.includes("袭来"),
-      );
+      const hasRelevantIssue = result.issues.some((i) => i.includes("袭来"));
       expect(hasRelevantIssue).toBe(true);
     });
 

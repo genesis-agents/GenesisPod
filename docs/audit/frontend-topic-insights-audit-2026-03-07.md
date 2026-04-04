@@ -9,35 +9,35 @@
 
 ## 审计文件清单（实际读取）
 
-| 文件 | 行数 | 角色 |
-|---|---|---|
-| `frontend/app/ai-insights/topic-research/page.tsx` | 462 | 列表页面 |
-| `frontend/app/ai-insights/topic/[topicId]/page.tsx` | 104 | 详情页面（直链路由） |
-| `frontend/app/share/topic/[id]/page.tsx` | 1022 | 公开分享页面 |
-| `frontend/components/ai-insights/topics/TopicDetail.tsx` | 310 | 核心详情组件 |
-| `frontend/components/ai-insights/topics/TopicResearchLayout.tsx` | 419 | 两栏布局组件 |
-| `frontend/components/ai-insights/topics/TopicContentPanel.tsx` | **6021** | 内容面板（核心） |
-| `frontend/components/ai-insights/topics/TopicCard.tsx` | 493 | 卡片组件 |
-| `frontend/stores/topicInsightsStore.ts` | 1315 | 全量 Zustand store |
-| `frontend/hooks/useResearchWebSocket.ts` | 562 | WebSocket hook |
-| `frontend/components/ai-insights/reports/ReportEditor.tsx` | 1357 | 报告编辑器 |
-| `frontend/components/ai-insights/collaboration/ResearchTimeline.tsx` | 1736 | 研究时间线 |
+| 文件                                                                 | 行数     | 角色                 |
+| -------------------------------------------------------------------- | -------- | -------------------- |
+| `frontend/app/ai-insights/topic-research/page.tsx`                   | 462      | 列表页面             |
+| `frontend/app/ai-insights/topic/[topicId]/page.tsx`                  | 104      | 详情页面（直链路由） |
+| `frontend/app/share/topic/[id]/page.tsx`                             | 1022     | 公开分享页面         |
+| `frontend/components/ai-insights/topics/TopicDetail.tsx`             | 310      | 核心详情组件         |
+| `frontend/components/ai-insights/topics/TopicResearchLayout.tsx`     | 419      | 两栏布局组件         |
+| `frontend/components/ai-insights/topics/TopicContentPanel.tsx`       | **6021** | 内容面板（核心）     |
+| `frontend/components/ai-insights/topics/TopicCard.tsx`               | 493      | 卡片组件             |
+| `frontend/stores/topicInsightsStore.ts`                              | 1315     | 全量 Zustand store   |
+| `frontend/hooks/useResearchWebSocket.ts`                             | 562      | WebSocket hook       |
+| `frontend/components/ai-insights/reports/ReportEditor.tsx`           | 1357     | 报告编辑器           |
+| `frontend/components/ai-insights/collaboration/ResearchTimeline.tsx` | 1736     | 研究时间线           |
 
 ---
 
 ## 总分汇总
 
-| # | 维度 | 满分 | 得分 | 状态 |
-|---|---|---|---|---|
-| 1 | 组件架构 | 10 | **4** | 严重 |
-| 2 | 状态管理 | 10 | **6** | 警告 |
-| 3 | 用户体验 | 10 | **6** | 警告 |
-| 4 | 实时更新 | 10 | **7** | 良好 |
-| 5 | 类型安全 | 10 | **5** | 严重 |
-| 6 | 代码质量 | 10 | **4** | 严重 |
-| 7 | 性能 | 10 | **5** | 警告 |
-| 8 | 安全 | 10 | **7** | 良好 |
-| **总分** | | **80** | **44/80** | |
+| #        | 维度     | 满分   | 得分      | 状态 |
+| -------- | -------- | ------ | --------- | ---- |
+| 1        | 组件架构 | 10     | **4**     | 严重 |
+| 2        | 状态管理 | 10     | **6**     | 警告 |
+| 3        | 用户体验 | 10     | **6**     | 警告 |
+| 4        | 实时更新 | 10     | **7**     | 良好 |
+| 5        | 类型安全 | 10     | **5**     | 严重 |
+| 6        | 代码质量 | 10     | **4**     | 严重 |
+| 7        | 性能     | 10     | **5**     | 警告 |
+| 8        | 安全     | 10     | **7**     | 良好 |
+| **总分** |          | **80** | **44/80** |      |
 
 ---
 
@@ -48,6 +48,7 @@
 **TopicContentPanel.tsx 是 6021 行的单体组件。** 这是本次审计最严重的发现。
 
 实测文件尺寸：
+
 ```
 6021  TopicContentPanel.tsx
 1736  ResearchTimeline.tsx
@@ -59,6 +60,7 @@
 ```
 
 `TopicContentPanel.tsx` 内部包含（在单个文件中）：
+
 - 7 种 tab 的完整渲染逻辑（report / collaboration / references / credibility / research_collab / history / related_research）
 - 3 种报告视图模式（continuous / chapter / quick）
 - 批注系统完整逻辑（创建、更新、删除、解析）
@@ -86,6 +88,7 @@
 `topic-research/page.tsx` 和 `share/topic/[id]/page.tsx` 均在文件顶部内联定义 SVG 图标组件（PlusIcon、SearchIcon、LoaderIcon、FolderOpenIcon 等）。违反"禁止使用 emoji，使用 Lucide React"规范，且形成代码重复。TopicContentPanel 混用了 lucide-react（import Shield, Maximize2, X 等）和内联 SVG，两套并存。
 
 ### 扣分依据
+
 - TopicContentPanel 6021 行单体 (-3)
 - 双路由入口行为不一致 (-2)
 - 大量内联图标违反 Lucide 规范 (-1)
@@ -121,6 +124,7 @@
 `getTeamMessages(topicId, { limit: 100 })` 和 `getAgentActivities(topicId, { limit: 200 })` 在 4 处分别调用，limit 值不一致（同一函数有时传 100 有时传 200），无分页，长研究任务后数据截断。
 
 ### 扣分依据
+
 - 双 store 导致死代码/混淆 (-1)
 - `NodeJS.Timeout` 存入 Zustand state (-1)
 - polling + WS 双重数据源无明确仲裁 (-1)
@@ -152,7 +156,7 @@ onChange={(e) => setSearchQuery(e.target.value)}
 **问题 2: 删除确认使用 `window.confirm()`**
 
 ```tsx
-if (!confirm(t('topicResearch.confirmDelete'))) return;
+if (!confirm(t("topicResearch.confirmDelete"))) return;
 ```
 
 `window.confirm` 在现代 UI 中不可接受，阻塞主线程，样式无法定制，无法本地化对话框按钮文字，移动端体验差。同样问题在 `ResearchTodoList.tsx` 中也存在。
@@ -160,6 +164,7 @@ if (!confirm(t('topicResearch.confirmDelete'))) return;
 **问题 3: 双路由入口导致浏览器历史断裂**
 
 从列表页进入详情时（`setSelectedTopic(topic)`），URL 不变，用户无法：
+
 - 刷新页面保持在详情视图
 - 将详情页面加入书签
 - 使用浏览器后退按钮
@@ -176,16 +181,17 @@ store 的 `error` 字段是单个 string，被多个 action 共同写入。当 `
 
 ### 与 SOTA 产品对比
 
-| 功能 | 本产品 | Perplexity / Notion AI | Gap |
-|---|---|---|---|
-| 搜索防抖 | 无 | 300-500ms | 高 |
-| 删除确认 | window.confirm | 自定义 Modal | 高 |
-| 实时研究进度 | 轮询+WS | SSE/WS 纯推送 | 中 |
-| 报告导航 | 章节 Tab | 侧边目录 + 锚点滚动 | 中 |
-| 空状态引导 | 有 | 有（更丰富的动效） | 低 |
-| 移动端适配 | 基础响应式 | 专门的移动端视图 | 中 |
+| 功能         | 本产品         | Perplexity / Notion AI | Gap |
+| ------------ | -------------- | ---------------------- | --- |
+| 搜索防抖     | 无             | 300-500ms              | 高  |
+| 删除确认     | window.confirm | 自定义 Modal           | 高  |
+| 实时研究进度 | 轮询+WS        | SSE/WS 纯推送          | 中  |
+| 报告导航     | 章节 Tab       | 侧边目录 + 锚点滚动    | 中  |
+| 空状态引导   | 有             | 有（更丰富的动效）     | 低  |
+| 移动端适配   | 基础响应式     | 专门的移动端视图       | 中  |
 
 ### 扣分依据
+
 - 搜索无防抖 (-1)
 - window.confirm 删除确认 (-1)
 - 双路由入口 UX 断裂 (-1)
@@ -242,6 +248,7 @@ if (latestEvent.type === 'todo:completed') { ... }
 如果在两次 render 间同时到达多个事件，只处理最后一个。其他事件被静默忽略。
 
 ### 扣分依据
+
 - events 数组无界 (-1)
 - setTimeout magic number (-1)
 - 最新事件处理逻辑丢事件 (-1)
@@ -254,14 +261,14 @@ if (latestEvent.type === 'todo:completed') { ... }
 
 以下接口在代码库中有 **3-6 个重复定义**：
 
-| 接口 | 定义位置 | 重复数 |
-|---|---|---|
-| `WsEvent` | TopicContentPanel / TopicResearchLayout / TopicContentContext / ResearchCollaborationPanel / TodoDetailPanel / topic-content/types.ts | **6个** |
-| `ReportRevision` | TopicContentPanel / TopicResearchLayout / ReportEditPanel / ReportRevisionHistory / topic-content/types.ts / TopicContentContext | **6个** |
-| `ResearchEvent` | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts / TopicContentContext / TopicCollaborationPanel | **5个** |
-| `UIMessage` | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts | **3个** |
-| `MessageDetail` | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts | **3个** |
-| `AgentThinking` | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts / TopicContentContext | **4个** |
+| 接口             | 定义位置                                                                                                                              | 重复数  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `WsEvent`        | TopicContentPanel / TopicResearchLayout / TopicContentContext / ResearchCollaborationPanel / TodoDetailPanel / topic-content/types.ts | **6个** |
+| `ReportRevision` | TopicContentPanel / TopicResearchLayout / ReportEditPanel / ReportRevisionHistory / topic-content/types.ts / TopicContentContext      | **6个** |
+| `ResearchEvent`  | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts / TopicContentContext / TopicCollaborationPanel     | **5个** |
+| `UIMessage`      | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts                                                     | **3个** |
+| `MessageDetail`  | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts                                                     | **3个** |
+| `AgentThinking`  | TopicContentPanel (内联) / topic-content/shared/types.ts / topic-content/types.ts / TopicContentContext                               | **4个** |
 
 `topic-content/types.ts` 和 `topic-content/shared/types.ts` 都导出同名接口，内容高度相似但不完全相同（字段有差异）。组件各自选择引用哪个或直接内联，导致实际类型不统一。
 
@@ -271,7 +278,7 @@ if (latestEvent.type === 'todo:completed') { ... }
 
 ```typescript
 // 隐式假设 data 是特定结构
-(event.data as Record<string, unknown>).agentName
+(event.data as Record<string, unknown>).agentName;
 ```
 
 缺少运行时验证（zod 或 type guard）。
@@ -280,12 +287,14 @@ if (latestEvent.type === 'todo:completed') { ... }
 
 ```typescript
 // TopicDetail.tsx line 153
-const saved = (topic.topicConfig as Record<string, unknown> | undefined)?.researchDepth as string | undefined;
+const saved = (topic.topicConfig as Record<string, unknown> | undefined)
+  ?.researchDepth as string | undefined;
 ```
 
 双重 as 断言是规避类型检查的手段，`topicConfig` 的实际类型应在 `types/topic-insights.ts` 中定义结构字段。
 
 ### 扣分依据
+
 - 核心接口 3-6 处重复定义 (-3)
 - WsEvent.data 无运行时验证 (-1)
 - 双重 as 断言 (-1)
@@ -306,7 +315,7 @@ const saved = (topic.topicConfig as Record<string, unknown> | undefined)?.resear
 
 ```tsx
 // topic-research/page.tsx line 249
-console.error('Failed to copy link:', err);
+console.error("Failed to copy link:", err);
 ```
 
 规范要求使用 `logger`，此处使用 `console.error`。这是代码中唯一的违规点（其他地方已正确使用 logger），但违反了规范。
@@ -337,6 +346,7 @@ parts.push(`- ⚠️ ${s}\n`);
 `topic-research/page.tsx` 中有 8 个内联 SVG 组件（AllIcon、MacroIcon、TechnologyIcon、CompanyIcon 等），每个都是完整的 JSX。同样的文档图标 SVG path (`d="M9 12h6m-6 4h6m2 5H7..."`) 出现在至少 4 个不同文件中。
 
 ### 扣分依据
+
 - 6021 行单体文件 (-2)
 - 类型定义大量重复 (-1)
 - console.error 违规 (-1)
@@ -394,6 +404,7 @@ setInterval(async () => {
 `share/topic/[id]/page.tsx` 中的 `generateSectionContent(report, selectedSection)` 在 JSX render 中直接调用（未 memo），每次 render 都重新执行。对于大型报告（含多个维度分析的长文本），这是一个潜在的性能热点。
 
 ### 扣分依据
+
 - TopicCard 无 memo (-1)
 - polling + WS 双重机制冗余 (-1)
 - events 数组无界导致高频 re-render (-1)
@@ -450,6 +461,7 @@ const url = `${window.location.origin}/ai-insights/topic/${topicId}`;
 使用了 SSR guard，但 `window !== undefined` 的 ternary 将产生水合不一致（初始渲染空字符串，客户端渲染完整 URL）。应改用 `config.siteUrl` 或 `useEffect` 中设置。
 
 ### 扣分依据
+
 - innerHTML 操作未确认消毒 (-2)
 - window.location.origin SSR 水合风险 (-1)
 
@@ -457,24 +469,24 @@ const url = `${window.location.origin}/ai-insights/topic/${topicId}`;
 
 ## 架构债务优先级矩阵
 
-| 优先级 | 问题 | 维度 | 影响 | 修复成本 |
-|---|---|---|---|---|
-| **P0** | TopicContentPanel 6021 行，必须拆分 | D1/D6 | 高（可维护性崩溃） | 高 |
-| **P0** | 搜索无防抖，每次按键触发 API | D3/D7 | 中（后端压力） | 低 |
-| **P0** | `window.confirm` 删除确认 | D3/D6 | 中（UX 极差） | 低 |
-| **P1** | `WsEvent` / `ReportRevision` 等接口 6 处重复定义 | D5 | 高（类型不一致） | 中 |
-| **P1** | events 数组无界增长 | D4/D7 | 中（内存 + 性能） | 低 |
-| **P1** | Polling + WS 双数据源冗余，应停用 polling | D4/D7 | 中（资源浪费） | 中 |
-| **P1** | emoji 违规（⚠️ ✅ 📊 🔥）| D6 | 低（规范违反） | 低 |
-| **P1** | `console.error` 违规 | D6 | 低（规范违反） | 低 |
-| **P2** | `missionPollingInterval` 存入 Zustand state | D2 | 中（架构不纯净） | 低 |
-| **P2** | 双 store（topicSlice 死代码）| D2 | 低（混淆） | 低 |
-| **P2** | TopicCard 无 `React.memo` | D7 | 低（列表卡片重渲染） | 低 |
-| **P2** | ReportEditor innerHTML 需确认 DOMPurify 覆盖 | D8 | 高（潜在 XSS） | 中 |
-| **P2** | setTimeout(100ms) magic number 改为 ack 回调 | D4 | 低（偶发 race） | 低 |
-| **P3** | 双路由入口 UX 不一致（inline vs route） | D1/D3 | 中（体验） | 高 |
-| **P3** | 无骨架屏（只有 spinner）| D3 | 低（体验） | 中 |
-| **P3** | generateSectionContent 未 memo | D7 | 低（分享页） | 低 |
+| 优先级 | 问题                                             | 维度  | 影响                 | 修复成本 |
+| ------ | ------------------------------------------------ | ----- | -------------------- | -------- |
+| **P0** | TopicContentPanel 6021 行，必须拆分              | D1/D6 | 高（可维护性崩溃）   | 高       |
+| **P0** | 搜索无防抖，每次按键触发 API                     | D3/D7 | 中（后端压力）       | 低       |
+| **P0** | `window.confirm` 删除确认                        | D3/D6 | 中（UX 极差）        | 低       |
+| **P1** | `WsEvent` / `ReportRevision` 等接口 6 处重复定义 | D5    | 高（类型不一致）     | 中       |
+| **P1** | events 数组无界增长                              | D4/D7 | 中（内存 + 性能）    | 低       |
+| **P1** | Polling + WS 双数据源冗余，应停用 polling        | D4/D7 | 中（资源浪费）       | 中       |
+| **P1** | emoji 违规（⚠️ ✅ 📊 🔥）                        | D6    | 低（规范违反）       | 低       |
+| **P1** | `console.error` 违规                             | D6    | 低（规范违反）       | 低       |
+| **P2** | `missionPollingInterval` 存入 Zustand state      | D2    | 中（架构不纯净）     | 低       |
+| **P2** | 双 store（topicSlice 死代码）                    | D2    | 低（混淆）           | 低       |
+| **P2** | TopicCard 无 `React.memo`                        | D7    | 低（列表卡片重渲染） | 低       |
+| **P2** | ReportEditor innerHTML 需确认 DOMPurify 覆盖     | D8    | 高（潜在 XSS）       | 中       |
+| **P2** | setTimeout(100ms) magic number 改为 ack 回调     | D4    | 低（偶发 race）      | 低       |
+| **P3** | 双路由入口 UX 不一致（inline vs route）          | D1/D3 | 中（体验）           | 高       |
+| **P3** | 无骨架屏（只有 spinner）                         | D3    | 低（体验）           | 中       |
+| **P3** | generateSectionContent 未 memo                   | D7    | 低（分享页）         | 低       |
 
 ---
 

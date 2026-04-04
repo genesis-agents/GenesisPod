@@ -55,7 +55,9 @@ describe("IterationManagerService", () => {
 
     mockToolRegistry = {
       get: jest.fn().mockReturnValue({
-        execute: jest.fn().mockResolvedValue({ success: true, data: "tool result" }),
+        execute: jest
+          .fn()
+          .mockResolvedValue({ success: true, data: "tool result" }),
       }),
       tryGet: jest.fn().mockReturnValue(null),
       getAll: jest.fn().mockReturnValue([]),
@@ -395,10 +397,14 @@ describe("IterationManagerService", () => {
       };
 
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Old intro content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Old intro content","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
-      const fullResult = await service.executeIteration(fullUpdateRequest, mockContext);
+      const fullResult = await service.executeIteration(
+        fullUpdateRequest,
+        mockContext,
+      );
       expect(fullResult.success).toBe(true);
 
       const sectionId = fullResult.output.sections[0].id;
@@ -416,7 +422,10 @@ describe("IterationManagerService", () => {
         sectionIds: [sectionId],
       };
 
-      const result = await service.executeIteration(partialRequest, mockContext);
+      const result = await service.executeIteration(
+        partialRequest,
+        mockContext,
+      );
 
       expect(result.success).toBe(true);
       expect(result.changedSectionIds).toContain(sectionId);
@@ -428,10 +437,14 @@ describe("IterationManagerService", () => {
       // Create an output with one section
       const outputId = "partial-skip-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Section A","content":"Content A","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Section A","content":"Content A","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       mockAiChatService.chat.mockResolvedValueOnce({
         content: "New content",
@@ -456,18 +469,28 @@ describe("IterationManagerService", () => {
     it("should accumulate tokens for multiple section updates", async () => {
       const outputId = "partial-multi-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"A","content":"Content A","level":2},{"title":"B","content":"Content B","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"A","content":"Content A","level":2},{"title":"B","content":"Content B","level":2}]}\n```',
         usage: { totalTokens: 60 },
       });
-      const fullResult = await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      const fullResult = await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       expect(fullResult.success).toBe(true);
 
       const sectionIds = fullResult.output.sections.map((s) => s.id);
 
       // Mock two AI calls for two section updates
       mockAiChatService.chat
-        .mockResolvedValueOnce({ content: "Updated A", usage: { totalTokens: 40 } })
-        .mockResolvedValueOnce({ content: "Updated B", usage: { totalTokens: 50 } });
+        .mockResolvedValueOnce({
+          content: "Updated A",
+          usage: { totalTokens: 40 },
+        })
+        .mockResolvedValueOnce({
+          content: "Updated B",
+          usage: { totalTokens: 50 },
+        });
 
       const result = await service.executeIteration(
         { outputId, type: "partial_update" as const, sectionIds },
@@ -486,14 +509,19 @@ describe("IterationManagerService", () => {
     it("should expand a section successfully", async () => {
       const outputId = "expand-success-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Market Overview","content":"Brief overview","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Market Overview","content":"Brief overview","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
-      const fullResult = await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      const fullResult = await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       const sectionId = fullResult.output.sections[0].id;
 
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: "Expanded market overview with detailed analysis of trends and statistics.",
+        content:
+          "Expanded market overview with detailed analysis of trends and statistics.",
         usage: { totalTokens: 120 },
       });
 
@@ -516,10 +544,14 @@ describe("IterationManagerService", () => {
     it("should fail when sectionIds is empty for section_expand", async () => {
       const outputId = "expand-no-id-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       const result = await service.executeIteration(
         { outputId, type: "section_expand" as const },
@@ -533,10 +565,14 @@ describe("IterationManagerService", () => {
     it("should fail when section not found in output", async () => {
       const outputId = "expand-not-found-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       const result = await service.executeIteration(
         {
@@ -554,10 +590,14 @@ describe("IterationManagerService", () => {
     it("should handle AI failure during section_expand", async () => {
       const outputId = "expand-ai-fail-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      const fullResult = await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      const fullResult = await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       const sectionId = fullResult.output.sections[0].id;
 
       // Simulate AI failure on expand
@@ -578,10 +618,14 @@ describe("IterationManagerService", () => {
     it("should rewrite a section successfully", async () => {
       const outputId = "rewrite-success-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Conclusion","content":"Old conclusion","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Conclusion","content":"Old conclusion","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
-      const fullResult = await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      const fullResult = await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       const sectionId = fullResult.output.sections[0].id;
 
       mockAiChatService.chat.mockResolvedValueOnce({
@@ -601,17 +645,23 @@ describe("IterationManagerService", () => {
 
       expect(result.success).toBe(true);
       expect(result.changedSectionIds).toContain(sectionId);
-      expect(result.output.sections[0].content).toBe("Completely rewritten conclusion with fresh perspective.");
+      expect(result.output.sections[0].content).toBe(
+        "Completely rewritten conclusion with fresh perspective.",
+      );
       expect(result.changeSummary).toContain("Conclusion");
     });
 
     it("should fail with No section specified when sectionIds is empty", async () => {
       const outputId = "rewrite-no-section-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       const result = await service.executeIteration(
         { outputId, type: "section_rewrite" as const },
@@ -625,13 +675,21 @@ describe("IterationManagerService", () => {
     it("should fail when section not found", async () => {
       const outputId = "rewrite-not-found-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       const result = await service.executeIteration(
-        { outputId, type: "section_rewrite" as const, sectionIds: ["ghost-id"] },
+        {
+          outputId,
+          type: "section_rewrite" as const,
+          sectionIds: ["ghost-id"],
+        },
         mockContext,
       );
 
@@ -646,10 +704,14 @@ describe("IterationManagerService", () => {
     it("should add a new section at the end by default", async () => {
       const outputId = "add-section-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Overview","content":"Overview content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Overview","content":"Overview content","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
-      const fullResult = await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      const fullResult = await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       const originalCount = fullResult.output.sections.length;
 
       mockAiChatService.chat.mockResolvedValueOnce({
@@ -661,7 +723,10 @@ describe("IterationManagerService", () => {
         {
           outputId,
           type: "add_section" as const,
-          newSection: { title: "Appendix", description: "Additional references" },
+          newSection: {
+            title: "Appendix",
+            description: "Additional references",
+          },
           userInstruction: "Add references",
         },
         mockContext,
@@ -669,17 +734,23 @@ describe("IterationManagerService", () => {
 
       expect(result.success).toBe(true);
       expect(result.output.sections).toHaveLength(originalCount + 1);
-      expect(result.output.sections[result.output.sections.length - 1].title).toBe("Appendix");
+      expect(
+        result.output.sections[result.output.sections.length - 1].title,
+      ).toBe("Appendix");
       expect(result.changeSummary).toContain("Appendix");
     });
 
     it("should insert section after specified afterSectionId", async () => {
       const outputId = "add-after-section-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"First","content":"First content","level":2},{"title":"Third","content":"Third content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"First","content":"First content","level":2},{"title":"Third","content":"Third content","level":2}]}\n```',
         usage: { totalTokens: 60 },
       });
-      const fullResult = await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      const fullResult = await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       const firstSectionId = fullResult.output.sections[0].id;
 
       mockAiChatService.chat.mockResolvedValueOnce({
@@ -706,10 +777,14 @@ describe("IterationManagerService", () => {
     it("should insert at end when afterSectionId not found", async () => {
       const outputId = "add-after-not-found-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"A","content":"Content A","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"A","content":"Content A","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       mockAiChatService.chat.mockResolvedValueOnce({
         content: "New section content.",
@@ -727,17 +802,22 @@ describe("IterationManagerService", () => {
 
       expect(result.success).toBe(true);
       // Should be at the end
-      const lastSection = result.output.sections[result.output.sections.length - 1];
+      const lastSection =
+        result.output.sections[result.output.sections.length - 1];
       expect(lastSection.title).toBe("NewSection");
     });
 
     it("should fail when newSection info is missing", async () => {
       const outputId = "add-no-info-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       const result = await service.executeIteration(
         { outputId, type: "add_section" as const },
@@ -751,12 +831,18 @@ describe("IterationManagerService", () => {
     it("should fail when AI fails to generate new section", async () => {
       const outputId = "add-ai-fail-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 30 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
-      mockAiChatService.chat.mockRejectedValueOnce(new Error("AI is unavailable"));
+      mockAiChatService.chat.mockRejectedValueOnce(
+        new Error("AI is unavailable"),
+      );
 
       const result = await service.executeIteration(
         {
@@ -777,11 +863,14 @@ describe("IterationManagerService", () => {
   // that was stored in the service's internal store (via getOrCreateResearchContext).
 
   describe("executeIteration - refresh (success path)", () => {
-    let storedContext: Awaited<ReturnType<typeof service.getOrCreateResearchContext>>;
+    let storedContext: Awaited<
+      ReturnType<typeof service.getOrCreateResearchContext>
+    >;
 
     beforeEach(async () => {
       // Create and store context so updateResearchContext can find it
-      storedContext = await service.getOrCreateResearchContext("Refresh Test Topic");
+      storedContext =
+        await service.getOrCreateResearchContext("Refresh Test Topic");
     });
 
     it("should refresh sections using all existing sections when no sectionIds provided", async () => {
@@ -792,7 +881,8 @@ describe("IterationManagerService", () => {
 
       // Create initial output
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Market","content":"Old market data","level":2},{"title":"Tech","content":"Old tech data","level":2},{"title":"Trends","content":"Old trends","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Market","content":"Old market data","level":2},{"title":"Tech","content":"Old tech data","level":2},{"title":"Trends","content":"Old trends","level":2}]}\n```',
         usage: { totalTokens: 80 },
       });
       const fullResult = await service.executeIteration(
@@ -803,9 +893,18 @@ describe("IterationManagerService", () => {
 
       // Mock refresh section calls (up to 3 sections)
       mockAiChatService.chat
-        .mockResolvedValueOnce({ content: "Updated market with new data", usage: { totalTokens: 50 } })
-        .mockResolvedValueOnce({ content: "Updated tech with new data", usage: { totalTokens: 60 } })
-        .mockResolvedValueOnce({ content: "Updated trends with new data", usage: { totalTokens: 55 } });
+        .mockResolvedValueOnce({
+          content: "Updated market with new data",
+          usage: { totalTokens: 50 },
+        })
+        .mockResolvedValueOnce({
+          content: "Updated tech with new data",
+          usage: { totalTokens: 60 },
+        })
+        .mockResolvedValueOnce({
+          content: "Updated trends with new data",
+          usage: { totalTokens: 55 },
+        });
 
       const result = await service.executeIteration(
         {
@@ -827,7 +926,8 @@ describe("IterationManagerService", () => {
       mockToolRegistry.tryGet = jest.fn().mockReturnValue(null);
 
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Section1","content":"Old 1","level":2},{"title":"Section2","content":"Old 2","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Section1","content":"Old 1","level":2},{"title":"Section2","content":"Old 2","level":2}]}\n```',
         usage: { totalTokens: 60 },
       });
       const fullResult = await service.executeIteration(
@@ -859,10 +959,14 @@ describe("IterationManagerService", () => {
       const outputId = "refresh-with-search-test";
 
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"News","content":"Old news","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"News","content":"Old news","level":2}]}\n```',
         usage: { totalTokens: 40 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, storedContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        storedContext,
+      );
 
       // Mock web-search tool via tryGet
       const mockWebSearch = {
@@ -871,8 +975,16 @@ describe("IterationManagerService", () => {
           data: {
             success: true,
             results: [
-              { title: "AI News 1", url: "https://example.com/1", content: "Latest AI development" },
-              { title: "AI News 2", url: "https://example.com/2", content: "More AI news" },
+              {
+                title: "AI News 1",
+                url: "https://example.com/1",
+                content: "Latest AI development",
+              },
+              {
+                title: "AI News 2",
+                url: "https://example.com/2",
+                content: "More AI news",
+              },
             ],
           },
         }),
@@ -900,10 +1012,14 @@ describe("IterationManagerService", () => {
     it("should handle missing web-search tool gracefully", async () => {
       const outputId = "refresh-no-search-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Section","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Section","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 40 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, storedContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        storedContext,
+      );
 
       // Return null for web-search tool
       mockToolRegistry.tryGet = jest.fn().mockReturnValue(null);
@@ -928,10 +1044,14 @@ describe("IterationManagerService", () => {
     it("should handle web-search tool returning no results", async () => {
       const outputId = "refresh-empty-search-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Section","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Section","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 40 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, storedContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        storedContext,
+      );
 
       const mockWebSearch = {
         execute: jest.fn().mockResolvedValue({
@@ -964,10 +1084,14 @@ describe("IterationManagerService", () => {
     it("should handle web-search throwing an error gracefully", async () => {
       const outputId = "refresh-search-error-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Section","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Section","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 40 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, storedContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        storedContext,
+      );
 
       const mockWebSearch = {
         execute: jest.fn().mockRejectedValue(new Error("Search timeout")),
@@ -994,10 +1118,14 @@ describe("IterationManagerService", () => {
     it("should use context.topic as default search keyword when none provided", async () => {
       const outputId = "refresh-default-keyword-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Topic Overview","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Topic Overview","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 40 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, storedContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        storedContext,
+      );
 
       mockToolRegistry.tryGet = jest.fn().mockReturnValue(null);
       mockAiChatService.chat.mockResolvedValueOnce({
@@ -1024,12 +1152,17 @@ describe("IterationManagerService", () => {
     it("should parse valid JSON from AI response with markdown code block", async () => {
       const outputId = "full-update-json-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Executive Summary","content":"Key findings...","level":1},{"title":"Analysis","content":"Detailed analysis...","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Executive Summary","content":"Key findings...","level":1},{"title":"Analysis","content":"Detailed analysis...","level":2}]}\n```',
         usage: { totalTokens: 150 },
       });
 
       const result = await service.executeIteration(
-        { outputId, type: "full_update" as const, userInstruction: "Generate complete report" },
+        {
+          outputId,
+          type: "full_update" as const,
+          userInstruction: "Generate complete report",
+        },
         mockContext,
       );
 
@@ -1044,7 +1177,8 @@ describe("IterationManagerService", () => {
     it("should fallback to single section when AI response has no JSON block", async () => {
       const outputId = "full-update-no-json-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: "This is a plain text report without JSON formatting. It covers AI trends.",
+        content:
+          "This is a plain text report without JSON formatting. It covers AI trends.",
         usage: { totalTokens: 100 },
       });
 
@@ -1062,11 +1196,15 @@ describe("IterationManagerService", () => {
     it("should save version after successful full_update", async () => {
       const outputId = "full-update-save-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Report","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Report","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 60 },
       });
 
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       const history = await service.getVersionHistory(outputId);
 
       expect(history).toHaveLength(1);
@@ -1077,7 +1215,10 @@ describe("IterationManagerService", () => {
       const outputId = "full-update-fail-save-test";
       mockAiChatService.chat.mockRejectedValueOnce(new Error("AI failure"));
 
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
       const history = await service.getVersionHistory(outputId);
 
       expect(history).toHaveLength(0);
@@ -1091,7 +1232,8 @@ describe("IterationManagerService", () => {
       };
 
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"ML Overview","content":"ML content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"ML Overview","content":"ML content","level":2}]}\n```',
         usage: { totalTokens: 80 },
       });
 
@@ -1108,7 +1250,8 @@ describe("IterationManagerService", () => {
     it("should include all section IDs in changedSectionIds for full_update", async () => {
       const outputId = "full-update-changed-ids-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"S1","content":"C1","level":2},{"title":"S2","content":"C2","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"S1","content":"C1","level":2},{"title":"S2","content":"C2","level":2}]}\n```',
         usage: { totalTokens: 60 },
       });
 
@@ -1117,7 +1260,9 @@ describe("IterationManagerService", () => {
         mockContext,
       );
 
-      expect(result.changedSectionIds).toHaveLength(result.output.sections.length);
+      expect(result.changedSectionIds).toHaveLength(
+        result.output.sections.length,
+      );
     });
   });
 
@@ -1129,7 +1274,8 @@ describe("IterationManagerService", () => {
 
       // Version 1: single section
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Introduction content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Introduction content","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
       const v1Result = await service.executeIteration(
@@ -1162,7 +1308,8 @@ describe("IterationManagerService", () => {
       const outputId = "compare-modified-test";
 
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Market","content":"Original market analysis","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Market","content":"Original market analysis","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
       const v1Result = await service.executeIteration(
@@ -1190,16 +1337,22 @@ describe("IterationManagerService", () => {
       expect(diff.modified).toHaveLength(1);
       expect(diff.modified[0].sectionId).toBe(sectionId);
       expect(diff.modified[0].before).toBe("Original market analysis");
-      expect(diff.modified[0].after).toBe("Completely different market analysis with new data.");
+      expect(diff.modified[0].after).toBe(
+        "Completely different market analysis with new data.",
+      );
     });
 
     it("should return empty diff when versions are identical", async () => {
       const outputId = "compare-same-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 40 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       // compareVersions with same version number
       const diff = await service.compareVersions(outputId, 1, 1);
@@ -1212,10 +1365,14 @@ describe("IterationManagerService", () => {
     it("should return empty diff when version numbers do not exist", async () => {
       const outputId = "compare-nonexistent-version-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Intro","content":"Content","level":2}]}\n```',
         usage: { totalTokens: 40 },
       });
-      await service.executeIteration({ outputId, type: "full_update" as const }, mockContext);
+      await service.executeIteration(
+        { outputId, type: "full_update" as const },
+        mockContext,
+      );
 
       const diff = await service.compareVersions(outputId, 1, 99);
       expect(diff.added).toHaveLength(0);
@@ -1246,7 +1403,13 @@ describe("IterationManagerService", () => {
       const updated = await service.updateResearchContext(ctx.id, {
         accumulatedKnowledge: {
           facts: ["AI is transforming healthcare", "ML improves diagnostics"],
-          sources: [{ url: "https://example.com", title: "AI in Medicine", summary: "Overview" }],
+          sources: [
+            {
+              url: "https://example.com",
+              title: "AI in Medicine",
+              summary: "Overview",
+            },
+          ],
           insights: ["Early diagnosis is key"],
         },
       });
@@ -1263,7 +1426,8 @@ describe("IterationManagerService", () => {
     it("should include context facts in AI prompt when facts are present", async () => {
       const outputId = "partial-with-facts-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Analysis","content":"Initial analysis","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Analysis","content":"Initial analysis","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
       const fullResult = await service.executeIteration(
@@ -1302,14 +1466,17 @@ describe("IterationManagerService", () => {
       // Verify AI was called with prompt that includes facts
       expect(mockAiChatService.chat).toHaveBeenCalledTimes(1);
       const chatCallArg = mockAiChatService.chat.mock.calls[0][0];
-      const userMessage = chatCallArg.messages.find((m: { role: string }) => m.role === "user");
+      const userMessage = chatCallArg.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
       expect(userMessage.content).toContain("已知事实");
     });
 
     it("should include userInstruction in prompt when provided", async () => {
       const outputId = "partial-with-instruction-test";
       mockAiChatService.chat.mockResolvedValueOnce({
-        content: '```json\n{"sections":[{"title":"Report","content":"Report content","level":2}]}\n```',
+        content:
+          '```json\n{"sections":[{"title":"Report","content":"Report content","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
       const fullResult = await service.executeIteration(
@@ -1335,7 +1502,9 @@ describe("IterationManagerService", () => {
       );
 
       const chatCallArg = mockAiChatService.chat.mock.calls[0][0];
-      const userMessage = chatCallArg.messages.find((m: { role: string }) => m.role === "user");
+      const userMessage = chatCallArg.messages.find(
+        (m: { role: string }) => m.role === "user",
+      );
       expect(userMessage.content).toContain("用户要求");
       expect(userMessage.content).toContain("Focus on enterprise use cases");
     });

@@ -170,7 +170,12 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
 
       const p1 = client.connect();
       await new Promise((r) => setImmediate(r));
-      flushResponse(client, 1, { name: "s", version: "1", protocolVersion: "p", capabilities: {} });
+      flushResponse(client, 1, {
+        name: "s",
+        version: "1",
+        protocolVersion: "p",
+        capabilities: {},
+      });
       await new Promise((r) => setImmediate(r));
       await p1;
 
@@ -249,7 +254,9 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
     });
 
     it("should throw 'Not connected' when getPrompt is called without connect", async () => {
-      await expect(client.getPrompt("myPrompt")).rejects.toThrow("Not connected");
+      await expect(client.getPrompt("myPrompt")).rejects.toThrow(
+        "Not connected",
+      );
     });
   });
 
@@ -287,7 +294,11 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
         (client as any).pendingRequests.set(42, { resolve, reject: jest.fn() });
       });
 
-      (client as any).handleResponse({ jsonrpc: "2.0", id: 42, result: { tools: [] } });
+      (client as any).handleResponse({
+        jsonrpc: "2.0",
+        id: 42,
+        result: { tools: [] },
+      });
 
       await expect(resultPromise).resolves.toEqual({ tools: [] });
     });
@@ -310,7 +321,11 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
 
     it("should be a no-op for unknown response IDs", () => {
       expect(() =>
-        (client as any).handleResponse({ jsonrpc: "2.0", id: 9999, result: {} }),
+        (client as any).handleResponse({
+          jsonrpc: "2.0",
+          id: 9999,
+          result: {},
+        }),
       ).not.toThrow();
     });
   });
@@ -323,7 +338,11 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
       (client as any).process = { stdin: mockStdin };
 
       const mockTools = [
-        { name: "search", description: "Search the web", inputSchema: { type: "object", properties: {} } },
+        {
+          name: "search",
+          description: "Search the web",
+          inputSchema: { type: "object", properties: {} },
+        },
       ];
 
       const p = client.listTools();
@@ -352,7 +371,10 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
       (client as any)._connected = true;
       (client as any).process = { stdin: mockStdin };
 
-      const mockResult = { content: [{ type: "text", text: "Hello" }], isError: false };
+      const mockResult = {
+        content: [{ type: "text", text: "Hello" }],
+        isError: false,
+      };
 
       const p = client.callTool("search", { query: "test" });
       await Promise.resolve();
@@ -373,7 +395,9 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
 
       const p = client.listResources();
       await Promise.resolve();
-      flushResponse(client, (client as any).requestId, { resources: mockResources });
+      flushResponse(client, (client as any).requestId, {
+        resources: mockResources,
+      });
 
       await expect(p).resolves.toEqual(mockResources);
     });
@@ -397,11 +421,17 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
       (client as any)._connected = true;
       (client as any).process = { stdin: mockStdin };
 
-      const mockContent = { uri: "file://test", text: "file content", mimeType: "text/plain" };
+      const mockContent = {
+        uri: "file://test",
+        text: "file content",
+        mimeType: "text/plain",
+      };
 
       const p = client.readResource("file://test");
       await Promise.resolve();
-      flushResponse(client, (client as any).requestId, { contents: [mockContent] });
+      flushResponse(client, (client as any).requestId, {
+        contents: [mockContent],
+      });
 
       await expect(p).resolves.toEqual(mockContent);
     });
@@ -429,7 +459,9 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
 
       const p = client.listPrompts();
       await Promise.resolve();
-      flushResponse(client, (client as any).requestId, { prompts: mockPrompts });
+      flushResponse(client, (client as any).requestId, {
+        prompts: mockPrompts,
+      });
 
       await expect(p).resolves.toEqual(mockPrompts);
     });
@@ -448,7 +480,9 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
 
       const p = client.getPrompt("greet", { name: "World" });
       await Promise.resolve();
-      flushResponse(client, (client as any).requestId, { messages: mockMessages });
+      flushResponse(client, (client as any).requestId, {
+        messages: mockMessages,
+      });
 
       await expect(p).resolves.toEqual(mockMessages);
     });
@@ -483,7 +517,10 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
     it("should parse complete JSON-RPC responses from the buffer", () => {
       const response = { jsonrpc: "2.0", id: 77, result: { done: true } };
       const cb = jest.fn();
-      (client as any).pendingRequests.set(77, { resolve: cb, reject: jest.fn() });
+      (client as any).pendingRequests.set(77, {
+        resolve: cb,
+        reject: jest.fn(),
+      });
 
       // Simulate receiving a full line on stdout
       (client as any).buffer = JSON.stringify(response) + "\n";
@@ -497,7 +534,10 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
       const partial2 = '"data":"value"}}\n';
 
       const cb = jest.fn();
-      (client as any).pendingRequests.set(88, { resolve: cb, reject: jest.fn() });
+      (client as any).pendingRequests.set(88, {
+        resolve: cb,
+        reject: jest.fn(),
+      });
 
       (client as any).buffer = partial1;
       (client as any).processBuffer();
@@ -515,7 +555,10 @@ describe("StdioMCPClient (BaseMCPClient)", () => {
 
     it("should ignore responses without an id field", () => {
       // Notification messages have no id
-      const notification = { jsonrpc: "2.0", method: "notifications/tools/list_changed" };
+      const notification = {
+        jsonrpc: "2.0",
+        method: "notifications/tools/list_changed",
+      };
       (client as any).buffer = JSON.stringify(notification) + "\n";
       expect(() => (client as any).processBuffer()).not.toThrow();
     });

@@ -86,7 +86,8 @@ describe("DataSourcePlannerService", () => {
           },
           confidence: 88,
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -118,7 +119,8 @@ describe("DataSourcePlannerService", () => {
           },
           confidence: 75,
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -144,7 +146,8 @@ describe("DataSourcePlannerService", () => {
           },
           confidence: 50,
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -182,7 +185,9 @@ describe("DataSourcePlannerService", () => {
     describe("getDefaultPlan - keyword-based dimension routing", () => {
       beforeEach(() => {
         // Make AI fail so we get the default plan
-        mockAiFacade.chatStructured.mockRejectedValue(new Error("AI unavailable"));
+        mockAiFacade.chatStructured.mockRejectedValue(
+          new Error("AI unavailable"),
+        );
         mockAiFacade.capabilityResolveTools.mockResolvedValue([]);
       });
 
@@ -330,7 +335,8 @@ describe("DataSourcePlannerService", () => {
           overallRationale: "test",
           confidence: 70,
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       await service.planDataSources(baseInput);
@@ -356,10 +362,15 @@ describe("DataSourcePlannerService", () => {
           sourceRationales: { web: "Good for general search" },
           overallRationale: "Web is best",
           fallbackSources: [],
-          searchStrategy: { suggestedMaxResults: 25, needsTimeFilter: true, needsEnrichment: true },
+          searchStrategy: {
+            suggestedMaxResults: 25,
+            needsTimeFilter: true,
+            needsEnrichment: true,
+          },
           confidence: 70,
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const plan = await service.planDataSources(baseInput);
@@ -378,7 +389,8 @@ describe("DataSourcePlannerService", () => {
           fallbackSources: [],
           searchStrategy: {},
         },
-        rawContent: "", model: "",
+        rawContent: "",
+        model: "",
       });
 
       const plan = await service.planDataSources(baseInput);

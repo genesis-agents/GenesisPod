@@ -44,7 +44,9 @@ describe("createMCPClient (factory)", () => {
   });
 
   it("created client should have the id from config", () => {
-    const client = createMCPClient(makeConfig("stdio", { id: "my-stdio-server" }));
+    const client = createMCPClient(
+      makeConfig("stdio", { id: "my-stdio-server" }),
+    );
     expect(client.id).toBe("my-stdio-server");
   });
 

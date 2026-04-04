@@ -80,21 +80,17 @@ describe("PolicySearchAdapter (supplemental)", () => {
       if (id === "congress-gov") return { execute: congressRejectTool };
       if (id === "federal-register")
         return {
-          execute: jest
-            .fn()
-            .mockResolvedValue({
-              success: true,
-              data: { success: true, documents: [] },
-            }),
+          execute: jest.fn().mockResolvedValue({
+            success: true,
+            data: { success: true, documents: [] },
+          }),
         };
       if (id === "whitehouse-news")
         return {
-          execute: jest
-            .fn()
-            .mockResolvedValue({
-              success: true,
-              data: { success: true, items: [] },
-            }),
+          execute: jest.fn().mockResolvedValue({
+            success: true,
+            data: { success: true, items: [] },
+          }),
         };
       return undefined;
     });

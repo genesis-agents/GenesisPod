@@ -163,7 +163,9 @@ test.describe("Admin Users (/admin/access/users)", () => {
   });
 
   test("search or filter controls are present", async ({ page }) => {
-    const searchInput = page.locator("input[type='text'], input[type='search']");
+    const searchInput = page.locator(
+      "input[type='text'], input[type='search']",
+    );
     const controls = page.locator("[role='search'], .search");
     await expect(searchInput.or(controls).first()).toBeVisible({
       timeout: 10000,
@@ -245,12 +247,16 @@ test.describe("Admin Logs (/admin/logs)", () => {
   });
 
   test("filter or search controls are available", async ({ page }) => {
-    const searchInput = page.locator("input[type='text'], input[type='search']");
+    const searchInput = page.locator(
+      "input[type='text'], input[type='search']",
+    );
     const filterButton = page.locator("button:has-text(/filter|search/i)");
     const controls = page.locator("[role='search'], .filter");
-    await expect(searchInput.or(filterButton).or(controls).first()).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(searchInput.or(filterButton).or(controls).first()).toBeVisible(
+      {
+        timeout: 10000,
+      },
+    );
   });
 });
 
@@ -491,10 +497,10 @@ test.describe("Admin System & Access API Contracts", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/admin/credits`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/admin/credits`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       [200, 403, 404].includes(response.status()),
@@ -527,10 +533,10 @@ test.describe("Admin System & Access API Contracts", () => {
     const apiBase = process.env.API_BASE_URL || baseURL || "";
     const headers = await getAuthHeader(page);
 
-    const response = await page.request.get(
-      `${apiBase}/api/v1/admin/models`,
-      { headers, timeout: 15000 },
-    );
+    const response = await page.request.get(`${apiBase}/api/v1/admin/models`, {
+      headers,
+      timeout: 15000,
+    });
 
     expect(
       [200, 403, 404].includes(response.status()),

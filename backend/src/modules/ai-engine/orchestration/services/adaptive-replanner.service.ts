@@ -99,8 +99,7 @@ export class AdaptiveReplannerService {
 
         const hasDependents = currentPlan.steps.some(
           (s) =>
-            s.dependencies?.includes(trigger.taskId) &&
-            s.status === "pending",
+            s.dependencies?.includes(trigger.taskId) && s.status === "pending",
         );
         if (hasDependents) {
           this.logger.log(
@@ -182,8 +181,7 @@ export class AdaptiveReplannerService {
     const stepsToSkip = plan.steps
       .filter(
         (s) =>
-          s.dependencies?.includes(trigger.taskId) &&
-          s.status === "pending",
+          s.dependencies?.includes(trigger.taskId) && s.status === "pending",
       )
       .map((s) => s.id);
 
@@ -236,9 +234,7 @@ export class AdaptiveReplannerService {
 
     // Keep at most 2 pending steps (the most important ones)
     const stepsToSkip =
-      pendingSteps.length > 2
-        ? pendingSteps.slice(2).map((s) => s.id)
-        : [];
+      pendingSteps.length > 2 ? pendingSteps.slice(2).map((s) => s.id) : [];
 
     return {
       replanned: stepsToSkip.length > 0,
