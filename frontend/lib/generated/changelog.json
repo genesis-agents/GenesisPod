@@ -26,6 +26,14 @@
       {
         "type": "improvement",
         "description": "consolidate 6 workflows into 3 clean workflows"
+      },
+      {
+        "type": "fix",
+        "description": "resolve merge conflicts from upstream"
+      },
+      {
+        "type": "fix",
+        "description": "retry failed task now resumes mission and triggers re-execution"
       }
     ]
   },
@@ -3425,7 +3433,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -7503,7 +7511,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -11569,7 +11577,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -15631,7 +15639,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -19689,7 +19697,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -23743,7 +23751,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -27797,7 +27805,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -31839,7 +31847,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -35885,7 +35893,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
@@ -41699,7 +41707,7 @@
       },
       {
         "type": "fix",
-        "description": "strengthen ** stripping and chart Source backfill"
+        "description": "strengthen \\*\\* stripping and chart Source backfill"
       },
       {
         "type": "fix",
