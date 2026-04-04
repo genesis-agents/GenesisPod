@@ -1,11 +1,9 @@
-# Dependabot configuration for automated dependency security updates
-# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
 version: 2
 
 updates:
-  # Backend (NestJS) dependencies
+  # npm workspace (root manages all dependencies)
   - package-ecosystem: "npm"
-    directory: "/backend"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -14,7 +12,6 @@ updates:
       - "JUNJIE-DUAN"
     labels:
       - "dependencies"
-      - "backend"
     groups:
       nestjs:
         patterns:
@@ -23,29 +20,6 @@ updates:
         patterns:
           - "prisma"
           - "@prisma/*"
-      testing:
-        patterns:
-          - "jest"
-          - "@types/jest"
-          - "ts-jest"
-      typescript:
-        patterns:
-          - "typescript"
-          - "@typescript-eslint/*"
-
-  # Frontend (Next.js) dependencies
-  - package-ecosystem: "npm"
-    directory: "/frontend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "JUNJIE-DUAN"
-    labels:
-      - "dependencies"
-      - "frontend"
-    groups:
       react:
         patterns:
           - "react"
@@ -57,19 +31,15 @@ updates:
           - "@next/*"
       testing:
         patterns:
+          - "jest"
+          - "@types/jest"
+          - "ts-jest"
           - "vitest"
           - "@testing-library/*"
-
-  # Root workspace dependencies
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "root"
+      typescript:
+        patterns:
+          - "typescript"
+          - "@typescript-eslint/*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

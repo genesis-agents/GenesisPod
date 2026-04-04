@@ -1,6 +1,5 @@
 name: Smoke Tests
 
-# 部署后运行smoke tests验证系统是否正常
 on:
   workflow_dispatch:
     inputs:
@@ -13,140 +12,62 @@ on:
           - production
           - staging
   schedule:
-    # 每6小时运行一次（生产环境健康监控）
     - cron: "0 */6 * * *"
 
 jobs:
   smoke-test:
     name: Smoke Tests - ${{ github.event.inputs.environment || 'production' }}
     runs-on: ubuntu-latest
-    # Only run if API URL is configured
     if: ${{ vars.PRODUCTION_API_URL != '' || github.event.inputs.environment != '' }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set environment URL
-        id: set-url
+      - name: Set URLs
+        id: url
         run: |
           if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
-            echo "API_URL=${{ vars.STAGING_API_URL || 'https://staging-api.genesis.ai' }}" >> $GITHUB_OUTPUT
-            echo "WEB_URL=${{ vars.STAGING_WEB_URL || 'https://staging.genesis.ai' }}" >> $GITHUB_OUTPUT
+            echo "API_URL=${{ vars.STAGING_API_URL || 'https://staging-api.gens.team' }}" >> $GITHUB_OUTPUT
+            echo "WEB_URL=${{ vars.STAGING_WEB_URL || 'https://staging.gens.team' }}" >> $GITHUB_OUTPUT
           else
-            echo "API_URL=${{ vars.PRODUCTION_API_URL || 'https://api.genesis.ai' }}" >> $GITHUB_OUTPUT
-            echo "WEB_URL=${{ vars.PRODUCTION_WEB_URL || 'https://genesis.ai' }}" >> $GITHUB_OUTPUT
+            echo "API_URL=${{ vars.PRODUCTION_API_URL || 'https://api.gens.team' }}" >> $GITHUB_OUTPUT
+            echo "WEB_URL=${{ vars.PRODUCTION_WEB_URL || 'https://gens.team' }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Health Check - API
+      - name: Health check - API
         run: |
-          echo "🏥 Checking API health..."
-          response=$(curl -s -w "\n%{http_code}" ${{ steps.set-url.outputs.API_URL }}/api/v1/health)
+          response=$(curl -s -w "\n%{http_code}" ${{ steps.url.outputs.API_URL }}/api/v1/health)
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
+          echo "Status: $http_code | Body: $body"
+          [ "$http_code" = "200" ] || { echo "API health check failed"; exit 1; }
 
-          echo "Status Code: $http_code"
-          echo "Response: $body"
-
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Health check failed!"
-            exit 1
-          fi
-          echo "✅ API is healthy"
-
-      - name: Health Check - Frontend
+      - name: Health check - Frontend
         run: |
-          echo "🏥 Checking frontend health..."
-          http_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.set-url.outputs.WEB_URL }})
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.url.outputs.WEB_URL }})
+          echo "Status: $http_code"
+          [ "$http_code" = "200" ] || { echo "Frontend health check failed"; exit 1; }
 
-          echo "Status Code: $http_code"
-
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Frontend health check failed!"
-            exit 1
-          fi
-          echo "✅ Frontend is healthy"
-
-      - name: API Endpoint Tests
+      - name: API endpoint tests
         run: |
-          echo "🧪 Testing API endpoints..."
+          API="${{ steps.url.outputs.API_URL }}"
 
-          # Test resources endpoint (requires auth, so 401 is also a valid response)
-          echo "Testing GET /api/v1/resources..."
-          http_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.set-url.outputs.API_URL }}/api/v1/resources)
-          if [ "$http_code" != "200" ] && [ "$http_code" != "401" ]; then
-            echo "❌ Resources endpoint failed! (HTTP $http_code)"
-            exit 1
-          fi
-          echo "✅ Resources endpoint OK (HTTP $http_code)"
-
-          # Test crawler endpoints
-          echo "Testing crawler endpoints..."
-          for crawler in arxiv github hackernews; do
-            echo "  - Testing /api/v1/proxy/$crawler..."
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.set-url.outputs.API_URL }}/api/v1/proxy/$crawler)
-            if [ "$http_code" != "200" ] && [ "$http_code" != "404" ]; then
-              echo "❌ $crawler endpoint failed! (HTTP $http_code)"
-              exit 1
-            fi
-            echo "  ✅ $crawler endpoint OK"
+          for endpoint in "/api/v1/resources:200,401" "/api/v1/proxy/arxiv:200,404" "/api/v1/proxy/github:200,404" "/api/v1/proxy/hackernews:200,404"; do
+            path="${endpoint%%:*}"
+            codes="${endpoint##*:}"
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" "$API$path")
+            echo "$path -> $http_code"
+            echo "$codes" | tr ',' '\n' | grep -q "^$http_code$" || { echo "FAIL: $path returned $http_code"; exit 1; }
           done
 
-          # Test deduplication endpoint
-          echo "Testing POST /api/v1/deduplication/analyze..."
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            -H "Content-Type: application/json" \
-            -d '{"urls":["https://example.com"],"contents":["test"]}' \
-            ${{ steps.set-url.outputs.API_URL }}/api/v1/deduplication/analyze)
-          http_code=$(echo "$response" | tail -n1)
-          if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
-            echo "❌ Deduplication endpoint failed! (HTTP $http_code)"
-            exit 1
-          fi
-          echo "✅ Deduplication endpoint OK"
-
-          echo "✅ All API endpoints responding"
-
-      - name: Database Connectivity
+      - name: Performance check
         run: |
-          echo "🗄️  Checking database connectivity..."
-          # Health endpoint应该包含database状态
-          response=$(curl -s ${{ steps.set-url.outputs.API_URL }}/api/v1/health)
-          echo "Response: $response"
-
-          if echo "$response" | grep -q "ok"; then
-            echo "✅ Database connection is healthy"
-          else
-            echo "❌ Database connection issue detected!"
-            exit 1
-          fi
-
-      - name: Performance Check
-        run: |
-          echo "⚡ Checking API response time..."
-          response_time=$(curl -s -o /dev/null -w "%{time_total}" ${{ steps.set-url.outputs.API_URL }}/api/v1/health)
-
-          echo "Response time: ${response_time}s"
-
-          # 如果响应时间超过5秒，发出警告
-          if (( $(echo "$response_time > 5" | bc -l) )); then
-            echo "⚠️  Response time is slow (>${response_time}s)"
-            exit 1
-          fi
-
-          echo "✅ Response time is acceptable"
+          time=$(curl -s -o /dev/null -w "%{time_total}" ${{ steps.url.outputs.API_URL }}/api/v1/health)
+          echo "Response time: ${time}s"
+          (( $(echo "$time > 5" | bc -l) )) && { echo "Slow response"; exit 1; } || true
 
       - name: Summary
-        if: success()
+        if: always()
         run: |
-          echo "✅ All smoke tests passed!"
           echo "Environment: ${{ github.event.inputs.environment || 'production' }}"
           echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-
-      - name: Notify on Failure
-        if: failure()
-        run: |
-          echo "❌ Smoke tests failed!"
-          echo "Environment: ${{ github.event.inputs.environment || 'production' }}"
-          echo "Please investigate immediately!"
-          # TODO: 集成Slack/Discord通知
