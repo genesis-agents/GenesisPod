@@ -194,6 +194,11 @@ export class QueryLoopService {
         }
 
         // Check token budget
+        if (cfg.tokenBudgetLimit && !this.tokenTracker) {
+          this.logger.warn(
+            `[executeWithLoop] tokenBudgetLimit=${cfg.tokenBudgetLimit} configured but TokenTrackerService not available — budget enforcement disabled`,
+          );
+        }
         if (cfg.tokenBudgetLimit && this.tokenTracker) {
           if (this.tokenTracker.isOverBudget(sessionId, cfg.tokenBudgetLimit)) {
             this.logger.log(

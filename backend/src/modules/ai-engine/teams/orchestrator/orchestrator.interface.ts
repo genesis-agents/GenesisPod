@@ -149,7 +149,12 @@ export interface StepReviewResult {
  * 编排器配置
  */
 export interface OrchestratorConfig {
-  /** 是否启用自动重试 */
+  /**
+   * 步骤失败时是否跳过继续执行（而非中断整个 mission）。
+   * 注意：当前实现为"跳过失败步骤"，不是真正的重试。
+   * 未来版本将实现带退避的步骤级重试。
+   * @see AdaptiveReplannerService for future retry integration
+   */
   enableAutoRetry: boolean;
 
   /** 最大重试次数 */
