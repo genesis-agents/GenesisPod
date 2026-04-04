@@ -34,6 +34,14 @@
       {
         "type": "fix",
         "description": "retry failed task now resumes mission and triggers re-execution"
+      },
+      {
+        "type": "fix",
+        "description": "restore consolidated CI workflow + fix type errors"
+      },
+      {
+        "type": "fix",
+        "description": "restore consolidated CI workflow and bump memory to 8GB"
       }
     ]
   },
