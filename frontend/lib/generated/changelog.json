@@ -22,6 +22,10 @@
       {
         "type": "fix",
         "description": "use explicit rollup install and --quiet for frontend lint"
+      },
+      {
+        "type": "improvement",
+        "description": "consolidate 6 workflows into 3 clean workflows"
       }
     ]
   },
