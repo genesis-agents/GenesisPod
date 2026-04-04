@@ -587,6 +587,7 @@ export class AIEngineFacade {
           userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId 用于 Key 优先级解析
           processId: request.processId,
           skipGuardrails: request.skipGuardrails,
+          sharedCachePrefix: request.sharedCachePrefix,
         });
 
         if (result.isError) {
@@ -700,6 +701,7 @@ export class AIEngineFacade {
         userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
         processId: request.processId,
         skipGuardrails: request.skipGuardrails,
+        sharedCachePrefix: request.sharedCachePrefix,
       });
 
       const duration = Date.now() - startTime;

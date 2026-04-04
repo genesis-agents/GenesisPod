@@ -68,6 +68,7 @@ import { AgentActivityType, AIModelType } from "@prisma/client";
 import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
+  DIMENSION_RESEARCH_SYSTEM_PROMPT,
 } from "../../prompts/dimension-research.prompt";
 import {
   createEvidenceSummary,
@@ -85,6 +86,7 @@ import {
   type AiCallerFn,
   type EstablishedFact,
   TokenBudgetService,
+  PromptCacheCoordinatorService,
 } from "@/modules/ai-engine/facade";
 import { MissionObservabilityService } from "../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
@@ -174,6 +176,9 @@ export class DimensionMissionService {
     @Optional() private readonly chatFacade?: ChatFacade,
     // ★ Batch 3: Token 预算智能截断
     @Optional() private readonly tokenBudgetService?: TokenBudgetService,
+    // ★ Phase 5: Prompt cache coordinator for cache prefix sharing across dimension agents
+    @Optional()
+    private readonly promptCacheCoordinator?: PromptCacheCoordinatorService,
     // ★ Redis 分布式锁（multi-instance 安全；Redis 不可用时自动降级到内存锁）
     @Optional()
     @Inject(CACHE_MANAGER)
@@ -903,6 +908,16 @@ export class DimensionMissionService {
     const leaderAgentName = "研究组长";
     const effectiveMissionId = missionId || dimension.id;
 
+    // ★ Phase 5: Create frozen cache prefix once for this mission so all subagent LLM calls
+    // share identical system-prompt bytes → Anthropic prompt cache hit rate ≥ 98%.
+    if (this.promptCacheCoordinator && !this.promptCacheCoordinator.hasPrefix(effectiveMissionId)) {
+      this.promptCacheCoordinator.createPrefix(
+        effectiveMissionId,
+        DIMENSION_RESEARCH_SYSTEM_PROMPT,
+        [], // no function-calling tools at this layer
+      );
+    }
+
     try {
       // V5: Literature baseline scan (standard/thorough only)
       if (maxRevisionRounds !== undefined && maxRevisionRounds > 0) {
@@ -1050,6 +1065,9 @@ export class DimensionMissionService {
         evidenceIds: [],
         error: errorMessage,
       };
+    } finally {
+      // ★ Phase 5: Release frozen cache prefix after mission completes (success or failure)
+      this.promptCacheCoordinator?.releasePrefix(effectiveMissionId);
     }
   }
 

@@ -79,6 +79,11 @@ import {
 } from "../../orchestration/abstractions/orchestrator.interface";
 import { MissionExecutorService } from "../../../ai-kernel/facade";
 import { EventJournalService } from "../../../ai-kernel/facade";
+import { HierarchicalMemoryCascadeService } from "../../../ai-kernel/facade";
+import {
+  AgentLifecycleProtocolService,
+  type TaskNotificationPayload,
+} from "../../../ai-kernel/facade";
 import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,
@@ -142,6 +147,10 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   private readonly kernelJournal?: EventJournalService;
   // ★ Phase 4: 自适应重规划（可选）
   private readonly adaptiveReplanner?: AdaptiveReplannerService;
+  // ★ Phase 6: 分层记忆级联（可选）
+  private readonly hierarchicalMemory?: HierarchicalMemoryCascadeService;
+  // ★ Phase 8: Agent 生命周期协议（可选）
+  private readonly lifecycleProtocol?: AgentLifecycleProtocolService;
   // missionId → kernel processId 映射
   private readonly kernelProcessIds = new LruMap<string, string>(500);
 
@@ -162,6 +171,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     missionExecutor?: MissionExecutorService,
     kernelJournal?: EventJournalService,
     @Optional() adaptiveReplanner?: AdaptiveReplannerService,
+    @Optional() hierarchicalMemory?: HierarchicalMemoryCascadeService,
+    @Optional() lifecycleProtocol?: AgentLifecycleProtocolService,
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
     this.handoffCoordinator = new HandoffCoordinator({
@@ -219,6 +230,22 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     this.adaptiveReplanner = adaptiveReplanner;
     if (this.adaptiveReplanner) {
       this.logger.log("AdaptiveReplanner initialized for dynamic replanning");
+    }
+
+    // ★ Phase 6: 分层记忆级联（可选依赖）
+    this.hierarchicalMemory = hierarchicalMemory;
+    if (this.hierarchicalMemory) {
+      this.logger.log(
+        "HierarchicalMemoryCascade initialized for context resolution",
+      );
+    }
+
+    // ★ Phase 8: Agent 生命周期协议（可选依赖）
+    this.lifecycleProtocol = lifecycleProtocol;
+    if (this.lifecycleProtocol) {
+      this.logger.log(
+        "AgentLifecycleProtocol initialized for task completion notifications",
+      );
     }
   }
 
@@ -306,6 +333,28 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       // parse() 返回的 intent.missionId 可能是空字符串，需要覆盖
       intent.missionId = missionId;
       await this.storeContext(missionId, "intent", intent);
+
+      // ★ Phase 6: HierarchicalMemoryCascade — resolve project/team context
+      if (this.hierarchicalMemory) {
+        const meta = input.metadata ?? {};
+        const userId = typeof meta["userId"] === "string" ? meta["userId"] : undefined;
+        const projectId = typeof meta["projectId"] === "string" ? meta["projectId"] : undefined;
+        const teamId = typeof meta["teamId"] === "string" ? meta["teamId"] : undefined;
+        if (userId) {
+          const memContext = this.hierarchicalMemory.resolve({
+            sessionId: missionId,
+            projectId,
+            teamId,
+            orgId: userId,
+            key: "research-context",
+          });
+          if (memContext) {
+            this.logger.debug(
+              `[execute] Loaded memory context from ${memContext.resolvedFrom} scope`,
+            );
+          }
+        }
+      }
 
       // ★ 结束 Parse span
       if (parseSpanId) {
@@ -408,6 +457,23 @@ export class MissionOrchestrator implements IMissionOrchestrator {
                 state.intermediateOutputs.set(skillId, result.data);
               }
             }
+          }
+
+          // ★ Phase 8: AgentLifecycleProtocol — notify task completion
+          if (this.lifecycleProtocol) {
+            const stepId = event.data?.stepId as string | undefined;
+            const notifPayload: TaskNotificationPayload = {
+              taskId: stepId ?? "",
+              status: "completed",
+              summary: `Step completed: ${stepId ?? "unknown"}`,
+              tokensUsed: (stepOutput as unknown as { tokensUsed?: number })?.tokensUsed,
+            };
+            void this.lifecycleProtocol.notifyTaskComplete(
+              missionId,
+              "mission-orchestrator",
+              "leader",
+              notifPayload,
+            );
           }
         }
         if (event.type === "step_failed") {

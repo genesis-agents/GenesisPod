@@ -55,6 +55,12 @@ import { TokenTrackerService } from "./orchestration/services/token-tracker.serv
 import { ContextCompactionPipelineService } from "./orchestration/services/context-compaction-pipeline.service";
 import { ExecutionCheckpointService } from "./orchestration/services/execution-checkpoint.service";
 import { AdaptiveReplannerService } from "./orchestration/services/adaptive-replanner.service";
+import { CrossCuttingSynthesisService } from "./orchestration/services/cross-cutting-synthesis.service";
+// ★ Phase 7: 会话记忆旁路
+import { SessionMemorySidecarService } from "./orchestration/services/session-memory-sidecar.service";
+// ★ Phase 9: 后台自主 Agent
+import { AutoDreamService } from "./orchestration/services/auto-dream.service";
+import { AutoDreamSchedulerService } from "./orchestration/services/auto-dream-scheduler.service";
 
 // State Machine
 import { ProcessSupervisorService as ExecutionStateManager } from "../ai-kernel/facade";
@@ -222,6 +228,13 @@ const checkpointManagerFactory = {
     ContextCompactionPipelineService,
     ExecutionCheckpointService,
     AdaptiveReplannerService,
+    // ★ Phase 10: Coordinator Synthesize-Before-Delegate
+    CrossCuttingSynthesisService,
+    // ★ Phase 7: Session Memory Sidecar
+    SessionMemorySidecarService,
+    // ★ Phase 9: Background Autonomous Agents
+    AutoDreamService,
+    AutoDreamSchedulerService,
 
     // State Machine
     ExecutionStateManager,
@@ -267,6 +280,13 @@ const checkpointManagerFactory = {
     ContextCompactionPipelineService,
     ExecutionCheckpointService,
     AdaptiveReplannerService,
+    // ★ Phase 10: Coordinator Synthesize-Before-Delegate
+    CrossCuttingSynthesisService,
+    // ★ Phase 7: Session Memory Sidecar
+    SessionMemorySidecarService,
+    // ★ Phase 9: Background Autonomous Agents
+    AutoDreamService,
+    AutoDreamSchedulerService,
   ],
 })
 export class AiEngineOrchestrationModule {}

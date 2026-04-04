@@ -1,10 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchTaskStatus } from "@prisma/client";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
 import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
+import { AutoDreamSchedulerService } from "@/modules/ai-engine/facade";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type {
   ITaskExecutor,
@@ -44,6 +45,8 @@ export class SynthesisReportExecutor implements ITaskExecutor {
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly reviewerService: ResearchReviewerService,
+    @Optional()
+    private readonly autoDreamScheduler?: AutoDreamSchedulerService,
   ) {}
 
   async execute(context: TaskExecutionContext): Promise<TaskExecutionResult> {
@@ -163,6 +166,9 @@ export class SynthesisReportExecutor implements ITaskExecutor {
       JSON.stringify(synthesisResult).length,
       missionId,
     );
+
+    // ★ Phase 9: Notify AutoDream that a research session completed
+    this.autoDreamScheduler?.notifySessionCompleted(topic.id);
 
     // ★ 将 TopicReport 转换为前端 TodoResult 兼容格式
     const reportResult = synthesisResult as Record<string, unknown>;

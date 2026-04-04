@@ -35,6 +35,14 @@ export type {
 
 // Memory
 export { KernelMemoryManagerService } from "../memory/kernel-memory-manager.service";
+export { HierarchicalMemoryCascadeService } from "../memory/hierarchical-memory-cascade.service";
+export type {
+  MemoryScope,
+  MemoryCascadeQuery,
+  MemoryCascadeResult,
+  MemoryWriteOptions,
+} from "../memory/hierarchical-memory-cascade.service";
+export { SCOPE_PRIORITY } from "../memory/hierarchical-memory-cascade.service";
 export { WorkingMemoryStore } from "../memory/stores/working-memory.store";
 export { PersistentMemoryStore } from "../memory/stores/persistent-memory.store";
 
@@ -145,3 +153,16 @@ export type {
 
 // API
 export { KernelApiService } from "../api/kernel-api.service";
+
+// IPC — Message Persistence
+export { MessagePersistenceService } from "../ipc/message-persistence.service";
+export type { PersistedMessage } from "../ipc/message-persistence.service";
+
+// IPC — Agent Lifecycle Protocol
+export { AgentLifecycleProtocolService } from "../ipc/agent-lifecycle-protocol.service";
+export type {
+  LifecycleMessageType,
+  ShutdownRequestPayload,
+  PlanApprovalPayload,
+  TaskNotificationPayload,
+} from "../ipc/agent-lifecycle-protocol.service";

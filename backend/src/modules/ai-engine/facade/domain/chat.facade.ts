@@ -371,6 +371,7 @@ export class ChatFacade {
           skipGuardrails: request.skipGuardrails,
           cachePolicy: request.cachePolicy,
           outputSchema: request.outputSchema,
+          sharedCachePrefix: request.sharedCachePrefix,
         });
 
         if (result.isError) {
@@ -489,6 +490,7 @@ export class ChatFacade {
         skipGuardrails: request.skipGuardrails,
         cachePolicy: request.cachePolicy,
         outputSchema: request.outputSchema,
+        sharedCachePrefix: request.sharedCachePrefix,
       });
 
       const duration = Date.now() - startTime;

@@ -585,3 +585,41 @@ export type {
   ConcurrencyMetadata,
   ExecutionPartition,
 } from "../tools/concurrency/tool-concurrency.service";
+
+// ★ Phase 7: Session Memory Sidecar
+export {
+  SessionMemorySidecarService,
+  type SidecarCategory,
+  type SidecarEntry,
+  type SidecarConfig,
+} from "../orchestration/services";
+
+// ★ Phase 10: Coordinator Synthesize-Before-Delegate
+export { CrossCuttingSynthesisService } from "../orchestration/services/cross-cutting-synthesis.service";
+export type {
+  DimensionResult,
+  CrossCuttingTheme,
+  Contradiction,
+  ResearchGap,
+  SynthesisResult,
+} from "../orchestration/services/cross-cutting-synthesis.service";
+
+// ★ Phase 5: Prompt Cache Coordination
+export { PromptCacheCoordinatorService } from "../llm/services/prompt-cache-coordinator.service";
+export type { CachePrefix } from "../llm/services/prompt-cache-coordinator.service";
+
+// ★ Phase 9: Background Autonomous Agents
+export {
+  AutoDreamService,
+  type DreamPhase,
+  type AutoDreamConfig,
+  type DreamStatus,
+  type DreamResult,
+} from "../orchestration/services";
+
+export {
+  AutoDreamSchedulerService,
+  type SchedulerConfig,
+  type ScheduledScope,
+  type SchedulerStats,
+} from "../orchestration/services";

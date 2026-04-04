@@ -84,6 +84,15 @@ export interface ChatRequest {
   cachePolicy?: "auto";
 
   /**
+   * ★ Phase 5: Frozen prompt cache prefix from PromptCacheCoordinatorService.
+   * When provided, overrides the request's systemPrompt with the frozen bytes
+   * and forces cache_control so all subagents in the same mission share a prefix.
+   */
+  sharedCachePrefix?: {
+    systemPromptText: string;
+  };
+
+  /**
    * 原生结构化输出 — 支持的 provider 会使用原生 JSON Schema 约束
    * 不支持的 provider 会降级为 system prompt 文本指令
    */

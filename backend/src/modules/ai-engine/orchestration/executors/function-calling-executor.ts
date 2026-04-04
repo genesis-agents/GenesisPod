@@ -23,6 +23,7 @@ import { ContextCompactionPipelineService } from "../services/context-compaction
 import { ExecutionCheckpointService } from "../services/execution-checkpoint.service";
 import { ToolConcurrencyService } from "../../tools/concurrency/tool-concurrency.service";
 import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.service";
+import { SessionMemorySidecarService } from "../../facade";
 
 // ============================================================================
 // Types
@@ -220,6 +221,7 @@ export class FunctionCallingExecutor {
     @Optional() private readonly checkpoint?: ExecutionCheckpointService,
     @Optional() private readonly toolConcurrency?: ToolConcurrencyService,
     @Optional() private readonly modelFallback?: ModelFallbackService,
+    @Optional() private readonly sidecar?: SessionMemorySidecarService,
   ) {
     this.retryStrategy = new RetryStrategy();
   }
@@ -310,6 +312,20 @@ export class FunctionCallingExecutor {
             this.logger.log(
               `[execute] Context compacted: level=${compactionResult.levelApplied}, saved=${compactionResult.tokensSaved} tokens`,
             );
+
+            // ★ Phase 7: SessionMemorySidecar — inject preserved summary after compaction
+            if (this.sidecar) {
+              const summary = this.sidecar.onCompaction(executionId);
+              if (summary) {
+                const insertIdx = messages.findIndex((m) => m.role !== "system");
+                if (insertIdx >= 0) {
+                  messages.splice(insertIdx, 0, {
+                    role: "system" as const,
+                    content: `[Session Memory - preserved from compacted context]\n${summary}`,
+                  });
+                }
+              }
+            }
           }
         }
 
@@ -529,6 +545,21 @@ export class FunctionCallingExecutor {
                   duration: toolResult.metadata?.duration || 0,
                 };
 
+                // ★ Phase 7: SessionMemorySidecar — record meaningful tool findings
+                if (this.sidecar && toolResult.success && toolResult.data !== undefined) {
+                  const dataStr =
+                    typeof toolResult.data === "string"
+                      ? toolResult.data
+                      : JSON.stringify(toolResult.data);
+                  if (dataStr.length > 50) {
+                    this.sidecar.addEntry(executionId, {
+                      timestamp: new Date(),
+                      category: "finding",
+                      content: `[${toolId}] ${dataStr.slice(0, 200)}`,
+                    });
+                  }
+                }
+
                 messages.push(
                   llmAdapter.buildToolResultMessage(
                     toolCall.id,
@@ -583,6 +614,21 @@ export class FunctionCallingExecutor {
               output: toolResult.data,
               duration: toolResult.metadata?.duration || 0,
             };
+
+            // ★ Phase 7: SessionMemorySidecar — record meaningful tool findings
+            if (this.sidecar && toolResult.success && toolResult.data !== undefined) {
+              const dataStr =
+                typeof toolResult.data === "string"
+                  ? toolResult.data
+                  : JSON.stringify(toolResult.data);
+              if (dataStr.length > 50) {
+                this.sidecar.addEntry(executionId, {
+                  timestamp: new Date(),
+                  category: "finding",
+                  content: `[${seqToolId}] ${dataStr.slice(0, 200)}`,
+                });
+              }
+            }
 
             messages.push(
               llmAdapter.buildToolResultMessage(
@@ -654,6 +700,21 @@ export class FunctionCallingExecutor {
               output: toolResult.data,
               duration: toolResult.metadata?.duration || 0,
             };
+
+            // ★ Phase 7: SessionMemorySidecar — record meaningful tool findings
+            if (this.sidecar && toolResult.success && toolResult.data !== undefined) {
+              const dataStr =
+                typeof toolResult.data === "string"
+                  ? toolResult.data
+                  : JSON.stringify(toolResult.data);
+              if (dataStr.length > 50) {
+                this.sidecar.addEntry(executionId, {
+                  timestamp: new Date(),
+                  category: "finding",
+                  content: `[${toolId}] ${dataStr.slice(0, 200)}`,
+                });
+              }
+            }
 
             const toolResultMessage = llmAdapter.buildToolResultMessage(
               toolCall.id,

@@ -125,3 +125,37 @@ export {
   type ExecutionStep,
   type MissionExecutionPlan,
 } from "./adaptive-replanner.service";
+
+// 跨维度综合服务 (Phase 10 — Coordinator Synthesize-Before-Delegate)
+export {
+  CrossCuttingSynthesisService,
+  type DimensionResult,
+  type CrossCuttingTheme,
+  type Contradiction,
+  type ResearchGap,
+  type SynthesisResult,
+} from "./cross-cutting-synthesis.service";
+
+// Phase 7: 会话记忆旁路服务
+export {
+  SessionMemorySidecarService,
+  type SidecarCategory,
+  type SidecarEntry,
+  type SidecarConfig,
+} from "./session-memory-sidecar.service";
+
+// Phase 9: 后台自主 Agent
+export {
+  AutoDreamService,
+  type DreamPhase,
+  type AutoDreamConfig,
+  type DreamStatus,
+  type DreamResult,
+} from "./auto-dream.service";
+
+export {
+  AutoDreamSchedulerService,
+  type SchedulerConfig,
+  type ScheduledScope,
+  type SchedulerStats,
+} from "./auto-dream-scheduler.service";

@@ -845,6 +845,11 @@ export class AiChatService {
     cachePolicy?: "auto";
     /** Native structured output schema */
     outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
+    /** Shared cache prefix from PromptCacheCoordinatorService — uses frozen system prompt + tools */
+    sharedCachePrefix?: {
+      systemPromptText: string;
+      toolDefinitions?: unknown[];
+    };
   }): Promise<{
     content: string;
     usage?: {
@@ -881,6 +886,7 @@ export class AiChatService {
       skipGuardrails,
       cachePolicy,
       outputSchema,
+      sharedCachePrefix,
     } = options;
 
     // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
@@ -1099,6 +1105,13 @@ export class AiChatService {
       }
     }
 
+    // ★ sharedCachePrefix: override system prompt + force caching when a frozen prefix is provided
+    const effectiveSystemPrompt =
+      sharedCachePrefix?.systemPromptText ?? systemPrompt;
+    const effectiveCachePolicy: "auto" | undefined = sharedCachePrefix
+      ? "auto"
+      : cachePolicy;
+
     // ★ Fallback 机制
     const triedModelIds: string[] = [];
     let lastError: string | null = null;
@@ -1117,7 +1130,7 @@ export class AiChatService {
       const startTime = Date.now();
       const result = await this.generateChatCompletion({
         model: currentModel,
-        systemPrompt,
+        systemPrompt: effectiveSystemPrompt,
         messages,
         maxTokens: effectiveMaxTokens,
         temperature: effectiveTemperature,
@@ -1125,7 +1138,7 @@ export class AiChatService {
         userId,
         responseFormat,
         reasoningDepth: effectiveReasoningDepth,
-        cachePolicy,
+        cachePolicy: effectiveCachePolicy,
         outputSchema,
       });
       const duration = Date.now() - startTime;

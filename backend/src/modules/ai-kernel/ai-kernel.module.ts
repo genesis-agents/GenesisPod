@@ -4,12 +4,15 @@ import { TRACE_COLLECTOR_TOKEN } from "./abstractions";
 import { ProcessManagerService } from "./process/process-manager.service";
 import { EventJournalService } from "./journal/event-journal.service";
 import { KernelMemoryManagerService } from "./memory/kernel-memory-manager.service";
+import { HierarchicalMemoryCascadeService } from "./memory/hierarchical-memory-cascade.service";
 import { WorkingMemoryStore } from "./memory/stores/working-memory.store";
 import { PersistentMemoryStore } from "./memory/stores/persistent-memory.store";
 import { InMemoryStore } from "./memory/stores/in-memory-store";
 import { EventBusService } from "./ipc/event-bus.service";
 import { ProgressTrackerService } from "./ipc/progress-tracker.service";
 import { MessageBusService } from "./ipc/message-bus.service";
+import { MessagePersistenceService } from "./ipc/message-persistence.service";
+import { AgentLifecycleProtocolService } from "./ipc/agent-lifecycle-protocol.service";
 import { A2AClientService } from "./ipc/a2a/a2a-client.service";
 import { AgentCardRegistry } from "./ipc/a2a/agent-card-registry";
 import { CircuitBreakerService } from "./resource/circuit-breaker.service";
@@ -46,6 +49,7 @@ const KERNEL_PROVIDERS = [
   CheckpointManager,
   // Memory
   KernelMemoryManagerService,
+  HierarchicalMemoryCascadeService,
   WorkingMemoryStore,
   PersistentMemoryStore,
   InMemoryStore,
@@ -53,6 +57,8 @@ const KERNEL_PROVIDERS = [
   EventBusService,
   ProgressTrackerService,
   MessageBusService,
+  MessagePersistenceService,
+  AgentLifecycleProtocolService,
   // A2A
   A2AClientService,
   // A2ATeamMemberAdapter is NOT a DI provider — it requires manual instantiation with agentCard

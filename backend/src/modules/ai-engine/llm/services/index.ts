@@ -20,3 +20,7 @@ export {
   AiChatModelConfigService,
   AIModelConfig as AIModelConfigExport,
 } from "./ai-chat-model-config.service";
+export {
+  PromptCacheCoordinatorService,
+  type CachePrefix,
+} from "./prompt-cache-coordinator.service";

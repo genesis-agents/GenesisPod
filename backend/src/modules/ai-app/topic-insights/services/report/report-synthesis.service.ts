@@ -13,6 +13,8 @@ import {
   OutputReviewerService,
   ContextEvolutionService,
   TokenBudgetService,
+  CrossCuttingSynthesisService,
+  type SynthesisResult,
   type EstablishedFact,
 } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
@@ -109,6 +111,9 @@ export class ReportSynthesisService {
     @Optional() private readonly tokenBudgetService?: TokenBudgetService,
     @Optional()
     private readonly researchEventEmitter?: ResearchEventEmitterService,
+    // ★ Phase 10: Cross-cutting synthesis before report generation
+    @Optional()
+    private readonly crossCuttingSynthesis?: CrossCuttingSynthesisService,
   ) {}
 
   /**
@@ -567,6 +572,66 @@ export class ReportSynthesisService {
       return d;
     });
 
+    // ★ Phase 10: Cross-cutting synthesis — identify themes, contradictions, and gaps
+    // across all dimension results before assembling the final report.
+    let crossCuttingSynthesisResult: SynthesisResult | undefined;
+    if (this.crossCuttingSynthesis) {
+      try {
+        const dimensionResultsForSynthesis = dimensionAnalyses.map((da) => {
+          const dataPoints = da.dataPoints as Record<string, unknown> | null;
+          const keyFindingsRaw = da.keyFindings as
+            | Array<{ finding?: string }>
+            | null;
+          return {
+            dimensionId: da.dimensionId,
+            dimensionName: da.dimension?.name ?? "",
+            content:
+              (dataPoints?.detailedContent as string | undefined) ??
+              da.summary ??
+              "",
+            keyFindings: (keyFindingsRaw ?? []).map(
+              (kf) => kf.finding ?? "",
+            ),
+            sources: (da.evidences ?? []).map((e) => ({
+              title: e.title ?? "",
+              url: e.url ?? undefined,
+            })),
+          };
+        });
+
+        crossCuttingSynthesisResult = await this.crossCuttingSynthesis.synthesize(
+          dimensionResultsForSynthesis,
+          async (systemPrompt, userPrompt) => {
+            const result = await this.chatFacade.chat({
+              messages: [
+                { role: "system" as const, content: systemPrompt },
+                { role: "user" as const, content: userPrompt },
+              ],
+              skipGuardrails: true,
+              taskProfile: { creativity: "low", outputLength: "long" },
+            });
+            return { content: result.content, tokensUsed: result.tokensUsed };
+          },
+        );
+
+        if (crossCuttingSynthesisResult.crossCuttingThemes.length > 0) {
+          this.logger.log(
+            `[synthesizeReport] Cross-cutting synthesis: ${crossCuttingSynthesisResult.crossCuttingThemes.length} themes, ` +
+              `${crossCuttingSynthesisResult.contradictions.length} contradictions, ` +
+              `${crossCuttingSynthesisResult.gaps.length} gaps`,
+          );
+        }
+      } catch (synthErr) {
+        this.logger.warn(
+          `[synthesizeReport] Cross-cutting synthesis failed (non-fatal): ${synthErr instanceof Error ? synthErr.message : String(synthErr)}`,
+        );
+      }
+    } else {
+      this.logger.debug(
+        "[Degraded] CrossCuttingSynthesisService unavailable, skipping cross-cutting synthesis",
+      );
+    }
+
     void this.researchEventEmitter?.emitReportSynthesisProgress(topic.id, {
       progress: 30,
       phase: "llm_generation",
@@ -634,6 +699,15 @@ export class ReportSynthesisService {
     // 7. ★ 构建完整报告：直接使用 detailedContent 而非 AI 重写
     // 从 synthesisResult 中提取补充内容（前言、执行摘要、跨维度分析、风险评估、战略建议、结语）
     const structuredReport = synthesisResult.structuredReport;
+
+    // ★ Phase 10: Prepend cross-cutting themes to the crossDimensionAnalysis section
+    // when CrossCuttingSynthesisService produced results.
+    const aiCrossDimAnalysis = structuredReport?.crossDimensionAnalysis || "";
+    const crossDimensionAnalysis = this.buildCrossDimensionSection(
+      aiCrossDimAnalysis,
+      crossCuttingSynthesisResult,
+    );
+
     const fullReportFromDimensions = this.buildFullReportFromDimensions(
       topic,
       editedDimensionInputs,
@@ -641,7 +715,7 @@ export class ReportSynthesisService {
         preface: structuredReport?.preface || "",
         executiveSummary: synthesisResult.executiveSummary || "",
         // ★ v3.1: 直接使用独立字段，不再从 conclusion 中 extract
-        crossDimensionAnalysis: structuredReport?.crossDimensionAnalysis || "",
+        crossDimensionAnalysis,
         riskAssessment: structuredReport?.riskAssessment || "",
         strategicRecommendations:
           structuredReport?.strategicRecommendations || "",
@@ -1238,6 +1312,60 @@ export class ReportSynthesisService {
    * 2. 只由 AI 生成补充内容（执行摘要、前言、跨维度分析、风险评估、战略建议、结语）
    * 3. 保持报告的完整性和一致性
    */
+  /**
+   * ★ Phase 10: Merge cross-cutting themes into the crossDimensionAnalysis section.
+   *
+   * Prepends a structured themes/contradictions/gaps block before the AI-generated
+   * cross-dimension analysis text when CrossCuttingSynthesisService produced results.
+   * Falls back to the AI-generated text alone when synthesis was skipped or empty.
+   */
+  private buildCrossDimensionSection(
+    aiGeneratedText: string,
+    synthesisResult: SynthesisResult | undefined,
+  ): string {
+    if (!synthesisResult || synthesisResult.crossCuttingThemes.length === 0) {
+      return aiGeneratedText;
+    }
+
+    const lines: string[] = [];
+
+    // Themes block
+    if (synthesisResult.crossCuttingThemes.length > 0) {
+      lines.push("**跨维度核心主题**\n");
+      for (const theme of synthesisResult.crossCuttingThemes) {
+        const confidence = Math.round(theme.confidence * 100);
+        const dims = theme.supportingDimensions.join("、");
+        lines.push(`- **${theme.theme}**（置信度 ${confidence}%，覆盖维度：${dims}）`);
+      }
+      lines.push("");
+    }
+
+    // Contradictions block
+    if (synthesisResult.contradictions.length > 0) {
+      lines.push("**跨维度分歧**\n");
+      for (const c of synthesisResult.contradictions) {
+        lines.push(
+          `- **${c.topic}**：${c.dimensionA} 认为"${c.descriptionA}"，而 ${c.dimensionB} 认为"${c.descriptionB}"`,
+        );
+      }
+      lines.push("");
+    }
+
+    // Gaps block
+    if (synthesisResult.gaps.length > 0) {
+      lines.push("**研究覆盖缺口**\n");
+      for (const g of synthesisResult.gaps) {
+        lines.push(`- **${g.area}**：${g.missingPerspective}`);
+      }
+      lines.push("");
+    }
+
+    const synthesisBlock = lines.join("\n");
+    return aiGeneratedText
+      ? `${synthesisBlock}\n${aiGeneratedText}`
+      : synthesisBlock;
+  }
+
   private buildFullReportFromDimensions(
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],

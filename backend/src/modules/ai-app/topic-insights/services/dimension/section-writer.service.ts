@@ -13,6 +13,7 @@ import {
   Injectable,
   Logger,
   InternalServerErrorException,
+  Optional,
 } from "@nestjs/common";
 import { InsufficientCreditsException } from "../../types/research.exceptions";
 import {
@@ -21,6 +22,7 @@ import {
   inferIsReasoning,
 } from "@/modules/ai-engine/facade";
 import type { QueryLoopConfig } from "@/modules/ai-engine/facade";
+import { PromptCacheCoordinatorService } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research/research-leader.service";
 import type { FigureRegistryEntry } from "./evidence-summary.utils";
@@ -142,6 +144,8 @@ export interface SectionWriteInput {
    * 避免同一并行组内所有无依赖章节都被误判为"第一节"
    */
   isFirstDimensionSection?: boolean;
+  /** ★ Phase 5: Mission ID for prompt cache prefix sharing */
+  missionId?: string;
 }
 
 /**
@@ -168,6 +172,8 @@ export class SectionWriterService {
   constructor(
     private readonly chatFacade: ChatFacade,
     private readonly engineFacade: AIEngineFacade,
+    @Optional()
+    private readonly promptCacheCoordinator?: PromptCacheCoordinatorService,
   ) {}
 
   /**
@@ -376,6 +382,11 @@ export class SectionWriterService {
       continuationPrompt:
         "Your previous response was truncated. Continue writing from exactly where you left off. Do not repeat any content already written. Do not add any preamble or transition — continue the text seamlessly.",
     };
+    // ★ Phase 5: Get frozen cache prefix for prompt cache sharing across dimensions
+    const cachePrefix = input.missionId
+      ? this.promptCacheCoordinator?.getPrefix(input.missionId)
+      : null;
+
     const response = await this.chatFacade.chatWithLoop(
       {
         messages: [
@@ -390,6 +401,9 @@ export class SectionWriterService {
         skipGuardrails: true, // 内部系统调用，章节写作含外部研究数据
         cachePolicy: "auto",
         taskProfile: tierAdaptation.taskProfile,
+        sharedCachePrefix: cachePrefix
+          ? { systemPromptText: cachePrefix.systemPromptText }
+          : undefined,
       },
       loopConfig,
     );

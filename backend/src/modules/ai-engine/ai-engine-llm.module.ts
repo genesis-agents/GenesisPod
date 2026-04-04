@@ -38,6 +38,7 @@ import { AiConnectionTestService } from "./llm/services/ai-connection-test.servi
 import { AiModelDiscoveryService } from "./llm/services/ai-model-discovery.service";
 import { AiDirectKeyService } from "./llm/services/ai-direct-key.service";
 import { AiImageGenerationService } from "./llm/services/ai-image-generation.service";
+import { PromptCacheCoordinatorService } from "./llm/services/prompt-cache-coordinator.service";
 
 // Model Fallback
 import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
@@ -92,6 +93,9 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     AiDirectKeyService,
     AiImageGenerationService,
 
+    // Prompt Cache
+    PromptCacheCoordinatorService,
+
     // Model Fallback
     ModelFallbackService,
   ],
@@ -111,6 +115,7 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     AiModelDiscoveryService,
     AiDirectKeyService,
     AiImageGenerationService,
+    PromptCacheCoordinatorService,
     ModelFallbackService,
   ],
 })
