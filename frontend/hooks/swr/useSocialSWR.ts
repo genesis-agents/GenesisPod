@@ -354,7 +354,13 @@ export async function mutateContents(
 /**
  * Invalidate and refresh all connections-related caches
  */
-export function invalidateConnectionsCaches(mutate: (matcher: (key: unknown) => boolean, data?: unknown, opts?: { revalidate?: boolean }) => Promise<unknown>) {
+export function invalidateConnectionsCaches(
+  mutate: (
+    matcher: (key: unknown) => boolean,
+    data?: unknown,
+    opts?: { revalidate?: boolean }
+  ) => Promise<unknown>
+) {
   mutate(
     (key: unknown) => typeof key === 'string' && key.includes('/connections'),
     undefined,
@@ -365,7 +371,13 @@ export function invalidateConnectionsCaches(mutate: (matcher: (key: unknown) => 
 /**
  * Invalidate and refresh all contents-related caches
  */
-export function invalidateContentsCaches(mutate: (matcher: (key: unknown) => boolean, data?: unknown, opts?: { revalidate?: boolean }) => Promise<unknown>) {
+export function invalidateContentsCaches(
+  mutate: (
+    matcher: (key: unknown) => boolean,
+    data?: unknown,
+    opts?: { revalidate?: boolean }
+  ) => Promise<unknown>
+) {
   mutate(
     (key: unknown) => typeof key === 'string' && key.includes('/contents'),
     undefined,

@@ -63,15 +63,17 @@ export function useResources({
         const ytVideosArray = Array.isArray(ytResponseData)
           ? ytResponseData
           : ytResponseData?.data || [];
-        const youtubeVideos = ytVideosArray.map((video: Record<string, unknown>) => ({
-          id: video.id as string,
-          type: 'YOUTUBE' as const,
-          title: video.title as string,
-          abstract: null,
-          sourceUrl: video.url as string,
-          publishedAt: video.createdAt as string,
-          videoId: video.videoId as string,
-        }));
+        const youtubeVideos = ytVideosArray.map(
+          (video: Record<string, unknown>) => ({
+            id: video.id as string,
+            type: 'YOUTUBE' as const,
+            title: video.title as string,
+            abstract: null,
+            sourceUrl: video.url as string,
+            publishedAt: video.createdAt as string,
+            videoId: video.videoId as string,
+          })
+        );
 
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
         const resourcesRes = await fetch(resourcesUrl, {
@@ -169,9 +171,7 @@ export function useResources({
 
       const url = `${config.apiUrl}/resources?${params.toString()}`;
       const res = await fetch(url, {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       const data = await res.json();
       // API returns { success, data: { data: [...], pagination } } format

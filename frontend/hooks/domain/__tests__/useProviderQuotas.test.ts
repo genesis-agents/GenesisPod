@@ -92,12 +92,10 @@ describe('useProviderQuotas', () => {
     const mockQuotas = [makeQuota('openai'), makeQuota('anthropic')];
     fetchMock.mockResolvedValue({
       ok: true,
-      json: vi
-        .fn()
-        .mockResolvedValue({
-          quotas: mockQuotas,
-          lastUpdated: '2026-01-01T00:00:00Z',
-        }),
+      json: vi.fn().mockResolvedValue({
+        quotas: mockQuotas,
+        lastUpdated: '2026-01-01T00:00:00Z',
+      }),
     });
 
     const { result } = renderHook(() => useProviderQuotas());

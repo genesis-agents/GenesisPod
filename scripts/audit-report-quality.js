@@ -98,12 +98,18 @@ async function main() {
     const allIssues = [
       ...fullReportIssues.map((iss) => ({ ...iss, scope: "fullReport" })),
       ...chapterIssues.flatMap((ch) =>
-        ch.issues.map((iss) => ({ ...iss, scope: `ch${ch.chapter}` }))
+        ch.issues.map((iss) => ({ ...iss, scope: `ch${ch.chapter}` })),
       ),
     ];
 
     // Group by severity then category
-    const bySeverity = { CRITICAL: [], HIGH: [], MEDIUM: [], LOW: [], INFO: [] };
+    const bySeverity = {
+      CRITICAL: [],
+      HIGH: [],
+      MEDIUM: [],
+      LOW: [],
+      INFO: [],
+    };
     allIssues.forEach((iss) => {
       if (!bySeverity[iss.severity]) bySeverity[iss.severity] = [];
       bySeverity[iss.severity].push(iss);
@@ -126,7 +132,9 @@ async function main() {
           const catItems = byCategory[cat];
           const total = catItems.reduce((s, i) => s + i.count, 0);
           totalNonInfo += total;
-          const scopes = catItems.map((i) => `${i.scope}=${i.count}`).join(", ");
+          const scopes = catItems
+            .map((i) => `${i.scope}=${i.count}`)
+            .join(", ");
           console.log(`  ${cat}: ${total} (${scopes})`);
         });
     });
@@ -188,12 +196,12 @@ function auditMarkdown(content, scope) {
     add(
       "A1-h1-in-dimension",
       "HIGH",
-      lines.filter((l) => /^#\s+[^#]/.test(l))
+      lines.filter((l) => /^#\s+[^#]/.test(l)),
     );
     add(
       "A2-h2-in-dimension",
       "HIGH",
-      lines.filter((l) => /^##\s+[^#]/.test(l))
+      lines.filter((l) => /^##\s+[^#]/.test(l)),
     );
   }
 
@@ -218,7 +226,9 @@ function auditMarkdown(content, scope) {
     // Exclude supplementary sections (intro, summary, conclusion, etc.)
     const nonStructural = badH3.filter(
       (l) =>
-        !/跨维度|风险|战略|结语|前言|执行摘要|目录|参考|附录|研究范围|方法论|阅读指引|研究背景|报告概述|核心发现|关键发现|研究方法|总结|关键指标|行动建议|反馈回路|情景分析|政策建议|实施路径|维度对比|投资者|政策研究者|企业决策者|研究人员|技术从业者|普通读者|短期|中期|长期/.test(l)
+        !/跨维度|风险|战略|结语|前言|执行摘要|目录|参考|附录|研究范围|方法论|阅读指引|研究背景|报告概述|核心发现|关键发现|研究方法|总结|关键指标|行动建议|反馈回路|情景分析|政策建议|实施路径|维度对比|投资者|政策研究者|企业决策者|研究人员|技术从业者|普通读者|短期|中期|长期/.test(
+          l,
+        ),
     );
     add("A4-h3-bad-numbering", "MEDIUM", nonStructural);
   }
@@ -234,7 +244,7 @@ function auditMarkdown(content, scope) {
   add(
     "A6-deep-headings-h5h6",
     "MEDIUM",
-    lines.filter((l) => /^#{5,6}\s+/.test(l))
+    lines.filter((l) => /^#{5,6}\s+/.test(l)),
   );
 
   // A7. Duplicate headings (same normalized text)
@@ -278,7 +288,9 @@ function auditMarkdown(content, scope) {
     lines.forEach((l) => {
       if (/^##\s+\d+\./.test(l)) {
         if (currentChapter && h3Count > 8) {
-          excessChapters.push(`${currentChapter}: ${h3Count} sub-headings (limit 8)`);
+          excessChapters.push(
+            `${currentChapter}: ${h3Count} sub-headings (limit 8)`,
+          );
         }
         currentChapter = l.trim().substring(0, 40);
         h3Count = 0;
@@ -287,7 +299,9 @@ function auditMarkdown(content, scope) {
       }
     });
     if (currentChapter && h3Count > 8) {
-      excessChapters.push(`${currentChapter}: ${h3Count} sub-headings (limit 8)`);
+      excessChapters.push(
+        `${currentChapter}: ${h3Count} sub-headings (limit 8)`,
+      );
     }
     add("A9-excess-subheadings", "MEDIUM", excessChapters);
   }
@@ -300,8 +314,8 @@ function auditMarkdown(content, scope) {
       (l) =>
         /^#{3,4}\s+/.test(l) &&
         /\b(if|for|while|def|return|import|class)\b/.test(l) &&
-        !/\b(如果|如何|if.*then|For.*use|Return|Class)\b/i.test(l)
-    )
+        !/\b(如果|如何|if.*then|For.*use|Return|Class)\b/i.test(l),
+    ),
   );
 
   // ================================================================
@@ -312,7 +326,9 @@ function auditMarkdown(content, scope) {
 
   // B1. 本章要点 header format
   const hlHeaders = content.match(/.*本章要点.*/g) || [];
-  const badHlHeaders = hlHeaders.filter((h) => !/^>\s*\*\*本章要点\*\*/.test(h));
+  const badHlHeaders = hlHeaders.filter(
+    (h) => !/^>\s*\*\*本章要点\*\*/.test(h),
+  );
   add("B1-highlights-bad-header", "MEDIUM", badHlHeaders);
 
   // B2. 本章要点 bullets without > prefix
@@ -361,18 +377,14 @@ function auditMarkdown(content, scope) {
   add(
     "C1-display-math-bracket",
     "HIGH",
-    content.match(/\\\[\s*\\[a-zA-Z]/g) || []
+    content.match(/\\\[\s*\\[a-zA-Z]/g) || [],
   );
 
   // C2. $$...$$ display math present (informational)
   add("C2-display-math-dollar", "INFO", content.match(/\$\$[^$]/g) || []);
 
   // C3. Inline $...$ math (informational)
-  add(
-    "C3-inline-math",
-    "INFO",
-    content.match(/\$[^$\n]{1,200}\$/g) || []
-  );
+  add("C3-inline-math", "INFO", content.match(/\$[^$\n]{1,200}\$/g) || []);
 
   // C4. LaTeX _{<t} parsed as HTML tag (CRITICAL)
   add("C4-latex-lt-html-bug", "CRITICAL", content.match(/_{<[a-zA-Z]/g) || []);
@@ -381,36 +393,31 @@ function auditMarkdown(content, scope) {
   add(
     "C5-bare-latex-after-cjk",
     "MEDIUM",
-    content.match(/[\u4e00-\u9fff][^$\n]{0,5}\\[a-zA-Z]/g) || []
+    content.match(/[\u4e00-\u9fff][^$\n]{0,5}\\[a-zA-Z]/g) || [],
   );
 
   // C6. Missing subscript underscore: letter{n} without _
   add(
     "C6-missing-subscript",
     "MEDIUM",
-    content.match(/(?<![a-zA-Z\\_{])[a-zA-Z]\{[a-z0-9,: ]{1,10}\}/g) || []
+    content.match(/(?<![a-zA-Z\\_{])[a-zA-Z]\{[a-z0-9,: ]{1,10}\}/g) || [],
   );
 
   // C7. Spurious $ signs: (...$)$
-  add(
-    "C7-spurious-dollar",
-    "LOW",
-    content.match(/\([^)$\n]*\$\)\$/g) || []
-  );
+  add("C7-spurious-dollar", "LOW", content.match(/\([^)$\n]*\$\)\$/g) || []);
 
   // C8. LaTeX degraded to Unicode (simplifyLatexNotation residue)
   // Detects patterns like α, β, γ next to math-like notation (^, _, {, })
   // which suggests LaTeX was converted to Unicode instead of rendered
-  const unicodeMathChars = content.match(
-    /[αβγδεζηθλμσωπρφψΣ∫∈∞≤≥≈∇][_^{]/g
-  ) || [];
+  const unicodeMathChars =
+    content.match(/[αβγδεζηθλμσωπρφψΣ∫∈∞≤≥≈∇][_^{]/g) || [];
   add("C8-latex-degraded-to-unicode", "MEDIUM", unicodeMathChars);
 
   // C9. Fragmented adjacent math blocks: $a$ $b$ should be $a b$
   add(
     "C9-fragmented-math",
     "LOW",
-    content.match(/\$[^$]+\$\s*\$[^$]+\$/g) || []
+    content.match(/\$[^$]+\$\s*\$[^$]+\$/g) || [],
   );
 
   // ================================================================
@@ -426,7 +433,11 @@ function auditMarkdown(content, scope) {
       `HTML <a>: ${citHtml.length}, Plain [N]: ${citPlain.length}`,
     ]);
   }
-  if (scope.startsWith("chapter") && citPlain.length > 0 && citHtml.length === 0) {
+  if (
+    scope.startsWith("chapter") &&
+    citPlain.length > 0 &&
+    citHtml.length === 0
+  ) {
     add("D1-citation-not-linked", "LOW", [
       `${citPlain.length} plain [N] citations, 0 clickable <a> links`,
     ]);
@@ -436,7 +447,7 @@ function auditMarkdown(content, scope) {
   add(
     "D2-adjacent-dup-citations",
     "LOW",
-    content.match(/\[(\d+)\]\s*\[\1\]/g) || []
+    content.match(/\[(\d+)\]\s*\[\1\]/g) || [],
   );
 
   // D3. Reference section (fullReport only)
@@ -491,7 +502,8 @@ function auditMarkdown(content, scope) {
     .replace(/https?:\/\/[^\s)]+/g, "")
     .replace(/\[[\d,\s]+\]/g, "")
     .replace(/\[[^\]]*\]\([^)]*\)/g, ""); // exclude markdown links
-  const foreignBlocks = stripped.match(/[A-Za-z][A-Za-z\s,.:;'"!?()\-]{79,}/g) || [];
+  const foreignBlocks =
+    stripped.match(/[A-Za-z][A-Za-z\s,.:;'"!?()\-]{79,}/g) || [];
   const realForeign = foreignBlocks.filter((b) => b.split(/\s+/).length >= 5);
   add("E2-foreign-language-blocks", "MEDIUM", realForeign);
 
@@ -530,24 +542,29 @@ function auditMarkdown(content, scope) {
     const threshold = lineCount === 1 ? 400 : 600;
     return t.length > threshold;
   });
-  add("E4-wall-of-text", "LOW", wallParas.map((p) => `(${p.length} chars) ${p.substring(0, 80)}...`));
+  add(
+    "E4-wall-of-text",
+    "LOW",
+    wallParas.map((p) => `(${p.length} chars) ${p.substring(0, 80)}...`),
+  );
 
   // E5. Leaked HTML comments (excluding chart/figure placeholders)
-  const htmlComments = content.match(/<!--(?!\s*(?:chart|figure):)[^>]*-->/g) || [];
+  const htmlComments =
+    content.match(/<!--(?!\s*(?:chart|figure):)[^>]*-->/g) || [];
   add("E5-leaked-html-comments", "LOW", htmlComments);
 
   // E6. Unresolved figure placeholders
   add(
     "E6-unresolved-figure",
     "MEDIUM",
-    content.match(/<!--\s*figure:\d+:\d+\s*-->/g) || []
+    content.match(/<!--\s*figure:\d+:\d+\s*-->/g) || [],
   );
 
   // E7. Chart placeholders (informational)
   add(
     "E7-chart-placeholders",
     "INFO",
-    content.match(/<!--\s*chart:[^\s]+\s*-->/g) || []
+    content.match(/<!--\s*chart:[^\s]+\s*-->/g) || [],
   );
 
   // ================================================================
@@ -563,11 +580,13 @@ function auditMarkdown(content, scope) {
     const excessBoldSections = [];
     sections.forEach((section) => {
       let count = 0;
-      const sectionTitle = (section.match(/^###\s+.+/m) || ["(untitled)"])[0].substring(0, 50);
+      const sectionTitle = (section.match(/^###\s+.+/m) || [
+        "(untitled)",
+      ])[0].substring(0, 50);
       section.replace(/\*\*([^*]+)\*\*/g, (_m, _inner, offset) => {
         const before = section.substring(
           Math.max(0, section.lastIndexOf("\n", offset) + 1),
-          offset
+          offset,
         );
         // Skip structural bold (hierarchical numbered items)
         if (/^\d+(\.\d+)*\.\s*$/.test(before.trim())) return _m;
@@ -597,7 +616,10 @@ function auditMarkdown(content, scope) {
   let inBq = false;
   lines.forEach((l) => {
     if (/^>\s/.test(l)) {
-      if (!inBq) { bqBlocks++; inBq = true; }
+      if (!inBq) {
+        bqBlocks++;
+        inBq = true;
+      }
     } else {
       inBq = false;
     }
@@ -619,7 +641,11 @@ function auditMarkdown(content, scope) {
   add("F4-overlong-blockquote", "LOW", longBq);
 
   // F5. Horizontal rules (not allowed in formal reports)
-  add("F5-horizontal-rules", "MEDIUM", lines.filter((l) => /^\s*[-*]{3,}\s*$/.test(l)));
+  add(
+    "F5-horizontal-rules",
+    "MEDIUM",
+    lines.filter((l) => /^\s*[-*]{3,}\s*$/.test(l)),
+  );
 
   // F6. Table rows (informational)
   add("F6-table-rows", "INFO", content.match(/^\|.+\|$/gm) || []);
@@ -662,14 +688,22 @@ function auditMarkdown(content, scope) {
   add(
     "F10-unexpected-html",
     "MEDIUM",
-    content.match(/<(?!a[\s>]|\/a|!--|br|span|\/span)[a-zA-Z][^>]*>/g) || []
+    content.match(/<(?!a[\s>]|\/a|!--|br|span|\/span)[a-zA-Z][^>]*>/g) || [],
   );
 
   // F11. H4 headings count (informational)
-  add("F11-h4-count", "INFO", lines.filter((l) => /^####\s/.test(l)));
+  add(
+    "F11-h4-count",
+    "INFO",
+    lines.filter((l) => /^####\s/.test(l)),
+  );
 
   // F12. H3 headings count (informational)
-  add("F12-h3-count", "INFO", lines.filter((l) => /^###\s+[^#]/.test(l)));
+  add(
+    "F12-h3-count",
+    "INFO",
+    lines.filter((l) => /^###\s+[^#]/.test(l)),
+  );
 
   return issues;
 }

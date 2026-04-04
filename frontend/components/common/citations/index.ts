@@ -1,1 +1,5 @@
-export { setCitationClickCallback, triggerCitationClick, hasCitationClickCallback } from './citationNavigation';
+export {
+  setCitationClickCallback,
+  triggerCitationClick,
+  hasCitationClickCallback,
+} from './citationNavigation';

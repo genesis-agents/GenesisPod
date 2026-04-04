@@ -63,7 +63,11 @@ export interface MissionsSlice {
     totalTasks: number,
     progressPercent: number
   ) => void;
-  handleTaskCompleted: (missionId: string, taskId: string, agentId: string) => void;
+  handleTaskCompleted: (
+    missionId: string,
+    taskId: string,
+    agentId: string
+  ) => void;
   handleTaskStatusUpdate: (
     missionId: string,
     taskId: string,
@@ -247,15 +251,16 @@ export const createMissionsSlice: StateCreator<
   handleMissionCreated: (mission) => {
     logger.debug('[WS] Mission created:', mission.id);
     set((state) => ({
-      missions: [
-        mission,
-        ...state.missions.filter((m) => m.id !== mission.id),
-      ],
+      missions: [mission, ...state.missions.filter((m) => m.id !== mission.id)],
     }));
   },
 
   handleMissionStatusChanged: (missionId, status, totalTasks, tasks) => {
-    logger.debug('[WS] Mission status changed:', { missionId, status, totalTasks });
+    logger.debug('[WS] Mission status changed:', {
+      missionId,
+      status,
+      totalTasks,
+    });
     set((state) => ({
       missions: state.missions.map((m) =>
         m.id === missionId
@@ -299,7 +304,12 @@ export const createMissionsSlice: StateCreator<
       ),
       currentMission:
         state.currentMission?.id === missionId
-          ? { ...state.currentMission, completedTasks, totalTasks, progressPercent }
+          ? {
+              ...state.currentMission,
+              completedTasks,
+              totalTasks,
+              progressPercent,
+            }
           : state.currentMission,
     }));
   },
@@ -329,7 +339,13 @@ export const createMissionsSlice: StateCreator<
     });
   },
 
-  handleTaskStatusUpdate: (missionId, taskId, status, result, leaderFeedback) => {
+  handleTaskStatusUpdate: (
+    missionId,
+    taskId,
+    status,
+    result,
+    leaderFeedback
+  ) => {
     logger.debug('[WS] Task status update:', { missionId, taskId, status });
     set((state) => {
       const updateTasks = (tasks?: AgentTask[]) =>
@@ -369,7 +385,12 @@ export const createMissionsSlice: StateCreator<
     // This is handled by messagesSlice.handleAIResponse
   },
 
-  handleMissionCompleted: (missionId, finalResult, summary, participantAIIds) => {
+  handleMissionCompleted: (
+    missionId,
+    finalResult,
+    summary,
+    participantAIIds
+  ) => {
     logger.debug('[WS] Mission completed:', { missionId, participantAIIds });
     set((state) => ({
       missions: state.missions.map((m) =>

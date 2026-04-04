@@ -67,7 +67,14 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
   const [stats, setStats] = useState<{
     totalPosts?: number;
     collectionStatus?: string;
-    recentPosts?: Array<{ id: string; title: string; publishedAt?: string; source?: string; publisherName?: string; createdAt?: string }>;
+    recentPosts?: Array<{
+      id: string;
+      title: string;
+      publishedAt?: string;
+      source?: string;
+      publisherName?: string;
+      createdAt?: string;
+    }>;
     [key: string]: unknown;
   } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -438,7 +445,8 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
           </h3>
 
           <div className="space-y-2">
-            {(Array.isArray(stats.recentPosts) ? stats.recentPosts : []).map((post) => (
+            {(Array.isArray(stats.recentPosts) ? stats.recentPosts : []).map(
+              (post) => (
                 <a
                   key={post.id}
                   href={`/reports/${post.id}`}

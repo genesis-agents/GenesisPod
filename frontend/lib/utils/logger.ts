@@ -1,6 +1,6 @@
 /**
  * Frontend Logger Utility
- * 
+ *
  * 统一的前端日志工具，替代 console.log
  * 生产环境自动禁用 debug 日志
  */
@@ -22,13 +22,18 @@ class Logger {
   constructor() {
     this.isDevelopment = process.env.NODE_ENV === 'development';
     this.enabledLevels = new Set(
-      this.isDevelopment 
+      this.isDevelopment
         ? ['debug', 'info', 'warn', 'error']
         : ['warn', 'error']
     );
   }
 
-  private log(level: LogLevel, context: string | undefined, message: string, data?: unknown) {
+  private log(
+    level: LogLevel,
+    context: string | undefined,
+    message: string,
+    data?: unknown
+  ) {
     if (!this.enabledLevels.has(level)) {
       return;
     }
@@ -62,7 +67,11 @@ class Logger {
 
   debug(message: string, data?: unknown): void;
   debug(context: string, message: string, data?: unknown): void;
-  debug(contextOrMessage: string, messageOrData?: string | unknown, data?: unknown) {
+  debug(
+    contextOrMessage: string,
+    messageOrData?: string | unknown,
+    data?: unknown
+  ) {
     if (typeof messageOrData === 'string') {
       this.log('debug', contextOrMessage, messageOrData, data);
     } else {
@@ -72,7 +81,11 @@ class Logger {
 
   info(message: string, data?: unknown): void;
   info(context: string, message: string, data?: unknown): void;
-  info(contextOrMessage: string, messageOrData?: string | unknown, data?: unknown) {
+  info(
+    contextOrMessage: string,
+    messageOrData?: string | unknown,
+    data?: unknown
+  ) {
     if (typeof messageOrData === 'string') {
       this.log('info', contextOrMessage, messageOrData, data);
     } else {
@@ -82,7 +95,11 @@ class Logger {
 
   warn(message: string, data?: unknown): void;
   warn(context: string, message: string, data?: unknown): void;
-  warn(contextOrMessage: string, messageOrData?: string | unknown, data?: unknown) {
+  warn(
+    contextOrMessage: string,
+    messageOrData?: string | unknown,
+    data?: unknown
+  ) {
     if (typeof messageOrData === 'string') {
       this.log('warn', contextOrMessage, messageOrData, data);
     } else {
@@ -92,7 +109,11 @@ class Logger {
 
   error(message: string, error?: unknown): void;
   error(context: string, message: string, error?: unknown): void;
-  error(contextOrMessage: string, messageOrError?: string | unknown, error?: unknown) {
+  error(
+    contextOrMessage: string,
+    messageOrError?: string | unknown,
+    error?: unknown
+  ) {
     if (typeof messageOrError === 'string') {
       this.log('error', contextOrMessage, messageOrError, error);
     } else {
@@ -109,9 +130,13 @@ export const logger = new Logger();
  */
 export function createLogger(context: string) {
   return {
-    debug: (message: string, data?: unknown) => logger.debug(context, message, data),
-    info: (message: string, data?: unknown) => logger.info(context, message, data),
-    warn: (message: string, data?: unknown) => logger.warn(context, message, data),
-    error: (message: string, error?: unknown) => logger.error(context, message, error),
+    debug: (message: string, data?: unknown) =>
+      logger.debug(context, message, data),
+    info: (message: string, data?: unknown) =>
+      logger.info(context, message, data),
+    warn: (message: string, data?: unknown) =>
+      logger.warn(context, message, data),
+    error: (message: string, error?: unknown) =>
+      logger.error(context, message, error),
   };
 }

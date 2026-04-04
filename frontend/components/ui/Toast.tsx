@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { X, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
-import { useToastStore, type Toast as ToastType, type ToastType as TType } from '@/stores';
+import {
+  useToastStore,
+  type Toast as ToastType,
+  type ToastType as TType,
+} from '@/stores';
 
 const iconMap: Record<TType, React.ReactNode> = {
   success: <CheckCircle className="h-5 w-5 text-green-500" />,
@@ -34,7 +38,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
       } ${isExiting ? 'translate-x-full opacity-0' : 'translate-x-0 opacity-100'}`}
     >
       <div className="flex-shrink-0">{iconMap[toast.type]}</div>
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="font-medium text-gray-900">{toast.title}</p>
         {toast.message && (
           <p className="mt-1 text-sm text-gray-600">{toast.message}</p>
@@ -42,7 +46,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
       </div>
       <button
         onClick={handleClose}
-        className="flex-shrink-0 rounded p-1 hover:bg-black/5 transition-colors"
+        className="flex-shrink-0 rounded p-1 transition-colors hover:bg-black/5"
       >
         <X className="h-4 w-4 text-gray-400" />
       </button>
@@ -61,7 +65,7 @@ export function ToastContainer() {
   if (!mounted) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-md w-full pointer-events-none">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex w-full max-w-md flex-col gap-2">
       {toasts.map((toast) => (
         <div key={toast.id} className="pointer-events-auto">
           <ToastItem toast={toast} />

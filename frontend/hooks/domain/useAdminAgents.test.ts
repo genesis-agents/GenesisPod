@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useAdminAgents, AgentConfig, CreateAgentConfigDto, UpdateAgentConfigDto } from './useAdminAgents';
+import {
+  useAdminAgents,
+  AgentConfig,
+  CreateAgentConfigDto,
+  UpdateAgentConfigDto,
+} from './useAdminAgents';
 import * as useApiCore from '../core';
 import { apiClient } from '@/lib/api/client';
 
@@ -234,7 +239,10 @@ describe('useAdminAgents', () => {
         returnedAgent = await result.current.updateAgent('agent-1', updateData);
       });
 
-      expect(apiClient.patch).toHaveBeenCalledWith('/admin/agents/agent-1', updateData);
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        '/admin/agents/agent-1',
+        updateData
+      );
       expect(mockApiGetReturn.execute).toHaveBeenCalled();
       expect(returnedAgent).toEqual(updatedAgent);
     });

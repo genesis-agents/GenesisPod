@@ -210,9 +210,9 @@ interface ContextBuilder {
  * 抽象基类 - 提供通用构建逻辑
  * 遵循Template Method模式
  */
-abstract class BaseContextBuilder<T extends BaseResource>
-  implements ContextBuilder
-{
+abstract class BaseContextBuilder<
+  T extends BaseResource,
+> implements ContextBuilder {
   build(resource: T, config: ResourceContextConfig): string {
     // 如果启用智能截断，使用优先级分配
     if (config.enableSmartTruncation) {

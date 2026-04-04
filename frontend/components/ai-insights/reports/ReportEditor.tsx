@@ -660,10 +660,7 @@ function ReportEditorInner({
         actualH2Count >= expectedDimCount ||
         hasChartPlaceholders;
 
-      if (
-        resolvedFullReport.trim().length > 100 &&
-        isFullReportComplete
-      ) {
+      if (resolvedFullReport.trim().length > 100 && isFullReportComplete) {
         const looksLikeMarkdown =
           resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
         if (hasChartPlaceholders || looksLikeMarkdown) {

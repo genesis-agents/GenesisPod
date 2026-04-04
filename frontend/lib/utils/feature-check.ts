@@ -175,9 +175,8 @@ export class FeatureChecker {
    */
   async checkExportSystem(): Promise<FeatureCheckResult> {
     try {
-      const { documentExportService } = await import(
-        '@/lib/utils/document-export.service'
-      );
+      const { documentExportService } =
+        await import('@/lib/utils/document-export.service');
 
       if (!documentExportService) {
         return {
@@ -222,9 +221,8 @@ export class FeatureChecker {
    */
   async checkResearchPageSystem(): Promise<FeatureCheckResult> {
     try {
-      const { getAllResearchPageTemplates } = await import(
-        '@/lib/templates/research-page-templates'
-      );
+      const { getAllResearchPageTemplates } =
+        await import('@/lib/templates/research-page-templates');
       const templates = getAllResearchPageTemplates();
 
       if (templates.length < 3) {

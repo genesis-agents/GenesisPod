@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAIWritingStore } from './aiWritingStore';
 import * as api from '@/lib/api/ai-writing';
-import type { WritingProject, Volume, Chapter, Character, StoryBible } from '@/lib/api/ai-writing';
+import type {
+  WritingProject,
+  Volume,
+  Chapter,
+  Character,
+  StoryBible,
+} from '@/lib/api/ai-writing';
 
 // Mock the API module
 vi.mock('@/lib/api/ai-writing', () => ({
@@ -137,7 +143,9 @@ describe('useAIWritingStore', () => {
       });
 
       it('should handle fetch error', async () => {
-        vi.mocked(api.getProjects).mockRejectedValue(new Error('Network error'));
+        vi.mocked(api.getProjects).mockRejectedValue(
+          new Error('Network error')
+        );
 
         const { result } = renderHook(() => useAIWritingStore());
 
@@ -210,7 +218,9 @@ describe('useAIWritingStore', () => {
       });
 
       it('should handle create error', async () => {
-        vi.mocked(api.createProject).mockRejectedValue(new Error('Create failed'));
+        vi.mocked(api.createProject).mockRejectedValue(
+          new Error('Create failed')
+        );
 
         const { result } = renderHook(() => useAIWritingStore());
 
@@ -245,7 +255,9 @@ describe('useAIWritingStore', () => {
         });
 
         await act(async () => {
-          await result.current.updateProject('project-1', { name: 'Updated Title' });
+          await result.current.updateProject('project-1', {
+            name: 'Updated Title',
+          });
         });
 
         expect(result.current.projects[0].name).toBe('Updated Title');
@@ -508,12 +520,21 @@ describe('useAIWritingStore', () => {
     describe('startMission', () => {
       it('should initialize mission state', async () => {
         const missionId = 'mission-1';
-        vi.mocked(api.startMission).mockResolvedValue({ missionId, success: true, message: 'started', projectId: 'project-1', missionType: 'chapter' });
+        vi.mocked(api.startMission).mockResolvedValue({
+          missionId,
+          success: true,
+          message: 'started',
+          projectId: 'project-1',
+          missionType: 'chapter',
+        });
 
         const { result } = renderHook(() => useAIWritingStore());
 
         act(() => {
-          result.current.startMission('project-1', { prompt: 'Continue writing', missionType: 'chapter' });
+          result.current.startMission('project-1', {
+            prompt: 'Continue writing',
+            missionType: 'chapter',
+          });
         });
 
         expect(result.current.isMissionRunning).toBe(true);
@@ -524,30 +545,47 @@ describe('useAIWritingStore', () => {
 
       it('should call startMission API', async () => {
         const missionId = 'mission-1';
-        vi.mocked(api.startMission).mockResolvedValue({ missionId, success: true, message: 'started', projectId: 'project-1', missionType: 'chapter' });
+        vi.mocked(api.startMission).mockResolvedValue({
+          missionId,
+          success: true,
+          message: 'started',
+          projectId: 'project-1',
+          missionType: 'chapter',
+        });
 
         const { result } = renderHook(() => useAIWritingStore());
 
         act(() => {
-          result.current.startMission('project-1', { prompt: 'Continue writing', missionType: 'chapter' });
+          result.current.startMission('project-1', {
+            prompt: 'Continue writing',
+            missionType: 'chapter',
+          });
         });
 
         await act(async () => {
           await Promise.resolve();
         });
 
-        expect(api.startMission).toHaveBeenCalledWith('project-1', { prompt: 'Continue writing', missionType: 'chapter' });
+        expect(api.startMission).toHaveBeenCalledWith('project-1', {
+          prompt: 'Continue writing',
+          missionType: 'chapter',
+        });
       });
 
       it('should handle startMission API error', async () => {
-        vi.mocked(api.startMission).mockRejectedValue(new Error('Failed to start'));
+        vi.mocked(api.startMission).mockRejectedValue(
+          new Error('Failed to start')
+        );
 
         const { result } = renderHook(() => useAIWritingStore());
 
         let error: Error | undefined;
         await act(async () => {
           try {
-            await result.current.startMission('project-1', { prompt: 'Continue writing', missionType: 'chapter' });
+            await result.current.startMission('project-1', {
+              prompt: 'Continue writing',
+              missionType: 'chapter',
+            });
           } catch (err) {
             error = err as Error;
           }
@@ -585,8 +623,14 @@ describe('useAIWritingStore', () => {
       });
 
       it('should use force cleanup when normal cancel fails', async () => {
-        vi.mocked(api.cancelMission).mockRejectedValue(new Error('Cancel failed'));
-        vi.mocked(api.forceCleanupStuckMissions).mockResolvedValue({ success: true, cleanedCount: 1, message: 'cleaned' });
+        vi.mocked(api.cancelMission).mockRejectedValue(
+          new Error('Cancel failed')
+        );
+        vi.mocked(api.forceCleanupStuckMissions).mockResolvedValue({
+          success: true,
+          cleanedCount: 1,
+          message: 'cleaned',
+        });
 
         const { result } = renderHook(() => useAIWritingStore());
 
@@ -613,7 +657,10 @@ describe('useAIWritingStore', () => {
           updatedAt: new Date().toISOString(),
         };
 
-        vi.mocked(api.getProjectMissions).mockResolvedValue({ items: [runningMission], total: 1 });
+        vi.mocked(api.getProjectMissions).mockResolvedValue({
+          items: [runningMission],
+          total: 1,
+        });
 
         const { result } = renderHook(() => useAIWritingStore());
 
@@ -636,7 +683,10 @@ describe('useAIWritingStore', () => {
           updatedAt: stuckTime,
         };
 
-        vi.mocked(api.getProjectMissions).mockResolvedValue({ items: [stuckMission], total: 1 });
+        vi.mocked(api.getProjectMissions).mockResolvedValue({
+          items: [stuckMission],
+          total: 1,
+        });
 
         const { result } = renderHook(() => useAIWritingStore());
 
@@ -696,8 +746,14 @@ describe('useAIWritingStore', () => {
 
       // Add some messages
       act(() => {
-        result.current.addToConversationHistory({ role: 'user', content: 'Hello' });
-        result.current.addToConversationHistory({ role: 'assistant', content: 'Hi' });
+        result.current.addToConversationHistory({
+          role: 'user',
+          content: 'Hello',
+        });
+        result.current.addToConversationHistory({
+          role: 'assistant',
+          content: 'Hi',
+        });
       });
 
       expect(result.current.conversationHistory).toHaveLength(2);

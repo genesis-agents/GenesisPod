@@ -184,23 +184,20 @@ function stripFigureComments(content) {
 }
 
 function removeHallucinatedImages(content) {
-  return content.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (_match, _alt, url) => {
-      const lower = url.toLowerCase();
-      if (lower.startsWith("data:")) return "";
-      if (
-        lower.includes("placeholder.com") ||
-        lower.includes("example.com") ||
-        lower.includes("via.placeholder")
-      )
-        return "";
-      if (lower.includes("image-not-found") || lower.includes("no-image"))
-        return "";
-      if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
-      return _match;
-    },
-  );
+  return content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
+    const lower = url.toLowerCase();
+    if (lower.startsWith("data:")) return "";
+    if (
+      lower.includes("placeholder.com") ||
+      lower.includes("example.com") ||
+      lower.includes("via.placeholder")
+    )
+      return "";
+    if (lower.includes("image-not-found") || lower.includes("no-image"))
+      return "";
+    if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
+    return _match;
+  });
 }
 
 const CHAPTER_HIGHLIGHTS_RE =
@@ -406,7 +403,11 @@ function ensureBlankLineAfterTables(content) {
     result.push(lines[i]);
     if (/^\|/.test(lines[i].trim())) {
       const next = lines[i + 1];
-      if (next !== undefined && next.trim() !== "" && !/^\|/.test(next.trim())) {
+      if (
+        next !== undefined &&
+        next.trim() !== "" &&
+        !/^\|/.test(next.trim())
+      ) {
         result.push("");
       }
     }
@@ -448,7 +449,8 @@ function renumberHeadings(content) {
     if (h4ThreePartMatch) {
       h4Count++;
       boldListCounter = 0;
-      lines[i] = `#### ${currentDim}.${h3Count}.${h4Count}. ${h4ThreePartMatch[1]}`;
+      lines[i] =
+        `#### ${currentDim}.${h3Count}.${h4Count}. ${h4ThreePartMatch[1]}`;
       continue;
     }
 
@@ -466,7 +468,10 @@ function renumberHeadings(content) {
     // Matches both plain "1. **text**" and already-numbered "N.M.K. **text**"
     if (currentDim > 0 && h3Count > 0 && /^(?:\d+\.)+\s+\*\*/.test(line)) {
       boldListCounter++;
-      lines[i] = line.replace(/^(?:\d+\.)+/, `${currentDim}.${h3Count}.${boldListCounter}.`);
+      lines[i] = line.replace(
+        /^(?:\d+\.)+/,
+        `${currentDim}.${h3Count}.${boldListCounter}.`,
+      );
       continue;
     }
 
@@ -515,15 +520,37 @@ function wrapBareDisplayMath(content) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (trimmed.startsWith("```")) { inCodeBlock = !inCodeBlock; result.push(line); continue; }
-    if (inCodeBlock) { result.push(line); continue; }
-    if (trimmed === "$$") { inMathBlock = !inMathBlock; result.push(line); continue; }
-    if (inMathBlock) { result.push(line); continue; }
+    if (trimmed.startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      result.push(line);
+      continue;
+    }
+    if (inCodeBlock) {
+      result.push(line);
+      continue;
+    }
+    if (trimmed === "$$") {
+      inMathBlock = !inMathBlock;
+      result.push(line);
+      continue;
+    }
+    if (inMathBlock) {
+      result.push(line);
+      continue;
+    }
     const hasCmd = LATEX_CMD.test(trimmed);
-    const skip = trimmed.startsWith("$") || trimmed.startsWith("#") || trimmed.startsWith("|") || /^[>|\-*\d]/.test(trimmed);
+    const skip =
+      trimmed.startsWith("$") ||
+      trimmed.startsWith("#") ||
+      trimmed.startsWith("|") ||
+      /^[>|\-*\d]/.test(trimmed);
     if (hasCmd && !skip) {
-      const prevBlank = i === 0 || lines[i - 1].trim() === "" || lines[i - 1].trim() === "$$";
-      const nextBlank = i === lines.length - 1 || lines[i + 1].trim() === "" || lines[i + 1].trim() === "$$";
+      const prevBlank =
+        i === 0 || lines[i - 1].trim() === "" || lines[i - 1].trim() === "$$";
+      const nextBlank =
+        i === lines.length - 1 ||
+        lines[i + 1].trim() === "" ||
+        lines[i + 1].trim() === "$$";
       const cjkCount = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
       if (prevBlank && nextBlank && cjkCount < 5) {
         result.push(`$$${trimmed}$$`);
@@ -541,8 +568,13 @@ function deduplicateTerminalSections(content) {
   const crossDimSubSections = new Set();
   let inCrossDim = false;
   for (const line of lines) {
-    if (/^##\s+跨维度关联分析/.test(line)) { inCrossDim = true; continue; }
-    if (/^##\s+[^#]/.test(line) && inCrossDim) { inCrossDim = false; }
+    if (/^##\s+跨维度关联分析/.test(line)) {
+      inCrossDim = true;
+      continue;
+    }
+    if (/^##\s+[^#]/.test(line) && inCrossDim) {
+      inCrossDim = false;
+    }
     if (inCrossDim) {
       const h3Match = line.match(/^###\s+(.+)$/);
       if (h3Match) crossDimSubSections.add(h3Match[1].trim());
@@ -553,13 +585,27 @@ function deduplicateTerminalSections(content) {
   let skipBlock = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (/^##\s+结语/.test(line)) { inConclusion = true; result.push(line); continue; }
-    if (/^##\s+[^#]/.test(line) && inConclusion) { inConclusion = false; skipBlock = false; }
+    if (/^##\s+结语/.test(line)) {
+      inConclusion = true;
+      result.push(line);
+      continue;
+    }
+    if (/^##\s+[^#]/.test(line) && inConclusion) {
+      inConclusion = false;
+      skipBlock = false;
+    }
     if (inConclusion) {
       const h3Match = line.match(/^###\s+(.+)$/);
-      if (h3Match && crossDimSubSections.has(h3Match[1].trim())) { skipBlock = true; continue; }
+      if (h3Match && crossDimSubSections.has(h3Match[1].trim())) {
+        skipBlock = true;
+        continue;
+      }
       if (skipBlock) {
-        if (/^##/.test(line)) { skipBlock = false; } else { continue; }
+        if (/^##/.test(line)) {
+          skipBlock = false;
+        } else {
+          continue;
+        }
       }
     }
     result.push(line);
@@ -599,7 +645,10 @@ function deduplicateSections(content) {
       // Find first non-empty line after heading
       let firstContent = "";
       for (let j = i + 1; j < lines.length && j < i + 5; j++) {
-        if (lines[j].trim()) { firstContent = lines[j].trim().substring(0, 80); break; }
+        if (lines[j].trim()) {
+          firstContent = lines[j].trim().substring(0, 80);
+          break;
+        }
       }
       const key = line.trim() + "|" + firstContent;
       if (seenSections.has(key)) {
@@ -607,7 +656,10 @@ function deduplicateSections(content) {
         let j = i + 1;
         while (j < lines.length) {
           if (/^#{1,3}\s+[^#]/.test(lines[j]) && lines[j] !== line) break;
-          if (lines[j].trim() === "") { j++; continue; }
+          if (lines[j].trim() === "") {
+            j++;
+            continue;
+          }
           j++;
         }
         i = j - 1; // will be incremented by for loop
@@ -623,8 +675,7 @@ function deduplicateSections(content) {
 // ── Main ──
 
 async function main() {
-  const reportId =
-    process.argv[2] || "0446da49-a3eb-44d1-921b-ce4ea336de68";
+  const reportId = process.argv[2] || "0446da49-a3eb-44d1-921b-ce4ea336de68";
 
   const report = await prisma.topicReport.findUnique({
     where: { id: reportId },

@@ -148,9 +148,7 @@ const TopicContentContext = createContext<TopicContentContextValue | null>(
 export function useTopicContent() {
   const context = useContext(TopicContentContext);
   if (!context) {
-    throw new Error(
-      'useTopicContent must be used within TopicContentProvider'
-    );
+    throw new Error('useTopicContent must be used within TopicContentProvider');
   }
   return context;
 }

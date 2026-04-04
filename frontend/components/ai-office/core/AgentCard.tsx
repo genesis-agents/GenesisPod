@@ -52,10 +52,10 @@ export function AgentCard({
       whileHover={!isDisabled ? { scale: 1.02 } : undefined}
       whileTap={!isDisabled ? { scale: 0.98 } : undefined}
       className={cn(
-        'bg-card relative cursor-pointer rounded-xl border transition-all duration-200',
+        'relative cursor-pointer rounded-xl border bg-card transition-all duration-200',
         sizeClasses[size],
         isSelected
-          ? 'border-primary ring-primary/20 shadow-lg ring-2'
+          ? 'border-primary shadow-lg ring-2 ring-primary/20'
           : 'border-border hover:border-primary/50 hover:shadow-md',
         isDisabled && 'cursor-not-allowed opacity-50',
         className
@@ -82,8 +82,8 @@ export function AgentCard({
           {agent.icon}
         </div>
         <div>
-          <h3 className="text-foreground font-semibold">{agent.name}</h3>
-          <p className="text-muted-foreground line-clamp-1 text-xs">
+          <h3 className="font-semibold text-foreground">{agent.name}</h3>
+          <p className="line-clamp-1 text-xs text-muted-foreground">
             {agent.description}
           </p>
         </div>
@@ -95,7 +95,7 @@ export function AgentCard({
           {agent.capabilities.slice(0, 4).map((cap, i) => (
             <span
               key={i}
-              className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs"
+              className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
             >
               {cap}
             </span>
@@ -105,13 +105,13 @@ export function AgentCard({
 
       {/* 模板快捷入口 */}
       {size === 'lg' && agent.templates.length > 0 && (
-        <div className="border-border mt-4 border-t pt-4">
-          <p className="text-muted-foreground mb-2 text-xs">快速开始</p>
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="mb-2 text-xs text-muted-foreground">快速开始</p>
           <div className="flex flex-wrap gap-2">
             {agent.templates.slice(0, 3).map((template) => (
               <button
                 key={template.id}
-                className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full px-3 py-1 text-xs transition-colors"
+                className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary transition-colors hover:bg-primary/20"
                 onClick={(e) => {
                   e.stopPropagation();
                   onTemplateClick?.(template);

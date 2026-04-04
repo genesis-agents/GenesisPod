@@ -311,8 +311,8 @@ export function PromptBar({
       {/* 主输入区域 */}
       <div
         className={cn(
-          'bg-card relative rounded-2xl border shadow-lg transition-all duration-200',
-          isDragOver && 'border-primary ring-primary/20 ring-2',
+          'relative rounded-2xl border bg-card shadow-lg transition-all duration-200',
+          isDragOver && 'border-primary ring-2 ring-primary/20',
           isProcessing && 'opacity-75'
         )}
         onDragOver={handleDragOver}
@@ -321,13 +321,13 @@ export function PromptBar({
       >
         {/* 文件预览 */}
         {files.length > 0 && (
-          <div className="border-border flex flex-wrap gap-2 border-b p-3">
+          <div className="flex flex-wrap gap-2 border-b border-border p-3">
             {files.map((file) => (
               <div
                 key={file.id}
-                className="bg-muted flex items-center gap-2 rounded-full px-3 py-1.5 text-sm"
+                className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm"
               >
-                <FileText className="text-muted-foreground h-4 w-4" />
+                <FileText className="h-4 w-4 text-muted-foreground" />
                 <span className="max-w-[150px] truncate">{file.name}</span>
                 <button
                   onClick={() => removeFile(file.id)}
@@ -344,7 +344,7 @@ export function PromptBar({
         <div className="flex items-end gap-2 p-3">
           {/* Agent 图标 - 在窄容器中隐藏 */}
           {showAgentHint && (
-            <div className="bg-primary/10 hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-lg sm:flex">
+            <div className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg sm:flex">
               {getAgentIcon()}
             </div>
           )}
@@ -359,7 +359,7 @@ export function PromptBar({
               placeholder={placeholder}
               disabled={isProcessing}
               autoFocus={autoFocus}
-              className="text-foreground placeholder:text-muted-foreground w-full resize-none border-none bg-transparent text-sm leading-relaxed outline-none"
+              className="w-full resize-none border-none bg-transparent text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
               rows={1}
               style={{
                 minHeight: '24px',
@@ -405,7 +405,7 @@ export function PromptBar({
             <Button
               type="button"
               size="icon"
-              className="bg-primary hover:bg-primary/90 rounded-full"
+              className="rounded-full bg-primary hover:bg-primary/90"
               onClick={handleSubmit}
               disabled={isProcessing || (!prompt.trim() && files.length === 0)}
             >
@@ -426,7 +426,7 @@ export function PromptBar({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="bg-card absolute bottom-full left-0 right-0 mb-2 rounded-lg border p-2 shadow-lg"
+            className="absolute bottom-full left-0 right-0 mb-2 rounded-lg border bg-card p-2 shadow-lg"
           >
             <div className="flex items-center gap-2 text-sm">
               {QUICK_COMMANDS.filter((cmd) =>
@@ -434,7 +434,7 @@ export function PromptBar({
               ).map((cmd) => (
                 <button
                   key={cmd.cmd}
-                  className="bg-muted hover:bg-muted/80 flex items-center gap-2 rounded-full px-3 py-1.5 transition-colors"
+                  className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 transition-colors hover:bg-muted/80"
                   onClick={() => {
                     setPrompt('');
                     setShowCommands(false);
@@ -458,9 +458,9 @@ export function PromptBar({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="bg-card absolute bottom-full left-0 right-0 z-50 mb-2 rounded-lg border p-2 shadow-lg"
+            className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-lg border bg-card p-2 shadow-lg"
           >
-            <div className="text-muted-foreground mb-2 px-2 text-xs">
+            <div className="mb-2 px-2 text-xs text-muted-foreground">
               提及 Agent（使用 ↑↓ 选择，Enter 确认）
             </div>
             <div className="space-y-1">
@@ -481,7 +481,7 @@ export function PromptBar({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{option.label}</div>
-                    <div className="text-muted-foreground truncate text-xs">
+                    <div className="truncate text-xs text-muted-foreground">
                       {option.description}
                     </div>
                   </div>
@@ -489,7 +489,7 @@ export function PromptBar({
               ))}
             </div>
             {filteredMentionOptions.length === 0 && (
-              <div className="text-muted-foreground px-3 py-2 text-sm">
+              <div className="px-3 py-2 text-sm text-muted-foreground">
                 没有匹配的 Agent
               </div>
             )}
@@ -503,7 +503,7 @@ export function PromptBar({
           {suggestions.map((suggestion, i) => (
             <button
               key={i}
-              className="bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors"
+              className="flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               onClick={() => setPrompt(suggestion)}
             >
               <Sparkles className="h-3.5 w-3.5" />

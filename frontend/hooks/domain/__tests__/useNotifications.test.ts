@@ -337,14 +337,12 @@ describe('useNotificationPreferences', () => {
 
   it('updatePreferences calls mutation execute and then refresh', async () => {
     const mockRefresh = vi.fn();
-    const mockMutationExecute = vi
-      .fn()
-      .mockResolvedValue({
-        emailEnabled: false,
-        pushEnabled: true,
-        soundEnabled: true,
-        typeSettings: {},
-      });
+    const mockMutationExecute = vi.fn().mockResolvedValue({
+      emailEnabled: false,
+      pushEnabled: true,
+      soundEnabled: true,
+      typeSettings: {},
+    });
 
     vi.mocked(useApiGet).mockReturnValue(
       makeDefaultGet({ refresh: mockRefresh })

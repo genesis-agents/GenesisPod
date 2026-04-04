@@ -7,7 +7,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
  * 可折叠的引用块组件
  * 当引用内容超过一定高度时自动折叠，保持界面整洁
  */
-export const CollapsibleBlockquote = ({ children, ...props }: React.PropsWithChildren<React.HTMLAttributes<HTMLQuoteElement>>) => {
+export const CollapsibleBlockquote = ({
+  children,
+  ...props
+}: React.PropsWithChildren<React.HTMLAttributes<HTMLQuoteElement>>) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const contentRef = useRef<HTMLQuoteElement>(null);

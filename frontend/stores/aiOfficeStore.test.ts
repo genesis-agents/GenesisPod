@@ -34,9 +34,15 @@ const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => { store[key] = value; },
-    removeItem: (key: string) => { delete store[key]; },
-    clear: () => { store = {}; },
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
   };
 })();
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
@@ -65,7 +71,14 @@ function makeDocument(overrides: Partial<Document> = {}): Document {
     metadata: { wordCount: 2, slideCount: 0 },
     status: 'completed',
     resources: [],
-    aiConfig: { model: 'gpt-4', temperature: 0.7, maxTokens: 4000, language: 'zh-CN', detailLevel: 3, professionalLevel: 3 },
+    aiConfig: {
+      model: 'gpt-4',
+      temperature: 0.7,
+      maxTokens: 4000,
+      language: 'zh-CN',
+      detailLevel: 3,
+      professionalLevel: 3,
+    },
     generationHistory: [],
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
@@ -179,7 +192,9 @@ describe('useResourceStore', () => {
       const { result } = renderHook(() => useResourceStore());
       const res = makeResource();
 
-      act(() => { result.current.addResource(res); });
+      act(() => {
+        result.current.addResource(res);
+      });
 
       expect(result.current.resources).toHaveLength(1);
       expect(result.current.resources[0]).toEqual(res);
@@ -189,8 +204,12 @@ describe('useResourceStore', () => {
       const { result } = renderHook(() => useResourceStore());
       const res = makeResource({ _id: 'res-dup' });
 
-      act(() => { result.current.addResource(res); });
-      act(() => { result.current.addResource(res); });
+      act(() => {
+        result.current.addResource(res);
+      });
+      act(() => {
+        result.current.addResource(res);
+      });
 
       expect(result.current.resources).toHaveLength(1);
     });
@@ -198,8 +217,12 @@ describe('useResourceStore', () => {
     it('should add multiple resources with different _ids', () => {
       const { result } = renderHook(() => useResourceStore());
 
-      act(() => { result.current.addResource(makeResource({ _id: 'res-1' })); });
-      act(() => { result.current.addResource(makeResource({ _id: 'res-2' })); });
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-1' }));
+      });
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-2' }));
+      });
 
       expect(result.current.resources).toHaveLength(2);
     });
@@ -208,10 +231,16 @@ describe('useResourceStore', () => {
   describe('removeResource', () => {
     it('should remove resource by id', () => {
       const { result } = renderHook(() => useResourceStore());
-      act(() => { result.current.addResource(makeResource({ _id: 'res-1' })); });
-      act(() => { result.current.addResource(makeResource({ _id: 'res-2' })); });
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-1' }));
+      });
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-2' }));
+      });
 
-      act(() => { result.current.removeResource('res-1'); });
+      act(() => {
+        result.current.removeResource('res-1');
+      });
 
       expect(result.current.resources).toHaveLength(1);
       expect(result.current.resources[0]._id).toBe('res-2');
@@ -219,12 +248,18 @@ describe('useResourceStore', () => {
 
     it('should also remove from selectedResourceIds', () => {
       const { result } = renderHook(() => useResourceStore());
-      act(() => { result.current.addResource(makeResource({ _id: 'res-1' })); });
-      act(() => { result.current.selectResource('res-1'); });
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-1' }));
+      });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
 
       expect(result.current.selectedResourceIds).toContain('res-1');
 
-      act(() => { result.current.removeResource('res-1'); });
+      act(() => {
+        result.current.removeResource('res-1');
+      });
 
       expect(result.current.selectedResourceIds).not.toContain('res-1');
     });
@@ -233,11 +268,24 @@ describe('useResourceStore', () => {
   describe('updateResource', () => {
     it('should update resource fields by id', () => {
       const { result } = renderHook(() => useResourceStore());
-      act(() => { result.current.addResource(makeResource({ _id: 'res-1', title: 'Old' } as unknown as Partial<Resource>)); });
+      act(() => {
+        result.current.addResource(
+          makeResource({
+            _id: 'res-1',
+            title: 'Old',
+          } as unknown as Partial<Resource>)
+        );
+      });
 
-      act(() => { result.current.updateResource('res-1', { title: 'New' } as unknown as Partial<Resource>); });
+      act(() => {
+        result.current.updateResource('res-1', {
+          title: 'New',
+        } as unknown as Partial<Resource>);
+      });
 
-      expect((result.current.resources[0] as unknown as { title: string }).title).toBe('New');
+      expect(
+        (result.current.resources[0] as unknown as { title: string }).title
+      ).toBe('New');
     });
   });
 
@@ -245,7 +293,9 @@ describe('useResourceStore', () => {
     it('should add resource id to selectedResourceIds', () => {
       const { result } = renderHook(() => useResourceStore());
 
-      act(() => { result.current.selectResource('res-1'); });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
 
       expect(result.current.selectedResourceIds).toContain('res-1');
     });
@@ -253,17 +303,25 @@ describe('useResourceStore', () => {
     it('should NOT duplicate already-selected id', () => {
       const { result } = renderHook(() => useResourceStore());
 
-      act(() => { result.current.selectResource('res-1'); });
-      act(() => { result.current.selectResource('res-1'); });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
 
       expect(result.current.selectedResourceIds).toHaveLength(1);
     });
 
     it('should remove resource id from selectedResourceIds', () => {
       const { result } = renderHook(() => useResourceStore());
-      act(() => { result.current.selectResource('res-1'); });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
 
-      act(() => { result.current.deselectResource('res-1'); });
+      act(() => {
+        result.current.deselectResource('res-1');
+      });
 
       expect(result.current.selectedResourceIds).not.toContain('res-1');
     });
@@ -272,10 +330,16 @@ describe('useResourceStore', () => {
   describe('clearSelection', () => {
     it('should clear all selected resource ids', () => {
       const { result } = renderHook(() => useResourceStore());
-      act(() => { result.current.selectResource('res-1'); });
-      act(() => { result.current.selectResource('res-2'); });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+      act(() => {
+        result.current.selectResource('res-2');
+      });
 
-      act(() => { result.current.clearSelection(); });
+      act(() => {
+        result.current.clearSelection();
+      });
 
       expect(result.current.selectedResourceIds).toEqual([]);
     });
@@ -285,20 +349,28 @@ describe('useResourceStore', () => {
     it('should set isLoading', () => {
       const { result } = renderHook(() => useResourceStore());
 
-      act(() => { result.current.setLoading(true); });
+      act(() => {
+        result.current.setLoading(true);
+      });
       expect(result.current.isLoading).toBe(true);
 
-      act(() => { result.current.setLoading(false); });
+      act(() => {
+        result.current.setLoading(false);
+      });
       expect(result.current.isLoading).toBe(false);
     });
 
     it('should set and clear error', () => {
       const { result } = renderHook(() => useResourceStore());
 
-      act(() => { result.current.setError('Something went wrong'); });
+      act(() => {
+        result.current.setError('Something went wrong');
+      });
       expect(result.current.error).toBe('Something went wrong');
 
-      act(() => { result.current.setError(null); });
+      act(() => {
+        result.current.setError(null);
+      });
       expect(result.current.error).toBeNull();
     });
   });
@@ -329,7 +401,9 @@ describe('useDocumentStore', () => {
       const { result } = renderHook(() => useDocumentStore());
       const doc = makeDocument();
 
-      act(() => { result.current.addDocument(doc); });
+      act(() => {
+        result.current.addDocument(doc);
+      });
 
       expect(result.current.documents).toHaveLength(1);
       expect(result.current.documents[0]._id).toBe('doc-1');
@@ -339,9 +413,15 @@ describe('useDocumentStore', () => {
   describe('updateDocument', () => {
     it('should update document fields by id', () => {
       const { result } = renderHook(() => useDocumentStore());
-      act(() => { result.current.addDocument(makeDocument({ _id: 'doc-1', title: 'Old Title' })); });
+      act(() => {
+        result.current.addDocument(
+          makeDocument({ _id: 'doc-1', title: 'Old Title' })
+        );
+      });
 
-      act(() => { result.current.updateDocument('doc-1', { title: 'New Title' }); });
+      act(() => {
+        result.current.updateDocument('doc-1', { title: 'New Title' });
+      });
 
       expect(result.current.documents[0].title).toBe('New Title');
     });
@@ -350,22 +430,34 @@ describe('useDocumentStore', () => {
       const { result } = renderHook(() => useDocumentStore());
       act(() => {
         result.current.addDocument(makeDocument({ _id: 'doc-1' }));
-        result.current.addDocument(makeDocument({ _id: 'doc-2', title: 'Keep Me' }));
+        result.current.addDocument(
+          makeDocument({ _id: 'doc-2', title: 'Keep Me' })
+        );
       });
 
-      act(() => { result.current.updateDocument('doc-1', { title: 'Changed' }); });
+      act(() => {
+        result.current.updateDocument('doc-1', { title: 'Changed' });
+      });
 
-      expect(result.current.documents.find(d => d._id === 'doc-2')?.title).toBe('Keep Me');
+      expect(
+        result.current.documents.find((d) => d._id === 'doc-2')?.title
+      ).toBe('Keep Me');
     });
   });
 
   describe('deleteDocument', () => {
     it('should remove document from list', () => {
       const { result } = renderHook(() => useDocumentStore());
-      act(() => { result.current.addDocument(makeDocument({ _id: 'doc-1' })); });
-      act(() => { result.current.addDocument(makeDocument({ _id: 'doc-2' })); });
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-2' }));
+      });
 
-      act(() => { result.current.deleteDocument('doc-1'); });
+      act(() => {
+        result.current.deleteDocument('doc-1');
+      });
 
       expect(result.current.documents).toHaveLength(1);
       expect(result.current.documents[0]._id).toBe('doc-2');
@@ -373,10 +465,16 @@ describe('useDocumentStore', () => {
 
     it('should clear currentDocumentId if that document is deleted', () => {
       const { result } = renderHook(() => useDocumentStore());
-      act(() => { result.current.addDocument(makeDocument({ _id: 'doc-1' })); });
-      act(() => { result.current.setCurrentDocument('doc-1'); });
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+      act(() => {
+        result.current.setCurrentDocument('doc-1');
+      });
 
-      act(() => { result.current.deleteDocument('doc-1'); });
+      act(() => {
+        result.current.deleteDocument('doc-1');
+      });
 
       expect(result.current.currentDocumentId).toBeNull();
     });
@@ -389,7 +487,9 @@ describe('useDocumentStore', () => {
         result.current.setCurrentDocument('doc-2');
       });
 
-      act(() => { result.current.deleteDocument('doc-1'); });
+      act(() => {
+        result.current.deleteDocument('doc-1');
+      });
 
       expect(result.current.currentDocumentId).toBe('doc-2');
     });
@@ -399,16 +499,22 @@ describe('useDocumentStore', () => {
     it('should set currentDocumentId', () => {
       const { result } = renderHook(() => useDocumentStore());
 
-      act(() => { result.current.setCurrentDocument('doc-1'); });
+      act(() => {
+        result.current.setCurrentDocument('doc-1');
+      });
 
       expect(result.current.currentDocumentId).toBe('doc-1');
     });
 
     it('should clear selectedSlideIndex when switching documents', () => {
       const { result } = renderHook(() => useDocumentStore());
-      act(() => { result.current.setSelectedSlideIndex(3); });
+      act(() => {
+        result.current.setSelectedSlideIndex(3);
+      });
 
-      act(() => { result.current.setCurrentDocument('doc-2'); });
+      act(() => {
+        result.current.setCurrentDocument('doc-2');
+      });
 
       expect(result.current.selectedSlideIndex).toBeNull();
     });
@@ -418,7 +524,9 @@ describe('useDocumentStore', () => {
     it('should set isGenerating to true', () => {
       const { result } = renderHook(() => useDocumentStore());
 
-      act(() => { result.current.setGenerating(true); });
+      act(() => {
+        result.current.setGenerating(true);
+      });
 
       expect(result.current.isGenerating).toBe(true);
     });
@@ -427,12 +535,16 @@ describe('useDocumentStore', () => {
       const { result } = renderHook(() => useDocumentStore());
       act(() => {
         result.current.setGenerating(true);
-        result.current.setGenerationSteps([{ id: 's1', name: 'Step 1', status: 'completed' }]);
+        result.current.setGenerationSteps([
+          { id: 's1', name: 'Step 1', status: 'completed' },
+        ]);
         result.current.setCurrentStep('s1');
         result.current.setResourcesFound(5);
       });
 
-      act(() => { result.current.setGenerating(false); });
+      act(() => {
+        result.current.setGenerating(false);
+      });
 
       expect(result.current.isGenerating).toBe(false);
       expect(result.current.generationSteps).toEqual([]);
@@ -449,9 +561,16 @@ describe('useDocumentStore', () => {
         { id: 's1', name: 'Step 1', status: 'pending' },
         { id: 's2', name: 'Step 2', status: 'pending' },
       ];
-      act(() => { result.current.setGenerationSteps(steps); });
+      act(() => {
+        result.current.setGenerationSteps(steps);
+      });
 
-      act(() => { result.current.updateGenerationStep('s1', { status: 'completed', message: 'Done' }); });
+      act(() => {
+        result.current.updateGenerationStep('s1', {
+          status: 'completed',
+          message: 'Done',
+        });
+      });
 
       expect(result.current.generationSteps[0].status).toBe('completed');
       expect(result.current.generationSteps[0].message).toBe('Done');
@@ -463,16 +582,23 @@ describe('useDocumentStore', () => {
     it('should create a version and return its id', () => {
       const { result } = renderHook(() => useDocumentStore());
       const doc = makeDocument({ _id: 'doc-1' });
-      act(() => { result.current.addDocument(doc); });
+      act(() => {
+        result.current.addDocument(doc);
+      });
 
       let versionId = '';
       act(() => {
-        versionId = result.current.saveVersion('doc-1', 'manual', 'user_edit', 'First save');
+        versionId = result.current.saveVersion(
+          'doc-1',
+          'manual',
+          'user_edit',
+          'First save'
+        );
       });
 
       expect(versionId).toMatch(/^v_\d+_/);
       expect(result.current.documents[0].versions).toHaveLength(1);
-      expect(result.current.documents[0].versions![0].type).toBe('manual');
+      expect(result.current.documents[0].versions[0].type).toBe('manual');
     });
 
     it('should return empty string when document not found', () => {
@@ -480,7 +606,11 @@ describe('useDocumentStore', () => {
 
       let versionId = '';
       act(() => {
-        versionId = result.current.saveVersion('nonexistent', 'auto', 'ai_generation');
+        versionId = result.current.saveVersion(
+          'nonexistent',
+          'auto',
+          'ai_generation'
+        );
       });
 
       expect(versionId).toBe('');
@@ -488,10 +618,18 @@ describe('useDocumentStore', () => {
 
     it('should set currentVersionId to the new version id', () => {
       const { result } = renderHook(() => useDocumentStore());
-      act(() => { result.current.addDocument(makeDocument({ _id: 'doc-1' })); });
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
 
       let versionId = '';
-      act(() => { versionId = result.current.saveVersion('doc-1', 'auto', 'ai_generation'); });
+      act(() => {
+        versionId = result.current.saveVersion(
+          'doc-1',
+          'auto',
+          'ai_generation'
+        );
+      });
 
       expect(result.current.documents[0].currentVersionId).toBe(versionId);
     });
@@ -500,8 +638,12 @@ describe('useDocumentStore', () => {
   describe('getVersions', () => {
     it('should return versions for a document', () => {
       const { result } = renderHook(() => useDocumentStore());
-      act(() => { result.current.addDocument(makeDocument({ _id: 'doc-1' })); });
-      act(() => { result.current.saveVersion('doc-1', 'manual', 'user_edit'); });
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+      act(() => {
+        result.current.saveVersion('doc-1', 'manual', 'user_edit');
+      });
 
       const versions = result.current.getVersions('doc-1');
 
@@ -520,19 +662,33 @@ describe('useDocumentStore', () => {
   describe('restoreVersion', () => {
     it('should restore document content from a saved version', () => {
       const { result } = renderHook(() => useDocumentStore());
-      const doc = makeDocument({ _id: 'doc-1', content: { text: 'Original' } } as unknown as Partial<Document>);
-      act(() => { result.current.addDocument(doc); });
+      const doc = makeDocument({
+        _id: 'doc-1',
+        content: { text: 'Original' },
+      } as unknown as Partial<Document>);
+      act(() => {
+        result.current.addDocument(doc);
+      });
 
       let versionId = '';
-      act(() => { versionId = result.current.saveVersion('doc-1', 'manual', 'user_edit'); });
+      act(() => {
+        versionId = result.current.saveVersion('doc-1', 'manual', 'user_edit');
+      });
 
       // Modify content
-      act(() => { result.current.updateDocument('doc-1', { content: { text: 'Modified' } } as unknown as Partial<Document>); });
+      act(() => {
+        result.current.updateDocument('doc-1', {
+          content: { text: 'Modified' },
+        } as unknown as Partial<Document>);
+      });
 
       // Restore
-      act(() => { result.current.restoreVersion('doc-1', versionId); });
+      act(() => {
+        result.current.restoreVersion('doc-1', versionId);
+      });
 
-      const restoredContent = result.current.documents[0].content as unknown as { text: string };
+      const restoredContent = result.current.documents[0]
+        .content as unknown as { text: string };
       expect(restoredContent.text).toBe('Original');
     });
   });
@@ -540,12 +696,22 @@ describe('useDocumentStore', () => {
   describe('deleteVersion', () => {
     it('should remove a version from document', () => {
       const { result } = renderHook(() => useDocumentStore());
-      act(() => { result.current.addDocument(makeDocument({ _id: 'doc-1' })); });
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
 
       let versionId = '';
-      act(() => { versionId = result.current.saveVersion('doc-1', 'auto', 'ai_generation'); });
+      act(() => {
+        versionId = result.current.saveVersion(
+          'doc-1',
+          'auto',
+          'ai_generation'
+        );
+      });
 
-      act(() => { result.current.deleteVersion('doc-1', versionId); });
+      act(() => {
+        result.current.deleteVersion('doc-1', versionId);
+      });
 
       expect(result.current.documents[0].versions).toHaveLength(0);
     });
@@ -576,7 +742,9 @@ describe('useChatStore', () => {
       const { result } = renderHook(() => useChatStore());
       const msg = makeMessage();
 
-      act(() => { result.current.addMessage('doc-1', msg); });
+      act(() => {
+        result.current.addMessage('doc-1', msg);
+      });
 
       expect(result.current.sessions['doc-1']).toHaveLength(1);
       expect(result.current.sessions['doc-1'][0]).toEqual(msg);
@@ -585,7 +753,9 @@ describe('useChatStore', () => {
     it('should create new session if it does not exist', () => {
       const { result } = renderHook(() => useChatStore());
 
-      act(() => { result.current.addMessage('new-doc', makeMessage()); });
+      act(() => {
+        result.current.addMessage('new-doc', makeMessage());
+      });
 
       expect(result.current.sessions['new-doc']).toBeDefined();
       expect(result.current.sessions['new-doc']).toHaveLength(1);
@@ -596,8 +766,12 @@ describe('useChatStore', () => {
       const m1 = makeMessage({ id: 'msg-1', content: 'First' });
       const m2 = makeMessage({ id: 'msg-2', content: 'Second' });
 
-      act(() => { result.current.addMessage('doc-1', m1); });
-      act(() => { result.current.addMessage('doc-1', m2); });
+      act(() => {
+        result.current.addMessage('doc-1', m1);
+      });
+      act(() => {
+        result.current.addMessage('doc-1', m2);
+      });
 
       expect(result.current.sessions['doc-1'][0].content).toBe('First');
       expect(result.current.sessions['doc-1'][1].content).toBe('Second');
@@ -607,9 +781,16 @@ describe('useChatStore', () => {
   describe('updateMessage', () => {
     it('should update message fields by id', () => {
       const { result } = renderHook(() => useChatStore());
-      act(() => { result.current.addMessage('doc-1', makeMessage({ id: 'msg-1', content: 'Old' })); });
+      act(() => {
+        result.current.addMessage(
+          'doc-1',
+          makeMessage({ id: 'msg-1', content: 'Old' })
+        );
+      });
 
-      act(() => { result.current.updateMessage('doc-1', 'msg-1', { content: 'Updated' }); });
+      act(() => {
+        result.current.updateMessage('doc-1', 'msg-1', { content: 'Updated' });
+      });
 
       expect(result.current.sessions['doc-1'][0].content).toBe('Updated');
     });
@@ -618,9 +799,13 @@ describe('useChatStore', () => {
   describe('setStreaming', () => {
     it('should set isStreaming=true and reset shouldStopGeneration', () => {
       const { result } = renderHook(() => useChatStore());
-      act(() => { result.current.stopGeneration(); }); // set shouldStop=true first
+      act(() => {
+        result.current.stopGeneration();
+      }); // set shouldStop=true first
 
-      act(() => { result.current.setStreaming(true); });
+      act(() => {
+        result.current.setStreaming(true);
+      });
 
       expect(result.current.isStreaming).toBe(true);
       expect(result.current.shouldStopGeneration).toBe(false);
@@ -628,9 +813,13 @@ describe('useChatStore', () => {
 
     it('should set isStreaming=false', () => {
       const { result } = renderHook(() => useChatStore());
-      act(() => { result.current.setStreaming(true); });
+      act(() => {
+        result.current.setStreaming(true);
+      });
 
-      act(() => { result.current.setStreaming(false); });
+      act(() => {
+        result.current.setStreaming(false);
+      });
 
       expect(result.current.isStreaming).toBe(false);
     });
@@ -640,7 +829,9 @@ describe('useChatStore', () => {
     it('should set shouldStopGeneration=true', () => {
       const { result } = renderHook(() => useChatStore());
 
-      act(() => { result.current.stopGeneration(); });
+      act(() => {
+        result.current.stopGeneration();
+      });
 
       expect(result.current.shouldStopGeneration).toBe(true);
     });
@@ -649,9 +840,13 @@ describe('useChatStore', () => {
   describe('clearSession', () => {
     it('should empty messages for a specific document session', () => {
       const { result } = renderHook(() => useChatStore());
-      act(() => { result.current.addMessage('doc-1', makeMessage()); });
+      act(() => {
+        result.current.addMessage('doc-1', makeMessage());
+      });
 
-      act(() => { result.current.clearSession('doc-1'); });
+      act(() => {
+        result.current.clearSession('doc-1');
+      });
 
       expect(result.current.sessions['doc-1']).toEqual([]);
     });
@@ -661,20 +856,28 @@ describe('useChatStore', () => {
     it('should toggle agent mode', () => {
       const { result } = renderHook(() => useChatStore());
 
-      act(() => { result.current.setAgentMode('enhanced'); });
+      act(() => {
+        result.current.setAgentMode('enhanced');
+      });
       expect(result.current.agentMode).toBe('enhanced');
 
-      act(() => { result.current.setAgentMode('basic'); });
+      act(() => {
+        result.current.setAgentMode('basic');
+      });
       expect(result.current.agentMode).toBe('basic');
     });
 
     it('should set and clear agentStatus', () => {
       const { result } = renderHook(() => useChatStore());
 
-      act(() => { result.current.setAgentStatus('Analyzing resources...'); });
+      act(() => {
+        result.current.setAgentStatus('Analyzing resources...');
+      });
       expect(result.current.agentStatus).toBe('Analyzing resources...');
 
-      act(() => { result.current.setAgentStatus(null); });
+      act(() => {
+        result.current.setAgentStatus(null);
+      });
       expect(result.current.agentStatus).toBeNull();
     });
   });
@@ -694,7 +897,9 @@ describe('useUIStore', () => {
     it('should set panel width within valid range', () => {
       const { result } = renderHook(() => useUIStore());
 
-      act(() => { result.current.setMiddlePanelWidth(600); });
+      act(() => {
+        result.current.setMiddlePanelWidth(600);
+      });
 
       expect(result.current.middlePanelWidth).toBe(600);
     });
@@ -702,7 +907,9 @@ describe('useUIStore', () => {
     it('should clamp to minimum 400', () => {
       const { result } = renderHook(() => useUIStore());
 
-      act(() => { result.current.setMiddlePanelWidth(100); });
+      act(() => {
+        result.current.setMiddlePanelWidth(100);
+      });
 
       expect(result.current.middlePanelWidth).toBe(400);
     });
@@ -710,7 +917,9 @@ describe('useUIStore', () => {
     it('should clamp to maximum 800', () => {
       const { result } = renderHook(() => useUIStore());
 
-      act(() => { result.current.setMiddlePanelWidth(9999); });
+      act(() => {
+        result.current.setMiddlePanelWidth(9999);
+      });
 
       expect(result.current.middlePanelWidth).toBe(800);
     });
@@ -720,10 +929,14 @@ describe('useUIStore', () => {
     it('should toggle resourceListCollapsed', () => {
       const { result } = renderHook(() => useUIStore());
 
-      act(() => { result.current.toggleResourceList(); });
+      act(() => {
+        result.current.toggleResourceList();
+      });
       expect(result.current.resourceListCollapsed).toBe(true);
 
-      act(() => { result.current.toggleResourceList(); });
+      act(() => {
+        result.current.toggleResourceList();
+      });
       expect(result.current.resourceListCollapsed).toBe(false);
     });
   });
@@ -732,10 +945,14 @@ describe('useUIStore', () => {
     it('should set resourceListCollapsed directly', () => {
       const { result } = renderHook(() => useUIStore());
 
-      act(() => { result.current.setResourceListCollapsed(true); });
+      act(() => {
+        result.current.setResourceListCollapsed(true);
+      });
       expect(result.current.resourceListCollapsed).toBe(true);
 
-      act(() => { result.current.setResourceListCollapsed(false); });
+      act(() => {
+        result.current.setResourceListCollapsed(false);
+      });
       expect(result.current.resourceListCollapsed).toBe(false);
     });
   });
@@ -744,10 +961,14 @@ describe('useUIStore', () => {
     it('should set isLoading and optional message', () => {
       const { result } = renderHook(() => useUIStore());
 
-      act(() => { result.current.setLoading(true, 'Processing...'); });
+      act(() => {
+        result.current.setLoading(true, 'Processing...');
+      });
 
       expect(result.current.isLoading).toBe(true);
-      expect((result.current as { loadingMessage?: string }).loadingMessage).toBe('Processing...');
+      expect(
+        (result.current as { loadingMessage?: string }).loadingMessage
+      ).toBe('Processing...');
     });
   });
 
@@ -755,25 +976,38 @@ describe('useUIStore', () => {
     it('should set an error object', () => {
       const { result } = renderHook(() => useUIStore());
 
-      act(() => { result.current.setError('Something broke', 'ERR_500'); });
+      act(() => {
+        result.current.setError('Something broke', 'ERR_500');
+      });
 
-      expect(result.current.error).toEqual({ message: 'Something broke', code: 'ERR_500' });
+      expect(result.current.error).toEqual({
+        message: 'Something broke',
+        code: 'ERR_500',
+      });
     });
 
     it('should clear error', () => {
       const { result } = renderHook(() => useUIStore());
-      act(() => { result.current.setError('error'); });
+      act(() => {
+        result.current.setError('error');
+      });
 
-      act(() => { result.current.clearError(); });
+      act(() => {
+        result.current.clearError();
+      });
 
       expect(result.current.error).toBeUndefined();
     });
 
     it('should set null to clear error via setError', () => {
       const { result } = renderHook(() => useUIStore());
-      act(() => { result.current.setError('error'); });
+      act(() => {
+        result.current.setError('error');
+      });
 
-      act(() => { result.current.setError(null); });
+      act(() => {
+        result.current.setError(null);
+      });
 
       expect(result.current.error).toBeUndefined();
     });
@@ -805,8 +1039,12 @@ describe('useTaskStore', () => {
       const t1 = makeTask({ _id: 'task-1' });
       const t2 = makeTask({ _id: 'task-2' });
 
-      act(() => { result.current.addTask(t1); });
-      act(() => { result.current.addTask(t2); });
+      act(() => {
+        result.current.addTask(t1);
+      });
+      act(() => {
+        result.current.addTask(t2);
+      });
 
       expect(result.current.tasks[0]._id).toBe('task-2');
       expect(result.current.tasks[1]._id).toBe('task-1');
@@ -816,9 +1054,13 @@ describe('useTaskStore', () => {
   describe('updateTask', () => {
     it('should update task fields', () => {
       const { result } = renderHook(() => useTaskStore());
-      act(() => { result.current.addTask(makeTask({ _id: 'task-1', title: 'Old' })); });
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-1', title: 'Old' }));
+      });
 
-      act(() => { result.current.updateTask('task-1', { title: 'New' }); });
+      act(() => {
+        result.current.updateTask('task-1', { title: 'New' });
+      });
 
       expect(result.current.tasks[0].title).toBe('New');
     });
@@ -826,13 +1068,23 @@ describe('useTaskStore', () => {
     it('should deep merge context instead of replacing it', () => {
       const { result } = renderHook(() => useTaskStore());
       act(() => {
-        result.current.addTask(makeTask({
-          _id: 'task-1',
-          context: { resourceIds: ['res-1'], chatMessages: [], prompt: 'Original' },
-        }));
+        result.current.addTask(
+          makeTask({
+            _id: 'task-1',
+            context: {
+              resourceIds: ['res-1'],
+              chatMessages: [],
+              prompt: 'Original',
+            },
+          })
+        );
       });
 
-      act(() => { result.current.updateTask('task-1', { context: { resourceIds: ['res-2'] } as Task['context'] }); });
+      act(() => {
+        result.current.updateTask('task-1', {
+          context: { resourceIds: ['res-2'] } as Task['context'],
+        });
+      });
 
       // Original prompt preserved, resourceIds updated
       expect(result.current.tasks[0].context.resourceIds).toEqual(['res-2']);
@@ -841,11 +1093,16 @@ describe('useTaskStore', () => {
 
     it('should update refreshedAt on each update', async () => {
       const { result } = renderHook(() => useTaskStore());
-      const original = makeTask({ _id: 'task-1', refreshedAt: new Date('2020-01-01') });
-      act(() => { result.current.addTask(original); });
+      const original = makeTask({
+        _id: 'task-1',
+        refreshedAt: new Date('2020-01-01'),
+      });
+      act(() => {
+        result.current.addTask(original);
+      });
 
       await act(async () => {
-        await new Promise(r => setTimeout(r, 5));
+        await new Promise((r) => setTimeout(r, 5));
         result.current.updateTask('task-1', { title: 'Updated' });
       });
 
@@ -858,10 +1115,16 @@ describe('useTaskStore', () => {
   describe('deleteTask', () => {
     it('should remove task from list', () => {
       const { result } = renderHook(() => useTaskStore());
-      act(() => { result.current.addTask(makeTask({ _id: 'task-1' })); });
-      act(() => { result.current.addTask(makeTask({ _id: 'task-2' })); });
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-1' }));
+      });
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-2' }));
+      });
 
-      act(() => { result.current.deleteTask('task-1'); });
+      act(() => {
+        result.current.deleteTask('task-1');
+      });
 
       expect(result.current.tasks).toHaveLength(1);
       expect(result.current.tasks[0]._id).toBe('task-2');
@@ -869,10 +1132,16 @@ describe('useTaskStore', () => {
 
     it('should clear currentTaskId if deleted task was current', () => {
       const { result } = renderHook(() => useTaskStore());
-      act(() => { result.current.addTask(makeTask({ _id: 'task-1' })); });
-      act(() => { result.current.setCurrentTask('task-1'); });
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-1' }));
+      });
+      act(() => {
+        result.current.setCurrentTask('task-1');
+      });
 
-      act(() => { result.current.deleteTask('task-1'); });
+      act(() => {
+        result.current.deleteTask('task-1');
+      });
 
       expect(result.current.currentTaskId).toBeNull();
     });
@@ -885,7 +1154,9 @@ describe('useTaskStore', () => {
         result.current.setCurrentTask('task-2');
       });
 
-      act(() => { result.current.deleteTask('task-1'); });
+      act(() => {
+        result.current.deleteTask('task-1');
+      });
 
       expect(result.current.currentTaskId).toBe('task-2');
     });
@@ -895,16 +1166,22 @@ describe('useTaskStore', () => {
     it('should set currentTaskId', () => {
       const { result } = renderHook(() => useTaskStore());
 
-      act(() => { result.current.setCurrentTask('task-abc'); });
+      act(() => {
+        result.current.setCurrentTask('task-abc');
+      });
 
       expect(result.current.currentTaskId).toBe('task-abc');
     });
 
     it('should clear currentTaskId when null is passed', () => {
       const { result } = renderHook(() => useTaskStore());
-      act(() => { result.current.setCurrentTask('task-1'); });
+      act(() => {
+        result.current.setCurrentTask('task-1');
+      });
 
-      act(() => { result.current.setCurrentTask(null); });
+      act(() => {
+        result.current.setCurrentTask(null);
+      });
 
       expect(result.current.currentTaskId).toBeNull();
     });
@@ -914,17 +1191,23 @@ describe('useTaskStore', () => {
     it('should toggle isTaskListOpen', () => {
       const { result } = renderHook(() => useTaskStore());
 
-      act(() => { result.current.toggleTaskList(); });
+      act(() => {
+        result.current.toggleTaskList();
+      });
       expect(result.current.isTaskListOpen).toBe(true);
 
-      act(() => { result.current.toggleTaskList(); });
+      act(() => {
+        result.current.toggleTaskList();
+      });
       expect(result.current.isTaskListOpen).toBe(false);
     });
 
     it('should set isTaskListOpen directly', () => {
       const { result } = renderHook(() => useTaskStore());
 
-      act(() => { result.current.setTaskListOpen(true); });
+      act(() => {
+        result.current.setTaskListOpen(true);
+      });
       expect(result.current.isTaskListOpen).toBe(true);
     });
   });
@@ -933,10 +1216,16 @@ describe('useTaskStore', () => {
     it('should merge context into existing task context', () => {
       const { result } = renderHook(() => useTaskStore());
       act(() => {
-        result.current.addTask(makeTask({
-          _id: 'task-1',
-          context: { resourceIds: ['res-1'], chatMessages: [], prompt: 'Hello' },
-        }));
+        result.current.addTask(
+          makeTask({
+            _id: 'task-1',
+            context: {
+              resourceIds: ['res-1'],
+              chatMessages: [],
+              prompt: 'Hello',
+            },
+          })
+        );
       });
 
       act(() => {

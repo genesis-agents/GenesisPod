@@ -25,9 +25,8 @@ export function useThumbnailGenerator() {
         setThumbnailStatus((prev) => ({ ...prev, [resourceId]: 'generating' }));
 
         // Dynamic import to avoid loading PDF.js on server
-        const { generateAndSaveThumbnail } = await import(
-          '@/lib/utils/pdf-thumbnail'
-        );
+        const { generateAndSaveThumbnail } =
+          await import('@/lib/utils/pdf-thumbnail');
         const thumbnailUrl = await generateAndSaveThumbnail(resourceId, pdfUrl);
 
         if (thumbnailUrl) {

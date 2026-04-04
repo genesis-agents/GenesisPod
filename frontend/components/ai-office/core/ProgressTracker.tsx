@@ -141,13 +141,13 @@ export function ProgressTracker({
               {progress.message}
             </span>
           </div>
-          <span className="text-muted-foreground text-sm">
+          <span className="text-sm text-muted-foreground">
             {Math.round(progress.percentage)}%
           </span>
         </div>
 
         {/* 进度条 */}
-        <div className="bg-muted h-2 overflow-hidden rounded-full">
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
           <motion.div
             className={cn(
               'h-full rounded-full',
@@ -180,10 +180,10 @@ export function ProgressTracker({
                     <CheckCircle2 className="h-5 w-5 text-green-500" />
                   )}
                   {status === 'active' && (
-                    <Loader2 className="text-primary h-5 w-5 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
                   )}
                   {status === 'pending' && (
-                    <Circle className="text-muted-foreground h-5 w-5" />
+                    <Circle className="h-5 w-5 text-muted-foreground" />
                   )}
                 </div>
 
@@ -200,7 +200,7 @@ export function ProgressTracker({
                     {step.name}
                   </p>
                   {status === 'active' && step.description && (
-                    <p className="text-muted-foreground truncate text-xs">
+                    <p className="truncate text-xs text-muted-foreground">
                       {step.description}
                     </p>
                   )}
@@ -208,7 +208,7 @@ export function ProgressTracker({
 
                 {/* 工具图标 */}
                 {step.tool && (
-                  <div className="text-muted-foreground flex-shrink-0">
+                  <div className="flex-shrink-0 text-muted-foreground">
                     {TOOL_ICONS[step.tool]}
                   </div>
                 )}
@@ -220,8 +220,8 @@ export function ProgressTracker({
 
       {/* 工具调用记录 */}
       {showToolCalls && progress.toolCalls.length > 0 && (
-        <div className="border-border border-t pt-3">
-          <p className="text-muted-foreground mb-2 flex items-center gap-1 text-xs">
+        <div className="border-t border-border pt-3">
+          <p className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" />
             工具调用
           </p>
@@ -242,12 +242,12 @@ export function ProgressTracker({
                     exit={{ opacity: 0 }}
                     className="flex items-center gap-2 text-xs"
                   >
-                    <div className="text-muted-foreground flex-shrink-0">
+                    <div className="flex-shrink-0 text-muted-foreground">
                       {toolIcon}
                     </div>
                     <span className="text-muted-foreground">{toolName}</span>
                     {call.duration && (
-                      <span className="text-muted-foreground/60 flex items-center gap-0.5">
+                      <span className="flex items-center gap-0.5 text-muted-foreground/60">
                         <Clock className="h-3 w-3" />
                         {(call.duration / 1000).toFixed(1)}s
                       </span>
@@ -290,15 +290,15 @@ export function ProgressOverlay({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
     >
-      <div className="bg-card w-full max-w-md rounded-2xl border p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-2xl">
         <ProgressTracker progress={progress} plan={plan} />
 
         {onCancel && progress.phase !== 'error' && (
           <button
             onClick={onCancel}
-            className="text-muted-foreground hover:text-foreground mt-4 w-full py-2 text-sm transition-colors"
+            className="mt-4 w-full py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             取消
           </button>

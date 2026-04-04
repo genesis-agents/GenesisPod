@@ -18,13 +18,20 @@ export interface TopicsSlice {
   isLoadingTopics: boolean;
 
   // Actions
-  fetchTopics: (options?: { type?: TopicType; search?: string }) => Promise<void>;
+  fetchTopics: (options?: {
+    type?: TopicType;
+    search?: string;
+  }) => Promise<void>;
   fetchTopic: (topicId: string) => Promise<void>;
   createTopic: (dto: CreateTopicDto) => Promise<Topic>;
   updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<void>;
   deleteTopic: (topicId: string) => Promise<void>;
   setCurrentTopic: (topic: Topic | null) => void;
-  addMember: (topicId: string, userId: string, role?: TopicRole) => Promise<void>;
+  addMember: (
+    topicId: string,
+    userId: string,
+    role?: TopicRole
+  ) => Promise<void>;
   removeMember: (topicId: string, memberId: string) => Promise<void>;
   leaveTopicAsMember: (topicId: string) => Promise<void>;
   addAIMember: (topicId: string, dto: AddAIMemberDto) => Promise<void>;

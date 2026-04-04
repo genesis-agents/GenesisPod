@@ -152,10 +152,11 @@ export function convertToAIOfficeResource(
       resourceType: 'academic_paper' as const,
       metadata: {
         title: resource.title,
-        authors: resource.authors?.map(a => ({
-          name: a.name || a.username || '',
-          affiliation: '',
-        })) || [],
+        authors:
+          resource.authors?.map((a) => ({
+            name: a.name || a.username || '',
+            affiliation: '',
+          })) || [],
         abstract: resource.abstract || '',
         keywords: [],
         publishedAt: new Date(),
@@ -181,8 +182,11 @@ export function convertToAIOfficeResource(
       metadata: {
         title: resource.title,
         description: resource.abstract || '',
-        author: resource.authors?.[0]?.name || resource.authors?.[0]?.username || '',
-        publishedAt: resource.publishedAt ? new Date(resource.publishedAt) : undefined,
+        author:
+          resource.authors?.[0]?.name || resource.authors?.[0]?.username || '',
+        publishedAt: resource.publishedAt
+          ? new Date(resource.publishedAt)
+          : undefined,
         language: 'en',
       },
       aiAnalysis: {

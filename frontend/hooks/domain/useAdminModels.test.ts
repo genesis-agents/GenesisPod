@@ -203,7 +203,10 @@ describe('useAdminModels', () => {
 
       let returnedModel: AIModel | undefined;
       await act(async () => {
-        returnedModel = await result.current.updateModel('model-1', updatedData);
+        returnedModel = await result.current.updateModel(
+          'model-1',
+          updatedData
+        );
       });
 
       expect(mockApiPutReturn.execute).toHaveBeenCalledWith({
@@ -249,7 +252,9 @@ describe('useAdminModels', () => {
         await result.current.deleteModel('model-1');
       });
 
-      expect(mockApiDeleteReturn.execute).toHaveBeenCalledWith({ id: 'model-1' });
+      expect(mockApiDeleteReturn.execute).toHaveBeenCalledWith({
+        id: 'model-1',
+      });
       expect(mockApiGetReturn.execute).toHaveBeenCalled();
     });
 
@@ -286,7 +291,9 @@ describe('useAdminModels', () => {
         response = await result.current.testConnection('model-1');
       });
 
-      expect(mockTestReturn.execute).toHaveBeenCalledWith({ modelId: 'model-1' });
+      expect(mockTestReturn.execute).toHaveBeenCalledWith({
+        modelId: 'model-1',
+      });
       expect(response).toEqual(mockResponse);
     });
 

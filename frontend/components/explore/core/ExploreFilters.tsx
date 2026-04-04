@@ -36,40 +36,51 @@ export default function ExploreFilters() {
   } = useExplore();
 
   // Handle search input changes
-  const handleSearchInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
+  const handleSearchInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setSearchQuery(value);
 
-    if (value.length >= 2) {
-      fetchSearchSuggestions(value);
-    } else {
-      setShowSuggestions(false);
-    }
-  }, [setSearchQuery, fetchSearchSuggestions, setShowSuggestions]);
+      if (value.length >= 2) {
+        fetchSearchSuggestions(value);
+      } else {
+        setShowSuggestions(false);
+      }
+    },
+    [setSearchQuery, fetchSearchSuggestions, setShowSuggestions]
+  );
 
   // Handle keyboard navigation in search
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      // Trigger search
-      setShowSuggestions(false);
-      setSelectedSuggestionIndex(-1);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (showSuggestions && searchSuggestions.length > 0) {
-        setSelectedSuggestionIndex((prev) =>
-          prev < searchSuggestions.length - 1 ? prev + 1 : prev
-        );
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        // Trigger search
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (showSuggestions && searchSuggestions.length > 0) {
+          setSelectedSuggestionIndex((prev) =>
+            prev < searchSuggestions.length - 1 ? prev + 1 : prev
+          );
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (showSuggestions) {
+          setSelectedSuggestionIndex((prev) => (prev > 0 ? prev - 1 : -1));
+        }
+      } else if (e.key === 'Escape') {
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
       }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (showSuggestions) {
-        setSelectedSuggestionIndex((prev) => (prev > 0 ? prev - 1 : -1));
-      }
-    } else if (e.key === 'Escape') {
-      setShowSuggestions(false);
-      setSelectedSuggestionIndex(-1);
-    }
-  }, [showSuggestions, searchSuggestions, setShowSuggestions, setSelectedSuggestionIndex]);
+    },
+    [
+      showSuggestions,
+      searchSuggestions,
+      setShowSuggestions,
+      setSelectedSuggestionIndex,
+    ]
+  );
 
   // Handle focus on search input
   const handleSearchFocus = useCallback(() => {
@@ -139,7 +150,11 @@ export default function ExploreFilters() {
         </svg>
       ),
       YOUTUBE_VIDEO: (
-        <svg className={`${iconClass} text-red-600`} fill="currentColor" viewBox="0 0 24 24">
+        <svg
+          className={`${iconClass} text-red-600`}
+          fill="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
         </svg>
       ),

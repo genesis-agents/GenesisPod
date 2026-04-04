@@ -41,7 +41,9 @@ export default function KnowledgeGraphLinker({
   onNodeLinked,
   onNodeUnlinked,
 }: KnowledgeGraphLinkerProps) {
-  const [graphData, setGraphData] = useState<{ nodes?: GraphNode[] } | null>(null);
+  const [graphData, setGraphData] = useState<{ nodes?: GraphNode[] } | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [showNodeSelector, setShowNodeSelector] = useState(false);
@@ -134,12 +136,8 @@ export default function KnowledgeGraphLinker({
   }
 
   const availableNodes = graphData?.nodes || [];
-  const topics = availableNodes.filter((n) =>
-    n.labels?.includes('Topic')
-  );
-  const authors = availableNodes.filter((n) =>
-    n.labels?.includes('Author')
-  );
+  const topics = availableNodes.filter((n) => n.labels?.includes('Topic'));
+  const authors = availableNodes.filter((n) => n.labels?.includes('Author'));
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -211,40 +209,39 @@ export default function KnowledgeGraphLinker({
               </h4>
               <div className="max-h-48 space-y-2 overflow-auto">
                 {topics.map((topic) => {
-                    const isLinked = linkedNodes.some(
-                      (n) => n.id === topic.properties?.name
-                    );
-                    return (
-                      <div
-                        key={topic.properties?.name}
-                        className="flex items-center justify-between rounded bg-gray-50 p-2 transition-colors hover:bg-gray-100"
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {topic.properties?.name}
-                          </div>
-                          {topic.properties?.description && (
-                            <div className="text-xs text-gray-600">
-                              {topic.properties.description}
-                            </div>
-                          )}
+                  const isLinked = linkedNodes.some(
+                    (n) => n.id === topic.properties?.name
+                  );
+                  return (
+                    <div
+                      key={topic.properties?.name}
+                      className="flex items-center justify-between rounded bg-gray-50 p-2 transition-colors hover:bg-gray-100"
+                    >
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {topic.properties?.name}
                         </div>
-                        {!isLinked ? (
-                          <button
-                            onClick={() =>
-                              linkNode(topic.properties?.name || '', 'topic')
-                            }
-                            className="rounded px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50 hover:text-green-800"
-                          >
-                            关联
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-500">已关联</span>
+                        {topic.properties?.description && (
+                          <div className="text-xs text-gray-600">
+                            {topic.properties.description}
+                          </div>
                         )}
                       </div>
-                    );
-                  }
-                )}
+                      {!isLinked ? (
+                        <button
+                          onClick={() =>
+                            linkNode(topic.properties?.name || '', 'topic')
+                          }
+                          className="rounded px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50 hover:text-green-800"
+                        >
+                          关联
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-500">已关联</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -257,44 +254,43 @@ export default function KnowledgeGraphLinker({
               </h4>
               <div className="max-h-48 space-y-2 overflow-auto">
                 {authors.map((author) => {
-                    const isLinked = linkedNodes.some(
-                      (n) => n.id === author.properties?.username
-                    );
-                    return (
-                      <div
-                        key={author.properties?.username}
-                        className="flex items-center justify-between rounded bg-gray-50 p-2 transition-colors hover:bg-gray-100"
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {author.properties?.name ||
-                              author.properties?.username}
-                          </div>
-                          {author.properties?.affiliation && (
-                            <div className="text-xs text-gray-600">
-                              {author.properties.affiliation}
-                            </div>
-                          )}
+                  const isLinked = linkedNodes.some(
+                    (n) => n.id === author.properties?.username
+                  );
+                  return (
+                    <div
+                      key={author.properties?.username}
+                      className="flex items-center justify-between rounded bg-gray-50 p-2 transition-colors hover:bg-gray-100"
+                    >
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {author.properties?.name ||
+                            author.properties?.username}
                         </div>
-                        {!isLinked ? (
-                          <button
-                            onClick={() =>
-                              linkNode(
-                                author.properties?.username || '',
-                                'author'
-                              )
-                            }
-                            className="rounded px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50 hover:text-green-800"
-                          >
-                            关联
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-500">已关联</span>
+                        {author.properties?.affiliation && (
+                          <div className="text-xs text-gray-600">
+                            {author.properties.affiliation}
+                          </div>
                         )}
                       </div>
-                    );
-                  }
-                )}
+                      {!isLinked ? (
+                        <button
+                          onClick={() =>
+                            linkNode(
+                              author.properties?.username || '',
+                              'author'
+                            )
+                          }
+                          className="rounded px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50 hover:text-green-800"
+                        >
+                          关联
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-500">已关联</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

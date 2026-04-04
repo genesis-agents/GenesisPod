@@ -39,7 +39,9 @@ export function loadAllSpecs(): Map<string, PageSpec> {
     return specsMap;
   }
 
-  const files = fs.readdirSync(specsDir).filter((f) => f.endsWith(".spec.yaml"));
+  const files = fs
+    .readdirSync(specsDir)
+    .filter((f) => f.endsWith(".spec.yaml"));
 
   for (const file of files) {
     try {

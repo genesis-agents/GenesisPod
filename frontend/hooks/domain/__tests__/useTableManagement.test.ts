@@ -427,12 +427,10 @@ describe('useTableManagement', () => {
     );
 
     const mockFetch = vi.fn().mockResolvedValue({
-      json: vi
-        .fn()
-        .mockResolvedValue({
-          success: true,
-          data: { results: cleanupResults },
-        }),
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: cleanupResults },
+      }),
     });
     global.fetch = mockFetch;
 

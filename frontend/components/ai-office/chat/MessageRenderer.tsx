@@ -173,7 +173,12 @@ export default function MessageRenderer({
           ol: ({ node, ...props }) => (
             <ol className="my-3 list-decimal space-y-2 pl-5" {...props} />
           ),
-          li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement> & { children?: React.ReactNode }) => {
+          li: ({
+            children,
+            ...props
+          }: React.LiHTMLAttributes<HTMLLIElement> & {
+            children?: React.ReactNode;
+          }) => {
             const isOrdered = false;
             // 检查是否是包含标签的结构化内容（如 "事件："、"时间："）
             const childText = String(children || '');
@@ -203,7 +208,15 @@ export default function MessageRenderer({
 
           // 代码块 - 语法高亮
           // Note: react-markdown v9+ no longer passes 'inline' prop
-          code: ({ node, className, children, ...props }: React.HTMLAttributes<HTMLElement> & { node?: unknown; className?: string }) => {
+          code: ({
+            node,
+            className,
+            children,
+            ...props
+          }: React.HTMLAttributes<HTMLElement> & {
+            node?: unknown;
+            className?: string;
+          }) => {
             const codeString = String(children).replace(/\n$/, '');
             const match = /language-(\w+)/.exec(className || '');
             const language = match ? match[1] : '';

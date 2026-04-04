@@ -211,19 +211,31 @@ export default function ResourceDetailPanel({
             <KnowledgeGraphLinker
               noteId={note.id}
               resourceId={resourceId}
-              linkedNodes={Array.isArray(note.graphNodes) ? note.graphNodes as { id: string; type: string; linkedAt: string }[] : []}
+              linkedNodes={
+                Array.isArray(note.graphNodes)
+                  ? (note.graphNodes as {
+                      id: string;
+                      type: string;
+                      linkedAt: string;
+                    }[])
+                  : []
+              }
               onNodeLinked={(node) => {
                 setNote({
                   ...note,
-                  graphNodes: [...(Array.isArray(note.graphNodes) ? note.graphNodes : []), node],
+                  graphNodes: [
+                    ...(Array.isArray(note.graphNodes) ? note.graphNodes : []),
+                    node,
+                  ],
                 });
               }}
               onNodeUnlinked={(nodeId) => {
                 setNote({
                   ...note,
-                  graphNodes: (Array.isArray(note.graphNodes) ? note.graphNodes : []).filter(
-                    (n: { id: string }) => n.id !== nodeId
-                  ),
+                  graphNodes: (Array.isArray(note.graphNodes)
+                    ? note.graphNodes
+                    : []
+                  ).filter((n: { id: string }) => n.id !== nodeId),
                 });
               }}
             />

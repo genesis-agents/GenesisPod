@@ -59,7 +59,7 @@ function convertChineseNumeralHeadings(content) {
       const trimmed = title.trim();
       if (trimmed.length < 2 || trimmed.length > 60) return _match;
       return `### ${trimmed}`;
-    }
+    },
   );
 }
 
@@ -68,8 +68,14 @@ function convertDescriptiveListsToBullets(content) {
   let underH4 = false;
   return lines
     .map((line) => {
-      if (/^####\s+/.test(line)) { underH4 = true; return line; }
-      if (/^###\s+[^#]/.test(line)) { underH4 = false; return line; }
+      if (/^####\s+/.test(line)) {
+        underH4 = true;
+        return line;
+      }
+      if (/^###\s+[^#]/.test(line)) {
+        underH4 = false;
+        return line;
+      }
       if (underH4 && /^\d+\.\s+[^*]/.test(line)) {
         return line.replace(/^\d+\.\s+/, "- ");
       }
@@ -145,7 +151,10 @@ function repairBrokenBoldMarkers(content) {
       if ((repaired.match(/\*\*/g) || []).length % 2 !== 0) {
         let firstRemoved = false;
         repaired = repaired.replace(/\*\*/g, (match) => {
-          if (!firstRemoved) { firstRemoved = true; return ""; }
+          if (!firstRemoved) {
+            firstRemoved = true;
+            return "";
+          }
           return match;
         });
       }
@@ -168,10 +177,19 @@ function stripInternalFigureNotation(content) {
     .replace(/Leader\s*提供的[""「]?/g, "")
     .replace(/(?:研究员?|分析员?)\s*提供的[""「]?/g, "")
     .replace(/^\s*(?:图片没有|没有图片|图片缺失|无图片)[：:][^\n]*$/gm, "")
-    .replace(/图\d+:\d+(?:直观|确认|展示了?|描绘了?|呈现了?|显示了?|聚焦|说明了?|对比了?|可[见知])/g, "")
-    .replace(/(?:^|\n)\s*图\d+(?:展示了?|聚焦|显示了?|呈现了?|直观呈现)[^\n]*(?:\n|$)/g, "\n")
+    .replace(
+      /图\d+:\d+(?:直观|确认|展示了?|描绘了?|呈现了?|显示了?|聚焦|说明了?|对比了?|可[见知])/g,
+      "",
+    )
+    .replace(
+      /(?:^|\n)\s*图\d+(?:展示了?|聚焦|显示了?|呈现了?|直观呈现)[^\n]*(?:\n|$)/g,
+      "\n",
+    )
     .replace(/[（(]图\d+[)）]/g, "")
-    .replace(/(?:见|参见|详见)(?:下)?图\d+(?:所示|中|可知)?[，,。.；;]?\s*/g, "")
+    .replace(
+      /(?:见|参见|详见)(?:下)?图\d+(?:所示|中|可知)?[，,。.；;]?\s*/g,
+      "",
+    )
     .replace(/^[ \t]*图\s*\d+[.．。]\s*[^\n]+$/gm, "")
     .replace(/图\d+:\d+[^\n]{0,50}/g, "")
     .replace(/^[ \t]*来源[：:]\s*证据\s*\[\d+\]\s*$/gm, "")
@@ -241,17 +259,20 @@ function normalizeChapterHighlights(content) {
 
 // Remove hallucinated images
 function removeHallucinatedImages(content) {
-  return content.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    (_match, _alt, url) => {
-      const lower = url.toLowerCase();
-      if (lower.startsWith("data:")) return "";
-      if (lower.includes("placeholder.com") || lower.includes("example.com") || lower.includes("via.placeholder")) return "";
-      if (lower.includes("image-not-found") || lower.includes("no-image")) return "";
-      if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
-      return _match;
-    }
-  );
+  return content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, _alt, url) => {
+    const lower = url.toLowerCase();
+    if (lower.startsWith("data:")) return "";
+    if (
+      lower.includes("placeholder.com") ||
+      lower.includes("example.com") ||
+      lower.includes("via.placeholder")
+    )
+      return "";
+    if (lower.includes("image-not-found") || lower.includes("no-image"))
+      return "";
+    if (!lower.startsWith("http") && !lower.startsWith("/")) return "";
+    return _match;
+  });
 }
 
 function removeEmptyHeadings(content) {
@@ -261,7 +282,10 @@ function removeEmptyHeadings(content) {
     const line = lines[i];
     if (/^#{1,6}\s+/.test(line)) {
       // Never remove ## headings (dimension/chapter titles)
-      if (/^##\s+[^#]/.test(line)) { result.push(line); continue; }
+      if (/^##\s+[^#]/.test(line)) {
+        result.push(line);
+        continue;
+      }
       let hasContent = false;
       for (let j = i + 1; j < lines.length; j++) {
         const nextLine = lines[j].trim();
@@ -303,27 +327,30 @@ function repairMarkdownTables(content) {
 }
 
 function splitWallOfText(content) {
-  return content.split("\n").map(line => {
-    if (line.trim().length <= 400) return line;
-    if (/^\s*[-*>|#]/.test(line)) return line; // skip list/blockquote/table/heading
-    if (/^\s*\|/.test(line)) return line; // skip table rows
-    // Split at Chinese sentence boundaries
-    const parts = line.split(/(?<=[。！？])/);
-    if (parts.length <= 1) return line;
-    // Group into chunks of ~200 chars
-    const chunks = [];
-    let current = "";
-    for (const part of parts) {
-      if (current.length + part.length > 250 && current.length > 0) {
-        chunks.push(current);
-        current = part;
-      } else {
-        current += part;
+  return content
+    .split("\n")
+    .map((line) => {
+      if (line.trim().length <= 400) return line;
+      if (/^\s*[-*>|#]/.test(line)) return line; // skip list/blockquote/table/heading
+      if (/^\s*\|/.test(line)) return line; // skip table rows
+      // Split at Chinese sentence boundaries
+      const parts = line.split(/(?<=[。！？])/);
+      if (parts.length <= 1) return line;
+      // Group into chunks of ~200 chars
+      const chunks = [];
+      let current = "";
+      for (const part of parts) {
+        if (current.length + part.length > 250 && current.length > 0) {
+          chunks.push(current);
+          current = part;
+        } else {
+          current += part;
+        }
       }
-    }
-    if (current) chunks.push(current);
-    return chunks.join("\n\n");
-  }).join("\n");
+      if (current) chunks.push(current);
+      return chunks.join("\n\n");
+    })
+    .join("\n");
 }
 
 function preprocessDimensionContent(content) {
@@ -396,7 +423,7 @@ async function main() {
 
     const charDiff = original.length - processed.length;
     console.log(
-      `  [update] Dimension ${analysis.dimensionId} — ${original.length} → ${processed.length} chars (removed ${charDiff})`
+      `  [update] Dimension ${analysis.dimensionId} — ${original.length} → ${processed.length} chars (removed ${charDiff})`,
     );
 
     await prisma.dimensionAnalysis.update({
@@ -411,7 +438,9 @@ async function main() {
     updatedCount++;
   }
 
-  console.log(`\nUpdated ${updatedCount}/${analyses.length} dimension analyses\n`);
+  console.log(
+    `\nUpdated ${updatedCount}/${analyses.length} dimension analyses\n`,
+  );
 
   // 2. Re-assemble fullReport from updated detailedContent
   // We can't run the full NestJS pipeline here, but we CAN update the
@@ -420,7 +449,7 @@ async function main() {
   console.log("✓ detailedContent preprocessing complete");
   console.log("  To rebuild fullReport, call the reprocess API:");
   console.log(
-    `  POST /api/v1/topic-insights/topics/{topicId}/reports/${report.id}/reprocess`
+    `  POST /api/v1/topic-insights/topics/{topicId}/reports/${report.id}/reprocess`,
   );
   console.log("\nOr run the audit script to verify:");
   console.log("  node ../scripts/audit-report-quality.js\n");

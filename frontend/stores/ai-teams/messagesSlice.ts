@@ -57,7 +57,11 @@ export interface MessagesSlice {
   handleMessageNew: (message: TopicMessage) => void;
   handleMessageDelete: (messageId: string) => void;
   handleReactionAdd: (messageId: string, userId: string, emoji: string) => void;
-  handleReactionRemove: (messageId: string, userId: string, emoji: string) => void;
+  handleReactionRemove: (
+    messageId: string,
+    userId: string,
+    emoji: string
+  ) => void;
   handleMemberTyping: (userId: string) => void;
   handleAITyping: (aiMemberId: string) => void;
   handleAIResponse: (aiMemberId: string) => void;

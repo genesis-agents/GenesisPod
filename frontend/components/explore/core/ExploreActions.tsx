@@ -31,12 +31,15 @@ export default function ExploreActions() {
 
     try {
       setIsUpvoting(true);
-      const response = await fetch(`${config.apiUrl}/resources/${selectedResource.id}/upvote`, {
-        method: hasUpvoted ? 'DELETE' : 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await fetch(
+        `${config.apiUrl}/resources/${selectedResource.id}/upvote`,
+        {
+          method: hasUpvoted ? 'DELETE' : 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
 
       if (response.ok) {
         setUpvotes((prev) => {
@@ -80,7 +83,9 @@ export default function ExploreActions() {
     try {
       await toggleBookmark(selectedResource.id);
       setToast({
-        message: isBookmarked(selectedResource.id) ? 'Bookmark removed' : 'Bookmarked successfully',
+        message: isBookmarked(selectedResource.id)
+          ? 'Bookmark removed'
+          : 'Bookmarked successfully',
         type: 'success',
       });
     } catch (error) {
@@ -137,7 +142,9 @@ export default function ExploreActions() {
         } disabled:cursor-not-allowed disabled:opacity-50`}
         title={hasUpvoted ? 'Remove upvote' : 'Upvote'}
       >
-        <ThumbsUp className={`h-3.5 w-3.5 ${hasUpvoted ? 'fill-current' : ''}`} />
+        <ThumbsUp
+          className={`h-3.5 w-3.5 ${hasUpvoted ? 'fill-current' : ''}`}
+        />
         <span>{selectedResource.upvoteCount || 0}</span>
       </button>
 
@@ -150,7 +157,9 @@ export default function ExploreActions() {
             ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
         } disabled:cursor-not-allowed disabled:opacity-50`}
-        title={isBookmarked(selectedResource.id) ? 'Remove bookmark' : 'Bookmark'}
+        title={
+          isBookmarked(selectedResource.id) ? 'Remove bookmark' : 'Bookmark'
+        }
       >
         <Bookmark
           className={`h-3.5 w-3.5 ${isBookmarked(selectedResource.id) ? 'fill-current' : ''}`}

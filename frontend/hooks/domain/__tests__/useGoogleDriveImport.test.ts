@@ -69,13 +69,11 @@ const makeApiPostMock = (
   data: undefined,
   loading: false,
   error: null,
-  execute: vi
-    .fn()
-    .mockResolvedValue({
-      importId: 'import-123',
-      totalFiles: 3,
-      status: 'pending',
-    }),
+  execute: vi.fn().mockResolvedValue({
+    importId: 'import-123',
+    totalFiles: 3,
+    status: 'pending',
+  }),
   refresh: vi.fn(),
   reset: vi.fn(),
   setData: vi.fn(),

@@ -9,8 +9,7 @@ export interface AuthConfig {
 // Backend API URL for authentication
 // The frontend proxies API calls, so we need to call the backend directly
 const BACKEND_API_URL =
-  process.env.UI_PATROL_BACKEND_URL ||
-  "https://api.gens.team";
+  process.env.UI_PATROL_BACKEND_URL || "https://api.gens.team";
 
 function getAuthProfiles(): Record<string, AuthConfig> {
   return {
@@ -110,9 +109,7 @@ export async function injectAuth(
   const authData = await getAuthTokens(profile, baseUrl);
 
   // Navigate to the target domain first to access its localStorage
-  const domain = targetUrl
-    ? new URL(targetUrl).origin
-    : "https://gens.team";
+  const domain = targetUrl ? new URL(targetUrl).origin : "https://gens.team";
 
   await page.goto(domain, { waitUntil: "domcontentloaded" });
 

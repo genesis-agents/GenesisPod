@@ -279,9 +279,7 @@ function getChangedRoutes(): string[] {
       }
 
       // frontend/components/{module}/ -> /{module} (best effort)
-      const compMatch = file.match(
-        /^frontend\/components\/([a-z-]+)\//,
-      );
+      const compMatch = file.match(/^frontend\/components\/([a-z-]+)\//);
       if (compMatch) {
         routes.add("/" + compMatch[1]);
       }

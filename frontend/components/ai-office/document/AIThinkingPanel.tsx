@@ -26,11 +26,7 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import { cn } from '@/lib/utils/common';
-import {
-  ThinkingStep,
-  useThinkingSteps,
-  useIsProcessing,
-} from '@/stores';
+import { ThinkingStep, useThinkingSteps, useIsProcessing } from '@/stores';
 
 // AI 思考步骤状态
 export type ThinkingStepStatus =

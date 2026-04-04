@@ -35,12 +35,14 @@ export const DEFAULT_PERF_THRESHOLDS: PerfThresholds = {
 export async function collectPerfMetrics(page: Page): Promise<PerfMetrics> {
   try {
     return await page.evaluate(() => {
-      const nav = performance.getEntriesByType(
-        "navigation",
-      )[0] as PerformanceNavigationTiming | undefined;
+      const nav = performance.getEntriesByType("navigation")[0] as
+        | PerformanceNavigationTiming
+        | undefined;
 
       // FCP
-      const fcpEntry = performance.getEntriesByName("first-contentful-paint")[0];
+      const fcpEntry = performance.getEntriesByName(
+        "first-contentful-paint",
+      )[0];
       const fcp = fcpEntry ? fcpEntry.startTime : null;
 
       // LCP - get from existing entries (observer already fired)
@@ -54,9 +56,9 @@ export async function collectPerfMetrics(page: Page): Promise<PerfMetrics> {
 
       // CLS - sum layout shift entries
       let cls: number | null = null;
-      const layoutShifts = performance.getEntriesByType("layout-shift") as Array<
-        PerformanceEntry & { value: number; hadRecentInput: boolean }
-      >;
+      const layoutShifts = performance.getEntriesByType(
+        "layout-shift",
+      ) as Array<PerformanceEntry & { value: number; hadRecentInput: boolean }>;
       if (layoutShifts.length > 0) {
         cls = layoutShifts
           .filter((e) => !e.hadRecentInput)

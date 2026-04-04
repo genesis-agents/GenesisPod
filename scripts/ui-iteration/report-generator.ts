@@ -7,10 +7,7 @@ import * as path from "path";
 import type { PageDiagnostics } from "./diagnostics-collector";
 import type { DetectionThresholds } from "./config";
 import { DEFAULT_THRESHOLDS } from "./config";
-import {
-  evaluatePerfMetrics,
-  DEFAULT_PERF_THRESHOLDS,
-} from "./perf-collector";
+import { evaluatePerfMetrics, DEFAULT_PERF_THRESHOLDS } from "./perf-collector";
 import type { DiffResult } from "./visual-diff";
 
 export type IssueSeverity = "critical" | "major" | "minor" | "info";
@@ -341,7 +338,12 @@ export function generateReport(
   allDiagnostics: PageDiagnostics[],
   allIssues: PatrolIssue[],
   startTime: number,
-  config: { baseUrl: string; viewports: string[]; totalRoutes: number; reportDir?: string },
+  config: {
+    baseUrl: string;
+    viewports: string[];
+    totalRoutes: number;
+    reportDir?: string;
+  },
 ): PatrolReport {
   const bySeverity: Record<IssueSeverity, number> = {
     critical: 0,
@@ -435,8 +437,14 @@ function computeTrend(
       const prevScore = prev.summary.score ?? 0;
       const scoreDelta = current.summary.score - prevScore;
 
-      const issueArrow = issuesDelta <= 0 ? `\u2193${Math.abs(issuesDelta)}` : `\u2191${issuesDelta}`;
-      const scoreArrow = scoreDelta >= 0 ? `\u2191${Math.abs(scoreDelta)}` : `\u2193${Math.abs(scoreDelta)}`;
+      const issueArrow =
+        issuesDelta <= 0
+          ? `\u2193${Math.abs(issuesDelta)}`
+          : `\u2191${issuesDelta}`;
+      const scoreArrow =
+        scoreDelta >= 0
+          ? `\u2191${Math.abs(scoreDelta)}`
+          : `\u2193${Math.abs(scoreDelta)}`;
 
       return {
         previousTimestamp: prev.timestamp,
@@ -454,7 +462,10 @@ function computeTrend(
 /**
  * Remove old reports, keeping only the most recent N
  */
-export function cleanupOldReports(reportDir: string, keep: number = 10): number {
+export function cleanupOldReports(
+  reportDir: string,
+  keep: number = 10,
+): number {
   if (!fs.existsSync(reportDir)) return 0;
 
   const files = fs

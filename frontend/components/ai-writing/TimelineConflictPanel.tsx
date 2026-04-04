@@ -94,7 +94,11 @@ export function TimelineConflictPanel({
     return counts;
   }, [conflicts]);
 
-  const { HIGH: highCount, MEDIUM: mediumCount, LOW: lowCount } = severityCounts;
+  const {
+    HIGH: highCount,
+    MEDIUM: mediumCount,
+    LOW: lowCount,
+  } = severityCounts;
 
   return (
     <div className="flex h-full flex-col bg-white">

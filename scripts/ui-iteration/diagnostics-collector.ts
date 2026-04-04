@@ -4,7 +4,10 @@
 
 import type { Page, ConsoleMessage, Response } from "playwright-core";
 import type { PageSpec } from "./spec-loader";
-import { detectUntranslatedChinese, type UntranslatedText } from "./i18n-checker";
+import {
+  detectUntranslatedChinese,
+  type UntranslatedText,
+} from "./i18n-checker";
 import { collectPerfMetrics, type PerfMetrics } from "./perf-collector";
 
 export interface ConsoleDiagnostic {
@@ -189,7 +192,11 @@ export async function collectDiagnostics(
     let specValidation: SpecValidation | undefined;
     if (spec) {
       try {
-        specValidation = await collectSpecDiagnostics(page, spec, dom.visibleText);
+        specValidation = await collectSpecDiagnostics(
+          page,
+          spec,
+          dom.visibleText,
+        );
       } catch {
         // Non-critical
       }
@@ -198,7 +205,10 @@ export async function collectDiagnostics(
     // Collect i18n issues
     let i18nIssues: UntranslatedText[] | undefined;
     try {
-      const results = await detectUntranslatedChinese(page, allowChineseSelectors);
+      const results = await detectUntranslatedChinese(
+        page,
+        allowChineseSelectors,
+      );
       if (results.length > 0) {
         i18nIssues = results;
       }
@@ -332,7 +342,10 @@ async function collectSpecDiagnostics(
       const found = visibleText.includes(expected.text);
       structureResults.push({ description: expected.description, found });
     } else {
-      structureResults.push({ description: expected.description, found: false });
+      structureResults.push({
+        description: expected.description,
+        found: false,
+      });
     }
   }
 
