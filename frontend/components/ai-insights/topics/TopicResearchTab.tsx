@@ -8,7 +8,7 @@
  *         这样浏览器刷新能正确保持在详情页
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
@@ -119,10 +119,13 @@ export function TopicResearchTab({
   const topicsList = Array.isArray(topics) ? topics : [];
 
   // Current filter options (shared between fetch and loadMore)
-  const filterOptions = {
-    type: activeType || undefined,
-    search: searchQuery || undefined,
-  };
+  const filterOptions = useMemo(
+    () => ({
+      type: activeType || undefined,
+      search: searchQuery || undefined,
+    }),
+    [activeType, searchQuery]
+  );
 
   // Load topics
   const loadTopics = useCallback(async () => {
@@ -144,6 +147,15 @@ export function TopicResearchTab({
   // ★ Must find the closest scrollable ancestor as `root`, because the page
   // uses a nested `overflow-auto` container (not the viewport for scrolling).
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // ★ Use refs to always access latest values in IntersectionObserver callback,
+  // avoiding stale closure issues that caused "sometimes works, sometimes doesn't".
+  const filterOptionsRef = useRef(filterOptions);
+  filterOptionsRef.current = filterOptions;
+  const hasMoreRef = useRef(hasMoreTopics);
+  hasMoreRef.current = hasMoreTopics;
+  const isLoadingMoreRef = useRef(isLoadingMoreTopics);
+  isLoadingMoreRef.current = isLoadingMoreTopics;
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -170,10 +182,10 @@ export function TopicResearchTab({
       (entries) => {
         if (
           entries[0].isIntersecting &&
-          hasMoreTopics &&
-          !isLoadingMoreTopics
+          hasMoreRef.current &&
+          !isLoadingMoreRef.current
         ) {
-          void loadMoreTopics(filterOptions);
+          void loadMoreTopics(filterOptionsRef.current);
         }
       },
       { root: scrollRoot, rootMargin: '200px' }
@@ -181,8 +193,7 @@ export function TopicResearchTab({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMoreTopics, isLoadingMoreTopics, activeType, searchQuery]);
+  }, [loadMoreTopics]);
 
   // ★ 点击专题卡片 - 导航到独立路由
   const handleTopicClick = useCallback(
