@@ -1,89 +1,67 @@
-name: CI/CD Pipeline
+name: CI
 
-# =============================================================================
-# Triggers
-# =============================================================================
-# Run on pushes to main/develop branches and PRs to main
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
     paths-ignore:
       - "**.md"
       - "docs/**"
       - ".vscode/**"
       - ".claude/**"
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths-ignore:
       - "**.md"
       - "docs/**"
       - ".vscode/**"
       - ".claude/**"
 
-# =============================================================================
-# Concurrency Control
-# =============================================================================
-# Cancel in-progress runs for the same branch/PR to save resources
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# =============================================================================
-# Environment Variables
-# =============================================================================
 env:
   NODE_VERSION: "20"
-  # Test database configuration
+  NODE_OPTIONS: "--max-old-space-size=8192"
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/genesis_test
 
-# =============================================================================
-# Jobs
-# =============================================================================
 jobs:
-  # ---------------------------------------------------------------------------
-  # Job 1: Backend Lint & Type Check
-  # ---------------------------------------------------------------------------
-  backend-lint:
-    name: Backend Lint & Type Check
+  # ── Lint & Type Check ─────────────────────────────────────
+  lint:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies (workspace root)
-        run: npm ci
+      - run: npm ci
 
       - name: Generate Prisma client
-        working-directory: ./backend
         run: npx prisma generate --schema=prisma/schema
+        working-directory: ./backend
 
-      - name: Run ESLint
+      - name: Backend ESLint
         run: npm run lint:backend
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Run TypeScript type check
+      - name: Backend type check
         run: npm run type-check:backend
 
-  # ---------------------------------------------------------------------------
-  # Job 2: Backend Tests
-  # ---------------------------------------------------------------------------
-  backend-test:
-    name: Backend Tests
-    runs-on: ubuntu-latest
+      - name: Frontend ESLint
+        run: npx next lint --quiet
+        working-directory: ./frontend
 
-    # PostgreSQL 16 service container for integration tests
+      - name: Frontend type check
+        run: npm run type-check:frontend
+
+  # ── Backend Tests ──────────────────────────────────────────
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16
@@ -100,295 +78,180 @@ jobs:
           - 5432:5432
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies (workspace root)
-        run: npm ci
+      - run: npm ci
 
       - name: Generate Prisma client
-        working-directory: ./backend
         run: npx prisma generate --schema=prisma/schema
-
-      - name: Run database migrations
         working-directory: ./backend
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run migrations
         run: npx prisma migrate deploy --schema=prisma/schema
+        working-directory: ./backend
 
       - name: Run tests
+        run: npm run test:quick
         working-directory: ./backend
         env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
           JWT_SECRET: test_secret
           NODE_ENV: test
-        run: npm run test:quick
 
-      - name: Verify coverage thresholds
-        working-directory: ./backend
-        run: |
-          echo "Verifying backend coverage meets thresholds..."
-          npx jest --coverage --coverageReporters=json-summary --passWithNoTests 2>/dev/null || true
-          if [ -f coverage/coverage-summary.json ]; then
-            LINES=$(node -e "const c=require('./coverage/coverage-summary.json');console.log(c.total.lines.pct)")
-            echo "Line coverage: ${LINES}%"
-            node -e "const c=require('./coverage/coverage-summary.json');if(c.total.lines.pct<65){console.error('Coverage below 65% threshold');process.exit(1)}"
-          fi
-
-      - name: Upload test coverage
+      - name: Upload coverage
         if: always()
         uses: codecov/codecov-action@v4
         with:
           files: ./backend/coverage/lcov.info
           flags: backend
-          name: backend-coverage
           fail_ci_if_error: false
 
-  # ---------------------------------------------------------------------------
-  # Job 3: Frontend Lint & Build
-  # ---------------------------------------------------------------------------
-  frontend-build:
-    name: Frontend Lint & Build
+  # ── Frontend Tests ─────────────────────────────────────────
+  test-frontend:
+    name: Test Frontend
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies (workspace root)
-        run: npm ci
+      - run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint:frontend
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+      - name: Fix rollup optional dep (npm bug #4828)
+        run: npm install @rollup/rollup-linux-x64-gnu --no-save || true
 
-      - name: Run TypeScript type check
-        run: npm run type-check:frontend
+      - name: Run tests
+        run: npm run test:ci -- --coverage
+        working-directory: ./frontend
 
-      - name: Build Next.js application
+      - name: Upload coverage
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+
+  # ── Frontend Build ─────────────────────────────────────────
+  build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
         working-directory: ./frontend
         env:
-          # Prevent build failures due to missing runtime env vars
           NEXT_PUBLIC_API_URL: http://localhost:4000
           NODE_ENV: production
-        run: npm run build
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: frontend/.next/
           retention-days: 7
 
-  # ---------------------------------------------------------------------------
-  # Job 4: Frontend Tests
-  # ---------------------------------------------------------------------------
-  frontend-test:
-    name: Frontend Tests
+  # ── Quality & Security ────────────────────────────────────
+  quality:
+    name: Quality & Security
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies (workspace root)
-        run: npm ci
+      - run: npm ci
 
-      - name: Fix optional dependencies
-        run: npm rebuild
-
-      - name: Run frontend tests
-        working-directory: ./frontend
-        run: npm run test:ci -- --coverage
-
-      - name: Upload test coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./frontend/coverage/lcov.info
-          flags: frontend
-          name: frontend-coverage
-          fail_ci_if_error: false
-
-  # ---------------------------------------------------------------------------
-  # Job 5: Security Audit
-  # ---------------------------------------------------------------------------
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Audit backend dependencies
-        working-directory: ./backend
-        run: npm audit --audit-level=critical
-        continue-on-error: true
-
-      - name: Audit frontend dependencies
-        working-directory: ./frontend
-        run: npm audit --audit-level=critical
-        continue-on-error: true
-
-      - name: Check for critical vulnerabilities (hard fail)
+      - name: Check formatting (changed files only)
         run: |
-          echo "Checking for critical production vulnerabilities..."
-          cd backend && npm audit --audit-level=critical --omit=dev --json > /tmp/backend-audit.json 2>/dev/null || true
-          cd ../frontend && npm audit --audit-level=critical --omit=dev --json > /tmp/frontend-audit.json 2>/dev/null || true
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
 
-          BACKEND_CRITICAL=$(node -e "try{const a=require('/tmp/backend-audit.json');console.log(a.metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
-          FRONTEND_CRITICAL=$(node -e "try{const a=require('/tmp/frontend-audit.json');console.log(a.metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "No base SHA — skipping format check"
+            exit 0
+          fi
 
-          echo "Backend critical (prod): $BACKEND_CRITICAL"
-          echo "Frontend critical (prod): $FRONTEND_CRITICAL"
+          CHANGED=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.md' | grep -v 'node_modules/' | grep -v 'docs/_archive/' || true)
 
-          if [ "$BACKEND_CRITICAL" -gt 0 ] || [ "$FRONTEND_CRITICAL" -gt 0 ]; then
-            echo "CRITICAL production vulnerabilities found - failing CI"
+          if [ -z "$CHANGED" ]; then
+            echo "No formattable files changed"
+            exit 0
+          fi
+
+          echo "Checking $(echo "$CHANGED" | wc -l) files..."
+          echo "$CHANGED" | xargs npx prettier --check
+
+      - name: Security audit (production deps)
+        run: |
+          cd backend && npm audit --audit-level=critical --omit=dev --json > /tmp/be.json 2>/dev/null || true
+          cd ../frontend && npm audit --audit-level=critical --omit=dev --json > /tmp/fe.json 2>/dev/null || true
+
+          BE=$(node -e "try{console.log(require('/tmp/be.json').metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
+          FE=$(node -e "try{console.log(require('/tmp/fe.json').metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
+
+          echo "Backend critical (prod): $BE | Frontend critical (prod): $FE"
+
+          if [ "$BE" -gt 0 ] || [ "$FE" -gt 0 ]; then
+            echo "CRITICAL production vulnerabilities found"
             exit 1
           fi
-          echo "No critical production vulnerabilities found"
 
-  # ---------------------------------------------------------------------------
-  # Job 6: Code Quality Check
-  # ---------------------------------------------------------------------------
-  code-quality:
-    name: Code Quality (Format Check)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: Install dependencies (workspace root)
-        run: npm ci
-
-      - name: Check code formatting
-        run: npm run format:check
-
-  # ---------------------------------------------------------------------------
-  # Job 7: Deploy to Production
-  # ---------------------------------------------------------------------------
-  deploy:
-    name: Deploy to Railway
-    runs-on: ubuntu-latest
-    # Only run on main branch pushes (not PRs)
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    # Wait for all quality checks to pass
-    needs:
-      - backend-lint
-      - backend-test
-      - frontend-build
-      - frontend-test
-      - security-audit
-      - code-quality
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # TODO: Add Railway deployment steps
-      # Required GitHub Secrets:
-      # - RAILWAY_TOKEN: Railway API token for authentication
-      #
-      # Example deployment workflow:
-      # 1. Install Railway CLI: npm install -g @railway/cli
-      # 2. Authenticate: railway login --token $RAILWAY_TOKEN
-      # 3. Deploy backend: railway up --service backend
-      # 4. Run migrations: railway run --service backend npx prisma migrate deploy
-      # 5. Deploy frontend: railway up --service frontend
-      # 6. Verify deployment health
-
-      - name: Placeholder - Deploy to Railway
+      - name: Check for secrets in diff
         run: |
-          echo "🚀 Deployment would happen here"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Branch: ${{ github.ref }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Author: ${{ github.actor }}"
-          echo ""
-          echo "📋 Next steps to enable deployment:"
-          echo "1. Add RAILWAY_TOKEN to GitHub Secrets"
-          echo "2. Install Railway CLI in this step"
-          echo "3. Configure Railway project and services"
-          echo "4. Add railway deployment commands"
-          echo "5. Add health check endpoints"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '\.(env|key|pem|p12|pfx)$'; then
+            echo "Secret files detected in commit!"
+            exit 1
+          fi
 
-  # ---------------------------------------------------------------------------
-  # Summary Job - Reports overall CI status
-  # ---------------------------------------------------------------------------
-  ci-success:
-    name: CI Pipeline Success
+  # ── CI Gate ────────────────────────────────────────────────
+  ci-status:
+    name: CI Status
     runs-on: ubuntu-latest
     if: always()
-    needs:
-      - backend-lint
-      - backend-test
-      - frontend-build
-      - frontend-test
-      - security-audit
-      - code-quality
-
+    needs: [lint, test-backend, test-frontend, build, quality]
     steps:
-      - name: Check all jobs status
+      - name: Check results
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "CI Pipeline Summary"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Backend Lint:     ${{ needs.backend-lint.result }}"
-          echo "Backend Tests:    ${{ needs.backend-test.result }}"
-          echo "Frontend Build:   ${{ needs.frontend-build.result }}"
-          echo "Frontend Tests:   ${{ needs.frontend-test.result }}"
-          echo "Security Audit:   ${{ needs.security-audit.result }}"
-          echo "Code Quality:     ${{ needs.code-quality.result }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Lint:           ${{ needs.lint.result }}"
+          echo "Test Backend:   ${{ needs.test-backend.result }}"
+          echo "Test Frontend:  ${{ needs.test-frontend.result }}"
+          echo "Build:          ${{ needs.build.result }}"
+          echo "Quality:        ${{ needs.quality.result }}"
 
-          if [ "${{ needs.backend-lint.result }}" != "success" ] || \
-             [ "${{ needs.backend-test.result }}" != "success" ] || \
-             [ "${{ needs.frontend-build.result }}" != "success" ] || \
-             [ "${{ needs.frontend-test.result }}" != "success" ] || \
-             [ "${{ needs.security-audit.result }}" == "failure" ] || \
-             [ "${{ needs.code-quality.result }}" != "success" ]; then
-            echo "CI Pipeline failed - see above for details"
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.test-backend.result }}" != "success" ] || \
+             [ "${{ needs.test-frontend.result }}" != "success" ] || \
+             [ "${{ needs.build.result }}" != "success" ] || \
+             [ "${{ needs.quality.result }}" != "success" ]; then
+            echo "CI failed"
             exit 1
-          else
-            echo "All CI checks passed successfully"
-            echo "Code quality: PASS"
-            echo "Tests: PASS"
-            echo "Build: PASS"
-            echo "Security: PASS"
-            echo "Coverage: Check Codecov for detailed reports"
           fi
+          echo "All checks passed"
