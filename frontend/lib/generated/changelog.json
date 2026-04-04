@@ -4070,6 +4070,10 @@
       {
         "type": "improvement",
         "description": "upgrade extractClaims/verifyHypotheses to chatStructured"
+      },
+      {
+        "type": "fix",
+        "description": "correct Prisma schema path for multi-file schema setup"
       }
     ]
   },
