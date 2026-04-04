@@ -18,6 +18,10 @@
       {
         "type": "fix",
         "description": "allow ESLint warnings in frontend build (532 pre-existing)"
+      },
+      {
+        "type": "fix",
+        "description": "use explicit rollup install and --quiet for frontend lint"
       }
     ]
   },
