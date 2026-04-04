@@ -388,13 +388,16 @@ export class CostController {
         end.setDate(end.getDate() + 1);
         break;
 
-      case "weekly":
+      case "weekly": {
         const day = start.getDay();
         start.setDate(start.getDate() - day);
         start.setHours(0, 0, 0, 0);
-        end.setDate(start.getDate() + 7);
-        end.setHours(0, 0, 0, 0);
+        // ★ Fix: copy from start (which may have crossed month boundary),
+        // not from original end (which stays in the original month)
+        end.setTime(start.getTime());
+        end.setDate(end.getDate() + 7);
         break;
+      }
 
       case "monthly":
         start.setDate(1);
