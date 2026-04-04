@@ -131,7 +131,7 @@ export class AgentLifecycleProtocolService {
     payload: TaskNotificationPayload,
   ): string | null {
     if (!this.persistence) return null;
-    return this.persistence.persist(
+    const id = this.persistence.persist(
       sessionId,
       fromAgent,
       toAgent,
@@ -139,6 +139,14 @@ export class AgentLifecycleProtocolService {
       payload,
       { priority: "normal" },
     );
+    // ★ F7 Fix: Observability hook — log if the target agent has pending messages and should be resumed
+    const shouldResume = this.checkAndResume(sessionId, toAgent);
+    if (shouldResume) {
+      this.logger.log(
+        `[notifyTaskComplete] Agent ${toAgent} has pending messages, should be resumed`,
+      );
+    }
+    return id;
   }
 
   sendHeartbeat(sessionId: string, agentId: string): string | null {

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 
 // ─── Types ───
 
@@ -30,10 +30,25 @@ export interface PersistedMessage {
  * - cleanup(): remove expired messages
  */
 @Injectable()
-export class MessagePersistenceService {
+export class MessagePersistenceService implements OnModuleDestroy {
   private readonly logger = new Logger(MessagePersistenceService.name);
   private readonly messages = new Map<string, PersistedMessage>();
   private idCounter = 0;
+
+  // ★ F7 Fix: Periodic cleanup timer to remove delivered/expired messages
+  private readonly cleanupTimer: ReturnType<typeof setInterval>;
+
+  constructor() {
+    // Cleanup delivered + expired messages every 10 minutes
+    this.cleanupTimer = setInterval(() => {
+      this.cleanup();
+    }, 10 * 60 * 1000);
+    this.cleanupTimer.unref();
+  }
+
+  onModuleDestroy(): void {
+    clearInterval(this.cleanupTimer);
+  }
 
   persist(
     sessionId: string,

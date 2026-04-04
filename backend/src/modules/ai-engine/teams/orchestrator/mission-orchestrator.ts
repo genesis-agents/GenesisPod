@@ -352,6 +352,13 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             this.logger.debug(
               `[execute] Loaded memory context from ${memContext.resolvedFrom} scope`,
             );
+            // ★ F6 Fix: Inject resolved memory into mission context so agents can use it
+            if (typeof memContext.value === "string") {
+              input.prompt = `[Context from ${memContext.resolvedFrom} memory]\n${memContext.value}\n\n${input.prompt}`;
+            } else if (memContext.value && typeof memContext.value === "object") {
+              if (!input.metadata) input.metadata = {};
+              (input.metadata as Record<string, unknown>)["resolvedMemoryContext"] = memContext.value;
+            }
           }
         }
       }

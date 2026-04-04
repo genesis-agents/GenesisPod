@@ -135,9 +135,21 @@ export class AutoDreamSchedulerService implements OnModuleInit, OnModuleDestroy 
   /**
    * Notify the scheduler that a session completed in a scope.
    * Delegates to AutoDreamService.recordCompletedSession().
+   *
+   * ★ F5 Fix: Auto-register the scope if not already registered so that
+   * tick() can iterate it and AutoDream actually fires.
    */
   notifySessionCompleted(scopeId: string): void {
     this.autoDreamService.recordCompletedSession(scopeId);
+
+    // Auto-register scope if not already registered so tick() has something to iterate
+    if (!this.scopes.has(scopeId)) {
+      this.register({
+        scopeId,
+        getEntries: async () => [], // Default: empty entries (callers can override via register())
+      });
+    }
+
     this.logger.debug(`[notifySessionCompleted] Session recorded for ${scopeId}`);
   }
 

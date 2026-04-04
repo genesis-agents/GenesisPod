@@ -291,6 +291,21 @@ export class FunctionCallingExecutor {
               toolResultFor: m.tool_call_id,
             })),
             currentTokens,
+            undefined, // config (use defaults)
+            async (text: string, maxLength: number) => {
+              // Level 2: AI-powered summarization
+              const summaryResponse = await llmAdapter.chat({
+                messages: [
+                  {
+                    role: "system",
+                    content:
+                      "Summarize the following conversation concisely, preserving key decisions and findings.",
+                  },
+                  { role: "user", content: text.slice(0, 8000) },
+                ],
+              });
+              return (summaryResponse.content ?? "").slice(0, maxLength);
+            },
           );
           if (compactionResult.levelApplied !== "none") {
             messages.length = 0;
@@ -1332,6 +1347,21 @@ export class FunctionCallingExecutor {
               toolResultFor: m.tool_call_id,
             })),
             currentTokens,
+            undefined, // config (use defaults)
+            async (text: string, maxLength: number) => {
+              // Level 2: AI-powered summarization
+              const summaryResponse = await llmAdapter.chat({
+                messages: [
+                  {
+                    role: "system",
+                    content:
+                      "Summarize the following conversation concisely, preserving key decisions and findings.",
+                  },
+                  { role: "user", content: text.slice(0, 8000) },
+                ],
+              });
+              return (summaryResponse.content ?? "").slice(0, maxLength);
+            },
           );
           if (compactionResult.levelApplied !== "none") {
             messages.length = 0;
