@@ -922,10 +922,11 @@ export class GraphService {
       });
 
       // 处理作者
-      const authors = (resource.authors as any[]) || [];
+      const authors = (resource.authors as Record<string, unknown>[]) || [];
       for (const author of authors) {
-        const authorName =
-          author?.name || author?.username || author?.displayName;
+        const authorName = (author?.name ||
+          author?.username ||
+          author?.displayName) as string | undefined;
         if (authorName && !authorSet.has(authorName)) {
           authorSet.add(authorName);
           nodes.push({

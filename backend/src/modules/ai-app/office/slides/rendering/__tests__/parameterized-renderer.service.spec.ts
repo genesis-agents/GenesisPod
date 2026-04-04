@@ -3,10 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  ParameterizedRendererService,
-  RenderResult,
-} from "../parameterized-renderer.service";
+import { ParameterizedRendererService } from "../parameterized-renderer.service";
 import {
   LayoutOptimizerSkill,
   LayoutDecision,

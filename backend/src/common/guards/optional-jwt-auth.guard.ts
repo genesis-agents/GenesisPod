@@ -16,6 +16,7 @@ export class OptionalJwtAuthGuard extends AuthGuard("jwt") {
     return super.canActivate(context);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handleRequest(err: any, user: any) {
     // 如果有错误或没有用户，返回null而不是抛出异常
     // 这样路由处理器中req.user将是undefined，需要处理这种情况

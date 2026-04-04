@@ -7,7 +7,6 @@ import {
   SkillContext,
   SkillLayer,
   ISkill,
-  PreconditionResult,
 } from "../../abstractions/skill.interface";
 
 // Concrete implementation for testing

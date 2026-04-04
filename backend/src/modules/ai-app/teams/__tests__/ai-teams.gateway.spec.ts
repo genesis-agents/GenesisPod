@@ -587,7 +587,7 @@ describe("AiTeamsGateway", () => {
 
       await gateway.handleTyping(client as never, { topicId: "topic-1" });
 
-      const toFn = client.to as jest.Mock;
+      const toFn = client.to;
       expect(toFn).toHaveBeenCalledWith("topic:topic-1");
       expect(clientToEmit).toHaveBeenCalledWith("member:typing", {
         userId: "user-1",

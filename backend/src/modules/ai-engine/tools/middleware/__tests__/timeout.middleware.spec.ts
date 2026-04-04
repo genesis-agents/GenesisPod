@@ -309,7 +309,7 @@ describe("TimeoutMiddleware", () => {
         const inner = mw.wrapExecution(tool, undefined, context, () =>
           Promise.reject(new Error("fail")),
         );
-        inner.then((r) => {
+        void inner.then((r) => {
           resolveCount++;
           resolve(r);
         });

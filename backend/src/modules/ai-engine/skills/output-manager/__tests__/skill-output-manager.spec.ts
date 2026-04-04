@@ -6,7 +6,6 @@ import {
   SkillOutputManager,
   createSkillOutputManager,
 } from "../skill-output-manager";
-import { DEFAULT_SKILL_OUTPUT_CONFIG } from "../skill-output-manager.interface";
 
 // ---------------------------------------------------------------------------
 // SkillOutputManager

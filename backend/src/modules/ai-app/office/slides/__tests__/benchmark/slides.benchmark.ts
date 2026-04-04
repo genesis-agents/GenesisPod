@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Slides Performance Benchmark Tests
  *

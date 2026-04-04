@@ -32,7 +32,7 @@ describe("IterationManagerService", () => {
     metadata: {},
   };
 
-  const mockOutput = {
+  const _mockOutput = {
     id: "output-1",
     title: "AI Research Report",
     sections: [mockSection],
@@ -1278,7 +1278,7 @@ describe("IterationManagerService", () => {
           '```json\n{"sections":[{"title":"Intro","content":"Introduction content","level":2}]}\n```',
         usage: { totalTokens: 50 },
       });
-      const v1Result = await service.executeIteration(
+      await service.executeIteration(
         { outputId, type: "full_update" as const },
         mockContext,
       );

@@ -22,7 +22,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import {
   CharacterPersonalityService,
   PersonalityConstraint,
-  CharacterPersonalityVector,
 } from "../character-personality.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
@@ -1014,7 +1013,7 @@ describe("CharacterPersonalityService", () => {
       );
 
       // Should not have style_mismatch violation since phrase matches
-      const styleMismatch = result.violations.filter(
+      const _styleMismatch = result.violations.filter(
         (v) => v.type === "style_mismatch",
       );
       // There may or may not be a style_mismatch, but result should be processed

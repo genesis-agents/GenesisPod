@@ -265,7 +265,7 @@ describe("AiAskController", () => {
     });
 
     it("should parse limit and before params", async () => {
-      const beforeDate = new Date("2024-01-01T00:00:00Z");
+      const _beforeDate = new Date("2024-01-01T00:00:00Z");
       mockService.getMessages.mockResolvedValue([]);
 
       await controller.getMessages(

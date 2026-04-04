@@ -70,7 +70,7 @@ export class ProgressMiddleware implements IToolMiddleware {
   ): Promise<ToolResult> {
     const startTime =
       typeof context.metadata?.[START_TIME_KEY] === "number"
-        ? (context.metadata[START_TIME_KEY] as number)
+        ? context.metadata[START_TIME_KEY]
         : undefined;
 
     const duration = startTime !== undefined ? Date.now() - startTime : 0;

@@ -30,7 +30,7 @@ describe("EventBusService", () => {
     }).compile();
 
     service = module.get<EventBusService>(EventBusService);
-    eventEmitter = module.get(EventEmitter2) as jest.Mocked<EventEmitter2>;
+    eventEmitter = module.get(EventEmitter2);
 
     // Suppress logger output during tests
     jest.spyOn(Logger.prototype, "log").mockImplementation();

@@ -337,9 +337,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       // ★ Phase 6: HierarchicalMemoryCascade — resolve project/team context
       if (this.hierarchicalMemory) {
         const meta = input.metadata ?? {};
-        const userId = typeof meta["userId"] === "string" ? meta["userId"] : undefined;
-        const projectId = typeof meta["projectId"] === "string" ? meta["projectId"] : undefined;
-        const teamId = typeof meta["teamId"] === "string" ? meta["teamId"] : undefined;
+        const userId =
+          typeof meta["userId"] === "string" ? meta["userId"] : undefined;
+        const projectId =
+          typeof meta["projectId"] === "string" ? meta["projectId"] : undefined;
+        const teamId =
+          typeof meta["teamId"] === "string" ? meta["teamId"] : undefined;
         if (userId) {
           const memContext = this.hierarchicalMemory.resolve({
             sessionId: missionId,
@@ -355,9 +358,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             // ★ F6 Fix: Inject resolved memory into mission context so agents can use it
             if (typeof memContext.value === "string") {
               input.prompt = `[Context from ${memContext.resolvedFrom} memory]\n${memContext.value}\n\n${input.prompt}`;
-            } else if (memContext.value && typeof memContext.value === "object") {
+            } else if (
+              memContext.value &&
+              typeof memContext.value === "object"
+            ) {
               if (!input.metadata) input.metadata = {};
-              (input.metadata as Record<string, unknown>)["resolvedMemoryContext"] = memContext.value;
+              input.metadata["resolvedMemoryContext"] = memContext.value;
             }
           }
         }
@@ -473,7 +479,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
               taskId: stepId ?? "",
               status: "completed",
               summary: `Step completed: ${stepId ?? "unknown"}`,
-              tokensUsed: (stepOutput as unknown as { tokensUsed?: number })?.tokensUsed,
+              tokensUsed: (stepOutput as unknown as { tokensUsed?: number })
+                ?.tokensUsed,
             };
             void this.lifecycleProtocol.notifyTaskComplete(
               missionId,
@@ -1206,7 +1213,12 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
                 ? "failed"
                 : state.completedSteps.includes(s.id)
                   ? "completed"
-                  : "pending") as "pending" | "running" | "completed" | "failed" | "skipped",
+                  : "pending") as
+                | "pending"
+                | "running"
+                | "completed"
+                | "failed"
+                | "skipped",
             }));
             const currentPlan = {
               steps: replanSteps,

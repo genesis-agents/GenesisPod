@@ -144,7 +144,7 @@ describe("ResearchProjectController", () => {
 
   describe("getProjects", () => {
     it("should return projects for user", async () => {
-      const result = await controller.getProjects(mockReq as never);
+      await controller.getProjects(mockReq as never);
       expect(mockStudioService.getProjects).toHaveBeenCalledWith(
         "user-123",
         expect.objectContaining({}),
@@ -180,7 +180,7 @@ describe("ResearchProjectController", () => {
 
   describe("getProject", () => {
     it("should return a project", async () => {
-      const result = await controller.getProject(mockReq as never, "proj-1");
+      await controller.getProject(mockReq as never, "proj-1");
       expect(mockStudioService.getProject).toHaveBeenCalledWith(
         "user-123",
         "proj-1",

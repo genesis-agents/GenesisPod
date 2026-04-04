@@ -1,9 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  ForeshadowingService,
-  Foreshadow,
-  ForeshadowingGuidance,
-} from "../foreshadowing.service";
+import { ForeshadowingService, Foreshadow } from "../foreshadowing.service";
 
 describe("ForeshadowingService", () => {
   let service: ForeshadowingService;

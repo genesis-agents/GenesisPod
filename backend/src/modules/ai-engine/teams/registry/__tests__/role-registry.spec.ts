@@ -15,11 +15,7 @@
  */
 
 import { RoleRegistry } from "../role-registry";
-import {
-  IRole,
-  RoleConfig,
-  BUILTIN_ROLES,
-} from "../../abstractions/role.interface";
+import { RoleConfig, BUILTIN_ROLES } from "../../abstractions/role.interface";
 
 function makeRoleConfig(
   id: string,

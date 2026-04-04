@@ -25,10 +25,6 @@ import {
   DECORATION_PRESETS,
   PPTX_DECORATION_CONSTANTS,
   DecorationConfig,
-  CornerAccentConfig,
-  GlowEffectConfig,
-  GradientBarConfig,
-  GeometricShapeConfig,
   AccentBarConfig,
   TransparentBorderConfig,
 } from "../decorations";

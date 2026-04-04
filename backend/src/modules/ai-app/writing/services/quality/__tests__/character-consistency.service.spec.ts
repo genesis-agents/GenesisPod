@@ -549,7 +549,7 @@ describe("CharacterConsistencyService", () => {
       const result = await service.validateCharacterNames("project-1", content);
 
       // Alias usage generates warnings
-      const aliasWarnings = result.issues.filter(
+      const _aliasWarnings = result.issues.filter(
         (i) => i.type === "inconsistent_name",
       );
       expect(result).toBeDefined();

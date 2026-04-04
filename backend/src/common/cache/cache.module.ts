@@ -91,7 +91,15 @@ function parseRedisUrl(redisUrl: string) {
             });
 
             // 绑定 error 事件处理器，防止 "Unhandled error event" 刷屏
-            const client = (store as any).client;
+            const client = (store as unknown as Record<string, unknown>)
+              .client as
+              | {
+                  on?: (
+                    event: string,
+                    handler: (err: Error & { code?: string }) => void,
+                  ) => void;
+                }
+              | undefined;
             if (client?.on) {
               client.on("error", (err: Error & { code?: string }) => {
                 const detail = err.message || err.code || "unknown";

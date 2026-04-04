@@ -355,7 +355,7 @@ describe("TopicCrudService", () => {
         archivedAt: new Date(),
       });
 
-      const result = await service.archiveTopic("topic-1", "user-1");
+      await service.archiveTopic("topic-1", "user-1");
 
       expect(prisma.topic.update).toHaveBeenCalledWith(
         expect.objectContaining({

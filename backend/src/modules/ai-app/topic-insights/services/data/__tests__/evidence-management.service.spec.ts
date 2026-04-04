@@ -266,8 +266,8 @@ describe("EvidenceManagementService", () => {
 
   describe("getEvidenceStats", () => {
     it("should calculate stats correctly", async () => {
-      const recentDate = new Date();
-      const oldDate = new Date("2020-01-01");
+      const _recentDate = new Date();
+      const _oldDate = new Date("2020-01-01");
 
       mockPrisma.topicEvidence.findMany.mockResolvedValue([
         { sourceType: "web", credibilityScore: 80 },

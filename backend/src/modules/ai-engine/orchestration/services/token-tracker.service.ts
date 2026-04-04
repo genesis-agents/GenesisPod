@@ -49,7 +49,7 @@ export class TokenTrackerService implements OnModuleDestroy {
       () => {
         const expiry = Date.now() - this.SESSION_TTL_MS;
         for (const [id, session] of this.sessions) {
-          if ((session as SessionInternal)._createdAt < expiry) {
+          if (session._createdAt < expiry) {
             this.logger.warn(`[cleanup] Evicting stale session: ${id}`);
             this.sessions.delete(id);
           }

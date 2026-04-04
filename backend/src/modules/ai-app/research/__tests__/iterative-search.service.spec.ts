@@ -23,7 +23,7 @@ describe("IterativeSearchService", () => {
   let service: IterativeSearchService;
   let toolRegistry: jest.Mocked<ToolRegistry>;
 
-  const mockWebSearchTool = {
+  const _mockWebSearchTool = {
     id: "web-search",
     execute: jest.fn(),
   };

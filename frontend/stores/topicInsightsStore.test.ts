@@ -93,8 +93,27 @@ function resetStore() {
 
 describe('topicInsightsStore', () => {
   beforeEach(() => {
-    resetStore();
     vi.clearAllMocks();
+    // Set safe default implementations so any incidental call to the API
+    // (e.g. triggered by store internals during resetStore) returns a valid
+    // shape instead of undefined.  Individual tests override these as needed.
+    mockApi.getTopics.mockResolvedValue(wrapTopics([]));
+    mockApi.getTopic.mockResolvedValue(makeTopic());
+    mockApi.createTopic.mockResolvedValue(makeTopic());
+    mockApi.updateTopic.mockResolvedValue(makeTopic());
+    mockApi.deleteTopic.mockResolvedValue(undefined);
+    mockApi.getDimensions.mockResolvedValue([]);
+    mockApi.addDimension.mockResolvedValue(makeDimension());
+    mockApi.updateDimension.mockResolvedValue(makeDimension());
+    mockApi.deleteDimension.mockResolvedValue(undefined);
+    mockApi.getReports.mockResolvedValue({
+      reports: [],
+      hasMore: false,
+      nextCursor: undefined,
+    });
+    mockApi.getLatestReport.mockResolvedValue(makeReport());
+    mockApi.deleteReport.mockResolvedValue({ success: true, message: '' });
+    resetStore();
   });
 
   afterEach(() => {

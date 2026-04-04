@@ -405,7 +405,7 @@ describe("CredibilityReportService", () => {
       const report = makeMockReport({ evidences });
       mockPrisma.topicReport.findUnique.mockResolvedValue(report);
       mockPrisma.researchAgentActivity.findMany.mockResolvedValue(
-        Array.from({ length: 10 }, (_, i) => ({
+        Array.from({ length: 10 }, (_) => ({
           agentRole: "researcher",
           activityType: "SEARCHING",
           progress: 100,

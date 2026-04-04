@@ -83,7 +83,10 @@ export abstract class BaseProvider implements IAIProvider {
    */
   protected handleHttpError(error: AxiosError): AIError {
     const status = error.response?.status;
-    const data = error.response?.data as any;
+    const data = error.response?.data as Record<
+      string,
+      Record<string, unknown>
+    >;
 
     // 根据状态码分类错误
     if (status === 429) {

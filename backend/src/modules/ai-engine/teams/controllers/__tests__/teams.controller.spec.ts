@@ -16,7 +16,7 @@ import { TeamId } from "../../abstractions/team.interface";
 
 function makeTeamInfo(id = "team-1"): TeamInfo {
   return {
-    id: id as TeamId,
+    id: id,
     name: "Test Team",
     description: "A test team",
     type: "predefined",
@@ -281,9 +281,7 @@ describe("TeamsController - streamMission", () => {
       res as unknown as import("express").Response,
     );
 
-    const writeCalls = (res.write as jest.Mock).mock.calls.map((c) =>
-      String(c[0]),
-    );
+    const writeCalls = res.write.mock.calls.map((c) => String(c[0]));
     const hasErrorEvent = writeCalls.some((c) => c.includes("error"));
     expect(hasErrorEvent).toBe(true);
     expect(res.end).toHaveBeenCalled();
@@ -311,9 +309,7 @@ describe("TeamsController - streamMission", () => {
       res as unknown as import("express").Response,
     );
 
-    const writeCalls = (res.write as jest.Mock).mock.calls.map((c) =>
-      String(c[0]),
-    );
+    const writeCalls = res.write.mock.calls.map((c) => String(c[0]));
     expect(writeCalls.some((c) => c.includes("should_not_emit"))).toBe(false);
     expect(writeCalls.some((c) => c.includes("done"))).toBe(true);
   });

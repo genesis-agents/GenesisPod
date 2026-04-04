@@ -150,7 +150,7 @@ export interface CreateTemplateDto {
   category: ExportTemplateCategory;
   themeConfig: ThemeConfig;
   layoutConfig: LayoutConfig;
-  styleConfig?: Record<string, any>;
+  styleConfig?: Record<string, unknown>;
   supportedFormats: ExportFormat[];
   supportedSources: ExportSourceType[];
   isPublic?: boolean;
@@ -162,7 +162,7 @@ export interface UpdateTemplateDto {
   description?: string;
   themeConfig?: ThemeConfig;
   layoutConfig?: LayoutConfig;
-  styleConfig?: Record<string, any>;
+  styleConfig?: Record<string, unknown>;
   supportedFormats?: ExportFormat[];
   supportedSources?: ExportSourceType[];
   isPublic?: boolean;

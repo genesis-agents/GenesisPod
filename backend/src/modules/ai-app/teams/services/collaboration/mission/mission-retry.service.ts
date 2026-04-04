@@ -190,11 +190,15 @@ export class MissionRetryService {
         MessageContentType.SYSTEM,
       );
 
-      this.topicEventEmitter.emitToTopic(mission.topicId, "mission:retried", {
-        missionId,
-        mode: "full",
-        previousStatus,
-      });
+      void this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:retried",
+        {
+          missionId,
+          mode: "full",
+          previousStatus,
+        },
+      );
 
       // 重新启动任务
       startMission(missionId, userId).catch((err) => {
@@ -291,13 +295,17 @@ export class MissionRetryService {
         MessageContentType.TEXT,
       );
 
-      this.topicEventEmitter.emitToTopic(mission.topicId, "mission:retried", {
-        missionId,
-        mode: "continue",
-        previousStatus,
-        retriedTaskCount: tasksToReset.length,
-        stuckTaskCount: stuckCount,
-      });
+      void this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:retried",
+        {
+          missionId,
+          mode: "continue",
+          previousStatus,
+          retriedTaskCount: tasksToReset.length,
+          stuckTaskCount: stuckCount,
+        },
+      );
 
       // 调用 handleLeaderMentionCommand 触发 Leader 重新编排
       handleLeaderMentionCommand(mission.topicId, userId, mentionMessage).catch(

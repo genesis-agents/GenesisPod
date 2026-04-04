@@ -39,7 +39,7 @@ export function createConcurrencyLimiter(concurrency: number) {
       const runTask = () => run(fn).then(resolve).catch(reject);
 
       if (activeCount < concurrency) {
-        runTask();
+        void runTask();
       } else {
         queue.push(runTask);
       }

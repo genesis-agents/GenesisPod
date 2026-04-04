@@ -1,9 +1,5 @@
 import { Logger } from "@nestjs/common";
-import {
-  AutoDreamService,
-  AutoDreamConfig,
-  DreamResult,
-} from "../auto-dream.service";
+import { AutoDreamService, AutoDreamConfig } from "../auto-dream.service";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

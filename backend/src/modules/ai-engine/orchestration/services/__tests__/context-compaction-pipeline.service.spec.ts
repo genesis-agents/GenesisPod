@@ -5,7 +5,6 @@
 import { Logger } from "@nestjs/common";
 import {
   ContextCompactionPipelineService,
-  CompactionConfig,
   LLMMessage,
   SummarizeFn,
 } from "../context-compaction-pipeline.service";

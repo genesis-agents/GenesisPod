@@ -3,7 +3,7 @@
  * 用于初始化内置模板到数据库
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { Logger } from "@nestjs/common";
 import { BUILTIN_TEMPLATES } from "./builtin-templates";
 
@@ -27,8 +27,9 @@ async function seedTemplates() {
         data: {
           description: template.description,
           category: template.category,
-          themeConfig: template.themeConfig as any,
-          layoutConfig: template.layoutConfig as any,
+          themeConfig: template.themeConfig as unknown as Prisma.InputJsonValue,
+          layoutConfig:
+            template.layoutConfig as unknown as Prisma.InputJsonValue,
           supportedFormats: template.supportedFormats,
           supportedSources: template.supportedSources,
           isDefault: template.isDefault ?? false,
@@ -43,8 +44,9 @@ async function seedTemplates() {
           name: template.name,
           description: template.description,
           category: template.category,
-          themeConfig: template.themeConfig as any,
-          layoutConfig: template.layoutConfig as any,
+          themeConfig: template.themeConfig as unknown as Prisma.InputJsonValue,
+          layoutConfig:
+            template.layoutConfig as unknown as Prisma.InputJsonValue,
           supportedFormats: template.supportedFormats,
           supportedSources: template.supportedSources,
           isBuiltIn: true,

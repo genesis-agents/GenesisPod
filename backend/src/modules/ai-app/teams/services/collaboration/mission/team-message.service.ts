@@ -75,7 +75,7 @@ export class TeamMessageService {
       });
 
       // 广播新消息
-      this.topicEventEmitter.emitToTopic(topicId, "message:new", message);
+      void this.topicEventEmitter.emitToTopic(topicId, "message:new", message);
 
       return message;
     } catch (error) {

@@ -410,7 +410,7 @@ describe("AiImageGenerationService", () => {
       const result = await service.callImagenApi("key", customModel, "test");
 
       expect(result.model).toBe(customModel);
-      const callUrl = httpService.post.mock.calls[0][0] as string;
+      const callUrl = httpService.post.mock.calls[0][0];
       expect(callUrl).toContain(customModel);
     });
 

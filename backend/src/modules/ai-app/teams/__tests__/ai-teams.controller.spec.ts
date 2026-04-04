@@ -1224,9 +1224,9 @@ describe("AiTeamsController - sendMessage", () => {
     await controller.sendMessage(mockRequest(), "topic-1", dto as never);
 
     // ai:typing should be emitted only once for ai-1
-    const typingCalls = (
-      mockAiGroupGateway.emitToTopic as jest.Mock
-    ).mock.calls.filter(([, event]) => event === "ai:typing");
+    const typingCalls = mockAiGroupGateway.emitToTopic.mock.calls.filter(
+      ([, event]) => event === "ai:typing",
+    );
     const aiTypingForAi1 = typingCalls.filter(
       ([, , data]) => data.aiMemberId === "ai-1",
     );
@@ -1598,9 +1598,7 @@ describe("AiTeamsController - AI Generate", () => {
       );
 
       // sendSSEEvent writes: "event: chunk\n" then "data: {...}\n\n"
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(
-        ([arg]) => arg as string,
-      );
+      const writeCalls = res.write.mock.calls.map(([arg]) => arg as string);
       const chunkEventCalls = writeCalls.filter((c) => c === "event: chunk\n");
       expect(chunkEventCalls.length).toBeGreaterThan(0);
     });
@@ -1622,9 +1620,7 @@ describe("AiTeamsController - AI Generate", () => {
       );
 
       // sendSSEEvent writes "event: complete\n" for the complete event
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(
-        ([arg]) => arg as string,
-      );
+      const writeCalls = res.write.mock.calls.map(([arg]) => arg as string);
       expect(writeCalls.some((c) => c === "event: complete\n")).toBe(true);
       expect(res.end).toHaveBeenCalled();
     });
@@ -1644,9 +1640,7 @@ describe("AiTeamsController - AI Generate", () => {
       );
 
       // sendSSEEvent writes "event: error\n" for error events
-      const writeCalls = (res.write as jest.Mock).mock.calls.map(
-        ([arg]) => arg as string,
-      );
+      const writeCalls = res.write.mock.calls.map(([arg]) => arg as string);
       expect(writeCalls.some((c) => c === "event: error\n")).toBe(true);
       expect(res.write).toHaveBeenCalledWith("data: [DONE]\n\n");
       expect(res.end).toHaveBeenCalled();
@@ -2040,9 +2034,9 @@ describe("AiTeamsController - detectDebateMode (private, tested via sendMessage)
     await controller.sendMessage(mockRequest(), "topic-1", dto as never);
 
     // Should use normal parallel AI triggering, not debate
-    const typingCalls = (
-      mockAiGroupGateway.emitToTopic as jest.Mock
-    ).mock.calls.filter(([, event]) => event === "ai:typing");
+    const typingCalls = mockAiGroupGateway.emitToTopic.mock.calls.filter(
+      ([, event]) => event === "ai:typing",
+    );
     expect(typingCalls.length).toBeGreaterThanOrEqual(2);
   });
 });

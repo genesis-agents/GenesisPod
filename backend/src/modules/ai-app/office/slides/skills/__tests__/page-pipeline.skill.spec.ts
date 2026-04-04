@@ -3,7 +3,6 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PagePipelineSkill } from "../page-pipeline.skill";
 
 const buildSkillContext = (id = "test-exec-1") => ({

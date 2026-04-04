@@ -124,10 +124,12 @@ export class StructuredLogger implements LoggerService {
         break;
       case LogLevelEnum.DEBUG:
         if (!this.isProduction) {
+          // eslint-disable-next-line no-console
           console.debug(json);
         }
         break;
       default:
+        // eslint-disable-next-line no-console
         console.log(json);
     }
   }

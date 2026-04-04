@@ -6,7 +6,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { SlidesRepository } from "../slides-repository";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
-  SlidesMission,
   SlidesTask,
   SlidesMissionEvent,
   SlidesTeamOrchestratorInput,

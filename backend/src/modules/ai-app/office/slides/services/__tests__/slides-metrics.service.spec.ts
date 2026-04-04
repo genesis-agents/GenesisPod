@@ -4,11 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import {
-  SlidesMetricsService,
-  MetricType,
-  MetricsSnapshot,
-} from "../slides-metrics.service";
+import { SlidesMetricsService, MetricType } from "../slides-metrics.service";
 
 // ============================================================================
 // Helpers
@@ -98,13 +94,13 @@ async function createService(): Promise<{
 
 describe("SlidesMetricsService", () => {
   let service: SlidesMetricsService;
-  let emitter: EventEmitter2;
+  let _emitter: EventEmitter2;
 
   beforeEach(async () => {
     jest.useFakeTimers();
     const created = await createService();
     service = created.service;
-    emitter = created.emitter;
+    _emitter = created.emitter;
   });
 
   afterEach(() => {

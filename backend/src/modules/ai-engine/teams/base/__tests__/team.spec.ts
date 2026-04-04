@@ -66,19 +66,6 @@ function makeTeamConfig(overrides: Partial<TeamConfig> = {}): TeamConfig {
   };
 }
 
-function makeLeader(): ITeamMember {
-  const role = makeRole("leader", "research-lead");
-  return createLeader(
-    { id: "leader-1", model: "default", roleId: role.id },
-    role,
-  );
-}
-
-function makeMember(id: string, roleId = "researcher"): ITeamMember {
-  const role = makeRole("member", roleId);
-  return createMember({ id, model: "default", roleId: role.id }, role);
-}
-
 // ==================== Team ====================
 
 describe("Team", () => {

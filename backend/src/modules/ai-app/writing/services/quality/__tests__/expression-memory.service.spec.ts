@@ -16,8 +16,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import {
   ExpressionMemoryService,
   ExpressionType,
-  CoolingExpression,
-  ExpressionRecord,
 } from "../expression-memory.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 

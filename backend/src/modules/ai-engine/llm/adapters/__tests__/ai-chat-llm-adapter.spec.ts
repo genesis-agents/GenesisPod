@@ -3,7 +3,6 @@ import { ConfigService } from "@nestjs/config";
 import { AiChatLLMAdapter } from "../ai-chat-llm-adapter";
 import { AiChatService } from "../../services/ai-chat.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AIModelType } from "@prisma/client";
 
 describe("AiChatLLMAdapter", () => {
   let adapter: AiChatLLMAdapter;

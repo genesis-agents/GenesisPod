@@ -3,10 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  ContentAnalyzerSkill,
-  ContentAnalysisResult,
-} from "../content-analyzer.skill";
+import { ContentAnalyzerSkill } from "../content-analyzer.skill";
 import {
   PageContent,
   ContentSection,
@@ -474,7 +471,7 @@ describe("ContentAnalyzerSkill", () => {
     });
 
     it("should estimate capacity: does not fit for many large sections", () => {
-      const sections = Array.from({ length: 10 }, (_, i) =>
+      const sections = Array.from({ length: 10 }, (_) =>
         makeTextSection("A".repeat(150), "full"),
       );
       const content = buildPageContent("Overflow Content", sections);

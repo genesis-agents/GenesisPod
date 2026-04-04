@@ -173,7 +173,7 @@ describe("CacheService", () => {
       const mockStore = {
         keys: jest.fn().mockResolvedValue(["prefix:1", "prefix:2"]),
       };
-      (mockCacheManager as any).store = mockStore;
+      mockCacheManager.store = mockStore;
 
       await service.delByPrefix("prefix:");
 
@@ -190,7 +190,7 @@ describe("CacheService", () => {
       const mockStore = {
         keys: jest.fn().mockResolvedValue([]),
       };
-      (mockCacheManager as any).store = mockStore;
+      mockCacheManager.store = mockStore;
 
       await service.delByPrefix("prefix:");
 

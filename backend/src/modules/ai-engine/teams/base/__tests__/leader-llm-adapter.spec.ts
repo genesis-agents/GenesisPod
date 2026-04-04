@@ -55,7 +55,7 @@ function makeOutput(id = "out-1"): MemberOutput {
 describe("LeaderLLMAdapter - Constructor", () => {
   it("should use default model from llmFactory when no model provided", () => {
     const factory = makeLLMFactory();
-    const adapter = new LeaderLLMAdapter(factory);
+    new LeaderLLMAdapter(factory);
     expect(factory.getDefaultModel).toHaveBeenCalled();
   });
 

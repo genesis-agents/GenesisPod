@@ -1,9 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  NarrativePacingService,
-  ChapterPacingAnalysis,
-  PacingConstraints,
-} from "../narrative-pacing.service";
+import { NarrativePacingService } from "../narrative-pacing.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 describe("NarrativePacingService", () => {

@@ -463,7 +463,10 @@ export class WorkflowOrchestrationTool extends BaseTool<
       `wf_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     // 初始化步骤状态
-    const stepStatuses: Record<string, any> = {};
+    const stepStatuses: Record<
+      string,
+      { status: StepStatus; attempts: number }
+    > = {};
     for (const step of workflow.steps) {
       stepStatuses[step.stepId] = {
         status: "PENDING",

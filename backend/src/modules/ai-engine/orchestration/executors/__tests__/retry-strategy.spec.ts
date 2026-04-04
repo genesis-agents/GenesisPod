@@ -52,7 +52,7 @@ describe("RetryStrategy", () => {
 
   describe("constructor and DEFAULT_CONFIG", () => {
     it("should use DEFAULT_CONFIG when no config is provided", () => {
-      const strategy = new RetryStrategy();
+      const _strategy = new RetryStrategy();
       // Verify defaults are visible through behavior:
       // getDelay(1) with defaults: 1000 * 2^0 = 1000, with jitter it might vary
       // Use jitter: false config to verify deterministically

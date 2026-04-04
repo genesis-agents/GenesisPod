@@ -64,19 +64,6 @@ const makeListSection = (
   content: items,
 });
 
-const makeChartSection = (
-  labels: string[] = [],
-  position: ContentSection["position"] = "full",
-): ContentSection => ({
-  type: "chart",
-  position,
-  content: {
-    type: "bar",
-    data: [],
-    labels,
-  } as unknown as ContentSection["content"],
-});
-
 const VALID_HTML = `
 <div style="height: 500px; font-size: 24px; font-weight: 700;">
   <h1>测试标题</h1>

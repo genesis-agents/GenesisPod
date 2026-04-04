@@ -779,19 +779,13 @@ export class FileConversionTool extends BaseTool<
           currentSection = { type: "list", items: [] };
         }
         if (currentSection.type !== "list") {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).content =
-            (currentSection as any).content || [];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).content.push({
-            type: "list_item",
-            text: listMatch[1],
-          });
+          const contentArr = (currentSection.content as unknown[]) || [];
+          contentArr.push({ type: "list_item", text: listMatch[1] });
+          currentSection.content = contentArr;
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).items = (currentSection as any).items || [];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).items.push(listMatch[1]);
+          const itemsArr = (currentSection.items as unknown[]) || [];
+          itemsArr.push(listMatch[1]);
+          currentSection.items = itemsArr;
         }
         continue;
       }
@@ -801,11 +795,9 @@ export class FileConversionTool extends BaseTool<
         if (!currentSection) {
           currentSection = { type: "paragraph", text: trimmed };
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).content =
-            (currentSection as any).content || [];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section shape varies by type
-          (currentSection as any).content.push({ type: "text", text: trimmed });
+          const contentArr = (currentSection.content as unknown[]) || [];
+          contentArr.push({ type: "text", text: trimmed });
+          currentSection.content = contentArr;
         }
       }
     }

@@ -36,6 +36,7 @@ export class JwtAuthGuard extends AuthGuard("jwt") {
     return super.canActivate(context);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handleRequest(err: any, user: any, _info: any) {
     // 如果有错误或没有用户，抛出未授权异常
     if (err || !user) {

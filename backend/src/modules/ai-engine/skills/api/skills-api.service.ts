@@ -353,8 +353,8 @@ export class SkillsApiService {
 
         if (Array.isArray(dataField)) return dataField;
         if (dataField && typeof dataField === "object") {
-          const skills = (dataField as Record<string, unknown>).skills;
-          const items = (dataField as Record<string, unknown>).items;
+          const skills = dataField.skills;
+          const items = dataField.items;
           if (Array.isArray(skills)) return skills;
           if (Array.isArray(items)) return items;
         }

@@ -103,7 +103,7 @@ export interface ContentSection {
   children?: ContentSection[];
 
   // 样式覆盖
-  style?: Record<string, any>;
+  style?: Record<string, unknown>;
 }
 
 export interface ListItem {
@@ -118,8 +118,8 @@ export interface TableRow {
 
 export interface ChartConfig {
   type: "bar" | "line" | "pie" | "area" | "scatter";
-  data: any;
-  options?: any;
+  data: unknown;
+  options?: unknown;
 }
 
 // ==================== 参考文献 ====================

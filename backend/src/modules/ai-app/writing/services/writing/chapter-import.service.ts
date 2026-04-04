@@ -184,13 +184,13 @@ export class ChapterImportService {
     });
 
     // 异步执行导入
-    this.executeImport(
+    void this.executeImport(
       importId,
       dto,
       targetVolume.chapters.map((c) => c.chapterNumber),
     ).catch((error) => {
       this.logger.error(`Import ${importId} failed:`, error);
-      this.prisma.chapterImport.update({
+      void this.prisma.chapterImport.update({
         where: { id: importId },
         data: {
           status: ImportStatus.FAILED,

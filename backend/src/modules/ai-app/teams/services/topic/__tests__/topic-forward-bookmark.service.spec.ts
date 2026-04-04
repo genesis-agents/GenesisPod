@@ -273,7 +273,7 @@ describe("TopicForwardBookmarkService", () => {
     };
 
     it("should bookmark a message", async () => {
-      const result = await service.bookmarkMessage(
+      await service.bookmarkMessage(
         "topic-1",
         "user-1",
         "msg-1",
@@ -339,11 +339,7 @@ describe("TopicForwardBookmarkService", () => {
 
   describe("unbookmarkMessage", () => {
     it("should remove bookmark", async () => {
-      const result = await service.unbookmarkMessage(
-        "topic-1",
-        "user-1",
-        "msg-1",
-      );
+      await service.unbookmarkMessage("topic-1", "user-1", "msg-1");
 
       expect(prisma.topicMessageBookmark.deleteMany).toHaveBeenCalledWith({
         where: { messageId: "msg-1", userId: "user-1" },

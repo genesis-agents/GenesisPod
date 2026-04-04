@@ -61,18 +61,6 @@ function flushResponse(
   (client as any).handleResponse({ jsonrpc: "2.0", id, result });
 }
 
-function flushErrorResponse(
-  client: StdioMCPClient,
-  id: number,
-  message: string,
-): void {
-  (client as any).handleResponse({
-    jsonrpc: "2.0",
-    id,
-    error: { code: -32000, message },
-  });
-}
-
 /**
  * Helper that simulates a full connect cycle by directly manipulating internal
  * state instead of calling the real connect() flow (which requires a live

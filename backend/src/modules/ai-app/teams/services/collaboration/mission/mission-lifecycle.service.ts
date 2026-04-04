@@ -81,9 +81,13 @@ export class MissionLifecycleService {
       content: "任务已被用户取消",
     });
 
-    this.topicEventEmitter.emitToTopic(mission.topicId, "mission:cancelled", {
-      missionId,
-    });
+    void this.topicEventEmitter.emitToTopic(
+      mission.topicId,
+      "mission:cancelled",
+      {
+        missionId,
+      },
+    );
 
     return { success: true, message: "任务已取消" };
   }
@@ -133,9 +137,13 @@ export class MissionLifecycleService {
     this.logger.log(`[Mission ${missionId}] Deleted by user`);
 
     // 通知前端任务已删除
-    this.topicEventEmitter.emitToTopic(mission.topicId, "mission:deleted", {
-      missionId,
-    });
+    void this.topicEventEmitter.emitToTopic(
+      mission.topicId,
+      "mission:deleted",
+      {
+        missionId,
+      },
+    );
 
     return { success: true, message: "任务已删除" };
   }
@@ -245,7 +253,7 @@ export class MissionLifecycleService {
       MessageContentType.SYSTEM,
     );
 
-    this.topicEventEmitter.emitToTopic(mission.topicId, "mission:paused", {
+    void this.topicEventEmitter.emitToTopic(mission.topicId, "mission:paused", {
       missionId,
       previousStatus,
     });
@@ -315,10 +323,14 @@ export class MissionLifecycleService {
       MessageContentType.SYSTEM,
     );
 
-    this.topicEventEmitter.emitToTopic(mission.topicId, "mission:resumed", {
-      missionId,
-      status: previousStatus,
-    });
+    void this.topicEventEmitter.emitToTopic(
+      mission.topicId,
+      "mission:resumed",
+      {
+        missionId,
+        status: previousStatus,
+      },
+    );
 
     // 如果是 IN_PROGRESS 状态，继续执行下一批任务
     if (previousStatus === MissionStatus.IN_PROGRESS) {

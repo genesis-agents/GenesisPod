@@ -176,11 +176,7 @@ describe("TopicPublicService", () => {
 
   describe("requestToJoinTopic", () => {
     it("should create join request for public topic", async () => {
-      const result = await service.requestToJoinTopic(
-        "topic-1",
-        "user-2",
-        "Please join",
-      );
+      await service.requestToJoinTopic("topic-1", "user-2", "Please join");
 
       expect(prisma.topicJoinRequest.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -277,7 +273,7 @@ describe("TopicPublicService", () => {
 
   describe("getMyJoinRequests", () => {
     it("should return user own join requests with topic info", async () => {
-      const result = await service.getMyJoinRequests("user-2");
+      await service.getMyJoinRequests("user-2");
 
       expect(prisma.topicJoinRequest.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -292,7 +288,7 @@ describe("TopicPublicService", () => {
 
   describe("reviewJoinRequest", () => {
     it("should approve join request and add member", async () => {
-      const result = await service.reviewJoinRequest("req-1", "admin-1", true);
+      await service.reviewJoinRequest("req-1", "admin-1", true);
 
       expect(prisma.$transaction).toHaveBeenCalled();
     });
@@ -343,7 +339,7 @@ describe("TopicPublicService", () => {
 
   describe("cancelJoinRequest", () => {
     it("should cancel own join request", async () => {
-      const result = await service.cancelJoinRequest("req-1", "user-2");
+      await service.cancelJoinRequest("req-1", "user-2");
 
       expect(prisma.topicJoinRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { status: "CANCELLED" } }),

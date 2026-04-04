@@ -66,13 +66,13 @@ async function drainGenerator(
   while (true) {
     const next = await gen.next();
     if (next.done) {
-      result = next.value as ExecutionResult;
+      result = next.value;
       break;
     }
-    events.push(next.value as ExecutionEvent);
+    events.push(next.value);
   }
 
-  return { events, result: result! };
+  return { events, result: result };
 }
 
 function makeSuccessTool(): { execute: jest.Mock } {

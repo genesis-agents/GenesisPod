@@ -47,7 +47,7 @@ describe("StreamingService", () => {
       expect(event.type).toBe("test");
       expect(typeof event.data).toBe("string");
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(parsed.type).toBe("test");
       expect(parsed.data.message).toBe("hello");
       expect(parsed.timestamp).toBeDefined();
@@ -56,7 +56,7 @@ describe("StreamingService", () => {
     it("should include ISO timestamp", () => {
       const event = service.createEvent("test", {});
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(() => new Date(parsed.timestamp)).not.toThrow();
     });
   });
@@ -77,7 +77,7 @@ describe("StreamingService", () => {
 
       expect(event.type).toBe("progress");
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(parsed.data.phase).toBe("searching");
       expect(parsed.data.progress).toBe(0.5);
       expect(parsed.data.message).toBe("Searching 3 of 6 sources");
@@ -92,7 +92,7 @@ describe("StreamingService", () => {
         "Almost done",
       );
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(parsed.data.current).toBeUndefined();
       expect(parsed.data.total).toBeUndefined();
     });
@@ -111,7 +111,7 @@ describe("StreamingService", () => {
 
       expect(event.type).toBe("complete");
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(parsed.data.result.reportId).toBe("r-123");
       expect(parsed.data.totalTime).toBe(12345);
     });
@@ -131,7 +131,7 @@ describe("StreamingService", () => {
 
       expect(event.type).toBe("error");
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(parsed.data.error).toBe("Research failed");
       expect(parsed.data.code).toBe("TIMEOUT");
       expect(parsed.data.recoverable).toBe(true);
@@ -140,7 +140,7 @@ describe("StreamingService", () => {
     it("should work with minimal params", () => {
       const event = service.createErrorEvent("Something went wrong");
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(parsed.data.error).toBe("Something went wrong");
       expect(parsed.data.code).toBeUndefined();
     });
@@ -156,7 +156,7 @@ describe("StreamingService", () => {
 
       expect(event.type).toBe("heartbeat");
 
-      const parsed = JSON.parse(event.data as string);
+      const parsed = JSON.parse(event.data);
       expect(parsed.data.type).toBe("heartbeat");
       expect(parsed.data.timestamp).toBeDefined();
     });

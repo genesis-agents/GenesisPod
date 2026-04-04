@@ -43,7 +43,7 @@ export class Neo4jService {
       if (resourceId) {
         const results = await this.graphService.findSimilarResources(
           resourceId,
-          limit as number,
+          limit,
         );
 
         // 转换为 Neo4j 格式

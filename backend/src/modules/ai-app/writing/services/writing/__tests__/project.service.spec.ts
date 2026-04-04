@@ -217,7 +217,7 @@ describe("ProjectService", () => {
       prisma.writingProject.findFirst.mockResolvedValue(mockProject);
       prisma.writingProject.delete.mockResolvedValue(mockProject);
 
-      const result = await service.delete("project-1", "user-1");
+      await service.delete("project-1", "user-1");
 
       expect(prisma.writingProject.delete).toHaveBeenCalledWith({
         where: { id: "project-1" },
@@ -285,10 +285,7 @@ describe("ProjectService", () => {
       });
       prisma.writingProject.update.mockResolvedValue(mockProject);
 
-      const result = await service.resetChaptersByNumbers(
-        "project-1",
-        [1, 2, 3],
-      );
+      await service.resetChaptersByNumbers("project-1", [1, 2, 3]);
 
       expect(prisma.writingChapter.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({

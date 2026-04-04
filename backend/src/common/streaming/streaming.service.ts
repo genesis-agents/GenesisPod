@@ -337,7 +337,7 @@ export class StreamingService {
       }
     };
 
-    processGenerator();
+    void processGenerator();
 
     return subject.asObservable();
   }

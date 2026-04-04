@@ -3,13 +3,12 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ToolRegistry, ToolRegistryStats } from "../tool-registry";
+import { ToolRegistry } from "../tool-registry";
 import {
   ITool,
   ToolCategory,
   ToolContext,
   ToolResult,
-  JSONSchema,
   FunctionDefinition,
   CompactToolSummary,
   ToolDefinition,
@@ -59,14 +58,6 @@ function makeTool(
       };
     },
     ...overrides,
-  };
-}
-
-function makeContext(): ToolContext {
-  return {
-    executionId: "exec-1",
-    toolId: "test",
-    createdAt: new Date(),
   };
 }
 
@@ -595,7 +586,7 @@ describe("ToolRegistry", () => {
 
   describe("getStats()", () => {
     it("returns zero stats on empty registry", () => {
-      const stats = registry.getStats() as ToolRegistryStats;
+      const stats = registry.getStats();
       expect(stats.total).toBe(0);
       expect(stats.byCategory).toEqual({});
       expect(stats.enabledCount).toBe(0);
@@ -607,7 +598,7 @@ describe("ToolRegistry", () => {
       registry.register(makeTool("t2", "information", { enabled: true }));
       registry.register(makeTool("t3", "generation", { enabled: false }));
 
-      const stats = registry.getStats() as ToolRegistryStats;
+      const stats = registry.getStats();
       expect(stats.total).toBe(3);
       expect(stats.byCategory["information"]).toBe(2);
       expect(stats.byCategory["generation"]).toBe(1);

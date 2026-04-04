@@ -162,7 +162,7 @@ describe("TerminologyService", () => {
         mockTerm,
       ]);
 
-      const result = await service.search("bible-1", "真气");
+      await service.search("bible-1", "真气");
 
       expect(mockPrisma.terminology.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

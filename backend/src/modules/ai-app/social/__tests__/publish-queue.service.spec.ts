@@ -205,7 +205,7 @@ describe("PublishQueueService", () => {
 
       // Add delayed job
       const futureDate = new Date(Date.now() + 3600000);
-      const delayedJobId = await service.addJob(contentId, userId, platform, {
+      await service.addJob(contentId, userId, platform, {
         ...defaultOptions,
         scheduledAt: futureDate,
       });
@@ -275,20 +275,10 @@ describe("PublishQueueService", () => {
     });
 
     it("should sort jobs by creation time (newest first)", async () => {
-      const jobId1 = await service.addJob(
-        "content-1",
-        userId,
-        platform,
-        defaultOptions,
-      );
+      await service.addJob("content-1", userId, platform, defaultOptions);
       // Advance fake timer to ensure job2 has a later timestamp
       jest.advanceTimersByTime(100);
-      const jobId2 = await service.addJob(
-        "content-2",
-        userId,
-        platform,
-        defaultOptions,
-      );
+      await service.addJob("content-2", userId, platform, defaultOptions);
 
       const jobs = service.getUserJobs(userId);
       // Should have 2 jobs sorted by creation time

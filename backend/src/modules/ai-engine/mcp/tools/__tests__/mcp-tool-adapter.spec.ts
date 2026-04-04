@@ -147,7 +147,7 @@ describe("MCPToolAdapter", () => {
         endTime: expect.any(Date),
         duration: expect.any(Number),
       });
-      expect(result.metadata!.duration).toBeGreaterThanOrEqual(0);
+      expect(result.metadata.duration).toBeGreaterThanOrEqual(0);
     });
   });
 

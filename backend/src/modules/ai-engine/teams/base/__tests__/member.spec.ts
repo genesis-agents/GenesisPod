@@ -2,13 +2,7 @@
  * Unit tests for TeamMember, Leader, createMember, createLeader
  */
 
-import {
-  TeamMember,
-  Leader,
-  createMember,
-  createLeader,
-  LeaderConfig,
-} from "../member";
+import { TeamMember, Leader, createMember, createLeader } from "../member";
 import { Role } from "../role";
 import { IRole } from "../../abstractions/role.interface";
 import { ILeaderLLMAdapter } from "../leader-llm-adapter";

@@ -908,7 +908,7 @@ describe("AgentCommunicationTool", () => {
         context,
       );
 
-      const msgId = sendResult.data?.message?.id!;
+      const msgId = sendResult.data?.message?.id ?? "";
 
       await tool.execute(
         {
@@ -937,7 +937,7 @@ describe("AgentCommunicationTool", () => {
       const context = createMockContext();
 
       // Send 2 messages, mark one as read
-      const sendResult1 = await tool.execute(
+      await tool.execute(
         {
           operation: CommunicationOperation.SEND,
           fromAgent: BUILTIN_AGENTS.DOCS,
@@ -962,7 +962,7 @@ describe("AgentCommunicationTool", () => {
         {
           operation: CommunicationOperation.MARK_READ,
           fromAgent: BUILTIN_AGENTS.SIMULATOR,
-          messageId: sendResult2.data?.message?.id!,
+          messageId: sendResult2.data?.message?.id ?? "",
         },
         context,
       );
@@ -1041,7 +1041,7 @@ describe("AgentCommunicationTool", () => {
         context,
       );
 
-      const msgId = sendResult.data?.message?.id!;
+      const msgId = sendResult.data?.message?.id ?? "";
 
       // First mark as read (DELIVERED → READ)
       const firstMark = await tool.execute(

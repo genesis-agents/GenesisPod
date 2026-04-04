@@ -66,12 +66,9 @@ jest.mock("xml2js", () => ({
 
 // Mock cheerio (used by parseDOCX)
 jest.mock("cheerio", () => {
-  const $ = jest.fn().mockReturnValue({
-    text: jest.fn().mockReturnValue(""),
-  });
   const load = jest.fn().mockReturnValue(
     Object.assign(
-      (selector: string) => ({
+      (_selector: string) => ({
         text: jest
           .fn()
           .mockReturnValue("Document Title Paragraph content here"),
