@@ -1,5 +1,19 @@
 [
   {
+    "version": "40.2.0",
+    "date": "2026-04-04",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "resolve 6 business chain simulation failures"
+      },
+      {
+        "type": "fix",
+        "description": "resolve ESLint OOM, rollup missing dep, and prettier scope"
+      }
+    ]
+  },
+  {
     "version": "40.1.0",
     "date": "2026-04-04",
     "changes": [
