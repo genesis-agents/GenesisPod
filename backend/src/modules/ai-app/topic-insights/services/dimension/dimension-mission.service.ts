@@ -1690,7 +1690,7 @@ export class DimensionMissionService {
           sectionMap,
           outline,
         ),
-        missionId: effectiveMissionId ?? missionId, // ★ 传递 missionId
+        missionId, // ★ 传递 missionId
         modelId, // ★ 传递模型
         temporalContext, // ★ 传递时间上下文
         allocatedFigures: section.allocatedFigures, // ★ 传递 Leader 预分配的图表
