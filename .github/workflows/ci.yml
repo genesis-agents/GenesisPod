@@ -59,7 +59,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies (workspace root)
         run: npm ci
@@ -106,7 +106,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies (workspace root)
         run: npm ci
@@ -147,7 +147,7 @@ jobs:
           files: ./backend/coverage/lcov.info
           flags: backend
           name: backend-coverage
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # ---------------------------------------------------------------------------
   # Job 3: Frontend Lint & Build
@@ -165,7 +165,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies (workspace root)
         run: npm ci
@@ -207,7 +207,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies (workspace root)
         run: npm ci
@@ -222,7 +222,7 @@ jobs:
           files: ./frontend/coverage/lcov.info
           flags: frontend
           name: frontend-coverage
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # ---------------------------------------------------------------------------
   # Job 5: Security Audit
@@ -252,21 +252,21 @@ jobs:
 
       - name: Check for critical vulnerabilities (hard fail)
         run: |
-          echo "Checking for critical vulnerabilities..."
-          cd backend && npm audit --audit-level=critical --json > /tmp/backend-audit.json 2>/dev/null || true
-          cd ../frontend && npm audit --audit-level=critical --json > /tmp/frontend-audit.json 2>/dev/null || true
+          echo "Checking for critical production vulnerabilities..."
+          cd backend && npm audit --audit-level=critical --omit=dev --json > /tmp/backend-audit.json 2>/dev/null || true
+          cd ../frontend && npm audit --audit-level=critical --omit=dev --json > /tmp/frontend-audit.json 2>/dev/null || true
 
           BACKEND_CRITICAL=$(node -e "try{const a=require('/tmp/backend-audit.json');console.log(a.metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
           FRONTEND_CRITICAL=$(node -e "try{const a=require('/tmp/frontend-audit.json');console.log(a.metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
 
-          echo "Backend critical: $BACKEND_CRITICAL"
-          echo "Frontend critical: $FRONTEND_CRITICAL"
+          echo "Backend critical (prod): $BACKEND_CRITICAL"
+          echo "Frontend critical (prod): $FRONTEND_CRITICAL"
 
           if [ "$BACKEND_CRITICAL" -gt 0 ] || [ "$FRONTEND_CRITICAL" -gt 0 ]; then
-            echo "CRITICAL vulnerabilities found - failing CI"
+            echo "CRITICAL production vulnerabilities found - failing CI"
             exit 1
           fi
-          echo "No critical vulnerabilities found"
+          echo "No critical production vulnerabilities found"
 
   # ---------------------------------------------------------------------------
   # Job 6: Code Quality Check

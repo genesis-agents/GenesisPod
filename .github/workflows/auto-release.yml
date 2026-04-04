@@ -44,13 +44,15 @@ jobs:
         run: npm install --legacy-peer-deps --package-lock-only
 
       - name: Commit and tag release
+        id: version
         run: |
           git add -A
           VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           git commit -m "chore(release): $VERSION"
           git tag "v$VERSION"
 
       - name: Push version bump and tag
-        run: git push origin main && git push origin "v$VERSION"
+        run: git push origin main && git push origin "v${{ steps.version.outputs.VERSION }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
