@@ -8,28 +8,19 @@ import type {
   TopicReport,
 } from '@/types/topic-insights';
 
-// Mock the API module with explicit factory to ensure consistent behavior in CI
-vi.mock('@/lib/api/topic-insights', () => ({
-  getTopics: vi.fn(),
-  getTopic: vi.fn(),
-  createTopic: vi.fn(),
-  updateTopic: vi.fn(),
-  deleteTopic: vi.fn(),
-  getDimensions: vi.fn(),
-  addDimension: vi.fn(),
-  updateDimension: vi.fn(),
-  deleteDimension: vi.fn(),
-  getReports: vi.fn(),
-  getLatestReport: vi.fn(),
-  getReport: vi.fn(),
-  deleteReport: vi.fn(),
-  triggerRefresh: vi.fn(),
-  getRefreshStatus: vi.fn(),
-  cancelRefresh: vi.fn(),
-  createRefreshProgressStream: vi.fn(),
-  refreshDimension: vi.fn(),
-  reorderDimensions: vi.fn(),
-}));
+// Mock the API module — use importOriginal to include all exports
+vi.mock('@/lib/api/topic-insights', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/api/topic-insights')>();
+  const mocked: Record<string, unknown> = {};
+  for (const key of Object.keys(actual)) {
+    mocked[key] =
+      typeof actual[key as keyof typeof actual] === 'function'
+        ? vi.fn()
+        : actual[key as keyof typeof actual];
+  }
+  return mocked;
+});
 
 // Mock logger
 vi.mock('@/lib/utils/logger', () => ({
