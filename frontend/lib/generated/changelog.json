@@ -46,6 +46,10 @@
       {
         "type": "fix",
         "description": "resolve all 120 ESLint errors + fix frontend test CI failure"
+      },
+      {
+        "type": "fix",
+        "description": "use explicit vi.mock factory for topicInsightsStore"
       }
     ]
   },
