@@ -96,6 +96,9 @@ jobs:
         run: npx prisma migrate deploy --schema=prisma/schema
         working-directory: ./backend
 
+      - name: Fix sharp optional dep (npm bug #4828)
+        run: npm install sharp --no-save || true
+
       - name: Run tests
         run: npm run test:quick
         working-directory: ./backend
