@@ -1,7 +1,7 @@
 [
   {
     "version": "40.2.0",
-    "date": "2026-04-04",
+    "date": "2026-04-05",
     "changes": [
       {
         "type": "fix",
@@ -42,6 +42,10 @@
       {
         "type": "fix",
         "description": "restore consolidated CI workflow and bump memory to 8GB"
+      },
+      {
+        "type": "fix",
+        "description": "resolve all 120 ESLint errors + fix frontend test CI failure"
       }
     ]
   },
