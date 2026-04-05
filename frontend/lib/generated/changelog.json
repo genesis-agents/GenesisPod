@@ -58,6 +58,10 @@
       {
         "type": "fix",
         "description": "use --no-isolate for frontend tests to match local behavior"
+      },
+      {
+        "type": "fix",
+        "description": "use forks pool in CI for Node 20 compatibility + fix 4 tests"
       }
     ]
   },
