@@ -50,6 +50,10 @@
       {
         "type": "fix",
         "description": "use explicit vi.mock factory for topicInsightsStore"
+      },
+      {
+        "type": "fix",
+        "description": "resolve 9 frontend ESLint errors in ResearchTimeline and AIAssistantPanel"
       }
     ]
   },
