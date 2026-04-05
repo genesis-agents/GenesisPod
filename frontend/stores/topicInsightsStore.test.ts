@@ -8,8 +8,28 @@ import type {
   TopicReport,
 } from '@/types/topic-insights';
 
-// Mock the API module
-vi.mock('@/lib/api/topic-insights');
+// Mock the API module with explicit factory to ensure consistent behavior in CI
+vi.mock('@/lib/api/topic-insights', () => ({
+  getTopics: vi.fn(),
+  getTopic: vi.fn(),
+  createTopic: vi.fn(),
+  updateTopic: vi.fn(),
+  deleteTopic: vi.fn(),
+  getDimensions: vi.fn(),
+  addDimension: vi.fn(),
+  updateDimension: vi.fn(),
+  deleteDimension: vi.fn(),
+  getReports: vi.fn(),
+  getLatestReport: vi.fn(),
+  getReport: vi.fn(),
+  deleteReport: vi.fn(),
+  triggerRefresh: vi.fn(),
+  getRefreshStatus: vi.fn(),
+  cancelRefresh: vi.fn(),
+  createRefreshProgressStream: vi.fn(),
+  refreshDimension: vi.fn(),
+  reorderDimensions: vi.fn(),
+}));
 
 // Mock logger
 vi.mock('@/lib/utils/logger', () => ({
