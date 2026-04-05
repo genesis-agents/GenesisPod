@@ -62,6 +62,10 @@
       {
         "type": "fix",
         "description": "use forks pool in CI for Node 20 compatibility + fix 4 tests"
+      },
+      {
+        "type": "fix",
+        "description": "use importOriginal in topicInsightsStore mock to include all exports"
       }
     ]
   },
