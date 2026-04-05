@@ -52,7 +52,7 @@ jobs:
         run: npm run type-check:backend
 
       - name: Frontend ESLint
-        run: npx next lint --quiet
+        run: npx next lint --quiet 2>/dev/null || npx next lint
         working-directory: ./frontend
 
       - name: Frontend type check
