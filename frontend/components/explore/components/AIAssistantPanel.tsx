@@ -271,7 +271,7 @@ export default function AIAssistantPanel({
                   <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-red-600"></div>
                   <span className="text-sm text-gray-600">
                     {isStreaming
-                      ? `${(aiModels || []).find((m) => m.modelId === aiModel)?.name || aiModel} ${t('explore.aiPanel.thinking') || '正在思考...'}`
+                      ? `${String((aiModels || []).find((m) => m.modelId === aiModel)?.name || aiModel)} ${t('explore.aiPanel.thinking') || '正在思考...'}`
                       : t('explore.aiPanel.processing') || 'AI 处理中...'}
                   </span>
                 </div>

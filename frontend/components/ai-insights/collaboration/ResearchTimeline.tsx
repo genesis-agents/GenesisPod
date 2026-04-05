@@ -177,7 +177,7 @@ function ThinkingPhasesTimeline({
   phaseConfig,
 }: {
   activities: ExtendedAgentActivity[];
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
   formatDuration: (ms: number) => string;
   phaseConfig: Record<
     ThinkingPhase,
@@ -495,7 +495,7 @@ function ResearcherCard({
   dimensionName: string;
   activities: ExtendedAgentActivity[];
   citations: number;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
   formatDuration: (ms: number) => string;
   phaseConfig: Record<
     ThinkingPhase,
@@ -705,7 +705,7 @@ function LeaderPlanSection({
 }: {
   goal?: string;
   strategy?: string;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -760,7 +760,7 @@ function DimensionResultCard({
   t,
 }: {
   result: DimensionResult;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { dimensionName, result: dimResult, resultSummary } = result;
@@ -900,7 +900,7 @@ function DimensionProgressSection({
   dimensionActivities: Map<string, ExtendedAgentActivity[]>;
   dimensionsUpdated: string[];
   dimensionResults?: DimensionResult[];
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
   formatDuration: (ms: number) => string;
   phaseConfig: Record<
     ThinkingPhase,
@@ -999,7 +999,7 @@ function TeamInteractionSection({
   t,
 }: {
   messages: TeamMessage[];
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -1062,7 +1062,7 @@ function OutcomeSection({
   t,
 }: {
   history: ResearchHistoryItem;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const netChange = (history.wordsAdded || 0) - (history.wordsRemoved || 0);
   const dimensionsUpdated = Array.isArray(history.dimensionsUpdated)
@@ -1168,7 +1168,7 @@ function SessionCard({
   onSelect?: () => void;
   onCompare?: () => void;
   onViewReport?: (version: number) => void;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
   formatDuration: (ms: number) => string;
   phaseConfig: Record<
     ThinkingPhase,
