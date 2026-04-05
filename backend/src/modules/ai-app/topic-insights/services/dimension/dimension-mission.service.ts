@@ -87,6 +87,8 @@ import {
   type EstablishedFact,
   TokenBudgetService,
   PromptCacheCoordinatorService,
+  ExecutionCheckpointService,
+  SessionMemorySidecarService,
 } from "@/modules/ai-engine/facade";
 import { MissionObservabilityService } from "../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
@@ -179,6 +181,12 @@ export class DimensionMissionService {
     // ★ Phase 5: Prompt cache coordinator for cache prefix sharing across dimension agents
     @Optional()
     private readonly promptCacheCoordinator?: PromptCacheCoordinatorService,
+    // ★ Phase 4: Fine-grained checkpointing per section write
+    @Optional()
+    private readonly checkpoint?: ExecutionCheckpointService,
+    // ★ Phase 7: Session memory sidecar for preserving findings across compaction
+    @Optional()
+    private readonly sidecar?: SessionMemorySidecarService,
     // ★ Redis 分布式锁（multi-instance 安全；Redis 不可用时自动降级到内存锁）
     @Optional()
     @Inject(CACHE_MANAGER)
@@ -1509,6 +1517,43 @@ export class DimensionMissionService {
       );
 
       this.logger.log(`${logPrefix} Writing phase completed successfully`);
+
+      // ★ Phase 4: Checkpoint after writing phase
+      if (this.checkpoint && effectiveMissionId) {
+        this.checkpoint.save({
+          executionId: effectiveMissionId,
+          iteration: sectionResults.length,
+          messages: [],
+          toolResults: sectionResults.map((r) => ({
+            toolId: r.title ?? "section",
+            result: r.content?.slice(0, 200),
+          })),
+          tokenUsage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            totalTokens: 0,
+            callCount: sectionResults.length,
+          },
+          timestamp: new Date(),
+        });
+      }
+
+      // ★ Phase 7: Record dimension findings in sidecar
+      if (this.sidecar) {
+        const sidecarId = effectiveMissionId ?? dimension?.id ?? "unknown";
+        for (const sr of sectionResults) {
+          if (sr.content && sr.content.length > 100) {
+            this.sidecar.addEntry(sidecarId, {
+              timestamp: new Date(),
+              category: "finding",
+              content: (sr.title ?? "") + ": " + sr.content.slice(0, 200),
+              dimensionName: dimension?.name,
+            });
+          }
+        }
+      }
 
       // ★ 提取最后一个章节的实际模型ID
       const lastActualModel = sectionResults
