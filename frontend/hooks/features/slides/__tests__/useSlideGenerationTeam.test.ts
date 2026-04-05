@@ -800,7 +800,12 @@ describe('useSlideGenerationTeam', () => {
   // -----------------------------------------------------------------------
 
   it('handles AbortError without calling onError', async () => {
-    const abortError = new DOMException('aborted', 'AbortError');
+    // Use a plain Error with name='AbortError' so that `err instanceof Error`
+    // is true in all vitest pool environments (vmThreads and forks).
+    // DOMException does not extend Error in some Node.js / jsdom configurations.
+    const abortError = Object.assign(new Error('aborted'), {
+      name: 'AbortError',
+    });
     mockFetch.mockRejectedValueOnce(abortError);
 
     const { useSlideGenerationTeam } =

@@ -13,7 +13,9 @@ export default defineConfig({
     testTimeout: 10000,
     hookTimeout: 30000,
 
-    pool: 'vmThreads',
+    // vmThreads requires Node 22+ for consistent vm.Module behavior.
+    // CI runs Node 20, so use 'forks' there via --pool flag override.
+    pool: process.env.CI ? 'forks' : 'vmThreads',
 
     // 覆盖率配置
     coverage: {

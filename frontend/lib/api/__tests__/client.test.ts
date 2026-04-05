@@ -52,6 +52,28 @@ vi.mock('@/lib/utils/logger', () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Poll `assertion` every `intervalMs` until it passes or `timeoutMs` expires.
+ * Used instead of a fixed setTimeout so tests pass in both vmThreads and forks
+ * pool environments where microtask/timer scheduling differs.
+ */
+async function pollUntil(
+  assertion: () => void,
+  timeoutMs = 2000,
+  intervalMs = 10
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    try {
+      assertion();
+      return;
+    } catch (err) {
+      if (Date.now() >= deadline) throw err;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
+}
+
 function makeJsonResponse(
   body: unknown,
   status = 200,
@@ -482,12 +504,15 @@ describe('ApiClient', () => {
       // Catch the error immediately so it doesn't become an unhandled rejection
       const promise = apiClient
         .get('/slow', { timeout: 5000, retries: 0 })
-        .catch((e: Error) => e);
+        .catch((e: unknown) => e);
 
       await vi.advanceTimersByTimeAsync(5001);
 
       const result = await promise;
-      expect(result).toBeInstanceOf(Error);
+      // DOMException does not extend Error in all environments (e.g. forks pool).
+      // Assert by name/message which works regardless of prototype chain.
+      expect(result).toBeTruthy();
+      expect((result as { name: string }).name).toBe('AbortError');
 
       vi.useRealTimers();
     });
@@ -758,12 +783,13 @@ describe('ApiClient', () => {
 
       await apiClient.postSSEStream('/stream', {}, { onComplete });
 
-      // Give the async stream processing a tick to complete
-      await new Promise((r) => setTimeout(r, 20));
-
-      expect(onComplete).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'complete' })
-      );
+      // Wait for the fire-and-forget processStream() to invoke the callback.
+      // Poll instead of a fixed delay so the test works in both vmThreads and forks.
+      await pollUntil(() => {
+        expect(onComplete).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'complete' })
+        );
+      });
     });
 
     it('should parse progress events from SSE stream', async () => {
@@ -775,11 +801,13 @@ describe('ApiClient', () => {
 
       await apiClient.postSSEStream('/stream', {}, { onProgress });
 
-      await new Promise((r) => setTimeout(r, 20));
-
-      expect(onProgress).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'progress', progress: 10 })
-      );
+      // Wait for the fire-and-forget processStream() to invoke the callback.
+      // Poll instead of a fixed delay so the test works in both vmThreads and forks.
+      await pollUntil(() => {
+        expect(onProgress).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'progress', progress: 10 })
+        );
+      });
     });
   });
 });
