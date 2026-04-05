@@ -13,7 +13,6 @@ export default defineConfig({
     testTimeout: 10000,
     hookTimeout: 30000,
 
-    // 禁用 pool 以避免启动超时问题
     pool: 'vmThreads',
 
     // 覆盖率配置

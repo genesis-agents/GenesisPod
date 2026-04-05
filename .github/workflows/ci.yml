@@ -130,7 +130,7 @@ jobs:
         run: npm install @rollup/rollup-linux-x64-gnu --no-save || true
 
       - name: Run tests
-        run: npm run test:ci -- --coverage
+        run: npm run test:ci -- --coverage --no-isolate
         working-directory: ./frontend
 
       - name: Upload coverage
