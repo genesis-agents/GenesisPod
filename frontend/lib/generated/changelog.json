@@ -66,6 +66,14 @@
       {
         "type": "fix",
         "description": "use importOriginal in topicInsightsStore mock to include all exports"
+      },
+      {
+        "type": "fix",
+        "description": "install sharp for backend tests (same npm optional dep bug)"
+      },
+      {
+        "type": "fix",
+        "description": "install sharp for backend tests (same npm optional dep bug) ([40816d3](https://github.com/your-org/ai-teams-engine/commit/40816d37bc285ed5f3bc58e9528c1ddd852e9bf3)), closes [#4828](https://github.com/your-org/ai-teams-engine/issues/4828)"
       }
     ]
   },
