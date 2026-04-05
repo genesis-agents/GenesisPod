@@ -54,6 +54,10 @@
       {
         "type": "fix",
         "description": "resolve 9 frontend ESLint errors in ResearchTimeline and AIAssistantPanel"
+      },
+      {
+        "type": "fix",
+        "description": "use --no-isolate for frontend tests to match local behavior"
       }
     ]
   },
