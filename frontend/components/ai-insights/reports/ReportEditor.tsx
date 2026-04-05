@@ -640,38 +640,39 @@ function ReportEditorInner({
       );
     }
 
-    // ★ Priority 1: Prefer dimensionAnalyses.detailedContent when available
-    // detailedContent preserves correct LaTeX formatting ($...$) from the original
-    // dimension research output, while fullReport may have LaTeX corrupted by LLM
-    // synthesis (e.g., $B_{\text{dtype}}$ → B_{\text{dtype}$$}).
-    // This ensures continuous view matches chapter view's rendering quality.
+    // ★ Priority 1: Use fullReport when valid and complete (preserves chart placeholders)
+    // LaTeX issues in fullReport are handled by preprocessLatex() above (line 633).
+    // fullReport contains <!-- chart:xxx --> placeholders essential for image rendering.
+    const expectedDimCount = report.dimensionAnalyses?.length || 0;
+    const actualH2Count = (resolvedFullReport?.match(/^## /gm) || []).length;
+    const hasChartPlaceholders =
+      resolvedFullReport?.includes('<!-- chart:') || false;
+    const isFullReportComplete =
+      expectedDimCount <= 1 ||
+      actualH2Count >= expectedDimCount ||
+      hasChartPlaceholders;
+
+    if (
+      resolvedFullReport &&
+      resolvedFullReport.trim().length > 100 &&
+      isFullReportComplete
+    ) {
+      const looksLikeMarkdown =
+        resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
+      if (hasChartPlaceholders || looksLikeMarkdown) {
+        const stripped = resolvedFullReport.replace(
+          /\n*---\n*\n*##\s*(?:参考文献|References)\n[\s\S]*$/,
+          ''
+        );
+        return stripProseBullets(stripped);
+      }
+    }
+
+    // ★ Priority 1.5: Rebuild from dimensionAnalyses (fallback when fullReport missing/incomplete)
     const hasDimensionContent =
       report.dimensionAnalyses &&
       report.dimensionAnalyses.length > 0 &&
       report.dimensionAnalyses.some((da) => da.detailedContent);
-
-    // ★ Priority 1.5 fallback: Use fullReport only when detailedContent is unavailable
-    if (!hasDimensionContent && resolvedFullReport) {
-      const expectedDimCount = report.dimensionAnalyses?.length || 0;
-      const actualH2Count = (resolvedFullReport.match(/^## /gm) || []).length;
-      const hasChartPlaceholders = resolvedFullReport.includes('<!-- chart:');
-      const isFullReportComplete =
-        expectedDimCount <= 1 ||
-        actualH2Count >= expectedDimCount ||
-        hasChartPlaceholders;
-
-      if (resolvedFullReport.trim().length > 100 && isFullReportComplete) {
-        const looksLikeMarkdown =
-          resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
-        if (hasChartPlaceholders || looksLikeMarkdown) {
-          const stripped = resolvedFullReport.replace(
-            /\n*---\n*\n*##\s*(?:参考文献|References)\n[\s\S]*$/,
-            ''
-          );
-          return stripProseBullets(stripped);
-        }
-      }
-    }
 
     if (hasDimensionContent) {
       const parts: string[] = [];
