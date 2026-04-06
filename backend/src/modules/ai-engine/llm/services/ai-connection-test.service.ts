@@ -143,10 +143,15 @@ export class AiConnectionTestService {
         case "openai":
         case "gpt": {
           const effectiveOpenAIModel = modelId || "";
-          const isReasoningModel = this.inferIsReasoning(effectiveOpenAIModel);
-          const openAITokenParamName = isReasoningModel
-            ? "max_completion_tokens"
-            : "max_tokens";
+          // ★ Read tokenParamName from DB config first, fallback to reasoning inference
+          const dbConfig = await this.modelConfigService?.getModelConfig(
+            effectiveOpenAIModel,
+          );
+          const openAITokenParamName =
+            dbConfig?.tokenParamName ||
+            (this.inferIsReasoning(effectiveOpenAIModel)
+              ? "max_completion_tokens"
+              : "max_tokens");
           const openAITokenParam = { [openAITokenParamName]: 50 };
 
           response = await firstValueFrom(
