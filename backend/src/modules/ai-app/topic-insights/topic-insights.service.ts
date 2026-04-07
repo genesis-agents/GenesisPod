@@ -516,28 +516,53 @@ export class TopicInsightsService {
   /**
    * ★ v5: 获取报告质量追踪数据
    */
-  async getReportQualityTrace(reportId: string) {
+  async getReportQualityTrace(
+    userId: string,
+    topicId: string,
+    reportId: string,
+  ) {
+    await this.verifyTopicReadAccess(userId, topicId);
+    await this.verifyReportBelongsToTopic(reportId, topicId);
     return this.qualityTraceService.getQualityTrace(reportId);
   }
 
   /**
    * ★ v5: 获取报告质量概览
    */
-  async getReportQualitySummary(reportId: string) {
+  async getReportQualitySummary(
+    userId: string,
+    topicId: string,
+    reportId: string,
+  ) {
+    await this.verifyTopicReadAccess(userId, topicId);
+    await this.verifyReportBelongsToTopic(reportId, topicId);
     return this.qualityTraceService.getQualitySummary(reportId);
   }
 
   /**
    * ★ v5.1: 获取报告质量缺陷详情（按需扫描）
    */
-  async getReportQualityDetails(reportId: string, rule?: string) {
+  async getReportQualityDetails(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    rule?: string,
+  ) {
+    await this.verifyTopicReadAccess(userId, topicId);
+    await this.verifyReportBelongsToTopic(reportId, topicId);
     return this.qualityTraceService.getQualityDetails(reportId, rule);
   }
 
   /**
    * ★ 重新计算证据可信度评分
    */
-  async recalculateEvidenceCredibility(reportId: string) {
+  async recalculateEvidenceCredibility(
+    userId: string,
+    topicId: string,
+    reportId: string,
+  ) {
+    await this.verifyTopicReadAccess(userId, topicId);
+    await this.verifyReportBelongsToTopic(reportId, topicId);
     return this.evidenceService.recalculateCredibilityScores(reportId);
   }
 
@@ -1444,12 +1469,32 @@ export class TopicInsightsService {
     }
   }
 
+  /**
+   * 验证报告属于指定专题
+   */
+  private async verifyReportBelongsToTopic(
+    reportId: string,
+    topicId: string,
+  ): Promise<void> {
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      select: { topicId: true },
+    });
+
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+  }
+
   // ==================== Compute Usage ====================
 
   /**
    * 获取专题算力消耗数据
    */
-  async getComputeUsage(topicId: string): Promise<{
+  async getComputeUsage(
+    userId: string,
+    topicId: string,
+  ): Promise<{
     summary: {
       totalTokens: number;
       inputTokens: number;
@@ -1500,6 +1545,8 @@ export class TopicInsightsService {
       completedTasks: number;
     } | null;
   }> {
+    await this.verifyTopicReadAccess(userId, topicId);
+
     this.logger.log(`[getComputeUsage] topicId=${topicId}`);
 
     // 1. 获取最新报告的 totalTokens / generationTimeMs / totalDimensions

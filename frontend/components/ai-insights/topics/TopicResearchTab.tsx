@@ -157,6 +157,10 @@ export function TopicResearchTab({
   const isLoadingMoreRef = useRef(isLoadingMoreTopics);
   isLoadingMoreRef.current = isLoadingMoreTopics;
 
+  // Track whether sentinel should be in the DOM so the effect re-runs
+  // when topics finish loading and the sentinel element appears.
+  const sentinelVisible = !isLoadingTopics && topicsList.length > 0;
+
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -193,7 +197,7 @@ export function TopicResearchTab({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [loadMoreTopics]);
+  }, [loadMoreTopics, sentinelVisible]);
 
   // ★ 点击专题卡片 - 导航到独立路由
   const handleTopicClick = useCallback(

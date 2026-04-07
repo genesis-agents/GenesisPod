@@ -536,8 +536,20 @@ export class ReportController {
   @ApiParam({ name: "topicId", description: "专题ID" })
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "质量追踪数据" })
-  async getQualityTrace(@Param("reportId") reportId: string) {
-    return this.topicResearchService.getReportQualityTrace(reportId);
+  async getQualityTrace(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getReportQualityTrace(
+      userId,
+      topicId,
+      reportId,
+    );
   }
 
   /**
@@ -552,8 +564,20 @@ export class ReportController {
   @ApiParam({ name: "topicId", description: "专题ID" })
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "质量概览" })
-  async getQualitySummary(@Param("reportId") reportId: string) {
-    return this.topicResearchService.getReportQualitySummary(reportId);
+  async getQualitySummary(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getReportQualitySummary(
+      userId,
+      topicId,
+      reportId,
+    );
   }
 
   /**
@@ -569,10 +593,21 @@ export class ReportController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "缺陷详情" })
   async getQualityDetails(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Query("rule") rule?: string,
   ) {
-    return this.topicResearchService.getReportQualityDetails(reportId, rule);
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getReportQualityDetails(
+      userId,
+      topicId,
+      reportId,
+      rule,
+    );
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -648,13 +683,17 @@ export class ReportController {
   @ApiResponse({ status: 200, description: "返回更新统计" })
   async recalculateEvidenceCredibility(
     @Request() req: RequestWithUser,
-    @Param("topicId") _topicId: string,
+    @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
   ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.topicResearchService.recalculateEvidenceCredibility(reportId);
+    return this.topicResearchService.recalculateEvidenceCredibility(
+      userId,
+      topicId,
+      reportId,
+    );
   }
 }

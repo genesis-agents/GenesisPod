@@ -647,7 +647,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.topicResearchService.getComputeUsage(topicId);
+    return this.topicResearchService.getComputeUsage(userId, topicId);
   }
 
   // ==================== Stats ====================

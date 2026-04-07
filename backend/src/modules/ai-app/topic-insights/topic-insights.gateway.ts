@@ -428,11 +428,11 @@ export class TopicInsightsGateway
       return { success: false, error: "Rate limit exceeded" };
     }
 
-    // ★ Security: 验证 topic 访问权限
+    // ★ Security: 验证 topic 访问权限（所有者 + 协作者 + 公开专题）
     try {
       const topic = await this.prisma.researchTopic.findUnique({
         where: { id: data.topicId },
-        select: { id: true, userId: true },
+        select: { id: true, userId: true, visibility: true },
       });
 
       if (!topic) {
@@ -440,12 +440,25 @@ export class TopicInsightsGateway
         return { success: false, error: "Topic not found" };
       }
 
-      // ★ Security: 检查用户是否是 topic 所有者
+      // 检查访问权限：所有者 / 公开专题 / 活跃协作者
       if (topic.userId !== user.id) {
-        this.logger.warn(
-          `User ${user.id} tried to access topic ${data.topicId} owned by ${topic.userId}`,
-        );
-        return { success: false, error: "Access denied" };
+        const isPublic = topic.visibility === "PUBLIC";
+        const isCollaborator =
+          topic.visibility === "SHARED" &&
+          (await this.prisma.topicCollaborator.count({
+            where: {
+              topicId: data.topicId,
+              userId: user.id,
+              isActive: true,
+            },
+          })) > 0;
+
+        if (!isPublic && !isCollaborator) {
+          this.logger.warn(
+            `User ${user.id} tried to access topic ${data.topicId} owned by ${topic.userId}`,
+          );
+          return { success: false, error: "Access denied" };
+        }
       }
 
       const roomName = `research:${data.topicId}`;
@@ -555,19 +568,37 @@ export class TopicInsightsGateway
     );
 
     try {
-      // ★ Security: 验证 topic 访问权限
+      // ★ Security: 验证 topic 访问权限（所有者 + 协作者 + 公开专题）
       const topic = await this.prisma.researchTopic.findUnique({
         where: { id: topicId },
-        select: { userId: true },
+        select: { userId: true, visibility: true },
       });
 
-      if (!topic || topic.userId !== user.id) {
+      if (!topic) {
         return {
           success: false,
           needsRecovery: false,
           currentState: null,
           error: "Access denied",
         };
+      }
+
+      if (topic.userId !== user.id) {
+        const isPublic = topic.visibility === "PUBLIC";
+        const isCollaborator =
+          topic.visibility === "SHARED" &&
+          (await this.prisma.topicCollaborator.count({
+            where: { topicId, userId: user.id, isActive: true },
+          })) > 0;
+
+        if (!isPublic && !isCollaborator) {
+          return {
+            success: false,
+            needsRecovery: false,
+            currentState: null,
+            error: "Access denied",
+          };
+        }
       }
 
       // 1. 查询当前 Mission 状态
