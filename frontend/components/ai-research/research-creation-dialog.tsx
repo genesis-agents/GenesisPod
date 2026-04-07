@@ -24,7 +24,7 @@ interface ResearchCreationDialogProps {
   language: string;
 }
 
-const DEFAULT_OPTIONS: ResearchCreationOptions = {
+export const DEFAULT_OPTIONS: ResearchCreationOptions = {
   mode: 'single',
   depth: 'standard',
   language: 'zh-CN',

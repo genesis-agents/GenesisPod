@@ -38,6 +38,7 @@ import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import { useDiscussionResearch } from '@/hooks';
 import { useResearchIdeas } from '@/hooks/features/useResearchIdeas';
 import { useResearchDemos } from '@/hooks/features/useResearchDemos';
@@ -143,6 +144,7 @@ export function ResearchProjectLayout({
     stop: stopIterative,
     isActive: isIterating,
     sendFeedback,
+    extendFeedback,
   } = useIterativeResearch(projectId, {
     onComplete: ({ report, sessionId }) => {
       const newSession: ResearchSession = {
@@ -160,7 +162,11 @@ export function ResearchProjectLayout({
       };
       setSessions((prev) => [newSession, ...prev]);
       setViewingSession(newSession);
-      setActiveTab('report');
+      setTabBadges((prev) => ({ ...prev, report: true }));
+      toast.success(
+        t('aiResearch.researchComplete') || '研究完成',
+        t('aiResearch.researchCompleteDesc') || '报告已生成，点击报告 Tab 查看'
+      );
       // Reload sessions to get the full data, then update viewingSession with server data
       void reloadSessions().then((reloaded) => {
         if (reloaded) {
@@ -171,9 +177,25 @@ export function ResearchProjectLayout({
         }
       });
       // Auto-extract insights and creative ideas from the completed session
+      setIsExtractingInsights(true);
+      setIsExtractingIdeas(true);
+      setTabBadges((prev) => ({ ...prev, insights: true, ideas: true }));
       void extractInsights(sessionId)
-        .then(() => extractCreativeIdeas())
-        .catch((err) => logger.error('Auto-extract failed:', err));
+        .then(() => {
+          setIsExtractingInsights(false);
+          return extractCreativeIdeas();
+        })
+        .then(() => setIsExtractingIdeas(false))
+        .catch((err) => {
+          logger.error('Auto-extract failed:', err);
+          setIsExtractingInsights(false);
+          setIsExtractingIdeas(false);
+          toast.error(
+            t('aiResearch.extractFailed') || '提取失败',
+            t('aiResearch.extractFailedDesc') ||
+              '自动提取观点失败，可在观点 Tab 手动重试'
+          );
+        });
     },
     onError: (error) => {
       logger.error('Iterative Research error:', error);
@@ -271,6 +293,7 @@ export function ResearchProjectLayout({
     state: discussionState,
     startResearch,
     stop,
+    skipPhase,
     isActive: isSearching,
   } = useDiscussionResearch(projectId, {
     onComplete: ({ report, sessionId, messages, directions }) => {
@@ -308,11 +331,31 @@ export function ResearchProjectLayout({
       };
       setSessions((prev) => [newSession, ...prev]);
       setViewingSession(newSession);
-      setActiveTab('report');
+      setTabBadges((prev) => ({ ...prev, report: true }));
+      toast.success(
+        t('aiResearch.researchComplete') || '研究完成',
+        t('aiResearch.researchCompleteDesc') || '报告已生成，点击报告 Tab 查看'
+      );
       // Auto-extract insights and creative ideas from the completed session
+      setIsExtractingInsights(true);
+      setIsExtractingIdeas(true);
+      setTabBadges((prev) => ({ ...prev, insights: true, ideas: true }));
       void extractInsights(sessionId)
-        .then(() => extractCreativeIdeas())
-        .catch((err) => logger.error('Auto-extract failed:', err));
+        .then(() => {
+          setIsExtractingInsights(false);
+          return extractCreativeIdeas();
+        })
+        .then(() => setIsExtractingIdeas(false))
+        .catch((err) => {
+          logger.error('Auto-extract failed:', err);
+          setIsExtractingInsights(false);
+          setIsExtractingIdeas(false);
+          toast.error(
+            t('aiResearch.extractFailed') || '提取失败',
+            t('aiResearch.extractFailedDesc') ||
+              '自动提取观点失败，可在观点 Tab 手动重试'
+          );
+        });
     },
     onError: (error) => {
       logger.error('Discussion Research error:', error);
@@ -677,7 +720,10 @@ export function ResearchProjectLayout({
     return map;
   }, [creativeIdeas, insights]);
 
-  // Tab definitions
+  // Tab definitions with conditional visibility
+  const showIterationsTab =
+    isIterating || sessions.some((s) => s.mode === 'iterative');
+
   const TABS: TabDefinition[] = [
     {
       key: 'discussion',
@@ -699,11 +745,15 @@ export function ResearchProjectLayout({
       label: t('aiResearch.tabs.demos') || '演示',
       icon: Play,
     },
-    {
-      key: 'iterations',
-      label: t('aiResearch.tabs.iterations') || '迭代',
-      icon: RefreshCw,
-    },
+    ...(showIterationsTab
+      ? [
+          {
+            key: 'iterations' as TabKey,
+            label: t('aiResearch.tabs.iterations') || '迭代',
+            icon: RefreshCw,
+          },
+        ]
+      : []),
     {
       key: 'report',
       label: t('aiResearch.tabs.report') || '报告',
@@ -933,7 +983,10 @@ export function ResearchProjectLayout({
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
                   )}
                   {tabBadges[tab.key] && !isActive && (
-                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
+                    <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                    </span>
                   )}
                 </button>
               );
@@ -958,16 +1011,22 @@ export function ResearchProjectLayout({
                     isSearching={isSearching || isIterating}
                     isIterating={isIterating}
                     onSendFeedback={sendFeedback}
+                    onExtendFeedback={extendFeedback}
+                    onSkipPhase={skipPhase}
                     awaitingFeedback={
                       isIterating ? iterativeState.awaitingFeedback : null
                     }
                     sessions={sessions}
                     onStartResearch={handleStartResearch}
                     onStop={isIterating ? stopIterative : stop}
+                    onRetry={() => handleStartResearch(query || projectName)}
                     onViewSession={handleViewSession}
                     onDeleteSession={handleDeleteSession}
                     viewingSession={viewingSession}
                     onBackToList={handleBackToList}
+                    activeSessionId={
+                      currentSessionId || backgroundResearchSession?.id || null
+                    }
                     className="h-full"
                   />
                 )}
@@ -1153,6 +1212,7 @@ export function ResearchProjectLayout({
                         report={currentReport || null}
                         projectId={projectId}
                         sessionId={currentSessionId}
+                        onNavigateToTab={(tab) => handleTabClick(tab as TabKey)}
                       />
                     </div>
                   </div>

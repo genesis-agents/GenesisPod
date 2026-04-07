@@ -115,6 +115,7 @@ export interface UseDiscussionResearchResult {
   ) => Promise<void>;
   stop: () => void;
   reset: () => void;
+  skipPhase: () => Promise<void>;
   isActive: boolean;
 }
 
@@ -444,6 +445,20 @@ export function useDiscussionResearch(
     setState(initialState);
   }, [cleanup]);
 
+  const skipPhase = useCallback(async () => {
+    try {
+      await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/skip-phase`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        }
+      );
+    } catch (err) {
+      logger.error('Failed to skip phase:', err);
+    }
+  }, [projectId]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount
   useEffect(() => {
     return () => {
@@ -459,6 +474,7 @@ export function useDiscussionResearch(
     startResearch,
     stop,
     reset,
+    skipPhase,
     isActive:
       state.phase !== 'idle' &&
       state.phase !== 'completed' &&

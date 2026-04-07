@@ -130,6 +130,7 @@ export function useIterativeResearch(
   reset: () => void;
   isActive: boolean;
   sendFeedback: (text: string) => Promise<void>;
+  extendFeedback: (additionalMs?: number) => Promise<boolean>;
 } {
   const [state, setState] = useState<IterativeResearchState>(
     initialIterativeState
@@ -824,6 +825,30 @@ export function useIterativeResearch(
     [projectId]
   );
 
+  const extendFeedback = useCallback(
+    async (additionalMs = 120_000) => {
+      try {
+        const res = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/extend-feedback`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ additionalMs }),
+          }
+        );
+        if (res.ok) {
+          const result = await res.json();
+          return result?.extended ?? false;
+        }
+        return false;
+      } catch (err) {
+        logger.error('Failed to extend feedback timeout:', err);
+        return false;
+      }
+    },
+    [projectId]
+  );
+
   const stop = useCallback(() => {
     cleanup();
     setState((prev) => {
@@ -877,6 +902,7 @@ export function useIterativeResearch(
       discussionPhase !== 'completed' &&
       discussionPhase !== 'error',
     sendFeedback,
+    extendFeedback,
   };
 }
 

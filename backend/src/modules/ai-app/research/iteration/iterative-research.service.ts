@@ -101,4 +101,11 @@ export class IterativeResearchService {
   submitFeedback(projectId: string, feedback: string): boolean {
     return this.feedbackService.submitFeedback(projectId, feedback);
   }
+
+  /**
+   * Extends the current feedback timeout by additionalMs.
+   */
+  extendFeedbackTimeout(projectId: string, additionalMs: number): boolean {
+    return this.feedbackService.extendTimeout(projectId, additionalMs);
+  }
 }

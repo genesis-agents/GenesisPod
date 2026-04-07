@@ -202,4 +202,12 @@ export class DiscussionOrchestratorService {
   async deleteSessions(sessionIds: string[]) {
     return this.sessionService.deleteSessions(sessionIds);
   }
+
+  /**
+   * Request to skip the current research phase.
+   * The coordinator checks this flag at natural boundaries between LLM calls.
+   */
+  requestSkipPhase(projectId: string): boolean {
+    return this.coordinator.requestSkipPhase(projectId);
+  }
 }

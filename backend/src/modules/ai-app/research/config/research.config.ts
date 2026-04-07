@@ -27,7 +27,9 @@ export const ITERATION_CONFIG = {
    *  oldest items are evicted when the cap is reached to prevent OOM on long runs */
   MAX_ACCUMULATED_IDEAS: 30,
   /** How long (ms) to wait for user feedback between iterations before auto-continuing */
-  FEEDBACK_TIMEOUT_MS: 30_000,
+  FEEDBACK_TIMEOUT_MS: 120_000,
+  /** Maximum allowed feedback timeout (cap for user-provided values) */
+  MAX_FEEDBACK_TIMEOUT_MS: 600_000,
 } as const;
 
 // ---------------------------------------------------------------------------

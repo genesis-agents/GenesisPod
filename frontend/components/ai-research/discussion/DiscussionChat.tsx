@@ -22,15 +22,21 @@ import {
   Send,
   StopCircle,
   Timer,
+  Settings,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { DiscussionResearchState } from '@/hooks';
-import { ResearchCreationDialog } from '../research-creation-dialog';
-import type { ResearchCreationOptions } from '../research-creation-dialog';
+import {
+  DEFAULT_OPTIONS,
+  type ResearchCreationOptions,
+} from '../research-creation-dialog';
+import { ResearchOptionsBar } from './ResearchOptionsBar';
 import { PhaseIndicator } from './PhaseIndicator';
 import { ChatMessage } from './ChatMessage';
 import { PhaseTransition } from './PhaseTransition';
 import ClientDate from '@/components/common/ClientDate';
+import { getFriendlyError } from './errorMessages';
 import type { ResearchSession } from '../types';
 
 // ==================== Types ====================
@@ -47,13 +53,17 @@ interface DiscussionChatProps {
   viewingSession: ResearchSession | null;
   onBackToList: () => void;
   isIterating?: boolean;
+  onRetry?: () => void;
   onSendFeedback?: (feedback: string) => Promise<void> | void;
+  onExtendFeedback?: (additionalMs?: number) => Promise<boolean>;
+  onSkipPhase?: () => Promise<void>;
   awaitingFeedback?: {
     round: number;
     score: number;
     gaps: { dataGaps: string[]; ideaGaps: string[] };
     timeoutMs: number;
   } | null;
+  activeSessionId?: string | null;
   className?: string;
 }
 
@@ -71,8 +81,12 @@ export function DiscussionChat({
   viewingSession,
   onBackToList,
   isIterating,
+  onRetry,
   onSendFeedback,
+  onExtendFeedback,
+  onSkipPhase,
   awaitingFeedback,
+  activeSessionId,
   className,
 }: DiscussionChatProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -81,7 +95,26 @@ export function DiscussionChat({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [feedbackInput, setFeedbackInput] = useState('');
   const [countdown, setCountdown] = useState(0);
-  const [showCreationDialog, setShowCreationDialog] = useState(false);
+  const [dismissedError, setDismissedError] = useState(false);
+  const [researchOptions, setResearchOptions] =
+    useState<ResearchCreationOptions>(DEFAULT_OPTIONS);
+  const [showOptions, setShowOptions] = useState(false);
+  // Note: ref resets on tab-switch remount, so the summary bar disappears
+  // when switching away from the discussion tab. This is acceptable since
+  // the info is also visible in the report's metadata header.
+  const lastSearchProgressRef = useRef(state.searchProgress);
+
+  // Capture final search progress for summary display
+  useEffect(() => {
+    if (state.searchProgress) {
+      lastSearchProgressRef.current = state.searchProgress;
+    }
+  }, [state.searchProgress]);
+
+  // Reset dismissed state when a new error appears
+  useEffect(() => {
+    if (state.error) setDismissedError(false);
+  }, [state.error]);
 
   useEffect(() => {
     if (!awaitingFeedback) {
@@ -118,16 +151,9 @@ export function DiscussionChat({
   const handleSubmit = useCallback(() => {
     const trimmed = searchInput.trim();
     if (!trimmed || isSearching) return;
-    setShowCreationDialog(true);
-  }, [searchInput, isSearching]);
-
-  const handleDialogStart = useCallback(
-    (q: string, options: ResearchCreationOptions) => {
-      setSearchInput('');
-      onStartResearch(q, options);
-    },
-    [onStartResearch]
-  );
+    setSearchInput('');
+    onStartResearch(trimmed, researchOptions);
+  }, [searchInput, isSearching, researchOptions, onStartResearch]);
 
   const handleSendFeedback = useCallback(() => {
     const trimmed = feedbackInput.trim();
@@ -165,24 +191,45 @@ export function DiscussionChat({
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
                 placeholder="输入研究问题，开始多 Agent 讨论..."
-                className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-24 text-sm text-gray-900 placeholder-gray-500 transition-colors focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+                className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-32 text-sm text-gray-900 placeholder-gray-500 transition-colors focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
               />
-              <button
-                onClick={handleSubmit}
-                disabled={!searchInput.trim() || isSearching}
-                className={cn(
-                  'absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                  searchInput.trim() && !isSearching
-                    ? 'bg-purple-600 text-white hover:bg-purple-700'
-                    : 'cursor-not-allowed bg-gray-100 text-gray-400'
-                )}
-              >
-                <Sparkles className="h-4 w-4" />
-                研究
-              </button>
+              <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                <button
+                  onClick={() => setShowOptions((p) => !p)}
+                  className={cn(
+                    'flex items-center justify-center rounded-lg p-2 text-sm transition-all',
+                    showOptions
+                      ? 'bg-purple-100 text-purple-600'
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                  )}
+                  title="研究选项"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!searchInput.trim() || isSearching}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all',
+                    searchInput.trim() && !isSearching
+                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      : 'cursor-not-allowed bg-gray-100 text-gray-400'
+                  )}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  研究
+                </button>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Research Options (inline, replaces modal) */}
+        <ResearchOptionsBar
+          options={researchOptions}
+          onOptionsChange={setResearchOptions}
+          visible={showOptions}
+        />
 
         {/* Session History */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -258,22 +305,18 @@ export function DiscussionChat({
                                 ? 'bg-green-100 text-green-700'
                                 : session.status === 'FAILED'
                                   ? 'bg-red-100 text-red-700'
-                                  : Date.now() -
-                                        new Date(session.createdAt).getTime() >
-                                      5 * 60 * 1000
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-blue-100 text-blue-700'
+                                  : session.id === activeSessionId
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-amber-100 text-amber-700'
                             )}
                           >
                             {session.status === 'COMPLETED'
                               ? '已完成'
                               : session.status === 'FAILED'
                                 ? '失败'
-                                : Date.now() -
-                                      new Date(session.createdAt).getTime() >
-                                    5 * 60 * 1000
-                                  ? '已中断'
-                                  : '进行中'}
+                                : session.id === activeSessionId
+                                  ? '进行中'
+                                  : '已中断'}
                           </span>
                           <ClientDate
                             date={session.createdAt}
@@ -302,14 +345,6 @@ export function DiscussionChat({
             )}
           </div>
         </div>
-        <ResearchCreationDialog
-          open={showCreationDialog}
-          onClose={() => setShowCreationDialog(false)}
-          query={searchInput}
-          onQueryChange={setSearchInput}
-          onStart={handleDialogStart}
-          language="zh-CN"
-        />
       </div>
     );
   }
@@ -393,7 +428,7 @@ export function DiscussionChat({
   return (
     <div className={cn('flex h-full flex-col overflow-hidden', className)}>
       {/* Phase Indicator - top bar (flex-shrink-0 keeps it fixed) */}
-      <PhaseIndicator currentPhase={state.phase} />
+      <PhaseIndicator currentPhase={state.phase} onSkipPhase={onSkipPhase} />
 
       {/* Search Progress Bar */}
       {state.phase === 'execution' && state.searchProgress && (
@@ -420,6 +455,21 @@ export function DiscussionChat({
           </div>
         </div>
       )}
+
+      {/* Search Complete Summary (shows only during findings/synthesis of active research) */}
+      {(state.phase === 'findings' || state.phase === 'synthesis') &&
+        lastSearchProgressRef.current &&
+        lastSearchProgressRef.current.totalRounds > 0 && (
+          <div className="flex-shrink-0 border-b border-green-200 bg-green-50 px-6 py-2">
+            <div className="flex items-center gap-2 text-xs text-green-700">
+              <Check className="h-3.5 w-3.5" />
+              <span>
+                已搜索 {lastSearchProgressRef.current.resultsCount} 个来源，共{' '}
+                {lastSearchProgressRef.current.totalRounds} 轮
+              </span>
+            </div>
+          </div>
+        )}
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4" onScroll={handleScroll}>
@@ -457,20 +507,43 @@ export function DiscussionChat({
       </div>
 
       {/* Error Banner */}
-      {state.error && (
-        <div className="border-t border-red-200 bg-red-50 px-6 py-3">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
-            <p className="flex-1 text-sm text-red-800">{state.error}</p>
-            <button
-              onClick={onStop}
-              className="flex-shrink-0 rounded p-1 transition-colors hover:bg-red-100"
-            >
-              <X className="h-4 w-4 text-red-600" />
-            </button>
-          </div>
-        </div>
-      )}
+      {state.error &&
+        !dismissedError &&
+        (() => {
+          const friendly = getFriendlyError(state.error);
+          return (
+            <div className="border-t border-red-200 bg-red-50 px-6 py-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-red-800">
+                    {friendly.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-red-600">
+                    {friendly.description}
+                  </p>
+                </div>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  {friendly.retryable && onRetry && (
+                    <button
+                      onClick={onRetry}
+                      className="flex items-center gap-1 rounded-md bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      重试
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setDismissedError(true)}
+                    className="rounded p-1 transition-colors hover:bg-red-100"
+                  >
+                    <X className="h-4 w-4 text-red-600" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* Iteration Evaluation Card */}
       {awaitingFeedback && (
@@ -494,11 +567,38 @@ export function DiscussionChat({
                   {awaitingFeedback.score.toFixed(1)}/100
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <Timer className="h-3.5 w-3.5" />
-                <span>
-                  {countdown > 0 ? `${countdown}s 后自动继续` : '自动继续中...'}
-                </span>
+              <div className="flex items-center gap-2">
+                {onExtendFeedback && countdown > 0 && (
+                  <button
+                    onClick={() => {
+                      void onExtendFeedback(120_000);
+                      setCountdown(120);
+                    }}
+                    className="flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2 py-0.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50"
+                  >
+                    <Timer className="h-3 w-3" />
+                    需要更多时间
+                  </button>
+                )}
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Timer className="h-3.5 w-3.5" />
+                  <span
+                    className={cn(
+                      countdown > 0 &&
+                        countdown <= 10 &&
+                        'animate-pulse font-bold text-red-500'
+                    )}
+                  >
+                    {countdown > 0 ? (
+                      `${countdown}s 后自动继续`
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        自动继续中...
+                      </span>
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
             {/* Gaps */}
@@ -542,48 +642,64 @@ export function DiscussionChat({
         </div>
       )}
 
-      {/* Feedback Input Bar */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-3">
-        <div className="mx-auto max-w-3xl">
-          {isIterating && (
+      {/* Bottom Bar: Feedback Input (iterative) or Status Bar (single) */}
+      {isIterating ? (
+        <div className="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-3">
+          <div className="mx-auto max-w-3xl">
             <p className="mb-2 text-xs text-purple-600">
               {awaitingFeedback
                 ? '输入反馈以引导下一轮研究方向，或等待自动继续'
                 : '迭代研究进行中 — 输入内容将影响下一轮研究方向'}
             </p>
-          )}
-          <div className="flex items-center gap-3">
-            <input
-              type="text"
-              value={feedbackInput}
-              onChange={(e) => setFeedbackInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendFeedback()}
-              placeholder="输入你的想法或研究方向建议..."
-              className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
-            />
-            <button
-              onClick={handleSendFeedback}
-              disabled={!feedbackInput.trim()}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                feedbackInput.trim()
-                  ? 'bg-purple-600 text-white hover:bg-purple-700'
-                  : 'cursor-not-allowed bg-gray-100 text-gray-400'
-              )}
-            >
-              <Send className="h-4 w-4" />
-              发送
-            </button>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={feedbackInput}
+                onChange={(e) => setFeedbackInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendFeedback()}
+                placeholder="输入你的想法或研究方向建议..."
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+              />
+              <button
+                onClick={handleSendFeedback}
+                disabled={!feedbackInput.trim()}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all',
+                  feedbackInput.trim()
+                    ? 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'cursor-not-allowed bg-gray-100 text-gray-400'
+                )}
+              >
+                <Send className="h-4 w-4" />
+                发送
+              </button>
+              <button
+                onClick={onStop}
+                className="flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-all hover:bg-red-50"
+              >
+                <StopCircle className="h-4 w-4" />
+                停止
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-2">
+          <div className="mx-auto flex max-w-3xl items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-500" />
+              <span>研究进行中...</span>
+            </div>
             <button
               onClick={onStop}
-              className="flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-all hover:bg-red-50"
+              className="flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 transition-all hover:bg-red-50"
             >
               <StopCircle className="h-4 w-4" />
               停止
             </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

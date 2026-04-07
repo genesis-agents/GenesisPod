@@ -20,6 +20,10 @@ import {
   Search,
   Clock,
   Sparkles,
+  Brain,
+  Lightbulb,
+  RefreshCw,
+  Compass,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -37,6 +41,7 @@ interface ReportPanelProps {
   streamingContent?: Record<string, string>;
   projectId: string;
   sessionId?: string | null;
+  onNavigateToTab?: (tab: string) => void;
   className?: string;
 }
 
@@ -48,6 +53,7 @@ export function ReportPanel({
   streamingContent = {},
   projectId,
   sessionId,
+  onNavigateToTab,
   className,
 }: ReportPanelProps) {
   const { t } = useTranslation();
@@ -357,6 +363,54 @@ export function ReportPanel({
         )}
       </section>
 
+      {/* Next Steps */}
+      {onNavigateToTab && (
+        <section className="rounded-xl border border-dashed border-purple-200 bg-purple-50/50 p-6">
+          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-900">
+            <Compass className="h-5 w-5 text-purple-500" />
+            {t('aiResearch.report.nextSteps') || '下一步建议'}
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <NextStepCard
+              icon={Brain}
+              label={t('aiResearch.report.reviewInsights') || '查看观点荟萃'}
+              description={
+                t('aiResearch.report.reviewInsightsDesc') ||
+                '收藏关键发现，归档次要信息'
+              }
+              onClick={() => onNavigateToTab('insights')}
+            />
+            <NextStepCard
+              icon={Lightbulb}
+              label={t('aiResearch.report.exploreIdeas') || '探索研究创意'}
+              description={
+                t('aiResearch.report.exploreIdeasDesc') ||
+                '查看由研究启发的创意概念'
+              }
+              onClick={() => onNavigateToTab('ideas')}
+            />
+            <NextStepCard
+              icon={Download}
+              label={t('aiResearch.report.exportReport') || '导出报告'}
+              description={
+                t('aiResearch.report.exportDesc') ||
+                '下载为 PDF、Word 或 Markdown'
+              }
+              onClick={() => setShowExport(true)}
+            />
+            <NextStepCard
+              icon={RefreshCw}
+              label={t('aiResearch.report.deeperResearch') || '迭代深入研究'}
+              description={
+                t('aiResearch.report.deeperDesc') ||
+                '多轮优化，扩展和完善研究结论'
+              }
+              onClick={() => onNavigateToTab('discussion')}
+            />
+          </div>
+        </section>
+      )}
+
       {/* Export Dialog */}
       {sessionId && (
         <ExportDialog
@@ -374,6 +428,33 @@ export function ReportPanel({
 }
 
 // ==================== Sub Components ====================
+
+function NextStepCard({
+  icon: Icon,
+  label,
+  description,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  description: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-start gap-3 rounded-lg border border-purple-100 bg-white p-3 text-left transition-all hover:border-purple-300 hover:shadow-sm"
+    >
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100">
+        <Icon className="h-4 w-4 text-purple-600" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-gray-900">{label}</p>
+        <p className="mt-0.5 text-xs text-gray-500">{description}</p>
+      </div>
+    </button>
+  );
+}
 
 function CopyButton({
   content,

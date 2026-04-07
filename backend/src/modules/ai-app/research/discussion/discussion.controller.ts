@@ -334,6 +334,31 @@ export class DiscussionController {
   }
 
   /**
+   * 跳过当前研究阶段
+   */
+  @Post("skip-phase")
+  skipPhase(@Param("projectId") projectId: string) {
+    const skipped = this.discussionOrchestrator.requestSkipPhase(projectId);
+    return { skipped };
+  }
+
+  /**
+   * 延长反馈等待时间
+   */
+  @Post("extend-feedback")
+  extendFeedbackTimeout(
+    @Param("projectId") projectId: string,
+    @Body() body: { additionalMs?: number },
+  ) {
+    const additionalMs = Math.min(body.additionalMs || 120_000, 600_000);
+    const extended = this.iterativeResearch.extendFeedbackTimeout(
+      projectId,
+      additionalMs,
+    );
+    return { extended, additionalMs };
+  }
+
+  /**
    * 批量删除研究会话
    */
   @Delete("sessions")

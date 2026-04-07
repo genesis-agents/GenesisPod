@@ -292,7 +292,11 @@ export class IterationCoordinatorService {
     });
 
     // Pause for user feedback after Round 0
-    const FEEDBACK_TIMEOUT_MS = ITERATION_CONFIG.FEEDBACK_TIMEOUT_MS;
+    const FEEDBACK_TIMEOUT_MS = Math.min(
+      dto.iterationOptions?.feedbackTimeoutMs ||
+        ITERATION_CONFIG.FEEDBACK_TIMEOUT_MS,
+      ITERATION_CONFIG.MAX_FEEDBACK_TIMEOUT_MS,
+    );
     subject.next({
       type: "iteration.awaiting_feedback" as const,
       data: {

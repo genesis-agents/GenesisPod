@@ -58,6 +58,28 @@ export class DiscussionPhaseCoordinatorService {
   /** Synthesis involves multi-step report generation; needs a longer timeout */
   private readonly SYNTHESIS_TIMEOUT = ORCHESTRATOR_CONFIG.SYNTHESIS_TIMEOUT_MS;
   private readonly kernelProcessIds = new LruMap<string, string>(500);
+  /** Per-project flag to request skipping the current phase */
+  private readonly skipFlags = new Map<string, boolean>();
+
+  /**
+   * Request skip of the current phase for a project.
+   * The phase runner checks this flag at natural boundaries.
+   */
+  requestSkipPhase(projectId: string): boolean {
+    this.skipFlags.set(projectId, true);
+    this.logger.log(`[Skip] Skip requested for project ${projectId}`);
+    return true;
+  }
+
+  /** Check and clear skip flag — called by phase runners between LLM calls */
+  consumeSkipFlag(projectId: string): boolean {
+    const skip = this.skipFlags.get(projectId) ?? false;
+    if (skip) {
+      this.skipFlags.delete(projectId);
+      this.logger.log(`[Skip] Consuming skip flag for project ${projectId}`);
+    }
+    return skip;
+  }
 
   constructor(
     private readonly prisma: PrismaService,

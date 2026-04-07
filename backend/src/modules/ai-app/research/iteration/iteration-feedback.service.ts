@@ -51,6 +51,28 @@ export class IterationFeedbackService {
   }
 
   /**
+   * Extends the current feedback timeout by additionalMs. Returns true if a
+   * pending resolver was found and the timer was reset.
+   */
+  extendTimeout(projectId: string, additionalMs: number): boolean {
+    const entry = this.feedbackResolvers.get(projectId);
+    if (!entry) return false;
+    clearTimeout(entry.timer);
+    const newTimer = setTimeout(() => {
+      this.feedbackResolvers.delete(projectId);
+      entry.resolve(null);
+    }, additionalMs);
+    this.feedbackResolvers.set(projectId, {
+      resolve: entry.resolve,
+      timer: newTimer,
+    });
+    this.logger.debug(
+      `Extended feedback timeout for project ${projectId} by ${additionalMs}ms`,
+    );
+    return true;
+  }
+
+  /**
    * Cleans up any pending feedback resolver for the given project. Called when
    * the iteration loop exits (e.g. on early termination) to avoid timer leaks.
    */
