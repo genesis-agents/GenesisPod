@@ -341,7 +341,7 @@ describe("ReportController", () => {
       );
       expect(
         mockTopicService.recalculateEvidenceCredibility,
-      ).toHaveBeenCalledWith("report-1");
+      ).toHaveBeenCalledWith("user-abc", "topic-1", "report-1");
     });
   });
 
@@ -544,8 +544,14 @@ describe("ReportController", () => {
 
   describe("getQualityTrace", () => {
     it("should get quality trace data", async () => {
-      const result = await controller.getQualityTrace("report-1");
+      const result = await controller.getQualityTrace(
+        mockReq as never,
+        "topic-1",
+        "report-1",
+      );
       expect(mockTopicService.getReportQualityTrace).toHaveBeenCalledWith(
+        "user-abc",
+        "topic-1",
         "report-1",
       );
       expect(result).toEqual({ traces: [] });
@@ -554,8 +560,14 @@ describe("ReportController", () => {
 
   describe("getQualitySummary", () => {
     it("should get quality summary", async () => {
-      const result = await controller.getQualitySummary("report-1");
+      const result = await controller.getQualitySummary(
+        mockReq as never,
+        "topic-1",
+        "report-1",
+      );
       expect(mockTopicService.getReportQualitySummary).toHaveBeenCalledWith(
+        "user-abc",
+        "topic-1",
         "report-1",
       );
       expect(result).toEqual({ score: 90 });
@@ -564,8 +576,14 @@ describe("ReportController", () => {
 
   describe("getQualityDetails", () => {
     it("should get quality details without rule filter", async () => {
-      const _result = await controller.getQualityDetails("report-1");
+      const _result = await controller.getQualityDetails(
+        mockReq as never,
+        "topic-1",
+        "report-1",
+      );
       expect(mockTopicService.getReportQualityDetails).toHaveBeenCalledWith(
+        "user-abc",
+        "topic-1",
         "report-1",
         undefined,
       );
@@ -573,10 +591,14 @@ describe("ReportController", () => {
 
     it("should get quality details with rule filter", async () => {
       const _result = await controller.getQualityDetails(
+        mockReq as never,
+        "topic-1",
         "report-1",
         "word_count",
       );
       expect(mockTopicService.getReportQualityDetails).toHaveBeenCalledWith(
+        "user-abc",
+        "topic-1",
         "report-1",
         "word_count",
       );

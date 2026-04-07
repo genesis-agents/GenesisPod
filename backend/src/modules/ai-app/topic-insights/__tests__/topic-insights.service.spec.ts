@@ -1164,7 +1164,21 @@ describe("TopicInsightsService", () => {
       evidenceSvcMock.recalculateCredibilityScores =
         mocks.mockEvidenceService.recalculateCredibilityScores;
 
-      await service.recalculateEvidenceCredibility("report-001");
+      // Mock ownership checks
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      mockPrisma.topicReport.findUnique.mockResolvedValue({
+        id: "report-001",
+        topicId: "topic-001",
+      });
+
+      await service.recalculateEvidenceCredibility(
+        "user-001",
+        "topic-001",
+        "report-001",
+      );
 
       expect(evidenceSvcMock.recalculateCredibilityScores).toHaveBeenCalledWith(
         "report-001",
