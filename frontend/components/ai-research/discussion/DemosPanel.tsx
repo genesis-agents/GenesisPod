@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Play,
   X,
@@ -21,6 +21,7 @@ interface DemosPanelProps {
   onGenerateDemo?: (ideaId: string) => void;
   onDeleteDemo?: (demoId: string) => void;
   isLoading?: boolean;
+  defaultSessionFilter?: string | null;
   sessions?: Array<{ id: string; query: string }>;
   /** Map from ideaId → sessionId, for session-based filtering */
   ideaSessionMap?: Map<string, string>;
@@ -57,13 +58,21 @@ export function DemosPanel({
   onGenerateDemo,
   onDeleteDemo,
   isLoading = false,
+  defaultSessionFilter,
   sessions,
   ideaSessionMap,
   className,
 }: DemosPanelProps) {
   const [viewingDemo, setViewingDemo] = useState<ResearchDemo | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
-  const [sessionFilter, setSessionFilter] = useState<string>('all');
+  const [sessionFilter, setSessionFilter] = useState<string>(
+    defaultSessionFilter || 'all'
+  );
+
+  // Sync filter when viewing a different session
+  useEffect(() => {
+    setSessionFilter(defaultSessionFilter || 'all');
+  }, [defaultSessionFilter]);
 
   const filteredDemos = useMemo(() => {
     if (sessionFilter === 'all' || !ideaSessionMap) return demos;

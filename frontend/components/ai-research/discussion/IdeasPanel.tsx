@@ -15,7 +15,7 @@
  * - dimension: creative dimension category
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Lightbulb,
   Star,
@@ -55,6 +55,7 @@ interface IdeasPanelProps {
   generatingIdeaId?: string | null;
   /** All demos for duplicate checking */
   demos?: DemoSummary[];
+  defaultSessionFilter?: string | null;
   sessions?: Array<{ id: string; query: string }>;
   className?: string;
 }
@@ -141,13 +142,21 @@ export function IdeasPanel({
   onGenerateDemo,
   onExtractCreativeIdeas,
   generatingIdeaId,
+  defaultSessionFilter,
   demos = [],
   sessions,
   className,
 }: IdeasPanelProps) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [sessionFilter, setSessionFilter] = useState<string>('all');
+  const [sessionFilter, setSessionFilter] = useState<string>(
+    defaultSessionFilter || 'all'
+  );
+
+  // Sync filter when viewing a different session
+  useEffect(() => {
+    setSessionFilter(defaultSessionFilter || 'all');
+  }, [defaultSessionFilter]);
 
   const filteredIdeas = useMemo(() => {
     let result =

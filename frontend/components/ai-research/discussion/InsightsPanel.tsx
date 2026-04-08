@@ -14,7 +14,7 @@
  * - metadata.impactLevel ('high' | 'medium' | 'low')
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Crown,
   Search,
@@ -48,6 +48,7 @@ interface InsightsPanelProps {
   ) => void;
   onExtractIdeas?: (sessionId: string) => void;
   activeSessionId?: string | null;
+  defaultSessionFilter?: string | null;
   sessions?: Array<{ id: string; query: string }>;
   className?: string;
 }
@@ -140,12 +141,20 @@ export function InsightsPanel({
   onUpdateIdea,
   onExtractIdeas,
   activeSessionId,
+  defaultSessionFilter,
   sessions,
   className,
 }: InsightsPanelProps) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [sessionFilter, setSessionFilter] = useState<string>('all');
+  const [sessionFilter, setSessionFilter] = useState<string>(
+    defaultSessionFilter || 'all'
+  );
+
+  // Sync filter when viewing a different session
+  useEffect(() => {
+    setSessionFilter(defaultSessionFilter || 'all');
+  }, [defaultSessionFilter]);
 
   const filteredIdeas = useMemo(() => {
     let result =
