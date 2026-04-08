@@ -33,7 +33,7 @@ interface DemosPanelProps {
  */
 function injectCSP(html: string): string {
   const cspMeta =
-    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:;\">";
+    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob: 'self'; connect-src 'none'; frame-src 'none'; object-src 'none';\">";
   // Insert after <head> if present, otherwise prepend
   if (html.includes('<head>')) {
     return html.replace('<head>', `<head>${cspMeta}`);
@@ -301,7 +301,7 @@ export function DemosPanel({
 
           <iframe
             key={iframeKey}
-            sandbox="allow-scripts"
+            sandbox="allow-scripts allow-forms"
             srcDoc={injectCSP(viewingDemo.htmlContent)}
             className="w-full flex-1 border-0"
             title={viewingDemo.title}
