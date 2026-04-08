@@ -129,6 +129,7 @@ const mockPrisma = {
   topicReport: { findUnique: jest.fn(), findFirst: jest.fn() },
   researchTopic: { findUnique: jest.fn() },
   topicEvidence: { findMany: jest.fn() },
+  dimensionAnalysis: { findMany: jest.fn() },
 };
 
 const mockMissionTransformer = {
@@ -143,6 +144,7 @@ describe("ContentTransformerService (supplemental)", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+    mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -489,6 +491,7 @@ describe("ContentTransformerService (supplemental)", () => {
         makeResearchTopic(),
       );
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([]);
 
       const result = await service.transform({
         type: "TOPIC_REPORT",
@@ -576,6 +579,7 @@ describe("ContentTransformerService (supplemental)", () => {
         makeResearchTopic(),
       );
       mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+      mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([]);
       return service.transform({ type: "TOPIC_REPORT", topicId: "topic-1" });
     }
 

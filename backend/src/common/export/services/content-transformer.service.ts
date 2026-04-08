@@ -791,7 +791,10 @@ export class ContentTransformerService {
    *   2. 剥除泄漏的图表 JSON 块（CHARTS--- 分隔符 或 ```json{generatedCharts}``` ）
    *   3. 移除图表占位符（<!-- chart:id -->），导出格式无法渲染 SVG 图表
    */
-  private preprocessTopicReportMarkdown(content: string): string {
+  private preprocessTopicReportMarkdown(
+    content: string,
+    figureMap?: Map<string, { imageUrl?: string; caption?: string }>,
+  ): string {
     let result = content;
 
     // Step 1: Extract markdown from JSON-wrapped fullReport
@@ -893,7 +896,22 @@ export class ContentTransformerService {
       if (before.length > 100) result = before;
     }
 
-    // Step 3: Strip chart placeholders (cannot render SVG charts in editable export)
+    // Step 3: Resolve chart placeholders to markdown images
+    // Chart placeholders reference FigureReference IDs: <!-- chart:d0-uuid -->
+    if (figureMap && figureMap.size > 0) {
+      result = result.replace(
+        /<!--\s*chart:d\d+-([^\s]+?)\s*-->/g,
+        (_match, refId: string) => {
+          const fig = figureMap.get(refId);
+          if (fig?.imageUrl) {
+            const caption = fig.caption || "";
+            return `\n\n![${caption}](${fig.imageUrl})\n\n`;
+          }
+          return ""; // No image URL available, strip the placeholder
+        },
+      );
+    }
+    // Strip any remaining unresolved chart placeholders
     result = result.replace(/<!--\s*chart:[^>]*-->/g, "");
 
     return result.trim();
@@ -937,11 +955,38 @@ export class ContentTransformerService {
     // Parse the fullReport markdown into sections
     const sections: ContentSection[] = [];
 
+    // Load figure references from dimension analyses for chart image resolution
+    const dimensionAnalyses = await this.prisma.dimensionAnalysis.findMany({
+      where: { reportId: report.id },
+      select: { dataPoints: true },
+    });
+    const figureMap = new Map<
+      string,
+      { imageUrl?: string; caption?: string }
+    >();
+    for (const da of dimensionAnalyses) {
+      const dp = da.dataPoints as Record<string, unknown> | null;
+      const figs = (dp?.figureReferences ?? []) as Array<{
+        id: string;
+        imageUrl?: string;
+        caption?: string;
+      }>;
+      for (const fig of figs) {
+        if (fig.id && fig.imageUrl) {
+          figureMap.set(fig.id, {
+            imageUrl: fig.imageUrl,
+            caption: fig.caption,
+          });
+        }
+      }
+    }
+
     // Parse the full report (apply same preprocessing as frontend ReportEditor)
     // fullReport already includes executive summary, so skip standalone executiveSummary
     if (report.fullReport) {
       const cleanedReport = this.preprocessTopicReportMarkdown(
         report.fullReport,
+        figureMap,
       );
       sections.push(...this.parseMarkdown(cleanedReport));
     } else if (report.executiveSummary) {

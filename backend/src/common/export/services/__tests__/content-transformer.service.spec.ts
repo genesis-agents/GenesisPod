@@ -131,6 +131,7 @@ const mockPrisma = {
   topicReport: { findUnique: jest.fn(), findFirst: jest.fn() },
   researchTopic: { findUnique: jest.fn() },
   topicEvidence: { findMany: jest.fn() },
+  dimensionAnalysis: { findMany: jest.fn() },
 };
 
 const mockMissionTransformer = {
@@ -146,6 +147,7 @@ describe("ContentTransformerService", () => {
     jest.clearAllMocks();
     // Default successful returns
     mockPrisma.topicEvidence.findMany.mockResolvedValue([]);
+    mockPrisma.dimensionAnalysis.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
