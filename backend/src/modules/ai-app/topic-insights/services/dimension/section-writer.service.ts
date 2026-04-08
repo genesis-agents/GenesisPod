@@ -458,14 +458,20 @@ export class SectionWriterService {
     }
 
     // ★ 引用后验证：用文本相似度独立校验每个引用是否匹配上下文
+    // 注意：此时 content 已经通过 restoreGlobalIndices 还原为全局编号，
+    // 因此 evidence 的 index 也必须使用全局编号才能正确匹配。
     const evidenceForVerification: EvidenceForVerification[] = evidenceData.map(
-      (e, i) => ({
-        index: e.promptIndex || i + 1,
-        title: e.title,
-        domain: e.domain,
-        content:
-          (e as { fullContent?: string | null }).fullContent || e.snippet,
-      }),
+      (e, i) => {
+        const localIdx = e.promptIndex || i + 1;
+        const globalIdx = localToGlobalMap.get(localIdx) ?? localIdx;
+        return {
+          index: globalIdx,
+          title: e.title,
+          domain: e.domain,
+          content:
+            (e as { fullContent?: string | null }).fullContent || e.snippet,
+        };
+      },
     );
     const verifyResult = verifyCitations(content, evidenceForVerification);
     if (verifyResult.stats.corrected > 0 || verifyResult.stats.removed > 0) {

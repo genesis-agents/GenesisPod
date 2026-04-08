@@ -623,13 +623,15 @@ export class ReportAssemblerService {
     }
 
     // ── 11. References ────────────────────────────────────────────────────
+    let refIndexMapping = new Map<number, number>();
     if (options?.references && options.references.length > 0) {
-      const refSection = this.buildReferencesSection(
+      const { section: refSection, indexMapping } = this.buildReferencesSection(
         options.references,
         labels.references,
         labels.accessed,
         locale,
       );
+      refIndexMapping = indexMapping;
       if (refSection) {
         parts.push(refSection);
       }
@@ -637,6 +639,14 @@ export class ReportAssemblerService {
 
     let fullReport = sanitizeMarkdownContent(parts.join("\n"));
     fullReport = removeHorizontalRules(fullReport);
+
+    // ★ Apply citation index remapping to the FULL report body (not just the
+    // reference section). When references are deduplicated, the dimension body
+    // content still has old citation indices that must be updated.
+    if (refIndexMapping.size > 0) {
+      fullReport = remapCitationIndices(fullReport, refIndexMapping);
+    }
+
     return fullReport;
   }
 
@@ -968,8 +978,9 @@ export class ReportAssemblerService {
     referencesLabel: string,
     _accessedLabel: string,
     _locale: string,
-  ): string {
-    if (references.length === 0) return "";
+  ): { section: string; indexMapping: Map<number, number> } {
+    if (references.length === 0)
+      return { section: "", indexMapping: new Map<number, number>() };
 
     // Normalize entries to the shape expected by reference pipeline utilities
     let refEntries = references
@@ -999,7 +1010,8 @@ export class ReportAssemblerService {
       );
     }
 
-    if (refEntries.length === 0) return "";
+    if (refEntries.length === 0)
+      return { section: "", indexMapping: new Map<number, number>() };
 
     const refLines = refEntries.map((e) => {
       // Escape brackets in title to avoid breaking markdown link syntax
@@ -1018,6 +1030,6 @@ export class ReportAssemblerService {
     // renders as literal text (no rehypeRaw). stripHtmlCitationLinks cleans up.
     // section = anchorReferences(section);
 
-    return section;
+    return { section, indexMapping };
   }
 }
