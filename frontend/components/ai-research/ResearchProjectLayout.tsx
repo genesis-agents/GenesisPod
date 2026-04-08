@@ -1035,7 +1035,7 @@ export function ResearchProjectLayout({
                         onUpdateIdea={handleUpdateInsight}
                         onExtractIdeas={handleExtractInsights}
                         activeSessionId={activeSessionId}
-                        defaultSessionFilter={viewingSession?.id}
+                        defaultSessionFilter={activeSessionId}
                         sessions={sessions.map((s) => ({
                           id: s.id,
                           query: s.query,
@@ -1058,7 +1058,7 @@ export function ResearchProjectLayout({
                         onGenerateDemo={handleGenerateDemo}
                         generatingIdeaId={generatingIdeaId}
                         demos={demos}
-                        defaultSessionFilter={viewingSession?.id}
+                        defaultSessionFilter={activeSessionId}
                         sessions={sessions.map((s) => ({
                           id: s.id,
                           query: s.query,
@@ -1077,7 +1077,7 @@ export function ResearchProjectLayout({
                         demos={demos}
                         onDeleteDemo={handleDeleteDemo}
                         isLoading={demosLoading}
-                        defaultSessionFilter={viewingSession?.id}
+                        defaultSessionFilter={activeSessionId}
                         sessions={sessions.map((s) => ({
                           id: s.id,
                           query: s.query,
