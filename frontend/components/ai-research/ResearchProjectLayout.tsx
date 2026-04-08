@@ -721,9 +721,6 @@ export function ResearchProjectLayout({
   }, [creativeIdeas, insights]);
 
   // Tab definitions with conditional visibility
-  const showIterationsTab =
-    isIterating || sessions.some((s) => s.mode === 'iterative');
-
   const TABS: TabDefinition[] = [
     {
       key: 'discussion',
@@ -745,15 +742,11 @@ export function ResearchProjectLayout({
       label: t('aiResearch.tabs.demos') || '演示',
       icon: Play,
     },
-    ...(showIterationsTab
-      ? [
-          {
-            key: 'iterations' as TabKey,
-            label: t('aiResearch.tabs.iterations') || '迭代',
-            icon: RefreshCw,
-          },
-        ]
-      : []),
+    {
+      key: 'iterations',
+      label: t('aiResearch.tabs.iterations') || '迭代',
+      icon: RefreshCw,
+    },
     {
       key: 'report',
       label: t('aiResearch.tabs.report') || '报告',
