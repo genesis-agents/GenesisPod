@@ -98,6 +98,7 @@ export type {
   LLMLatencyRecord,
   LatencySessionSummary,
   TTFTStats,
+  LatencyPercentileStats,
   PhaseDurationSummary,
   LatencySessionType,
   LatencySessionStatus,

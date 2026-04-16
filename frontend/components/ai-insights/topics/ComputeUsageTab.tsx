@@ -96,6 +96,8 @@ interface LatencyPhaseSummary {
   name: string;
   durationMs: number;
   percentOfTotal: number;
+  llmCallCount: number;
+  avgTtltMs?: number;
 }
 
 interface TTFTStats {
@@ -117,6 +119,7 @@ interface LatencySummary {
   llmTimePercent: number;
   overheadMs: number;
   ttft?: TTFTStats;
+  ttlt?: TTFTStats;
   totalInputTokens: number;
   totalOutputTokens: number;
   avgTokenThroughput: number;
@@ -796,6 +799,17 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
       )}
 
       {/* ═══ Section 4.5: Performance Latency ═══ */}
+      {!data.latency && (
+        <section className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-4">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-500">
+            <Activity className="h-4 w-4 text-gray-400" />
+            {t('topicResearch.computeUsage.latency')}
+          </h3>
+          <p className="text-xs text-gray-400">
+            {t('topicResearch.computeUsage.noLatencyData')}
+          </p>
+        </section>
+      )}
       {data.latency && (
         <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-700">
@@ -871,6 +885,18 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                           <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-400">
                             {phase.percentOfTotal.toFixed(0)}%
                           </span>
+                          {phase.avgTtltMs != null && (
+                            <span className="w-20 shrink-0 text-right text-[10px] tabular-nums text-gray-400">
+                              TTLT{' '}
+                              {phase.avgTtltMs < 1000
+                                ? `${phase.avgTtltMs}ms`
+                                : `${(phase.avgTtltMs / 1000).toFixed(1)}s`}
+                              <span className="text-gray-300">
+                                {' '}
+                                ({phase.llmCallCount})
+                              </span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -912,6 +938,51 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                   <div
                     key={label}
                     className="rounded-lg bg-gray-50 p-2 text-center"
+                  >
+                    <p className="text-[10px] text-gray-400">{label}</p>
+                    <p className="text-sm font-semibold tabular-nums text-gray-700">
+                      {value < 1000
+                        ? `${Math.round(value)}ms`
+                        : `${(value / 1000).toFixed(1)}s`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TTLT Stats */}
+          {data.latency.ttlt && (
+            <div className="mt-3">
+              <h4 className="mb-2 text-xs font-medium text-gray-500">
+                TTLT (Time To Last Token)
+              </h4>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  {
+                    label: t('topicResearch.computeUsage.ttftAvg'),
+                    value: data.latency.ttlt.avgMs,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftP50'),
+                    value: data.latency.ttlt.p50Ms,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftP95'),
+                    value: data.latency.ttlt.p95Ms,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftMin'),
+                    value: data.latency.ttlt.minMs,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftMax'),
+                    value: data.latency.ttlt.maxMs,
+                  },
+                ].map(({ label, value }) => (
+                  <div
+                    key={`ttlt-${label}`}
+                    className="rounded-lg bg-blue-50/50 p-2 text-center"
                   >
                     <p className="text-[10px] text-gray-400">{label}</p>
                     <p className="text-sm font-semibold tabular-nums text-gray-700">

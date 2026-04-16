@@ -1719,12 +1719,19 @@ export class TopicInsightsService {
       })
       .sort((a, b) => b.callCount - a.callCount);
 
-    // 6. 获取最新的时延跟踪摘要
-    const latencySummary = this.latencyTracker
-      ? await this.latencyTracker
-          .getLatestSummary(topicId, "topic_insights_refresh")
-          .catch(() => undefined)
-      : undefined;
+    // 6. 获取最新的时延跟踪摘要（优先 DB 已完成的，其次内存中活跃的）
+    let latencySummary: LatencySessionSummary | undefined;
+    if (this.latencyTracker) {
+      latencySummary = await this.latencyTracker
+        .getLatestSummary(topicId, "topic_insights_refresh")
+        .catch(() => undefined);
+      if (!latencySummary) {
+        latencySummary = this.latencyTracker.getActiveSessionSummary(
+          topicId,
+          "topic_insights_refresh",
+        );
+      }
+    }
 
     return {
       summary: {

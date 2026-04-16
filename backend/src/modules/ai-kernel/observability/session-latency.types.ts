@@ -100,16 +100,23 @@ export interface PhaseDurationSummary {
   name: string;
   durationMs: number;
   percentOfTotal: number;
+  /** 该阶段内 LLM 调用次数 */
+  llmCallCount: number;
+  /** 该阶段内 LLM 平均 TTLT (ms) */
+  avgTtltMs?: number;
 }
 
-/** TTFT 百分位统计 */
-export interface TTFTStats {
+/** 时延百分位统计（TTFT / TTLT 通用） */
+export interface LatencyPercentileStats {
   avgMs: number;
   p50Ms: number;
   p95Ms: number;
   minMs: number;
   maxMs: number;
 }
+
+/** @deprecated Use LatencyPercentileStats */
+export type TTFTStats = LatencyPercentileStats;
 
 /**
  * 会话摘要 — endSession() 时自动计算
@@ -130,7 +137,9 @@ export interface LatencySessionSummary {
   /** 非 LLM 开销 (ms) */
   overheadMs: number;
   /** TTFT 统计（仅流式调用） */
-  ttft?: TTFTStats;
+  ttft?: LatencyPercentileStats;
+  /** TTLT 统计（所有 LLM 调用） */
+  ttlt?: LatencyPercentileStats;
   /** Token 统计 */
   totalInputTokens: number;
   totalOutputTokens: number;

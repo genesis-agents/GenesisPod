@@ -5966,7 +5966,7 @@
       "overhead": "Overhead",
       "tokenThroughput": "Throughput",
       "tokensPerSec": "tokens/s",
-      "noLatencyData": "No latency data available"
+      "noLatencyData": "No latency data yet. Phase duration, TTFT, and throughput analysis will appear after the next research completes."
     },
     "topics": {
       "credibilityPanel": {

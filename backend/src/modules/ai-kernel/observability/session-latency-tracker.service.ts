@@ -8,7 +8,7 @@ import type {
   LatencyPhase,
   LLMLatencyRecord,
   LatencySessionSummary,
-  TTFTStats,
+  LatencyPercentileStats,
   PhaseDurationSummary,
   StartSessionInput,
   StartPhaseInput,
@@ -121,6 +121,26 @@ export class SessionLatencyTrackerService {
    */
   getSession(sessionId: string): LatencySession | undefined {
     return this.sessions.get(sessionId);
+  }
+
+  /**
+   * 按 entityId 查找内存中活跃的 session（用于研究进行中的实时展示）
+   * 返回实时计算的 summary（不含持久化）
+   */
+  getActiveSessionSummary(
+    entityId: string,
+    type?: string,
+  ): LatencySessionSummary | undefined {
+    for (const session of this.sessions.values()) {
+      if (
+        session.entityId === entityId &&
+        session.status === "running" &&
+        (!type || session.type === type)
+      ) {
+        return this.computeSummary(session);
+      }
+    }
+    return undefined;
   }
 
   // ==================== Phase Management ====================
@@ -364,18 +384,31 @@ export class SessionLatencyTrackerService {
    */
   private computeSummary(session: LatencySession): LatencySessionSummary {
     const totalDurationMs = (session.endTime ?? Date.now()) - session.startTime;
+    const llmCalls = session.llmCalls;
 
-    // 阶段分解（只取顶层阶段）
+    // 阶段分解（只取顶层阶段），含每阶段 LLM 调用统计
     const topLevelPhases = session.phases.filter((p) => !p.parentPhaseId);
-    const phases: PhaseDurationSummary[] = topLevelPhases.map((p) => ({
-      name: p.name,
-      durationMs: p.durationMs ?? (p.endTime ? p.endTime - p.startTime : 0),
-      percentOfTotal:
-        totalDurationMs > 0 ? ((p.durationMs ?? 0) / totalDurationMs) * 100 : 0,
-    }));
+    const phases: PhaseDurationSummary[] = topLevelPhases.map((p) => {
+      const dur = p.durationMs ?? (p.endTime ? p.endTime - p.startTime : 0);
+      const phaseLlmCalls = llmCalls.filter((c) => c.phaseId === p.id);
+      const ttltValues = phaseLlmCalls
+        .map((c) => c.ttltMs)
+        .filter((v) => v > 0);
+      return {
+        name: p.name,
+        durationMs: dur,
+        percentOfTotal: totalDurationMs > 0 ? (dur / totalDurationMs) * 100 : 0,
+        llmCallCount: phaseLlmCalls.length,
+        avgTtltMs:
+          ttltValues.length > 0
+            ? Math.round(
+                ttltValues.reduce((s, v) => s + v, 0) / ttltValues.length,
+              )
+            : undefined,
+      };
+    });
 
     // LLM 聚合
-    const llmCalls = session.llmCalls;
     const llmCallCount = llmCalls.length;
     const llmTotalTimeMs = llmCalls.reduce(
       (sum, c) => sum + c.totalDurationMs,
@@ -387,25 +420,16 @@ export class SessionLatencyTrackerService {
     const overheadMs = Math.max(0, totalDurationMs - llmTotalTimeMs);
 
     // TTFT 统计（仅流式调用）
-    const streamingCalls = llmCalls.filter(
-      (c) => c.streaming && c.ttftMs != null,
+    const ttft = this.computePercentileStats(
+      llmCalls
+        .filter((c) => c.streaming && c.ttftMs != null)
+        .map((c) => c.ttftMs!),
     );
-    let ttft: TTFTStats | undefined;
-    if (streamingCalls.length > 0) {
-      const ttftValues = streamingCalls
-        .map((c) => c.ttftMs!)
-        .sort((a, b) => a - b);
-      ttft = {
-        avgMs:
-          Math.round(
-            (ttftValues.reduce((s, v) => s + v, 0) / ttftValues.length) * 10,
-          ) / 10,
-        p50Ms: this.percentile(ttftValues, 50),
-        p95Ms: this.percentile(ttftValues, 95),
-        minMs: ttftValues[0],
-        maxMs: ttftValues[ttftValues.length - 1],
-      };
-    }
+
+    // TTLT 统计（所有 LLM 调用）
+    const ttlt = this.computePercentileStats(
+      llmCalls.map((c) => c.ttltMs).filter((v) => v > 0),
+    );
 
     // Token 统计
     const totalInputTokens = llmCalls.reduce(
@@ -437,9 +461,27 @@ export class SessionLatencyTrackerService {
       llmTimePercent: Math.round(llmTimePercent * 10) / 10,
       overheadMs,
       ttft,
+      ttlt,
       totalInputTokens,
       totalOutputTokens,
       avgTokenThroughput,
+    };
+  }
+
+  /** 计算百分位统计 */
+  private computePercentileStats(
+    values: number[],
+  ): LatencyPercentileStats | undefined {
+    if (values.length === 0) return undefined;
+    const sorted = [...values].sort((a, b) => a - b);
+    return {
+      avgMs:
+        Math.round((sorted.reduce((s, v) => s + v, 0) / sorted.length) * 10) /
+        10,
+      p50Ms: this.percentile(sorted, 50),
+      p95Ms: this.percentile(sorted, 95),
+      minMs: sorted[0],
+      maxMs: sorted[sorted.length - 1],
     };
   }
 

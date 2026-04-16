@@ -639,6 +639,7 @@ export {
   type LLMLatencyRecord,
   type LatencySessionSummary,
   type TTFTStats,
+  type LatencyPercentileStats,
   type PhaseDurationSummary,
   type LatencySessionType,
   type LatencySessionStatus,
