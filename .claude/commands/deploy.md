@@ -1,117 +1,97 @@
-# Deploy
+# Deploy & Validate
 
-部署和运维操作。
+一站式部署验证。有限次循环，绝不无限监控。
 
 **操作**: $ARGUMENTS
 
 ## 部署平台
 
-- **Backend**: Railway (NestJS)
-- **Frontend**: Vercel (Next.js)
-- **Database**: Railway PostgreSQL 16 (统一数据库)
+| 服务     | 平台    | 健康检查路径   |
+| -------- | ------- | -------------- |
+| Backend  | Railway | /api/v1/health |
+| Frontend | Railway | /api/health    |
+| AI Svc   | Railway | /              |
 
-## Railway 常用命令
+## 部署流程（严格执行）
 
-```bash
-# 登录
-railway login
-
-# 链接项目
-railway link
-
-# 查看日志
-railway logs --tail 100
-railway logs --follow
-railway logs --filter error
-
-# 查看环境变量
-railway variables
-
-# 部署
-railway up
-```
-
-## 部署检查清单
-
-### 前置检查
-
-- [ ] 所有测试通过: `npm run verify:full`
-- [ ] 类型检查通过: `npm run type-check`
-- [ ] 无敏感信息提交
-- [ ] 环境变量已配置
-- [ ] 数据库迁移已执行
-
-### 部署后验证
-
-- [ ] API 健康检查正常
-- [ ] 关键功能可用
-- [ ] 日志无异常错误
-- [ ] 性能指标正常
-
-## 环境配置
-
-### Backend 必需变量
-
-```env
-DATABASE_URL=postgresql://...
-MONGODB_URI=mongodb://...
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-NEXTAUTH_SECRET=...
-```
-
-### Frontend 必需变量
-
-```env
-NEXT_PUBLIC_API_URL=https://api.example.com
-NEXTAUTH_URL=https://app.example.com
-```
-
-## 回滚操作
+### Step 1: 前置检查
 
 ```bash
-# 查看部署历史
-railway deployments
-
-# 回滚到指定版本
-railway rollback <deployment-id>
+npm run type-check    # 类型检查
+npm run test:quick    # 快速测试
 ```
 
-## 监控
+如果任一失败，**停止部署**，先修复问题。
+
+### Step 2: 推送
 
 ```bash
-# 实时日志
-railway logs --follow
-
-# 过滤错误
-railway logs --filter error --since 1h
-
-# 查看资源使用
-railway status
+git push origin main
 ```
 
-## 故障排查
+### Step 3: 等待构建（最多 3 轮，每轮 60 秒）
 
-### 常见问题
+```bash
+# 等待 90 秒让构建启动
+sleep 90
 
-1. **部署失败**
-   - 检查构建日志
-   - 验证依赖版本
-   - 检查环境变量
+# 然后最多检查 3 次，每次间隔 60 秒
+railway logs --num 30
+```
 
-2. **启动失败**
-   - 检查数据库连接
-   - 验证端口配置
-   - 检查健康检查路径
+如果 3 轮后构建仍未完成，**停止并报告构建日志**，不继续等。
 
-3. **性能问题**
-   - 检查数据库查询
-   - 查看内存使用
-   - 分析请求延迟
+### Step 4: 健康验证（最多 3 次，间隔 30 秒）
 
-## 我会帮助你
+```bash
+curl -sf "${API_URL}/api/v1/health"     # 后端
+curl -sf "${FRONTEND_URL}/api/health"   # 前端
+```
 
-- 执行部署操作
-- 排查部署问题
-- 配置环境变量
-- 监控运行状态
+### Step 5: 结果报告
+
+输出格式：
+
+```
+=== 部署结果 ===
+构建状态: 成功/失败
+后端健康: 200 OK / 失败 (错误信息)
+前端健康: 200 OK / 失败 (错误信息)
+总耗时: X 分钟
+异常日志: 无 / [具体错误]
+```
+
+---
+
+## 硬性限制
+
+- **最多 10 次外部命令调用**（railway logs / curl），超过立即停止
+- **绝不无限循环**监控日志
+- 如有异常，给出具体文件位置和修复建议，然后**停止**
+- 如需持续监控，告知用户使用 `bash scripts/devops/monitor-production.sh`
+
+## 回滚
+
+如果部署后健康检查连续 2 次失败：
+
+```bash
+git revert HEAD --no-edit
+git push origin main
+```
+
+报告回滚原因和失败日志。
+
+## 离线监控
+
+日常生产监控不要在交互会话中进行，使用：
+
+```bash
+# 一次性检查
+bash scripts/devops/monitor-production.sh
+
+# 静默模式（无异常不输出）
+bash scripts/devops/monitor-production.sh --quiet
+
+# 指定行数
+bash scripts/devops/monitor-production.sh --lines 200
+```

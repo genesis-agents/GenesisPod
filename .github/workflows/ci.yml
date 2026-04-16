@@ -234,6 +234,9 @@ jobs:
             exit 1
           fi
 
+      - name: Facade boundary check
+        run: bash scripts/devops/check-facade-boundary.sh
+
   # ── CI Gate ────────────────────────────────────────────────
   ci-status:
     name: CI Status

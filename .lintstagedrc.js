@@ -18,6 +18,7 @@
  * - `npx -w backend` uses npm workspaces to set correct cwd
  */
 const path = require("path");
+const fs = require("fs");
 
 /**
  * Convert absolute file paths to paths relative to a subdirectory,
@@ -31,15 +32,56 @@ function quote(f) {
   return `"${f}"`;
 }
 
+/**
+ * Find existing spec files for changed source files.
+ * Only returns tests that actually exist on disk.
+ */
+function findMatchingTests(files, workspace) {
+  const testFiles = [];
+  for (const f of files) {
+    // Skip test files themselves, fixtures, mocks
+    if (/\.(spec|test|e2e-spec)\.(ts|tsx)$/.test(f)) continue;
+    if (f.includes("__tests__") || f.includes("__mocks__")) continue;
+    if (f.includes("fixtures")) continue;
+
+    // Try co-located .spec.ts
+    const specPath = f.replace(/\.ts$/, ".spec.ts").replace(/\.tsx$/, ".spec.tsx");
+    if (fs.existsSync(specPath)) {
+      testFiles.push(specPath);
+      continue;
+    }
+
+    // Try __tests__ directory sibling
+    const dir = path.dirname(f);
+    const base = path.basename(f, path.extname(f));
+    const testDir = path.join(dir, "__tests__", `${base}.spec.ts`);
+    if (fs.existsSync(testDir)) {
+      testFiles.push(testDir);
+    }
+  }
+  return testFiles;
+}
+
 module.exports = {
   "**/*.{json,md,yml,yaml}": ["prettier --write"],
 
   "backend/**/*.{ts,tsx}": (files) => {
     const rel = toRelative("backend", files).map(quote).join(" ");
-    return [
+    const cmds = [
       `npx -w backend eslint --cache --fix ${rel}`,
       `prettier --write ${files.map(quote).join(" ")}`,
     ];
+
+    // Auto-run matching tests for changed source files
+    const tests = findMatchingTests(files, "backend");
+    if (tests.length > 0) {
+      const testRel = toRelative("backend", tests).map(quote).join(" ");
+      cmds.push(
+        `npx -w backend jest --passWithNoTests --bail ${testRel}`
+      );
+    }
+
+    return cmds;
   },
 
   "backend/**/*.{js,jsx}": (files) => {
