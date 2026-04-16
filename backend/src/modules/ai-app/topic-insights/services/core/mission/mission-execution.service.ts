@@ -448,8 +448,33 @@ export class MissionExecutionService {
         agentRole,
       };
 
+      // ★ 时延跟踪：每个任务单独一个 phase
+      const latencyCtx = KernelContext.get();
+      const taskPhaseName = task.dimensionName
+        ? `${task.taskType}:${task.dimensionName}`
+        : task.taskType;
+      if (latencyCtx?.latencySessionId && this.latencyTracker) {
+        this.latencyTracker.startPhase(latencyCtx.latencySessionId, {
+          name: taskPhaseName,
+          metadata: {
+            taskId: task.id,
+            taskType: task.taskType,
+            agent: task.assignedAgent,
+            model: assignedModelId,
+          },
+        });
+      }
+
       // Execute
       const result: TaskResultJson = await executor.execute(executionContext);
+
+      // ★ 时延跟踪：结束任务 phase
+      if (latencyCtx?.latencySessionId && this.latencyTracker) {
+        this.latencyTracker.endPhaseByName(
+          latencyCtx.latencySessionId,
+          taskPhaseName,
+        );
+      }
 
       // ★ 发送 Agent 完成事件（传递 missionId 以便持久化）
       await this.researchEventEmitter.emitAgentCompleted(
@@ -603,6 +628,18 @@ export class MissionExecutionService {
       this.logger.error(
         `[executeTask] Task failed: ${task.title} - ${errorMsg}`,
       );
+
+      // ★ 时延跟踪：失败时也结束 phase
+      const latencyCtxErr = KernelContext.get();
+      const failedPhaseName = task.dimensionName
+        ? `${task.taskType}:${task.dimensionName}`
+        : task.taskType;
+      if (latencyCtxErr?.latencySessionId && this.latencyTracker) {
+        this.latencyTracker.endPhaseByName(
+          latencyCtxErr.latencySessionId,
+          failedPhaseName,
+        );
+      }
 
       // 更新任务状态为失败
       await this.queryService.updateTaskStatus(
