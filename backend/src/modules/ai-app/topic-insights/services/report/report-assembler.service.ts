@@ -647,6 +647,14 @@ export class ReportAssemblerService {
       fullReport = remapCitationIndices(fullReport, refIndexMapping);
     }
 
+    // ★ Diagnostic: check assembled report for $$$ before postProcess
+    const assembledTriples = (fullReport.match(/\$\$\$/g) || []).length;
+    if (assembledTriples > 0) {
+      this.logger.warn(
+        `[assembleFullReport] OUTPUT has ${assembledTriples} $$$ occurrences`,
+      );
+    }
+
     return fullReport;
   }
 
@@ -675,6 +683,14 @@ export class ReportAssemblerService {
   ): PostProcessResult {
     const warnings: string[] = [];
     let content = markdown;
+
+    // ★ Snapshot: count $$$ before any processing to track where damage originates
+    const triplesBefore = (content.match(/\$\$\$/g) || []).length;
+    if (triplesBefore > 0) {
+      this.logger.warn(
+        `[postProcessFinalReport] INPUT already has ${triplesBefore} $$$ — damage originated upstream`,
+      );
+    }
 
     if (qualityGate) {
       // Full quality-gate path
@@ -901,6 +917,14 @@ export class ReportAssemblerService {
     if (warnings.length > 0) {
       this.logger.warn(
         `[postProcessFinalReport] Quality fixes/warnings:\n${warnings.join("\n")}`,
+      );
+    }
+
+    // ★ Safety net: detect and log $$$ damage introduced during processing
+    const triplesAfter = (content.match(/\$\$\$/g) || []).length;
+    if (triplesAfter > 0 && triplesAfter > triplesBefore) {
+      this.logger.error(
+        `[postProcessFinalReport] FORMULA DAMAGE DETECTED: $$$ count ${triplesBefore} → ${triplesAfter} (+${triplesAfter - triplesBefore}). Code version: FIX_2_REWRITE_2026_04_16`,
       );
     }
 
