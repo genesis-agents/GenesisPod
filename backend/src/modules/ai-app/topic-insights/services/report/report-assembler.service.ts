@@ -883,13 +883,13 @@ export class ReportAssemblerService {
     content = convertOrdinalBulletsToParagraphs(content); // 其一/其二/第一/第二 bullet → 段落
 
     // ★ C4: LaTeX/table/spacing fixes
-    // Fix `1 1$` LaTeX residuals and ensure bare LaTeX commands are wrapped
-    content = content.replace(/(\d)\s+(\d)\$/g, "$1$2");
-    // Fix common bare LaTeX: \times, \approx, \pm, \geq, \leq etc.
-    content = content.replace(
-      /(?<!\$)\\(times|approx|pm|geq|leq|sim|neq|infty|alpha|beta|gamma|delta|sum|prod|int|frac\{[^}]*\}\{[^}]*\})(?!\$)/g,
-      (_, cmd) => `$\\${cmd}$`,
-    );
+    // Note: removed `(/(\d)\s+(\d)\$/g, "$1$2")` — it was intended to fix
+    // LLM residuals like "1 1$" but destroyed LaTeX formulas by eating `$`
+    // delimiters, producing patterns like `$$$1$$` throughout the report.
+    //
+    // Bare LaTeX command wrapping is also removed — the lookbehind/lookahead
+    // approach fails when formulas span multiple lines or use nested `$`.
+    // LaTeX rendering is handled by the frontend's KaTeX/MathJax processor.
     // Fix text-column right-alignment in markdown tables → left-align
     content = content.replace(/^(\|[\s:]*-+):\s*\|/gm, "$1 |");
     // Compress 4+ consecutive blank lines → 2
