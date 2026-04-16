@@ -168,7 +168,7 @@ export class TopicTeamOrchestratorService {
     // ★ 设置 KernelContext 以便嵌套的 AiChatService 调用能自动归属到此时延会话
     return KernelContext.run(
       {
-        processId: `topic-refresh-${topicId}`,
+        processId: "",
         userId: topic.userId,
         latencySessionId,
       },

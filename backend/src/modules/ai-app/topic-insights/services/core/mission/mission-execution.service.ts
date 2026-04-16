@@ -139,7 +139,7 @@ export class MissionExecutionService {
 
     return KernelContext.run(
       {
-        processId: `mission-${missionId}`,
+        processId: "", // 不设置 processId，避免 EventJournal 外键违约
         userId: topic.userId,
         latencySessionId,
       },
