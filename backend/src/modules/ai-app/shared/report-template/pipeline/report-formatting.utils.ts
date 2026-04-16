@@ -1344,9 +1344,10 @@ export function repairLatexCommands(content: string): string {
 
   // Fix 4: Unbalanced braces in inline math — auto-close missing }
   // e.g. `$\mathbb{R}^{n \times n$` → `$\mathbb{R}^{n \times n}$`
+  // Note: escaped braces \{ and \} are NOT counted (they are literal in LaTeX)
   result = result.replace(/\$([^$\n]+)\$/g, (_match, inner: string) => {
-    const opens = (inner.match(/\{/g) || []).length;
-    const closes = (inner.match(/\}/g) || []).length;
+    const opens = (inner.match(/(?<!\\)\{/g) || []).length;
+    const closes = (inner.match(/(?<!\\)\}/g) || []).length;
     if (opens > closes) {
       return "$" + inner + "}".repeat(opens - closes) + "$";
     }
@@ -1544,6 +1545,21 @@ export function mergeAdjacentMathBlocks(content: string): string {
   // Match sequences like: h^{(m)} \in \mathbb{R}^{d_m} or O_i = \phi(Q_i) S
   // Strategy: find runs of LaTeX-like tokens not already inside $...$
   // ★ {1,} not {2,}: single-command expressions like "n \times n" must also be wrapped
+  // ★ Safety: protect existing $...$ and $$...$$ blocks with slots BEFORE the bare-LaTeX
+  //   wrapping regex runs. This prevents partial matches inside already-delimited math.
+  //   Slots are restored immediately after this step.
+  const mathSlots: string[] = [];
+  const MATH_SLOT_PREFIX = "\uE010MATH";
+  const MATH_SLOT_SUFFIX = "\uE011";
+  result = result.replace(/\$\$[\s\S]*?\$\$/g, (m) => {
+    mathSlots.push(m);
+    return `${MATH_SLOT_PREFIX}${mathSlots.length - 1}${MATH_SLOT_SUFFIX}`;
+  });
+  result = result.replace(/\$(?!\$)(?:[^$\n]|\\\$)+\$/g, (m) => {
+    mathSlots.push(m);
+    return `${MATH_SLOT_PREFIX}${mathSlots.length - 1}${MATH_SLOT_SUFFIX}`;
+  });
+
   result = result.replace(
     /(?<!\$)(?:[A-Za-z_]\^?\{[^}]*\}|\\(?:text|frac|sqrt|left|right|mathbb|phi|in|approx|times|quad|cdot|top|sum|infty|operatorname|mathcal|log|exp|max|min|lim|sup|inf|neq|leq|geq|sim|propto|forall|exists|partial|nabla|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|pi|omega|theta|eta|tau|Phi|psi|rho|xi|zeta|kappa)\b[^$\n]*){1,}(?!\$)/g,
     (match) => {
@@ -1556,6 +1572,13 @@ export function mergeAdjacentMathBlocks(content: string): string {
       return `$${match}$`;
     },
   );
+
+  // Restore math slots immediately after bare-LaTeX wrapping
+  const mathSlotRe = new RegExp(
+    `${MATH_SLOT_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\d+)${MATH_SLOT_SUFFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+    "g",
+  );
+  result = result.replace(mathSlotRe, (_, i) => mathSlots[Number(i)]);
 
   // 0d. Simple bare complexity notations: O(n^2), O(n\sqrt{n}), O(n d_k d_v)
   // Also handles Unicode superscript: O(n²), O(n³)
