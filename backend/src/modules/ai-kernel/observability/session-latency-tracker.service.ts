@@ -5,14 +5,14 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import type {
   LatencySession,
-  LatencyPhase,
-  LLMLatencyRecord,
+  LatencyStep,
+  LatencyAction,
   LatencySessionSummary,
   LatencyPercentileStats,
-  PhaseDurationSummary,
+  StepSummary,
   StartSessionInput,
-  StartPhaseInput,
-  RecordLLMLatencyInput,
+  StartStepInput,
+  RecordActionInput,
   ListSessionsFilter,
 } from "./session-latency.types";
 
@@ -21,18 +21,17 @@ import type {
  *
  * 会话级端到端时延跟踪基础能力（L2 AI Kernel）。
  *
- * 职责：
- * - 管理时延会话的完整生命周期（start → phase → checkpoint → end）
- * - 收集每个 LLM 调用的 TTFT / TTLT / 吞吐量
- * - 自动计算会话摘要（阶段分解、LLM 占比、百分位统计）
- * - 内存 LRU 缓存 + endSession 时 DB 持久化
+ * 四级结构（业界规范）：Session → Step → Action
+ * - Session: 一次完整研究
+ * - Step: 业务语义单元（如 "搜索数据"、"章节写作"），可包含 0~N 个 Action
+ * - Action: 一次原子操作（LLM 调用或工具调用）
  *
  * 使用方式：
  * ```typescript
  * const sessionId = tracker.startSession({ type: "topic_insights_refresh", entityId: topicId });
- * const phaseId = tracker.startPhase(sessionId, { name: "leader_planning" });
- * tracker.recordLLMCall(sessionId, { phaseId, model: "gpt-4o", ttftMs: 320, ttltMs: 4500, ... });
- * tracker.endPhase(sessionId, phaseId);
+ * const stepId = tracker.startStep(sessionId, { name: "TTLT定义/搜索数据" });
+ * // LLM calls auto-recorded via KernelContext → recordAction()
+ * tracker.endStep(sessionId, stepId);
  * const summary = tracker.endSession(sessionId);
  * ```
  */
@@ -47,13 +46,8 @@ export class SessionLatencyTrackerService {
 
   // ==================== Session Lifecycle ====================
 
-  /**
-   * 开始一个新的时延跟踪会话
-   */
   startSession(input: StartSessionInput): string {
     const sessionId = randomUUID();
-    const now = Date.now();
-
     const session: LatencySession = {
       id: sessionId,
       type: input.type,
@@ -61,23 +55,16 @@ export class SessionLatencyTrackerService {
       userId: input.userId,
       entityId: input.entityId,
       metadata: input.metadata || {},
-      startTime: now,
-      phases: [],
-      llmCalls: [],
+      startTime: Date.now(),
+      steps: [],
     };
-
     this.sessions.set(sessionId, session);
-
     this.logger.debug(
       `[Session] Started: ${input.type} [${sessionId}] entity=${input.entityId ?? "N/A"}`,
     );
-
     return sessionId;
   }
 
-  /**
-   * 结束会话，计算摘要并持久化
-   */
   endSession(
     sessionId: string,
     status: "completed" | "failed" = "completed",
@@ -92,11 +79,11 @@ export class SessionLatencyTrackerService {
     session.endTime = now;
     session.status = status;
 
-    // 自动关闭未结束的阶段
-    for (const phase of session.phases) {
-      if (!phase.endTime) {
-        phase.endTime = now;
-        phase.durationMs = phase.endTime - phase.startTime;
+    // 自动关闭未结束的 step
+    for (const step of session.steps) {
+      if (!step.endTime) {
+        step.endTime = now;
+        step.durationMs = step.endTime - step.startTime;
       }
     }
 
@@ -109,23 +96,19 @@ export class SessionLatencyTrackerService {
 
     this.logger.log(
       `[Session] Ended: ${session.type} [${sessionId}] ` +
-        `total=${summary.totalDurationMs}ms llm=${summary.llmTotalTimeMs}ms(${summary.llmTimePercent.toFixed(1)}%) ` +
-        `calls=${summary.llmCallCount} ttft_avg=${summary.ttft?.avgMs?.toFixed(0) ?? "N/A"}ms`,
+        `total=${summary.totalDurationMs}ms steps=${summary.steps.length} ` +
+        `actions=${summary.llmCallCount} ttlt_avg=${summary.ttlt?.avgMs?.toFixed(0) ?? "N/A"}ms`,
     );
 
     return summary;
   }
 
-  /**
-   * 获取会话（含当前状态）
-   */
   getSession(sessionId: string): LatencySession | undefined {
     return this.sessions.get(sessionId);
   }
 
   /**
    * 按 entityId 查找内存中活跃的 session（用于研究进行中的实时展示）
-   * 返回实时计算的 summary（不含持久化）
    */
   getActiveSessionSummary(
     entityId: string,
@@ -143,141 +126,122 @@ export class SessionLatencyTrackerService {
     return undefined;
   }
 
-  // ==================== Phase Management ====================
+  // ==================== Step Management ====================
 
   /**
-   * 开始一个阶段
+   * 开始一个 Step（业务语义单元）
    */
-  startPhase(sessionId: string, input: StartPhaseInput): string {
+  startStep(sessionId: string, input: StartStepInput): string {
     const session = this.sessions.get(sessionId);
     if (!session) {
       this.logger.warn(
-        `[Phase] Session not found: ${sessionId}, phase: ${input.name}`,
+        `[Step] Session not found: ${sessionId}, step: ${input.name}`,
       );
       return "";
     }
 
-    const phaseId = randomUUID();
-    const phase: LatencyPhase = {
-      id: phaseId,
+    const stepId = randomUUID();
+    const step: LatencyStep = {
+      id: stepId,
       name: input.name,
-      parentPhaseId: input.parentPhaseId,
+      parentStepId: input.parentStepId,
       startTime: Date.now(),
       parallel: input.parallel,
       parallelCount: input.parallelCount,
       metadata: input.metadata,
-      checkpoints: [],
+      actions: [],
     };
 
-    session.phases.push(phase);
+    session.steps.push(step);
 
     this.logger.debug(
-      `[Phase] Started: ${input.name} [${phaseId}] session=${sessionId}` +
+      `[Step] Started: ${input.name} [${stepId}]` +
         (input.parallel ? ` parallel=${input.parallelCount}` : ""),
     );
 
-    return phaseId;
+    return stepId;
   }
 
   /**
-   * 结束一个阶段
+   * 结束一个 Step
    */
-  endPhase(
+  endStep(
     sessionId: string,
-    phaseId: string,
+    stepId: string,
     metadata?: Record<string, unknown>,
   ): number | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
 
-    const phase = session.phases.find((p) => p.id === phaseId);
-    if (!phase) {
-      this.logger.warn(`[Phase] Not found: ${phaseId} in session ${sessionId}`);
+    const step = session.steps.find((s) => s.id === stepId);
+    if (!step) {
+      this.logger.warn(`[Step] Not found: ${stepId}`);
       return undefined;
     }
 
     const now = Date.now();
-    phase.endTime = now;
-    phase.durationMs = now - phase.startTime;
+    step.endTime = now;
+    step.durationMs = now - step.startTime;
     if (metadata) {
-      phase.metadata = { ...phase.metadata, ...metadata };
+      step.metadata = { ...step.metadata, ...metadata };
     }
 
     this.logger.debug(
-      `[Phase] Ended: ${phase.name} [${phaseId}] duration=${phase.durationMs}ms`,
+      `[Step] Ended: ${step.name} [${stepId}] duration=${step.durationMs}ms actions=${step.actions.length}`,
     );
 
-    return phase.durationMs;
+    return step.durationMs;
   }
 
   /**
-   * 按名称结束阶段（便捷方法，用于不想跟踪 phaseId 的场景）
+   * 按名称结束 Step
    */
-  endPhaseByName(
+  endStepByName(
     sessionId: string,
-    phaseName: string,
+    stepName: string,
     metadata?: Record<string, unknown>,
   ): number | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
 
-    // 找到最后一个未结束的同名阶段
-    const phase = [...session.phases]
+    const step = [...session.steps]
       .reverse()
-      .find((p) => p.name === phaseName && !p.endTime);
+      .find((s) => s.name === stepName && !s.endTime);
 
-    if (!phase) {
+    if (!step) {
       this.logger.warn(
-        `[Phase] No open phase named "${phaseName}" in session ${sessionId}`,
+        `[Step] No open step named "${stepName}" in session ${sessionId}`,
       );
       return undefined;
     }
 
-    return this.endPhase(sessionId, phase.id, metadata);
+    return this.endStep(sessionId, step.id, metadata);
   }
 
-  // ==================== Checkpoints ====================
-
   /**
-   * 在当前活跃阶段添加检查点
+   * 获取当前最后一个未结束的 Step ID
    */
-  addCheckpoint(
-    sessionId: string,
-    phaseId: string,
-    name: string,
-    metadata?: Record<string, unknown>,
-  ): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) return;
-
-    const phase = session.phases.find((p) => p.id === phaseId);
-    if (!phase) return;
-
-    phase.checkpoints.push({
-      name,
-      timestamp: Date.now(),
-      metadata,
-    });
-  }
-
-  // ==================== LLM Call Recording ====================
-
-  /**
-   * 获取当前最后一个未结束的阶段 ID（供自动归属 LLM 调用）
-   */
-  getActivePhaseId(sessionId: string): string | undefined {
+  getActiveStepId(sessionId: string): string | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
-    const openPhase = [...session.phases].reverse().find((p) => !p.endTime);
-    return openPhase?.id;
+    const openStep = [...session.steps].reverse().find((s) => !s.endTime);
+    return openStep?.id;
   }
 
+  // ==================== Action Recording ====================
+
   /**
-   * 记录一次 LLM 调用的时延数据
+   * 记录一次 Action（LLM 调用或工具调用）到当前 Step
    */
-  recordLLMCall(sessionId: string, input: RecordLLMLatencyInput): void {
+  recordAction(sessionId: string, input: RecordActionInput): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
+
+    // 找到目标 Step：显式指定 > 最后一个未结束的 Step
+    const stepId = input.stepId ?? this.getActiveStepId(sessionId);
+    const step = stepId
+      ? session.steps.find((s) => s.id === stepId)
+      : undefined;
 
     // 计算吞吐量
     let tokenThroughputPerSec = 0;
@@ -296,11 +260,11 @@ export class SessionLatencyTrackerService {
         (input.outputTokens / input.totalDurationMs) * 1000;
     }
 
-    const record: LLMLatencyRecord = {
+    const action: LatencyAction = {
       id: randomUUID(),
-      sessionId,
-      phaseId: input.phaseId,
-      stepName: input.stepName,
+      stepId: stepId ?? "",
+      type: input.type ?? "llm_call",
+      name: input.name,
       model: input.model,
       provider: input.provider,
       streaming: input.streaming,
@@ -313,14 +277,49 @@ export class SessionLatencyTrackerService {
       timestamp: Date.now(),
     };
 
-    session.llmCalls.push(record);
+    if (step) {
+      step.actions.push(action);
+    }
+    // 如果没有活跃 Step，action 不会丢失 — 仍可通过 getAllActions() 从 steps 中收集
+  }
+
+  // ==================== Legacy API (backward compatible) ====================
+
+  /** @deprecated Use startStep */
+  startPhase(sessionId: string, input: StartStepInput): string {
+    return this.startStep(sessionId, input);
+  }
+
+  /** @deprecated Use endStep */
+  endPhase(
+    sessionId: string,
+    stepId: string,
+    metadata?: Record<string, unknown>,
+  ): number | undefined {
+    return this.endStep(sessionId, stepId, metadata);
+  }
+
+  /** @deprecated Use endStepByName */
+  endPhaseByName(
+    sessionId: string,
+    stepName: string,
+    metadata?: Record<string, unknown>,
+  ): number | undefined {
+    return this.endStepByName(sessionId, stepName, metadata);
+  }
+
+  /** @deprecated Use getActiveStepId */
+  getActivePhaseId(sessionId: string): string | undefined {
+    return this.getActiveStepId(sessionId);
+  }
+
+  /** @deprecated Use recordAction */
+  recordLLMCall(sessionId: string, input: RecordActionInput): void {
+    this.recordAction(sessionId, input);
   }
 
   // ==================== Query ====================
 
-  /**
-   * 查询历史会话（从 DB）
-   */
   async listSessions(
     filter: ListSessionsFilter,
   ): Promise<LatencySessionSummary[]> {
@@ -352,9 +351,6 @@ export class SessionLatencyTrackerService {
     }
   }
 
-  /**
-   * 根据实体 ID 获取最近会话摘要
-   */
   async getLatestSummary(
     entityId: string,
     type?: string,
@@ -378,71 +374,74 @@ export class SessionLatencyTrackerService {
     }
   }
 
+  // ==================== Helpers ====================
+
+  /** 收集 session 中所有 steps 的所有 actions */
+  private getAllActions(session: LatencySession): LatencyAction[] {
+    return session.steps.flatMap((s) => s.actions);
+  }
+
   // ==================== Summary Computation ====================
 
-  /**
-   * 计算会话摘要
-   */
   private computeSummary(session: LatencySession): LatencySessionSummary {
     const totalDurationMs = (session.endTime ?? Date.now()) - session.startTime;
-    const llmCalls = session.llmCalls;
+    const allActions = this.getAllActions(session);
 
-    // 阶段分解（只取顶层阶段），含每阶段 LLM 调用统计
-    const topLevelPhases = session.phases.filter((p) => !p.parentPhaseId);
-    const phases: PhaseDurationSummary[] = topLevelPhases.map((p) => {
-      const dur = p.durationMs ?? (p.endTime ? p.endTime - p.startTime : 0);
-      const phaseLlmCalls = llmCalls.filter((c) => c.phaseId === p.id);
-      const ttltValues = phaseLlmCalls
-        .map((c) => c.ttltMs)
-        .filter((v) => v > 0);
+    // Step 分解（只取顶层 Step）
+    const topLevelSteps = session.steps.filter((s) => !s.parentStepId);
+    const steps: StepSummary[] = topLevelSteps.map((s) => {
+      const dur = s.durationMs ?? (s.endTime ? s.endTime - s.startTime : 0);
+      const stepActions = s.actions;
+      const llmActions = stepActions.filter((a) => a.type === "llm_call");
+      const ttltValues = llmActions.map((a) => a.ttltMs).filter((v) => v > 0);
       return {
-        name: p.name,
+        name: s.name,
         durationMs: dur,
         percentOfTotal: totalDurationMs > 0 ? (dur / totalDurationMs) * 100 : 0,
-        llmCallCount: phaseLlmCalls.length,
+        actionCount: stepActions.length,
         avgTtltMs:
           ttltValues.length > 0
             ? Math.round(
-                ttltValues.reduce((s, v) => s + v, 0) / ttltValues.length,
+                ttltValues.reduce((sum, v) => sum + v, 0) / ttltValues.length,
               )
             : undefined,
       };
     });
 
-    // LLM 聚合
-    const llmCallCount = llmCalls.length;
-    const llmTotalTimeMs = llmCalls.reduce(
-      (sum, c) => sum + c.totalDurationMs,
+    // LLM action 聚合
+    const llmActions = allActions.filter((a) => a.type === "llm_call");
+    const llmCallCount = llmActions.length;
+    const llmTotalTimeMs = llmActions.reduce(
+      (sum, a) => sum + a.totalDurationMs,
       0,
     );
-    // Note: 并行 LLM 调用的总时间可能超过 wall-clock 时间，所以不 cap 到 100%
     const llmTimePercent =
       totalDurationMs > 0 ? (llmTotalTimeMs / totalDurationMs) * 100 : 0;
     const overheadMs = Math.max(0, totalDurationMs - llmTotalTimeMs);
 
-    // TTFT 统计（仅流式调用）
+    // TTFT 统计
     const ttft = this.computePercentileStats(
-      llmCalls
-        .filter((c) => c.streaming && c.ttftMs != null)
-        .map((c) => c.ttftMs!),
+      llmActions
+        .filter((a) => a.streaming && a.ttftMs != null)
+        .map((a) => a.ttftMs!),
     );
 
-    // TTLT 统计（所有 LLM 调用）
+    // TTLT 统计
     const ttlt = this.computePercentileStats(
-      llmCalls.map((c) => c.ttltMs).filter((v) => v > 0),
+      llmActions.map((a) => a.ttltMs).filter((v) => v > 0),
     );
 
     // Token 统计
-    const totalInputTokens = llmCalls.reduce(
-      (sum, c) => sum + c.inputTokens,
+    const totalInputTokens = llmActions.reduce(
+      (sum, a) => sum + a.inputTokens,
       0,
     );
-    const totalOutputTokens = llmCalls.reduce(
-      (sum, c) => sum + c.outputTokens,
+    const totalOutputTokens = llmActions.reduce(
+      (sum, a) => sum + a.outputTokens,
       0,
     );
-    const throughputs = llmCalls
-      .map((c) => c.tokenThroughputPerSec)
+    const throughputs = llmActions
+      .map((a) => a.tokenThroughputPerSec)
       .filter((t) => t > 0);
     const avgTokenThroughput =
       throughputs.length > 0
@@ -456,7 +455,7 @@ export class SessionLatencyTrackerService {
       type: session.type,
       status: session.status,
       totalDurationMs,
-      phases,
+      steps,
       llmCallCount,
       llmTotalTimeMs,
       llmTimePercent: Math.round(llmTimePercent * 10) / 10,
@@ -469,7 +468,6 @@ export class SessionLatencyTrackerService {
     };
   }
 
-  /** 计算百分位统计 */
   private computePercentileStats(
     values: number[],
   ): LatencyPercentileStats | undefined {
@@ -486,7 +484,6 @@ export class SessionLatencyTrackerService {
     };
   }
 
-  /** 百分位计算（数组已排序） */
   private percentile(sorted: number[], p: number): number {
     if (sorted.length === 0) return 0;
     const index = Math.ceil((p / 100) * sorted.length) - 1;
@@ -513,11 +510,13 @@ export class SessionLatencyTrackerService {
           endTime: session.endTime ? new Date(session.endTime) : null,
           durationMs: summary.totalDurationMs,
           summary: JSON.parse(JSON.stringify(summary)) as Prisma.InputJsonValue,
+          // steps 包含 actions，完整保存
           phases: JSON.parse(
-            JSON.stringify(session.phases),
+            JSON.stringify(session.steps),
           ) as Prisma.InputJsonValue,
+          // llmCalls 字段保存扁平化的 actions（兼容前端查询）
           llmCalls: JSON.parse(
-            JSON.stringify(session.llmCalls),
+            JSON.stringify(this.getAllActions(session)),
           ) as Prisma.InputJsonValue,
         },
       });

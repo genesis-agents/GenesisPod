@@ -92,11 +92,11 @@ interface MissionInfo {
   completedTasks: number;
 }
 
-interface LatencyPhaseSummary {
+interface LatencyStepSummary {
   name: string;
   durationMs: number;
   percentOfTotal: number;
-  llmCallCount: number;
+  actionCount: number;
   avgTtltMs?: number;
 }
 
@@ -113,7 +113,7 @@ interface LatencySummary {
   type: string;
   status: string;
   totalDurationMs: number;
-  phases: LatencyPhaseSummary[];
+  steps: LatencyStepSummary[];
   llmCallCount: number;
   llmTotalTimeMs: number;
   llmTimePercent: number;
@@ -862,23 +862,26 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
             />
           </div>
 
-          {/* Phase Breakdown Bar Chart */}
-          {data.latency.phases.length > 0 && (
+          {/* Step Breakdown Bar Chart */}
+          {data.latency.steps.length > 0 && (
             <div className="mb-4">
               <h4 className="mb-2 text-xs font-medium text-gray-500">
                 {t('topicResearch.computeUsage.phaseBreakdown')}
               </h4>
               <div className="space-y-2">
-                {data.latency.phases.map((phase, idx) => {
-                  const phaseName = PHASE_LABELS[phase.name] ?? phase.name;
+                {data.latency.steps.map((step, idx) => {
+                  const stepLabel = PHASE_LABELS[step.name] ?? step.name;
                   const barWidth = Math.max(
                     2,
-                    Math.min(100, phase.percentOfTotal)
+                    Math.min(100, step.percentOfTotal)
                   );
                   return (
                     <div key={idx} className="flex items-center gap-3">
-                      <span className="w-24 shrink-0 text-right text-xs text-gray-500">
-                        {phaseName}
+                      <span
+                        className="w-24 shrink-0 truncate text-right text-xs text-gray-500"
+                        title={step.name}
+                      >
+                        {stepLabel}
                       </span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -893,20 +896,20 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                             />
                           </div>
                           <span className="w-16 shrink-0 text-right text-xs tabular-nums text-gray-600">
-                            {formatDuration(phase.durationMs)}
+                            {formatDuration(step.durationMs)}
                           </span>
                           <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-400">
-                            {phase.percentOfTotal.toFixed(0)}%
+                            {step.percentOfTotal.toFixed(0)}%
                           </span>
-                          {phase.avgTtltMs != null && (
+                          {step.avgTtltMs != null && (
                             <span className="w-20 shrink-0 text-right text-[10px] tabular-nums text-gray-400">
                               TTLT{' '}
-                              {phase.avgTtltMs < 1000
-                                ? `${phase.avgTtltMs}ms`
-                                : `${(phase.avgTtltMs / 1000).toFixed(1)}s`}
+                              {step.avgTtltMs < 1000
+                                ? `${step.avgTtltMs}ms`
+                                : `${(step.avgTtltMs / 1000).toFixed(1)}s`}
                               <span className="text-gray-300">
                                 {' '}
-                                ({phase.llmCallCount})
+                                ({step.actionCount})
                               </span>
                             </span>
                           )}

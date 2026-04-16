@@ -93,19 +93,26 @@ export type {
 export { SessionLatencyTrackerService } from "../observability/session-latency-tracker.service";
 export type {
   LatencySession,
-  LatencyPhase,
-  LatencyCheckpoint,
-  LLMLatencyRecord,
+  LatencyStep,
+  LatencyAction,
+  ActionType,
   LatencySessionSummary,
-  TTFTStats,
+  StepSummary,
   LatencyPercentileStats,
-  PhaseDurationSummary,
   LatencySessionType,
   LatencySessionStatus,
   StartSessionInput,
+  StartStepInput,
+  RecordActionInput,
+  ListSessionsFilter,
+  // Legacy aliases
+  TTFTStats,
+  LatencyPhase,
+  LatencyCheckpoint,
+  LLMLatencyRecord,
+  PhaseDurationSummary,
   StartPhaseInput,
   RecordLLMLatencyInput,
-  ListSessionsFilter,
 } from "../observability/session-latency.types";
 
 // Observability — additional

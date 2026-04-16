@@ -3,13 +3,12 @@
  *
  * Covers:
  * - Session lifecycle (startSession / endSession)
- * - Phase management (startPhase / endPhase / endPhaseByName)
- * - Checkpoints
- * - LLM call recording + throughput calculation
- * - Summary computation (TTFT stats, percentiles, phase breakdown, llmTimePercent)
- * - Auto-close of open phases on endSession
+ * - Step management (startStep / endStep / endStepByName)
+ * - Action recording (recordAction) + throughput calculation
+ * - Summary computation (TTFT stats, percentiles, step breakdown, llmTimePercent)
+ * - Auto-close of open steps on endSession
  * - Error / graceful-handling paths (invalid sessionId)
- * - getActivePhaseId
+ * - getActiveStepId
  * - DB persistence via PrismaService (mock)
  * - DB persistence failure (graceful)
  * - listSessions / getLatestSummary query methods
@@ -20,7 +19,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SessionLatencyTrackerService } from "../session-latency-tracker.service";
-import type { RecordLLMLatencyInput } from "../session-latency.types";
+import type { RecordActionInput } from "../session-latency.types";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output during tests
@@ -44,11 +43,12 @@ function buildMockPrisma() {
   };
 }
 
-/** Build a minimal streaming LLM call input */
+/** Build a minimal streaming action input */
 function streamingCall(
-  overrides: Partial<RecordLLMLatencyInput> = {},
-): RecordLLMLatencyInput {
+  overrides: Partial<RecordActionInput> = {},
+): RecordActionInput {
   return {
+    name: "streaming_call",
     model: "gpt-4o",
     provider: "openai",
     streaming: true,
@@ -61,11 +61,12 @@ function streamingCall(
   };
 }
 
-/** Build a minimal non-streaming LLM call input */
+/** Build a minimal non-streaming action input */
 function nonStreamingCall(
-  overrides: Partial<RecordLLMLatencyInput> = {},
-): RecordLLMLatencyInput {
+  overrides: Partial<RecordActionInput> = {},
+): RecordActionInput {
   return {
+    name: "non_streaming_call",
     model: "claude-3",
     provider: "anthropic",
     streaming: false,
@@ -132,8 +133,7 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       expect(session!.userId).toBe("user-1");
       expect(session!.metadata).toEqual({ key: "value" });
       expect(session!.status).toBe("running");
-      expect(session!.phases).toHaveLength(0);
-      expect(session!.llmCalls).toHaveLength(0);
+      expect(session!.steps).toHaveLength(0);
     });
 
     it("should return a summary with correct fields on endSession", async () => {
@@ -152,7 +152,7 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       expect(summary!.totalDurationMs).toBeGreaterThanOrEqual(0);
       expect(summary!.llmCallCount).toBe(0);
       expect(summary!.llmTotalTimeMs).toBe(0);
-      expect(summary!.phases).toHaveLength(0);
+      expect(summary!.steps).toHaveLength(0);
     });
 
     it("should mark session as failed when status=failed is passed", () => {
@@ -175,197 +175,204 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // 2. Multiple sequential phases
+  // 2. Multiple sequential steps
   // =========================================================================
 
-  describe("Multiple sequential phases", () => {
-    it("should collect all top-level phases in summary with correct names", async () => {
+  describe("Multiple sequential steps", () => {
+    it("should collect all top-level steps in summary with correct names", async () => {
       // Arrange
       const sessionId = service.startSession({
         type: "topic_insights_refresh",
       });
 
-      const phase1Id = service.startPhase(sessionId, { name: "planning" });
+      const step1Id = service.startStep(sessionId, { name: "planning" });
       await wait(5);
-      service.endPhase(sessionId, phase1Id);
+      service.endStep(sessionId, step1Id);
 
-      const phase2Id = service.startPhase(sessionId, { name: "execution" });
+      const step2Id = service.startStep(sessionId, { name: "execution" });
       await wait(5);
-      service.endPhase(sessionId, phase2Id);
+      service.endStep(sessionId, step2Id);
 
-      const phase3Id = service.startPhase(sessionId, { name: "formatting" });
+      const step3Id = service.startStep(sessionId, { name: "formatting" });
       await wait(5);
-      service.endPhase(sessionId, phase3Id);
+      service.endStep(sessionId, step3Id);
 
       // Act
       const summary = service.endSession(sessionId);
 
       // Assert
-      expect(summary!.phases).toHaveLength(3);
-      const names = summary!.phases.map((p) => p.name);
+      expect(summary!.steps).toHaveLength(3);
+      const names = summary!.steps.map((s) => s.name);
       expect(names).toContain("planning");
       expect(names).toContain("execution");
       expect(names).toContain("formatting");
     });
 
-    it("should compute positive durationMs for each phase", async () => {
+    it("should compute positive durationMs for each step", async () => {
       const sessionId = service.startSession({ type: "ai_writing" });
 
-      const phaseId = service.startPhase(sessionId, { name: "draft" });
+      const stepId = service.startStep(sessionId, { name: "draft" });
       await wait(5);
-      service.endPhase(sessionId, phaseId);
+      service.endStep(sessionId, stepId);
 
       const summary = service.endSession(sessionId);
-      const draftPhase = summary!.phases.find((p) => p.name === "draft");
+      const draftStep = summary!.steps.find((s) => s.name === "draft");
 
-      expect(draftPhase!.durationMs).toBeGreaterThan(0);
+      expect(draftStep!.durationMs).toBeGreaterThan(0);
     });
 
-    it("should compute percentOfTotal that sums to ≤ 100 for sequential phases", async () => {
+    it("should compute percentOfTotal that sums to ≤ 100 for sequential steps", async () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      const p1 = service.startPhase(sessionId, { name: "p1" });
+      const s1 = service.startStep(sessionId, { name: "s1" });
       await wait(5);
-      service.endPhase(sessionId, p1);
+      service.endStep(sessionId, s1);
 
-      const p2 = service.startPhase(sessionId, { name: "p2" });
+      const s2 = service.startStep(sessionId, { name: "s2" });
       await wait(5);
-      service.endPhase(sessionId, p2);
+      service.endStep(sessionId, s2);
 
       const summary = service.endSession(sessionId);
 
-      const total = summary!.phases.reduce(
-        (acc, p) => acc + p.percentOfTotal,
+      const total = summary!.steps.reduce(
+        (acc, s) => acc + s.percentOfTotal,
         0,
       );
-      // Sequential phases: sum should be ≤ 100% (can be slightly less due to overhead)
+      // Sequential steps: sum should be ≤ 100% (can be slightly less due to overhead)
       expect(total).toBeLessThanOrEqual(100.1); // small float tolerance
       expect(total).toBeGreaterThan(0);
     });
   });
 
   // =========================================================================
-  // 3. Parallel phases
+  // 3. Parallel steps
   // =========================================================================
 
-  describe("Parallel phases", () => {
-    it("should record parallel flag and parallelCount in phase metadata", () => {
+  describe("Parallel steps", () => {
+    it("should record parallel flag and parallelCount in step metadata", () => {
       const sessionId = service.startSession({ type: "team_execution" });
 
-      const phaseId = service.startPhase(sessionId, {
+      const stepId = service.startStep(sessionId, {
         name: "parallel_research",
         parallel: true,
         parallelCount: 5,
       });
 
       const session = service.getSession(sessionId);
-      const phase = session!.phases.find((p) => p.id === phaseId);
+      const step = session!.steps.find((s) => s.id === stepId);
 
-      expect(phase!.parallel).toBe(true);
-      expect(phase!.parallelCount).toBe(5);
+      expect(step!.parallel).toBe(true);
+      expect(step!.parallelCount).toBe(5);
     });
 
-    it("should include parallel phase in summary as a top-level phase", async () => {
+    it("should include parallel step in summary as a top-level step", async () => {
       const sessionId = service.startSession({ type: "team_execution" });
 
-      const phaseId = service.startPhase(sessionId, {
+      const stepId = service.startStep(sessionId, {
         name: "parallel_workers",
         parallel: true,
         parallelCount: 3,
       });
       await wait(5);
-      service.endPhase(sessionId, phaseId);
+      service.endStep(sessionId, stepId);
 
       const summary = service.endSession(sessionId);
 
-      expect(summary!.phases).toHaveLength(1);
-      expect(summary!.phases[0].name).toBe("parallel_workers");
+      expect(summary!.steps).toHaveLength(1);
+      expect(summary!.steps[0].name).toBe("parallel_workers");
     });
   });
 
   // =========================================================================
-  // 4. Nested phases (child phases excluded from top-level summary)
+  // 4. Nested steps (child steps excluded from top-level summary)
   // =========================================================================
 
-  describe("Nested phases", () => {
-    it("should exclude child phases from summary phases array", async () => {
+  describe("Nested steps", () => {
+    it("should exclude child steps from summary steps array", async () => {
       const sessionId = service.startSession({ type: "research_mission" });
 
       // Top-level parent
-      const parentId = service.startPhase(sessionId, { name: "parent" });
+      const parentId = service.startStep(sessionId, { name: "parent" });
 
-      // Child phase referencing parent
-      const childId = service.startPhase(sessionId, {
+      // Child step referencing parent
+      const childId = service.startStep(sessionId, {
         name: "child",
-        parentPhaseId: parentId,
+        parentStepId: parentId,
       });
       await wait(5);
-      service.endPhase(sessionId, childId);
-      service.endPhase(sessionId, parentId);
+      service.endStep(sessionId, childId);
+      service.endStep(sessionId, parentId);
 
       const summary = service.endSession(sessionId);
 
-      // Only the parent (no parentPhaseId) should appear
-      expect(summary!.phases).toHaveLength(1);
-      expect(summary!.phases[0].name).toBe("parent");
+      // Only the parent (no parentStepId) should appear
+      expect(summary!.steps).toHaveLength(1);
+      expect(summary!.steps[0].name).toBe("parent");
     });
 
-    it("should store parentPhaseId on the child phase object", () => {
+    it("should store parentStepId on the child step object", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      const parentId = service.startPhase(sessionId, { name: "parent" });
-      const childId = service.startPhase(sessionId, {
+      const parentId = service.startStep(sessionId, { name: "parent" });
+      const childId = service.startStep(sessionId, {
         name: "child",
-        parentPhaseId: parentId,
+        parentStepId: parentId,
       });
 
       const session = service.getSession(sessionId);
-      const child = session!.phases.find((p) => p.id === childId);
+      const child = session!.steps.find((s) => s.id === childId);
 
-      expect(child!.parentPhaseId).toBe(parentId);
+      expect(child!.parentStepId).toBe(parentId);
     });
 
     it("should handle multiple nested children, all excluded from summary", async () => {
       const sessionId = service.startSession({ type: "ai_writing" });
 
-      const parentId = service.startPhase(sessionId, { name: "root" });
-      const child1 = service.startPhase(sessionId, {
+      const parentId = service.startStep(sessionId, { name: "root" });
+      const child1 = service.startStep(sessionId, {
         name: "child-a",
-        parentPhaseId: parentId,
+        parentStepId: parentId,
       });
-      const child2 = service.startPhase(sessionId, {
+      const child2 = service.startStep(sessionId, {
         name: "child-b",
-        parentPhaseId: parentId,
+        parentStepId: parentId,
       });
       await wait(5);
-      service.endPhase(sessionId, child1);
-      service.endPhase(sessionId, child2);
-      service.endPhase(sessionId, parentId);
+      service.endStep(sessionId, child1);
+      service.endStep(sessionId, child2);
+      service.endStep(sessionId, parentId);
 
       const summary = service.endSession(sessionId);
 
-      expect(summary!.phases).toHaveLength(1);
-      expect(summary!.phases[0].name).toBe("root");
+      expect(summary!.steps).toHaveLength(1);
+      expect(summary!.steps[0].name).toBe("root");
     });
   });
 
   // =========================================================================
-  // 5. LLM call recording – 10 calls, aggregated stats
+  // 5. Action recording – 10 actions, aggregated stats
   // =========================================================================
 
-  describe("LLM call recording – aggregated stats", () => {
-    it("should count 10 recorded calls", () => {
+  describe("Action recording – aggregated stats", () => {
+    it("should count 10 recorded actions", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
       for (let i = 0; i < 10; i++) {
-        service.recordLLMCall(
+        service.recordAction(
           sessionId,
-          streamingCall({ ttftMs: 100 + i * 50, ttltMs: 2000 + i * 100 }),
+          streamingCall({
+            name: `call_${i}`,
+            ttftMs: 100 + i * 50,
+            ttltMs: 2000 + i * 100,
+            stepId,
+          }),
         );
       }
 
       const session = service.getSession(sessionId);
-      expect(session!.llmCalls).toHaveLength(10);
+      const step = session!.steps.find((s) => s.id === stepId);
+      expect(step!.actions).toHaveLength(10);
 
       const summary = service.endSession(sessionId);
       expect(summary!.llmCallCount).toBe(10);
@@ -374,14 +381,17 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
     it("should compute TTFT avgMs correctly for known values", () => {
       // ttftMs values: 100, 200, 300 → avg = 200
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
       [100, 200, 300].forEach((ttftMs) => {
-        service.recordLLMCall(
+        service.recordAction(
           sessionId,
           streamingCall({
+            name: "ttft_call",
             ttftMs,
             ttltMs: ttftMs + 1000,
             totalDurationMs: ttftMs + 1000,
+            stepId,
           }),
         );
       });
@@ -397,14 +407,17 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       // p50: ceil(50/100 * 10) - 1 = 5 - 1 = 4 → sorted[4] = 500
       // p95: ceil(95/100 * 10) - 1 = 10 - 1 = 9 → sorted[9] = 1000
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
       for (let i = 1; i <= 10; i++) {
-        service.recordLLMCall(
+        service.recordAction(
           sessionId,
           streamingCall({
+            name: `call_${i}`,
             ttftMs: i * 100,
             ttltMs: i * 100 + 2000,
             totalDurationMs: i * 100 + 2000,
+            stepId,
           }),
         );
       }
@@ -422,8 +435,10 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       // ttftMs=200, ttltMs=5000 → generationTime=4800ms, outputTokens=500
       // throughput = 500/4.8 ≈ 104.2
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(sessionId, {
+      service.recordAction(sessionId, {
+        name: "streaming_op",
         model: "gpt-4o",
         provider: "openai",
         streaming: true,
@@ -432,20 +447,24 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
         totalDurationMs: 5000,
         inputTokens: 100,
         outputTokens: 500,
+        stepId,
       });
 
       const session = service.getSession(sessionId);
-      const record = session!.llmCalls[0];
+      const step = session!.steps.find((s) => s.id === stepId);
+      const action = step!.actions[0];
 
       // 500 / 4.8 * rounding to 1dp
-      expect(record.tokenThroughputPerSec).toBeCloseTo(104.2, 0);
+      expect(action.tokenThroughputPerSec).toBeCloseTo(104.2, 0);
     });
 
     it("should compute tokenThroughputPerSec for non-streaming calls", () => {
       // totalDurationMs=3000, outputTokens=300 → 300/3 = 100 tokens/sec
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(sessionId, {
+      service.recordAction(sessionId, {
+        name: "non_streaming_op",
         model: "claude-3",
         provider: "anthropic",
         streaming: false,
@@ -453,25 +472,38 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
         totalDurationMs: 3000,
         inputTokens: 100,
         outputTokens: 300,
+        stepId,
       });
 
       const session = service.getSession(sessionId);
-      const record = session!.llmCalls[0];
+      const step = session!.steps.find((s) => s.id === stepId);
+      const action = step!.actions[0];
 
-      expect(record.tokenThroughputPerSec).toBe(100);
+      expect(action.tokenThroughputPerSec).toBe(100);
     });
 
     it("should compute llmTimePercent correctly", async () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
       // Record two non-streaming calls: 500ms + 500ms = 1000ms total LLM time
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
-        nonStreamingCall({ totalDurationMs: 500, ttltMs: 500 }),
+        nonStreamingCall({
+          name: "call_1",
+          totalDurationMs: 500,
+          ttltMs: 500,
+          stepId,
+        }),
       );
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
-        nonStreamingCall({ totalDurationMs: 500, ttltMs: 500 }),
+        nonStreamingCall({
+          name: "call_2",
+          totalDurationMs: 500,
+          ttltMs: 500,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -484,14 +516,25 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
     it("should aggregate totalInputTokens and totalOutputTokens", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
-        streamingCall({ inputTokens: 100, outputTokens: 200 }),
+        streamingCall({
+          name: "call_1",
+          inputTokens: 100,
+          outputTokens: 200,
+          stepId,
+        }),
       );
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
-        streamingCall({ inputTokens: 150, outputTokens: 250 }),
+        streamingCall({
+          name: "call_2",
+          inputTokens: 150,
+          outputTokens: 250,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -503,21 +546,26 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
     it("should compute avgTokenThroughput as average of individual throughputs", () => {
       // Two non-streaming calls: 300 tokens / 3000ms = 100 t/s, 200/2000 = 100 t/s → avg 100
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
         nonStreamingCall({
+          name: "call_1",
           outputTokens: 300,
           totalDurationMs: 3000,
           ttltMs: 3000,
+          stepId,
         }),
       );
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
         nonStreamingCall({
+          name: "call_2",
           outputTokens: 200,
           totalDurationMs: 2000,
           ttltMs: 2000,
+          stepId,
         }),
       );
 
@@ -528,32 +576,32 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // 6. Auto-close of open phases on endSession
+  // 6. Auto-close of open steps on endSession
   // =========================================================================
 
-  describe("Auto-close of open phases", () => {
-    it("should auto-close an unclosed phase when endSession is called", () => {
+  describe("Auto-close of open steps", () => {
+    it("should auto-close an unclosed step when endSession is called", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      service.startPhase(sessionId, { name: "unclosed" });
+      service.startStep(sessionId, { name: "unclosed" });
 
-      // End session without explicitly ending the phase
+      // End session without explicitly ending the step
       const summary = service.endSession(sessionId);
 
-      // Phase should appear in summary with a computed duration
-      expect(summary!.phases).toHaveLength(1);
-      expect(summary!.phases[0].durationMs).toBeGreaterThanOrEqual(0);
+      // Step should appear in summary with a computed duration
+      expect(summary!.steps).toHaveLength(1);
+      expect(summary!.steps[0].durationMs).toBeGreaterThanOrEqual(0);
     });
 
-    it("should auto-close multiple open phases", () => {
+    it("should auto-close multiple open steps", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      service.startPhase(sessionId, { name: "phase-a" });
-      service.startPhase(sessionId, { name: "phase-b" });
+      service.startStep(sessionId, { name: "step-a" });
+      service.startStep(sessionId, { name: "step-b" });
 
       const summary = service.endSession(sessionId);
 
-      expect(summary!.phases).toHaveLength(2);
+      expect(summary!.steps).toHaveLength(2);
     });
   });
 
@@ -567,35 +615,35 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       expect(result).toBeUndefined();
     });
 
-    it("startPhase with unknown sessionId returns empty string", () => {
-      const phaseId = service.startPhase("nonexistent-id", { name: "x" });
-      expect(phaseId).toBe("");
+    it("startStep with unknown sessionId returns empty string", () => {
+      const stepId = service.startStep("nonexistent-id", { name: "x" });
+      expect(stepId).toBe("");
     });
 
-    it("endPhase with unknown sessionId returns undefined", () => {
-      const result = service.endPhase("nonexistent-id", "nonexistent-phase");
+    it("endStep with unknown sessionId returns undefined", () => {
+      const result = service.endStep("nonexistent-id", "nonexistent-step");
       expect(result).toBeUndefined();
     });
 
-    it("recordLLMCall with unknown sessionId does not throw", () => {
+    it("recordAction with unknown sessionId does not throw", () => {
       expect(() => {
-        service.recordLLMCall("nonexistent-id", streamingCall());
+        service.recordAction("nonexistent-id", streamingCall());
       }).not.toThrow();
     });
 
-    it("getActivePhaseId with unknown sessionId returns undefined", () => {
-      const result = service.getActivePhaseId("nonexistent-id");
+    it("getActiveStepId with unknown sessionId returns undefined", () => {
+      const result = service.getActiveStepId("nonexistent-id");
       expect(result).toBeUndefined();
     });
 
-    it("endPhaseByName with unknown sessionId returns undefined", () => {
-      const result = service.endPhaseByName("nonexistent-id", "x");
+    it("endStepByName with unknown sessionId returns undefined", () => {
+      const result = service.endStepByName("nonexistent-id", "x");
       expect(result).toBeUndefined();
     });
   });
 
   // =========================================================================
-  // 8. Empty session (no phases, no LLM calls)
+  // 8. Empty session (no steps, no actions)
   // =========================================================================
 
   describe("Empty session", () => {
@@ -608,7 +656,7 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       expect(summary!.llmTotalTimeMs).toBe(0);
       expect(summary!.llmTimePercent).toBe(0);
       expect(summary!.overheadMs).toBeGreaterThanOrEqual(0);
-      expect(summary!.phases).toHaveLength(0);
+      expect(summary!.steps).toHaveLength(0);
       expect(summary!.totalInputTokens).toBe(0);
       expect(summary!.totalOutputTokens).toBe(0);
       expect(summary!.avgTokenThroughput).toBe(0);
@@ -616,42 +664,42 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // 9. endPhaseByName
+  // 9. endStepByName
   // =========================================================================
 
-  describe("endPhaseByName", () => {
-    it("should end the correct open phase by name", async () => {
+  describe("endStepByName", () => {
+    it("should end the correct open step by name", async () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      service.startPhase(sessionId, { name: "target" });
+      service.startStep(sessionId, { name: "target" });
       await wait(5);
 
-      const duration = service.endPhaseByName(sessionId, "target");
+      const duration = service.endStepByName(sessionId, "target");
 
       expect(typeof duration).toBe("number");
       expect(duration).toBeGreaterThan(0);
     });
 
-    it("should return undefined when no open phase with that name exists", () => {
+    it("should return undefined when no open step with that name exists", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      const result = service.endPhaseByName(sessionId, "missing-phase");
+      const result = service.endStepByName(sessionId, "missing-step");
       expect(result).toBeUndefined();
     });
 
-    it("should end the LAST open phase when duplicates exist", async () => {
+    it("should end the LAST open step when duplicates exist", async () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      const firstId = service.startPhase(sessionId, { name: "dup" });
+      const firstId = service.startStep(sessionId, { name: "dup" });
       await wait(2);
       // Close the first one manually
-      service.endPhase(sessionId, firstId);
+      service.endStep(sessionId, firstId);
 
-      // Open a second phase with the same name
-      service.startPhase(sessionId, { name: "dup" });
+      // Open a second step with the same name
+      service.startStep(sessionId, { name: "dup" });
       await wait(5);
 
-      const duration = service.endPhaseByName(sessionId, "dup");
+      const duration = service.endStepByName(sessionId, "dup");
 
       expect(typeof duration).toBe("number");
       expect(duration).toBeGreaterThan(0);
@@ -659,97 +707,49 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // 10. getActivePhaseId
+  // 10. getActiveStepId
   // =========================================================================
 
-  describe("getActivePhaseId", () => {
-    it("should return undefined when no phases exist", () => {
+  describe("getActiveStepId", () => {
+    it("should return undefined when no steps exist", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
-      expect(service.getActivePhaseId(sessionId)).toBeUndefined();
+      expect(service.getActiveStepId(sessionId)).toBeUndefined();
     });
 
-    it("should return the last open phase id", () => {
+    it("should return the last open step id", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      const id1 = service.startPhase(sessionId, { name: "first" });
-      const id2 = service.startPhase(sessionId, { name: "second" });
+      const id1 = service.startStep(sessionId, { name: "first" });
+      const id2 = service.startStep(sessionId, { name: "second" });
 
-      expect(service.getActivePhaseId(sessionId)).toBe(id2);
+      expect(service.getActiveStepId(sessionId)).toBe(id2);
 
       // Close second – now first should be the last open
-      service.endPhase(sessionId, id2);
-      expect(service.getActivePhaseId(sessionId)).toBe(id1);
+      service.endStep(sessionId, id2);
+      expect(service.getActiveStepId(sessionId)).toBe(id1);
     });
 
-    it("should return undefined when all phases are closed", () => {
+    it("should return undefined when all steps are closed", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
 
-      const id = service.startPhase(sessionId, { name: "only" });
-      service.endPhase(sessionId, id);
+      const id = service.startStep(sessionId, { name: "only" });
+      service.endStep(sessionId, id);
 
-      expect(service.getActivePhaseId(sessionId)).toBeUndefined();
+      expect(service.getActiveStepId(sessionId)).toBeUndefined();
     });
   });
 
   // =========================================================================
-  // 11. Checkpoints
-  // =========================================================================
-
-  describe("Checkpoints", () => {
-    it("should store checkpoint on the phase", () => {
-      const sessionId = service.startSession({ type: "ai_ask" });
-      const phaseId = service.startPhase(sessionId, {
-        name: "with-checkpoints",
-      });
-
-      service.addCheckpoint(sessionId, phaseId, "step-1", { detail: "x" });
-      service.addCheckpoint(sessionId, phaseId, "step-2");
-
-      const session = service.getSession(sessionId);
-      const phase = session!.phases.find((p) => p.id === phaseId);
-
-      expect(phase!.checkpoints).toHaveLength(2);
-      expect(phase!.checkpoints[0].name).toBe("step-1");
-      expect(phase!.checkpoints[0].metadata).toEqual({ detail: "x" });
-      expect(phase!.checkpoints[1].name).toBe("step-2");
-    });
-
-    it("should record timestamps for each checkpoint", () => {
-      const sessionId = service.startSession({ type: "ai_ask" });
-      const phaseId = service.startPhase(sessionId, { name: "p" });
-
-      service.addCheckpoint(sessionId, phaseId, "cp");
-
-      const session = service.getSession(sessionId);
-      const phase = session!.phases.find((p) => p.id === phaseId);
-
-      expect(phase!.checkpoints[0].timestamp).toBeGreaterThan(0);
-    });
-
-    it("should silently ignore checkpoint on unknown session", () => {
-      expect(() => {
-        service.addCheckpoint("bad-session", "bad-phase", "cp");
-      }).not.toThrow();
-    });
-
-    it("should silently ignore checkpoint on unknown phase", () => {
-      const sessionId = service.startSession({ type: "ai_ask" });
-
-      expect(() => {
-        service.addCheckpoint(sessionId, "bad-phase-id", "cp");
-      }).not.toThrow();
-    });
-  });
-
-  // =========================================================================
-  // 12. Token throughput calculation – precise values
+  // 11. Token throughput calculation – precise values
   // =========================================================================
 
   describe("Token throughput calculation", () => {
     it("streaming: ttftMs=200, ttltMs=5000, outputTokens=500 → ≈104.2 tokens/sec", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(sessionId, {
+      service.recordAction(sessionId, {
+        name: "streaming_op",
         model: "gpt-4o",
         provider: "openai",
         streaming: true,
@@ -758,20 +758,24 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
         totalDurationMs: 5000,
         inputTokens: 50,
         outputTokens: 500,
+        stepId,
       });
 
       const session = service.getSession(sessionId);
-      const record = session!.llmCalls[0];
+      const step = session!.steps.find((s) => s.id === stepId);
+      const action = step!.actions[0];
 
       // generationTimeMs = 5000 - 200 = 4800ms
       // throughput = 500 / 4.8 = 104.1666... → rounded to 1dp = 104.2
-      expect(record.tokenThroughputPerSec).toBeCloseTo(104.2, 0);
+      expect(action.tokenThroughputPerSec).toBeCloseTo(104.2, 0);
     });
 
     it("non-streaming: totalDurationMs=3000, outputTokens=300 → 100 tokens/sec", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(sessionId, {
+      service.recordAction(sessionId, {
+        name: "non_streaming_op",
         model: "claude-3",
         provider: "anthropic",
         streaming: false,
@@ -779,13 +783,15 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
         totalDurationMs: 3000,
         inputTokens: 50,
         outputTokens: 300,
+        stepId,
       });
 
       const session = service.getSession(sessionId);
-      const record = session!.llmCalls[0];
+      const step = session!.steps.find((s) => s.id === stepId);
+      const action = step!.actions[0];
 
       // 300 / 3 = 100.0
-      expect(record.tokenThroughputPerSec).toBe(100);
+      expect(action.tokenThroughputPerSec).toBe(100);
     });
 
     it("streaming with ttft === ttlt falls through to totalDurationMs branch", () => {
@@ -793,8 +799,10 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       // so the service falls back to the non-streaming branch:
       // throughput = outputTokens / totalDurationMs * 1000 = 50/1000*1000 = 50
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(sessionId, {
+      service.recordAction(sessionId, {
+        name: "edge_case_op",
         model: "gpt-4o",
         provider: "openai",
         streaming: true,
@@ -803,19 +811,23 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
         totalDurationMs: 1000,
         inputTokens: 10,
         outputTokens: 50,
+        stepId,
       });
 
       const session = service.getSession(sessionId);
-      const record = session!.llmCalls[0];
+      const step = session!.steps.find((s) => s.id === stepId);
+      const action = step!.actions[0];
 
       // Falls to: (50 / 1000) * 1000 = 50 tokens/sec
-      expect(record.tokenThroughputPerSec).toBe(50);
+      expect(action.tokenThroughputPerSec).toBe(50);
     });
 
     it("non-streaming with totalDurationMs=0 produces 0 throughput", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(sessionId, {
+      service.recordAction(sessionId, {
+        name: "zero_duration_op",
         model: "gpt-4o",
         provider: "openai",
         streaming: false,
@@ -823,32 +835,41 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
         totalDurationMs: 0,
         inputTokens: 10,
         outputTokens: 50,
+        stepId,
       });
 
       const session = service.getSession(sessionId);
-      const record = session!.llmCalls[0];
+      const step = session!.steps.find((s) => s.id === stepId);
+      const action = step!.actions[0];
 
-      expect(record.tokenThroughputPerSec).toBe(0);
+      expect(action.tokenThroughputPerSec).toBe(0);
     });
   });
 
   // =========================================================================
-  // 13. No streaming calls → ttft is undefined in summary
+  // 12. No streaming calls → ttft is undefined in summary
   // =========================================================================
 
   describe("No streaming calls", () => {
     it("should return ttft=undefined when only non-streaming calls are recorded", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(sessionId, nonStreamingCall());
-      service.recordLLMCall(sessionId, nonStreamingCall());
+      service.recordAction(
+        sessionId,
+        nonStreamingCall({ name: "call_1", stepId }),
+      );
+      service.recordAction(
+        sessionId,
+        nonStreamingCall({ name: "call_2", stepId }),
+      );
 
       const summary = service.endSession(sessionId);
 
       expect(summary!.ttft).toBeUndefined();
     });
 
-    it("should return ttft=undefined when no LLM calls at all", () => {
+    it("should return ttft=undefined when no actions at all", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
       const summary = service.endSession(sessionId);
 
@@ -857,16 +878,23 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // 14. Percentile edge cases
+  // 13. Percentile edge cases
   // =========================================================================
 
   describe("Percentile edge cases", () => {
     it("single streaming call: p50=p95=that value", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
-        streamingCall({ ttftMs: 400, ttltMs: 2000, totalDurationMs: 2000 }),
+        streamingCall({
+          name: "single_call",
+          ttftMs: 400,
+          ttltMs: 2000,
+          totalDurationMs: 2000,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -882,14 +910,27 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       // p50: ceil(0.5*2)-1 = 0 → sorted[0] = 100
       // p95: ceil(0.95*2)-1 = 1 → sorted[1] = 800
       const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
 
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
-        streamingCall({ ttftMs: 800, ttltMs: 3000, totalDurationMs: 3000 }),
+        streamingCall({
+          name: "call_1",
+          ttftMs: 800,
+          ttltMs: 3000,
+          totalDurationMs: 3000,
+          stepId,
+        }),
       );
-      service.recordLLMCall(
+      service.recordAction(
         sessionId,
-        streamingCall({ ttftMs: 100, ttltMs: 1000, totalDurationMs: 1000 }),
+        streamingCall({
+          name: "call_2",
+          ttftMs: 100,
+          ttltMs: 1000,
+          totalDurationMs: 1000,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -900,29 +941,29 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // 15. Zero-duration phase
+  // 14. Zero-duration step
   // =========================================================================
 
-  describe("Zero-duration phase", () => {
-    it("should produce durationMs=0 for a phase ended in same tick (mocked Date.now)", () => {
+  describe("Zero-duration step", () => {
+    it("should produce durationMs=0 for a step ended in same tick (mocked Date.now)", () => {
       const fixedTime = 1700000000000;
       const dateSpy = jest.spyOn(Date, "now").mockReturnValue(fixedTime);
 
       const sessionId = service.startSession({ type: "ai_ask" });
-      const phaseId = service.startPhase(sessionId, { name: "instant" });
-      service.endPhase(sessionId, phaseId);
+      const stepId = service.startStep(sessionId, { name: "instant" });
+      service.endStep(sessionId, stepId);
 
       const summary = service.endSession(sessionId);
-      const phase = summary!.phases[0];
+      const step = summary!.steps[0];
 
-      expect(phase.durationMs).toBe(0);
+      expect(step.durationMs).toBe(0);
 
       dateSpy.mockRestore();
     });
   });
 
   // =========================================================================
-  // 16. LRU eviction (uses a reduced-capacity service)
+  // 15. LRU eviction (uses a reduced-capacity service)
   // =========================================================================
 
   describe("LRU eviction", () => {
@@ -947,40 +988,98 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // 17. endPhase merges additional metadata
+  // 16. endStep merges additional metadata
   // =========================================================================
 
-  describe("endPhase metadata merge", () => {
-    it("should merge additional metadata on endPhase", () => {
+  describe("endStep metadata merge", () => {
+    it("should merge additional metadata on endStep", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
-      const phaseId = service.startPhase(sessionId, {
-        name: "meta-phase",
+      const stepId = service.startStep(sessionId, {
+        name: "meta-step",
         metadata: { initial: true },
       });
 
-      service.endPhase(sessionId, phaseId, { extra: "data" });
+      service.endStep(sessionId, stepId, { extra: "data" });
 
       const session = service.getSession(sessionId);
-      const phase = session!.phases.find((p) => p.id === phaseId);
+      const step = session!.steps.find((s) => s.id === stepId);
 
-      expect(phase!.metadata).toEqual({ initial: true, extra: "data" });
+      expect(step!.metadata).toEqual({ initial: true, extra: "data" });
     });
 
-    it("endPhase returns the durationMs as a number", async () => {
+    it("endStep returns the durationMs as a number", async () => {
       const sessionId = service.startSession({ type: "ai_ask" });
-      const phaseId = service.startPhase(sessionId, { name: "timed" });
+      const stepId = service.startStep(sessionId, { name: "timed" });
       await wait(5);
 
-      const duration = service.endPhase(sessionId, phaseId);
+      const duration = service.endStep(sessionId, stepId);
 
       expect(typeof duration).toBe("number");
       expect(duration).toBeGreaterThan(0);
     });
 
-    it("endPhase with unknown phaseId returns undefined", () => {
+    it("endStep with unknown stepId returns undefined", () => {
       const sessionId = service.startSession({ type: "ai_ask" });
-      const result = service.endPhase(sessionId, "bad-phase");
+      const result = service.endStep(sessionId, "bad-step");
       expect(result).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
+  // 17. Legacy alias API still works
+  // =========================================================================
+
+  describe("Legacy alias API", () => {
+    it("startPhase/endPhase aliases work like startStep/endStep", async () => {
+      const sessionId = service.startSession({ type: "ai_ask" });
+
+      const phaseId = service.startPhase(sessionId, { name: "legacy_phase" });
+      await wait(5);
+      const duration = service.endPhase(sessionId, phaseId);
+
+      expect(typeof duration).toBe("number");
+      expect(duration).toBeGreaterThan(0);
+
+      const summary = service.endSession(sessionId);
+      expect(summary!.steps).toHaveLength(1);
+      expect(summary!.steps[0].name).toBe("legacy_phase");
+    });
+
+    it("endPhaseByName alias works like endStepByName", async () => {
+      const sessionId = service.startSession({ type: "ai_ask" });
+
+      service.startPhase(sessionId, { name: "named_phase" });
+      await wait(5);
+      const duration = service.endPhaseByName(sessionId, "named_phase");
+
+      expect(typeof duration).toBe("number");
+      expect(duration).toBeGreaterThan(0);
+    });
+
+    it("getActivePhaseId alias works like getActiveStepId", () => {
+      const sessionId = service.startSession({ type: "ai_ask" });
+
+      expect(service.getActivePhaseId(sessionId)).toBeUndefined();
+
+      const id = service.startPhase(sessionId, { name: "active" });
+      expect(service.getActivePhaseId(sessionId)).toBe(id);
+    });
+
+    it("recordLLMCall alias works like recordAction", () => {
+      const sessionId = service.startSession({ type: "ai_ask" });
+      const stepId = service.startStep(sessionId, { name: "test_step" });
+
+      service.recordLLMCall(
+        sessionId,
+        streamingCall({ name: "legacy_call", stepId }),
+      );
+
+      const session = service.getSession(sessionId);
+      const step = session!.steps.find((s) => s.id === stepId);
+      expect(step!.actions).toHaveLength(1);
+
+      const summary = service.endSession(sessionId);
+      expect(summary!.llmCallCount).toBe(1);
     });
   });
 });
@@ -1123,7 +1222,7 @@ describe("SessionLatencyTrackerService (with Prisma)", () => {
         type: "ai_ask",
         status: "completed",
         totalDurationMs: 1000,
-        phases: [],
+        steps: [],
         llmCallCount: 0,
         llmTotalTimeMs: 0,
         llmTimePercent: 0,
@@ -1286,11 +1385,12 @@ describe("SessionLatencyTrackerService – full flow integration", () => {
       metadata: { refresh: true },
     });
 
-    // Phase 1: planning
-    const planningId = service.startPhase(sessionId, {
+    // Step 1: planning
+    const planningId = service.startStep(sessionId, {
       name: "leader_planning",
     });
-    service.recordLLMCall(sessionId, {
+    service.recordAction(sessionId, {
+      name: "planning_llm",
       model: "gpt-4o",
       provider: "openai",
       streaming: true,
@@ -1299,19 +1399,19 @@ describe("SessionLatencyTrackerService – full flow integration", () => {
       totalDurationMs: 4500,
       inputTokens: 500,
       outputTokens: 800,
-      phaseId: planningId,
+      stepId: planningId,
     });
-    service.addCheckpoint(sessionId, planningId, "plan_ready");
-    service.endPhase(sessionId, planningId);
+    service.endStep(sessionId, planningId);
 
-    // Phase 2: dimension research (parallel)
-    const researchId = service.startPhase(sessionId, {
+    // Step 2: dimension research (parallel)
+    const researchId = service.startStep(sessionId, {
       name: "dimension_research",
       parallel: true,
       parallelCount: 4,
     });
     for (let i = 0; i < 4; i++) {
-      service.recordLLMCall(sessionId, {
+      service.recordAction(sessionId, {
+        name: `research_${i}`,
         model: "gpt-4o",
         provider: "openai",
         streaming: true,
@@ -1320,14 +1420,15 @@ describe("SessionLatencyTrackerService – full flow integration", () => {
         totalDurationMs: 3000 + i * 200,
         inputTokens: 400,
         outputTokens: 600,
-        phaseId: researchId,
+        stepId: researchId,
       });
     }
-    service.endPhase(sessionId, researchId);
+    service.endStep(sessionId, researchId);
 
-    // Phase 3: formatting (non-streaming)
-    const formattingId = service.startPhase(sessionId, { name: "formatting" });
-    service.recordLLMCall(sessionId, {
+    // Step 3: formatting (non-streaming)
+    const formattingId = service.startStep(sessionId, { name: "formatting" });
+    service.recordAction(sessionId, {
+      name: "formatting_llm",
       model: "claude-3",
       provider: "anthropic",
       streaming: false,
@@ -1335,9 +1436,9 @@ describe("SessionLatencyTrackerService – full flow integration", () => {
       totalDurationMs: 2000,
       inputTokens: 2000,
       outputTokens: 1500,
-      phaseId: formattingId,
+      stepId: formattingId,
     });
-    service.endPhase(sessionId, formattingId);
+    service.endStep(sessionId, formattingId);
 
     // Act
     const summary = service.endSession(sessionId);
@@ -1351,8 +1452,8 @@ describe("SessionLatencyTrackerService – full flow integration", () => {
     expect(summary!.type).toBe("topic_insights_refresh");
     expect(summary!.status).toBe("completed");
 
-    // 3 top-level phases
-    expect(summary!.phases).toHaveLength(3);
+    // 3 top-level steps
+    expect(summary!.steps).toHaveLength(3);
 
     // 5 streaming + 1 non-streaming = 6 total calls (1 planning + 4 research + 1 formatting)
     expect(summary!.llmCallCount).toBe(6);

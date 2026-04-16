@@ -194,19 +194,15 @@ export class AiChatService {
     ttftMs?: number,
     inputTokens?: number,
     outputTokens?: number,
-    stepName?: string,
+    operationName?: string,
   ): void {
     if (!this.latencyTracker) return;
     const ctx = KernelContext.get();
     if (!ctx?.latencySessionId) return;
 
-    const phaseId =
-      ctx.latencyPhaseId ??
-      this.latencyTracker.getActivePhaseId(ctx.latencySessionId);
-
-    this.latencyTracker.recordLLMCall(ctx.latencySessionId, {
-      phaseId,
-      stepName,
+    this.latencyTracker.recordAction(ctx.latencySessionId, {
+      name: operationName || "llm_call",
+      type: "llm_call",
       model,
       provider,
       streaming,
