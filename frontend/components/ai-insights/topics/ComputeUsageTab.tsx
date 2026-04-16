@@ -92,12 +92,43 @@ interface MissionInfo {
   completedTasks: number;
 }
 
+interface LatencyPhaseSummary {
+  name: string;
+  durationMs: number;
+  percentOfTotal: number;
+}
+
+interface TTFTStats {
+  avgMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  minMs: number;
+  maxMs: number;
+}
+
+interface LatencySummary {
+  sessionId: string;
+  type: string;
+  status: string;
+  totalDurationMs: number;
+  phases: LatencyPhaseSummary[];
+  llmCallCount: number;
+  llmTotalTimeMs: number;
+  llmTimePercent: number;
+  overheadMs: number;
+  ttft?: TTFTStats;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  avgTokenThroughput: number;
+}
+
 interface ComputeUsageData {
   summary: ComputeUsageSummary;
   dimensions: DimensionUsage[];
   modelDistribution: ModelDistributionItem[];
   creditHistory: CreditHistoryItem[];
   mission: MissionInfo | null;
+  latency: LatencySummary | null;
 }
 
 interface ComputeUsageTabProps {
@@ -142,6 +173,16 @@ function formatTime(iso: string | null | undefined): string {
     return iso;
   }
 }
+
+const PHASE_LABELS: Record<string, string> = {
+  initialization: 'Init',
+  leader_planning: 'Planning',
+  dimension_research: 'Research',
+  cognitive_loop: 'Validation',
+  report_synthesis: 'Synthesis',
+  fact_check: 'Fact Check',
+  finalization: 'Finalize',
+};
 
 const CHART_COLORS = [
   '#6366f1',
@@ -751,6 +792,138 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
               </p>
             </div>
           </div>
+        </section>
+      )}
+
+      {/* ═══ Section 4.5: Performance Latency ═══ */}
+      {data.latency && (
+        <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <Activity className="h-4 w-4 text-gray-400" />
+            {t('topicResearch.computeUsage.latency')}
+          </h3>
+
+          {/* Summary Row */}
+          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard
+              icon={<Clock className="h-4 w-4 text-orange-600" />}
+              label={t('topicResearch.computeUsage.researchDuration')}
+              value={formatDuration(data.latency.totalDurationMs)}
+              subText={`${data.latency.llmCallCount} ${t('topicResearch.computeUsage.calls')}`}
+              colorClass="bg-orange-50"
+            />
+            <SummaryCard
+              icon={<Cpu className="h-4 w-4 text-indigo-600" />}
+              label={t('topicResearch.computeUsage.llmTimePercent')}
+              value={`${data.latency.llmTimePercent.toFixed(1)}%`}
+              subText={formatDuration(data.latency.llmTotalTimeMs)}
+              colorClass="bg-indigo-50"
+            />
+            <SummaryCard
+              icon={<BarChart3 className="h-4 w-4 text-emerald-600" />}
+              label={t('topicResearch.computeUsage.overhead')}
+              value={formatDuration(data.latency.overheadMs)}
+              subText={`${(100 - data.latency.llmTimePercent).toFixed(1)}%`}
+              colorClass="bg-emerald-50"
+            />
+            <SummaryCard
+              icon={<TrendingUp className="h-4 w-4 text-sky-600" />}
+              label={t('topicResearch.computeUsage.tokenThroughput')}
+              value={`${data.latency.avgTokenThroughput.toFixed(1)}`}
+              subText={t('topicResearch.computeUsage.tokensPerSec')}
+              colorClass="bg-sky-50"
+            />
+          </div>
+
+          {/* Phase Breakdown Bar Chart */}
+          {data.latency.phases.length > 0 && (
+            <div className="mb-4">
+              <h4 className="mb-2 text-xs font-medium text-gray-500">
+                {t('topicResearch.computeUsage.phaseBreakdown')}
+              </h4>
+              <div className="space-y-2">
+                {data.latency.phases.map((phase, idx) => {
+                  const phaseName = PHASE_LABELS[phase.name] ?? phase.name;
+                  const barWidth = Math.max(
+                    2,
+                    Math.min(100, phase.percentOfTotal)
+                  );
+                  return (
+                    <div key={idx} className="flex items-center gap-3">
+                      <span className="w-24 shrink-0 text-right text-xs text-gray-500">
+                        {phaseName}
+                      </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="h-5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${barWidth}%`,
+                                backgroundColor:
+                                  CHART_COLORS[idx % CHART_COLORS.length],
+                              }}
+                            />
+                          </div>
+                          <span className="w-16 shrink-0 text-right text-xs tabular-nums text-gray-600">
+                            {formatDuration(phase.durationMs)}
+                          </span>
+                          <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-400">
+                            {phase.percentOfTotal.toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TTFT Stats */}
+          {data.latency.ttft && (
+            <div>
+              <h4 className="mb-2 text-xs font-medium text-gray-500">
+                {t('topicResearch.computeUsage.ttftStats')}
+              </h4>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  {
+                    label: t('topicResearch.computeUsage.ttftAvg'),
+                    value: data.latency.ttft.avgMs,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftP50'),
+                    value: data.latency.ttft.p50Ms,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftP95'),
+                    value: data.latency.ttft.p95Ms,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftMin'),
+                    value: data.latency.ttft.minMs,
+                  },
+                  {
+                    label: t('topicResearch.computeUsage.ttftMax'),
+                    value: data.latency.ttft.maxMs,
+                  },
+                ].map(({ label, value }) => (
+                  <div
+                    key={label}
+                    className="rounded-lg bg-gray-50 p-2 text-center"
+                  >
+                    <p className="text-[10px] text-gray-400">{label}</p>
+                    <p className="text-sm font-semibold tabular-nums text-gray-700">
+                      {value < 1000
+                        ? `${Math.round(value)}ms`
+                        : `${(value / 1000).toFixed(1)}s`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

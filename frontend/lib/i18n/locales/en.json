@@ -5953,7 +5953,20 @@
       "cacheRead": "Cache Hit",
       "nonCached": "Non-cached",
       "callIndex": "Call #",
-      "inputTokensPerCall": "Input Tokens / Call"
+      "inputTokensPerCall": "Input Tokens / Call",
+      "latency": "Performance Latency",
+      "phaseBreakdown": "Phase Duration Breakdown",
+      "ttftStats": "Time To First Token (TTFT)",
+      "ttftAvg": "Avg",
+      "ttftP50": "P50",
+      "ttftP95": "P95",
+      "ttftMin": "Min",
+      "ttftMax": "Max",
+      "llmTimePercent": "LLM Time",
+      "overhead": "Overhead",
+      "tokenThroughput": "Throughput",
+      "tokensPerSec": "tokens/s",
+      "noLatencyData": "No latency data available"
     },
     "topics": {
       "credibilityPanel": {

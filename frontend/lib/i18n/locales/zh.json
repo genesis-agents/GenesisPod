@@ -6030,7 +6030,20 @@
       "cacheRead": "Cache 命中",
       "nonCached": "未缓存",
       "callIndex": "调用序号",
-      "inputTokensPerCall": "输入 Token / 次"
+      "inputTokensPerCall": "输入 Token / 次",
+      "latency": "性能时延",
+      "phaseBreakdown": "阶段耗时分布",
+      "ttftStats": "首 Token 响应时延 (TTFT)",
+      "ttftAvg": "平均",
+      "ttftP50": "P50",
+      "ttftP95": "P95",
+      "ttftMin": "最小",
+      "ttftMax": "最大",
+      "llmTimePercent": "LLM 占比",
+      "overhead": "系统开销",
+      "tokenThroughput": "生成吞吐",
+      "tokensPerSec": "tokens/s",
+      "noLatencyData": "暂无时延数据"
     },
     "topics": {
       "credibilityPanel": {

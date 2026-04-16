@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
@@ -49,7 +50,11 @@ import {
   ReportQualityTraceService,
   ReportDataService,
 } from "./services";
-import { ChatFacade } from "../../ai-engine/facade";
+import {
+  ChatFacade,
+  SessionLatencyTrackerService,
+  type LatencySessionSummary,
+} from "../../ai-engine/facade";
 import {
   REPORT_EDITING_SYSTEM_PROMPT,
   buildEditPrompt,
@@ -135,6 +140,8 @@ export class TopicInsightsService {
     private readonly scheduleService: TopicScheduleService,
     private readonly qualityTraceService: ReportQualityTraceService,
     private readonly reportDataService: ReportDataService,
+    @Optional()
+    private readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
 
   // ==================== Topics CRUD (delegated to TopicCrudService) ====================
@@ -1544,6 +1551,7 @@ export class TopicInsightsService {
       totalTasks: number;
       completedTasks: number;
     } | null;
+    latency: LatencySessionSummary | null;
   }> {
     await this.verifyTopicReadAccess(userId, topicId);
 
@@ -1711,6 +1719,13 @@ export class TopicInsightsService {
       })
       .sort((a, b) => b.callCount - a.callCount);
 
+    // 6. 获取最新的时延跟踪摘要
+    const latencySummary = this.latencyTracker
+      ? await this.latencyTracker
+          .getLatestSummary(topicId, "topic_insights_refresh")
+          .catch(() => undefined)
+      : undefined;
+
     return {
       summary: {
         totalTokens: finalTotalTokens,
@@ -1756,6 +1771,7 @@ export class TopicInsightsService {
             completedTasks: latestMission.completedTasks,
           }
         : null,
+      latency: latencySummary ?? null,
     };
   }
 
