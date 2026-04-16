@@ -8,6 +8,7 @@ import {
   Injectable,
   Logger,
   Inject,
+  Optional,
   forwardRef,
   NotFoundException,
   BadRequestException,
@@ -31,7 +32,11 @@ import {
 } from "../research/research-event-emitter.service";
 import { MissionQueryService } from "./mission-query.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  SessionLatencyTrackerService,
+} from "@/modules/ai-engine/facade";
+import { KernelContext } from "@/modules/ai-kernel/facade";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type { ResearchDepth } from "../../../types/research-depth.types";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
@@ -79,6 +84,8 @@ export class MissionExecutionService {
     private readonly reviewDimensionExecutor: ReviewDimensionExecutor,
     private readonly synthesisReportExecutor: SynthesisReportExecutor,
     private readonly genericTaskExecutor: GenericTaskExecutor,
+    @Optional()
+    private readonly latencyTracker?: SessionLatencyTrackerService,
   ) {
     this.executorMap = new Map<string, ITaskExecutor>([
       ["dimension_research", this.dimensionResearchExecutor],
@@ -116,6 +123,50 @@ export class MissionExecutionService {
 
     if (!topic) {
       throw new NotFoundException(`Topic ${topicId} not found`);
+    }
+
+    // ★ 时延跟踪：开始会话并在 KernelContext 中传播
+    const latencySessionId = this.latencyTracker?.startSession({
+      type: "topic_insights_refresh",
+      entityId: topicId,
+      userId: topic.userId,
+      metadata: {
+        topicName: topic.name,
+        missionId,
+        researchDepth,
+      },
+    });
+
+    return KernelContext.run(
+      {
+        processId: `mission-${missionId}`,
+        userId: topic.userId,
+        latencySessionId,
+      },
+      () =>
+        this.startExecutionBody(
+          missionId,
+          topicId,
+          topic,
+          depthConfig,
+          latencySessionId,
+        ),
+    );
+  }
+
+  /** startExecution 的核心执行体（在 KernelContext 中运行） */
+  private async startExecutionBody(
+    missionId: string,
+    topicId: string,
+    topic: ResearchTopicWithDimensions,
+    depthConfig: ReturnType<typeof resolveResearchDepthConfig>,
+    latencySessionId: string | undefined,
+  ): Promise<void> {
+    // ★ 时延跟踪：initialization 阶段
+    if (latencySessionId) {
+      this.latencyTracker?.startPhase(latencySessionId, {
+        name: "initialization",
+      });
     }
 
     // ★ 先创建草稿报告，以便关联证据
@@ -172,9 +223,16 @@ export class MissionExecutionService {
       }
     }
 
+    // ★ 时延跟踪：结束 initialization，开始 task_execution
+    if (latencySessionId) {
+      this.latencyTracker?.endPhaseByName(latencySessionId, "initialization");
+      this.latencyTracker?.startPhase(latencySessionId, {
+        name: "task_execution",
+        parallel: true,
+      });
+    }
+
     // ★ v7.5: 使用动态调度器替代批量执行
-    // 动态调度器会在每个任务完成后立即检查是否有新的可执行任务
-    // 不再等待当前批次全部完成，实现真正的动态调度
     const maxConcurrentTasks = await this.calculateDynamicConcurrency();
     this.logger.log(
       `[startExecution] Starting dynamic scheduler with max concurrency ${maxConcurrentTasks}`,
@@ -184,8 +242,22 @@ export class MissionExecutionService {
       this.executeTask(task, topic, missionId, draftReport.id, depthConfig),
     );
 
+    // ★ 时延跟踪：结束 task_execution，开始 finalization
+    if (latencySessionId) {
+      this.latencyTracker?.endPhaseByName(latencySessionId, "task_execution");
+      this.latencyTracker?.startPhase(latencySessionId, {
+        name: "finalization",
+      });
+    }
+
     // 更新最终状态
     await this.finalizeMission(missionId, topicId);
+
+    // ★ 时延跟踪：结束会话（summary 自动持久化到 DB）
+    if (latencySessionId) {
+      this.latencyTracker?.endPhaseByName(latencySessionId, "finalization");
+      this.latencyTracker?.endSession(latencySessionId, "completed");
+    }
   }
 
   /**
