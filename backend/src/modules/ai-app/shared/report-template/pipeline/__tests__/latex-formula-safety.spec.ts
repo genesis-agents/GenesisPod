@@ -71,10 +71,12 @@ describe("repairLatexCommands — formula safety", () => {
 
   // ---- Fix 2: $$ delimiter repair ----
   describe("Fix 2: $$ delimiter pairing", () => {
-    it("should merge $content$$\\command rest$ into one block", () => {
+    it("should preserve two adjacent inline blocks $a$$b$ without corruption", () => {
       const input = "$L(N)$$\\propto N^{-\\alpha}$";
       const result = repairLatexCommands(input);
-      expect(result).not.toContain("$$");
+      // Two adjacent blocks should NOT be corrupted; merging is done by mergeAdjacentMathBlocks
+      expect(result).not.toContain("$$$");
+      expect(result).toContain("L(N)");
       expect(result).toContain("\\propto");
     });
 
@@ -532,5 +534,58 @@ describe("regression: previously broken patterns", () => {
     expect(result).toContain("T_{\\text{prefix}}(x)");
     expect(result).toContain("T_{b(x)}(x)");
     expect(result).toContain("T_{\\text{suffix}}(x)");
+  });
+
+  // ---- Fix 2a-2d regression: adjacent $...$ blocks must not be corrupted ----
+  it("should preserve adjacent inline math blocks: $a$，其中 $b$", () => {
+    const input = "表达式 $X|C,U,P$ ，其中 $P$ 表示路径";
+    const result = repairLatexCommands(input);
+    expect(result).not.toContain("$$$");
+    expect(result).toContain("$X|C,U,P$");
+    expect(result).toContain("$P$");
+  });
+
+  it("should preserve formula followed by Chinese then another formula", () => {
+    const input =
+      "$\\mathbb{E}[X]=\\sum_{p}\\pi_p \\mathbb{E}[X_p]$ 表示总期望 $p$ 的指示变量";
+    const result = repairLatexCommands(input);
+    expect(result).not.toContain("$$$");
+    expect(result).toContain("\\mathbb{E}[X]");
+    expect(result).toContain("$p$");
+  });
+
+  it("should preserve retry formula with probability", () => {
+    const input =
+      "期望时延可写为 $E[T]=\\sum_{r=1}^{R} P(N\\ge r)\\cdot T_a$ ；在独立情形下，$P(N\\ge r)=(1-p)^{r-1}$";
+    const result = repairLatexCommands(input);
+    expect(result).not.toContain("$$$");
+    expect(result).toContain("\\sum_{r=1}^{R}");
+    expect(result).toContain("(1-p)^{r-1}");
+  });
+
+  it("should preserve conditional distribution notation", () => {
+    const input =
+      "总体期望为 $\\mathbb{E}[X\\mid C,U]=\\sum_{p}\\pi_p \\mathbb{E}[X_p\\mid C,U,p]$";
+    const result = repairLatexCommands(input);
+    expect(result).not.toContain("$$$");
+    expect(result).toContain("\\mathbb{E}[X\\mid C,U]");
+  });
+
+  it("should preserve TTLT serial formula", () => {
+    const input =
+      "总时延可写为 $TTLT=\\sum_{i=1}^{n} T_i$，这里每个 $T_i$ 都应沿用前节的口径";
+    const result = repairLatexCommands(input);
+    expect(result).not.toContain("$$$");
+    expect(result).toContain("$TTLT=\\sum_{i=1}^{n} T_i$");
+    expect(result).toContain("$T_i$");
+  });
+
+  it("should preserve loop TTLT formula with double sum", () => {
+    const input =
+      "正确写法应为 $TTLT=\\sum_{i\\in S} T_i+\\sum_{k=1}^{K}\\sum_{j\\in L} T_{j,k}$";
+    const result = repairLatexCommands(input);
+    expect(result).not.toContain("$$$");
+    expect(result).toContain("\\sum_{i\\in S}");
+    expect(result).toContain("\\sum_{k=1}^{K}");
   });
 });

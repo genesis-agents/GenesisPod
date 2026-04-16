@@ -1296,32 +1296,74 @@ export function repairLatexCommands(content: string): string {
   );
   result = result.replace(braceFixRe, "$1{$2}");
 
+  // Fix 2: $$ delimiter repairs
+  // ★ SAFETY: All Fix 2 patterns use callbacks instead of replacement strings
+  //   to avoid JS regex `$1` backreference conflicts with literal `$` in content.
+  //   Before applying any fix, we verify the `$$` is NOT the boundary between
+  //   two well-formed inline math blocks (e.g., `$a$$b$` = `$a$` + `$b$`).
+
+  // Helper: check if a `$$` at position `pos` in `text` is actually the
+  // closing `$` of one inline block + opening `$` of the next.
+  // Uses parity check: if number of `$` before the `$$` is odd, there's
+  // an open inline block that this `$` would close.
+  const isTwoBlockBoundary = (
+    text: string,
+    dollarDollarPos: number,
+  ): boolean => {
+    const before = text.substring(0, dollarDollarPos);
+    // Count unescaped $ signs before the $$
+    const dollarsBefore = (before.match(/(?<!\\)\$/g) || []).length;
+    // Odd count means there's an open $...$ block ending at this position
+    if (dollarsBefore % 2 === 0) return false;
+    // The char just before $$ must not be whitespace — real formulas don't
+    // end with a space before the closing $. e.g. `$L(N) $$` is a typo.
+    if (dollarDollarPos > 0 && /\s/.test(text[dollarDollarPos - 1]))
+      return false;
+    // After the $$, check if there's a closing $ forming a second block
+    const after = text.substring(dollarDollarPos + 2);
+    const nextDollar = after.indexOf("$");
+    if (nextDollar <= 0) return false;
+    const innerAfter = after.substring(0, nextDollar);
+    // Content must not contain newlines and must have LaTeX-like content
+    return !innerAfter.includes("\n") && /\\[a-zA-Z]/.test(innerAfter);
+  };
+
   // Fix 2d: `$mathContent $$\command rest$` → `$mathContent \command rest$`
-  // LLM splits one formula into `$L(N)$ $\propto N^{-\alpha}$` which concatenates
-  // into `$L(N) $$\propto ...` — the $$ before \command must be removed entirely.
-  // Must run BEFORE Fix 2a to prevent 2a from partially processing these cases.
-  // ★ Only match when content between $ and $$ looks like math (ASCII letters,
-  //   digits, parens, spaces, LaTeX commands, operators). CJK text between $ and $$
-  //   means it's a text gap between two formulas — handled by Fix 2b/2c instead.
   result = result.replace(
     /(\$[A-Za-z0-9(),.+\-=\s\\^_{}\[\]|]+)\$\$(\\[a-zA-Z])/g,
-    "$1$2",
+    (match, g1: string, g2: string, offset: number) => {
+      if (isTwoBlockBoundary(result, offset + g1.length)) return match;
+      return g1 + g2;
+    },
   );
 
-  // Fix 2a: Inline math with extra closing $ — `$formula$$,` → `$formula$,`
-  // LLM writes `$\frac{QK^T}{\sqrt{d_k}}$$` with an accidental double-$
-  // Pattern: `$<content>$$<followed by non-$ non-newline non-backslash char>`
-  // Safety: exclude \ after $$ (handled by Fix 2d), exclude $ (display math)
-  result = result.replace(/(\$[^$\n]+)\$\$([^$\n\\])/g, "$1$$$2");
+  // Fix 2a: `$formula$$,` → `$formula$,`
+  result = result.replace(
+    /(\$[^$\n]+)\$\$([^$\n\\])/g,
+    (match, g1: string, g2: string, offset: number) => {
+      if (isTwoBlockBoundary(result, offset + g1.length)) return match;
+      return g1 + "$" + g2;
+    },
+  );
 
   // Fix 2b: `$...$<text>$$\alpha` → `$...$<text>$\alpha`
-  // When $$ appears mid-line after a closed inline math + some text
-  result = result.replace(/(\$[^$\n]+\$)([^$\n]{1,30})\$\$(?![\n$])/g, "$1$2$");
+  result = result.replace(
+    /(\$[^$\n]+\$)([^$\n]{1,30})\$\$(?![\n$])/g,
+    (match, g1: string, g2: string, offset: number) => {
+      const ddPos = offset + g1.length + g2.length;
+      if (isTwoBlockBoundary(result, ddPos)) return match;
+      return g1 + g2 + "$";
+    },
+  );
 
-  // Fix 2c: Mid-line $$ used as inline math opener (not at line start)
-  // e.g. `L = $$\alpha` → `L = $\alpha`
-  // Match: non-empty content before $$ on the same line, followed by LaTeX command
-  result = result.replace(/([^\n$]{2,})\$\$(?!\$)(\\[a-zA-Z])/g, "$1$$$2");
+  // Fix 2c: Mid-line `L = $$\alpha` → `L = $\alpha`
+  result = result.replace(
+    /([^\n$]{2,})\$\$(?!\$)(\\[a-zA-Z])/g,
+    (match, g1: string, g2: string, offset: number) => {
+      if (isTwoBlockBoundary(result, offset + g1.length)) return match;
+      return g1 + "$" + g2;
+    },
+  );
 
   // Fix 3: Stray double-closing braces after \text{...}} → \text{...}
   // ★ Exclude legitimate nesting: X_{\text{...}} or X^{\text{...}} where
