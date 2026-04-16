@@ -300,6 +300,7 @@ export class SessionLatencyTrackerService {
       id: randomUUID(),
       sessionId,
       phaseId: input.phaseId,
+      stepName: input.stepName,
       model: input.model,
       provider: input.provider,
       streaming: input.streaming,

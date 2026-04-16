@@ -667,6 +667,7 @@ Score from 0-1, recommend up to 3 templates.`,
             content: topicDescription,
           },
         ],
+        operationName: "模板匹配",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，模板推荐
         taskProfile: { creativity: "low", outputLength: "short" },

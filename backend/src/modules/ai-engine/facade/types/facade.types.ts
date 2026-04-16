@@ -64,6 +64,12 @@ export interface ChatRequest {
   /** 系统提示词（会自动添加到消息列表） */
   systemPrompt?: string;
 
+  /**
+   * 操作名称 — 描述此次 LLM 调用的业务语义（如 "大纲规划"、"章节写作"、"质量审核"）
+   * 用于时延跟踪系统标识每个 step
+   */
+  operationName?: string;
+
   /** 是否启用流式响应 */
   stream?: boolean;
 

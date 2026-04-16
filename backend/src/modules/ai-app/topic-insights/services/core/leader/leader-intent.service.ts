@@ -221,6 +221,7 @@ export class LeaderIntentService {
         },
         { role: "user", content: prompt },
       ],
+      operationName: "意图理解",
       model: leaderModel.modelId,
       skipGuardrails: true, // prompt 拼入系统生成的维度列表，可能触发误报
       taskProfile: {
@@ -745,6 +746,7 @@ export class LeaderIntentService {
 
     const response = await this.chatFacade.chat({
       messages,
+      operationName: "意图分析",
       model: leaderModel.modelId,
       skipGuardrails: true, // 对话历史含 AI 生成内容，可能触发误报
       taskProfile: {

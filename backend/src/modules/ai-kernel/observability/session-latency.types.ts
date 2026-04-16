@@ -75,6 +75,8 @@ export interface LLMLatencyRecord {
   id: string;
   sessionId: string;
   phaseId?: string;
+  /** Step 名称 — 描述这次调用在做什么（如 "大纲规划"、"章节写作"、"web_search"） */
+  stepName?: string;
   model: string;
   provider: string;
   streaming: boolean;
@@ -169,6 +171,8 @@ export interface StartPhaseInput {
 /** 记录 LLM 调用时延参数 */
 export interface RecordLLMLatencyInput {
   phaseId?: string;
+  /** Step 名称 — 描述这次调用的操作 */
+  stepName?: string;
   model: string;
   provider: string;
   streaming: boolean;

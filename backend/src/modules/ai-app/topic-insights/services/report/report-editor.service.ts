@@ -316,6 +316,7 @@ export class ReportEditorService {
             ),
           },
         ],
+        operationName: "报告润色",
         additionalSkills: ["dedup-checker"],
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，报告去重检查

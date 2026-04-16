@@ -200,6 +200,7 @@ export class QueryStrategyService {
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
+        operationName: "查询生成",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，搜索查询翻译
         taskProfile: { creativity: "deterministic", outputLength: "minimal" },

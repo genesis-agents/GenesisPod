@@ -396,6 +396,7 @@ export class SectionWriterService {
         // 不传 domain（避免加载全部 11 个 research skills）
         // 只传 additionalSkills：精确加载 Leader 分配的 skill
         additionalSkills: skillIds,
+        operationName: "章节写作",
         modelType: AIModelType.CHAT,
         model: modelId, // ★ 使用指定模型（如果提供）
         skipGuardrails: true, // 内部系统调用，章节写作含外部研究数据
@@ -896,6 +897,7 @@ export class SectionWriterService {
         { role: "user", content: finalRevisionPrompt },
       ],
       additionalSkills: skillIds,
+      operationName: "章节写作(技能)",
       modelType: AIModelType.CHAT,
       model: modelId, // ★ 使用指定模型（如果提供）
       skipGuardrails: true, // 内部系统调用，章节修订

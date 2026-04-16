@@ -496,6 +496,9 @@ export interface ChatWithSkillsRequest {
 
   /** JSON 模式 */
   responseFormat?: "json" | "text";
+
+  /** 操作名称 — 用于时延跟踪标识 step */
+  operationName?: string;
 }
 
 /**

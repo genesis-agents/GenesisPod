@@ -127,6 +127,7 @@ export class ReportGeneratorService {
           },
         ],
         additionalSkills: ["consistency-check"],
+        operationName: "报告生成",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，一致性检查
         cachePolicy: "auto",
@@ -274,6 +275,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           { role: "user", content: userPrompt },
         ],
         additionalSkills: ["report-synthesis"],
+        operationName: "报告生成(重试)",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，报告生成
         cachePolicy: "auto",
@@ -318,6 +320,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
             { role: "user", content: reducedUserPrompt },
           ],
           additionalSkills: ["report-synthesis"],
+          operationName: "报告生成(fallback)",
           modelType: AIModelType.CHAT,
           skipGuardrails: true, // 内部系统调用，报告生成（降级重试）
           cachePolicy: "auto",

@@ -387,6 +387,7 @@ ${fullContent.substring(0, 8000)}
           },
           { role: "user", content: metaPrompt },
         ],
+        operationName: "研究元分析",
         model: leaderModel.modelId,
         skipGuardrails: true, // 内部系统调用，维度报告内容
         responseFormat: "json",

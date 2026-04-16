@@ -17,6 +17,8 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+import { KernelContext } from "@/modules/ai-kernel/facade";
+import { SessionLatencyTrackerService } from "@/modules/ai-engine/facade";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -191,12 +193,33 @@ export class DimensionMissionService {
     @Optional()
     @Inject(CACHE_MANAGER)
     private readonly cacheManager?: Cache,
+    @Optional()
+    private readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
 
   /**
    * Minimal ioredis command interface needed for the distributed lock.
    * Avoids importing all of ioredis while keeping the call sites type-safe.
    */
+  /** 时延跟踪：开始一个 step phase */
+  private stepStart(dimName: string, stepName: string): void {
+    const ctx = KernelContext.get();
+    if (!ctx?.latencySessionId || !this.latencyTracker) return;
+    this.latencyTracker.startPhase(ctx.latencySessionId, {
+      name: `${dimName}/${stepName}`,
+    });
+  }
+
+  /** 时延跟踪：结束一个 step phase */
+  private stepEnd(dimName: string, stepName: string): void {
+    const ctx = KernelContext.get();
+    if (!ctx?.latencySessionId || !this.latencyTracker) return;
+    this.latencyTracker.endPhaseByName(
+      ctx.latencySessionId,
+      `${dimName}/${stepName}`,
+    );
+  }
+
   private readonly LOCK_TTL_MS = 150_000; // must exceed Prisma tx timeout (120s)
   private readonly LOCK_RETRY_MS = 200;
   private readonly LOCK_MAX_WAIT_MS = 60_000;
@@ -948,6 +971,7 @@ export class DimensionMissionService {
       }
 
       // Phase 1: 执行搜索阶段
+      this.stepStart(dimension.name, "搜索数据");
       const searchPhaseResult = await this.executeSearchPhase(
         topic,
         dimension,
@@ -958,7 +982,10 @@ export class DimensionMissionService {
         assignedSkills,
       );
 
+      this.stepEnd(dimension.name, "搜索数据");
+
       // Phase 2: Leader 本地规划大纲（非全局协调）
+      this.stepStart(dimension.name, "大纲规划");
       // 发送 Leader 思考事件 - 理解阶段
       await this.eventEmitter.emitLeaderThinking(topic.id, {
         missionId: missionId || dimension.id,
@@ -1024,7 +1051,10 @@ export class DimensionMissionService {
         `${logPrefix} Local outline planned: ${outline.sections.length} sections`,
       );
 
+      this.stepEnd(dimension.name, "大纲规划");
+
       // Phase 3: 执行写作阶段
+      this.stepStart(dimension.name, "写作与审核");
       const writingResult = await this.executeWritingPhase(
         topic,
         dimension,
@@ -1039,6 +1069,8 @@ export class DimensionMissionService {
         undefined, // validationContext
         maxRevisionRounds, // V5: 最大修订轮次
       );
+
+      this.stepEnd(dimension.name, "写作与审核");
 
       return writingResult;
     } catch (error) {

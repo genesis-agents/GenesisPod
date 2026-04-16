@@ -258,6 +258,7 @@ ${content}
         await this.chatFacade.chatStructured<RawCritiqueResponse>({
           messages: [{ role: "user", content: userPrompt }],
           additionalSkills: ["content-critique"],
+          operationName: "内容批评",
           skipGuardrails: true,
           taskProfile: {
             creativity: "low",
@@ -344,6 +345,7 @@ ${issuesText}
       const response = await this.chatFacade.chatStructured<RawRefineResponse>({
         messages: [{ role: "user", content: userPrompt }],
         additionalSkills: ["content-refine"],
+        operationName: "内容修订",
         skipGuardrails: true,
         taskProfile: {
           creativity: "low",

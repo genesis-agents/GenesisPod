@@ -71,6 +71,7 @@ export class LeaderReviewService {
           },
           { role: "user", content: prompt },
         ],
+        operationName: "章节审核",
         model: leaderModel.modelId,
         skipGuardrails: true, // 内部系统调用，非用户输入
         taskProfile: {

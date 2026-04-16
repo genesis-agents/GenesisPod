@@ -194,6 +194,7 @@ export class AiChatService {
     ttftMs?: number,
     inputTokens?: number,
     outputTokens?: number,
+    stepName?: string,
   ): void {
     if (!this.latencyTracker) return;
     const ctx = KernelContext.get();
@@ -205,6 +206,7 @@ export class AiChatService {
 
     this.latencyTracker.recordLLMCall(ctx.latencySessionId, {
       phaseId,
+      stepName,
       model,
       provider,
       streaming,
@@ -887,6 +889,8 @@ export class AiChatService {
       systemPromptText: string;
       toolDefinitions?: unknown[];
     };
+    /** 操作名称 — 用于时延跟踪标识 step */
+    operationName?: string;
   }): Promise<{
     content: string;
     usage?: {
@@ -1254,6 +1258,10 @@ export class AiChatService {
           duration,
           result.tokensUsed,
           false,
+          undefined,
+          undefined,
+          undefined,
+          options.operationName,
         );
 
         // ★ Guardrails: Output validation (skip for internal system calls)

@@ -282,6 +282,7 @@ ${dimensionsList}
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        operationName: "报告评估",
         model: evaluatorModel || undefined,
         modelType: isEvaluator ? AIModelType.EVALUATOR : AIModelType.CHAT,
         skipGuardrails: true,

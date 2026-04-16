@@ -489,6 +489,7 @@ export class ChatFacade {
         cachePolicy: request.cachePolicy,
         outputSchema: request.outputSchema,
         sharedCachePrefix: request.sharedCachePrefix,
+        operationName: request.operationName,
       });
 
       const duration = Date.now() - startTime;
@@ -588,6 +589,7 @@ export class ChatFacade {
         responseFormat: request.responseFormat,
         strictMode: request.strictMode,
         skipGuardrails: request.skipGuardrails,
+        operationName: request.operationName,
       });
 
       return {
@@ -631,6 +633,7 @@ export class ChatFacade {
       strictMode: request.strictMode,
       skipGuardrails: request.skipGuardrails,
       cachePolicy: request.cachePolicy,
+      operationName: request.operationName,
     });
 
     const duration = Date.now() - startTime;

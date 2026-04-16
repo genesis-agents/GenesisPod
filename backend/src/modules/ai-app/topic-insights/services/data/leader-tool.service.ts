@@ -925,6 +925,7 @@ ${context.dimensionName}
     try {
       const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        operationName: "工具调用",
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true, // 内部系统调用，生成搜索查询
         taskProfile: {
@@ -1008,6 +1009,7 @@ ${resultsText}
     try {
       const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        operationName: "工具结果分析",
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true, // 内部系统调用，搜索结果摘要含外部数据
         taskProfile: {

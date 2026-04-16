@@ -125,6 +125,18 @@ interface LatencySummary {
   avgTokenThroughput: number;
 }
 
+interface LatencyStep {
+  stepName?: string;
+  model: string;
+  totalDurationMs: number;
+  ttftMs?: number;
+  ttltMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  streaming: boolean;
+  timestamp: number;
+}
+
 interface ComputeUsageData {
   summary: ComputeUsageSummary;
   dimensions: DimensionUsage[];
@@ -132,6 +144,7 @@ interface ComputeUsageData {
   creditHistory: CreditHistoryItem[];
   mission: MissionInfo | null;
   latency: LatencySummary | null;
+  latencySteps: LatencyStep[];
 }
 
 interface ComputeUsageTabProps {
@@ -995,6 +1008,69 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
               </div>
             </div>
           )}
+        </section>
+      )}
+
+      {/* ═══ Section 4.6: Step-by-Step Timeline ═══ */}
+      {data.latencySteps && data.latencySteps.length > 0 && (
+        <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <Layers className="h-4 w-4 text-gray-400" />
+            Step-by-Step Timeline ({data.latencySteps.length} steps)
+          </h3>
+          <div className="max-h-[400px] overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b text-left text-gray-400">
+                  <th className="pb-2 pr-2 font-medium">#</th>
+                  <th className="pb-2 pr-2 font-medium">Step</th>
+                  <th className="pb-2 pr-2 font-medium">Model</th>
+                  <th className="pb-2 pr-2 text-right font-medium">TTFT</th>
+                  <th className="pb-2 pr-2 text-right font-medium">TTLT</th>
+                  <th className="pb-2 pr-2 text-right font-medium">Input</th>
+                  <th className="pb-2 text-right font-medium">Output</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.latencySteps.map((step, idx) => (
+                  <tr
+                    key={idx}
+                    className="border-b border-gray-50 hover:bg-gray-50/50"
+                  >
+                    <td className="py-1.5 pr-2 tabular-nums text-gray-300">
+                      {idx + 1}
+                    </td>
+                    <td className="py-1.5 pr-2 font-medium text-gray-700">
+                      {step.stepName || '—'}
+                    </td>
+                    <td className="py-1.5 pr-2 text-gray-500">
+                      {step.model.length > 20
+                        ? step.model.slice(0, 20) + '...'
+                        : step.model}
+                    </td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums text-gray-500">
+                      {step.ttftMs != null
+                        ? step.ttftMs < 1000
+                          ? `${Math.round(step.ttftMs)}ms`
+                          : `${(step.ttftMs / 1000).toFixed(1)}s`
+                        : '—'}
+                    </td>
+                    <td className="py-1.5 pr-2 text-right font-medium tabular-nums text-gray-700">
+                      {step.ttltMs < 1000
+                        ? `${Math.round(step.ttltMs)}ms`
+                        : `${(step.ttltMs / 1000).toFixed(1)}s`}
+                    </td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums text-gray-500">
+                      {formatNumber(step.inputTokens)}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-gray-500">
+                      {formatNumber(step.outputTokens)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 

@@ -867,6 +867,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
+          operationName: "证据增强",
           model: grokModel.id,
           skipGuardrails: true, // 内部系统调用，搜索查询
           taskProfile: { creativity: "low", outputLength: "long" },

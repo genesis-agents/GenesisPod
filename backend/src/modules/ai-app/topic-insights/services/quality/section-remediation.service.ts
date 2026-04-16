@@ -106,6 +106,7 @@ Requirements:
 
       const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        operationName: "章节修复",
         modelType: AIModelType.CHAT,
         model: remediationModelId || undefined,
         skipGuardrails: true,

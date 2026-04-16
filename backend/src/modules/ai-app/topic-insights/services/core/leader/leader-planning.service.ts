@@ -309,6 +309,7 @@ export class LeaderPlanningService {
           },
           { role: "user", content: prompt },
         ],
+        operationName: "研究规划",
         model: leaderModel.modelId,
         skipGuardrails: true, // 内部系统调用，非用户输入
         taskProfile: {
@@ -732,6 +733,7 @@ export class LeaderPlanningService {
             },
             { role: "user", content: finalPrompt },
           ],
+          operationName: "大纲规划",
           model: modelId,
           skipGuardrails: true, // 内部系统调用，研究证据含外部搜索数据会触发误报
           responseFormat: "json",
@@ -1064,6 +1066,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
             },
             { role: "user", content: prompt },
           ],
+          operationName: "全局大纲",
           model: leaderModel.modelId,
           skipGuardrails: true, // 内部系统调用，汇聚所有维度数据
           responseFormat: "json",

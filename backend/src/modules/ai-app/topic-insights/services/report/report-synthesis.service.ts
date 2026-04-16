@@ -606,6 +606,7 @@ export class ReportSynthesisService {
                   { role: "system" as const, content: systemPrompt },
                   { role: "user" as const, content: userPrompt },
                 ],
+                operationName: "维度合成",
                 skipGuardrails: true,
                 taskProfile: { creativity: "low", outputLength: "long" },
               });
@@ -1175,6 +1176,7 @@ export class ReportSynthesisService {
           },
         ],
         additionalSkills: ["consistency-check"],
+        operationName: "报告合成",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，一致性检查
         cachePolicy: "auto",
@@ -1614,6 +1616,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         { role: "user", content: userPrompt },
       ],
       additionalSkills: ["report-synthesis"],
+      operationName: "执行摘要",
       modelType: AIModelType.CHAT,
       skipGuardrails: true, // 内部系统调用，报告综合生成
       cachePolicy: "auto",

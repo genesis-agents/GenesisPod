@@ -63,6 +63,7 @@ export class KnowledgeGraphService {
             content: `Extract entities and relationships from the following research content:\n\n${request.content.slice(0, 4000)}${request.contextHint ? `\n\nContext: ${request.contextHint}` : ""}`,
           },
         ],
+        operationName: "知识图谱",
         additionalSkills: ["entity-extraction"],
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，知识图谱提取

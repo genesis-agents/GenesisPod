@@ -72,6 +72,7 @@ export class MultiLanguageResearchService {
           },
           { role: "user", content: text.slice(0, 500) },
         ],
+        operationName: "多语言翻译",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，语言检测
         taskProfile: { creativity: "deterministic", outputLength: "minimal" },
@@ -142,6 +143,7 @@ ${request.domainContext ? `Domain context: ${request.domainContext}` : ""}
 ${request.preserveTerminology ? "Preserve technical terminology in original language where appropriate." : ""}`,
           },
         ],
+        operationName: "多语言查询",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，跨语言查询翻译
         taskProfile: { creativity: "low", outputLength: "medium" },
@@ -222,6 +224,7 @@ Snippet: ${request.snippet || "N/A"}
 Content: ${request.content.slice(0, 3000)}`,
           },
         ],
+        operationName: "多语言合成",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，网页内容翻译可能触发误报
         taskProfile: { creativity: "low", outputLength: "long" },

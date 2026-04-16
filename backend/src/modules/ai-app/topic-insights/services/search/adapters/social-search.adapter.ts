@@ -76,6 +76,7 @@ export class SocialSearchAdapter extends SearchAdapterBase {
     const response = await this.chatFacade.chat({
       messages: [{ role: "user", content: userContent }],
       systemPrompt,
+      operationName: "社交搜索",
       modelType: AIModelType.CHAT,
       skipGuardrails: true, // 内部系统调用，社交搜索
       taskProfile: { creativity: "deterministic", outputLength: "medium" },

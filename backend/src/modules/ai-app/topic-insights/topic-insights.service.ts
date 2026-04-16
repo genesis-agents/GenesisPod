@@ -1552,6 +1552,17 @@ export class TopicInsightsService {
       completedTasks: number;
     } | null;
     latency: LatencySessionSummary | null;
+    latencySteps: Array<{
+      stepName?: string;
+      model: string;
+      totalDurationMs: number;
+      ttftMs?: number;
+      ttltMs: number;
+      inputTokens: number;
+      outputTokens: number;
+      streaming: boolean;
+      timestamp: number;
+    }>;
   }> {
     await this.verifyTopicReadAccess(userId, topicId);
 
@@ -1719,12 +1730,58 @@ export class TopicInsightsService {
       })
       .sort((a, b) => b.callCount - a.callCount);
 
-    // 6. 获取最新的时延跟踪摘要（优先 DB 已完成的，其次内存中活跃的）
+    // 6. 获取最新的时延跟踪数据（summary + llmCalls 步骤明细）
     let latencySummary: LatencySessionSummary | undefined;
+    let latencySteps: Array<{
+      stepName?: string;
+      model: string;
+      totalDurationMs: number;
+      ttftMs?: number;
+      ttltMs: number;
+      inputTokens: number;
+      outputTokens: number;
+      streaming: boolean;
+      timestamp: number;
+    }> = [];
     if (this.latencyTracker) {
-      latencySummary = await this.latencyTracker
-        .getLatestSummary(topicId, "topic_insights_refresh")
-        .catch(() => undefined);
+      // 优先从 DB 查已完成的 session
+      try {
+        const dbSession = await this.prisma.latencySession.findFirst({
+          where: { entityId: topicId, type: "topic_insights_refresh" },
+          orderBy: { createdAt: "desc" },
+          select: { summary: true, llmCalls: true },
+        });
+        if (dbSession?.summary) {
+          latencySummary =
+            dbSession.summary as unknown as LatencySessionSummary;
+          latencySteps = (
+            (dbSession.llmCalls ?? []) as unknown as Array<{
+              stepName?: string;
+              model: string;
+              totalDurationMs: number;
+              ttftMs?: number;
+              ttltMs: number;
+              inputTokens: number;
+              outputTokens: number;
+              streaming: boolean;
+              timestamp: number;
+            }>
+          ).map((s) => ({
+            stepName: s.stepName,
+            model: s.model,
+            totalDurationMs: s.totalDurationMs,
+            ttftMs: s.ttftMs,
+            ttltMs: s.ttltMs,
+            inputTokens: s.inputTokens,
+            outputTokens: s.outputTokens,
+            streaming: s.streaming,
+            timestamp: s.timestamp,
+          }));
+        }
+      } catch {
+        /* non-fatal */
+      }
+      // fallback 到内存中活跃的 session
       if (!latencySummary) {
         latencySummary = this.latencyTracker.getActiveSessionSummary(
           topicId,
@@ -1779,6 +1836,7 @@ export class TopicInsightsService {
           }
         : null,
       latency: latencySummary ?? null,
+      latencySteps,
     };
   }
 

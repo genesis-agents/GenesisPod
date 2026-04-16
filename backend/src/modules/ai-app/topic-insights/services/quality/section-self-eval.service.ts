@@ -95,6 +95,7 @@ Reply strictly in this JSON format, no other text:
     try {
       const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        operationName: "章节自评",
         modelType: AIModelType.CHAT,
         skipGuardrails: true,
         taskProfile: {

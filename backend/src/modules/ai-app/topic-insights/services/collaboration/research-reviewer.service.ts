@@ -104,6 +104,7 @@ export class ResearchReviewerService {
           { role: "user", content: userPrompt },
         ],
         additionalSkills: ["dimension-review"],
+        operationName: "断言验证",
         modelType: AIModelType.CHAT,
         skipGuardrails: true, // 内部系统调用，研究内容审核
         cachePolicy: "auto",
@@ -358,6 +359,7 @@ export class ResearchReviewerService {
               { role: "user", content: prompt },
             ],
             additionalSkills: ["fact-verification"],
+            operationName: "断言交叉验证",
             modelType: AIModelType.CHAT_FAST,
             skipGuardrails: true, // 内部系统调用，事实核查含外部数据
             cachePolicy: "auto",
@@ -457,6 +459,7 @@ export class ResearchReviewerService {
           },
           { role: "user", content: prompt },
         ],
+        operationName: "事实核查",
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true, // 内部系统调用
         cachePolicy: "auto",
@@ -567,6 +570,7 @@ export class ResearchReviewerService {
           { role: "user", content: prompt },
         ],
         additionalSkills: ["fact-check"],
+        operationName: "质量审核",
         modelType: AIModelType.CHAT_FAST,
         skipGuardrails: true, // 内部系统调用，事实核查
         cachePolicy: "auto",

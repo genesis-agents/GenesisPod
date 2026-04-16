@@ -517,6 +517,7 @@ ${truncated}
 {"title":"...","eventType":"...","sourceDate":"...","keyEntities":{"people":[],"organizations":[],"technologies":[],"locations":[]}}`,
           },
         ],
+        operationName: "事件解析",
         modelType: AIModelType.CHAT,
         taskProfile: {
           creativity: "deterministic",
