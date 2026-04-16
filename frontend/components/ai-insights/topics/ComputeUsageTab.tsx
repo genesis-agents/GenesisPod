@@ -125,16 +125,21 @@ interface LatencySummary {
   avgTokenThroughput: number;
 }
 
-interface LatencyStep {
-  stepName?: string;
+interface LatencyActionItem {
+  name: string;
+  type: string;
   model: string;
   totalDurationMs: number;
   ttftMs?: number;
   ttltMs: number;
   inputTokens: number;
   outputTokens: number;
-  streaming: boolean;
-  timestamp: number;
+}
+
+interface LatencyStepWithActions {
+  name: string;
+  durationMs: number;
+  actions: LatencyActionItem[];
 }
 
 interface ComputeUsageData {
@@ -144,7 +149,7 @@ interface ComputeUsageData {
   creditHistory: CreditHistoryItem[];
   mission: MissionInfo | null;
   latency: LatencySummary | null;
-  latencySteps: LatencyStep[];
+  latencySteps: LatencyStepWithActions[];
 }
 
 interface ComputeUsageTabProps {
@@ -260,6 +265,123 @@ function ModelName({ modelId }: { modelId: string }) {
       )}
       <span className="truncate text-xs text-gray-700">{modelId}</span>
     </span>
+  );
+}
+
+function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+  const toggle = (idx: number) =>
+    setExpanded((prev) => ({ ...prev, [idx]: !prev[idx] }));
+
+  const totalActions = steps.reduce((s, st) => s + st.actions.length, 0);
+
+  return (
+    <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+        <Layers className="h-4 w-4 text-gray-400" />
+        Step → Action ({steps.length} steps, {totalActions} actions)
+      </h3>
+      <div className="max-h-[500px] space-y-1 overflow-y-auto">
+        {steps.map((step, idx) => {
+          const isOpen = expanded[idx] ?? false;
+          const stepLabel = step.name.includes('/')
+            ? step.name
+            : (PHASE_LABELS[step.name] ?? step.name);
+
+          return (
+            <div key={idx}>
+              {/* Step row */}
+              <button
+                type="button"
+                onClick={() => toggle(idx)}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-gray-50"
+              >
+                <span className="text-gray-400">{isOpen ? '▼' : '▶'}</span>
+                <span
+                  className="flex-1 truncate font-medium text-gray-700"
+                  title={step.name}
+                >
+                  {stepLabel}
+                </span>
+                <span className="shrink-0 tabular-nums text-gray-500">
+                  {formatDuration(step.durationMs)}
+                </span>
+                <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] tabular-nums text-gray-400">
+                  {step.actions.length} action
+                  {step.actions.length !== 1 ? 's' : ''}
+                </span>
+              </button>
+
+              {/* Actions (expanded) */}
+              {isOpen && step.actions.length > 0 && (
+                <div className="ml-5 border-l border-gray-100 pl-3">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="text-left text-gray-400">
+                        <th className="pb-1 pr-2 font-medium">Action</th>
+                        <th className="pb-1 pr-2 font-medium">Model</th>
+                        <th className="pb-1 pr-2 text-right font-medium">
+                          TTFT
+                        </th>
+                        <th className="pb-1 pr-2 text-right font-medium">
+                          TTLT
+                        </th>
+                        <th className="pb-1 pr-2 text-right font-medium">In</th>
+                        <th className="pb-1 text-right font-medium">Out</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {step.actions.map((action, ai) => (
+                        <tr
+                          key={ai}
+                          className="border-t border-gray-50 hover:bg-blue-50/30"
+                        >
+                          <td className="py-1 pr-2 text-gray-600">
+                            {action.name || '—'}
+                          </td>
+                          <td
+                            className="max-w-[120px] truncate py-1 pr-2 text-gray-400"
+                            title={action.model}
+                          >
+                            {action.model.length > 18
+                              ? action.model.slice(0, 18) + '…'
+                              : action.model}
+                          </td>
+                          <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
+                            {action.ttftMs != null
+                              ? action.ttftMs < 1000
+                                ? `${Math.round(action.ttftMs)}ms`
+                                : `${(action.ttftMs / 1000).toFixed(1)}s`
+                              : '—'}
+                          </td>
+                          <td className="py-1 pr-2 text-right font-medium tabular-nums text-gray-600">
+                            {action.ttltMs < 1000
+                              ? `${Math.round(action.ttltMs)}ms`
+                              : `${(action.ttltMs / 1000).toFixed(1)}s`}
+                          </td>
+                          <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
+                            {formatNumber(action.inputTokens)}
+                          </td>
+                          <td className="py-1 text-right tabular-nums text-gray-400">
+                            {formatNumber(action.outputTokens)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {isOpen && step.actions.length === 0 && (
+                <p className="ml-8 py-1 text-[10px] text-gray-300">
+                  No LLM/tool actions in this step
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -1014,67 +1136,9 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
         </section>
       )}
 
-      {/* ═══ Section 4.6: Step-by-Step Timeline ═══ */}
+      {/* ═══ Section 4.6: Step → Action Tree ═══ */}
       {data.latencySteps && data.latencySteps.length > 0 && (
-        <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <Layers className="h-4 w-4 text-gray-400" />
-            Step-by-Step Timeline ({data.latencySteps.length} steps)
-          </h3>
-          <div className="max-h-[400px] overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-white">
-                <tr className="border-b text-left text-gray-400">
-                  <th className="pb-2 pr-2 font-medium">#</th>
-                  <th className="pb-2 pr-2 font-medium">Step</th>
-                  <th className="pb-2 pr-2 font-medium">Model</th>
-                  <th className="pb-2 pr-2 text-right font-medium">TTFT</th>
-                  <th className="pb-2 pr-2 text-right font-medium">TTLT</th>
-                  <th className="pb-2 pr-2 text-right font-medium">Input</th>
-                  <th className="pb-2 text-right font-medium">Output</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.latencySteps.map((step, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b border-gray-50 hover:bg-gray-50/50"
-                  >
-                    <td className="py-1.5 pr-2 tabular-nums text-gray-300">
-                      {idx + 1}
-                    </td>
-                    <td className="py-1.5 pr-2 font-medium text-gray-700">
-                      {step.stepName || '—'}
-                    </td>
-                    <td className="py-1.5 pr-2 text-gray-500">
-                      {step.model.length > 20
-                        ? step.model.slice(0, 20) + '...'
-                        : step.model}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums text-gray-500">
-                      {step.ttftMs != null
-                        ? step.ttftMs < 1000
-                          ? `${Math.round(step.ttftMs)}ms`
-                          : `${(step.ttftMs / 1000).toFixed(1)}s`
-                        : '—'}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right font-medium tabular-nums text-gray-700">
-                      {step.ttltMs < 1000
-                        ? `${Math.round(step.ttltMs)}ms`
-                        : `${(step.ttltMs / 1000).toFixed(1)}s`}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums text-gray-500">
-                      {formatNumber(step.inputTokens)}
-                    </td>
-                    <td className="py-1.5 text-right tabular-nums text-gray-500">
-                      {formatNumber(step.outputTokens)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <StepActionTree steps={data.latencySteps} />
       )}
 
       {/* ═══ Section 5: Token Consumption Timeline (Line Chart) ═══ */}

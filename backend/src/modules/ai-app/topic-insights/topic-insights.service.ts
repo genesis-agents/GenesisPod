@@ -1553,15 +1553,18 @@ export class TopicInsightsService {
     } | null;
     latency: LatencySessionSummary | null;
     latencySteps: Array<{
-      stepName?: string;
-      model: string;
-      totalDurationMs: number;
-      ttftMs?: number;
-      ttltMs: number;
-      inputTokens: number;
-      outputTokens: number;
-      streaming: boolean;
-      timestamp: number;
+      name: string;
+      durationMs: number;
+      actions: Array<{
+        name: string;
+        type: string;
+        model: string;
+        totalDurationMs: number;
+        ttftMs?: number;
+        ttltMs: number;
+        inputTokens: number;
+        outputTokens: number;
+      }>;
     }>;
   }> {
     await this.verifyTopicReadAccess(userId, topicId);
@@ -1730,52 +1733,66 @@ export class TopicInsightsService {
       })
       .sort((a, b) => b.callCount - a.callCount);
 
-    // 6. 获取最新的时延跟踪数据（summary + llmCalls 步骤明细）
+    // 6. 获取最新的时延跟踪数据（summary + steps 树形明细）
+    type StepWithActions = {
+      name: string;
+      durationMs: number;
+      actions: Array<{
+        name: string;
+        type: string;
+        model: string;
+        totalDurationMs: number;
+        ttftMs?: number;
+        ttltMs: number;
+        inputTokens: number;
+        outputTokens: number;
+      }>;
+    };
     let latencySummary: LatencySessionSummary | undefined;
-    let latencySteps: Array<{
-      stepName?: string;
-      model: string;
-      totalDurationMs: number;
-      ttftMs?: number;
-      ttltMs: number;
-      inputTokens: number;
-      outputTokens: number;
-      streaming: boolean;
-      timestamp: number;
-    }> = [];
+    let latencySteps: StepWithActions[] = [];
     if (this.latencyTracker) {
-      // 优先从 DB 查已完成的 session
+      // 优先从 DB 查已完成的 session（phases 列存储 Step[]，含 actions）
       try {
         const dbSession = await this.prisma.latencySession.findFirst({
           where: { entityId: topicId, type: "topic_insights_refresh" },
           orderBy: { createdAt: "desc" },
-          select: { summary: true, llmCalls: true },
+          select: { summary: true, phases: true },
         });
         if (dbSession?.summary) {
           latencySummary =
             dbSession.summary as unknown as LatencySessionSummary;
-          latencySteps = (
-            (dbSession.llmCalls ?? []) as unknown as Array<{
-              stepName?: string;
+          // phases 列实际存储的是 LatencyStep[]（含 actions[]）
+          const rawSteps = (dbSession.phases ?? []) as unknown as Array<{
+            name: string;
+            durationMs?: number;
+            startTime?: number;
+            endTime?: number;
+            actions?: Array<{
+              name: string;
+              type?: string;
               model: string;
               totalDurationMs: number;
               ttftMs?: number;
               ttltMs: number;
               inputTokens: number;
               outputTokens: number;
-              streaming: boolean;
-              timestamp: number;
-            }>
-          ).map((s) => ({
-            stepName: s.stepName,
-            model: s.model,
-            totalDurationMs: s.totalDurationMs,
-            ttftMs: s.ttftMs,
-            ttltMs: s.ttltMs,
-            inputTokens: s.inputTokens,
-            outputTokens: s.outputTokens,
-            streaming: s.streaming,
-            timestamp: s.timestamp,
+            }>;
+          }>;
+          latencySteps = rawSteps.map((s) => ({
+            name: s.name,
+            durationMs:
+              s.durationMs ??
+              (s.startTime && s.endTime ? s.endTime - s.startTime : 0),
+            actions: (s.actions ?? []).map((a) => ({
+              name: a.name,
+              type: a.type ?? "llm_call",
+              model: a.model,
+              totalDurationMs: a.totalDurationMs,
+              ttftMs: a.ttftMs,
+              ttltMs: a.ttltMs,
+              inputTokens: a.inputTokens,
+              outputTokens: a.outputTokens,
+            })),
           }));
         }
       } catch {
