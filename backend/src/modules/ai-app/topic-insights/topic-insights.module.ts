@@ -26,6 +26,7 @@ import {
   CollaborationController,
   TodoController,
   ReportReviewController,
+  LatencyController,
 } from "./controllers";
 import { TopicInsightsService } from "./topic-insights.service";
 import { TopicInsightsGateway } from "./topic-insights.gateway";
@@ -273,6 +274,7 @@ const services = [
     CollaborationController,
     TodoController,
     ReportReviewController,
+    LatencyController,
   ],
   providers: [...services, TopicInsightsGateway, TopicAccessGuard],
   exports: [TopicInsightsService, TopicAccessGuard],

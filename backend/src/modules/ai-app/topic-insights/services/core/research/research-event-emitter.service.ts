@@ -20,6 +20,8 @@ export const RESEARCH_INTERNAL_EVENTS = {
   RECOVERY_NEEDED: "research.mission.recovery_needed",
   TOPIC_RESEARCH_PROGRESS: "topic-insights.progress",
   MISSION_PROGRESS: "research-mission.progress",
+  /** 时延跟踪会话完成事件 */
+  LATENCY_SESSION_COMPLETED: "topic-insights.latency.completed",
 } as const;
 
 export interface ResumeMissionExecutionPayload {

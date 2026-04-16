@@ -7,7 +7,13 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { AgentFacade, EvalPipelineService } from "@/modules/ai-engine/facade";
+import {
+  AgentFacade,
+  EvalPipelineService,
+  SessionLatencyTrackerService,
+  type LatencySessionSummary,
+} from "@/modules/ai-engine/facade";
+import { KernelContext } from "@/modules/ai-kernel/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "../research/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -110,6 +116,9 @@ export class TopicTeamOrchestratorService {
     @Optional() private readonly agentFacade?: AgentFacade,
     // ★ Batch 2: 自动化质量评估
     @Optional() private readonly evalPipeline?: EvalPipelineService,
+    // ★ 会话级时延跟踪
+    @Optional()
+    private readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
 
   /**
@@ -148,14 +157,56 @@ export class TopicTeamOrchestratorService {
     // ★ v4: 清空全局 URL 抓取缓存，确保每次报告生成从干净状态开始
     this.dimensionMissionService.clearEvidenceCache();
 
-    // ★ Hoist missionId so it's accessible in catch block for cleanup
+    // ★ 时延跟踪：开始会话
+    const latencySessionId = this.latencyTracker?.startSession({
+      type: "topic_insights_refresh",
+      entityId: topicId,
+      userId: topic.userId,
+      metadata: { topicName: topic.name, researchDepth: options.researchDepth },
+    });
+
+    // ★ 设置 KernelContext 以便嵌套的 AiChatService 调用能自动归属到此时延会话
+    return KernelContext.run(
+      {
+        processId: `topic-refresh-${topicId}`,
+        userId: topic.userId,
+        latencySessionId,
+      },
+      () =>
+        this.executeRefreshBody(
+          topic,
+          options,
+          abortController,
+          refreshLog,
+          latencySessionId,
+        ),
+    );
+  }
+
+  /**
+   * executeRefresh 的核心执行体（在 KernelContext 中运行）
+   */
+  private async executeRefreshBody(
+    topic: ResearchTopic,
+    options: RefreshOptions,
+    abortController: AbortController,
+    refreshLog: { id: string },
+    latencySessionId: string | undefined,
+  ): Promise<TopicReport> {
+    const topicId = topic.id;
     let missionId: string | undefined;
-    // ★ TraceCollector: hoist traceId so it's accessible in catch block
     let traceId: string | undefined;
-    // ★ B2: Hoist reportId so catch block can check partial-success
     let reportId: string | undefined;
+    let latencySummary: LatencySessionSummary | undefined;
 
     try {
+      // ★ 时延跟踪：初始化阶段
+      if (latencySessionId) {
+        this.latencyTracker?.startPhase(latencySessionId, {
+          name: "initialization",
+        });
+      }
+
       // 1. 创建草稿报告
       const report =
         await this.reportSynthesisService.createDraftReport(topicId);
@@ -197,6 +248,14 @@ export class TopicTeamOrchestratorService {
       let agentAssignments: AgentAssignment[] = [];
       // ★ 保存执行策略的并行度设置
       let parallelism = 4; // Default parallelism
+
+      // ★ 时延跟踪：结束初始化，开始 leader_planning
+      if (latencySessionId) {
+        this.latencyTracker?.endPhaseByName(latencySessionId, "initialization");
+        this.latencyTracker?.startPhase(latencySessionId, {
+          name: "leader_planning",
+        });
+      }
 
       // ★ v8.0: 如果没有维度，由 Leader AI 动态规划
       if (dimensions.length === 0) {
@@ -523,6 +582,22 @@ export class TopicTeamOrchestratorService {
         }
       }
 
+      // ★ 时延跟踪：结束 leader_planning，开始 dimension_research
+      if (latencySessionId) {
+        this.latencyTracker?.endPhaseByName(
+          latencySessionId,
+          "leader_planning",
+        );
+        this.latencyTracker?.startPhase(latencySessionId, {
+          name: "dimension_research",
+          parallel: true,
+          parallelCount: dimensions.length,
+          metadata: {
+            dimensionNames: dimensions.map((d) => d.name),
+          },
+        });
+      }
+
       // 3. 并行执行维度研究（直接调用 DimensionMissionService）
       const analysisResults = await Promise.allSettled(
         dimensions.map(async (dimension) => {
@@ -664,9 +739,27 @@ export class TopicTeamOrchestratorService {
         );
       }
 
+      // ★ 时延跟踪：结束 dimension_research
+      if (latencySessionId) {
+        const fulfilled = analysisResults.filter(
+          (r) => r.status === "fulfilled",
+        ).length;
+        this.latencyTracker?.endPhaseByName(
+          latencySessionId,
+          "dimension_research",
+          { fulfilled, failed: analysisResults.length - fulfilled },
+        );
+      }
+
       // ============ V5: Cognitive Loop (Claim Extraction → Validation → Hypothesis Verification) ============
       // Wrapped in try-catch: cognitive loop is non-fatal — analyses are already saved above
       if (depthConfig.maxCognitiveLoops > 0) {
+        // ★ 时延跟踪：cognitive_loop 阶段
+        if (latencySessionId) {
+          this.latencyTracker?.startPhase(latencySessionId, {
+            name: "cognitive_loop",
+          });
+        }
         try {
           this.emitProgress({
             topicId,
@@ -756,6 +849,13 @@ export class TopicTeamOrchestratorService {
             `[V5] Cognitive loop failed (non-fatal, analyses already saved): ${cognitiveError}`,
           );
         }
+        // ★ 时延跟踪：结束 cognitive_loop
+        if (latencySessionId) {
+          this.latencyTracker?.endPhaseByName(
+            latencySessionId,
+            "cognitive_loop",
+          );
+        }
       }
 
       // 发送合成开始事件
@@ -807,6 +907,12 @@ export class TopicTeamOrchestratorService {
             metadata: { missionId, reportId: report.id },
           })
         : undefined;
+      // ★ 时延跟踪：report_synthesis 阶段
+      if (latencySessionId) {
+        this.latencyTracker?.startPhase(latencySessionId, {
+          name: "report_synthesis",
+        });
+      }
       let finalReport: TopicReport;
       try {
         finalReport = await this.reportSynthesisService.synthesizeReport(
@@ -832,8 +938,22 @@ export class TopicTeamOrchestratorService {
         throw synthErr;
       }
 
+      // ★ 时延跟踪：结束 report_synthesis
+      if (latencySessionId) {
+        this.latencyTracker?.endPhaseByName(
+          latencySessionId,
+          "report_synthesis",
+        );
+      }
+
       // V5: Fact check (thorough mode only)
       if (depthConfig.factCheckEnabled) {
+        // ★ 时延跟踪：fact_check 阶段
+        if (latencySessionId) {
+          this.latencyTracker?.startPhase(latencySessionId, {
+            name: "fact_check",
+          });
+        }
         this.emitProgress({
           topicId,
           reportId: report.id,
@@ -866,6 +986,17 @@ export class TopicTeamOrchestratorService {
         } catch (error) {
           this.logger.warn(`[V5] Fact check failed (non-fatal): ${error}`);
         }
+        // ★ 时延跟踪：结束 fact_check
+        if (latencySessionId) {
+          this.latencyTracker?.endPhaseByName(latencySessionId, "fact_check");
+        }
+      }
+
+      // ★ 时延跟踪：finalization 阶段
+      if (latencySessionId) {
+        this.latencyTracker?.startPhase(latencySessionId, {
+          name: "finalization",
+        });
       }
 
       // ★ C2 fix: 拆分 todo/task 更新和 mission 更新，确保 mission 始终到达 COMPLETED
@@ -968,6 +1099,19 @@ export class TopicTeamOrchestratorService {
 
       this.logger.log(`Completed refresh for topic: ${topic.name}`);
 
+      // ★ 时延跟踪：结束 finalization + 结束会话
+      if (latencySessionId) {
+        this.latencyTracker?.endPhaseByName(latencySessionId, "finalization");
+        latencySummary = this.latencyTracker?.endSession(
+          latencySessionId,
+          "completed",
+        );
+        // 通过事件发送时延摘要
+        if (latencySummary) {
+          this.emitLatencySummary(topicId, report.id, latencySummary);
+        }
+      }
+
       if (traceId) {
         this.agentFacade?.endTrace(traceId, { status: "success" });
         // ★ Batch 2: 火后即忘评估 trace 质量
@@ -982,6 +1126,17 @@ export class TopicTeamOrchestratorService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+
+      // ★ 时延跟踪：失败时结束会话并发送事件
+      if (latencySessionId && !latencySummary) {
+        latencySummary = this.latencyTracker?.endSession(
+          latencySessionId,
+          "failed",
+        );
+        if (latencySummary) {
+          this.emitLatencySummary(topicId, reportId ?? "", latencySummary);
+        }
+      }
 
       // 取消场景：cancelRefresh() 已将 RefreshLog 写为 CANCELLED，不覆盖
       if (abortController.signal.aborted) {
@@ -1191,6 +1346,19 @@ export class TopicTeamOrchestratorService {
       RESEARCH_INTERNAL_EVENTS.TOPIC_RESEARCH_PROGRESS,
       event,
     );
+  }
+
+  /** 发送时延摘要事件 */
+  private emitLatencySummary(
+    topicId: string,
+    reportId: string,
+    summary: LatencySessionSummary,
+  ): void {
+    this.eventEmitter.emit(RESEARCH_INTERNAL_EVENTS.LATENCY_SESSION_COMPLETED, {
+      topicId,
+      reportId,
+      summary,
+    });
   }
 
   /**

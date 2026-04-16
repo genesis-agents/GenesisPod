@@ -12,6 +12,18 @@ export interface StreamChunk {
     completionTokens: number;
     totalTokens: number;
   };
+  /** 时延指标（仅在 done=true 的最终 chunk 中填充） */
+  timing?: StreamTiming;
+}
+
+/** 流式调用时延指标 */
+export interface StreamTiming {
+  /** Time To First Token (ms) — 从请求发出到首个内容 chunk 到达 */
+  ttftMs: number;
+  /** Time To Last Token (ms) — 从请求发出到最后一个内容 chunk 到达 */
+  ttltMs: number;
+  /** 流式开始时间 (Date.now()) */
+  streamStartTime: number;
 }
 
 /**
@@ -23,6 +35,20 @@ export class AiStreamHandlerService {
   private readonly logger = new Logger(AiStreamHandlerService.name);
 
   constructor(private readonly httpService: HttpService) {}
+
+  /** 构建流式时延指标 */
+  private buildTiming(
+    streamStartTime: number,
+    firstContentTime: number | undefined,
+    lastContentTime: number | undefined,
+  ): StreamTiming | undefined {
+    if (firstContentTime === undefined) return undefined;
+    return {
+      ttftMs: firstContentTime - streamStartTime,
+      ttltMs: (lastContentTime ?? firstContentTime) - streamStartTime,
+      streamStartTime,
+    };
+  }
 
   /**
    * OpenAI 兼容格式的流式调用
@@ -45,6 +71,8 @@ export class AiStreamHandlerService {
     const reasoningParam = isO1O3Model ? { reasoning_effort: "low" } : {};
 
     try {
+      // ★ TTFT: 在发出请求前记录时间，以准确测量从请求发起到首个 token 的延迟
+      const streamStartTime = Date.now();
       const response = await firstValueFrom(
         this.httpService.post(
           apiEndpoint,
@@ -74,6 +102,8 @@ export class AiStreamHandlerService {
 
       const stream = response.data;
       let buffer = "";
+      let firstContentTime: number | undefined;
+      let lastContentTime: number | undefined;
 
       for await (const chunk of stream) {
         buffer += chunk.toString();
@@ -86,7 +116,12 @@ export class AiStreamHandlerService {
           if (line.startsWith("data: ")) {
             const data = line.slice(6).trim();
             if (data === "[DONE]") {
-              yield { content: "", done: true };
+              const timing = this.buildTiming(
+                streamStartTime,
+                firstContentTime,
+                lastContentTime,
+              );
+              yield { content: "", done: true, timing };
               return;
             }
 
@@ -94,6 +129,11 @@ export class AiStreamHandlerService {
               const parsed = JSON.parse(data);
               const delta = parsed.choices?.[0]?.delta?.content;
               if (delta) {
+                const now = Date.now();
+                if (firstContentTime === undefined) {
+                  firstContentTime = now;
+                }
+                lastContentTime = now;
                 yield { content: delta, done: false };
               }
 
@@ -107,7 +147,12 @@ export class AiStreamHandlerService {
                 this.logger.debug(
                   `[streamOpenAICompatible] Usage received: ${usage.totalTokens} tokens`,
                 );
-                yield { content: "", done: true, usage };
+                const timing = this.buildTiming(
+                  streamStartTime,
+                  firstContentTime,
+                  lastContentTime,
+                );
+                yield { content: "", done: true, usage, timing };
                 return;
               }
             } catch {
@@ -117,7 +162,12 @@ export class AiStreamHandlerService {
         }
       }
 
-      yield { content: "", done: true };
+      const timing = this.buildTiming(
+        streamStartTime,
+        firstContentTime,
+        lastContentTime,
+      );
+      yield { content: "", done: true, timing };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[streamOpenAICompatible] Error: ${errorMsg}`);
@@ -140,6 +190,8 @@ export class AiStreamHandlerService {
     const otherMessages = messages.filter((m) => m.role !== "system");
 
     try {
+      // ★ TTFT: 在发出请求前记录时间
+      const streamStartTime = Date.now();
       const response = await firstValueFrom(
         this.httpService.post(
           apiEndpoint,
@@ -169,6 +221,8 @@ export class AiStreamHandlerService {
 
       const stream = response.data;
       let buffer = "";
+      let firstContentTime: number | undefined;
+      let lastContentTime: number | undefined;
 
       for await (const chunk of stream) {
         buffer += chunk.toString();
@@ -187,10 +241,20 @@ export class AiStreamHandlerService {
               if (parsed.type === "content_block_delta") {
                 const text = parsed.delta?.text;
                 if (text) {
+                  const now = Date.now();
+                  if (firstContentTime === undefined) {
+                    firstContentTime = now;
+                  }
+                  lastContentTime = now;
                   yield { content: text, done: false };
                 }
               } else if (parsed.type === "message_stop") {
-                yield { content: "", done: true };
+                const timing = this.buildTiming(
+                  streamStartTime,
+                  firstContentTime,
+                  lastContentTime,
+                );
+                yield { content: "", done: true, timing };
                 return;
               }
             } catch {
@@ -200,7 +264,12 @@ export class AiStreamHandlerService {
         }
       }
 
-      yield { content: "", done: true };
+      const timing = this.buildTiming(
+        streamStartTime,
+        firstContentTime,
+        lastContentTime,
+      );
+      yield { content: "", done: true, timing };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[streamAnthropic] Error: ${errorMsg}`);

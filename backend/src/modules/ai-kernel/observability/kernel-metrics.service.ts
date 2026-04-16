@@ -25,6 +25,10 @@ export interface LLMCallEvent {
   outputTokens: number;
   totalTokens: number;
   latencyMs: number;
+  /** Time To First Token (ms) — 仅流式调用 */
+  ttftMs?: number;
+  /** Time To Last Token (ms) — 仅流式调用 */
+  ttltMs?: number;
   estimatedCost: number;
   success: boolean;
   error?: string;

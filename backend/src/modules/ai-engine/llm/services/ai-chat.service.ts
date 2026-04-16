@@ -24,6 +24,7 @@ import { EventJournalService } from "../../../ai-kernel/facade";
 import { CostAttributionService } from "../../../ai-kernel/facade";
 import { KernelMetricsService } from "../../../ai-kernel/facade";
 import { KernelContext } from "../../../ai-kernel/facade";
+import { SessionLatencyTrackerService } from "../../../ai-kernel/facade";
 
 export interface ChatCompletionOptions {
   model: string;
@@ -121,6 +122,8 @@ export class AiChatService {
     @Optional() private readonly eventJournal?: EventJournalService,
     @Optional() private readonly costAttribution?: CostAttributionService,
     @Optional() private readonly kernelMetrics?: KernelMetricsService,
+    @Optional()
+    private readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
 
   // ==================== 模型配置委托方法 ====================
@@ -177,6 +180,40 @@ export class AiChatService {
       .catch((err) => {
         this.logger.warn(`[AIMetrics] Failed to record metric: ${err.message}`);
       });
+  }
+
+  /**
+   * 自动将 LLM 调用记录到 KernelContext 中活跃的 LatencySession（如有）
+   */
+  private recordToLatencySession(
+    model: string,
+    provider: string,
+    durationMs: number,
+    totalTokens: number,
+    streaming: boolean,
+    ttftMs?: number,
+    inputTokens?: number,
+    outputTokens?: number,
+  ): void {
+    if (!this.latencyTracker) return;
+    const ctx = KernelContext.get();
+    if (!ctx?.latencySessionId) return;
+
+    const phaseId =
+      ctx.latencyPhaseId ??
+      this.latencyTracker.getActivePhaseId(ctx.latencySessionId);
+
+    this.latencyTracker.recordLLMCall(ctx.latencySessionId, {
+      phaseId,
+      model,
+      provider,
+      streaming,
+      ttftMs,
+      ttltMs: durationMs,
+      totalDurationMs: durationMs,
+      inputTokens: inputTokens ?? 0,
+      outputTokens: outputTokens ?? (totalTokens || 0),
+    });
   }
 
   /**
@@ -1210,6 +1247,15 @@ export class AiChatService {
           });
         }
 
+        // ★ Session Latency Tracker: 自动记录 LLM 调用到活跃会话
+        this.recordToLatencySession(
+          currentModel,
+          currentModelConfig?.provider ?? "",
+          duration,
+          result.tokensUsed,
+          false,
+        );
+
         // ★ Guardrails: Output validation (skip for internal system calls)
         if (!skipGuardrails) {
           const outputGuardrailResult = await this.runOutputGuardrails(
@@ -1488,6 +1534,10 @@ export class AiChatService {
     let streamUsage:
       | { promptTokens: number; completionTokens: number; totalTokens: number }
       | undefined;
+    // ★ 流式时延指标
+    let streamTiming:
+      | { ttftMs: number; ttltMs: number; streamStartTime: number }
+      | undefined;
 
     try {
       // 根据 apiFormat 选择流式处理器
@@ -1500,6 +1550,11 @@ export class AiChatService {
             promptTokens: number;
             completionTokens: number;
             totalTokens: number;
+          };
+          timing?: {
+            ttftMs: number;
+            ttltMs: number;
+            streamStartTime: number;
           };
         },
         void
@@ -1563,6 +1618,11 @@ export class AiChatService {
           streamUsage = chunk.usage;
         }
 
+        // ★ 提取流式时延指标
+        if (chunk.timing) {
+          streamTiming = chunk.timing;
+        }
+
         // 如果不是最后一个 chunk，直接 yield
         if (!chunk.done) {
           yield chunk;
@@ -1608,9 +1668,48 @@ export class AiChatService {
       }
 
       // ★ Circuit Breaker: Record success after stream completes
+      const streamDuration = Date.now() - streamStartTime;
       if (this.circuitBreaker) {
-        this.circuitBreaker.recordSuccess(model, Date.now() - streamStartTime);
+        this.circuitBreaker.recordSuccess(model, streamDuration);
       }
+
+      // ★ Kernel Metrics: Record stream TTFT/TTLT
+      if (this.kernelMetrics) {
+        this.kernelMetrics.recordLLMCall({
+          model,
+          provider: modelConfig.provider ?? "",
+          modelType: modelType ?? "CHAT",
+          module: "ai-engine",
+          operation: "chatStream",
+          userId: options.userId,
+          inputTokens: streamUsage?.promptTokens ?? 0,
+          outputTokens: streamUsage?.completionTokens ?? 0,
+          totalTokens: streamUsage?.totalTokens ?? 0,
+          latencyMs: streamDuration,
+          ttftMs: streamTiming?.ttftMs,
+          ttltMs: streamTiming?.ttltMs,
+          estimatedCost: KernelMetricsService.estimateCost(
+            model,
+            streamUsage?.promptTokens ?? 0,
+            streamUsage?.completionTokens ?? 0,
+          ),
+          success: true,
+          fallbackUsed: false,
+          retryCount: 0,
+        });
+      }
+
+      // ★ Session Latency Tracker: 自动记录流式 LLM 调用到活跃会话
+      this.recordToLatencySession(
+        model,
+        modelConfig.provider ?? "",
+        streamDuration,
+        streamUsage?.totalTokens ?? 0,
+        true,
+        streamTiming?.ttftMs,
+        streamUsage?.promptTokens,
+        streamUsage?.completionTokens,
+      );
 
       // ★ 流式完成后，发出一个带 apiKeySource 和 usage 的终止信号
       yield {

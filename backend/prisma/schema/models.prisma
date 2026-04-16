@@ -6491,6 +6491,38 @@ model AIEngineMetric {
   @@map("ai_engine_metrics")
 }
 
+// ============ Session Latency Tracking 会话级时延跟踪 ============
+
+model LatencySession {
+  id     String @id @default(uuid())
+  type   String @db.VarChar(100) // topic_insights_refresh, team_execution, etc.
+  status String @db.VarChar(20) // running, completed, failed
+
+  userId   String? @map("user_id")
+  entityId String? @map("entity_id") // topicId, teamId, etc.
+
+  // 时间
+  startTime  DateTime  @map("start_time")
+  endTime    DateTime? @map("end_time")
+  durationMs Int?      @map("duration_ms")
+
+  // 聚合摘要 (LatencySessionSummary JSON)
+  summary Json?
+
+  // 阶段明细 (LatencyPhase[] JSON)
+  phases Json? @default("[]")
+
+  // LLM 调用明细 (LLMLatencyRecord[] JSON)
+  llmCalls Json? @default("[]") @map("llm_calls")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type, createdAt(sort: Desc)])
+  @@index([entityId])
+  @@index([userId])
+  @@map("latency_sessions")
+}
+
 // ============ Topic Research 专题研究 ============
 
 // ==================== Enums ====================

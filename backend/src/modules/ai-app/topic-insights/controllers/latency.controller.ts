@@ -1,0 +1,79 @@
+import {
+  Controller,
+  Get,
+  Optional,
+  Param,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import {
+  SessionLatencyTrackerService,
+  type LatencySessionSummary,
+} from "@/modules/ai-engine/facade";
+
+/**
+ * Latency Controller
+ *
+ * 提供时延跟踪数据查询 API。
+ */
+@ApiTags("Topic Insights - Latency")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller("api/topic-insights/latency")
+export class LatencyController {
+  constructor(
+    @Optional()
+    private readonly latencyTracker?: SessionLatencyTrackerService,
+  ) {}
+
+  /**
+   * 获取指定主题的最新时延摘要
+   */
+  @Get("topics/:topicId/latest")
+  @ApiOperation({ summary: "获取主题最新时延摘要" })
+  @ApiParam({ name: "topicId", description: "主题 ID" })
+  @ApiResponse({ status: 200, description: "时延摘要" })
+  async getLatestSummary(
+    @Param("topicId") topicId: string,
+  ): Promise<{ summary: LatencySessionSummary | null }> {
+    if (!this.latencyTracker) return { summary: null };
+    const summary = await this.latencyTracker.getLatestSummary(
+      topicId,
+      "topic_insights_refresh",
+    );
+    return { summary: summary ?? null };
+  }
+
+  /**
+   * 查询时延会话历史
+   */
+  @Get("sessions")
+  @ApiOperation({ summary: "查询时延会话历史" })
+  @ApiQuery({ name: "type", required: false })
+  @ApiQuery({ name: "entityId", required: false })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiResponse({ status: 200, description: "时延会话列表" })
+  async listSessions(
+    @Query("type") type?: string,
+    @Query("entityId") entityId?: string,
+    @Query("limit") limit?: string,
+  ): Promise<{ sessions: LatencySessionSummary[] }> {
+    if (!this.latencyTracker) return { sessions: [] };
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    const sessions = await this.latencyTracker.listSessions({
+      type,
+      entityId,
+      limit: Number.isNaN(parsedLimit) ? 20 : parsedLimit,
+    });
+    return { sessions };
+  }
+}

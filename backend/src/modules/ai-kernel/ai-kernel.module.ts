@@ -25,6 +25,7 @@ import { RateLimiter } from "./resource/rate-limiter";
 import { ProcessEventLogService } from "./observability/process-event-log.service";
 import { KernelMetricsService } from "./observability/kernel-metrics.service";
 import { CostAttributionService } from "./observability/cost-attribution.service";
+import { SessionLatencyTrackerService } from "./observability/session-latency-tracker.service";
 import { ObservabilityController } from "./observability/observability.controller";
 import { ProcessSupervisorService } from "./supervisor/process-supervisor.service";
 import { CheckpointManager } from "./journal/checkpoint-manager";
@@ -76,6 +77,7 @@ const KERNEL_PROVIDERS = [
   ProcessEventLogService,
   KernelMetricsService,
   CostAttributionService,
+  SessionLatencyTrackerService,
   // Supervisor
   ProcessSupervisorService,
   // Mission

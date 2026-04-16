@@ -89,6 +89,24 @@ export type {
   ExecutionStateConfig,
 } from "../supervisor/process-supervisor.service";
 
+// Session Latency Tracking
+export { SessionLatencyTrackerService } from "../observability/session-latency-tracker.service";
+export type {
+  LatencySession,
+  LatencyPhase,
+  LatencyCheckpoint,
+  LLMLatencyRecord,
+  LatencySessionSummary,
+  TTFTStats,
+  PhaseDurationSummary,
+  LatencySessionType,
+  LatencySessionStatus,
+  StartSessionInput,
+  StartPhaseInput,
+  RecordLLMLatencyInput,
+  ListSessionsFilter,
+} from "../observability/session-latency.types";
+
 // Observability — additional
 export { CostAttributionService } from "../observability/cost-attribution.service";
 export type {

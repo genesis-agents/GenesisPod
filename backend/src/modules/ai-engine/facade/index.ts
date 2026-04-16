@@ -46,6 +46,12 @@ export type {
   TextContentPart,
   ImageUrlContentPart,
 } from "../llm/types";
+
+// ★ Stream timing types (for TTFT/TTLT tracking)
+export type {
+  StreamTiming,
+  StreamChunk,
+} from "../llm/services/ai-stream-handler.service";
 export type { TeamConfig, ITeam } from "../teams/abstractions/team.interface";
 export { BUILTIN_TEAMS } from "../teams/abstractions/team.interface";
 export type { WorkflowConfig } from "../teams/abstractions/workflow.interface";
@@ -623,3 +629,21 @@ export {
   type ScheduledScope,
   type SchedulerStats,
 } from "../orchestration/services";
+
+// ★ Session Latency Tracking (re-export from ai-kernel facade for AI App convenience)
+export {
+  SessionLatencyTrackerService,
+  type LatencySession,
+  type LatencyPhase,
+  type LatencyCheckpoint,
+  type LLMLatencyRecord,
+  type LatencySessionSummary,
+  type TTFTStats,
+  type PhaseDurationSummary,
+  type LatencySessionType,
+  type LatencySessionStatus,
+  type StartSessionInput,
+  type StartPhaseInput,
+  type RecordLLMLatencyInput,
+  type ListSessionsFilter,
+} from "../../ai-kernel/facade";

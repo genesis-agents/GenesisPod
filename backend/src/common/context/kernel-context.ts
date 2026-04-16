@@ -11,6 +11,10 @@ export interface KernelContextData {
   processId: string;
   userId?: string;
   agentId?: string;
+  /** 活跃的时延跟踪会话 ID */
+  latencySessionId?: string;
+  /** 当前活跃的时延跟踪阶段 ID */
+  latencyPhaseId?: string;
 }
 
 class KernelContextStore {

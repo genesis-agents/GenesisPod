@@ -25,10 +25,13 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { Logger, Injectable } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
 import { ResearchEventEmitterService } from "./services";
+import { RESEARCH_INTERNAL_EVENTS } from "./services/core/research/research-event-emitter.service";
+import type { LatencySessionSummary } from "@/modules/ai-engine/facade";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   createSecurityLogger,
@@ -772,6 +775,30 @@ export class TopicInsightsGateway
         return "系统正在恢复中断的任务...";
       default:
         return "等待开始研究";
+    }
+  }
+
+  // ==================== Latency Tracking Events ====================
+
+  /**
+   * ★ 监听时延跟踪会话完成事件，广播到 WebSocket 客户端
+   */
+  @OnEvent(RESEARCH_INTERNAL_EVENTS.LATENCY_SESSION_COMPLETED)
+  async handleLatencySessionCompleted(payload: {
+    topicId: string;
+    reportId: string;
+    summary: LatencySessionSummary;
+  }): Promise<void> {
+    try {
+      await this.emitToTopic(
+        payload.topicId,
+        "latency:session:completed",
+        payload,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[Latency] Failed to emit session completed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 }
