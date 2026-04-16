@@ -1656,7 +1656,7 @@ export function mergeAdjacentMathBlocks(content: string): string {
   while (prev !== result) {
     prev = result;
     result = result.replace(
-      /\$([^$]+)\$\s*\$([^$]+)\$/g,
+      /\$([^$\n]+)\$ *\$([^$\n]+)\$/g,
       (_, a, b) => `$${a} ${b}$`,
     );
   }
@@ -1676,7 +1676,7 @@ export function mergeAdjacentMathBlocks(content: string): string {
   while (prev !== result) {
     prev = result;
     result = result.replace(
-      /\$([^$]+)\$([^$\n]{1,40})\$([^$]+)\$/g,
+      /\$([^$\n]+)\$([^$\n]{1,40})\$([^$\n]+)\$/g,
       (match, a, between, b) => {
         // Only merge if the between text contains LaTeX-like characters
         if (/[\\^_{}]/.test(between)) {
