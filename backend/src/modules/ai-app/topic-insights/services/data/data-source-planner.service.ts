@@ -67,6 +67,7 @@ export class DataSourcePlannerService {
         await this.chatFacade.chatStructured<DataSourcePlanResponse>({
           systemPrompt: this.getSystemPrompt(),
           messages: [{ role: "user", content: prompt }],
+          operationName: "数据源规划",
           modelType: AIModelType.CHAT,
           skipGuardrails: true,
           taskProfile: { creativity: "low", outputLength: "medium" },

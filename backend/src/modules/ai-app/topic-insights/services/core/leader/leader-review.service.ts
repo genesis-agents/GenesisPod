@@ -159,6 +159,7 @@ export class LeaderReviewService {
         claims: import("../../../types/research-depth.types").ExtractedClaim[];
       }>({
         messages: [{ role: "user", content: prompt }],
+        operationName: "断言提取",
         systemPrompt: "你是事实核查专家，精确提取可验证的事实断言。",
         schema: {
           type: "object",
@@ -251,6 +252,7 @@ export class LeaderReviewService {
         results: import("../../../types/research-depth.types").HypothesisVerificationResult[];
       }>({
         messages: [{ role: "user", content: prompt }],
+        operationName: "假设验证",
         systemPrompt: "你是研究方法论专家，严谨验证研究假设。",
         schema: {
           type: "object",

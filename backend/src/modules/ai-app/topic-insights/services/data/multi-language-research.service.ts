@@ -230,6 +230,7 @@ ${request.preserveTerminology ? "Preserve technical terminology in original lang
       );
 
       const response = await this.chatFacade.chat({
+        operationName: "多语言翻译",
         messages: [
           {
             role: "system",

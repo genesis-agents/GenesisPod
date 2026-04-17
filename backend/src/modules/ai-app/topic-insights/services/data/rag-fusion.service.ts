@@ -103,6 +103,7 @@ ${request.context.researchFocus ? `- 研究重点：${request.context.researchFo
       const response =
         await this.chatFacade.chatStructured<QueryVariantResponse>({
           messages: [{ role: "user", content: prompt }],
+          operationName: "查询扩展",
           additionalSkills: ["rag-fusion-query"],
           skipGuardrails: true,
           taskProfile: { creativity: "medium", outputLength: "medium" },

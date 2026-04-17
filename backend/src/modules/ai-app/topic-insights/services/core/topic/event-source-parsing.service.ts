@@ -483,6 +483,7 @@ export class EventSourceParsingService {
       const truncated = content.slice(0, 3000);
 
       const response = await this.chatFacade.chat({
+        operationName: "事件解析",
         messages: [
           {
             role: "system",
