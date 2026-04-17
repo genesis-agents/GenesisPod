@@ -41,7 +41,8 @@ export interface ParsedChapter {
   type: ChapterType;
 }
 
-const REF_SECTION_RE = /\n(?:---\s*\n+)?##\s*(?:参考文献|References)\s*\n[\s\S]*$/;
+const REF_SECTION_RE =
+  /\n(?:---\s*\n+)?##\s*(?:参考文献|References)\s*\n[\s\S]*$/;
 const TOC_TITLE_RE = /^(目录|Table of Contents)$/i;
 const PREFACE_TITLE_RE = /^(前言|Preface)$/i;
 const EXEC_SUMMARY_TITLE_RE = /^(执行摘要|Executive\s*Summary)$/i;
@@ -53,17 +54,21 @@ const CONCLUSION_TITLE_RE = /^(结语|结论|Conclusion)$/i;
 /**
  * Extract a leading "N." or "N.M." number from a title, returning
  * `{ number, rest }`. e.g. "3. 技术架构" → { number: "3", rest: "技术架构" }.
+ * Accepts both "1. Name" (backend canonical) and "1.2 Name" forms.
  */
 function extractSectionNumber(title: string): {
   number: string | null;
   rest: string;
 } {
-  const m = title.match(/^(\d+(?:\.\d+)*)\.\s*(.+)$/);
+  const m = title.match(/^(\d+(?:\.\d+)*)\.?\s+(.+)$/);
   if (m) return { number: m[1], rest: m[2].trim() };
   return { number: null, rest: title.trim() };
 }
 
-function classifyChapter(title: string, sectionNumber: string | null): ChapterType {
+function classifyChapter(
+  title: string,
+  sectionNumber: string | null
+): ChapterType {
   if (PREFACE_TITLE_RE.test(title)) return 'preface';
   if (EXEC_SUMMARY_TITLE_RE.test(title)) return 'summary';
   if (CROSS_DIM_TITLE_RE.test(title)) return 'cross-dimension';
@@ -83,7 +88,7 @@ function slugify(s: string): string {
 }
 
 export function splitFullReportIntoChapters(
-  fullReport: string | null | undefined,
+  fullReport: string | null | undefined
 ): ParsedChapter[] {
   if (!fullReport) return [];
 

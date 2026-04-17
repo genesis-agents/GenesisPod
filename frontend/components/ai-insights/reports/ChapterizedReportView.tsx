@@ -568,7 +568,6 @@ function ChapterizedReportViewInner({
     if (parsed.length > 0) {
       parsed.forEach((seg, idx) => {
         const chapterNumber = idx + 1;
-        const sectionNumber = seg.sectionNumber || String(chapterNumber);
 
         // Cross-reference dimensionAnalyses by section number for dimension
         // chapters — to inherit status, charts, and keyFindings.
@@ -594,7 +593,12 @@ function ChapterizedReportViewInner({
           }
         }
 
-        const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
+        // ★ Charts are keyed by dimension section number only. Don't fall back
+        //   to chapterNumber for supplementary chapters — that would leak
+        //   unrelated charts into cross-dim / risk / strategy / conclusion.
+        const chapterCharts = seg.sectionNumber
+          ? chartsBySectionId.get(seg.sectionNumber) || []
+          : [];
         let content = formatContent(seg.content);
         if (chapterCharts.length > 0 && !content.includes('<!-- chart:')) {
           content = injectChartPlaceholders(content, chapterCharts);
@@ -647,7 +651,9 @@ function ChapterizedReportViewInner({
               (f) => f.finding && f.finding.trim().length > 3
             );
             if (valid.length > 0) {
-              parts.push(`\n### ${t('topicResearch.reportEditor.keyFindings')}\n`);
+              parts.push(
+                `\n### ${t('topicResearch.reportEditor.keyFindings')}\n`
+              );
               valid.forEach((f, fIdx) => {
                 parts.push(
                   `${fIdx + 1}. **${f.finding}**${formatCitations(f.evidenceIds)}`
@@ -691,6 +697,58 @@ function ChapterizedReportViewInner({
         });
         chapterNum++;
       });
+    }
+
+    // ★ Fallback also emits supplementary chapters so partial reports still
+    //   show cross-dim / risk / strategy (matches pre-rewrite behavior).
+    const supplementarySections: Array<{
+      key: keyof TopicReport;
+      titleKey: string;
+      fallbackTitle: string;
+      type: Chapter['type'];
+    }> = [
+      {
+        key: 'crossDimensionAnalysis',
+        titleKey: 'topicResearch.reportEditor.crossDimensionAnalysis',
+        fallbackTitle: '跨维度关联分析',
+        type: 'cross-dimension',
+      },
+      {
+        key: 'riskAssessment',
+        titleKey: 'topicResearch.reportEditor.riskAssessment',
+        fallbackTitle: '风险评估',
+        type: 'risk',
+      },
+      {
+        key: 'strategicRecommendations',
+        titleKey: 'topicResearch.reportEditor.strategicRecommendations',
+        fallbackTitle: '战略建议',
+        type: 'strategy',
+      },
+    ];
+    for (const section of supplementarySections) {
+      const fieldValue = report[section.key];
+      const raw =
+        fieldValue != null &&
+        typeof fieldValue === 'object' &&
+        'fullText' in fieldValue
+          ? (fieldValue as { fullText: string }).fullText
+          : undefined;
+      if (raw && raw.trim().length > 10) {
+        const formatted = formatContent(raw);
+        result.push({
+          id: section.key as string,
+          chapterNumber: chapterNum,
+          title: t(section.titleKey) || section.fallbackTitle,
+          type: section.type,
+          status: 'completed',
+          outline: raw.slice(0, 100),
+          content: formatted,
+          wordCount: countWords(formatted),
+          charts: [],
+        });
+        chapterNum++;
+      }
     }
 
     return result;

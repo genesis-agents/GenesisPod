@@ -137,4 +137,101 @@ describe('splitFullReportIntoChapters', () => {
     const result = splitFullReportIntoChapters(fullReport);
     expect(result[0].content).toContain('<!-- chart:d0-abc -->');
   });
+
+  // ==== Edge cases for 100% path coverage ====
+
+  it('preserves H3/H4 subheadings within H2 chapter content', () => {
+    const fullReport = [
+      '## 1. Dim',
+      '',
+      '### 1.1 Sub',
+      '',
+      'Nested.',
+      '',
+      '#### 1.1.1 Deep',
+      '',
+      'Deeper.',
+      '',
+      '## 2. Dim2',
+      '',
+      'Body2.',
+    ].join('\n');
+    const result = splitFullReportIntoChapters(fullReport);
+    expect(result).toHaveLength(2);
+    expect(result[0].content).toContain('### 1.1 Sub');
+    expect(result[0].content).toContain('#### 1.1.1 Deep');
+    expect(result[0].content).toContain('Nested.');
+    expect(result[0].content).toContain('Deeper.');
+  });
+
+  it('handles decimal section numbers', () => {
+    const fullReport = ['## 1.2 Sub-dimension', '', 'Body.'].join('\n');
+    const result = splitFullReportIntoChapters(fullReport);
+    expect(result[0].sectionNumber).toBe('1.2');
+    expect(result[0].title).toBe('Sub-dimension');
+  });
+
+  it('returns empty when fullReport only contains title + refs', () => {
+    const fullReport = [
+      '# Title',
+      '',
+      '> 生成时间：2026',
+      '',
+      '---',
+      '',
+      '## 参考文献',
+      '',
+      '[1] Ref',
+    ].join('\n');
+    expect(splitFullReportIntoChapters(fullReport)).toEqual([]);
+  });
+
+  it('strips References section without `---` separator', () => {
+    const fullReport = [
+      '## 1. Foo',
+      '',
+      'Body.',
+      '',
+      '## References',
+      '',
+      '[1] Ref',
+    ].join('\n');
+    const result = splitFullReportIntoChapters(fullReport);
+    expect(result.find((c) => c.title.includes('Reference'))).toBeUndefined();
+    expect(result.find((c) => c.title.includes('参考文献'))).toBeUndefined();
+    expect(result).toHaveLength(1);
+  });
+
+  it('returns stable IDs distinguishing identical titles', () => {
+    const fullReport = ['## 1. Foo', '', 'A.', '', '## 2. Foo', '', 'B.'].join(
+      '\n'
+    );
+    const result = splitFullReportIntoChapters(fullReport);
+    expect(result[0].id).not.toBe(result[1].id);
+    expect(result[0].id).toContain('1');
+    expect(result[1].id).toContain('2');
+  });
+
+  it('does not mis-classify non-numbered chapters as dimensions', () => {
+    const fullReport = ['## Some Custom Section', '', 'Body.'].join('\n');
+    const result = splitFullReportIntoChapters(fullReport);
+    expect(result[0].type).toBe('other');
+    expect(result[0].sectionNumber).toBeNull();
+  });
+
+  it('trims whitespace from content but preserves empty sections', () => {
+    const fullReport = [
+      '## 1. Empty',
+      '',
+      '',
+      '',
+      '## 2. Non-empty',
+      '',
+      'x.',
+    ].join('\n');
+    const result = splitFullReportIntoChapters(fullReport);
+    expect(result).toHaveLength(2);
+    expect(result[0].content).toBe('');
+    expect(result[1].content).toBe('x.');
+  });
 });
