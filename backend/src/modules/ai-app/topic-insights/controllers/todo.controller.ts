@@ -38,7 +38,6 @@ import {
 } from "../services";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import { BillingContextInterceptor } from "../guards/billing-context.interceptor";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -50,24 +49,7 @@ export class TodoController {
     private readonly todoService: ResearchTodoService,
     private readonly lifecycleService: MissionLifecycleService,
     private readonly queryService: MissionQueryService,
-    private readonly prisma: PrismaService,
   ) {}
-
-  /**
-   * 验证 TODO 属于指定专题
-   */
-  private async verifyTodoBelongsToTopic(
-    todoId: string,
-    topicId: string,
-  ): Promise<void> {
-    const todo = await this.prisma.researchTodo.findUnique({
-      where: { id: todoId },
-      select: { topicId: true },
-    });
-    if (!todo || todo.topicId !== topicId) {
-      throw new NotFoundException(`TODO ${todoId} not found`);
-    }
-  }
 
   // ==================== TODO Management ====================
 
@@ -124,7 +106,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     return this.todoService.getTodoById(todoId);
   }
 
@@ -149,7 +131,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     return this.todoService.getTodoDetails(todoId);
   }
 
@@ -175,14 +157,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // Task belongs to a mission which belongs to a topic - verify chain
-    const task = await this.prisma.researchTask.findUnique({
-      where: { id: taskId },
-      select: { mission: { select: { topicId: true } } },
-    });
-    if (!task || task.mission.topicId !== topicId) {
-      throw new NotFoundException(`Task ${taskId} not found`);
-    }
+    await this.queryService.verifyTaskBelongsToTopic(taskId, topicId);
     return this.queryService.getTaskActivities(taskId);
   }
 
@@ -208,7 +183,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     const todo = await this.todoService.pauseTodo(todoId);
     return todo;
   }
@@ -235,7 +210,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     const todo = await this.todoService.resumeTodo(todoId);
     return todo;
   }
@@ -263,7 +238,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     const todo = await this.todoService.cancelTodo(todoId, dto.reason);
     return todo;
   }
@@ -293,24 +268,8 @@ export class TodoController {
       throw new UnauthorizedException("User not authenticated");
     }
 
-    // 验证归属：先尝试 todo，再尝试 task
-    const existingTodo = await this.prisma.researchTodo.findUnique({
-      where: { id: todoId },
-      select: { topicId: true },
-    });
-    if (existingTodo) {
-      if (existingTodo.topicId !== topicId) {
-        throw new NotFoundException(`TODO ${todoId} not found`);
-      }
-    } else {
-      const existingTask = await this.prisma.researchTask.findUnique({
-        where: { id: todoId },
-        select: { mission: { select: { topicId: true } } },
-      });
-      if (!existingTask || existingTask.mission.topicId !== topicId) {
-        throw new NotFoundException(`TODO ${todoId} not found`);
-      }
-    }
+    // 验证归属（支持 TODO 或 Task，任意一种匹配即可）
+    await this.todoService.verifyTodoOrTaskBelongsToTopic(todoId, topicId);
 
     // ★ 先尝试作为 ResearchTodo 处理
     try {
@@ -389,7 +348,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     const todo = await this.todoService.prioritizeTodo(todoId, dto.priority);
     return todo;
   }
@@ -416,7 +375,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     const todo = await this.todoService.updateTodoProgress(todoId, {
       progress: dto.progress,
       statusMessage: dto.statusMessage,
@@ -477,7 +436,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     const todo = await this.todoService.updateTodoContent(todoId, dto);
     return todo;
   }
@@ -504,7 +463,7 @@ export class TodoController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    await this.verifyTodoBelongsToTopic(todoId, topicId);
+    await this.todoService.verifyTodoBelongsToTopic(todoId, topicId);
     await this.todoService.deleteTodo(todoId);
     return;
   }

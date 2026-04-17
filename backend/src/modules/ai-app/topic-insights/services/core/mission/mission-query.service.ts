@@ -158,6 +158,24 @@ export class MissionQueryService {
   }
 
   /**
+   * 验证 ResearchTask 属于指定专题。
+   * 用于 controller 接收 URL 路径参数时的归属校验。
+   * @throws NotFoundException 若 task 不存在或不属于该专题
+   */
+  async verifyTaskBelongsToTopic(
+    taskId: string,
+    topicId: string,
+  ): Promise<void> {
+    const task = await this.prisma.researchTask.findUnique({
+      where: { id: taskId },
+      select: { mission: { select: { topicId: true } } },
+    });
+    if (!task || task.mission.topicId !== topicId) {
+      throw new NotFoundException(`Task ${taskId} not found`);
+    }
+  }
+
+  /**
    * ★ 获取任务相关的 Agent 活动记录
    * 通过 ResearchTask.id 查找关联的 ResearchAgentActivity
    */

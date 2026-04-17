@@ -8,7 +8,6 @@ import type {
   MissionLifecycleService,
   MissionQueryService,
 } from "../../services";
-import type { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 function createMockTodoService() {
   return {
@@ -35,6 +34,8 @@ function createMockTodoService() {
     createUserRequestTodo: jest.fn().mockResolvedValue({ id: "todo-new" }),
     updateTodoContent: jest.fn().mockResolvedValue({ id: "todo-1" }),
     deleteTodo: jest.fn().mockResolvedValue(undefined),
+    verifyTodoBelongsToTopic: jest.fn().mockResolvedValue(undefined),
+    verifyTodoOrTaskBelongsToTopic: jest.fn().mockResolvedValue("todo"),
   } as unknown as jest.Mocked<ResearchTodoService>;
 }
 
@@ -55,23 +56,8 @@ function createMockQueryService() {
     getTaskActivities: jest
       .fn()
       .mockResolvedValue({ task: {}, activities: [] }),
+    verifyTaskBelongsToTopic: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<MissionQueryService>;
-}
-
-function createMockPrisma() {
-  return {
-    researchTodo: {
-      findUnique: jest
-        .fn()
-        .mockResolvedValue({ id: "todo-1", topicId: "topic-1" }),
-    },
-    researchTask: {
-      findUnique: jest.fn().mockResolvedValue({
-        id: "task-1",
-        mission: { topicId: "topic-1" },
-      }),
-    },
-  } as unknown as jest.Mocked<PrismaService>;
 }
 
 function createMockRequest(userId?: string) {
@@ -83,19 +69,16 @@ describe("TodoController", () => {
   let mockTodoService: jest.Mocked<ResearchTodoService>;
   let mockLifecycleService: jest.Mocked<MissionLifecycleService>;
   let mockQueryService: jest.Mocked<MissionQueryService>;
-  let mockPrisma: jest.Mocked<PrismaService>;
   let mockReq: ReturnType<typeof createMockRequest>;
 
   beforeEach(() => {
     mockTodoService = createMockTodoService();
     mockLifecycleService = createMockLifecycleService();
     mockQueryService = createMockQueryService();
-    mockPrisma = createMockPrisma();
     controller = new TodoController(
       mockTodoService as unknown as ResearchTodoService,
       mockLifecycleService as unknown as MissionLifecycleService,
       mockQueryService as unknown as MissionQueryService,
-      mockPrisma as unknown as PrismaService,
     );
     mockReq = createMockRequest("user-123");
   });

@@ -6,12 +6,14 @@ import {
   IsObject,
   MaxLength,
   ValidateNested,
+  Validate,
   IsIn,
   IsNotEmpty,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ResearchTopicType, RefreshFrequency } from "../types";
 import { TopicVisibility } from "./collaborator.dto";
+import { IsBoundedJsonObjectConstraint } from "./validators/bounded-json.validator";
 
 export class DimensionConfigDto {
   @IsString()
@@ -60,6 +62,7 @@ export class CreateTopicDto {
 
   @IsOptional()
   @IsObject()
+  @Validate(IsBoundedJsonObjectConstraint)
   topicConfig?: Record<string, unknown>;
 
   @IsOptional()

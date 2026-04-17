@@ -154,6 +154,55 @@ export class ResearchTodoService {
   }
 
   /**
+   * 验证 TODO 属于指定专题。
+   * 用于 controller 接收 URL 路径参数时的归属校验。
+   * @throws NotFoundException 若 TODO 不存在或不属于该专题
+   */
+  async verifyTodoBelongsToTopic(
+    todoId: string,
+    topicId: string,
+  ): Promise<void> {
+    const todo = await this.prisma.researchTodo.findUnique({
+      where: { id: todoId },
+      select: { topicId: true },
+    });
+    if (!todo || todo.topicId !== topicId) {
+      throw new NotFoundException(`TODO ${todoId} not found`);
+    }
+  }
+
+  /**
+   * 验证 ID 属于指定专题 —— 支持 ResearchTodo 或 ResearchTask。
+   * 前端的 "retry" 端点会把两种 ID 混用，此方法统一归属校验。
+   * @returns "todo" | "task" 命中哪种实体
+   * @throws NotFoundException 若两种实体都不属于该专题
+   */
+  async verifyTodoOrTaskBelongsToTopic(
+    id: string,
+    topicId: string,
+  ): Promise<"todo" | "task"> {
+    const todo = await this.prisma.researchTodo.findUnique({
+      where: { id },
+      select: { topicId: true },
+    });
+    if (todo) {
+      if (todo.topicId !== topicId) {
+        throw new NotFoundException(`TODO ${id} not found`);
+      }
+      return "todo";
+    }
+
+    const task = await this.prisma.researchTask.findUnique({
+      where: { id },
+      select: { mission: { select: { topicId: true } } },
+    });
+    if (!task || task.mission.topicId !== topicId) {
+      throw new NotFoundException(`TODO ${id} not found`);
+    }
+    return "task";
+  }
+
+  /**
    * 获取 TODO 详情（包含关联的 Agent 活动）
    * ★ 修复：USER_REQUEST 类型的 TODO 不应显示其他任务的活动
    */

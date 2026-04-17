@@ -32,6 +32,7 @@ function buildMocks() {
       findUniqueOrThrow: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     researchTask: {
       create: jest.fn(),
@@ -352,14 +353,44 @@ describe("MissionLifecycleService", () => {
         id: "mission-1",
         status: ResearchMissionStatus.FAILED,
       });
+      // ★ CAS succeeds (claim.count === 1)
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
       prisma.researchTask.updateMany.mockResolvedValue({ count: 2 });
-      prisma.researchMission.update.mockResolvedValue({
+      prisma.researchMission.findUniqueOrThrow.mockResolvedValue({
         id: "mission-1",
         status: ResearchMissionStatus.EXECUTING,
       });
 
       const result = await service.retryMission("mission-1");
       expect(result.status).toBe(ResearchMissionStatus.EXECUTING);
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          id: "mission-1",
+          status: expect.objectContaining({ in: expect.any(Array) }),
+        }),
+        data: expect.objectContaining({
+          status: ResearchMissionStatus.EXECUTING,
+          completedAt: null,
+        }),
+      });
+    });
+
+    it("should skip (no-op) when CAS fails due to concurrent retry", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        id: "mission-1",
+        status: ResearchMissionStatus.FAILED,
+      });
+      // ★ CAS fails (another concurrent retry won the race)
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchMission.findUniqueOrThrow.mockResolvedValue({
+        id: "mission-1",
+        status: ResearchMissionStatus.EXECUTING,
+      });
+
+      const result = await service.retryMission("mission-1");
+      expect(result.status).toBe(ResearchMissionStatus.EXECUTING);
+      // ★ tasks are NOT reset on CAS failure
+      expect(prisma.researchTask.updateMany).not.toHaveBeenCalled();
     });
   });
 
@@ -949,6 +980,8 @@ describe("MissionLifecycleService", () => {
 
   describe("approvePlanAndExecute", () => {
     it("should throw NotFoundException when mission not found", async () => {
+      // ★ CAS 失败（没 mission 匹配 PLAN_READY）
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 0 });
       prisma.researchMission.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -957,8 +990,11 @@ describe("MissionLifecycleService", () => {
     });
 
     it("should throw NotFoundException when mission has no leaderPlan", async () => {
+      // ★ CAS 失败（mission 存在但状态不是 PLAN_READY，且无 plan）
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 0 });
       prisma.researchMission.findUnique.mockResolvedValue({
         id: "mission-1",
+        status: ResearchMissionStatus.PLANNING,
         leaderPlan: null,
       });
 
@@ -967,9 +1003,25 @@ describe("MissionLifecycleService", () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("should create tasks, update mission to EXECUTING, and fire startExecution", async () => {
+    it("should silently skip when another concurrent approve already won the race", async () => {
+      // ★ CAS 失败，但 mission 存在且有 plan → 静默跳过（不抛错，幂等处理）
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 0 });
       prisma.researchMission.findUnique.mockResolvedValue({
         id: "mission-1",
+        status: ResearchMissionStatus.EXECUTING,
+        leaderPlan: mockLeaderPlan,
+      });
+
+      await service.approvePlanAndExecute("mission-1", "topic-1");
+      // ★ 没有调用 startExecution
+      expect(executionService.startExecution).not.toHaveBeenCalled();
+    });
+
+    it("should create tasks, update mission to EXECUTING, and fire startExecution", async () => {
+      // ★ CAS 赢家
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
+      // CAS 后 findUnique 拿 plan
+      prisma.researchMission.findUnique.mockResolvedValue({
         leaderPlan: mockLeaderPlan,
       });
       // createTasksFromPlan internals
@@ -992,11 +1044,21 @@ describe("MissionLifecycleService", () => {
 
       await service.approvePlanAndExecute("mission-1", "topic-1");
 
+      // ★ CAS 写了 status = EXECUTING + startedAt
+      expect(prisma.researchMission.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "mission-1", status: ResearchMissionStatus.PLAN_READY },
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.EXECUTING,
+          }),
+        }),
+      );
+      // ★ 后续 update 只写 totalTasks（status 已在 CAS 中设置）
       expect(prisma.researchMission.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "mission-1" },
           data: expect.objectContaining({
-            status: ResearchMissionStatus.EXECUTING,
+            totalTasks: expect.any(Number),
           }),
         }),
       );
@@ -1184,8 +1246,9 @@ describe("MissionLifecycleService", () => {
 
   describe("approvePlanAndExecute - startExecution failure fire-and-forget", () => {
     it("should handle startExecution failure and update mission to FAILED", async () => {
+      // ★ CAS 赢家
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
       prisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-1",
         leaderPlan: mockLeaderPlan,
       });
       prisma.topicDimension.findFirst.mockResolvedValue(null);
@@ -1226,8 +1289,9 @@ describe("MissionLifecycleService", () => {
     });
 
     it("should handle update and updateMany errors gracefully in approvePlanAndExecute catch", async () => {
+      // ★ CAS 赢家
+      prisma.researchMission.updateMany.mockResolvedValue({ count: 1 });
       prisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-1",
         leaderPlan: mockLeaderPlan,
       });
       prisma.topicDimension.findFirst.mockResolvedValue(null);
@@ -1240,7 +1304,7 @@ describe("MissionLifecycleService", () => {
         (args: { data: { taskType: string; title: string } }) =>
           Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
       );
-      // First update (EXECUTING) succeeds, subsequent (FAILED + updateMany) fail
+      // First update (totalTasks) succeeds, subsequent (FAILED rollback) fail
       prisma.researchMission.update
         .mockResolvedValueOnce({
           id: "mission-1",

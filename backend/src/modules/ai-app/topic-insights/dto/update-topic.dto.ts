@@ -5,8 +5,10 @@ import {
   IsObject,
   MaxLength,
   IsIn,
+  Validate,
 } from "class-validator";
 import { ResearchTopicStatus, RefreshFrequency } from "../types";
+import { IsBoundedJsonObjectConstraint } from "./validators/bounded-json.validator";
 
 export class UpdateTopicDto {
   @IsOptional()
@@ -25,6 +27,7 @@ export class UpdateTopicDto {
 
   @IsOptional()
   @IsObject()
+  @Validate(IsBoundedJsonObjectConstraint)
   topicConfig?: Record<string, unknown>;
 
   @IsOptional()

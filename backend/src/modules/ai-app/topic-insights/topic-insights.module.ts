@@ -1,4 +1,4 @@
-import { Module, OnModuleInit, Logger, Optional } from "@nestjs/common";
+import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -290,43 +290,35 @@ export class TopicInsightsModule implements OnModuleInit {
     private readonly financeApiConnector: FinanceApiConnector,
     private readonly weatherApiConnector: WeatherApiConnector,
     private readonly topicInsightsAgent: TopicInsightsAgent,
-    @Optional() private readonly agentRegistry?: AgentRegistry,
-    @Optional() private readonly teamRegistry?: TeamRegistry,
+    // ★ Registry 由 AiEngineModule 通过 AiEngineOrchestrationModule / TeamsModule
+    // 导出，必须作为硬依赖注入；注册失败会导致 IntentRouter 不可发现本模块，
+    // 是隐蔽的生产事故源。因此不使用 @Optional — 缺失即启动失败。
+    private readonly agentRegistry: AgentRegistry,
+    private readonly teamRegistry: TeamRegistry,
   ) {}
 
   async onModuleInit() {
-    try {
-      // Bridge prompt skills from SKILL.md → SkillRegistry
-      const bridgeResult =
-        await this.promptSkillBridge.registerDomain("insights");
-      this.logger.log(
-        `Prompt skills bridged: registered=${bridgeResult.registered.length}, ` +
-          `skipped=${bridgeResult.skipped.length}, errors=${bridgeResult.errors.length}`,
-      );
+    // Bridge prompt skills from SKILL.md → SkillRegistry
+    const bridgeResult =
+      await this.promptSkillBridge.registerDomain("insights");
+    this.logger.log(
+      `Prompt skills bridged: registered=${bridgeResult.registered.length}, ` +
+        `skipped=${bridgeResult.skipped.length}, errors=${bridgeResult.errors.length}`,
+    );
 
-      // ★ P0: 注册数据源连接器
-      this.connectorRegistry.register(this.semanticScholarConnector);
-      this.connectorRegistry.register(this.pubMedConnector);
-      this.connectorRegistry.register(this.financeApiConnector);
-      this.connectorRegistry.register(this.weatherApiConnector);
-      this.logger.log(
-        `Data source connectors registered: ${this.connectorRegistry.getCount()}`,
-      );
+    // ★ P0: 注册数据源连接器
+    this.connectorRegistry.register(this.semanticScholarConnector);
+    this.connectorRegistry.register(this.pubMedConnector);
+    this.connectorRegistry.register(this.financeApiConnector);
+    this.connectorRegistry.register(this.weatherApiConnector);
+    this.logger.log(
+      `Data source connectors registered: ${this.connectorRegistry.getCount()}`,
+    );
 
-      // ★ Gap 1: Agent/Team 注册 → IntentRouter 可发现
-      if (this.agentRegistry) {
-        this.agentRegistry.register(this.topicInsightsAgent);
-        this.logger.log("Registered TopicInsightsAgent");
-      }
-      if (this.teamRegistry) {
-        this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
-        this.logger.log("Registered TOPIC_INSIGHTS team config");
-      }
-    } catch (error) {
-      this.logger.error(
-        `TopicInsightsModule onModuleInit failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      // Non-fatal: module still functions, but some registrations may be missing
-    }
+    // ★ Agent/Team 注册 → IntentRouter 可发现（硬依赖，失败即抛）
+    this.agentRegistry.register(this.topicInsightsAgent);
+    this.logger.log("Registered TopicInsightsAgent");
+    this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
+    this.logger.log("Registered TOPIC_INSIGHTS team config");
   }
 }

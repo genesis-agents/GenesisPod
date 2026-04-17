@@ -577,19 +577,55 @@ export class MissionLifecycleService {
   /**
    * 审批研究规划并启动执行
    * 从 PLAN_READY 状态转为 EXECUTING，然后 fire-and-forget 启动执行
+   *
+   * ★ 并发安全：使用 updateMany + status CAS 作为乐观锁。
+   * 两次并发审批只会有一次赢得转换，另一次会被 idempotently 跳过，
+   * 避免重复创建任务 / 重复启动调度器 / 重复消耗积分。
    */
   async approvePlanAndExecute(
     missionId: string,
     topicId: string,
     completedTasks: CompletedTaskData[] = [],
   ): Promise<void> {
-    const mission = await this.prisma.researchMission.findUnique({
-      where: { id: missionId },
+    // ★ CAS 第一步：原子地把 PLAN_READY → EXECUTING。只有赢家才继续。
+    const claim = await this.prisma.researchMission.updateMany({
+      where: { id: missionId, status: ResearchMissionStatus.PLAN_READY },
+      data: {
+        status: ResearchMissionStatus.EXECUTING,
+        startedAt: new Date(),
+      },
     });
 
-    if (!mission || !mission.leaderPlan) {
+    if (claim.count === 0) {
+      // 要么 mission 不存在，要么已被另一并发调用占用，要么状态不是 PLAN_READY
+      const existing = await this.prisma.researchMission.findUnique({
+        where: { id: missionId },
+        select: { status: true, leaderPlan: true },
+      });
+      if (!existing) {
+        throw new NotFoundException(`Mission ${missionId} not found`);
+      }
+      if (!existing.leaderPlan) {
+        throw new NotFoundException(`Mission ${missionId} has no plan`);
+      }
+      this.logger.warn(
+        `[approvePlanAndExecute] Skipped duplicate approve for mission ${missionId} ` +
+          `(current status=${existing.status}, expected PLAN_READY). ` +
+          `Another concurrent call already owns execution.`,
+      );
+      return;
+    }
+
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { leaderPlan: true },
+    });
+
+    if (!mission?.leaderPlan) {
+      // Should not happen since we just CAS'd from PLAN_READY which guarantees a plan exists,
+      // but guard anyway.
       throw new NotFoundException(
-        `Mission ${missionId} not found or has no plan`,
+        `Mission ${missionId} plan disappeared after claim`,
       );
     }
 
@@ -603,13 +639,11 @@ export class MissionLifecycleService {
       completedTasks,
     );
 
-    // 更新 Mission 到执行状态
+    // 更新任务计数（status 已在 CAS 中置为 EXECUTING，不要再写 status）
     await this.prisma.researchMission.update({
       where: { id: missionId },
       data: {
         totalTasks: tasks.length,
-        status: ResearchMissionStatus.EXECUTING,
-        startedAt: new Date(),
       },
     });
 
@@ -1003,13 +1037,44 @@ export class MissionLifecycleService {
       throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
-    // 验证状态转移: FAILED → EXECUTING
+    // 验证状态转移: FAILED/CANCELLED → EXECUTING
     this.missionStateValidator.assertTransition(
       mission.status,
       ResearchMissionStatus.EXECUTING,
     );
 
-    // 重置所有失败的任务
+    // ★ 并发安全：原子 CAS，只允许从已知终态转到 EXECUTING。
+    // 两次并发 retry 只会有一次赢得转换。
+    const claim = await this.prisma.researchMission.updateMany({
+      where: {
+        id: missionId,
+        status: {
+          in: [
+            ResearchMissionStatus.FAILED,
+            ResearchMissionStatus.CANCELLED,
+            ResearchMissionStatus.COMPLETED,
+          ],
+        },
+      },
+      data: {
+        status: ResearchMissionStatus.EXECUTING,
+        completedAt: null,
+      },
+    });
+
+    if (claim.count === 0) {
+      // 已被另一并发 retry 占用，或当前不是可重试状态（assertTransition 之后仍可能因并发变化）
+      this.logger.warn(
+        `[retryMission] Skipped duplicate retry for mission ${missionId}. ` +
+          `Another concurrent call already owns execution.`,
+      );
+      // 返回当前状态给调用方，而非抛错，以便调用方幂等处理
+      return this.prisma.researchMission.findUniqueOrThrow({
+        where: { id: missionId },
+      });
+    }
+
+    // 重置所有失败的任务（只有 CAS 赢家才会执行到此）
     await this.prisma.researchTask.updateMany({
       where: {
         missionId,
@@ -1024,13 +1089,8 @@ export class MissionLifecycleService {
       },
     });
 
-    // 更新 Mission 状态
-    return this.prisma.researchMission.update({
+    return this.prisma.researchMission.findUniqueOrThrow({
       where: { id: missionId },
-      data: {
-        status: ResearchMissionStatus.EXECUTING,
-        completedAt: null,
-      },
     });
   }
 
