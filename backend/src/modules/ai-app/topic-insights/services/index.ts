@@ -63,6 +63,7 @@ export { FigureRelevanceService } from "./report/figure-relevance.service";
 export { ReportGeneratorService } from "./report/report-generator.service";
 export { ReportAssemblerService } from "./report/report-assembler.service";
 export { ReportDataService } from "./report/report-data.service";
+export { LatexRepairService } from "./report/latex-repair.service";
 export { CitationFormatterService } from "./report/citation-formatter.service";
 export { ResearchExportService } from "./report/research-export.service";
 

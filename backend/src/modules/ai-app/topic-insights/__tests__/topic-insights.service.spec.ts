@@ -29,6 +29,7 @@ import {
   TopicScheduleService,
   ReportQualityTraceService,
   ReportDataService,
+  LatexRepairService,
 } from "../services";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
@@ -266,6 +267,10 @@ describe("TopicInsightsService", () => {
         {
           provide: ReportDataService,
           useValue: mocks.mockReportDataService,
+        },
+        {
+          provide: LatexRepairService,
+          useValue: { repairMarkdown: jest.fn() },
         },
       ],
     }).compile();

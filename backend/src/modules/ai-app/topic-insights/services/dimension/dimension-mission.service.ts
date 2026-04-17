@@ -209,6 +209,8 @@ export class DimensionMissionService {
     return (
       this.latencyTracker.startStep(ctx.latencySessionId, {
         name: `${dimName}/${stepName}`,
+        // 父 step = task-level step（从 KernelContext 继承）
+        parentStepId: ctx.latencyPhaseId,
       }) || undefined
     );
   }

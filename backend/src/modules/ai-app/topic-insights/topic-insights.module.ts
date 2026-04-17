@@ -92,6 +92,7 @@ import {
   ReportGeneratorService,
   ReportAssemblerService,
   ReportDataService,
+  LatexRepairService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   EvidenceSyncCompensationService,
@@ -200,6 +201,7 @@ const services = [
   ReportGeneratorService,
   ReportAssemblerService,
   ReportDataService,
+  LatexRepairService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   EvidenceSyncCompensationService,

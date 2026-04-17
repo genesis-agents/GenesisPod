@@ -561,6 +561,34 @@ export class ReportController {
   }
 
   /**
+   * ★ LaTeX-only repair for historical reports (calls LLM once, keeps prose).
+   */
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post("topics/:topicId/reports/:reportId/repair-latex")
+  @ApiOperation({
+    summary: "修复报告中的 LaTeX 定界符",
+    description:
+      "仅对已存储报告的 LaTeX 公式做定界符修复（加 $ 包裹、闭合未闭合、去除错位的 $），不改动任何正文内容",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({
+    status: 200,
+    description: "返回 { changed, issuesBefore, issuesAfter }",
+  })
+  async repairReportLatex(
+    @Request() req: RequestWithUser,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.repairReportLatex(userId, reportId);
+  }
+
+  /**
    * ★ v5: 获取报告质量追踪数据
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })

@@ -49,6 +49,7 @@ import {
   TopicScheduleService,
   ReportQualityTraceService,
   ReportDataService,
+  LatexRepairService,
 } from "./services";
 import {
   ChatFacade,
@@ -140,9 +141,56 @@ export class TopicInsightsService {
     private readonly scheduleService: TopicScheduleService,
     private readonly qualityTraceService: ReportQualityTraceService,
     private readonly reportDataService: ReportDataService,
+    private readonly latexRepairService: LatexRepairService,
     @Optional()
     private readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
+
+  /**
+   * ★ LaTeX-only repair for already-stored reports (no content rewrite).
+   * Runs `validateLatexDelimiters`; if issues found, asks LLM to add/fix
+   * math delimiters while keeping all prose identical. Writes back to DB.
+   */
+  async repairReportLatex(userId: string, reportId: string) {
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      include: { topic: true },
+    });
+    if (!report || report.topic.userId !== userId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    const result = await this.latexRepairService.repairMarkdown(
+      report.fullReport,
+    );
+
+    if (!result.changed) {
+      return {
+        success: true,
+        changed: false,
+        issuesBefore: result.before?.issues.length ?? 0,
+        failureReason: result.failureReason,
+      };
+    }
+
+    await this.prisma.topicReport.update({
+      where: { id: reportId },
+      data: { fullReport: result.repaired },
+    });
+
+    this.eventEmitter.emit("topic-insights.report.refreshed", {
+      topicId: report.topic.id,
+      reportId,
+      refreshedAt: new Date(),
+    });
+
+    return {
+      success: true,
+      changed: true,
+      issuesBefore: result.before?.issues.length ?? 0,
+      issuesAfter: result.after?.issues.length ?? 0,
+    };
+  }
 
   // ==================== Topics CRUD (delegated to TopicCrudService) ====================
 
@@ -1558,6 +1606,7 @@ export class TopicInsightsService {
     latencySteps: Array<{
       name: string;
       durationMs: number;
+      parentStepId?: string;
       actions: Array<{
         name: string;
         type: string;
@@ -1836,7 +1885,9 @@ export class TopicInsightsService {
             dbSession.summary as unknown as LatencySessionSummary;
           // phases 列实际存储的是 LatencyStep[]（含 actions[]）
           const rawSteps = (dbSession.phases ?? []) as unknown as Array<{
+            id?: string;
             name: string;
+            parentStepId?: string;
             durationMs?: number;
             startTime?: number;
             endTime?: number;
@@ -1853,6 +1904,7 @@ export class TopicInsightsService {
           }>;
           latencySteps = rawSteps.map((s) => ({
             name: s.name,
+            parentStepId: s.parentStepId,
             durationMs:
               s.durationMs ??
               (s.startTime && s.endTime ? s.endTime - s.startTime : 0),
@@ -1885,6 +1937,7 @@ export class TopicInsightsService {
           // 从内存 session 提取 steps+actions 树
           latencySteps = activeSession.steps.map((s) => ({
             name: s.name,
+            parentStepId: s.parentStepId,
             durationMs:
               s.durationMs ??
               (s.endTime

@@ -139,6 +139,7 @@ interface LatencyActionItem {
 interface LatencyStepWithActions {
   name: string;
   durationMs: number;
+  parentStepId?: string;
   actions: LatencyActionItem[];
 }
 
@@ -280,12 +281,62 @@ function ModelName({ modelId }: { modelId: string }) {
 }
 
 function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-
-  const toggle = (idx: number) =>
-    setExpanded((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (key: string) =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const totalActions = steps.reduce((s, st) => s + st.actions.length, 0);
+
+  // 构建树：顶层 = 没有 parentStepId 的，子 step 按维度名前缀归属
+  const topLevel = steps.filter((s) => !s.parentStepId && !s.name.includes('/'));
+  const subSteps = steps.filter((s) => s.parentStepId || s.name.includes('/'));
+
+  // 为每个顶层 step 找到子 step（通过名称前缀匹配）
+  const getChildren = (parent: LatencyStepWithActions) => {
+    const dimName = parent.name.startsWith('dimension_research:')
+      ? parent.name.replace('dimension_research:', '')
+      : null;
+    if (!dimName) return [];
+    return subSteps.filter((s) => s.name.startsWith(dimName + '/'));
+  };
+
+  function renderActions(actions: LatencyActionItem[]) {
+    if (actions.length === 0) return null;
+    return (
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr className="text-left text-gray-400">
+            <th className="pb-1 pr-2 font-medium">Action</th>
+            <th className="pb-1 pr-2 font-medium">Model</th>
+            <th className="pb-1 pr-2 text-right font-medium">TTFT</th>
+            <th className="pb-1 pr-2 text-right font-medium">TTLT</th>
+            <th className="pb-1 pr-2 text-right font-medium">In</th>
+            <th className="pb-1 text-right font-medium">Out</th>
+          </tr>
+        </thead>
+        <tbody>
+          {actions.map((action, ai) => (
+            <tr key={`${action.name}-${ai}`} className="border-t border-gray-50 hover:bg-blue-50/30">
+              <td className="py-1 pr-2 text-gray-600">{action.name || '—'}</td>
+              <td className="max-w-[120px] truncate py-1 pr-2 text-gray-400" title={action.model}>
+                {action.model.length > 18 ? action.model.slice(0, 18) + '…' : action.model}
+              </td>
+              <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
+                {action.ttftMs != null
+                  ? action.ttftMs < 1000 ? `${Math.round(action.ttftMs)}ms` : `${(action.ttftMs / 1000).toFixed(1)}s`
+                  : '—'}
+              </td>
+              <td className="py-1 pr-2 text-right font-medium tabular-nums text-gray-600">
+                {action.ttltMs < 1000 ? `${Math.round(action.ttltMs)}ms` : `${(action.ttltMs / 1000).toFixed(1)}s`}
+              </td>
+              <td className="py-1 pr-2 text-right tabular-nums text-gray-400">{formatNumber(action.inputTokens)}</td>
+              <td className="py-1 text-right tabular-nums text-gray-400">{formatNumber(action.outputTokens)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
 
   return (
     <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -294,99 +345,70 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
         Step → Action ({steps.length} steps, {totalActions} actions)
       </h3>
       <div className="max-h-[500px] space-y-1 overflow-y-auto">
-        {steps.map((step, idx) => {
-          const isOpen = expanded[idx] ?? false;
-          const stepLabel = step.name.includes('/')
-            ? step.name
-            : (PHASE_LABELS[step.name] ?? step.name);
+        {topLevel.map((parent, idx) => {
+          const key = `p-${idx}`;
+          const isOpen = expanded[key] ?? false;
+          const children = getChildren(parent);
+          const hasContent = children.length > 0 || parent.actions.length > 0;
+          const parentLabel = parent.name.startsWith('dimension_research:')
+            ? parent.name.replace('dimension_research:', '')
+            : (PHASE_LABELS[parent.name] ?? parent.name);
 
           return (
-            <div key={idx}>
-              {/* Step row */}
+            <div key={key}>
               <button
                 type="button"
-                onClick={() => toggle(idx)}
+                onClick={() => hasContent && toggle(key)}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-gray-50"
               >
-                <span className="text-gray-400">{isOpen ? '▼' : '▶'}</span>
-                <span
-                  className="flex-1 truncate font-medium text-gray-700"
-                  title={step.name}
-                >
-                  {stepLabel}
+                <span className="text-gray-400">
+                  {!hasContent ? '·' : isOpen ? '▼' : '▶'}
                 </span>
-                <span className="shrink-0 tabular-nums text-gray-500">
-                  {formatDuration(step.durationMs)}
+                <span className="flex-1 truncate font-medium text-gray-700" title={parent.name}>
+                  {parentLabel}
                 </span>
-                <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] tabular-nums text-gray-400">
-                  {step.actions.length} action
-                  {step.actions.length !== 1 ? 's' : ''}
-                </span>
+                <span className="shrink-0 tabular-nums text-gray-500">{formatDuration(parent.durationMs)}</span>
+                {hasContent && (
+                  <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] tabular-nums text-gray-400">
+                    {children.length > 0 ? `${children.length} sub-steps` : `${parent.actions.length} actions`}
+                  </span>
+                )}
               </button>
-
-              {/* Actions (expanded) */}
-              {isOpen && step.actions.length > 0 && (
-                <div className="ml-5 border-l border-gray-100 pl-3">
-                  <table className="w-full text-[11px]">
-                    <thead>
-                      <tr className="text-left text-gray-400">
-                        <th className="pb-1 pr-2 font-medium">Action</th>
-                        <th className="pb-1 pr-2 font-medium">Model</th>
-                        <th className="pb-1 pr-2 text-right font-medium">
-                          TTFT
-                        </th>
-                        <th className="pb-1 pr-2 text-right font-medium">
-                          TTLT
-                        </th>
-                        <th className="pb-1 pr-2 text-right font-medium">In</th>
-                        <th className="pb-1 text-right font-medium">Out</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {step.actions.map((action, ai) => (
-                        <tr
-                          key={ai}
-                          className="border-t border-gray-50 hover:bg-blue-50/30"
-                        >
-                          <td className="py-1 pr-2 text-gray-600">
-                            {action.name || '—'}
-                          </td>
-                          <td
-                            className="max-w-[120px] truncate py-1 pr-2 text-gray-400"
-                            title={action.model}
+              {isOpen && (
+                <div className="ml-4 border-l-2 border-gray-100 pl-3">
+                  {children.length > 0 ? (
+                    children.map((child, ci) => {
+                      const childKey = `c-${idx}-${ci}`;
+                      const childOpen = expanded[childKey] ?? false;
+                      const childLabel = child.name.includes('/') ? child.name.split('/').pop() || child.name : child.name;
+                      return (
+                        <div key={childKey} className="my-0.5">
+                          <button
+                            type="button"
+                            onClick={() => child.actions.length > 0 && toggle(childKey)}
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-gray-50"
                           >
-                            {action.model.length > 18
-                              ? action.model.slice(0, 18) + '…'
-                              : action.model}
-                          </td>
-                          <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
-                            {action.ttftMs != null
-                              ? action.ttftMs < 1000
-                                ? `${Math.round(action.ttftMs)}ms`
-                                : `${(action.ttftMs / 1000).toFixed(1)}s`
-                              : '—'}
-                          </td>
-                          <td className="py-1 pr-2 text-right font-medium tabular-nums text-gray-600">
-                            {action.ttltMs < 1000
-                              ? `${Math.round(action.ttltMs)}ms`
-                              : `${(action.ttltMs / 1000).toFixed(1)}s`}
-                          </td>
-                          <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
-                            {formatNumber(action.inputTokens)}
-                          </td>
-                          <td className="py-1 text-right tabular-nums text-gray-400">
-                            {formatNumber(action.outputTokens)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            <span className="text-gray-300">
+                              {child.actions.length === 0 ? '·' : childOpen ? '▾' : '▸'}
+                            </span>
+                            <span className="flex-1 truncate text-gray-600" title={child.name}>{childLabel}</span>
+                            <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{formatDuration(child.durationMs)}</span>
+                            {child.actions.length > 0 && (
+                              <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] tabular-nums text-blue-400">
+                                {child.actions.length} actions
+                              </span>
+                            )}
+                          </button>
+                          {childOpen && child.actions.length > 0 && (
+                            <div className="ml-5 pl-2">{renderActions(child.actions)}</div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="pl-2">{renderActions(parent.actions)}</div>
+                  )}
                 </div>
-              )}
-              {isOpen && step.actions.length === 0 && (
-                <p className="ml-8 py-1 text-[10px] text-gray-300">
-                  No LLM/tool actions in this step
-                </p>
               )}
             </div>
           );
