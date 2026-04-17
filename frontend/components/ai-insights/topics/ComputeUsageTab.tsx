@@ -1052,16 +1052,24 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
             />
             <SummaryCard
               icon={<Cpu className="h-4 w-4 text-indigo-600" />}
-              label={t('topicResearch.computeUsage.llmTimePercent')}
-              value={`${data.latency.llmTimePercent.toFixed(1)}%`}
-              subText={formatDuration(data.latency.llmTotalTimeMs)}
+              label="LLM 累计耗时"
+              value={formatDuration(data.latency.llmTotalTimeMs)}
+              subText={
+                data.latency.llmTimePercent > 100
+                  ? `${Math.round(data.latency.llmTimePercent / 100)}x 并行`
+                  : `${data.latency.llmTimePercent.toFixed(0)}%`
+              }
               colorClass="bg-indigo-50"
             />
             <SummaryCard
               icon={<BarChart3 className="h-4 w-4 text-emerald-600" />}
-              label={t('topicResearch.computeUsage.overhead')}
-              value={formatDuration(data.latency.overheadMs)}
-              subText={`${(100 - data.latency.llmTimePercent).toFixed(1)}%`}
+              label="并行度"
+              value={
+                data.latency.llmTimePercent > 100
+                  ? `${(data.latency.llmTimePercent / 100).toFixed(1)}x`
+                  : `${Math.max(0, 100 - data.latency.llmTimePercent).toFixed(0)}% 空闲`
+              }
+              subText={`${data.latency.llmCallCount} ${t('topicResearch.computeUsage.calls')}`}
               colorClass="bg-emerald-50"
             />
             <SummaryCard
