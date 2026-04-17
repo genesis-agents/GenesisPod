@@ -29,6 +29,7 @@ import {
   TopicScheduleService,
   ReportQualityTraceService,
   ReportDataService,
+  LatexRepairService,
 } from "../services";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
@@ -44,19 +45,21 @@ function makeDate(offsetMs = 0): Date {
   return new Date(1_700_000_000_000 + offsetMs);
 }
 
-function makeMission(overrides: Partial<{
-  id: string;
-  topicId: string;
-  leaderModelId: string | null;
-  leaderModelName: string | null;
-  researchDepth: string | null;
-  startedAt: Date | null;
-  completedAt: Date | null;
-  createdAt: Date;
-  totalTasks: number;
-  completedTasks: number;
-  status: string;
-}> = {}) {
+function makeMission(
+  overrides: Partial<{
+    id: string;
+    topicId: string;
+    leaderModelId: string | null;
+    leaderModelName: string | null;
+    researchDepth: string | null;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    totalTasks: number;
+    completedTasks: number;
+    status: string;
+  }> = {},
+) {
   return {
     id: MISSION_ID,
     topicId: TOPIC_ID,
@@ -73,7 +76,7 @@ function makeMission(overrides: Partial<{
   };
 }
 
-function makeEmptyCreditAgg() {
+function _makeEmptyCreditAgg() {
   return [];
 }
 
@@ -106,26 +109,99 @@ function buildMocks() {
     $queryRaw: jest.fn().mockResolvedValue([]),
   };
 
-  const noop = () => ({});
+  const _noop = () => ({});
 
   return {
     mockPrisma,
     mockEventEmitter: { emit: jest.fn(), on: jest.fn(), off: jest.fn() },
-    mockOrchestrator: { executeRefresh: jest.fn(), getRefreshStatus: jest.fn(), cancelRefresh: jest.fn() },
-    mockReportService: { synthesizeReport: jest.fn(), getReport: jest.fn(), listReports: jest.fn(), compareReports: jest.fn(), reprocessExistingReport: jest.fn(), getLatestReport: jest.fn() },
-    mockEvidenceService: { recalculateCredibilityScores: jest.fn(), listEvidence: jest.fn(), getEvidence: jest.fn() },
+    mockOrchestrator: {
+      executeRefresh: jest.fn(),
+      getRefreshStatus: jest.fn(),
+      cancelRefresh: jest.fn(),
+    },
+    mockReportService: {
+      synthesizeReport: jest.fn(),
+      getReport: jest.fn(),
+      listReports: jest.fn(),
+      compareReports: jest.fn(),
+      reprocessExistingReport: jest.fn(),
+      getLatestReport: jest.fn(),
+    },
+    mockEvidenceService: {
+      recalculateCredibilityScores: jest.fn(),
+      listEvidence: jest.fn(),
+      getEvidence: jest.fn(),
+    },
     mockFacade: { chat: jest.fn() },
-    mockReportChangeService: { getChanges: jest.fn(), addChange: jest.fn(), checkinChange: jest.fn(), checkinAllChanges: jest.fn() },
-    mockReportAnnotationService: { getAnnotations: jest.fn(), addAnnotation: jest.fn(), createAnnotation: jest.fn(), updateAnnotation: jest.fn(), deleteAnnotation: jest.fn(), resolveAnnotation: jest.fn(), resolveAllAnnotations: jest.fn() },
-    mockResearchStrategyService: { analyzeAndRecommend: jest.fn(), quickCheck: jest.fn(), getSmartRefreshOptions: jest.fn() },
-    mockAgentActivityService: { getActivitiesByDimension: jest.fn(), getActivityStats: jest.fn() },
-    mockCredibilityReportService: { getOrGenerateCredibilityReport: jest.fn(), generateCredibilityReport: jest.fn() },
-    mockCrudService: { createTopic: jest.fn(), listTopics: jest.fn(), getTopic: jest.fn(), updateTopic: jest.fn(), deleteTopic: jest.fn(), getResearchHistory: jest.fn(), getLogs: jest.fn(), getStats: jest.fn(), recalculateTopicStats: jest.fn() },
-    mockDimensionService: { listDimensions: jest.fn(), addDimension: jest.fn(), updateDimension: jest.fn(), deleteDimension: jest.fn(), refreshDimension: jest.fn(), reorderDimensions: jest.fn(), getTemplates: jest.fn(), createFromTemplate: jest.fn() },
-    mockExportService: { exportReport: jest.fn(), updateVisibility: jest.fn(), getSharingSettings: jest.fn(), getSharedTopic: jest.fn(), getSharedTopicLatestReport: jest.fn() },
+    mockReportChangeService: {
+      getChanges: jest.fn(),
+      addChange: jest.fn(),
+      checkinChange: jest.fn(),
+      checkinAllChanges: jest.fn(),
+    },
+    mockReportAnnotationService: {
+      getAnnotations: jest.fn(),
+      addAnnotation: jest.fn(),
+      createAnnotation: jest.fn(),
+      updateAnnotation: jest.fn(),
+      deleteAnnotation: jest.fn(),
+      resolveAnnotation: jest.fn(),
+      resolveAllAnnotations: jest.fn(),
+    },
+    mockResearchStrategyService: {
+      analyzeAndRecommend: jest.fn(),
+      quickCheck: jest.fn(),
+      getSmartRefreshOptions: jest.fn(),
+    },
+    mockAgentActivityService: {
+      getActivitiesByDimension: jest.fn(),
+      getActivityStats: jest.fn(),
+    },
+    mockCredibilityReportService: {
+      getOrGenerateCredibilityReport: jest.fn(),
+      generateCredibilityReport: jest.fn(),
+    },
+    mockCrudService: {
+      createTopic: jest.fn(),
+      listTopics: jest.fn(),
+      getTopic: jest.fn(),
+      updateTopic: jest.fn(),
+      deleteTopic: jest.fn(),
+      getResearchHistory: jest.fn(),
+      getLogs: jest.fn(),
+      getStats: jest.fn(),
+      recalculateTopicStats: jest.fn(),
+    },
+    mockDimensionService: {
+      listDimensions: jest.fn(),
+      addDimension: jest.fn(),
+      updateDimension: jest.fn(),
+      deleteDimension: jest.fn(),
+      refreshDimension: jest.fn(),
+      reorderDimensions: jest.fn(),
+      getTemplates: jest.fn(),
+      createFromTemplate: jest.fn(),
+    },
+    mockExportService: {
+      exportReport: jest.fn(),
+      updateVisibility: jest.fn(),
+      getSharingSettings: jest.fn(),
+      getSharedTopic: jest.fn(),
+      getSharedTopicLatestReport: jest.fn(),
+    },
     mockScheduleService: { getSchedule: jest.fn(), updateSchedule: jest.fn() },
-    mockQualityTraceService: { getQualityTrace: jest.fn(), getQualitySummary: jest.fn(), getQualityDetails: jest.fn() },
-    mockReportDataService: { deleteReportCascade: jest.fn(), updateReportContent: jest.fn(), getReportRevisions: jest.fn(), rollbackToRevision: jest.fn(), saveAiEditRevision: jest.fn() },
+    mockQualityTraceService: {
+      getQualityTrace: jest.fn(),
+      getQualitySummary: jest.fn(),
+      getQualityDetails: jest.fn(),
+    },
+    mockReportDataService: {
+      deleteReportCascade: jest.fn(),
+      updateReportContent: jest.fn(),
+      getReportRevisions: jest.fn(),
+      rollbackToRevision: jest.fn(),
+      saveAiEditRevision: jest.fn(),
+    },
   };
 }
 
@@ -135,21 +211,43 @@ async function buildService(mocks: ReturnType<typeof buildMocks>) {
       TopicInsightsService,
       { provide: PrismaService, useValue: mocks.mockPrisma },
       { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
-      { provide: TopicTeamOrchestratorService, useValue: mocks.mockOrchestrator },
+      {
+        provide: TopicTeamOrchestratorService,
+        useValue: mocks.mockOrchestrator,
+      },
       { provide: ReportSynthesisService, useValue: mocks.mockReportService },
-      { provide: EvidenceManagementService, useValue: mocks.mockEvidenceService },
+      {
+        provide: EvidenceManagementService,
+        useValue: mocks.mockEvidenceService,
+      },
       { provide: ChatFacade, useValue: mocks.mockFacade },
       { provide: ReportChangeService, useValue: mocks.mockReportChangeService },
-      { provide: ReportAnnotationService, useValue: mocks.mockReportAnnotationService },
-      { provide: ResearchStrategyService, useValue: mocks.mockResearchStrategyService },
-      { provide: AgentActivityService, useValue: mocks.mockAgentActivityService },
-      { provide: CredibilityReportService, useValue: mocks.mockCredibilityReportService },
+      {
+        provide: ReportAnnotationService,
+        useValue: mocks.mockReportAnnotationService,
+      },
+      {
+        provide: ResearchStrategyService,
+        useValue: mocks.mockResearchStrategyService,
+      },
+      {
+        provide: AgentActivityService,
+        useValue: mocks.mockAgentActivityService,
+      },
+      {
+        provide: CredibilityReportService,
+        useValue: mocks.mockCredibilityReportService,
+      },
       { provide: TopicCrudService, useValue: mocks.mockCrudService },
       { provide: TopicDimensionService, useValue: mocks.mockDimensionService },
       { provide: TopicExportService, useValue: mocks.mockExportService },
       { provide: TopicScheduleService, useValue: mocks.mockScheduleService },
-      { provide: ReportQualityTraceService, useValue: mocks.mockQualityTraceService },
+      {
+        provide: ReportQualityTraceService,
+        useValue: mocks.mockQualityTraceService,
+      },
       { provide: ReportDataService, useValue: mocks.mockReportDataService },
+      { provide: LatexRepairService, useValue: { repairMarkdown: jest.fn() } },
     ],
   }).compile();
 
@@ -200,7 +298,11 @@ describe("TopicInsightsService – getComputeUsage", () => {
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, MISSION_ID);
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        MISSION_ID,
+      );
 
       // Assert – findFirst called WITH id filter
       expect(mocks.mockPrisma.researchMission.findFirst).toHaveBeenCalledWith(
@@ -293,11 +395,12 @@ describe("TopicInsightsService – getComputeUsage", () => {
       const after = new Date();
 
       // Assert – $queryRaw should have been called with a window end >= before
-      const rawCall = mocks.mockPrisma.$queryRaw.mock.calls[0];
+      const _rawCall = mocks.mockPrisma.$queryRaw.mock.calls[0];
       // The raw template literal passes windowEnd as a parameter (4th bound value
       // based on the query structure: topicId, windowStart, windowEnd)
       // We verify creditTransaction.findMany was called without completedAt constraint
-      const findManyCall = mocks.mockPrisma.creditTransaction.findMany.mock.calls[0][0];
+      const findManyCall =
+        mocks.mockPrisma.creditTransaction.findMany.mock.calls[0][0];
       const windowEnd = findManyCall.where.createdAt.lte as Date;
       expect(windowEnd.getTime()).toBeGreaterThanOrEqual(before.getTime());
       expect(windowEnd.getTime()).toBeLessThanOrEqual(after.getTime() + 100);
@@ -336,9 +439,7 @@ describe("TopicInsightsService – getComputeUsage", () => {
 
       // Assert – latencySession query is skipped when latencyTracker not injected
       // (the if(this.latencyTracker) guard prevents the call)
-      expect(
-        mocks.mockPrisma.latencySession.findFirst,
-      ).not.toHaveBeenCalled();
+      expect(mocks.mockPrisma.latencySession.findFirst).not.toHaveBeenCalled();
     });
   });
 
@@ -371,10 +472,16 @@ describe("TopicInsightsService – getComputeUsage", () => {
 
     it("missions ordered by createdAt desc", async () => {
       // Arrange
-      const older = makeMission({ id: "mission-old", createdAt: makeDate(-10_000) });
+      const older = makeMission({
+        id: "mission-old",
+        createdAt: makeDate(-10_000),
+      });
       const newer = makeMission({ id: "mission-new", createdAt: makeDate(0) });
       // Simulate DB returning desc order
-      mocks.mockPrisma.researchMission.findMany.mockResolvedValue([newer, older]);
+      mocks.mockPrisma.researchMission.findMany.mockResolvedValue([
+        newer,
+        older,
+      ]);
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(newer);
 
       // Act
@@ -391,7 +498,11 @@ describe("TopicInsightsService – getComputeUsage", () => {
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, "mission-abc");
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        "mission-abc",
+      );
 
       // Assert
       expect(result.currentMissionId).toBe("mission-abc");
@@ -413,7 +524,13 @@ describe("TopicInsightsService – getComputeUsage", () => {
       const startedAt = makeDate(0);
       const completedAt = makeDate(60_000);
       const createdAt = makeDate(-1000);
-      const mission = makeMission({ startedAt, completedAt, createdAt, status: "completed", researchDepth: "deep" });
+      const mission = makeMission({
+        startedAt,
+        completedAt,
+        createdAt,
+        status: "completed",
+        researchDepth: "deep",
+      });
       mocks.mockPrisma.researchMission.findMany.mockResolvedValue([mission]);
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
@@ -461,15 +578,28 @@ describe("TopicInsightsService – getComputeUsage", () => {
       // Arrange
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(null);
       const transactions = [
-        { operationType: "llm_call", amount: -5, tokenCount: 1000, inputTokens: 800, outputTokens: 200, cacheCreationTokens: 0, cacheReadTokens: 0, modelName: "gpt-4o", createdAt: makeDate(0) },
+        {
+          operationType: "llm_call",
+          amount: -5,
+          tokenCount: 1000,
+          inputTokens: 800,
+          outputTokens: 200,
+          cacheCreationTokens: 0,
+          cacheReadTokens: 0,
+          modelName: "gpt-4o",
+          createdAt: makeDate(0),
+        },
       ];
-      mocks.mockPrisma.creditTransaction.findMany.mockResolvedValue(transactions);
+      mocks.mockPrisma.creditTransaction.findMany.mockResolvedValue(
+        transactions,
+      );
 
       // Act
       const result = await service.getComputeUsage(USER_ID, TOPIC_ID);
 
       // Assert – no time filter applied (windowStart is undefined)
-      const findManyArg = mocks.mockPrisma.creditTransaction.findMany.mock.calls[0][0];
+      const findManyArg =
+        mocks.mockPrisma.creditTransaction.findMany.mock.calls[0][0];
       expect(findManyArg.where).not.toHaveProperty("createdAt");
       expect(result.creditHistory).toHaveLength(1);
       expect(result.summary.totalCreditsConsumed).toBe(5);
@@ -477,8 +607,8 @@ describe("TopicInsightsService – getComputeUsage", () => {
 
     it("multiple missions – credit transactions isolated to selected mission window", async () => {
       // Arrange: two missions with non-overlapping time windows
-      const mission1StartedAt = makeDate(0);
-      const mission1CompletedAt = makeDate(30_000);
+      const _mission1StartedAt = makeDate(0);
+      const _mission1CompletedAt = makeDate(30_000);
 
       const mission2StartedAt = makeDate(60_000);
       const mission2CompletedAt = makeDate(90_000);
@@ -492,12 +622,28 @@ describe("TopicInsightsService – getComputeUsage", () => {
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission2);
 
       const mission2Transactions = [
-        { operationType: "llm_call", amount: -10, tokenCount: 2000, inputTokens: 1500, outputTokens: 500, cacheCreationTokens: 0, cacheReadTokens: 0, modelName: "claude-3", createdAt: makeDate(70_000) },
+        {
+          operationType: "llm_call",
+          amount: -10,
+          tokenCount: 2000,
+          inputTokens: 1500,
+          outputTokens: 500,
+          cacheCreationTokens: 0,
+          cacheReadTokens: 0,
+          modelName: "claude-3",
+          createdAt: makeDate(70_000),
+        },
       ];
-      mocks.mockPrisma.creditTransaction.findMany.mockResolvedValue(mission2Transactions);
+      mocks.mockPrisma.creditTransaction.findMany.mockResolvedValue(
+        mission2Transactions,
+      );
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, "mission-002");
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        "mission-002",
+      );
 
       // Assert – window is scoped to mission2 times
       expect(mocks.mockPrisma.creditTransaction.findMany).toHaveBeenCalledWith(
@@ -519,7 +665,11 @@ describe("TopicInsightsService – getComputeUsage", () => {
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, MISSION_ID);
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        MISSION_ID,
+      );
 
       // Assert
       expect(result.summary.researchDurationMs).toBe(45_000);
@@ -527,11 +677,18 @@ describe("TopicInsightsService – getComputeUsage", () => {
 
     it("researchDurationMs is 0 when mission startedAt or completedAt is null", async () => {
       // Arrange – completedAt is null (mission still running)
-      const mission = makeMission({ startedAt: makeDate(0), completedAt: null });
+      const mission = makeMission({
+        startedAt: makeDate(0),
+        completedAt: null,
+      });
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, MISSION_ID);
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        MISSION_ID,
+      );
 
       // Assert
       expect(result.summary.researchDurationMs).toBe(0);
@@ -539,11 +696,18 @@ describe("TopicInsightsService – getComputeUsage", () => {
 
     it("mission leaderModel falls back to leaderModelId when leaderModelName is null", async () => {
       // Arrange
-      const mission = makeMission({ leaderModelName: null, leaderModelId: "model-id-fallback" });
+      const mission = makeMission({
+        leaderModelName: null,
+        leaderModelId: "model-id-fallback",
+      });
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, MISSION_ID);
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        MISSION_ID,
+      );
 
       // Assert
       expect(result.mission?.leaderModel).toBe("model-id-fallback");
@@ -551,11 +715,18 @@ describe("TopicInsightsService – getComputeUsage", () => {
 
     it("mission leaderModel is empty string when both leaderModelName and leaderModelId are null", async () => {
       // Arrange
-      const mission = makeMission({ leaderModelName: null, leaderModelId: null });
+      const mission = makeMission({
+        leaderModelName: null,
+        leaderModelId: null,
+      });
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, MISSION_ID);
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        MISSION_ID,
+      );
 
       // Assert
       expect(result.mission?.leaderModel).toBe("");
@@ -571,9 +742,39 @@ describe("TopicInsightsService – getComputeUsage", () => {
       // Arrange
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(null);
       mocks.mockPrisma.creditTransaction.findMany.mockResolvedValue([
-        { operationType: "llm_call", amount: -10, tokenCount: null, inputTokens: null, outputTokens: null, cacheCreationTokens: null, cacheReadTokens: null, modelName: null, createdAt: makeDate(0) },
-        { operationType: "top_up", amount: 50, tokenCount: null, inputTokens: null, outputTokens: null, cacheCreationTokens: null, cacheReadTokens: null, modelName: null, createdAt: makeDate(0) },
-        { operationType: "llm_call", amount: -3, tokenCount: null, inputTokens: null, outputTokens: null, cacheCreationTokens: null, cacheReadTokens: null, modelName: null, createdAt: makeDate(0) },
+        {
+          operationType: "llm_call",
+          amount: -10,
+          tokenCount: null,
+          inputTokens: null,
+          outputTokens: null,
+          cacheCreationTokens: null,
+          cacheReadTokens: null,
+          modelName: null,
+          createdAt: makeDate(0),
+        },
+        {
+          operationType: "top_up",
+          amount: 50,
+          tokenCount: null,
+          inputTokens: null,
+          outputTokens: null,
+          cacheCreationTokens: null,
+          cacheReadTokens: null,
+          modelName: null,
+          createdAt: makeDate(0),
+        },
+        {
+          operationType: "llm_call",
+          amount: -3,
+          tokenCount: null,
+          inputTokens: null,
+          outputTokens: null,
+          cacheCreationTokens: null,
+          cacheReadTokens: null,
+          modelName: null,
+          createdAt: makeDate(0),
+        },
       ]);
 
       // Act
@@ -726,7 +927,9 @@ describe("TopicInsightsService – getComputeUsage", () => {
 
       // Assert – 3 out of 4 calls = 75%, 1 out of 4 = 25%
       const gpt4 = result.modelDistribution.find((m) => m.modelId === "gpt-4o");
-      const claude = result.modelDistribution.find((m) => m.modelId === "claude-3");
+      const claude = result.modelDistribution.find(
+        (m) => m.modelId === "claude-3",
+      );
       expect(gpt4?.percentage).toBe(75);
       expect(claude?.percentage).toBe(25);
     });
@@ -742,9 +945,9 @@ describe("TopicInsightsService – getComputeUsage", () => {
       mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(
-        service.getComputeUsage(USER_ID, TOPIC_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getComputeUsage(USER_ID, TOPIC_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -777,7 +980,17 @@ describe("TopicInsightsService – getComputeUsage", () => {
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(null);
       const ts = makeDate(0);
       mocks.mockPrisma.creditTransaction.findMany.mockResolvedValue([
-        { operationType: "llm_call", amount: -5, tokenCount: 1000, inputTokens: 800, outputTokens: 200, cacheCreationTokens: 0, cacheReadTokens: 0, modelName: "gpt-4o", createdAt: ts },
+        {
+          operationType: "llm_call",
+          amount: -5,
+          tokenCount: 1000,
+          inputTokens: 800,
+          outputTokens: 200,
+          cacheCreationTokens: 0,
+          cacheReadTokens: 0,
+          modelName: "gpt-4o",
+          createdAt: ts,
+        },
       ]);
 
       // Act
@@ -791,11 +1004,21 @@ describe("TopicInsightsService – getComputeUsage", () => {
       // Arrange
       const startedAt = makeDate(0);
       const completedAt = makeDate(60_000);
-      const mission = makeMission({ startedAt, completedAt, totalTasks: 8, completedTasks: 8, researchDepth: "standard" });
+      const mission = makeMission({
+        startedAt,
+        completedAt,
+        totalTasks: 8,
+        completedTasks: 8,
+        researchDepth: "standard",
+      });
       mocks.mockPrisma.researchMission.findFirst.mockResolvedValue(mission);
 
       // Act
-      const result = await service.getComputeUsage(USER_ID, TOPIC_ID, MISSION_ID);
+      const result = await service.getComputeUsage(
+        USER_ID,
+        TOPIC_ID,
+        MISSION_ID,
+      );
 
       // Assert
       expect(result.mission).toMatchObject({
