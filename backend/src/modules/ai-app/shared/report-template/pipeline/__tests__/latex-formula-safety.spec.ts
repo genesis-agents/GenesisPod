@@ -665,5 +665,43 @@ describe("regression: previously broken patterns", () => {
       expect(result).toContain("$\\alpha");
       expect(result).toContain("\\beta$");
     });
+
+    // ---- Bare \command_sub wrap (Phase 0c \b failure) ----
+    it("should wrap bare \\delta_i in CJK prose", () => {
+      const input = "再将补值写入 \\delta_i 或单独惩罚项中";
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).toContain("$\\delta_i$");
+      expect(result).toContain("或单独惩罚项中");
+    });
+
+    it("should wrap bare \\command_{sub} with braces", () => {
+      const input = "定义 \\delta_{i,j} 为惩罚项";
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).toContain("$\\delta_{i,j}$");
+    });
+
+    // ---- Prose absorbed inside $...$ (Case B split) ----
+    it("should split prose-absorbed $...$ and recover stray letter$", () => {
+      const input =
+        "输出 $T_{norm}=\\frac{T^{adj}}{B}，其中B$ 是预先声明的基准量";
+      const result = mergeAdjacentMathBlocks(input);
+      // Formula closes at LaTeX/CJK boundary
+      expect(result).toContain("{B}$");
+      // Stray B$ gets wrapped: $B$
+      expect(result).toContain("$B$");
+      // Prose after preserved
+      expect(result).toContain("是预先声明的基准量");
+      // No CJK prose remains inside a $...$ block
+      const mathBlocks = result.match(/\$[^$\n]+\$/g) || [];
+      for (const blk of mathBlocks) {
+        expect(blk).not.toMatch(/[\uff0c\u3002]/); // no CJK punct inside math
+      }
+    });
+
+    it("should NOT split $...$ that contains only \\text{CJK}", () => {
+      const input = "The term $T_{\\text{prefix}}+T_{\\text{suffix}}$ sums.";
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).toBe(input);
+    });
   });
 });
