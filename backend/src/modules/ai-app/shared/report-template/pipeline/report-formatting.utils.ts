@@ -1717,8 +1717,12 @@ export function mergeAdjacentMathBlocks(content: string): string {
   //   $formula$$ → $$formula$$   (display math missing opening $$)
   // ★ [^$\n]+ prevents treating two orphaned $ on different lines as one pair,
   //   which was the root cause of }$} insertion damage (e.g. T_{\mathrm{ret}$})
-  result = result.replace(/\$\$([^$\n]+)\$(?!\$)/g, "$$$$$$1$$$$");
-  result = result.replace(/(?<!\$)\$([^$\n]+)\$\$/g, "$$$$$$1$$$$");
+  // ★ Replacement string: $$ = literal $, $1 = capture group.
+  //   Correct: $$$$$1$$$$ = "$$" + "$1" + "$$" (5 $ + 1 + 4 $).
+  //   Previous "$$$$$$1$$$$" (6 $ + 1 + 4 $) produced literal "$$$1$$" because
+  //   the extra leading $$ paired off before $1, making it a literal "1".
+  result = result.replace(/\$\$([^$\n]+)\$(?!\$)/g, "$$$$$1$$$$");
+  result = result.replace(/(?<!\$)\$([^$\n]+)\$\$/g, "$$$$$1$$$$");
 
   // Fix unpaired $ in a line: odd number of $ suggests broken delimiters
   // Strategy: if a line has exactly 1 or 3 $ signs, it's likely broken

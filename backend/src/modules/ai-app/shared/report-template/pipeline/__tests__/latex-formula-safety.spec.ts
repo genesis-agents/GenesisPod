@@ -588,4 +588,53 @@ describe("regression: previously broken patterns", () => {
     expect(result).toContain("\\sum_{i\\in S}");
     expect(result).toContain("\\sum_{k=1}^{K}");
   });
+
+  // ---- 2026-04-17: cross-paragraph absorption regression ----
+  // Root cause: mergeAdjacentMathBlocks regexes used [^$]+ which matched
+  // across newlines. Two orphan $ delimiters in different paragraphs were
+  // treated as one pair; the asymmetric $$/$ repair inserted $ before a
+  // closing } (e.g. T_{\mathrm{ret}$}) and wrapped prose in $$.
+  describe("cross-paragraph formula absorption (issue #topic-8c40e1e4)", () => {
+    it("should NOT insert $ inside subscript braces across paragraphs", () => {
+      const input = [
+        "模型 $T_{\\mathrm{iu}}$ 描述输入理解。",
+        "",
+        "后续阶段 $T_{\\mathrm{ret}}$ 描述结果返回。",
+      ].join("\n");
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).not.toMatch(/\{\\mathrm\{iu\}\$\}/);
+      expect(result).not.toMatch(/\{\\mathrm\{ret\}\$\}/);
+      expect(result).toContain("$T_{\\mathrm{iu}}$");
+      expect(result).toContain("$T_{\\mathrm{ret}}$");
+    });
+
+    it("should NOT merge two formulas separated by a Chinese paragraph", () => {
+      const input = [
+        "公式一： $E[T]=\\sum p_i T_i$ 。",
+        "",
+        "这是一段中文解释，占位说明这两个公式之间不能被吞噬。",
+        "",
+        "公式二： $T_{barrier}=\\max(T_A,T_B)$ 。",
+      ].join("\n");
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).toContain("$E[T]=\\sum p_i T_i$");
+      expect(result).toContain("$T_{barrier}=\\max(T_A,T_B)$");
+      // No $$ block should wrap the Chinese paragraph
+      const displayBlocks = result.match(/\$\$[\s\S]*?\$\$/g) || [];
+      for (const blk of displayBlocks) {
+        expect(blk).not.toMatch(/[\u4e00-\u9fa5]{10,}/);
+      }
+    });
+
+    it("should NOT convert asymmetric $/$$ pairs across lines", () => {
+      const input = [
+        "首段提到 $T_{\\mathrm{iu}}$ 。",
+        "",
+        "次段给出 $$T_{\\mathrm{barrier}}$$ 。",
+      ].join("\n");
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).toContain("$T_{\\mathrm{iu}}$");
+      expect(result).toContain("$$T_{\\mathrm{barrier}}$$");
+    });
+  });
 });

@@ -210,14 +210,12 @@ export class DimensionMissionService {
     }) || undefined;
   }
 
-  /** 时延跟踪：结束一个子 step */
-  private stepEnd(dimName: string, stepName: string): void {
+  /** 时延跟踪：用 stepId 精确结束（避免并行维度同名冲突） */
+  private stepEndById(stepId: string | undefined): void {
+    if (!stepId) return;
     const ctx = KernelContext.get();
     if (!ctx?.latencySessionId || !this.latencyTracker) return;
-    this.latencyTracker.endStepByName(
-      ctx.latencySessionId,
-      `${dimName}/${stepName}`,
-    );
+    this.latencyTracker.endStep(ctx.latencySessionId, stepId);
   }
 
   /**
@@ -999,7 +997,7 @@ export class DimensionMissionService {
         assignedSkills,
       ));
 
-      this.stepEnd(dimension.name, "搜索数据");
+      this.stepEndById(searchStepId);
 
       // Phase 2: Leader 本地规划大纲（非全局协调）
       const outlineStepId = this.stepStart(dimension.name, "大纲规划");
@@ -1068,7 +1066,7 @@ export class DimensionMissionService {
         `${logPrefix} Local outline planned: ${outline.sections.length} sections`,
       );
 
-      this.stepEnd(dimension.name, "大纲规划");
+      this.stepEndById(outlineStepId);
 
       // Phase 3: 执行写作阶段
       const writingStepId = this.stepStart(dimension.name, "写作与审核");
@@ -1087,7 +1085,7 @@ export class DimensionMissionService {
         maxRevisionRounds, // V5: 最大修订轮次
       ));
 
-      this.stepEnd(dimension.name, "写作与审核");
+      this.stepEndById(writingStepId);
 
       return writingResult;
     } catch (error) {

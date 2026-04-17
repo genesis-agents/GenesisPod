@@ -280,7 +280,8 @@ export class SessionLatencyTrackerService {
     if (step) {
       step.actions.push(action);
     }
-    // 如果没有活跃 Step，action 不会丢失 — 仍可通过 getAllActions() 从 steps 中收集
+    // find() 搜索所有 step（含已关闭的），所以 closed step 也能接收 action
+    // 只有 stepId 为空/undefined 且没有活跃 step 时才丢弃
   }
 
   // ==================== Legacy API (backward compatible) ====================
