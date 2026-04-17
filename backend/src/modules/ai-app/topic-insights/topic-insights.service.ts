@@ -1799,12 +1799,37 @@ export class TopicInsightsService {
       } catch {
         /* non-fatal */
       }
-      // fallback 到内存中活跃的 session
+      // fallback 到内存中活跃的 session（实时数据）
       if (!latencySummary) {
-        latencySummary = this.latencyTracker.getActiveSessionSummary(
+        const activeSession = this.latencyTracker.getActiveSession(
           topicId,
           "topic_insights_refresh",
         );
+        if (activeSession) {
+          latencySummary = this.latencyTracker.getActiveSessionSummary(
+            topicId,
+            "topic_insights_refresh",
+          );
+          // 从内存 session 提取 steps+actions 树
+          latencySteps = activeSession.steps.map((s) => ({
+            name: s.name,
+            durationMs:
+              s.durationMs ??
+              (s.endTime
+                ? s.endTime - s.startTime
+                : Date.now() - s.startTime),
+            actions: s.actions.map((a) => ({
+              name: a.name,
+              type: a.type ?? "llm_call",
+              model: a.model,
+              totalDurationMs: a.totalDurationMs,
+              ttftMs: a.ttftMs,
+              ttltMs: a.ttltMs,
+              inputTokens: a.inputTokens,
+              outputTokens: a.outputTokens,
+            })),
+          }));
+        }
       }
     }
 

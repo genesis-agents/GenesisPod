@@ -114,13 +114,24 @@ export class SessionLatencyTrackerService {
     entityId: string,
     type?: string,
   ): LatencySessionSummary | undefined {
+    const session = this.getActiveSession(entityId, type);
+    return session ? this.computeSummary(session) : undefined;
+  }
+
+  /**
+   * 按 entityId 查找内存中活跃的完整 session（含 steps + actions）
+   */
+  getActiveSession(
+    entityId: string,
+    type?: string,
+  ): LatencySession | undefined {
     for (const session of this.sessions.values()) {
       if (
         session.entityId === entityId &&
         session.status === "running" &&
         (!type || session.type === type)
       ) {
-        return this.computeSummary(session);
+        return session;
       }
     }
     return undefined;
