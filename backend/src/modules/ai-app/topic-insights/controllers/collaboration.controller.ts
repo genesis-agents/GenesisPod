@@ -103,7 +103,7 @@ export class CollaborationController {
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
-  @RequireTopicAccess(CollaboratorRole.EDITOR)
+  @RequireTopicAccess(CollaboratorRole.ADMIN)
   @Patch("topics/:topicId/collaborators/:collaboratorId")
   @ApiOperation({
     summary: "更新协作者角色",
@@ -135,7 +135,7 @@ export class CollaborationController {
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
   @UseGuards(TopicAccessGuard)
-  @RequireTopicAccess(CollaboratorRole.EDITOR)
+  @RequireTopicAccess(CollaboratorRole.ADMIN)
   @Delete("topics/:topicId/collaborators/:collaboratorId")
   @ApiOperation({
     summary: "移除协作者",

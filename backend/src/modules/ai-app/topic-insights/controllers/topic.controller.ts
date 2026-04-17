@@ -118,12 +118,10 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // ★ Debug: 记录接收到的 DTO
     this.logger.log(
-      `★ [createTopic] Received DTO: ${JSON.stringify({
+      `[createTopic] Received DTO: ${JSON.stringify({
         name: dto.name,
         type: dto.type,
-        topicConfig: dto.topicConfig,
         hasTopicConfig: !!dto.topicConfig,
         topicConfigKeys: dto.topicConfig ? Object.keys(dto.topicConfig) : [],
       })}`,

@@ -36,6 +36,8 @@ import {
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import { BillingContextInterceptor } from "../guards/billing-context.interceptor";
+import { TopicAccessGuard, RequireTopicAccess } from "../guards";
+import { CollaboratorRole } from "../dto/collaborator.dto";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -53,6 +55,8 @@ export class ReportController {
    * 获取报告列表
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/reports")
   @ApiOperation({
     summary: "获取报告列表",
@@ -79,6 +83,8 @@ export class ReportController {
    * 获取最新报告
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:id/reports/latest")
   @ApiOperation({ summary: "获取最新报告" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -100,6 +106,8 @@ export class ReportController {
    * 获取指定版本报告
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId")
   @ApiOperation({ summary: "获取指定版本报告" })
   @ApiParam({ name: "topicId", description: "专题ID" })
@@ -122,6 +130,8 @@ export class ReportController {
    * 删除报告
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Delete("topics/:topicId/reports/:reportId")
   @ApiOperation({
     summary: "删除报告",
@@ -147,6 +157,8 @@ export class ReportController {
    * 导出报告
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Post("topics/:topicId/reports/:reportId/export")
   @ApiOperation({ summary: "导出报告为 PDF 或 DOCX" })
   @ApiParam({ name: "topicId", description: "专题ID" })
@@ -175,6 +187,8 @@ export class ReportController {
    * 比较报告版本
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Post("topics/:id/reports/compare")
   @ApiOperation({ summary: "比较两个版本的报告差异" })
   @ApiParam({ name: "id", description: "专题ID" })
@@ -196,6 +210,8 @@ export class ReportController {
    * 更新报告内容
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Patch("topics/:topicId/reports/:reportId")
   @ApiOperation({
     summary: "更新报告内容",
@@ -228,6 +244,8 @@ export class ReportController {
    * ★ Security: 速率限制 5次/分钟，AI 密集型操作
    */
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/ai-edit")
   @ApiOperation({
     summary: "AI 编辑报告",
@@ -260,6 +278,8 @@ export class ReportController {
    * 获取报告修订历史
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/revisions")
   @ApiOperation({
     summary: "获取修订历史",
@@ -289,6 +309,8 @@ export class ReportController {
    * 回滚报告版本
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/rollback")
   @ApiOperation({
     summary: "回滚报告版本",
@@ -322,6 +344,8 @@ export class ReportController {
    * 获取报告变更列表
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/changes")
   @ApiOperation({
     summary: "获取报告变更列表",
@@ -348,6 +372,8 @@ export class ReportController {
    * Checkin 单条变更
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/changes/:changeId/checkin")
   @ApiOperation({
     summary: "Checkin 单条变更",
@@ -377,6 +403,8 @@ export class ReportController {
    * 批量 Checkin 变更
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/changes/checkin")
   @ApiOperation({
     summary: "批量 Checkin 变更",
@@ -407,6 +435,8 @@ export class ReportController {
    * 获取证据列表
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/evidence")
   @ApiOperation({ summary: "获取报告的引用证据" })
   @ApiParam({ name: "topicId", description: "专题ID" })
@@ -445,6 +475,8 @@ export class ReportController {
    * 获取证据详情
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/evidence/:evidenceId")
   @ApiOperation({ summary: "获取证据详情" })
   @ApiParam({ name: "topicId", description: "专题ID" })
@@ -476,6 +508,8 @@ export class ReportController {
    * 获取报告可信度评估
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/credibility")
   @ApiOperation({
     summary: "获取可信度报告",
@@ -500,6 +534,8 @@ export class ReportController {
    * ★ 重新处理报告格式（不调 LLM，只跑后处理管道）
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/reprocess")
   @ApiOperation({
     summary: "重新处理报告格式",
@@ -528,6 +564,8 @@ export class ReportController {
    * ★ v5: 获取报告质量追踪数据
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/quality-trace")
   @ApiOperation({
     summary: "获取报告质量追踪",
@@ -556,6 +594,8 @@ export class ReportController {
    * ★ v5: 获取报告质量概览
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/quality-summary")
   @ApiOperation({
     summary: "获取报告质量概览",
@@ -584,6 +624,8 @@ export class ReportController {
    * ★ v5.1: 获取报告质量缺陷详情（具体行内容）
    */
   @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
   @Get("topics/:topicId/reports/:reportId/quality-details")
   @ApiOperation({
     summary: "获取报告质量缺陷详情",
@@ -611,6 +653,8 @@ export class ReportController {
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/regenerate")
   @ApiOperation({
     summary: "重新合成报告内容",
@@ -646,6 +690,8 @@ export class ReportController {
    * 重新生成可信度报告
    */
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/credibility/regenerate")
   @ApiOperation({
     summary: "重新生成可信度报告",
@@ -673,6 +719,8 @@ export class ReportController {
    * ★ 重新计算证据可信度评分
    */
   @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/reports/:reportId/evidence/recalculate-credibility")
   @ApiOperation({
     summary: "重新计算证据可信度",
