@@ -164,7 +164,7 @@ export class MissionExecutionService {
   ): Promise<void> {
     // ★ 时延跟踪：initialization 阶段
     if (latencySessionId) {
-      this.latencyTracker?.startPhase(latencySessionId, {
+      this.latencyTracker?.startStep(latencySessionId, {
         name: "initialization",
       });
     }
@@ -225,8 +225,8 @@ export class MissionExecutionService {
 
     // ★ 时延跟踪：结束 initialization，开始 task_execution
     if (latencySessionId) {
-      this.latencyTracker?.endPhaseByName(latencySessionId, "initialization");
-      this.latencyTracker?.startPhase(latencySessionId, {
+      this.latencyTracker?.endStepByName(latencySessionId, "initialization");
+      this.latencyTracker?.startStep(latencySessionId, {
         name: "task_execution",
         parallel: true,
       });
@@ -244,8 +244,8 @@ export class MissionExecutionService {
 
     // ★ 时延跟踪：结束 task_execution，开始 finalization
     if (latencySessionId) {
-      this.latencyTracker?.endPhaseByName(latencySessionId, "task_execution");
-      this.latencyTracker?.startPhase(latencySessionId, {
+      this.latencyTracker?.endStepByName(latencySessionId, "task_execution");
+      this.latencyTracker?.startStep(latencySessionId, {
         name: "finalization",
       });
     }
@@ -255,7 +255,7 @@ export class MissionExecutionService {
 
     // ★ 时延跟踪：结束会话（summary 自动持久化到 DB）
     if (latencySessionId) {
-      this.latencyTracker?.endPhaseByName(latencySessionId, "finalization");
+      this.latencyTracker?.endStepByName(latencySessionId, "finalization");
       this.latencyTracker?.endSession(latencySessionId, "completed");
     }
   }
@@ -317,6 +317,13 @@ export class MissionExecutionService {
     await KernelContext.run(
       { processId: "", userId: topic.userId, latencySessionId },
       async () => {
+        if (latencySessionId) {
+          this.latencyTracker?.startStep(latencySessionId, {
+            name: "task_execution",
+            parallel: true,
+          });
+        }
+
         const maxConcurrentTasks = await this.calculateDynamicConcurrency();
         await this.executeDynamicScheduler(
           missionId,
@@ -330,9 +337,24 @@ export class MissionExecutionService {
               depthConfig,
             ),
         );
+
+        if (latencySessionId) {
+          this.latencyTracker?.endStepByName(
+            latencySessionId,
+            "task_execution",
+          );
+          this.latencyTracker?.startStep(latencySessionId, {
+            name: "finalization",
+          });
+        }
+
         await this.finalizeMission(missionId, topicId);
 
         if (latencySessionId) {
+          this.latencyTracker?.endStepByName(
+            latencySessionId,
+            "finalization",
+          );
           this.latencyTracker?.endSession(latencySessionId, "completed");
         }
       },

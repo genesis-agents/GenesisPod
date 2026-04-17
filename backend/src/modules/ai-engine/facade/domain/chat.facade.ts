@@ -370,6 +370,7 @@ export class ChatFacade {
           cachePolicy: request.cachePolicy,
           outputSchema: request.outputSchema,
           sharedCachePrefix: request.sharedCachePrefix,
+          operationName: request.operationName,
         });
 
         if (result.isError) {

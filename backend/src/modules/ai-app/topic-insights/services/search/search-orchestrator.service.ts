@@ -33,6 +33,11 @@ import { QueryStrategyService } from "./query/query-strategy.service";
 import { SearchExecutorService } from "./search-executor.service";
 import { ResultFusionService } from "./fusion/result-fusion.service";
 import { QualityGateService } from "./fusion/quality-gate.service";
+import { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";
+import {
+  DEFAULT_RERANK_CONFIG,
+  type RerankCandidate,
+} from "./rerank/rerank.types";
 
 /** Default data sources when dimension provides none */
 const DEFAULT_SOURCES: DataSourceType[] = [
@@ -54,6 +59,7 @@ export class SearchOrchestratorService {
     private readonly executor: SearchExecutorService,
     private readonly fusion: ResultFusionService,
     private readonly qualityGate: QualityGateService,
+    private readonly reranker: LlmRerankerAdapter,
     @Optional() private readonly toolFacade?: ToolFacade,
     @Optional() private readonly capabilityGuard?: CapabilityGuardService,
   ) {}
@@ -199,6 +205,18 @@ export class SearchOrchestratorService {
     let aggregated = this.fusion.fuse(rawResults, primaryQuery);
 
     // ------------------------------------------------------------------
+    // Step 6b: Optional rerank (RAG 两阶段检索的第二阶段)
+    // ------------------------------------------------------------------
+    if (options?.rerankConfig?.enabled) {
+      aggregated = await this.applyRerank(
+        dimension.name,
+        aggregated,
+        primaryQuery,
+        options.rerankConfig,
+      );
+    }
+
+    // ------------------------------------------------------------------
     // Step 7: Quality gate evaluation
     // ------------------------------------------------------------------
     let verdict: QualityVerdict = this.qualityGate.evaluate(aggregated, {
@@ -264,6 +282,77 @@ export class SearchOrchestratorService {
   // ============================================================================
   // Private helpers
   // ============================================================================
+
+  /**
+   * 对 fusion 结果做精排（RAG 两阶段检索第二阶段）。
+   *
+   * 流程：
+   *   fusion.scoredItems 前 topK*multiplier 名 → LlmReranker → 取 top K
+   *
+   * Fail-open：reranker 内部已处理异常，此处只 wire 入 pipeline。
+   * 如果 aggregated 没有 scoredItems（旧路径），保留 items 原序不做 rerank。
+   */
+  private async applyRerank(
+    dimensionName: string,
+    aggregated: AggregatedSearchResult,
+    query: string,
+    config: NonNullable<SearchPipelineOptions["rerankConfig"]>,
+  ): Promise<AggregatedSearchResult> {
+    const scoredItems = aggregated.scoredItems ?? [];
+    if (scoredItems.length === 0) {
+      this.logger.debug(
+        `[${dimensionName}] rerank skipped: no scoredItems in aggregated result`,
+      );
+      return aggregated;
+    }
+
+    const topK = config.topK ?? DEFAULT_RERANK_CONFIG.topK;
+    const multiplier =
+      config.candidateMultiplier ?? DEFAULT_RERANK_CONFIG.candidateMultiplier;
+    const timeoutMs = config.timeoutMs ?? DEFAULT_RERANK_CONFIG.timeoutMs;
+
+    // 候选池 = topK * multiplier（不超过实际 scoredItems 数）
+    const candidatePool = Math.min(topK * multiplier, scoredItems.length);
+    if (candidatePool <= topK) {
+      // 候选不足以挑选，fusion 本身就是答案
+      return aggregated;
+    }
+
+    const candidates: RerankCandidate[] = scoredItems
+      .slice(0, candidatePool)
+      .map((s, i) => ({ item: s.item, originalIndex: i }));
+
+    const rerankStart = Date.now();
+    const reranked = await this.reranker.rerank({
+      query,
+      candidates,
+      topK,
+      timeoutMs,
+    });
+
+    this.logger.log(
+      `[${dimensionName}] rerank: ${candidates.length} → ${reranked.length} ` +
+        `in ${Date.now() - rerankStart}ms (topK=${topK})`,
+    );
+
+    // 用 rerank 分数重写 scoredItems 与 items；保持其他字段
+    const rerankedScoredItems = reranked.map((r) => {
+      const original = scoredItems[r.originalIndex];
+      return {
+        item: r.item,
+        score: r.rerankScore,
+        relevanceScore: r.rerankScore,
+        credibilityScore: original?.credibilityScore ?? 0,
+      };
+    });
+
+    return {
+      ...aggregated,
+      items: reranked.map((r) => r.item),
+      totalCount: reranked.length,
+      scoredItems: rerankedScoredItems,
+    };
+  }
 
   /**
    * Get configured time range from topic config.

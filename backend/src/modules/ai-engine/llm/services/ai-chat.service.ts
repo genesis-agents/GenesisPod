@@ -1440,6 +1440,8 @@ export class AiChatService {
     userId?: string;
     /** Skip input/output guardrails for internal system calls */
     skipGuardrails?: boolean;
+    /** 操作名称 — 用于时延跟踪标识 step */
+    operationName?: string;
   }): AsyncGenerator<
     {
       content: string;
@@ -1714,6 +1716,7 @@ export class AiChatService {
         streamTiming?.ttftMs,
         streamUsage?.promptTokens,
         streamUsage?.completionTokens,
+        options.operationName,
       );
 
       // ★ 流式完成后，发出一个带 apiKeySource 和 usage 的终止信号

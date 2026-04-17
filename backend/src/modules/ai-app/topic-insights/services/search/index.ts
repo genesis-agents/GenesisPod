@@ -16,6 +16,16 @@ export { QueryStrategyService } from "./query";
 // Fusion
 export { ResultFusionService, QualityGateService } from "./fusion";
 
+// Rerank
+export { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";
+export type {
+  RerankAdapter,
+  RerankCandidate,
+  RerankRequest,
+  RerankedItem,
+  RerankConfig,
+} from "./rerank/rerank.types";
+
 // Adapters
 export {
   WebSearchAdapter,

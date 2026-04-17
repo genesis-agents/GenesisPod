@@ -63,6 +63,7 @@ export class LatencyController {
   @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiResponse({ status: 200, description: "时延会话列表" })
   async listSessions(
+    @Request() req: { user?: { id?: string } },
     @Query("type") type?: string,
     @Query("entityId") entityId?: string,
     @Query("limit") limit?: string,
@@ -72,6 +73,7 @@ export class LatencyController {
     const sessions = await this.latencyTracker.listSessions({
       type,
       entityId,
+      userId: req.user?.id, // 只返回当前用户的会话
       limit: Number.isNaN(parsedLimit) ? 20 : parsedLimit,
     });
     return { sessions };

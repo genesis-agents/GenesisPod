@@ -138,4 +138,14 @@ export interface SearchPipelineOptions {
     enabled?: boolean;
     maxVariants?: number;
   };
+  /**
+   * ★ Rerank 阶段配置（默认关闭；开启后在 fusion 与 quality-gate 之间插入精排）。
+   * 参见 services/search/rerank/rerank.types.ts 的 RerankConfig。
+   */
+  rerankConfig?: {
+    enabled?: boolean;
+    topK?: number;
+    candidateMultiplier?: number;
+    timeoutMs?: number;
+  };
 }
