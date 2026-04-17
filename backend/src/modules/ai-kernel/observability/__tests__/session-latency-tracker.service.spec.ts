@@ -391,7 +391,6 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       // Call getActiveSessionSummary which calls computeSummary without endSession
       // The open step has no endTime and no durationMs → uses 0
-      const liveSummary = service.getActiveSessionSummary(sessionId);
       // getActiveSessionSummary matches on entityId, not sessionId — need entityId
       // Use a different approach: call endSession which auto-closes but we want pre-close
       // Actually, getActiveSessionSummary takes entityId. Use a session with entityId.

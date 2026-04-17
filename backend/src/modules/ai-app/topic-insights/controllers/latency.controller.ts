@@ -44,14 +44,18 @@ export class LatencyController {
   @ApiParam({ name: "topicId", description: "主题 ID" })
   @ApiResponse({ status: 200, description: "时延摘要" })
   async getLatestSummary(
+    @Request() req: { user?: { id?: string } },
     @Param("topicId") topicId: string,
   ): Promise<{ summary: LatencySessionSummary | null }> {
     if (!this.latencyTracker) return { summary: null };
-    const summary = await this.latencyTracker.getLatestSummary(
-      topicId,
-      "topic_insights_refresh",
-    );
-    return { summary: summary ?? null };
+    // 通过 userId 过滤确保只返回当前用户自己的数据
+    const sessions = await this.latencyTracker.listSessions({
+      entityId: topicId,
+      type: "topic_insights_refresh",
+      userId: req.user?.id,
+      limit: 1,
+    });
+    return { summary: sessions[0] ?? null };
   }
 
   /**
