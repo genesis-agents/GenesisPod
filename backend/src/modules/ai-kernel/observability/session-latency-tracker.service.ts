@@ -400,7 +400,21 @@ export class SessionLatencyTrackerService {
     const allActions = this.getAllActions(session);
 
     // Step 分解（只取顶层 Step）
-    const topLevelSteps = session.steps.filter((s) => !s.parentStepId);
+    // parentStepId 优先；兼容旧数据通过名称模式排除子步骤（含 "/" 且前缀匹配某个 dimension_research step）
+    const dimNames = new Set(
+      session.steps
+        .filter((s) => s.name.startsWith("dimension_research:"))
+        .map((s) => s.name.replace("dimension_research:", "")),
+    );
+    const topLevelSteps = session.steps.filter((s) => {
+      if (s.parentStepId) return false;
+      // 兼容旧数据：名称含 "/" 且前缀是已知维度名 → 是子步骤
+      if (s.name.includes("/")) {
+        const prefix = s.name.split("/")[0];
+        if (dimNames.has(prefix)) return false;
+      }
+      return true;
+    });
     const steps: StepSummary[] = topLevelSteps.map((s) => {
       const dur = s.durationMs ?? (s.endTime ? s.endTime - s.startTime : 0);
       const stepActions = s.actions;
