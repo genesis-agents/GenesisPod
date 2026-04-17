@@ -1503,6 +1503,7 @@ export class TopicInsightsService {
   async getComputeUsage(
     userId: string,
     topicId: string,
+    missionId?: string,
   ): Promise<{
     summary: {
       totalTokens: number;
@@ -1568,14 +1569,70 @@ export class TopicInsightsService {
         outputTokens: number;
       }>;
     }>;
+    /** 该 Topic 的所有 Mission 列表（用于前端选择器） */
+    missions: Array<{
+      id: string;
+      status: string;
+      researchDepth: string | null;
+      startedAt: string | null;
+      completedAt: string | null;
+      createdAt: string;
+    }>;
+    /** 当前选中的 Mission ID */
+    currentMissionId: string | null;
   }> {
     await this.verifyTopicReadAccess(userId, topicId);
 
-    this.logger.log(`[getComputeUsage] topicId=${topicId}`);
+    this.logger.log(
+      `[getComputeUsage] topicId=${topicId} missionId=${missionId ?? "latest"}`,
+    );
 
-    // 1. 获取最新报告的 totalTokens / generationTimeMs / totalDimensions
+    // 0. 解析目标 Mission 和时间窗口
+    const targetMission = missionId
+      ? await this.prisma.researchMission.findUnique({
+          where: { id: missionId },
+          select: {
+            id: true,
+            topicId: true,
+            leaderModelId: true,
+            leaderModelName: true,
+            researchDepth: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            totalTasks: true,
+            completedTasks: true,
+          },
+        })
+      : await this.prisma.researchMission.findFirst({
+          where: { topicId },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            topicId: true,
+            leaderModelId: true,
+            leaderModelName: true,
+            researchDepth: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            totalTasks: true,
+            completedTasks: true,
+          },
+        });
+
+    // 时间窗口：mission 的 startedAt → completedAt（或 now）
+    const windowStart = targetMission?.startedAt ?? targetMission?.createdAt;
+    const windowEnd = targetMission?.completedAt ?? new Date();
+
+    // 1. 获取该 Mission 时间窗口内的报告
     const latestReport = await this.prisma.topicReport.findFirst({
-      where: { topicId },
+      where: {
+        topicId,
+        ...(windowStart
+          ? { generatedAt: { gte: windowStart, lte: windowEnd } }
+          : {}),
+      },
       orderBy: { generatedAt: "desc" },
       select: {
         totalTokens: true,
@@ -1610,21 +1667,8 @@ export class TopicInsightsService {
       },
     });
 
-    // 3. 获取最新 ResearchMission
-    const latestMission = await this.prisma.researchMission.findFirst({
-      where: { topicId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        leaderModelId: true,
-        leaderModelName: true,
-        researchDepth: true,
-        startedAt: true,
-        completedAt: true,
-        totalTasks: true,
-        completedTasks: true,
-      },
-    });
+    // 3. Mission 已在步骤 0 获取（targetMission）
+    const latestMission = targetMission;
 
     // 4. 按 modelName 聚合 CreditTransaction（ai_engine_metrics 的 missionId 大多为 null，不可靠）
     type CreditAggRow = {
@@ -1651,13 +1695,20 @@ export class TopicInsightsService {
         FROM credit_transactions
         WHERE reference_id = ${topicId}
           AND amount < 0
+          AND created_at >= ${windowStart ?? new Date(0)}
+          AND created_at <= ${windowEnd}
         GROUP BY model_name
         ORDER BY call_count DESC
       `;
 
-    // 5. 查询 CreditTransaction（referenceId = topicId）
+    // 5. 查询 CreditTransaction（referenceId = topicId，按 Mission 时间窗口）
     const creditTransactions = await this.prisma.creditTransaction.findMany({
-      where: { referenceId: topicId },
+      where: {
+        referenceId: topicId,
+        ...(windowStart
+          ? { createdAt: { gte: windowStart, lte: windowEnd } }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
       select: {
@@ -1735,7 +1786,22 @@ export class TopicInsightsService {
       })
       .sort((a, b) => b.callCount - a.callCount);
 
-    // 6. 获取最新的时延跟踪数据（summary + steps 树形明细）
+    // 6. 获取该 Topic 的所有 Mission 列表（用于前端选择器）
+    const allMissions = await this.prisma.researchMission.findMany({
+      where: { topicId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        status: true,
+        researchDepth: true,
+        startedAt: true,
+        completedAt: true,
+        createdAt: true,
+      },
+    });
+
+    // 7. 获取最新的时延跟踪数据（summary + steps 树形明细）
     type StepWithActions = {
       name: string;
       durationMs: number;
@@ -1756,7 +1822,13 @@ export class TopicInsightsService {
       // 优先从 DB 查已完成的 session（phases 列存储 Step[]，含 actions）
       try {
         const dbSession = await this.prisma.latencySession.findFirst({
-          where: { entityId: topicId, type: "topic_insights_refresh" },
+          where: {
+            entityId: topicId,
+            type: "topic_insights_refresh",
+            ...(windowStart
+              ? { startTime: { gte: windowStart, lte: windowEnd } }
+              : {}),
+          },
           orderBy: { createdAt: "desc" },
           select: { summary: true, phases: true },
         });
@@ -1881,6 +1953,15 @@ export class TopicInsightsService {
         : null,
       latency: latencySummary ?? null,
       latencySteps,
+      missions: allMissions.map((m) => ({
+        id: m.id,
+        status: m.status,
+        researchDepth: m.researchDepth,
+        startedAt: m.startedAt?.toISOString() ?? null,
+        completedAt: m.completedAt?.toISOString() ?? null,
+        createdAt: m.createdAt.toISOString(),
+      })),
+      currentMissionId: targetMission?.id ?? null,
     };
   }
 

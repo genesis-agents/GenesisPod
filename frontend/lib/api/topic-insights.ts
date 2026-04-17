@@ -2570,6 +2570,12 @@ export async function getResumableMissions(): Promise<{
 /**
  * 获取专题的算力消耗统计
  */
-export async function getComputeUsage(topicId: string): Promise<unknown> {
-  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/compute-usage`);
+export async function getComputeUsage(
+  topicId: string,
+  missionId?: string,
+): Promise<unknown> {
+  const params = missionId ? `?missionId=${missionId}` : '';
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/compute-usage${params}`,
+  );
 }

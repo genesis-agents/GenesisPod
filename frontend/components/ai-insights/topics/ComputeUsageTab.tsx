@@ -142,6 +142,15 @@ interface LatencyStepWithActions {
   actions: LatencyActionItem[];
 }
 
+interface MissionListItem {
+  id: string;
+  status: string;
+  researchDepth: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
 interface ComputeUsageData {
   summary: ComputeUsageSummary;
   dimensions: DimensionUsage[];
@@ -150,6 +159,8 @@ interface ComputeUsageData {
   mission: MissionInfo | null;
   latency: LatencySummary | null;
   latencySteps: LatencyStepWithActions[];
+  missions: MissionListItem[];
+  currentMissionId: string | null;
 }
 
 interface ComputeUsageTabProps {
@@ -394,6 +405,9 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
   const [data, setData] = useState<ComputeUsageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMissionId, setSelectedMissionId] = useState<
+    string | undefined
+  >(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -401,7 +415,10 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
       try {
         setLoading(true);
         setError(null);
-        const result = (await getComputeUsage(topicId)) as ComputeUsageData;
+        const result = (await getComputeUsage(
+          topicId,
+          selectedMissionId,
+        )) as ComputeUsageData;
         if (!cancelled) setData(result);
       } catch (err) {
         if (!cancelled) {
@@ -416,7 +433,7 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [topicId]);
+  }, [topicId, selectedMissionId]);
 
   // ── Derived chart data ──
   const tokenDonutData = useMemo(() => {
@@ -589,6 +606,50 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
 
   return (
     <div className="space-y-6 overflow-y-auto p-4">
+      {/* ═══ Mission Selector ═══ */}
+      {data.missions && data.missions.length > 1 && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-gray-500">
+            {t('topicResearch.computeUsage.missionInfo')}:
+          </span>
+          <select
+            value={selectedMissionId ?? data.currentMissionId ?? ''}
+            onChange={(e) =>
+              setSelectedMissionId(e.target.value || undefined)
+            }
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 shadow-sm focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-200"
+          >
+            {data.missions.map((m, idx) => (
+              <option key={m.id} value={m.id}>
+                #{data.missions.length - idx}{' '}
+                {m.startedAt
+                  ? new Date(m.startedAt).toLocaleString(undefined, {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : new Date(m.createdAt).toLocaleString(undefined, {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                {' '}
+                ({m.status === 'COMPLETED'
+                  ? '已完成'
+                  : m.status === 'EXECUTING'
+                    ? '进行中'
+                    : m.status === 'FAILED'
+                      ? '失败'
+                      : m.status})
+                {m.researchDepth ? ` · ${m.researchDepth}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* ═══ Section 1: Summary Cards ═══ */}
       <section>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
