@@ -1,0 +1,10 @@
+{
+  // 让 VS Code 使用项目安装的 TypeScript，而不是内置版本。
+  // 解决 tsc 版本与 VS Code 捆绑版本不一致导致的 ignoreDeprecations 警告。
+  //
+  // 使用方法：复制本文件为 .vscode/settings.json（.gitignore 已排除，不会入库）。
+  // 然后 Ctrl+Shift+P → "TypeScript: Select TypeScript Version" → "Use Workspace Version"，
+  // 或直接 Reload Window 生效。
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

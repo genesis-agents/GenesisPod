@@ -50,7 +50,7 @@ yarn-error.log*
 *.log
 
 # 编辑器
-.vscode/
+.vscode/*
 !.vscode/settings.json.example
 !.vscode/extensions.json.example
 .idea/
