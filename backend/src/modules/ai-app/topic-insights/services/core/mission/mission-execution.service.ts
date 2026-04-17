@@ -306,12 +306,37 @@ export class MissionExecutionService {
       `[resumeExecution] Reusing existing report: ${existingReport.id}`,
     );
 
-    const maxConcurrentTasks = await this.calculateDynamicConcurrency();
-    await this.executeDynamicScheduler(missionId, maxConcurrentTasks, (task) =>
-      this.executeTask(task, topic, missionId, existingReport.id, depthConfig),
-    );
+    // ★ 时延跟踪：resume 路径也需要 session + KernelContext
+    const latencySessionId = this.latencyTracker?.startSession({
+      type: "topic_insights_refresh",
+      entityId: topicId,
+      userId: topic.userId,
+      metadata: { topicName: topic.name, missionId, mode: "resume" },
+    });
 
-    await this.finalizeMission(missionId, topicId);
+    await KernelContext.run(
+      { processId: "", userId: topic.userId, latencySessionId },
+      async () => {
+        const maxConcurrentTasks = await this.calculateDynamicConcurrency();
+        await this.executeDynamicScheduler(
+          missionId,
+          maxConcurrentTasks,
+          (task) =>
+            this.executeTask(
+              task,
+              topic,
+              missionId,
+              existingReport.id,
+              depthConfig,
+            ),
+        );
+        await this.finalizeMission(missionId, topicId);
+
+        if (latencySessionId) {
+          this.latencyTracker?.endSession(latencySessionId, "completed");
+        }
+      },
+    );
   }
 
   /**
@@ -399,6 +424,13 @@ export class MissionExecutionService {
         ? currentTask.tools
         : agentAssignment?.tools || [];
 
+    // ★ 时延跟踪：提前获取 context（需要在 catch 中使用）
+    const parentCtx = KernelContext.get();
+    let taskStepId: string | undefined;
+    const taskStepName = task.dimensionName
+      ? `${task.taskType}:${task.dimensionName}`
+      : task.taskType;
+
     try {
       // ★ 任务状态已在上面通过 CAS 操作更新为 EXECUTING
 
@@ -448,31 +480,39 @@ export class MissionExecutionService {
         agentRole,
       };
 
-      // ★ 时延跟踪：每个任务单独一个 phase
-      const latencyCtx = KernelContext.get();
-      const taskPhaseName = task.dimensionName
-        ? `${task.taskType}:${task.dimensionName}`
-        : task.taskType;
-      if (latencyCtx?.latencySessionId && this.latencyTracker) {
-        this.latencyTracker.startPhase(latencyCtx.latencySessionId, {
-          name: taskPhaseName,
-          metadata: {
-            taskId: task.id,
-            taskType: task.taskType,
-            agent: task.assignedAgent,
-            model: assignedModelId,
+      // ★ 时延跟踪：每个 task 在自己的 KernelContext 中执行
+      if (parentCtx?.latencySessionId && this.latencyTracker) {
+        taskStepId = this.latencyTracker.startStep(
+          parentCtx.latencySessionId,
+          {
+            name: taskStepName,
+            metadata: {
+              taskId: task.id,
+              taskType: task.taskType,
+              agent: task.assignedAgent,
+              model: assignedModelId,
+            },
           },
-        });
+        );
       }
 
-      // Execute
-      const result: TaskResultJson = await executor.execute(executionContext);
+      // Execute — 在带 latencyPhaseId 的 KernelContext 中运行
+      // 这样 AiChatService.recordToLatencySession 会读到正确的 stepId
+      const result: TaskResultJson = parentCtx?.latencySessionId
+        ? await KernelContext.run(
+            {
+              ...parentCtx,
+              latencyPhaseId: taskStepId,
+            },
+            () => executor.execute(executionContext),
+          )
+        : await executor.execute(executionContext);
 
-      // ★ 时延跟踪：结束任务 phase
-      if (latencyCtx?.latencySessionId && this.latencyTracker) {
-        this.latencyTracker.endPhaseByName(
-          latencyCtx.latencySessionId,
-          taskPhaseName,
+      // ★ 时延跟踪：结束 task step
+      if (parentCtx?.latencySessionId && taskStepId && this.latencyTracker) {
+        this.latencyTracker.endStep(
+          parentCtx.latencySessionId,
+          taskStepId,
         );
       }
 
@@ -629,15 +669,11 @@ export class MissionExecutionService {
         `[executeTask] Task failed: ${task.title} - ${errorMsg}`,
       );
 
-      // ★ 时延跟踪：失败时也结束 phase
-      const latencyCtxErr = KernelContext.get();
-      const failedPhaseName = task.dimensionName
-        ? `${task.taskType}:${task.dimensionName}`
-        : task.taskType;
-      if (latencyCtxErr?.latencySessionId && this.latencyTracker) {
-        this.latencyTracker.endPhaseByName(
-          latencyCtxErr.latencySessionId,
-          failedPhaseName,
+      // ★ 时延跟踪：失败时也结束 step（用 parentCtx 因为 catch 块不在 KernelContext.run 内）
+      if (parentCtx?.latencySessionId && taskStepId && this.latencyTracker) {
+        this.latencyTracker.endStep(
+          parentCtx.latencySessionId,
+          taskStepId,
         );
       }
 

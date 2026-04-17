@@ -669,6 +669,8 @@ function ReportEditorInner({
     }
 
     // ★ Priority 1.5: Rebuild from dimensionAnalyses (fallback when fullReport missing/incomplete)
+    // ★ 2026-04-17: extended to include preface / crossDim / risk / strategy / conclusion
+    //   so word count doesn't collapse when fullReport is damaged/empty.
     const hasDimensionContent =
       report.dimensionAnalyses &&
       report.dimensionAnalyses.length > 0 &&
@@ -679,13 +681,15 @@ function ReportEditorInner({
       if (report.title) {
         parts.push(`# ${report.title}\n`);
       }
-      // Add executive summary if available
-      if (report.executiveSummary) {
+      // Executive summary (prefer structured v2 fullText if present)
+      const execSummaryText =
+        report.executiveSummaryV2?.fullText || report.executiveSummary || '';
+      if (execSummaryText) {
         parts.push(
-          `## ${t('topicResearch.reportEditor.summary')}\n\n${report.executiveSummary}\n`
+          `## ${t('topicResearch.reportEditor.summary')}\n\n${execSummaryText}\n`
         );
       }
-      // Add each dimension's detailedContent
+      // Dimension chapters
       (report.dimensionAnalyses ?? []).forEach((da, idx) => {
         const dimName = da.dimension?.name || `Dimension ${idx + 1}`;
         const content = da.detailedContent || da.summary || '';
@@ -693,6 +697,24 @@ function ReportEditorInner({
           parts.push(`## ${idx + 1}. ${dimName}\n\n${content}\n`);
         }
       });
+      // Cross-dimension analysis
+      if (report.crossDimensionAnalysis?.fullText) {
+        parts.push(
+          `## ${t('topicResearch.reportEditor.crossDimensionAnalysis') || '跨维度关联分析'}\n\n${report.crossDimensionAnalysis.fullText}\n`
+        );
+      }
+      // Risk assessment
+      if (report.riskAssessment?.fullText) {
+        parts.push(
+          `## ${t('topicResearch.reportEditor.riskAssessment') || '风险评估'}\n\n${report.riskAssessment.fullText}\n`
+        );
+      }
+      // Strategic recommendations
+      if (report.strategicRecommendations?.fullText) {
+        parts.push(
+          `## ${t('topicResearch.reportEditor.strategicRecommendations') || '战略建议'}\n\n${report.strategicRecommendations.fullText}\n`
+        );
+      }
       const assembled = preprocessLatex(parts.join('\n'));
       const boldFixed = assembled.replace(
         /\*\*([^*\n]+?)\*\*/g,

@@ -12,6 +12,7 @@
 import { useMemo, useCallback } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { TopicReport } from '@/types/topic-insights';
+import { countWords } from '@/lib/report/countWords';
 
 interface OutlineItem {
   id: string;
@@ -60,14 +61,6 @@ const DocumentTextIcon = ({ className }: { className?: string }) => (
     />
   </svg>
 );
-
-// Count words (Chinese characters + English words)
-function countWords(text: string): number {
-  if (!text) return 0;
-  const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
-  return chineseChars + englishWords;
-}
 
 export function ReportOutlineNav({
   report,

@@ -201,6 +201,7 @@ export class AiChatService {
     if (!ctx?.latencySessionId) return;
 
     this.latencyTracker.recordAction(ctx.latencySessionId, {
+      stepId: ctx.latencyPhaseId, // 显式传 stepId，避免 getActiveStepId 的并发竞争
       name: operationName || "llm_call",
       type: "llm_call",
       model,

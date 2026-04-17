@@ -48,6 +48,11 @@ import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
 import { preprocessLatex } from '@/lib/report/preprocessLatex';
 import { stripProseBullets } from '@/lib/report/stripProseBullets';
+import { countWords } from '@/lib/report/countWords';
+import {
+  splitFullReportIntoChapters,
+  type ChapterType as ParsedChapterType,
+} from '@/lib/report/splitFullReportIntoChapters';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
 import { useI18n } from '@/lib/i18n';
@@ -124,7 +129,8 @@ interface Chapter {
   chapterNumber: number;
   title: string;
   dimensionId?: string;
-  type: 'summary' | 'dimension' | 'conclusion' | 'references';
+  /** Semantic type — matches ParsedChapterType plus legacy 'references' */
+  type: ParsedChapterType | 'references';
   status: ChapterStatus;
   outline: string; // Brief description/outline
   content: string; // Full content
@@ -298,17 +304,6 @@ function injectChartPlaceholders(
   }
 
   return lines.join('\n');
-}
-
-/**
- * Calculate word count for mixed Chinese/English content
- * Counts Chinese characters individually and English words as units
- */
-function countWords(text: string): number {
-  if (!text) return 0;
-  const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
-  return chineseChars + englishWords;
 }
 
 // View mode type (consistent with continuous view)
@@ -536,14 +531,96 @@ function ChapterizedReportViewInner({
     return map;
   }, [report?.charts]);
 
-  // Build chapters from report and dimensions
+  // Build chapters from report (single source of truth: fullReport).
+  //
+  // ★ 2026-04-17 rewrite: Previously, chapters were rebuilt from
+  // `dimensionAnalyses[]` + a few supplementary fields. This missed preface,
+  // executiveSummary, and conclusion entirely, so the chapter view's total
+  // word count diverged badly from the continuous view (which renders
+  // `fullReport` directly). The new flow splits `fullReport` by H2 headings
+  // so both views agree exactly on the set of chapters and their content.
+  //
+  // Dimension-specific metadata (status, per-chapter charts, top keyFindings)
+  // is still pulled from `dimensionAnalyses[]`, matched by sectionNumber.
+  // Fallback to the legacy dimensionAnalyses-based build only when fullReport
+  // is missing/empty (old reports still in generation).
   const chapters = useMemo<Chapter[]>(() => {
     if (!report) return [];
 
-    const result: Chapter[] = [];
-    let chapterNum = 1;
+    const formatContent = (raw: string): string => {
+      // preprocessLatex first (generates new ** via promotePhaseListItems etc.)
+      const withLatex = preprocessLatex(stripChartJsonBlock(raw));
+      // Strip abused headings (### 一方面 / 另一方面 ...)
+      const noAbused = withLatex.replace(
+        /^#{1,4}\s+\*{0,2}(一方面|另一方面|此外|首先|其次|再次|最后|然而|因此|总之|综上|不过|尽管|虽然|同时|接着)\*{0,2}[，,：:。]?\s*$/gm,
+        '\n$1'
+      );
+      // Strip prose bullets BEFORE bold conversion
+      const noBullets = stripProseBullets(noAbused);
+      // Convert **text** → <strong>text</strong> (CommonMark CJK bypass)
+      return noBullets.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+    };
 
-    // Add dimension chapters
+    const parsed = splitFullReportIntoChapters(report.fullReport);
+    const result: Chapter[] = [];
+
+    // ── Primary path: split fullReport (authoritative) ────────────────────
+    if (parsed.length > 0) {
+      parsed.forEach((seg, idx) => {
+        const chapterNumber = idx + 1;
+        const sectionNumber = seg.sectionNumber || String(chapterNumber);
+
+        // Cross-reference dimensionAnalyses by section number for dimension
+        // chapters — to inherit status, charts, and keyFindings.
+        let status: ChapterStatus = 'completed';
+        let dimensionId: string | undefined;
+        let keyFindings: Chapter['keyFindings'];
+        if (seg.type === 'dimension' && seg.sectionNumber) {
+          const dimIdx = parseInt(seg.sectionNumber, 10) - 1;
+          const analysis = report.dimensionAnalyses?.[dimIdx];
+          if (analysis) {
+            dimensionId = analysis.dimension?.id;
+            const dim = dimensions.find((d) => d.id === dimensionId);
+            if (dim?.status === 'RESEARCHING') status = 'in_progress';
+            else if (dim?.status !== 'COMPLETED' && !seg.content.trim())
+              status = 'pending';
+            keyFindings = (analysis.keyFindings || [])
+              .filter((f) => f.finding && f.finding.trim().length > 3)
+              .slice(0, 3)
+              .map((f) => ({
+                finding: f.finding,
+                significance: f.significance || 'medium',
+              }));
+          }
+        }
+
+        const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
+        let content = formatContent(seg.content);
+        if (chapterCharts.length > 0 && !content.includes('<!-- chart:')) {
+          content = injectChartPlaceholders(content, chapterCharts);
+        }
+
+        result.push({
+          id: seg.id,
+          chapterNumber,
+          title: seg.title,
+          dimensionId,
+          type: seg.type,
+          status,
+          outline: seg.content.slice(0, 100),
+          content,
+          wordCount: countWords(content),
+          charts: chapterCharts,
+          keyFindings:
+            keyFindings && keyFindings.length > 0 ? keyFindings : undefined,
+        });
+      });
+      return result;
+    }
+
+    // ── Fallback path: legacy build from dimensionAnalyses ────────────────
+    // Triggers only when fullReport is missing (report still generating).
+    let chapterNum = 1;
     if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
       report.dimensionAnalyses.forEach((analysis) => {
         const dimName =
@@ -551,152 +628,46 @@ function ChapterizedReportViewInner({
           `${t('topicResearch.reportEditor.dimension')} ${chapterNum}`;
         const dimId = analysis.dimension?.id || `dim-${chapterNum}`;
         const sectionNumber = String(chapterNum);
-
-        // Find corresponding dimension for status
         const dimension = dimensions.find((d) => d.id === dimId);
         let status: ChapterStatus = 'pending';
-        if (dimension?.status === 'COMPLETED') {
-          status = 'completed';
-        } else if (dimension?.status === 'RESEARCHING') {
-          status = 'in_progress';
-        }
+        if (dimension?.status === 'COMPLETED') status = 'completed';
+        else if (dimension?.status === 'RESEARCHING') status = 'in_progress';
 
-        // ★ Build chapter content: prefer detailedContent (backend-processed with
-        // hierarchical numbering, citations, formatting) over manual construction
-        // from structured data. Fall back to structured data only when detailedContent
-        // is absent (e.g. old reports or reports still in progress).
         const parts: string[] = [];
-
         if (
           analysis.detailedContent &&
           analysis.detailedContent.trim().length > 100
         ) {
-          // detailedContent is available and substantial — use it directly.
-          // It already contains numbered headings (N.M.), citations, and
-          // all structured data (keyFindings, trends, challenges, etc.)
-          // processed by the backend assembler pipeline.
-          parts.push('\n' + stripChartJsonBlock(analysis.detailedContent));
+          parts.push('\n' + analysis.detailedContent);
         } else {
-          // Fallback: build content from structured data (old reports)
-          if (analysis.summary && analysis.summary.trim().length > 5) {
+          if (analysis.summary && analysis.summary.trim().length > 5)
             parts.push(analysis.summary);
-          }
-
-          // Key findings
           if (analysis.keyFindings && analysis.keyFindings.length > 0) {
-            const validFindings = analysis.keyFindings.filter(
+            const valid = analysis.keyFindings.filter(
               (f) => f.finding && f.finding.trim().length > 3
             );
-            if (validFindings.length > 0) {
-              parts.push(
-                `\n### ${t('topicResearch.reportEditor.keyFindings')}\n`
-              );
-              validFindings.forEach((f, fIdx) => {
-                const citations = formatCitations(f.evidenceIds);
-                parts.push(`${fIdx + 1}. **${f.finding}**${citations}`);
+            if (valid.length > 0) {
+              parts.push(`\n### ${t('topicResearch.reportEditor.keyFindings')}\n`);
+              valid.forEach((f, fIdx) => {
+                parts.push(
+                  `${fIdx + 1}. **${f.finding}**${formatCitations(f.evidenceIds)}`
+                );
               });
             }
           }
-
-          // Trends
-          if (analysis.trends && analysis.trends.length > 0) {
-            parts.push(
-              `\n### ${t('topicResearch.reportEditor.trendAnalysis')}\n`
-            );
-            analysis.trends.forEach((trend, tIdx) => {
-              const directionMap: Record<string, string> = {
-                increasing: t(
-                  'topicResearch.reportEditor.directions.increasing'
-                ),
-                decreasing: t(
-                  'topicResearch.reportEditor.directions.decreasing'
-                ),
-                stable: t('topicResearch.reportEditor.directions.stable'),
-                emerging: t('topicResearch.reportEditor.directions.emerging'),
-              };
-              const directionText =
-                directionMap[trend.direction] || trend.direction;
-              const citations = formatCitations(trend.evidenceIds);
-              parts.push(
-                `${tIdx + 1}. **${directionText}**: ${trend.trend} (${trend.timeframe})${citations}`
-              );
-            });
-          }
-
-          // Challenges
-          if (analysis.challenges && analysis.challenges.length > 0) {
-            parts.push(`\n### ${t('topicResearch.reportEditor.challenges')}\n`);
-            analysis.challenges.forEach((c, cIdx) => {
-              const citations = formatCitations(c.evidenceIds);
-              const impact =
-                c.impact && c.impact.trim() ? ` - ${c.impact}` : '';
-              parts.push(
-                `${cIdx + 1}. **${c.challenge}**${impact}${citations}`
-              );
-            });
-          }
-
-          // Opportunities
-          if (analysis.opportunities && analysis.opportunities.length > 0) {
-            parts.push(
-              `\n### ${t('topicResearch.reportEditor.opportunities')}\n`
-            );
-            analysis.opportunities.forEach((o, oIdx) => {
-              const citations = formatCitations(o.evidenceIds);
-              const potential =
-                o.potential && o.potential.trim() ? ` - ${o.potential}` : '';
-              parts.push(
-                `${oIdx + 1}. **${o.opportunity}**${potential}${citations}`
-              );
-            });
-          }
-
-          // Short detailedContent as supplement
           if (
             analysis.detailedContent &&
             analysis.detailedContent.trim().length > 5
-          ) {
-            parts.push('\n' + stripChartJsonBlock(analysis.detailedContent));
-          }
+          )
+            parts.push('\n' + analysis.detailedContent);
         }
 
-        // preprocessLatex first (generates new ** via promotePhaseListItems etc.)
-        const joined = preprocessLatex(parts.join('\n'));
-
-        // ★ Normalize abused headings: LLM sometimes outputs ### 一方面 / ### 另一方面
-        // as section headings. Strip heading markers so they render as inline text.
-        const noAbusedHeadings = joined.replace(
-          /^#{1,4}\s+\*{0,2}(一方面|另一方面|此外|首先|其次|再次|最后|然而|因此|总之|综上|不过|尽管|虽然|同时|接着)\*{0,2}[，,：:。]?\s*$/gm,
-          '\n$1'
-        );
-
-        // ★ Strip prose bullets BEFORE bold conversion — ordinalPattern requires ** syntax,
-        // not <strong> HTML tags. Running after conversion causes silent miss.
-        const noBullets = stripProseBullets(noAbusedHeadings);
-
-        // ★ Convert **text** → <strong>text</strong> to bypass CommonMark CJK issues
-        const content = noBullets.replace(
-          /\*\*([^*\n]+?)\*\*/g,
-          '<strong>$1</strong>'
-        );
-        const outline = analysis.summary?.slice(0, 100) || dimName;
-
-        // ★ v3.0: Get charts for this chapter by sectionNumber
+        const content = formatContent(parts.join('\n'));
         const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
+        let finalContent = content;
+        if (chapterCharts.length > 0 && !content.includes('<!-- chart:'))
+          finalContent = injectChartPlaceholders(content, chapterCharts);
 
-        const cleanedContent = content;
-
-        // Chart placeholders are embedded at save time by the backend.
-        // Fallback: inject at runtime for old reports without markers.
-        let finalContent = cleanedContent;
-        if (
-          chapterCharts.length > 0 &&
-          !cleanedContent.includes('<!-- chart:')
-        ) {
-          finalContent = injectChartPlaceholders(cleanedContent, chapterCharts);
-        }
-
-        // ★ Extract top 3 key findings for takeaways card
         const topFindings = (analysis.keyFindings || [])
           .filter((f) => f.finding && f.finding.trim().length > 3)
           .slice(0, 3)
@@ -712,66 +683,18 @@ function ChapterizedReportViewInner({
           dimensionId: dimId,
           type: 'dimension',
           status,
-          outline,
+          outline: analysis.summary?.slice(0, 100) || dimName,
           content: finalContent,
           wordCount: countWords(finalContent),
           charts: chapterCharts,
           keyFindings: topFindings.length > 0 ? topFindings : undefined,
         });
-
         chapterNum++;
       });
     }
 
-    // Add supplementary chapters from report-level v2.0 fields
-    const supplementarySections: Array<{
-      key: keyof TopicReport;
-      titleKey: string;
-      fallbackTitle: string;
-    }> = [
-      {
-        key: 'crossDimensionAnalysis',
-        titleKey: 'topicResearch.reportEditor.crossDimensionAnalysis',
-        fallbackTitle: '跨维度关联分析',
-      },
-      {
-        key: 'riskAssessment',
-        titleKey: 'topicResearch.reportEditor.riskAssessment',
-        fallbackTitle: '风险评估',
-      },
-      {
-        key: 'strategicRecommendations',
-        titleKey: 'topicResearch.reportEditor.strategicRecommendations',
-        fallbackTitle: '战略建议',
-      },
-    ];
-    for (const section of supplementarySections) {
-      const fieldValue = report[section.key];
-      // These fields are structured objects with a fullText property
-      const content =
-        fieldValue != null &&
-        typeof fieldValue === 'object' &&
-        'fullText' in fieldValue
-          ? (fieldValue as { fullText: string }).fullText
-          : undefined;
-      if (content && content.trim().length > 10) {
-        result.push({
-          id: section.key as string,
-          chapterNumber: chapterNum,
-          title: t(section.titleKey) || section.fallbackTitle,
-          type: 'conclusion',
-          status: 'completed' as ChapterStatus,
-          outline: content.slice(0, 100),
-          content: preprocessLatex(content),
-          wordCount: countWords(content),
-          charts: [],
-        });
-        chapterNum++;
-      }
-    }
-
     return result;
-  }, [report, dimensions, chartsBySectionId, formatCitations]);
+  }, [report, dimensions, chartsBySectionId, formatCitations, t]);
 
   // ★ Navigate to highlighted annotation when it changes
   // Auto-select the chapter containing the annotation and switch to preview mode

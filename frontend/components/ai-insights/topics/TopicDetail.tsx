@@ -14,6 +14,7 @@ import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useResearchWebSocket } from '@/hooks/useResearchWebSocket';
 import { TopicResearchLayout } from './TopicResearchLayout';
 import { ExportDialog } from '@/components/common/ExportDialog';
+import { countWords } from '@/lib/report/countWords';
 
 interface TopicDetailProps {
   topic: ResearchTopic;
@@ -279,7 +280,7 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
         // 使用字符串而非 Date 对象，避免 SSR/客户端不一致
         createdAt: r.generatedAt || r.updatedAt || r.createdAt || '',
         summary: r.title || `v${r.version}`,
-        wordCount: r.fullReport?.length || 0,
+        wordCount: countWords(r.fullReport),
         totalSources: r.totalSources || 0,
       })),
     [safeReports, currentReport?.id]

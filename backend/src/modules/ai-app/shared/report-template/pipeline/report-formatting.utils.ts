@@ -1634,8 +1634,9 @@ export function mergeAdjacentMathBlocks(content: string): string {
   // ── Phase 0e: Deduplicate consecutive identical math expressions ──
   // LLM sometimes outputs the same formula as: raw text, $...$, $$...$$
   // Normalize and keep only the first $-wrapped version.
+  // ★ [^$\n]+ prevents absorbing prose paragraphs between unrelated formulas
   result = result.replace(
-    /(\$\$?[^$]+\$\$?)\s*\n\s*(\$\$?[^$]+\$\$?)/g,
+    /(\$\$?[^$\n]+\$\$?)\s*\n\s*(\$\$?[^$\n]+\$\$?)/g,
     (match, first: string, second: string) => {
       const norm = (s: string) =>
         s
@@ -1664,8 +1665,9 @@ export function mergeAdjacentMathBlocks(content: string): string {
   // Absorb dangling ^{...} or _{...} after a closing $
   // e.g. $\mathbb{R}$^{d_m} → $\mathbb{R}^{d_m}$
   //      $\theta$_{p,k}   → $\theta_{p,k}$
+  // ★ [^$\n]+ prevents cross-line absorption when $ delimiters are orphaned
   result = result.replace(
-    /\$([^$]+)\$(\^|_)\{([^}]*)\}/g,
+    /\$([^$\n]+)\$(\^|_)\{([^}]*)\}/g,
     (_, inner, op, sub) => `$${inner}${op}{${sub}}$`,
   );
 
@@ -1689,16 +1691,18 @@ export function mergeAdjacentMathBlocks(content: string): string {
 
   // Absorb trailing LaTeX-like text after closing $ (e.g. $...$\right)V)
   // Only when the trailing text starts with \ (LaTeX command)
+  // ★ [^$\n]+ prevents cross-line absorption
   result = result.replace(
-    /\$([^$]+)\$(\\(?:right|left|Big|big)[^$\s]*)/g,
+    /\$([^$\n]+)\$(\\(?:right|left|Big|big)[^$\s]*)/g,
     (_, inner, trail) => `$${inner}${trail}$`,
   );
 
   // ── Phase 2: Repair broken $ nesting ──
   // Fix cases like $S = $\phi(K)^\top $V$ → $S = \phi(K)^\top V$
   // Pattern: $ opens, inner $ re-opens without closing → remove inner $
+  // ★ [^$\n]*? in all three capture groups prevents cross-line nesting repair
   result = result.replace(
-    /\$([^$]*?)\$([^$\n]{0,5}\\[a-zA-Z]+[^$\n]*?)\$([^$]*?)\$/g,
+    /\$([^$\n]*?)\$([^$\n]{0,5}\\[a-zA-Z]+[^$\n]*?)\$([^$\n]*?)\$/g,
     (match, a, between, b) => {
       // Only fix if between contains LaTeX-like content
       if (/[\\^_{}]/.test(between)) {
@@ -1711,8 +1715,10 @@ export function mergeAdjacentMathBlocks(content: string): string {
   // Fix asymmetric display/inline delimiter pairs:
   //   $$formula$ → $$formula$$   (display math missing closing $$)
   //   $formula$$ → $$formula$$   (display math missing opening $$)
-  result = result.replace(/\$\$([^$]+)\$(?!\$)/g, "$$$$$$1$$$$");
-  result = result.replace(/(?<!\$)\$([^$]+)\$\$/g, "$$$$$$1$$$$");
+  // ★ [^$\n]+ prevents treating two orphaned $ on different lines as one pair,
+  //   which was the root cause of }$} insertion damage (e.g. T_{\mathrm{ret}$})
+  result = result.replace(/\$\$([^$\n]+)\$(?!\$)/g, "$$$$$$1$$$$");
+  result = result.replace(/(?<!\$)\$([^$\n]+)\$\$/g, "$$$$$$1$$$$");
 
   // Fix unpaired $ in a line: odd number of $ suggests broken delimiters
   // Strategy: if a line has exactly 1 or 3 $ signs, it's likely broken

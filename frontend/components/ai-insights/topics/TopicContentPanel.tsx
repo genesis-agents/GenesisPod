@@ -16,6 +16,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { preprocessLatex } from '@/lib/report/preprocessLatex';
+import { countWords } from '@/lib/report/countWords';
 import {
   Shield,
   Maximize2,
@@ -2336,17 +2337,6 @@ function processChildrenWithCitations(
 
   // 其他情况直接返回
   return children;
-}
-
-/**
- * Calculate word count for mixed Chinese/English content
- * Counts Chinese characters individually and English words as units
- */
-function countWords(text: string): number {
-  if (!text) return 0;
-  const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
-  return chineseChars + englishWords;
 }
 
 // Section card for chapter-like display (AI Writing pattern)

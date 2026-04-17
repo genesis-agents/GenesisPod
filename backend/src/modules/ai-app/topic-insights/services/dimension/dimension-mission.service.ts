@@ -201,22 +201,39 @@ export class DimensionMissionService {
    * Minimal ioredis command interface needed for the distributed lock.
    * Avoids importing all of ioredis while keeping the call sites type-safe.
    */
-  /** 时延跟踪：开始一个 step phase */
-  private stepStart(dimName: string, stepName: string): void {
+  /** 时延跟踪：开始一个子 step 并返回 stepId */
+  private stepStart(dimName: string, stepName: string): string | undefined {
     const ctx = KernelContext.get();
-    if (!ctx?.latencySessionId || !this.latencyTracker) return;
-    this.latencyTracker.startPhase(ctx.latencySessionId, {
+    if (!ctx?.latencySessionId || !this.latencyTracker) return undefined;
+    return this.latencyTracker.startStep(ctx.latencySessionId, {
       name: `${dimName}/${stepName}`,
-    });
+    }) || undefined;
   }
 
-  /** 时延跟踪：结束一个 step phase */
+  /** 时延跟踪：结束一个子 step */
   private stepEnd(dimName: string, stepName: string): void {
     const ctx = KernelContext.get();
     if (!ctx?.latencySessionId || !this.latencyTracker) return;
-    this.latencyTracker.endPhaseByName(
+    this.latencyTracker.endStepByName(
       ctx.latencySessionId,
       `${dimName}/${stepName}`,
+    );
+  }
+
+  /**
+   * 在指定 stepId 的 KernelContext 中执行异步函数
+   * 确保该函数内的所有 LLM 调用归属到正确的 Step
+   */
+  private async runInStep<T>(
+    stepId: string | undefined,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    if (!stepId) return fn();
+    const ctx = KernelContext.get();
+    if (!ctx) return fn();
+    return KernelContext.run(
+      { ...ctx, latencyPhaseId: stepId },
+      fn,
     );
   }
 
@@ -971,8 +988,8 @@ export class DimensionMissionService {
       }
 
       // Phase 1: 执行搜索阶段
-      this.stepStart(dimension.name, "搜索数据");
-      const searchPhaseResult = await this.executeSearchPhase(
+      const searchStepId = this.stepStart(dimension.name, "搜索数据");
+      const searchPhaseResult = await this.runInStep(searchStepId, () => this.executeSearchPhase(
         topic,
         dimension,
         missionId,
@@ -980,12 +997,12 @@ export class DimensionMissionService {
         taskId,
         assignedTools,
         assignedSkills,
-      );
+      ));
 
       this.stepEnd(dimension.name, "搜索数据");
 
       // Phase 2: Leader 本地规划大纲（非全局协调）
-      this.stepStart(dimension.name, "大纲规划");
+      const outlineStepId = this.stepStart(dimension.name, "大纲规划");
       // 发送 Leader 思考事件 - 理解阶段
       await this.eventEmitter.emitLeaderThinking(topic.id, {
         missionId: missionId || dimension.id,
@@ -1030,7 +1047,7 @@ export class DimensionMissionService {
         select: { name: true, description: true },
       });
 
-      const outline = await this.leaderPlanning.planDimensionOutline(
+      const outline = await this.runInStep(outlineStepId, () => this.leaderPlanning.planDimensionOutline(
         {
           name: topic.name,
           type: topic.type,
@@ -1045,7 +1062,7 @@ export class DimensionMissionService {
         searchPhaseResult.evidenceSummary,
         searchPhaseResult.figuresSummary || undefined,
         allDimensions,
-      );
+      ));
 
       this.logger.log(
         `${logPrefix} Local outline planned: ${outline.sections.length} sections`,
@@ -1054,8 +1071,8 @@ export class DimensionMissionService {
       this.stepEnd(dimension.name, "大纲规划");
 
       // Phase 3: 执行写作阶段
-      this.stepStart(dimension.name, "写作与审核");
-      const writingResult = await this.executeWritingPhase(
+      const writingStepId = this.stepStart(dimension.name, "写作与审核");
+      const writingResult = await this.runInStep(writingStepId, () => this.executeWritingPhase(
         topic,
         dimension,
         searchPhaseResult,
@@ -1068,7 +1085,7 @@ export class DimensionMissionService {
         assignedSkills,
         undefined, // validationContext
         maxRevisionRounds, // V5: 最大修订轮次
-      );
+      ));
 
       this.stepEnd(dimension.name, "写作与审核");
 
