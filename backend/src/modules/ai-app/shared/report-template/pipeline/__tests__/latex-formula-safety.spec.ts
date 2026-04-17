@@ -636,5 +636,34 @@ describe("regression: previously broken patterns", () => {
       expect(result).toContain("$T_{\\mathrm{iu}}$");
       expect(result).toContain("$$T_{\\mathrm{barrier}}$$");
     });
+
+    // ---- Unclosed inline $ + CJK transition ----
+    it("should close unclosed $ at CJK transition, not wrap sub-fragments", () => {
+      const input =
+        "第二，是阶段调整项：$\\delta_i=\\delta_i^{retry}+\\delta_i^{wait}+\\delta_i^{sync}，用于表达可审计的附加耗时";
+      const result = mergeAdjacentMathBlocks(input);
+      // Closing $ inserted right before CJK transition
+      expect(result).toContain(
+        "$\\delta_i=\\delta_i^{retry}+\\delta_i^{wait}+\\delta_i^{sync}$",
+      );
+      // No mid-expression $ insertion (previous bug: \delta_$i^{sync}$)
+      expect(result).not.toMatch(/\\delta_\$/);
+      // Prose after preserved
+      expect(result).toContain("，用于表达可审计的附加耗时");
+    });
+
+    it("should NOT alter already-balanced inline math with CJK", () => {
+      const input = "定义 $\\delta_i=\\delta_i^{retry}$，用于说明。";
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).toBe(input);
+    });
+
+    it("should NOT touch lines with 3+ unbalanced $", () => {
+      // Multiple $ — not the simple unclosed case we repair
+      const input = "$\\alpha $\\beta$";
+      const result = mergeAdjacentMathBlocks(input);
+      expect(result).toContain("$\\alpha");
+      expect(result).toContain("\\beta$");
+    });
   });
 });

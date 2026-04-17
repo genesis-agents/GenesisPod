@@ -1518,6 +1518,33 @@ export function mergeAdjacentMathBlocks(content: string): string {
     return _match;
   });
 
+  // ── Phase -0.3: Close unclosed inline $ before bare-LaTeX wrapping ─────
+  // Fixes the damage pattern where a line has an opening `$formula` but the
+  // closing `$` was lost (e.g. LLM output truncated, or an earlier sanitizer
+  // ate it). Without this, Phase 0c sees the LaTeX-fragment chunks that
+  // follow as bare, unwrapped math and inserts `$` delimiters MID-EXPRESSION,
+  // producing patterns like `\delta_$i^{sync}$`.
+  //
+  // Heuristic (per line, conservative):
+  //   1. Line has exactly 1 unescaped `$`
+  //   2. Content after `$` contains LaTeX command / sub-sup brace group
+  //   3. Line transitions into CJK characters or CJK punctuation
+  //   → insert closing `$` at the LaTeX / CJK boundary
+  result = result.replace(/^[^\n]+$/gm, (line) => {
+    const dollars = (line.match(/(?<!\\)\$/g) || []).length;
+    if (dollars !== 1) return line;
+    const openPos = line.indexOf("$");
+    const after = line.slice(openPos + 1);
+    const cjkIdx = after.search(
+      /[\u4e00-\u9fff\u3400-\u4dbf\uff0c\u3002\uff1b\uff1a\uff01\uff1f]/,
+    );
+    if (cjkIdx <= 0) return line;
+    const latexPart = after.slice(0, cjkIdx).trimEnd();
+    if (!/\\[a-zA-Z]|\^\{|_\{/.test(latexPart)) return line;
+    const insertAt = openPos + 1 + latexPart.length;
+    return line.slice(0, insertAt) + "$" + line.slice(insertAt);
+  });
+
   // ── Phase 0: Wrap bare LaTeX expressions that lack $...$ delimiters ────
   // Handles both standalone formula lines and inline bare LaTeX.
 
