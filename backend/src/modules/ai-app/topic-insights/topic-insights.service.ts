@@ -192,6 +192,116 @@ export class TopicInsightsService {
     };
   }
 
+  /**
+   * ★ Batch LaTeX repair — scan every report of every topic owned by the
+   * caller, validate delimiters, repair ones with issues via LatexRepairService.
+   *
+   * Sequential (not parallel) to keep LLM cost under control and avoid
+   * overrunning rate limits. Streams per-report result into an array so the
+   * caller sees exactly which reports were touched.
+   */
+  async repairAllReportsLatex(
+    userId: string,
+    options: { dryRun?: boolean } = {},
+  ) {
+    const topics = await this.prisma.researchTopic.findMany({
+      where: { userId },
+      select: { id: true, name: true },
+    });
+    const reports = await this.prisma.topicReport.findMany({
+      where: { topic: { userId } },
+      select: {
+        id: true,
+        topicId: true,
+        fullReport: true,
+        version: true,
+        generatedAt: true,
+      },
+      orderBy: { generatedAt: "desc" },
+    });
+
+    const results: Array<{
+      reportId: string;
+      topicId: string;
+      topicName: string;
+      version: number;
+      changed: boolean;
+      issuesBefore: number;
+      issuesAfter?: number;
+      failureReason?: string;
+    }> = [];
+
+    const topicNameById = new Map(topics.map((t) => [t.id, t.name]));
+
+    let repaired = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const r of reports) {
+      if (!r.fullReport) {
+        skipped++;
+        continue;
+      }
+      try {
+        const result = await this.latexRepairService.repairMarkdown(
+          r.fullReport,
+        );
+        if (!result.changed) {
+          if (result.before?.issues.length === 0) {
+            skipped++;
+            continue;
+          }
+          failed++;
+          results.push({
+            reportId: r.id,
+            topicId: r.topicId,
+            topicName: topicNameById.get(r.topicId) ?? "unknown",
+            version: r.version,
+            changed: false,
+            issuesBefore: result.before?.issues.length ?? 0,
+            failureReason: result.failureReason,
+          });
+          continue;
+        }
+        if (!options.dryRun) {
+          await this.prisma.topicReport.update({
+            where: { id: r.id },
+            data: { fullReport: result.repaired },
+          });
+          this.eventEmitter.emit("topic-insights.report.refreshed", {
+            topicId: r.topicId,
+            reportId: r.id,
+            refreshedAt: new Date(),
+          });
+        }
+        repaired++;
+        results.push({
+          reportId: r.id,
+          topicId: r.topicId,
+          topicName: topicNameById.get(r.topicId) ?? "unknown",
+          version: r.version,
+          changed: true,
+          issuesBefore: result.before?.issues.length ?? 0,
+          issuesAfter: result.after?.issues.length ?? 0,
+        });
+      } catch (err) {
+        failed++;
+        this.logger.error(
+          `[repairAllReportsLatex] Report ${r.id} failed: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return {
+      totalReports: reports.length,
+      repaired,
+      skipped,
+      failed,
+      dryRun: !!options.dryRun,
+      details: results,
+    };
+  }
+
   // ==================== Topics CRUD (delegated to TopicCrudService) ====================
 
   async createTopic(userId: string, dto: CreateTopicDto) {
@@ -1940,9 +2050,7 @@ export class TopicInsightsService {
             parentStepId: s.parentStepId,
             durationMs:
               s.durationMs ??
-              (s.endTime
-                ? s.endTime - s.startTime
-                : Date.now() - s.startTime),
+              (s.endTime ? s.endTime - s.startTime : Date.now() - s.startTime),
             actions: s.actions.map((a) => ({
               name: a.name,
               type: a.type ?? "llm_call",

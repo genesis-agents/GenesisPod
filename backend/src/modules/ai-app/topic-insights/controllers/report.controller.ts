@@ -561,6 +561,41 @@ export class ReportController {
   }
 
   /**
+   * ★ Batch LaTeX repair: scan + repair EVERY report owned by the caller.
+   * Sequential (one report at a time) to bound LLM cost and rate limits.
+   * Pass `?dryRun=true` to validate without writing back to DB.
+   */
+  @Throttle({ default: { limit: 2, ttl: 60000 } })
+  @Post("admin/repair-all-latex")
+  @ApiOperation({
+    summary: "批量修复所有报告的 LaTeX",
+    description:
+      "遍历当前用户所有 topic 的所有 report，检测并修复 LaTeX 定界符问题。顺序执行，严格限流。",
+  })
+  @ApiQuery({
+    name: "dryRun",
+    required: false,
+    description: "true 表示只检测不落库",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "返回 { totalReports, repaired, skipped, failed, dryRun, details[] }",
+  })
+  async repairAllReportsLatex(
+    @Request() req: RequestWithUser,
+    @Query("dryRun") dryRun?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.repairAllReportsLatex(userId, {
+      dryRun: dryRun === "true",
+    });
+  }
+
+  /**
    * ★ LaTeX-only repair for historical reports (calls LLM once, keeps prose).
    */
   @Throttle({ default: { limit: 5, ttl: 60000 } })
