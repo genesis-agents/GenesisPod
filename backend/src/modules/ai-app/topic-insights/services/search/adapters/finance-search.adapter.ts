@@ -5,7 +5,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { CircuitBreakerService } from "@/modules/ai-kernel/facade";
+import { CircuitBreakerService, SessionLatencyTrackerService } from "@/modules/ai-kernel/facade";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 import type { DataSourceResult } from "../../../types/data-source.types";
@@ -24,8 +24,9 @@ export class FinanceSearchAdapter extends SearchAdapterBase {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     @Optional() circuitBreaker?: CircuitBreakerService,
+    @Optional() latencyTracker?: SessionLatencyTrackerService,
   ) {
-    super(circuitBreaker);
+    super(circuitBreaker, latencyTracker);
   }
 
   protected async doSearch(

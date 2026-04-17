@@ -12,7 +12,9 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   CircuitBreakerService,
   TaskCompletionType,
+  SessionLatencyTrackerService,
 } from "@/modules/ai-kernel/facade";
+import { KernelContext } from "@/modules/ai-kernel/facade";
 import { withTimeout } from "@/common/utils/timeout.utils";
 import { ToolRegistry, type ToolContext } from "@/modules/ai-engine/facade";
 import type { DataSourceResult } from "../../../types/data-source.types";
@@ -36,6 +38,7 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
 
   constructor(
     @Optional() protected readonly circuitBreaker?: CircuitBreakerService,
+    @Optional() protected readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
 
   /**
@@ -111,6 +114,9 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
         this.circuitBreaker.recordSuccess(entityId, durationMs);
       }
 
+      // ★ 时延跟踪：记录工具调用 Action
+      this.recordToolAction(this.sourceId, durationMs, items.length);
+
       return {
         items,
         sourceMetrics: {
@@ -132,6 +138,9 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
         this.circuitBreaker.recordFailure(entityId, errorType, errorMsg);
       }
 
+      // ★ 时延跟踪：失败也记录
+      this.recordToolAction(this.sourceId, durationMs, 0);
+
       this.logger.warn(
         `[search] ${this.sourceId} failed (${durationMs}ms): ${errorMsg}`,
       );
@@ -146,6 +155,32 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
         },
       };
     }
+  }
+
+  /**
+   * 记录工具调用到时延跟踪系统
+   */
+  private recordToolAction(
+    toolName: string,
+    durationMs: number,
+    resultCount: number,
+  ): void {
+    if (!this.latencyTracker) return;
+    const ctx = KernelContext.get();
+    if (!ctx?.latencySessionId) return;
+
+    this.latencyTracker.recordAction(ctx.latencySessionId, {
+      stepId: ctx.latencyPhaseId,
+      name: toolName,
+      type: "tool_call",
+      model: toolName,
+      provider: "tool",
+      streaming: false,
+      ttltMs: durationMs,
+      totalDurationMs: durationMs,
+      inputTokens: 0,
+      outputTokens: resultCount, // 用 outputTokens 字段存结果数量
+    });
   }
 
   // ============================================================================
