@@ -35,7 +35,8 @@ export type LatexIssueKind =
   | "bracket-display-unbalanced" // \[ without \] or vice versa
   | "environment-unbalanced" // \begin without \end or vice versa
   | "prose-in-inline-math" // $...$ contains CJK punctuation outside \text{}
-  | "brace-unbalanced"; // unmatched { or } inside math
+  | "brace-unbalanced" // unmatched { or } inside math
+  | "bare-latex-unwrapped"; // unambiguous LaTeX command outside any math delimiter
 
 export interface LatexIssue {
   kind: LatexIssueKind;
@@ -284,6 +285,72 @@ export function validateLatexDelimiters(
     }
   }
 
+  // ── 7. Bare LaTeX commands NOT wrapped in any math delimiter ─────────
+  // Strip every math-delimited region (both inline `$...$` and display
+  // `$$...$$`, plus `\[...\]`, fenced code blocks, and inline code) then
+  // check for unmistakable LaTeX patterns in the remaining prose. Only
+  // flag STRONG signals (commands that exist solely for math) to avoid
+  // false positives on `\n`, `\t`, etc. in plain prose.
+  const SAFE_STRIP_PATTERNS = [
+    /```[\s\S]*?```/g, // fenced code blocks
+    /`[^`\n]+`/g, // inline code
+    /\$\$[\s\S]*?\$\$/g, // display math
+    /\$(?!\$)(?:[^$\n]|\\\$)+\$/g, // inline math
+    /\\\[[\s\S]*?\\\]/g, // bracket display math
+    /\\\((?:[^\\]|\\[^)])+\\\)/g, // \(...\) inline math
+  ];
+  let stripped = markdown;
+  for (const re of SAFE_STRIP_PATTERNS) stripped = stripped.replace(re, " ");
+
+  // Only flag UNAMBIGUOUS math-only commands. Greek letters and bare
+  // \alpha, \beta etc. alone are too ambiguous (could be mentioned in
+  // prose). Constructs below only ever appear in math contexts.
+  const BARE_MATH_PATTERNS: Array<{ re: RegExp; label: string }> = [
+    { re: /\\frac\{/g, label: "\\frac{" },
+    { re: /\\sum_\{/g, label: "\\sum_{" },
+    { re: /\\prod_\{/g, label: "\\prod_{" },
+    { re: /\\int_\{/g, label: "\\int_{" },
+    { re: /\\binom\{/g, label: "\\binom{" },
+    { re: /\\mathbb\{/g, label: "\\mathbb{" },
+    { re: /\\mathcal\{/g, label: "\\mathcal{" },
+    { re: /\\mathrm\{/g, label: "\\mathrm{" },
+    { re: /\\operatorname\{/g, label: "\\operatorname{" },
+    { re: /\\widehat\{/g, label: "\\widehat{" },
+    { re: /\\widetilde\{/g, label: "\\widetilde{" },
+    { re: /\\overline\{/g, label: "\\overline{" },
+    { re: /\\underline\{/g, label: "\\underline{" },
+    // Subscript/superscript GROUPS (braced) — single-letter like x_i can
+    // appear in prose as file names etc., but `{...}` pattern is
+    // almost always math.
+    { re: /[A-Za-z]\^\{[^}]+\}/g, label: "X^{...}" },
+    { re: /[A-Za-z]_\{[^}]+\}/g, label: "X_{...}" },
+    // `\begin{env}` outside math delimiters (environments must be
+    // inside `$$...$$`)
+    {
+      re: /\\begin\{(?:pmatrix|bmatrix|vmatrix|aligned|align|cases|array|matrix|gathered|equation)\}/g,
+      label: "\\begin{env}",
+    },
+  ];
+  const hitLabels = new Set<string>();
+  let firstHitLine = 0;
+  for (const { re, label } of BARE_MATH_PATTERNS) {
+    const match = re.exec(stripped);
+    if (match) {
+      hitLabels.add(label);
+      if (firstHitLine === 0) {
+        firstHitLine = markdown.substring(0, match.index).split("\n").length;
+      }
+    }
+  }
+  if (hitLabels.size > 0) {
+    const sample = Array.from(hitLabels).slice(0, 4).join(", ");
+    issues.push({
+      kind: "bare-latex-unwrapped",
+      line: firstHitLine,
+      message: `Found LaTeX commands (${sample}${hitLabels.size > 4 ? ", ..." : ""}) outside any math delimiter. Wrap every formula in \`$...$\` (inline) or \`$$...$$\` (display).`,
+    });
+  }
+
   // ── Build repair hint for LLM retry ──────────────────────────────────
   const repairHint =
     issues.length === 0
@@ -295,9 +362,11 @@ export function validateLatexDelimiters(
             .map((issue, idx) => `  ${idx + 1}. ${issue.message}`),
           issues.length > 8 ? `  ...and ${issues.length - 8} more.` : "",
           "Please regenerate the SAME content with these fixes:",
-          "  - Every `$` must be paired. Use `$formula$` for inline, `$$formula$$` for display.",
+          "  - Every LaTeX formula MUST be wrapped in math delimiters:",
+          "      inline: `$formula$`   display: `$$formula$$`",
+          "  - Bare LaTeX in plain text (e.g. `T_{r,s}`, `\\frac{a}{b}`, `\\sum_{i=1}^n`) will NOT render — always wrap in `$...$`.",
+          "  - Every `$` must be paired. Every `{` must have a matching `}`.",
           "  - Never place Chinese punctuation (，。；) INSIDE `$...$` — close the formula first, then write prose.",
-          "  - Every `{` must have a matching `}`.",
           "  - Every `\\begin{env}` must have `\\end{env}`.",
         ]
           .filter(Boolean)

@@ -172,4 +172,63 @@ describe("validateLatexDelimiters", () => {
       expect(result.valid).toBe(false);
     });
   });
+
+  describe("bare-latex-unwrapped detection", () => {
+    it("flags bare \\sum_{...}", () => {
+      const result = validateLatexDelimiters(
+        "总公式为 TTLT_r=\\sum_{s \\in S_r} T_{r,s}",
+      );
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.kind === "bare-latex-unwrapped")).toBe(
+        true,
+      );
+    });
+
+    it("flags bare \\frac{...}{...}", () => {
+      const result = validateLatexDelimiters("Ratio = \\frac{x}{y} works.");
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.kind === "bare-latex-unwrapped")).toBe(
+        true,
+      );
+    });
+
+    it("flags bare X_{sub}", () => {
+      const result = validateLatexDelimiters(
+        "起点 t_0、终点 t_{\\mathrm{end}}、输出单元 u",
+      );
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.kind === "bare-latex-unwrapped")).toBe(
+        true,
+      );
+    });
+
+    it("flags bare \\mathbb{R}", () => {
+      const result = validateLatexDelimiters("Space is \\mathbb{R}^n.");
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.kind === "bare-latex-unwrapped")).toBe(
+        true,
+      );
+    });
+
+    it("passes same patterns wrapped in $...$", () => {
+      const result = validateLatexDelimiters(
+        "总公式为 $TTLT_r=\\sum_{s \\in S_r} T_{r,s}$ 并且 $\\frac{x}{y}$ ratio.",
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it("passes same patterns inside code block", () => {
+      const result = validateLatexDelimiters(
+        "```\nLaTeX example: \\frac{x}{y} and X_{i}\n```",
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it("does NOT flag \\n, \\t, \\r (backslash escapes)", () => {
+      const result = validateLatexDelimiters(
+        "Text with \\n escape and \\t tab — not LaTeX.",
+      );
+      expect(result.valid).toBe(true);
+    });
+  });
 });
