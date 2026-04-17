@@ -45,6 +45,14 @@ export class LatexRepairService {
    *   - `{ repaired: original, changed: false, before, failureReason }`
    *     when LLM repair failed and original is kept unchanged.
    */
+  /**
+   * Maximum markdown length we send to the LLM in one shot.
+   * Large reports are split by H2 headings so each chunk fits. 30 KB is
+   * ~7.5 k tokens — comfortably inside any model's single-pass budget and
+   * keeps response time low enough that HTTP callers don't time out.
+   */
+  private static readonly MAX_CHUNK_CHARS = 30000;
+
   async repairMarkdown(markdown: string): Promise<{
     repaired: string;
     changed: boolean;
@@ -60,10 +68,15 @@ export class LatexRepairService {
     // mismatched delimiter — adding MORE issues, not fewer). Only an LLM
     // that sees surrounding context can safely rebuild those regions.
     //
-    // So: we skip straight to validator → LLM.
+    // So: we skip straight to validator → (chunked) LLM.
     const before = validateLatexDelimiters(markdown);
     if (before.valid) {
       return { repaired: markdown, changed: false };
+    }
+
+    // ── Chunked path for large documents ──
+    if (markdown.length > LatexRepairService.MAX_CHUNK_CHARS) {
+      return this.repairChunked(markdown, before);
     }
 
     this.logger.log(
@@ -212,5 +225,110 @@ export class LatexRepairService {
   private stripCodeFence(text: string): string {
     const m = text.match(/^```(?:markdown)?\s*\n?([\s\S]*?)\n?```\s*$/);
     return m ? m[1] : text;
+  }
+
+  /**
+   * Chunked repair for documents larger than MAX_CHUNK_CHARS.
+   * Splits at top-level `## ` headings so the LLM only sees one chapter
+   * at a time. Headings themselves travel with the chunk that follows.
+   * Only chapters that have validator issues are sent to the LLM — the
+   * rest are copied through unchanged to minimize cost and latency.
+   */
+  private async repairChunked(
+    markdown: string,
+    before: LatexValidationResult,
+  ): Promise<{
+    repaired: string;
+    changed: boolean;
+    before: LatexValidationResult;
+    after: LatexValidationResult;
+  }> {
+    const chunks = this.splitByH2(markdown);
+    const repairedChunks: string[] = [];
+    let anyChanged = false;
+
+    this.logger.log(
+      `[LatexRepair] Large doc (${markdown.length} chars), split into ${chunks.length} chunks`,
+    );
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const chunkValidation = validateLatexDelimiters(chunk);
+      if (chunkValidation.valid) {
+        repairedChunks.push(chunk);
+        continue;
+      }
+      try {
+        const systemPrompt = this.buildSystemPrompt();
+        const userPrompt = this.buildUserPrompt(chunk, chunkValidation);
+        const response = await this.chatFacade.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          operationName: `LaTeX 修复(chunk ${i + 1}/${chunks.length})`,
+          modelType: AIModelType.CHAT,
+          skipGuardrails: true,
+          cachePolicy: "auto",
+          taskProfile: {
+            creativity: "deterministic",
+            outputLength: "extended",
+          },
+        });
+        if (response.isError) {
+          repairedChunks.push(chunk);
+          continue;
+        }
+        const candidate = this.stripCodeFence(response.content).trim();
+        if (
+          candidate.length < chunk.length * 0.85 ||
+          candidate.length > chunk.length * 1.2
+        ) {
+          repairedChunks.push(chunk);
+          continue;
+        }
+        const chunkAfter = validateLatexDelimiters(candidate);
+        if (chunkAfter.issues.length >= chunkValidation.issues.length) {
+          repairedChunks.push(chunk);
+          continue;
+        }
+        repairedChunks.push(candidate);
+        anyChanged = true;
+        this.logger.log(
+          `[LatexRepair] chunk ${i + 1}: ${chunkValidation.issues.length} → ${chunkAfter.issues.length}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `[LatexRepair] chunk ${i + 1} failed: ${(err as Error).message}`,
+        );
+        repairedChunks.push(chunk);
+      }
+    }
+
+    const finalDoc = repairedChunks.join("");
+    const after = validateLatexDelimiters(finalDoc);
+    return { repaired: finalDoc, changed: anyChanged, before, after };
+  }
+
+  /**
+   * Split markdown at top-level `## ` headings. Returns an array of
+   * chunks where the first chunk is anything before the first H2, and
+   * every subsequent chunk starts with its own `## ` heading. Joining
+   * the chunks with no separator exactly reconstructs the input.
+   */
+  private splitByH2(markdown: string): string[] {
+    const parts: string[] = [];
+    const lines = markdown.split("\n");
+    let current: string[] = [];
+    for (const line of lines) {
+      if (/^##\s+/.test(line) && current.length > 0) {
+        parts.push(current.join("\n") + "\n");
+        current = [line];
+      } else {
+        current.push(line);
+      }
+    }
+    if (current.length > 0) parts.push(current.join("\n"));
+    return parts;
   }
 }
