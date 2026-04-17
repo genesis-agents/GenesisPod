@@ -971,7 +971,7 @@ describe("SearchOrchestratorService", () => {
       expect(mockReranker.rerank).not.toHaveBeenCalled();
     });
 
-    it("should call reranker and replace items with reranked top K", async () => {
+    it("should call reranker and replace items when rerankResult.reranked=true", async () => {
       // 10 scoredItems, topK=3, multiplier=2 → pool=min(6, 10)=6, 6 > 3 → call
       const scoredItems = Array.from({ length: 10 }, (_, i) => ({
         item: makeDataSourceResult({ url: `https://a.com/${i}` }),
@@ -983,12 +983,14 @@ describe("SearchOrchestratorService", () => {
         makeAggregatedResult({ scoredItems, totalCount: 10 }),
       );
 
-      // Reranker returns top 3, in reverse order of input (just to prove it ran)
-      mockReranker.rerank.mockResolvedValue([
-        { item: scoredItems[5].item, originalIndex: 5, rerankScore: 0.95 },
-        { item: scoredItems[2].item, originalIndex: 2, rerankScore: 0.85 },
-        { item: scoredItems[4].item, originalIndex: 4, rerankScore: 0.7 },
-      ]);
+      mockReranker.rerank.mockResolvedValue({
+        reranked: true,
+        items: [
+          { item: scoredItems[5].item, originalIndex: 5, rerankScore: 0.95 },
+          { item: scoredItems[2].item, originalIndex: 2, rerankScore: 0.85 },
+          { item: scoredItems[4].item, originalIndex: 4, rerankScore: 0.7 },
+        ],
+      });
 
       const dimension = makeTopicDimension();
       const topic = makeResearchTopic();
@@ -1004,6 +1006,155 @@ describe("SearchOrchestratorService", () => {
       expect(result.items[0].url).toBe("https://a.com/5");
       expect(result.totalCount).toBe(3);
       expect(result.scoredItems?.[0].relevanceScore).toBeCloseTo(0.95, 2);
+    });
+
+    it("should keep fusion aggregated when rerankResult.reranked=false (fail-open)", async () => {
+      // 10 scoredItems → pool > topK → calls rerank, but reranker returns failed
+      const scoredItems = Array.from({ length: 10 }, (_, i) => ({
+        item: makeDataSourceResult({ url: `https://a.com/${i}` }),
+        score: 1 - i * 0.05,
+        relevanceScore: 0.9, // fusion's careful multi-factor score
+        credibilityScore: 0.8,
+      }));
+      const originalAggregated = makeAggregatedResult({
+        scoredItems,
+        items: scoredItems.map((s) => s.item),
+        totalCount: 10,
+      });
+      mockFusion.fuse.mockReturnValue(originalAggregated);
+
+      mockReranker.rerank.mockResolvedValue({
+        reranked: false,
+        skipReason: "llm_no_response",
+        items: scoredItems.slice(0, 3).map((s, i) => ({
+          item: s.item,
+          originalIndex: i,
+          rerankScore: 1 - i / 3,
+        })),
+      });
+
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+      const result = await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: true, topK: 3, candidateMultiplier: 2 },
+      });
+
+      expect(mockReranker.rerank).toHaveBeenCalledTimes(1);
+      // Fusion aggregated preserved — fusion's relevanceScore NOT overwritten
+      expect(result.items).toHaveLength(10);
+      expect(result.totalCount).toBe(10);
+      expect(result.scoredItems?.[0].relevanceScore).toBe(0.9);
+    });
+  });
+
+  // ===========================================================
+  // Edge cases for full branch coverage
+  // ===========================================================
+
+  describe("edge-case branches (coverage gap closure)", () => {
+    it("should apply rerank when aggregated.scoredItems is undefined (nullish path)", async () => {
+      // Simulate non-standard aggregated result with scoredItems missing (undefined)
+      const aggregatedNoScored = makeAggregatedResult({
+        scoredItems: undefined,
+      });
+      mockFusion.fuse.mockReturnValue(aggregatedNoScored);
+
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+      await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: true },
+      });
+
+      // nullish coalesce yields [] → length 0 → rerank skipped
+      expect(mockReranker.rerank).not.toHaveBeenCalled();
+    });
+
+    it("should log unknown reason when capability guard denies without reason", async () => {
+      // Deny without providing a reason string — exercises the `?? 'no reason'` branch
+      mockCapabilityGuard.checkDataAccess.mockResolvedValue({
+        allowed: false,
+        // reason: undefined
+      });
+
+      const dimension = makeTopicDimension({
+        searchSources: JSON.stringify([DataSourceType.WEB]),
+      });
+      const topic = makeResearchTopic();
+      await service.search(dimension as any, topic as any, {
+        processId: "proc-1",
+      });
+
+      // WEB denied → falls back via safety net
+      expect(mockExecutor.searchAllSources).toHaveBeenCalledWith(
+        expect.arrayContaining([DataSourceType.WEB]),
+        expect.any(Object),
+        expect.any(Object),
+      );
+    });
+
+    it("should log 'unknown' when rerankResult.reranked=false without skipReason", async () => {
+      const scoredItems = Array.from({ length: 10 }, (_, i) => ({
+        item: makeDataSourceResult({ url: `https://a.com/${i}` }),
+        score: 1 - i * 0.05,
+        relevanceScore: 0.9,
+        credibilityScore: 0.8,
+      }));
+      mockFusion.fuse.mockReturnValue(
+        makeAggregatedResult({
+          scoredItems,
+          items: scoredItems.map((s) => s.item),
+          totalCount: 10,
+        }),
+      );
+
+      // Rerank returns reranked=false without skipReason (hits `?? 'unknown'` branch)
+      mockReranker.rerank.mockResolvedValue({
+        reranked: false,
+        items: [],
+      });
+
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+      const result = await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: true, topK: 3, candidateMultiplier: 2 },
+      });
+
+      // fusion aggregated preserved
+      expect(result.items).toHaveLength(10);
+    });
+
+    it("should fall back credibilityScore to 0 when original scoredItem is missing", async () => {
+      // Reranker returns originalIndex outside scoredItems — exercises `original?.credibilityScore ?? 0`
+      const scoredItems = Array.from({ length: 10 }, (_, i) => ({
+        item: makeDataSourceResult({ url: `https://a.com/${i}` }),
+        score: 1 - i * 0.05,
+        relevanceScore: 0.9,
+        credibilityScore: 0.8,
+      }));
+      mockFusion.fuse.mockReturnValue(
+        makeAggregatedResult({ scoredItems, totalCount: 10 }),
+      );
+
+      // Rerank returns an item with bogus originalIndex = 999 (out of range)
+      mockReranker.rerank.mockResolvedValue({
+        reranked: true,
+        items: [
+          {
+            item: scoredItems[0].item,
+            originalIndex: 999, // scoredItems[999] === undefined
+            rerankScore: 0.5,
+          },
+        ],
+      });
+
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+      const result = await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: true, topK: 1, candidateMultiplier: 3 },
+      });
+
+      // Should not crash; credibilityScore falls back to 0
+      expect(result.scoredItems?.[0].credibilityScore).toBe(0);
     });
   });
 

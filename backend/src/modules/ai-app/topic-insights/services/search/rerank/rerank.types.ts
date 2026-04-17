@@ -26,8 +26,31 @@ export interface RerankCandidate {
 export interface RerankedItem {
   item: DataSourceResult;
   originalIndex: number;
-  /** Rerank 给出的相关性分数，0-1。fail-open 时等于原排名归一化后的分数 */
+  /**
+   * Rerank 给出的相关性分数，0-1。
+   * 仅当 RerankResult.reranked === true 时才是真 rerank 分数；
+   * 否则（passthrough / fail-open）调用方不应把它当成可信分数使用。
+   */
   rerankScore: number;
+}
+
+/**
+ * Rerank 操作的返回值。
+ *
+ * reranked 语义至关重要：
+ * - true  —— LLM 真正对候选进行了精排，items[*].rerankScore 是可信的相关性分数
+ * - false —— 要么候选不足（passthrough），要么 LLM/解析失败（fail-open）。
+ *            items 只是 "原 fusion 顺序前 topK"，下游**不应**把 rerankScore
+ *            覆盖掉 fusion 的 relevanceScore，否则会损失 fusion 已经算好的
+ *            多因子分数（相关性×0.35 + 源可信度×0.25+… + 时效 + 深度）。
+ */
+export interface RerankResult {
+  /** 是否真正执行了 rerank（vs passthrough / fail-open） */
+  reranked: boolean;
+  /** 精排后的条目（或降级后的原序前 topK） */
+  items: RerankedItem[];
+  /** reranked=false 时说明原因（如 'candidates_below_topk'、'llm_no_response'） */
+  skipReason?: string;
 }
 
 /** Rerank 调用参数 */
@@ -40,7 +63,7 @@ export interface RerankRequest {
   topK: number;
   /** 超时（ms），超时 fail-open 返回原序 */
   timeoutMs?: number;
-  /** 取消信号 */
+  /** 取消信号（会转发到 LLM 调用） */
   signal?: AbortSignal;
 }
 
@@ -52,11 +75,12 @@ export interface RerankAdapter {
   /**
    * 对候选列表精排并截取 top K。
    * 约定：
-   * - 候选数 ≤ topK 时应原序返回（无需 LLM 调用）
-   * - 失败时 fail-open：返回原 fusion 顺序的前 topK 项
+   * - 候选数 ≤ topK 时应返回 { reranked: false, items: <原序> }（无需 LLM 调用）
+   * - 失败时 fail-open：返回 { reranked: false, items: <原序前 topK>, skipReason }
+   * - 真 rerank 成功：返回 { reranked: true, items: <精排结果> }
    * - 不抛异常（错误由内部处理并记录日志）
    */
-  rerank(request: RerankRequest): Promise<RerankedItem[]>;
+  rerank(request: RerankRequest): Promise<RerankResult>;
 }
 
 /** Rerank 配置（可放入 SearchPipelineOptions） */

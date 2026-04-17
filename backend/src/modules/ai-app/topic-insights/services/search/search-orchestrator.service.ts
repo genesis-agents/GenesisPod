@@ -289,8 +289,9 @@ export class SearchOrchestratorService {
    * 流程：
    *   fusion.scoredItems 前 topK*multiplier 名 → LlmReranker → 取 top K
    *
-   * Fail-open：reranker 内部已处理异常，此处只 wire 入 pipeline。
-   * 如果 aggregated 没有 scoredItems（旧路径），保留 items 原序不做 rerank。
+   * Fail-open：reranker 返回 RerankResult.reranked=false 时（passthrough / LLM
+   * 失败 / 解析失败），**保持 aggregated 不变**——避免用假 rerankScore 覆盖
+   * fusion 计算好的多因子 relevanceScore（相关性×0.35 + 源可信度×0.25 + …）。
    */
   private async applyRerank(
     dimensionName: string,
@@ -323,20 +324,29 @@ export class SearchOrchestratorService {
       .map((s, i) => ({ item: s.item, originalIndex: i }));
 
     const rerankStart = Date.now();
-    const reranked = await this.reranker.rerank({
+    const rerankResult = await this.reranker.rerank({
       query,
       candidates,
       topK,
       timeoutMs,
     });
+    const latencyMs = Date.now() - rerankStart;
+
+    if (!rerankResult.reranked) {
+      // 未真正 rerank —— 保留 fusion 结果不动，只在日志中留痕
+      this.logger.debug(
+        `[${dimensionName}] rerank skipped (${rerankResult.skipReason ?? "unknown"}) in ${latencyMs}ms — keeping fusion order`,
+      );
+      return aggregated;
+    }
 
     this.logger.log(
-      `[${dimensionName}] rerank: ${candidates.length} → ${reranked.length} ` +
-        `in ${Date.now() - rerankStart}ms (topK=${topK})`,
+      `[${dimensionName}] rerank: ${candidates.length} → ${rerankResult.items.length} ` +
+        `in ${latencyMs}ms (topK=${topK})`,
     );
 
-    // 用 rerank 分数重写 scoredItems 与 items；保持其他字段
-    const rerankedScoredItems = reranked.map((r) => {
+    // 真 rerank 成功：用 rerank 分数重写 scoredItems 与 items
+    const rerankedScoredItems = rerankResult.items.map((r) => {
       const original = scoredItems[r.originalIndex];
       return {
         item: r.item,
@@ -348,8 +358,8 @@ export class SearchOrchestratorService {
 
     return {
       ...aggregated,
-      items: reranked.map((r) => r.item),
-      totalCount: reranked.length,
+      items: rerankResult.items.map((r) => r.item),
+      totalCount: rerankResult.items.length,
       scoredItems: rerankedScoredItems,
     };
   }

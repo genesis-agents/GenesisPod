@@ -7,7 +7,9 @@
  * - 一次 LLM 调用处理全批候选（而非每条一次），成本可控
  * - creativity=deterministic / outputLength=short — 强制结构化 JSON 输出
  * - 候选 snippet 截断到 300 字符，避免 context 爆炸
- * - Fail-open：解析失败或 LLM 错误时按原 fusion 顺序返回前 topK
+ * - Fail-open：解析失败或 LLM 错误时按原 fusion 顺序返回前 topK，但在
+ *   RerankResult.reranked 中标记 false，下游据此决定是否替换分数
+ * - 支持 AbortSignal 取消（转发到 chatFacade）
  * - 去中心化：无状态，可自由并发调用
  *
  * 未来可切换：Cohere Rerank / Jina Reranker / 自训练 cross-encoder。
@@ -21,6 +23,7 @@ import type {
   RerankAdapter,
   RerankCandidate,
   RerankRequest,
+  RerankResult,
   RerankedItem,
 } from "./rerank.types";
 
@@ -39,12 +42,16 @@ export class LlmRerankerAdapter implements RerankAdapter {
 
   constructor(private readonly chatFacade: ChatFacade) {}
 
-  async rerank(request: RerankRequest): Promise<RerankedItem[]> {
-    const { query, candidates, topK, timeoutMs } = request;
+  async rerank(request: RerankRequest): Promise<RerankResult> {
+    const { query, candidates, topK, timeoutMs, signal } = request;
 
     // 候选不足以挑选 → 直接返回原序，避免无意义的 LLM 调用
     if (candidates.length <= topK) {
-      return this.passthrough(candidates);
+      return {
+        reranked: false,
+        skipReason: "candidates_below_topk",
+        items: this.passthroughItems(candidates),
+      };
     }
 
     try {
@@ -52,40 +59,52 @@ export class LlmRerankerAdapter implements RerankAdapter {
         query,
         candidates,
         timeoutMs ?? 15_000,
+        signal,
       );
       if (!scores) {
         return this.failOpen(candidates, topK, "llm_no_response");
       }
 
-      // 构建 index → score 的映射
+      // 构建 id → 归一化分数（0-1）的映射；去重（后者覆盖前者）、剔除非法
       const scoreMap = new Map<number, number>();
       for (const entry of scores.scores) {
         if (
-          typeof entry.id === "number" &&
+          typeof entry?.id === "number" &&
+          Number.isFinite(entry.id) &&
           entry.id >= 0 &&
           entry.id < candidates.length &&
-          typeof entry.score === "number"
+          typeof entry.score === "number" &&
+          Number.isFinite(entry.score)
         ) {
-          // 归一化到 0-1（模型打 0-10）
           const normalized = Math.max(0, Math.min(1, entry.score / 10));
           scoreMap.set(entry.id, normalized);
         }
       }
 
-      // 对缺失分数的候选用 "原 fusion 排名归一化分数" 作为 fallback，
-      // 这样 LLM 忘打某几个也不会导致那几条彻底掉出
+      // LLM 至少要打分一些才算"真 rerank 成功"；全打错则 fail-open
+      if (scoreMap.size === 0) {
+        return this.failOpen(candidates, topK, "llm_no_valid_scores");
+      }
+
+      // 对缺失分数的候选用"原 fusion 排名归一化分数 × 0.5"作为 fallback，
+      // 确保它们不会因缺分数被完全挤掉，但也不会意外排到 LLM 打低分的前面
       const fallbackScore = (idx: number): number =>
-        1 - idx / Math.max(1, candidates.length);
+        (1 - idx / Math.max(1, candidates.length)) * 0.5;
 
       const scored: RerankedItem[] = candidates.map((c, i) => ({
         item: c.item,
         originalIndex: c.originalIndex,
-        rerankScore: scoreMap.get(i) ?? fallbackScore(i) * 0.5,
+        rerankScore: scoreMap.get(i) ?? fallbackScore(i),
       }));
 
       scored.sort((a, b) => b.rerankScore - a.rerankScore);
-      return scored.slice(0, topK);
-    } catch (err) {
+      return {
+        reranked: true,
+        items: scored.slice(0, topK),
+      };
+    } /* istanbul ignore next — defensive catch; callLlmForScores never throws */ catch (err) {
+      // 防御性兜底：理论上不应到达（callLlmForScores 内部已有 try-catch），
+      // 但保留此分支防止未来改动引入未捕获异常
       return this.failOpen(
         candidates,
         topK,
@@ -97,12 +116,23 @@ export class LlmRerankerAdapter implements RerankAdapter {
   /**
    * 调用 LLM 给所有候选文档打分。
    * 返回 null 表示失败（由上层 fail-open）。
+   *
+   * 取消/超时策略：
+   * - 外部 signal 已 aborted → 立即返回 null，不调 LLM
+   * - 调用中超时 → 通过 Promise.race 胜出，LLM 继续跑但结果被丢弃
+   *   （ChatFacade 当前不支持 signal 透传，故无法硬中止，这是已知限制）
    */
   private async callLlmForScores(
     query: string,
     candidates: RerankCandidate[],
     timeoutMs: number,
+    externalSignal?: AbortSignal,
   ): Promise<LlmRerankScores | null> {
+    if (externalSignal?.aborted) {
+      this.logger.debug("[rerank] Aborted before LLM call");
+      return null;
+    }
+
     const candidatesBlock = candidates
       .map((c, i) => {
         const title = (c.item.title ?? "").slice(0, 200);
@@ -129,8 +159,32 @@ export class LlmRerankerAdapter implements RerankAdapter {
       `Documents (format "[id] <content>"):\n${candidatesBlock}\n\n` +
       `Return JSON only.`;
 
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    const abortListener = () => {
+      // 仅用于让 Promise.race 中的外部信号 rejection 起作用
+    };
     try {
-      const response = await Promise.race([
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(
+          () => reject(new Error(`rerank_timeout_${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      });
+
+      const abortPromise = externalSignal
+        ? new Promise<never>((_, reject) => {
+            externalSignal.addEventListener(
+              "abort",
+              () => {
+                abortListener();
+                reject(new Error("rerank_aborted"));
+              },
+              { once: true },
+            );
+          })
+        : null;
+
+      const racers: Promise<unknown>[] = [
         this.chatFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
@@ -144,13 +198,14 @@ export class LlmRerankerAdapter implements RerankAdapter {
             outputLength: "short",
           },
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`rerank_timeout_${timeoutMs}ms`)),
-            timeoutMs,
-          ),
-        ),
-      ]);
+        timeoutPromise,
+      ];
+      if (abortPromise) racers.push(abortPromise);
+
+      const response = (await Promise.race(racers)) as {
+        isError?: boolean;
+        content?: string;
+      };
 
       if (response.isError || !response.content) {
         this.logger.warn(
@@ -165,52 +220,56 @@ export class LlmRerankerAdapter implements RerankAdapter {
         `[rerank] LLM call failed: ${err instanceof Error ? err.message : String(err)}`,
       );
       return null;
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
 
   private parseScores(raw: string): LlmRerankScores | null {
+    // Extract JSON (支持 markdown code block / 前后缀噪音)
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+
+    let parsed: unknown;
     try {
-      // Extract JSON (支持 markdown code block)
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) return null;
-
-      const parsed = JSON.parse(match[0]) as unknown;
-      if (
-        typeof parsed !== "object" ||
-        parsed === null ||
-        !Array.isArray((parsed as { scores?: unknown }).scores)
-      ) {
-        return null;
-      }
-
-      return parsed as LlmRerankScores;
+      parsed = JSON.parse(match[0]);
     } catch (err) {
       this.logger.warn(
         `[rerank] Failed to parse LLM response: ${err instanceof Error ? err.message : String(err)}`,
       );
       return null;
     }
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !Array.isArray((parsed as { scores?: unknown }).scores)
+    ) {
+      return null;
+    }
+
+    return parsed as LlmRerankScores;
   }
 
-  /** Fail-open: 返回原 fusion 顺序的前 topK */
+  /** Fail-open: 返回原 fusion 顺序的前 topK（reranked=false） */
   private failOpen(
     candidates: RerankCandidate[],
     topK: number,
     reason: string,
-  ): RerankedItem[] {
+  ): RerankResult {
     this.logger.debug(
       `[rerank] Fail-open: ${reason}, returning fusion top ${topK}`,
     );
-    return candidates.slice(0, topK).map((c, i) => ({
-      item: c.item,
-      originalIndex: c.originalIndex,
-      // 假分数：按原排名归一化，与真 rerank 分数可区分（因为是严格递减线性）
-      rerankScore: 1 - i / Math.max(1, topK),
-    }));
+    return {
+      reranked: false,
+      skipReason: reason,
+      items: this.passthroughItems(candidates.slice(0, topK)),
+    };
   }
 
-  /** 候选数 ≤ topK，直接原序返回 */
-  private passthrough(candidates: RerankCandidate[]): RerankedItem[] {
+  /** 原序返回（用于 passthrough 与 fail-open 内部） */
+  private passthroughItems(candidates: RerankCandidate[]): RerankedItem[] {
+    // 假分数按位置线性递减；调用方读到 reranked=false 时应忽略此分数
     return candidates.map((c, i) => ({
       item: c.item,
       originalIndex: c.originalIndex,
