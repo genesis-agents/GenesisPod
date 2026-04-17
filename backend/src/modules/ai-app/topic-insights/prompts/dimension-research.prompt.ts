@@ -19,6 +19,8 @@ import {
   buildContiguousMapping,
   type LocalToGlobalMap,
 } from "../utils/citation-verifier.utils";
+import { wrapExternalContent } from "../utils/external-content-wrapper.utils";
+import { sanitize } from "../utils/prompt-sanitizer";
 
 /**
  * 维度研究系统提示词
@@ -463,17 +465,25 @@ export function formatEvidenceForPrompt(
         citationIdx,
       );
 
+      const safeTitle = sanitize(e.title, 200);
+      const wrappedContent = wrapExternalContent(content, {
+        url: e.url,
+        source: e.sourceType || "web",
+        title: e.title,
+        maxLength: 3000,
+      });
+
       return `
 ### 证据 [${citationIdx}]
 - 引用格式: [${citationIdx}]
-- 标题: ${e.title}
+- 标题: ${safeTitle}
 - 来源: ${e.domain || "未知"} (${e.sourceType || "未知类型"})
 - 发布日期: ${safeFormatDate(e.publishedAt)}${freshnessLabel ? ` (${freshnessLabel})` : ""}
 - 可信度: ${e.credibilityScore !== null ? `${e.credibilityScore}/100` : "未评分"}
 - URL: ${e.url}
 
 **${contentLabel}**:
-${content}
+${wrappedContent}
 ${figuresSection}
       `;
     })
@@ -536,17 +546,25 @@ export function formatEvidenceForPromptContiguous(
         localIdx,
       );
 
+      const safeTitle = sanitize(e.title, 200);
+      const wrappedContent = wrapExternalContent(content, {
+        url: e.url,
+        source: e.sourceType || "web",
+        title: e.title,
+        maxLength: 3000,
+      });
+
       return `
 ### 证据 [${localIdx}]
 - 引用格式: [${localIdx}]
-- 标题: ${e.title}
+- 标题: ${safeTitle}
 - 来源: ${e.domain || "未知"} (${e.sourceType || "未知类型"})
 - 发布日期: ${safeFormatDate(e.publishedAt)}${freshnessLabel ? ` (${freshnessLabel})` : ""}
 - 可信度: ${e.credibilityScore !== null ? `${e.credibilityScore}/100` : "未评分"}
 - URL: ${e.url}
 
 **${contentLabel}**:
-${content}
+${wrappedContent}
 ${figuresSection}
       `;
     })
@@ -702,6 +720,8 @@ export function renderPromptTemplate(
 export const SECTION_WRITING_SYSTEM_PROMPT = `你是一位专业的研究分析师，负责撰写研究报告的特定章节。
 
 {{languageInstruction}}
+
+{{externalContentNotice}}
 
 ## 核心要求
 

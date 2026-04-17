@@ -2,10 +2,17 @@
  * Result Fusion Service
  *
  * Handles deduplication, credibility scoring, and ranking of search results
- * aggregated from multiple data sources.
+ * aggregated from multiple data sources (web / academic / github / social / ...).
  *
  * Extracted from the old DataSourceRouterService aggregateResults() /
  * enforceDomainDiversity() / calculateCredibilityScore() methods.
+ *
+ * NOTE — this is NOT Reciprocal Rank Fusion (RRF). This service performs a
+ * linear-weighted composite (relevance + source-type credibility + domain
+ * authority + recency + content depth) because sources are heterogeneous in
+ * credibility (academic ≫ social) — pure RRF would over-weight low-credibility
+ * sources. Multi-QUERY RRF for the same source lives in
+ * `services/data/rag-fusion.service.ts#fuseResults`.
  */
 
 import { Injectable, Logger } from "@nestjs/common";

@@ -40,6 +40,7 @@ import {
   verifyCitations,
   type EvidenceForVerification,
 } from "../../utils/citation-verifier.utils";
+import { getExternalContentNotice } from "../../utils/external-content-wrapper.utils";
 import {
   getWritingStandards,
   getDimensionResearchStandards,
@@ -355,6 +356,7 @@ export class SectionWriterService {
     );
     const systemPrompt = renderPromptTemplate(SECTION_WRITING_SYSTEM_PROMPT, {
       languageInstruction,
+      externalContentNotice: getExternalContentNotice(input.topicLanguage),
       writingStandards: getWritingStandards(input.topicLanguage || "zh"),
       researchStandards: getDimensionResearchStandards(
         input.topicLanguage || "zh",
@@ -869,6 +871,7 @@ export class SectionWriterService {
       SECTION_WRITING_SYSTEM_PROMPT,
       {
         languageInstruction: revisionLanguageInstruction,
+        externalContentNotice: getExternalContentNotice(input.topicLanguage),
         writingStandards: getWritingStandards(input.topicLanguage || "zh"),
       },
     );
