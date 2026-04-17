@@ -362,15 +362,27 @@ export interface RemediationTrace {
   sectionTitle: string;
   originalModel: string;
   remediationModel?: string; // 补救使用的模型（升级后的 STRONG 模型）
-  selfEvalScores: Record<string, number>; // 4 维自评分数
+  /** 补救前 4 维自评分数（写作后、补救前的首轮评估） */
+  selfEvalScores: Record<string, number>;
+  /** 补救后 4 维自评分数（强制闭环：补救完成后的重评） */
+  selfEvalScoresAfter?: Record<string, number>;
+  /** 补救前后平均分差（正数 = 改善；负数 = 退步） */
+  scoreDelta?: number;
+  /** 补救后是否真正解决了所有弱维度（所有分数 >= 7） */
+  weakAreasResolved?: boolean;
   actions: Array<{
     type: string; // deepen_analysis | inject_evidence | ...
     dimension: string;
     scoreBefore: number;
+    /** 补救后该维度的新分数（强制重评产出） */
+    scoreAfter?: number;
     guidance: string;
   }>;
   wasRemediated: boolean; // 是否执行了补救
   skippedReason?: string; // 跳过原因
+  /** 用于 Prompt 版本溯源（写作时 prompt 的版本 + hash） */
+  promptVersion?: string;
+  promptHash?: string;
 }
 
 // ==================== Combined Quality Enhancement Types ====================

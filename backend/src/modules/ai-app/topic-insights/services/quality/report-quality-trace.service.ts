@@ -22,6 +22,11 @@ import {
   type ContentDefectScan,
   type DefectDetails,
 } from "./defect-scanner";
+import {
+  PROMPT_METADATA,
+  type PromptMetadata,
+  type PromptName,
+} from "../../prompts/prompt-version";
 
 // ==================== Types ====================
 
@@ -34,6 +39,8 @@ export interface QualityTraceContext {
   synthesisOutput?: SynthesisOutputProbe;
   finalAssessment?: FinalAssessmentProbe;
   outputReview?: OutputReviewProbe;
+  /** ★ Prompt provenance —— 本次生成链路涉及的所有 prompt 版本 + hash 快照 */
+  promptProvenance?: Partial<Record<PromptName, PromptMetadata>>;
 }
 
 export interface EvidenceQualityProbe {
@@ -76,6 +83,14 @@ export interface DimensionOutputProbe {
     iterations: number;
     stopReason: string;
   };
+  /** ★ 写作/补救时使用的模型 ID（与 prompt version 组合可回溯某分数的完整成因） */
+  writerModel?: string;
+  remediationModel?: string;
+  /** ★ 补救闭环三元组：补救前 / 补救后 / delta */
+  selfEvalScoresBefore?: Record<string, number>;
+  selfEvalScoresAfter?: Record<string, number>;
+  selfEvalDelta?: number;
+  weakAreasResolved?: boolean;
 }
 
 export interface PostProcessingProbe {
@@ -156,6 +171,11 @@ export interface ReportQualityTrace {
   finalAssessment: FinalAssessmentProbe;
   /** OutputReviewer LLM review result (Phase 4 of synthesis pipeline) */
   outputReview?: OutputReviewProbe;
+  /**
+   * ★ Prompt 溯源：本次生成链路涉及的所有 prompt 的 version + hash。
+   * 用于把分数回溯到具体 prompt 版本（LangSmith / Langfuse 风格的 telemetry）。
+   */
+  promptProvenance?: Partial<Record<PromptName, PromptMetadata>>;
 }
 
 // ==================== Service ====================
@@ -172,7 +192,41 @@ export class ReportQualityTraceService {
       reportId,
       startedAt: Date.now(),
       dimensionOutputs: [],
+      // ★ 构建期快照所有已知 prompt 的 version + hash；如某 prompt 在本次
+      // 生成中未被使用，读取方可自行过滤，但持久化成本极小（几十字节）。
+      promptProvenance: { ...PROMPT_METADATA },
     };
+  }
+
+  /**
+   * 为某个维度记录补救闭环三元组（scoreBefore / scoreAfter / delta / resolved）。
+   * 在 SectionRemediationService 补救完成、强制重评完成后调用。
+   */
+  recordDimensionRemediationLoop(
+    ctx: QualityTraceContext,
+    dimensionId: string,
+    data: {
+      selfEvalScoresBefore: Record<string, number>;
+      selfEvalScoresAfter: Record<string, number>;
+      weakAreasResolved: boolean;
+      remediationModel?: string;
+    },
+  ): void {
+    const dim = ctx.dimensionOutputs.find((d) => d.dimensionId === dimensionId);
+    if (!dim) return;
+    const before = Object.values(data.selfEvalScoresBefore);
+    const after = Object.values(data.selfEvalScoresAfter);
+    const avgBefore = before.length
+      ? before.reduce((a, b) => a + b, 0) / before.length
+      : 0;
+    const avgAfter = after.length
+      ? after.reduce((a, b) => a + b, 0) / after.length
+      : 0;
+    dim.selfEvalScoresBefore = data.selfEvalScoresBefore;
+    dim.selfEvalScoresAfter = data.selfEvalScoresAfter;
+    dim.selfEvalDelta = Number((avgAfter - avgBefore).toFixed(2));
+    dim.weakAreasResolved = data.weakAreasResolved;
+    if (data.remediationModel) dim.remediationModel = data.remediationModel;
   }
 
   /** Probe 1: Record evidence quality metrics */
@@ -456,6 +510,7 @@ export class ReportQualityTraceService {
       },
       finalAssessment: ctx.finalAssessment!,
       outputReview: ctx.outputReview,
+      promptProvenance: ctx.promptProvenance,
     };
   }
 

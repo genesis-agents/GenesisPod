@@ -61,3 +61,12 @@ export {
   buildEnhancedEditPrompt,
   type EnhancedEditPromptOptions,
 } from "./report-editing.prompt";
+
+export {
+  PROMPT_VERSIONS,
+  PROMPT_METADATA,
+  getPromptMetadata,
+  hashPrompt,
+  type PromptMetadata,
+  type PromptName,
+} from "./prompt-version";

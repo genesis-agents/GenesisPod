@@ -47,6 +47,7 @@ import { ReportQualityGateService } from "../quality/report-quality-gate.service
 import { SectionSelfEvalService } from "../quality/section-self-eval.service";
 import { SectionRemediationService } from "../quality/section-remediation.service";
 import type { RemediationTrace } from "../../types/quality.types";
+import { getPromptMetadata } from "../../prompts/prompt-version";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 
 /**
@@ -761,12 +762,15 @@ export class DimensionWritingService {
               language: topic?.language ?? "zh",
             });
 
+            const writerPromptMeta = getPromptMetadata("SECTION_WRITING");
             const trace: RemediationTrace = {
               sectionTitle: section.title,
               originalModel: modelId ?? "unknown",
               selfEvalScores: { ...evalResult.scores },
               actions: [],
               wasRemediated: false,
+              promptVersion: writerPromptMeta.version,
+              promptHash: writerPromptMeta.hash,
             };
 
             if (!evalResult.overallOk) {
@@ -803,17 +807,59 @@ export class DimensionWritingService {
                     topic?.language || "zh",
                     topic?.type,
                   );
-                  result = {
-                    ...result,
-                    content: qcFinal.wasAutoFixed
-                      ? qcFinal.fixedContent
-                      : remResult.content,
-                  };
+                  const finalContent = qcFinal.wasAutoFixed
+                    ? qcFinal.fixedContent
+                    : remResult.content;
+                  result = { ...result, content: finalContent };
                   trace.wasRemediated = true;
 
-                  this.logger.log(
-                    `${logPrefix} [Remediation] Section "${section.title}" remediated: ${actions.map((a) => a.type).join(", ")}`,
-                  );
+                  // ★ 补救后强制重评，闭合评估环路。
+                  // 非阻断：重评失败不影响补救结果，只是缺少 after 分数。
+                  try {
+                    const reEvalResult = await this.selfEval.evaluateSection({
+                      content: finalContent,
+                      sectionTitle: section.title,
+                      topicName: dimension.name,
+                      language: topic?.language ?? "zh",
+                    });
+                    trace.selfEvalScoresAfter = { ...reEvalResult.scores };
+                    const beforeVals = Object.values(trace.selfEvalScores);
+                    const afterVals = Object.values(reEvalResult.scores);
+                    const avgBefore = beforeVals.length
+                      ? beforeVals.reduce((a, b) => a + b, 0) /
+                        beforeVals.length
+                      : 0;
+                    const avgAfter = afterVals.length
+                      ? afterVals.reduce((a, b) => a + b, 0) / afterVals.length
+                      : 0;
+                    trace.scoreDelta = Number(
+                      (avgAfter - avgBefore).toFixed(2),
+                    );
+                    trace.weakAreasResolved =
+                      reEvalResult.weakAreas.length === 0;
+                    // 回填 per-action scoreAfter
+                    trace.actions = trace.actions.map((a) => ({
+                      ...a,
+                      scoreAfter:
+                        reEvalResult.scores[
+                          a.dimension as keyof typeof reEvalResult.scores
+                        ] ?? undefined,
+                    }));
+
+                    this.logger.log(
+                      `${logPrefix} [Remediation] Section "${section.title}" remediated + re-evaluated: ` +
+                        `delta=${trace.scoreDelta >= 0 ? "+" : ""}${trace.scoreDelta}, ` +
+                        `resolved=${trace.weakAreasResolved}`,
+                    );
+                  } catch (reEvalError) {
+                    this.logger.warn(
+                      `${logPrefix} [Remediation] Post-remediation re-eval failed for "${section.title}" (non-fatal): ` +
+                        `${reEvalError instanceof Error ? reEvalError.message : String(reEvalError)}`,
+                    );
+                    this.logger.log(
+                      `${logPrefix} [Remediation] Section "${section.title}" remediated (no re-eval data): ${actions.map((a) => a.type).join(", ")}`,
+                    );
+                  }
                 } else {
                   trace.skippedReason = remResult.skipReason;
                 }
