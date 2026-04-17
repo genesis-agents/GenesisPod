@@ -15,6 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
 import { preprocessLatex } from '@/lib/report/preprocessLatex';
 import { countWords } from '@/lib/report/countWords';
 import {
@@ -2027,7 +2028,7 @@ export function TopicContentPanel({
             <div data-export-content="insights">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
+                rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
               >
                 {preprocessLatex(report.fullReport)}
               </ReactMarkdown>
@@ -2526,7 +2527,7 @@ function ReportTabContent({
             <article className="prose prose-sm prose-blue max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[[rehypeKatex, { output: 'html' }]]}
+                rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                 components={{
                   // 自定义段落渲染，支持内联引用
                   p: ({ children }) => (

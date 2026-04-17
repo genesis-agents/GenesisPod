@@ -94,6 +94,7 @@ import {
 } from "@/modules/ai-engine/facade";
 import { MissionObservabilityService } from "../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
+import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 
 /**
  * 维度 Mission 执行结果
@@ -205,9 +206,11 @@ export class DimensionMissionService {
   private stepStart(dimName: string, stepName: string): string | undefined {
     const ctx = KernelContext.get();
     if (!ctx?.latencySessionId || !this.latencyTracker) return undefined;
-    return this.latencyTracker.startStep(ctx.latencySessionId, {
-      name: `${dimName}/${stepName}`,
-    }) || undefined;
+    return (
+      this.latencyTracker.startStep(ctx.latencySessionId, {
+        name: `${dimName}/${stepName}`,
+      }) || undefined
+    );
   }
 
   /** 时延跟踪：用 stepId 精确结束（避免并行维度同名冲突） */
@@ -229,10 +232,7 @@ export class DimensionMissionService {
     if (!stepId) return fn();
     const ctx = KernelContext.get();
     if (!ctx) return fn();
-    return KernelContext.run(
-      { ...ctx, latencyPhaseId: stepId },
-      fn,
-    );
+    return KernelContext.run({ ...ctx, latencyPhaseId: stepId }, fn);
   }
 
   private readonly LOCK_TTL_MS = 150_000; // must exceed Prisma tx timeout (120s)
@@ -987,15 +987,17 @@ export class DimensionMissionService {
 
       // Phase 1: 执行搜索阶段
       const searchStepId = this.stepStart(dimension.name, "搜索数据");
-      const searchPhaseResult = await this.runInStep(searchStepId, () => this.executeSearchPhase(
-        topic,
-        dimension,
-        missionId,
-        modelId,
-        taskId,
-        assignedTools,
-        assignedSkills,
-      ));
+      const searchPhaseResult = await this.runInStep(searchStepId, () =>
+        this.executeSearchPhase(
+          topic,
+          dimension,
+          missionId,
+          modelId,
+          taskId,
+          assignedTools,
+          assignedSkills,
+        ),
+      );
 
       this.stepEndById(searchStepId);
 
@@ -1045,22 +1047,24 @@ export class DimensionMissionService {
         select: { name: true, description: true },
       });
 
-      const outline = await this.runInStep(outlineStepId, () => this.leaderPlanning.planDimensionOutline(
-        {
-          name: topic.name,
-          type: topic.type,
-          description: topic.description,
-          language: topic.language,
-        },
-        {
-          name: dimension.name,
-          description: dimension.description,
-          searchQueries: dimension.searchQueries,
-        },
-        searchPhaseResult.evidenceSummary,
-        searchPhaseResult.figuresSummary || undefined,
-        allDimensions,
-      ));
+      const outline = await this.runInStep(outlineStepId, () =>
+        this.leaderPlanning.planDimensionOutline(
+          {
+            name: topic.name,
+            type: topic.type,
+            description: topic.description,
+            language: topic.language,
+          },
+          {
+            name: dimension.name,
+            description: dimension.description,
+            searchQueries: dimension.searchQueries,
+          },
+          searchPhaseResult.evidenceSummary,
+          searchPhaseResult.figuresSummary || undefined,
+          allDimensions,
+        ),
+      );
 
       this.logger.log(
         `${logPrefix} Local outline planned: ${outline.sections.length} sections`,
@@ -1070,20 +1074,22 @@ export class DimensionMissionService {
 
       // Phase 3: 执行写作阶段
       const writingStepId = this.stepStart(dimension.name, "写作与审核");
-      const writingResult = await this.runInStep(writingStepId, () => this.executeWritingPhase(
-        topic,
-        dimension,
-        searchPhaseResult,
-        outline,
-        reportId,
-        missionId,
-        modelId,
-        taskId,
-        assignedTools,
-        assignedSkills,
-        undefined, // validationContext
-        maxRevisionRounds, // V5: 最大修订轮次
-      ));
+      const writingResult = await this.runInStep(writingStepId, () =>
+        this.executeWritingPhase(
+          topic,
+          dimension,
+          searchPhaseResult,
+          outline,
+          reportId,
+          missionId,
+          modelId,
+          taskId,
+          assignedTools,
+          assignedSkills,
+          undefined, // validationContext
+          maxRevisionRounds, // V5: 最大修订轮次
+        ),
+      );
 
       this.stepEndById(writingStepId);
 
@@ -1864,6 +1870,22 @@ export class DimensionMissionService {
           );
         }
 
+        // ★ 2026-04-17: LaTeX delimiter validation at LLM boundary.
+        // Source-level check replaces the old downstream regex patch pipeline
+        // (Phase -0.3 etc.). When malformed, append repair hint to the
+        // rewriteGuidance so the existing single-retry flow fixes it.
+        const latexCheck = validateLatexDelimiters(result.content);
+        if (!latexCheck.valid) {
+          this.logger.warn(
+            `${logPrefix} [LatexValidator] Section "${section.title}" has ${latexCheck.issues.length} LaTeX issue(s): ${latexCheck.issues
+              .slice(0, 3)
+              .map((i) => i.kind)
+              .join(", ")}${latexCheck.issues.length > 3 ? "..." : ""}`,
+          );
+          qc.passed = false;
+          qc.rewriteGuidance.push(latexCheck.repairHint);
+        }
+
         // ★ 记录质量门控结果到 Activity
         await this.agentActivity.recordReviewActivity(
           topicId,
@@ -1876,7 +1898,7 @@ export class DimensionMissionService {
           qc.passed,
         );
 
-        // 如果有需要 AI 重写的问题（如语言混杂、内容过短），发送 1 次修订请求
+        // 如果有需要 AI 重写的问题（如语言混杂、内容过短、LaTeX 定界错乱），发送 1 次修订请求
         if (!qc.passed && qc.rewriteGuidance.length > 0) {
           this.logger.log(
             `${logPrefix} [QualityGate] Section "${section.title}" needs AI rewrite: ${qc.rewriteGuidance.join("; ")}`,

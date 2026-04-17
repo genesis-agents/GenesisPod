@@ -38,6 +38,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
 import { CollapsibleRagSources } from '@/components/ui/CollapsibleRagSources';
@@ -2099,9 +2100,7 @@ export default function AskPage() {
                             <div className="prose prose-sm max-w-none">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm, remarkMath]}
-                                rehypePlugins={[
-                                  [rehypeKatex, { output: 'html' }],
-                                ]}
+                                rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                                 components={{
                                   blockquote: CollapsibleBlockquote,
                                   code: CodeBlock as React.ComponentType<
@@ -2254,7 +2253,7 @@ export default function AskPage() {
                                   <ReactMarkdown
                                     remarkPlugins={[remarkGfm, remarkMath]}
                                     rehypePlugins={[
-                                      [rehypeKatex, { output: 'html' }],
+                                      [rehypeKatex, KATEX_OPTIONS],
                                     ]}
                                     components={{
                                       blockquote: CollapsibleBlockquote,

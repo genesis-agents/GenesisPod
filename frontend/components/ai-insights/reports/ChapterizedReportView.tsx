@@ -16,6 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
 import rehypeRaw from 'rehype-raw';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -995,7 +996,7 @@ function ChapterizedReportViewInner({
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[
                           rehypeRaw,
-                          [rehypeKatex, { output: 'html' }],
+                          [rehypeKatex, KATEX_OPTIONS],
                         ]}
                         components={mdComponents}
                       >
@@ -1025,7 +1026,7 @@ function ChapterizedReportViewInner({
                             remarkPlugins={[remarkGfm, remarkMath]}
                             rehypePlugins={[
                               rehypeRaw,
-                              [rehypeKatex, { output: 'html' }],
+                              [rehypeKatex, KATEX_OPTIONS],
                             ]}
                             components={mdComponents}
                           >

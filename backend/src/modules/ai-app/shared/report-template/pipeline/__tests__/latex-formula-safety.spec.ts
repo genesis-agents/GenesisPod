@@ -637,21 +637,6 @@ describe("regression: previously broken patterns", () => {
       expect(result).toContain("$$T_{\\mathrm{barrier}}$$");
     });
 
-    // ---- Unclosed inline $ + CJK transition ----
-    it("should close unclosed $ at CJK transition, not wrap sub-fragments", () => {
-      const input =
-        "第二，是阶段调整项：$\\delta_i=\\delta_i^{retry}+\\delta_i^{wait}+\\delta_i^{sync}，用于表达可审计的附加耗时";
-      const result = mergeAdjacentMathBlocks(input);
-      // Closing $ inserted right before CJK transition
-      expect(result).toContain(
-        "$\\delta_i=\\delta_i^{retry}+\\delta_i^{wait}+\\delta_i^{sync}$",
-      );
-      // No mid-expression $ insertion (previous bug: \delta_$i^{sync}$)
-      expect(result).not.toMatch(/\\delta_\$/);
-      // Prose after preserved
-      expect(result).toContain("，用于表达可审计的附加耗时");
-    });
-
     it("should NOT alter already-balanced inline math with CJK", () => {
       const input = "定义 $\\delta_i=\\delta_i^{retry}$，用于说明。";
       const result = mergeAdjacentMathBlocks(input);
@@ -666,42 +651,22 @@ describe("regression: previously broken patterns", () => {
       expect(result).toContain("\\beta$");
     });
 
-    // ---- Bare \command_sub wrap (Phase 0c \b failure) ----
-    it("should wrap bare \\delta_i in CJK prose", () => {
-      const input = "再将补值写入 \\delta_i 或单独惩罚项中";
-      const result = mergeAdjacentMathBlocks(input);
-      expect(result).toContain("$\\delta_i$");
-      expect(result).toContain("或单独惩罚项中");
-    });
-
-    it("should wrap bare \\command_{sub} with braces", () => {
-      const input = "定义 \\delta_{i,j} 为惩罚项";
-      const result = mergeAdjacentMathBlocks(input);
-      expect(result).toContain("$\\delta_{i,j}$");
-    });
-
-    // ---- Prose absorbed inside $...$ (Case B split) ----
-    it("should split prose-absorbed $...$ and recover stray letter$", () => {
-      const input =
-        "输出 $T_{norm}=\\frac{T^{adj}}{B}，其中B$ 是预先声明的基准量";
-      const result = mergeAdjacentMathBlocks(input);
-      // Formula closes at LaTeX/CJK boundary
-      expect(result).toContain("{B}$");
-      // Stray B$ gets wrapped: $B$
-      expect(result).toContain("$B$");
-      // Prose after preserved
-      expect(result).toContain("是预先声明的基准量");
-      // No CJK prose remains inside a $...$ block
-      const mathBlocks = result.match(/\$[^$\n]+\$/g) || [];
-      for (const blk of mathBlocks) {
-        expect(blk).not.toMatch(/[\uff0c\u3002]/); // no CJK punct inside math
-      }
-    });
-
     it("should NOT split $...$ that contains only \\text{CJK}", () => {
       const input = "The term $T_{\\text{prefix}}+T_{\\text{suffix}}$ sums.";
       const result = mergeAdjacentMathBlocks(input);
       expect(result).toBe(input);
     });
+
+    // ──────────────────────────────────────────────────────────────────
+    // Damage patterns that used to be "repaired" by Phase -0.3 / 0c-bis:
+    //   - Unclosed `$formula，prose` on a single line
+    //   - Prose absorbed inside `$...$` (e.g. `$T=...{B}，其中B$`)
+    //   - Bare `\delta_i` in CJK prose
+    // These are now handled OUTSIDE this module:
+    //   1. LLM boundary validates + retries (see latex-delimiter-validator)
+    //   2. Frontend KaTeX renders gracefully (see katexOptions.ts)
+    // We intentionally DO NOT re-patch them here — those regex fixes were
+    // the source of escalating fragility. The pipeline's job is to leave
+    // well-formed input alone and not introduce damage of its own.
   });
 });

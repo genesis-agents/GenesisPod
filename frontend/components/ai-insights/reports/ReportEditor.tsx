@@ -25,6 +25,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
 import rehypeRaw from 'rehype-raw';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -1108,7 +1109,7 @@ function ReportEditorInner({
       <ReactMarkdown
         key={key}
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, [rehypeKatex, { output: 'html' }]]}
+        rehypePlugins={[rehypeRaw, [rehypeKatex, KATEX_OPTIONS]]}
         components={createMarkdownComponents(processText)}
       >
         {content}
@@ -1446,7 +1447,7 @@ function ReportEditorInner({
               <article className="prose prose-gray prose-sm prose-strong:text-blue-600 dark:prose-strong:text-blue-400 max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeRaw, [rehypeKatex, { output: 'html' }]]}
+                  rehypePlugins={[rehypeRaw, [rehypeKatex, KATEX_OPTIONS]]}
                   components={{
                     a: ({ href, children }) => (
                       <a

@@ -26,6 +26,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
 import { preprocessLatex } from '@/lib/report/preprocessLatex';
 import { stripProseBullets } from '@/lib/report/stripProseBullets';
 import {
@@ -369,7 +370,7 @@ export default function SharedTopicPage() {
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[
                           rehypeRaw,
-                          [rehypeKatex, { output: 'html' }],
+                          [rehypeKatex, KATEX_OPTIONS],
                         ]}
                       >
                         {rawContent}
@@ -401,7 +402,7 @@ export default function SharedTopicPage() {
                           remarkPlugins={[remarkGfm, remarkMath]}
                           rehypePlugins={[
                             rehypeRaw,
-                            [rehypeKatex, { output: 'html' }],
+                            [rehypeKatex, KATEX_OPTIONS],
                           ]}
                         >
                           {text}

@@ -1518,67 +1518,19 @@ export function mergeAdjacentMathBlocks(content: string): string {
     return _match;
   });
 
-  // ── Phase -0.3: Displaced/unclosed $ recovery before bare-LaTeX wrap ───
-  // Three damage patterns are handled before Phase 0c runs, so Phase 0c
-  // won't misinterpret partially-wrapped content and insert $ mid-formula:
+  // ── Previous "Phase -0.3" guess-work removed 2026-04-17 ──
+  // Earlier commits added Case A / B / C here to reverse-engineer misplaced
+  // `$` delimiters from LLM output. Every pattern we fixed uncovered a new
+  // one, and the regex-patching made the pipeline more fragile, not less.
   //
-  //   Case A: `$formula，prose` — opened, never closed, prose CJK after
-  //            → insert closing `$` at the LaTeX/CJK boundary
-  //   Case B: `$formula，其中其他$` — prose absorbed inside $...$ block
-  //            → split at first CJK punctuation outside \text{...} group
-  //   Case C: `...letter$ prose` — orphan closing $ after a single letter
-  //            preceded by CJK (usually the leftover of a displaced pair)
-  //            → insert opening `$` before the letter: `...$letter$ prose`
-  //
-  // All three are conservative: only fire with LaTeX-ish content present,
-  // and Case C requires odd-$ line (so we don't turn balanced math into
-  // unbalanced).
-
-  // Case B: split $...$ blocks that wrongly absorbed prose
-  result = result.replace(/\$([^$\n]+)\$/g, (match, inner: string) => {
-    // Ignore \text{中文}-legitimate CJK: strip those groups first
-    const stripped = inner.replace(/\\text\{[^}]*\}/g, "");
-    if (!/[\uff0c\u3002\uff1b]/.test(stripped)) return match;
-    const cjkIdx = inner.search(/[\uff0c\u3002\uff1b]/);
-    if (cjkIdx <= 0) return match;
-    const before = inner.slice(0, cjkIdx).trimEnd();
-    const after = inner.slice(cjkIdx);
-    if (!/\\[a-zA-Z]|[_^]\{|[_^][a-zA-Z]/.test(before)) return match;
-    // Close math at LaTeX/CJK boundary. Keep the trailing `$` (from the
-    // original closing delimiter) outside so Case C can recover it into
-    // a proper `$letter$` if there's a stray ASCII letter before it.
-    return `$${before}$${after}$`;
-  });
-
-  // Case A + Case C: per-line unbalanced-$ recovery
-  result = result.replace(/^[^\n]+$/gm, (line) => {
-    const dollars = (line.match(/(?<!\\)\$/g) || []).length;
-    if (dollars % 2 === 0) return line;
-
-    // Case A: exactly 1 $ — missing closing $
-    if (dollars === 1) {
-      const openPos = line.indexOf("$");
-      const after = line.slice(openPos + 1);
-      const cjkIdx = after.search(
-        /[\u4e00-\u9fff\u3400-\u4dbf\uff0c\u3002\uff1b\uff1a\uff01\uff1f]/,
-      );
-      if (cjkIdx <= 0) return line;
-      const latexPart = after.slice(0, cjkIdx).trimEnd();
-      if (!/\\[a-zA-Z]|\^\{|_\{/.test(latexPart)) return line;
-      const insertAt = openPos + 1 + latexPart.length;
-      return line.slice(0, insertAt) + "$" + line.slice(insertAt);
-    }
-
-    // Case C: 3+ $ with orphan closing $ after a single ASCII letter
-    // in CJK prose context (e.g. "其中B$ 是") — insert opening $.
-    // Replacement: `$1 $ + $2 + $ + $3` = capture1 + space + literal $ +
-    // capture2 + literal $ + capture3. In JS replacement syntax, literal $
-    // is "$$" so the full string is "$1 $$$2$$$3".
-    return line.replace(
-      /([\u4e00-\u9fff])([A-Za-z])\$(\s|[\u4e00-\u9fff])/,
-      "$1 $$$2$$$3",
-    );
-  });
+  // Proper fix is layered outside this file:
+  //   1. LLM boundary: `validateLatexDelimiters` + single retry (A scheme)
+  //      — rejects malformed output at the source.
+  //   2. Frontend KaTeX: `throwOnError: false, strict: 'ignore'` (B scheme)
+  //      — whatever leaks through renders the raw source in red instead of
+  //        corrupting surrounding content via bad regex fixes.
+  // See `src/common/utils/latex-delimiter-validator.ts` and
+  // `frontend/lib/report/katexOptions.ts`.
 
   // ── Phase 0: Wrap bare LaTeX expressions that lack $...$ delimiters ────
   // Handles both standalone formula lines and inline bare LaTeX.
@@ -1677,18 +1629,8 @@ export function mergeAdjacentMathBlocks(content: string): string {
     },
   );
 
-  // ── Phase 0c-bis: bare \command with sub/superscript not caught above ──
-  // The Phase 0c regex above uses `\b` after the command name, but `\b`
-  // FAILS between a letter and `_` (both are word-chars), so patterns like
-  // `\delta_i` / `\delta_{i}` / `\sigma^2` never match. Without wrapping,
-  // KaTeX renders them as literal source text inside CJK prose.
-  //
-  // This supplementary regex captures `\command` + one-or-more sub/super
-  // groups, stopping strictly at CJK characters so prose isn't absorbed.
-  result = result.replace(
-    /(?<![$\\])\\[a-zA-Z]+(?:[_^](?:[a-zA-Z0-9]+|\{[^}]*\}))+(?!\$)/g,
-    (match) => `$${match}$`,
-  );
+  // Phase 0c-bis removed 2026-04-17 — replaced by A+B scheme (source-level
+  // LaTeX validator + KaTeX graceful rendering). See comment in Phase -0.3.
 
   // Restore math slots immediately after bare-LaTeX wrapping
   const mathSlotRe = new RegExp(
