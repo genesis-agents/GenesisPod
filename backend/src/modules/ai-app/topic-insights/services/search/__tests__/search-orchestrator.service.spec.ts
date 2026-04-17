@@ -19,6 +19,7 @@ import { QueryStrategyService } from "../query/query-strategy.service";
 import { SearchExecutorService } from "../search-executor.service";
 import { ResultFusionService } from "../fusion/result-fusion.service";
 import { QualityGateService } from "../fusion/quality-gate.service";
+import { LlmRerankerAdapter } from "../rerank/llm-reranker.adapter";
 import { ToolFacade } from "@/modules/ai-engine/facade";
 import { CapabilityGuardService } from "@/modules/ai-kernel/facade";
 import { DataSourceType } from "../../../types/data-source.types";
@@ -171,6 +172,11 @@ const mockCapabilityGuard = {
   checkDataAccess: jest.fn(),
 };
 
+const mockReranker = {
+  id: "llm",
+  rerank: jest.fn(),
+};
+
 // ============================================================
 // Tests
 // ============================================================
@@ -211,6 +217,10 @@ describe("SearchOrchestratorService", () => {
         { provide: SearchExecutorService, useValue: mockExecutor },
         { provide: ResultFusionService, useValue: mockFusion },
         { provide: QualityGateService, useValue: mockQualityGate },
+        {
+          provide: LlmRerankerAdapter,
+          useValue: mockReranker,
+        },
         { provide: ToolFacade, useValue: mockToolFacade },
         { provide: CapabilityGuardService, useValue: mockCapabilityGuard },
       ],
@@ -907,6 +917,97 @@ describe("SearchOrchestratorService", () => {
   });
 
   // ===========================================================
+  // search() — rerank stage (batch 5 addition)
+  // ===========================================================
+
+  describe("search() — rerank stage", () => {
+    it("should NOT call reranker when rerankConfig.enabled is missing / false", async () => {
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+
+      // default (no rerankConfig)
+      await service.search(dimension as any, topic as any);
+      expect(mockReranker.rerank).not.toHaveBeenCalled();
+
+      // explicit false
+      await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: false },
+      });
+      expect(mockReranker.rerank).not.toHaveBeenCalled();
+    });
+
+    it("should NOT call reranker when scoredItems is empty (nothing to rerank)", async () => {
+      mockFusion.fuse.mockReturnValue(
+        makeAggregatedResult({ scoredItems: [] }),
+      );
+
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+      await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: true },
+      });
+
+      expect(mockReranker.rerank).not.toHaveBeenCalled();
+    });
+
+    it("should NOT call reranker when candidate pool <= topK", async () => {
+      // 5 scoredItems, topK=20 → pool=min(60, 5)=5, 5 <= 20 → skip
+      const scoredItems = Array.from({ length: 5 }, (_, i) => ({
+        item: makeDataSourceResult({ url: `https://a.com/${i}` }),
+        score: 1 - i * 0.1,
+        relevanceScore: 0.9,
+        credibilityScore: 0.8,
+      }));
+      mockFusion.fuse.mockReturnValue(
+        makeAggregatedResult({ scoredItems, totalCount: 5 }),
+      );
+
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+      await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: true },
+      });
+
+      expect(mockReranker.rerank).not.toHaveBeenCalled();
+    });
+
+    it("should call reranker and replace items with reranked top K", async () => {
+      // 10 scoredItems, topK=3, multiplier=2 → pool=min(6, 10)=6, 6 > 3 → call
+      const scoredItems = Array.from({ length: 10 }, (_, i) => ({
+        item: makeDataSourceResult({ url: `https://a.com/${i}` }),
+        score: 1 - i * 0.05,
+        relevanceScore: 0.9,
+        credibilityScore: 0.8,
+      }));
+      mockFusion.fuse.mockReturnValue(
+        makeAggregatedResult({ scoredItems, totalCount: 10 }),
+      );
+
+      // Reranker returns top 3, in reverse order of input (just to prove it ran)
+      mockReranker.rerank.mockResolvedValue([
+        { item: scoredItems[5].item, originalIndex: 5, rerankScore: 0.95 },
+        { item: scoredItems[2].item, originalIndex: 2, rerankScore: 0.85 },
+        { item: scoredItems[4].item, originalIndex: 4, rerankScore: 0.7 },
+      ]);
+
+      const dimension = makeTopicDimension();
+      const topic = makeResearchTopic();
+      const result = await service.search(dimension as any, topic as any, {
+        rerankConfig: { enabled: true, topK: 3, candidateMultiplier: 2 },
+      });
+
+      expect(mockReranker.rerank).toHaveBeenCalledTimes(1);
+      const rerankArg = mockReranker.rerank.mock.calls[0][0];
+      expect(rerankArg.topK).toBe(3);
+      expect(rerankArg.candidates).toHaveLength(6); // pool = 3 * 2
+      expect(result.items).toHaveLength(3);
+      expect(result.items[0].url).toBe("https://a.com/5");
+      expect(result.totalCount).toBe(3);
+      expect(result.scoredItems?.[0].relevanceScore).toBeCloseTo(0.95, 2);
+    });
+  });
+
+  // ===========================================================
   // search() — without optional dependencies
   // ===========================================================
 
@@ -921,6 +1022,13 @@ describe("SearchOrchestratorService", () => {
           { provide: SearchExecutorService, useValue: mockExecutor },
           { provide: ResultFusionService, useValue: mockFusion },
           { provide: QualityGateService, useValue: mockQualityGate },
+          {
+            provide: LlmRerankerAdapter,
+            useValue: {
+              id: "llm",
+              rerank: jest.fn().mockResolvedValue([]),
+            },
+          },
           // No ToolFacade, no CapabilityGuardService
         ],
       }).compile();

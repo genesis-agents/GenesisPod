@@ -113,6 +113,7 @@ export {
   QueryStrategyService,
   ResultFusionService,
   QualityGateService,
+  LlmRerankerAdapter,
   WebSearchAdapter,
   AcademicSearchAdapter,
   GithubSearchAdapter,
