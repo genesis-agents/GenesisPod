@@ -1589,8 +1589,8 @@ export class TopicInsightsService {
 
     // 0. 解析目标 Mission 和时间窗口
     const targetMission = missionId
-      ? await this.prisma.researchMission.findUnique({
-          where: { id: missionId },
+      ? await this.prisma.researchMission.findFirst({
+          where: { id: missionId, topicId },
           select: {
             id: true,
             topicId: true,
@@ -1621,6 +1621,13 @@ export class TopicInsightsService {
           },
         });
 
+    // 验证 missionId 有效性
+    if (missionId && !targetMission) {
+      throw new NotFoundException(
+        `Mission ${missionId} not found for topic ${topicId}`,
+      );
+    }
+
     // 时间窗口：mission 的 startedAt → completedAt（或 now）
     const windowStart = targetMission?.startedAt ?? targetMission?.createdAt;
     const windowEnd = targetMission?.completedAt ?? new Date();
@@ -1635,26 +1642,18 @@ export class TopicInsightsService {
       },
       orderBy: { generatedAt: "desc" },
       select: {
+        id: true,
         totalTokens: true,
         generationTimeMs: true,
         totalDimensions: true,
       },
     });
 
-    // 2. 获取最新报告的维度分析（join dimension name）
+    // 2. 获取该报告的维度分析（复用 latestReport.id，不重新查询）
     const dimensionAnalyses = await this.prisma.dimensionAnalysis.findMany({
       where: {
-        report: {
-          topicId,
-        },
         reportId: {
-          in: await this.prisma.topicReport
-            .findFirst({
-              where: { topicId },
-              orderBy: { generatedAt: "desc" },
-              select: { id: true },
-            })
-            .then((r) => (r ? [r.id] : [])),
+          in: latestReport ? [latestReport.id] : [],
         },
       },
       select: {
@@ -1695,7 +1694,7 @@ export class TopicInsightsService {
         FROM credit_transactions
         WHERE reference_id = ${topicId}
           AND amount < 0
-          AND created_at >= ${windowStart ?? new Date(0)}
+          AND created_at >= ${windowStart ?? new Date("2020-01-01")}
           AND created_at <= ${windowEnd}
         GROUP BY model_name
         ORDER BY call_count DESC

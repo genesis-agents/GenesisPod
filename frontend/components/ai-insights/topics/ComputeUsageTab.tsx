@@ -419,7 +419,13 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
           topicId,
           selectedMissionId,
         )) as ComputeUsageData;
-        if (!cancelled) setData(result);
+        if (!cancelled) {
+          setData(result);
+          // 首次加载时同步 selectedMissionId
+          if (!selectedMissionId && result.currentMissionId) {
+            setSelectedMissionId(result.currentMissionId);
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           logger.error('[ComputeUsageTab] fetch error:', err);
@@ -607,7 +613,7 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
   return (
     <div className="space-y-6 overflow-y-auto p-4">
       {/* ═══ Mission Selector ═══ */}
-      {data.missions && data.missions.length > 1 && (
+      {data.missions && data.missions.length > 0 && (
         <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-gray-500">
             {t('topicResearch.computeUsage.missionInfo')}:
@@ -637,11 +643,11 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                     })}
                 {' '}
                 ({m.status === 'COMPLETED'
-                  ? '已完成'
+                  ? t('topicResearch.computeUsage.statusCompleted')
                   : m.status === 'EXECUTING'
-                    ? '进行中'
+                    ? t('topicResearch.computeUsage.statusExecuting')
                     : m.status === 'FAILED'
-                      ? '失败'
+                      ? t('topicResearch.computeUsage.statusFailed')
                       : m.status})
                 {m.researchDepth ? ` · ${m.researchDepth}` : ''}
               </option>

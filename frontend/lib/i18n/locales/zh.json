@@ -6043,7 +6043,10 @@
       "overhead": "系统开销",
       "tokenThroughput": "生成吞吐",
       "tokensPerSec": "tokens/s",
-      "noLatencyData": "暂无时延数据，下次研究完成后将自动展示各阶段耗时、TTFT 和吞吐量分析"
+      "noLatencyData": "暂无时延数据，下次研究完成后将自动展示各阶段耗时、TTFT 和吞吐量分析",
+      "statusCompleted": "已完成",
+      "statusExecuting": "进行中",
+      "statusFailed": "失败"
     },
     "topics": {
       "credibilityPanel": {
