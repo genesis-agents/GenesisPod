@@ -259,7 +259,6 @@ Return JSON:
             content: `Please translate the following external web content blocks:\n\n${externalBlocks.join("\n\n")}`,
           },
         ],
-        operationName: "多语言合成",
         modelType: AIModelType.CHAT,
         taskProfile: { creativity: "low", outputLength: "long" },
       });
