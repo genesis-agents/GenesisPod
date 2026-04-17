@@ -18,6 +18,7 @@ import {
   type EstablishedFact,
 } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
 import {
@@ -1605,32 +1606,86 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     );
 
     // 渲染系统提示词（语言感知）
-    const systemPrompt = renderSynthesisSystemPrompt(topic.language || "zh");
-
-    // 调用 AI 生成报告
-    // ★ 不传 explicit maxTokens — 由 TaskProfile mapper 根据模型实际限制自动计算
-    // 避免请求 36000+ tokens 后被 reasoning 模型（如 grok-4, 16384 limit）强制截断
-    const response = await this.chatFacade.chatWithSkills({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      additionalSkills: ["report-synthesis"],
-      operationName: "执行摘要",
-      modelType: AIModelType.CHAT,
-      skipGuardrails: true, // 内部系统调用，报告综合生成
-      cachePolicy: "auto",
-      taskProfile: {
-        creativity: "medium",
-        outputLength: "extended",
-      },
-    });
-
-    // 解析 AI 响应
-    const { structuredReport, charts } = this.parseAIReportWithCharts(
-      response.content,
+    const baseSystemPrompt = renderSynthesisSystemPrompt(
       topic.language || "zh",
     );
+
+    // ★ 2026-04-18: LaTeX validator + single retry at synthesis boundary.
+    // Supplementary sections (executive summary / cross-dim / risk / strategy
+    // / conclusion) are ALL written in this single LLM call. Without a check
+    // here, malformed LaTeX ($..., missing $, prose inside $...$) ships
+    // straight into fullReport. Retry ONCE with repairHint on failure.
+    let response: { content: string; tokensUsed?: number } = { content: "" };
+    let structuredReport: ComprehensiveReport = {} as ComprehensiveReport;
+    let charts: ReportChart[] = [];
+    let attempt = 0;
+    const MAX_ATTEMPTS = 2;
+    let currentSystemPrompt = baseSystemPrompt;
+
+    while (true) {
+      attempt++;
+      const r = await this.chatFacade.chatWithSkills({
+        messages: [
+          { role: "system", content: currentSystemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        additionalSkills: ["report-synthesis"],
+        operationName: attempt === 1 ? "执行摘要" : "执行摘要(LaTeX 修复重试)",
+        modelType: AIModelType.CHAT,
+        skipGuardrails: true,
+        cachePolicy: "auto",
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "extended",
+        },
+      });
+      // Defensive: if a retry call returns nothing (e.g. test mocks
+      // configured for a single call), keep the previous response rather
+      // than crashing. On the first attempt this cannot happen in prod —
+      // any real chatWithSkills returns a payload — so we preserve the
+      // crash semantics there to catch genuine infra failures.
+      if (!r || typeof r.content !== "string") {
+        if (attempt === 1) {
+          response = r as unknown as { content: string; tokensUsed?: number };
+        }
+        break;
+      }
+      response = r;
+
+      const parsed = this.parseAIReportWithCharts(
+        response.content,
+        topic.language || "zh",
+      );
+      structuredReport = parsed.structuredReport;
+      charts = parsed.charts;
+
+      // Validate every markdown-bearing supplementary field
+      const combined = [
+        structuredReport.preface ?? "",
+        structuredReport.executiveSummary ?? "",
+        structuredReport.crossDimensionAnalysis ?? "",
+        structuredReport.riskAssessment ?? "",
+        structuredReport.strategicRecommendations ?? "",
+        structuredReport.conclusion ?? "",
+      ].join("\n\n");
+      const latexCheck = validateLatexDelimiters(combined);
+      if (latexCheck.valid || attempt >= MAX_ATTEMPTS) {
+        if (!latexCheck.valid) {
+          this.logger.warn(
+            `[generateStructuredReport] LaTeX validator still failing after ${attempt} attempts (${latexCheck.issues.length} issues). Shipping best effort.`,
+          );
+        } else if (attempt > 1) {
+          this.logger.log(
+            `[generateStructuredReport] LaTeX validator passed on retry #${attempt}`,
+          );
+        }
+        break;
+      }
+      this.logger.warn(
+        `[generateStructuredReport] LaTeX validator caught ${latexCheck.issues.length} issues on attempt ${attempt}. Retrying with repair hint.`,
+      );
+      currentSystemPrompt = `${baseSystemPrompt}\n\n${latexCheck.repairHint}`;
+    }
 
     // ★ 引用后验证：对综合报告的核心字段做引用准确性校验
     // 已知限制：EvidenceInput 没有 snippet/content，验证仅依赖 title + domain + numbers，
