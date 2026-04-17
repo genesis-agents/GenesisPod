@@ -52,32 +52,19 @@ export class LatexRepairService {
     after?: LatexValidationResult;
     failureReason?: string;
   }> {
-    // ── Step 1: Mechanical pre-cleanup of known stored-data artifacts ──
-    // These aren't "LLM issues" — they're artifacts from a previous
-    // regex bug (fixed in commit bcaeddec8) that left literal `$1` in
-    // stored markdown, plus `$$` misplaced inside subscript braces.
-    // No LLM needed to remove them; a targeted regex is correct here
-    // because the pattern is mechanical and unambiguous.
-    let preCleaned = markdown;
-
-    // Pattern 9: `$$$1$$$1$$` literal artifacts from the old
-    // "$$$$$$1$$$$" replacement-string bug. Always spurious.
-    preCleaned = preCleaned.replace(/\${3,}1\${2,}/g, "");
-
-    // Pattern 10: `$$` misplaced inside a closing brace,
-    // e.g. `t_{\mathrm{end}$$}` → `t_{\mathrm{end}}`, `x_{sub}$$` at token
-    // boundary → `x_{sub}`. Safe because `$$` directly after `}` inside a
-    // subscript context is never valid LaTeX.
-    preCleaned = preCleaned.replace(/\}\$\$(?=[})\s，。；、])/g, "}");
-    preCleaned = preCleaned.replace(/\}\$\$\}/g, "}}");
-
-    const before = validateLatexDelimiters(preCleaned);
+    // ── No mechanical pre-cleanup ──
+    // Earlier iterations stripped `$$$1$$` artifacts and `}$$` patterns
+    // via regex, but a scan of 303 stored reports showed every candidate
+    // "artifact" carries LOST content (the regex bug that produced `$1`
+    // replaced a real formula, so stripping `$1` leaves a lone `}` or
+    // mismatched delimiter — adding MORE issues, not fewer). Only an LLM
+    // that sees surrounding context can safely rebuild those regions.
+    //
+    // So: we skip straight to validator → LLM.
+    const before = validateLatexDelimiters(markdown);
     if (before.valid) {
-      const changed = preCleaned !== markdown;
-      return { repaired: preCleaned, changed };
+      return { repaired: markdown, changed: false };
     }
-
-    markdown = preCleaned;
 
     this.logger.log(
       `[LatexRepair] Found ${before.issues.length} issue(s), invoking LLM. Types: ${Array.from(

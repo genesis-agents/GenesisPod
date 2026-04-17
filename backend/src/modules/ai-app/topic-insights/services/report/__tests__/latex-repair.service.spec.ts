@@ -17,22 +17,7 @@ describe("LatexRepairService", () => {
     service = moduleRef.get(LatexRepairService);
   });
 
-  describe("pre-cleanup (no LLM needed)", () => {
-    it("strips $1 artifacts from old regex bug", async () => {
-      const input =
-        "Formula: $$$1$$$1$$TTLT=t_{in}+t_{d1}+t_{out}$$$1$$$1$$ end.";
-      const result = await service.repairMarkdown(input);
-      expect(result.repaired).not.toContain("$1");
-      expect(mockChatFacade.chat).not.toHaveBeenCalled();
-    });
-
-    it("strips $$ misplaced inside subscript brace", async () => {
-      const input = "起点 $t_0$, 终点 $t_{\\mathrm{end}$$}$";
-      const result = await service.repairMarkdown(input);
-      expect(result.repaired).not.toContain("{\\mathrm{end}$$}");
-      expect(result.repaired).toContain("{\\mathrm{end}}");
-    });
-
+  describe("early exit (no LLM needed)", () => {
     it("leaves clean markdown untouched without calling LLM", async () => {
       const input = "Good formula: $\\alpha + \\beta$ here.";
       const result = await service.repairMarkdown(input);
