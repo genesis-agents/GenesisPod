@@ -1627,17 +1627,32 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       topic.language || "zh",
     );
 
-    // ★ 2026-04-18: LaTeX validator + single retry at synthesis boundary.
+    // ★ 2026-04-18: LaTeX validator + 3-attempt retry at synthesis boundary.
     // Supplementary sections (executive summary / cross-dim / risk / strategy
-    // / conclusion) are ALL written in this single LLM call. Without a check
+    // / conclusion) are ALL written in this single LLM call. Without checks
     // here, malformed LaTeX ($..., missing $, prose inside $...$) ships
-    // straight into fullReport. Retry ONCE with repairHint on failure.
+    // straight into fullReport.
+    //
+    // Strategy:
+    //   attempt 1: base prompt
+    //   attempt 2: base + repairHint from attempt 1 output
+    //   attempt 3: base + repairHint + FORCEFUL few-shot examples of
+    //              good-vs-bad LaTeX
+    //   after 3:   ship best-effort, log structured metric for dashboard
     let response: { content: string; tokensUsed?: number } = { content: "" };
     let structuredReport: ComprehensiveReport = {} as ComprehensiveReport;
     let charts: ReportChart[] = [];
     let attempt = 0;
-    const MAX_ATTEMPTS = 2;
+    const MAX_ATTEMPTS = 3;
     let currentSystemPrompt = baseSystemPrompt;
+    let bestLatexResult: { valid: boolean; issues: number } = {
+      valid: false,
+      issues: Number.POSITIVE_INFINITY,
+    };
+    let bestParsed: {
+      structuredReport: ComprehensiveReport;
+      charts: ReportChart[];
+    } | null = null;
 
     while (true) {
       attempt++;
@@ -1647,7 +1662,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           { role: "user", content: userPrompt },
         ],
         additionalSkills: ["report-synthesis"],
-        operationName: attempt === 1 ? "执行摘要" : "执行摘要(LaTeX 修复重试)",
+        operationName:
+          attempt === 1
+            ? "执行摘要"
+            : `执行摘要(LaTeX 修复重试 #${attempt - 1})`,
         modelType: AIModelType.CHAT,
         skipGuardrails: true,
         cachePolicy: "auto",
@@ -1656,11 +1674,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           outputLength: "extended",
         },
       });
-      // Defensive: if a retry call returns nothing (e.g. test mocks
-      // configured for a single call), keep the previous response rather
-      // than crashing. On the first attempt this cannot happen in prod —
-      // any real chatWithSkills returns a payload — so we preserve the
-      // crash semantics there to catch genuine infra failures.
       if (!r || typeof r.content !== "string") {
         if (attempt === 1) {
           response = r as unknown as { content: string; tokensUsed?: number };
@@ -1676,7 +1689,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       structuredReport = parsed.structuredReport;
       charts = parsed.charts;
 
-      // Validate every markdown-bearing supplementary field
       const combined = [
         structuredReport.preface ?? "",
         structuredReport.executiveSummary ?? "",
@@ -1686,22 +1698,56 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         structuredReport.conclusion ?? "",
       ].join("\n\n");
       const latexCheck = validateLatexDelimiters(combined);
-      if (latexCheck.valid || attempt >= MAX_ATTEMPTS) {
-        if (!latexCheck.valid) {
-          this.logger.warn(
-            `[generateStructuredReport] LaTeX validator still failing after ${attempt} attempts (${latexCheck.issues.length} issues). Shipping best effort.`,
-          );
-        } else if (attempt > 1) {
+
+      // Keep the BEST attempt so far — if a later retry regresses, we
+      // still have a saner earlier result to ship.
+      if (latexCheck.issues.length < bestLatexResult.issues) {
+        bestLatexResult = {
+          valid: latexCheck.valid,
+          issues: latexCheck.issues.length,
+        };
+        bestParsed = { structuredReport, charts };
+      }
+
+      if (latexCheck.valid) {
+        if (attempt > 1) {
           this.logger.log(
-            `[generateStructuredReport] LaTeX validator passed on retry #${attempt}`,
+            `[generateStructuredReport] ✓ LaTeX clean on attempt ${attempt} (after ${attempt - 1} retries)`,
           );
         }
+        // Structured metric for observability
+        this.logger.log(
+          `[metrics] synthesis_latex_attempts=${attempt} synthesis_latex_outcome=clean`,
+        );
         break;
       }
+
+      if (attempt >= MAX_ATTEMPTS) {
+        // Restore the BEST attempt (lowest issue count)
+        if (bestParsed) {
+          structuredReport = bestParsed.structuredReport;
+          charts = bestParsed.charts;
+        }
+        this.logger.warn(
+          `[generateStructuredReport] ✗ LaTeX validator still failing after ${MAX_ATTEMPTS} attempts (${bestLatexResult.issues} residual issues). Shipping best effort.`,
+        );
+        this.logger.log(
+          `[metrics] synthesis_latex_attempts=${attempt} synthesis_latex_outcome=best_effort synthesis_latex_residual=${bestLatexResult.issues}`,
+        );
+        break;
+      }
+
       this.logger.warn(
-        `[generateStructuredReport] LaTeX validator caught ${latexCheck.issues.length} issues on attempt ${attempt}. Retrying with repair hint.`,
+        `[generateStructuredReport] LaTeX validator caught ${latexCheck.issues.length} issues on attempt ${attempt}. Retrying.`,
       );
-      currentSystemPrompt = `${baseSystemPrompt}\n\n${latexCheck.repairHint}`;
+
+      // Build next-attempt prompt. Escalating intensity per attempt.
+      if (attempt === 1) {
+        currentSystemPrompt = `${baseSystemPrompt}\n\n${latexCheck.repairHint}`;
+      } else {
+        // Final retry: include FORCEFUL few-shot examples
+        currentSystemPrompt = `${baseSystemPrompt}\n\n${latexCheck.repairHint}\n\n${this.buildForcefulLatexExamples()}`;
+      }
     }
 
     // ★ 引用后验证：对综合报告的核心字段做引用准确性校验
@@ -1755,6 +1801,40 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       structuredReport,
       charts,
     };
+  }
+
+  /**
+   * Forceful few-shot LaTeX examples for the 3rd retry attempt.
+   * When the LLM has already ignored the repair hint twice, we escalate
+   * to explicit good/bad pairs covering the patterns we actually see
+   * in production damage.
+   */
+  private buildForcefulLatexExamples(): string {
+    return [
+      "## CRITICAL: LaTeX formatting examples (follow EXACTLY)",
+      "",
+      "❌ WRONG — bare LaTeX in prose (will NOT render):",
+      "    总公式 TTLT=\\sum_{i=1}^{n} T_i 的含义...",
+      "✅ RIGHT — every formula wrapped in `$...$`:",
+      "    总公式 $TTLT=\\sum_{i=1}^{n} T_i$ 的含义...",
+      "",
+      "❌ WRONG — Chinese punctuation INSIDE `$...$`:",
+      "    $T_{norm}=\\frac{T^{adj}}{B}，其中B$ 是基准值",
+      "✅ RIGHT — close formula first, then prose:",
+      "    $T_{norm}=\\frac{T^{adj}}{B}$，其中 $B$ 是基准值",
+      "",
+      "❌ WRONG — `$` opened but never closed on the same line:",
+      "    设 $\\delta_i=\\delta_i^{retry}，用于说明",
+      "✅ RIGHT — close at boundary:",
+      "    设 $\\delta_i=\\delta_i^{retry}$，用于说明",
+      "",
+      "❌ WRONG — CJK character inside subscript brace:",
+      "    $T_{输入理解}$",
+      "✅ RIGHT — wrap CJK in `\\text{…}`:",
+      "    $T_{\\text{输入理解}}$",
+      "",
+      "These are the LAST-CHANCE corrections. ALL inline formulas must match `$...$` and ALL display formulas must match `$$...$$`. Do not output any LaTeX outside of these delimiters.",
+    ].join("\n");
   }
 
   /**
