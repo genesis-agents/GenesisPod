@@ -7,7 +7,7 @@
     "intent": "brief"
   },
   "bindings": {
-    "plan.outline": "outline-planning",
+    "plan.outline": "outline-exec-brief",
     "compose.pageType": "page-type-selection",
     "compose.templateMatch": "template-matcher",
     "compose.contentBuild": "four-step-design",

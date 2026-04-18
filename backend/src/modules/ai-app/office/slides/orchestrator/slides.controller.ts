@@ -62,6 +62,7 @@ import {
   IsArray,
   IsNotEmpty,
   IsObject,
+  IsBoolean,
   Min,
   Max,
   MaxLength,
@@ -79,6 +80,7 @@ import {
   MissionExecutorService,
 } from "../../../../ai-kernel/facade";
 import { Prisma } from "@prisma/client"; // needed for Prisma.JsonNull
+import { PresetLoader } from "../skill-resolver";
 
 // ============================================
 // DTOs
@@ -150,6 +152,10 @@ class GenerateDto {
   @IsString()
   @MaxLength(20)
   language?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  autoRoute?: boolean;
 }
 
 class RerenderPageDto {
@@ -253,8 +259,30 @@ export class SlidesController {
     private readonly aiEditService: AIEditService,
     private readonly voiceNarrationSkill: VoiceNarrationSkill,
     private readonly prisma: PrismaService,
+    @Optional() private readonly presetLoader?: PresetLoader,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
   ) {}
+
+  // ============================================
+  // Presets API (Skills-driven extensibility)
+  // ============================================
+
+  /**
+   * 获取可用的 Slides 预设（Preset）列表。
+   * 前端在用户选择数据源后，可根据 sourceType 过滤推荐的 preset。
+   */
+  @Public()
+  @Get("presets")
+  getPresets() {
+    const presets = this.presetLoader?.list() ?? [];
+    return {
+      presets: presets.map((p) => ({
+        id: p.id,
+        description: p.description,
+        appliesTo: p.appliesTo,
+      })),
+    };
+  }
 
   // ============================================
   // Themes API
@@ -406,6 +434,7 @@ export class SlidesController {
             skillOverrides: dto.skillOverrides,
             intent: dto.intent,
             language: dto.language,
+            autoRoute: dto.autoRoute,
           });
 
           try {
@@ -490,6 +519,7 @@ export class SlidesController {
             skillOverrides: dto.skillOverrides,
             intent: dto.intent,
             language: dto.language,
+            autoRoute: dto.autoRoute,
           });
 
           try {
