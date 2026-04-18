@@ -22,6 +22,7 @@ interface AutoImportParams {
   targetPages?: number;
   stylePreference?: 'dark' | 'light' | 'custom';
   themeId?: string;
+  preset?: string;
 }
 
 interface GenerateOptions {
@@ -35,6 +36,7 @@ interface GenerateOptions {
     sourceId: string;
     sourceName?: string;
   };
+  preset?: string;
 }
 
 interface AutoImportFlowProps {
@@ -73,6 +75,7 @@ export function AutoImportFlow({ onGenerate }: AutoImportFlowProps) {
     const rawTargetPages = searchParams.get('targetPages');
     const rawStylePreference = searchParams.get('stylePreference');
     const rawThemeId = searchParams.get('themeId');
+    const rawPreset = searchParams.get('preset');
 
     const params: AutoImportParams = {
       sourceType,
@@ -83,6 +86,7 @@ export function AutoImportFlow({ onGenerate }: AutoImportFlowProps) {
       stylePreference:
         (rawStylePreference as AutoImportParams['stylePreference']) || 'dark',
       themeId: rawThemeId || 'genspark-dark',
+      preset: rawPreset ?? undefined,
     };
 
     // Clear URL params immediately to prevent re-triggering
@@ -148,6 +152,7 @@ export function AutoImportFlow({ onGenerate }: AutoImportFlowProps) {
           stylePreference: params.stylePreference || 'dark',
           themeId: params.themeId || 'genspark-dark',
           ...(crossModuleSource && { crossModuleSource }),
+          ...(params.preset && { preset: params.preset }),
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Import failed';

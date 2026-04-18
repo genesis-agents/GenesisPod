@@ -320,6 +320,7 @@ export default function SlidesPage() {
         sourceId: string;
         sourceName?: string;
       };
+      preset?: string;
     }) => {
       generateWithTeam({
         title: options.title || '演示文稿',
@@ -331,6 +332,7 @@ export default function SlidesPage() {
         ...(options.crossModuleSource && {
           crossModuleSource: options.crossModuleSource,
         }),
+        ...(options.preset && { preset: options.preset }),
       });
     },
     [generateWithTeam]

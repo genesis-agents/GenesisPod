@@ -408,4 +408,11 @@ export interface GenerateTeamRequest {
     sourceId: string;
     sourceName?: string;
   };
+  // Skills-driven extensibility
+  preset?: string;
+  skillOverrides?: Record<string, string>;
+  intent?: string;
+  language?: string;
+  /** Opt-in: 让后端 LLM 自动推断 preset（仅在未显式传 preset 时生效） */
+  autoRoute?: boolean;
 }

@@ -59,6 +59,7 @@ import {
 import { ReportEditPanel } from '../reports/ReportEditPanel';
 import { ChapterizedReportView } from '../reports/ChapterizedReportView';
 import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
+import { GenerateSlidesButton } from './GenerateSlidesButton';
 import { ReportAnnotations } from '../annotations/ReportAnnotations';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 // AI Edit 优化组件
@@ -1186,6 +1187,16 @@ export function TopicContentPanel({
 
             {/* 右侧：操作按钮 - 图标形式 */}
             <div className="flex items-center gap-2">
+              {/* 章节视图 → AI Slides 入口（带 executive-brief preset） */}
+              {reportViewMode === 'chapter' && report && topicId && (
+                <GenerateSlidesButton
+                  topicId={topicId}
+                  topicName={topicName}
+                  preset="topic-insights.executive-brief"
+                  label="转为 Slides"
+                />
+              )}
+
               {/* 重新生成按钮 */}
               <button
                 onClick={handleRegenerateReport}
