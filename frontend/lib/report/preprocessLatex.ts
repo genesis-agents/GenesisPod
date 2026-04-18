@@ -684,22 +684,30 @@ export function preprocessLatex(markdown: string): string {
   // LLM produces: $C_{total}$=\sum_i C_$i^{exec}+...+C_{overhead}$
   // Should be:    $C_{total} = \sum_i C_i^{exec}+...+C_{overhead}$
   //
-  // ★ 2026-04-18 FIX: earlier version only checked CJK in `mid`, but the
-  //   regex can match a SPAN where the actual CJK prose sits in groups a/b
-  //   (e.g. `$\theta_0$，若 $q < \theta_0$ 则...若 $\theta_a$` — the CJK
-  //   prose lives in a = "，若 " and b = " 则...若 "). When that happens,
-  //   the merge destroys TWO legitimate adjacent inline-math blocks. The
-  //   guard must check ALL THREE groups for CJK; if any of them has it,
-  //   these are separate legitimate blocks — do not merge.
+  // ★ 2026-04-18 FIX #1: earlier version only checked CJK in `mid`, but the
+  //   regex can match a SPAN where CJK prose sits in groups a/b (e.g.
+  //   `$\theta_0$，若 $q < \theta_0$ 则...若 $\theta_a$`). Check all 3 groups.
+  //
+  // ★ 2026-04-18 FIX #2: `[\u4e00-\u9fff]` only matches CJK IDEOGRAPHS.
+  //   Fullwidth punctuation like `，` (U+FF0C), `；` (U+FF1B), `。` (U+3002)
+  //   falls in DIFFERENT Unicode ranges. A segment like
+  //   `$E_i\in[0,1]$，$\tau_{min}<\tau_{full}$，$\omega_j$` has ONLY `，` in
+  //   groups a/b/mid — missed by the ideograph regex and wrongly merged.
+  //   The expanded check catches:
+  //     \u3000-\u303F  CJK Symbols & Punctuation (。、《》etc.)
+  //     \u4e00-\u9fff  CJK Unified Ideographs
+  //     \uff00-\uffef  Halfwidth & Fullwidth Forms (，；：！？etc.)
+  const CJK_OR_PUNCT_RE = /[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef]/;
   for (let i = 0; i < 5; i++) {
     const before = result;
     result = result.replace(
       /\$([^$\n]+)\$([^$\n]{1,60}\\[a-zA-Z][^$\n]{0,60})\$([^$\n]+)\$/g,
       (match, a, mid, b) => {
-        // Any CJK in any of the three groups = separate legitimate blocks
-        if (/[\u4e00-\u9fff]/.test(mid)) return match;
-        if (/[\u4e00-\u9fff]/.test(a)) return match;
-        if (/[\u4e00-\u9fff]/.test(b)) return match;
+        // Any CJK or CJK-punctuation in ANY group → separate legitimate
+        // blocks, do not merge.
+        if (CJK_OR_PUNCT_RE.test(mid)) return match;
+        if (CJK_OR_PUNCT_RE.test(a)) return match;
+        if (CJK_OR_PUNCT_RE.test(b)) return match;
         return `$${a}${mid}${b}$`;
       }
     );

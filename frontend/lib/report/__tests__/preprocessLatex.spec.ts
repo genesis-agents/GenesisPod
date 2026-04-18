@@ -56,4 +56,23 @@ describe('preprocessLatex — preserves well-formed input', () => {
     // Should remove the stray extra $$ — but not the legitimate closing $
     expect(out).not.toContain('$$}');
   });
+
+  it('does NOT merge across fullwidth punctuation (，；。) between $..$', () => {
+    // Real v6 damage (user-reported 2026-04-18):
+    //   $E_i\in[0,1]$，$\tau_{min}<\tau_{full}$，$\omega_j$ 非负
+    // The fullwidth comma `，` (U+FF0C) is NOT in \u4e00-\u9fff ideograph
+    // range, so earlier CJK guard missed it and step 7.5 merged three
+    // legitimate inline blocks into one, stripping four valid `$`.
+    const input =
+      '建议至少满足以下约束：$E_i\\in[0,1]$，$\\tau_{min}<\\tau_{full}$，$\\omega_j$ 非负且总和为 1，$\\alpha_k\\ge1$，$\\lambda_k\\ge0$，$\\phi_i\\ge0$，并对 $r_i^{max}$ 给出业务上限。';
+    const out = preprocessLatex(input);
+    // Every individual inline block must survive intact
+    expect(out).toContain('$E_i\\in[0,1]$');
+    expect(out).toContain('$\\tau_{min}<\\tau_{full}$');
+    expect(out).toContain('$\\omega_j$');
+    expect(out).toContain('$\\alpha_k\\ge1$');
+    expect(out).toContain('$\\lambda_k\\ge0$');
+    expect(out).toContain('$\\phi_i\\ge0$');
+    expect(out).toContain('$r_i^{max}$');
+  });
 });
