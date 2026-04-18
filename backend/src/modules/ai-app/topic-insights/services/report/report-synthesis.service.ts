@@ -73,6 +73,7 @@ import {
 } from "./report-assembler.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { ReportQualityTraceService } from "../quality/report-quality-trace.service";
+import { LatexRepairService } from "./latex-repair.service";
 import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import {
@@ -115,6 +116,11 @@ export class ReportSynthesisService {
     // ★ Phase 10: Cross-cutting synthesis before report generation
     @Optional()
     private readonly crossCuttingSynthesis?: CrossCuttingSynthesisService,
+    // ★ 2026-04-18 final safety net: if all upstream validators fail,
+    //   this runs one more LLM-backed repair pass on the assembled
+    //   fullReport before DB write. Optional so existing test mocks
+    //   don't have to construct it.
+    @Optional() private readonly latexRepair?: LatexRepairService,
   ) {}
 
   /**
@@ -1078,12 +1084,12 @@ export class ReportSynthesisService {
       );
     }
 
-    // ★ Final boundary: validate the assembled fullReport right before it
-    //   lands in DB. Logs any remaining LaTeX damage so we see the
-    //   true end-to-end issue count, and never silently ships garbage
-    //   the validator would catch. Non-blocking — frontend KaTeX still
-    //   renders gracefully, but if this fires in prod we know there's a
-    //   gap in the upstream coverage.
+    // ★ Final boundary: validate the assembled fullReport right before
+    //   it lands in DB. If issues remain despite 6 upstream layers, take
+    //   ONE MORE shot via LatexRepairService (chunked, LLM-backed, with
+    //   its own length + issue-count safety gates). The service only
+    //   accepts repairs that strictly reduce issue count, so this step
+    //   never ships worse content than we had.
     const finalLatexCheck = validateLatexDelimiters(finalReport);
     if (!finalLatexCheck.valid) {
       const byKind: Record<string, number> = {};
@@ -1091,8 +1097,43 @@ export class ReportSynthesisService {
         byKind[i.kind] = (byKind[i.kind] || 0) + 1;
       }
       this.logger.warn(
-        `[synthesizeReport] ★ Final fullReport has ${finalLatexCheck.issues.length} LaTeX issue(s) despite upstream validators: ${JSON.stringify(byKind)}. Shipping anyway (frontend KaTeX fallback will handle).`,
+        `[synthesizeReport] ★ Final fullReport has ${finalLatexCheck.issues.length} LaTeX issue(s) despite upstream validators: ${JSON.stringify(byKind)}`,
       );
+
+      if (this.latexRepair) {
+        try {
+          const repairStart = Date.now();
+          const repairResult =
+            await this.latexRepair.repairMarkdown(finalReport);
+          const repairMs = Date.now() - repairStart;
+          if (repairResult.changed) {
+            const beforeN = repairResult.before?.issues.length ?? 0;
+            const afterN = repairResult.after?.issues.length ?? 0;
+            this.logger.log(
+              `[synthesizeReport] ✓ LatexRepair rescued ${beforeN - afterN} issue(s) in ${repairMs}ms (${beforeN} → ${afterN})`,
+            );
+            this.logger.log(
+              `[metrics] final_latex_rescue=success final_latex_rescued=${beforeN - afterN} final_latex_residual=${afterN}`,
+            );
+            finalReport = repairResult.repaired;
+          } else {
+            this.logger.warn(
+              `[synthesizeReport] LatexRepair attempted but did not improve (reason: ${repairResult.failureReason ?? "no_improvement"}). Shipping original.`,
+            );
+            this.logger.log(
+              `[metrics] final_latex_rescue=skipped final_latex_rescue_reason=${repairResult.failureReason ?? "no_improvement"}`,
+            );
+          }
+        } catch (err) {
+          this.logger.warn(
+            `[synthesizeReport] LatexRepair raised: ${err instanceof Error ? err.message : String(err)}. Shipping original.`,
+          );
+        }
+      } else {
+        this.logger.warn(
+          `[synthesizeReport] LatexRepairService not injected; cannot attempt rescue. Shipping with known issues.`,
+        );
+      }
     }
 
     const updatedReport = await this.prisma.topicReport.update({
