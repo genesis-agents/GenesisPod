@@ -40,6 +40,11 @@ import {
   SlidesRepository,
 } from "./slides";
 import { SourceSubscriptionService } from "./slides/services/source-subscription.service";
+import {
+  SkillResolver,
+  PresetLoader,
+  SkillPolicyRegistry,
+} from "./slides/skill-resolver";
 
 // Agents
 import { AgentsController } from "./agents";
@@ -54,9 +59,13 @@ import {
 } from "./teams";
 import { ResearchModule } from "../research/research.module";
 import { AiWritingModule } from "../writing/ai-writing.module";
-// RESEARCH_DATA_EXPORT / WRITING_DATA_EXPORT tokens are defined in
-// ./interfaces/data-export.interface.ts and used by SlidesDataImportService.
-// They are provided by ResearchModule and AiWritingModule (imported above).
+import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
+// Cross-module data export tokens are defined in
+// ai-app/shared/interfaces/data-export.interface.ts and used by
+// SlidesDataImportService:
+// - TOPIC_INSIGHTS_DATA_EXPORT   provided by TopicInsightsModule
+// - RESEARCH_PROJECT_DATA_EXPORT provided by ResearchModule
+// - WRITING_DATA_EXPORT          provided by AiWritingModule
 
 @Module({
   imports: [
@@ -69,6 +78,7 @@ import { AiWritingModule } from "../writing/ai-writing.module";
     CreditsModule,
     ExportModule,
     AIOfficeCommonModule,
+    TopicInsightsModule,
     ResearchModule,
     AiWritingModule,
     // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环
@@ -77,9 +87,9 @@ import { AiWritingModule } from "../writing/ai-writing.module";
   controllers: [AIModelController, SlidesController, AgentsController],
   providers: [
     AIModelService,
-    // RESEARCH_DATA_EXPORT and WRITING_DATA_EXPORT tokens are provided
-    // by ResearchModule and AiWritingModule via their exports — no need
-    // to re-provide here since those modules are imported above.
+    // TOPIC_INSIGHTS_DATA_EXPORT / RESEARCH_PROJECT_DATA_EXPORT /
+    // WRITING_DATA_EXPORT tokens are provided by their owner modules
+    // (imported above); no need to re-provide here.
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
@@ -94,6 +104,10 @@ import { AiWritingModule } from "../writing/ai-writing.module";
     SlidesTeamOrchestrator, // v5.0: 主编排器
     SlidesRepository, // v5.0: 持久化层
     SourceSubscriptionService, // Phase 3: 来源订阅服务
+    // Skills-driven extensibility (Phase A)
+    PresetLoader,
+    SkillPolicyRegistry,
+    SkillResolver,
   ],
   exports: [
     AIModelService,

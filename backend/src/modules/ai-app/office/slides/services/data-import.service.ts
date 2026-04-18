@@ -11,10 +11,10 @@
 import { Injectable, Logger, NotFoundException, Inject } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
-  RESEARCH_DATA_EXPORT,
+  TOPIC_INSIGHTS_DATA_EXPORT,
   RESEARCH_PROJECT_DATA_EXPORT,
   WRITING_DATA_EXPORT,
-  IResearchDataExport,
+  ITopicInsightsDataExport,
   IResearchProjectDataExport,
   IWritingDataExport,
 } from "../../interfaces/data-export.interface";
@@ -64,8 +64,8 @@ export class SlidesDataImportService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(RESEARCH_DATA_EXPORT)
-    private readonly researchExport: IResearchDataExport,
+    @Inject(TOPIC_INSIGHTS_DATA_EXPORT)
+    private readonly topicInsightsExport: ITopicInsightsDataExport,
     @Inject(RESEARCH_PROJECT_DATA_EXPORT)
     private readonly researchProjectExport: IResearchProjectDataExport,
     @Inject(WRITING_DATA_EXPORT)
@@ -88,7 +88,10 @@ export class SlidesDataImportService {
   ): Promise<SlidesSourceData> {
     this.logger.log(`Importing from Research topic: ${topicId}`);
 
-    const data = await this.researchExport.getTopicForExport(topicId, userId);
+    const data = await this.topicInsightsExport.getTopicForExport(
+      topicId,
+      userId,
+    );
 
     // Extract sections from dimension analyses (from the latest report)
     const sections: SourceSection[] = [];
@@ -425,7 +428,7 @@ export class SlidesDataImportService {
    * List available Research topics for import
    */
   async listResearchTopics(userId: string): Promise<SourceListItem[]> {
-    const topics = await this.researchExport.listTopicsForExport(
+    const topics = await this.topicInsightsExport.listTopicsForExport(
       userId,
       IMPORT_CONFIG.DEFAULT_LIST_LIMIT,
     );

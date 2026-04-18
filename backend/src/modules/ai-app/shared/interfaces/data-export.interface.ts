@@ -1,29 +1,35 @@
 /**
  * AI App Shared - Data Export Interfaces
  *
- * Abstract contracts for importing data from Research and Writing modules into Office.
- * Placed in ai-app/shared/ so that Research and Writing can reference these tokens
- * without creating a cross-App dependency on the Office module.
+ * Abstract contracts for importing data from Topic Insights, Research Project,
+ * and Writing modules into Office/Slides.
+ * Placed in ai-app/shared/ so consumers can reference tokens without creating
+ * cross-App dependencies.
  *
- * Providers are registered in Research/Writing modules and injected into Office
+ * Providers are registered in each owner module and injected into Office
  * via DI tokens.
+ *
+ * Ownership map:
+ * - TOPIC_INSIGHTS_DATA_EXPORT   → TopicInsightsModule (owns ResearchTopic model)
+ * - RESEARCH_PROJECT_DATA_EXPORT → ResearchModule (owns ResearchProject model)
+ * - WRITING_DATA_EXPORT          → AiWritingModule  (owns WritingProject model)
  */
 
 // ============================================
 // DI Tokens
 // ============================================
 
-export const RESEARCH_DATA_EXPORT = Symbol("RESEARCH_DATA_EXPORT");
+export const TOPIC_INSIGHTS_DATA_EXPORT = Symbol("TOPIC_INSIGHTS_DATA_EXPORT");
 export const RESEARCH_PROJECT_DATA_EXPORT = Symbol(
   "RESEARCH_PROJECT_DATA_EXPORT",
 );
 export const WRITING_DATA_EXPORT = Symbol("WRITING_DATA_EXPORT");
 
 // ============================================
-// Research Export Contract
+// Topic Insights Export Contract
 // ============================================
 
-export interface IResearchListItem {
+export interface ITopicInsightsListItem {
   id: string;
   name: string;
   description: string | null;
@@ -31,7 +37,7 @@ export interface IResearchListItem {
   dimensionCount: number;
 }
 
-export interface IExportableResearchData {
+export interface IExportableTopicInsightsData {
   id: string;
   name: string;
   description: string | null;
@@ -56,16 +62,16 @@ export interface IExportableResearchData {
   } | null;
 }
 
-export interface IResearchDataExport {
+export interface ITopicInsightsDataExport {
   getTopicForExport(
     topicId: string,
     userId: string,
-  ): Promise<IExportableResearchData>;
+  ): Promise<IExportableTopicInsightsData>;
 
   listTopicsForExport(
     userId: string,
     limit?: number,
-  ): Promise<IResearchListItem[]>;
+  ): Promise<ITopicInsightsListItem[]>;
 }
 
 // ============================================

@@ -14,6 +14,7 @@ import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
+import { TOPIC_INSIGHTS_DATA_EXPORT } from "../shared/interfaces/data-export.interface";
 import { TopicInsightsAgent } from "./agents";
 import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./teams";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
@@ -93,6 +94,8 @@ import {
   ReportAssemblerService,
   ReportDataService,
   LatexRepairService,
+  // ★ Cross-module data export (Slides/Office consumer)
+  TopicInsightsDataExportService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   EvidenceSyncCompensationService,
@@ -202,6 +205,8 @@ const services = [
   ReportAssemblerService,
   ReportDataService,
   LatexRepairService,
+  // ★ Cross-module data export (Slides/Office consumer)
+  TopicInsightsDataExportService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   EvidenceSyncCompensationService,
@@ -280,8 +285,22 @@ const services = [
     ReportReviewController,
     LatencyController,
   ],
-  providers: [...services, TopicInsightsGateway, TopicAccessGuard],
-  exports: [TopicInsightsService, TopicAccessGuard],
+  providers: [
+    ...services,
+    TopicInsightsGateway,
+    TopicAccessGuard,
+    // Cross-module contract: Office/Slides consume this token.
+    {
+      provide: TOPIC_INSIGHTS_DATA_EXPORT,
+      useExisting: TopicInsightsDataExportService,
+    },
+  ],
+  exports: [
+    TopicInsightsService,
+    TopicAccessGuard,
+    TopicInsightsDataExportService,
+    TOPIC_INSIGHTS_DATA_EXPORT,
+  ],
 })
 export class TopicInsightsModule implements OnModuleInit {
   private readonly logger = new Logger(TopicInsightsModule.name);

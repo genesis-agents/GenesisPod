@@ -67,6 +67,9 @@ export { LatexRepairService } from "./report/latex-repair.service";
 export { CitationFormatterService } from "./report/citation-formatter.service";
 export { ResearchExportService } from "./report/research-export.service";
 
+// ==================== Cross-module Data Export ====================
+export { TopicInsightsDataExportService } from "./topic-insights-data-export.service";
+
 // ==================== Data ====================
 export { DataSourceRouterService } from "./data/data-source-router.service";
 export { DataSourcePlannerService } from "./data/data-source-planner.service";

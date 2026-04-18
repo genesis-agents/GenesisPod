@@ -1,55 +1,30 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import {
+  ITopicInsightsDataExport,
+  IExportableTopicInsightsData,
+  ITopicInsightsListItem,
+} from "../../shared/interfaces/data-export.interface";
 
 /**
- * Research 数据导出服务
- * 封装 Research 模块的数据导出能力，供 Office 等其他模块调用
+ * Topic Insights Data Export Service
+ *
+ * Owner of the ResearchTopic model. Provides read-only exports for
+ * cross-module consumers (Office/Slides) via the TOPIC_INSIGHTS_DATA_EXPORT
+ * DI token.
+ *
+ * Implements ITopicInsightsDataExport directly — the previous
+ * adapter+service split (under Research module) has been flattened,
+ * since the service is already the boundary object.
  */
-
-export interface ExportableResearchData {
-  id: string;
-  name: string;
-  description: string | null;
-  language: string | null;
-  createdAt: Date;
-  dimensions: Array<{
-    name: string;
-    description: string | null;
-    sortOrder: number;
-  }>;
-  latestReport: {
-    fullReport: string | null;
-    charts: unknown;
-    highlights: unknown;
-    dimensionAnalyses: Array<{
-      summary: string | null;
-      dataPoints: unknown;
-      dimension: {
-        name: string;
-      };
-    }>;
-  } | null;
-}
-
-export interface ResearchListItem {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: Date;
-  dimensionCount: number;
-}
-
 @Injectable()
-export class ResearchDataExportService {
+export class TopicInsightsDataExportService implements ITopicInsightsDataExport {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * 获取 Research Topic 数据（用于导出到其他模块）
-   */
   async getTopicForExport(
     topicId: string,
     userId: string,
-  ): Promise<ExportableResearchData> {
+  ): Promise<IExportableTopicInsightsData> {
     const topic = await this.prisma.researchTopic.findFirst({
       where: {
         id: topicId,
@@ -75,7 +50,7 @@ export class ResearchDataExportService {
     });
 
     if (!topic) {
-      throw new NotFoundException(`Research topic not found: ${topicId}`);
+      throw new NotFoundException(`Topic insights topic not found: ${topicId}`);
     }
 
     const latestReport = topic.reports[0];
@@ -108,13 +83,10 @@ export class ResearchDataExportService {
     };
   }
 
-  /**
-   * 列出用户的 Research Topics（用于其他模块的选择列表）
-   */
   async listTopicsForExport(
     userId: string,
     limit = 50,
-  ): Promise<ResearchListItem[]> {
+  ): Promise<ITopicInsightsListItem[]> {
     const topics = await this.prisma.researchTopic.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },

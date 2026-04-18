@@ -7,7 +7,7 @@ import { NotFoundException } from "@nestjs/common";
 import { SlidesDataImportService } from "../data-import.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import {
-  RESEARCH_DATA_EXPORT,
+  TOPIC_INSIGHTS_DATA_EXPORT,
   RESEARCH_PROJECT_DATA_EXPORT,
   WRITING_DATA_EXPORT,
 } from "../../../interfaces/data-export.interface";
@@ -15,7 +15,7 @@ import {
 describe("SlidesDataImportService", () => {
   let service: SlidesDataImportService;
   let prisma: jest.Mocked<PrismaService>;
-  let researchExport: {
+  let topicInsightsExport: {
     getTopicForExport: jest.Mock;
     listTopicsForExport: jest.Mock;
   };
@@ -164,7 +164,7 @@ describe("SlidesDataImportService", () => {
       },
     };
 
-    researchExport = {
+    topicInsightsExport = {
       getTopicForExport: jest.fn(),
       listTopicsForExport: jest.fn(),
     };
@@ -183,7 +183,7 @@ describe("SlidesDataImportService", () => {
       providers: [
         SlidesDataImportService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: RESEARCH_DATA_EXPORT, useValue: researchExport },
+        { provide: TOPIC_INSIGHTS_DATA_EXPORT, useValue: topicInsightsExport },
         {
           provide: RESEARCH_PROJECT_DATA_EXPORT,
           useValue: researchProjectExport,
@@ -206,7 +206,9 @@ describe("SlidesDataImportService", () => {
 
   describe("importFromResearch", () => {
     it("should import data from research topic", async () => {
-      researchExport.getTopicForExport.mockResolvedValueOnce(mockResearchData);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        mockResearchData,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -216,14 +218,16 @@ describe("SlidesDataImportService", () => {
       expect(result.sections).toHaveLength(2);
       expect(result.metadata?.title).toBe("AI Research 2024");
       expect(result.metadata?.language).toBe("zh");
-      expect(researchExport.getTopicForExport).toHaveBeenCalledWith(
+      expect(topicInsightsExport.getTopicForExport).toHaveBeenCalledWith(
         "topic-1",
         "user-1",
       );
     });
 
     it("should build sourceText from dimension summaries", async () => {
-      researchExport.getTopicForExport.mockResolvedValueOnce(mockResearchData);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        mockResearchData,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -245,7 +249,7 @@ describe("SlidesDataImportService", () => {
           })),
         },
       };
-      researchExport.getTopicForExport.mockResolvedValueOnce(largeData);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(largeData);
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -260,7 +264,7 @@ describe("SlidesDataImportService", () => {
           dimensionAnalyses: [],
         },
       };
-      researchExport.getTopicForExport.mockResolvedValueOnce(
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
         dataWithoutAnalyses,
       );
 
@@ -274,7 +278,9 @@ describe("SlidesDataImportService", () => {
         ...mockResearchData,
         latestReport: null,
       };
-      researchExport.getTopicForExport.mockResolvedValueOnce(dataWithoutReport);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        dataWithoutReport,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -284,7 +290,9 @@ describe("SlidesDataImportService", () => {
     });
 
     it("should extract charts from report", async () => {
-      researchExport.getTopicForExport.mockResolvedValueOnce(mockResearchData);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        mockResearchData,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -308,7 +316,9 @@ describe("SlidesDataImportService", () => {
           ],
         },
       };
-      researchExport.getTopicForExport.mockResolvedValueOnce(dataWithBadChart);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        dataWithBadChart,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -317,7 +327,9 @@ describe("SlidesDataImportService", () => {
     });
 
     it("should extract key findings from highlights", async () => {
-      researchExport.getTopicForExport.mockResolvedValueOnce(mockResearchData);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        mockResearchData,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -326,7 +338,9 @@ describe("SlidesDataImportService", () => {
     });
 
     it("should extract references from report URLs", async () => {
-      researchExport.getTopicForExport.mockResolvedValueOnce(mockResearchData);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        mockResearchData,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -345,7 +359,9 @@ describe("SlidesDataImportService", () => {
             "Content https://localhost:3000/test and https://valid.com/page",
         },
       };
-      researchExport.getTopicForExport.mockResolvedValueOnce(dataWithLocalhost);
+      topicInsightsExport.getTopicForExport.mockResolvedValueOnce(
+        dataWithLocalhost,
+      );
 
       const result = await service.importFromResearch("topic-1", "user-1");
 
@@ -569,7 +585,7 @@ describe("SlidesDataImportService", () => {
 
   describe("listResearchTopics", () => {
     it("should list research topics for import", async () => {
-      researchExport.listTopicsForExport.mockResolvedValueOnce([
+      topicInsightsExport.listTopicsForExport.mockResolvedValueOnce([
         {
           id: "topic-1",
           name: "AI Research",
