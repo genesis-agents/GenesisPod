@@ -130,6 +130,26 @@ class GenerateDto {
     sourceId: string;
     sourceName?: string;
   };
+
+  // ── Skills-driven extensibility ──
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  preset?: string;
+
+  @IsOptional()
+  @IsObject()
+  skillOverrides?: Record<string, string>;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  intent?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  language?: string;
 }
 
 class RerenderPageDto {
@@ -382,6 +402,10 @@ export class SlidesController {
             stylePreference: dto.stylePreference as "dark" | "light",
             targetAudience: dto.targetAudience,
             themeId: dto.themeId,
+            preset: dto.preset,
+            skillOverrides: dto.skillOverrides,
+            intent: dto.intent,
+            language: dto.language,
           });
 
           try {
@@ -462,6 +486,10 @@ export class SlidesController {
                   sourceName?: string;
                 }
               | undefined,
+            preset: dto.preset,
+            skillOverrides: dto.skillOverrides,
+            intent: dto.intent,
+            language: dto.language,
           });
 
           try {

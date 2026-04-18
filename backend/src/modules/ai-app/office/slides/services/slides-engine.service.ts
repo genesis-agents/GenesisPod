@@ -78,6 +78,16 @@ export interface SlidesGenerateInput {
     sourceId: string;
     sourceName?: string;
   };
+
+  // ── Skills-driven extensibility (Phase A) ──
+  /** 命名预设 id，参考 slides/presets/*.json */
+  preset?: string;
+  /** 按 slot 覆盖 skill；优先级最高 */
+  skillOverrides?: Record<string, string>;
+  /** 输出意图：brief / pitch / tutorial / report / summary */
+  intent?: string;
+  /** 语种 hint，用于 policy 匹配 */
+  language?: string;
 }
 
 // Re-export StreamEvent for convenience
@@ -433,6 +443,15 @@ export class SlidesEngineService {
             isStale: false,
           }
         : undefined,
+      // ── Skills-driven extensibility ──
+      // sourceTypeHint defaults from crossModuleSource.type, but can be
+      // overridden by caller.
+      sourceTypeHint: input.crossModuleSource?.type,
+      audience: input.targetAudience,
+      intent: input.intent,
+      language: input.language,
+      preset: input.preset,
+      skillOverrides: input.skillOverrides,
     };
 
     // 4. 心跳/缓冲区刷新间隔（不再只是空心跳）

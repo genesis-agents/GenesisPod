@@ -31,6 +31,7 @@ import {
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
 import { createSkillOutputManager } from "@/modules/ai-engine/facade";
 import type { ISkillOutputManager } from "@/modules/ai-engine/facade";
+import { SkillResolver } from "../skill-resolver";
 
 @Injectable()
 export class SlidesTeamOrchestrator {
@@ -46,6 +47,7 @@ export class SlidesTeamOrchestrator {
     @Optional() private readonly agentFacade?: AgentFacade,
     @Optional()
     private readonly deckConsistencyAuditor?: DeckConsistencyAuditorSkill,
+    @Optional() private readonly skillResolver?: SkillResolver,
   ) {
     this.persistenceEnabled = !!repository;
     this.logger.log(
@@ -87,6 +89,37 @@ export class SlidesTeamOrchestrator {
           targetAudience: input.targetAudience,
         },
       };
+    }
+
+    // ── Skills resolution (Phase A) ──
+    // Called once at entry; result is stored on the mission and reused
+    // across retries. Falls through to hard-coded defaults when no hints.
+    if (this.skillResolver) {
+      const hasHints = !!(
+        input.preset ||
+        input.skillOverrides ||
+        input.sourceTypeHint ||
+        input.audience ||
+        input.intent ||
+        input.language
+      );
+      if (hasHints) {
+        mission.resolvedSkills = this.skillResolver.resolve({
+          conditions: {
+            sourceType: input.sourceTypeHint,
+            audience: input.audience,
+            intent: input.intent,
+            language: input.language,
+          },
+          presetId: input.preset,
+          overrides: input.skillOverrides,
+        });
+        this.logger.log(
+          `[executeMission] Resolved skills: preset=${
+            mission.resolvedSkills.presetId ?? "(none)"
+          } overrides=${Object.keys(input.skillOverrides ?? {}).length}`,
+        );
+      }
     }
 
     this.logger.log(`[executeMission] Starting mission ${mission.id}`);
@@ -651,6 +684,7 @@ export class SlidesTeamOrchestrator {
         outline: mission.outline,
         themeId: mission.themeId,
         stylePreference: mission.stylePreference,
+        resolvedSkills: mission.resolvedSkills,
       },
     };
 
@@ -786,6 +820,7 @@ export class SlidesTeamOrchestrator {
               outline: mission.outline,
               themeId: mission.themeId,
               stylePreference: mission.stylePreference,
+              resolvedSkills: mission.resolvedSkills,
             },
           };
 

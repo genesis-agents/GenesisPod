@@ -7,6 +7,13 @@
 
 import type { ISkillOutputManager } from "@/modules/ai-engine/facade";
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
+import type {
+  ResolvedSkills,
+  SkillOverrides,
+  SlidesAudience,
+  SlidesIntent,
+  SlidesSourceHint,
+} from "../skill-resolver";
 
 // ============================================
 // 团队成员定义
@@ -166,6 +173,12 @@ export interface SlidesMission {
   totalTasks: number;
   completedTasks: number;
   metadata: Record<string, unknown>;
+  /**
+   * Resolved skills for this mission (set at orchestrator entry when the
+   * SkillResolver is available). Reused by retry paths so overrides persist
+   * across revisions.
+   */
+  resolvedSkills?: ResolvedSkills;
 }
 
 // ============================================
@@ -290,6 +303,24 @@ export interface SlidesTeamOrchestratorInput {
   themeId?: string;
   targetAudience?: string;
   sourceSubscription?: SourceSubscriptionData;
+
+  // ── Skills-driven extensibility ──
+  // Source hint used by the SkillResolver; defaults to undefined (→ resolver
+  // falls back to policy/default). Set by the controller when the request
+  // originates from a specific source (e.g. topic-insights import).
+  sourceTypeHint?: SlidesSourceHint;
+  audience?: SlidesAudience;
+  intent?: SlidesIntent;
+  language?: string;
+  /**
+   * Named preset id (see slides/presets/*.json). Bindings from the preset
+   * override policy and default; user overrides still win.
+   */
+  preset?: string;
+  /**
+   * Per-slot skill override — highest priority. Use sparingly; prefer presets.
+   */
+  skillOverrides?: SkillOverrides;
 }
 
 export interface SlidesTeamOrchestratorOutput {
@@ -330,5 +361,12 @@ export interface SkillExecutionContext {
     outline?: PPTOutline;
     themeId?: string;
     stylePreference?: "dark" | "light";
+    /**
+     * Resolved slot→skillId mapping + provenance. Present only when the
+     * resolver is injected and the request carried preset/overrides/hints.
+     * Downstream skills may consult this to pick sub-strategies; reading it
+     * is optional (hard-coded defaults remain the fallback).
+     */
+    resolvedSkills?: ResolvedSkills;
   };
 }
