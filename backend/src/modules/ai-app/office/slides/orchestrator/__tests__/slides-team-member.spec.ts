@@ -340,4 +340,155 @@ describe("SlidesTeamMember", () => {
       expect(member.hasSkill("leader", "non-existent-skill")).toBe(false);
     });
   });
+
+  // ==================== executeTask - skills-driven substitution (Phase B) ====================
+
+  describe("executeTask - skills-driven substitution", () => {
+    function makeResolved(
+      bindings: Partial<Record<string, string>>,
+    ): SkillExecutionContext["globalContext"]["resolvedSkills"] {
+      return {
+        bindings: bindings as Record<string, string>,
+        provenance: {} as Record<string, "default">,
+      } as SkillExecutionContext["globalContext"]["resolvedSkills"];
+    }
+
+    it("does not substitute when resolvedSkills is absent", async () => {
+      mockSkillRegistry.tryGet.mockReturnValue(mockSkill);
+
+      await member.executeTask(makeTask(), makeContext());
+
+      // Only the standard lookup chain — no extra tryGet for a substitute
+      expect(mockSkillRegistry.tryGet).toHaveBeenCalledWith("outline-planning");
+      const calledIds = mockSkillRegistry.tryGet.mock.calls.map(
+        (c) => c[0] as string,
+      );
+      // Should not include any "-exec-brief"-like substitute candidate
+      expect(calledIds.every((id) => !id.includes("exec-brief"))).toBe(true);
+    });
+
+    it("substitutes when the mapped slot is bound to a different skill", async () => {
+      const substitute = {
+        id: "outline-exec-brief",
+        name: "Executive Brief Outline",
+        isPromptSkillAdapter: false,
+      };
+      // First tryGet call: substitute lookup succeeds
+      mockSkillRegistry.tryGet.mockImplementation((id: string) => {
+        if (id === "outline-exec-brief") return substitute;
+        if (id === "outline-planning") return mockSkill;
+        return null;
+      });
+
+      const ctx = makeContext({
+        globalContext: {
+          sourceText: "x",
+          resolvedSkills: makeResolved({
+            "plan.outline": "outline-exec-brief",
+          }),
+        } as SkillExecutionContext["globalContext"],
+      });
+
+      const result = await member.executeTask(
+        makeTask({ skillId: "outline-planning" }),
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockSkillRegistry.tryGet).toHaveBeenCalledWith(
+        "outline-exec-brief",
+      );
+      // Facade should receive the substitute skill, not the original
+      expect(mockAiFacade.executeSkill).toHaveBeenCalledWith(
+        substitute,
+        expect.any(Object),
+        expect.any(Object),
+      );
+    });
+
+    it("falls back to original when substitute is not registered", async () => {
+      // Substitute lookup returns null; original still resolves
+      mockSkillRegistry.tryGet.mockImplementation((id: string) => {
+        if (id === "outline-planning") return mockSkill;
+        return null;
+      });
+
+      const ctx = makeContext({
+        globalContext: {
+          sourceText: "x",
+          resolvedSkills: makeResolved({
+            "plan.outline": "outline-does-not-exist",
+          }),
+        } as SkillExecutionContext["globalContext"],
+      });
+
+      const result = await member.executeTask(
+        makeTask({ skillId: "outline-planning" }),
+        ctx,
+      );
+
+      // Falls back: task succeeds using the original skill
+      expect(result.success).toBe(true);
+      expect(mockAiFacade.executeSkill).toHaveBeenCalledWith(
+        mockSkill,
+        expect.any(Object),
+        expect.any(Object),
+      );
+    });
+
+    it("no-op substitution when binding equals the normalized input skillId", async () => {
+      mockSkillRegistry.tryGet.mockReturnValue(mockSkill);
+
+      const ctx = makeContext({
+        globalContext: {
+          sourceText: "x",
+          resolvedSkills: makeResolved({
+            "plan.outline": "outline-planning",
+          }),
+        } as SkillExecutionContext["globalContext"],
+      });
+
+      const result = await member.executeTask(
+        makeTask({ skillId: "outline-planning" }),
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      // Standard lookup only; no substitute candidate tried
+      const ids = mockSkillRegistry.tryGet.mock.calls.map(
+        (c) => c[0] as string,
+      );
+      expect(
+        ids.filter((id) => id === "outline-planning").length,
+      ).toBeGreaterThan(0);
+      expect(ids.some((id) => id !== "outline-planning")).toBe(false);
+    });
+
+    it("skills not mapped to any slot are left untouched", async () => {
+      mockSkillRegistry.tryGet.mockReturnValue(mockSkill);
+
+      const ctx = makeContext({
+        globalContext: {
+          sourceText: "x",
+          resolvedSkills: makeResolved({
+            "plan.outline": "outline-exec-brief",
+          }),
+        } as SkillExecutionContext["globalContext"],
+      });
+
+      // "task-planning" is a Leader internal skill, not in DEFAULT_SKILL_BY_SLOT
+      const result = await member.executeTask(
+        makeTask({ skillId: "task-planning" }),
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockSkillRegistry.tryGet).toHaveBeenCalledWith("task-planning");
+      // No substitute lookup for skills outside the slot map
+      const ids = mockSkillRegistry.tryGet.mock.calls.map(
+        (c) => c[0] as string,
+      );
+      expect(ids.includes("outline-exec-brief")).toBe(false);
+    });
+  });
 });

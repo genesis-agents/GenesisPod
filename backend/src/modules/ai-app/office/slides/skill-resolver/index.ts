@@ -3,6 +3,8 @@ export type { SlidesSlotId } from "./slot-ids";
 export { SkillResolver } from "./skill-resolver.service";
 export { PresetLoader } from "./preset-loader.service";
 export { SkillPolicyRegistry } from "./skill-policy.registry";
+export { resolveEffectiveSkillId } from "./effective-skill";
+export type { EffectiveSkillResolution } from "./effective-skill";
 export type {
   SkillPolicy,
   SkillConditions,

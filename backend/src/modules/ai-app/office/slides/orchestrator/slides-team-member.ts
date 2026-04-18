@@ -12,6 +12,7 @@ import {
   SLIDES_TEAM_MEMBERS,
   SkillExecutionContext,
 } from "./types";
+import { resolveEffectiveSkillId } from "../skill-resolver";
 
 export interface TaskExecutionResult {
   success: boolean;
@@ -47,13 +48,43 @@ export class SlidesTeamMember {
       );
     }
 
+    // ★ Skills-driven substitution (Phase B)
+    // If the mission has resolvedSkills (preset/override/policy applied) and
+    // the Leader's chosen skill maps to a known slot, try to redirect to the
+    // resolver-bound skill. Falls back silently to the original when the
+    // substitute isn't registered, so missions never fail on a bad binding.
+    // When substitution succeeds, we cache the looked-up skill to avoid a
+    // redundant registry query further down.
+    const originalSkillId = skillId;
+    const resolution = resolveEffectiveSkillId(
+      skillId,
+      context.globalContext.resolvedSkills,
+    );
+    let substitutedSkill: ReturnType<SkillRegistry["tryGet"]> | null = null;
+    if (resolution.substituted) {
+      substitutedSkill = this.skillRegistry.tryGet(resolution.effectiveSkillId);
+      if (substitutedSkill) {
+        this.logger.log(
+          `[executeTask] Skill substituted via slot '${resolution.slot}': ` +
+            `${originalSkillId} → ${resolution.effectiveSkillId}`,
+        );
+        skillId = resolution.effectiveSkillId;
+      } else {
+        this.logger.warn(
+          `[executeTask] Substitute skill '${resolution.effectiveSkillId}' ` +
+            `(slot '${resolution.slot}') is not registered — falling back to '${originalSkillId}'`,
+        );
+      }
+    }
+
     this.logger.log(
       `[executeTask] Executing task ${task.id}: ${task.title} with skill ${skillId}`,
     );
 
     try {
       // 获取 Skill (使用 tryGet 避免抛出异常)
-      let skill = this.skillRegistry.tryGet(skillId);
+      // 若上游替换已成功命中，直接复用，避免重复查询
+      let skill = substitutedSkill ?? this.skillRegistry.tryGet(skillId);
 
       if (!skill) {
         this.logger.log(
