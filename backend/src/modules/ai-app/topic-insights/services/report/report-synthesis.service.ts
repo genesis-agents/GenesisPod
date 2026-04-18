@@ -1078,6 +1078,23 @@ export class ReportSynthesisService {
       );
     }
 
+    // ★ Final boundary: validate the assembled fullReport right before it
+    //   lands in DB. Logs any remaining LaTeX damage so we see the
+    //   true end-to-end issue count, and never silently ships garbage
+    //   the validator would catch. Non-blocking — frontend KaTeX still
+    //   renders gracefully, but if this fires in prod we know there's a
+    //   gap in the upstream coverage.
+    const finalLatexCheck = validateLatexDelimiters(finalReport);
+    if (!finalLatexCheck.valid) {
+      const byKind: Record<string, number> = {};
+      for (const i of finalLatexCheck.issues) {
+        byKind[i.kind] = (byKind[i.kind] || 0) + 1;
+      }
+      this.logger.warn(
+        `[synthesizeReport] ★ Final fullReport has ${finalLatexCheck.issues.length} LaTeX issue(s) despite upstream validators: ${JSON.stringify(byKind)}. Shipping anyway (frontend KaTeX fallback will handle).`,
+      );
+    }
+
     const updatedReport = await this.prisma.topicReport.update({
       where: { id: reportId },
       data: {

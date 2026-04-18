@@ -10,6 +10,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-engine/facade";
+import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 import {
   CritiqueCategory,
   CritiqueSeverity,
@@ -524,8 +525,25 @@ ${issuesText}
     const fixedCount = issuesToFix.length - remainingIssueIds.size;
     const scoreImprovement = fixedCount * 0.05 * (1 - critique.overallScore);
 
+    // ★ LaTeX safety: reject refinement that introduces new LaTeX damage.
+    //   Content-refine is supposed to improve prose/logic, not touch math;
+    //   if the refined version has MORE delimiter issues than the original,
+    //   the LLM regressed formulas — fall back to originalContent.
+    const candidateRefined = data.refinedContent || originalContent;
+    const originalIssues =
+      validateLatexDelimiters(originalContent).issues.length;
+    const refinedIssues =
+      validateLatexDelimiters(candidateRefined).issues.length;
+    const safeRefined =
+      refinedIssues > originalIssues ? originalContent : candidateRefined;
+    if (refinedIssues > originalIssues) {
+      this.logger.warn(
+        `[critique-refine] Refined content introduced LaTeX damage (${originalIssues} -> ${refinedIssues} issues), reverting to original`,
+      );
+    }
+
     return {
-      refinedContent: data.refinedContent || originalContent,
+      refinedContent: safeRefined,
       changesApplied: (data.changesApplied || []).map((change) => ({
         critiqueItemId: change.critiqueItemId || "",
         original: change.original || "",

@@ -16,6 +16,7 @@ import type {
   RemediationResult,
 } from "../../types/quality.types";
 import { classifyModelTier, ModelTier } from "../../config/model-tier.config";
+import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 
 @Injectable()
 export class SectionRemediationService {
@@ -139,6 +140,23 @@ Requirements:
           actionsApplied: [],
           skipped: true,
           skipReason: "remediated_content_too_short",
+        };
+      }
+
+      // ★ LaTeX safety: if remediated content has MORE LaTeX issues
+      //   than the original, the remediation LLM regressed formula
+      //   handling — keep the original to avoid making things worse.
+      const beforeIssues = validateLatexDelimiters(content).issues.length;
+      const afterIssues = validateLatexDelimiters(remediated).issues.length;
+      if (afterIssues > beforeIssues) {
+        this.logger.warn(
+          `[remediate] Remediation regressed LaTeX (${beforeIssues} -> ${afterIssues} issues) for "${sectionTitle}", keeping original`,
+        );
+        return {
+          content,
+          actionsApplied: [],
+          skipped: true,
+          skipReason: "remediated_content_latex_regressed",
         };
       }
 

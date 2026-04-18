@@ -1949,8 +1949,19 @@ export class DimensionMissionService {
                 : rewrittenResult.content,
             };
 
+            // ★ LaTeX validator also runs after revise. If LLM still
+            //   emits bad delimiters, at least we log it here — the
+            //   content still ships (fallbacks: assembler post-process
+            //   + frontend KaTeX graceful render).
+            const latexCheck2 = validateLatexDelimiters(result.content);
+            if (!latexCheck2.valid) {
+              this.logger.warn(
+                `${logPrefix} [LatexValidator] Section "${section.title}" STILL has ${latexCheck2.issues.length} LaTeX issue(s) after revise; shipping best effort.`,
+              );
+            }
+
             this.logger.log(
-              `${logPrefix} [QualityGate] Section "${section.title}" rewritten, passed=${qc2.passed}`,
+              `${logPrefix} [QualityGate] Section "${section.title}" rewritten, passed=${qc2.passed}, latex=${latexCheck2.valid ? "ok" : "partial"}`,
             );
           } catch (rewriteError) {
             this.logger.warn(
