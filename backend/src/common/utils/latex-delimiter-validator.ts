@@ -36,7 +36,14 @@ export type LatexIssueKind =
   | "environment-unbalanced" // \begin without \end or vice versa
   | "prose-in-inline-math" // $...$ contains CJK punctuation outside \text{}
   | "brace-unbalanced" // unmatched { or } inside math
-  | "bare-latex-unwrapped"; // unambiguous LaTeX command outside any math delimiter
+  | "bare-latex-unwrapped" // unambiguous LaTeX command outside any math delimiter
+  // ── From latex-scanner (state machine) — complement the regex checks ──
+  | "unclosed-inline-math" // $ opened, document ended before $ close
+  | "unclosed-display-math" // $$ opened, document ended before $$ close
+  | "unclosed-bracket-math" // \[ opened, document ended before \] close
+  | "unclosed-environment" // \begin opened, doc ended before \end
+  | "unmatched-environment" // \end nesting or name mismatch
+  | "inline-math-contains-newline"; // $ opened, newline hit before $ close
 
 export interface LatexIssue {
   kind: LatexIssueKind;
@@ -152,10 +159,61 @@ function extractInlineMathBlocks(
   return blocks;
 }
 
+/**
+ * Lazy-loaded scanner — keeps the module importable without the circular
+ * concern, and allows tests to mock it if needed.
+ */
+function runScanner(
+  markdown: string,
+): Array<{
+  kind: LatexIssueKind;
+  line: number;
+  message: string;
+  snippet?: string;
+}> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { scanMarkdownForMathIssues } = require("./latex-scanner") as {
+    scanMarkdownForMathIssues: (s: string) => {
+      valid: boolean;
+      issues: Array<{
+        kind: string;
+        line: number;
+        message: string;
+        snippet?: string;
+      }>;
+    };
+  };
+  const { issues } = scanMarkdownForMathIssues(markdown);
+  // Map scanner kinds onto the public LatexIssueKind union
+  const KIND_MAP: Record<string, LatexIssueKind> = {
+    "unclosed-inline-math": "unclosed-inline-math",
+    "unclosed-display-math": "unclosed-display-math",
+    "unclosed-bracket-math": "unclosed-bracket-math",
+    "unclosed-environment": "unclosed-environment",
+    "unmatched-environment": "unmatched-environment",
+    "inline-math-contains-newline": "inline-math-contains-newline",
+    "inline-math-contains-cjk-prose": "prose-in-inline-math",
+    "inline-math-unbalanced-braces": "brace-unbalanced",
+  };
+  return issues.map((i) => ({
+    kind: KIND_MAP[i.kind] ?? ("unclosed-inline-math" as LatexIssueKind),
+    line: i.line,
+    message: i.message,
+    snippet: i.snippet,
+  }));
+}
+
 export function validateLatexDelimiters(
   markdown: string,
 ): LatexValidationResult {
   const issues: LatexIssue[] = [];
+
+  // ── State-machine scanner (complements the regex checks below) ──────
+  //   Catches edge cases regex misses: unclosed-at-EOL, code-fence
+  //   isolation, $$ inside backtick spans, begin/end nesting depth, etc.
+  for (const si of runScanner(markdown)) {
+    issues.push(si);
+  }
 
   // ── 1. Display math $$ count ─────────────────────────────────────────
   const displayCount = countDisplayDollars(markdown);

@@ -62,7 +62,11 @@ describe("validateLatexDelimiters", () => {
         "Text $\\alpha + \\beta with no close",
       );
       expect(result.valid).toBe(false);
-      expect(result.issues[0].kind).toBe("inline-unbalanced");
+      // Scanner may detect first → "unclosed-inline-math"; regex check
+      // would say "inline-unbalanced". Either is a correct classification.
+      expect(["inline-unbalanced", "unclosed-inline-math"]).toContain(
+        result.issues[0].kind,
+      );
       expect(result.issues[0].line).toBe(1);
     });
 
