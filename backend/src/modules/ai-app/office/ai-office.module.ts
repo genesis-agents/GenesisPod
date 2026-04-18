@@ -44,6 +44,7 @@ import {
   SkillResolver,
   PresetLoader,
   SkillPolicyRegistry,
+  SlidesAutoRouterService,
 } from "./slides/skill-resolver";
 
 // Agents
@@ -108,6 +109,8 @@ import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
     PresetLoader,
     SkillPolicyRegistry,
     SkillResolver,
+    // Auto-router (Phase C3): opt-in LLM preset inference
+    SlidesAutoRouterService,
   ],
   exports: [
     AIModelService,

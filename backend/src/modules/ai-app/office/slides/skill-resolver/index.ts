@@ -5,6 +5,8 @@ export { PresetLoader } from "./preset-loader.service";
 export { SkillPolicyRegistry } from "./skill-policy.registry";
 export { resolveEffectiveSkillId } from "./effective-skill";
 export type { EffectiveSkillResolution } from "./effective-skill";
+export { SlidesAutoRouterService } from "./auto-router.service";
+export type { RoutingSuggestion } from "./auto-router.service";
 export type {
   SkillPolicy,
   SkillConditions,

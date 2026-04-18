@@ -22,6 +22,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 import { SlidesTeamOrchestrator } from "../orchestrator/slides-team-orchestrator";
+import { SlidesAutoRouterService } from "../skill-resolver";
 import {
   SlidesTeamOrchestratorInput,
   SlidesMissionEvent,
@@ -88,6 +89,11 @@ export interface SlidesGenerateInput {
   intent?: string;
   /** 语种 hint，用于 policy 匹配 */
   language?: string;
+  /**
+   * Opt-in：是否调用 LLM auto-router 分析 sourceText 自动推断 preset/conditions。
+   * 仅当未显式传 preset 且未设置条件字段时才会生效。
+   */
+  autoRoute?: boolean;
 }
 
 // Re-export StreamEvent for convenience
@@ -141,6 +147,7 @@ export class SlidesEngineService {
     @Optional() private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly eventBus?: EventBusService,
+    @Optional() private readonly autoRouter?: SlidesAutoRouterService,
   ) {}
 
   /**
@@ -453,6 +460,40 @@ export class SlidesEngineService {
       preset: input.preset,
       skillOverrides: input.skillOverrides,
     };
+
+    // Opt-in LLM auto-routing (Phase C3). Runs before the resolver and only
+    // when the caller asked for it AND hasn't already set preset / hints.
+    // Silently no-ops if the router is unavailable or returns nothing.
+    if (input.autoRoute && this.autoRouter) {
+      const alreadyRouted =
+        !!input.preset ||
+        !!input.intent ||
+        !!input.language ||
+        !!input.targetAudience ||
+        !!input.skillOverrides;
+      if (!alreadyRouted) {
+        const suggestion = await this.autoRouter.infer(input.sourceText);
+        if (suggestion) {
+          orchestratorInput.preset =
+            orchestratorInput.preset ?? suggestion.presetId;
+          orchestratorInput.sourceTypeHint =
+            orchestratorInput.sourceTypeHint ??
+            suggestion.conditions.sourceType;
+          orchestratorInput.audience =
+            orchestratorInput.audience ?? suggestion.conditions.audience;
+          orchestratorInput.intent =
+            orchestratorInput.intent ?? suggestion.conditions.intent;
+          orchestratorInput.language =
+            orchestratorInput.language ?? suggestion.conditions.language;
+          this.logger.log(
+            `[generateSlides] auto-routed: preset=${suggestion.presetId ?? "(none)"} ` +
+              `audience=${suggestion.conditions.audience ?? "-"} ` +
+              `intent=${suggestion.conditions.intent ?? "-"}` +
+              (suggestion.rationale ? ` — ${suggestion.rationale}` : ""),
+          );
+        }
+      }
+    }
 
     // 4. 心跳/缓冲区刷新间隔（不再只是空心跳）
     const BUFFER_FLUSH_INTERVAL_MS = 2000; // 每 2 秒检查一次缓冲区
