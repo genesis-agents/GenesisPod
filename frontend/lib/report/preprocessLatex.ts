@@ -645,12 +645,18 @@ export function preprocessLatex(markdown: string): string {
   //   B_{\text{dtype}$$}  →  should be B_{\text{dtype}}
   //   B_{\text{dtype}$$$1$$L$  →  completely garbled
   // Strategy: strip $ signs adjacent to } in LaTeX contexts
-  // Pattern 1: }$+} — extra $ between closing braces → }}
-  result = result.replace(/\}\$+\}/g, '}}');
-  // Pattern 2: }$+; or }$+， — $ after } before punctuation → }punct
-  result = result.replace(/\}\$+([;；,，。.：:）)])/g, '}$1');
+  // ★ 2026-04-18 FIX: these patterns used `\$+` (one-or-more $) but
+  //   one $ is just the LEGITIMATE closing delimiter of an inline math
+  //   block that happens to end with `}` (e.g. `$\frac{a}{b}$，若`).
+  //   Require at least TWO $ before triggering, so we only match genuine
+  //   damage like `}$$}` / `}$$；` / `}$$1$$` and leave valid `}$punct`
+  //   alone.
+  // Pattern 1: }$$+} — extra $ between closing braces → }}
+  result = result.replace(/\}\${2,}\}/g, '}}');
+  // Pattern 2: }$$+punct — stray double+ $ after } before punct → }punct
+  result = result.replace(/\}\${2,}([;；,，。.：:）)])/g, '}$1');
   // Pattern 3: }$$$1$$L$ — garbled formula fragments: strip sequences of $+digit+$
-  result = result.replace(/\}\$+(\d+)\$+/g, '}$1');
+  result = result.replace(/\}\${2,}(\d+)\${2,}/g, '}$1');
   // Pattern 4: \text{...}$$ at end of inline formula — strip trailing $$
   result = result.replace(
     /(\\(?:text|mathrm|mathbf|mathit|operatorname)\{[^}]*\})\$\$/g,
@@ -677,12 +683,23 @@ export function preprocessLatex(markdown: string): string {
   // Step 7.5: Merge fragmented formulas where $ delimiters are at wrong positions.
   // LLM produces: $C_{total}$=\sum_i C_$i^{exec}+...+C_{overhead}$
   // Should be:    $C_{total} = \sum_i C_i^{exec}+...+C_{overhead}$
+  //
+  // ★ 2026-04-18 FIX: earlier version only checked CJK in `mid`, but the
+  //   regex can match a SPAN where the actual CJK prose sits in groups a/b
+  //   (e.g. `$\theta_0$，若 $q < \theta_0$ 则...若 $\theta_a$` — the CJK
+  //   prose lives in a = "，若 " and b = " 则...若 "). When that happens,
+  //   the merge destroys TWO legitimate adjacent inline-math blocks. The
+  //   guard must check ALL THREE groups for CJK; if any of them has it,
+  //   these are separate legitimate blocks — do not merge.
   for (let i = 0; i < 5; i++) {
     const before = result;
     result = result.replace(
       /\$([^$\n]+)\$([^$\n]{1,60}\\[a-zA-Z][^$\n]{0,60})\$([^$\n]+)\$/g,
       (match, a, mid, b) => {
-        if (/[\u4e00-\u9fff]/.test(mid)) return match; // CJK = prose gap
+        // Any CJK in any of the three groups = separate legitimate blocks
+        if (/[\u4e00-\u9fff]/.test(mid)) return match;
+        if (/[\u4e00-\u9fff]/.test(a)) return match;
+        if (/[\u4e00-\u9fff]/.test(b)) return match;
         return `$${a}${mid}${b}$`;
       }
     );
