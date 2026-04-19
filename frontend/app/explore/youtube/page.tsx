@@ -1295,8 +1295,23 @@ function YouTubeTLDWContent() {
                     </div>
                   </button>
 
-                  {/* Subtitle Export Button */}
-                  <SubtitleExportButton videoId={videoId} variant="icon" />
+                  {/* Subtitle Export Button - pass local merged transcript + translations
+                      so the PDF includes Chinese even when translations were only
+                      computed on-demand in the UI (not saved to backend). */}
+                  <SubtitleExportButton
+                    videoId={videoId}
+                    variant="icon"
+                    englishSegments={mergedTranscript.map((m) => ({
+                      text: m.text,
+                      start: m.start,
+                      duration: m.duration,
+                    }))}
+                    chineseSegments={mergedTranscript.map((m, i) => ({
+                      text: translations.get(i) ?? '',
+                      start: m.start,
+                      duration: m.duration,
+                    }))}
+                  />
                 </div>
               </div>
             </div>
