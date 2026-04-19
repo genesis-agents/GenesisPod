@@ -128,7 +128,9 @@ export class LatexRepairService {
       };
     }
 
-    const candidate = this.stripCodeFence(response.content).trim();
+    const candidate = this.stripBoundaryMarkers(
+      this.stripCodeFence(response.content),
+    ).trim();
 
     // Refuse if LLM returned an obviously-too-short response (it summarized
     // or refused instead of repairing). Heuristic: repaired length should be
@@ -228,6 +230,37 @@ export class LatexRepairService {
   }
 
   /**
+   * Remove the `--- DOCUMENT START ---` / `--- DOCUMENT END ---` sentinels
+   * that we use in {@link buildUserPrompt} if the LLM echoed them back.
+   *
+   * Rule (safe-truncation bias):
+   *  1. If the response begins (after optional leading whitespace) with
+   *     `--- DOCUMENT START ---`, drop that line.
+   *  2. If `--- DOCUMENT END ---` appears anywhere in the response,
+   *     **truncate at its first occurrence** — the marker AND everything
+   *     after it are discarded. This defends against a common LLM failure
+   *     mode where the model echoes the end sentinel then continues to
+   *     hallucinate new sections.
+   *
+   * Observed in prod: 22 TopicReport rows got up to 2.8 MB of hallucinated
+   * continuations appended after the end marker before this guard existed.
+   */
+  private stripBoundaryMarkers(text: string): string {
+    // 1) Strip leading START marker (allow whitespace prefix).
+    let out = text.replace(/^\s*--- DOCUMENT START ---[ \t]*\n?/, "");
+
+    // 2) Truncate at first END marker, regardless of position. A non-prefix
+    //    START elsewhere in the body is left untouched — we prefer keeping
+    //    the body over aggressive surgery.
+    const endIdx = out.indexOf("--- DOCUMENT END ---");
+    if (endIdx !== -1) {
+      out = out.slice(0, endIdx);
+    }
+
+    return out;
+  }
+
+  /**
    * Chunked repair for documents larger than MAX_CHUNK_CHARS.
    * Splits at top-level `## ` headings so the LLM only sees one chapter
    * at a time. Headings themselves travel with the chunk that follows.
@@ -279,7 +312,9 @@ export class LatexRepairService {
           repairedChunks.push(chunk);
           continue;
         }
-        const candidate = this.stripCodeFence(response.content).trim();
+        const candidate = this.stripBoundaryMarkers(
+          this.stripCodeFence(response.content),
+        ).trim();
         if (
           candidate.length < chunk.length * 0.85 ||
           candidate.length > chunk.length * 1.2

@@ -97,6 +97,9 @@ service-account*.json
 # 调试文件
 debug/
 
+# One-off data cleanup backups (keep local, never commit — may contain PII)
+**/.cleanup-backup/
+
 # TypeScript 构建信息
 *.tsbuildinfo
 
