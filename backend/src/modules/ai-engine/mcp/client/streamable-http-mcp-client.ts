@@ -116,7 +116,7 @@ export class StreamableHttpMCPClient extends BaseMCPClient {
         this.sessionId = newSessionId;
       }
 
-      const contentType = response.headers["content-type"] || "";
+      const contentType = String(response.headers["content-type"] ?? "");
 
       if (contentType.includes("text/event-stream")) {
         // Parse SSE response

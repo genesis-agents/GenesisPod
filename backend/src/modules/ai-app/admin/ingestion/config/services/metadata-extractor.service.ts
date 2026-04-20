@@ -118,10 +118,11 @@ export class MetadataExtractorService {
         validateStatus: (status) => status >= 200 && status < 400,
       });
 
+      const rawContentLength = response.headers["content-length"];
       return {
-        contentType: response.headers["content-type"] || "",
-        contentLength: response.headers["content-length"]
-          ? parseInt(response.headers["content-length"], 10)
+        contentType: String(response.headers["content-type"] ?? ""),
+        contentLength: rawContentLength
+          ? parseInt(String(rawContentLength), 10)
           : null,
       };
     } catch {

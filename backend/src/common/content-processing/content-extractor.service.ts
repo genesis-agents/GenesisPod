@@ -387,7 +387,7 @@ export class ContentExtractorService {
         }),
       );
 
-      const contentType = response.headers["content-type"] || "";
+      const contentType = String(response.headers["content-type"] ?? "");
 
       // Handle PDF content
       if (contentType.toLowerCase().includes("application/pdf")) {

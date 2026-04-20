@@ -1191,7 +1191,9 @@ export class ProxyController {
           },
         });
 
-        const contentType = response.headers["content-type"] || "image/jpeg";
+        const contentType = String(
+          response.headers["content-type"] ?? "image/jpeg",
+        );
         res.setHeader("Content-Type", contentType);
         res.setHeader("Cache-Control", "public, max-age=86400"); // 缓存 1 天
         res.send(Buffer.from(response.data));
@@ -1230,8 +1232,9 @@ export class ProxyController {
                   },
                 });
 
-                const contentType =
-                  retryResponse.headers["content-type"] || "image/jpeg";
+                const contentType = String(
+                  retryResponse.headers["content-type"] ?? "image/jpeg",
+                );
                 res.setHeader("Content-Type", contentType);
                 res.setHeader("Cache-Control", "public, max-age=86400");
                 res.send(Buffer.from(retryResponse.data));
