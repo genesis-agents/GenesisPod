@@ -17,6 +17,9 @@ export interface ByokErrorMeta {
   requestUrl?: string;
   usedCents?: number;
   limitCents?: number;
+  /** 直接来自 provider（如 OpenAI）的错误说明；用于向用户展示真实原因 */
+  providerMessage?: string;
+  status?: number;
 }
 
 export interface ByokErrorPayload {

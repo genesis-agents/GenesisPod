@@ -34,7 +34,9 @@ import { SessionLatencyTrackerService } from "../../../ai-kernel/facade";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import {
   BYOKError,
+  InvalidApiKeyError,
   NoAvailableKeyError,
+  QuotaExceededError,
 } from "../../../ai-infra/key-resolver/key-resolver.errors";
 
 export interface ChatCompletionOptions {
@@ -709,13 +711,18 @@ export class AiChatService {
       // ★ Preserve AIError type for fallback decisions
       const classifiedErrorType = httpErr.type;
 
-      if (httpErr.response) {
-        const status = httpErr.response.status;
-        const data = httpErr.response.data;
-        const errorData = data?.error as Record<string, unknown> | undefined;
-        const apiErrorMsg =
-          errorData?.message || data?.message || JSON.stringify(data);
-        detailedError = `Status: ${status}, API Error: ${apiErrorMsg}`;
+      const status = httpErr.response?.status;
+      const data = httpErr.response?.data;
+      const apiErrorPayload = data?.error as
+        | { message?: string; code?: string; type?: string }
+        | undefined;
+      const apiErrorMsg =
+        apiErrorPayload?.message || (data?.message as string) || "";
+
+      if (status !== undefined) {
+        detailedError = `Status: ${status}, API Error: ${
+          apiErrorMsg || JSON.stringify(data)
+        }`;
         errorMsg = `${errorMsg} - ${detailedError}`;
       }
 
@@ -726,6 +733,42 @@ export class AiChatService {
       this.logger.debug(
         `[callAPIWithConfig] Failed request params - model: ${modelId}, endpoint: ${effectiveEndpoint?.substring(0, 50)}..., keySource: ${apiKeySource}`,
       );
+
+      // ★ BYOK：用户自己的 Key 或管理员分配的 Key 被 Provider 拒绝时，
+      // 抛成特定的 BYOKError，让 HTTP 层返回 403 + code，前端全局
+      // Modal 弹出引导卡片，而不是把错误文本当 AI 回复渲染。
+      // source === "system" 时（管理员走系统 Secret）保留原有的 isError 行为。
+      const isUserScopedKey =
+        apiKeySource === "personal" || apiKeySource === "donated";
+      const source =
+        apiKeySource === "personal"
+          ? "PERSONAL"
+          : apiKeySource === "donated"
+            ? "ASSIGNED"
+            : "SYSTEM";
+
+      if (isUserScopedKey && status !== undefined) {
+        const isAuthError =
+          status === 401 ||
+          apiErrorPayload?.code === "invalid_api_key" ||
+          apiErrorPayload?.type === "invalid_request_error";
+        const isQuotaError =
+          status === 429 ||
+          apiErrorPayload?.code === "insufficient_quota" ||
+          /quota|billing|exceeded/i.test(apiErrorMsg);
+
+        if (isAuthError && !isQuotaError) {
+          throw new InvalidApiKeyError(provider, source, {
+            meta: { providerMessage: apiErrorMsg, status },
+          } as never);
+        }
+        if (isQuotaError) {
+          throw new QuotaExceededError(provider, source, {
+            providerMessage: apiErrorMsg,
+            status,
+          } as never);
+        }
+      }
 
       if (useStrictMode) {
         throw error;

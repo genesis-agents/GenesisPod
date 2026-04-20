@@ -61,34 +61,61 @@ function Card({
           ),
         };
 
-      case 'QUOTA_EXCEEDED':
+      case 'QUOTA_EXCEEDED': {
+        const isUserScope =
+          payload.meta.source === 'PERSONAL' ||
+          payload.meta.source === 'ASSIGNED';
+        const source = payload.meta.source;
+        const providerMsg = payload.meta.providerMessage;
+        const hasQuotaNumbers =
+          typeof payload.meta.usedCents === 'number' &&
+          typeof payload.meta.limitCents === 'number';
+
+        let description: string;
+        if (source === 'ASSIGNED' && hasQuotaNumbers) {
+          description = `已用 ${formatUsd(payload.meta.usedCents)} / ${formatUsd(
+            payload.meta.limitCents
+          )}。请申请扩额，或配置你自己的 Key 继续使用。`;
+        } else if (source === 'PERSONAL' && providerMsg) {
+          // 用户自己的 Provider 账号返回的 429：通常是账单/tier 问题，
+          // 直接展示 provider 的原文，避免用户误以为是 Genesis 的 bug
+          description = `${labelProvider(provider)} 返回：${providerMsg}`;
+        } else if (providerMsg) {
+          description = providerMsg;
+        } else {
+          description = '配额已耗尽。请申请扩额或更新 Key。';
+        }
+
         return {
           title: `${labelProvider(provider)} 配额已用完`,
-          description: `${formatUsd(payload.meta.usedCents)} / ${formatUsd(
-            payload.meta.limitCents
-          )}。请申请扩额，或配置你自己的 Key 继续使用。`,
-          actions: (
+          description,
+          actions: isUserScope ? (
             <div className="flex gap-2">
-              <Link
-                href="/settings/api-keys/request"
-                className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-              >
-                <Send className="h-3.5 w-3.5" /> 申请扩额
-              </Link>
+              {source === 'ASSIGNED' && (
+                <Link
+                  href="/settings/api-keys/request"
+                  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                  <Send className="h-3.5 w-3.5" /> 申请扩额
+                </Link>
+              )}
               <Link
                 href="/settings/api-keys"
                 className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
               >
-                <Key className="h-3.5 w-3.5" /> 用自己的 Key
+                <Key className="h-3.5 w-3.5" /> 打开 Key 管理
               </Link>
             </div>
-          ),
+          ) : null,
         };
+      }
 
       case 'INVALID_API_KEY':
         return {
-          title: `${labelProvider(provider)} Key 已失效`,
-          description: '这个 Key 可能已被撤销或过期。请更新后再试。',
+          title: `${labelProvider(provider)} Key 被拒绝`,
+          description: payload.meta.providerMessage
+            ? `${labelProvider(provider)} 返回：${payload.meta.providerMessage}`
+            : '这个 Key 可能已被撤销或过期。请更新后再试。',
           actions: (
             <Link
               href="/settings/api-keys"
