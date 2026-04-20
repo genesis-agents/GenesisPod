@@ -1372,6 +1372,33 @@ export default function AskPage() {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
+      // BYOK 错误：发布全局事件让 GlobalByokErrorModal 弹出引导卡片，
+      // 同时抛一个带 __byok 标记的 Error，让外层 catch 知道这是
+      // BYOK 错误，不要再把文案渲染成 assistant 消息。
+      const BYOK_CODES = [
+        'NO_AVAILABLE_KEY',
+        'NO_SYSTEM_KEY',
+        'QUOTA_EXCEEDED',
+        'INVALID_API_KEY',
+        'KEY_EXPIRED',
+      ];
+      if (
+        response.status === 403 &&
+        typeof error.code === 'string' &&
+        BYOK_CODES.includes(error.code)
+      ) {
+        const { publishByokError } = await import('@/lib/byok/event-bus');
+        publishByokError({
+          code: error.code,
+          message: error.message,
+          details: error,
+        } as unknown);
+        const byokErr = new Error(error.message || 'BYOK error') as Error & {
+          __byok: true;
+        };
+        byokErr.__byok = true;
+        throw byokErr;
+      }
       throw new Error(error.message || `API Error: ${response.status}`);
     }
 
@@ -1519,11 +1546,15 @@ export default function AskPage() {
               });
             } catch (error) {
               if ((error as Error).name === 'AbortError') return;
+              // BYOK 错误：全局 Modal 已处理，给 mixture 槽位一个简短状态
+              const isByok = (error as Error & { __byok?: boolean }).__byok;
               setMixtureResponses((prev) => {
                 const newResponses = [...prev];
                 newResponses[index] = {
                   ...newResponses[index],
-                  content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
+                  content: isByok
+                    ? '—'
+                    : `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
                 };
                 return newResponses;
               });
@@ -1632,6 +1663,10 @@ export default function AskPage() {
     } catch (error) {
       // Ignore abort errors (user stopped generation)
       if ((error as Error).name === 'AbortError') {
+        return;
+      }
+      // BYOK 错误：不往聊天区渲染，全局 Modal 已处理
+      if ((error as Error & { __byok?: boolean }).__byok) {
         return;
       }
       logger.error('Error:', error);
