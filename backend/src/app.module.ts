@@ -2,6 +2,7 @@ import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { ScheduleModule } from "@nestjs/schedule";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ResponseTransformInterceptor } from "./common/interceptors/response-transform.interceptor";
 import { RequestLoggerInterceptor } from "./common/interceptors/request-logger.interceptor";
@@ -32,7 +33,12 @@ import { SettingsModule } from "./modules/ai-infra/settings/settings.module";
 import { StorageModule } from "./modules/ai-infra/storage/storage.module";
 import { TableManagementModule } from "./modules/ai-infra/table-management/table-management.module";
 import { CreditsModule } from "./modules/ai-infra/credits/credits.module";
+import { EncryptionModule } from "./modules/ai-infra/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/ai-infra/user-api-keys/user-api-keys.module";
+import { DistributableKeysModule } from "./modules/ai-infra/distributable-keys";
+import { KeyAssignmentsModule } from "./modules/ai-infra/key-assignments";
+import { KeyRequestsModule } from "./modules/ai-infra/key-requests";
+import { KeyResolverModule } from "./modules/ai-infra/key-resolver";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 import { AiKernelModule } from "./modules/ai-kernel/ai-kernel.module";
@@ -105,6 +111,9 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
       global: true,
     }),
 
+    // 全局定时任务模块（@Cron 装饰器必需）
+    ScheduleModule.forRoot(),
+
     // API限流保护 - 全局默认60请求/分钟
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
@@ -147,7 +156,13 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
     StorageModule,
     TableManagementModule,
     CreditsModule,
+    EncryptionModule, // 全局加密服务（必须先于依赖它的模块注册）
     UserApiKeysModule,
+    // BYOK v2：可分发 Key 池 + 分配 + 申请 + 统一解析
+    DistributableKeysModule,
+    KeyAssignmentsModule,
+    KeyRequestsModule,
+    KeyResolverModule,
 
     // AI modules (ai-* prefix)
     AiEngineModule,

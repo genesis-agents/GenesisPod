@@ -49,6 +49,28 @@ export { HealthCheckService } from "../monitoring/health-check.service";
 // ─── User API Keys ───
 export { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 
+// ─── BYOK v2：分发池 / 分配 / 申请 / 统一解析 ───
+export { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
+export { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
+export { KeyRequestsService } from "../key-requests/key-requests.service";
+export { KeyResolverService } from "../key-resolver/key-resolver.service";
+export type {
+  KeySource,
+  ResolvedKey,
+} from "../key-resolver/key-resolver.service";
+export {
+  BYOK_ERROR_CODES,
+  BYOKError,
+  NoAvailableKeyError,
+  NoSystemKeyError,
+  InvalidApiKeyError,
+  QuotaExceededError,
+} from "../key-resolver/key-resolver.errors";
+export type {
+  BYOKErrorCode,
+  BYOKErrorMeta,
+} from "../key-resolver/key-resolver.errors";
+
 // ─── Release ───
 export { ReleaseService } from "../release/release.service";
 

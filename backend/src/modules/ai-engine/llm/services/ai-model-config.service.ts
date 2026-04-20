@@ -1,6 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService, UserApiKeysService } from "../../../ai-infra/facade";
+import {
+  KeyResolverService,
+  NoAvailableKeyError,
+  SecretsService,
+  UserApiKeysService,
+} from "../../../ai-infra/facade";
 import { RequestContext } from "../../../../common/context/request-context";
 import { AIModelType } from "@prisma/client";
 import { inferIsReasoning } from "../types";
@@ -212,6 +217,7 @@ export class AiModelConfigService {
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
     private readonly userApiKeysService: UserApiKeysService,
+    @Optional() private readonly keyResolver?: KeyResolverService,
   ) {
     // 初始化时异步加载模型配置
     this.refreshModelConfigCache().catch((err) =>
@@ -229,53 +235,51 @@ export class AiModelConfigService {
   }
 
   /**
-   * 获取模型的 API Key（含用户 Key 优先级）
-   * 优先级: 用户自用 Key → 共享池捐赠 Key → 系统 Key
+   * 获取模型的 API Key。
+   *
+   * BYOK v2 优先级（由 {@link KeyResolverService} 统一裁决）：
+   * - 管理员（User.role = ADMIN）→ 仅系统 Secret
+   * - 普通用户 → Personal → Assigned；两者都没有 → 返回 null（让调用方以
+   *   "API Key not configured" 语义提示用户），不再静默回退到系统 Secret
+   *
+   * 没有 userId 的后台任务（过渡期保留）：走系统 Secret 的旧路径，保证现
+   * 有定时任务在 Phase 4 改造完成前仍可运行。
    */
   async resolveApiKey(
     model: AIModelConfig,
     userId?: string,
   ): Promise<ResolvedApiKey | null> {
-    // Priority 1: 用户自用 Key
-    if (userId) {
+    if (userId && this.keyResolver) {
       try {
-        const personalKey = await this.userApiKeysService.getPersonalKey(
+        const resolved = await this.keyResolver.resolveKey(
           userId,
           model.provider,
+          // 透传 AIModel 上记录的 secretKey，供管理员路径精确定位 Secret，
+          // 避免因命名不规范（claude-api-key / gemini-api 等）查不到。
+          { systemSecretName: model.secretKey ?? null },
         );
-        if (personalKey) {
-          return {
-            apiKey: personalKey.apiKey,
-            source: "personal",
-            apiEndpoint: personalKey.apiEndpoint,
-          };
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Failed to get personal key for user ${userId}, provider ${model.provider}: ${error}`,
-        );
-      }
-    }
-
-    // Priority 2: 共享池（用户捐赠）
-    try {
-      const donatedKey = await this.userApiKeysService.getDonatedKey(
-        model.provider,
-      );
-      if (donatedKey) {
+        const sourceMap = {
+          PERSONAL: "personal",
+          ASSIGNED: "donated",
+          SYSTEM: "system",
+        } as const;
         return {
-          apiKey: donatedKey.apiKey,
-          source: "donated",
-          apiEndpoint: donatedKey.apiEndpoint,
+          apiKey: resolved.apiKey,
+          source: sourceMap[resolved.source],
+          apiEndpoint: resolved.apiEndpoint,
         };
+      } catch (error) {
+        if (error instanceof NoAvailableKeyError) {
+          // 用户没有 Personal 也没有 Assignment：返回 null，让上层给出
+          // "API Key not configured" 或透传 NO_AVAILABLE_KEY 错误
+          return null;
+        }
+        // QuotaExceededError / NoSystemKeyError 等需要传给前端
+        throw error;
       }
-    } catch (error) {
-      this.logger.warn(
-        `Failed to get donated key for provider ${model.provider}: ${error}`,
-      );
     }
 
-    // Priority 3: Secret Manager 系统 Key（不回退到明文 apiKey）
+    // 过渡期：无 userId 上下文时退化为系统 Secret 路径
     if (model.secretKey) {
       const secretValue = await this.secretsService.getValueInternal(
         model.secretKey,
@@ -284,10 +288,9 @@ export class AiModelConfigService {
         return { apiKey: secretValue.trim(), source: "system" };
       }
       this.logger.error(
-        `[resolveApiKey] Secret '${model.secretKey}' not found for model ${model.name}. Check Secret Manager configuration.`,
+        `[resolveApiKey] Secret '${model.secretKey}' not found for model ${model.name}.`,
       );
     }
-
     return null;
   }
 

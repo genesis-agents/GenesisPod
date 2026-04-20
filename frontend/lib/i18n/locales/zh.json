@@ -3046,6 +3046,9 @@
       "users": "用户管理",
       "credits": "积分管理",
       "secrets": "密钥管理",
+      "distributableKeys": "分发 Key 池",
+      "keyAssignments": "Key 分配总览",
+      "keyRequests": "Key 申请工单",
       "feedback": "反馈管理",
       "security": "安全设置",
       "systemSettings": "系统设置",
@@ -4080,6 +4083,71 @@
     "lastUpdated": "最后更新",
     "yourFeedback": "您的反馈",
     "teamResponse": "团队回复"
+  },
+  "byok": {
+    "onboarding": {
+      "title": "欢迎使用 Genesis.ai",
+      "subtitle": "使用 AI 功能前，请配置一个 Provider 的 API Key，或向管理员申请分配。",
+      "haveKeyTitle": "我有自己的 API Key",
+      "haveKeyDesc": "使用你自己的 OpenAI / Claude / Gemini Key。无配额限制，费用由你自己的 Provider 账号承担。",
+      "needKeyTitle": "我没有 Key，请管理员分配",
+      "needKeyDesc": "提交申请，通常 24 小时内处理。分配的 Key 带有用户级配额。",
+      "back": "← 重新选择",
+      "keyPanelIntro": "在下方至少配置并保存一个 Provider 的 Key，保存成功后会自动完成引导。",
+      "requestPanelIntro": "点击下方按钮前往申请表单。在等待管理员处理期间你仍可进入系统浏览，但 AI 调用会被拦截。",
+      "openRequestForm": "填写申请表单",
+      "skipForNow": "跳过，先进入系统"
+    },
+    "tabs": {
+      "mine": "我的 Key",
+      "assigned": "管理员分配",
+      "requests": "我的申请"
+    },
+    "assigned": {
+      "empty": "管理员目前还没有给你分配任何 Key",
+      "requestCta": "申请 Key",
+      "usedOf": "已用 {{used}} / {{total}}",
+      "expiresOn": "到期 {{date}}"
+    },
+    "requests": {
+      "newRequest": "新建申请",
+      "empty": "尚无申请记录",
+      "cancel": "撤销",
+      "reject": "拒绝理由：{{reason}}",
+      "status": {
+        "PENDING": "审核中",
+        "APPROVED": "已批准",
+        "REJECTED": "已拒绝",
+        "CANCELLED": "已撤销"
+      },
+      "form": {
+        "provider": "Provider",
+        "reason": "使用目的",
+        "reasonPlaceholder": "例如：毕业设计需要使用 GPT-4o 做文献综述",
+        "estimated": "预计月度用量",
+        "light": "轻度 < $5",
+        "medium": "中度 $5-20",
+        "heavy": "重度 > $20",
+        "note": "备注（可选）",
+        "submit": "提交申请"
+      }
+    },
+    "errors": {
+      "noAvailableKeyTitle": "{{provider}} 需要配置 API Key",
+      "noAvailableKeyDesc": "你还没有配置这个 Provider 的 Key，也没有被分配任何 Key。",
+      "quotaExceededTitle": "{{provider}} 配额已用完",
+      "quotaExceededDesc": "已用 {{used}} / {{total}}。请申请扩额，或配置你自己的 Key 继续使用。",
+      "invalidKeyTitle": "{{provider}} Key 已失效",
+      "invalidKeyDesc": "这个 Key 可能已被撤销或过期，请更新后再试。",
+      "keyExpiredTitle": "{{provider}} 分配已过期",
+      "keyExpiredDesc": "你的 Key 分配已过期，请联系管理员续期或使用自己的 Key。",
+      "noSystemKeyTitle": "{{provider}} 系统 Key 缺失",
+      "noSystemKeyDesc": "管理员尚未在 Secret Manager 中配置该 Provider 的 Key。",
+      "actionConfigure": "去配置 Key",
+      "actionRequest": "向管理员申请",
+      "actionUpdate": "更新 Key",
+      "actionRenew": "申请续期"
+    }
   },
   "profile": {
     "title": "个人资料",

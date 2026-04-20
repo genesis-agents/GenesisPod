@@ -3,12 +3,22 @@ import { Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SecretsService } from "../secrets.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { EncryptionService } from "../../encryption/encryption.service";
 import { SecretCategory, SecretAction } from "@prisma/client";
+
+const buildEncryption = (): EncryptionService =>
+  new EncryptionService({
+    get: (key: string) =>
+      key === "SETTINGS_ENCRYPTION_KEY"
+        ? "test-encryption-key-32chars-ok!"
+        : key === "NODE_ENV"
+          ? "test"
+          : undefined,
+  } as unknown as ConfigService);
 
 describe("SecretsService", () => {
   let service: SecretsService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
-  let mockConfigService: jest.Mocked<Partial<ConfigService>>;
 
   const makeSecret = (overrides: Record<string, unknown> = {}) => ({
     id: "secret-1",
@@ -62,20 +72,11 @@ describe("SecretsService", () => {
       } as unknown as PrismaService["systemSetting"],
     };
 
-    mockConfigService = {
-      get: jest.fn().mockImplementation((key: string) => {
-        if (key === "SETTINGS_ENCRYPTION_KEY")
-          return "test-encryption-key-32chars-ok!";
-        if (key === "NODE_ENV") return "test";
-        return undefined;
-      }),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SecretsService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: ConfigService, useValue: mockConfigService },
+        { provide: EncryptionService, useValue: buildEncryption() },
       ],
     }).compile();
 
@@ -89,48 +90,7 @@ describe("SecretsService", () => {
     jest.restoreAllMocks();
   });
 
-  // ==================== constructor ====================
-
-  describe("constructor", () => {
-    it("throws when SETTINGS_ENCRYPTION_KEY missing in production", async () => {
-      const prodConfigService = {
-        get: jest.fn().mockImplementation((key: string) => {
-          if (key === "NODE_ENV") return "production";
-          return undefined;
-        }),
-      };
-
-      await expect(
-        Test.createTestingModule({
-          providers: [
-            SecretsService,
-            { provide: PrismaService, useValue: mockPrisma },
-            { provide: ConfigService, useValue: prodConfigService },
-          ],
-        })
-          .compile()
-          .then((m) => m.get<SecretsService>(SecretsService)),
-      ).rejects.toThrow("CRITICAL");
-    });
-
-    it("uses default key in dev/test with warning", () => {
-      const noKeyConfigService = {
-        get: jest.fn().mockImplementation((key: string) => {
-          if (key === "NODE_ENV") return "test";
-          return undefined;
-        }),
-      };
-
-      // Should not throw
-      expect(
-        () =>
-          new SecretsService(
-            mockPrisma as unknown as PrismaService,
-            noKeyConfigService as unknown as ConfigService,
-          ),
-      ).not.toThrow();
-    });
-  });
+  // 加密/密钥派生的边界用例已迁移到 encryption.service.spec.ts，此处不再重复。
 
   // ==================== create ====================
 

@@ -3046,6 +3046,9 @@
       "users": "User Management",
       "credits": "Credits Management",
       "secrets": "Secret Management",
+      "distributableKeys": "Distributable Keys",
+      "keyAssignments": "Key Assignments",
+      "keyRequests": "Key Requests",
       "feedback": "Feedback Management",
       "security": "Security",
       "systemSettings": "System Settings",
@@ -4080,6 +4083,71 @@
     "lastUpdated": "Last Updated",
     "yourFeedback": "Your Feedback",
     "teamResponse": "Team Response"
+  },
+  "byok": {
+    "onboarding": {
+      "title": "Welcome to Genesis.ai",
+      "subtitle": "Configure a Provider API Key or request one from the admin before using AI features.",
+      "haveKeyTitle": "I have my own API Key",
+      "haveKeyDesc": "Use your own OpenAI / Claude / Gemini Key. No quota limits; costs billed to your Provider account.",
+      "needKeyTitle": "I need the admin to assign one",
+      "needKeyDesc": "Submit a request. Typically handled within 24h. Assigned keys have per-user quotas.",
+      "back": "← choose again",
+      "keyPanelIntro": "Save any one Provider Key below; onboarding completes automatically on success.",
+      "requestPanelIntro": "Click below to open the request form. While waiting for approval you can still enter the app; AI calls will be blocked until a Key is available.",
+      "openRequestForm": "Open request form",
+      "skipForNow": "Skip for now"
+    },
+    "tabs": {
+      "mine": "My Keys",
+      "assigned": "Assigned",
+      "requests": "My Requests"
+    },
+    "assigned": {
+      "empty": "No keys assigned yet",
+      "requestCta": "Request a Key",
+      "usedOf": "Used {{used}} / {{total}}",
+      "expiresOn": "Expires {{date}}"
+    },
+    "requests": {
+      "newRequest": "New request",
+      "empty": "No requests yet",
+      "cancel": "Cancel",
+      "reject": "Rejection reason: {{reason}}",
+      "status": {
+        "PENDING": "In review",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "CANCELLED": "Cancelled"
+      },
+      "form": {
+        "provider": "Provider",
+        "reason": "Purpose",
+        "reasonPlaceholder": "e.g. Need GPT-4o for a literature review",
+        "estimated": "Estimated monthly usage",
+        "light": "Light < $5",
+        "medium": "Medium $5-20",
+        "heavy": "Heavy > $20",
+        "note": "Note (optional)",
+        "submit": "Submit request"
+      }
+    },
+    "errors": {
+      "noAvailableKeyTitle": "{{provider}} key required",
+      "noAvailableKeyDesc": "You have not configured a Key for this Provider and nothing has been assigned to you.",
+      "quotaExceededTitle": "{{provider}} quota exceeded",
+      "quotaExceededDesc": "{{used}} / {{total}} used. Request additional quota or use your own Key.",
+      "invalidKeyTitle": "{{provider}} Key is invalid",
+      "invalidKeyDesc": "The Key may have been revoked or expired. Update it and try again.",
+      "keyExpiredTitle": "{{provider}} assignment expired",
+      "keyExpiredDesc": "Your Key assignment has expired. Ask admin to renew, or use your own Key.",
+      "noSystemKeyTitle": "System Key missing for {{provider}}",
+      "noSystemKeyDesc": "Admins have not configured this Provider in Secret Manager yet.",
+      "actionConfigure": "Configure Key",
+      "actionRequest": "Request from admin",
+      "actionUpdate": "Update Key",
+      "actionRenew": "Request renewal"
+    }
   },
   "profile": {
     "title": "Profile",

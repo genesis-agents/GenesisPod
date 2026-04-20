@@ -565,6 +565,14 @@ export interface ModelSelectionOptions {
 
   /** 最小 maxTokens */
   minMaxTokens?: number;
+
+  /**
+   * BYOK v2：候选 provider 白名单。仅从这些 provider 的模型中挑选。
+   * 用于避免「用户只配了 OpenAI Key，但模型路由选中了 Claude」。
+   * - undefined：不过滤（管理员场景或后台任务）
+   * - []：没有可用 provider（调用方应该在更上层提前报错）
+   */
+  availableProviders?: string[];
 }
 
 // ==================== Agent 执行类型 ====================

@@ -13,7 +13,6 @@ import {
   BadRequestException,
   ConflictException,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   Secret,
@@ -27,7 +26,7 @@ import {
   SYSTEM_SETTING_TO_SECRET_MAPPING,
   normalizeSecretName,
 } from "./secret-name-mapping";
-import * as crypto from "crypto";
+import { EncryptionService } from "../encryption/encryption.service";
 
 export interface SecretListItem {
   id: string;
@@ -69,53 +68,17 @@ export interface AuditContext {
   userAgent?: string;
 }
 
-interface EncryptionResult {
-  encryptedValue: string;
-  iv: string;
-}
-
 @Injectable()
 export class SecretsService {
   private readonly logger = new Logger(SecretsService.name);
-  private readonly encryptionKey: string;
-  private readonly currentKeyVersion: number = 1;
+  private get currentKeyVersion(): number {
+    return this.encryption.currentKeyVersion;
+  }
 
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService,
-  ) {
-    const key = this.configService.get<string>("SETTINGS_ENCRYPTION_KEY");
-
-    // C1 Fix: Require encryption key in production, no hardcoded fallback
-    if (!key) {
-      const nodeEnv = this.configService.get<string>("NODE_ENV");
-      if (nodeEnv === "production") {
-        throw new InternalServerErrorException(
-          "CRITICAL: SETTINGS_ENCRYPTION_KEY environment variable is required in production. " +
-            "Generate a secure 32-byte key using: openssl rand -hex 32",
-        );
-      }
-      // Only allow default key in development/test with warning
-      this.logger.warn(
-        "WARNING: Using default encryption key. Set SETTINGS_ENCRYPTION_KEY in production!",
-      );
-      this.encryptionKey = this.deriveKey("deepdive-dev-only-key");
-    } else {
-      // C2 Fix: Use PBKDF2 for secure key derivation
-      this.encryptionKey = this.deriveKey(key);
-    }
-  }
-
-  /**
-   * Derives a 32-byte encryption key using PBKDF2
-   * This ensures consistent key length and adds entropy even for weak passwords
-   */
-  private deriveKey(password: string): string {
-    // Use PBKDF2 with SHA-256, 100,000 iterations for secure key derivation
-    const salt = "deepdive-secrets-salt-v1"; // Static salt is OK since we're deriving from a secret
-    const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 32, "sha256");
-    return derivedKey.toString("hex").substring(0, 32);
-  }
+    private encryption: EncryptionService,
+  ) {}
 
   async create(
     dto: CreateSecretDto,
@@ -194,6 +157,63 @@ export class SecretsService {
       secretName: secret.name,
     });
     return this.decrypt(secret.encryptedValue, secret.iv);
+  }
+
+  /**
+   * 按 provider 模糊匹配查找一个 AI_MODEL 分类的 Secret。
+   * 容忍历史命名不规范（claude-api-key / gemini-api / xai-grok-api-key 等）。
+   *
+   * 匹配规则：
+   * 1. provider 字段不区分大小写等于输入
+   * 2. 或 name 字段以 provider 为前缀（大小写不敏感）
+   *
+   * 返回找到的第一个 active secret（按 name 排序保证稳定）。不解密。
+   */
+  async findByProviderAlias(
+    provider: string,
+  ): Promise<{ id: string; name: string } | null> {
+    const normalized = provider.toLowerCase();
+    const secrets = await this.prisma.secret.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        category: "AI_MODEL",
+        OR: [
+          { provider: { equals: normalized, mode: "insensitive" } },
+          { name: { startsWith: normalized, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, name: true, provider: true },
+      orderBy: { name: "asc" },
+    });
+    // Prefer exact-provider match over name prefix match when both exist
+    const exact = secrets.find((s) => s.provider?.toLowerCase() === normalized);
+    const chosen = exact ?? secrets[0] ?? null;
+    return chosen ? { id: chosen.id, name: chosen.name } : null;
+  }
+
+  /**
+   * 返回系统 Secret 中已配置、且处于活跃状态的全部 provider（用于管理员的
+   * availableProviders 过滤）。不解密任何值。
+   */
+  async listAvailableProviders(): Promise<string[]> {
+    const rows = await this.prisma.secret.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        category: "AI_MODEL",
+        provider: { not: null },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      select: { provider: true },
+    });
+    // distinct 在 Prisma 层是大小写敏感的（"Claude" 和 "claude" 会各占一席），
+    // 所以在内存层归一化后去重，保证和 KeyResolver 的 normalized provider 对齐。
+    const set = new Set<string>();
+    for (const r of rows) {
+      if (r.provider) set.add(r.provider.toLowerCase());
+    }
+    return [...set];
   }
 
   async getValueInternal(name: string): Promise<string | null> {
@@ -531,20 +551,16 @@ export class SecretsService {
       return "••••••••";
     }
     // Use a hash of the encrypted value to generate consistent but non-revealing hint
-    const hint = crypto
-      .createHash("md5")
-      .update(encryptedValue)
-      .digest("hex")
-      .substring(0, 4);
+    const hint = this.encryption.hashValue(encryptedValue).substring(0, 4);
     return `••••${hint}••••`;
   }
 
   private hashValue(value: string): string {
-    return crypto.createHash("sha256").update(value).digest("hex");
+    return this.encryption.hashValue(value);
   }
 
   private calculateChecksum(value: string): string {
-    return crypto.createHash("sha256").update(value).digest("hex");
+    return this.encryption.hashValue(value);
   }
 
   private async logAccess(
@@ -605,57 +621,16 @@ export class SecretsService {
     }
   }
 
-  private encrypt(text: string): EncryptionResult {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(
-      "aes-256-cbc",
-      Buffer.from(this.encryptionKey),
-      iv,
-    );
-    let encrypted = cipher.update(text, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    return { encryptedValue: encrypted, iv: iv.toString("hex") };
+  private encrypt(text: string) {
+    return this.encryption.encrypt(text);
   }
 
   private decrypt(encryptedValue: string, ivHex: string): string | null {
-    if (!encryptedValue || !ivHex) return null;
-    try {
-      const iv = Buffer.from(ivHex, "hex");
-      const decipher = crypto.createDecipheriv(
-        "aes-256-cbc",
-        Buffer.from(this.encryptionKey),
-        iv,
-      );
-      let decrypted = decipher.update(encryptedValue, "hex", "utf8");
-      decrypted += decipher.final("utf8");
-      return decrypted;
-    } catch (error) {
-      this.logger.error(`Decryption failed: ${(error as Error).message}`);
-      return null;
-    }
+    return this.encryption.decrypt(encryptedValue, ivHex);
   }
 
   private decryptLegacy(encryptedText: string | null): string | null {
-    if (!encryptedText) return null;
-    try {
-      const parts = encryptedText.split(":");
-      if (parts.length !== 2) return encryptedText;
-      const iv = Buffer.from(parts[0], "hex");
-      const encrypted = parts[1];
-      const decipher = crypto.createDecipheriv(
-        "aes-256-cbc",
-        Buffer.from(this.encryptionKey),
-        iv,
-      );
-      let decrypted = decipher.update(encrypted, "hex", "utf8");
-      decrypted += decipher.final("utf8");
-      return decrypted;
-    } catch (error) {
-      this.logger.error(
-        `Legacy decryption failed: ${(error as Error).message}`,
-      );
-      return null;
-    }
+    return this.encryption.decryptLegacy(encryptedText);
   }
 
   // ========== Version Management ==========

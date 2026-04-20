@@ -1,7 +1,13 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AiServiceUnavailableError } from "../../core/exceptions";
 import { AIModelType } from "@prisma/client";
+import { RequestContext } from "../../../../common/context/request-context";
 import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
@@ -25,6 +31,11 @@ import { CostAttributionService } from "../../../ai-kernel/facade";
 import { KernelMetricsService } from "../../../ai-kernel/facade";
 import { KernelContext } from "../../../ai-kernel/facade";
 import { SessionLatencyTrackerService } from "../../../ai-kernel/facade";
+import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
+import {
+  BYOKError,
+  NoAvailableKeyError,
+} from "../../../ai-infra/key-resolver/key-resolver.errors";
 
 export interface ChatCompletionOptions {
   model: string;
@@ -124,6 +135,7 @@ export class AiChatService {
     @Optional() private readonly kernelMetrics?: KernelMetricsService,
     @Optional()
     private readonly latencyTracker?: SessionLatencyTrackerService,
+    @Optional() private readonly keyResolver?: KeyResolverService,
   ) {}
 
   // ==================== 模型配置委托方法 ====================
@@ -927,6 +939,24 @@ export class AiChatService {
       sharedCachePrefix,
     } = options;
 
+    // ★ BYOK v2 防呆：普通路径必须有 userId（来自参数或 RequestContext）。
+    // 直连路径（BYOK direct，apiKey+provider 都显式传入）豁免，因为它自带 Key 不走 Resolver。
+    // 异步任务 / Cron 漏写 withUserContext 时会在这里被立即拦截，而非静默走系统 Secret。
+    const isDirectBYOKPath = !!(apiKey && provider);
+    if (!isDirectBYOKPath) {
+      const ctxUserId = RequestContext.getUserId();
+      if (!userId && !ctxUserId) {
+        this.logger.error(
+          "[chat] Refused: no userId in params nor RequestContext. " +
+            "Async tasks must wrap the call in withUserContext(userId, ...) " +
+            "so KeyResolver can route to PERSONAL/ASSIGNED (user) or SYSTEM (admin).",
+        );
+        throw new UnauthorizedException(
+          "BYOK v2: userId is required. Wrap async calls in withUserContext.",
+        );
+      }
+    }
+
     // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
     const processId = explicitProcessId ?? KernelContext.getProcessId();
 
@@ -1060,11 +1090,61 @@ export class AiChatService {
     let model: string;
     let modelConfig: AIModelConfig | null = null;
 
+    // ★ BYOK v2：按用户可用 provider 过滤，保证初始模型选择就命中用户有 Key 的 provider。
+    // 管理员 / BYOK 直连 / 无 userId 的老路径不过滤。
+    const effectiveUserIdForInitial = userId ?? RequestContext.getUserId();
+    let userAvailableProviders: Set<string> | null = null;
+    if (effectiveUserIdForInitial && this.keyResolver && !isDirectBYOKPath) {
+      try {
+        const list = await this.keyResolver.getAvailableProviders(
+          effectiveUserIdForInitial,
+        );
+        userAvailableProviders = new Set(list.map((p) => p.toLowerCase()));
+        // ★ 预检：普通用户一个 provider 都没配（Personal 空 + 无 ACTIVE Assignment）
+        // 时，提前抛 NoAvailableKeyError，让前端拿到明确错误码「NO_AVAILABLE_KEY」
+        // 并引导到 /settings/api-keys。
+        // 管理员的 availableProviders 来自系统 Secret，极少为空；即便为空也应让
+        // resolveSystemKey 抛 NoSystemKeyError 以区分语义。
+        if (userAvailableProviders.size === 0) {
+          const user = await this.modelConfigService
+            .getDefaultModelByType(modelType ?? AIModelType.CHAT)
+            .catch(() => null);
+          throw new NoAvailableKeyError(
+            providedModel ?? user?.provider ?? "any",
+          );
+        }
+      } catch (error) {
+        if (error instanceof BYOKError) throw error;
+        this.logger.warn(
+          `[chat] getAvailableProviders for initial selection failed: ${(error as Error).message}`,
+        );
+      }
+    }
+
     if (providedModel) {
       model = providedModel;
       modelConfig = await this.getModelConfig(model);
     } else if (modelType) {
+      // 先取全局默认。如果默认的 provider 不在用户可用列表里，就从用户可用的同类型里挑 priority 最高的。
       modelConfig = await this.getDefaultModelByType(modelType);
+      if (
+        modelConfig &&
+        userAvailableProviders &&
+        userAvailableProviders.size > 0 &&
+        !userAvailableProviders.has(modelConfig.provider.toLowerCase())
+      ) {
+        const pool =
+          await this.modelConfigService.getAllEnabledModelsByType(modelType);
+        const filtered = pool.filter((m) =>
+          userAvailableProviders.has(m.provider.toLowerCase()),
+        );
+        if (filtered.length > 0) {
+          modelConfig = filtered[0];
+          this.logger.log(
+            `[chat] Default ${modelType} model (${(await this.getDefaultModelByType(modelType))?.provider}) not in user availableProviders; using ${modelConfig.modelId} (${modelConfig.provider}) instead`,
+          );
+        }
+      }
       if (modelConfig) {
         model = modelConfig.modelId;
         this.logger.debug(
@@ -1373,16 +1453,45 @@ export class AiChatService {
             triedModelIds,
           );
 
+        // ★ BYOK v2：按用户可用 provider 过滤。避免 fallback 到用户没配 Key
+        // 的 provider（例如只配 OpenAI 的用户被 fallback 到 Claude 而立即失败）。
+        // 管理员 / 无 userId 的系统路径不过滤。
+        const effectiveUserId = userId ?? RequestContext.getUserId();
+        let providerFilteredModels = alternativeModels;
+        if (effectiveUserId && this.keyResolver && !isDirectBYOKPath) {
+          try {
+            const availableProviders =
+              await this.keyResolver.getAvailableProviders(effectiveUserId);
+            const allowed = new Set(
+              availableProviders.map((p) => p.toLowerCase()),
+            );
+            if (allowed.size > 0) {
+              providerFilteredModels = alternativeModels.filter((c) =>
+                allowed.has(c.provider.toLowerCase()),
+              );
+              if (providerFilteredModels.length < alternativeModels.length) {
+                this.logger.debug(
+                  `[chat] Filtered ${alternativeModels.length - providerFilteredModels.length} model(s) not in user availableProviders=${[...allowed].join(",")}`,
+                );
+              }
+            }
+          } catch (error) {
+            this.logger.warn(
+              `[chat] getAvailableProviders failed (non-fatal, fallback to unfiltered): ${(error as Error).message}`,
+            );
+          }
+        }
+
         // ★ Circuit Breaker: Filter out models with OPEN circuit breakers
         const availableModels = this.circuitBreaker
-          ? alternativeModels.filter((config) =>
+          ? providerFilteredModels.filter((config) =>
               this.circuitBreaker!.canExecute(config.modelId),
             )
-          : alternativeModels;
+          : providerFilteredModels;
 
-        if (availableModels.length < alternativeModels.length) {
+        if (availableModels.length < providerFilteredModels.length) {
           this.logger.debug(
-            `[chat] CircuitBreaker filtered out ${alternativeModels.length - availableModels.length} model(s) with OPEN circuits`,
+            `[chat] CircuitBreaker filtered out ${providerFilteredModels.length - availableModels.length} model(s) with OPEN circuits`,
           );
         }
 

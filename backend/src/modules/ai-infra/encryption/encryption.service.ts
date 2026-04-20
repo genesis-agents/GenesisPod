@@ -1,0 +1,132 @@
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as crypto from "crypto";
+
+export interface EncryptionResult {
+  encryptedValue: string;
+  iv: string;
+}
+
+/**
+ * 统一的加密服务，供所有存储敏感凭据的模块复用。
+ *
+ * 算法: AES-256-CBC
+ * 密钥派生: PBKDF2-SHA256, 100,000 次迭代, 静态 salt "deepdive-secrets-salt-v1"
+ * IV: 每次加密生成 16 字节随机 IV，以 hex 编码与密文分离存储
+ *
+ * 提取自原 UserApiKeysService 和 SecretsService，加密参数完全一致，
+ * 老数据可用新 Service 直接解密，无需迁移。
+ */
+@Injectable()
+export class EncryptionService {
+  private readonly logger = new Logger(EncryptionService.name);
+  private readonly encryptionKey: string;
+  readonly currentKeyVersion: number = 1;
+
+  constructor(private readonly configService: ConfigService) {
+    const key = this.configService.get<string>("SETTINGS_ENCRYPTION_KEY");
+    if (!key) {
+      const nodeEnv = this.configService.get<string>("NODE_ENV");
+      if (nodeEnv === "production") {
+        throw new InternalServerErrorException(
+          "CRITICAL: SETTINGS_ENCRYPTION_KEY environment variable is required in production. " +
+            "Generate a secure 32-byte key using: openssl rand -hex 32",
+        );
+      }
+      this.logger.warn(
+        "WARNING: Using default encryption key. Set SETTINGS_ENCRYPTION_KEY in production!",
+      );
+      this.encryptionKey = this.deriveKey("deepdive-dev-only-key");
+    } else {
+      this.encryptionKey = this.deriveKey(key);
+    }
+  }
+
+  private deriveKey(password: string): string {
+    const salt = "deepdive-secrets-salt-v1";
+    const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 32, "sha256");
+    return derivedKey.toString("hex").substring(0, 32);
+  }
+
+  /**
+   * 加密明文，返回密文和 IV。密文和 IV 应分别存储到数据库不同字段。
+   */
+  encrypt(plaintext: string): EncryptionResult {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(
+      "aes-256-cbc",
+      Buffer.from(this.encryptionKey),
+      iv,
+    );
+    let encrypted = cipher.update(plaintext, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    return { encryptedValue: encrypted, iv: iv.toString("hex") };
+  }
+
+  /**
+   * 解密密文。失败时返回 null（而非抛错），调用方据此决定是否视为 Key 不可用。
+   */
+  decrypt(encryptedValue: string, ivHex: string): string | null {
+    if (!encryptedValue || !ivHex) return null;
+    try {
+      const iv = Buffer.from(ivHex, "hex");
+      const decipher = crypto.createDecipheriv(
+        "aes-256-cbc",
+        Buffer.from(this.encryptionKey),
+        iv,
+      );
+      let decrypted = decipher.update(encryptedValue, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    } catch (error) {
+      this.logger.error(`Decryption failed: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 老格式兼容：`<iv-hex>:<ciphertext-hex>` 拼在同一字段。
+   * 仅用于从 ai_models.api_key 等历史字段读取，新代码不要使用。
+   */
+  decryptLegacy(encryptedText: string | null): string | null {
+    if (!encryptedText) return null;
+    try {
+      const parts = encryptedText.split(":");
+      if (parts.length !== 2) return encryptedText;
+      const iv = Buffer.from(parts[0], "hex");
+      const encrypted = parts[1];
+      const decipher = crypto.createDecipheriv(
+        "aes-256-cbc",
+        Buffer.from(this.encryptionKey),
+        iv,
+      );
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    } catch (error) {
+      this.logger.error(
+        `Legacy decryption failed: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 计算值的 SHA-256 哈希，用于审计对比和变更检测（不参与加解密）。
+   */
+  hashValue(value: string): string {
+    return crypto.createHash("sha256").update(value).digest("hex");
+  }
+
+  /**
+   * 生成 Key 的脱敏展示，如 "sk-...a3f8"。前 3 位 + "..." + 后 4 位。
+   */
+  createKeyHint(plaintext: string): string {
+    if (!plaintext || plaintext.length < 10) return "***";
+    return `${plaintext.slice(0, 3)}...${plaintext.slice(-4)}`;
+  }
+}

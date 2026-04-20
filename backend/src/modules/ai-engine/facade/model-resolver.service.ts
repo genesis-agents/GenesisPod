@@ -60,6 +60,23 @@ export class ModelResolverService {
 
     let candidates = models;
 
+    // 0. BYOK v2：按用户可用 provider 过滤。管理员或后台任务传 undefined 跳过。
+    if (options.availableProviders !== undefined) {
+      const allowed = new Set(
+        options.availableProviders.map((p) => p.toLowerCase()),
+      );
+      const filtered = candidates.filter((m) =>
+        allowed.has(m.provider.toLowerCase()),
+      );
+      if (filtered.length === 0) {
+        this.logger.warn(
+          `[selectModel] No models match availableProviders=${[...allowed].join(",")}`,
+        );
+        return null;
+      }
+      candidates = filtered;
+    }
+
     // 1. 过滤推理模型
     if (options.requireReasoning) {
       const reasoningModels = candidates.filter((m) => m.isReasoning);

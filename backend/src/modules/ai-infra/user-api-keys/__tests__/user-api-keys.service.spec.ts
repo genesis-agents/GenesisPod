@@ -17,13 +17,23 @@ import { UserApiKeysService } from "../user-api-keys.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../secrets/secrets.service";
 import { CreditsService } from "../../credits/credits.service";
+import { EncryptionService } from "../../encryption/encryption.service";
 import { UserApiKeyMode, CreditTransactionType } from "@prisma/client";
 import { ApiKeyMode } from "../dto";
+
+const buildEncryption = (): EncryptionService =>
+  new EncryptionService({
+    get: (key: string) =>
+      key === "SETTINGS_ENCRYPTION_KEY"
+        ? "test-encryption-key-32chars-ok!"
+        : key === "NODE_ENV"
+          ? "test"
+          : undefined,
+  } as unknown as ConfigService);
 
 describe("UserApiKeysService", () => {
   let service: UserApiKeysService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
-  let mockConfigService: jest.Mocked<Partial<ConfigService>>;
   let mockSecretsService: jest.Mocked<Partial<SecretsService>>;
   let mockCreditsService: jest.Mocked<Partial<CreditsService>>;
 
@@ -61,15 +71,6 @@ describe("UserApiKeysService", () => {
       } as unknown as PrismaService["userApiKey"],
     };
 
-    mockConfigService = {
-      get: jest.fn().mockImplementation((key: string) => {
-        if (key === "SETTINGS_ENCRYPTION_KEY")
-          return "test-encryption-key-32chars-ok!";
-        if (key === "NODE_ENV") return "test";
-        return undefined;
-      }),
-    };
-
     mockSecretsService = {
       findByName: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: "secret-1" }),
@@ -85,9 +86,9 @@ describe("UserApiKeysService", () => {
       providers: [
         UserApiKeysService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: ConfigService, useValue: mockConfigService },
         { provide: SecretsService, useValue: mockSecretsService },
         { provide: CreditsService, useValue: mockCreditsService },
+        { provide: EncryptionService, useValue: buildEncryption() },
       ],
     }).compile();
 

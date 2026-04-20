@@ -3,13 +3,12 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-  InternalServerErrorException,
   Optional,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SecretsService, AuditContext } from "../secrets/secrets.service";
 import { CreditsService } from "../credits/credits.service";
+import { EncryptionService } from "../encryption/encryption.service";
 import { CacheService, CachePrefix, CacheTTL } from "../../../common/cache";
 import {
   SecretCategory,
@@ -18,7 +17,6 @@ import {
   Prisma,
 } from "@prisma/client";
 import { ApiKeyMode } from "./dto";
-import * as crypto from "crypto";
 
 /** Valid provider name pattern */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
@@ -88,70 +86,24 @@ const DONATION_REWARD_CREDITS = 5000;
 /** 捐赠 Key 被使用时，捐赠者获得的积分 */
 const DONATION_USAGE_REWARD_CREDITS = 2;
 
-interface EncryptionResult {
-  encryptedValue: string;
-  iv: string;
-}
-
 @Injectable()
 export class UserApiKeysService {
   private readonly logger = new Logger(UserApiKeysService.name);
-  private readonly encryptionKey: string;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
     private readonly secretsService: SecretsService,
     private readonly creditsService: CreditsService,
+    private readonly encryption: EncryptionService,
     @Optional() private readonly cacheService?: CacheService,
-  ) {
-    const key = this.configService.get<string>("SETTINGS_ENCRYPTION_KEY");
-    if (!key) {
-      const nodeEnv = this.configService.get<string>("NODE_ENV");
-      if (nodeEnv === "production") {
-        throw new InternalServerErrorException(
-          "CRITICAL: SETTINGS_ENCRYPTION_KEY is required in production.",
-        );
-      }
-      this.encryptionKey = this.deriveKey("deepdive-dev-only-key");
-    } else {
-      this.encryptionKey = this.deriveKey(key);
-    }
-  }
+  ) {}
 
-  private deriveKey(password: string): string {
-    const salt = "deepdive-secrets-salt-v1";
-    const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 32, "sha256");
-    return derivedKey.toString("hex").substring(0, 32);
-  }
-
-  private encrypt(text: string): EncryptionResult {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(
-      "aes-256-cbc",
-      Buffer.from(this.encryptionKey),
-      iv,
-    );
-    let encrypted = cipher.update(text, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    return { encryptedValue: encrypted, iv: iv.toString("hex") };
+  private encrypt(text: string) {
+    return this.encryption.encrypt(text);
   }
 
   private decrypt(encryptedValue: string, ivHex: string): string | null {
-    try {
-      const iv = Buffer.from(ivHex, "hex");
-      const decipher = crypto.createDecipheriv(
-        "aes-256-cbc",
-        Buffer.from(this.encryptionKey),
-        iv,
-      );
-      let decrypted = decipher.update(encryptedValue, "hex", "utf8");
-      decrypted += decipher.final("utf8");
-      return decrypted;
-    } catch (error) {
-      this.logger.error(`Decryption failed: ${(error as Error).message}`);
-      return null;
-    }
+    return this.encryption.decrypt(encryptedValue, ivHex);
   }
 
   private validateProvider(provider: string): string {
@@ -331,7 +283,46 @@ export class UserApiKeysService {
     // Step 4: 使缓存失效
     await this.invalidateUserKeyCache(userId);
 
+    // Step 5 (BYOK v2)：如果这是该用户首次配置 Personal Key，标记引导完成
+    if (prismaMode === UserApiKeyMode.PERSONAL) {
+      await this.markOnboardedIfNeeded(userId);
+    }
+
     return { success: true, mode };
+  }
+
+  /**
+   * 将 User.byokOnboardedAt 从 null 标记为当前时间。
+   * 如已设置则不覆盖（避免覆盖老用户的迁移值）。
+   */
+  async markOnboardedIfNeeded(userId: string): Promise<void> {
+    try {
+      await this.prisma.user.updateMany({
+        where: { id: userId, byokOnboardedAt: null },
+        data: { byokOnboardedAt: new Date() },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to mark user ${userId} BYOK onboarded: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * 用户已配置过 Personal Key 的全部 provider 集合（供模型路由的
+   * availableProviders 过滤使用）。
+   */
+  async getAvailableProviders(userId: string): Promise<string[]> {
+    const rows = await this.prisma.userApiKey.findMany({
+      where: {
+        userId,
+        isActive: true,
+        mode: UserApiKeyMode.PERSONAL,
+      },
+      select: { provider: true },
+      distinct: ["provider"],
+    });
+    return rows.map((r) => r.provider.toLowerCase());
   }
 
   /**

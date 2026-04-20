@@ -19,6 +19,7 @@ import { AiChatRetryService } from "../ai-chat-retry.service";
 import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
 import { AIModelType } from "@prisma/client";
 import { AiServiceUnavailableError } from "../../../core/exceptions";
+import { RequestContext } from "../../../../../common/context/request-context";
 
 // Helper to create mock AIModelConfig
 function createMockModelConfig(
@@ -214,6 +215,10 @@ describe("AiChatService", () => {
     }).compile();
 
     service = module.get<AiChatService>(AiChatService);
+
+    // ★ BYOK v2 防呆：AiChatService.chat() 要求必有 userId（参数或 RequestContext）。
+    //   测试统一用虚拟 userId，避免每个用例都要显式传参。
+    jest.spyOn(RequestContext, "getUserId").mockReturnValue("test-user-id");
   });
 
   afterEach(() => {

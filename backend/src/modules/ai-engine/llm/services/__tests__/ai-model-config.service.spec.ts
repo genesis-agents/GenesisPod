@@ -722,47 +722,29 @@ describe("AiModelConfigService", () => {
   // ==================== resolveApiKey - uncovered branches ====================
 
   describe("resolveApiKey - additional coverage", () => {
-    it("should return donated key with source=donated when userId is not provided", async () => {
-      (userApiKeysService.getDonatedKey as jest.Mock).mockResolvedValue({
-        apiKey: "donated-key-no-user",
-        apiEndpoint: null,
-      });
-
+    // BYOK v2: 无 userId 时只保留系统 Secret 回退路径（过渡期，供旧定时任务使用）。
+    // 捐赠共享池已废弃，getDonatedKey 在 BYOK v2 代码路径中不再被调用。
+    it("falls back to system secret when userId is absent and model.secretKey exists", async () => {
+      (secretsService.getValueInternal as jest.Mock).mockResolvedValue(
+        "sys-secret-value",
+      );
       const result = await service.resolveApiKey(mockGeminiModel as any);
-
       expect(result).toEqual({
-        apiKey: "donated-key-no-user",
-        source: "donated",
-        apiEndpoint: null,
+        apiKey: "sys-secret-value",
+        source: "system",
       });
-      expect(userApiKeysService.getPersonalKey).not.toHaveBeenCalled();
     });
 
-    it("should return null when secretKey not found in secrets manager (no apiKey fallback)", async () => {
-      (userApiKeysService.getDonatedKey as jest.Mock).mockResolvedValue(null);
+    it("returns null when userId is absent and secretKey is missing", async () => {
       (secretsService.getValueInternal as jest.Mock).mockResolvedValue(null);
-
-      const modelWithSecretAndFallbackKey = {
-        ...mockGeminiModel,
-        apiKey: "fallback-key-xyz",
-      };
-      const result = await service.resolveApiKey(
-        modelWithSecretAndFallbackKey as any,
-      );
-
-      // Priority 4 (plain apiKey) removed: returns null when secretKey not found
+      const modelWithNoSecret = { ...mockChatModel, secretKey: null };
+      const result = await service.resolveApiKey(modelWithNoSecret as any);
       expect(result).toBeNull();
     });
 
-    it("should handle donated key fetch error gracefully and return null when no secretKey", async () => {
-      (userApiKeysService.getDonatedKey as jest.Mock).mockRejectedValue(
-        new Error("Donated DB error"),
-      );
-
-      const model = { ...mockChatModel, secretKey: null };
-      const result = await service.resolveApiKey(model as any);
-
-      // Donated key failed, no secretKey configured → null (no plain apiKey fallback)
+    it("returns null when secretKey is configured but not found", async () => {
+      (secretsService.getValueInternal as jest.Mock).mockResolvedValue(null);
+      const result = await service.resolveApiKey(mockGeminiModel as any);
       expect(result).toBeNull();
     });
   });

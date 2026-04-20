@@ -14,6 +14,7 @@ import { ToastContainer } from '@/components/ui/Toast';
 import { toast } from '@/stores';
 import { CheckinModal, InsufficientCreditsModal } from '@/components/credits';
 import { GlobalAIBarProvider } from '@/components/ai-bar';
+import { ByokOnboardingGuard } from '@/components/byok/ByokOnboardingGuard';
 
 /**
  * Create QueryClient with global error handling
@@ -53,7 +54,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <ChunkErrorHandler />
         <ErrorBoundary>
           <AuthProvider>
-            <GlobalAIBarProvider>{children}</GlobalAIBarProvider>
+            <ByokOnboardingGuard>
+              <GlobalAIBarProvider>{children}</GlobalAIBarProvider>
+            </ByokOnboardingGuard>
           </AuthProvider>
         </ErrorBoundary>
         <ToastContainer />

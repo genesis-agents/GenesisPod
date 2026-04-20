@@ -13,6 +13,7 @@ import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 import { UserApiKeysModule } from "../ai-infra/user-api-keys/user-api-keys.module";
+import { KeyResolverModule } from "../ai-infra/key-resolver/key-resolver.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
 import * as http from "http";
@@ -68,6 +69,7 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     }),
     SecretsModule,
     UserApiKeysModule,
+    KeyResolverModule, // BYOK v2: 统一 API Key 解析
     AiEngineConstraintModule,
     forwardRef(() => AiEngineOrchestrationModule),
   ],

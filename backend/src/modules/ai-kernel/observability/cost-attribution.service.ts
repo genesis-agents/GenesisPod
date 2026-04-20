@@ -20,6 +20,13 @@ export interface CostEvent {
   outputTokens: number;
   estimatedCost: number; // USD
   timestamp?: Date;
+  /**
+   * BYOK v2：Key 来源。用于按「用户自付」vs「管理员分配」vs「系统」聚合。
+   * - PERSONAL：用户自己的 Key
+   * - ASSIGNED：管理员从分发池分配的 Key
+   * - SYSTEM：系统 Secret（仅管理员账号）
+   */
+  apiKeySource?: "PERSONAL" | "ASSIGNED" | "SYSTEM";
 }
 
 /**
