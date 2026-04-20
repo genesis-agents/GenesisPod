@@ -21,6 +21,7 @@ import {
   type UserApiKeyInfo,
   type ProviderInfo,
 } from '@/hooks/features/useUserApiKeys';
+import { UserModelIdSelector } from './UserModelIdSelector';
 
 const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   openai: {
@@ -84,6 +85,9 @@ function ProviderKeyCard({
   const [apiKey, setApiKey] = useState('');
   const [mode, setMode] = useState<'personal' | 'donated'>('personal');
   const [apiEndpoint, setApiEndpoint] = useState('');
+  const [preferredModelId, setPreferredModelId] = useState(
+    existingKey?.preferredModelId || ''
+  );
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -128,7 +132,7 @@ function ProviderKeyCard({
       provider.id,
       apiKey,
       mode,
-      undefined,
+      preferredModelId.trim() || undefined,
       apiEndpoint || undefined
     );
     if (success) {
@@ -136,7 +140,15 @@ function ProviderKeyCard({
       setExpanded(false);
       setTestResult(null);
     }
-  }, [apiKey, mode, apiEndpoint, provider.id, onSave, saving]);
+  }, [
+    apiKey,
+    mode,
+    preferredModelId,
+    apiEndpoint,
+    provider.id,
+    onSave,
+    saving,
+  ]);
 
   const handleDelete = useCallback(async () => {
     if (saving) return;
@@ -236,6 +248,15 @@ function ProviderKeyCard({
               </button>
             </div>
           </div>
+
+          <UserModelIdSelector
+            provider={provider.id}
+            apiKey={apiKey}
+            apiEndpoint={apiEndpoint}
+            modelType="CHAT"
+            value={preferredModelId}
+            onChange={setPreferredModelId}
+          />
 
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">

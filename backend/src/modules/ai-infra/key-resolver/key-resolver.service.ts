@@ -18,6 +18,9 @@ export interface ResolvedKey {
   assignmentId?: string;
   /** 仅 ASSIGNED 来源返回，用于审计 */
   keyId?: string;
+  /** 用户自配模型：PERSONAL Key 关联的 preferredModelId（若有），
+   *  用于在 chat 路由时覆盖全局默认模型。 */
+  preferredModelId?: string | null;
 }
 
 /**
@@ -67,6 +70,21 @@ export class KeyResolverService {
     }
 
     return this.resolveUserKey(userId, normalizedProvider);
+  }
+
+  /**
+   * 获取用户为某 provider 指定的 preferredModelId（仅 Personal Key 有此概念）。
+   * 供 AiChatService / AiModelConfigService 路由时优先选用该模型，
+   * 避免全局默认模型（如 gpt-5.4）对用户 Key 的付费 tier 不可及。
+   */
+  async getPreferredModelIdForProvider(
+    userId: string,
+    provider: string,
+  ): Promise<string | null> {
+    const personal = await this.userApiKeys
+      .getPersonalKey(userId, provider.toLowerCase())
+      .catch(() => null);
+    return personal?.preferredModelId ?? null;
   }
 
   /**
@@ -130,6 +148,7 @@ export class KeyResolverService {
         apiEndpoint: personal.apiEndpoint ?? null,
         provider,
         userId,
+        preferredModelId: personal.preferredModelId ?? null,
       };
     }
 

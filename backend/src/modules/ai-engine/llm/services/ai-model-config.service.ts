@@ -539,6 +539,118 @@ export class AiModelConfigService {
       await this.findDisabledModelForUser(normalizedModelId);
     if (disabledConfig) return disabledConfig;
 
+    // 5. ★ BYOK: 用户自选了一个 DB 里不存在的 modelId（比如管理员没登记
+    //    gpt-4o-mini 但用户的 OpenAI Key 能跑这个模型）。
+    //    如果用户有对应 provider 的 active Personal Key，就合成一个
+    //    AIModelConfig 让 chat 流程可以直接走。合成用的是 provider 的
+    //    合理默认（endpoint / apiFormat 等），maxTokens/temperature 走
+    //    保守默认；想精细配置的能力走「中期」UserModelConfig 方案。
+    const synthesized =
+      await this.synthesizeConfigForUserModel(normalizedModelId);
+    if (synthesized) return synthesized;
+
+    return null;
+  }
+
+  /**
+   * Provider → API 默认端点/格式。与 UserApiKeysService.PROVIDER_DEFAULTS 对齐
+   * （复制以避免循环依赖；两处长期应迁到 shared util）。
+   */
+  private static readonly PROVIDER_API_DEFAULTS: Record<
+    string,
+    { endpoint: string; apiFormat: string }
+  > = {
+    openai: {
+      endpoint: "https://api.openai.com/v1",
+      apiFormat: "openai",
+    },
+    anthropic: {
+      endpoint: "https://api.anthropic.com/v1",
+      apiFormat: "anthropic",
+    },
+    deepseek: {
+      endpoint: "https://api.deepseek.com/v1",
+      apiFormat: "openai",
+    },
+    google: {
+      endpoint: "https://generativelanguage.googleapis.com/v1beta",
+      apiFormat: "google",
+    },
+    xai: { endpoint: "https://api.x.ai/v1", apiFormat: "openai" },
+    qwen: {
+      endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      apiFormat: "openai",
+    },
+    cohere: { endpoint: "https://api.cohere.com/v2", apiFormat: "openai" },
+    groq: {
+      endpoint: "https://api.groq.com/openai/v1",
+      apiFormat: "openai",
+    },
+    openrouter: {
+      endpoint: "https://openrouter.ai/api/v1",
+      apiFormat: "openai",
+    },
+    minimax: {
+      endpoint: "https://api.minimax.chat/v1",
+      apiFormat: "openai",
+    },
+  };
+
+  private async synthesizeConfigForUserModel(
+    modelId: string,
+  ): Promise<AIModelConfig | null> {
+    const userId = RequestContext.getUserId();
+    if (!userId) return null;
+
+    // 用户为哪个 provider 配过 Key，就认为这个 modelId 属于那个 provider。
+    // 这里不做复杂推断（避免把 "gpt-4o" 误绑到其他 OpenAI-compatible provider）
+    // —— 只要用户配了某 provider 的 Key + preferredModelId 匹配就走合成。
+    const providers =
+      await this.userApiKeysService.getAvailableProviders(userId);
+    for (const provider of providers) {
+      const personal = await this.userApiKeysService.getPersonalKey(
+        userId,
+        provider,
+      );
+      if (!personal) continue;
+      if (
+        personal.preferredModelId &&
+        personal.preferredModelId.toLowerCase() === modelId.toLowerCase()
+      ) {
+        const defaults =
+          AiModelConfigService.PROVIDER_API_DEFAULTS[provider] ??
+          AiModelConfigService.PROVIDER_API_DEFAULTS.openai;
+        this.logger.log(
+          `[synthesizeConfigForUserModel] Synthesizing config for user ` +
+            `${userId}: provider=${provider}, modelId=${modelId}`,
+        );
+        return {
+          id: `user-${userId}-${provider}-${modelId}`,
+          name: modelId,
+          displayName: modelId,
+          provider,
+          modelId,
+          apiEndpoint: personal.apiEndpoint || defaults.endpoint,
+          apiKey: null, // resolveApiKey 会用用户 Key
+          secretKey: null,
+          maxTokens: 8192,
+          temperature: 0.7,
+          isEnabled: true,
+          isDefault: false,
+          isReasoning: inferIsReasoning(modelId),
+          apiFormat: defaults.apiFormat,
+          supportsTemperature: true,
+          supportsStreaming: true,
+          supportsFunctionCalling: true,
+          supportsVision: false,
+          tokenParamName: inferIsReasoning(modelId)
+            ? "max_completion_tokens"
+            : "max_tokens",
+          defaultTimeoutMs: 120000,
+          priority: 0,
+        };
+      }
+    }
     return null;
   }
 

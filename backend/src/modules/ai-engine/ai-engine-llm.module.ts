@@ -44,6 +44,9 @@ import { PromptCacheCoordinatorService } from "./llm/services/prompt-cache-coord
 // Model Fallback
 import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
 
+// User-facing controller: dynamic model discovery using user's personal key
+import { UserModelsController } from "./llm/user-models.controller";
+
 @Module({
   imports: [
     HttpModule.register({
@@ -73,6 +76,7 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     AiEngineConstraintModule,
     forwardRef(() => AiEngineOrchestrationModule),
   ],
+  controllers: [UserModelsController],
   providers: [
     // LLM Factory & Adapters
     LLMFactory,

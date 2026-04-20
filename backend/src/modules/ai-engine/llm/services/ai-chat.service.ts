@@ -1205,6 +1205,47 @@ export class AiChatService {
       modelConfig = await this.getModelConfig(model);
     }
 
+    // ★ BYOK v2：用户自配 preferredModelId 覆盖系统默认
+    // 场景：用户的 OpenAI Key 只有 tier 1，能跑 gpt-4o-mini 但跑不了
+    // 全局默认的 gpt-5.4。用户在设置里指定 preferredModelId='gpt-4o-mini'，
+    // 这里按它重建 modelConfig（如果 DB 没记录，AiModelConfigService 会合成）。
+    // providedModel 显式指定时不覆盖 —— 尊重调用方的明确选择。
+    if (
+      !providedModel &&
+      !isDirectBYOKPath &&
+      effectiveUserIdForInitial &&
+      this.keyResolver &&
+      modelConfig
+    ) {
+      try {
+        const preferredModelId =
+          await this.keyResolver.getPreferredModelIdForProvider(
+            effectiveUserIdForInitial,
+            modelConfig.provider,
+          );
+        if (preferredModelId && preferredModelId !== modelConfig.modelId) {
+          const preferredConfig = await this.getModelConfig(preferredModelId);
+          if (preferredConfig) {
+            this.logger.log(
+              `[chat] Using user preferredModelId=${preferredModelId} ` +
+                `(provider=${modelConfig.provider}) over default ${modelConfig.modelId}`,
+            );
+            modelConfig = preferredConfig;
+            model = preferredConfig.modelId;
+          } else {
+            this.logger.warn(
+              `[chat] User preferredModelId=${preferredModelId} cannot be ` +
+                `resolved (no DB record and synthesis failed), keeping default ${modelConfig.modelId}`,
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[chat] Failed to resolve user preferredModelId: ${(error as Error).message}`,
+        );
+      }
+    }
+
     // ★ 参数解析优先级链
     let effectiveMaxTokens: number;
     let effectiveTemperature: number;

@@ -123,6 +123,7 @@ describe("AiModelConfigService", () => {
     const mockUserApiKeysService = {
       getPersonalKey: jest.fn().mockResolvedValue(null),
       getDonatedKey: jest.fn().mockResolvedValue(null),
+      getAvailableProviders: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({

@@ -431,7 +431,11 @@ export class UserApiKeysService {
   async getPersonalKey(
     userId: string,
     provider: string,
-  ): Promise<{ apiKey: string; apiEndpoint?: string | null } | null> {
+  ): Promise<{
+    apiKey: string;
+    apiEndpoint?: string | null;
+    preferredModelId?: string | null;
+  } | null> {
     const normalizedProvider = provider.toLowerCase();
     const cacheKey = `${CachePrefix.USER_API_KEY}${userId}:${normalizedProvider}`;
 
@@ -440,6 +444,7 @@ export class UserApiKeysService {
       const cached = await this.cacheService.get<{
         apiKey: string;
         apiEndpoint?: string | null;
+        preferredModelId?: string | null;
       }>(cacheKey);
       if (cached) {
         return cached;
@@ -466,7 +471,11 @@ export class UserApiKeysService {
     const decrypted = this.decrypt(key.encryptedValue, key.iv);
     if (!decrypted) return null;
 
-    const result = { apiKey: decrypted, apiEndpoint: key.apiEndpoint };
+    const result = {
+      apiKey: decrypted,
+      apiEndpoint: key.apiEndpoint,
+      preferredModelId: key.preferredModelId,
+    };
 
     // 缓存结果
     if (this.cacheService) {
