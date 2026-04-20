@@ -1079,7 +1079,7 @@ export class ReportSynthesisService {
     );
     if (finalDims < dimensionAnalyses.length && finalReport.length > 200) {
       this.logger.error(
-        `[synthesizeReport] ★ DIMENSION LOSS: expected ${dimensionAnalyses.length} dims but finalReport has ${finalDims}. ` +
+        `[synthesizeReport] ★ DIMENSION LOSS (pre-rescue): expected ${dimensionAnalyses.length} dims but finalReport has ${finalDims}. ` +
           `fullReportFromDimensions=${fullReportFromDimensions.length}c, cleanedReport=${cleanedReport.length}c`,
       );
     }
@@ -1134,6 +1134,50 @@ export class ReportSynthesisService {
           `[synthesizeReport] LatexRepairService not injected; cannot attempt rescue. Shipping with known issues.`,
         );
       }
+    }
+
+    // ★ Final defense: LatexRepair's chunked path previously ate the
+    //   `\n` separator between chunks via `.trim()` + `join("")`, gluing the
+    //   next section's `## N. Title` heading onto the previous chunk's last
+    //   character. The frontend chapter splitter uses `^##\s+` line-anchored
+    //   regex, so any glued heading silently hides an entire chapter.
+    //
+    //   Step 1: recover any glued `## N. ` heading by inserting `\n\n` before
+    //   it. Safe idempotent regex — no effect if the heading is already at
+    //   line start.
+    //   Step 2: re-count H2 dimension headings. If the count still falls
+    //   short of the planned dimensions, refuse to persist an incomplete
+    //   report — upstream will surface a clear error rather than shipping
+    //   silently-broken output to the user.
+    const beforeRecover = finalReport;
+    finalReport = finalReport.replace(
+      /([^\n])(##\s+\d+\.\s)/g,
+      (_m, prev: string, heading: string) => `${prev}\n\n${heading}`,
+    );
+    if (finalReport !== beforeRecover) {
+      const recoveredCount =
+        (finalReport.match(/^##\s+\d+\./gm) || []).length -
+        (beforeRecover.match(/^##\s+\d+\./gm) || []).length;
+      this.logger.warn(
+        `[synthesizeReport] ★ Recovered ${recoveredCount} glued H2 heading(s) via regex normalization`,
+      );
+      this.logger.log(
+        `[metrics] h2_glue_recovery=success h2_glue_recovered=${recoveredCount}`,
+      );
+    }
+
+    const postDefenseDims = (finalReport.match(/^## \d+\./gm) || []).length;
+    if (
+      postDefenseDims < dimensionAnalyses.length &&
+      finalReport.length > 200
+    ) {
+      throw new Error(
+        `Dimension loss cannot be recovered: expected ${dimensionAnalyses.length} ` +
+          `dimension headings, found ${postDefenseDims} after defensive normalization. ` +
+          `finalReport.length=${finalReport.length}, ` +
+          `fullReportFromDimensions.length=${fullReportFromDimensions.length}. ` +
+          `Refusing to persist incomplete report for topic ${topic.id} / report ${reportId}.`,
+      );
     }
 
     const updatedReport = await this.prisma.topicReport.update({

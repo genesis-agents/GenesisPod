@@ -201,4 +201,103 @@ describe("LatexRepairService", () => {
       expect(result.repaired).not.toContain("DOCUMENT END");
     });
   });
+
+  // ==================== Chunked-path boundary preservation ====================
+  //
+  // Regression for the 9-章规划-只输出-2-3章 incident: when the doc is
+  // larger than MAX_CHUNK_CHARS the repair runs per-H2 chunk. Previously
+  // each LLM-repaired chunk was `.trim()`ed and then all chunks were joined
+  // with `""`, which ate the trailing `\n` separator between chunks — the
+  // next chunk's `## N. 标题` heading fused onto the previous chunk's last
+  // character. The frontend chapter splitter is line-anchored (`^##\s+`) so
+  // any such glued heading silently hides an entire chapter.
+  describe("chunked path — chunk boundary preservation", () => {
+    // Build content large enough to trigger chunked repair (>30 KB per
+    // MAX_CHUNK_CHARS). Three H2 sections; only the middle one contains
+    // a broken bare LaTeX command so only that chunk goes to the LLM.
+    const padding = (seed: string, totalLen: number) =>
+      seed.repeat(Math.ceil(totalLen / seed.length)).slice(0, totalLen);
+    const largeBody = (): string => {
+      const prose1 = padding(
+        "第一章正文，普通中文段落，不含任何 LaTeX 命令。",
+        11000,
+      );
+      // The middle chunk carries a bare `\frac` that the validator will flag.
+      const prose2Clean = padding(
+        "第二章正文，普通中文段落，保证长度。",
+        10500,
+      );
+      const prose2 = `${prose2Clean}\n\n该段最终总结：**研究输入**。\nTrailing \\frac{a}{b} formula.`;
+      const prose3 = padding(
+        "第三章正文，普通中文段落，用来触发 split 边界。",
+        11000,
+      );
+      return [
+        `## 1. 第一章标题`,
+        prose1,
+        ``,
+        `## 2. 第二章标题`,
+        prose2,
+        ``,
+        `## 3. 第三章标题`,
+        prose3,
+        ``,
+      ].join("\n");
+    };
+
+    it("keeps every `## N.` heading at line start after LLM repair (no glue)", async () => {
+      const input = largeBody();
+      // Mock LLM: accept the middle chunk, return fixed content WITH trailing
+      // whitespace (as real models often do) — the bug was that `.trim()`
+      // ate that whitespace AND the chunk-separator `\n`.
+      mockChatFacade.chat.mockImplementation(async (opts: unknown) => {
+        const req = opts as { messages: Array<{ content: string }> };
+        const userPrompt = req.messages[req.messages.length - 1].content;
+        // Extract the payload between our document sentinels
+        const m = userPrompt.match(
+          /--- DOCUMENT START ---\n([\s\S]*?)\n--- DOCUMENT END ---/,
+        );
+        const payload = m ? m[1] : userPrompt;
+        const repaired = payload.replace(/\\frac\{a\}\{b\}/g, "$\\frac{a}{b}$");
+        return { content: `${repaired}\n\n  \n   `, isError: false };
+      });
+
+      const result = await service.repairMarkdown(input);
+
+      // The repair must at least not reject outright (no_improvement would
+      // indicate mock didn't fix the issue). Accept either `changed: true`
+      // or `false` but the structural guarantee below must hold either way.
+      const h2s = (result.repaired.match(/^##\s+\d+\.\s/gm) || []).length;
+      expect(h2s).toBe(3);
+
+      // No glue: the string `## 3.` must be preceded by a newline, never by
+      // regular content character.
+      const h3Idx = result.repaired.indexOf("## 3. 第三章标题");
+      expect(h3Idx).toBeGreaterThan(0);
+      expect(result.repaired[h3Idx - 1]).toBe("\n");
+    });
+
+    it("chunk whose LLM response has no trailing newline still yields line-start headings", async () => {
+      const input = largeBody();
+      mockChatFacade.chat.mockImplementation(async (opts: unknown) => {
+        const req = opts as { messages: Array<{ content: string }> };
+        const userPrompt = req.messages[req.messages.length - 1].content;
+        const m = userPrompt.match(
+          /--- DOCUMENT START ---\n([\s\S]*?)\n--- DOCUMENT END ---/,
+        );
+        const payload = m ? m[1] : userPrompt;
+        const repaired = payload.replace(/\\frac\{a\}\{b\}/g, "$\\frac{a}{b}$");
+        // Deliberately return content with NO trailing whitespace at all —
+        // this is the exact shape that triggered the incident (the old
+        // `.trim()` produced this shape even from a well-formed response).
+        return { content: repaired, isError: false };
+      });
+
+      const result = await service.repairMarkdown(input);
+      const h2s = (result.repaired.match(/^##\s+\d+\.\s/gm) || []).length;
+      expect(h2s).toBe(3);
+      const h3Idx = result.repaired.indexOf("## 3. 第三章标题");
+      expect(result.repaired[h3Idx - 1]).toBe("\n");
+    });
+  });
 });

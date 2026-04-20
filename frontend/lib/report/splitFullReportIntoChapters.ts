@@ -96,6 +96,13 @@ export function splitFullReportIntoChapters(
   // the references panel, not as a chapter.
   let body = fullReport.replace(REF_SECTION_RE, '');
 
+  // Defense in depth: recover from mid-line `## N. ` headings that can appear
+  // when an upstream pipeline step (historically LatexRepair's chunked path,
+  // now fixed) eats the newline between sections. The split regex below is
+  // line-anchored, so without this normalization any glued heading would
+  // silently hide an entire chapter.
+  body = body.replace(/([^\n])(##\s+\d+\.\s)/g, '$1\n\n$2');
+
   // Drop the top-level `# Title` + optional generated-at blockquote before the
   // first H2 so the page-level header doesn't duplicate.
   const firstH2Idx = body.search(/^##\s+/m);

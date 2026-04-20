@@ -234,4 +234,36 @@ describe('splitFullReportIntoChapters', () => {
     expect(result[0].content).toBe('');
     expect(result[1].content).toBe('x.');
   });
+
+  // Regression for the 9-章规划-只输出-2-3章 incident: recover from mid-line
+  // `## N. Title` headings produced by an upstream pipeline bug (historically
+  // LatexRepair's chunked path) so users never see a chapter silently vanish.
+  it('recovers mid-line `## N. 标题` that is glued to previous paragraph', () => {
+    const fullReport = [
+      '## 1. 第一章',
+      '',
+      '第一章内容。',
+      '',
+      // Next heading deliberately glued to the prose's last character with no
+      // newline — simulates the LatexRepair chunked-join bug output.
+      '## 2. 第二章',
+      '',
+      '第二章结尾：**核心判断**。## 3. 第三章',
+      '',
+      '### 3.1. 子节',
+      '',
+      '第三章内容。',
+      '',
+      '## 4. 第四章',
+      '',
+      '第四章内容。',
+    ].join('\n');
+    const result = splitFullReportIntoChapters(fullReport);
+    // All four dimensions must be recovered — without the defense the glued
+    // `## 3.` would be swallowed into `## 2.` and we'd see only 3 chapters.
+    expect(result.map((c) => c.sectionNumber)).toEqual(['1', '2', '3', '4']);
+    expect(result[1].content).toContain('核心判断');
+    expect(result[1].content).not.toContain('## 3.');
+    expect(result[2].content).toContain('### 3.1. 子节');
+  });
 });

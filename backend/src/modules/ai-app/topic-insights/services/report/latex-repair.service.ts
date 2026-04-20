@@ -340,7 +340,27 @@ export class LatexRepairService {
       }
     }
 
-    const finalDoc = repairedChunks.join("");
+    // ★ Chunk-boundary normalization.
+    //
+    // LLM-repaired chunks go through `.trim()` above, which eats the trailing
+    // `\n` that `splitByH2` emits as the chunk separator. Concatenating with
+    // `join("")` then glues the next chunk's `## ` heading onto the previous
+    // chunk's last character, producing markdown like `...决策输入**。## 3. 标题`
+    // where the H2 heading is no longer at line start — the chapter splitter
+    // (frontend and backend both use `^##\s+`) silently drops that chapter.
+    //
+    // Fix: normalize EVERY chunk's trailing whitespace to exactly `\n\n` for
+    // non-final chunks and "" for the final one. This is idempotent for
+    // already-well-formed chunks (the original `splitByH2` output also has
+    // `\n`-terminated non-final chunks, which this normalization converts to
+    // `\n\n` — equivalent for markdown rendering and safer for H2 detection).
+    const finalDoc = repairedChunks
+      .map((c, i) =>
+        i === repairedChunks.length - 1
+          ? c.replace(/\s+$/, "")
+          : c.replace(/\s+$/, "") + "\n\n",
+      )
+      .join("");
     const after = validateLatexDelimiters(finalDoc);
     return { repaired: finalDoc, changed: anyChanged, before, after };
   }
