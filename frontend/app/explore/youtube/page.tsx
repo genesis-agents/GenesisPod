@@ -17,6 +17,7 @@ import {
   type Resource as AIResource,
 } from '@/lib/ai-office/context-builder';
 import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
+import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 import KeyMomentsPanel, {
   type KeyMoment,
 } from '@/components/explore/youtube/KeyMomentsPanel';
@@ -250,14 +251,6 @@ function YouTubeTLDWContent() {
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-
-  // Context menu states - Papers style (text selection based)
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    text: string;
-  } | null>(null);
-  const [savingNote, setSavingNote] = useState(false);
 
   const playerRef = useRef<YTPlayer | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -645,102 +638,62 @@ function YouTubeTLDWContent() {
     }
   }, [aiMessages]);
 
-  // Handle context menu for adding to notes
-  // Supports both: selected text OR full message content
-  const handleContextMenu = (e: React.MouseEvent, fullText: string) => {
-    e.preventDefault();
-    const selection = window.getSelection();
-    const selectedText = selection?.toString().trim();
+  /**
+   * Save selected AI-chat text to notes. Invoked by TextSelectionToolbar
+   * when the user picks "Add to Notes" from the floating selection toolbar
+   * — so the browser's native right-click menu (copy / search / inspect)
+   * stays untouched.
+   */
+  const saveTextToNotes = useCallback(
+    async (text: string) => {
+      if (!videoId) return;
+      const content = text?.trim();
+      if (!content) return;
 
-    // Use selected text if available, otherwise use full message content
-    const textToSave = selectedText || fullText;
-
-    if (textToSave) {
-      setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
-        text: textToSave,
-      });
-    }
-  };
-
-  // Save text to notes
-  const saveToNotes = async () => {
-    if (!contextMenu || !videoId) return;
-
-    if (!accessToken) {
-      toast.warning('Please sign in to save notes');
-      return;
-    }
-
-    try {
-      setSavingNote(true);
-      logger.debug('Saving note for video:', {
-        videoId,
-        contentPreview: contextMenu.text.substring(0, 50) + '...',
-      });
-
-      // Note: Don't use resourceId for YouTube videos since videoId is not a UUID
-      // Use source field to associate the note with the video instead
-      const response = await fetch(`${config.apiBaseUrl}/api/v1/notes`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: contextMenu.text,
-          source: `youtube:${videoId}`,
-          tags: ['AI-Generated', 'YouTube', videoId],
-          isPublic: false,
-        }),
-      });
-
-      if (response.ok) {
-        logger.debug('Note saved successfully');
-        setContextMenu(null);
-        setNotesRefreshKey((prev) => prev + 1);
-      } else {
-        const errorData: { message?: string } = await response
-          .json()
-          .catch(() => ({ message: undefined }));
-        logger.error('Failed to save note:', {
-          status: response.status,
-          error: errorData,
-        });
-        toast.error(
-          `Failed to save note: ${errorData.message || 'Unknown error'}`
-        );
-      }
-    } catch (error) {
-      logger.error('Failed to save note:', error);
-      toast.error('Failed to save note');
-    } finally {
-      setSavingNote(false);
-    }
-  };
-
-  // Close context menu on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('.context-menu')) {
+      if (!accessToken) {
+        toast.warning('Please sign in to save notes');
         return;
       }
-      setContextMenu(null);
-    };
-    if (contextMenu) {
-      // Use mousedown to detect clicks outside, but delay adding the listener
-      // to avoid catching the same click that opened the menu
-      const timer = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside);
-      }, 0);
-      return () => {
-        clearTimeout(timer);
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [contextMenu]);
+
+      try {
+        // Note: YouTube videoId is not a UUID — persist via the `source` field
+        // rather than a resourceId link.
+        const response = await fetch(`${config.apiBaseUrl}/api/v1/notes`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content,
+            source: `youtube:${videoId}`,
+            tags: ['AI-Generated', 'YouTube', videoId],
+            isPublic: false,
+          }),
+        });
+
+        if (response.ok) {
+          setNotesRefreshKey((prev) => prev + 1);
+          toast.success('已添加到笔记');
+        } else {
+          const errorData: { message?: string } = await response
+            .json()
+            .catch(() => ({ message: undefined }));
+          logger.error('Failed to save note:', {
+            status: response.status,
+            error: errorData,
+          });
+          toast.error(
+            `Failed to save note: ${errorData.message || 'Unknown error'}`
+          );
+        }
+      } catch (error) {
+        logger.error('Failed to save note:', error);
+        toast.error('Failed to save note');
+      }
+    },
+    [videoId, accessToken]
+  );
 
   // Send AI message with video context
   const sendAIMessage = async () => {
@@ -1410,123 +1363,126 @@ function YouTubeTLDWContent() {
 
               {activeTab === 'chat' && (
                 <div className="flex h-full flex-col">
-                  {/* Chat Messages */}
-                  <div className="flex-1 space-y-2 overflow-y-auto">
-                    {aiMessages.length > 0 ? (
-                      <>
-                        {aiMessages.map((msg, i) => (
-                          <div
-                            key={i}
-                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
+                  {/* Chat Messages - wrapped with TextSelectionToolbar so users
+                      keep the browser's native right-click menu (copy / search /
+                      inspect) and get a Papers-style floating toolbar only when
+                      they actually select text. */}
+                  <TextSelectionToolbar
+                    onAddToNotes={(text) => void saveTextToNotes(text)}
+                    className="flex-1 overflow-y-auto"
+                  >
+                    <div className="flex-1 space-y-2">
+                      {aiMessages.length > 0 ? (
+                        <>
+                          {aiMessages.map((msg, i) => (
                             <div
-                              className={`group relative max-w-[90%] rounded-xl px-4 py-3 ${
-                                msg.role === 'user'
-                                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md'
-                                  : 'border border-gray-100 bg-white text-gray-800 shadow-sm'
-                              }`}
-                              onContextMenu={
-                                msg.role === 'assistant'
-                                  ? (e) => handleContextMenu(e, msg.content)
-                                  : undefined
-                              }
+                              key={i}
+                              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                              {msg.role === 'assistant' && (
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard
-                                      .writeText(msg.content)
-                                      .then(() => toast.success('已复制'))
-                                      .catch(() => {});
-                                  }}
-                                  className="absolute right-2 top-2 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100"
-                                  title="复制"
-                                >
-                                  <svg
-                                    className="h-3.5 w-3.5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                    />
-                                  </svg>
-                                </button>
-                              )}
-                              <AIMessageRenderer
-                                content={msg.content}
-                                isDark={msg.role === 'user'}
-                              />
                               <div
-                                className={`mt-2 border-t pt-2 text-[11px] ${
+                                className={`group relative max-w-[90%] rounded-xl px-4 py-3 ${
                                   msg.role === 'user'
-                                    ? 'border-white/20 text-red-100'
-                                    : 'border-gray-100 text-gray-400'
+                                    ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md'
+                                    : 'cursor-text select-text border border-gray-100 bg-white text-gray-800 shadow-sm'
                                 }`}
                               >
-                                <ClientDate
-                                  date={msg.timestamp}
-                                  format="time"
+                                {msg.role === 'assistant' && (
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard
+                                        .writeText(msg.content)
+                                        .then(() => toast.success('已复制'))
+                                        .catch(() => {});
+                                    }}
+                                    className="absolute right-2 top-2 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100"
+                                    title="复制"
+                                  >
+                                    <svg
+                                      className="h-3.5 w-3.5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                      />
+                                    </svg>
+                                  </button>
+                                )}
+                                <AIMessageRenderer
+                                  content={msg.content}
+                                  isDark={msg.role === 'user'}
                                 />
+                                <div
+                                  className={`mt-2 border-t pt-2 text-[11px] ${
+                                    msg.role === 'user'
+                                      ? 'border-white/20 text-red-100'
+                                      : 'border-gray-100 text-gray-400'
+                                  }`}
+                                >
+                                  <ClientDate
+                                    date={msg.timestamp}
+                                    format="time"
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                        {/* AI Thinking Indicator */}
-                        {isStreaming && (
-                          <div className="flex justify-start">
-                            <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-600">
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
-                              <span className="text-sm">
-                                {activeAIModel?.name || 'AI'} 正在分析...
-                              </span>
+                          ))}
+                          {/* AI Thinking Indicator */}
+                          {isStreaming && (
+                            <div className="flex justify-start">
+                              <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-600">
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
+                                <span className="text-sm">
+                                  {activeAIModel?.name || 'AI'} 正在分析...
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : isStreaming ? (
+                        <div className="flex h-full items-center justify-center">
+                          <div className="flex flex-col items-center gap-3 text-gray-600">
+                            <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
+                            <div className="text-sm font-medium">
+                              {activeAIModel?.name || 'AI'} 正在分析视频内容...
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              这通常只需要几秒钟
                             </div>
                           </div>
-                        )}
-                      </>
-                    ) : isStreaming ? (
-                      <div className="flex h-full items-center justify-center">
-                        <div className="flex flex-col items-center gap-3 text-gray-600">
-                          <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-300 border-t-red-600" />
-                          <div className="text-sm font-medium">
-                            {activeAIModel?.name || 'AI'} 正在分析视频内容...
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            这通常只需要几秒钟
+                        </div>
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <div className="text-center">
+                            <svg
+                              className="mx-auto h-12 w-12 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                              />
+                            </svg>
+                            <h3 className="mt-2 text-sm font-semibold text-gray-900">
+                              Chat with AI
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-600">
+                              Ask questions about the video content
+                            </p>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <div className="text-center">
-                          <svg
-                            className="mx-auto h-12 w-12 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                            />
-                          </svg>
-                          <h3 className="mt-2 text-sm font-semibold text-gray-900">
-                            Chat with AI
-                          </h3>
-                          <p className="mt-1 text-sm text-gray-600">
-                            Ask questions about the video content
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+                  </TextSelectionToolbar>
 
                   {/* Chat Input */}
                   <div className="border-t border-gray-200 bg-white p-4">
@@ -1842,40 +1798,6 @@ function YouTubeTLDWContent() {
           </svg>
         </button>
       </main>
-
-      {/* Context Menu for Adding to Notes (Papers style) */}
-      {contextMenu && (
-        <div
-          className="context-menu fixed z-50 rounded-lg border-2 border-blue-500 bg-white py-2 shadow-xl"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              logger.debug('Button clicked!');
-              saveToNotes();
-            }}
-            disabled={savingNote}
-            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            {savingNote ? 'Saving...' : 'Add to Notes'}
-          </button>
-        </div>
-      )}
     </AppShell>
   );
 }
