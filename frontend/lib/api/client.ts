@@ -288,12 +288,32 @@ class ApiClient {
           }
 
           const errorData = await response.json().catch(() => ({}));
-          throw this.createApiError(
+          const apiErr = this.createApiError(
             errorData.message || response.statusText,
             errorData.code,
             response.status,
             errorData
           );
+          // BYOK 错误统一发布到全局事件，由 GlobalByokErrorModal 呈现引导页面
+          // 即便调用方自己 catch 吞了错误，UI 也能给出一致反馈
+          const BYOK_CODES = [
+            'NO_AVAILABLE_KEY',
+            'NO_SYSTEM_KEY',
+            'QUOTA_EXCEEDED',
+            'INVALID_API_KEY',
+            'KEY_EXPIRED',
+          ];
+          if (
+            response.status === 403 &&
+            typeof errorData.code === 'string' &&
+            BYOK_CODES.includes(errorData.code)
+          ) {
+            // 动态 import 避免在 SSR 阶段引入 window
+            void import('@/lib/byok/event-bus').then((m) =>
+              m.publishByokError(apiErr)
+            );
+          }
+          throw apiErr;
         }
 
         // 如果响应为空，返回空对象

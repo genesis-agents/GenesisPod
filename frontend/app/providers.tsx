@@ -15,6 +15,7 @@ import { toast } from '@/stores';
 import { CheckinModal, InsufficientCreditsModal } from '@/components/credits';
 import { GlobalAIBarProvider } from '@/components/ai-bar';
 import { ByokOnboardingGuard } from '@/components/byok/ByokOnboardingGuard';
+import { GlobalByokErrorModal } from '@/components/byok/GlobalByokErrorModal';
 
 /**
  * Create QueryClient with global error handling
@@ -64,6 +65,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <>
             <CheckinModal />
             <InsufficientCreditsModal />
+            <GlobalByokErrorModal />
           </>
         )}
       </I18nProvider>

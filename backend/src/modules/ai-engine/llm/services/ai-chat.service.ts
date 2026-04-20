@@ -929,7 +929,7 @@ export class AiChatService {
       displayName,
       capabilities,
       enableSearch,
-      userId,
+      userId: rawUserId,
       traceId,
       responseFormat,
       processId: explicitProcessId,
@@ -942,19 +942,22 @@ export class AiChatService {
     // ★ BYOK v2 防呆：普通路径必须有 userId（来自参数或 RequestContext）。
     // 直连路径（BYOK direct，apiKey+provider 都显式传入）豁免，因为它自带 Key 不走 Resolver。
     // 异步任务 / Cron 漏写 withUserContext 时会在这里被立即拦截，而非静默走系统 Secret。
+    //
+    // ★★ 关键：把 options.userId 和 RequestContext.userId 合并到 `userId` 后再往下游传，
+    //    否则"参数没传但 middleware 已经设 ctx"的调用链会让下游 resolveApiKey 拿到 undefined，
+    //    进入过渡路径误用系统 Secret。
     const isDirectBYOKPath = !!(apiKey && provider);
-    if (!isDirectBYOKPath) {
-      const ctxUserId = RequestContext.getUserId();
-      if (!userId && !ctxUserId) {
-        this.logger.error(
-          "[chat] Refused: no userId in params nor RequestContext. " +
-            "Async tasks must wrap the call in withUserContext(userId, ...) " +
-            "so KeyResolver can route to PERSONAL/ASSIGNED (user) or SYSTEM (admin).",
-        );
-        throw new UnauthorizedException(
-          "BYOK v2: userId is required. Wrap async calls in withUserContext.",
-        );
-      }
+    const ctxUserId = RequestContext.getUserId();
+    const userId: string | undefined = rawUserId ?? ctxUserId;
+    if (!isDirectBYOKPath && !userId) {
+      this.logger.error(
+        "[chat] Refused: no userId in params nor RequestContext. " +
+          "Async tasks must wrap the call in withUserContext(userId, ...) " +
+          "so KeyResolver can route to PERSONAL/ASSIGNED (user) or SYSTEM (admin).",
+      );
+      throw new UnauthorizedException(
+        "BYOK v2: userId is required. Wrap async calls in withUserContext.",
+      );
     }
 
     // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
@@ -1105,13 +1108,11 @@ export class AiChatService {
         // 并引导到 /settings/api-keys。
         // 管理员的 availableProviders 来自系统 Secret，极少为空；即便为空也应让
         // resolveSystemKey 抛 NoSystemKeyError 以区分语义。
+        //
+        // 错误里不传具体 provider（传空字符串）—— 这种场景是「用户一个 Key 都没配」，
+        // 不指向特定 provider；前端 ByokErrorCard 会显示"该 Provider"/"any Provider"。
         if (userAvailableProviders.size === 0) {
-          const user = await this.modelConfigService
-            .getDefaultModelByType(modelType ?? AIModelType.CHAT)
-            .catch(() => null);
-          throw new NoAvailableKeyError(
-            providedModel ?? user?.provider ?? "any",
-          );
+          throw new NoAvailableKeyError("");
         }
       } catch (error) {
         if (error instanceof BYOKError) throw error;

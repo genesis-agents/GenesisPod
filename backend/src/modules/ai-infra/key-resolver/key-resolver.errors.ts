@@ -41,16 +41,15 @@ export class BYOKError extends ForbiddenException {
 
 export class NoAvailableKeyError extends BYOKError {
   constructor(provider: string, meta: Partial<BYOKErrorMeta> = {}) {
-    super(
-      BYOK_ERROR_CODES.NO_AVAILABLE_KEY,
-      `No API Key available for provider "${provider}"`,
-      {
-        provider,
-        canRequest: true,
-        requestUrl: "/settings/api-keys/request",
-        ...meta,
-      },
-    );
+    const message = provider
+      ? `No API Key available for provider "${provider}"`
+      : "No API Key configured. Please add one in Settings → API Keys.";
+    super(BYOK_ERROR_CODES.NO_AVAILABLE_KEY, message, {
+      provider,
+      canRequest: true,
+      requestUrl: "/settings/api-keys/request",
+      ...meta,
+    });
   }
 }
 
