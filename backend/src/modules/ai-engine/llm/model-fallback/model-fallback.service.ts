@@ -23,6 +23,7 @@ import {
   AIErrorClassifier,
   AIErrorType,
 } from "@/common/ai-orchestration/error-classifier";
+import { BYOKError } from "@/modules/ai-infra/key-resolver/key-resolver.errors";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
@@ -377,6 +378,17 @@ export class ModelFallbackService {
             attemptedModels: [...new Set(attemptedModels)],
           };
         } catch (error) {
+          // ★ BYOK 错误（用户没 Key / 配额耗尽 / 用户自带 Key 无效）是
+          // 用户维度的配置问题，跟模型本身无关。不要归到模型黑名单，
+          // 也不要尝试 fallback —— 直接把错误抛回给上层，让 HTTP 层
+          // 返回 403 + code，前端 GlobalByokErrorModal 自动弹窗。
+          if (error instanceof BYOKError) {
+            this.logger.debug(
+              `[${operation}] BYOKError (${error.code}) from ${currentModelId}: ` +
+                `user-scoped issue, not blocking model, rethrowing to caller`,
+            );
+            throw error;
+          }
           const classifiedError = this.errorClassifier.classify(
             error,
             modelConfig.provider,

@@ -27,6 +27,7 @@ import {
   CreditsService,
   BillingContext,
   InsufficientCreditsException,
+  BYOKError,
 } from "../../../ai-infra/facade";
 import { RequestContext } from "../../../../common/context/request-context";
 import { ModelSubFacade } from "../sub-facades/model.sub-facade";
@@ -532,6 +533,13 @@ export class ChatFacade {
         isError: result.isError,
       };
     } catch (error) {
+      // BYOK 错误（用户 Key / 配额 / 系统 Secret 缺失）直接透传给 HTTP 层，
+      // 由 Nest 转成 403 + code；不吞成 isError=true 的文本，避免被当作
+      // AI 回复渲染到聊天区。也不记到 circuit breaker（模型本身是好的）。
+      if (error instanceof BYOKError) {
+        throw error;
+      }
+
       const duration = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
 
