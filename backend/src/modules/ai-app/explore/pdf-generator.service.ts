@@ -180,6 +180,51 @@ export class PdfGeneratorService {
         color: #333;
       }
 
+      /* Row-aligned bilingual table: each pair occupies the same row,
+         English and Chinese stay horizontally synchronized regardless of
+         per-segment length differences. */
+      .bilingual-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      .bilingual-table thead th {
+        font-size: 12px;
+        font-weight: bold;
+        text-align: left;
+        padding: 0 10px 10px 10px;
+        border-bottom: 1px solid #ddd;
+        background: #fafafa;
+      }
+
+      .bilingual-table td {
+        padding: 10px;
+        vertical-align: top;
+        border-bottom: 1px solid #f0f0f0;
+        page-break-inside: avoid;
+      }
+
+      .bilingual-table tr:nth-child(even) td {
+        background: #fcfcfd;
+      }
+
+      .bilingual-table .col-timestamp {
+        width: 60px;
+        font-size: 10px;
+        color: #888;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        white-space: nowrap;
+      }
+
+      .bilingual-table .col-en,
+      .bilingual-table .col-zh {
+        font-size: 11px;
+        line-height: 1.6;
+        color: #333;
+        word-break: break-word;
+      }
+
       .stacked .segment {
         margin-bottom: 20px;
       }
@@ -294,7 +339,11 @@ export class PdfGeneratorService {
   }
 
   /**
-   * Generate bilingual side-by-side HTML
+   * Generate bilingual side-by-side HTML.
+   *
+   * Uses a fixed-layout table so each English/Chinese pair occupies the same
+   * row and stays horizontally aligned even when per-segment text lengths
+   * differ significantly between the two languages.
    */
   private generateBilingualSideBySide(
     transcript: BilingualTranscript,
@@ -306,36 +355,32 @@ export class PdfGeneratorService {
     );
 
     let content = `<div class="content-section"><div class="section-title">双语字幕</div>`;
-    content += `<div class="transcript-container">`;
-    content += `<div class="transcript-column"><div class="column-header">英文</div>`;
+    content += `<table class="bilingual-table">`;
+    content += `<thead><tr>`;
+    if (includeTimestamps) {
+      content += `<th class="col-timestamp">时间</th>`;
+    }
+    content += `<th class="col-en">英文</th>`;
+    content += `<th class="col-zh">中文</th>`;
+    content += `</tr></thead><tbody>`;
 
     for (let i = 0; i < maxLength; i++) {
       const english = transcript.english[i];
-      if (english) {
-        content += `<div class="segment">`;
-        if (includeTimestamps) {
-          content += `<span class="timestamp">${this.formatTimestamp(english.start)}</span>`;
-        }
-        content += `<div class="text">${this.escapeHtml(english.text)}</div>`;
-        content += `</div>`;
-      }
-    }
-
-    content += `</div><div class="transcript-column"><div class="column-header">中文</div>`;
-
-    for (let i = 0; i < maxLength; i++) {
       const chinese = transcript.chinese[i];
-      if (chinese) {
-        content += `<div class="segment">`;
-        if (includeTimestamps) {
-          content += `<span class="timestamp">${this.formatTimestamp(chinese.start)}</span>`;
-        }
-        content += `<div class="text">${this.escapeHtml(chinese.text)}</div>`;
-        content += `</div>`;
+      if (!english && !chinese) continue;
+
+      const timestampSource = english?.start ?? chinese?.start ?? 0;
+
+      content += `<tr>`;
+      if (includeTimestamps) {
+        content += `<td class="col-timestamp">${this.formatTimestamp(timestampSource)}</td>`;
       }
+      content += `<td class="col-en">${this.escapeHtml(english?.text ?? "")}</td>`;
+      content += `<td class="col-zh">${this.escapeHtml(chinese?.text ?? "")}</td>`;
+      content += `</tr>`;
     }
 
-    content += `</div></div></div>`;
+    content += `</tbody></table></div>`;
     return content;
   }
 

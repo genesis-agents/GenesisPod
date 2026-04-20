@@ -285,7 +285,8 @@ describe("PdfGeneratorService", () => {
         ...defaultOptions,
         format: "bilingual-side",
       });
-      expect(html).toContain("transcript-container");
+      // Row-aligned table so each English/Chinese pair shares one <tr>.
+      expect(html).toContain("bilingual-table");
       expect(html).toContain("英文");
       expect(html).toContain("中文");
     });
@@ -321,7 +322,8 @@ describe("PdfGeneratorService", () => {
         ...defaultOptions,
         includeTimestamps: true,
       });
-      expect(html).toContain('class="timestamp"');
+      // bilingual-side uses a dedicated timestamp column
+      expect(html).toContain('class="col-timestamp"');
       expect(html).toContain("[00:00]");
     });
 
@@ -330,6 +332,7 @@ describe("PdfGeneratorService", () => {
         ...defaultOptions,
         includeTimestamps: false,
       });
+      expect(html).not.toContain('class="col-timestamp"');
       expect(html).not.toContain('class="timestamp"');
     });
 
