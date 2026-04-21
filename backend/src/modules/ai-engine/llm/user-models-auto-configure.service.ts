@@ -312,17 +312,40 @@ export class AutoConfigureService {
     apiFormat?: string;
   } {
     const lower = modelId.toLowerCase();
-    const isReasoning =
-      /^o[1-5]/i.test(lower) ||
-      lower.includes("gpt-5") ||
-      lower.includes("reasoner");
+
+    // ★ 区分两个概念：
+    //   (A) API 协议层：OpenAI 的 o1/o3/gpt-5 真推理系列走 max_completion_tokens 且不支持 temperature。
+    //   (B) 能力层：LeaderPlanning 选"推理模型"时看的是"能不能做推理任务"（范围更宽）。
+    // 两者都满足时才是 o1 那种特殊协议；只满足 (B) 的（如 gpt-4o、Claude 3.5 Sonnet）
+    // 走普通 chat 协议但被允许承担 Leader 角色。
+    const usesReasoningTokenProtocol =
+      /^o[1-5]/i.test(lower) || lower.includes("gpt-5");
+
+    const isReasoningCapable =
+      usesReasoningTokenProtocol ||
+      /^gpt-4o(?!-mini)/i.test(lower) ||
+      /^gpt-4-turbo/i.test(lower) ||
+      lower.includes("claude-3-5-sonnet") ||
+      lower.includes("claude-sonnet-4") ||
+      lower.includes("claude-3-opus") ||
+      lower.includes("claude-opus") ||
+      lower.includes("gemini-1.5-pro") ||
+      lower.includes("gemini-2.0-pro") ||
+      lower.includes("gemini-2.5-pro") ||
+      /^grok-3(?!-mini)/i.test(lower) ||
+      /^grok-4/i.test(lower) ||
+      lower.includes("reasoner") ||
+      lower.includes("deepseek-r");
+
     const supportsVision =
       modelType === AIModelType.MULTIMODAL ||
       /4o|vision|gemini|claude-3/i.test(lower);
     return {
-      isReasoning,
-      supportsTemperature: !isReasoning,
-      tokenParamName: isReasoning ? "max_completion_tokens" : "max_tokens",
+      isReasoning: isReasoningCapable,
+      supportsTemperature: !usesReasoningTokenProtocol,
+      tokenParamName: usesReasoningTokenProtocol
+        ? "max_completion_tokens"
+        : "max_tokens",
       supportsVision,
     };
   }
