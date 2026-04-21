@@ -160,42 +160,78 @@ export function useUserModelConfigs(provider?: string) {
   };
 }
 
+export type ModelImportance = 'required' | 'recommended' | 'optional';
+
 export const USER_MODEL_TYPE_OPTIONS: Array<{
   value: UserModelType;
   label: string;
   description: string;
+  /** 这个类型被哪些功能依赖（用于「需求概览」面板引导用户配置） */
+  usedBy: string[];
+  /** 建议优先配置的严重程度 */
+  importance: ModelImportance;
 }> = [
   {
     value: 'CHAT',
     label: '标准聊天',
-    description: 'GPT-4, Claude, Gemini Pro 等 - 用于复杂对话和深度分析',
+    description: 'GPT-4, Claude, Gemini Pro 等 - 复杂对话、深度分析',
+    usedBy: ['AI 问答', 'Topic Insights', 'Research', 'AI Teams', 'AI 写作'],
+    importance: 'required',
   },
   {
     value: 'CHAT_FAST',
     label: '快速聊天',
-    description: 'GPT-4o-mini, Claude Haiku 等 - 分类/翻译/摘要等低成本任务',
+    description: 'GPT-4o-mini, Haiku 等 - 分类/翻译/摘要等低成本任务',
+    usedBy: ['Topic Insights（子任务）', '查询改写', '摘要提取'],
+    importance: 'recommended',
   },
   {
     value: 'CODE',
     label: '代码生成',
     description: 'Claude Sonnet, GPT-4o 等 - 代码生成和分析',
+    usedBy: ['AI 代码助手'],
+    importance: 'optional',
   },
   {
     value: 'MULTIMODAL',
     label: '多模态',
     description: '同时支持文本和图片输入',
+    usedBy: ['图像分析', 'OCR 任务'],
+    importance: 'optional',
   },
   {
     value: 'IMAGE_GENERATION',
     label: '图片生成',
     description: 'DALL-E 3, Imagen 等',
+    usedBy: ['AI 画图'],
+    importance: 'optional',
   },
-  { value: 'IMAGE_EDITING', label: '图片编辑', description: '' },
+  {
+    value: 'IMAGE_EDITING',
+    label: '图片编辑',
+    description: '图像编辑 / inpainting',
+    usedBy: ['AI 画图（编辑模式）'],
+    importance: 'optional',
+  },
   {
     value: 'EMBEDDING',
     label: '向量嵌入',
-    description: 'text-embedding-3-* - 知识库向量化',
+    description: 'text-embedding-3-* - 文本向量化',
+    usedBy: ['知识库检索 (RAG)', 'Topic Insights 证据去重'],
+    importance: 'required',
   },
-  { value: 'RERANK', label: '重排序', description: 'Cohere rerank' },
-  { value: 'EVALUATOR', label: '报告评审', description: '评分/评审专用' },
+  {
+    value: 'RERANK',
+    label: '重排序',
+    description: 'Cohere rerank - 搜索结果重排',
+    usedBy: ['Topic Insights 证据排序', '知识库 RAG'],
+    importance: 'recommended',
+  },
+  {
+    value: 'EVALUATOR',
+    label: '报告评审',
+    description: '报告质量评分专用',
+    usedBy: ['Topic Insights 报告评分', 'AI Teams 辩论质检'],
+    importance: 'recommended',
+  },
 ];

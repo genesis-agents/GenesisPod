@@ -24,6 +24,7 @@ import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 import { UserApiKeysTab } from '@/components/profile/UserApiKeysTab';
+import { UserModelsManagement } from '@/components/profile/UserModelsManagement';
 interface UserStats {
   userId: string;
   memberSince: string;
@@ -56,9 +57,10 @@ function ProfileContent() {
       | 'settings'
       | 'stats'
       | 'api-keys'
+      | 'my-models'
       | 'integrations') || 'profile';
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'settings' | 'api-keys' | 'stats' | 'integrations'
+    'profile' | 'settings' | 'api-keys' | 'my-models' | 'stats' | 'integrations'
   >(initialTab);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -346,6 +348,16 @@ function ProfileContent() {
                 }`}
               >
                 {t('profile.tabs.apiKeys')}
+              </button>
+              <button
+                onClick={() => setActiveTab('my-models')}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  activeTab === 'my-models'
+                    ? 'border-b-2 border-red-600 text-red-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                我的模型
               </button>
               <button
                 onClick={() => setActiveTab('integrations')}
@@ -1032,6 +1044,9 @@ function ProfileContent() {
 
             {/* API Keys Tab */}
             {activeTab === 'api-keys' && <UserApiKeysTab />}
+
+            {/* My Models Tab */}
+            {activeTab === 'my-models' && <UserModelsManagement />}
 
             {/* Integrations Tab */}
             {activeTab === 'integrations' && (

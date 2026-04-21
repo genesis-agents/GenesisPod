@@ -10,6 +10,7 @@ import {
   useUserModelConfigs,
   type CreateUserModelConfigInput,
 } from '@/hooks/features/useUserModelConfigs';
+import { useUserApiKeys } from '@/hooks/features/useUserApiKeys';
 
 interface Props {
   provider: string;
@@ -41,7 +42,7 @@ const TOKEN_PARAM_OPTIONS = [
 ];
 
 export function UserModelConfigModal({
-  provider,
+  provider: initialProvider,
   apiKey,
   apiEndpoint,
   initial,
@@ -49,8 +50,13 @@ export function UserModelConfigModal({
   onSaved,
 }: Props) {
   const { create, update, mutating } = useUserModelConfigs();
+  const { keys: userKeys } = useUserApiKeys();
   const isEdit = !!initial;
 
+  // Provider（新增时可选；编辑时固定为 initial.provider）
+  const [provider, setProvider] = useState(
+    initial?.provider ?? initialProvider
+  );
   // 表单字段
   const [modelType, setModelType] = useState<UserModelType>(
     initial?.modelType ?? 'CHAT'
@@ -180,6 +186,27 @@ export function UserModelConfigModal({
       }
     >
       <div className="space-y-4">
+        {/* Provider —— 新增时可选，编辑时锁定 */}
+        <Field label="Provider" required>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            disabled={isEdit}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+          >
+            {userKeys
+              .filter((k) => k.isActive)
+              .map((k) => (
+                <option key={k.provider} value={k.provider}>
+                  {k.provider}（{k.keyHint}）
+                </option>
+              ))}
+            {userKeys.filter((k) => k.isActive).length === 0 && (
+              <option value="">（请先在 API Keys Tab 配置至少一个 Key）</option>
+            )}
+          </select>
+        </Field>
+
         {/* 模型类型 */}
         <Field label="模型类型" required>
           <select
