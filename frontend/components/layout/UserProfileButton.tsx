@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, LogOut, LogIn, UserCircle, Coins } from 'lucide-react';
+import { User, LogOut, LogIn, UserCircle, Coins, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { useCreditsStore } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
@@ -166,6 +166,14 @@ export default function UserProfileButton({
             >
               <UserCircle className="h-4 w-4" />
               <span>{t('common.profile')}</span>
+            </Link>
+            <Link
+              href="/me/ai"
+              onClick={() => setShowMenu(false)}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <Bot className="h-4 w-4" />
+              <span>我的 AI 配置</span>
             </Link>
             <Link
               href="/credits"

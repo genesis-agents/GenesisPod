@@ -170,6 +170,17 @@ const BYOK_DEFAULT_MODELS: Record<
  * 数据库中的 AI 模型配置
  * ★ 所有模型行为完全由数据库配置驱动，消除硬编码
  */
+/**
+ * 严格 BYOK 下，**不允许**回落到管理员 AIModel 的"增强"类型。
+ * 用户没配 → 返回空 → 上层自动跳过（例如 RAG skip rerank 阶段）。
+ * 原因：这些 provider 通常按次付费（Cohere rerank $2/1k），不应由 admin 代付。
+ * CHAT / CHAT_FAST / EMBEDDING / MULTIMODAL / CODE / IMAGE_* 仍然会 fallback（基础功能必需）。
+ */
+const BYOK_OPTIONAL_TYPES = new Set<AIModelType>([
+  AIModelType.RERANK,
+  AIModelType.EVALUATOR,
+]);
+
 export interface AIModelConfig {
   id: string;
   name: string;
@@ -838,9 +849,8 @@ export class AiModelConfigService {
   ): Promise<AIModelConfig[]> {
     try {
       // ★ BYOK v3: 若当前请求上下文有 userId 且用户已配了 UserModelConfig
-      // （对应 modelType，isEnabled），用用户自己的模型；否则回落到管理员全局模型。
-      // 这样 Topic Insights / Writing / Teams 等依赖"列出可用模型"的场景
-      // 会展示用户自己的模型，而不是系统默认的。
+      // （对应 modelType，isEnabled），用用户自己的模型；否则回落到管理员全局模型
+      // （但仅限"刚需"类型，见下方 BYOK_OPTIONAL_TYPES）。
       const userId = RequestContext.getUserId();
       if (userId) {
         try {
@@ -863,8 +873,18 @@ export class AiModelConfigService {
           }
         } catch (error) {
           this.logger.warn(
-            `[getAllEnabledModelsByType] Failed to load UserModelConfig for ${userId}: ${(error as Error).message}; falling back to admin models`,
+            `[getAllEnabledModelsByType] Failed to load UserModelConfig for ${userId}: ${(error as Error).message}; will consider admin fallback`,
           );
+        }
+
+        // ★ 严格 BYOK：RERANK / EVALUATOR 等"增强"类型，用户没配 → 直接返回空，
+        // 不消耗管理员的付费 Key（Cohere rerank 是按次计费的）。
+        // CHAT / EMBEDDING 等"刚需"类型，为了保证基本功能，仍然 fallback 到 admin。
+        if (BYOK_OPTIONAL_TYPES.has(modelType)) {
+          this.logger.debug(
+            `[getAllEnabledModelsByType] User ${userId} has no ${modelType} UserModelConfig — returning empty (no admin fallback for optional types)`,
+          );
+          return [];
         }
       }
 

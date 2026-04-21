@@ -14,6 +14,7 @@ import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { SecretsModule } from "../ai-infra/secrets/secrets.module";
+import { UserApiKeysModule } from "../ai-infra/user-api-keys/user-api-keys.module";
 import { AiEngineLLMModule } from "./ai-engine-llm.module";
 
 // RAG
@@ -26,7 +27,13 @@ import { RAGPipelineService } from "./knowledge/rag/pipeline";
 import { SearchService } from "./knowledge/search/search.service";
 
 @Module({
-  imports: [HttpModule, PrismaModule, SecretsModule, AiEngineLLMModule],
+  imports: [
+    HttpModule,
+    PrismaModule,
+    SecretsModule,
+    UserApiKeysModule,
+    AiEngineLLMModule,
+  ],
   providers: [
     EmbeddingService,
     VectorService,

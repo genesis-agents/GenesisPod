@@ -22,6 +22,8 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { RequestContext } from "../../../../../common/context/request-context";
+import { UserApiKeysService } from "../../../../ai-infra/user-api-keys/user-api-keys.service";
 import { EmbeddingService } from "../embedding";
 import { VectorService } from "../vector";
 import { AiChatService } from "../../../llm/services/ai-chat.service";
@@ -50,6 +52,7 @@ export class RAGPipelineService {
     private readonly vectorService: VectorService,
     private readonly aiChatService: AiChatService,
     private readonly configService: ConfigService,
+    private readonly userApiKeys: UserApiKeysService,
   ) {}
 
   /**
@@ -460,18 +463,39 @@ Focus on being specific and informative.`;
   }
 
   /**
-   * Get Cohere API key from system settings or environment variable
-   * Replaces AdminService.getCohereApiKey() dependency
+   * Get Cohere API key for rerank.
+   *
+   * BYOK 优先级：
+   *   1. 当前请求上下文的用户，有活跃的 Cohere Personal Key → 用它
+   *   2. 系统设置 systemSetting "cohere.apiKey"（管理员填，非 BYOK fallback，仅 admin 使用）
+   *   3. 环境变量 COHERE_API_KEY（同上）
+   *
+   * 注意：若用户没自己的 Cohere Key，**直接返回 null**——rerank 阶段会 skip，
+   * 不再掏 admin/系统的 Cohere 账单。UI 侧提示用户去配 Cohere/Voyage/Jina 的 free tier。
    */
   private async getCohereApiKey(): Promise<string | null> {
-    // First check system settings
+    const userId = RequestContext.getUserId();
+    if (userId) {
+      try {
+        const personal = await this.userApiKeys.getPersonalKey(
+          userId,
+          "cohere",
+        );
+        if (personal?.apiKey) return personal.apiKey;
+      } catch (error) {
+        this.logger.warn(
+          `[getCohereApiKey] Failed to load user Cohere key for ${userId}: ${(error as Error).message}`,
+        );
+      }
+      // 非管理员用户没配 Cohere Key → 不 fallback 到系统级，跳过 rerank
+      return null;
+    }
+
+    // 无用户上下文（admin / system job）→ 可用系统级 fallback
     const setting = await this.prisma.systemSetting.findUnique({
       where: { key: "cohere.apiKey" },
     });
-    if (setting?.value) {
-      return setting.value;
-    }
-    // Fallback to environment variable
+    if (setting?.value) return setting.value;
     return this.configService.get<string>("COHERE_API_KEY") || null;
   }
 

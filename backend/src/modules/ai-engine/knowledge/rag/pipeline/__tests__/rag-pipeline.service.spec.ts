@@ -5,6 +5,7 @@ import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "../../embedding";
 import { VectorService } from "../../vector";
 import { AiChatService } from "../../../../llm/services/ai-chat.service";
+import { UserApiKeysService } from "../../../../../ai-infra/user-api-keys/user-api-keys.service";
 
 // ─── Mock factories ───────────────────────────────────────
 
@@ -92,6 +93,12 @@ describe("RAGPipelineService", () => {
             get: jest.fn(
               (key: string, defaultValue?: string) => defaultValue ?? "",
             ),
+          },
+        },
+        {
+          provide: UserApiKeysService,
+          useValue: {
+            getPersonalKey: jest.fn().mockResolvedValue(null),
           },
         },
       ],

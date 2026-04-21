@@ -223,7 +223,8 @@ export const USER_MODEL_TYPE_OPTIONS: Array<{
   {
     value: 'RERANK',
     label: '重排序',
-    description: 'Cohere rerank - 搜索结果重排',
+    description:
+      'RAG 二阶精排（免费可用：Cohere trial / Voyage 200 万 tokens/月 / Jina / BGE 开源）',
     usedBy: ['Topic Insights 证据排序', '知识库 RAG'],
     importance: 'recommended',
   },
