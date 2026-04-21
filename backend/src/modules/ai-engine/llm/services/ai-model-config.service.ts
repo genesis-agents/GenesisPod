@@ -854,6 +854,12 @@ export class AiModelConfigService {
       const userId = RequestContext.getUserId();
       if (userId) {
         try {
+          // 先不带 excludeModelIds 查一次"用户是否有该 type 的任何 UserModelConfig"——
+          // 区分「用户真的没配」vs「用户配了但都在本次 retry 的黑名单里」两种场景。
+          const userHasAny = await this.prisma.userModelConfig.count({
+            where: { userId, modelType, isEnabled: true },
+          });
+
           const userRows = await this.prisma.userModelConfig.findMany({
             where: {
               userId,
@@ -871,15 +877,24 @@ export class AiModelConfigService {
             );
             return userRows.map((r) => this.toAIModelConfigFromUserConfig(r));
           }
+
+          // ★ 严格 BYOK 隔离：用户有 UserModelConfig 但都被排除（本次失败重试链耗尽）→
+          // 返回空。**绝不回落 admin AIModel**，否则 admin key + admin modelId 会被偷用。
+          if (userHasAny > 0) {
+            this.logger.warn(
+              `[getAllEnabledModelsByType] User ${userId} has ${userHasAny} UserModelConfig for ${modelType}, but all excluded by retry list. Strict BYOK: NOT falling back to admin.`,
+            );
+            return [];
+          }
         } catch (error) {
           this.logger.warn(
             `[getAllEnabledModelsByType] Failed to load UserModelConfig for ${userId}: ${(error as Error).message}; will consider admin fallback`,
           );
         }
 
-        // ★ 严格 BYOK：RERANK / EVALUATOR 等"增强"类型，用户没配 → 直接返回空，
-        // 不消耗管理员的付费 Key（Cohere rerank 是按次计费的）。
-        // CHAT / EMBEDDING 等"刚需"类型，为了保证基本功能，仍然 fallback 到 admin。
+        // 用户根本没配任何 UserModelConfig 时才走 admin fallback：
+        // - RERANK / EVALUATOR 等"增强"类型：直接返回空（不烧 admin 的付费 key）
+        // - CHAT / EMBEDDING 等"刚需"类型：回落 admin，保证新用户基本功能可用
         if (BYOK_OPTIONAL_TYPES.has(modelType)) {
           this.logger.debug(
             `[getAllEnabledModelsByType] User ${userId} has no ${modelType} UserModelConfig — returning empty (no admin fallback for optional types)`,
