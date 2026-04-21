@@ -52,6 +52,9 @@ import {
 } from "./llm/user-models.controller";
 import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
 
+// Long-term editable recommendation matrix (user + admin auto-configure share this)
+import { ModelRecommendationsService } from "./llm/recommendations/model-recommendations.service";
+
 @Module({
   imports: [
     HttpModule.register({
@@ -107,6 +110,7 @@ import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
 
     // BYOK v3 auto-configure
     AutoConfigureService,
+    ModelRecommendationsService,
 
     // Prompt Cache
     PromptCacheCoordinatorService,
@@ -132,6 +136,7 @@ import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
     AiImageGenerationService,
     PromptCacheCoordinatorService,
     ModelFallbackService,
+    ModelRecommendationsService,
   ],
 })
 export class AiEngineLLMModule {}

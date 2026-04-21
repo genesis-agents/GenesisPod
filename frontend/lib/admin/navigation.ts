@@ -78,6 +78,12 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         icon: Bot,
       },
       {
+        key: 'recommendations',
+        labelKey: 'admin.nav.recommendations',
+        href: '/admin/ai/recommendations',
+        icon: Sparkles,
+      },
+      {
         key: 'teams',
         labelKey: 'admin.nav.teams',
         href: '/admin/ai/teams',

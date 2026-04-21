@@ -8823,3 +8823,31 @@ model UserModelConfig {
   @@index([userId, isDefault])
   @@map("user_model_configs")
 }
+
+/// 一键 AI 配置的推荐矩阵（provider × modelType → 按优先级排序的 regex 模式列表）。
+/// - 系统首次启动 seed 一次硬编码默认；之后管理员可通过后台编辑
+/// - user-auto-configure 和 admin-auto-configure 都读这张表
+/// - patterns 是 JSON 数组（string[]），按顺序匹配 /v1/models 返回的 modelId，第一个命中即胜出
+model ModelRecommendation {
+  id        String      @id @default(cuid())
+  provider  String      @db.VarChar(50)
+  modelType AIModelType @map("model_type")
+
+  /// 正则字符串列表，例如 ["^gpt-4o(?!-mini)", "^gpt-4-turbo"]。按序匹配
+  patterns Json @default("[]")
+
+  /// 同 provider + modelType 可能有多条（未来扩展），按 priority 升序取
+  priority Int @default(50)
+
+  /// 备注，例如"2026-04 更新：加入 gpt-5"
+  note String? @db.Text
+
+  /// 最后一次修改者（管理员 userId），系统 seed 时为 null
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([provider, modelType])
+  @@index([provider])
+  @@map("model_recommendations")
+}

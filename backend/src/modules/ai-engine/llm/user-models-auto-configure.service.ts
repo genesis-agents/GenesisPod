@@ -3,74 +3,7 @@ import { AIModelType } from "@prisma/client";
 import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "../../ai-infra/user-model-configs/user-model-configs.service";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
-
-/**
- * 每个 (provider, modelType) 的"优先候选 modelId 模式"。
- * 从拉取到的 /v1/models 列表里按这个顺序找第一个命中的。
- *
- * 规则：字段值是**正则列表**，按序匹配 modelId。用法：
- *   const pattern = RECOMMENDED[provider]?.[modelType];
- *   const match = pattern.find(re => models.some(m => re.test(m)));
- */
-const RECOMMENDED: Record<string, Partial<Record<AIModelType, RegExp[]>>> = {
-  openai: {
-    CHAT: [/^gpt-4o(?!-mini)/i, /^gpt-4-turbo/i, /^gpt-4(?!o)/i, /^gpt-5/i],
-    CHAT_FAST: [/^gpt-4o-mini/i, /^gpt-3\.5-turbo/i, /^gpt-5-mini/i],
-    CODE: [/^gpt-4o(?!-mini)/i],
-    MULTIMODAL: [/^gpt-4o(?!-mini)/i],
-    EMBEDDING: [
-      /^text-embedding-3-small/i,
-      /^text-embedding-3-large/i,
-      /^text-embedding-ada-002/i,
-    ],
-    IMAGE_GENERATION: [/^dall-e-3/i, /^gpt-image-1/i],
-    IMAGE_EDITING: [/^dall-e-2/i],
-  },
-  anthropic: {
-    CHAT: [
-      /claude-3-5-sonnet/i,
-      /claude-sonnet-4/i,
-      /claude-3-opus/i,
-      /claude-opus-4/i,
-    ],
-    CHAT_FAST: [/claude-3-5-haiku/i, /claude-3-haiku/i],
-    CODE: [/claude-3-5-sonnet/i, /claude-sonnet-4/i],
-    MULTIMODAL: [/claude-3-5-sonnet/i],
-  },
-  google: {
-    CHAT: [/^gemini-2\.0-pro/i, /^gemini-1\.5-pro/i, /^gemini-2\.0-flash$/i],
-    CHAT_FAST: [/^gemini-2\.0-flash-lite/i, /^gemini-1\.5-flash/i],
-    MULTIMODAL: [/^gemini-2\.0-flash$/i, /^gemini-1\.5-pro/i],
-    EMBEDDING: [/^text-embedding-004/i, /embedding/i],
-  },
-  xai: {
-    CHAT: [/^grok-3(?!-mini)/i, /^grok-2(?!-mini)/i],
-    CHAT_FAST: [/^grok-3-mini/i, /^grok-2-mini/i],
-  },
-  deepseek: {
-    CHAT: [/^deepseek-chat$/i, /^deepseek-v3/i],
-    CHAT_FAST: [/^deepseek-chat$/i],
-  },
-  cohere: {
-    CHAT: [/^command-r-plus/i],
-    CHAT_FAST: [/^command-r(?!-plus)/i],
-    RERANK: [/^rerank-v3\.5/i, /^rerank/i],
-  },
-  groq: {
-    CHAT: [/^llama-3\.3-70b/i, /^mixtral-8x7b/i],
-    CHAT_FAST: [/^llama-3\.3-70b/i, /^mixtral-8x7b/i, /^llama-3\.1-8b/i],
-  },
-  qwen: {
-    CHAT: [/^qwen-max/i, /^qwen-plus/i],
-    CHAT_FAST: [/^qwen-turbo/i, /^qwen-plus/i],
-  },
-  openrouter: {
-    CHAT: [/auto$/i],
-  },
-  minimax: {
-    CHAT: [/^MiniMax-Text-01/i],
-  },
-};
+import { ModelRecommendationsService } from "./recommendations/model-recommendations.service";
 
 export interface AutoConfigureResult {
   createdCount: number;
@@ -85,6 +18,14 @@ export interface AutoConfigureResult {
   missingTypes: AIModelType[];
 }
 
+/**
+ * 用户版一键 AI 配置：
+ * 1. 遍历用户所有 active Personal Keys
+ * 2. 每个 provider 调 fetchAvailableModels 取真实可用列表
+ * 3. 从 ModelRecommendationsService 读 (provider, modelType) → patterns
+ * 4. 按顺序匹配 modelId，首个命中 → 创建 UserModelConfig
+ * 5. 每个 modelType 下首个命中自动设为 isDefault
+ */
 @Injectable()
 export class AutoConfigureService {
   private readonly logger = new Logger(AutoConfigureService.name);
@@ -93,18 +34,9 @@ export class AutoConfigureService {
     private readonly userApiKeys: UserApiKeysService,
     private readonly modelDiscovery: AiModelDiscoveryService,
     private readonly userModelConfigs: UserModelConfigsService,
+    private readonly recommendations: ModelRecommendationsService,
   ) {}
 
-  /**
-   * 一键 AI 配置：为用户已配的每个 Personal Key，按推荐矩阵自动创建 UserModelConfig。
-   *
-   * 策略：
-   * 1. 遍历用户所有 active Personal Keys
-   * 2. 对每个 provider 调 fetchAvailableModels 取真实可用列表
-   * 3. 对每个 modelType（CHAT/CHAT_FAST/EMBEDDING/...）按 RECOMMENDED 模式匹配候选
-   * 4. 找到第一个命中的 → 创建 UserModelConfig（如果 (userId, provider, modelId) 不存在）
-   * 5. 每个 modelType 下的第一个命中自动设为 isDefault
-   */
   async runForUser(userId: string): Promise<AutoConfigureResult> {
     const personalKeys = await this.userApiKeys.listUserApiKeys(userId);
     const activePersonal = personalKeys.filter(
@@ -127,9 +59,7 @@ export class AutoConfigureService {
       missingTypes: [],
     };
 
-    // 已创建过什么 modelType 的 default，避免重复设默认
     const defaultedTypes = new Set<AIModelType>();
-    // 已存在的配置（避免重复创建）
     const existing = await this.userModelConfigs.listByUser(userId);
     const existingKeys = new Set(
       existing.map((c) => `${c.provider}:${c.modelId.toLowerCase()}`),
@@ -143,12 +73,11 @@ export class AutoConfigureService {
       const personal = await this.userApiKeys.getPersonalKey(userId, provider);
       if (!personal?.apiKey) continue;
 
-      // 拉 provider 可用模型列表
       const discovery = await this.modelDiscovery
         .fetchAvailableModels(provider, personal.apiKey)
         .catch((error) => {
           this.logger.warn(
-            `[auto-configure] fetchAvailableModels failed for ${provider}: ${(error as Error).message}`,
+            `[user-auto-configure] fetchAvailableModels failed for ${provider}: ${(error as Error).message}`,
           );
           return { success: false, error: (error as Error).message };
         });
@@ -167,8 +96,8 @@ export class AutoConfigureService {
       }
 
       const availableIds = discovery.models.map((m) => m.id);
-      const providerRecs = RECOMMENDED[provider];
-      if (!providerRecs) {
+      const providerRecs = await this.recommendations.getForProvider(provider);
+      if (providerRecs.length === 0) {
         result.items.push({
           provider,
           modelType: AIModelType.CHAT,
@@ -179,16 +108,8 @@ export class AutoConfigureService {
         continue;
       }
 
-      // 对每个支持的 modelType 找第一个命中
-      for (const [typeStr, patterns] of Object.entries(providerRecs)) {
-        const modelType = typeStr as AIModelType;
-        if (!patterns || patterns.length === 0) continue;
-
-        let matchedId: string | undefined;
-        for (const re of patterns) {
-          matchedId = availableIds.find((id) => re.test(id));
-          if (matchedId) break;
-        }
+      for (const rec of providerRecs) {
+        const matchedId = this.firstMatch(availableIds, rec.patterns);
         if (!matchedId) continue;
 
         const dedupKey = `${provider}:${matchedId.toLowerCase()}`;
@@ -196,7 +117,7 @@ export class AutoConfigureService {
           result.skippedCount++;
           result.items.push({
             provider,
-            modelType,
+            modelType: rec.modelType,
             modelId: matchedId,
             action: "skipped",
             reason: "Already configured",
@@ -204,34 +125,37 @@ export class AutoConfigureService {
           continue;
         }
 
-        const shouldSetDefault = !defaultedTypes.has(modelType);
+        const shouldSetDefault = !defaultedTypes.has(rec.modelType);
         try {
           await this.userModelConfigs.create(userId, {
             provider,
             modelId: matchedId,
-            displayName: this.buildDisplayName(provider, matchedId, modelType),
-            modelType,
+            displayName: this.buildDisplayName(
+              provider,
+              matchedId,
+              rec.modelType,
+            ),
+            modelType: rec.modelType,
             isDefault: shouldSetDefault,
-            // 推理系列自动调能力
-            ...this.inferCapabilities(matchedId, modelType),
+            ...this.inferCapabilities(matchedId, rec.modelType),
           });
           existingKeys.add(dedupKey);
-          if (shouldSetDefault) defaultedTypes.add(modelType);
+          if (shouldSetDefault) defaultedTypes.add(rec.modelType);
           result.createdCount++;
           result.items.push({
             provider,
-            modelType,
+            modelType: rec.modelType,
             modelId: matchedId,
             action: "created",
           });
         } catch (error) {
           this.logger.warn(
-            `[auto-configure] Failed to create ${provider}/${matchedId}: ${(error as Error).message}`,
+            `[user-auto-configure] Failed to create ${provider}/${matchedId}: ${(error as Error).message}`,
           );
           result.skippedCount++;
           result.items.push({
             provider,
-            modelType,
+            modelType: rec.modelType,
             modelId: matchedId,
             action: "skipped",
             reason: (error as Error).message,
@@ -240,7 +164,6 @@ export class AutoConfigureService {
       }
     }
 
-    // 最终检查：关键的 CHAT 和 EMBEDDING 是否还缺
     const requiredTypes: AIModelType[] = [
       AIModelType.CHAT,
       AIModelType.EMBEDDING,
@@ -248,6 +171,23 @@ export class AutoConfigureService {
     result.missingTypes = requiredTypes.filter((t) => !defaultedTypes.has(t));
 
     return result;
+  }
+
+  private firstMatch(
+    availableIds: string[],
+    patterns: string[],
+  ): string | undefined {
+    for (const p of patterns) {
+      let re: RegExp;
+      try {
+        re = new RegExp(p, "i");
+      } catch {
+        continue;
+      }
+      const match = availableIds.find((id) => re.test(id));
+      if (match) return match;
+    }
+    return undefined;
   }
 
   private buildDisplayName(

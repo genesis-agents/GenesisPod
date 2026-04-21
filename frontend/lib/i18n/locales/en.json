@@ -3033,6 +3033,7 @@
       "dashboard": "Dashboard",
       "aiConfig": "AI Configuration",
       "models": "Model Management",
+      "recommendations": "Recommendation Matrix",
       "teams": "Team Management",
       "skills": "Skills Management",
       "tools": "Tools Management",

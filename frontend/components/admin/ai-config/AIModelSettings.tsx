@@ -583,12 +583,15 @@ interface AIModelSettingsProps {
   showAddModal?: boolean;
   setShowAddModal?: (show: boolean) => void;
   onDiagnose?: () => void;
+  /** 外部触发刷新的 key（一键 AI 配置完成后 +1） */
+  refreshKey?: number;
 }
 
 export default function AIModelSettings({
   showAddModal: externalShowAddModal,
   setShowAddModal: externalSetShowAddModal,
   onDiagnose,
+  refreshKey = 0,
 }: AIModelSettingsProps = {}) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -649,10 +652,11 @@ export default function AIModelSettings({
     }
   }, [models, providerFilter]);
 
-  // Fetch models from API
+  // Fetch models from API (also triggers on refreshKey bump from 一键 AI 配置)
   useEffect(() => {
     fetchModels();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   const fetchModels = async () => {
     setLoading(true);

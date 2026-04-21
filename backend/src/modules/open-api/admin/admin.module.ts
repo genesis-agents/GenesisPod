@@ -18,6 +18,7 @@ import { AgentAdminController } from "./agent-admin.controller";
 import { ResearchAdminController } from "./research-admin.controller";
 import { ApprovalsAdminController } from "./approvals-admin.controller";
 import { KernelAdminController } from "./kernel-admin.controller";
+import { AdminModelRecommendationsController } from "./admin-model-recommendations.controller";
 import {
   MCPExternalAdminController,
   AgentConfigService,
@@ -37,6 +38,7 @@ import {
   PermissionsService,
   BillingService,
   NotificationsAdminService,
+  AdminModelsAutoConfigureService,
 } from "./services";
 
 // Monitoring services (from shared MonitoringModule, globally available)
@@ -66,6 +68,7 @@ import {
     ResearchAdminController, // /admin/research/templates/* routes for research templates
     ApprovalsAdminController, // /admin/approvals/* routes for human-in-the-loop approvals
     KernelAdminController, // /admin/kernel/* routes for AI Kernel process management
+    AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
   ],
   providers: [
     AdminService,
@@ -80,6 +83,7 @@ import {
     BillingService,
     NotificationsAdminService,
     AgentConfigService,
+    AdminModelsAutoConfigureService,
     // Note: ErrorTrackingService and AIMetricsService are provided globally by MonitoringModule
   ],
   exports: [
@@ -93,6 +97,7 @@ import {
     PermissionsService,
     BillingService,
     NotificationsAdminService,
+    AdminModelsAutoConfigureService,
     // Note: ErrorTrackingService and AIMetricsService are exported globally by MonitoringModule
   ],
 })
