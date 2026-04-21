@@ -290,8 +290,15 @@ export class UserModelConfigsService {
 
   /**
    * 按 modelId 精确查找当前用户的配置。供 AiModelConfigService 在路由时查用。
-   * 用精确匹配而非 insensitive，对齐数据库 @@unique([userId, provider, modelId])
-   * 的大小写敏感语义，避免用户同时创建 "gpt-4o" 和 "GPT-4o" 时行为不确定。
+   *
+   * 用精确匹配而非 insensitive：避免用户同时创建 "gpt-4o" / "GPT-4o" 时不确定。
+   *
+   * ★ 注意：自 2026-04-22 migration 后 unique 是
+   *    @@unique([userId, provider, modelId, modelType])
+   * 同一 modelId 可能在多个 modelType 下都有行（例如 gpt-4o 同时作
+   * CHAT / CODE / MULTIMODAL）。这里用 findFirst 不带 modelType 过滤，
+   * 是故意的——调用方（`findUserModelConfigByModelId`）只需要 (apiEndpoint,
+   * provider, key) 做路由，跨 modelType 的同 modelId 这些字段相同，取哪一条都行。
    */
   async findByModelId(
     userId: string,

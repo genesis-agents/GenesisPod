@@ -557,6 +557,44 @@ export class ModelFallbackService {
    */
   async getModelConfig(modelId: string): Promise<AIModelConfig | null> {
     try {
+      // ★ BYOK: 登录用户优先在 UserModelConfig 里查，命中就返回用户的，
+      // 不要让 preferredModelId 指到 admin 的 AIModel 后误用 admin secretKey。
+      const userId = RequestContext.getUserId();
+      if (userId) {
+        const userRow = await this.prisma.userModelConfig.findFirst({
+          where: {
+            userId,
+            isEnabled: true,
+            OR: [
+              { modelId: { equals: modelId, mode: "insensitive" } },
+              { displayName: { equals: modelId, mode: "insensitive" } },
+            ],
+          },
+        });
+        if (userRow) {
+          return {
+            id: userRow.id,
+            name: userRow.modelId,
+            displayName: userRow.displayName,
+            provider: userRow.provider,
+            modelId: userRow.modelId,
+            apiEndpoint: userRow.apiEndpoint ?? "",
+            apiKey: null, // resolveApiKey 会用用户 Key
+            maxTokens: userRow.maxTokens,
+            temperature: userRow.temperature,
+            isEnabled: userRow.isEnabled,
+            isDefault: userRow.isDefault,
+            isReasoning: userRow.isReasoning,
+          };
+        }
+        // 用户有 UserModelConfig 但没匹配这个 modelId → 不 fallback admin
+        // （除非用户一条都没配，那就是 admin/系统上下文失效，老路径）
+        const userHasAnyConfig = await this.prisma.userModelConfig.count({
+          where: { userId, isEnabled: true },
+        });
+        if (userHasAnyConfig > 0) return null;
+      }
+
       const model = await this.prisma.aIModel.findFirst({
         where: {
           OR: [
