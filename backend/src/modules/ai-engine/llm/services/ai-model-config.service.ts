@@ -1361,7 +1361,7 @@ export class AiModelConfigService {
       );
       if (!hasKey) return null;
 
-      this.logger.log(
+      this.logger.debug(
         `[BYOK] Found disabled model ${model.modelId} for user ${userId} (has ${model.provider} key)`,
       );
       return this.buildModelConfig(model);

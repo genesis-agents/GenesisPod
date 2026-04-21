@@ -1,5 +1,13 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
+import { EventEmitter } from "events";
+
+// auto-configure 的 probe 循环对单一 provider 会并发开多个 TLS 连接到 api.openai.com，
+// Node 默认 10 个 listener 上限会触发 MaxListenersExceededWarning。
+// 提升到 30 覆盖常规并发；真正泄漏在 30 以上仍会告警。
+if (EventEmitter.defaultMaxListeners < 30) {
+  EventEmitter.defaultMaxListeners = 30;
+}
 import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "../../ai-infra/user-model-configs/user-model-configs.service";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
@@ -215,17 +223,27 @@ export class AutoConfigureService {
           });
           created = true;
         } catch (error) {
-          this.logger.warn(
-            `[user-auto-configure] Failed to create ${provider}/${matchedId}/${modelType}: ${(error as Error).message}`,
-          );
+          // 双击 auto-configure 导致的并发写入——下层抛 ConflictException (P2002)。
+          // 不是 bug，静默跳过即可；用户看到的是 createdCount 不涨、skippedCount 涨。
+          const isDuplicate = error instanceof ConflictException;
+          if (!isDuplicate) {
+            this.logger.warn(
+              `[user-auto-configure] Failed to create ${provider}/${matchedId}/${modelType}: ${(error as Error).message}`,
+            );
+          }
+          existingKeys.add(dedupKey);
+          defaultedTypes.add(modelType);
           result.skippedCount++;
           result.items.push({
             provider,
             modelType,
             modelId: matchedId,
             action: "skipped",
-            reason: (error as Error).message,
+            reason: isDuplicate
+              ? "Already configured"
+              : (error as Error).message,
           });
+          if (isDuplicate) created = true;
         }
       }
     }
