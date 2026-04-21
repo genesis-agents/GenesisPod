@@ -128,6 +128,24 @@ export class ChatFacade {
     const modelId = await this.resolveModelId(request);
     const entityId = `chat:${modelId}`;
 
+    // ★ 入口拦截：modelId 在 ModelFallbackService 的黑名单里（10-min TTL）
+    // 就直接短路，不再调 API、不再走 fallback 链。避免被 Non-retryable
+    // 错误（INVALID_MODEL / INVALID_API_KEY）淹没日志 + 烧配额。
+    if (
+      typeof this.modelFallbackService?.isModelBlocked === "function" &&
+      this.modelFallbackService.isModelBlocked(modelId)
+    ) {
+      this.logger.warn(
+        `[chat] Model ${modelId} is blocklisted (10-min TTL). Short-circuit, no API call.`,
+      );
+      return {
+        content: `Model ${modelId} is temporarily unavailable (authentication or access issue). Please check your API Key configuration in "AI 配置".`,
+        model: modelId,
+        tokensUsed: 0,
+        isError: true,
+      };
+    }
+
     // ★ 诊断：计算实际消息大小，帮助定位异常大 prompt
     const CHARS_PER_TOKEN = 4;
     const LARGE_PROMPT_TOKEN_THRESHOLD = 50_000;
