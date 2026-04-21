@@ -66,7 +66,7 @@ function Card({
         return {
           title: `缺少 ${modelType} 模型配置`,
           description:
-            '你的账号还没有配置这个类型的模型。请前往「我的 AI 配置」添加——或一键 AI 配置自动生成。',
+            '你的账号还没有配置这个类型的模型。请前往「AI 配置」添加——或一键 AI 配置自动生成。',
           actions: (
             <div className="flex gap-2">
               <Link

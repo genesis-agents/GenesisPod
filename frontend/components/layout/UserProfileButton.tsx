@@ -173,7 +173,7 @@ export default function UserProfileButton({
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               <Bot className="h-4 w-4" />
-              <span>我的 AI 配置</span>
+              <span>{t('common.myAIConfig')}</span>
             </Link>
             <Link
               href="/credits"

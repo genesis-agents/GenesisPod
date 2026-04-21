@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Bot, Key, Wand2 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/lib/i18n';
 import { UserApiKeysTab } from '@/components/profile/UserApiKeysTab';
 import { UserModelsManagement } from '@/components/profile/UserModelsManagement';
 
@@ -15,6 +16,7 @@ function parseTab(raw: string | null): Tab {
 }
 
 function MyAIContent() {
+  const { t } = useTranslation();
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,10 +62,10 @@ function MyAIContent() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  我的 AI 配置
+                  {t('common.myAIConfig')}
                 </h1>
                 <p className="mt-0.5 text-sm text-gray-500">
-                  用你自己的 API Key 驱动所有 AI 功能，不受系统默认 tier 限制
+                  {t('common.myAIConfigSubtitle')}
                 </p>
               </div>
             </div>
@@ -78,13 +80,13 @@ function MyAIContent() {
                 active={tab === 'keys'}
                 onClick={() => setTab('keys')}
                 icon={<Key className="h-4 w-4" />}
-                label="API Keys"
+                label={t('common.apiKeys')}
               />
               <TabButton
                 active={tab === 'models'}
                 onClick={() => setTab('models')}
                 icon={<Wand2 className="h-4 w-4" />}
-                label="我的模型"
+                label={t('common.myModels')}
               />
             </div>
 

@@ -86,6 +86,13 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     patterns: ["^dall-e-2$"],
     priority: 50,
   },
+  // EVALUATOR：复用顶级 CHAT 模型做报告评分；同 modelId 跨 modelType 是允许的（unique 含 model_type）
+  {
+    provider: "openai",
+    modelType: AIModelType.EVALUATOR,
+    patterns: ["^gpt-4o(?!-mini)", "^gpt-5", "^gpt-4-turbo"],
+    priority: 50,
+  },
 
   // ============ Anthropic ============
   {
@@ -115,6 +122,17 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     provider: "anthropic",
     modelType: AIModelType.MULTIMODAL,
     patterns: ["claude-3-5-sonnet"],
+    priority: 50,
+  },
+  {
+    provider: "anthropic",
+    modelType: AIModelType.EVALUATOR,
+    patterns: [
+      "claude-3-5-sonnet",
+      "claude-sonnet-4",
+      "claude-3-opus",
+      "claude-opus-4",
+    ],
     priority: 50,
   },
 
@@ -147,6 +165,12 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     patterns: ["^text-embedding-004", "embedding"],
     priority: 50,
   },
+  {
+    provider: "google",
+    modelType: AIModelType.EVALUATOR,
+    patterns: ["^gemini-2\\.0-pro", "^gemini-1\\.5-pro"],
+    priority: 50,
+  },
 
   // ============ xAI ============
   {
@@ -161,6 +185,12 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     patterns: ["^grok-3-mini", "^grok-2-mini"],
     priority: 50,
   },
+  {
+    provider: "xai",
+    modelType: AIModelType.EVALUATOR,
+    patterns: ["^grok-3(?!-mini)", "^grok-2(?!-mini)"],
+    priority: 50,
+  },
 
   // ============ DeepSeek ============
   {
@@ -173,6 +203,12 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     provider: "deepseek",
     modelType: AIModelType.CHAT_FAST,
     patterns: ["^deepseek-chat$"],
+    priority: 50,
+  },
+  {
+    provider: "deepseek",
+    modelType: AIModelType.EVALUATOR,
+    patterns: ["^deepseek-chat$", "^deepseek-v3"],
     priority: 50,
   },
 

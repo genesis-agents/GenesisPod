@@ -86,7 +86,7 @@ export class NoModelConfiguredError extends BYOKError {
   constructor(modelType: string, meta: Partial<BYOKErrorMeta> = {}) {
     super(
       BYOK_ERROR_CODES.NO_MODEL_CONFIGURED,
-      `No ${modelType} model configured for your account. 请前往「我的 AI 配置」添加 ${modelType} 模型。`,
+      `No ${modelType} model configured for your account. 请前往「AI 配置」添加 ${modelType} 模型。`,
       {
         modelType,
         canRequest: true,
