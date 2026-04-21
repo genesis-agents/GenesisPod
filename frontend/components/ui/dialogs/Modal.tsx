@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils/common';
@@ -145,9 +146,17 @@ export function Modal({
     }
   };
 
-  if (!open) return null;
+  // SSR 安全：首次 render 时 document 不存在；用 mounted 标志把 portal 推到 client 侧
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  if (!open || !mounted) return null;
+
+  // Portal 到 document.body —— 避开任何带 transform / backdrop-filter 的祖先
+  // （例如 AdminPageLayout 的 sticky header 用了 backdrop-blur-sm，会把 fixed 后代困在其内部）
+  return createPortal(
     <div
       className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 duration-200"
       onClick={handleOverlayClick}
@@ -212,7 +221,8 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
