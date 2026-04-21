@@ -252,19 +252,35 @@ export class AutoConfigureService {
     return filtered;
   }
 
+  /**
+   * 从 availableIds 里挑一个符合任一 pattern 的 modelId。
+   *
+   * ★ 外层走 availableIds（假定已按 `created` desc 排序——`fetchOpenAIModels`
+   *   等 discovery 服务保证这点），内层走 patterns。**第一个能命中任何 pattern
+   *   的 id 就是最新的**——pattern 顺序不再决定胜负，provider 的 /v1/models 里
+   *   真实返回的时间戳决定。
+   *
+   * 好处：
+   *   - 添加新代际模型（如 gpt-6）不用改 pattern 顺序，只要 pattern 能涵盖它，
+   *     且 provider 的 /v1/models 把它返回了，就自动胜出。
+   *   - 避免 pattern 列表追模型发布节奏的问题。
+   */
   private firstMatch(
     availableIds: string[],
     patterns: string[],
   ): string | undefined {
+    const compiled: RegExp[] = [];
     for (const p of patterns) {
-      let re: RegExp;
       try {
-        re = new RegExp(p, "i");
+        compiled.push(new RegExp(p, "i"));
       } catch {
-        continue;
+        // 跳过非法 regex
       }
-      const match = availableIds.find((id) => re.test(id));
-      if (match) return match;
+    }
+    if (compiled.length === 0) return undefined;
+
+    for (const id of availableIds) {
+      if (compiled.some((re) => re.test(id))) return id;
     }
     return undefined;
   }
