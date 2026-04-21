@@ -7,7 +7,10 @@ import {
 } from "@nestjs/common";
 import { AIModelType, ModelRecommendation } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { DEFAULT_RECOMMENDATIONS } from "./default-recommendations";
+import {
+  DEFAULT_RECOMMENDATIONS,
+  MODEL_TYPE_ALIASES,
+} from "./default-recommendations";
 
 export interface ResolvedRecommendation {
   provider: string;
@@ -65,6 +68,43 @@ export class ModelRecommendationsService implements OnModuleInit {
     const fallbacks = DEFAULT_RECOMMENDATIONS.filter(
       (d) => d.provider === normalized && !covered.has(d.modelType),
     );
+    const fallbackCovered = new Set(fallbacks.map((f) => f.modelType));
+
+    // ★ 别名：没 DB 也没硬编码时，借用被映射类型的 patterns
+    //   （例如 EVALUATOR → CHAT：OpenAI/Claude/Gemini 都没专用 evaluator，
+    //    直接复用该 provider 的 CHAT 正则即可，不需要每个 provider 抄一份。）
+    const aliased: ResolvedRecommendation[] = [];
+    for (const [typeStr, aliasTo] of Object.entries(MODEL_TYPE_ALIASES)) {
+      const modelType = typeStr as AIModelType;
+      if (!aliasTo) continue;
+      if (covered.has(modelType)) continue;
+      if (fallbackCovered.has(modelType)) continue;
+
+      // 找被映射类型的 patterns（优先 DB，fallback 默认）
+      const srcDb = dbRows.find((r) => r.modelType === aliasTo);
+      if (srcDb) {
+        aliased.push({
+          provider: normalized,
+          modelType,
+          patterns: this.parsePatterns(srcDb.patterns),
+          priority: srcDb.priority,
+          source: "default",
+        });
+        continue;
+      }
+      const srcDefault = DEFAULT_RECOMMENDATIONS.find(
+        (d) => d.provider === normalized && d.modelType === aliasTo,
+      );
+      if (srcDefault) {
+        aliased.push({
+          provider: normalized,
+          modelType,
+          patterns: srcDefault.patterns,
+          priority: srcDefault.priority,
+          source: "default",
+        });
+      }
+    }
 
     return [
       ...dbRows.map(
@@ -85,6 +125,7 @@ export class ModelRecommendationsService implements OnModuleInit {
           source: "default",
         }),
       ),
+      ...aliased,
     ];
   }
 
@@ -100,6 +141,48 @@ export class ModelRecommendationsService implements OnModuleInit {
     const fallbacks = DEFAULT_RECOMMENDATIONS.filter(
       (d) => !covered.has(`${d.provider}:${d.modelType}`),
     );
+    const fallbackCovered = new Set(
+      fallbacks.map((f) => `${f.provider}:${f.modelType}`),
+    );
+
+    // 别名补齐（同 getForProvider 的 EVALUATOR → CHAT 逻辑，但是遍历全 provider）
+    const providers = new Set([
+      ...dbRows.map((r) => r.provider),
+      ...DEFAULT_RECOMMENDATIONS.map((d) => d.provider),
+    ]);
+    const aliased: ResolvedRecommendation[] = [];
+    for (const provider of providers) {
+      for (const [typeStr, aliasTo] of Object.entries(MODEL_TYPE_ALIASES)) {
+        const modelType = typeStr as AIModelType;
+        if (!aliasTo) continue;
+        const key = `${provider}:${modelType}`;
+        if (covered.has(key) || fallbackCovered.has(key)) continue;
+
+        const srcDb = dbRows.find(
+          (r) => r.provider === provider && r.modelType === aliasTo,
+        );
+        const src =
+          srcDb ??
+          DEFAULT_RECOMMENDATIONS.find(
+            (d) => d.provider === provider && d.modelType === aliasTo,
+          );
+        if (!src) continue;
+
+        aliased.push({
+          provider,
+          modelType,
+          patterns:
+            "patterns" in src &&
+            Array.isArray((src as { patterns: unknown }).patterns)
+              ? ((src as { patterns: unknown }).patterns as string[]).filter(
+                  (p): p is string => typeof p === "string",
+                )
+              : this.parsePatterns((src as { patterns: unknown }).patterns),
+          priority: src.priority,
+          source: "default",
+        });
+      }
+    }
 
     const merged: ResolvedRecommendation[] = [
       ...dbRows.map(
@@ -120,6 +203,7 @@ export class ModelRecommendationsService implements OnModuleInit {
           source: "default",
         }),
       ),
+      ...aliased,
     ];
 
     merged.sort((a, b) => {

@@ -18,6 +18,24 @@ export interface DefaultRecommendation {
 }
 
 /**
+ * **modelType 别名**——没有专用模型的类型直接复用另一个类型的 patterns。
+ *
+ * 规则：`ModelRecommendationsService.getForProvider()` 查 (provider, modelType) 时，
+ * DB 和硬编码默认都没命中，而 alias 里有映射 → 拿被映射的类型 patterns 返回。
+ *
+ * 适合"没有专用模型、就是强 CHAT 来打分/承担"的场景，避免在每个 provider 下
+ * 重复抄一份 CHAT 的正则（硬编码 5 份一模一样的代码）。
+ *
+ * 未来可以扩展（如 CODE → CHAT、MULTIMODAL → CHAT）——但要慎用，有些类型
+ * 有明确专用模型就别映射。
+ */
+export const MODEL_TYPE_ALIASES: Partial<Record<AIModelType, AIModelType>> = {
+  // EVALUATOR = 强 CHAT（报告打分）；OpenAI 没专门的 evaluator 模型，
+  // Claude/Gemini 同理。让它 fall back 到 provider 的 CHAT patterns。
+  [AIModelType.EVALUATOR]: AIModelType.CHAT,
+};
+
+/**
  * **全局黑名单后缀** —— 无论 provider / modelType，这些特殊变体都不参与一键配置匹配。
  * 原因：provider 的 /v1/models 里会返回一堆语音/搜索/实时/预览/图像等特殊模型，
  * 用通用 regex（如 `^gpt-4o`）会误中 `gpt-4o-search-preview`、`gpt-4o-mini-tts` 等。
@@ -86,13 +104,6 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     patterns: ["^dall-e-2$"],
     priority: 50,
   },
-  // EVALUATOR：复用顶级 CHAT 模型做报告评分；同 modelId 跨 modelType 是允许的（unique 含 model_type）
-  {
-    provider: "openai",
-    modelType: AIModelType.EVALUATOR,
-    patterns: ["^gpt-4o(?!-mini)", "^gpt-5", "^gpt-4-turbo"],
-    priority: 50,
-  },
 
   // ============ Anthropic ============
   {
@@ -122,17 +133,6 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     provider: "anthropic",
     modelType: AIModelType.MULTIMODAL,
     patterns: ["claude-3-5-sonnet"],
-    priority: 50,
-  },
-  {
-    provider: "anthropic",
-    modelType: AIModelType.EVALUATOR,
-    patterns: [
-      "claude-3-5-sonnet",
-      "claude-sonnet-4",
-      "claude-3-opus",
-      "claude-opus-4",
-    ],
     priority: 50,
   },
 
@@ -165,12 +165,6 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     patterns: ["^text-embedding-004", "embedding"],
     priority: 50,
   },
-  {
-    provider: "google",
-    modelType: AIModelType.EVALUATOR,
-    patterns: ["^gemini-2\\.0-pro", "^gemini-1\\.5-pro"],
-    priority: 50,
-  },
 
   // ============ xAI ============
   {
@@ -185,12 +179,6 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     patterns: ["^grok-3-mini", "^grok-2-mini"],
     priority: 50,
   },
-  {
-    provider: "xai",
-    modelType: AIModelType.EVALUATOR,
-    patterns: ["^grok-3(?!-mini)", "^grok-2(?!-mini)"],
-    priority: 50,
-  },
 
   // ============ DeepSeek ============
   {
@@ -203,12 +191,6 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     provider: "deepseek",
     modelType: AIModelType.CHAT_FAST,
     patterns: ["^deepseek-chat$"],
-    priority: 50,
-  },
-  {
-    provider: "deepseek",
-    modelType: AIModelType.EVALUATOR,
-    patterns: ["^deepseek-chat$", "^deepseek-v3"],
     priority: 50,
   },
 
