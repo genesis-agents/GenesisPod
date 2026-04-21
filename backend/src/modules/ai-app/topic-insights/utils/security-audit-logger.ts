@@ -132,11 +132,14 @@ export class SecurityAuditLogger {
       context: this.context,
     });
 
+    // CRITICAL 保留 error（系统真正被攻击/破坏）
+    // HIGH / MEDIUM 降级为 warn（包括 prompt injection 拦截——研究场景误报率高，
+    // 每次 ERROR 级扰乱真正的异常信号；关键信息仍通过 metadata 完整保留）
     switch (entry.severity) {
       case SecuritySeverity.CRITICAL:
-      case SecuritySeverity.HIGH:
         this.logger.error(`${message} | ${metadata}`);
         break;
+      case SecuritySeverity.HIGH:
       case SecuritySeverity.MEDIUM:
         this.logger.warn(`${message} | ${metadata}`);
         break;

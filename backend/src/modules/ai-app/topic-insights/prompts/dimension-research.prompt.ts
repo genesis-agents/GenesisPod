@@ -20,7 +20,7 @@ import {
   type LocalToGlobalMap,
 } from "../utils/citation-verifier.utils";
 import { wrapExternalContent } from "../utils/external-content-wrapper.utils";
-import { sanitize } from "../utils/prompt-sanitizer";
+import { sanitizeExternalContent } from "../utils/prompt-sanitizer";
 
 /**
  * 维度研究系统提示词
@@ -465,7 +465,7 @@ export function formatEvidenceForPrompt(
         citationIdx,
       );
 
-      const safeTitle = sanitize(e.title, 200);
+      const safeTitle = sanitizeExternalContent(e.title, 200);
       const wrappedContent = wrapExternalContent(content, {
         url: e.url,
         source: e.sourceType || "web",
@@ -546,7 +546,7 @@ export function formatEvidenceForPromptContiguous(
         localIdx,
       );
 
-      const safeTitle = sanitize(e.title, 200);
+      const safeTitle = sanitizeExternalContent(e.title, 200);
       const wrappedContent = wrapExternalContent(content, {
         url: e.url,
         source: e.sourceType || "web",

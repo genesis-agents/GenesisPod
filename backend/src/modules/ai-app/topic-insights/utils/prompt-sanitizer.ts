@@ -120,7 +120,12 @@ const DANGEROUS_PATTERNS: DangerousPattern[] = [
     reason: "Developer mode attempt",
   },
   {
-    pattern: /jailbreak/gi,
+    // 原 /jailbreak/gi 过于宽泛：学术文献里"Jailbreaking LLMs"、"Jailbreak
+    // Statistics"等合法标题全被误杀。窄化为"明显的越狱指令形式"：
+    //   enable jailbreak / activate jailbreak / jailbreak mode / jailbreak me
+    // 纯名词"jailbreak"（研究主题）不再被过滤。
+    pattern:
+      /(?:enable|activate|start|turn\s+on|initiate)\s+jailbreak|jailbreak\s+(?:mode|me|this|now)/gi,
     replacement: "[FILTERED]",
     reason: "Jailbreak attempt",
   },
@@ -272,6 +277,38 @@ export function sanitizePromptInput(
  */
 export function sanitize(input: string, maxLength = 2000): string {
   return sanitizePromptInput(input, { maxLength }).sanitized;
+}
+
+/**
+ * **外部内容专用消毒** - 用于 search result 标题、PDF 抓取文本、evidence 正文等
+ * 第三方内容。
+ *
+ * 与 {@link sanitize} 的区别：**不做 injection-pattern 检测，也不打 security event**。
+ * 学术研究场景里"Jailbreaking LLMs"、"Prompt Injection Statistics"这类论文
+ * 标题是合法研究内容，跟用户尝试注入是两码事；用同一规则会把整个话题方向
+ * 都误杀掉。
+ *
+ * 仍会：去控制字符、规范空白、截断长度——保持下游 prompt 组装的稳定性。
+ *
+ * @param input 来自第三方（search / crawl / PDF）的文本
+ * @param maxLength 最大长度
+ */
+export function sanitizeExternalContent(
+  input: string,
+  maxLength = 2000,
+): string {
+  if (!input || typeof input !== "string") return "";
+
+  // 只做保底 normalization，不做 pattern detection
+  // eslint-disable-next-line no-control-regex
+  let out = input.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, "");
+  out = out.replace(/  +/g, " ");
+  out = out.replace(/\n{3,}/g, "\n\n");
+  out = out.trim();
+  if (maxLength && out.length > maxLength) {
+    out = out.substring(0, maxLength);
+  }
+  return out;
 }
 
 /**
