@@ -349,6 +349,79 @@ export class R2StorageService implements OnModuleInit {
   }
 
   /**
+   * 上传文本内容（markdown / JSON / HTML）并返回存储 key。
+   * 专为 topic_reports / dimension_analyses 等大文本字段 off-load 设计。
+   *
+   * 与图片方法的两个差异：
+   * 1. 不返回 presigned URL（文本内容走后端代理下载，避免 7 天过期问题）
+   * 2. 允许调用方指定 key（带语义路径如 `topic-reports/{id}/{timestamp}.md`），
+   *    而非按 hash 自动生成——便于"按资源组织"和删除/版本化
+   */
+  async uploadText(
+    content: string,
+    key: string,
+    contentType = "text/markdown; charset=utf-8",
+  ): Promise<UploadResult> {
+    if (!this.isConfigured || !this.s3Client) {
+      return { success: false, error: "Object Storage not configured" };
+    }
+    try {
+      const buffer = Buffer.from(content, "utf-8");
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+          Metadata: {
+            "uploaded-at": new Date().toISOString(),
+            "original-size": buffer.length.toString(),
+          },
+        }),
+      );
+      this.logger.log(
+        `Uploaded text: ${key} (${Math.round(buffer.length / 1024)}KB)`,
+      );
+      return { success: true, key };
+    } catch (error) {
+      this.logger.error(`Failed to upload text ${key}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Upload failed",
+      };
+    }
+  }
+
+  /**
+   * 按 key 下载文本。找不到时返回 null（调用方通常 fallback 到 DB）。
+   */
+  async downloadText(key: string): Promise<string | null> {
+    if (!this.isConfigured || !this.s3Client) return null;
+    try {
+      const res = await this.s3Client.send(
+        new GetObjectCommand({ Bucket: this.bucketName, Key: key }),
+      );
+      if (!res.Body) return null;
+      // Body 在 Node 下是 Readable；用 SDK 提供的 transformToString 避免手写流拼接
+      return await res.Body.transformToString("utf-8");
+    } catch (error) {
+      const code = (error as { name?: string })?.name;
+      if (code === "NoSuchKey") return null;
+      this.logger.warn(
+        `Failed to download ${key}: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 删除任意 key（与 deleteImage 功能一致，命名更通用；供文本/报告清理使用）
+   */
+  async deleteObject(key: string): Promise<boolean> {
+    return this.deleteImage(key);
+  }
+
+  /**
    * 批量上传图片（带并发限制）
    */
   async uploadMultiple(
