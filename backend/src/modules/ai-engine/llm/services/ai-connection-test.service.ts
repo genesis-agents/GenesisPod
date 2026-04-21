@@ -101,6 +101,25 @@ export class AiConnectionTestService {
         );
       }
 
+      // Handle IMAGE_GENERATION / IMAGE_EDITING models.
+      // DALL-E / gpt-image 只能通过 /v1/images/generations；
+      // 走 chat/completions 会 403 "not allowed to sample from this model"。
+      if (
+        modelType === "IMAGE_GENERATION" ||
+        modelType === "IMAGE_EDITING" ||
+        (provider.toLowerCase() === "openai" &&
+          (modelId?.startsWith("dall-e") || modelId?.startsWith("gpt-image")))
+      ) {
+        return await this.testImageModel(
+          provider,
+          modelId,
+          apiKey,
+          apiEndpoint,
+          modelType,
+          startTime,
+        );
+      }
+
       const testMessages = [
         {
           role: "user" as const,
@@ -144,9 +163,8 @@ export class AiConnectionTestService {
         case "gpt": {
           const effectiveOpenAIModel = modelId || "";
           // ★ Read tokenParamName from DB config first, fallback to reasoning inference
-          const dbConfig = await this.modelConfigService?.getModelConfig(
-            effectiveOpenAIModel,
-          );
+          const dbConfig =
+            await this.modelConfigService?.getModelConfig(effectiveOpenAIModel);
           const openAITokenParamName =
             dbConfig?.tokenParamName ||
             (this.inferIsReasoning(effectiveOpenAIModel)
@@ -743,6 +761,116 @@ export class AiConnectionTestService {
       const errorMessage = (err.message as string) || "Unknown error";
 
       this.logger.error(`TTS model test failed: ${errorMessage}`);
+
+      return {
+        success: false,
+        message: `Connection failed: ${errorMessage}`,
+        latency,
+      };
+    }
+  }
+
+  /**
+   * Test connection to an image-generation / image-editing model.
+   *
+   * OpenAI: /v1/images/generations（DALL-E / gpt-image-*）
+   *   - 走 chat/completions 会 403 "not allowed to sample from this model"
+   *   - 为了降低成本：size=256x256（DALL-E 3 不支持，会 fallback 到其默认 1024）
+   * Google: imagen 走 :predict（已在主分支 handle）；这里兜底同一处理
+   */
+  private async testImageModel(
+    provider: string,
+    modelId: string,
+    apiKey: string,
+    apiEndpoint: string,
+    modelType: string | undefined,
+    startTime: number,
+  ): Promise<{ success: boolean; message: string; latency?: number }> {
+    try {
+      const p = provider.toLowerCase();
+
+      if (p === "openai" || p === "gpt") {
+        // IMAGE_EDITING 真正的 API 是 /v1/images/edits，需要上传一张图。
+        // 这里测"连接可用性"——对 dall-e-2 也用 generations 端点做一次最小 prompt 探测，
+        // 只要返回结构正确即算成功。避免上传图片素材。
+        const baseUrl =
+          apiEndpoint
+            ?.replace(/\/+$/, "")
+            .replace(/\/chat\/completions$/, "") || "https://api.openai.com/v1";
+        const url = baseUrl.endsWith("/v1")
+          ? `${baseUrl}/images/generations`
+          : `${baseUrl}/v1/images/generations`;
+
+        const body: Record<string, unknown> = {
+          model: modelId,
+          prompt: "a small blue circle on a white background",
+          n: 1,
+          size: modelId?.startsWith("dall-e-3") ? "1024x1024" : "256x256",
+        };
+
+        const response = await firstValueFrom(
+          this.httpService.post(url, body, {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 60000,
+          }),
+        );
+
+        const latency = Date.now() - startTime;
+        const imageUrl = response.data?.data?.[0]?.url;
+        const imageB64 = response.data?.data?.[0]?.b64_json;
+        if (imageUrl || imageB64) {
+          return {
+            success: true,
+            message: `Image model connected! Generated 1 image (${modelType || "IMAGE"}).`,
+            latency,
+          };
+        }
+        return {
+          success: true,
+          message: `Image API responded but no image data in response.`,
+          latency,
+        };
+      }
+
+      if (p === "google" || p === "gemini") {
+        // Imagen 已在主分支处理，这里兜底不应该常被走到
+        return {
+          success: true,
+          message: `Image model ${modelId} configured (Google path). Skipping active probe to save cost.`,
+          latency: Date.now() - startTime,
+        };
+      }
+
+      return {
+        success: false,
+        message: `Image generation not supported for provider: ${provider}`,
+        latency: Date.now() - startTime,
+      };
+    } catch (error: unknown) {
+      const latency = Date.now() - startTime;
+      let errorMessage = "Unknown error";
+
+      const err = error as Record<string, unknown>;
+      if (err.response) {
+        const response = err.response as Record<string, unknown>;
+        const status = response.status;
+        const data = response.data as Record<string, unknown> | undefined;
+        const errObj = data?.error as Record<string, unknown> | undefined;
+        errorMessage = `API Error (${status}): ${
+          (errObj?.message as string) ||
+          (data?.message as string) ||
+          JSON.stringify(data)
+        }`;
+      } else if (err.code === "ECONNABORTED") {
+        errorMessage = "Connection timeout";
+      } else if (err.message) {
+        errorMessage = err.message as string;
+      }
+
+      this.logger.error(`Image model test failed: ${errorMessage}`);
 
       return {
         success: false,
