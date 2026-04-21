@@ -6799,10 +6799,15 @@ model TopicReport {
   versionLabel String? @map("version_label") // 版本标签，如"2026-01 更新"
 
   // ========== 报告内容 ==========
-  executiveSummary String @map("executive_summary") @db.Text // 执行摘要
-  fullReport       String @map("full_report") @db.Text // 完整报告（Markdown）
-  highlights       Json   @default("[]") // 核心亮点（结构化）
-  charts           Json   @default("[]") // 图表数据（结构化）
+  executiveSummary String  @map("executive_summary") @db.Text // 执行摘要（短文本，保留 DB）
+  fullReport       String  @map("full_report") @db.Text // 完整报告（Markdown）
+  // 正文外链：非空表示 fullReport 内容存在对象存储（B2/R2）。
+  // 约定 key 格式："topic-reports/{reportId}/v{version}.md"
+  // 读取时若此字段有值，优先从对象存储取内容；fullReport DB 字段置空字符串以回收 TOAST。
+  fullReportUri    String? @map("full_report_uri") // e.g. "topic-reports/{id}/v1.md"
+  fullReportSize   Int?    @map("full_report_size") // 正文原始字节数（用于列表展示 / 监控）
+  highlights       Json    @default("[]") // 核心亮点（结构化）
+  charts           Json    @default("[]") // 图表数据（结构化）
 
   // ========== 统计数据 ==========
   totalDimensions Int @default(0) @map("total_dimensions") // 研究的维度数量

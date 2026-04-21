@@ -30,6 +30,7 @@ export {
 // ─── Storage ───
 export { StorageService } from "../storage/storage.service";
 export { R2StorageService } from "../storage/r2-storage.service";
+export { TopicReportStorageService } from "../storage/topic-report-storage.service";
 
 // ─── Email ───
 export { EmailService } from "../email/email.service";
