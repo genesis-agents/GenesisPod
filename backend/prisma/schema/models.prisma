@@ -8817,7 +8817,9 @@ model UserModelConfig {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider, modelId])
+  /// 同一个 modelId 可以在不同 modelType 下重复（例如 gpt-4o 同时作 CHAT、CODE、MULTIMODAL）。
+  /// 这样一键 AI 配置能把单个 provider 的 Key 铺满所有适配类型，而不是只建一条被 dedup 拦下。
+  @@unique([userId, provider, modelId, modelType])
   @@index([userId, modelType, isEnabled])
   @@index([userId, provider])
   @@index([userId, isDefault])

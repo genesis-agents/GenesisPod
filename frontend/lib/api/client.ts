@@ -298,6 +298,7 @@ class ApiClient {
           // 即便调用方自己 catch 吞了错误，UI 也能给出一致反馈
           const BYOK_CODES = [
             'NO_AVAILABLE_KEY',
+            'NO_MODEL_CONFIGURED',
             'NO_SYSTEM_KEY',
             'QUOTA_EXCEEDED',
             'INVALID_API_KEY',

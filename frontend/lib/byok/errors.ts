@@ -2,6 +2,7 @@ import type { ApiError } from '@/lib/api/client';
 
 export const BYOK_ERROR_CODES = {
   NO_AVAILABLE_KEY: 'NO_AVAILABLE_KEY',
+  NO_MODEL_CONFIGURED: 'NO_MODEL_CONFIGURED',
   INVALID_API_KEY: 'INVALID_API_KEY',
   QUOTA_EXCEEDED: 'QUOTA_EXCEEDED',
   KEY_EXPIRED: 'KEY_EXPIRED',
@@ -19,6 +20,8 @@ export interface ByokErrorMeta {
   limitCents?: number;
   /** 直接来自 provider（如 OpenAI）的错误说明；用于向用户展示真实原因 */
   providerMessage?: string;
+  /** NO_MODEL_CONFIGURED：用户缺哪个类型的模型 */
+  modelType?: string;
   status?: number;
 }
 

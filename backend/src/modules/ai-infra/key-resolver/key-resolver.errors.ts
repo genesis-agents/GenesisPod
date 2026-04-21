@@ -2,6 +2,7 @@ import { ForbiddenException, HttpStatus } from "@nestjs/common";
 
 export const BYOK_ERROR_CODES = {
   NO_AVAILABLE_KEY: "NO_AVAILABLE_KEY",
+  NO_MODEL_CONFIGURED: "NO_MODEL_CONFIGURED",
   INVALID_API_KEY: "INVALID_API_KEY",
   QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
   KEY_EXPIRED: "KEY_EXPIRED",
@@ -77,6 +78,21 @@ export class QuotaExceededError extends BYOKError {
       BYOK_ERROR_CODES.QUOTA_EXCEEDED,
       `Quota exceeded for provider "${provider}"`,
       { provider, source, ...meta },
+    );
+  }
+}
+
+export class NoModelConfiguredError extends BYOKError {
+  constructor(modelType: string, meta: Partial<BYOKErrorMeta> = {}) {
+    super(
+      BYOK_ERROR_CODES.NO_MODEL_CONFIGURED,
+      `No ${modelType} model configured for your account. 请前往「我的 AI 配置」添加 ${modelType} 模型。`,
+      {
+        modelType,
+        canRequest: true,
+        requestUrl: "/me/ai?tab=models",
+        ...meta,
+      },
     );
   }
 }

@@ -153,7 +153,7 @@ export class UserModelConfigsService {
         error.code === "P2002"
       ) {
         throw new ConflictException(
-          `Model "${input.modelId}" already configured for provider "${provider}"`,
+          `Model "${input.modelId}" already configured for provider "${provider}" under type "${input.modelType}"`,
         );
       }
       throw error;

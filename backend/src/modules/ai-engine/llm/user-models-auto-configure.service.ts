@@ -62,8 +62,13 @@ export class AutoConfigureService {
 
     const defaultedTypes = new Set<AIModelType>();
     const existing = await this.userModelConfigs.listByUser(userId);
+    // ★ dedup key 从 (provider, modelId) 改为 (provider, modelId, modelType)：
+    // 允许同一 modelId 覆盖多个类型（如 gpt-4o 同时做 CHAT/CODE/MULTIMODAL），
+    // 不再被 CHAT 那一次创建挡住其他类型。
     const existingKeys = new Set(
-      existing.map((c) => `${c.provider}:${c.modelId.toLowerCase()}`),
+      existing.map(
+        (c) => `${c.provider}:${c.modelId.toLowerCase()}:${c.modelType}`,
+      ),
     );
     existing
       .filter((c) => c.isEnabled && c.isDefault)
@@ -150,7 +155,7 @@ export class AutoConfigureService {
         const matchedId = this.firstMatch(availableIds, rec.patterns);
         if (!matchedId) continue;
 
-        const dedupKey = `${provider}:${matchedId.toLowerCase()}`;
+        const dedupKey = `${provider}:${matchedId.toLowerCase()}:${rec.modelType}`;
         if (existingKeys.has(dedupKey)) {
           result.skippedCount++;
           result.items.push({

@@ -46,7 +46,7 @@ function Card({
           actions: (
             <div className="flex gap-2">
               <Link
-                href="/settings/api-keys"
+                href="/me/ai?tab=keys"
                 className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
               >
                 <Key className="h-3.5 w-3.5" /> 去配置 Key
@@ -60,6 +60,25 @@ function Card({
             </div>
           ),
         };
+
+      case 'NO_MODEL_CONFIGURED': {
+        const modelType = payload.meta.modelType ?? '该类型';
+        return {
+          title: `缺少 ${modelType} 模型配置`,
+          description:
+            '你的账号还没有配置这个类型的模型。请前往「我的 AI 配置」添加——或一键 AI 配置自动生成。',
+          actions: (
+            <div className="flex gap-2">
+              <Link
+                href="/me/ai?tab=models"
+                className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+              >
+                <Key className="h-3.5 w-3.5" /> 去配置模型
+              </Link>
+            </div>
+          ),
+        };
+      }
 
       case 'QUOTA_EXCEEDED': {
         const isUserScope =

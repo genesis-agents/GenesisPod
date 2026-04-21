@@ -5,6 +5,7 @@ export {
   BYOK_ERROR_CODES,
   BYOKError,
   NoAvailableKeyError,
+  NoModelConfiguredError,
   NoSystemKeyError,
   InvalidApiKeyError,
   QuotaExceededError,

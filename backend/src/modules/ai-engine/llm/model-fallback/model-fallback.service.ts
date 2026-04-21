@@ -17,13 +17,17 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { RequestContext } from "@/common/context/request-context";
 import { AIModelConfig } from "../index";
 import {
   AIError,
   AIErrorClassifier,
   AIErrorType,
 } from "@/common/ai-orchestration/error-classifier";
-import { BYOKError } from "@/modules/ai-infra/key-resolver/key-resolver.errors";
+import {
+  BYOKError,
+  NoModelConfiguredError,
+} from "@/modules/ai-infra/key-resolver/key-resolver.errors";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
@@ -201,17 +205,64 @@ export class ModelFallbackService {
     } = options;
 
     try {
-      // 1. 获取所有启用的模型
-      const allModels = await this.prisma.aIModel.findMany({
-        where: {
-          modelType: modelType,
-          isEnabled: true,
-          modelId: {
-            notIn: excludeModels,
+      // ★ BYOK: 若当前请求有 userId 且用户已配 UserModelConfig，
+      // fallback 链从用户自己的模型里构建——不要偷偷跳到 admin AIModel，
+      // 否则 ModelFallbackService 会把用户的 gpt-4o-2024-11-20 失败后
+      // fallback 到 admin 的 gpt-5.4，烧 admin 的 key。
+      const userId = RequestContext.getUserId();
+      type FallbackModel = Parameters<
+        ModelFallbackService["toAIModelConfig"]
+      >[0];
+      let allModels: FallbackModel[];
+
+      if (userId) {
+        const userRows = await this.prisma.userModelConfig.findMany({
+          where: {
+            userId,
+            modelType,
+            isEnabled: true,
+            modelId: { notIn: excludeModels },
           },
-        },
-        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-      });
+          orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
+        });
+        if (userRows.length > 0) {
+          allModels = userRows.map(
+            (r): FallbackModel => ({
+              id: r.id,
+              name: r.modelId,
+              displayName: r.displayName,
+              provider: r.provider,
+              modelId: r.modelId,
+              apiEndpoint: r.apiEndpoint ?? "",
+              apiKey: null,
+              maxTokens: r.maxTokens,
+              temperature: r.temperature,
+              isEnabled: r.isEnabled,
+              isDefault: r.isDefault,
+              isReasoning: r.isReasoning,
+            }),
+          );
+          this.logger.debug(
+            `[getModelFallbackChain] Using ${userRows.length} UserModelConfig rows for user=${userId}, type=${modelType}`,
+          );
+        } else {
+          // 普通用户没配：返回空链，让上层抛清晰错误，
+          // 不再偷偷 fallback 到 admin AIModel。
+          this.logger.warn(
+            `[getModelFallbackChain] User ${userId} has no ${modelType} UserModelConfig — returning empty chain (no admin fallback)`,
+          );
+          return [];
+        }
+      } else {
+        allModels = (await this.prisma.aIModel.findMany({
+          where: {
+            modelType,
+            isEnabled: true,
+            modelId: { notIn: excludeModels },
+          },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+        })) as unknown as FallbackModel[];
+      }
 
       if (allModels.length === 0) {
         this.logger.warn(
@@ -308,6 +359,11 @@ export class ModelFallbackService {
     });
 
     if (fallbackChain.length === 0) {
+      // ★ BYOK: 登录用户没配模型 → 抛 BYOK 错误，前端能识别并给友好引导；
+      // 没 userId（admin / system job）走老路径
+      if (RequestContext.getUserId()) {
+        throw new NoModelConfiguredError(modelType);
+      }
       return {
         success: false,
         error: new AIError(
