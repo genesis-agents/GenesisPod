@@ -51,8 +51,9 @@ echo "[3/3] 变更相关测试..."
 TEST_LOG=$(mktemp)
 
 # 后端：只跑与 origin/main 之后变更文件相关的测试
+# --forceExit：个别测试（SSE / setInterval）会留 open handle，不加会卡 10+ 分钟
 cd backend
-npx jest --changedSince=origin/main --passWithNoTests > "$TEST_LOG" 2>&1
+npx jest --changedSince=origin/main --passWithNoTests --forceExit > "$TEST_LOG" 2>&1
 BACKEND_EXIT=$?
 cd ..
 
