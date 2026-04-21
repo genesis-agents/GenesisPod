@@ -38,7 +38,6 @@ import {
   PermissionsService,
   BillingService,
   NotificationsAdminService,
-  AdminModelsAutoConfigureService,
 } from "./services";
 
 // Monitoring services (from shared MonitoringModule, globally available)
@@ -83,7 +82,6 @@ import {
     BillingService,
     NotificationsAdminService,
     AgentConfigService,
-    AdminModelsAutoConfigureService,
     // Note: ErrorTrackingService and AIMetricsService are provided globally by MonitoringModule
   ],
   exports: [
@@ -97,7 +95,6 @@ import {
     PermissionsService,
     BillingService,
     NotificationsAdminService,
-    AdminModelsAutoConfigureService,
     // Note: ErrorTrackingService and AIMetricsService are exported globally by MonitoringModule
   ],
 })

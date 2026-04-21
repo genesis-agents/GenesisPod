@@ -10,22 +10,24 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AIModelType } from "@prisma/client";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ModelRecommendationsService } from "../../ai-engine/llm/recommendations/model-recommendations.service";
-import { AdminModelsAutoConfigureService } from "./services/admin-models-auto-configure.service";
 
 interface AuthedReq {
   user: { id: string; email: string };
 }
 
 /**
- * 管理员：一键 AI 配置 + 推荐矩阵 CRUD。
+ * 管理员：推荐矩阵 CRUD。
+ *
+ * （原本还有 POST /admin/ai-models/auto-configure；因为它基于现有 AIModel 的老 key
+ *  猜 provider，且正则过松会引入 specialty 变体，已下线。用户端一键仍然保留，
+ *  那边 Personal Key 很明确、风险可控。矩阵编辑页也保留，供管理员维护 user 侧规则。）
  *
  * 路径：
- *   POST   /admin/ai-models/auto-configure
  *   GET    /admin/model-recommendations
  *   POST   /admin/model-recommendations
  *   PATCH  /admin/model-recommendations/:id
@@ -37,25 +39,7 @@ interface AuthedReq {
 @Controller()
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminModelRecommendationsController {
-  constructor(
-    private readonly autoConfigure: AdminModelsAutoConfigureService,
-    private readonly recommendations: ModelRecommendationsService,
-  ) {}
-
-  // ============ Auto-Configure ============
-
-  @Post("admin/ai-models/auto-configure")
-  @ApiOperation({
-    summary:
-      "一键 AI 配置：基于现有 AIModel 里的 keys 扫描 provider /v1/models",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "返回创建/跳过的明细",
-  })
-  async runAutoConfigure() {
-    return this.autoConfigure.run();
-  }
+  constructor(private readonly recommendations: ModelRecommendationsService) {}
 
   // ============ Recommendations CRUD ============
 

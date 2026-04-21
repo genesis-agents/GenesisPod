@@ -5,6 +5,5 @@ export * from "./logs.service";
 export * from "./permissions.service";
 export * from "./billing.service";
 export * from "./notifications-admin.service";
-export * from "./admin-models-auto-configure.service";
 // Re-export monitoring services from shared module
 export * from "../../../ai-infra/monitoring";

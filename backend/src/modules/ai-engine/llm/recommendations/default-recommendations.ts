@@ -17,8 +17,29 @@ export interface DefaultRecommendation {
   note?: string;
 }
 
+/**
+ * **全局黑名单后缀** —— 无论 provider / modelType，这些特殊变体都不参与一键配置匹配。
+ * 原因：provider 的 /v1/models 里会返回一堆语音/搜索/实时/预览/图像等特殊模型，
+ * 用通用 regex（如 `^gpt-4o`）会误中 `gpt-4o-search-preview`、`gpt-4o-mini-tts` 等。
+ * service 在跑 firstMatch 前会先用这个列表过滤掉 availableIds。
+ */
+export const EXCLUDED_MODEL_SUBSTRINGS = [
+  "-search",
+  "-tts",
+  "-audio",
+  "-realtime",
+  "-transcribe",
+  "-preview",
+  "-exp-",
+  "-experimental",
+  "-beta",
+  "-image-", // gpt-image-*（除非明确在 IMAGE_GENERATION 里）
+];
+
 export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
   // ============ OpenAI ============
+  // 结合 EXCLUDED_MODEL_SUBSTRINGS 黑名单（service 层会提前过滤掉
+  // -search/-tts/-audio/-realtime/-preview 等 specialty 变体）
   {
     provider: "openai",
     modelType: AIModelType.CHAT,
@@ -56,13 +77,13 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
   {
     provider: "openai",
     modelType: AIModelType.IMAGE_GENERATION,
-    patterns: ["^dall-e-3", "^gpt-image-1"],
+    patterns: ["^dall-e-3", "^gpt-image-1$"],
     priority: 50,
   },
   {
     provider: "openai",
     modelType: AIModelType.IMAGE_EDITING,
-    patterns: ["^dall-e-2"],
+    patterns: ["^dall-e-2$"],
     priority: 50,
   },
 

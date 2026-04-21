@@ -4,6 +4,7 @@ import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.s
 import { UserModelConfigsService } from "../../ai-infra/user-model-configs/user-model-configs.service";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
 import { ModelRecommendationsService } from "./recommendations/model-recommendations.service";
+import { EXCLUDED_MODEL_SUBSTRINGS } from "./recommendations/default-recommendations";
 
 export interface AutoConfigureResult {
   createdCount: number;
@@ -95,7 +96,14 @@ export class AutoConfigureService {
         continue;
       }
 
-      const availableIds = discovery.models.map((m) => m.id);
+      // 过滤 specialty 变体（-search / -tts / -audio / -realtime / -preview 等），
+      // 避免通用 regex 误中语音/搜索/实时等非通用模型。
+      const availableIds = discovery.models
+        .map((m) => m.id)
+        .filter((id) => {
+          const lower = id.toLowerCase();
+          return !EXCLUDED_MODEL_SUBSTRINGS.some((s) => lower.includes(s));
+        });
       const providerRecs = await this.recommendations.getForProvider(provider);
       if (providerRecs.length === 0) {
         result.items.push({
