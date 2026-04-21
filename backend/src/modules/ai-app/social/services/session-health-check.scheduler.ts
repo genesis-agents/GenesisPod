@@ -156,7 +156,8 @@ export class SessionHealthCheckScheduler
 
           checkedCount++;
         } catch (error) {
-          this.logger.error(
+          // session 被撤销 / 网络抖动属预期业务事件，不是系统级错误
+          this.logger.warn(
             `Failed to check connection ${connection.id}: ${(error as Error).message}`,
           );
         }
@@ -198,7 +199,7 @@ export class SessionHealthCheckScheduler
         const loginStatus = await this.xhsMcpAdapter.checkLoginStatus();
         return loginStatus.loggedIn;
       } catch (error) {
-        this.logger.error(
+        this.logger.warn(
           `XHS MCP validation error for ${connection.id}: ${(error as Error).message}`,
         );
         return false;
@@ -226,7 +227,7 @@ export class SessionHealthCheckScheduler
 
       return isValid;
     } catch (error) {
-      this.logger.error(
+      this.logger.warn(
         `Validation error for connection ${connection.id}: ${(error as Error).message}`,
       );
       return false;
@@ -289,7 +290,7 @@ export class SessionHealthCheckScheduler
 
       return false;
     } catch (error) {
-      this.logger.error(
+      this.logger.warn(
         `WeChat session validation error: ${(error as Error).message}`,
       );
       return false;
