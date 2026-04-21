@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  NotFoundException,
   Param,
   Post,
   Req,
@@ -11,7 +12,9 @@ import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
+import { AiConnectionTestService } from "./services/ai-connection-test.service";
 import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.service";
+import { UserModelConfigsService } from "../../ai-infra/user-model-configs/user-model-configs.service";
 import { AutoConfigureService } from "./user-models-auto-configure.service";
 
 interface AuthenticatedRequest {
@@ -88,11 +91,51 @@ export class UserModelsController {
 @Controller("user/model-configs")
 @UseGuards(JwtAuthGuard)
 export class UserModelConfigsAutoController {
-  constructor(private readonly autoConfigure: AutoConfigureService) {}
+  constructor(
+    private readonly autoConfigure: AutoConfigureService,
+    private readonly userModelConfigs: UserModelConfigsService,
+    private readonly userApiKeys: UserApiKeysService,
+    private readonly connectionTest: AiConnectionTestService,
+  ) {}
 
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post("auto-configure")
   async autoConfigureModels(@Req() req: AuthenticatedRequest) {
     return this.autoConfigure.runForUser(req.user.id);
+  }
+
+  /**
+   * 测试用户自配模型的连接：用用户的 Personal Key + 模型参数实际调一次 provider
+   * 路径：POST /user/model-configs/:id/test
+   */
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @Post(":id/test")
+  async testConnection(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    const cfg = await this.userModelConfigs.findById(req.user.id, id);
+    if (!cfg) throw new NotFoundException("Model config not found");
+
+    const personal = await this.userApiKeys.getPersonalKey(
+      req.user.id,
+      cfg.provider,
+    );
+    if (!personal?.apiKey) {
+      throw new BadRequestException(
+        `No active Personal Key for provider "${cfg.provider}". 请先在 API Keys Tab 配置 Key。`,
+      );
+    }
+
+    const endpoint =
+      cfg.apiEndpoint?.trim() || personal.apiEndpoint?.trim() || "";
+
+    return this.connectionTest.testModelConnectionWithKey(
+      cfg.provider,
+      cfg.modelId,
+      personal.apiKey,
+      endpoint,
+      cfg.modelType,
+    );
   }
 }

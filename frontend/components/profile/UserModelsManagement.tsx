@@ -1,7 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, Edit, Plus, Search, Star, Trash2, X } from 'lucide-react';
+import {
+  Check,
+  Edit,
+  Loader2,
+  Plug,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+  X,
+} from 'lucide-react';
 import {
   USER_MODEL_TYPE_OPTIONS,
   useUserModelConfigs,
@@ -10,8 +20,16 @@ import {
   type ModelImportance,
 } from '@/hooks/features/useUserModelConfigs';
 import { useUserApiKeys } from '@/hooks/features/useUserApiKeys';
+import { apiClient } from '@/lib/api/client';
+import { toast } from '@/stores';
 import { UserModelConfigModal } from './UserModelConfigModal';
 import { UserModelsAutoConfigureButton } from './UserModelsAutoConfigureButton';
+
+interface TestResult {
+  success: boolean;
+  message: string;
+  latency?: number;
+}
 
 const TYPE_BADGE_CLASS: Record<UserModelType, string> = {
   CHAT: 'bg-blue-100 text-blue-700',
@@ -43,6 +61,37 @@ export function UserModelsManagement() {
   const [providerFilter, setProviderFilter] = useState<string>('');
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<UserModelConfig | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>(
+    {}
+  );
+
+  const runTest = async (m: UserModelConfig) => {
+    setTesting(m.id);
+    try {
+      const res = await apiClient.post<TestResult>(
+        `/user/model-configs/${m.id}/test`,
+        {}
+      );
+      setTestResults((prev) => ({ ...prev, [m.id]: res }));
+      if (res.success) {
+        toast.success(
+          `${m.displayName}: ${res.message}${res.latency ? ` (${res.latency}ms)` : ''}`
+        );
+      } else {
+        toast.error(`${m.displayName}: ${res.message}`);
+      }
+    } catch (e) {
+      const msg = (e as Error).message || '测试失败';
+      setTestResults((prev) => ({
+        ...prev,
+        [m.id]: { success: false, message: msg },
+      }));
+      toast.error(`${m.displayName}: ${msg}`);
+    } finally {
+      setTesting(null);
+    }
+  };
 
   // Provider 过滤下拉：只列出用户已配过 Key 的 provider
   const availableProviders = useMemo(() => {
@@ -381,6 +430,28 @@ export function UserModelsManagement() {
                   {/* ACTIONS */}
                   <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => void runTest(m)}
+                        disabled={testing === m.id || !hasKey}
+                        title={
+                          !hasKey
+                            ? '先在 API Keys Tab 配置该 provider 的 Key'
+                            : '测试连接（用你的 Key 实际调一次 provider）'
+                        }
+                        className={`rounded p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                          testResults[m.id]?.success === true
+                            ? 'text-green-600 hover:bg-green-50'
+                            : testResults[m.id]?.success === false
+                              ? 'text-red-600 hover:bg-red-50'
+                              : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {testing === m.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plug className="h-4 w-4" />
+                        )}
+                      </button>
                       {!m.isDefault && m.isEnabled && (
                         <button
                           onClick={() => setDefault(m.id)}
