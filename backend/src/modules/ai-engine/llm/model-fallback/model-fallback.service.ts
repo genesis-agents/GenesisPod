@@ -91,10 +91,15 @@ const MODEL_SWITCH_ERROR_TYPES = new Set<AIErrorType>([
 
 /**
  * 不可恢复的错误类型 - 模型需要加入黑名单（带 TTL）
- * 这些错误不会因为重试而自愈，需要人工干预（如更换 API Key）
+ * 这些错误不会因为重试而自愈，需要人工干预（如更换 API Key、升级 tier）
+ *
+ * INVALID_MODEL：即使 modelId 存在于 /v1/models 列表，用户 Key tier 不够时 chat
+ * 也会返回 "Model not found"（OpenAI free tier 就是这个行为）。加黑名单避免
+ * Topic Insights/Writing 等循环任务疯狂 retry 烧用户配额。
  */
 const UNRECOVERABLE_ERROR_TYPES = new Set<AIErrorType>([
   AIErrorType.INVALID_API_KEY,
+  AIErrorType.INVALID_MODEL,
 ]);
 
 /** 不可恢复错误的黑名单持续时间（10 分钟） */
