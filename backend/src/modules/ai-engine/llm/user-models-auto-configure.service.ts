@@ -74,36 +74,6 @@ export class AutoConfigureService {
       const personal = await this.userApiKeys.getPersonalKey(userId, provider);
       if (!personal?.apiKey) continue;
 
-      const discovery = await this.modelDiscovery
-        .fetchAvailableModels(provider, personal.apiKey)
-        .catch((error) => {
-          this.logger.warn(
-            `[user-auto-configure] fetchAvailableModels failed for ${provider}: ${(error as Error).message}`,
-          );
-          return { success: false, error: (error as Error).message };
-        });
-
-      if (!discovery.success || !("models" in discovery) || !discovery.models) {
-        result.items.push({
-          provider,
-          modelType: AIModelType.CHAT,
-          modelId: "(fetch failed)",
-          action: "skipped-provider-no-match",
-          reason:
-            ("error" in discovery && discovery.error) ||
-            "Provider /v1/models call failed",
-        });
-        continue;
-      }
-
-      // 过滤 specialty 变体（-search / -tts / -audio / -realtime / -preview 等），
-      // 避免通用 regex 误中语音/搜索/实时等非通用模型。
-      const availableIds = discovery.models
-        .map((m) => m.id)
-        .filter((id) => {
-          const lower = id.toLowerCase();
-          return !EXCLUDED_MODEL_SUBSTRINGS.some((s) => lower.includes(s));
-        });
       const providerRecs = await this.recommendations.getForProvider(provider);
       if (providerRecs.length === 0) {
         result.items.push({
@@ -116,7 +86,67 @@ export class AutoConfigureService {
         continue;
       }
 
+      // AiModelDiscoveryService 会按 modelType 过滤（例如 OpenAI 不传 modelType
+      // 只返回 gpt-* / o1* / o3*，embedding / dall-e 全被过滤掉）。
+      // 所以按 rec.modelType 分类缓存 discovery，避免 EMBEDDING / IMAGE_* 永远拿不到候选。
+      const discoveryCache = new Map<string, string[]>();
+      const getAvailableIds = async (
+        modelType: AIModelType,
+      ): Promise<string[] | null> => {
+        if (discoveryCache.has(modelType)) {
+          return discoveryCache.get(modelType)!;
+        }
+        const discovery = await this.modelDiscovery
+          .fetchAvailableModels(provider, personal.apiKey, undefined, modelType)
+          .catch((error) => {
+            this.logger.warn(
+              `[user-auto-configure] fetchAvailableModels(${provider}, ${modelType}) failed: ${(error as Error).message}`,
+            );
+            return { success: false, error: (error as Error).message };
+          });
+
+        if (
+          !discovery.success ||
+          !("models" in discovery) ||
+          !discovery.models
+        ) {
+          discoveryCache.set(modelType, []);
+          return null;
+        }
+
+        // 过滤 specialty 变体（-search / -tts / -audio / -realtime / -preview 等）。
+        // 注意：IMAGE_* 类型不走黑名单（gpt-image-1 合法但 includes("-image-")）。
+        const isImageType =
+          modelType === AIModelType.IMAGE_GENERATION ||
+          modelType === AIModelType.IMAGE_EDITING;
+        const filtered = discovery.models
+          .map((m) => m.id)
+          .filter((id) => {
+            if (isImageType) return true;
+            const lower = id.toLowerCase();
+            return !EXCLUDED_MODEL_SUBSTRINGS.some((s) => lower.includes(s));
+          });
+        discoveryCache.set(modelType, filtered);
+        return filtered;
+      };
+
       for (const rec of providerRecs) {
+        const availableIds = await getAvailableIds(rec.modelType);
+        if (availableIds === null) {
+          result.items.push({
+            provider,
+            modelType: rec.modelType,
+            modelId: "(fetch failed)",
+            action: "skipped-provider-no-match",
+            reason: `Provider /v1/models call failed for ${rec.modelType}`,
+          });
+          continue;
+        }
+        if (availableIds.length === 0) {
+          // provider 不返回该类别（正常，比如 Anthropic 没 embedding）
+          continue;
+        }
+
         const matchedId = this.firstMatch(availableIds, rec.patterns);
         if (!matchedId) continue;
 
