@@ -104,30 +104,36 @@ export const EXCLUDED_MODEL_SUBSTRINGS = [
 
 export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
   // ============ OpenAI ============
+  // patterns 按"新模型优先"排序：命中顺序决定谁被 auto-configure 选中。
   // 结合 EXCLUDED_MODEL_SUBSTRINGS 黑名单（service 层会提前过滤掉
   // -search/-tts/-audio/-realtime/-preview 等 specialty 变体）
   {
     provider: "openai",
     modelType: AIModelType.CHAT,
-    patterns: ["^gpt-4o(?!-mini)", "^gpt-4-turbo", "^gpt-4(?!o)", "^gpt-5"],
+    patterns: [
+      "^gpt-5(?!-mini)",
+      "^gpt-4o(?!-mini)",
+      "^gpt-4-turbo",
+      "^gpt-4(?!o)",
+    ],
     priority: 50,
   },
   {
     provider: "openai",
     modelType: AIModelType.CHAT_FAST,
-    patterns: ["^gpt-4o-mini", "^gpt-3\\.5-turbo", "^gpt-5-mini"],
+    patterns: ["^gpt-5-mini", "^gpt-4o-mini", "^gpt-3\\.5-turbo"],
     priority: 50,
   },
   {
     provider: "openai",
     modelType: AIModelType.CODE,
-    patterns: ["^gpt-4o(?!-mini)"],
+    patterns: ["^gpt-5(?!-mini)", "^gpt-4o(?!-mini)"],
     priority: 50,
   },
   {
     provider: "openai",
     modelType: AIModelType.MULTIMODAL,
-    patterns: ["^gpt-4o(?!-mini)"],
+    patterns: ["^gpt-5(?!-mini)", "^gpt-4o(?!-mini)"],
     priority: 50,
   },
   {
@@ -153,15 +159,15 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     priority: 50,
   },
 
-  // ============ Anthropic ============
+  // ============ Anthropic ============（新→旧）
   {
     provider: "anthropic",
     modelType: AIModelType.CHAT,
     patterns: [
-      "claude-3-5-sonnet",
-      "claude-sonnet-4",
-      "claude-3-opus",
       "claude-opus-4",
+      "claude-sonnet-4",
+      "claude-3-5-sonnet",
+      "claude-3-opus",
     ],
     priority: 50,
   },
@@ -174,21 +180,22 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
   {
     provider: "anthropic",
     modelType: AIModelType.CODE,
-    patterns: ["claude-3-5-sonnet", "claude-sonnet-4"],
+    patterns: ["claude-sonnet-4", "claude-opus-4", "claude-3-5-sonnet"],
     priority: 50,
   },
   {
     provider: "anthropic",
     modelType: AIModelType.MULTIMODAL,
-    patterns: ["claude-3-5-sonnet"],
+    patterns: ["claude-sonnet-4", "claude-3-5-sonnet"],
     priority: 50,
   },
 
-  // ============ Google ============
+  // ============ Google ============（新→旧）
   {
     provider: "google",
     modelType: AIModelType.CHAT,
     patterns: [
+      "^gemini-2\\.5-pro",
       "^gemini-2\\.0-pro",
       "^gemini-1\\.5-pro",
       "^gemini-2\\.0-flash$",
@@ -204,7 +211,12 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
   {
     provider: "google",
     modelType: AIModelType.MULTIMODAL,
-    patterns: ["^gemini-2\\.0-flash$", "^gemini-1\\.5-pro"],
+    patterns: [
+      "^gemini-2\\.5-pro",
+      "^gemini-2\\.0-pro",
+      "^gemini-2\\.0-flash$",
+      "^gemini-1\\.5-pro",
+    ],
     priority: 50,
   },
   {
@@ -214,17 +226,17 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     priority: 50,
   },
 
-  // ============ xAI ============
+  // ============ xAI ============（新→旧）
   {
     provider: "xai",
     modelType: AIModelType.CHAT,
-    patterns: ["^grok-3(?!-mini)", "^grok-2(?!-mini)"],
+    patterns: ["^grok-4(?!-mini)", "^grok-3(?!-mini)", "^grok-2(?!-mini)"],
     priority: 50,
   },
   {
     provider: "xai",
     modelType: AIModelType.CHAT_FAST,
-    patterns: ["^grok-3-mini", "^grok-2-mini"],
+    patterns: ["^grok-4-mini", "^grok-3-mini", "^grok-2-mini"],
     priority: 50,
   },
 
