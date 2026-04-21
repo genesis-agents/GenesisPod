@@ -45,8 +45,12 @@ import { PromptCacheCoordinatorService } from "./llm/services/prompt-cache-coord
 // Model Fallback
 import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
 
-// User-facing controller: dynamic model discovery using user's personal key
-import { UserModelsController } from "./llm/user-models.controller";
+// User-facing controllers: dynamic model discovery + one-click auto-configure
+import {
+  UserModelsController,
+  UserModelConfigsAutoController,
+} from "./llm/user-models.controller";
+import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
 
 @Module({
   imports: [
@@ -78,7 +82,7 @@ import { UserModelsController } from "./llm/user-models.controller";
     AiEngineConstraintModule,
     forwardRef(() => AiEngineOrchestrationModule),
   ],
-  controllers: [UserModelsController],
+  controllers: [UserModelsController, UserModelConfigsAutoController],
   providers: [
     // LLM Factory & Adapters
     LLMFactory,
@@ -100,6 +104,9 @@ import { UserModelsController } from "./llm/user-models.controller";
     AiModelDiscoveryService,
     AiDirectKeyService,
     AiImageGenerationService,
+
+    // BYOK v3 auto-configure
+    AutoConfigureService,
 
     // Prompt Cache
     PromptCacheCoordinatorService,

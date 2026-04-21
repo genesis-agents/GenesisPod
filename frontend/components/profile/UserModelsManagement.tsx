@@ -11,6 +11,7 @@ import {
 } from '@/hooks/features/useUserModelConfigs';
 import { useUserApiKeys } from '@/hooks/features/useUserApiKeys';
 import { UserModelConfigModal } from './UserModelConfigModal';
+import { UserModelsAutoConfigureButton } from './UserModelsAutoConfigureButton';
 
 const TYPE_BADGE_CLASS: Record<UserModelType, string> = {
   CHAT: 'bg-blue-100 text-blue-700',
@@ -101,18 +102,24 @@ export function UserModelsManagement() {
             运行，不受系统默认模型 tier 限制
           </p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          disabled={apiKeys.length === 0}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-          title={
-            apiKeys.length === 0
-              ? '请先在 API Keys Tab 配置至少一个 Provider 的 Key'
-              : undefined
-          }
-        >
-          <Plus className="h-4 w-4" /> Add Model
-        </button>
+        <div className="flex items-center gap-2">
+          <UserModelsAutoConfigureButton
+            disabled={apiKeys.length === 0}
+            onDone={() => void refresh()}
+          />
+          <button
+            onClick={() => setShowAdd(true)}
+            disabled={apiKeys.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+            title={
+              apiKeys.length === 0
+                ? '请先在 API Keys Tab 配置至少一个 Provider 的 Key'
+                : undefined
+            }
+          >
+            <Plus className="h-4 w-4" /> Add Model
+          </button>
+        </div>
       </div>
 
       {/* 需求概览 —— 告诉用户 Topic Insights / Research / RAG 等功能依赖哪些 modelType，

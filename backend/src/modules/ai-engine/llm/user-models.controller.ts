@@ -12,6 +12,7 @@ import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
 import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.service";
+import { AutoConfigureService } from "./user-models-auto-configure.service";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
@@ -75,5 +76,23 @@ export class UserModelsController {
       dto.modelType,
     );
     return result;
+  }
+}
+
+/**
+ * 一键 AI 配置：基于用户所有已配 Personal Keys，自动创建推荐的 UserModelConfig
+ * （CHAT / CHAT_FAST / EMBEDDING / RERANK / ...），尽可能为每个 modelType 都
+ * 配上一个合适的默认模型。
+ */
+@ApiTags("User - Model Configs")
+@Controller("user/model-configs")
+@UseGuards(JwtAuthGuard)
+export class UserModelConfigsAutoController {
+  constructor(private readonly autoConfigure: AutoConfigureService) {}
+
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post("auto-configure")
+  async autoConfigureModels(@Req() req: AuthenticatedRequest) {
+    return this.autoConfigure.runForUser(req.user.id);
   }
 }
