@@ -172,6 +172,7 @@ export class AutoConfigureService {
             displayName: this.buildDisplayName(provider, matchedId, modelType),
             modelType,
             isDefault: true, // 每个 modelType 只建一个，直接设为默认
+            maxTokens: this.inferMaxTokens(matchedId, modelType),
             ...this.inferCapabilities(matchedId, modelType),
           });
           existingKeys.add(dedupKey);
@@ -315,6 +316,41 @@ export class AutoConfigureService {
         minimax: "MiniMax",
       }[provider] ?? provider;
     return `${providerShort}${typeShort} (${modelId})`;
+  }
+
+  /**
+   * 给 UserModelConfig 的 maxTokens 一个合理的上限。
+   * 默认 4096 太保守——Leader Planning / Writing 经常要 8k-16k 输出，
+   * 会被 callAPIWithConfig 的 `configLimit` clamp 导致 JSON 截断。
+   */
+  private inferMaxTokens(modelId: string, modelType: AIModelType): number {
+    const lower = modelId.toLowerCase();
+
+    // 推理模型（o1/o3/gpt-5/deepseek-r1）——reasoning tokens 要宽
+    if (/^o[1-5]/i.test(lower) || lower.includes("gpt-5")) return 32000;
+
+    // embedding / image / rerank 不走 chat 输出，用默认值即可
+    if (
+      modelType === AIModelType.EMBEDDING ||
+      modelType === AIModelType.IMAGE_GENERATION ||
+      modelType === AIModelType.IMAGE_EDITING ||
+      modelType === AIModelType.RERANK
+    ) {
+      return 4096;
+    }
+
+    // 主流 CHAT 系列：gpt-4o / claude / gemini-pro 支持 16k 输出
+    if (
+      /^gpt-[4-9]/i.test(lower) ||
+      lower.includes("claude") ||
+      lower.includes("gemini") ||
+      /^grok-[3-9]/i.test(lower)
+    ) {
+      return 16000;
+    }
+
+    // 其他 provider（deepseek / groq / cohere 等）保守 8k
+    return 8000;
   }
 
   private inferCapabilities(
