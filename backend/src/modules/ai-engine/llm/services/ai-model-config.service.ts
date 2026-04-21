@@ -5,9 +5,10 @@ import {
   NoAvailableKeyError,
   SecretsService,
   UserApiKeysService,
+  UserModelConfigsService,
 } from "../../../ai-infra/facade";
 import { RequestContext } from "../../../../common/context/request-context";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, UserModelConfig } from "@prisma/client";
 import { inferIsReasoning } from "../types";
 
 /**
@@ -218,6 +219,7 @@ export class AiModelConfigService {
     private readonly secretsService: SecretsService,
     private readonly userApiKeysService: UserApiKeysService,
     @Optional() private readonly keyResolver?: KeyResolverService,
+    @Optional() private readonly userModelConfigs?: UserModelConfigsService,
   ) {
     // 初始化时异步加载模型配置
     this.refreshModelConfigCache().catch((err) =>
@@ -534,22 +536,103 @@ export class AiModelConfigService {
       this.logger.warn(`[getModelConfig] Database query failed: ${error}`);
     }
 
-    // 4. ★ BYOK: 查找 disabled 模型（用户有对应 provider 的 Key 时可用）
+    // 4. ★ BYOK v3: 用户自定义模型配置（UserModelConfig 表）
+    //    用户像管理员那样配的完整 profile，按 modelId 精确匹配。
+    const userConfig =
+      await this.findUserModelConfigByModelId(normalizedModelId);
+    if (userConfig) return userConfig;
+
+    // 5. ★ BYOK: 查找 disabled 模型（用户有对应 provider 的 Key 时可用）
     const disabledConfig =
       await this.findDisabledModelForUser(normalizedModelId);
     if (disabledConfig) return disabledConfig;
 
-    // 5. ★ BYOK: 用户自选了一个 DB 里不存在的 modelId（比如管理员没登记
-    //    gpt-4o-mini 但用户的 OpenAI Key 能跑这个模型）。
-    //    如果用户有对应 provider 的 active Personal Key，就合成一个
-    //    AIModelConfig 让 chat 流程可以直接走。合成用的是 provider 的
-    //    合理默认（endpoint / apiFormat 等），maxTokens/temperature 走
-    //    保守默认；想精细配置的能力走「中期」UserModelConfig 方案。
+    // 6. ★ BYOK: 用户只填了 UserApiKey.preferredModelId 但没建 UserModelConfig
+    //    时的向后兼容路径 —— 用 provider 默认参数合成一个 AIModelConfig。
     const synthesized =
       await this.synthesizeConfigForUserModel(normalizedModelId);
     if (synthesized) return synthesized;
 
     return null;
+  }
+
+  /**
+   * 查找用户自配的 UserModelConfig（按 modelId 精确匹配，不区分大小写）。
+   * 命中时按用户的参数构造 AIModelConfig。
+   */
+  private async findUserModelConfigByModelId(
+    modelId: string,
+  ): Promise<AIModelConfig | null> {
+    const userId = RequestContext.getUserId();
+    if (!userId || !this.userModelConfigs) return null;
+    try {
+      const cfg = await this.userModelConfigs.findByModelId(userId, modelId);
+      if (!cfg) return null;
+      return this.toAIModelConfigFromUserConfig(cfg);
+    } catch (error) {
+      this.logger.warn(
+        `[findUserModelConfigByModelId] Failed for ${userId}/${modelId}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 查用户在指定 modelType 下的默认 UserModelConfig（供 chat 选初始模型）。
+   */
+  async findUserDefaultByType(
+    userId: string,
+    modelType: AIModelType,
+  ): Promise<AIModelConfig | null> {
+    if (!this.userModelConfigs) return null;
+    try {
+      const cfg = await this.userModelConfigs.findDefaultForType(
+        userId,
+        modelType,
+      );
+      if (!cfg) return null;
+      return this.toAIModelConfigFromUserConfig(cfg);
+    } catch (error) {
+      this.logger.warn(
+        `[findUserDefaultByType] Failed for ${userId}/${modelType}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  private toAIModelConfigFromUserConfig(cfg: UserModelConfig): AIModelConfig {
+    const providerDefaults =
+      AiModelConfigService.PROVIDER_API_DEFAULTS[cfg.provider] ??
+      AiModelConfigService.PROVIDER_API_DEFAULTS.openai;
+    return {
+      id: `user-model-config-${cfg.id}`,
+      name: cfg.modelId,
+      displayName: cfg.displayName,
+      provider: cfg.provider,
+      modelId: cfg.modelId,
+      apiEndpoint: cfg.apiEndpoint || providerDefaults.endpoint,
+      apiKey: null, // resolveApiKey 会用用户 Key
+      secretKey: null,
+      maxTokens: cfg.maxTokens,
+      temperature: cfg.temperature,
+      isEnabled: cfg.isEnabled,
+      isDefault: cfg.isDefault,
+      isReasoning: cfg.isReasoning,
+      apiFormat: cfg.apiFormat,
+      supportsTemperature: cfg.supportsTemperature,
+      supportsStreaming: cfg.supportsStreaming,
+      supportsFunctionCalling: cfg.supportsFunctionCalling,
+      supportsVision: cfg.supportsVision,
+      tokenParamName: cfg.tokenParamName,
+      defaultTimeoutMs: cfg.defaultTimeoutMs,
+      priceInputPerMillion: cfg.priceInputPerMillion
+        ? Number(cfg.priceInputPerMillion)
+        : undefined,
+      priceOutputPerMillion: cfg.priceOutputPerMillion
+        ? Number(cfg.priceOutputPerMillion)
+        : undefined,
+      priority: cfg.priority,
+    };
   }
 
   /**

@@ -21,7 +21,7 @@ import {
   type UserApiKeyInfo,
   type ProviderInfo,
 } from '@/hooks/features/useUserApiKeys';
-import { UserModelIdSelector } from './UserModelIdSelector';
+import { UserModelsList } from './UserModelsList';
 
 const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   openai: {
@@ -249,14 +249,20 @@ function ProviderKeyCard({
             </div>
           </div>
 
-          <UserModelIdSelector
-            provider={provider.id}
-            apiKey={apiKey}
-            apiEndpoint={apiEndpoint}
-            modelType="CHAT"
-            value={preferredModelId}
-            onChange={setPreferredModelId}
-          />
+          {existingKey ? (
+            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+              <UserModelsList
+                provider={provider.id}
+                apiKey={apiKey}
+                apiEndpoint={apiEndpoint}
+              />
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-500">
+              保存 API Key 后可在这里像管理员一样添加多个自定义模型 （CHAT /
+              CHAT_FAST / EMBEDDING 等，完整参数对齐管理员端）。
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">

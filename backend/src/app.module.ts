@@ -39,6 +39,7 @@ import { DistributableKeysModule } from "./modules/ai-infra/distributable-keys";
 import { KeyAssignmentsModule } from "./modules/ai-infra/key-assignments";
 import { KeyRequestsModule } from "./modules/ai-infra/key-requests";
 import { KeyResolverModule } from "./modules/ai-infra/key-resolver";
+import { UserModelConfigsModule } from "./modules/ai-infra/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 import { AiKernelModule } from "./modules/ai-kernel/ai-kernel.module";
@@ -163,6 +164,7 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
     KeyAssignmentsModule,
     KeyRequestsModule,
     KeyResolverModule,
+    UserModelConfigsModule,
 
     // AI modules (ai-* prefix)
     AiEngineModule,

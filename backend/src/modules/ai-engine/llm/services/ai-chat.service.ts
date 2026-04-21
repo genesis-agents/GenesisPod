@@ -1169,26 +1169,44 @@ export class AiChatService {
       model = providedModel;
       modelConfig = await this.getModelConfig(model);
     } else if (modelType) {
-      // 先取全局默认。如果默认的 provider 不在用户可用列表里，就从用户可用的同类型里挑 priority 最高的。
-      modelConfig = await this.getDefaultModelByType(modelType);
-      if (
-        modelConfig &&
-        userAvailableProviders &&
-        userAvailableProviders.size > 0 &&
-        !userAvailableProviders.has(modelConfig.provider.toLowerCase())
-      ) {
-        const pool =
-          await this.modelConfigService.getAllEnabledModelsByType(modelType);
-        const filtered = pool.filter((m) =>
-          userAvailableProviders.has(m.provider.toLowerCase()),
-        );
-        if (filtered.length > 0) {
-          modelConfig = filtered[0];
+      // ★ BYOK v3：如果用户有 UserModelConfig 里设为 default 的同类型模型，
+      //   直接用用户的。跳过全局默认的 provider 过滤逻辑。
+      if (effectiveUserIdForInitial && !isDirectBYOKPath) {
+        const userDefault = await this.modelConfigService
+          .findUserDefaultByType(effectiveUserIdForInitial, modelType)
+          .catch(() => null);
+        if (userDefault) {
+          modelConfig = userDefault;
+          model = userDefault.modelId;
           this.logger.log(
-            `[chat] Default ${modelType} model (${(await this.getDefaultModelByType(modelType))?.provider}) not in user availableProviders; using ${modelConfig.modelId} (${modelConfig.provider}) instead`,
+            `[chat] Using user default for ${modelType}: ${model} (${userDefault.provider})`,
           );
         }
       }
+
+      // 没有用户自定义默认 → 走全局默认，再用 availableProviders 过滤
+      if (!modelConfig) {
+        modelConfig = await this.getDefaultModelByType(modelType);
+        if (
+          modelConfig &&
+          userAvailableProviders &&
+          userAvailableProviders.size > 0 &&
+          !userAvailableProviders.has(modelConfig.provider.toLowerCase())
+        ) {
+          const pool =
+            await this.modelConfigService.getAllEnabledModelsByType(modelType);
+          const filtered = pool.filter((m) =>
+            userAvailableProviders.has(m.provider.toLowerCase()),
+          );
+          if (filtered.length > 0) {
+            modelConfig = filtered[0];
+            this.logger.log(
+              `[chat] Default ${modelType} model (${(await this.getDefaultModelByType(modelType))?.provider}) not in user availableProviders; using ${modelConfig.modelId} (${modelConfig.provider}) instead`,
+            );
+          }
+        }
+      }
+
       if (modelConfig) {
         model = modelConfig.modelId;
         this.logger.debug(

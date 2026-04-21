@@ -173,6 +173,9 @@ model User {
   // BYOK v2: 我提交的 Key 申请工单
   keyRequests KeyRequest[]
 
+  // BYOK v3: 我自己配置的多模型实例（同一个 Key 可以绑多个不同用途的模型）
+  modelConfigs UserModelConfig[]
+
   @@map("users")
 }
 
@@ -8758,4 +8761,65 @@ model KeyRequest {
   @@index([userId, status])
   @@index([status, createdAt])
   @@map("key_requests")
+}
+
+// ============ BYOK v3：用户自己配置的多模型实例 ============
+//
+// 同一个 provider Key 可以绑多个不同用途的模型，字段对齐管理员的
+// AIModel（modelId / modelType / maxTokens / temperature / apiFormat /
+// supports* / tokenParamName / isReasoning / priority / isDefault 等）。
+//
+// - (userId, provider, modelId) 三元组唯一
+// - isDefault=true 的 (userId, provider, modelType) 只能有一个（应用层保证）
+// - apiKey 走 UserApiKey；这张表只存模型 profile，不重复存 Key
+
+model UserModelConfig {
+  id          String @id @default(cuid())
+  userId      String @map("user_id")
+  provider    String @db.VarChar(50)
+  modelId     String @map("model_id") @db.VarChar(200)
+  displayName String @map("display_name") @db.VarChar(200)
+
+  modelType AIModelType @default(CHAT) @map("model_type")
+
+  // 用户自定义 endpoint（空则用 provider 官方或 UserApiKey.apiEndpoint）
+  apiEndpoint String? @map("api_endpoint") @db.Text
+
+  // 运行参数
+  maxTokens   Int   @default(4096) @map("max_tokens")
+  temperature Float @default(0.7)
+
+  // Embedding 专用
+  embeddingDimensions Int? @map("embedding_dimensions")
+  maxInputTokens      Int? @map("max_input_tokens")
+
+  // 能力标志
+  isReasoning             Boolean @default(false) @map("is_reasoning")
+  apiFormat               String  @default("openai") @map("api_format")
+  supportsTemperature     Boolean @default(true) @map("supports_temperature")
+  supportsStreaming       Boolean @default(true) @map("supports_streaming")
+  supportsFunctionCalling Boolean @default(true) @map("supports_function_calling")
+  supportsVision          Boolean @default(false) @map("supports_vision")
+  tokenParamName          String  @default("max_tokens") @map("token_param_name")
+  defaultTimeoutMs        Int     @default(120000) @map("default_timeout_ms")
+
+  // 价格（可选，仅供统计）
+  priceInputPerMillion  Decimal? @map("price_input_per_million") @db.Decimal(10, 4)
+  priceOutputPerMillion Decimal? @map("price_output_per_million") @db.Decimal(10, 4)
+
+  priority    Int     @default(50)
+  isEnabled   Boolean @default(true) @map("is_enabled")
+  isDefault   Boolean @default(false) @map("is_default")
+  description String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, modelId])
+  @@index([userId, modelType, isEnabled])
+  @@index([userId, provider])
+  @@index([userId, isDefault])
+  @@map("user_model_configs")
 }

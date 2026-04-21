@@ -49,6 +49,13 @@ export { HealthCheckService } from "../monitoring/health-check.service";
 // ─── User API Keys ───
 export { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 
+// ─── BYOK v3：用户多模型配置 ───
+export { UserModelConfigsService } from "../user-model-configs/user-model-configs.service";
+export type {
+  CreateUserModelConfigInput,
+  UpdateUserModelConfigInput,
+} from "../user-model-configs/user-model-configs.service";
+
 // ─── BYOK v2：分发池 / 分配 / 申请 / 统一解析 ───
 export { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
 export { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
