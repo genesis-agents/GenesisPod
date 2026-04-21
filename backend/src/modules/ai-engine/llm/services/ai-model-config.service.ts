@@ -837,6 +837,37 @@ export class AiModelConfigService {
     excludeModelIds: string[] = [],
   ): Promise<AIModelConfig[]> {
     try {
+      // ★ BYOK v3: 若当前请求上下文有 userId 且用户已配了 UserModelConfig
+      // （对应 modelType，isEnabled），用用户自己的模型；否则回落到管理员全局模型。
+      // 这样 Topic Insights / Writing / Teams 等依赖"列出可用模型"的场景
+      // 会展示用户自己的模型，而不是系统默认的。
+      const userId = RequestContext.getUserId();
+      if (userId) {
+        try {
+          const userRows = await this.prisma.userModelConfig.findMany({
+            where: {
+              userId,
+              modelType,
+              isEnabled: true,
+              ...(excludeModelIds.length > 0 && {
+                modelId: { notIn: excludeModelIds },
+              }),
+            },
+            orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
+          });
+          if (userRows.length > 0) {
+            this.logger.debug(
+              `[getAllEnabledModelsByType] Using ${userRows.length} UserModelConfig rows for user=${userId}, type=${modelType}`,
+            );
+            return userRows.map((r) => this.toAIModelConfigFromUserConfig(r));
+          }
+        } catch (error) {
+          this.logger.warn(
+            `[getAllEnabledModelsByType] Failed to load UserModelConfig for ${userId}: ${(error as Error).message}; falling back to admin models`,
+          );
+        }
+      }
+
       const models = await this.prisma.aIModel.findMany({
         where: {
           modelType,
