@@ -3,6 +3,7 @@ import { AIModelType } from "@prisma/client";
 import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "../../ai-infra/user-model-configs/user-model-configs.service";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
+import { AiConnectionTestService } from "./services/ai-connection-test.service";
 import { ModelRecommendationsService } from "./recommendations/model-recommendations.service";
 import {
   EXCLUDED_MODEL_SUBSTRINGS,
@@ -39,6 +40,7 @@ export class AutoConfigureService {
     private readonly modelDiscovery: AiModelDiscoveryService,
     private readonly userModelConfigs: UserModelConfigsService,
     private readonly recommendations: ModelRecommendationsService,
+    private readonly connectionTest: AiConnectionTestService,
   ) {}
 
   async runForUser(userId: string): Promise<AutoConfigureResult> {
@@ -119,8 +121,35 @@ export class AutoConfigureService {
         const rec = providerRecs.find((r) => r.modelType === modelType);
         if (!rec || rec.patterns.length === 0) continue;
 
-        const matchedId = this.firstMatch(availableIds, rec.patterns);
-        if (!matchedId) continue;
+        // ★ 变成**可验证的迭代**：按 pattern 匹配的顺序取出所有候选 modelId，
+        // 依次用最小 prompt 实际探测 chat 是否通；第一个通过的才写入。
+        // 避免把"OpenAI 列表返回但 chat 无权限"的模型（如用户 key 权限不全的
+        // gpt-4o-2024-11-20）写进去导致后续 Topic Insights 疯狂撞失败。
+        const candidates = this.allMatches(availableIds, rec.patterns);
+        if (candidates.length === 0) continue;
+
+        let matchedId: string | undefined;
+        for (const cand of candidates) {
+          const probe = await this.probeModelUsable(
+            provider,
+            cand,
+            apiKey,
+            modelType,
+          );
+          if (probe.ok) {
+            matchedId = cand;
+            break;
+          }
+          this.logger.debug(
+            `[user-auto-configure] Probe skip ${provider}/${cand}/${modelType}: ${probe.reason}`,
+          );
+        }
+        if (!matchedId) {
+          this.logger.warn(
+            `[user-auto-configure] All candidates failed probe for ${provider}/${modelType}: ${candidates.join(", ")}`,
+          );
+          continue;
+        }
 
         const dedupKey = `${provider}:${matchedId.toLowerCase()}:${modelType}`;
         if (existingKeys.has(dedupKey)) {
@@ -266,10 +295,12 @@ export class AutoConfigureService {
    *     且 provider 的 /v1/models 把它返回了，就自动胜出。
    *   - 避免 pattern 列表追模型发布节奏的问题。
    */
-  private firstMatch(
-    availableIds: string[],
-    patterns: string[],
-  ): string | undefined {
+  /**
+   * 返回 availableIds 里**所有**命中 patterns 的 modelId，保持原有顺序
+   *（provider 的 /v1/models 已按 created desc 排过序，所以最新的在前面）。
+   * auto-configure 会逐个 probe，找到第一个能 chat 通的。
+   */
+  private allMatches(availableIds: string[], patterns: string[]): string[] {
     const compiled: RegExp[] = [];
     for (const p of patterns) {
       try {
@@ -278,12 +309,34 @@ export class AutoConfigureService {
         // 跳过非法 regex
       }
     }
-    if (compiled.length === 0) return undefined;
+    if (compiled.length === 0) return [];
+    return availableIds.filter((id) => compiled.some((re) => re.test(id)));
+  }
 
-    for (const id of availableIds) {
-      if (compiled.some((re) => re.test(id))) return id;
+  /**
+   * 用最小 prompt 探测 (provider, modelId) 能否实际 chat。
+   * 复用 AiConnectionTestService（管理员/用户测试连接按钮也用这条路径）。
+   * 15s 超时；图像/embedding/rerank 类型跳过 chat 探测（它们自有 endpoint 的测试分支）。
+   */
+  private async probeModelUsable(
+    provider: string,
+    modelId: string,
+    apiKey: string,
+    modelType: AIModelType,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    try {
+      const res = await this.connectionTest.testModelConnectionWithKey(
+        provider,
+        modelId,
+        apiKey,
+        "", // 交给 service 用 provider 默认 endpoint
+        modelType,
+      );
+      if (res.success) return { ok: true };
+      return { ok: false, reason: res.message };
+    } catch (error) {
+      return { ok: false, reason: (error as Error).message };
     }
-    return undefined;
   }
 
   private buildDisplayName(
