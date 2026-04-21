@@ -8795,12 +8795,12 @@ model UserModelConfig {
 
   // 能力标志
   isReasoning             Boolean @default(false) @map("is_reasoning")
-  apiFormat               String  @default("openai") @map("api_format")
+  apiFormat               String  @default("openai") @map("api_format") @db.VarChar(50)
   supportsTemperature     Boolean @default(true) @map("supports_temperature")
   supportsStreaming       Boolean @default(true) @map("supports_streaming")
   supportsFunctionCalling Boolean @default(true) @map("supports_function_calling")
   supportsVision          Boolean @default(false) @map("supports_vision")
-  tokenParamName          String  @default("max_tokens") @map("token_param_name")
+  tokenParamName          String  @default("max_tokens") @map("token_param_name") @db.VarChar(50)
   defaultTimeoutMs        Int     @default(120000) @map("default_timeout_ms")
 
   // 价格（可选，仅供统计）

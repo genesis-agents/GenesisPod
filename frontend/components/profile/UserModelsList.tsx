@@ -75,6 +75,8 @@ export function UserModelsList({ provider, apiKey, apiEndpoint }: Props) {
 
       {(showAdd || editing) && (
         <UserModelConfigModal
+          // key 强制 Modal 重建，避免切换编辑对象时沿用上次 state
+          key={editing?.id ?? 'new'}
           provider={provider}
           apiKey={apiKey}
           apiEndpoint={apiEndpoint}

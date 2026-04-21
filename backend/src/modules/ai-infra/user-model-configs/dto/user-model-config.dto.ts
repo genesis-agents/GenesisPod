@@ -4,6 +4,7 @@ import { Transform, Type } from "class-transformer";
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -14,6 +15,9 @@ import {
   Min,
   MinLength,
 } from "class-validator";
+
+const API_FORMATS = ["openai", "anthropic", "google", "xai", "cohere"] as const;
+const TOKEN_PARAM_NAMES = ["max_tokens", "max_completion_tokens"] as const;
 
 export class CreateUserModelConfigDto {
   @ApiProperty({ example: "openai" })
@@ -81,12 +85,10 @@ export class CreateUserModelConfigDto {
   @IsBoolean()
   isReasoning?: boolean;
 
-  @ApiPropertyOptional({
-    enum: ["openai", "anthropic", "google", "xai", "cohere"],
-  })
+  @ApiPropertyOptional({ enum: API_FORMATS })
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @IsIn(API_FORMATS as unknown as string[])
   apiFormat?: string;
 
   @ApiPropertyOptional()
@@ -109,10 +111,10 @@ export class CreateUserModelConfigDto {
   @IsBoolean()
   supportsVision?: boolean;
 
-  @ApiPropertyOptional({ enum: ["max_tokens", "max_completion_tokens"] })
+  @ApiPropertyOptional({ enum: TOKEN_PARAM_NAMES })
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @IsIn(TOKEN_PARAM_NAMES as unknown as string[])
   tokenParamName?: string;
 
   @ApiPropertyOptional()

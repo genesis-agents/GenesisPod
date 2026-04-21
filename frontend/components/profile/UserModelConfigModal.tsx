@@ -86,24 +86,31 @@ export function UserModelConfigModal({
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
   const [description, setDescription] = useState(initial?.description ?? '');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // 用户是否手动动过能力字段；一旦动过就停止自动推断，尊重用户选择
+  const [reasoningTouched, setReasoningTouched] = useState(false);
 
-  // modelId 变化时，自动把推理系列的 tokenParamName 切到 max_completion_tokens
+  // 自动推断：只在新建 + 用户还没手动改过能力字段时触发
+  // 避免"改个 modelId 就把用户刚调好的设置重置"
   useEffect(() => {
-    if (!isEdit && modelId) {
-      const lower = modelId.toLowerCase();
-      const looksReasoning =
-        lower.startsWith('o1') ||
-        lower.startsWith('o3') ||
-        lower.startsWith('o4') ||
-        lower.includes('gpt-5') ||
-        lower.includes('reasoner');
-      if (looksReasoning) {
-        setIsReasoning(true);
-        setTokenParamName('max_completion_tokens');
-        setSupportsTemperature(false);
-      }
+    if (isEdit || reasoningTouched || !modelId) return;
+    const lower = modelId.toLowerCase();
+    const looksReasoning =
+      lower.startsWith('o1') ||
+      lower.startsWith('o3') ||
+      lower.startsWith('o4') ||
+      lower.includes('gpt-5') ||
+      lower.includes('reasoner');
+    if (looksReasoning) {
+      setIsReasoning(true);
+      setTokenParamName('max_completion_tokens');
+      setSupportsTemperature(false);
+    } else {
+      // 如果用户一开始输了推理模型 ID，后来改成普通模型 ID，自动恢复默认
+      setIsReasoning(false);
+      setTokenParamName('max_tokens');
+      setSupportsTemperature(true);
     }
-  }, [modelId, isEdit]);
+  }, [modelId, isEdit, reasoningTouched]);
 
   const canSave = useMemo(
     () => !!(modelId.trim() && displayName.trim()),
@@ -291,7 +298,10 @@ export function UserModelConfigModal({
               <Field label="Token Param Name">
                 <select
                   value={tokenParamName}
-                  onChange={(e) => setTokenParamName(e.target.value)}
+                  onChange={(e) => {
+                    setTokenParamName(e.target.value);
+                    setReasoningTouched(true);
+                  }}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 >
                   {TOKEN_PARAM_OPTIONS.map((o) => (
@@ -308,13 +318,19 @@ export function UserModelConfigModal({
                 label="推理模型（Reasoning）"
                 description="o1/o3/DeepSeek-R1 等"
                 value={isReasoning}
-                onChange={setIsReasoning}
+                onChange={(v) => {
+                  setIsReasoning(v);
+                  setReasoningTouched(true);
+                }}
               />
               <Toggle
                 label="支持 Temperature 参数"
                 description="推理系列通常不支持"
                 value={supportsTemperature}
-                onChange={setSupportsTemperature}
+                onChange={(v) => {
+                  setSupportsTemperature(v);
+                  setReasoningTouched(true);
+                }}
               />
               <Toggle
                 label="支持流式输出"

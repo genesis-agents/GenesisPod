@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -40,6 +41,7 @@ export class UserModelConfigsController {
   @Get(":id")
   async detail(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const item = await this.service.findById(req.user.id, id);
+    if (!item) throw new NotFoundException("Model config not found");
     return { item };
   }
 

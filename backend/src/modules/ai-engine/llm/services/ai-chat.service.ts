@@ -1165,6 +1165,7 @@ export class AiChatService {
       }
     }
 
+    let userDefaultHit = false;
     if (providedModel) {
       model = providedModel;
       modelConfig = await this.getModelConfig(model);
@@ -1178,6 +1179,7 @@ export class AiChatService {
         if (userDefault) {
           modelConfig = userDefault;
           model = userDefault.modelId;
+          userDefaultHit = true;
           this.logger.log(
             `[chat] Using user default for ${modelType}: ${model} (${userDefault.provider})`,
           );
@@ -1223,13 +1225,12 @@ export class AiChatService {
       modelConfig = await this.getModelConfig(model);
     }
 
-    // ★ BYOK v2：用户自配 preferredModelId 覆盖系统默认
-    // 场景：用户的 OpenAI Key 只有 tier 1，能跑 gpt-4o-mini 但跑不了
-    // 全局默认的 gpt-5.4。用户在设置里指定 preferredModelId='gpt-4o-mini'，
-    // 这里按它重建 modelConfig（如果 DB 没记录，AiModelConfigService 会合成）。
-    // providedModel 显式指定时不覆盖 —— 尊重调用方的明确选择。
+    // ★ BYOK v2（向后兼容）：用户只设了 UserApiKey.preferredModelId 但
+    // 没建 UserModelConfig 时的 override。UserModelConfig（v3）若已命中则
+    // 跳过 —— v3 优先级高于 v2。providedModel 显式指定时也不覆盖。
     if (
       !providedModel &&
+      !userDefaultHit &&
       !isDirectBYOKPath &&
       effectiveUserIdForInitial &&
       this.keyResolver &&

@@ -131,11 +131,21 @@ export class UserModelConfigsService {
     data.user = { connect: { id: userId } };
 
     try {
-      const created = await this.prisma.userModelConfig.create({ data });
-      // 如果用户指定 isDefault=true，把同 modelType 下其他同类清掉
-      if (created.isDefault) {
-        await this.ensureSingleDefault(userId, created);
-      }
+      // 事务化：当 isDefault=true 时，先清同 modelType 下其他 default，
+      // 再创建当前记录。两步原子，避免并发 create 时互相清零的 race。
+      const created = await this.prisma.$transaction(async (tx) => {
+        if (data.isDefault === true) {
+          await tx.userModelConfig.updateMany({
+            where: {
+              userId,
+              modelType: input.modelType,
+              isDefault: true,
+            },
+            data: { isDefault: false },
+          });
+        }
+        return tx.userModelConfig.create({ data });
+      });
       return created;
     } catch (error) {
       if (
@@ -200,13 +210,25 @@ export class UserModelConfigsService {
       data.priceOutputPerMillion = patch.priceOutputPerMillion;
 
     try {
-      const updated = await this.prisma.userModelConfig.update({
-        where: { id },
-        data,
+      // 事务化：当 isDefault=true 或 modelType 变更时，先在事务里清同类下的
+      // 其他 default，再更新本行，保证并发安全。
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const targetModelType = patch.modelType ?? existing.modelType;
+        const needsDefaultCleanup =
+          patch.isDefault === true || patch.modelType !== undefined;
+        if (needsDefaultCleanup && (patch.isDefault ?? existing.isDefault)) {
+          await tx.userModelConfig.updateMany({
+            where: {
+              userId,
+              modelType: targetModelType,
+              isDefault: true,
+              NOT: { id },
+            },
+            data: { isDefault: false },
+          });
+        }
+        return tx.userModelConfig.update({ where: { id }, data });
       });
-      if (patch.isDefault === true || patch.modelType !== undefined) {
-        await this.ensureSingleDefault(userId, updated);
-      }
       return updated;
     } catch (error) {
       if (
@@ -268,6 +290,8 @@ export class UserModelConfigsService {
 
   /**
    * 按 modelId 精确查找当前用户的配置。供 AiModelConfigService 在路由时查用。
+   * 用精确匹配而非 insensitive，对齐数据库 @@unique([userId, provider, modelId])
+   * 的大小写敏感语义，避免用户同时创建 "gpt-4o" 和 "GPT-4o" 时行为不确定。
    */
   async findByModelId(
     userId: string,
@@ -276,7 +300,7 @@ export class UserModelConfigsService {
     return this.prisma.userModelConfig.findFirst({
       where: {
         userId,
-        modelId: { equals: modelId, mode: "insensitive" },
+        modelId,
         isEnabled: true,
       },
     });
@@ -307,7 +331,9 @@ export class UserModelConfigsService {
     if (!existing || existing.userId !== userId) {
       throw new NotFoundException("Model config not found");
     }
-    // 先把同 modelType 下其他 isDefault 清掉，再设当前为 default
+    // 先把同 modelType 下其他 isDefault 清掉，同时把当前设为 default。
+    // 如当前处于 isEnabled=false，同步打开 —— 否则 findDefaultForType
+    // 因 isEnabled 过滤失效，isDefault=true 成了 ghost 状态。
     await this.prisma.$transaction([
       this.prisma.userModelConfig.updateMany({
         where: {
@@ -320,31 +346,11 @@ export class UserModelConfigsService {
       }),
       this.prisma.userModelConfig.update({
         where: { id },
-        data: { isDefault: true },
+        data: { isDefault: true, isEnabled: true },
       }),
     ]);
     return (await this.prisma.userModelConfig.findUnique({
       where: { id },
     })) as UserModelConfig;
-  }
-
-  /**
-   * 工具：确保给定 modelType 下只有一个 isDefault=true。
-   * 在 create/update 之后调用，维持唯一默认不变。
-   */
-  private async ensureSingleDefault(
-    userId: string,
-    current: UserModelConfig,
-  ): Promise<void> {
-    if (!current.isDefault) return;
-    await this.prisma.userModelConfig.updateMany({
-      where: {
-        userId,
-        modelType: current.modelType,
-        isDefault: true,
-        NOT: { id: current.id },
-      },
-      data: { isDefault: false },
-    });
   }
 }
