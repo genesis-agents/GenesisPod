@@ -4,7 +4,10 @@ import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.s
 import { UserModelConfigsService } from "../../ai-infra/user-model-configs/user-model-configs.service";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
 import { ModelRecommendationsService } from "./recommendations/model-recommendations.service";
-import { EXCLUDED_MODEL_SUBSTRINGS } from "./recommendations/default-recommendations";
+import {
+  EXCLUDED_MODEL_SUBSTRINGS,
+  PROVIDER_PREFERENCE_BY_TYPE,
+} from "./recommendations/default-recommendations";
 
 export interface AutoConfigureResult {
   createdCount: number;
@@ -20,12 +23,12 @@ export interface AutoConfigureResult {
 }
 
 /**
- * 用户版一键 AI 配置：
- * 1. 遍历用户所有 active Personal Keys
- * 2. 每个 provider 调 fetchAvailableModels 取真实可用列表
- * 3. 从 ModelRecommendationsService 读 (provider, modelType) → patterns
- * 4. 按顺序匹配 modelId，首个命中 → 创建 UserModelConfig
- * 5. 每个 modelType 下首个命中自动设为 isDefault
+ * 用户版一键 AI 配置（重构版）：
+ * - 遍历 modelType 维度，不再遍历 provider
+ * - 每个 modelType 按 `PROVIDER_PREFERENCE_BY_TYPE` 顺序找"用户有 Key + /v1/models 命中"的首个 provider
+ * - 命中即停，**每个 modelType 只建一个默认行**——避免中等 provider 污染列表
+ * - 已有同 (provider, modelId, modelType) 的行跳过
+ * - 已有 default 的 modelType 不再创建第二条（尊重用户手工设置）
  */
 @Injectable()
 export class AutoConfigureService {
@@ -60,145 +63,135 @@ export class AutoConfigureService {
       missingTypes: [],
     };
 
-    const defaultedTypes = new Set<AIModelType>();
+    // provider → apiKey 映射（用户保存的 Personal Key），用于按偏好顺序查找
+    const providerKeyMap = new Map<string, string>();
+    for (const key of activePersonal) {
+      const provider = key.provider.toLowerCase();
+      if (providerKeyMap.has(provider)) continue;
+      const personal = await this.userApiKeys.getPersonalKey(userId, provider);
+      if (personal?.apiKey) providerKeyMap.set(provider, personal.apiKey);
+    }
+
+    // 已有配置（用于去重 + 尊重用户现有默认）
     const existing = await this.userModelConfigs.listByUser(userId);
-    // ★ dedup key 从 (provider, modelId) 改为 (provider, modelId, modelType)：
-    // 允许同一 modelId 覆盖多个类型（如 gpt-4o 同时做 CHAT/CODE/MULTIMODAL），
-    // 不再被 CHAT 那一次创建挡住其他类型。
     const existingKeys = new Set(
       existing.map(
         (c) => `${c.provider}:${c.modelId.toLowerCase()}:${c.modelType}`,
       ),
     );
+    const defaultedTypes = new Set<AIModelType>();
     existing
       .filter((c) => c.isEnabled && c.isDefault)
       .forEach((c) => defaultedTypes.add(c.modelType));
 
-    for (const key of activePersonal) {
-      const provider = key.provider.toLowerCase();
-      const personal = await this.userApiKeys.getPersonalKey(userId, provider);
-      if (!personal?.apiKey) continue;
+    // 一个 provider 一个 modelType 只调一次 /v1/models，缓存复用
+    const discoveryCache = new Map<string, string[] | null>();
 
-      const providerRecs = await this.recommendations.getForProvider(provider);
-      if (providerRecs.length === 0) {
-        result.items.push({
+    // ★ 核心循环：modelType 维度
+    for (const [modelTypeStr, preferredProviders] of Object.entries(
+      PROVIDER_PREFERENCE_BY_TYPE,
+    )) {
+      const modelType = modelTypeStr as AIModelType;
+
+      // 已有默认就跳过（不污染，不强抢）
+      if (defaultedTypes.has(modelType)) continue;
+
+      let created = false;
+
+      for (const provider of preferredProviders) {
+        if (created) break;
+
+        const apiKey = providerKeyMap.get(provider);
+        if (!apiKey) continue; // 用户没配这个 provider 的 Key
+
+        // 拉可用模型（per-type 过滤，如 EMBEDDING 只返回 embedding 模型）
+        const availableIds = await this.getAvailableIds(
           provider,
-          modelType: AIModelType.CHAT,
-          modelId: "(provider not in matrix)",
-          action: "skipped-provider-no-match",
-          reason: "No recommendation patterns defined for this provider",
-        });
-        continue;
-      }
+          apiKey,
+          modelType,
+          discoveryCache,
+        );
+        if (!availableIds || availableIds.length === 0) continue;
 
-      // AiModelDiscoveryService 会按 modelType 过滤（例如 OpenAI 不传 modelType
-      // 只返回 gpt-* / o1* / o3*，embedding / dall-e 全被过滤掉）。
-      // 所以按 rec.modelType 分类缓存 discovery，避免 EMBEDDING / IMAGE_* 永远拿不到候选。
-      const discoveryCache = new Map<string, string[]>();
-      const getAvailableIds = async (
-        modelType: AIModelType,
-      ): Promise<string[] | null> => {
-        if (discoveryCache.has(modelType)) {
-          return discoveryCache.get(modelType)!;
-        }
-        const discovery = await this.modelDiscovery
-          .fetchAvailableModels(provider, personal.apiKey, undefined, modelType)
-          .catch((error) => {
-            this.logger.warn(
-              `[user-auto-configure] fetchAvailableModels(${provider}, ${modelType}) failed: ${(error as Error).message}`,
-            );
-            return { success: false, error: (error as Error).message };
-          });
-
-        if (
-          !discovery.success ||
-          !("models" in discovery) ||
-          !discovery.models
-        ) {
-          discoveryCache.set(modelType, []);
-          return null;
-        }
-
-        // 过滤 specialty 变体（-search / -tts / -audio / -realtime / -preview 等）。
-        // 注意：IMAGE_* 类型不走黑名单（gpt-image-1 合法但 includes("-image-")）。
-        const isImageType =
-          modelType === AIModelType.IMAGE_GENERATION ||
-          modelType === AIModelType.IMAGE_EDITING;
-        const filtered = discovery.models
-          .map((m) => m.id)
-          .filter((id) => {
-            if (isImageType) return true;
-            const lower = id.toLowerCase();
-            return !EXCLUDED_MODEL_SUBSTRINGS.some((s) => lower.includes(s));
-          });
-        discoveryCache.set(modelType, filtered);
-        return filtered;
-      };
-
-      for (const rec of providerRecs) {
-        const availableIds = await getAvailableIds(rec.modelType);
-        if (availableIds === null) {
-          result.items.push({
-            provider,
-            modelType: rec.modelType,
-            modelId: "(fetch failed)",
-            action: "skipped-provider-no-match",
-            reason: `Provider /v1/models call failed for ${rec.modelType}`,
-          });
-          continue;
-        }
-        if (availableIds.length === 0) {
-          // provider 不返回该类别（正常，比如 Anthropic 没 embedding）
-          continue;
-        }
+        // 取 recommendation（DB 优先、默认 fallback、别名兜底）
+        const providerRecs =
+          await this.recommendations.getForProvider(provider);
+        const rec = providerRecs.find((r) => r.modelType === modelType);
+        if (!rec || rec.patterns.length === 0) continue;
 
         const matchedId = this.firstMatch(availableIds, rec.patterns);
         if (!matchedId) continue;
 
-        const dedupKey = `${provider}:${matchedId.toLowerCase()}:${rec.modelType}`;
+        const dedupKey = `${provider}:${matchedId.toLowerCase()}:${modelType}`;
         if (existingKeys.has(dedupKey)) {
+          // 已有但没 default——提升为 default
+          const existingRow = existing.find(
+            (c) =>
+              c.provider === provider &&
+              c.modelId.toLowerCase() === matchedId.toLowerCase() &&
+              c.modelType === modelType,
+          );
+          if (existingRow && !existingRow.isDefault) {
+            try {
+              await this.userModelConfigs.update(userId, existingRow.id, {
+                isDefault: true,
+              });
+              defaultedTypes.add(modelType);
+              result.items.push({
+                provider,
+                modelType,
+                modelId: matchedId,
+                action: "skipped",
+                reason: "Already exists — promoted to default",
+              });
+              created = true;
+              continue;
+            } catch (error) {
+              this.logger.warn(
+                `[user-auto-configure] Failed to promote ${provider}/${matchedId}/${modelType} to default: ${(error as Error).message}`,
+              );
+            }
+          }
           result.skippedCount++;
           result.items.push({
             provider,
-            modelType: rec.modelType,
+            modelType,
             modelId: matchedId,
             action: "skipped",
             reason: "Already configured",
           });
+          // 即使已存在，也算 modelType 已覆盖，不要再尝试其他 provider
+          created = true;
           continue;
         }
 
-        const shouldSetDefault = !defaultedTypes.has(rec.modelType);
         try {
           await this.userModelConfigs.create(userId, {
             provider,
             modelId: matchedId,
-            displayName: this.buildDisplayName(
-              provider,
-              matchedId,
-              rec.modelType,
-            ),
-            modelType: rec.modelType,
-            isDefault: shouldSetDefault,
-            ...this.inferCapabilities(matchedId, rec.modelType),
+            displayName: this.buildDisplayName(provider, matchedId, modelType),
+            modelType,
+            isDefault: true, // 每个 modelType 只建一个，直接设为默认
+            ...this.inferCapabilities(matchedId, modelType),
           });
           existingKeys.add(dedupKey);
-          if (shouldSetDefault) defaultedTypes.add(rec.modelType);
+          defaultedTypes.add(modelType);
           result.createdCount++;
           result.items.push({
             provider,
-            modelType: rec.modelType,
+            modelType,
             modelId: matchedId,
             action: "created",
           });
+          created = true;
         } catch (error) {
           this.logger.warn(
-            `[user-auto-configure] Failed to create ${provider}/${matchedId}: ${(error as Error).message}`,
+            `[user-auto-configure] Failed to create ${provider}/${matchedId}/${modelType}: ${(error as Error).message}`,
           );
           result.skippedCount++;
           result.items.push({
             provider,
-            modelType: rec.modelType,
+            modelType,
             modelId: matchedId,
             action: "skipped",
             reason: (error as Error).message,
@@ -214,6 +207,49 @@ export class AutoConfigureService {
     result.missingTypes = requiredTypes.filter((t) => !defaultedTypes.has(t));
 
     return result;
+  }
+
+  /**
+   * 拉 provider 某个 modelType 的可用模型列表（缓存 + specialty 黑名单过滤）。
+   */
+  private async getAvailableIds(
+    provider: string,
+    apiKey: string,
+    modelType: AIModelType,
+    cache: Map<string, string[] | null>,
+  ): Promise<string[] | null> {
+    const cacheKey = `${provider}:${modelType}`;
+    if (cache.has(cacheKey)) return cache.get(cacheKey)!;
+
+    const discovery = await this.modelDiscovery
+      .fetchAvailableModels(provider, apiKey, undefined, modelType)
+      .catch((error) => {
+        this.logger.warn(
+          `[user-auto-configure] fetchAvailableModels(${provider}, ${modelType}) failed: ${(error as Error).message}`,
+        );
+        return { success: false, error: (error as Error).message };
+      });
+
+    if (!discovery.success || !("models" in discovery) || !discovery.models) {
+      cache.set(cacheKey, null);
+      return null;
+    }
+
+    // Image 类型保留所有（gpt-image-1 合法但 includes("-image-")）
+    const isImageType =
+      modelType === AIModelType.IMAGE_GENERATION ||
+      modelType === AIModelType.IMAGE_EDITING;
+
+    const filtered = discovery.models
+      .map((m) => m.id)
+      .filter((id) => {
+        if (isImageType) return true;
+        const lower = id.toLowerCase();
+        return !EXCLUDED_MODEL_SUBSTRINGS.some((s) => lower.includes(s));
+      });
+
+    cache.set(cacheKey, filtered);
+    return filtered;
   }
 
   private firstMatch(

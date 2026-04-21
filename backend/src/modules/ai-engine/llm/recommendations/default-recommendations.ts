@@ -23,16 +23,64 @@ export interface DefaultRecommendation {
  * 规则：`ModelRecommendationsService.getForProvider()` 查 (provider, modelType) 时，
  * DB 和硬编码默认都没命中，而 alias 里有映射 → 拿被映射的类型 patterns 返回。
  *
- * 适合"没有专用模型、就是强 CHAT 来打分/承担"的场景，避免在每个 provider 下
- * 重复抄一份 CHAT 的正则（硬编码 5 份一模一样的代码）。
- *
- * 未来可以扩展（如 CODE → CHAT、MULTIMODAL → CHAT）——但要慎用，有些类型
- * 有明确专用模型就别映射。
+ * `applyToProviders` 白名单限定只对**质量足够的 provider**生效，避免把中等
+ * CHAT 模型（如 Cohere command-r-plus、Groq llama）误装成 EVALUATOR——
+ * 报告打分需要 GPT-4o / Claude 3.5 Sonnet / Gemini 1.5 Pro / Grok 3 这种
+ * 第一梯队。
  */
-export const MODEL_TYPE_ALIASES: Partial<Record<AIModelType, AIModelType>> = {
-  // EVALUATOR = 强 CHAT（报告打分）；OpenAI 没专门的 evaluator 模型，
-  // Claude/Gemini 同理。让它 fall back 到 provider 的 CHAT patterns。
-  [AIModelType.EVALUATOR]: AIModelType.CHAT,
+export interface ModelTypeAlias {
+  aliasTo: AIModelType;
+  /** 若设置则只对列表中的 provider 生效；不设置则对所有 provider 生效 */
+  applyToProviders?: string[];
+}
+
+export const MODEL_TYPE_ALIASES: Partial<Record<AIModelType, ModelTypeAlias>> =
+  {
+    // EVALUATOR = 强 CHAT 来打分，只对质量梯队靠前的 provider 自动继承
+    [AIModelType.EVALUATOR]: {
+      aliasTo: AIModelType.CHAT,
+      applyToProviders: ["openai", "anthropic", "google", "xai"],
+    },
+  };
+
+/**
+ * **一键配置 provider 质量梯队**——每个 modelType 一个有序数组，
+ * 第一个能命中的 provider 胜出，**auto-configure 就此停下不再为该 type 建第二个**。
+ *
+ * 设计原则：
+ *   - 每个类型只建一个默认行，避免列表被中等 provider 污染（如 Cohere command-r-plus 被
+ *     建成 CHAT）
+ *   - 排序体现质量：前面是第一梯队，后面是 fallback
+ *   - 类型没列出的 provider 不会被自动创建（即使 provider 有匹配模型）。用户可手动 Add Model
+ *   - RERANK 只有 Cohere/Jina/Voyage 能做；IMAGE_GENERATION 主要 OpenAI/Google
+ */
+export const PROVIDER_PREFERENCE_BY_TYPE: Record<AIModelType, string[]> = {
+  [AIModelType.CHAT]: [
+    "openai",
+    "anthropic",
+    "google",
+    "xai",
+    "deepseek",
+    "qwen",
+    "openrouter",
+    "minimax",
+  ],
+  [AIModelType.CHAT_FAST]: [
+    "openai",
+    "anthropic",
+    "google",
+    "groq",
+    "xai",
+    "deepseek",
+    "qwen",
+  ],
+  [AIModelType.CODE]: ["anthropic", "openai", "google"],
+  [AIModelType.MULTIMODAL]: ["google", "openai", "anthropic"],
+  [AIModelType.EMBEDDING]: ["openai", "google", "cohere"],
+  [AIModelType.IMAGE_GENERATION]: ["openai", "google"],
+  [AIModelType.IMAGE_EDITING]: ["openai"],
+  [AIModelType.RERANK]: ["cohere"], // 未来可加 jina / voyage
+  [AIModelType.EVALUATOR]: ["openai", "anthropic", "google", "xai"],
 };
 
 /**

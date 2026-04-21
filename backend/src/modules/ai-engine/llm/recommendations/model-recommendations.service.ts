@@ -71,17 +71,23 @@ export class ModelRecommendationsService implements OnModuleInit {
     const fallbackCovered = new Set(fallbacks.map((f) => f.modelType));
 
     // ★ 别名：没 DB 也没硬编码时，借用被映射类型的 patterns
-    //   （例如 EVALUATOR → CHAT：OpenAI/Claude/Gemini 都没专用 evaluator，
-    //    直接复用该 provider 的 CHAT 正则即可，不需要每个 provider 抄一份。）
+    //   （EVALUATOR → CHAT 仅对 whitelist provider 生效，避免中等 CHAT 模型
+    //    被误装成 evaluator）
     const aliased: ResolvedRecommendation[] = [];
-    for (const [typeStr, aliasTo] of Object.entries(MODEL_TYPE_ALIASES)) {
+    for (const [typeStr, alias] of Object.entries(MODEL_TYPE_ALIASES)) {
       const modelType = typeStr as AIModelType;
-      if (!aliasTo) continue;
+      if (!alias) continue;
       if (covered.has(modelType)) continue;
       if (fallbackCovered.has(modelType)) continue;
+      if (
+        alias.applyToProviders &&
+        !alias.applyToProviders.includes(normalized)
+      ) {
+        continue;
+      }
 
       // 找被映射类型的 patterns（优先 DB，fallback 默认）
-      const srcDb = dbRows.find((r) => r.modelType === aliasTo);
+      const srcDb = dbRows.find((r) => r.modelType === alias.aliasTo);
       if (srcDb) {
         aliased.push({
           provider: normalized,
@@ -93,7 +99,7 @@ export class ModelRecommendationsService implements OnModuleInit {
         continue;
       }
       const srcDefault = DEFAULT_RECOMMENDATIONS.find(
-        (d) => d.provider === normalized && d.modelType === aliasTo,
+        (d) => d.provider === normalized && d.modelType === alias.aliasTo,
       );
       if (srcDefault) {
         aliased.push({
@@ -152,19 +158,25 @@ export class ModelRecommendationsService implements OnModuleInit {
     ]);
     const aliased: ResolvedRecommendation[] = [];
     for (const provider of providers) {
-      for (const [typeStr, aliasTo] of Object.entries(MODEL_TYPE_ALIASES)) {
+      for (const [typeStr, alias] of Object.entries(MODEL_TYPE_ALIASES)) {
         const modelType = typeStr as AIModelType;
-        if (!aliasTo) continue;
+        if (!alias) continue;
+        if (
+          alias.applyToProviders &&
+          !alias.applyToProviders.includes(provider)
+        ) {
+          continue;
+        }
         const key = `${provider}:${modelType}`;
         if (covered.has(key) || fallbackCovered.has(key)) continue;
 
         const srcDb = dbRows.find(
-          (r) => r.provider === provider && r.modelType === aliasTo,
+          (r) => r.provider === provider && r.modelType === alias.aliasTo,
         );
         const src =
           srcDb ??
           DEFAULT_RECOMMENDATIONS.find(
-            (d) => d.provider === provider && d.modelType === aliasTo,
+            (d) => d.provider === provider && d.modelType === alias.aliasTo,
           );
         if (!src) continue;
 
