@@ -15,8 +15,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
   Cloud,
   Database,
   Download,
@@ -94,7 +92,6 @@ export default function StorageInventoryPanel() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [tab, setTab] = useState<TabKey>('overview');
-  const [collapsed, setCollapsed] = useState(false);
 
   // 每 30 秒 tick 一次让 "X 分钟前" 自动更新（不重新 fetch）
   useEffect(() => {
@@ -265,207 +262,192 @@ export default function StorageInventoryPanel() {
       <ResponsiveCard>
         <ResponsiveCardHeader>
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => setCollapsed((v) => !v)}
-              className="inline-flex items-center gap-2 rounded text-left transition-colors hover:text-blue-600 dark:hover:text-blue-400"
-              aria-expanded={!collapsed}
-            >
-              {collapsed ? (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              ) : (
-                <ChevronUp className="h-4 w-4 text-gray-400" />
-              )}
+            <div className="inline-flex items-center gap-2">
               <ResponsiveCardTitle>
                 {t('admin.storageInventory.title')}
               </ResponsiveCardTitle>
               <span className="text-xs font-normal text-gray-500">
                 DB {db.totalHuman} · R2 {r2.totalHuman}
               </span>
-            </button>
-            {!collapsed && (
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                {relative && (
-                  <span>
-                    {t('admin.storageInventory.footer.generatedAt', {
-                      ago: relative,
-                    })}
-                  </span>
-                )}
-                <button
-                  onClick={exportJson}
-                  aria-label={t('admin.storageInventory.footer.export')}
-                  title={t('admin.storageInventory.footer.export')}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => void load()}
-                  aria-label={t('admin.storageInventory.footer.refresh')}
-                  title={t('admin.storageInventory.footer.refresh')}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
-                  />
-                </button>
-              </div>
-            )}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              {relative && (
+                <span>
+                  {t('admin.storageInventory.footer.generatedAt', {
+                    ago: relative,
+                  })}
+                </span>
+              )}
+              <button
+                onClick={exportJson}
+                aria-label={t('admin.storageInventory.footer.export')}
+                title={t('admin.storageInventory.footer.export')}
+                className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => void load()}
+                aria-label={t('admin.storageInventory.footer.refresh')}
+                title={t('admin.storageInventory.footer.refresh')}
+                className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
+                />
+              </button>
+            </div>
           </div>
-          {!collapsed && (
-            <div className="mt-3 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
-              {(
-                [
-                  { k: 'overview', label: '概览' },
-                  { k: 'offload', label: 'Off-load 进度' },
-                  { k: 'trend', label: '趋势' },
-                  { k: 'buckets', label: 'R2 Bucket' },
-                  { k: 'tables', label: 'DB 表' },
-                ] as const
-              ).map((t) => (
-                <button
-                  key={t.k}
-                  onClick={() => setTab(t.k)}
-                  className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
-                    tab === t.k
-                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+          <div className="mt-3 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+            {(
+              [
+                { k: 'overview', label: '概览' },
+                { k: 'offload', label: 'Off-load 进度' },
+                { k: 'trend', label: '趋势' },
+                { k: 'buckets', label: 'R2 Bucket' },
+                { k: 'tables', label: 'DB 表' },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.k}
+                onClick={() => setTab(t.k)}
+                className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
+                  tab === t.k
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </ResponsiveCardHeader>
+        <ResponsiveCardContent>
+          {tab === 'overview' && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <MiniStat
+                icon={<Database className="h-4 w-4" />}
+                label={t('admin.storageInventory.summary.db')}
+                value={db.totalHuman}
+                sub={t('admin.storageInventory.summary.tablesCount', {
+                  count: String(db.tables.length),
+                })}
+                tone="blue"
+              />
+              <MiniStat
+                icon={<Cloud className="h-4 w-4" />}
+                label={
+                  <span className="flex items-center gap-1">
+                    {t('admin.storageInventory.summary.r2')}
+                    {cloudflareUrl && (
+                      <a
+                        href={cloudflareUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={t(
+                          'admin.storageInventory.bucket.openCloudflare'
+                        )}
+                        title={t(
+                          'admin.storageInventory.bucket.openCloudflare'
+                        )}
+                        className="opacity-60 hover:opacity-100"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                    <span className="font-mono text-[10px] opacity-70">
+                      {r2.bucket ??
+                        t('admin.storageInventory.summary.r2Unconfigured')}
+                    </span>
+                  </span>
+                }
+                value={r2.totalHuman}
+                sub={t('admin.storageInventory.summary.objectsCount', {
+                  count: String(r2.totalObjects),
+                })}
+                tone={r2.configured ? 'green' : 'gray'}
+              />
+              <MiniStat
+                icon={<HardDrive className="h-4 w-4" />}
+                label={t('admin.storageInventory.summary.total')}
+                value={humanBytes(db.totalBytes + r2.totalBytes)}
+                sub={t('admin.storageInventory.summary.subTotal')}
+                tone="purple"
+              />
             </div>
           )}
-        </ResponsiveCardHeader>
-        {!collapsed && (
-          <ResponsiveCardContent>
-            {tab === 'overview' && (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <MiniStat
-                  icon={<Database className="h-4 w-4" />}
-                  label={t('admin.storageInventory.summary.db')}
-                  value={db.totalHuman}
-                  sub={t('admin.storageInventory.summary.tablesCount', {
-                    count: String(db.tables.length),
-                  })}
-                  tone="blue"
-                />
-                <MiniStat
-                  icon={<Cloud className="h-4 w-4" />}
-                  label={
-                    <span className="flex items-center gap-1">
-                      {t('admin.storageInventory.summary.r2')}
-                      {cloudflareUrl && (
-                        <a
-                          href={cloudflareUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={t(
-                            'admin.storageInventory.bucket.openCloudflare'
-                          )}
-                          title={t(
-                            'admin.storageInventory.bucket.openCloudflare'
-                          )}
-                          className="opacity-60 hover:opacity-100"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                      <span className="font-mono text-[10px] opacity-70">
-                        {r2.bucket ??
-                          t('admin.storageInventory.summary.r2Unconfigured')}
-                      </span>
-                    </span>
-                  }
-                  value={r2.totalHuman}
-                  sub={t('admin.storageInventory.summary.objectsCount', {
-                    count: String(r2.totalObjects),
-                  })}
-                  tone={r2.configured ? 'green' : 'gray'}
-                />
-                <MiniStat
-                  icon={<HardDrive className="h-4 w-4" />}
-                  label={t('admin.storageInventory.summary.total')}
-                  value={humanBytes(db.totalBytes + r2.totalBytes)}
-                  sub={t('admin.storageInventory.summary.subTotal')}
-                  tone="purple"
-                />
-              </div>
-            )}
 
-            {tab === 'offload' && (
-              <div>
-                <div className="mb-2 flex items-start justify-between">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {t('admin.storageInventory.offload.title')}
-                    </h4>
-                    <p className="text-xs text-gray-500">
-                      {t('admin.storageInventory.offload.subtitle')}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setConfirmOpen(true)}
-                    disabled={triggering || !r2.configured}
-                    aria-label={t('admin.storageInventory.offload.runNow')}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    <Play className="h-3 w-3" />
-                    {triggering
-                      ? t('admin.storageInventory.offload.running')
-                      : t('admin.storageInventory.offload.runNow')}
-                  </button>
-                </div>
-                <OffloadTable rows={offloadFields} t={t} />
-              </div>
-            )}
-
-            {tab === 'trend' && (
-              <div>
-                <div className="mb-2">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {t('admin.storageInventory.trend.title')}
-                  </h4>
-                  <p className="text-xs text-gray-500">
-                    {t('admin.storageInventory.trend.subtitle')}
-                  </p>
-                </div>
-                <TrendChart points={trend} t={t} />
-              </div>
-            )}
-
-            {tab === 'buckets' &&
-              r2.configured &&
-              (r2.byPrefix?.length ?? 0) > 0 && (
+          {tab === 'offload' && (
+            <div>
+              <div className="mb-2 flex items-start justify-between">
                 <div>
-                  <div className="mb-2">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {t('admin.storageInventory.bucket.title')} ({r2.bucket})
-                    </h4>
-                    <p className="text-xs text-gray-500">
-                      {t('admin.storageInventory.bucket.subtitle')}
-                    </p>
-                  </div>
-                  <BucketTable rows={r2.byPrefix} t={t} />
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {t('admin.storageInventory.offload.title')}
+                  </h4>
+                  <p className="text-xs text-gray-500">
+                    {t('admin.storageInventory.offload.subtitle')}
+                  </p>
                 </div>
-              )}
+                <button
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={triggering || !r2.configured}
+                  aria-label={t('admin.storageInventory.offload.runNow')}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <Play className="h-3 w-3" />
+                  {triggering
+                    ? t('admin.storageInventory.offload.running')
+                    : t('admin.storageInventory.offload.runNow')}
+                </button>
+              </div>
+              <OffloadTable rows={offloadFields} t={t} />
+            </div>
+          )}
 
-            {tab === 'tables' && (
+          {tab === 'trend' && (
+            <div>
+              <div className="mb-2">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {t('admin.storageInventory.trend.title')}
+                </h4>
+                <p className="text-xs text-gray-500">
+                  {t('admin.storageInventory.trend.subtitle')}
+                </p>
+              </div>
+              <TrendChart points={trend} t={t} />
+            </div>
+          )}
+
+          {tab === 'buckets' &&
+            r2.configured &&
+            (r2.byPrefix?.length ?? 0) > 0 && (
               <div>
                 <div className="mb-2">
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {t('admin.storageInventory.tables.title')}
+                    {t('admin.storageInventory.bucket.title')} ({r2.bucket})
                   </h4>
                   <p className="text-xs text-gray-500">
-                    {t('admin.storageInventory.tables.subtitle')}
+                    {t('admin.storageInventory.bucket.subtitle')}
                   </p>
                 </div>
-                <DbTopTable rows={db.tables.slice(0, 10)} t={t} />
+                <BucketTable rows={r2.byPrefix} t={t} />
               </div>
             )}
-          </ResponsiveCardContent>
-        )}
+
+          {tab === 'tables' && (
+            <div>
+              <div className="mb-2">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {t('admin.storageInventory.tables.title')}
+                </h4>
+                <p className="text-xs text-gray-500">
+                  {t('admin.storageInventory.tables.subtitle')}
+                </p>
+              </div>
+              <DbTopTable rows={db.tables.slice(0, 10)} t={t} />
+            </div>
+          )}
+        </ResponsiveCardContent>
       </ResponsiveCard>
 
       <ConfirmDialog
