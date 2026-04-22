@@ -27,6 +27,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { R2StorageService } from "./r2-storage.service";
 
@@ -129,8 +130,12 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
       {
         name: "dimension_analyses.data_points",
         list: async (p, take) => {
+          // DbNull 表示 SQL NULL；Prisma 下过滤 JSON 字段"不为 NULL"要用 Prisma.DbNull 取反
           const rows = await p.dimensionAnalysis.findMany({
-            where: { dataPointsUri: null, dataPoints: { not: undefined } },
+            where: {
+              dataPointsUri: null,
+              NOT: { dataPoints: { equals: Prisma.DbNull } },
+            },
             select: { id: true, dataPoints: true },
             take,
           });
@@ -142,17 +147,11 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
             }));
         },
         commit: async (p, id, uri, size) => {
-          await p.dimensionAnalysis.update({
-            where: { id },
-            data: {
-              dataPoints: undefined, // Prisma 下 undefined 跳过，但我们要设为 null
-              dataPointsUri: uri,
-              dataPointsSize: size,
-            },
-          });
-          // Prisma 的 JSON 字段清空用 raw
+          // 一条 raw SQL 同时写 URI + 清 data_points（原子更新）
           await p.$executeRawUnsafe(
-            `UPDATE dimension_analyses SET data_points = NULL WHERE id = $1`,
+            `UPDATE dimension_analyses SET data_points=NULL, data_points_uri=$1, data_points_size=$2 WHERE id=$3`,
+            uri,
+            size,
             id,
           );
         },
@@ -169,7 +168,10 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
         name: "research_tasks.result",
         list: async (p, take) => {
           const rows = await p.researchTask.findMany({
-            where: { resultUri: null, result: { not: undefined } },
+            where: {
+              resultUri: null,
+              NOT: { result: { equals: Prisma.DbNull } },
+            },
             select: { id: true, result: true },
             take,
           });
@@ -181,12 +183,10 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
             }));
         },
         commit: async (p, id, uri, size) => {
-          await p.researchTask.update({
-            where: { id },
-            data: { resultUri: uri, resultSize: size },
-          });
           await p.$executeRawUnsafe(
-            `UPDATE research_tasks SET result = NULL WHERE id = $1`,
+            `UPDATE research_tasks SET result=NULL, result_uri=$1, result_size=$2 WHERE id=$3`,
+            uri,
+            size,
             id,
           );
         },

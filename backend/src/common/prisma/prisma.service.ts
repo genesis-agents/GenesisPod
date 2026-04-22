@@ -164,24 +164,7 @@ export class PrismaService
   private initObjectStorage(): { client: S3Client; bucket: string } | null {
     if (this.objectStorage) return this.objectStorage;
 
-    const skipB2 = process.env.OBJECT_STORAGE_PREFERRED === "r2";
-    const b2KeyId = skipB2 ? undefined : process.env.B2_KEY_ID;
-    const b2AppKey = skipB2 ? undefined : process.env.B2_APP_KEY;
-    const b2Endpoint = skipB2 ? undefined : process.env.B2_ENDPOINT;
-    const b2Bucket = skipB2 ? undefined : process.env.B2_BUCKET_NAME;
-    if (b2KeyId && b2AppKey && b2Endpoint && b2Bucket) {
-      const regionMatch = b2Endpoint.match(/s3\.([^.]+)\.backblazeb2\.com/);
-      this.objectStorage = {
-        client: new S3Client({
-          region: regionMatch ? regionMatch[1] : "us-east-005",
-          endpoint: b2Endpoint,
-          credentials: { accessKeyId: b2KeyId, secretAccessKey: b2AppKey },
-        }),
-        bucket: b2Bucket,
-      };
-      return this.objectStorage;
-    }
-
+    // 2026-04-22 全面 R2，彻底废弃 B2
     const r2AccountId = process.env.R2_ACCOUNT_ID;
     const r2AccessKey = process.env.R2_ACCESS_KEY_ID;
     const r2Secret = process.env.R2_SECRET_ACCESS_KEY;

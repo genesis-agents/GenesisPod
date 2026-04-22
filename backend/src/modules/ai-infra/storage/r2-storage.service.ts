@@ -26,14 +26,16 @@ export interface UploadResult {
 }
 
 /**
- * 对象存储服务（支持 Backblaze B2 / Cloudflare R2）
+ * 对象存储服务 — Cloudflare R2（S3 API 兼容）
  *
- * 使用私有 Bucket + 预签名 URL，完全免费无需信用卡
+ * 2026-04-22: 全面切换 R2，彻底废弃 B2。
+ * R2 免费档：10GB 存储 + 1000 万 Class A ops/月 + 1 亿 Class B ops/月 + 零 egress。
  *
- * Backblaze B2 免费额度：
- * - 10GB 存储
- * - 1GB/天 出站流量
- * - 私有 Bucket 免费
+ * 环境变量：
+ * - R2_ACCOUNT_ID       Cloudflare 账号 ID
+ * - R2_ACCESS_KEY_ID    API Token 的 Access Key
+ * - R2_SECRET_ACCESS_KEY API Token 的 Secret
+ * - R2_BUCKET_NAME      bucket 名
  */
 @Injectable()
 export class R2StorageService implements OnModuleInit {
@@ -41,78 +43,40 @@ export class R2StorageService implements OnModuleInit {
   private s3Client: S3Client | null = null;
   private bucketName: string;
   private isConfigured = false;
-  private provider: "b2" | "r2" | "none" = "none";
-  // 预签名 URL 有效期（秒）- 7天
+  private readonly provider = "r2" as const;
+  // 预签名 URL 有效期（秒）- 7 天
   private readonly PRESIGN_EXPIRES = 7 * 24 * 60 * 60;
 
   constructor(private readonly configService: ConfigService) {
     this.bucketName =
-      this.configService.get<string>("B2_BUCKET_NAME") ||
-      this.configService.get<string>("R2_BUCKET_NAME") ||
-      "deepdive-images";
+      this.configService.get<string>("R2_BUCKET_NAME") || "genesis-reports";
   }
 
   onModuleInit() {
-    // ★ 2026-04-22 切流：B2 cap 封死后临时用 R2。OBJECT_STORAGE_PREFERRED=r2 时跳 B2。
-    const preferred = this.configService.get<string>(
-      "OBJECT_STORAGE_PREFERRED",
-    );
-    const skipB2 = preferred === "r2";
-
-    // 优先检查 Backblaze B2 配置
-    const b2KeyId = skipB2 ? null : this.configService.get<string>("B2_KEY_ID");
-    const b2AppKey = skipB2
-      ? null
-      : this.configService.get<string>("B2_APP_KEY");
-    const b2Endpoint = skipB2
-      ? null
-      : this.configService.get<string>("B2_ENDPOINT");
-
-    if (b2KeyId && b2AppKey && b2Endpoint) {
-      // 从 endpoint 提取 region（如 s3.us-west-004.backblazeb2.com -> us-west-004）
-      const regionMatch = b2Endpoint.match(/s3\.([^.]+)\.backblazeb2\.com/);
-      const region = regionMatch ? regionMatch[1] : "us-west-004";
-
-      this.s3Client = new S3Client({
-        region,
-        endpoint: b2Endpoint,
-        credentials: {
-          accessKeyId: b2KeyId,
-          secretAccessKey: b2AppKey,
-        },
-      });
-      this.isConfigured = true;
-      this.provider = "b2";
-      this.logger.log(
-        `Backblaze B2 Storage configured (bucket: ${this.bucketName}, region: ${region})`,
-      );
-      return;
-    }
-
-    // 其次检查 Cloudflare R2 配置
     const r2AccountId = this.configService.get<string>("R2_ACCOUNT_ID");
     const r2AccessKeyId = this.configService.get<string>("R2_ACCESS_KEY_ID");
     const r2SecretAccessKey = this.configService.get<string>(
       "R2_SECRET_ACCESS_KEY",
     );
 
-    if (r2AccountId && r2AccessKeyId && r2SecretAccessKey) {
-      this.s3Client = new S3Client({
-        region: "auto",
-        endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: r2AccessKeyId,
-          secretAccessKey: r2SecretAccessKey,
-        },
-      });
-      this.isConfigured = true;
-      this.provider = "r2";
-      this.logger.log("Cloudflare R2 Storage configured successfully");
+    if (!r2AccountId || !r2AccessKeyId || !r2SecretAccessKey) {
+      this.logger.warn(
+        "R2 Storage not configured — set R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY",
+      );
       return;
     }
 
-    this.logger.warn(
-      "Object Storage not configured - missing credentials. Images will be stored as base64 in database.",
+    this.s3Client = new S3Client({
+      region: "auto",
+      endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: r2AccessKeyId,
+        secretAccessKey: r2SecretAccessKey,
+      },
+    });
+    this.isConfigured = true;
+    this.logger.log(
+      `Cloudflare R2 Storage configured (bucket: ${this.bucketName})`,
     );
   }
 
@@ -124,10 +88,10 @@ export class R2StorageService implements OnModuleInit {
   }
 
   /**
-   * 获取当前使用的存储提供商
+   * 获取当前使用的存储提供商（历史接口，保留返回 "r2"/"none"）
    */
-  getProvider(): "b2" | "r2" | "none" {
-    return this.provider;
+  getProvider(): "r2" | "none" {
+    return this.isConfigured ? this.provider : "none";
   }
 
   /**

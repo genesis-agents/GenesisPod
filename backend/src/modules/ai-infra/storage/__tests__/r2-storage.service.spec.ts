@@ -71,10 +71,10 @@ describe("R2StorageService", () => {
     it("should configure B2 when B2 credentials are provided", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "test-key-id",
-          B2_APP_KEY: "test-app-key",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
-          B2_BUCKET_NAME: "test-bucket",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
+          R2_BUCKET_NAME: "test-bucket",
         };
         return map[key];
       });
@@ -90,15 +90,15 @@ describe("R2StorageService", () => {
       svc.onModuleInit();
 
       expect(svc.isEnabled()).toBe(true);
-      expect(svc.getProvider()).toBe("b2");
+      expect(svc.getProvider()).toBe("r2");
     });
 
     it("should extract region from B2 endpoint URL", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "test-key-id",
-          B2_APP_KEY: "test-app-key",
-          B2_ENDPOINT: "https://s3.eu-central-003.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret-eu",
         };
         return map[key];
       });
@@ -114,15 +114,15 @@ describe("R2StorageService", () => {
       svc.onModuleInit();
 
       expect(svc.isEnabled()).toBe(true);
-      expect(svc.getProvider()).toBe("b2");
+      expect(svc.getProvider()).toBe("r2");
     });
 
     it("should use default region when B2 endpoint does not match pattern", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "test-key-id",
-          B2_APP_KEY: "test-app-key",
-          B2_ENDPOINT: "https://custom-endpoint.example.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret-custom",
         };
         return map[key];
       });
@@ -138,7 +138,7 @@ describe("R2StorageService", () => {
       svc.onModuleInit();
 
       expect(svc.isEnabled()).toBe(true);
-      expect(svc.getProvider()).toBe("b2");
+      expect(svc.getProvider()).toBe("r2");
     });
   });
 
@@ -199,9 +199,9 @@ describe("R2StorageService", () => {
       // Configure the service with B2
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "test-key-id",
-          B2_APP_KEY: "test-app-key",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -223,9 +223,9 @@ describe("R2StorageService", () => {
     it("should upload successfully and return presigned URL", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "test-key-id",
-          B2_APP_KEY: "test-app-key",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -258,9 +258,9 @@ describe("R2StorageService", () => {
     it("should support jpeg image type", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -286,9 +286,9 @@ describe("R2StorageService", () => {
     it("should handle upload failure gracefully", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -327,9 +327,9 @@ describe("R2StorageService", () => {
     it("should upload buffer and return URL", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -362,9 +362,9 @@ describe("R2StorageService", () => {
     it("should handle buffer upload failure", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -393,9 +393,9 @@ describe("R2StorageService", () => {
     it("should handle filename without extension", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -436,9 +436,9 @@ describe("R2StorageService", () => {
     it("should return presigned URL when configured", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -469,9 +469,9 @@ describe("R2StorageService", () => {
     it("should return new presigned URL for valid key URL", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
           B2_BUCKET_NAME: "mybucket",
         };
         return map[key];
@@ -499,9 +499,9 @@ describe("R2StorageService", () => {
     it("should return null when presigned URL generation fails", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
           B2_BUCKET_NAME: "mybucket",
         };
         return map[key];
@@ -534,9 +534,9 @@ describe("R2StorageService", () => {
     it("should delete successfully and return true", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -558,9 +558,9 @@ describe("R2StorageService", () => {
     it("should return false when delete fails", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });
@@ -597,9 +597,9 @@ describe("R2StorageService", () => {
       // Use the existing service instance
       service.onModuleInit();
 
-      // The bucket name defaults to "deepdive-images"
+      // Default bucket name (updated to genesis-reports after B2 removal)
       const url =
-        "https://example.com/deepdive-images/prefix/image.png?X-Amz=test";
+        "https://example.com/genesis-reports/prefix/image.png?X-Amz=test";
       const key = service.extractKeyFromUrl(url);
       expect(key).toBe("prefix/image.png");
     });
@@ -628,9 +628,9 @@ describe("R2StorageService", () => {
     it("should upload multiple images in parallel", async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         const map: Record<string, string> = {
-          B2_KEY_ID: "k",
-          B2_APP_KEY: "s",
-          B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+          R2_ACCOUNT_ID: "test-account",
+          R2_ACCESS_KEY_ID: "test-key-id",
+          R2_SECRET_ACCESS_KEY: "test-secret",
         };
         return map[key];
       });

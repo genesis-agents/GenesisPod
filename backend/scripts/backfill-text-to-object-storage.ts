@@ -217,37 +217,19 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const SKIP_HEAD_CHECK = process.argv.includes("--skip-head"); // 走不幂等、但快的 PUT-only 模式
 
 function buildS3Client(): { client: S3Client; bucket: string } | null {
-  // 优先 B2（已有历史数据），其次 R2
-  const b2KeyId = process.env.B2_KEY_ID;
-  const b2AppKey = process.env.B2_APP_KEY;
-  const b2Endpoint = process.env.B2_ENDPOINT;
-  const b2Bucket = process.env.B2_BUCKET_NAME;
-  if (b2KeyId && b2AppKey && b2Endpoint && b2Bucket) {
-    const regionMatch = b2Endpoint.match(/s3\.([^.]+)\.backblazeb2\.com/);
-    return {
-      client: new S3Client({
-        region: regionMatch ? regionMatch[1] : "us-east-005",
-        endpoint: b2Endpoint,
-        credentials: { accessKeyId: b2KeyId, secretAccessKey: b2AppKey },
-      }),
-      bucket: b2Bucket,
-    };
-  }
   const r2AccountId = process.env.R2_ACCOUNT_ID;
   const r2AccessKey = process.env.R2_ACCESS_KEY_ID;
   const r2Secret = process.env.R2_SECRET_ACCESS_KEY;
   const r2Bucket = process.env.R2_BUCKET_NAME;
-  if (r2AccountId && r2AccessKey && r2Secret && r2Bucket) {
-    return {
-      client: new S3Client({
-        region: "auto",
-        endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
-        credentials: { accessKeyId: r2AccessKey, secretAccessKey: r2Secret },
-      }),
-      bucket: r2Bucket,
-    };
-  }
-  return null;
+  if (!r2AccountId || !r2AccessKey || !r2Secret || !r2Bucket) return null;
+  return {
+    client: new S3Client({
+      region: "auto",
+      endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId: r2AccessKey, secretAccessKey: r2Secret },
+    }),
+    bucket: r2Bucket,
+  };
 }
 
 async function mapPool<T, R>(
@@ -286,7 +268,9 @@ async function main() {
 
   const storage = buildS3Client();
   if (!storage) {
-    console.error("[error] B2 credentials missing.");
+    console.error(
+      "[error] R2 credentials missing (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME).",
+    );
     process.exit(1);
   }
   console.log(`[init] target=${target.name} bucket=${storage.bucket}`);
