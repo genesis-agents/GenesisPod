@@ -224,7 +224,7 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
       {
         key: 'storage',
         labelKey: 'admin.nav.storage',
-        href: '/admin/system/storage',
+        href: '/admin/storage',
         icon: HardDrive,
       },
       {
@@ -268,7 +268,6 @@ export const ROUTE_REDIRECTS: Record<string, string> = {
   '/admin/whitelists': '/admin/data/whitelists',
   '/admin/users': '/admin/access/users',
   '/admin/secrets': '/admin/access/secrets',
-  '/admin/storage': '/admin/system/storage',
 };
 
 // 获取所有导航项（扁平化）
