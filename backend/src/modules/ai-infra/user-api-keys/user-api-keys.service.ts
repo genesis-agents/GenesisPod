@@ -167,6 +167,43 @@ export class UserApiKeysService {
   }
 
   /**
+   * BYOK 状态快照 — onboarding banner / first-login modal 用
+   * 返回：是否配置、活跃 provider 列表、是否已有至少一条 UserModelConfig、
+   * 是否首次登录（createdAt 在 7 天内 + 无 active key + 无 model config）
+   */
+  async getByokStatus(userId: string): Promise<{
+    configured: boolean;
+    activeProviders: string[];
+    hasModelConfig: boolean;
+    firstTime: boolean;
+  }> {
+    const [activeKeys, modelConfigCount, user] = await Promise.all([
+      this.prisma.userApiKey.findMany({
+        where: { userId, isActive: true, mode: "PERSONAL" },
+        select: { provider: true },
+      }),
+      this.prisma.userModelConfig.count({
+        where: { userId, isEnabled: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { createdAt: true },
+      }),
+    ]);
+    const activeProviders = Array.from(
+      new Set(activeKeys.map((k) => k.provider.toLowerCase())),
+    );
+    const ageMs = user ? Date.now() - user.createdAt.getTime() : 0;
+    const isNewUser = ageMs < 7 * 24 * 60 * 60 * 1000;
+    return {
+      configured: activeProviders.length > 0,
+      activeProviders,
+      hasModelConfig: modelConfigCount > 0,
+      firstTime: isNewUser && activeProviders.length === 0,
+    };
+  }
+
+  /**
    * 保存或更新用户 API Key
    */
   async saveKey(

@@ -36,6 +36,18 @@ export class UserApiKeysController {
   }
 
   /**
+   * BYOK 状态概览 — 给首次登录引导 / dashboard banner 用
+   * GET /api/v1/user/api-keys/status
+   *
+   * 返回 { configured, activeProviders, hasModelConfig }，
+   * 前端 useByokStatus() 依据这个决定要不要显示 onboarding banner / modal。
+   */
+  @Get("status")
+  async getStatus(@Req() req: AuthenticatedRequest) {
+    return this.userApiKeysService.getByokStatus(req.user.id);
+  }
+
+  /**
    * 保存/更新 API Key
    */
   @Throttle({ default: { ttl: 60000, limit: 10 } })

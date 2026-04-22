@@ -3,6 +3,7 @@
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import VersionUpdateBanner from './VersionUpdateBanner';
+import { ByokOnboardingBanner } from '@/components/byok/ByokOnboardingBanner';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -40,7 +41,13 @@ export default function AppShell({
           {!hideSidebar && <Sidebar />}
 
           {/* Main Content */}
-          {children}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* BYOK 引导横幅（未配置 Key 时温和提示，可关闭，30 天内不再弹） */}
+            <div className="px-4 pt-3 md:px-6">
+              <ByokOnboardingBanner />
+            </div>
+            <div className="flex min-h-0 flex-1">{children}</div>
+          </div>
         </div>
       </div>
     </>
