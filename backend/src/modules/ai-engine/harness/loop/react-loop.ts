@@ -27,7 +27,6 @@ import type {
   IActionResult,
   IContextEnvelope,
   IContextMessage,
-  IHookRegistry,
   ILoopTerminationCriteria,
 } from "../abstractions";
 import { ContextEnvelope } from "../core/context-envelope";
@@ -35,6 +34,7 @@ import { AiChatService } from "../../llm/services/ai-chat.service";
 import type { ChatMessage } from "../../llm/types";
 import { ToolInvoker } from "../executor/tool-invoker";
 import { ContextManager } from "../context/context-manager";
+import { HookRegistry } from "../core/hook-registry";
 
 export interface ReActLoopOptions {
   agentId: string;
@@ -72,7 +72,7 @@ export class ReActLoop implements IAgentLoop {
   constructor(
     private readonly chatService: AiChatService,
     private readonly toolInvoker: ToolInvoker,
-    private readonly hookRegistry: IHookRegistry,
+    private readonly hookRegistry: HookRegistry,
     @Optional() private readonly contextManager?: ContextManager,
   ) {}
 
@@ -231,8 +231,7 @@ export class ReActLoop implements IAgentLoop {
         thinking?: unknown;
         action?: unknown;
       };
-      const thinking =
-        typeof obj.thinking === "string" ? obj.thinking : "";
+      const thinking = typeof obj.thinking === "string" ? obj.thinking : "";
       const action = this.normalizeAction(obj.action);
       return { thinking, action };
     } catch (err) {
@@ -373,7 +372,9 @@ export class ReActLoop implements IAgentLoop {
     }
   }
 
-  private extractLastAssistantMessage(envelope: IContextEnvelope): string | null {
+  private extractLastAssistantMessage(
+    envelope: IContextEnvelope,
+  ): string | null {
     for (let i = envelope.messages.length - 1; i >= 0; i -= 1) {
       const m = envelope.messages[i];
       if (m.role === "assistant") return m.content;

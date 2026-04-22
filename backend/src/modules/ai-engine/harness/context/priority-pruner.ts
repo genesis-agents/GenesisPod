@@ -8,11 +8,11 @@
  *   3. 保留最新 K 条（即使是 low 优先级），避免丢失最近上下文
  */
 
-import type {
-  IContextEnvelope,
-  ISystemReminder,
-} from "../abstractions";
+import { Injectable, Optional, Inject } from "@nestjs/common";
+import type { IContextEnvelope, ISystemReminder } from "../abstractions";
 import { ContextEnvelope } from "../core/context-envelope";
+
+export const PRUNER_CONFIG_TOKEN = "HARNESS_PRUNER_CONFIG";
 
 export interface PrunerConfig {
   maxReminders?: number;
@@ -31,8 +31,13 @@ const PRIORITY_ORDER: Record<ISystemReminder["priority"], number> = {
   high: 3,
 };
 
+@Injectable()
 export class PriorityPruner {
-  constructor(private readonly config: PrunerConfig = {}) {}
+  constructor(
+    @Optional()
+    @Inject(PRUNER_CONFIG_TOKEN)
+    private readonly config: PrunerConfig = {},
+  ) {}
 
   /** 返回裁剪后的 envelope；如果没有触发裁剪，返回原 envelope */
   prune(envelope: IContextEnvelope): IContextEnvelope {
@@ -52,9 +57,7 @@ export class PriorityPruner {
       originalIndex: idx,
       // Score: priority + recency bonus - transient penalty
       score:
-        PRIORITY_ORDER[r.priority] * 10 +
-        idx * 0.1 -
-        (r.transient ? 5 : 0),
+        PRIORITY_ORDER[r.priority] * 10 + idx * 0.1 - (r.transient ? 5 : 0),
     }));
 
     // Keep (max - keepLast) highest-scored from head

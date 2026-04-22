@@ -12,14 +12,13 @@
  *   - 压缩失败降级：保留原 envelope，记 warn 不抛错
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
-import type {
-  IContextEnvelope,
-  IContextMessage,
-} from "../abstractions";
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+import type { IContextEnvelope, IContextMessage } from "../abstractions";
 import { ContextEnvelope } from "../core/context-envelope";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { estimateEnvelopeTokens } from "./token-estimator";
+
+export const COMPACTOR_CONFIG_TOKEN = "HARNESS_COMPACTOR_CONFIG";
 
 export interface CompactorConfig {
   /** 触发压缩的 token 阈值（默认 8000） */
@@ -59,6 +58,8 @@ export class ContextCompactor {
 
   constructor(
     @Optional() private readonly chatService?: AiChatService,
+    @Optional()
+    @Inject(COMPACTOR_CONFIG_TOKEN)
     private readonly config: CompactorConfig = {},
   ) {}
 

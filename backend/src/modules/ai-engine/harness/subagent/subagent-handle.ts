@@ -4,7 +4,7 @@
  * 提供：
  *   - events: 子 agent 事件的 async stream
  *   - waitForResult(): 等待子 agent 的 final output
- *   - abort(): 中止子 agent 执行
+ *   - abort(): 中止子 agent 执行（真正调 child.cancel() 传播 AbortSignal）
  */
 
 import { randomUUID } from "crypto";
@@ -22,11 +22,11 @@ export class SubagentHandle implements ISubagentHandle {
   readonly spec: ISubagentSpec;
   readonly events: AsyncIterable<IAgentEvent>;
 
+  private readonly child: IAgent;
   private resultPromise: Promise<string | Record<string, unknown>>;
-  private resolveResult!: (
-    value: string | Record<string, unknown>,
-  ) => void;
+  private resolveResult!: (value: string | Record<string, unknown>) => void;
   private rejectResult!: (err: Error) => void;
+  private settled = false;
   private aborted = false;
 
   constructor(params: {
@@ -39,10 +39,19 @@ export class SubagentHandle implements ISubagentHandle {
     this.name = params.name;
     this.parent = params.parent;
     this.spec = params.spec;
+    this.child = params.child;
 
     this.resultPromise = new Promise((resolve, reject) => {
-      this.resolveResult = resolve;
-      this.rejectResult = reject;
+      this.resolveResult = (v) => {
+        if (this.settled) return;
+        this.settled = true;
+        resolve(v);
+      };
+      this.rejectResult = (e) => {
+        if (this.settled) return;
+        this.settled = true;
+        reject(e);
+      };
     });
 
     this.events = this.consume(params.child);
@@ -56,17 +65,30 @@ export class SubagentHandle implements ISubagentHandle {
         yield ev;
 
         if (ev.type === "output") {
-          const payload = ev.payload as { output: string | Record<string, unknown> };
+          const payload = ev.payload as {
+            output: string | Record<string, unknown>;
+          };
           this.resolveResult(payload.output);
         } else if (ev.type === "error") {
           const payload = ev.payload as { message: string };
           this.rejectResult(new Error(payload.message));
-        } else if (ev.type === "terminated" && this.aborted) {
-          this.rejectResult(new Error("Subagent aborted"));
+        } else if (ev.type === "terminated") {
+          // Final safety net — if no output/error event fired, reject/resolve here
+          if (this.aborted) {
+            this.rejectResult(new Error("Subagent aborted"));
+          } else {
+            // No output and no error? Resolve with empty (completed but silent)
+            this.resolveResult("");
+          }
         }
       }
     } catch (err) {
       this.rejectResult(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      // Guarantee the caller never hangs on waitForResult()
+      if (!this.settled) {
+        this.rejectResult(new Error("Subagent stream ended without result"));
+      }
     }
   }
 
@@ -74,9 +96,9 @@ export class SubagentHandle implements ISubagentHandle {
     return this.resultPromise;
   }
 
-  async abort(_reason?: string): Promise<void> {
+  async abort(reason = "aborted by parent"): Promise<void> {
     this.aborted = true;
-    // The child agent's cancel() will propagate through AbortController in loop
-    await Promise.resolve();
+    // Propagate cancellation to the child agent's AbortController
+    await this.child.cancel(reason);
   }
 }

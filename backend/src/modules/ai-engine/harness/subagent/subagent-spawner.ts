@@ -15,7 +15,6 @@ import type {
   ISubagentHandle,
   ISubagentSpec,
   ISubagentSpawner,
-  IHookRegistry,
 } from "../abstractions";
 import { AgentFactory } from "../core/agent-factory";
 import { HookRegistry } from "../core/hook-registry";
@@ -41,7 +40,7 @@ export class SubagentSpawner implements ISubagentSpawner {
     const parentEnvelope = parent.getEnvelope();
 
     // 1. PreSubagentSpawn hook
-    const hookResult = await (this.hooks as IHookRegistry).dispatch(
+    const hookResult = await this.hooks.dispatch(
       "PreSubagentSpawn",
       {
         spec: {

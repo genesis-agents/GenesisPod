@@ -15,13 +15,13 @@ import type {
   IAgentIdentity,
   IContextEnvelope,
   IHookBinding,
-  IHookRegistry,
   ISkill,
   ISkillActivationContext,
   HookEvent,
 } from "../abstractions";
 import { ContextEnvelope } from "../core/context-envelope";
 import { SkillRegistry } from "./skill-registry";
+import { HookRegistry } from "../core/hook-registry";
 
 export interface SkillActivationResult {
   envelope: IContextEnvelope;
@@ -37,7 +37,7 @@ export class SkillActivator {
 
   constructor(
     private readonly registry: SkillRegistry,
-    private readonly hooks: IHookRegistry,
+    private readonly hooks: HookRegistry,
   ) {}
 
   async activate(

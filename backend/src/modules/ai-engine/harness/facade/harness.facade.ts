@@ -1,7 +1,7 @@
 /**
  * HarnessFacade — Harness 层对外的唯一入口
  *
- * Phase 2：注入 AgentFactory（由 HarnessModule 组装好 loop + memory bridge）。
+ * 组合 AgentFactory + HookRegistry + CheckpointService。
  * App 层只与本 facade 打交道，禁止穿透到 harness/core 内部。
  */
 
@@ -12,7 +12,6 @@ import type {
   IAgentSpec,
   IAgentTask,
   IHarness,
-  IHookRegistry,
   IAgentLoop,
   IOutputEvent,
   AgentState,
@@ -24,11 +23,13 @@ import type { ICheckpoint } from "../checkpoint/checkpoint.types";
 
 @Injectable()
 export class HarnessFacade implements IHarness {
-  private readonly _hooks = new HookRegistry();
-  private readonly loops = new Map<string, IAgentLoop>();
-
   constructor(
     private readonly factory: AgentFactory,
+    /**
+     * DI-injected HookRegistry — the SAME instance used by SubagentSpawner,
+     * SkillActivator, ReActLoop. Hooks registered here are visible to all.
+     */
+    private readonly hookRegistry: HookRegistry,
     @Optional() private readonly checkpointService?: CheckpointService,
   ) {}
 
@@ -54,7 +55,8 @@ export class HarnessFacade implements IHarness {
         const reason = (event.payload as { reason?: string }).reason;
         if (reason === "error") terminatedState = "failed";
         else if (reason === "cancelled") terminatedState = "cancelled";
-        else if (reason === "budget") terminatedState = "failed";
+        // budget: partial completion, not failure — callers can inspect iterations
+        else if (reason === "budget") terminatedState = "completed";
       }
     }
 
@@ -62,26 +64,30 @@ export class HarnessFacade implements IHarness {
       output: lastOutput,
       state: terminatedState as IAgentResult["state"],
       iterations,
-      tokensUsed: 0, // Phase 2: token tracking postponed to Phase 5 (Context Engineering)
+      tokensUsed: 0, // Phase 2: token tracking postponed to runtime observability integration
       wallTimeMs: Date.now() - startMs,
     };
   }
 
-  registerLoop(loop: IAgentLoop): void {
-    this.loops.set(loop.kind, loop);
+  /**
+   * registerLoop is part of IHarness contract for future Loop polymorphism
+   * (ReAct vs Plan-Execute vs Reflexion). Currently ReActLoop is the default
+   * wired via DI; this method is a forward-compatibility hook — NOT YET USED
+   * to dispatch to alternative loops. Marked as known-dead until Phase 7.
+   */
+  registerLoop(_loop: IAgentLoop): void {
+    // no-op: alternative loops not yet dispatched (Phase 7)
   }
 
-  get hooks(): IHookRegistry {
-    return this._hooks;
+  get hooks(): HookRegistry {
+    return this.hookRegistry;
   }
 
   /**
    * Resume — 从 checkpoint id 或最新 checkpoint 恢复 agent 执行
    */
   async resume(
-    params:
-      | { checkpointId: string }
-      | { agentId: string; useLatest: true },
+    params: { checkpointId: string } | { agentId: string; useLatest: true },
   ): Promise<{ agent: IAgent; checkpoint: ICheckpoint } | null> {
     if (!this.checkpointService) {
       throw new Error(

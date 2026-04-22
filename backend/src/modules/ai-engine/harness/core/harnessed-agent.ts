@@ -52,7 +52,8 @@ export class HarnessedAgent implements IAgent {
   private readonly subagentSpawner?: ISubagentSpawner;
   private readonly checkpointService?: CheckpointService;
   private readonly checkpointEveryNActions: number;
-  private abortController: AbortController | null = null;
+  /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
+  private readonly abortController = new AbortController();
 
   constructor(init: HarnessedAgentInit, id?: string) {
     this.id = id ?? randomUUID();
@@ -71,8 +72,18 @@ export class HarnessedAgent implements IAgent {
   }
 
   async *execute(task: IAgentTask): AsyncIterable<IAgentEvent> {
+    // If already cancelled before execute started, emit terminated immediately
+    if (this.state === "cancelled" || this.abortController.signal.aborted) {
+      this.state = "cancelled";
+      yield {
+        type: "terminated",
+        agentId: this.id,
+        timestamp: Date.now(),
+        payload: { reason: "cancelled" as const },
+      };
+      return;
+    }
     this.state = "running";
-    this.abortController = new AbortController();
 
     let actionCount = 0;
     let eventCount = 0;
@@ -250,7 +261,7 @@ export class HarnessedAgent implements IAgent {
 
   async cancel(_reason = "cancelled by caller"): Promise<void> {
     this.state = "cancelled";
-    this.abortController?.abort();
+    this.abortController.abort();
     return Promise.resolve();
   }
 

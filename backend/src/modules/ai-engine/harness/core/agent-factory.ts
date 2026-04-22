@@ -1,10 +1,12 @@
 /**
  * AgentFactory — 从 IAgentSpec 构造 HarnessedAgent
  *
- * Phase 2：注入 loop + memoryBridge（可选；单测可以 new AgentFactory() 不传任何依赖）。
+ * 循环依赖处理：AgentFactory ↔ SubagentSpawner。
+ * 采用 setter injection：HarnessModule onApplicationBootstrap 时把 spawner wire 进来。
+ * 这比 forwardRef + @Inject(class) 更稳，测试里也可直接 factory.setSubagentSpawner(mock)。
  */
 
-import { Injectable, Optional, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import type {
   IAgent,
@@ -13,6 +15,7 @@ import type {
   IBudgetSnapshot,
   IContextEnvelope,
   IMemoryBinding,
+  ISubagentSpawner,
 } from "../abstractions";
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
@@ -20,23 +23,28 @@ import { HarnessedAgent } from "./harnessed-agent";
 import { ReActLoop } from "../loop/react-loop";
 import { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 import { SkillActivator } from "../skills/skill-activator";
-import type { SubagentSpawner } from "../subagent/subagent-spawner";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 
 @Injectable()
 export class AgentFactory {
   private readonly defaultLoop?: IAgentLoop;
+  private subagentSpawner?: ISubagentSpawner;
 
   constructor(
     @Optional() reactLoop?: ReActLoop,
     @Optional() private readonly memoryBridge?: MemoryBridge,
     @Optional() private readonly skillActivator?: SkillActivator,
-    @Optional()
-    @Inject(forwardRef(() => "SubagentSpawner" as const))
-    private readonly subagentSpawner?: SubagentSpawner,
     @Optional() private readonly checkpointService?: CheckpointService,
   ) {
     this.defaultLoop = reactLoop;
+  }
+
+  /**
+   * 供 HarnessModule onApplicationBootstrap 调用，打破循环依赖。
+   * 不提供 spawner 时，agent.spawnSubagent() 会抛错。
+   */
+  setSubagentSpawner(spawner: ISubagentSpawner): void {
+    this.subagentSpawner = spawner;
   }
 
   create(spec: IAgentSpec): IAgent {
@@ -86,10 +94,7 @@ export class AgentFactory {
    * 供 SubagentSpawner 使用：在已派生的 envelope 上创建 agent，
    * 不重新计算 memory/budget（isolation policy 已经准备好了）。
    */
-  createWithEnvelope(
-    spec: IAgentSpec,
-    envelope: IContextEnvelope,
-  ): IAgent {
+  createWithEnvelope(spec: IAgentSpec, envelope: IContextEnvelope): IAgent {
     const identity =
       spec.identity instanceof AgentIdentity
         ? spec.identity

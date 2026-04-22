@@ -17,35 +17,28 @@
  * Phase 6 (current): Long-horizon checkpoint + resume + skill learning
  */
 
-import { Global, Module, forwardRef } from "@nestjs/common";
+import {
+  Global,
+  Module,
+  forwardRef,
+  OnApplicationBootstrap,
+  Inject,
+} from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
 import { AgentFactory } from "./core/agent-factory";
 import { HookRegistry } from "./core/hook-registry";
 import { ReActLoop } from "./loop/react-loop";
 import { ToolInvoker } from "./executor/tool-invoker";
 import { MemoryBridge } from "./memory-bridge/memory-bridge.service";
-import {
-  SkillRegistry,
-  SkillLoader,
-  SkillActivator,
-} from "./skills";
+import { SkillRegistry, SkillLoader, SkillActivator } from "./skills";
 import { SubagentSpawner } from "./subagent";
-import {
-  ContextManager,
-  ContextCompactor,
-  PriorityPruner,
-} from "./context";
-import {
-  CheckpointService,
-  InMemoryCheckpointStore,
-} from "./checkpoint";
+import { ContextManager, ContextCompactor, PriorityPruner } from "./context";
+import { CheckpointService, InMemoryCheckpointStore } from "./checkpoint";
 import { SkillLearner } from "./learning";
 
 import { AiEngineLLMModule } from "../ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine-tools.module";
 import { AiEngineMemoryModule } from "../ai-engine-memory.module";
-
-export const HOOK_REGISTRY_TOKEN = Symbol("HOOK_REGISTRY");
 
 @Global()
 @Module({
@@ -57,7 +50,6 @@ export const HOOK_REGISTRY_TOKEN = Symbol("HOOK_REGISTRY");
   providers: [
     // Cross-cutting
     HookRegistry,
-    { provide: HOOK_REGISTRY_TOKEN, useExisting: HookRegistry },
 
     // Executor / Loop / Memory (Phase 2)
     ToolInvoker,
@@ -100,4 +92,16 @@ export const HOOK_REGISTRY_TOKEN = Symbol("HOOK_REGISTRY");
     SkillLearner,
   ],
 })
-export class HarnessModule {}
+export class HarnessModule implements OnApplicationBootstrap {
+  constructor(
+    @Inject(AgentFactory) private readonly factory: AgentFactory,
+    @Inject(SubagentSpawner) private readonly spawner: SubagentSpawner,
+  ) {}
+
+  onApplicationBootstrap(): void {
+    // Break the circular dependency: AgentFactory ↔ SubagentSpawner.
+    // Constructor injection requires both instances up-front; setter injection
+    // lets NestJS finish provider instantiation, then we wire the cycle here.
+    this.factory.setSubagentSpawner(this.spawner);
+  }
+}
