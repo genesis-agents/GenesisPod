@@ -1,5 +1,5 @@
 /**
- * KernelMemoryManagerService Unit Tests
+ * ProcessMemoryManagerService Unit Tests
  *
  * Tests process-level memory management backed by the ProcessMemory table:
  * - read()     - fetch, expire, and return null
@@ -10,13 +10,16 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { KernelMemoryManagerService } from "../kernel-memory-manager.service";
+import { ProcessMemoryManagerService } from "../process-memory-manager.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { MemoryLayer } from "@prisma/client";
-import type { MemoryEntry, MemoryQuery } from "../../process/process.types";
+import type {
+  MemoryEntry,
+  MemoryQuery,
+} from "../../../../ai-kernel/process/process.types";
 
-describe("KernelMemoryManagerService", () => {
-  let service: KernelMemoryManagerService;
+describe("ProcessMemoryManagerService", () => {
+  let service: ProcessMemoryManagerService;
   let mockPrisma: {
     $queryRaw: jest.Mock;
     processMemory: {
@@ -57,13 +60,13 @@ describe("KernelMemoryManagerService", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        KernelMemoryManagerService,
+        ProcessMemoryManagerService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<KernelMemoryManagerService>(
-      KernelMemoryManagerService,
+    service = module.get<ProcessMemoryManagerService>(
+      ProcessMemoryManagerService,
     );
 
     await service.onModuleInit();
@@ -325,7 +328,7 @@ describe("KernelMemoryManagerService", () => {
   // ─── tableReady = false (disabled service) ────────────────────────────────
 
   describe("when process_memories table does not exist", () => {
-    let disabledService: KernelMemoryManagerService;
+    let disabledService: ProcessMemoryManagerService;
 
     beforeEach(async () => {
       // Return exists: false so tableReady stays false after onModuleInit
@@ -342,13 +345,13 @@ describe("KernelMemoryManagerService", () => {
 
       const module = await Test.createTestingModule({
         providers: [
-          KernelMemoryManagerService,
+          ProcessMemoryManagerService,
           { provide: PrismaService, useValue: disabledPrisma },
         ],
       }).compile();
 
-      disabledService = module.get<KernelMemoryManagerService>(
-        KernelMemoryManagerService,
+      disabledService = module.get<ProcessMemoryManagerService>(
+        ProcessMemoryManagerService,
       );
       await disabledService.onModuleInit();
     });
@@ -396,13 +399,13 @@ describe("KernelMemoryManagerService", () => {
 
       const module = await Test.createTestingModule({
         providers: [
-          KernelMemoryManagerService,
+          ProcessMemoryManagerService,
           { provide: PrismaService, useValue: errorPrisma },
         ],
       }).compile();
 
-      const svc = module.get<KernelMemoryManagerService>(
-        KernelMemoryManagerService,
+      const svc = module.get<ProcessMemoryManagerService>(
+        ProcessMemoryManagerService,
       );
       await svc.onModuleInit();
 
@@ -427,13 +430,13 @@ describe("KernelMemoryManagerService", () => {
 
       const module = await Test.createTestingModule({
         providers: [
-          KernelMemoryManagerService,
+          ProcessMemoryManagerService,
           { provide: PrismaService, useValue: emptyResultPrisma },
         ],
       }).compile();
 
-      const svc = module.get<KernelMemoryManagerService>(
-        KernelMemoryManagerService,
+      const svc = module.get<ProcessMemoryManagerService>(
+        ProcessMemoryManagerService,
       );
       await svc.onModuleInit();
 

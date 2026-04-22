@@ -27,7 +27,7 @@ import { ToolRegistry } from "../tools/registry/tool-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 import { LLMFactory } from "../llm/factory/llm-factory";
 import { CostController } from "../../ai-kernel/facade";
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";

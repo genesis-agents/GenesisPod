@@ -20,7 +20,7 @@ jest.mock("../../../../ai-engine/facade", () => ({
 jest.mock("../../../../ai-kernel/facade", () => ({
   MissionExecutorService: class {},
   EventJournalService: class {},
-  KernelMemoryManagerService: class {},
+  ProcessMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
   KernelContext: { run: jest.fn((_, fn) => fn()) },

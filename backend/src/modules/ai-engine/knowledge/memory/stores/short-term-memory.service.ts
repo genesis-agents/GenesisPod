@@ -1,5 +1,5 @@
 /**
- * Working Memory Store (migrated from ShortTermMemoryService)
+ * Short Term Memory Service
  * Session-level temporary storage with TTL support
  */
 import { Injectable } from "@nestjs/common";
@@ -15,7 +15,7 @@ interface MemoryItem {
 }
 
 @Injectable()
-export class WorkingMemoryStore {
+export class ShortTermMemoryService {
   private readonly sessions: LruMap<string, Map<string, MemoryItem>>;
 
   constructor(private readonly configService: ConfigService) {

@@ -57,7 +57,7 @@ import {
 import { LLMFactory } from "../../llm/factory/llm-factory";
 import { LLMToolDefinition } from "../../llm/abstractions/llm-adapter.interface";
 import { MCPManager } from "../../mcp/manager/mcp-manager";
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import {
   HandoffCoordinator,
   HandoffContextBuilder,
@@ -79,7 +79,7 @@ import {
 } from "../../orchestration/abstractions/orchestrator.interface";
 import { MissionExecutorService } from "../../../ai-kernel/facade";
 import { EventJournalService } from "../../../ai-kernel/facade";
-import { HierarchicalMemoryCascadeService } from "../../../ai-kernel/facade";
+import { HierarchicalMemoryCascadeService } from "@/modules/ai-engine/runtime/memory/hierarchical-memory-cascade.service";
 import {
   AgentLifecycleProtocolService,
   type TaskNotificationPayload,

@@ -33,18 +33,8 @@ export type {
   CheckpointManagerConfig,
 } from "../journal/checkpoint-manager";
 
-// Memory
-export { KernelMemoryManagerService } from "../memory/kernel-memory-manager.service";
-export { HierarchicalMemoryCascadeService } from "../memory/hierarchical-memory-cascade.service";
-export type {
-  MemoryScope,
-  MemoryCascadeQuery,
-  MemoryCascadeResult,
-  MemoryWriteOptions,
-} from "../memory/hierarchical-memory-cascade.service";
-export { SCOPE_PRIORITY } from "../memory/hierarchical-memory-cascade.service";
-export { WorkingMemoryStore } from "../memory/stores/working-memory.store";
-export { PersistentMemoryStore } from "../memory/stores/persistent-memory.store";
+// Memory: moved to ai-engine/runtime/memory + ai-engine/knowledge/memory (PR 3 of kernel-merge refactor)
+// Consumers should import Memory symbols from @/modules/ai-engine/facade
 
 // IPC
 export { EventBusService } from "../ipc/event-bus.service";

@@ -22,7 +22,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "./stores/long-term-memory.service";
 import { KnowledgeGraphTool } from "../../tools/categories/information/knowledge/knowledge-graph.tool";
 

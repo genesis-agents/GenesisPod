@@ -6,7 +6,7 @@
 import { Injectable } from "@nestjs/common";
 import { ProcessManagerService } from "../process/process-manager.service";
 import { EventJournalService } from "../journal/event-journal.service";
-import { KernelMemoryManagerService } from "../memory/kernel-memory-manager.service";
+import { ProcessMemoryManagerService } from "../../ai-engine/runtime/memory/process-memory-manager.service";
 import { ResourceManagerService } from "../resource/resource-manager.service";
 import { MissionExecutorService } from "../mission/mission-executor.service";
 import { CircuitBreakerService } from "../resource/circuit-breaker.service";
@@ -39,7 +39,7 @@ export class KernelApiService {
   constructor(
     private readonly processManager: ProcessManagerService,
     private readonly eventJournal: EventJournalService,
-    private readonly memoryManager: KernelMemoryManagerService,
+    private readonly memoryManager: ProcessMemoryManagerService,
     private readonly resourceManager: ResourceManagerService,
     private readonly missionExecutor: MissionExecutorService,
     private readonly circuitBreaker: CircuitBreakerService,

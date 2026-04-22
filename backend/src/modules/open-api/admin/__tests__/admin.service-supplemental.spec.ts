@@ -113,7 +113,7 @@ jest.mock("../../../ai-kernel/facade", () => ({
   KernelApiService: class {},
   MissionExecutorService: class {},
   EventJournalService: class {},
-  KernelMemoryManagerService: class {},
+  ProcessMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },

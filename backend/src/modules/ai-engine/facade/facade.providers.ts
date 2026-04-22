@@ -6,7 +6,7 @@
  */
 
 import { Logger, Provider } from "@nestjs/common";
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "../knowledge/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";

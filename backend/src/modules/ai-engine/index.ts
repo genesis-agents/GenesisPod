@@ -116,8 +116,10 @@ export * as Image from "./content/image";
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
 export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
-export { WorkingMemoryStore as ShortTermMemoryService } from "../ai-kernel/facade";
+export { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
 export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
+export { HierarchicalMemoryCascadeService } from "./runtime/memory/hierarchical-memory-cascade.service";
+export { ProcessMemoryManagerService } from "./runtime/memory/process-memory-manager.service";
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
 // Teams 模块核心服务

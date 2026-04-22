@@ -2,11 +2,6 @@ import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { ProcessManagerService } from "./process/process-manager.service";
 import { EventJournalService } from "./journal/event-journal.service";
-import { KernelMemoryManagerService } from "./memory/kernel-memory-manager.service";
-import { HierarchicalMemoryCascadeService } from "./memory/hierarchical-memory-cascade.service";
-import { WorkingMemoryStore } from "./memory/stores/working-memory.store";
-import { PersistentMemoryStore } from "./memory/stores/persistent-memory.store";
-import { InMemoryStore } from "./memory/stores/in-memory-store";
 import { EventBusService } from "./ipc/event-bus.service";
 import { ProgressTrackerService } from "./ipc/progress-tracker.service";
 import { MessageBusService } from "./ipc/message-bus.service";
@@ -32,12 +27,7 @@ const KERNEL_PROVIDERS = [
   // Journal
   EventJournalService,
   CheckpointManager,
-  // Memory
-  KernelMemoryManagerService,
-  HierarchicalMemoryCascadeService,
-  WorkingMemoryStore,
-  PersistentMemoryStore,
-  InMemoryStore,
+  // Memory: moved to ai-engine/runtime/memory + ai-engine/knowledge/memory (PR 3 of kernel-merge refactor)
   // IPC
   EventBusService,
   ProgressTrackerService,
