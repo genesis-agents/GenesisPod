@@ -38,16 +38,23 @@ Infra:    Docker + Railway + PM2 + Redis 7
 - **Redis 7**: 缓存和会话管理
 - 已移除 MongoDB、Neo4j、Qdrant（成本优化 70-75%）
 
-### AI 架构分层（6 层）
+### AI 架构分层（5 层）
 
 ```
-L6 Intent Gateway（意图网关层）→ 意图识别、路由分发         → modules/intent-gateway/
-L5 Open API（开放接口层）→ MCP Server、Public API、Webhooks → modules/open-api/
-L4 AI Apps（业务应用层）→ Research、Teams、Writing、Office   → modules/ai-app/
-L3 AI Engine（核心能力层）→ LLM、Agents、Tools、RAG         → modules/ai-engine/
-L2 AI Kernel（内核层）→ 进程管理、IPC、资源调度             → modules/ai-kernel/
-L1 Infrastructure（基础设施层）→ Auth、Credits、Storage      → modules/ai-infra/
+L5 Intent Gateway（意图网关层）→ 意图识别、路由分发          → modules/intent-gateway/
+L4 Open API（开放接口层）→ MCP Server、Public API、Webhooks  → modules/open-api/
+L3 AI Apps（业务应用层）→ Research、Teams、Writing、Office    → modules/ai-app/
+L2 AI Engine（核心能力层）→ LLM / Agents / Tools / RAG / Runtime → modules/ai-engine/
+      ├── facade/       对外统一入口
+      ├── llm/ tools/ agents/ teams/ skills/ mcp/ safety/ knowledge/ ...
+      └── runtime/      平台能力（memory/journal/ipc/resource/observability/
+                        a2a/realtime/process/scheduler/supervisor/mission/
+                        security/api/context）
+L1 Infrastructure（基础设施层）→ Auth、Credits、Storage       → modules/ai-infra/
 ```
+
+> 历史遗留：`modules/ai-kernel/` 保留为空壳兼容层（仅 facade + abstractions 类型桥），
+> 所有运行时能力已迁移到 `ai-engine/runtime/`。后续 PR 会彻底删除 `ai-kernel/`。
 
 > 详细文档: [skills/ai-architecture-layering/SKILL.md](skills/ai/ai-architecture-layering/SKILL.md)
 
