@@ -140,6 +140,43 @@ const TARGETS: Record<string, Target> = {
     },
     keyFor: (id) => `dimension-analyses/${id}/data_points.json`,
   },
+  "research-tasks-result": {
+    name: "research_tasks.result (JSON)",
+    keyPrefix: "research-tasks",
+    ext: "json",
+    list: async (p, cursor, take) => {
+      const rows = await p.researchTask.findMany({
+        where: {
+          resultUri: null,
+          result: { not: Prisma.JsonNull },
+          ...(cursor ? { id: { gt: cursor } } : {}),
+        },
+        select: { id: true, result: true },
+        orderBy: { id: "asc" },
+        take,
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        content:
+          r.result === null || r.result === undefined
+            ? ""
+            : JSON.stringify(r.result),
+      }));
+    },
+    updateUri: async (p, id, uri, size) => {
+      await p.researchTask.update({
+        where: { id },
+        data: { resultUri: uri, resultSize: size },
+      });
+    },
+    updateSize: async (p, id, size) => {
+      await p.researchTask.update({
+        where: { id },
+        data: { resultSize: size },
+      });
+    },
+    keyFor: (id) => `research-tasks/${id}/result.json`,
+  },
   "topic-evidences": {
     name: "topic_evidences.snippet",
     keyPrefix: "topic-evidences",

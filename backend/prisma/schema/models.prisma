@@ -7066,8 +7066,11 @@ model ResearchTask {
   completedAt DateTime?          @map("completed_at")
 
   // ========== 任务结果 ==========
-  result        Json? // 任务产出（JSON 格式）
-  resultSummary String? @map("result_summary") @db.Text // 结果摘要
+  result        Json? // 任务产出（JSON 格式）— avg 26KB/行，off-load 到对象存储
+  // result off-load：非空表示 JSON 正文在 R2。key 格式："research-tasks/{id}/result.json"
+  resultUri     String? @map("result_uri")
+  resultSize    Int?    @map("result_size")
+  resultSummary String? @map("result_summary") @db.Text // 结果摘要（短文本保留 DB）
 
   // ========== Leader 审核 ==========
   leaderReview  Json?   @map("leader_review") // Leader 审核意见
