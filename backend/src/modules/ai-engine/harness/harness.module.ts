@@ -1,26 +1,65 @@
 /**
  * Harness Module — Agent 运行时脚手架
  *
- * Phase 1（当前）：
- *   - 10 个 abstractions（一等公民接口）
- *   - HarnessedAgent 骨架
- *   - HookRegistry 完整实现
- *   - HarnessFacade 对外唯一入口
+ * 依赖链：
+ *   AI App → HarnessFacade → AgentFactory → (ReActLoop + MemoryBridge + SkillActivator)
+ *     ReActLoop → AiChatService + ToolInvoker + HookRegistry
+ *     ToolInvoker → ToolRegistry
+ *     MemoryBridge → MemoryCoordinatorService (@Optional)
+ *     SkillActivator → SkillRegistry + HookRegistry
+ *     SkillLoader → SkillRegistry (OnModuleInit 自动加载 built-in/*)
  *
- * 后续 Phase：
- *   - Phase 2: AgentLoop (ReAct) + ToolInvoker + MemoryBridge
- *   - Phase 3: SKILL.md 系统 + SkillLoader
- *   - Phase 4: SubagentSpawner + 3 级 isolation
- *   - Phase 5: Context Engineering（compact / prune / fork）
- *   - Phase 6: 长任务 checkpoint + 自我演进
+ * Phase 1: abstractions + HarnessedAgent skeleton + HookRegistry
+ * Phase 2: ReActLoop + ToolInvoker + MemoryBridge
+ * Phase 3 (current): SKILL.md system (parser / registry / loader / activator)
+ * Phase 4+: Subagent spawner, Context engineering, Long-horizon checkpoint
  */
 
-import { Global, Module } from "@nestjs/common";
+import { Global, Module, forwardRef } from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
+import { AgentFactory } from "./core/agent-factory";
+import { HookRegistry } from "./core/hook-registry";
+import { ReActLoop } from "./loop/react-loop";
+import { ToolInvoker } from "./executor/tool-invoker";
+import { MemoryBridge } from "./memory-bridge/memory-bridge.service";
+import {
+  SkillRegistry,
+  SkillLoader,
+  SkillActivator,
+} from "./skills";
+
+import { AiEngineLLMModule } from "../ai-engine-llm.module";
+import { AiEngineToolsModule } from "../ai-engine-tools.module";
+import { AiEngineMemoryModule } from "../ai-engine-memory.module";
+
+export const HOOK_REGISTRY_TOKEN = Symbol("HOOK_REGISTRY");
 
 @Global()
 @Module({
-  providers: [HarnessFacade],
-  exports: [HarnessFacade],
+  imports: [
+    forwardRef(() => AiEngineLLMModule),
+    forwardRef(() => AiEngineToolsModule),
+    forwardRef(() => AiEngineMemoryModule),
+  ],
+  providers: [
+    // Cross-cutting
+    HookRegistry,
+    { provide: HOOK_REGISTRY_TOKEN, useExisting: HookRegistry },
+
+    // Executor / Loop / Memory (Phase 2)
+    ToolInvoker,
+    ReActLoop,
+    MemoryBridge,
+
+    // Skills (Phase 3)
+    SkillRegistry,
+    SkillLoader,
+    SkillActivator,
+
+    // Core
+    AgentFactory,
+    HarnessFacade,
+  ],
+  exports: [HarnessFacade, AgentFactory, SkillRegistry],
 })
 export class HarnessModule {}

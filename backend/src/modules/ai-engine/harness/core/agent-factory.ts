@@ -18,6 +18,7 @@ import { ContextEnvelope } from "./context-envelope";
 import { HarnessedAgent } from "./harnessed-agent";
 import { ReActLoop } from "../loop/react-loop";
 import { MemoryBridge } from "../memory-bridge/memory-bridge.service";
+import { SkillActivator } from "../skills/skill-activator";
 
 @Injectable()
 export class AgentFactory {
@@ -26,6 +27,7 @@ export class AgentFactory {
   constructor(
     @Optional() reactLoop?: ReActLoop,
     @Optional() private readonly memoryBridge?: MemoryBridge,
+    @Optional() private readonly skillActivator?: SkillActivator,
   ) {
     this.defaultLoop = reactLoop;
   }
@@ -66,6 +68,7 @@ export class AgentFactory {
       envelope,
       loop: this.defaultLoop,
       memoryBridge: this.memoryBridge,
+      skillActivator: this.skillActivator,
     });
   }
 }

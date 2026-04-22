@@ -24,12 +24,14 @@ import type {
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
 import type { MemoryBridge } from "../memory-bridge/memory-bridge.service";
+import type { SkillActivator } from "../skills/skill-activator";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;
   envelope: ContextEnvelope;
   loop?: IAgentLoop;
   memoryBridge?: MemoryBridge;
+  skillActivator?: SkillActivator;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -40,6 +42,7 @@ export class HarnessedAgent implements IAgent {
   private envelope: ContextEnvelope;
   private readonly loop?: IAgentLoop;
   private readonly memoryBridge?: MemoryBridge;
+  private readonly skillActivator?: SkillActivator;
   private abortController: AbortController | null = null;
 
   constructor(init: HarnessedAgentInit, id?: string) {
@@ -51,6 +54,7 @@ export class HarnessedAgent implements IAgent {
     this.envelope = init.envelope;
     this.loop = init.loop;
     this.memoryBridge = init.memoryBridge;
+    this.skillActivator = init.skillActivator;
     this.state = "idle";
   }
 
@@ -66,6 +70,19 @@ export class HarnessedAgent implements IAgent {
       timestamp: Date.now(),
     };
     this.envelope = this.envelope.append([userMsg]).envelope as ContextEnvelope;
+
+    // Skill activation (optional) — before memory so skills can see memory later
+    let skillCleanup: (() => void) | null = null;
+    if (this.skillActivator) {
+      const result = await this.skillActivator.activate(
+        this.identity,
+        this.envelope,
+      );
+      if (result.envelope instanceof ContextEnvelope) {
+        this.envelope = result.envelope;
+      }
+      skillCleanup = result.cleanup;
+    }
 
     // Memory recall (optional)
     if (this.memoryBridge) {
@@ -118,6 +135,8 @@ export class HarnessedAgent implements IAgent {
           timestamp: Date.now(),
           payload: { reason: "error" as const },
         };
+      } finally {
+        skillCleanup?.();
       }
       return;
     }
@@ -151,6 +170,7 @@ export class HarnessedAgent implements IAgent {
       timestamp: Date.now(),
       payload: { reason: "completed" as const },
     };
+    skillCleanup?.();
   }
 
   spawnSubagent(_spec: ISubagentSpec): Promise<ISubagentHandle> {
