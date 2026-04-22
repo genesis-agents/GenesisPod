@@ -19,8 +19,8 @@ import { CircuitBreakerService } from "../../resource/circuit-breaker.service";
 import { EventBusService } from "../../ipc/event-bus.service";
 import { MessageBusService } from "../../ipc/message-bus.service";
 import { ProgressTrackerService } from "../../ipc/progress-tracker.service";
-import { KernelMetricsService } from "../../observability/kernel-metrics.service";
-import { CostAttributionService } from "../../observability/cost-attribution.service";
+import { AiObservabilityService } from "../../../ai-engine/runtime/observability/ai-observability.service";
+import { CostAttributionService } from "../../../ai-engine/runtime/observability/cost-attribution.service";
 import { CapabilityGuardService } from "../../security/capability-guard.service";
 import { KernelSchedulerService } from "../../scheduler/kernel-scheduler.service";
 
@@ -178,7 +178,7 @@ describe("KernelApiService", () => {
         { provide: EventBusService, useValue: mockEventBus },
         { provide: MessageBusService, useValue: mockMessageBus },
         { provide: ProgressTrackerService, useValue: mockProgressTracker },
-        { provide: KernelMetricsService, useValue: mockKernelMetrics },
+        { provide: AiObservabilityService, useValue: mockKernelMetrics },
         { provide: CostAttributionService, useValue: mockCostAttribution },
         { provide: CapabilityGuardService, useValue: mockCapabilityGuard },
         { provide: KernelSchedulerService, useValue: mockKernelScheduler },

@@ -1,5 +1,5 @@
 /**
- * KernelMetricsService Unit Tests
+ * AiObservabilityService Unit Tests
  *
  * Covers all public methods:
  * - recordLLMCall()          - write events to ring buffer, queue for DB persistence
@@ -19,7 +19,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { KernelMetricsService, LLMCallEvent } from "../kernel-metrics.service";
+import {
+  AiObservabilityService,
+  LLMCallEvent,
+} from "../ai-observability.service";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output for all tests
@@ -72,15 +75,15 @@ function buildMockPrisma() {
 // Suite (without Prisma – in-memory only)
 // ---------------------------------------------------------------------------
 
-describe("KernelMetricsService (no Prisma)", () => {
-  let service: KernelMetricsService;
+describe("AiObservabilityService (no Prisma)", () => {
+  let service: AiObservabilityService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [KernelMetricsService],
+      providers: [AiObservabilityService],
     }).compile();
 
-    service = module.get<KernelMetricsService>(KernelMetricsService);
+    service = module.get<AiObservabilityService>(AiObservabilityService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -644,19 +647,23 @@ describe("KernelMetricsService (no Prisma)", () => {
 
   describe("estimateCost()", () => {
     it("should calculate cost for gpt-4o", () => {
-      const cost = KernelMetricsService.estimateCost("gpt-4o", 1000, 500);
+      const cost = AiObservabilityService.estimateCost("gpt-4o", 1000, 500);
       // input: 1000/1000 * 0.0025 = 0.0025; output: 500/1000 * 0.01 = 0.005; total = 0.0075
       expect(cost).toBeCloseTo(0.0075);
     });
 
     it("should calculate cost for gpt-4o-mini", () => {
-      const cost = KernelMetricsService.estimateCost("gpt-4o-mini", 1000, 500);
+      const cost = AiObservabilityService.estimateCost(
+        "gpt-4o-mini",
+        1000,
+        500,
+      );
       // input: 1000/1000 * 0.00015 = 0.00015; output: 500/1000 * 0.0006 = 0.0003; total = 0.00045
       expect(cost).toBeCloseTo(0.00045);
     });
 
     it("should calculate cost for claude-3.5-sonnet", () => {
-      const cost = KernelMetricsService.estimateCost(
+      const cost = AiObservabilityService.estimateCost(
         "claude-3.5-sonnet",
         1000,
         500,
@@ -666,7 +673,7 @@ describe("KernelMetricsService (no Prisma)", () => {
     });
 
     it("should use default pricing for unknown models", () => {
-      const cost = KernelMetricsService.estimateCost(
+      const cost = AiObservabilityService.estimateCost(
         "unknown-model",
         1000,
         1000,
@@ -676,12 +683,12 @@ describe("KernelMetricsService (no Prisma)", () => {
     });
 
     it("should return 0 when both token counts are 0", () => {
-      const cost = KernelMetricsService.estimateCost("gpt-4o", 0, 0);
+      const cost = AiObservabilityService.estimateCost("gpt-4o", 0, 0);
       expect(cost).toBe(0);
     });
 
     it("should calculate cost for claude-3-haiku", () => {
-      const cost = KernelMetricsService.estimateCost(
+      const cost = AiObservabilityService.estimateCost(
         "claude-3-haiku",
         1000,
         1000,
@@ -690,12 +697,12 @@ describe("KernelMetricsService (no Prisma)", () => {
     });
 
     it("should calculate cost for grok-2", () => {
-      const cost = KernelMetricsService.estimateCost("grok-2", 1000, 1000);
+      const cost = AiObservabilityService.estimateCost("grok-2", 1000, 1000);
       expect(cost).toBeCloseTo(0.012);
     });
 
     it("should calculate cost for grok-beta", () => {
-      const cost = KernelMetricsService.estimateCost("grok-beta", 1000, 1000);
+      const cost = AiObservabilityService.estimateCost("grok-beta", 1000, 1000);
       expect(cost).toBeCloseTo(0.02);
     });
   });
@@ -722,8 +729,8 @@ describe("KernelMetricsService (no Prisma)", () => {
 // Suite WITH Prisma
 // ---------------------------------------------------------------------------
 
-describe("KernelMetricsService (with Prisma)", () => {
-  let service: KernelMetricsService;
+describe("AiObservabilityService (with Prisma)", () => {
+  let service: AiObservabilityService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
@@ -731,12 +738,12 @@ describe("KernelMetricsService (with Prisma)", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        KernelMetricsService,
+        AiObservabilityService,
         { provide: PrismaService, useValue: mockPrisma as any },
       ],
     }).compile();
 
-    service = module.get<KernelMetricsService>(KernelMetricsService);
+    service = module.get<AiObservabilityService>(AiObservabilityService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -1007,17 +1014,17 @@ describe("KernelMetricsService (with Prisma)", () => {
 // Coverage gap: setInterval callback (line 173) — fire the interval manually
 // ---------------------------------------------------------------------------
 
-describe("KernelMetricsService (interval callback)", () => {
+describe("AiObservabilityService (interval callback)", () => {
   it("should call flushToDB when the interval fires", async () => {
     jest.useFakeTimers();
     const mockPrisma = buildMockPrisma();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        KernelMetricsService,
+        AiObservabilityService,
         { provide: PrismaService, useValue: mockPrisma as any },
       ],
     }).compile();
-    const service = module.get<KernelMetricsService>(KernelMetricsService);
+    const service = module.get<AiObservabilityService>(AiObservabilityService);
 
     service.onModuleInit();
     service.recordLLMCall(makeCallInput());
@@ -1038,16 +1045,16 @@ describe("KernelMetricsService (interval callback)", () => {
 // Coverage gap: _doFlush early return 0 (line 459) when pendingFlush is empty
 // ---------------------------------------------------------------------------
 
-describe("KernelMetricsService (_doFlush empty guard)", () => {
+describe("AiObservabilityService (_doFlush empty guard)", () => {
   it("should return 0 from _doFlush when all events are consumed in first batch", async () => {
     const mockPrisma = buildMockPrisma();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        KernelMetricsService,
+        AiObservabilityService,
         { provide: PrismaService, useValue: mockPrisma as any },
       ],
     }).compile();
-    const service = module.get<KernelMetricsService>(KernelMetricsService);
+    const service = module.get<AiObservabilityService>(AiObservabilityService);
 
     // Add exactly 1 event (well within batch size)
     service.recordLLMCall(makeCallInput());
@@ -1066,8 +1073,8 @@ describe("KernelMetricsService (_doFlush empty guard)", () => {
 // getDashboardWithFallback() — DB fallback for observability
 // ---------------------------------------------------------------------------
 
-describe("KernelMetricsService (getDashboardWithFallback)", () => {
-  let service: KernelMetricsService;
+describe("AiObservabilityService (getDashboardWithFallback)", () => {
+  let service: AiObservabilityService;
   let mockPrisma: ReturnType<typeof buildMockPrisma> & {
     aIEngineMetric: {
       createMany: jest.Mock;
@@ -1085,12 +1092,12 @@ describe("KernelMetricsService (getDashboardWithFallback)", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        KernelMetricsService,
+        AiObservabilityService,
         { provide: PrismaService, useValue: mockPrisma as any },
       ],
     }).compile();
 
-    service = module.get<KernelMetricsService>(KernelMetricsService);
+    service = module.get<AiObservabilityService>(AiObservabilityService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -1262,14 +1269,14 @@ describe("KernelMetricsService (getDashboardWithFallback)", () => {
 // getDashboardWithFallback() without Prisma — always returns in-memory or empty
 // ---------------------------------------------------------------------------
 
-describe("KernelMetricsService (getDashboardWithFallback without Prisma)", () => {
-  let service: KernelMetricsService;
+describe("AiObservabilityService (getDashboardWithFallback without Prisma)", () => {
+  let service: AiObservabilityService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [KernelMetricsService],
+      providers: [AiObservabilityService],
     }).compile();
-    service = module.get<KernelMetricsService>(KernelMetricsService);
+    service = module.get<AiObservabilityService>(AiObservabilityService);
   });
 
   it("should return empty dashboard when no Prisma and no in-memory data", async () => {

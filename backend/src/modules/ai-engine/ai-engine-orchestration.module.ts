@@ -30,7 +30,7 @@ import { CheckpointManager } from "../ai-kernel/facade";
 
 // ★ Kernel services for executor integration
 import { ProgressTrackerService } from "../ai-kernel/facade";
-import { ProcessEventLogService } from "../ai-kernel/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
 
 // Orchestration Services
 import { TaskDecomposerService } from "./orchestration/services/task-decomposer.service";
@@ -115,7 +115,7 @@ const dagExecutorFactory = {
     checkpointManager: CheckpointManager,
     circuitBreaker: CircuitBreakerService,
     progressTracker: ProgressTrackerService,
-    traceCollector: ProcessEventLogService,
+    traceCollector: TraceCollectorService,
   ) => {
     const executor = new DAGExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
@@ -134,7 +134,7 @@ const dagExecutorFactory = {
     CheckpointManager,
     CircuitBreakerService,
     ProgressTrackerService,
-    ProcessEventLogService,
+    TraceCollectorService,
   ],
 };
 
@@ -202,7 +202,7 @@ const checkpointManagerFactory = {
     // Checkpoint
     checkpointManagerFactory,
 
-    // NOTE: ProgressTrackerService, ProcessEventLogService, CheckpointManager,
+    // NOTE: ProgressTrackerService, TraceCollectorService, CheckpointManager,
     // CircuitBreakerService come from @Global() AiKernelModule — no need to re-declare
 
     // Orchestration Services

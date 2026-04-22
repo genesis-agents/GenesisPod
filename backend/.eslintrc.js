@@ -302,7 +302,7 @@ module.exports = {
               // ════════════════════════════════════════════════════════════
               // Realtime — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/infra/realtime/**"],
+                group: ["**/ai-engine/runtime/realtime/**"],
                 message:
                   "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
               },
@@ -328,8 +328,8 @@ module.exports = {
                   // Agents collaboration sub-context
                   "**/ai-engine/agents/collaboration/**",
                   // Infra bounded context (catchall beyond realtime above)
-                  "**/ai-engine/infra/observability/**",
-                  "**/ai-engine/infra/a2a/**",
+                  "**/ai-engine/runtime/observability/**",
+                  "**/ai-engine/runtime/a2a/**",
                   // API core internals
                   "**/ai-engine/api/**",
                 ],

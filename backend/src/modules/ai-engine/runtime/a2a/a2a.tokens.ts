@@ -11,7 +11,7 @@
 export const TEAMS_SERVICE_TOKEN = "A2ATeamsService";
 
 /**
- * DI token for TraceCollector (ProcessEventLogService) injected into A2AController.
- * 绑定（useExisting: ProcessEventLogService）在 A2AModule 中完成。
+ * DI token for TraceCollector (TraceCollectorService) injected into A2AController.
+ * 绑定（useExisting: TraceCollectorService）在 A2AModule 中完成。
  */
 export const TRACE_COLLECTOR_TOKEN = "A2ATraceCollector";

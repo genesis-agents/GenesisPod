@@ -13,8 +13,8 @@ import { CircuitBreakerService } from "../resource/circuit-breaker.service";
 import { EventBusService } from "../ipc/event-bus.service";
 import { MessageBusService } from "../ipc/message-bus.service";
 import { ProgressTrackerService } from "../ipc/progress-tracker.service";
-import { KernelMetricsService } from "../observability/kernel-metrics.service";
-import { CostAttributionService } from "../observability/cost-attribution.service";
+import { AiObservabilityService } from "../../ai-engine/runtime/observability/ai-observability.service";
+import { CostAttributionService } from "../../ai-engine/runtime/observability/cost-attribution.service";
 import { CapabilityGuardService } from "../security/capability-guard.service";
 import { KernelSchedulerService } from "../scheduler/kernel-scheduler.service";
 import type {
@@ -46,7 +46,7 @@ export class KernelApiService {
     private readonly eventBus: EventBusService,
     private readonly messageBus: MessageBusService,
     private readonly progressTracker: ProgressTrackerService,
-    private readonly kernelMetrics: KernelMetricsService,
+    private readonly kernelMetrics: AiObservabilityService,
     private readonly costAttribution: CostAttributionService,
     private readonly capabilityGuard: CapabilityGuardService,
     private readonly kernelScheduler: KernelSchedulerService,

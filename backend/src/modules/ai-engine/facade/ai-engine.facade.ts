@@ -89,7 +89,7 @@ import {
 import type {
   RoomConfig,
   ProgressEvent,
-} from "../infra/realtime/abstractions/event-emitter.interface";
+} from "../runtime/realtime/abstractions/event-emitter.interface";
 import { CapabilitySummary } from "../orchestration/capabilities/types";
 import type {
   ChatWithSkillsRequest,
@@ -139,7 +139,7 @@ import type {
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../infra/observability/trace.interface";
+} from "../runtime/observability/trace.interface";
 import type {
   MemoryEvent,
   MemoryQuery,

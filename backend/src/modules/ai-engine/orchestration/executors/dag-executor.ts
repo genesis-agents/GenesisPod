@@ -7,7 +7,7 @@
  * - CheckpointManager：step 完成后自动保存检查点
  * - CircuitBreakerService：step 级健康检查（继承自 BaseExecutor）
  * - RetryStrategy：step 级重试（继承自 BaseExecutor）
- * - ProcessEventLogService：自动 Trace/Span
+ * - TraceCollectorService：自动 Trace/Span
  */
 
 import { OnModuleDestroy } from "@nestjs/common";
@@ -20,7 +20,7 @@ import {
 } from "../abstractions/orchestrator.interface";
 import { BaseExecutor } from "./base-executor";
 import type { CheckpointManager } from "../../../ai-kernel/journal/checkpoint-manager";
-import type { ProcessEventLogService } from "../../../ai-kernel/observability/process-event-log.service";
+import type { TraceCollectorService } from "../../../ai-engine/runtime/observability/trace-collector.service";
 
 /** 默认看门狗超时（5 分钟） */
 const DEFAULT_WATCHDOG_TIMEOUT = 5 * 60 * 1000;
@@ -45,7 +45,7 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
 
   private maxConcurrency: number;
   private checkpointManager?: CheckpointManager;
-  private traceCollector?: ProcessEventLogService;
+  private traceCollector?: TraceCollectorService;
 
   constructor(maxConcurrency = 10) {
     super();
@@ -62,7 +62,7 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
   /**
    * 设置追踪收集器（可选，启用自动 Trace/Span）
    */
-  setTraceCollector(traceCollector: ProcessEventLogService): void {
+  setTraceCollector(traceCollector: TraceCollectorService): void {
     this.traceCollector = traceCollector;
   }
 

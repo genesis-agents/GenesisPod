@@ -7,10 +7,10 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { ProcessEventLogService } from "./process-event-log.service";
-import type { TraceType } from "../abstractions";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { TraceCollectorService } from "./trace-collector.service";
+import type { TraceType } from "./trace.interface";
 
 /**
  * Admin Observability Controller
@@ -26,7 +26,7 @@ import type { TraceType } from "../abstractions";
 @Controller("api/v1/admin/traces")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class ObservabilityController {
-  constructor(private readonly traceCollector: ProcessEventLogService) {}
+  constructor(private readonly traceCollector: TraceCollectorService) {}
 
   @Get()
   async listTraces(

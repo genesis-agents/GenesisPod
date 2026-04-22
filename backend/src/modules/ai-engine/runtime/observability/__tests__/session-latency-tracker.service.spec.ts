@@ -376,7 +376,9 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       step.durationMs = undefined; // clear it — forces the `?? (s.endTime ? ... : 0)` branch
 
       const summary = service.endSession(sessionId);
-      const stepSummary = summary!.steps.find((s) => s.name === "no-duration-step");
+      const stepSummary = summary!.steps.find(
+        (s) => s.name === "no-duration-step",
+      );
 
       // Should use endTime - startTime = 100 (approximately)
       expect(stepSummary).toBeDefined();
@@ -740,10 +742,7 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
       const stepId = service.startStep(sessionId, { name: "active_step" });
 
       // No stepId in input — should attach to the currently active step
-      service.recordAction(
-        sessionId,
-        streamingCall({ name: "auto_attach" }),
-      );
+      service.recordAction(sessionId, streamingCall({ name: "auto_attach" }));
 
       const session = service.getSession(sessionId);
       const step = session!.steps.find((s) => s.id === stepId);
@@ -892,11 +891,21 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       service.recordAction(
         sessionId,
-        nonStreamingCall({ name: "call_1", totalDurationMs: 500, ttltMs: 500, stepId }),
+        nonStreamingCall({
+          name: "call_1",
+          totalDurationMs: 500,
+          ttltMs: 500,
+          stepId,
+        }),
       );
       service.recordAction(
         sessionId,
-        nonStreamingCall({ name: "call_2", totalDurationMs: 500, ttltMs: 500, stepId }),
+        nonStreamingCall({
+          name: "call_2",
+          totalDurationMs: 500,
+          ttltMs: 500,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -911,11 +920,21 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       service.recordAction(
         sessionId,
-        streamingCall({ name: "call_1", inputTokens: 100, outputTokens: 200, stepId }),
+        streamingCall({
+          name: "call_1",
+          inputTokens: 100,
+          outputTokens: 200,
+          stepId,
+        }),
       );
       service.recordAction(
         sessionId,
-        streamingCall({ name: "call_2", inputTokens: 150, outputTokens: 250, stepId }),
+        streamingCall({
+          name: "call_2",
+          inputTokens: 150,
+          outputTokens: 250,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -931,11 +950,23 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       service.recordAction(
         sessionId,
-        nonStreamingCall({ name: "call_1", outputTokens: 300, totalDurationMs: 3000, ttltMs: 3000, stepId }),
+        nonStreamingCall({
+          name: "call_1",
+          outputTokens: 300,
+          totalDurationMs: 3000,
+          ttltMs: 3000,
+          stepId,
+        }),
       );
       service.recordAction(
         sessionId,
-        nonStreamingCall({ name: "call_2", outputTokens: 200, totalDurationMs: 2000, ttltMs: 2000, stepId }),
+        nonStreamingCall({
+          name: "call_2",
+          outputTokens: 200,
+          totalDurationMs: 2000,
+          ttltMs: 2000,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -949,7 +980,13 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       service.recordAction(
         sessionId,
-        nonStreamingCall({ name: "call", outputTokens: 0, totalDurationMs: 0, ttltMs: 0, stepId }),
+        nonStreamingCall({
+          name: "call",
+          outputTokens: 0,
+          totalDurationMs: 0,
+          ttltMs: 0,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -1101,7 +1138,12 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       service.recordAction(
         sessionId,
-        nonStreamingCall({ name: "zero_ttlt", ttltMs: 0, totalDurationMs: 0, stepId }),
+        nonStreamingCall({
+          name: "zero_ttlt",
+          ttltMs: 0,
+          totalDurationMs: 0,
+          stepId,
+        }),
       );
 
       service.endStep(sessionId, stepId);
@@ -1251,7 +1293,13 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       service.recordAction(
         sessionId,
-        streamingCall({ name: "single_call", ttftMs: 400, ttltMs: 2000, totalDurationMs: 2000, stepId }),
+        streamingCall({
+          name: "single_call",
+          ttftMs: 400,
+          ttltMs: 2000,
+          totalDurationMs: 2000,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -1271,11 +1319,23 @@ describe("SessionLatencyTrackerService (no Prisma)", () => {
 
       service.recordAction(
         sessionId,
-        streamingCall({ name: "call_1", ttftMs: 800, ttltMs: 3000, totalDurationMs: 3000, stepId }),
+        streamingCall({
+          name: "call_1",
+          ttftMs: 800,
+          ttltMs: 3000,
+          totalDurationMs: 3000,
+          stepId,
+        }),
       );
       service.recordAction(
         sessionId,
-        streamingCall({ name: "call_2", ttftMs: 100, ttltMs: 1000, totalDurationMs: 1000, stepId }),
+        streamingCall({
+          name: "call_2",
+          ttftMs: 100,
+          ttltMs: 1000,
+          totalDurationMs: 1000,
+          stepId,
+        }),
       );
 
       const summary = service.endSession(sessionId);
@@ -1964,7 +2024,9 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
         expect(outerCtx?.latencyPhaseId).toBe(outerStepId);
 
         // Nested run with a different phaseId
-        const innerStepId = service.startStep(sessionId, { name: "inner_step" });
+        const innerStepId = service.startStep(sessionId, {
+          name: "inner_step",
+        });
         await KernelContext.run(
           {
             ...outerCtx!,
@@ -2256,9 +2318,7 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
       const writeActionNames = writeStep!.actions.map((a) => a.name);
 
       for (let i = 0; i < 3; i++) {
-        expect(searchActionNames).toContain(
-          `${dimension}/search_call_${i}`,
-        );
+        expect(searchActionNames).toContain(`${dimension}/search_call_${i}`);
       }
       expect(outlineActionNames).toContain(`${dimension}/outline_call`);
       for (let i = 0; i < 5; i++) {
@@ -2277,9 +2337,9 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
 
       for (const otherDim of otherDimensions) {
         const otherActionNames = searchStep!.actions.map((a) => a.name);
-        expect(
-          otherActionNames.some((n) => n.startsWith(`${otherDim}/`)),
-        ).toBe(false);
+        expect(otherActionNames.some((n) => n.startsWith(`${otherDim}/`))).toBe(
+          false,
+        );
       }
     }
 
@@ -2291,9 +2351,7 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
       const dimStep = session!.steps.find(
         (s) => s.name === `dimension_research:${dimension}`,
       );
-      const taskStep = session!.steps.find(
-        (s) => s.name === "task_execution",
-      );
+      const taskStep = session!.steps.find((s) => s.name === "task_execution");
       expect(dimStep!.parentStepId).toBe(taskStep!.id);
 
       const searchStep = session!.steps.find(
@@ -2340,9 +2398,7 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
     expect(summary!.ttft).toBeDefined();
     expect(summary!.ttft!.minMs).toBeGreaterThanOrEqual(0);
     expect(summary!.ttft!.maxMs).toBeGreaterThan(0);
-    expect(summary!.ttft!.minMs).toBeLessThanOrEqual(
-      summary!.ttft!.maxMs,
-    );
+    expect(summary!.ttft!.minMs).toBeLessThanOrEqual(summary!.ttft!.maxMs);
 
     // ----------------------------------------------------------------
     // TTLT stats exist (all LLM calls have ttltMs > 0)

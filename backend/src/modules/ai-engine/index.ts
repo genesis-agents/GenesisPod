@@ -190,8 +190,10 @@ export type {
 } from "./facade/types";
 
 // Observability 导出
-export { KernelMetricsService as AiObservabilityService } from "../ai-kernel/facade";
-export { CostAttributionService } from "../ai-kernel/facade";
+export { AiObservabilityService } from "./runtime/observability/ai-observability.service";
+export { CostAttributionService } from "./runtime/observability/cost-attribution.service";
+export { TraceCollectorService } from "./runtime/observability/trace-collector.service";
+export { SessionLatencyTrackerService } from "./runtime/observability/session-latency-tracker.service";
 
 // Prompt Registry 导出
 export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

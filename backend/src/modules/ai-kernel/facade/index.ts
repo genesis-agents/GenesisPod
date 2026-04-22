@@ -54,15 +54,8 @@ export type { A2AMessage, A2AMessageType } from "../ipc/message-bus.service";
 // Resource
 export { ResourceManagerService } from "../resource/resource-manager.service";
 
-// Observability
-export { ProcessEventLogService } from "../observability/process-event-log.service";
-export { KernelMetricsService } from "../observability/kernel-metrics.service";
-export type {
-  LLMCallEvent,
-  ModelMetrics,
-  ModuleMetrics,
-  ObservabilityDashboard,
-} from "../observability/kernel-metrics.service";
+// Observability: moved to ai-engine/runtime/observability (PR 2 of kernel-merge refactor)
+// Consumers should import Observability symbols from @/modules/ai-engine/facade
 
 // Mission
 export { MissionExecutorService } from "../mission/mission-executor.service";
@@ -89,48 +82,14 @@ export type {
   ExecutionStateConfig,
 } from "../supervisor/process-supervisor.service";
 
-// Session Latency Tracking
-export { SessionLatencyTrackerService } from "../observability/session-latency-tracker.service";
-export type {
-  LatencySession,
-  LatencyStep,
-  LatencyAction,
-  ActionType,
-  LatencySessionSummary,
-  StepSummary,
-  LatencyPercentileStats,
-  LatencySessionType,
-  LatencySessionStatus,
-  StartSessionInput,
-  StartStepInput,
-  RecordActionInput,
-  ListSessionsFilter,
-  // Legacy aliases
-  TTFTStats,
-  LatencyPhase,
-  LatencyCheckpoint,
-  LLMLatencyRecord,
-  PhaseDurationSummary,
-  StartPhaseInput,
-  RecordLLMLatencyInput,
-} from "../observability/session-latency.types";
+// Session Latency Tracking: moved to ai-engine/runtime/observability (PR 2)
+// Consumers should import from @/modules/ai-engine/facade
 
-// Observability — additional
-export { CostAttributionService } from "../observability/cost-attribution.service";
-export type {
-  CostEvent,
-  CostReport,
-  CostByUser,
-  CostByModule,
-  CostByModel,
-  HourlyBucket,
-  BudgetAlert,
-} from "../observability/cost-attribution.service";
-// NOTE: ObservabilityController NOT exported here — controllers have decorator
-// side effects that cause circular dependency chains. Import directly if needed.
+// Observability (CostAttributionService etc): moved to ai-engine/runtime/observability (PR 2)
+// Consumers should import from @/modules/ai-engine/facade
 
-// IPC — A2A: moved to ai-engine/infra/a2a (PR 1 of kernel-merge refactor)
-// Consumers should import A2A symbols directly from @/modules/ai-engine/infra/a2a
+// IPC — A2A: moved to ai-engine/runtime/a2a (PR 1 of kernel-merge refactor)
+// Consumers should import A2A symbols directly from @/modules/ai-engine/runtime/a2a
 
 // IPC — Progress
 export { ProgressTrackerService } from "../ipc/progress-tracker.service";

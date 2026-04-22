@@ -31,7 +31,7 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
+import { TraceCollectorService } from "./trace-collector.service";
 import { TraceData, SpanData } from "./trace.interface";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 

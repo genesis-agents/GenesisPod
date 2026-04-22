@@ -21,7 +21,7 @@ import type { WorkflowHandlerRegistry } from "../handlers/handler-registry";
 import type { MapStepConfig } from "../handlers/workflow-node-handler.interface";
 import { RetryStrategy } from "./retry-strategy";
 import type { CircuitBreakerService } from "../../../ai-kernel/resource/circuit-breaker.service";
-import type { IProgressTracker } from "../../infra/realtime/abstractions/progress-tracker.interface";
+import type { IProgressTracker } from "../../runtime/realtime/abstractions/progress-tracker.interface";
 
 /**
  * 执行器接口

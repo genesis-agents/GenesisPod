@@ -22,7 +22,7 @@ import {
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
-import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
 import { WorkingMemoryStore as ShortTermMemoryService } from "../../../../ai-kernel/facade";
 
 // ---------------------------------------------------------------------------

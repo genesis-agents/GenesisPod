@@ -88,7 +88,7 @@ import { WebhooksModule } from "./modules/open-api/webhooks";
 import { MCPServerModule } from "./modules/open-api/mcp-server";
 import { PublicApiModule } from "./modules/open-api/public-api/public-api.module";
 // A2A Server module
-import { A2AModule } from "./modules/ai-engine/infra/a2a";
+import { A2AModule } from "./modules/ai-engine/runtime/a2a";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 // L1→L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)

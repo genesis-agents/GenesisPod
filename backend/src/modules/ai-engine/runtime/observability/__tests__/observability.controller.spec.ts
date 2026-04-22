@@ -14,9 +14,9 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { ObservabilityController } from "../observability.controller";
-import { ProcessEventLogService } from "../process-event-log.service";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { TraceCollectorService } from "../trace-collector.service";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../../common/guards/admin.guard";
 
 // Suppress Logger noise during tests
 jest.spyOn(Logger.prototype, "log").mockImplementation();
@@ -85,7 +85,7 @@ describe("ObservabilityController", () => {
       controllers: [ObservabilityController],
       providers: [
         {
-          provide: ProcessEventLogService,
+          provide: TraceCollectorService,
           useValue: mockTraceCollector,
         },
       ],

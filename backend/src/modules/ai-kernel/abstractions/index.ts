@@ -149,4 +149,4 @@ export type {
 
 // ==================== DI Tokens ====================
 // A2A DI tokens (TEAMS_SERVICE_TOKEN / TRACE_COLLECTOR_TOKEN) moved to
-// @/modules/ai-engine/infra/a2a/a2a.tokens (PR 1 of kernel-merge refactor)
+// @/modules/ai-engine/runtime/a2a/a2a.tokens (PR 1 of kernel-merge refactor)

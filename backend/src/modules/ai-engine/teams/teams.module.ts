@@ -31,7 +31,7 @@ import { WorkingMemoryStore as ShortTermMemoryService } from "../../ai-kernel/fa
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ProcessEventLogService as TraceCollectorService } from "../../ai-kernel/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
 import { CheckpointManager } from "../../ai-kernel/facade";
 import { MissionExecutorService } from "../../ai-kernel/facade";
 import { EventJournalService } from "../../ai-kernel/facade";

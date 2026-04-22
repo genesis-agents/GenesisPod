@@ -70,7 +70,7 @@ import {
 } from "../../llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
 import { CheckpointManager } from "../../../ai-kernel/facade";
 import { MessageBusService as A2AMessageBusService } from "../../../ai-kernel/facade";
 import {

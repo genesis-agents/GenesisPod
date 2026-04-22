@@ -1,5 +1,5 @@
 /**
- * ProcessEventLogService Unit Tests
+ * TraceCollectorService Unit Tests
  *
  * Covers all public methods:
  * - startTrace()   - create a new trace, add to LruMap, persist to DB
@@ -16,13 +16,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ProcessEventLogService } from "../process-event-log.service";
+import { TraceCollectorService } from "../trace-collector.service";
 import type {
   CreateTraceInput,
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../../abstractions";
+} from "../trace.interface";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output for all tests
@@ -95,15 +95,15 @@ function buildMockPrisma() {
 // Suite (without Prisma)
 // ---------------------------------------------------------------------------
 
-describe("ProcessEventLogService (no Prisma)", () => {
-  let service: ProcessEventLogService;
+describe("TraceCollectorService (no Prisma)", () => {
+  let service: TraceCollectorService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ProcessEventLogService],
+      providers: [TraceCollectorService],
     }).compile();
 
-    service = module.get<ProcessEventLogService>(ProcessEventLogService);
+    service = module.get<TraceCollectorService>(TraceCollectorService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -603,8 +603,8 @@ describe("ProcessEventLogService (no Prisma)", () => {
 // Suite WITH Prisma — DB persistence paths
 // ---------------------------------------------------------------------------
 
-describe("ProcessEventLogService (with Prisma)", () => {
-  let service: ProcessEventLogService;
+describe("TraceCollectorService (with Prisma)", () => {
+  let service: TraceCollectorService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
@@ -612,12 +612,12 @@ describe("ProcessEventLogService (with Prisma)", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ProcessEventLogService,
+        TraceCollectorService,
         { provide: PrismaService, useValue: mockPrisma as any },
       ],
     }).compile();
 
-    service = module.get<ProcessEventLogService>(ProcessEventLogService);
+    service = module.get<TraceCollectorService>(TraceCollectorService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -930,12 +930,12 @@ describe("ProcessEventLogService (with Prisma)", () => {
 // FIFO eviction tests
 // ---------------------------------------------------------------------------
 
-describe("ProcessEventLogService (FIFO eviction)", () => {
+describe("TraceCollectorService (FIFO eviction)", () => {
   it("should evict oldest completed trace when MAX_TRACES is reached", async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ProcessEventLogService],
+      providers: [TraceCollectorService],
     }).compile();
-    const service = module.get<ProcessEventLogService>(ProcessEventLogService);
+    const service = module.get<TraceCollectorService>(TraceCollectorService);
 
     const MAX_TRACES = 1000;
 
@@ -957,7 +957,7 @@ describe("ProcessEventLogService (FIFO eviction)", () => {
 
   it("should log a warning when all traces are active and cannot be evicted", () => {
     // Create service directly without DI for this edge case
-    const svc = new ProcessEventLogService();
+    const svc = new TraceCollectorService();
 
     const MAX_TRACES = 1000;
 
@@ -977,7 +977,7 @@ describe("ProcessEventLogService (FIFO eviction)", () => {
   });
 
   it("should clean up spans of the evicted trace", () => {
-    const service = new ProcessEventLogService();
+    const service = new TraceCollectorService();
     const MAX_TRACES = 1000;
 
     // Create the trace that will be evicted (completed with spans)
@@ -1009,19 +1009,19 @@ describe("ProcessEventLogService (FIFO eviction)", () => {
 // (lines 75, 116, 147, 175 in process-event-log.service.ts)
 // ---------------------------------------------------------------------------
 
-describe("ProcessEventLogService (fire-and-forget error paths)", () => {
-  let service: ProcessEventLogService;
+describe("TraceCollectorService (fire-and-forget error paths)", () => {
+  let service: TraceCollectorService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ProcessEventLogService,
+        TraceCollectorService,
         { provide: PrismaService, useValue: mockPrisma as any },
       ],
     }).compile();
-    service = module.get<ProcessEventLogService>(ProcessEventLogService);
+    service = module.get<TraceCollectorService>(TraceCollectorService);
   });
 
   afterEach(() => jest.clearAllMocks());

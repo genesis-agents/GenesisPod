@@ -19,11 +19,6 @@ import { ConstraintEngine } from "./resource/constraint-engine";
 import { ConstraintEnforcementService } from "./resource/constraint-enforcement.service";
 import { CostController } from "./resource/cost-controller";
 import { RateLimiter } from "./resource/rate-limiter";
-import { ProcessEventLogService } from "./observability/process-event-log.service";
-import { KernelMetricsService } from "./observability/kernel-metrics.service";
-import { CostAttributionService } from "./observability/cost-attribution.service";
-import { SessionLatencyTrackerService } from "./observability/session-latency-tracker.service";
-import { ObservabilityController } from "./observability/observability.controller";
 import { ProcessSupervisorService } from "./supervisor/process-supervisor.service";
 import { CheckpointManager } from "./journal/checkpoint-manager";
 import { MissionExecutorService } from "./mission/mission-executor.service";
@@ -49,7 +44,7 @@ const KERNEL_PROVIDERS = [
   MessageBusService,
   MessagePersistenceService,
   AgentLifecycleProtocolService,
-  // A2A: moved to ai-engine/infra/a2a (PR 1 of kernel-merge refactor)
+  // A2A: moved to ai-engine/runtime/a2a (PR 1 of kernel-merge refactor)
   // Resource
   CircuitBreakerService,
   TokenBudgetService,
@@ -58,11 +53,7 @@ const KERNEL_PROVIDERS = [
   ConstraintEnforcementService,
   CostController,
   RateLimiter,
-  // Observability
-  ProcessEventLogService,
-  KernelMetricsService,
-  CostAttributionService,
-  SessionLatencyTrackerService,
+  // Observability: moved to ai-engine/runtime/observability (PR 2 of kernel-merge refactor)
   // Supervisor
   ProcessSupervisorService,
   // Mission
@@ -78,7 +69,7 @@ const KERNEL_PROVIDERS = [
 @Global()
 @Module({
   imports: [PrismaModule],
-  controllers: [ObservabilityController], // A2AController now lives in ai-engine/infra/a2a/A2AModule
+  // A2AController moved to ai-engine/runtime/a2a (PR 1); ObservabilityController moved to ai-engine/runtime/observability (PR 2)
   providers: KERNEL_PROVIDERS,
   exports: KERNEL_PROVIDERS,
 })

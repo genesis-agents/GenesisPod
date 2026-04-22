@@ -11,12 +11,12 @@ import type {
   EndTraceInput,
   ListTracesOptions,
   ExecutionStatus,
-} from "../abstractions";
+} from "./trace.interface";
 import { LruMap } from "@/common/utils/lru-map";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 /**
- * Process Event Log Service (formerly TraceCollectorService)
+ * Trace Collector Service
  *
  * 提供执行级别的 trace 和 span 收集，用于 AI 执行链路可视化。
  * - 内存存储（Map），支持 FIFO 淘汰
@@ -25,8 +25,8 @@ import { PrismaService } from "@/common/prisma/prisma.service";
  * - 全局可注入，可在任何模块中使用
  */
 @Injectable()
-export class ProcessEventLogService {
-  private readonly logger = new Logger(ProcessEventLogService.name);
+export class TraceCollectorService {
+  private readonly logger = new Logger(TraceCollectorService.name);
 
   /** 最大存储的 Trace 数量 */
   private readonly MAX_TRACES = 1000;

@@ -111,8 +111,8 @@ const COST_PER_1K_TOKENS: Record<string, { input: number; output: number }> = {
  * - 高性能聚合计算
  */
 @Injectable()
-export class KernelMetricsService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(KernelMetricsService.name);
+export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AiObservabilityService.name);
 
   /**
    * 环形缓冲区，存储最近的 LLM 调用事件
