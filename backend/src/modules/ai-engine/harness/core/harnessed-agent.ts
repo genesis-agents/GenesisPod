@@ -26,6 +26,7 @@ import { ContextEnvelope } from "./context-envelope";
 import type { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 import type { SkillActivator } from "../skills/skill-activator";
 import type { ISubagentSpawner } from "../abstractions";
+import type { CheckpointService } from "../checkpoint/checkpoint.service";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;
@@ -34,6 +35,9 @@ export interface HarnessedAgentInit {
   memoryBridge?: MemoryBridge;
   skillActivator?: SkillActivator;
   subagentSpawner?: ISubagentSpawner;
+  checkpointService?: CheckpointService;
+  /** 每 N 个 action_executed 事件自动 snapshot（默认 0 = 关闭） */
+  checkpointEveryNActions?: number;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -46,6 +50,8 @@ export class HarnessedAgent implements IAgent {
   private readonly memoryBridge?: MemoryBridge;
   private readonly skillActivator?: SkillActivator;
   private readonly subagentSpawner?: ISubagentSpawner;
+  private readonly checkpointService?: CheckpointService;
+  private readonly checkpointEveryNActions: number;
   private abortController: AbortController | null = null;
 
   constructor(init: HarnessedAgentInit, id?: string) {
@@ -59,12 +65,18 @@ export class HarnessedAgent implements IAgent {
     this.memoryBridge = init.memoryBridge;
     this.skillActivator = init.skillActivator;
     this.subagentSpawner = init.subagentSpawner;
+    this.checkpointService = init.checkpointService;
+    this.checkpointEveryNActions = init.checkpointEveryNActions ?? 0;
     this.state = "idle";
   }
 
   async *execute(task: IAgentTask): AsyncIterable<IAgentEvent> {
     this.state = "running";
     this.abortController = new AbortController();
+
+    let actionCount = 0;
+    let eventCount = 0;
+    const taskSnapshot = { goal: task.goal, input: task.input };
 
     const userMsg = {
       role: "user" as const,
@@ -120,7 +132,51 @@ export class HarnessedAgent implements IAgent {
           signal: this.abortController.signal,
         })) {
           yield ev;
-          if (ev.type === "terminated") this.updateStateFromTerminated(ev);
+          eventCount += 1;
+
+          if (ev.type === "action_executed") {
+            actionCount += 1;
+            // Auto-checkpoint every N actions
+            if (
+              this.checkpointService &&
+              this.checkpointEveryNActions > 0 &&
+              actionCount % this.checkpointEveryNActions === 0
+            ) {
+              void this.checkpointService
+                .snapshot({
+                  agentId: this.id,
+                  agentState: this.state,
+                  envelope: this.envelope,
+                  identity: this.identity,
+                  eventsEmitted: eventCount,
+                  reason: "auto-interval",
+                  taskSnapshot,
+                })
+                .catch(() => {
+                  /* fire-and-forget; never break loop */
+                });
+            }
+          }
+
+          if (ev.type === "terminated") {
+            this.updateStateFromTerminated(ev);
+            // Final snapshot before actual termination
+            if (this.checkpointService) {
+              await this.checkpointService
+                .snapshot({
+                  agentId: this.id,
+                  agentState: this.state,
+                  envelope: this.envelope,
+                  identity: this.identity,
+                  eventsEmitted: eventCount,
+                  reason: "pre-terminate",
+                  taskSnapshot,
+                })
+                .catch(() => {
+                  /* ignore */
+                });
+            }
+          }
         }
       } catch (err) {
         this.state = "failed";

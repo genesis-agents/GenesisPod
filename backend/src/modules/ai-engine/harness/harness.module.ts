@@ -13,8 +13,8 @@
  * Phase 2: ReActLoop + ToolInvoker + MemoryBridge
  * Phase 3: SKILL.md system (parser / registry / loader / activator)
  * Phase 4: SubagentSpawner + 3-level isolation (none / context / worktree)
- * Phase 5 (current): Context Engineering (compactor / pruner / manager)
- * Phase 6+: Long-horizon checkpoint + skill learning
+ * Phase 5: Context Engineering (compactor / pruner / manager)
+ * Phase 6 (current): Long-horizon checkpoint + resume + skill learning
  */
 
 import { Global, Module, forwardRef } from "@nestjs/common";
@@ -35,6 +35,11 @@ import {
   ContextCompactor,
   PriorityPruner,
 } from "./context";
+import {
+  CheckpointService,
+  InMemoryCheckpointStore,
+} from "./checkpoint";
+import { SkillLearner } from "./learning";
 
 import { AiEngineLLMModule } from "../ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine-tools.module";
@@ -72,10 +77,27 @@ export const HOOK_REGISTRY_TOKEN = Symbol("HOOK_REGISTRY");
     PriorityPruner,
     ContextManager,
 
+    // Checkpoint + Learning (Phase 6)
+    InMemoryCheckpointStore,
+    {
+      provide: CheckpointService,
+      useFactory: (store: InMemoryCheckpointStore) =>
+        new CheckpointService(store),
+      inject: [InMemoryCheckpointStore],
+    },
+    SkillLearner,
+
     // Core
     AgentFactory,
     HarnessFacade,
   ],
-  exports: [HarnessFacade, AgentFactory, SkillRegistry, ContextManager],
+  exports: [
+    HarnessFacade,
+    AgentFactory,
+    SkillRegistry,
+    ContextManager,
+    CheckpointService,
+    SkillLearner,
+  ],
 })
 export class HarnessModule {}

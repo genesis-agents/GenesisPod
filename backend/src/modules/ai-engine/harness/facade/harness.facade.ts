@@ -5,7 +5,7 @@
  * App 层只与本 facade 打交道，禁止穿透到 harness/core 内部。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import type {
   IAgent,
   IAgentResult,
@@ -19,13 +19,18 @@ import type {
 } from "../abstractions";
 import { AgentFactory } from "../core/agent-factory";
 import { HookRegistry } from "../core/hook-registry";
+import { CheckpointService } from "../checkpoint/checkpoint.service";
+import type { ICheckpoint } from "../checkpoint/checkpoint.types";
 
 @Injectable()
 export class HarnessFacade implements IHarness {
   private readonly _hooks = new HookRegistry();
   private readonly loops = new Map<string, IAgentLoop>();
 
-  constructor(private readonly factory: AgentFactory) {}
+  constructor(
+    private readonly factory: AgentFactory,
+    @Optional() private readonly checkpointService?: CheckpointService,
+  ) {}
 
   createAgent(spec: IAgentSpec): IAgent {
     return this.factory.create(spec);
@@ -68,5 +73,35 @@ export class HarnessFacade implements IHarness {
 
   get hooks(): IHookRegistry {
     return this._hooks;
+  }
+
+  /**
+   * Resume — 从 checkpoint id 或最新 checkpoint 恢复 agent 执行
+   */
+  async resume(
+    params:
+      | { checkpointId: string }
+      | { agentId: string; useLatest: true },
+  ): Promise<{ agent: IAgent; checkpoint: ICheckpoint } | null> {
+    if (!this.checkpointService) {
+      throw new Error(
+        "HarnessFacade.resume: CheckpointService not wired — enable Phase 6 providers in HarnessModule",
+      );
+    }
+
+    let checkpoint: ICheckpoint | null;
+    if ("checkpointId" in params) {
+      checkpoint = await this.checkpointService.load(params.checkpointId);
+    } else {
+      checkpoint = await this.checkpointService.latestForAgent(params.agentId);
+    }
+    if (!checkpoint) return null;
+
+    const agent = this.factory.createFromCheckpoint({
+      identity: checkpoint.identity,
+      envelope: checkpoint.envelope,
+      sessionId: checkpoint.envelope.memory.sessionId,
+    });
+    return { agent, checkpoint };
   }
 }

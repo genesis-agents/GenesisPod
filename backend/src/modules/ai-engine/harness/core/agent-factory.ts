@@ -21,6 +21,7 @@ import { ReActLoop } from "../loop/react-loop";
 import { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 import { SkillActivator } from "../skills/skill-activator";
 import type { SubagentSpawner } from "../subagent/subagent-spawner";
+import { CheckpointService } from "../checkpoint/checkpoint.service";
 
 @Injectable()
 export class AgentFactory {
@@ -33,6 +34,7 @@ export class AgentFactory {
     @Optional()
     @Inject(forwardRef(() => "SubagentSpawner" as const))
     private readonly subagentSpawner?: SubagentSpawner,
+    @Optional() private readonly checkpointService?: CheckpointService,
   ) {
     this.defaultLoop = reactLoop;
   }
@@ -75,6 +77,8 @@ export class AgentFactory {
       memoryBridge: this.memoryBridge,
       skillActivator: this.skillActivator,
       subagentSpawner: this.subagentSpawner,
+      checkpointService: this.checkpointService,
+      checkpointEveryNActions: this.checkpointService ? 3 : 0,
     });
   }
 
@@ -111,6 +115,26 @@ export class AgentFactory {
       memoryBridge: this.memoryBridge,
       skillActivator: this.skillActivator,
       subagentSpawner: this.subagentSpawner,
+      checkpointService: this.checkpointService,
+      checkpointEveryNActions: this.checkpointService ? 3 : 0,
     });
+  }
+
+  /**
+   * Resume：从 checkpoint 重建 agent（envelope + identity 还原）。
+   * 适合长任务失败/中断后续跑。
+   */
+  createFromCheckpoint(checkpoint: {
+    identity: IAgentSpec["identity"];
+    envelope: IContextEnvelope;
+    sessionId?: string;
+  }): IAgent {
+    return this.createWithEnvelope(
+      {
+        identity: checkpoint.identity,
+        sessionId: checkpoint.sessionId,
+      },
+      checkpoint.envelope,
+    );
   }
 }
