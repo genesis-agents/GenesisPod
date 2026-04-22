@@ -49,7 +49,7 @@ steps:
   - screenshot: "admin-site-config"
 
   # 9. Storage
-  - navigate: /admin/system/storage
+  - navigate: /admin/storage
   - wait: 3000
   - screenshot: "admin-storage"
 

@@ -354,20 +354,20 @@ frontend/
 
 ### 5.2 路由映射（新旧对照）
 
-| 旧路由                | 新路由                        | 重定向              |
-| --------------------- | ----------------------------- | ------------------- |
-| `/admin`              | `/admin`                      | → `/admin/overview` |
-| `/admin/dashboard`    | `/admin/overview`             | 301                 |
-| `/admin/ai-models`    | `/admin/ai/models`            | 301                 |
-| `/admin/ai-teams`     | `/admin/ai/teams`             | 301                 |
-| `/admin/capabilities` | `/admin/ai/capabilities`      | 301                 |
-| `/admin/external-api` | `/admin/ai/external-services` | 301                 |
-| `/admin/collection`   | `/admin/data/collection`      | 301                 |
-| `/admin/whitelists`   | `/admin/data/whitelists`      | 301                 |
-| `/admin/users`        | `/admin/access/users`         | 301                 |
-| `/admin/secrets`      | `/admin/access/secrets`       | 301                 |
-| `/admin/storage`      | `/admin/system/storage`       | 301                 |
-| `/admin/settings`     | 拆分                          | 按功能重定向        |
+| 旧路由                  | 新路由                        | 重定向              |
+| ----------------------- | ----------------------------- | ------------------- |
+| `/admin`                | `/admin`                      | → `/admin/overview` |
+| `/admin/dashboard`      | `/admin/overview`             | 301                 |
+| `/admin/ai-models`      | `/admin/ai/models`            | 301                 |
+| `/admin/ai-teams`       | `/admin/ai/teams`             | 301                 |
+| `/admin/capabilities`   | `/admin/ai/capabilities`      | 301                 |
+| `/admin/external-api`   | `/admin/ai/external-services` | 301                 |
+| `/admin/collection`     | `/admin/data/collection`      | 301                 |
+| `/admin/whitelists`     | `/admin/data/whitelists`      | 301                 |
+| `/admin/users`          | `/admin/access/users`         | 301                 |
+| `/admin/secrets`        | `/admin/access/secrets`       | 301                 |
+| `/admin/system/storage` | `/admin/storage`              | 301                 |
+| `/admin/settings`       | 拆分                          | 按功能重定向        |
 
 ---
 

@@ -92,7 +92,7 @@ const CLICKABLE_CARDS_HREFS = [
   "/admin/access/billing",
   "/admin/system/notifications",
   "/admin/data-management",
-  "/admin/system/storage",
+  "/admin/storage",
   "/admin/system",
   "/admin/system/logs",
   "/admin/system/monitoring",

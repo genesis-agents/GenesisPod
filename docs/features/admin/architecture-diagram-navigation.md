@@ -97,7 +97,7 @@
 | -------- | ------------------------ | ------ |
 | 采集源   | `/admin/data/collection` | ✅     |
 | 质量规则 | `/admin/data/quality`    | ✅     |
-| 存储配置 | `/admin/system/storage`  | ✅     |
+| 存储配置 | `/admin/storage`         | ✅     |
 | 邮件配置 | `/admin/system/email`    | ✅     |
 | 站点配置 | `/admin/system/site`     | ✅     |
 

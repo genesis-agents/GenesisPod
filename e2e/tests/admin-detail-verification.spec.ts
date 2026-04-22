@@ -79,7 +79,7 @@ test.describe("Admin System Pages", () => {
   });
 
   test("storage management loads", async ({ page }) => {
-    await verifyAdminPage(page, "/admin/system/storage");
+    await verifyAdminPage(page, "/admin/storage");
   });
 });
 

@@ -192,7 +192,7 @@ const infrastructureLayer: ArchitectureLayer = {
         {
           id: "storage",
           i18nKey: "admin.nav.storage",
-          href: "/admin/system/storage",
+          href: "/admin/storage",
           icon: HardDrive,
           clickable: true,
         },

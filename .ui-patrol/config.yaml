@@ -461,7 +461,7 @@ groups:
       - /admin/system/email
       - /admin/system/notifications
       - /admin/system/site
-      - /admin/system/storage
+      - /admin/storage
       # AI
       - /admin/ai/models
       - /admin/ai/tools

@@ -320,15 +320,15 @@ test.describe("Admin Infrastructure — System Pages", () => {
 
   // ── Storage Page ─────────────────────────────────────────────────────────────
 
-  test.describe("Storage Page (/admin/system/storage)", () => {
+  test.describe("Storage Page (/admin/storage)", () => {
     test("page loads and shows heading", async ({ page }) => {
-      await gotoAndWait(page, "/admin/system/storage");
+      await gotoAndWait(page, "/admin/storage");
       await expect(page.locator("h1")).toBeVisible();
       await expect(page.getByText("出错了")).not.toBeVisible();
     });
 
     test("storage settings content renders", async ({ page }) => {
-      await gotoAndWait(page, "/admin/system/storage");
+      await gotoAndWait(page, "/admin/storage");
 
       // StorageSettings component should render some content
       const content = page.locator("main, .admin-page-content").first();

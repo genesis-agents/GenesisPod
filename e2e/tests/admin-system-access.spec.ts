@@ -374,12 +374,12 @@ test.describe("Admin Site Configuration (/admin/system/site)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. Storage Configuration Page (/admin/system/storage)
+// 10. Storage Configuration Page (/admin/storage)
 // ---------------------------------------------------------------------------
 
-test.describe("Admin Storage Configuration (/admin/system/storage)", () => {
+test.describe("Admin Storage Configuration (/admin/storage)", () => {
   test.beforeEach(async ({ page }) => {
-    await gotoAndWait(page, "/admin/system/storage");
+    await gotoAndWait(page, "/admin/storage");
   });
 
   test("page loads without errors", async ({ page }) => {
@@ -580,7 +580,7 @@ test.describe("Admin System & Access API Contracts", () => {
     ).toBe(true);
   });
 
-  test("GET /admin/system/storage — returns valid response", async ({
+  test("GET /admin/storage — returns valid response", async ({
     page,
     baseURL,
   }) => {
@@ -588,13 +588,13 @@ test.describe("Admin System & Access API Contracts", () => {
     const headers = await getAuthHeader(page);
 
     const response = await page.request.get(
-      `${apiBase}/api/v1/admin/system/storage`,
+      `${apiBase}/api/v1/admin/storage-config`,
       { headers, timeout: 15000 },
     );
 
     expect(
       [200, 403, 404].includes(response.status()),
-      `GET /admin/system/storage returned ${response.status()}`,
+      `GET /admin/storage-config returned ${response.status()}`,
     ).toBe(true);
   });
 });

@@ -96,8 +96,8 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/admin/storage',
-        destination: '/admin/system/storage',
+        source: '/admin/system/storage',
+        destination: '/admin/storage',
         permanent: false,
       },
       {
