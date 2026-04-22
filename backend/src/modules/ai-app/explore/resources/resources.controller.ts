@@ -264,6 +264,24 @@ export class ResourcesController {
   }
 
   /**
+   * 一键清理 BROKEN 资源
+   * POST /api/v1/resources/cleanup/broken
+   *
+   * 删除 linkHealth=BROKEN 且无 notes/comments 的资源。
+   * 与 ResourceHealthCheckScheduler 的自动归档互补——
+   * 这里是"立刻物理删除"，归档只是改 linkHealth=ARCHIVED。
+   */
+  @Post("cleanup/broken")
+  async cleanupBroken() {
+    this.logger.log("Cleaning up BROKEN resources (link unavailable)");
+    const result = await this.resourcesService.cleanupBrokenResources();
+    return {
+      message: `Deleted ${result.deleted} broken resources`,
+      ...result,
+    };
+  }
+
+  /**
    * 获取当前用户已点赞的所有资源ID列表
    * GET /api/v1/resources/user/upvotes
    *

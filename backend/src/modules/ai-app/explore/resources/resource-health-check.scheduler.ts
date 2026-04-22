@@ -262,7 +262,7 @@ export class ResourceHealthCheckScheduler
     // 任意一个 URL 可达即认为健康
     let isHealthy = false;
     for (const url of urlsToCheck) {
-      const ok = await this.checkUrl(url);
+      const ok = await this.checkUrlSmart(url);
       if (ok) {
         isHealthy = true;
         break;
@@ -270,6 +270,56 @@ export class ResourceHealthCheckScheduler
     }
 
     await this.updateResourceHealth(resource, isHealthy);
+  }
+
+  /**
+   * 智能 URL 检查：按 host 选择策略。
+   * - YouTube 视频（youtube.com/watch?v= / youtu.be）：页面 200 不代表视频活，
+   *   走 oEmbed API（https://www.youtube.com/oembed?url=...）— 视频删除返回 404
+   * - 其他：走原有的 HTTP HEAD/GET Range 检查
+   */
+  private async checkUrlSmart(url: string): Promise<boolean> {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase();
+      if (
+        host === "youtube.com" ||
+        host === "www.youtube.com" ||
+        host === "m.youtube.com" ||
+        host === "youtu.be"
+      ) {
+        return await this.checkYoutubeUrl(url);
+      }
+    } catch {
+      // 非法 URL 交给 HEAD 检查
+    }
+    return this.checkUrl(url);
+  }
+
+  /**
+   * 走 YouTube oEmbed 判断视频是否还存在
+   * https://www.youtube.com/oembed?url={}&format=json
+   * - 200 → 视频还在
+   * - 401/404 → 视频已被删除或设为私有
+   * - 其他错误 → 保守返回 false 让失败计数递增
+   */
+  private async checkYoutubeUrl(url: string): Promise<boolean> {
+    try {
+      const axios = (await import("axios")).default;
+      const res = await axios.get(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+        {
+          timeout: this.HEAD_TIMEOUT_MS,
+          validateStatus: () => true, // 自己判断状态码
+        },
+      );
+      return res.status === 200;
+    } catch (error) {
+      this.logger.debug(
+        `[youtube oembed] check failed for ${url}: ${(error as Error).message}`,
+      );
+      return false;
+    }
   }
 
   /**

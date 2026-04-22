@@ -1036,6 +1036,57 @@ export class ResourcesService {
    * 基于 sourceUrl 或 normalizedUrl 识别重复项
    * 保留最早创建的记录，删除后续重复的记录
    */
+  /**
+   * 删除 BROKEN 资源（linkHealth='BROKEN' 且无用户 notes/comments 关联）。
+   * 对有笔记/评论的 BROKEN 资源保守保留（用户可能还在引用数据），
+   * 仅标记 linkHealth=ARCHIVED 给前端过滤。
+   */
+  async cleanupBrokenResources(): Promise<{
+    deleted: number;
+    archived: number;
+    total: number;
+  }> {
+    const toDelete = await this.prisma.resource.findMany({
+      where: {
+        linkHealth: "BROKEN",
+        notes: { none: {} },
+        comments: { none: {} },
+      },
+      select: { id: true },
+    });
+    const toArchive = await this.prisma.resource.findMany({
+      where: {
+        linkHealth: "BROKEN",
+        OR: [{ notes: { some: {} } }, { comments: { some: {} } }],
+      },
+      select: { id: true },
+    });
+
+    const deleteIds = toDelete.map((r) => r.id);
+    const archiveIds = toArchive.map((r) => r.id);
+    let deleted = 0;
+    let archived = 0;
+
+    if (deleteIds.length > 0) {
+      const r = await this.prisma.resource.deleteMany({
+        where: { id: { in: deleteIds } },
+      });
+      deleted = r.count;
+    }
+    if (archiveIds.length > 0) {
+      const r = await this.prisma.resource.updateMany({
+        where: { id: { in: archiveIds } },
+        data: { linkHealth: "ARCHIVED" },
+      });
+      archived = r.count;
+    }
+
+    this.logger.log(
+      `Broken cleanup: deleted=${deleted}, archived=${archived} (kept for user data)`,
+    );
+    return { deleted, archived, total: deleted + archived };
+  }
+
   async cleanupDuplicates(resourceType?: string): Promise<{
     total: number;
     duplicatesFound: number;
