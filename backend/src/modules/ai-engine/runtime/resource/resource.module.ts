@@ -8,7 +8,10 @@
  * - CostController: 成本控制
  * - RateLimiter: 速率限制
  * - TokenBudgetService: Token 预算
- * - HealthCheckRunner: 健康检查
+ *
+ * HealthCheckRunner 是纯类（非 @Injectable），消费者 `new HealthCheckRunner({...})`
+ * 自己持有。不要把它放进 providers——Nest 会尝试注入 undefined 导致启动崩溃。
+ * 需要使用时从 `@/modules/ai-engine/facade` 导入该 class 即可。
  *
  * 本模块是 @Global()。
  */
@@ -22,7 +25,6 @@ import { ConstraintEnforcementService } from "./constraint-enforcement.service";
 import { CostController } from "./cost-controller";
 import { RateLimiter } from "./rate-limiter";
 import { TokenBudgetService } from "./token-budget.service";
-import { HealthCheckRunner } from "./health-check-runner";
 
 const RUNTIME_RESOURCE_PROVIDERS = [
   ResourceManagerService,
@@ -32,7 +34,6 @@ const RUNTIME_RESOURCE_PROVIDERS = [
   CostController,
   RateLimiter,
   TokenBudgetService,
-  HealthCheckRunner,
 ];
 
 @Global()
