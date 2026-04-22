@@ -57,6 +57,26 @@ export class AdminController {
   }
 
   /**
+   * 存储时间序列（最近 N 天），用于前端 trend 图
+   * GET /api/v1/admin/storage-inventory/trend?days=30
+   */
+  @Get("storage-inventory/trend")
+  async getStorageTrend(@Query("days") days?: string) {
+    const n = Math.max(1, Math.min(365, parseInt(days || "30", 10)));
+    return this.storageInventoryService.getTrend(n);
+  }
+
+  /**
+   * 手动采样一次（供调试用）
+   * POST /api/v1/admin/storage-inventory/snapshot
+   */
+  @Post("storage-inventory/snapshot")
+  async takeStorageSnapshot() {
+    await this.storageInventoryService.takeSnapshot();
+    return { snapshotted: true };
+  }
+
+  /**
    * 手动触发 off-load 调度
    * POST /api/v1/admin/storage-inventory/run-offload
    * 正常每天 02:00 UTC 自动跑；此接口供运维手动触发。

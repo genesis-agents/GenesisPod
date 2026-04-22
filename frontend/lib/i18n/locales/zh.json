@@ -3632,6 +3632,72 @@
       "empty": "无数据表可显示",
       "error": "加载数据表失败"
     },
+    "storageInventory": {
+      "title": "存储位置清单",
+      "subtitle": "大文本字段外迁到对象存储的实时状态",
+      "loading": "加载存储清单...",
+      "errorRetry": "重试",
+      "errorUnauthorized": "登录已过期，请重新登录",
+      "errorGeneric": "加载失败，请稍后重试",
+      "summary": {
+        "db": "PostgreSQL 数据库",
+        "r2": "Cloudflare R2",
+        "total": "总计",
+        "tablesCount": "{count} 张表",
+        "objectsCount": "{count} 个对象",
+        "r2Unconfigured": "未配置",
+        "subTotal": "DB + 对象存储"
+      },
+      "offload": {
+        "title": "Off-load 字段迁移进度",
+        "subtitle": "URI 非空 = 正文在对象存储；DB 有内容 = 尚未迁移或 <2KB 不迁",
+        "runNow": "立即运行 Off-load",
+        "running": "运行中...",
+        "runTriggered": "已触发，后台运行中",
+        "confirmTitle": "确认运行 Off-load？",
+        "confirmDesc": "后台将扫描大字段并上传到 R2，期间对业务无影响。每天 02:00 UTC 也会自动运行一次。",
+        "confirmOk": "确认运行",
+        "col": {
+          "field": "表 · 字段",
+          "prefix": "R2 Prefix",
+          "total": "总行",
+          "r2": "已上传 R2",
+          "db": "DB 仍有内容",
+          "progress": "进度"
+        }
+      },
+      "bucket": {
+        "title": "R2 Bucket 清单",
+        "subtitle": "按顶层 prefix 分组",
+        "openCloudflare": "在 Cloudflare 打开",
+        "col": {
+          "prefix": "Prefix",
+          "objects": "对象数",
+          "size": "尺寸"
+        }
+      },
+      "tables": {
+        "title": "PostgreSQL 表尺寸 Top 10",
+        "subtitle": "含 heap + index + TOAST",
+        "col": {
+          "table": "表",
+          "rows": "行数",
+          "size": "尺寸"
+        }
+      },
+      "footer": {
+        "generatedAt": "生成于 {ago}",
+        "refresh": "刷新",
+        "export": "导出 JSON"
+      },
+      "trend": {
+        "title": "存储体积趋势（最近 30 天）",
+        "subtitle": "每日采样一次；新环境可能需要数天才会显示完整曲线",
+        "db": "DB (MB)",
+        "r2": "R2 (MB)",
+        "empty": "暂无历史数据，cron 将每天 00:10 UTC 采样"
+      }
+    },
     "system": {
       "description": "配置系统全局设置、安全策略和邮件通知",
       "cards": {

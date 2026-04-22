@@ -9,8 +9,14 @@
  * 3. R2 bucket 清单：按 prefix 分组的对象数/总字节
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { R2StorageService } from "./r2-storage.service";
 
@@ -90,14 +96,84 @@ function humanBytes(n: number): string {
   return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }
 
+const SNAPSHOT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 每日采样
+const SNAPSHOT_FIRST_DELAY_MS = 10 * 60 * 1000; // 启动 10 分钟后采第一次
+
 @Injectable()
-export class StorageInventoryService {
+export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StorageInventoryService.name);
+  private snapshotTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: R2StorageService,
   ) {}
+
+  onModuleInit() {
+    setTimeout(() => {
+      void this.takeSnapshot();
+      this.snapshotTimer = setInterval(
+        () => void this.takeSnapshot(),
+        SNAPSHOT_INTERVAL_MS,
+      );
+    }, SNAPSHOT_FIRST_DELAY_MS);
+  }
+
+  onModuleDestroy() {
+    if (this.snapshotTimer) clearInterval(this.snapshotTimer);
+  }
+
+  /** 采样当前存储状态，写入 storage_snapshots 表（趋势图数据源） */
+  async takeSnapshot(): Promise<void> {
+    try {
+      const inv = await this.getInventory();
+      await this.prisma.storageSnapshot.create({
+        data: {
+          dbTotalBytes: BigInt(inv.database.totalBytes),
+          r2TotalBytes: BigInt(inv.r2.totalBytes),
+          r2TotalObjects: inv.r2.totalObjects,
+          offloadFields: inv.offloadFields as unknown as Prisma.InputJsonValue,
+          dbTopTables: inv.database.tables.slice(
+            0,
+            20,
+          ) as unknown as Prisma.InputJsonValue,
+        },
+      });
+      this.logger.log(
+        `[snapshot] db=${inv.database.totalHuman} r2=${inv.r2.totalHuman}`,
+      );
+    } catch (error) {
+      this.logger.warn(`[snapshot] failed: ${(error as Error).message}`);
+    }
+  }
+
+  /** 读最近 N 天的 snapshot，前端画 trend */
+  async getTrend(days = 30): Promise<
+    Array<{
+      at: string;
+      dbMb: number;
+      r2Mb: number;
+      r2Objects: number;
+    }>
+  > {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.storageSnapshot.findMany({
+      where: { createdAt: { gte: since } },
+      select: {
+        createdAt: true,
+        dbTotalBytes: true,
+        r2TotalBytes: true,
+        r2TotalObjects: true,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((r) => ({
+      at: r.createdAt.toISOString(),
+      dbMb: Math.round(Number(r.dbTotalBytes) / 1024 / 1024),
+      r2Mb: Math.round(Number(r.r2TotalBytes) / 1024 / 1024),
+      r2Objects: r.r2TotalObjects,
+    }));
+  }
 
   async getInventory(): Promise<StorageInventory> {
     const [dbStats, offloadStats, r2Stats] = await Promise.all([

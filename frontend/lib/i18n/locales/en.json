@@ -3632,6 +3632,72 @@
       "empty": "No tables to display",
       "error": "Error loading tables"
     },
+    "storageInventory": {
+      "title": "Storage Inventory",
+      "subtitle": "Live status of large fields offloaded to object storage",
+      "loading": "Loading inventory...",
+      "errorRetry": "Retry",
+      "errorUnauthorized": "Session expired, please sign in again",
+      "errorGeneric": "Failed to load, try again later",
+      "summary": {
+        "db": "PostgreSQL Database",
+        "r2": "Cloudflare R2",
+        "total": "Total",
+        "tablesCount": "{count} tables",
+        "objectsCount": "{count} objects",
+        "r2Unconfigured": "not configured",
+        "subTotal": "DB + Object Storage"
+      },
+      "offload": {
+        "title": "Off-load Field Migration Progress",
+        "subtitle": "URI set = content in object storage; DB content = not yet migrated or below 2KB threshold",
+        "runNow": "Run Off-load Now",
+        "running": "Running...",
+        "runTriggered": "Triggered, running in background",
+        "confirmTitle": "Run off-load now?",
+        "confirmDesc": "Scans large fields and uploads to R2 in the background. Also auto-runs daily at 02:00 UTC.",
+        "confirmOk": "Run Now",
+        "col": {
+          "field": "Table · Field",
+          "prefix": "R2 Prefix",
+          "total": "Total Rows",
+          "r2": "In R2",
+          "db": "In DB",
+          "progress": "Progress"
+        }
+      },
+      "bucket": {
+        "title": "R2 Bucket Inventory",
+        "subtitle": "Grouped by top-level prefix",
+        "openCloudflare": "Open in Cloudflare",
+        "col": {
+          "prefix": "Prefix",
+          "objects": "Objects",
+          "size": "Size"
+        }
+      },
+      "tables": {
+        "title": "Top 10 PostgreSQL Tables by Size",
+        "subtitle": "Heap + index + TOAST",
+        "col": {
+          "table": "Table",
+          "rows": "Rows",
+          "size": "Size"
+        }
+      },
+      "footer": {
+        "generatedAt": "Generated {ago}",
+        "refresh": "Refresh",
+        "export": "Export JSON"
+      },
+      "trend": {
+        "title": "Storage Size Trend (Last 30 Days)",
+        "subtitle": "Snapshot daily; new installs may take a few days to show full curve",
+        "db": "DB (MB)",
+        "r2": "R2 (MB)",
+        "empty": "No history yet. Cron samples daily at 00:10 UTC."
+      }
+    },
     "system": {
       "description": "Configure system-wide settings, security policies, and email notifications",
       "cards": {

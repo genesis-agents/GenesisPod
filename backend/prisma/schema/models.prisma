@@ -8871,3 +8871,17 @@ model ModelRecommendation {
   @@index([provider])
   @@map("model_recommendations")
 }
+
+/// 存储采样快照 — 每日 cron 采一次，供 admin 面板画趋势图
+model StorageSnapshot {
+  id             String   @id @default(uuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  dbTotalBytes   BigInt   @map("db_total_bytes")
+  r2TotalBytes   BigInt   @default(0) @map("r2_total_bytes")
+  r2TotalObjects Int      @default(0) @map("r2_total_objects")
+  offloadFields  Json?    @map("offload_fields")
+  dbTopTables    Json?    @map("db_top_tables")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("storage_snapshots")
+}
