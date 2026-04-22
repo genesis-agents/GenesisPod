@@ -1,7 +1,7 @@
 /**
  * A2A DI Tokens
- * 被 A2AController 用于注入位于 ai-engine/teams 和 ai-kernel/observability 的服务，
- * 避免 infra/a2a 直接耦合具体实现类。
+ * 被 A2AController 用于注入位于 ai-engine/teams 和 ai-engine/runtime/observability 的服务，
+ * 避免 runtime/a2a 直接耦合具体实现类。
  */
 
 /**

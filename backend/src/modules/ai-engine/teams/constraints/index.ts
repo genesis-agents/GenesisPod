@@ -38,5 +38,5 @@ export {
   DegradationStrategy,
 } from "./constraint-engine.interface";
 
-// Constraint Engine Implementation — migrated to ai-kernel
+// Constraint Engine Implementation — migrated to ai-engine/runtime
 // export { ConstraintEngine } from "./constraint-engine";

@@ -20,7 +20,7 @@ import {
   RAGPipelineService,
 } from "../../ai-engine/facade";
 import { MissionExecutorService } from "../../ai-engine/facade";
-import { ProcessMemoryManagerService } from "@/modules/ai-engine/runtime/memory/process-memory-manager.service";
+import { ProcessMemoryManagerService } from "@/modules/ai-engine/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,

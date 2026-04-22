@@ -1,8 +1,6 @@
 /**
  * Process Memory Manager Service
  * Process-level memory management backed by ProcessMemory table.
- * Lives at the runtime layer; consumes ProcessId / MemoryEntry types that
- * are still defined under ai-kernel/process (to be relocated in a later PR).
  */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -11,7 +9,7 @@ import type {
   ProcessId,
   MemoryEntry,
   MemoryQuery as KernelMemoryQuery,
-} from "../../../ai-engine/runtime/process/process.types";
+} from "../process/process.types";
 
 @Injectable()
 export class ProcessMemoryManagerService implements OnModuleInit {

@@ -1,9 +1,19 @@
 /**
- * Runtime exports (formerly ai-engine/facade)
+ * Runtime exports (formerly ai-kernel/facade, merged into engine in PR 7)
  *
- * 原 ai-engine/facade 的全部公开符号，统一并入 ai-engine/facade。
- * 消费方应从 @/modules/ai-engine/facade 引用以下符号。
+ * 消费方应从 @/modules/ai-engine/facade 引用以下符号，禁止穿透到 runtime/ 内部路径。
  */
+
+// Memory (Runtime layer: process-level + hierarchical cascade)
+export { ProcessMemoryManagerService } from "../../runtime/memory/process-memory-manager.service";
+export { HierarchicalMemoryCascadeService } from "../../runtime/memory/hierarchical-memory-cascade.service";
+export type {
+  MemoryScope,
+  MemoryCascadeQuery,
+  MemoryCascadeResult,
+  MemoryWriteOptions,
+} from "../../runtime/memory/hierarchical-memory-cascade.service";
+export { SCOPE_PRIORITY } from "../../runtime/memory/hierarchical-memory-cascade.service";
 
 // Process
 export { ProcessManagerService } from "../../runtime/process/process-manager.service";

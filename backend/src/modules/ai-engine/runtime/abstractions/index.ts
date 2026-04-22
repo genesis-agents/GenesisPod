@@ -1,11 +1,10 @@
 /**
- * AI Kernel - Abstractions Layer
+ * Runtime Abstractions Barrel (type-only re-exports)
  *
- * This is the ONLY file in ai-kernel that is permitted to import from ai-engine.
- * All types are imported through the ai-engine FACADE — never from internal paths.
- * This keeps L3 (ai-kernel) decoupled from L2 (ai-engine) internal structure.
+ * 所有运行时层需要的抽象类型从 ai-engine/facade 重新导出，便于 runtime/ 内部文件
+ * 使用统一的类型入口；运行时值的解析路径仍然走各自服务的直接路径。
  *
- * @see ai-engine/facade/index.ts (Phase 8 section)
+ * @see ai-engine/facade/index.ts
  */
 
 // ==================== Realtime / Event Emitter ====================

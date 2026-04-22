@@ -79,7 +79,7 @@ import {
 } from "../../orchestration/abstractions/orchestrator.interface";
 import { MissionExecutorService } from "../../../ai-engine/facade";
 import { EventJournalService } from "../../../ai-engine/facade";
-import { HierarchicalMemoryCascadeService } from "@/modules/ai-engine/runtime/memory/hierarchical-memory-cascade.service";
+import { HierarchicalMemoryCascadeService } from "@/modules/ai-engine/facade";
 import {
   AgentLifecycleProtocolService,
   type TaskNotificationPayload,

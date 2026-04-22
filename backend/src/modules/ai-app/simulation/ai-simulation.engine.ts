@@ -21,7 +21,7 @@ import {
   ResourceManagerService,
   EventBusService,
 } from "../../ai-engine/facade";
-import { ProcessMemoryManagerService } from "@/modules/ai-engine/runtime/memory/process-memory-manager.service";
+import { ProcessMemoryManagerService } from "@/modules/ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 interface EvidenceRef {

@@ -17,7 +17,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ChatFacade } from "../../../../ai-engine/facade";
-import { ProcessMemoryManagerService } from "@/modules/ai-engine/runtime/memory/process-memory-manager.service";
+import { ProcessMemoryManagerService } from "@/modules/ai-engine/facade";
 import { MemoryLayer } from "@prisma/client";
 import { WriterAgent } from "../../agents";
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
