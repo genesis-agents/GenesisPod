@@ -15,7 +15,7 @@
 
 import { ConfigService } from "@nestjs/config";
 import { MissionOrchestrator } from "../mission-orchestrator";
-import { ConstraintEngine } from "../../../../ai-kernel/facade";
+import { ConstraintEngine } from "../../../../ai-engine/facade";
 import {
   MissionInput,
   MissionEventType,

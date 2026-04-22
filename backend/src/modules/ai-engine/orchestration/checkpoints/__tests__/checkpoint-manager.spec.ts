@@ -1,7 +1,7 @@
 import {
   CheckpointManager,
   InMemoryCheckpointStore,
-} from "../../../../ai-kernel/facade";
+} from "../../../../ai-engine/facade";
 import type { ExecutionContext } from "../../abstractions/orchestrator.interface";
 
 function makeContext(

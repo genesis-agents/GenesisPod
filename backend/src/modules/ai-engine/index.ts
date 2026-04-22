@@ -124,7 +124,7 @@ export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeli
 
 // Teams 模块核心服务
 export { RoleRegistry, TeamRegistry, MissionOrchestrator } from "./teams";
-export { ConstraintEngine } from "../ai-kernel/facade";
+export { ConstraintEngine } from "../ai-engine/facade";
 export {
   // Team types
   TeamId,

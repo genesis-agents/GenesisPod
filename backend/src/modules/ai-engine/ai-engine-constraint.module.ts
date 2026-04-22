@@ -17,8 +17,8 @@ import { SchemaValidator } from "./safety/constraint/validators/schema-validator
 
 // Guardrails (Legacy)
 import { ContentFilter } from "./safety/constraint/guardrails/content-filter";
-import { CostController } from "../ai-kernel/facade";
-import { RateLimiter } from "../ai-kernel/facade";
+import { CostController } from "../ai-engine/facade";
+import { RateLimiter } from "../ai-engine/facade";
 
 // Guardrails Pipeline (New Framework)
 import { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";

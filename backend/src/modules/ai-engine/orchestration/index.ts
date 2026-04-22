@@ -18,10 +18,10 @@ export * from "./abstractions";
 // Executors (执行器)
 export * from "./executors";
 
-// Checkpoints (检查点) — migrated to ai-kernel, import from ai-kernel/facade
+// Checkpoints (检查点) — migrated to ai-kernel, import from ai-engine/facade
 // export * from "./checkpoints";
 
-// State Machine (★ P4 沉淀) — migrated to ai-kernel, import from ai-kernel/facade
+// State Machine (★ P4 沉淀) — migrated to ai-kernel, import from ai-engine/facade
 // export * from "./state-machine";
 
 // 服务和工具需要通过独立路径导入:

@@ -15,5 +15,5 @@ export type {
   TaskPhase,
 } from "../../runtime/realtime/abstractions/progress-tracker.interface";
 export { calculateOverallProgress } from "../../runtime/realtime/abstractions/progress-tracker.interface";
-export { EventBusService as EngineEventEmitterService } from "../../../ai-kernel/facade";
-export { ProgressTrackerService } from "../../../ai-kernel/facade";
+export { EventBusService as EngineEventEmitterService } from "../../runtime/ipc/event-bus.service";
+export { ProgressTrackerService } from "../../runtime/ipc/progress-tracker.service";

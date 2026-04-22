@@ -42,7 +42,7 @@ jest.mock("../../../../ai-engine/facade", () => ({
   RAGFacade: class {},
   ProgressTrackerService: class {},
 }));
-jest.mock("../../../../ai-kernel/facade", () => ({
+jest.mock("../../../../ai-engine/facade", () => ({
   MissionExecutorService: class {},
   EventJournalService: class {},
   ProcessMemoryManagerService: class {},
@@ -90,7 +90,7 @@ import {
 import {
   MissionExecutorService,
   EventJournalService,
-} from "../../../../ai-kernel/facade";
+} from "../../../../ai-engine/facade";
 import { CreatePlanDto, PlanningDepth } from "../../dto/create-plan.dto";
 
 // ======================================================

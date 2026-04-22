@@ -30,7 +30,7 @@ import {
   EventJournalService,
   ResourceManagerService,
   EventBusService,
-} from "../../../ai-kernel/facade";
+} from "../../../ai-engine/facade";
 import { ProcessMemoryManagerService } from "@/modules/ai-engine/runtime/memory/process-memory-manager.service";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/facade";

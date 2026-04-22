@@ -9,7 +9,7 @@ import type {
   ResourceRequirement,
   ResourceUsage,
   ConstraintViolation,
-} from "../../../../ai-kernel/abstractions";
+} from "../../../../ai-engine/runtime/abstractions";
 
 const mockCostController = {
   calculateCost: jest.fn().mockReturnValue(0.5),

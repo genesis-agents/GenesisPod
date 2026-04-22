@@ -25,7 +25,7 @@ export type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
-export { TaskCompletionType } from "../../ai-kernel/facade";
+export { TaskCompletionType } from "../runtime/resource/circuit-breaker.service";
 export { UserIntent } from "../orchestration/services/interfaces";
 export type { TeamInfo } from "../teams/services/teams.service";
 
@@ -94,7 +94,7 @@ export type {
   CompressionOptions,
 } from "../orchestration/services/interfaces";
 export { ContextStrategy } from "../orchestration/services/interfaces";
-export { ConstraintEnforcementService } from "../../ai-kernel/facade";
+export { ConstraintEnforcementService } from "../runtime/resource/constraint-enforcement.service";
 export type {
   ConstraintSeverity,
   ExtractedConstraint,
@@ -121,15 +121,15 @@ export type {
   ContextEvolutionConfig,
 } from "../orchestration/services/interfaces";
 export { AgentExecutorService } from "../orchestration/services/agent-executor.service";
-export { CircuitBreakerService } from "../../ai-kernel/facade";
+export { CircuitBreakerService } from "../runtime/resource/circuit-breaker.service";
 export { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
-export { ProcessSupervisorService as ExecutionStateManager } from "../../ai-kernel/facade";
+export { ProcessSupervisorService as ExecutionStateManager } from "../runtime/supervisor/process-supervisor.service";
 
 // State-machine types（for teams/mission-state.manager.ts）
-export { StateCategory } from "../../ai-kernel/facade";
-export type { ExecutionStateStats } from "../../ai-kernel/facade";
+export { StateCategory } from "../runtime/supervisor/process-supervisor.service";
+export type { ExecutionStateStats } from "../runtime/supervisor/process-supervisor.service";
 
 // MCP abstraction types（for social/mcp-client.service.ts）
 export type {
@@ -360,8 +360,8 @@ export type { EvalResult } from "../runtime/observability/eval-pipeline.service"
 export type { TraceType } from "../runtime/observability/trace.interface";
 
 // ★ Batch 2 — Realtime（for mcp-server streaming bridge）
-export { EventBusService as EngineEventEmitterService } from "../../ai-kernel/facade";
-export { ProgressTrackerService } from "../../ai-kernel/facade";
+export { EventBusService as EngineEventEmitterService } from "../runtime/ipc/event-bus.service";
+export { ProgressTrackerService } from "../runtime/ipc/progress-tracker.service";
 
 // ★ Batch 2 — Content services（for office re-exports）
 export { ImageMatchingService } from "../content/image/matching/image-matching.service";
@@ -549,7 +549,7 @@ export type {
   ImageSearchOutput,
 } from "../tools/categories/information/image-search/image-search.types";
 
-// ★ Phase 8: Kernel re-exports REMOVED — all AI App consumers now import from "../../ai-kernel/facade" directly.
+// ★ Phase 8: Kernel re-exports REMOVED — all AI App consumers now import from "@/modules/ai-engine/facade" directly.
 
 // Query Loop auto-continuation engine
 export {
@@ -648,3 +648,6 @@ export type {
   RecordLLMLatencyInput,
   ListSessionsFilter,
 } from "../runtime/observability/session-latency.types";
+
+// ★ Runtime exports (formerly ai-engine/facade, PR 7)
+export * from "./exports/runtime";

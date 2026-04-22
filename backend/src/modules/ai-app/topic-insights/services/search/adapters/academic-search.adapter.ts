@@ -10,7 +10,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { CircuitBreakerService } from "@/modules/ai-kernel/facade";
+import { CircuitBreakerService } from "@/modules/ai-engine/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-engine/facade";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../types/data-source.types";

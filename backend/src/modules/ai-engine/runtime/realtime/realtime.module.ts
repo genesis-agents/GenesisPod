@@ -4,8 +4,8 @@
  */
 
 import { Module } from "@nestjs/common";
-import { EventBusService as EngineEventEmitterService } from "../../../ai-kernel/facade";
-import { ProgressTrackerService } from "../../../ai-kernel/facade";
+import { EventBusService as EngineEventEmitterService } from "../../../ai-engine/facade";
+import { ProgressTrackerService } from "../../../ai-engine/facade";
 
 @Module({
   imports: [

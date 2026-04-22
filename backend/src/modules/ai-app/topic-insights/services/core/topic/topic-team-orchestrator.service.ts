@@ -13,7 +13,7 @@ import {
   SessionLatencyTrackerService,
   type LatencySessionSummary,
 } from "@/modules/ai-engine/facade";
-import { KernelContext } from "@/modules/ai-kernel/facade";
+import { KernelContext } from "@/modules/ai-engine/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "../research/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {

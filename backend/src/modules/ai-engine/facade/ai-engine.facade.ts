@@ -38,7 +38,7 @@ import {
   CreateMissionDto,
 } from "../teams/services/teams.service";
 import type { MissionEvent } from "../teams/abstractions/mission.interface";
-import { TaskCompletionType } from "../../ai-kernel/facade";
+import { TaskCompletionType } from "../runtime/resource/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 import {
@@ -173,11 +173,11 @@ import type {
   SkillPromptOptions,
 } from "../orchestration/capabilities/types";
 import type { SkillMdDefinition } from "../skills/types/skill-md.types";
-import { CircuitBreakerService } from "../../ai-kernel/facade";
+import { CircuitBreakerService } from "../runtime/resource/circuit-breaker.service";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
-import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-kernel/facade";
+import { ProcessSupervisorService as ExecutionStateManager } from "../runtime/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
@@ -229,9 +229,9 @@ const SENSITIVE_PATTERNS = [
  *   - ToolFacade  for tool execution, capability listing, and MCP tools
  *
  * Migration guide:
- *   1. Replace `import { AIEngineFacade } from "../../ai-engine/facade"` with
+ *   1. Replace `import { AIEngineFacade } from "@/modules/ai-engine/facade"` with
  *      the specific domain facade(s) you need, e.g.:
- *        import { ChatFacade } from "../../ai-engine/facade"
+ *        import { ChatFacade } from "@/modules/ai-engine/facade"
  *   2. Update constructor injection:
  *        private readonly facade: AIEngineFacade  =>  private readonly chatFacade: ChatFacade
  *   3. Update call sites:

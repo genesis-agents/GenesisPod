@@ -14,7 +14,7 @@
  * 10. Multiple sessions isolation
  */
 
-import { MessageBusService as A2AMessageBusService } from "../../../../ai-kernel/facade";
+import { MessageBusService as A2AMessageBusService } from "../../../../ai-engine/facade";
 
 describe("A2AMessageBusService", () => {
   let service: A2AMessageBusService;

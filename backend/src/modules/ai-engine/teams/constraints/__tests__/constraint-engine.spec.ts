@@ -2,7 +2,7 @@
  * Unit tests for ConstraintEngine
  */
 
-import { ConstraintEngine } from "../../../../ai-kernel/facade";
+import { ConstraintEngine } from "../../../../ai-engine/facade";
 import {
   createConstraintProfile,
   getDefaultConstraintProfile,
@@ -11,7 +11,7 @@ import {
   ResourceUsage,
   ConstraintViolation,
 } from "../constraint-engine.interface";
-import { CostController } from "../../../../ai-kernel/facade";
+import { CostController } from "../../../../ai-engine/facade";
 
 // ==================== Helpers ====================
 

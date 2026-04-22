@@ -16,8 +16,6 @@ jest.mock("../../../../ai-engine/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-}));
-jest.mock("../../../../ai-kernel/facade", () => ({
   MissionExecutorService: class {},
   EventJournalService: class {},
   ProcessMemoryManagerService: class {},

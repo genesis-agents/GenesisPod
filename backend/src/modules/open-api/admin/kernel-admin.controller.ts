@@ -16,7 +16,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { KernelApiService } from "../../ai-kernel/facade";
+import { KernelApiService } from "../../ai-engine/facade";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 

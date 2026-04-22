@@ -6,7 +6,7 @@
 // Abstractions
 export * from "./abstractions";
 
-// Services — migrated to ai-kernel, import from ai-kernel/facade
+// Services — migrated to ai-kernel, import from ai-engine/facade
 // export * from "./services";
 
 // Gateway (将在 Phase 4.2 创建)

@@ -2,4 +2,4 @@
 export type {
   RoomConfig,
   EngineEvent,
-} from "../../../../ai-kernel/abstractions";
+} from "../../../../ai-engine/runtime/abstractions";

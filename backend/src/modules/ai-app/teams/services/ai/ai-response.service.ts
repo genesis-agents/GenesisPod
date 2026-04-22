@@ -14,7 +14,7 @@ import {
 import {
   KernelContext,
   MissionExecutorService,
-} from "../../../../ai-kernel/facade";
+} from "../../../../ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";

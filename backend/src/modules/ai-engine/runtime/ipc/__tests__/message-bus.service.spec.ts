@@ -15,7 +15,7 @@ import { MessageBusService } from "../message-bus.service";
 import type {
   A2AMessage,
   A2AMessageHandler,
-} from "../../../../ai-kernel/abstractions";
+} from "../../../../ai-engine/runtime/abstractions";
 
 // ---------------------------------------------------------------------------
 // Test helpers

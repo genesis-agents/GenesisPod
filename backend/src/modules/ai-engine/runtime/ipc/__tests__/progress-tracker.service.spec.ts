@@ -13,8 +13,10 @@ jest.spyOn(Logger.prototype, "error").mockImplementation();
 
 // Mock calculateOverallProgress from the kernel abstractions barrel
 // Path is from __tests__/ directory: ../../abstractions
-jest.mock("../../../../ai-kernel/abstractions", () => {
-  const actual = jest.requireActual("../../../../ai-kernel/abstractions");
+jest.mock("../../../../ai-engine/runtime/abstractions", () => {
+  const actual = jest.requireActual(
+    "../../../../ai-engine/runtime/abstractions",
+  );
   return {
     ...actual,
     calculateOverallProgress: jest.fn(
@@ -42,7 +44,7 @@ import { EventBusService } from "../event-bus.service";
 import type {
   CreateTrackedTaskRequest,
   RoomConfig,
-} from "../../../../ai-kernel/abstractions";
+} from "../../../../ai-engine/runtime/abstractions";
 
 const makeRoomConfig = (): RoomConfig => ({
   roomId: "room-1",

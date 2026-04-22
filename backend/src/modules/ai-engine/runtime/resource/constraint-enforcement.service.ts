@@ -20,7 +20,7 @@ import type {
   OutputValidationResult,
   HardConstraint,
   IConstraintEnforcementService,
-} from "../../../ai-kernel/abstractions";
+} from "../../../ai-engine/runtime/abstractions";
 
 @Injectable()
 export class ConstraintEnforcementService implements IConstraintEnforcementService {

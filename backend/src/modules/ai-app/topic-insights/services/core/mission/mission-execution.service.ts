@@ -36,7 +36,7 @@ import {
   ChatFacade,
   SessionLatencyTrackerService,
 } from "@/modules/ai-engine/facade";
-import { KernelContext } from "@/modules/ai-kernel/facade";
+import { KernelContext } from "@/modules/ai-engine/facade";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type { ResearchDepth } from "../../../types/research-depth.types";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
@@ -351,10 +351,7 @@ export class MissionExecutionService {
         await this.finalizeMission(missionId, topicId);
 
         if (latencySessionId) {
-          this.latencyTracker?.endStepByName(
-            latencySessionId,
-            "finalization",
-          );
+          this.latencyTracker?.endStepByName(latencySessionId, "finalization");
           this.latencyTracker?.endSession(latencySessionId, "completed");
         }
       },
@@ -504,18 +501,15 @@ export class MissionExecutionService {
 
       // ★ 时延跟踪：每个 task 在自己的 KernelContext 中执行
       if (parentCtx?.latencySessionId && this.latencyTracker) {
-        taskStepId = this.latencyTracker.startStep(
-          parentCtx.latencySessionId,
-          {
-            name: taskStepName,
-            metadata: {
-              taskId: task.id,
-              taskType: task.taskType,
-              agent: task.assignedAgent,
-              model: assignedModelId,
-            },
+        taskStepId = this.latencyTracker.startStep(parentCtx.latencySessionId, {
+          name: taskStepName,
+          metadata: {
+            taskId: task.id,
+            taskType: task.taskType,
+            agent: task.assignedAgent,
+            model: assignedModelId,
           },
-        );
+        });
       }
 
       // Execute — 在带 latencyPhaseId 的 KernelContext 中运行
@@ -532,10 +526,7 @@ export class MissionExecutionService {
 
       // ★ 时延跟踪：结束 task step
       if (parentCtx?.latencySessionId && taskStepId && this.latencyTracker) {
-        this.latencyTracker.endStep(
-          parentCtx.latencySessionId,
-          taskStepId,
-        );
+        this.latencyTracker.endStep(parentCtx.latencySessionId, taskStepId);
       }
 
       // ★ 发送 Agent 完成事件（传递 missionId 以便持久化）
@@ -693,10 +684,7 @@ export class MissionExecutionService {
 
       // ★ 时延跟踪：失败时也结束 step（用 parentCtx 因为 catch 块不在 KernelContext.run 内）
       if (parentCtx?.latencySessionId && taskStepId && this.latencyTracker) {
-        this.latencyTracker.endStep(
-          parentCtx.latencySessionId,
-          taskStepId,
-        );
+        this.latencyTracker.endStep(parentCtx.latencySessionId, taskStepId);
       }
 
       // 更新任务状态为失败

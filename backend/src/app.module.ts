@@ -42,7 +42,6 @@ import { KeyResolverModule } from "./modules/ai-infra/key-resolver";
 import { UserModelConfigsModule } from "./modules/ai-infra/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
-import { AiKernelModule } from "./modules/ai-kernel/ai-kernel.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
@@ -168,7 +167,6 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
 
     // AI modules (ai-* prefix)
     AiEngineModule,
-    AiKernelModule,
     AiAskModule,
     AiImageModule,
     AiOfficeModule,

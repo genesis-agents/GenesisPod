@@ -23,7 +23,7 @@ export type {
   ReviewCriteria,
   TeamMemberInfo,
 } from "../../orchestration/services/interfaces";
-export { ConstraintEnforcementService } from "../../../ai-kernel/facade";
+export { ConstraintEnforcementService } from "../../runtime/resource/constraint-enforcement.service";
 export { TokenBudgetService } from "../../orchestration/services";
 export type {
   ModelConfig as TokenBudgetModelConfig,
@@ -37,12 +37,12 @@ export { AgentExecutorService } from "../../orchestration/services/agent-executo
 export {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../../ai-kernel/facade";
+} from "../../runtime/resource/circuit-breaker.service";
 export { ContextInitializationService } from "../../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
-export { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-kernel/facade";
-export { StateCategory } from "../../../ai-kernel/facade";
-export type { ExecutionStateStats } from "../../../ai-kernel/facade";
+export { ProcessSupervisorService as ExecutionStateManager } from "../../runtime/supervisor/process-supervisor.service";
+export { StateCategory } from "../../runtime/supervisor/process-supervisor.service";
+export type { ExecutionStateStats } from "../../runtime/supervisor/process-supervisor.service";
 export { AICapabilityResolver } from "../../orchestration/capabilities/ai-capability-resolver.service";
 export { IntentRouterService } from "../../orchestration/services/intent-router.service";
 export type {

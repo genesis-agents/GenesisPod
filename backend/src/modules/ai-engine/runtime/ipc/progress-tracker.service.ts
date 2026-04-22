@@ -10,8 +10,8 @@ import type {
   CreateTrackedTaskRequest,
   TaskPhase,
   ProgressEvent,
-} from "../../../ai-kernel/abstractions";
-import { calculateOverallProgress } from "../../../ai-kernel/abstractions";
+} from "../../../ai-engine/runtime/abstractions";
+import { calculateOverallProgress } from "../../../ai-engine/runtime/abstractions";
 import { EventBusService } from "./event-bus.service";
 
 /**

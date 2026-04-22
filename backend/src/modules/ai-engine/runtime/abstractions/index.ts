@@ -16,7 +16,7 @@ export type {
   ProgressEvent,
   RoomConfig,
   RoomType,
-} from "../../ai-engine/facade";
+} from "../../facade";
 
 // ==================== Realtime / Progress Tracker ====================
 
@@ -25,13 +25,13 @@ export type {
   TrackedTask,
   CreateTrackedTaskRequest,
   TaskPhase,
-} from "../../ai-engine/facade";
+} from "../../facade";
 
 // ★ Inlined from ai-engine to avoid circular dependency at runtime:
 // facade barrel → AIEngineFacade → AiChatService → CircuitBreakerService(shim)
-// → ai-kernel/facade → ProgressTrackerService → abstractions → facade (cycle!)
+// → ai-engine/facade → ProgressTrackerService → abstractions → facade (cycle!)
 // All `export type` are erased at runtime (safe). Only runtime values trigger the cycle.
-import type { TaskPhase as _TaskPhase } from "../../ai-engine/facade";
+import type { TaskPhase as _TaskPhase } from "../../facade";
 
 export function calculateOverallProgress(phases: _TaskPhase[]): number {
   const totalWeight = phases.reduce((sum, p) => sum + p.weight, 0);
@@ -61,7 +61,7 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../../ai-engine/facade";
+} from "../../facade";
 
 // ==================== Teams / A2A Message ====================
 
@@ -70,31 +70,27 @@ export type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../ai-engine/facade";
+} from "../../facade";
 
 // ==================== Teams / Member ====================
 
-export type {
-  ITeamMember,
-  TeamMemberId,
-  MemberStatus,
-} from "../../ai-engine/facade";
+export type { ITeamMember, TeamMemberId, MemberStatus } from "../../facade";
 
 // ==================== Teams / Role ====================
 
-export type { IRole, WorkStyle } from "../../ai-engine/facade";
+export type { IRole, WorkStyle } from "../../facade";
 
 // ==================== Teams / Team ====================
 
-export type { TeamId } from "../../ai-engine/facade";
+export type { TeamId } from "../../facade";
 
 // ==================== Core / Agent Types ====================
 
-export type { SkillId, ToolId } from "../../ai-engine/facade";
+export type { SkillId, ToolId } from "../../facade";
 
 // ==================== Orchestration / Abstractions ====================
 
-export type { Checkpoint, ExecutionContext } from "../../ai-engine/facade";
+export type { Checkpoint, ExecutionContext } from "../../facade";
 
 // ==================== Teams / Constraint Engine ====================
 
@@ -113,11 +109,11 @@ export type {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../../ai-engine/facade";
+} from "../../facade";
 
 // Also re-export ConstraintViolation under its original name for kernel-internal use
 // (the facade exports this as ConstraintEngineViolation to avoid collision)
-export type { ConstraintEngineViolation as ConstraintViolation } from "../../ai-engine/facade";
+export type { ConstraintEngineViolation as ConstraintViolation } from "../../facade";
 
 // ==================== Orchestration / Services / Interfaces ====================
 
@@ -128,11 +124,11 @@ export type {
   OutputValidationResult,
   HardConstraint,
   IConstraintEnforcementService,
-} from "../../ai-engine/facade";
+} from "../../facade";
 
 // ==================== Teams / Constraints / Constraint Profile ====================
 
-export type { ConstraintProfile } from "../../ai-engine/facade";
+export type { ConstraintProfile } from "../../facade";
 
 // ==================== Memory / Abstractions ====================
 
@@ -145,7 +141,7 @@ export type {
   MemorySearchOptions,
   MemorySearchResult,
   ConversationMessage,
-} from "../../ai-engine/facade";
+} from "../../facade";
 
 // ==================== DI Tokens ====================
 // A2A DI tokens (TEAMS_SERVICE_TOKEN / TRACE_COLLECTOR_TOKEN) moved to

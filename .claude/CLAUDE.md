@@ -53,8 +53,7 @@ L2 AI Engine（核心能力层）→ LLM / Agents / Tools / RAG / Runtime → mo
 L1 Infrastructure（基础设施层）→ Auth、Credits、Storage       → modules/ai-infra/
 ```
 
-> 历史遗留：`modules/ai-kernel/` 保留为空壳兼容层（仅 facade + abstractions 类型桥），
-> 所有运行时能力已迁移到 `ai-engine/runtime/`。后续 PR 会彻底删除 `ai-kernel/`。
+> 原 `modules/ai-kernel/` 目录已彻底删除，全部能力归并到 `ai-engine/runtime/`（PR 7）。
 
 > 详细文档: [skills/ai-architecture-layering/SKILL.md](skills/ai/ai-architecture-layering/SKILL.md)
 

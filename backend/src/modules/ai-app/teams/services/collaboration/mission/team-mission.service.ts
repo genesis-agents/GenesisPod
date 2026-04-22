@@ -92,7 +92,7 @@ import {
   MissionExecutorService,
   EventJournalService,
   KernelContext,
-} from "../../../../../ai-kernel/facade";
+} from "../../../../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts

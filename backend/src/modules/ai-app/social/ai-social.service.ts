@@ -41,7 +41,7 @@ import {
 } from "./types";
 import { encryptSession, decryptSession } from "./utils/session-crypto";
 import { SessionData } from "./types/platform.types";
-import { MissionExecutorService, KernelContext } from "../../ai-kernel/facade";
+import { MissionExecutorService, KernelContext } from "../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 @Injectable()

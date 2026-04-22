@@ -15,26 +15,26 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
-import { ConstraintEngine } from "../../ai-kernel/facade";
+import { ConstraintEngine } from "../../ai-engine/facade";
 import { MissionOrchestrator } from "./orchestrator/mission-orchestrator";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
-import { MessageBusService as A2AMessageBusService } from "../../ai-kernel/facade";
+import { MessageBusService as A2AMessageBusService } from "../../ai-engine/facade";
 import { TeamsController } from "./controllers/teams.controller";
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 import { LLMFactory } from "../llm/factory/llm-factory";
-import { CostController } from "../../ai-kernel/facade";
+import { CostController } from "../../ai-engine/facade";
 import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
-import { CheckpointManager } from "../../ai-kernel/facade";
-import { MissionExecutorService } from "../../ai-kernel/facade";
-import { EventJournalService } from "../../ai-kernel/facade";
+import { CheckpointManager } from "../../ai-engine/facade";
+import { MissionExecutorService } from "../../ai-engine/facade";
+import { EventJournalService } from "../../ai-engine/facade";
 
 /**
  * Teams 模块

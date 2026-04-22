@@ -9,7 +9,7 @@
  *
  * 用法：
  *   import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
- *   import { BUILTIN_AGENTS, ... } from "../../../ai-engine/facade";
+ *   import { BUILTIN_AGENTS, ... } from "@/modules/ai-engine/facade";
  */
 
 export { BaseAgent } from "../agents/base/base-agent";

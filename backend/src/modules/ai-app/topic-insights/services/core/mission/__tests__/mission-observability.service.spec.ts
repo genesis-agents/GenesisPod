@@ -10,7 +10,7 @@ import {
   ErrorTrackingService,
   AIMetricsService,
 } from "@/modules/ai-infra/facade";
-import { EventBusService } from "@/modules/ai-kernel/facade";
+import { EventBusService } from "@/modules/ai-engine/facade";
 import {
   CostAttributionService,
   TraceCollectorService,

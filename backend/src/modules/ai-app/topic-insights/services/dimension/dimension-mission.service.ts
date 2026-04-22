@@ -17,7 +17,7 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
-import { KernelContext } from "@/modules/ai-kernel/facade";
+import { KernelContext } from "@/modules/ai-engine/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-engine/facade";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
