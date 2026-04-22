@@ -18,7 +18,7 @@
  *   - 后续 Phase 3 可替换为 native function calling
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import type {
   AgentLoopKind,
   IAgentEvent,
@@ -34,6 +34,7 @@ import { ContextEnvelope } from "../core/context-envelope";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import type { ChatMessage } from "../../llm/types";
 import { ToolInvoker } from "../executor/tool-invoker";
+import { ContextManager } from "../context/context-manager";
 
 export interface ReActLoopOptions {
   agentId: string;
@@ -72,6 +73,7 @@ export class ReActLoop implements IAgentLoop {
     private readonly chatService: AiChatService,
     private readonly toolInvoker: ToolInvoker,
     private readonly hookRegistry: IHookRegistry,
+    @Optional() private readonly contextManager?: ContextManager,
   ) {}
 
   async *run(
@@ -85,6 +87,14 @@ export class ReActLoop implements IAgentLoop {
 
     while (iteration < criteria.maxIterations) {
       iteration += 1;
+
+      // 0. context engineering: compact + prune if needed
+      if (this.contextManager) {
+        const result = await this.contextManager.ensureBudget(currentEnvelope);
+        if (result.compacted || result.pruned) {
+          currentEnvelope = result.envelope;
+        }
+      }
 
       // 1. perceive: build messages
       const messages = this.buildMessages(currentEnvelope);
