@@ -74,6 +74,11 @@ jest.mock("@/modules/ai-engine/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
+  KernelContext: {
+    run: <T>(_data: unknown, fn: () => T): T => fn(),
+    get: () => undefined,
+    getProcessId: () => undefined,
+  },
 }));
 // ─────────────────────────────────────────────────────────────────────────────
 

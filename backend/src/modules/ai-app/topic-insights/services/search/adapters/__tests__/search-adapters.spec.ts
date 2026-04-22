@@ -24,9 +24,6 @@ jest.mock("@/modules/ai-engine/facade", () => ({
     API_ERROR: "API_ERROR",
     SUCCESS: "SUCCESS",
   },
-}));
-
-jest.mock("@/modules/ai-engine/facade", () => ({
   ToolRegistry: class {},
   ChatFacade: class {},
   RAGFacade: class {},

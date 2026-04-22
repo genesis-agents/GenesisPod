@@ -76,6 +76,13 @@ jest.mock("@/modules/ai-engine/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
+  // KernelContext moved from ai-kernel to ai-engine/facade in kernel-merge PR;
+  // tests need a pass-through run() so nested service logic still executes.
+  KernelContext: {
+    run: <T>(_data: unknown, fn: () => T): T => fn(),
+    get: () => undefined,
+    getProcessId: () => undefined,
+  },
 }));
 // ─────────────────────────────────────────────────────────────────────────────
 
