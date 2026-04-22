@@ -3643,8 +3643,8 @@
         "db": "PostgreSQL 数据库",
         "r2": "Cloudflare R2",
         "total": "总计",
-        "tablesCount": "{count} 张表",
-        "objectsCount": "{count} 个对象",
+        "tablesCount": "{{count}} 张表",
+        "objectsCount": "{{count}} 个对象",
         "r2Unconfigured": "未配置",
         "subTotal": "DB + 对象存储"
       },
@@ -3686,7 +3686,7 @@
         }
       },
       "footer": {
-        "generatedAt": "生成于 {ago}",
+        "generatedAt": "生成于 {{ago}}",
         "refresh": "刷新",
         "export": "导出 JSON"
       },

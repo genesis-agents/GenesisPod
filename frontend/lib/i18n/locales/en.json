@@ -3643,8 +3643,8 @@
         "db": "PostgreSQL Database",
         "r2": "Cloudflare R2",
         "total": "Total",
-        "tablesCount": "{count} tables",
-        "objectsCount": "{count} objects",
+        "tablesCount": "{{count}} tables",
+        "objectsCount": "{{count}} objects",
         "r2Unconfigured": "not configured",
         "subTotal": "DB + Object Storage"
       },
@@ -3686,7 +3686,7 @@
         }
       },
       "footer": {
-        "generatedAt": "Generated {ago}",
+        "generatedAt": "Generated {{ago}}",
         "refresh": "Refresh",
         "export": "Export JSON"
       },
