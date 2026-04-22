@@ -14,6 +14,11 @@ jest.mock("../../../../../common/guards/jwt-auth.guard", () => ({
     canActivate: jest.fn().mockReturnValue(true),
   })),
 }));
+jest.mock("../../../../../common/guards/admin.guard", () => ({
+  AdminGuard: jest.fn().mockImplementation(() => ({
+    canActivate: jest.fn().mockReturnValue(true),
+  })),
+}));
 
 const mockResourcesService = {
   findAll: jest.fn(),

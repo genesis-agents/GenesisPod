@@ -14,7 +14,13 @@ import { useOnboardingStatus } from '@/hooks/features/useByokUser';
  *
  * 放在 Providers 内部、AuthProvider 之后；对 /login /auth 相关路径静默。
  */
-const ALLOWED_PATHS = ['/settings/api-keys', '/auth', '/login', '/logout'];
+const ALLOWED_PATHS = [
+  '/settings/api-keys',
+  '/me/ai', // banner "去配置" 按钮跳这里，不要被 guard 反弹
+  '/auth',
+  '/login',
+  '/logout',
+];
 
 export function ByokOnboardingGuard({
   children,

@@ -1046,45 +1046,31 @@ export class ResourcesService {
     archived: number;
     total: number;
   }> {
-    const toDelete = await this.prisma.resource.findMany({
-      where: {
-        linkHealth: "BROKEN",
-        notes: { none: {} },
-        comments: { none: {} },
-      },
-      select: { id: true },
-    });
-    const toArchive = await this.prisma.resource.findMany({
-      where: {
-        linkHealth: "BROKEN",
-        OR: [{ notes: { some: {} } }, { comments: { some: {} } }],
-      },
-      select: { id: true },
-    });
-
-    const deleteIds = toDelete.map((r) => r.id);
-    const archiveIds = toArchive.map((r) => r.id);
-    let deleted = 0;
-    let archived = 0;
-
-    if (deleteIds.length > 0) {
-      const r = await this.prisma.resource.deleteMany({
-        where: { id: { in: deleteIds } },
+    // ★ 2026-04-22 加固：两步操作放事务里，且 deleteMany 的 where 再叠
+    // notes/comments none 条件双保险，防止 select 到 delete 之间用户写笔记
+    // 导致误删。
+    const result = await this.prisma.$transaction(async (tx) => {
+      const deleteResult = await tx.resource.deleteMany({
+        where: {
+          linkHealth: "BROKEN",
+          notes: { none: {} },
+          comments: { none: {} },
+        },
       });
-      deleted = r.count;
-    }
-    if (archiveIds.length > 0) {
-      const r = await this.prisma.resource.updateMany({
-        where: { id: { in: archiveIds } },
+      const archiveResult = await tx.resource.updateMany({
+        where: {
+          linkHealth: "BROKEN",
+          OR: [{ notes: { some: {} } }, { comments: { some: {} } }],
+        },
         data: { linkHealth: "ARCHIVED" },
       });
-      archived = r.count;
-    }
+      return { deleted: deleteResult.count, archived: archiveResult.count };
+    });
 
     this.logger.log(
-      `Broken cleanup: deleted=${deleted}, archived=${archived} (kept for user data)`,
+      `Broken cleanup: deleted=${result.deleted}, archived=${result.archived} (kept for user data)`,
     );
-    return { deleted, archived, total: deleted + archived };
+    return { ...result, total: result.deleted + result.archived };
   }
 
   async cleanupDuplicates(resourceType?: string): Promise<{

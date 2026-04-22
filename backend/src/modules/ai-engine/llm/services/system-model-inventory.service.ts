@@ -107,6 +107,7 @@ export class SystemModelInventoryService {
     ]);
 
     // 24h 调用量 / 错误率（按 model_id）
+    // ai_engine_metrics 用的是 `success BOOLEAN`，不是 `status` 列
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const metricsRaw = await this.prisma.$queryRawUnsafe<
       Array<{
@@ -117,7 +118,7 @@ export class SystemModelInventoryService {
     >(
       `SELECT model_id,
               COUNT(*)::bigint AS calls,
-              COUNT(*) FILTER (WHERE status='error')::bigint AS errors
+              COUNT(*) FILTER (WHERE success = false)::bigint AS errors
        FROM ai_engine_metrics
        WHERE created_at >= $1 AND model_id IS NOT NULL
        GROUP BY model_id`,

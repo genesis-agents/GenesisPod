@@ -299,9 +299,13 @@ export class ResourceHealthCheckScheduler
   /**
    * 走 YouTube oEmbed 判断视频是否还存在
    * https://www.youtube.com/oembed?url={}&format=json
-   * - 200 → 视频还在
-   * - 401/404 → 视频已被删除或设为私有
-   * - 其他错误 → 保守返回 false 让失败计数递增
+   *
+   * 状态码解读：
+   * - 200 → 视频还在，HEALTHY
+   * - 401 → 视频被设为私有，BROKEN
+   * - 404 → 视频已删除，BROKEN
+   * - 429 / 503 / 网络超时 → 临时故障，保守返回 true（不递增失败计数），
+   *   避免 YouTube 限流 / 出口 IP 被封导致批量误标 BROKEN
    */
   private async checkYoutubeUrl(url: string): Promise<boolean> {
     try {
@@ -310,15 +314,27 @@ export class ResourceHealthCheckScheduler
         `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
         {
           timeout: this.HEAD_TIMEOUT_MS,
-          validateStatus: () => true, // 自己判断状态码
+          validateStatus: () => true,
         },
       );
-      return res.status === 200;
-    } catch (error) {
-      this.logger.debug(
-        `[youtube oembed] check failed for ${url}: ${(error as Error).message}`,
+      if (res.status === 200) return true;
+      if (res.status === 401 || res.status === 404) {
+        this.logger.debug(
+          `[youtube oembed] ${res.status} for ${url} → deleted/private`,
+        );
+        return false;
+      }
+      // 其他状态码（429 限流 / 5xx 服务端 / 403 地域限制）保守视为临时故障
+      this.logger.warn(
+        `[youtube oembed] ambiguous status ${res.status} for ${url}, treating as healthy`,
       );
-      return false;
+      return true;
+    } catch (error) {
+      // 网络超时 / DNS 等也保守返回 true
+      this.logger.warn(
+        `[youtube oembed] network error for ${url}: ${(error as Error).message}, treating as healthy`,
+      );
+      return true;
     }
   }
 

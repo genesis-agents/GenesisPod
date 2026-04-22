@@ -40,6 +40,7 @@ import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { R2StorageService } from "../../../ai-infra/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
 import { Prisma } from "@prisma/client";
 import {
@@ -243,12 +244,13 @@ export class ResourcesController {
   }
 
   /**
-   * 清理重复资源
+   * 清理重复资源（管理员专用）
    * POST /api/v1/resources/cleanup/duplicates?type=YOUTUBE_VIDEO
    *
    * 识别并删除重复的资源（基于 sourceUrl 和 normalizedUrl）
    * 保留最早创建的记录，删除后续重复的记录
    */
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post("cleanup/duplicates")
   async cleanupDuplicates(@Query("type") type?: string) {
     this.logger.log(
@@ -264,13 +266,14 @@ export class ResourcesController {
   }
 
   /**
-   * 一键清理 BROKEN 资源
+   * 一键清理 BROKEN 资源（管理员专用）
    * POST /api/v1/resources/cleanup/broken
    *
    * 删除 linkHealth=BROKEN 且无 notes/comments 的资源。
    * 与 ResourceHealthCheckScheduler 的自动归档互补——
    * 这里是"立刻物理删除"，归档只是改 linkHealth=ARCHIVED。
    */
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post("cleanup/broken")
   async cleanupBroken() {
     this.logger.log("Cleaning up BROKEN resources (link unavailable)");

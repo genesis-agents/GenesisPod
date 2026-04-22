@@ -24,6 +24,18 @@ import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
 import { R2StorageService } from "../../../../ai-infra/facade";
 
+// Guards: mock JwtAuthGuard + AdminGuard to always pass in unit tests
+jest.mock("../../../../../common/guards/jwt-auth.guard", () => ({
+  JwtAuthGuard: jest.fn().mockImplementation(() => ({
+    canActivate: jest.fn().mockReturnValue(true),
+  })),
+}));
+jest.mock("../../../../../common/guards/admin.guard", () => ({
+  AdminGuard: jest.fn().mockImplementation(() => ({
+    canActivate: jest.fn().mockReturnValue(true),
+  })),
+}));
+
 const mockResourcesService = {
   findAll: jest.fn(),
   findOne: jest.fn(),

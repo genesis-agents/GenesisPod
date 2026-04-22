@@ -8,7 +8,15 @@ export interface ByokStatus {
   configured: boolean;
   activeProviders: string[];
   hasModelConfig: boolean;
-  firstTime: boolean;
+}
+
+// 用于跨组件通知"key 配置完成，请重新拉 status"
+export const BYOK_REFRESH_EVENT = 'byok-status-refresh';
+
+/** 发广播：任何保存 key 成功的地方都该调一次，让 banner 自动消失 */
+export function broadcastByokStatusRefresh(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(BYOK_REFRESH_EVENT));
 }
 
 const DISMISS_KEY = 'byok-onboarding-dismissed-at';
@@ -65,6 +73,14 @@ export function useByokStatus() {
 
   useEffect(() => {
     void fetchStatus();
+  }, [fetchStatus]);
+
+  // 监听全局"配好 key 了"事件 → 自动 refresh banner 状态
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => void fetchStatus();
+    window.addEventListener(BYOK_REFRESH_EVENT, handler);
+    return () => window.removeEventListener(BYOK_REFRESH_EVENT, handler);
   }, [fetchStatus]);
 
   const dismissBanner = useCallback(() => {
