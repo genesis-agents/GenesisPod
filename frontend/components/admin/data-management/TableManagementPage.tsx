@@ -12,6 +12,7 @@ import TableDataGrid from './TableDataGrid';
 import TableDetailModal from './TableDetailModal';
 import TableDiagnosisPanel from './TableDiagnosisPanel';
 import StorageInventoryPanel from './StorageInventoryPanel';
+import BrokenResourcesCard from './BrokenResourcesCard';
 
 export default function TableManagementPage() {
   const { t } = useTranslation();
@@ -133,6 +134,9 @@ export default function TableManagementPage() {
       <div className="space-y-6">
         {/* 数据存储位置清单（DB vs R2） */}
         <StorageInventoryPanel />
+
+        {/* 无效资源一键清理（AI 探索 BROKEN URL） */}
+        <BrokenResourcesCard />
 
         {/* Stats Cards */}
         <TableStatsCards
