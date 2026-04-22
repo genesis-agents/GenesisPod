@@ -15,6 +15,8 @@ import {
   Activity,
   Bot,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Package,
   RefreshCw,
   Users,
@@ -57,10 +59,14 @@ interface SystemModelInventory {
   generatedAt: string;
 }
 
+type TabKey = 'summary' | 'distribution' | 'top';
+
 export default function SystemModelInventoryPanel() {
   const [data, setData] = useState<SystemModelInventory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>('summary');
+  const [collapsed, setCollapsed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,177 +143,247 @@ export default function SystemModelInventoryPanel() {
     <ResponsiveCard>
       <ResponsiveCardHeader>
         <div className="flex items-center justify-between">
-          <ResponsiveCardTitle>系统模型</ResponsiveCardTitle>
           <button
-            onClick={() => void load()}
-            aria-label="刷新"
-            className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            onClick={() => setCollapsed((v) => !v)}
+            className="inline-flex items-center gap-2 rounded text-left transition-colors hover:text-blue-600 dark:hover:text-blue-400"
+            aria-expanded={!collapsed}
           >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
-            />
+            {collapsed ? (
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            ) : (
+              <ChevronUp className="h-4 w-4 text-gray-400" />
+            )}
+            <ResponsiveCardTitle>系统模型</ResponsiveCardTitle>
+            <span className="text-xs font-normal text-gray-500">
+              {summary.totalModels} 总 · {summary.enabledModels} 启用 ·{' '}
+              {summary.distinctProviders} provider
+            </span>
           </button>
+          {!collapsed && (
+            <button
+              onClick={() => void load()}
+              aria-label="刷新"
+              className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
+              />
+            </button>
+          )}
         </div>
-        <p className="mt-1 text-xs text-gray-500">
-          所有启用/禁用模型、provider 分布、用户配置情况与 24h 调用指标
-        </p>
-      </ResponsiveCardHeader>
-      <ResponsiveCardContent>
-        {/* 顶部 4 卡片 */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat
-            icon={<Bot className="h-4 w-4" />}
-            label="总模型数"
-            value={summary.totalModels}
-            tone="blue"
-          />
-          <Stat
-            icon={<CheckCircle className="h-4 w-4" />}
-            label="启用中"
-            value={summary.enabledModels}
-            tone="green"
-          />
-          <Stat
-            icon={<Package className="h-4 w-4" />}
-            label="Provider 数"
-            value={summary.distinctProviders}
-            tone="purple"
-          />
-          <Stat
-            icon={<Users className="h-4 w-4" />}
-            label="用户配置数"
-            value={summary.userConfiguredModels}
-            tone="amber"
-          />
-        </div>
-
-        {/* 按类型分布 */}
-        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <h4 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              按模型类型分布
-            </h4>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
-                  <th className="py-2 pr-4">类型</th>
-                  <th className="py-2 pr-4 text-right">总 / 启用</th>
-                  <th className="py-2">Providers</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byType.map((t) => (
-                  <tr
-                    key={t.modelType}
-                    className="border-b border-gray-100 dark:border-gray-800"
-                  >
-                    <td className="font-mono py-2 pr-4">{t.modelType}</td>
-                    <td className="py-2 pr-4 text-right">
-                      {t.total} /{' '}
-                      <span className="text-green-600">{t.enabled}</span>
-                    </td>
-                    <td className="truncate py-2 text-gray-500">
-                      {t.providers.join(', ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div>
-            <h4 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              按 Provider 分布
-            </h4>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
-                  <th className="py-2 pr-4">Provider</th>
-                  <th className="py-2 pr-4 text-right">总 / 启用</th>
-                  <th className="py-2">覆盖类型数</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byProvider.map((p) => (
-                  <tr
-                    key={p.provider}
-                    className="border-b border-gray-100 dark:border-gray-800"
-                  >
-                    <td className="font-mono py-2 pr-4">{p.provider}</td>
-                    <td className="py-2 pr-4 text-right">
-                      {p.total} /{' '}
-                      <span className="text-green-600">{p.enabled}</span>
-                    </td>
-                    <td className="py-2 text-gray-500">{p.types.length}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* 热门模型 Top 10 */}
-        {topModels.length > 0 && (
-          <div className="mt-6">
-            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              <Activity className="h-4 w-4" />
-              Top 10 热门模型（按用户配置数）
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
-                    <th className="py-2 pr-4">Model</th>
-                    <th className="hidden py-2 pr-4 md:table-cell">Provider</th>
-                    <th className="hidden py-2 pr-4 md:table-cell">Type</th>
-                    <th className="py-2 pr-4 text-right">配置用户</th>
-                    <th className="py-2 pr-4 text-right">24h 调用</th>
-                    <th className="py-2 text-right">错误率</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topModels.map((m) => {
-                    const rate =
-                      m.callsLast24h > 0
-                        ? Math.round((m.errorsLast24h * 100) / m.callsLast24h)
-                        : 0;
-                    return (
-                      <tr
-                        key={`${m.provider}/${m.modelId}`}
-                        className="border-b border-gray-100 dark:border-gray-800"
-                      >
-                        <td className="font-mono py-2 pr-4">{m.modelId}</td>
-                        <td className="hidden py-2 pr-4 text-gray-500 md:table-cell">
-                          {m.provider}
-                        </td>
-                        <td className="hidden py-2 pr-4 text-gray-500 md:table-cell">
-                          {m.modelType}
-                        </td>
-                        <td className="py-2 pr-4 text-right font-medium">
-                          {m.userConfigCount}
-                        </td>
-                        <td className="py-2 pr-4 text-right">
-                          {m.callsLast24h}
-                        </td>
-                        <td
-                          className={`py-2 text-right ${rate > 10 ? 'text-red-600' : rate > 0 ? 'text-amber-600' : 'text-gray-500'}`}
-                        >
-                          {rate}%
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+        {!collapsed && (
+          <div className="mt-3 flex gap-1 border-b border-gray-200 dark:border-gray-700">
+            {(
+              [
+                { k: 'summary', label: '概览' },
+                { k: 'distribution', label: '分布' },
+                { k: 'top', label: 'Top 10' },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.k}
+                onClick={() => setTab(t.k)}
+                className={`border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
+                  tab === t.k
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         )}
+      </ResponsiveCardHeader>
+      {!collapsed && (
+        <ResponsiveCardContent>
+          {tab === 'summary' && (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Stat
+                icon={<Bot className="h-4 w-4" />}
+                label="总模型数"
+                value={summary.totalModels}
+                tone="blue"
+              />
+              <Stat
+                icon={<CheckCircle className="h-4 w-4" />}
+                label="启用中"
+                value={summary.enabledModels}
+                tone="green"
+              />
+              <Stat
+                icon={<Package className="h-4 w-4" />}
+                label="Provider 数"
+                value={summary.distinctProviders}
+                tone="purple"
+              />
+              <Stat
+                icon={<Users className="h-4 w-4" />}
+                label="用户配置数"
+                value={summary.userConfiguredModels}
+                tone="amber"
+              />
+            </div>
+          )}
 
-        <div className="mt-4 text-right text-[11px] text-gray-400">
-          生成于 {new Date(data.generatedAt).toLocaleString()}
-        </div>
-      </ResponsiveCardContent>
+          {tab === 'distribution' && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <DistributionTable
+                title="按模型类型分布"
+                firstCol="类型"
+                lastCol="Providers"
+                rows={byType.map((t) => ({
+                  key: t.modelType,
+                  label: t.modelType,
+                  total: t.total,
+                  enabled: t.enabled,
+                  extra: t.providers.join(', '),
+                  extraTooltip: t.providers.join(', '),
+                }))}
+              />
+              <DistributionTable
+                title="按 Provider 分布"
+                firstCol="Provider"
+                lastCol="覆盖类型"
+                rows={byProvider.map((p) => ({
+                  key: p.provider,
+                  label: p.provider,
+                  total: p.total,
+                  enabled: p.enabled,
+                  extra: String(p.types.length),
+                  extraTooltip: p.types.join(', '),
+                }))}
+              />
+            </div>
+          )}
+
+          {tab === 'top' && topModels.length > 0 && (
+            <div>
+              <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <Activity className="h-4 w-4" />
+                Top 10 热门模型（按用户配置数）
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
+                      <th className="py-2 pr-4">Model</th>
+                      <th className="hidden py-2 pr-4 md:table-cell">
+                        Provider
+                      </th>
+                      <th className="hidden py-2 pr-4 md:table-cell">Type</th>
+                      <th className="py-2 pr-4 text-right">配置用户</th>
+                      <th className="py-2 pr-4 text-right">24h 调用</th>
+                      <th className="py-2 text-right">错误率</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topModels.map((m) => {
+                      const rate =
+                        m.callsLast24h > 0
+                          ? Math.round((m.errorsLast24h * 100) / m.callsLast24h)
+                          : 0;
+                      return (
+                        <tr
+                          key={`${m.provider}/${m.modelId}`}
+                          className="border-b border-gray-100 dark:border-gray-800"
+                        >
+                          <td className="font-mono py-2 pr-4">{m.modelId}</td>
+                          <td className="hidden py-2 pr-4 text-gray-500 md:table-cell">
+                            {m.provider}
+                          </td>
+                          <td className="hidden py-2 pr-4 text-gray-500 md:table-cell">
+                            {m.modelType}
+                          </td>
+                          <td className="py-2 pr-4 text-right font-medium">
+                            {m.userConfigCount}
+                          </td>
+                          <td className="py-2 pr-4 text-right">
+                            {m.callsLast24h}
+                          </td>
+                          <td
+                            className={`py-2 text-right ${rate > 10 ? 'text-red-600' : rate > 0 ? 'text-amber-600' : 'text-gray-500'}`}
+                          >
+                            {rate}%
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 text-right text-[11px] text-gray-400">
+            生成于 {new Date(data.generatedAt).toLocaleString()}
+          </div>
+        </ResponsiveCardContent>
+      )}
     </ResponsiveCard>
+  );
+}
+
+function DistributionTable({
+  title,
+  firstCol,
+  lastCol,
+  rows,
+}: {
+  title: string;
+  firstCol: string;
+  lastCol: string;
+  rows: Array<{
+    key: string;
+    label: string;
+    total: number;
+    enabled: number;
+    extra: string;
+    extraTooltip?: string;
+  }>;
+}) {
+  return (
+    <div>
+      <h4 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {title}
+      </h4>
+      <div className="overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 dark:bg-gray-900/50">
+            <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
+              <th className="whitespace-nowrap px-3 py-2">{firstCol}</th>
+              <th className="whitespace-nowrap px-3 py-2 text-right">总</th>
+              <th className="whitespace-nowrap px-3 py-2 text-right">启用</th>
+              <th className="whitespace-nowrap px-3 py-2">{lastCol}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.key}
+                className="border-b border-gray-100 last:border-0 dark:border-gray-800"
+              >
+                <td className="font-mono whitespace-nowrap px-3 py-1.5">
+                  {r.label}
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
+                  {r.total}
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {r.enabled}
+                </td>
+                <td
+                  className="max-w-[200px] truncate px-3 py-1.5 text-gray-500"
+                  title={r.extraTooltip}
+                >
+                  {r.extra}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
