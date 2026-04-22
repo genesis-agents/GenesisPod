@@ -73,7 +73,13 @@ export default function StorageInventoryPanel() {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      const payload = (await response.json()) as StorageInventory;
+      const raw = (await response.json()) as
+        | StorageInventory
+        | { success?: boolean; data?: StorageInventory };
+      const payload =
+        (raw as { data?: StorageInventory }).data !== undefined
+          ? (raw as { data: StorageInventory }).data
+          : (raw as StorageInventory);
       setData(payload);
     } catch (e) {
       setError((e as Error).message);
@@ -125,6 +131,18 @@ export default function StorageInventoryPanel() {
 
   if (!data) return null;
 
+  // 防御性默认值：后端可能漏字段，不至于让整个页面崩
+  const db = data.database ?? { totalBytes: 0, totalHuman: '0 B', tables: [] };
+  const r2 = data.r2 ?? {
+    configured: false,
+    bucket: null,
+    totalObjects: 0,
+    totalBytes: 0,
+    totalHuman: '0 B',
+    byPrefix: [],
+  };
+  const offloadFields = data.offloadFields ?? [];
+
   return (
     <div className="space-y-6">
       {/* 顶部总览 */}
@@ -132,21 +150,21 @@ export default function StorageInventoryPanel() {
         <Summary
           icon={<Database className="h-5 w-5" />}
           label="PostgreSQL 数据库"
-          value={data.database.totalHuman}
-          sub={`${data.database.tables.length} 张表`}
+          value={db.totalHuman}
+          sub={`${db.tables.length} 张表`}
           tone="blue"
         />
         <Summary
           icon={<Cloud className="h-5 w-5" />}
-          label={`Cloudflare R2 (${data.r2.bucket ?? '未配置'})`}
-          value={data.r2.totalHuman}
-          sub={`${data.r2.totalObjects} 个对象`}
-          tone={data.r2.configured ? 'green' : 'gray'}
+          label={`Cloudflare R2 (${r2.bucket ?? '未配置'})`}
+          value={r2.totalHuman}
+          sub={`${r2.totalObjects} 个对象`}
+          tone={r2.configured ? 'green' : 'gray'}
         />
         <Summary
           icon={<HardDrive className="h-5 w-5" />}
           label="总计"
-          value={human(data.database.totalBytes + data.r2.totalBytes)}
+          value={human(db.totalBytes + r2.totalBytes)}
           sub={`DB + 对象存储`}
           tone="purple"
         />
@@ -159,7 +177,7 @@ export default function StorageInventoryPanel() {
         extra={
           <button
             onClick={triggerOffload}
-            disabled={triggering || !data.r2.configured}
+            disabled={triggering || !r2.configured}
             className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
           >
             <Play className="h-3.5 w-3.5" />
@@ -180,7 +198,7 @@ export default function StorageInventoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {data.offloadFields.map((f) => {
+              {offloadFields.map((f) => {
                 const pct =
                   f.totalRows > 0
                     ? Math.round((f.rowsWithUri * 100) / f.totalRows)
@@ -225,9 +243,9 @@ export default function StorageInventoryPanel() {
       </Section>
 
       {/* R2 Bucket 清单 */}
-      {data.r2.configured && data.r2.byPrefix.length > 0 && (
+      {r2.configured && (r2.byPrefix?.length ?? 0) > 0 && (
         <Section
-          title={`R2 Bucket 清单 (${data.r2.bucket})`}
+          title={`R2 Bucket 清单 (${r2.bucket ?? ''})`}
           subtitle="按顶层 prefix 分组"
         >
           <table className="w-full text-sm">
@@ -239,7 +257,7 @@ export default function StorageInventoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {data.r2.byPrefix.map((p) => (
+              {r2.byPrefix.map((p) => (
                 <tr
                   key={p.prefix}
                   className="border-b border-gray-100 dark:border-gray-800"
@@ -268,7 +286,7 @@ export default function StorageInventoryPanel() {
             </tr>
           </thead>
           <tbody>
-            {data.database.tables.slice(0, 10).map((t) => (
+            {db.tables.slice(0, 10).map((t) => (
               <tr
                 key={t.table}
                 className="border-b border-gray-100 dark:border-gray-800"
