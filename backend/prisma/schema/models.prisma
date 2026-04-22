@@ -6762,9 +6762,16 @@ model DimensionAnalysis {
   reportId    String @map("report_id")
 
   // ========== 分析内容 ==========
-  summary     String @db.Text // 维度摘要（2-3 段文字）
-  keyFindings Json   @map("key_findings") // 关键发现（结构化）
-  dataPoints  Json?  @map("data_points") // 数据点（可选，用于图表）
+  summary     String  @db.Text // 维度摘要（2-3 段文字，保留 DB——平均 <1KB）
+  // summaryUri/summarySize 预留，当前 summary 全部都小于 2KB 未实际使用；
+  // 真正的空间大头是 dataPoints，下方走 off-load。
+  summaryUri     String? @map("summary_uri")
+  summarySize    Int?    @map("summary_size")
+  keyFindings    Json    @map("key_findings") // 关键发现（结构化）
+  dataPoints     Json?   @map("data_points") // 数据点（图表）— avg 62KB，max 1.3MB
+  // dataPoints off-load：非空表示 JSON 正文存在对象存储。key="dimension-analyses/{id}/data_points.json"
+  dataPointsUri  String? @map("data_points_uri")
+  dataPointsSize Int?    @map("data_points_size")
 
   // ========== 来源追踪 ==========
   sourcesUsed Int @default(0) @map("sources_used") // 使用的来源数量
@@ -6855,6 +6862,9 @@ model TopicEvidence {
   url     String  @db.Text // 来源 URL
   domain  String? @db.VarChar(200) // 域名
   snippet String? @db.Text // 内容片段/摘要
+  // 正文外链：非空表示 snippet 内容存在对象存储。key 格式："topic-evidences/{id}/snippet.txt"
+  snippetUri  String? @map("snippet_uri")
+  snippetSize Int?    @map("snippet_size")
 
   // ========== 元数据 ==========
   publishedAt DateTime? @map("published_at") // 发布时间

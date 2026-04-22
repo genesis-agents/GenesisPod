@@ -219,20 +219,75 @@ export class PrismaService
     }
   }
 
-  private async hydrateRow(
+  /**
+   * 通用 hydrate：按 (uriField, contentField) 对检查并从对象存储拉回 content。
+   * 当 DB content 为空串或 null 才拉，Phase 1 dual-write 期间直接用 DB 省 round-trip。
+   */
+  private async hydrateRowField(
     row: Record<string, unknown> | null | undefined,
+    uriField: string,
+    contentField: string,
   ): Promise<void> {
     if (!row) return;
-    const uri = row.fullReportUri as string | null | undefined;
-    const current = row.fullReport as string | null | undefined;
+    const uri = row[uriField] as string | null | undefined;
+    const current = row[contentField] as string | null | undefined;
     if (!uri) return;
-    // 当 DB 字段为空串或 null（Phase 2 清空后状态）才去 B2 拉；
-    // Phase 1 dual-write 期间 DB 仍有正文，直接用，省一次 round-trip。
     if (current && current.length > 0) return;
     const text = await this.downloadText(uri);
     if (text !== null) {
-      row.fullReport = text;
+      row[contentField] = text;
     }
+  }
+
+  private async hydrateRow(
+    row: Record<string, unknown> | null | undefined,
+  ): Promise<void> {
+    await this.hydrateRowField(row, "fullReportUri", "fullReport");
+  }
+
+  private async hydrateAnalysisRow(
+    row: Record<string, unknown> | null | undefined,
+  ): Promise<void> {
+    // summary: 保留（大部分 <2KB，未 off-load）
+    await this.hydrateRowField(row, "summaryUri", "summary");
+    // dataPoints: JSON 字段。对象存储里存的是 JSON.stringify 结果，反序列化回对象
+    await this.hydrateJsonField(row, "dataPointsUri", "dataPoints");
+  }
+
+  /** JSON 字段版本的 hydrate：从对象存储拉回文本后 JSON.parse */
+  private async hydrateJsonField(
+    row: Record<string, unknown> | null | undefined,
+    uriField: string,
+    contentField: string,
+  ): Promise<void> {
+    if (!row) return;
+    const uri = row[uriField] as string | null | undefined;
+    if (!uri) return;
+    const current = row[contentField];
+    // DB 里 null 或空对象才去拉（Phase 1 dual-write 期间保留 DB 值）
+    if (
+      current !== null &&
+      current !== undefined &&
+      !(typeof current === "object" && Object.keys(current).length === 0)
+    ) {
+      return;
+    }
+    const text = await this.downloadText(uri);
+    if (text !== null) {
+      try {
+        row[contentField] = JSON.parse(text);
+      } catch (error) {
+        this.logger.warn(
+          `[hydrate-json] parse failed for ${uri}: ${(error as Error).message}`,
+        );
+      }
+    }
+  }
+
+  private async hydrateEvidenceRow(
+    row: Record<string, unknown> | null | undefined,
+  ): Promise<void> {
+    await this.hydrateRowField(row, "snippetUri", "snippet");
   }
 
   /**
@@ -244,15 +299,28 @@ export class PrismaService
    * 这里用 Object.defineProperty 在运行时 shadow 掉 topicReport 属性。
    */
   private installTopicReportHydration(): void {
-    const hydrateResult = async (result: unknown) => {
-      if (Array.isArray(result)) {
-        await Promise.all(
-          result.map((r) => this.hydrateRow(r as Record<string, unknown>)),
-        );
-      } else if (result && typeof result === "object") {
-        await this.hydrateRow(result as Record<string, unknown>);
-      }
-    };
+    const makeHydrator =
+      (hydrateFn: (row: Record<string, unknown>) => Promise<void>) =>
+      async (result: unknown) => {
+        if (Array.isArray(result)) {
+          await Promise.all(
+            result.map((r) => hydrateFn(r as Record<string, unknown>)),
+          );
+        } else if (result && typeof result === "object") {
+          await hydrateFn(result as Record<string, unknown>);
+        }
+      };
+
+    const isFindOp = (op: string) =>
+      op === "findUnique" ||
+      op === "findUniqueOrThrow" ||
+      op === "findFirst" ||
+      op === "findFirstOrThrow" ||
+      op === "findMany";
+
+    const hydrateReport = makeHydrator((r) => this.hydrateRow(r));
+    const hydrateAnalysis = makeHydrator((r) => this.hydrateAnalysisRow(r));
+    const hydrateEvidence = makeHydrator((r) => this.hydrateEvidenceRow(r));
 
     const extended = this.$extends({
       query: {
@@ -260,31 +328,44 @@ export class PrismaService
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           async $allOperations({ operation, args, query }: any) {
             const result = await query(args);
-            if (
-              operation === "findUnique" ||
-              operation === "findUniqueOrThrow" ||
-              operation === "findFirst" ||
-              operation === "findFirstOrThrow" ||
-              operation === "findMany"
-            ) {
-              await hydrateResult(result);
-            }
+            if (isFindOp(operation)) await hydrateReport(result);
+            return result;
+          },
+        },
+        dimensionAnalysis: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          async $allOperations({ operation, args, query }: any) {
+            const result = await query(args);
+            if (isFindOp(operation)) await hydrateAnalysis(result);
+            return result;
+          },
+        },
+        topicEvidence: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          async $allOperations({ operation, args, query }: any) {
+            const result = await query(args);
+            if (isFindOp(operation)) await hydrateEvidence(result);
             return result;
           },
         },
       },
     });
 
-    // 运行时 shadow 掉 topicReport 指向扩展 client 的同名 model
-    Object.defineProperty(this, "topicReport", {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      value: (extended as any).topicReport,
-      writable: false,
-      configurable: true,
-    });
+    for (const modelKey of [
+      "topicReport",
+      "dimensionAnalysis",
+      "topicEvidence",
+    ] as const) {
+      Object.defineProperty(this, modelKey, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        value: (extended as any)[modelKey],
+        writable: false,
+        configurable: true,
+      });
+    }
 
     this.logger.log(
-      `[Prisma] TopicReport fullReport hydration installed (provider=${this.objectStorage?.bucket ?? "none"})`,
+      `[Prisma] hydration installed for topicReport / dimensionAnalysis / topicEvidence (bucket=${this.objectStorage?.bucket ?? "lazy"})`,
     );
   }
 
