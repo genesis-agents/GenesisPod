@@ -12,7 +12,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Database, Cloud, HardDrive, RefreshCw, Play } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/api';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 interface TableStat {
   table: string;
@@ -66,10 +67,14 @@ export default function StorageInventoryPanel() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await apiGet<StorageInventory>(
-        '/api/v1/admin/storage-inventory'
-      );
-      setData(resp);
+      const response = await fetch(`${config.apiUrl}/admin/storage-inventory`, {
+        headers: getAuthHeader(),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = (await response.json()) as StorageInventory;
+      setData(payload);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -84,7 +89,15 @@ export default function StorageInventoryPanel() {
   const triggerOffload = useCallback(async () => {
     setTriggering(true);
     try {
-      await apiPost('/api/v1/admin/storage-inventory/run-offload', {});
+      const response = await fetch(
+        `${config.apiUrl}/admin/storage-inventory/run-offload`,
+        {
+          method: 'POST',
+          headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+          body: '{}',
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       setTimeout(() => void load(), 3000);
     } catch (e) {
       setError((e as Error).message);
