@@ -173,12 +173,14 @@ const TARGETS: Record<string, Target> = {
   },
 };
 
-const BATCH_SIZE = 100;
-const CONCURRENCY = 12;
+const BATCH_SIZE = 50;
+const CONCURRENCY = 4; // R2 免费档下并发放低；UnknownError 多数是并发过高导致
 const OFFLOAD_THRESHOLD = 2048;
 const DRY_RUN = process.argv.includes("--dry-run");
+const SKIP_HEAD_CHECK = process.argv.includes("--skip-head"); // 走不幂等、但快的 PUT-only 模式
 
 function buildS3Client(): { client: S3Client; bucket: string } | null {
+  // 优先 B2（已有历史数据），其次 R2
   const b2KeyId = process.env.B2_KEY_ID;
   const b2AppKey = process.env.B2_APP_KEY;
   const b2Endpoint = process.env.B2_ENDPOINT;
@@ -192,6 +194,20 @@ function buildS3Client(): { client: S3Client; bucket: string } | null {
         credentials: { accessKeyId: b2KeyId, secretAccessKey: b2AppKey },
       }),
       bucket: b2Bucket,
+    };
+  }
+  const r2AccountId = process.env.R2_ACCOUNT_ID;
+  const r2AccessKey = process.env.R2_ACCESS_KEY_ID;
+  const r2Secret = process.env.R2_SECRET_ACCESS_KEY;
+  const r2Bucket = process.env.R2_BUCKET_NAME;
+  if (r2AccountId && r2AccessKey && r2Secret && r2Bucket) {
+    return {
+      client: new S3Client({
+        region: "auto",
+        endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+        credentials: { accessKeyId: r2AccessKey, secretAccessKey: r2Secret },
+      }),
+      bucket: r2Bucket,
     };
   }
   return null;
@@ -267,16 +283,19 @@ async function main() {
       const key = target.keyFor(r.id, r.version);
       try {
         if (!DRY_RUN) {
-          // 检查是否已上传（断点恢复）
+          // 默认跳过 HEAD 预检（R2 并发 HEAD+PUT 容易触发 UnknownError 反而更慢）
+          // 直接 PUT，重复写入对象存储是幂等的，代价仅仅是少数重复字节传输
           let exists = false;
-          try {
-            await storage.client.send(
-              new HeadObjectCommand({ Bucket: storage.bucket, Key: key }),
-            );
-            exists = true;
-          } catch (error) {
-            const code = (error as { name?: string })?.name;
-            if (code !== "NotFound" && code !== "NoSuchKey") throw error;
+          if (!SKIP_HEAD_CHECK) {
+            try {
+              await storage.client.send(
+                new HeadObjectCommand({ Bucket: storage.bucket, Key: key }),
+              );
+              exists = true;
+            } catch (error) {
+              const code = (error as { name?: string })?.name;
+              if (code !== "NotFound" && code !== "NoSuchKey") throw error;
+            }
           }
           if (!exists) {
             await storage.client.send(
@@ -287,7 +306,9 @@ async function main() {
                 ContentType:
                   target.ext === "md"
                     ? "text/markdown; charset=utf-8"
-                    : "text/plain; charset=utf-8",
+                    : target.ext === "json"
+                      ? "application/json; charset=utf-8"
+                      : "text/plain; charset=utf-8",
                 Metadata: {
                   "uploaded-at": new Date().toISOString(),
                   "original-size": byteLen.toString(),

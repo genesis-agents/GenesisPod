@@ -53,10 +53,20 @@ export class R2StorageService implements OnModuleInit {
   }
 
   onModuleInit() {
+    // ★ 2026-04-22 切流：B2 cap 封死后临时用 R2。OBJECT_STORAGE_PREFERRED=r2 时跳 B2。
+    const preferred = this.configService.get<string>(
+      "OBJECT_STORAGE_PREFERRED",
+    );
+    const skipB2 = preferred === "r2";
+
     // 优先检查 Backblaze B2 配置
-    const b2KeyId = this.configService.get<string>("B2_KEY_ID");
-    const b2AppKey = this.configService.get<string>("B2_APP_KEY");
-    const b2Endpoint = this.configService.get<string>("B2_ENDPOINT");
+    const b2KeyId = skipB2 ? null : this.configService.get<string>("B2_KEY_ID");
+    const b2AppKey = skipB2
+      ? null
+      : this.configService.get<string>("B2_APP_KEY");
+    const b2Endpoint = skipB2
+      ? null
+      : this.configService.get<string>("B2_ENDPOINT");
 
     if (b2KeyId && b2AppKey && b2Endpoint) {
       // 从 endpoint 提取 region（如 s3.us-west-004.backblazeb2.com -> us-west-004）

@@ -164,10 +164,11 @@ export class PrismaService
   private initObjectStorage(): { client: S3Client; bucket: string } | null {
     if (this.objectStorage) return this.objectStorage;
 
-    const b2KeyId = process.env.B2_KEY_ID;
-    const b2AppKey = process.env.B2_APP_KEY;
-    const b2Endpoint = process.env.B2_ENDPOINT;
-    const b2Bucket = process.env.B2_BUCKET_NAME;
+    const skipB2 = process.env.OBJECT_STORAGE_PREFERRED === "r2";
+    const b2KeyId = skipB2 ? undefined : process.env.B2_KEY_ID;
+    const b2AppKey = skipB2 ? undefined : process.env.B2_APP_KEY;
+    const b2Endpoint = skipB2 ? undefined : process.env.B2_ENDPOINT;
+    const b2Bucket = skipB2 ? undefined : process.env.B2_BUCKET_NAME;
     if (b2KeyId && b2AppKey && b2Endpoint && b2Bucket) {
       const regionMatch = b2Endpoint.match(/s3\.([^.]+)\.backblazeb2\.com/);
       this.objectStorage = {
