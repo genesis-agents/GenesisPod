@@ -11,6 +11,7 @@ import TableToolbar from './TableToolbar';
 import TableDataGrid from './TableDataGrid';
 import TableDetailModal from './TableDetailModal';
 import TableDiagnosisPanel from './TableDiagnosisPanel';
+import StorageInventoryPanel from './StorageInventoryPanel';
 
 export default function TableManagementPage() {
   const { t } = useTranslation();
@@ -130,6 +131,9 @@ export default function TableManagementPage() {
       maxWidth="7xl"
     >
       <div className="space-y-6">
+        {/* 数据存储位置清单（DB vs R2） */}
+        <StorageInventoryPanel />
+
         {/* Stats Cards */}
         <TableStatsCards
           stats={stats}

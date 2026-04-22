@@ -21,6 +21,8 @@ import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { StorageInventoryService } from "../../ai-infra/storage/storage-inventory.service";
+import { StorageOffloadService } from "../../ai-infra/storage/storage-offload.service";
 
 /** Minimal model for Perplexity API key validation */
 const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";
@@ -39,7 +41,35 @@ export class AdminController {
     private adminService: AdminService,
     private chatFacade: ChatFacade,
     private secretsService: SecretsService,
+    private storageInventoryService: StorageInventoryService,
+    private storageOffloadService: StorageOffloadService,
   ) {}
+
+  /**
+   * 数据存储清单 — 返回 DB 表尺寸 + 已 off-load 字段映射 + R2 bucket 清单
+   * GET /api/v1/admin/storage-inventory
+   *
+   * 前端用它在"数据管理"页面展示各数据存在哪里（DB / R2）。
+   */
+  @Get("storage-inventory")
+  async getStorageInventory() {
+    return this.storageInventoryService.getInventory();
+  }
+
+  /**
+   * 手动触发 off-load 调度
+   * POST /api/v1/admin/storage-inventory/run-offload
+   * 正常每天 02:00 UTC 自动跑；此接口供运维手动触发。
+   */
+  @Post("storage-inventory/run-offload")
+  async runOffloadNow() {
+    // fire-and-forget：调度器内部有 running 锁防并发
+    void this.storageOffloadService.runOnce();
+    return {
+      triggered: true,
+      message: "Off-load scheduler triggered (running in background)",
+    };
+  }
 
   /**
    * 获取所有用户

@@ -17,6 +17,8 @@ import { AdminController } from "../admin.controller";
 import { AdminService } from "../admin.service";
 import { ChatFacade } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { StorageInventoryService } from "../../../ai-infra/storage/storage-inventory.service";
+import { StorageOffloadService } from "../../../ai-infra/storage/storage-offload.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 
@@ -149,6 +151,11 @@ describe("AdminController (supplemental)", () => {
         { provide: AdminService, useValue: mockAdminService },
         { provide: ChatFacade, useValue: mockChatFacade },
         { provide: SecretsService, useValue: mockSecretsService },
+        {
+          provide: StorageInventoryService,
+          useValue: { getInventory: jest.fn() },
+        },
+        { provide: StorageOffloadService, useValue: { runOnce: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

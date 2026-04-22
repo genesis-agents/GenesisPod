@@ -28,6 +28,7 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { QuotaModule } from "./quota/quota.module";
 import { MCPServerModule } from "../../open-api/mcp-server/mcp-server.module";
+import { StorageModule } from "../../ai-infra/storage/storage.module";
 
 // Admin sub-services
 import {
@@ -50,6 +51,7 @@ import {
     SecretsModule,
     QuotaModule,
     MCPServerModule,
+    StorageModule,
   ],
   controllers: [
     AdminController,
