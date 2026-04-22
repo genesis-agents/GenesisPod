@@ -26,6 +26,7 @@ import {
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { toast } from '@/stores';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import ResponsiveCard, {
   ResponsiveCardContent,
@@ -171,14 +172,27 @@ export default function StorageInventoryPanel() {
         }
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      // 后台 fire-and-forget 跑，延迟 3s 刷一次显示进度变化
-      setTimeout(() => void load(), 3000);
+      // 后端是 fire-and-forget，POST 瞬间就返回 200；
+      // UI 上：弹 toast 明确告诉用户"已触发"，按钮保持禁用 20 秒，
+      // 期间每 5 秒 poll 一次 inventory 拉新进度。
+      toast.success(
+        t('admin.storageInventory.offload.runNow'),
+        t('admin.storageInventory.offload.runTriggered')
+      );
+      const pollEvery = 5_000;
+      const rounds = 4;
+      for (let i = 0; i < rounds; i++) {
+        await new Promise((r) => setTimeout(r, pollEvery));
+        await load();
+      }
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      toast.error(t('admin.storageInventory.offload.runNow'), msg);
     } finally {
       setTriggering(false);
     }
-  }, [load]);
+  }, [load, t]);
 
   const relative = useMemo(() => {
     if (!data?.generatedAt) return '';
