@@ -28,8 +28,8 @@ import {
 } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Public } from "@/common/decorators/public.decorator";
-import { A2AApiKeyGuard } from "./a2a-api-key.guard";
-import { AgentCardRegistry } from "./agent-card-registry";
+import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
+import { AgentCardRegistry } from "./agent-card.registry";
 import {
   A2AAgentCard,
   A2ATaskRequest,
@@ -37,8 +37,8 @@ import {
   A2ATaskStatusResponse,
   A2ATaskStatus,
 } from "./a2a.types";
-import type { ConstraintProfile, TeamId } from "../../abstractions";
-import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "../../abstractions";
+import type { ConstraintProfile, TeamId } from "../../facade";
+import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**

@@ -147,16 +147,6 @@ export type {
   ConversationMessage,
 } from "../../ai-engine/facade";
 
-// ==================== DI Tokens for Service-Class Injections ====================
-
-/**
- * DI token for TeamsService injected into A2AController.
- * The actual binding (useExisting: TeamsService) is set up in AiKernelModule.
- */
-export const TEAMS_SERVICE_TOKEN = "KernelTeamsService";
-
-/**
- * DI token for TraceCollectorService injected into A2AController.
- * The actual binding (useExisting: ProcessEventLogService) is set up in AiKernelModule.
- */
-export const TRACE_COLLECTOR_TOKEN = "KernelTraceCollector";
+// ==================== DI Tokens ====================
+// A2A DI tokens (TEAMS_SERVICE_TOKEN / TRACE_COLLECTOR_TOKEN) moved to
+// @/modules/ai-engine/infra/a2a/a2a.tokens (PR 1 of kernel-merge refactor)

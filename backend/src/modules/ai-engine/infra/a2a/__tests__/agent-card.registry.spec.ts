@@ -1,15 +1,23 @@
 /**
- * Agent Card Registry Tests
+ * AgentCardRegistry Tests
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
-import { AgentCardRegistry } from "../../../../ai-kernel/facade";
-import { APP_CONFIG } from "../../../../../common/config/app.config";
+import { Logger } from "@nestjs/common";
+import { AgentCardRegistry } from "../agent-card.registry";
+import { APP_CONFIG } from "@/common/config/app.config";
+
+jest.spyOn(Logger.prototype, "log").mockImplementation();
+jest.spyOn(Logger.prototype, "debug").mockImplementation();
+jest.spyOn(Logger.prototype, "warn").mockImplementation();
+jest.spyOn(Logger.prototype, "error").mockImplementation();
 
 describe("AgentCardRegistry", () => {
   let registry: AgentCardRegistry;
-  let configService: ConfigService;
+  let _configService: jest.Mocked<ConfigService>;
+
+  const mockConfigGet = jest.fn();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -18,30 +26,133 @@ describe("AgentCardRegistry", () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((key: string, defaultValue?: any) => {
-              if (key === "PORT") return 3001;
-              return defaultValue;
-            }),
+            get: mockConfigGet,
           },
         },
       ],
     }).compile();
 
     registry = module.get<AgentCardRegistry>(AgentCardRegistry);
-    configService = module.get<ConfigService>(ConfigService);
+    _configService = module.get(ConfigService);
   });
 
-  describe("getAgentCard", () => {
-    it("应该返回完整的 Agent Card", () => {
+  afterEach(() => jest.clearAllMocks());
+
+  // ===================== getAgentCard =====================
+
+  describe("getAgentCard()", () => {
+    it("returns agent card with AGENT_BASE_URL when configured", () => {
+      mockConfigGet.mockImplementation((key: string) => {
+        if (key === "AGENT_BASE_URL") return "https://api.example.com";
+        return undefined;
+      });
+
       const card = registry.getAgentCard();
 
-      expect(card).toBeDefined();
-      expect(card.name).toBe(APP_CONFIG.brand.fullName);
-      expect(card.version).toBe("1.0.0");
-      expect(card.provider.organization).toBe(APP_CONFIG.brand.name);
+      expect(card.url).toBe("https://api.example.com/a2a/tasks");
+      expect(card.provider.url).toBe("https://api.example.com");
     });
 
-    it("应该包含正确的能力配置", () => {
+    it("falls back to API_URL when AGENT_BASE_URL is not set", () => {
+      mockConfigGet.mockImplementation((key: string) => {
+        if (key === "AGENT_BASE_URL") return undefined;
+        if (key === "API_URL") return "https://fallback-api.example.com";
+        return undefined;
+      });
+
+      const card = registry.getAgentCard();
+
+      expect(card.url).toBe("https://fallback-api.example.com/a2a/tasks");
+      expect(card.provider.url).toBe("https://fallback-api.example.com");
+    });
+
+    it("falls back to localhost with PORT when neither URL is configured", () => {
+      mockConfigGet.mockImplementation(
+        (key: string, defaultValue?: unknown) => {
+          if (key === "AGENT_BASE_URL") return undefined;
+          if (key === "API_URL") return undefined;
+          if (key === "PORT") return defaultValue; // returns 3001
+          return undefined;
+        },
+      );
+
+      const card = registry.getAgentCard();
+
+      expect(card.url).toBe("http://localhost:3001/a2a/tasks");
+    });
+
+    it("uses custom PORT when configured", () => {
+      mockConfigGet.mockImplementation((key: string) => {
+        if (key === "AGENT_BASE_URL") return undefined;
+        if (key === "API_URL") return undefined;
+        if (key === "PORT") return 8080;
+        return undefined;
+      });
+
+      const card = registry.getAgentCard();
+
+      expect(card.url).toBe("http://localhost:8080/a2a/tasks");
+    });
+
+    it("handles PORT returning undefined (uses 3001 default via get fallback)", () => {
+      mockConfigGet.mockImplementation(
+        (key: string, defaultValue?: unknown) => {
+          if (key === "AGENT_BASE_URL") return undefined;
+          if (key === "API_URL") return undefined;
+          // Return the defaultValue for PORT as the framework would
+          return defaultValue;
+        },
+      );
+
+      const card = registry.getAgentCard();
+
+      // With PORT=3001 (the default), URL should be localhost:3001
+      expect(card.url).toBe("http://localhost:3001/a2a/tasks");
+    });
+
+    it("returns empty string AGENT_BASE_URL as falsy (falls through to API_URL)", () => {
+      mockConfigGet.mockImplementation((key: string) => {
+        if (key === "AGENT_BASE_URL") return ""; // falsy
+        if (key === "API_URL") return "https://api-url.example.com";
+        return undefined;
+      });
+
+      const card = registry.getAgentCard();
+
+      // Empty string is falsy, so should fall through to API_URL
+      expect(card.url).toBe("https://api-url.example.com/a2a/tasks");
+    });
+
+    it("returns card with correct name and description from APP_CONFIG", () => {
+      mockConfigGet.mockReturnValue(undefined);
+
+      const card = registry.getAgentCard();
+
+      expect(card.name).toBe(APP_CONFIG.brand.fullName);
+      expect(typeof card.description).toBe("string");
+      expect(card.description.length).toBeGreaterThan(0);
+    });
+
+    it("returns card with correct provider info", () => {
+      mockConfigGet.mockImplementation((key: string) => {
+        if (key === "AGENT_BASE_URL") return "https://api.example.com";
+        return undefined;
+      });
+
+      const card = registry.getAgentCard();
+
+      expect(card.provider.organization).toBe(APP_CONFIG.brand.name);
+      expect(card.provider.url).toBe("https://api.example.com");
+    });
+
+    it("returns card with version 1.0.0", () => {
+      mockConfigGet.mockReturnValue(undefined);
+      const card = registry.getAgentCard();
+      expect(card.version).toBe("1.0.0");
+    });
+
+    it("returns card with correct capabilities", () => {
+      mockConfigGet.mockReturnValue(undefined);
       const card = registry.getAgentCard();
 
       expect(card.capabilities).toMatchObject({
@@ -51,112 +162,150 @@ describe("AgentCardRegistry", () => {
       });
     });
 
-    it("应该包含认证配置", () => {
+    it("returns card with correct authentication schemes", () => {
+      mockConfigGet.mockReturnValue(undefined);
       const card = registry.getAgentCard();
 
       expect(card.authentication?.schemes).toContain("Bearer");
       expect(card.authentication?.schemes).toContain("X-API-Key");
     });
 
-    it("应该包含至少 5 个技能", () => {
+    it("returns card with correct input/output modes", () => {
+      mockConfigGet.mockReturnValue(undefined);
       const card = registry.getAgentCard();
 
-      expect(card.skills.length).toBeGreaterThanOrEqual(5);
+      expect(card.defaultInputModes).toContain("text");
+      expect(card.defaultOutputModes).toContain("text/markdown");
     });
 
-    it("应该包含必要的技能", () => {
+    it("returns card with 5 skills", () => {
+      mockConfigGet.mockReturnValue(undefined);
       const card = registry.getAgentCard();
-      const skillIds = card.skills.map((s) => s.id);
 
-      expect(skillIds).toContain("deep-research");
-      expect(skillIds).toContain("ai-ask");
-      expect(skillIds).toContain("team-debate");
-      expect(skillIds).toContain("document-generation");
-      expect(skillIds).toContain("ai-writing");
+      expect(card.skills).toHaveLength(5);
     });
   });
 
-  describe("getSkills", () => {
-    it("应该返回技能列表", () => {
-      const skills = registry.getSkills();
+  // ===================== getSkills =====================
 
-      expect(Array.isArray(skills)).toBe(true);
-      expect(skills.length).toBeGreaterThan(0);
+  describe("getSkills()", () => {
+    it("returns array of 5 skills", () => {
+      const skills = registry.getSkills();
+      expect(skills).toHaveLength(5);
     });
 
-    it("每个技能应该有必需的字段", () => {
+    it("includes deep-research skill", () => {
       const skills = registry.getSkills();
-
-      skills.forEach((skill) => {
-        expect(skill).toHaveProperty("id");
-        expect(skill).toHaveProperty("name");
-        expect(skill).toHaveProperty("description");
-        expect(skill).toHaveProperty("tags");
-        expect(Array.isArray(skill.tags)).toBe(true);
-      });
-    });
-  });
-
-  describe("getSkillById", () => {
-    it("应该根据 ID 返回技能", () => {
-      const skill = registry.getSkillById("deep-research");
+      const skill = skills.find((s) => s.id === "deep-research");
 
       expect(skill).toBeDefined();
-      expect(skill?.id).toBe("deep-research");
       expect(skill?.name).toBe("Deep Research");
+      expect(skill?.tags).toContain("research");
     });
 
-    it("不存在的技能应该返回 undefined", () => {
-      const skill = registry.getSkillById("non-existent-skill");
+    it("includes ai-ask skill", () => {
+      const skills = registry.getSkills();
+      const skill = skills.find((s) => s.id === "ai-ask");
 
+      expect(skill).toBeDefined();
+      expect(skill?.name).toBe("AI Ask");
+    });
+
+    it("includes team-debate skill", () => {
+      const skills = registry.getSkills();
+      const skill = skills.find((s) => s.id === "team-debate");
+
+      expect(skill).toBeDefined();
+      expect(skill?.tags).toContain("debate");
+    });
+
+    it("includes document-generation skill", () => {
+      const skills = registry.getSkills();
+      const skill = skills.find((s) => s.id === "document-generation");
+
+      expect(skill).toBeDefined();
+      expect(skill?.outputModes).toContain(
+        "application/vnd.openxmlformats-officedocument",
+      );
+    });
+
+    it("includes ai-writing skill", () => {
+      const skills = registry.getSkills();
+      const skill = skills.find((s) => s.id === "ai-writing");
+
+      expect(skill).toBeDefined();
+      expect(skill?.tags).toContain("writing");
+    });
+
+    it("each skill has required fields", () => {
+      const skills = registry.getSkills();
+      for (const skill of skills) {
+        expect(skill.id).toBeTruthy();
+        expect(skill.name).toBeTruthy();
+        expect(skill.description).toBeTruthy();
+        expect(Array.isArray(skill.tags)).toBe(true);
+      }
+    });
+
+    it("each skill has examples", () => {
+      const skills = registry.getSkills();
+      for (const skill of skills) {
+        expect(Array.isArray(skill.examples)).toBe(true);
+        expect(skill.examples!.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  // ===================== getSkillById =====================
+
+  describe("getSkillById()", () => {
+    it("returns skill when valid id provided", () => {
+      const skill = registry.getSkillById("deep-research");
+      expect(skill).toBeDefined();
+      expect(skill?.id).toBe("deep-research");
+    });
+
+    it("returns undefined for unknown skill id", () => {
+      const skill = registry.getSkillById("non-existent-skill");
+      expect(skill).toBeUndefined();
+    });
+
+    it("returns correct skill for each valid id", () => {
+      const ids = [
+        "deep-research",
+        "ai-ask",
+        "team-debate",
+        "document-generation",
+        "ai-writing",
+      ];
+      for (const id of ids) {
+        const skill = registry.getSkillById(id);
+        expect(skill).toBeDefined();
+        expect(skill?.id).toBe(id);
+      }
+    });
+
+    it("returns undefined for empty string", () => {
+      const skill = registry.getSkillById("");
       expect(skill).toBeUndefined();
     });
   });
 
-  describe("isValidSkill", () => {
-    it("有效的技能 ID 应该返回 true", () => {
+  // ===================== isValidSkill =====================
+
+  describe("isValidSkill()", () => {
+    it("returns true for valid skill id", () => {
       expect(registry.isValidSkill("deep-research")).toBe(true);
       expect(registry.isValidSkill("ai-ask")).toBe(true);
+      expect(registry.isValidSkill("team-debate")).toBe(true);
+      expect(registry.isValidSkill("document-generation")).toBe(true);
+      expect(registry.isValidSkill("ai-writing")).toBe(true);
     });
 
-    it("无效的技能 ID 应该返回 false", () => {
-      expect(registry.isValidSkill("invalid-skill")).toBe(false);
-    });
-  });
-
-  describe("URL configuration", () => {
-    it("应该使用 AGENT_BASE_URL 环境变量", () => {
-      const testUrl = "https://api.genesis.ai";
-      jest.spyOn(configService, "get").mockImplementation((key: string) => {
-        if (key === "AGENT_BASE_URL") return testUrl;
-        return undefined;
-      });
-
-      const card = registry.getAgentCard();
-      expect(card.url).toContain(testUrl);
-      expect(card.provider.url).toBe(testUrl);
-    });
-
-    it("应该 fallback 到 API_URL", () => {
-      const testUrl = "https://api.genesis.ai";
-      jest.spyOn(configService, "get").mockImplementation((key: string) => {
-        if (key === "API_URL") return testUrl;
-        if (key === "AGENT_BASE_URL") return undefined;
-        return undefined;
-      });
-
-      const card = registry.getAgentCard();
-      expect(card.url).toContain(testUrl);
-    });
-
-    it("应该使用默认 localhost URL", () => {
-      jest.spyOn(configService, "get").mockImplementation((key: string) => {
-        if (key === "PORT") return 3001;
-        return undefined;
-      });
-
-      const card = registry.getAgentCard();
-      expect(card.url).toContain("localhost:3001");
+    it("returns false for invalid skill id", () => {
+      expect(registry.isValidSkill("unknown-skill")).toBe(false);
+      expect(registry.isValidSkill("")).toBe(false);
+      expect(registry.isValidSkill("DEEP-RESEARCH")).toBe(false); // case sensitive
     });
   });
 });

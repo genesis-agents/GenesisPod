@@ -1,35 +1,99 @@
 /**
- * Unit tests for A2AClientService
+ * A2AClientService Tests
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import axios from "axios";
-import { A2AClientService } from "../../../../../ai-kernel/facade";
-import { A2ATaskStatus } from "../../../../../ai-kernel/ipc/a2a/a2a.types";
+import { A2AClientService } from "../a2a-client.service";
+import { A2ATaskStatus } from "../../a2a.types";
 
-jest.mock("axios");
+jest.spyOn(Logger.prototype, "log").mockImplementation();
+jest.spyOn(Logger.prototype, "debug").mockImplementation();
+jest.spyOn(Logger.prototype, "warn").mockImplementation();
+jest.spyOn(Logger.prototype, "error").mockImplementation();
 
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+// Mock axios at module level — axios is a default export with a .create() method
+const mockAxiosGet = jest.fn();
+const mockAxiosPost = jest.fn();
 
-const mockHttpClient = {
-  get: jest.fn(),
-  post: jest.fn(),
+const mockAxiosInstance = {
+  get: mockAxiosGet,
+  post: mockAxiosPost,
+};
+
+jest.mock("axios", () => {
+  const axiosMock = {
+    create: jest.fn(() => mockAxiosInstance),
+  };
+  return {
+    ...axiosMock,
+    default: axiosMock,
+    create: axiosMock.create,
+  };
+});
+
+// ===================== Fixtures =====================
+
+const AGENT_URL = "https://external-agent.example.com/a2a";
+
+const mockAgentCard = {
+  name: "External Research Agent",
+  description: "Research capabilities",
+  url: `${AGENT_URL}/tasks`,
+  provider: {
+    organization: "ExternalCo",
+    url: "https://external-agent.example.com",
+  },
+  version: "1.0.0",
+  capabilities: { streaming: false },
+  defaultInputModes: ["text"],
+  defaultOutputModes: ["text/markdown"],
+  skills: [
+    {
+      id: "research",
+      name: "Research",
+      description: "Deep research",
+      tags: ["research"],
+    },
+  ],
+};
+
+const mockTaskRequest = {
+  skillId: "research",
+  input: { content: "Research topic: AI safety" },
+};
+
+const mockTaskResponse = {
+  taskId: "task-abc-123",
+  status: A2ATaskStatus.PENDING,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+const mockStatusResponse = {
+  taskId: "task-abc-123",
+  skillId: "research",
+  status: A2ATaskStatus.RUNNING,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+const mockCompletedStatusResponse = {
+  taskId: "task-abc-123",
+  skillId: "research",
+  status: A2ATaskStatus.COMPLETED,
+  result: {
+    content: "Research results here",
+    mode: "text/markdown",
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 };
 
 describe("A2AClientService", () => {
   let service: A2AClientService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
-    jest.spyOn(Logger.prototype, "log").mockReturnValue(undefined);
-    jest.spyOn(Logger.prototype, "error").mockReturnValue(undefined);
-    jest.spyOn(Logger.prototype, "warn").mockReturnValue(undefined);
-    jest.spyOn(Logger.prototype, "debug").mockReturnValue(undefined);
-
-    // Mock axios.create to return our mock client
-    mockedAxios.create = jest.fn().mockReturnValue(mockHttpClient);
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [A2AClientService],
     }).compile();
@@ -37,237 +101,314 @@ describe("A2AClientService", () => {
     service = module.get<A2AClientService>(A2AClientService);
   });
 
-  describe("discoverAgent", () => {
-    it("returns the agent card from the well-known endpoint", async () => {
-      const agentCard = {
-        name: "External Agent",
-        description: "An external AI agent",
-        url: "https://agent.example.com/a2a",
-        provider: { organization: "Example", url: "https://example.com" },
-        version: "1.0.0",
-        defaultInputModes: ["text"],
-        defaultOutputModes: ["text/markdown"],
-        skills: [],
-      };
+  afterEach(() => jest.clearAllMocks());
 
-      mockHttpClient.get.mockResolvedValue({ data: agentCard });
+  // ===================== discoverAgent =====================
+
+  describe("discoverAgent()", () => {
+    it("fetches agent card from provided URL", async () => {
+      mockAxiosGet.mockResolvedValue({ data: mockAgentCard });
 
       const result = await service.discoverAgent(
-        "https://agent.example.com/.well-known/agent.json",
+        `${AGENT_URL}/.well-known/agent.json`,
       );
 
-      expect(result).toEqual(agentCard);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        "https://agent.example.com/.well-known/agent.json",
+      expect(mockAxiosGet).toHaveBeenCalledWith(
+        `${AGENT_URL}/.well-known/agent.json`,
       );
+      expect(result).toEqual(mockAgentCard);
     });
 
-    it("throws an error when discovery fails", async () => {
-      mockHttpClient.get.mockRejectedValue(new Error("ECONNREFUSED"));
+    it("returns the agent card data", async () => {
+      mockAxiosGet.mockResolvedValue({ data: mockAgentCard });
+
+      const result = await service.discoverAgent("https://example.com/agent");
+
+      expect(result.name).toBe("External Research Agent");
+      expect(result.skills).toHaveLength(1);
+    });
+
+    it("throws Error when HTTP request fails", async () => {
+      mockAxiosGet.mockRejectedValue(new Error("Connection refused"));
 
       await expect(
-        service.discoverAgent(
-          "https://unreachable.example.com/.well-known/agent.json",
-        ),
+        service.discoverAgent("https://unreachable.example.com"),
       ).rejects.toThrow("Failed to discover A2A agent");
     });
 
-    it("includes original error message in the thrown error", async () => {
-      mockHttpClient.get.mockRejectedValue(new Error("Connection timeout"));
+    it("throws Error with sanitized message on network timeout", async () => {
+      const timeoutError = new Error("timeout of 30000ms exceeded");
+      mockAxiosGet.mockRejectedValue(timeoutError);
+
+      await expect(service.discoverAgent(AGENT_URL)).rejects.toThrow(
+        "Failed to discover A2A agent",
+      );
+    });
+
+    it("logs success after agent discovery", async () => {
+      const logSpy = jest.spyOn(Logger.prototype, "log");
+      mockAxiosGet.mockResolvedValue({ data: mockAgentCard });
+
+      await service.discoverAgent(AGENT_URL);
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("External Research Agent"),
+      );
+    });
+
+    it("logs error on discovery failure", async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, "error");
+      mockAxiosGet.mockRejectedValue(new Error("network error"));
+
+      try {
+        await service.discoverAgent(AGENT_URL);
+      } catch {
+        // expected
+      }
+
+      expect(errorSpy).toHaveBeenCalled();
+    });
+  });
+
+  // ===================== createTask =====================
+
+  describe("createTask()", () => {
+    it("posts task request to agentUrl/tasks", async () => {
+      mockAxiosPost.mockResolvedValue({ data: mockTaskResponse });
+
+      await service.createTask(AGENT_URL, mockTaskRequest);
+
+      expect(mockAxiosPost).toHaveBeenCalledWith(
+        `${AGENT_URL}/tasks`,
+        mockTaskRequest,
+      );
+    });
+
+    it("returns the task response", async () => {
+      mockAxiosPost.mockResolvedValue({ data: mockTaskResponse });
+
+      const result = await service.createTask(AGENT_URL, mockTaskRequest);
+
+      expect(result.taskId).toBe("task-abc-123");
+      expect(result.status).toBe(A2ATaskStatus.PENDING);
+    });
+
+    it("throws Error when task creation fails", async () => {
+      mockAxiosPost.mockRejectedValue(new Error("Bad Request"));
 
       await expect(
-        service.discoverAgent("https://example.com/.well-known/agent.json"),
-      ).rejects.toThrow(/Failed to discover A2A agent/);
+        service.createTask(AGENT_URL, mockTaskRequest),
+      ).rejects.toThrow("Failed to create A2A task");
     });
-  });
 
-  describe("createTask", () => {
-    const agentUrl = "https://agent.example.com";
-    const taskRequest = {
-      skillId: "deep-research",
-      input: { content: "Analyze AI" },
-    };
+    it("logs task creation details", async () => {
+      const logSpy = jest.spyOn(Logger.prototype, "log");
+      mockAxiosPost.mockResolvedValue({ data: mockTaskResponse });
 
-    it("creates a task and returns the task response", async () => {
-      const taskResponse = {
-        taskId: "task-123",
-        status: A2ATaskStatus.PENDING,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      await service.createTask(AGENT_URL, mockTaskRequest);
 
-      mockHttpClient.post.mockResolvedValue({ data: taskResponse });
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("research"));
+    });
 
-      const result = await service.createTask(agentUrl, taskRequest);
+    it("logs error on task creation failure", async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, "error");
+      mockAxiosPost.mockRejectedValue(new Error("server error"));
 
-      expect(result).toEqual(taskResponse);
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        `${agentUrl}/tasks`,
-        taskRequest,
+      try {
+        await service.createTask(AGENT_URL, mockTaskRequest);
+      } catch {
+        // expected
+      }
+
+      expect(errorSpy).toHaveBeenCalled();
+    });
+
+    it("constructs URL correctly with trailing slash in agentUrl", async () => {
+      mockAxiosPost.mockResolvedValue({ data: mockTaskResponse });
+
+      await service.createTask(
+        "https://agent.example.com/a2a",
+        mockTaskRequest,
       );
-    });
 
-    it("throws an error when task creation fails", async () => {
-      mockHttpClient.post.mockRejectedValue(new Error("Bad request"));
-
-      await expect(service.createTask(agentUrl, taskRequest)).rejects.toThrow(
-        "Failed to create A2A task",
-      );
-    });
-
-    it("includes error details in the thrown error", async () => {
-      mockHttpClient.post.mockRejectedValue(new Error("Skill not found"));
-
-      await expect(service.createTask(agentUrl, taskRequest)).rejects.toThrow(
-        /Failed to create A2A task/,
+      expect(mockAxiosPost).toHaveBeenCalledWith(
+        "https://agent.example.com/a2a/tasks",
+        mockTaskRequest,
       );
     });
   });
 
-  describe("getTaskStatus", () => {
-    const agentUrl = "https://agent.example.com";
+  // ===================== getTaskStatus =====================
+
+  describe("getTaskStatus()", () => {
+    it("fetches task status from agentUrl/tasks/:taskId", async () => {
+      mockAxiosGet.mockResolvedValue({ data: mockStatusResponse });
+
+      await service.getTaskStatus(AGENT_URL, "task-abc-123");
+
+      expect(mockAxiosGet).toHaveBeenCalledWith(
+        `${AGENT_URL}/tasks/task-abc-123`,
+      );
+    });
 
     it("returns task status response", async () => {
-      const statusResponse = {
-        taskId: "task-123",
-        skillId: "deep-research",
-        status: A2ATaskStatus.RUNNING,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      mockAxiosGet.mockResolvedValue({ data: mockStatusResponse });
 
-      mockHttpClient.get.mockResolvedValue({ data: statusResponse });
+      const result = await service.getTaskStatus(AGENT_URL, "task-abc-123");
 
-      const result = await service.getTaskStatus(agentUrl, "task-123");
+      expect(result.taskId).toBe("task-abc-123");
+      expect(result.status).toBe(A2ATaskStatus.RUNNING);
+    });
 
-      expect(result).toEqual(statusResponse);
-      expect(mockHttpClient.get).toHaveBeenCalledWith(
-        `${agentUrl}/tasks/task-123`,
+    it("throws Error when status fetch fails", async () => {
+      mockAxiosGet.mockRejectedValue(new Error("Not Found"));
+
+      await expect(
+        service.getTaskStatus(AGENT_URL, "non-existent-task"),
+      ).rejects.toThrow("Failed to get A2A task status");
+    });
+
+    it("logs debug when polling status", async () => {
+      const debugSpy = jest.spyOn(Logger.prototype, "debug");
+      mockAxiosGet.mockResolvedValue({ data: mockStatusResponse });
+
+      await service.getTaskStatus(AGENT_URL, "task-abc-123");
+
+      expect(debugSpy).toHaveBeenCalledWith(
+        expect.stringContaining("task-abc-123"),
       );
     });
 
-    it("throws an error when status fetch fails", async () => {
-      mockHttpClient.get.mockRejectedValue(new Error("Task not found"));
+    it("logs error on failure", async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, "error");
+      mockAxiosGet.mockRejectedValue(new Error("network error"));
 
-      await expect(
-        service.getTaskStatus(agentUrl, "nonexistent"),
-      ).rejects.toThrow("Failed to get A2A task status");
+      try {
+        await service.getTaskStatus(AGENT_URL, "task-id");
+      } catch {
+        // expected
+      }
+
+      expect(errorSpy).toHaveBeenCalled();
     });
   });
 
-  describe("pollTaskUntilComplete", () => {
-    const agentUrl = "https://agent.example.com";
+  // ===================== pollTaskUntilComplete =====================
 
-    it("returns immediately when task is COMPLETED", async () => {
-      const completedStatus = {
-        taskId: "task-123",
-        skillId: "deep-research",
-        status: A2ATaskStatus.COMPLETED,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        result: { content: "Done", mode: "text/markdown" },
-      };
-
-      mockHttpClient.get.mockResolvedValue({ data: completedStatus });
+  describe("pollTaskUntilComplete()", () => {
+    it("returns immediately when task is already completed", async () => {
+      mockAxiosGet.mockResolvedValue({ data: mockCompletedStatusResponse });
 
       const result = await service.pollTaskUntilComplete(
-        agentUrl,
-        "task-123",
+        AGENT_URL,
+        "task-abc-123",
         0, // 0ms poll interval for fast tests
-        10,
+        5,
       );
 
       expect(result.status).toBe(A2ATaskStatus.COMPLETED);
-      expect(mockHttpClient.get).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
     });
 
-    it("returns immediately when task is FAILED", async () => {
+    it("returns when task fails", async () => {
       const failedStatus = {
-        taskId: "task-failed",
-        skillId: "deep-research",
+        ...mockStatusResponse,
         status: A2ATaskStatus.FAILED,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        error: { code: "TASK_FAILED", message: "Execution failed" },
+        error: { code: "ERR", message: "Something went wrong" },
       };
-
-      mockHttpClient.get.mockResolvedValue({ data: failedStatus });
+      mockAxiosGet.mockResolvedValue({ data: failedStatus });
 
       const result = await service.pollTaskUntilComplete(
-        agentUrl,
-        "task-failed",
+        AGENT_URL,
+        "task-abc-123",
         0,
-        10,
+        5,
       );
 
       expect(result.status).toBe(A2ATaskStatus.FAILED);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
     });
 
-    it("returns immediately when task is CANCELLED", async () => {
+    it("returns when task is cancelled", async () => {
       const cancelledStatus = {
-        taskId: "task-cancelled",
-        skillId: "deep-research",
+        ...mockStatusResponse,
         status: A2ATaskStatus.CANCELLED,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
-
-      mockHttpClient.get.mockResolvedValue({ data: cancelledStatus });
+      mockAxiosGet.mockResolvedValue({ data: cancelledStatus });
 
       const result = await service.pollTaskUntilComplete(
-        agentUrl,
-        "task-cancelled",
+        AGENT_URL,
+        "task-abc-123",
         0,
-        10,
+        5,
       );
 
       expect(result.status).toBe(A2ATaskStatus.CANCELLED);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
     });
 
     it("polls multiple times until task completes", async () => {
-      const pendingStatus = {
-        taskId: "task-poll",
-        skillId: "deep-research",
-        status: A2ATaskStatus.PENDING,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      const completedStatus = {
-        ...pendingStatus,
-        status: A2ATaskStatus.COMPLETED,
-        result: { content: "Done", mode: "text/markdown" },
-      };
-
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: pendingStatus })
-        .mockResolvedValueOnce({ data: pendingStatus })
-        .mockResolvedValueOnce({ data: completedStatus });
+      // First 2 calls return RUNNING, third returns COMPLETED
+      mockAxiosGet
+        .mockResolvedValueOnce({ data: mockStatusResponse }) // RUNNING
+        .mockResolvedValueOnce({ data: mockStatusResponse }) // RUNNING
+        .mockResolvedValueOnce({ data: mockCompletedStatusResponse }); // COMPLETED
 
       const result = await service.pollTaskUntilComplete(
-        agentUrl,
-        "task-poll",
-        0,
+        AGENT_URL,
+        "task-abc-123",
+        0, // 0ms interval for speed
         10,
       );
 
       expect(result.status).toBe(A2ATaskStatus.COMPLETED);
-      expect(mockHttpClient.get).toHaveBeenCalledTimes(3);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(3);
     });
 
-    it("throws when max polling attempts are exhausted", async () => {
-      const runningStatus = {
-        taskId: "task-infinite",
-        skillId: "deep-research",
-        status: A2ATaskStatus.RUNNING,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      mockHttpClient.get.mockResolvedValue({ data: runningStatus });
+    it("throws error when max attempts exceeded", async () => {
+      // Always returns RUNNING
+      mockAxiosGet.mockResolvedValue({ data: mockStatusResponse });
 
       await expect(
-        service.pollTaskUntilComplete(agentUrl, "task-infinite", 0, 3),
+        service.pollTaskUntilComplete(
+          AGENT_URL,
+          "task-abc-123",
+          0,
+          3, // maxAttempts = 3
+        ),
       ).rejects.toThrow("did not complete within maximum polling attempts");
+    });
+
+    it("uses default poll interval and max attempts", async () => {
+      // Task completes immediately on first poll
+      mockAxiosGet.mockResolvedValue({ data: mockCompletedStatusResponse });
+
+      // Don't pass pollInterval/maxAttempts; ensure defaults are used
+      const result = await service.pollTaskUntilComplete(
+        AGENT_URL,
+        "task-abc-123",
+      );
+
+      expect(result.status).toBe(A2ATaskStatus.COMPLETED);
+    });
+
+    it("propagates getTaskStatus errors during polling", async () => {
+      mockAxiosGet.mockRejectedValue(new Error("Connection lost"));
+
+      await expect(
+        service.pollTaskUntilComplete(AGENT_URL, "task-id", 0, 3),
+      ).rejects.toThrow();
+    });
+
+    it("includes task id in timeout error message", async () => {
+      mockAxiosGet.mockResolvedValue({ data: mockStatusResponse });
+
+      try {
+        await service.pollTaskUntilComplete(AGENT_URL, "unique-task-999", 0, 2);
+        fail("Expected error to be thrown");
+      } catch (err) {
+        expect((err as Error).message).toContain("unique-task-999");
+      }
     });
   });
 });

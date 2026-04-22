@@ -129,12 +129,8 @@ export type {
 // NOTE: ObservabilityController NOT exported here — controllers have decorator
 // side effects that cause circular dependency chains. Import directly if needed.
 
-// IPC — A2A (NOTE: A2AController NOT exported here — controllers have @UseGuards
-// decorators that cause circular dependency chains during module loading)
-export { A2AClientService } from "../ipc/a2a/a2a-client.service";
-export { A2ATeamMemberAdapter } from "../ipc/a2a/a2a-team-member-adapter";
-export { AgentCardRegistry } from "../ipc/a2a/agent-card-registry";
-export { A2AApiKeyGuard } from "../ipc/a2a/a2a-api-key.guard";
+// IPC — A2A: moved to ai-engine/infra/a2a (PR 1 of kernel-merge refactor)
+// Consumers should import A2A symbols directly from @/modules/ai-engine/infra/a2a
 
 // IPC — Progress
 export { ProgressTrackerService } from "../ipc/progress-tracker.service";

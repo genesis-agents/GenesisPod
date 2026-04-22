@@ -3,9 +3,9 @@
  */
 
 export * from "./a2a.module";
-// Below shim re-exports migrated to ai-kernel
-// export * from "./a2a.controller";
-// export * from "./agent-card/agent-card.registry";
-// export * from "./guards/a2a-api-key.guard";
-// export * from "./abstractions/a2a.interface";
-// export * from "./adapter";
+export * from "./a2a.controller";
+export * from "./a2a.types";
+export * from "./a2a.tokens";
+export { AgentCardRegistry } from "./agent-card.registry";
+export { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
+export * from "./adapter";

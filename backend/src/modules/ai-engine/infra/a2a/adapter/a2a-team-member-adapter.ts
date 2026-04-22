@@ -13,8 +13,8 @@ import type {
   WorkStyle,
   SkillId,
   ToolId,
-} from "../../abstractions";
-import { A2AAgentCard, A2ATaskStatus } from "./a2a.types";
+} from "../../../facade";
+import { A2AAgentCard, A2ATaskStatus } from "../a2a.types";
 
 /**
  * 外部 A2A Agent 角色（用于适配 IRole）

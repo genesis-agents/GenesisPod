@@ -1,6 +1,5 @@
 import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/prisma/prisma.module";
-import { TRACE_COLLECTOR_TOKEN } from "./abstractions";
 import { ProcessManagerService } from "./process/process-manager.service";
 import { EventJournalService } from "./journal/event-journal.service";
 import { KernelMemoryManagerService } from "./memory/kernel-memory-manager.service";
@@ -13,8 +12,6 @@ import { ProgressTrackerService } from "./ipc/progress-tracker.service";
 import { MessageBusService } from "./ipc/message-bus.service";
 import { MessagePersistenceService } from "./ipc/message-persistence.service";
 import { AgentLifecycleProtocolService } from "./ipc/agent-lifecycle-protocol.service";
-import { A2AClientService } from "./ipc/a2a/a2a-client.service";
-import { AgentCardRegistry } from "./ipc/a2a/agent-card-registry";
 import { CircuitBreakerService } from "./resource/circuit-breaker.service";
 import { TokenBudgetService } from "./resource/token-budget.service";
 import { ResourceManagerService } from "./resource/resource-manager.service";
@@ -35,14 +32,6 @@ import { KernelSchedulerService } from "./scheduler/kernel-scheduler.service";
 import { KernelApiService } from "./api/kernel-api.service";
 
 const KERNEL_PROVIDERS = [
-  // DI token alias: TRACE_COLLECTOR_TOKEN → ProcessEventLogService
-  // This allows A2AController (and others) to inject ProcessEventLogService
-  // without directly naming the class from ai-engine.
-  {
-    provide: TRACE_COLLECTOR_TOKEN,
-    useExisting: ProcessEventLogService,
-  },
-
   // Process
   ProcessManagerService,
   // Journal
@@ -60,11 +49,7 @@ const KERNEL_PROVIDERS = [
   MessageBusService,
   MessagePersistenceService,
   AgentLifecycleProtocolService,
-  // A2A
-  A2AClientService,
-  // A2ATeamMemberAdapter is NOT a DI provider — it requires manual instantiation with agentCard
-  AgentCardRegistry,
-  // A2AApiKeyGuard stays in A2AModule (needs SecretsModule which is imported there)
+  // A2A: moved to ai-engine/infra/a2a (PR 1 of kernel-merge refactor)
   // Resource
   CircuitBreakerService,
   TokenBudgetService,
@@ -93,7 +78,7 @@ const KERNEL_PROVIDERS = [
 @Global()
 @Module({
   imports: [PrismaModule],
-  controllers: [ObservabilityController], // A2AController stays in A2AModule (app.module.ts)
+  controllers: [ObservabilityController], // A2AController now lives in ai-engine/infra/a2a/A2AModule
   providers: KERNEL_PROVIDERS,
   exports: KERNEL_PROVIDERS,
 })

@@ -1,43 +1,50 @@
 /**
- * Unit tests for A2ATeamMemberAdapter
+ * A2ATeamMemberAdapter Tests
  */
 
 import { Logger } from "@nestjs/common";
-import { A2ATeamMemberAdapter } from "../../../../../ai-kernel/facade";
-import {
-  A2ATaskStatus,
-  A2AAgentCard,
-} from "../../../../../ai-kernel/ipc/a2a/a2a.types";
+import { A2ATeamMemberAdapter } from "../a2a-team-member-adapter";
+import { A2AAgentCard, A2ATaskStatus } from "../../a2a.types";
 
-function makeAgentCard(overrides: Partial<A2AAgentCard> = {}): A2AAgentCard {
+jest.spyOn(Logger.prototype, "log").mockImplementation();
+jest.spyOn(Logger.prototype, "debug").mockImplementation();
+jest.spyOn(Logger.prototype, "warn").mockImplementation();
+jest.spyOn(Logger.prototype, "error").mockImplementation();
+
+// ===================== Fixtures =====================
+
+function buildAgentCard(overrides: Partial<A2AAgentCard> = {}): A2AAgentCard {
   return {
-    name: "Research Bot",
-    description: "An AI research assistant",
-    url: "https://researchbot.example.com/a2a",
+    name: "Test Research Agent",
+    description: "An external agent for deep research tasks",
+    url: "https://external-agent.example.com/a2a/tasks",
     provider: {
-      organization: "ResearchCo",
-      url: "https://researchco.com",
+      organization: "ExternalCo",
+      url: "https://external-agent.example.com",
     },
     version: "2.1.0",
     capabilities: {
       streaming: false,
       pushNotifications: true,
-      stateTransitionHistory: true,
+      stateTransitionHistory: false,
+    },
+    authentication: {
+      schemes: ["Bearer"],
     },
     defaultInputModes: ["text", "text/plain"],
     defaultOutputModes: ["text/markdown"],
     skills: [
       {
-        id: "web-search",
-        name: "Web Search",
-        description: "Search the web",
-        tags: ["search", "web"],
+        id: "research-skill",
+        name: "Research",
+        description: "Conducts deep research on topics",
+        tags: ["research", "analysis"],
       },
       {
-        id: "summarize",
-        name: "Summarize",
-        description: "Summarize content",
-        tags: ["nlp"],
+        id: "summary-skill",
+        name: "Summary",
+        description: "Summarizes complex information",
+        tags: ["summary"],
       },
     ],
     ...overrides,
@@ -45,205 +52,334 @@ function makeAgentCard(overrides: Partial<A2AAgentCard> = {}): A2AAgentCard {
 }
 
 describe("A2ATeamMemberAdapter", () => {
-  let adapter: A2ATeamMemberAdapter;
   let agentCard: A2AAgentCard;
 
   beforeEach(() => {
-    jest.spyOn(Logger.prototype, "log").mockReturnValue(undefined);
-    jest.spyOn(Logger.prototype, "error").mockReturnValue(undefined);
-    jest.spyOn(Logger.prototype, "warn").mockReturnValue(undefined);
-    jest.spyOn(Logger.prototype, "debug").mockReturnValue(undefined);
-    agentCard = makeAgentCard();
-    adapter = new A2ATeamMemberAdapter(agentCard);
+    agentCard = buildAgentCard();
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
+  afterEach(() => jest.clearAllMocks());
+
+  // ===================== Constructor =====================
 
   describe("constructor", () => {
-    it("sets name from agent card", () => {
-      expect(adapter.name).toBe("Research Bot");
+    it("creates adapter with correct name from agent card", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.name).toBe("Test Research Agent");
     });
 
-    it("sets model based on version", () => {
+    it("creates adapter with model derived from version", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       expect(adapter.model).toBe("external-a2a-2.1.0");
     });
 
-    it("derives skills from agent card skills", () => {
-      expect(adapter.skills).toEqual(["web-search", "summarize"]);
+    it("generates a unique id when none is provided", () => {
+      const a1 = new A2ATeamMemberAdapter(agentCard);
+      const a2 = new A2ATeamMemberAdapter(agentCard);
+      expect(a1.id).not.toBe(a2.id);
+      expect(a1.id).toMatch(/^a2a-member-/);
     });
 
-    it("sets empty tools array (external agents manage their own)", () => {
-      expect(adapter.tools).toEqual([]);
+    it("uses provided id from options", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard, {
+        id: "custom-member-id",
+      });
+      expect(adapter.id).toBe("custom-member-id");
     });
 
-    it("uses agent description as persona", () => {
-      expect(adapter.persona).toBe("An AI research assistant");
+    it("uses provided status from options", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard, {
+        status: "executing",
+      });
+      expect(adapter.status).toBe("executing");
     });
 
-    it("sets initial status to idle by default", () => {
+    it("defaults to idle status when not provided", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       expect(adapter.status).toBe("idle");
     });
 
-    it("accepts custom ID via options", () => {
-      const customAdapter = new A2ATeamMemberAdapter(agentCard, {
-        id: "custom-id-123",
+    it("maps skills from agent card", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.skills).toEqual(["research-skill", "summary-skill"]);
+    });
+
+    it("has empty tools (external agents manage their own tools)", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.tools).toEqual([]);
+    });
+
+    it("sets persona to agent card description", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.persona).toBe(agentCard.description);
+    });
+
+    it("sets workStyle to external agent defaults", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.workStyle).toMatchObject({
+        thinkingDepth: "standard",
+        outputStyle: "balanced",
+        collaborationStyle: "independent",
+        riskTolerance: "conservative",
       });
-      expect(customAdapter.id).toBe("custom-id-123");
     });
 
-    it("accepts custom initial status via options", () => {
-      const customAdapter = new A2ATeamMemberAdapter(agentCard, {
-        status: "waiting",
-      });
-      expect(customAdapter.status).toBe("waiting");
-    });
-
-    it("generates a unique ID when none is provided", () => {
-      const adapter1 = new A2ATeamMemberAdapter(agentCard);
-      const adapter2 = new A2ATeamMemberAdapter(agentCard);
-      expect(adapter1.id).not.toBe(adapter2.id);
-      expect(adapter1.id).toMatch(/^a2a-member-/);
-    });
-
-    it("stores metadata with type=a2a-external and agentUrl", () => {
+    it("stores metadata with type a2a-external and agent URL", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       expect(adapter.metadata?.type).toBe("a2a-external");
       expect(adapter.metadata?.agentUrl).toBe(
-        "https://researchbot.example.com/a2a",
+        "https://external-agent.example.com/a2a/tasks",
       );
-      expect(adapter.metadata?.provider).toEqual({
-        organization: "ResearchCo",
-        url: "https://researchco.com",
-      });
-    });
-
-    it("stores version in metadata", () => {
+      expect(adapter.metadata?.provider).toEqual(agentCard.provider);
       expect(adapter.metadata?.version).toBe("2.1.0");
     });
 
-    it("stores capabilities in metadata", () => {
-      expect(adapter.metadata?.capabilities).toEqual({
-        streaming: false,
-        pushNotifications: true,
-        stateTransitionHistory: true,
+    it("handles agent card with no skills gracefully", () => {
+      const card = buildAgentCard({ skills: [] });
+      const adapter = new A2ATeamMemberAdapter(card);
+      expect(adapter.skills).toEqual([]);
+    });
+  });
+
+  // ===================== Role (ExternalA2ARole) =====================
+
+  describe("role", () => {
+    it("creates role with id derived from agent name", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.id).toBe("a2a-test-research-agent");
+    });
+
+    it("creates role with multiple words in name (spaces replaced with hyphens)", () => {
+      const card = buildAgentCard({ name: "My Awesome Agent" });
+      const adapter = new A2ATeamMemberAdapter(card);
+      expect(adapter.role.id).toBe("a2a-my-awesome-agent");
+    });
+
+    it("role type is always 'member'", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.type).toBe("member");
+    });
+
+    it("role has correct name and description", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.name).toBe(agentCard.name);
+      expect(adapter.role.description).toBe(agentCard.description);
+    });
+
+    it("role coreSkills maps from agent card skills", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.coreSkills).toEqual([
+        "research-skill",
+        "summary-skill",
+      ]);
+    });
+
+    it("role optionalSkills is empty", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.optionalSkills).toEqual([]);
+    });
+
+    it("role coreTools and optionalTools are empty", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.coreTools).toEqual([]);
+      expect(adapter.role.optionalTools).toEqual([]);
+    });
+
+    it("role responsibilities are derived from skill descriptions", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.responsibilities).toContain(
+        "Conducts deep research on topics",
+      );
+      expect(adapter.role.responsibilities).toContain(
+        "Summarizes complex information",
+      );
+    });
+
+    it("role limitations include three standard restrictions", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.limitations).toHaveLength(3);
+      expect(adapter.role.limitations[0]).toContain(
+        "Cannot act as team leader",
+      );
+    });
+
+    it("role systemPromptTemplate uses agent description", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.systemPromptTemplate).toBe(agentCard.description);
+    });
+
+    it("role metadata includes provider, version, url, capabilities", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.role.metadata).toMatchObject({
+        provider: agentCard.provider,
+        version: agentCard.version,
+        url: agentCard.url,
+        capabilities: agentCard.capabilities,
       });
     });
   });
 
-  describe("role", () => {
-    it("creates an ExternalA2ARole with correct ID derived from name", () => {
-      expect(adapter.role.id).toBe("a2a-research-bot");
-    });
+  // ===================== isLeader =====================
 
-    it("sets role name from agent card name", () => {
-      expect(adapter.role.name).toBe("Research Bot");
-    });
-
-    it("sets role type to member", () => {
-      expect(adapter.role.type).toBe("member");
-    });
-
-    it("maps agent skills to role coreSkills", () => {
-      expect(adapter.role.coreSkills).toEqual(["web-search", "summarize"]);
-    });
-
-    it("includes limitations for external agents", () => {
-      expect(adapter.role.limitations).toContain("Cannot act as team leader");
-      expect(adapter.role.limitations).toContain(
-        "Cannot access internal Genesis resources directly",
-      );
-    });
-  });
-
-  describe("workStyle", () => {
-    it("sets independent collaboration style for external agents", () => {
-      expect(adapter.workStyle.collaborationStyle).toBe("independent");
-    });
-
-    it("sets standard thinking depth", () => {
-      expect(adapter.workStyle.thinkingDepth).toBe("standard");
-    });
-
-    it("sets conservative risk tolerance", () => {
-      expect(adapter.workStyle.riskTolerance).toBe("conservative");
-    });
-  });
-
-  describe("isLeader", () => {
-    it("always returns false - A2A agents cannot be leaders", () => {
+  describe("isLeader()", () => {
+    it("always returns false — A2A agents cannot be team leaders", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       expect(adapter.isLeader()).toBe(false);
     });
   });
 
-  describe("hasSkill", () => {
-    it("returns true when agent has the specified skill", () => {
-      expect(adapter.hasSkill("web-search")).toBe(true);
-      expect(adapter.hasSkill("summarize")).toBe(true);
+  // ===================== hasSkill =====================
+
+  describe("hasSkill()", () => {
+    it("returns true when agent has the skill", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.hasSkill("research-skill")).toBe(true);
+      expect(adapter.hasSkill("summary-skill")).toBe(true);
     });
 
-    it("returns false when agent does not have the specified skill", () => {
-      expect(adapter.hasSkill("code-generation")).toBe(false);
+    it("returns false when agent does not have the skill", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.hasSkill("unknown-skill")).toBe(false);
+    });
+
+    it("returns false for empty string skill id", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.hasSkill("")).toBe(false);
     });
   });
 
-  describe("hasTool", () => {
-    it("always returns false - external agents manage their own tools", () => {
+  // ===================== hasTool =====================
+
+  describe("hasTool()", () => {
+    it("always returns false — external agents manage their own tools", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       expect(adapter.hasTool("any-tool")).toBe(false);
-      expect(adapter.hasTool("web-browser")).toBe(false);
+      expect(adapter.hasTool("web-search")).toBe(false);
+      expect(adapter.hasTool("")).toBe(false);
     });
   });
 
-  describe("getSystemPrompt", () => {
-    it("returns the agent card description", () => {
-      expect(adapter.getSystemPrompt()).toBe("An AI research assistant");
+  // ===================== getSystemPrompt =====================
+
+  describe("getSystemPrompt()", () => {
+    it("returns the agent card description as system prompt", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.getSystemPrompt()).toBe(agentCard.description);
+    });
+
+    it("reflects updates to description correctly", () => {
+      const card = buildAgentCard({
+        description: "Custom specialized description for testing",
+      });
+      const adapter = new A2ATeamMemberAdapter(card);
+      expect(adapter.getSystemPrompt()).toBe(
+        "Custom specialized description for testing",
+      );
     });
   });
 
-  describe("getAgentCard", () => {
-    it("returns the underlying agent card", () => {
-      expect(adapter.getAgentCard()).toEqual(agentCard);
-    });
-  });
+  // ===================== updateStatusFromA2ATask =====================
 
-  describe("getAgentUrl", () => {
-    it("returns the agent URL from the card", () => {
-      expect(adapter.getAgentUrl()).toBe("https://researchbot.example.com/a2a");
-    });
-  });
-
-  describe("updateStatusFromA2ATask", () => {
-    it("updates status to waiting for PENDING", () => {
+  describe("updateStatusFromA2ATask()", () => {
+    it("maps PENDING to 'waiting'", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       adapter.updateStatusFromA2ATask(A2ATaskStatus.PENDING);
       expect(adapter.status).toBe("waiting");
     });
 
-    it("updates status to executing for RUNNING", () => {
+    it("maps RUNNING to 'executing'", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       adapter.updateStatusFromA2ATask(A2ATaskStatus.RUNNING);
       expect(adapter.status).toBe("executing");
     });
 
-    it("updates status to completed for COMPLETED", () => {
+    it("maps COMPLETED to 'completed'", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       adapter.updateStatusFromA2ATask(A2ATaskStatus.COMPLETED);
       expect(adapter.status).toBe("completed");
     });
 
-    it("updates status to failed for FAILED", () => {
+    it("maps FAILED to 'failed'", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       adapter.updateStatusFromA2ATask(A2ATaskStatus.FAILED);
       expect(adapter.status).toBe("failed");
     });
 
-    it("maps CANCELLED to failed status", () => {
+    it("maps CANCELLED to 'failed'", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
       adapter.updateStatusFromA2ATask(A2ATaskStatus.CANCELLED);
       expect(adapter.status).toBe("failed");
     });
+
+    it("maps unknown status to 'idle' with a warning", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      // Cast an unknown value
+      adapter.updateStatusFromA2ATask("UNKNOWN_STATUS" as A2ATaskStatus);
+      expect(adapter.status).toBe("idle");
+    });
+
+    it("logs debug when status changes", () => {
+      const debugSpy = jest.spyOn(Logger.prototype, "debug");
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      // starts as 'idle'; change to 'executing'
+      adapter.updateStatusFromA2ATask(A2ATaskStatus.RUNNING);
+      expect(debugSpy).toHaveBeenCalled();
+    });
+
+    it("does NOT log debug when status remains the same", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard, {
+        status: "waiting",
+      });
+      const debugSpy = jest.spyOn(Logger.prototype, "debug");
+      // Set to same waiting status
+      adapter.updateStatusFromA2ATask(A2ATaskStatus.PENDING);
+      // Status didn't change (was already 'waiting'), so no debug log
+      expect(debugSpy).not.toHaveBeenCalled();
+    });
+
+    it("can update status multiple times", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      adapter.updateStatusFromA2ATask(A2ATaskStatus.PENDING);
+      expect(adapter.status).toBe("waiting");
+      adapter.updateStatusFromA2ATask(A2ATaskStatus.RUNNING);
+      expect(adapter.status).toBe("executing");
+      adapter.updateStatusFromA2ATask(A2ATaskStatus.COMPLETED);
+      expect(adapter.status).toBe("completed");
+    });
   });
 
-  describe("name with spaces", () => {
-    it("correctly handles agent names with multiple spaces in role ID", () => {
-      const card = makeAgentCard({ name: "AI Research Agent" });
-      const newAdapter = new A2ATeamMemberAdapter(card);
-      expect(newAdapter.role.id).toBe("a2a-ai-research-agent");
+  // ===================== getAgentCard =====================
+
+  describe("getAgentCard()", () => {
+    it("returns the original agent card", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.getAgentCard()).toEqual(agentCard);
+    });
+
+    it("returns the same reference", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.getAgentCard()).toBe(agentCard);
+    });
+  });
+
+  // ===================== getAgentUrl =====================
+
+  describe("getAgentUrl()", () => {
+    it("returns the agent card url", () => {
+      const adapter = new A2ATeamMemberAdapter(agentCard);
+      expect(adapter.getAgentUrl()).toBe(
+        "https://external-agent.example.com/a2a/tasks",
+      );
+    });
+
+    it("reflects the correct url from different agent cards", () => {
+      const card = buildAgentCard({
+        url: "https://different-agent.example.com/a2a",
+      });
+      const adapter = new A2ATeamMemberAdapter(card);
+      expect(adapter.getAgentUrl()).toBe(
+        "https://different-agent.example.com/a2a",
+      );
     });
   });
 });

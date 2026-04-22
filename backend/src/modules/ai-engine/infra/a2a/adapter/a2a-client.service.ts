@@ -11,7 +11,7 @@ import {
   A2ATaskResponse,
   A2ATaskStatus,
   A2ATaskStatusResponse,
-} from "./a2a.types";
+} from "../a2a.types";
 import {
   sanitizeForLog,
   sanitizeError,
