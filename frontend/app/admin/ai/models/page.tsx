@@ -5,6 +5,7 @@ import { Bot, Plus } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import AIModelSettings from '@/components/admin/ai-config/AIModelSettings';
+import SystemModelInventoryPanel from '@/components/admin/ai-config/SystemModelInventoryPanel';
 
 export default function AIModelsPage() {
   const { t } = useTranslation();
@@ -26,10 +27,15 @@ export default function AIModelsPage() {
         </button>
       }
     >
-      <AIModelSettings
-        showAddModal={showAddModal}
-        setShowAddModal={setShowAddModal}
-      />
+      <div className="space-y-6">
+        {/* 系统模型全景：按 type/provider 分布 + 用户配置 + 24h 调用指标 */}
+        <SystemModelInventoryPanel />
+
+        <AIModelSettings
+          showAddModal={showAddModal}
+          setShowAddModal={setShowAddModal}
+        />
+      </div>
     </AdminPageLayout>
   );
 }

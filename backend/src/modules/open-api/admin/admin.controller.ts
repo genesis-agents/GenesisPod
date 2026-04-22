@@ -23,6 +23,7 @@ import { APP_CONFIG } from "../../../common/config/app.config";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { StorageInventoryService } from "../../ai-infra/storage/storage-inventory.service";
 import { StorageOffloadService } from "../../ai-infra/storage/storage-offload.service";
+import { SystemModelInventoryService } from "../../ai-engine/llm/services/system-model-inventory.service";
 
 /**
  * Perplexity API key 验证用的模型名。
@@ -47,7 +48,19 @@ export class AdminController {
     private secretsService: SecretsService,
     private storageInventoryService: StorageInventoryService,
     private storageOffloadService: StorageOffloadService,
+    private systemModelInventoryService: SystemModelInventoryService,
   ) {}
+
+  /**
+   * 系统模型全景 — 给管理员 /admin/ai/models 顶部面板用
+   * GET /api/v1/admin/ai-models/overview
+   *
+   * 返回：按 type/provider 分组的模型数 + 用户配置分布 + 24h 调用量
+   */
+  @Get("ai-models/overview")
+  async getSystemModelInventory() {
+    return this.systemModelInventoryService.getInventory();
+  }
 
   /**
    * 数据存储清单 — 返回 DB 表尺寸 + 已 off-load 字段映射 + R2 bucket 清单

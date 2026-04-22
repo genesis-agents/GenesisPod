@@ -41,6 +41,7 @@ import { AiModelDiscoveryService } from "./llm/services/ai-model-discovery.servi
 import { AiDirectKeyService } from "./llm/services/ai-direct-key.service";
 import { AiImageGenerationService } from "./llm/services/ai-image-generation.service";
 import { PromptCacheCoordinatorService } from "./llm/services/prompt-cache-coordinator.service";
+import { SystemModelInventoryService } from "./llm/services/system-model-inventory.service";
 
 // Model Fallback
 import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
@@ -117,6 +118,9 @@ import { ModelRecommendationsService } from "./llm/recommendations/model-recomme
 
     // Model Fallback
     ModelFallbackService,
+
+    // Admin — 系统模型全景
+    SystemModelInventoryService,
   ],
   exports: [
     LLMFactory,
@@ -137,6 +141,7 @@ import { ModelRecommendationsService } from "./llm/recommendations/model-recomme
     PromptCacheCoordinatorService,
     ModelFallbackService,
     ModelRecommendationsService,
+    SystemModelInventoryService,
   ],
 })
 export class AiEngineLLMModule {}

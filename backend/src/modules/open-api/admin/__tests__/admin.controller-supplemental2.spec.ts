@@ -20,6 +20,7 @@ import { ChatFacade } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { StorageInventoryService } from "../../../ai-infra/storage/storage-inventory.service";
 import { StorageOffloadService } from "../../../ai-infra/storage/storage-offload.service";
+import { SystemModelInventoryService } from "../../../ai-engine/llm/services/system-model-inventory.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 
@@ -173,6 +174,10 @@ describe("AdminController (supplemental2)", () => {
           useValue: { getInventory: jest.fn() },
         },
         { provide: StorageOffloadService, useValue: { runOnce: jest.fn() } },
+        {
+          provide: SystemModelInventoryService,
+          useValue: { getInventory: jest.fn() },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)
