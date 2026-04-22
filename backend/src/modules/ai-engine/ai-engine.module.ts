@@ -41,11 +41,7 @@ import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
 import { CollaborationModule } from "./agents/collaboration/collaboration.module";
 import { RealtimeModule } from "./runtime/realtime/realtime.module";
-import { ObservabilityModule } from "./runtime/observability/observability.module";
-import { RuntimeMemoryModule } from "./runtime/memory/memory.module";
-import { RuntimeJournalModule } from "./runtime/journal/journal.module";
-import { RuntimeIpcModule } from "./runtime/ipc/ipc.module";
-import { RuntimeResourceModule } from "./runtime/resource/resource.module";
+import { RuntimeModule } from "./runtime/runtime.module";
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -133,11 +129,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     QualityModule,
     CollaborationModule,
     RealtimeModule,
-    ObservabilityModule,
-    RuntimeMemoryModule,
-    RuntimeJournalModule,
-    RuntimeIpcModule,
-    RuntimeResourceModule,
+    RuntimeModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -200,11 +192,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     QualityModule,
     CollaborationModule,
     RealtimeModule,
-    ObservabilityModule,
-    RuntimeMemoryModule,
-    RuntimeJournalModule,
-    RuntimeIpcModule,
-    RuntimeResourceModule,
+    RuntimeModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,

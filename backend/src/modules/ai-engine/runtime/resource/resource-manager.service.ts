@@ -3,11 +3,11 @@
  * Process-level resource management (token budget, cost budget, circuit breaker)
  */
 import { Injectable, Logger } from "@nestjs/common";
-import { ProcessManagerService } from "../../../ai-kernel/process/process-manager.service";
+import { ProcessManagerService } from "../../../ai-engine/runtime/process/process-manager.service";
 import type {
   ProcessId,
   ResourceConsumption,
-} from "../../../ai-kernel/process/process.types";
+} from "../../../ai-engine/runtime/process/process.types";
 
 @Injectable()
 export class ResourceManagerService {

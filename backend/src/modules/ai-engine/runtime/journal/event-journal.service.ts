@@ -5,7 +5,7 @@ import {
   ProcessId,
   JournalEntry,
   StepResult,
-} from "../../../ai-kernel/process/process.types";
+} from "../../../ai-engine/runtime/process/process.types";
 
 @Injectable()
 export class EventJournalService implements OnModuleInit {

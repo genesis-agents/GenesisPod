@@ -11,7 +11,7 @@ import type {
   ProcessId,
   MemoryEntry,
   MemoryQuery as KernelMemoryQuery,
-} from "../../../ai-kernel/process/process.types";
+} from "../../../ai-engine/runtime/process/process.types";
 
 @Injectable()
 export class ProcessMemoryManagerService implements OnModuleInit {

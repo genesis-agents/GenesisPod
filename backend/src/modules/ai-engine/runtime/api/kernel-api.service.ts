@@ -5,16 +5,16 @@
  */
 import { Injectable } from "@nestjs/common";
 import { ProcessManagerService } from "../process/process-manager.service";
-import { EventJournalService } from "../../ai-engine/runtime/journal/event-journal.service";
-import { ProcessMemoryManagerService } from "../../ai-engine/runtime/memory/process-memory-manager.service";
-import { ResourceManagerService } from "../../ai-engine/runtime/resource/resource-manager.service";
+import { EventJournalService } from "../journal/event-journal.service";
+import { ProcessMemoryManagerService } from "../memory/process-memory-manager.service";
+import { ResourceManagerService } from "../resource/resource-manager.service";
 import { MissionExecutorService } from "../mission/mission-executor.service";
-import { CircuitBreakerService } from "../../ai-engine/runtime/resource/circuit-breaker.service";
-import { EventBusService } from "../../ai-engine/runtime/ipc/event-bus.service";
-import { MessageBusService } from "../../ai-engine/runtime/ipc/message-bus.service";
-import { ProgressTrackerService } from "../../ai-engine/runtime/ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../ai-engine/runtime/observability/ai-observability.service";
-import { CostAttributionService } from "../../ai-engine/runtime/observability/cost-attribution.service";
+import { CircuitBreakerService } from "../resource/circuit-breaker.service";
+import { EventBusService } from "../ipc/event-bus.service";
+import { MessageBusService } from "../ipc/message-bus.service";
+import { ProgressTrackerService } from "../ipc/progress-tracker.service";
+import { AiObservabilityService } from "../observability/ai-observability.service";
+import { CostAttributionService } from "../observability/cost-attribution.service";
 import { CapabilityGuardService } from "../security/capability-guard.service";
 import { KernelSchedulerService } from "../scheduler/kernel-scheduler.service";
 import type {

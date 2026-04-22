@@ -5,4 +5,4 @@
 export {
   KernelContext,
   type KernelContextData,
-} from "../../../common/context/kernel-context";
+} from "../../../../common/context/kernel-context";

@@ -1,35 +1,19 @@
-import { Global, Module } from "@nestjs/common";
-import { PrismaModule } from "../../common/prisma/prisma.module";
-import { ProcessManagerService } from "./process/process-manager.service";
-import { ProcessSupervisorService } from "./supervisor/process-supervisor.service";
-import { MissionExecutorService } from "./mission/mission-executor.service";
-import { CapabilityGuardService } from "./security/capability-guard.service";
-import { KernelSchedulerService } from "./scheduler/kernel-scheduler.service";
-import { KernelApiService } from "./api/kernel-api.service";
+/**
+ * AI Kernel Module (deprecated)
+ *
+ * 所有 kernel 能力已迁移到 ai-engine/runtime 下的独立子模块：
+ * - RuntimeJournalModule / RuntimeIpcModule / RuntimeResourceModule (PR 4)
+ * - RuntimeMemoryModule (PR 3)
+ * - ObservabilityModule (PR 2)
+ * - A2AModule (PR 1)
+ * - RuntimeProcessModule / RuntimeSchedulerModule / RuntimeSupervisorModule /
+ *   RuntimeMissionModule / RuntimeSecurityModule / RuntimeApiModule (PR 5)
+ *
+ * 本 Module 保留为空壳以保持向后兼容（app.module.ts 中仍 import），
+ * 最终清理会在 PR 6 中完成（删除整个 ai-kernel 目录）。
+ */
 
-const KERNEL_PROVIDERS = [
-  // Process
-  ProcessManagerService,
-  // Journal / IPC / Resource: moved to ai-engine/runtime/ (PR 4 of kernel-merge refactor)
-  // Memory: moved to ai-engine/runtime/memory + ai-engine/knowledge/memory (PR 3)
-  // A2A: moved to ai-engine/runtime/a2a (PR 1)
-  // Observability: moved to ai-engine/runtime/observability (PR 2)
-  // Supervisor
-  ProcessSupervisorService,
-  // Mission
-  MissionExecutorService,
-  // Security
-  CapabilityGuardService,
-  // Scheduler
-  KernelSchedulerService,
-  // API
-  KernelApiService,
-];
+import { Module } from "@nestjs/common";
 
-@Global()
-@Module({
-  imports: [PrismaModule],
-  providers: KERNEL_PROVIDERS,
-  exports: KERNEL_PROVIDERS,
-})
+@Module({})
 export class AiKernelModule {}

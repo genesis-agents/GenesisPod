@@ -6,15 +6,18 @@
  */
 
 // Process
-export { ProcessManagerService } from "../process/process-manager.service";
+export { ProcessManagerService } from "../../ai-engine/runtime/process/process-manager.service";
 export type {
   ProcessId,
   SpawnOptions,
   ProcessSnapshot,
   ProcessTree,
   ProcessCapabilities,
-} from "../process/process.types";
-export { VALID_TRANSITIONS, TERMINAL_STATES } from "../process/process.types";
+} from "../../ai-engine/runtime/process/process.types";
+export {
+  VALID_TRANSITIONS,
+  TERMINAL_STATES,
+} from "../../ai-engine/runtime/process/process.types";
 
 // Context — from common layer
 export {
@@ -51,29 +54,29 @@ export { ResourceManagerService } from "../../ai-engine/runtime/resource/resourc
 // Consumers should import Observability symbols from @/modules/ai-engine/facade
 
 // Mission
-export { MissionExecutorService } from "../mission/mission-executor.service";
+export { MissionExecutorService } from "../../ai-engine/runtime/mission/mission-executor.service";
 export type {
   IMissionExecutor,
   MissionExecuteOptions,
   MissionExecuteResult,
-} from "../mission/mission-executor.interface";
+} from "../../ai-engine/runtime/mission/mission-executor.interface";
 
 // Security
-export { CapabilityGuardService } from "../security/capability-guard.service";
+export { CapabilityGuardService } from "../../ai-engine/runtime/security/capability-guard.service";
 // ★ Batch 2 Topic Insights — Capability types
-export type { CapabilityCheckResult } from "../security/capability.types";
+export type { CapabilityCheckResult } from "../../ai-engine/runtime/security/capability.types";
 
 // Scheduler
-export { KernelSchedulerService } from "../scheduler/kernel-scheduler.service";
+export { KernelSchedulerService } from "../../ai-engine/runtime/scheduler/kernel-scheduler.service";
 
 // Supervisor
-export { ProcessSupervisorService } from "../supervisor/process-supervisor.service";
-export { StateCategory } from "../supervisor/process-supervisor.service";
+export { ProcessSupervisorService } from "../../ai-engine/runtime/supervisor/process-supervisor.service";
+export { StateCategory } from "../../ai-engine/runtime/supervisor/process-supervisor.service";
 export type {
   StateEntry,
   ExecutionStateStats,
   ExecutionStateConfig,
-} from "../supervisor/process-supervisor.service";
+} from "../../ai-engine/runtime/supervisor/process-supervisor.service";
 
 // Session Latency Tracking: moved to ai-engine/runtime/observability (PR 2)
 // Consumers should import from @/modules/ai-engine/facade
@@ -95,8 +98,8 @@ export type { HealthCheckRunnerConfig } from "../../ai-engine/runtime/resource/h
 export {
   StateTransitionValidator,
   InvalidTransitionError,
-} from "../process/state-transition-validator";
-export type { StateTransitionMap } from "../process/state-transition-validator";
+} from "../../ai-engine/runtime/process/state-transition-validator";
+export type { StateTransitionMap } from "../../ai-engine/runtime/process/state-transition-validator";
 
 // Resource — additional
 export { CircuitBreakerService } from "../../ai-engine/runtime/resource/circuit-breaker.service";
@@ -129,7 +132,7 @@ export type {
 } from "../../ai-engine/runtime/resource/cost-controller";
 
 // API
-export { KernelApiService } from "../api/kernel-api.service";
+export { KernelApiService } from "../../ai-engine/runtime/api/kernel-api.service";
 
 // IPC — Message Persistence
 export { MessagePersistenceService } from "../../ai-engine/runtime/ipc/message-persistence.service";

@@ -15,8 +15,8 @@ import {
   ProcessSupervisorService,
   StateCategory,
 } from "../process-supervisor.service";
-import { CacheService } from "../../../../common/cache/cache.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { CacheService } from "../../../../../common/cache/cache.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ProcessManagerService } from "../../process/process-manager.service";
 
 // ---------------------------------------------------------------------------
