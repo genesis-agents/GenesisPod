@@ -3044,6 +3044,7 @@
       "infraReport": "Infra Report",
       "capabilities": "Skills",
       "dataManagement": "Data Management",
+      "resourceManagement": "Resource Management",
       "collection": "Collection Sources",
       "whitelists": "Whitelists",
       "quality": "Quality Rules",

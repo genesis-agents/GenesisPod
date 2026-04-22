@@ -3044,6 +3044,7 @@
       "infraReport": "算力底座报告",
       "capabilities": "技能配置",
       "dataManagement": "数据管理",
+      "resourceManagement": "资源管理",
       "collection": "采集源",
       "whitelists": "白名单",
       "quality": "质量规则",

@@ -11,8 +11,9 @@ import TableToolbar from './TableToolbar';
 import TableDataGrid from './TableDataGrid';
 import TableDetailModal from './TableDetailModal';
 import TableDiagnosisPanel from './TableDiagnosisPanel';
-import StorageInventoryPanel from './StorageInventoryPanel';
-import BrokenResourcesCard from './BrokenResourcesCard';
+// StorageInventoryPanel & BrokenResourcesCard 已拆到独立页：
+//   /admin/storage   → 存储管理
+//   /admin/resources → 资源管理
 
 export default function TableManagementPage() {
   const { t } = useTranslation();
@@ -132,12 +133,6 @@ export default function TableManagementPage() {
       maxWidth="7xl"
     >
       <div className="space-y-6">
-        {/* 数据存储位置清单（DB vs R2） */}
-        <StorageInventoryPanel />
-
-        {/* 无效资源一键清理（AI 探索 BROKEN URL） */}
-        <BrokenResourcesCard />
-
         {/* Stats Cards */}
         <TableStatsCards
           stats={stats}

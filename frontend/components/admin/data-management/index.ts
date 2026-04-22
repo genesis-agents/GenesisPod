@@ -5,3 +5,4 @@ export { default as TableDataGrid } from './TableDataGrid';
 export { default as TableDetailModal } from './TableDetailModal';
 export { default as TableDiagnosisPanel } from './TableDiagnosisPanel';
 export { default as StorageInventoryPanel } from './StorageInventoryPanel';
+export { default as BrokenResourcesCard } from './BrokenResourcesCard';

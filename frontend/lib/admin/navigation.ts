@@ -109,12 +109,34 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
       },
     ],
   },
+  // 存储管理 — DB 体积 / R2 用量 / Off-load
+  {
+    key: 'storage',
+    titleKey: 'admin.nav.storage',
+    domain: 'data',
+    icon: HardDrive,
+    items: [
+      {
+        key: 'storage-overview',
+        labelKey: 'admin.nav.storage',
+        href: '/admin/storage',
+        icon: HardDrive,
+      },
+    ],
+  },
+  // 数据管理 — 数据表治理 / 采集 / 质量
   {
     key: 'data',
     titleKey: 'admin.nav.dataManagement',
     domain: 'data',
     icon: Database,
     items: [
+      {
+        key: 'tables',
+        labelKey: 'admin.nav.dataManagement',
+        href: '/admin/data-management',
+        icon: Database,
+      },
       {
         key: 'collection',
         labelKey: 'admin.nav.collection',
@@ -132,6 +154,21 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.quality',
         href: '/admin/data/quality',
         icon: Sparkles,
+      },
+    ],
+  },
+  // 资源管理 — AI 探索资源内容（无效 URL 清理 等）
+  {
+    key: 'resources',
+    titleKey: 'admin.nav.resourceManagement',
+    domain: 'data',
+    icon: Database,
+    items: [
+      {
+        key: 'resources-cleanup',
+        labelKey: 'admin.nav.resourceManagement',
+        href: '/admin/resources',
+        icon: Database,
       },
     ],
   },

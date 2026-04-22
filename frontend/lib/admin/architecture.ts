@@ -491,6 +491,14 @@ const infrastructureLayer: ArchitectureLayer = {
       titleKey: 'admin.architecture.groups.dataStorage',
       cards: [
         {
+          id: 'storage',
+          i18nKey: 'admin.nav.storage',
+          href: '/admin/storage',
+          icon: HardDrive,
+          clickable: true,
+          stats: [{ label: 'DB + R2', key: 'storageTotal' }],
+        },
+        {
           id: 'dataManagement',
           i18nKey: 'admin.nav.dataManagement',
           href: '/admin/data-management',
@@ -499,12 +507,12 @@ const infrastructureLayer: ArchitectureLayer = {
           stats: [{ label: '表', key: 'dbTables' }],
         },
         {
-          id: 'storage',
-          i18nKey: 'admin.nav.storage',
-          href: '/admin/system/storage',
-          icon: HardDrive,
+          id: 'resourceManagement',
+          i18nKey: 'admin.nav.resourceManagement',
+          href: '/admin/resources',
+          icon: Database,
           clickable: true,
-          stats: [{ label: '配置', key: 'storageProviders' }],
+          stats: [{ label: '无效', key: 'brokenResources' }],
         },
       ],
     },

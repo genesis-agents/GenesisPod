@@ -321,10 +321,18 @@ describe('infrastructure layer (level 1)', () => {
     expect(card?.stats?.[0]?.key).toBe('totalLogins');
   });
 
-  it('dataStorage group has storage card with correct href', () => {
+  it('dataStorage group has 3 cards: storage / dataManagement / resourceManagement', () => {
     const group = layer.groups?.find((g) => g.id === 'dataStorage');
-    const card = group?.cards.find((c) => c.id === 'storage');
-    expect(card?.href).toBe('/admin/system/storage');
+    expect(group?.cards.length).toBe(3);
+
+    const storage = group?.cards.find((c) => c.id === 'storage');
+    expect(storage?.href).toBe('/admin/storage');
+
+    const dm = group?.cards.find((c) => c.id === 'dataManagement');
+    expect(dm?.href).toBe('/admin/data-management');
+
+    const rm = group?.cards.find((c) => c.id === 'resourceManagement');
+    expect(rm?.href).toBe('/admin/resources');
   });
 });
 
