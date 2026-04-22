@@ -104,7 +104,7 @@ export default function ArchitectureLayer({
 
         {/* Cards Grid */}
         <div className="px-4 pb-4">
-          {/* Regular cards - Use grid for L1/L2 for consistent sizing */}
+          {/* Regular flat cards (L4 Open API, L5 Intent Gateway) */}
           {layer.cards && (
             <div className="grid grid-cols-4 gap-3">
               {layer.cards.map((card) => (
@@ -112,7 +112,7 @@ export default function ArchitectureLayer({
                   key={card.id}
                   card={card}
                   layerLevel={layer.level}
-                  fixedWidth={layer.level !== 3}
+                  fixedWidth
                   overviewStats={overviewStats}
                 />
               ))}

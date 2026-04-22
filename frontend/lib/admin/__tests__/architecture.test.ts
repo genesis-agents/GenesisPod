@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 // architecture.ts is a pure data/config module — no async, no network calls.
 // We import it directly.
@@ -7,8 +7,6 @@ import {
   LAYER_STYLES,
   type ArchitectureLayer,
   type ArchitectureCard,
-  type CardGroup,
-  type CardStat,
 } from '../architecture';
 
 // ============================================================================
@@ -16,13 +14,13 @@ import {
 // ============================================================================
 
 describe('ARCHITECTURE_LAYERS', () => {
-  it('contains exactly 6 layers', () => {
-    expect(ARCHITECTURE_LAYERS).toHaveLength(6);
+  it('contains exactly 5 layers (matches backend modules/: intent-gateway, open-api, ai-app, ai-engine, ai-infra)', () => {
+    expect(ARCHITECTURE_LAYERS).toHaveLength(5);
   });
 
-  it('layers have levels 6, 5, 4, 3, 2, 1 in order', () => {
+  it('layers have levels 5, 4, 3, 2, 1 in order (top → bottom)', () => {
     const levels = ARCHITECTURE_LAYERS.map((l) => l.level);
-    expect(levels).toEqual([6, 5, 4, 3, 2, 1]);
+    expect(levels).toEqual([5, 4, 3, 2, 1]);
   });
 
   it('every layer has a non-empty titleKey and id', () => {
@@ -40,51 +38,51 @@ describe('ARCHITECTURE_LAYERS', () => {
 });
 
 // ============================================================================
-// Agent Intent Gateway layer (level 6)
+// Intent Gateway layer (level 5)
 // ============================================================================
 
-describe('Agent Intent Gateway layer (level 6)', () => {
-  let agentOsLayer: ArchitectureLayer;
+describe('Intent Gateway layer (level 5)', () => {
+  let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    agentOsLayer = ARCHITECTURE_LAYERS.find((l) => l.level === 6)!;
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 5)!;
   });
 
-  it('has id "agentOs"', () => {
-    expect(agentOsLayer.id).toBe('agentOs');
+  it('has id "intentGateway"', () => {
+    expect(layer.id).toBe('intentGateway');
   });
 
   it('has cards (not groups)', () => {
-    expect(Array.isArray(agentOsLayer.cards)).toBe(true);
-    expect(agentOsLayer.groups).toBeUndefined();
+    expect(Array.isArray(layer.cards)).toBe(true);
+    expect(layer.groups).toBeUndefined();
   });
 
   it('contains 2 cards', () => {
-    expect(agentOsLayer.cards).toHaveLength(2);
+    expect(layer.cards).toHaveLength(2);
   });
 
   it('contains a clickable intentRouter card with traces href', () => {
-    const card = agentOsLayer.cards?.find((c) => c.id === 'intentRouter');
+    const card = layer.cards?.find((c) => c.id === 'intentRouter');
     expect(card).toBeDefined();
     expect(card?.clickable).toBe(true);
     expect(card?.href).toBe('/admin/ai/traces');
   });
 
   it('contains a non-clickable aiAskEntry card', () => {
-    const card = agentOsLayer.cards?.find((c) => c.id === 'aiAskEntry');
+    const card = layer.cards?.find((c) => c.id === 'aiAskEntry');
     expect(card?.clickable).toBe(false);
   });
 });
 
 // ============================================================================
-// External Agent Access layer (level 5)
+// Open API layer (level 4)
 // ============================================================================
 
-describe('External Agent Access layer (level 5)', () => {
+describe('Open API layer (level 4)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 5)!;
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 4)!;
   });
 
   it('has id "openApi"', () => {
@@ -103,14 +101,14 @@ describe('External Agent Access layer (level 5)', () => {
 });
 
 // ============================================================================
-// Agent Apps layer (level 4)
+// AI Apps layer (level 3)
 // ============================================================================
 
-describe('Agent Apps layer (level 4)', () => {
+describe('AI Apps layer (level 3)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 4)!;
+    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 3)!;
   });
 
   it('has groups (not flat cards)', () => {
@@ -153,116 +151,103 @@ describe('Agent Apps layer (level 4)', () => {
 });
 
 // ============================================================================
-// Agent Runtime layer (level 2)
+// AI Engine layer (level 2) — Core Capabilities + Runtime
 // ============================================================================
 
-describe('Agent Runtime layer (level 2)', () => {
+describe('AI Engine layer (level 2)', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
     layer = ARCHITECTURE_LAYERS.find((l) => l.level === 2)!;
   });
 
-  it('has id "aiKernel"', () => {
-    expect(layer.id).toBe('aiKernel');
-  });
-
-  it('has flat cards (not groups)', () => {
-    expect(Array.isArray(layer.cards)).toBe(true);
-    expect(layer.groups).toBeUndefined();
-  });
-
-  it('contains 8 cards', () => {
-    expect(layer.cards).toHaveLength(8);
-  });
-
-  it('kernelProcesses card is clickable with correct href', () => {
-    const card = layer.cards?.find((c) => c.id === 'kernelProcesses');
-    expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/admin/kernel/processes');
-  });
-
-  it('all 8 kernel cards are clickable with hrefs', () => {
-    const expectedCards: Array<{ id: string; href: string }> = [
-      { id: 'kernelProcesses', href: '/admin/kernel/processes' },
-      { id: 'kernelJournal', href: '/admin/kernel/journal' },
-      { id: 'kernelMemory', href: '/admin/kernel/memory' },
-      { id: 'kernelIPC', href: '/admin/kernel/ipc' },
-      { id: 'kernelResources', href: '/admin/kernel/resources' },
-      { id: 'kernelObservability', href: '/admin/kernel/observability' },
-      { id: 'kernelSecurity', href: '/admin/kernel/security' },
-      { id: 'kernelScheduler', href: '/admin/kernel/scheduler' },
-    ];
-    for (const { id, href } of expectedCards) {
-      const card = layer.cards?.find((c) => c.id === id);
-      expect(card?.clickable).toBe(true);
-      expect(card?.href).toBe(href);
-    }
-  });
-
-  it('kernelJournal has events stat, kernelMemory has entries stat, kernelScheduler has running stat', () => {
-    const journalCard = layer.cards?.find((c) => c.id === 'kernelJournal');
-    expect(journalCard?.stats?.[0]?.key).toBe('kernelEvents');
-
-    const memoryCard = layer.cards?.find((c) => c.id === 'kernelMemory');
-    expect(memoryCard?.stats?.[0]?.key).toBe('kernelMemories');
-
-    const schedulerCard = layer.cards?.find((c) => c.id === 'kernelScheduler');
-    expect(schedulerCard?.stats?.[0]?.key).toBe('kernelRunning');
-  });
-});
-
-// ============================================================================
-// Agent Engine layer (level 3)
-// ============================================================================
-
-describe('Agent Engine layer (level 3)', () => {
-  let layer: ArchitectureLayer;
-
-  beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((l) => l.level === 3)!;
-  });
-
   it('has id "aiEngine"', () => {
     expect(layer.id).toBe('aiEngine');
   });
 
-  it('has flat cards (not groups)', () => {
-    expect(Array.isArray(layer.cards)).toBe(true);
+  it('has groups (not flat cards) — post-merger with former ai-kernel', () => {
+    expect(Array.isArray(layer.groups)).toBe(true);
+    expect(layer.cards).toBeUndefined();
   });
 
-  it('contains 7 cards', () => {
-    expect(layer.cards).toHaveLength(7);
+  it('has 2 groups: engineCore + engineRuntime', () => {
+    expect(layer.groups).toHaveLength(2);
+    const ids = layer.groups!.map((g) => g.id);
+    expect(ids).toEqual(['engineCore', 'engineRuntime']);
   });
 
-  it('models card is clickable with correct href', () => {
-    const card = layer.cards?.find((c) => c.id === 'models');
-    expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/admin/ai/models');
+  describe('engineCore group', () => {
+    it('contains 7 core capability cards', () => {
+      const group = layer.groups?.find((g) => g.id === 'engineCore');
+      expect(group?.cards).toHaveLength(7);
+    });
+
+    it('models card is clickable with correct href', () => {
+      const group = layer.groups?.find((g) => g.id === 'engineCore');
+      const card = group?.cards.find((c) => c.id === 'models');
+      expect(card?.clickable).toBe(true);
+      expect(card?.href).toBe('/admin/ai/models');
+    });
+
+    it('guardrails card has href /admin/ai/guardrails', () => {
+      const group = layer.groups?.find((g) => g.id === 'engineCore');
+      const card = group?.cards.find((c) => c.id === 'guardrails');
+      expect(card?.href).toBe('/admin/ai/guardrails');
+    });
+
+    it('rag card has href /library/rag', () => {
+      const group = layer.groups?.find((g) => g.id === 'engineCore');
+      const card = group?.cards.find((c) => c.id === 'rag');
+      expect(card?.href).toBe('/library/rag');
+    });
+
+    it('skills card has a stats entry keyed on "skills"', () => {
+      const group = layer.groups?.find((g) => g.id === 'engineCore');
+      const card = group?.cards.find((c) => c.id === 'skills');
+      const stat = card?.stats?.find((s) => s.key === 'skills');
+      expect(stat).toBeDefined();
+    });
   });
 
-  it('guardrails card is clickable with href /admin/ai/guardrails', () => {
-    const card = layer.cards?.find((c) => c.id === 'guardrails');
-    expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/admin/ai/guardrails');
-  });
+  describe('engineRuntime group (former ai-kernel, now ai-engine/runtime)', () => {
+    it('contains 8 runtime cards, all clickable', () => {
+      const group = layer.groups?.find((g) => g.id === 'engineRuntime');
+      expect(group?.cards).toHaveLength(8);
+      for (const card of group!.cards) {
+        expect(card.clickable).toBe(true);
+        expect(card.href).toBeTruthy();
+      }
+    });
 
-  it('rag card is clickable with href /library/rag', () => {
-    const card = layer.cards?.find((c) => c.id === 'rag');
-    expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/library/rag');
-  });
+    it('all 8 runtime cards route to /admin/kernel/* paths', () => {
+      const expectedCards: Array<{ id: string; href: string }> = [
+        { id: 'runtimeProcesses', href: '/admin/kernel/processes' },
+        { id: 'runtimeJournal', href: '/admin/kernel/journal' },
+        { id: 'runtimeMemory', href: '/admin/kernel/memory' },
+        { id: 'runtimeIPC', href: '/admin/kernel/ipc' },
+        { id: 'runtimeResources', href: '/admin/kernel/resources' },
+        { id: 'runtimeObservability', href: '/admin/kernel/observability' },
+        { id: 'runtimeSecurity', href: '/admin/kernel/security' },
+        { id: 'runtimeScheduler', href: '/admin/kernel/scheduler' },
+      ];
+      const group = layer.groups?.find((g) => g.id === 'engineRuntime');
+      for (const { id, href } of expectedCards) {
+        const card = group?.cards.find((c) => c.id === id);
+        expect(card?.href).toBe(href);
+      }
+    });
 
-  it('tools card has href /admin/ai/tools', () => {
-    const card = layer.cards?.find((c) => c.id === 'tools');
-    expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/admin/ai/tools');
-  });
+    it('journal/memory/scheduler carry their stat keys', () => {
+      const group = layer.groups?.find((g) => g.id === 'engineRuntime');
+      const journal = group?.cards.find((c) => c.id === 'runtimeJournal');
+      expect(journal?.stats?.[0]?.key).toBe('kernelEvents');
 
-  it('skills card has stats with key "skills"', () => {
-    const card = layer.cards?.find((c) => c.id === 'skills');
-    const stat = card?.stats?.find((s) => s.key === 'skills');
-    expect(stat).toBeDefined();
+      const memory = group?.cards.find((c) => c.id === 'runtimeMemory');
+      expect(memory?.stats?.[0]?.key).toBe('kernelMemories');
+
+      const scheduler = group?.cards.find((c) => c.id === 'runtimeScheduler');
+      expect(scheduler?.stats?.[0]?.key).toBe('kernelRunning');
+    });
   });
 });
 
@@ -341,13 +326,12 @@ describe('infrastructure layer (level 1)', () => {
 // ============================================================================
 
 describe('LAYER_STYLES', () => {
-  it('has style entries for levels 1-6', () => {
+  it('has style entries for levels 1-5', () => {
     expect(LAYER_STYLES[1]).toBeDefined();
     expect(LAYER_STYLES[2]).toBeDefined();
     expect(LAYER_STYLES[3]).toBeDefined();
     expect(LAYER_STYLES[4]).toBeDefined();
     expect(LAYER_STYLES[5]).toBeDefined();
-    expect(LAYER_STYLES[6]).toBeDefined();
   });
 
   it('each style has badge, border, accent, bg, accentBar, iconBg, hoverBorder', () => {
@@ -360,7 +344,7 @@ describe('LAYER_STYLES', () => {
       'iconBg',
       'hoverBorder',
     ] as const;
-    for (const level of [1, 2, 3, 4, 5, 6] as const) {
+    for (const level of [1, 2, 3, 4, 5] as const) {
       const style = LAYER_STYLES[level];
       for (const key of keys) {
         expect(style[key]).toBeTruthy();
@@ -368,27 +352,23 @@ describe('LAYER_STYLES', () => {
     }
   });
 
-  it('level 6 uses cyan theme in badge', () => {
-    expect(LAYER_STYLES[6].badge).toContain('cyan');
+  it('level 5 uses cyan theme in badge (Intent Gateway)', () => {
+    expect(LAYER_STYLES[5].badge).toContain('cyan');
   });
 
-  it('level 5 uses orange theme in badge', () => {
-    expect(LAYER_STYLES[5].badge).toContain('orange');
+  it('level 4 uses orange theme in badge (Open API)', () => {
+    expect(LAYER_STYLES[4].badge).toContain('orange');
   });
 
-  it('level 4 uses violet theme in badge', () => {
-    expect(LAYER_STYLES[4].badge).toContain('violet');
+  it('level 3 uses violet theme in badge (AI Apps)', () => {
+    expect(LAYER_STYLES[3].badge).toContain('violet');
   });
 
-  it('level 3 uses blue theme in badge', () => {
-    expect(LAYER_STYLES[3].badge).toContain('blue');
+  it('level 2 uses blue theme in badge (AI Engine)', () => {
+    expect(LAYER_STYLES[2].badge).toContain('blue');
   });
 
-  it('level 2 uses teal theme in badge', () => {
-    expect(LAYER_STYLES[2].badge).toContain('teal');
-  });
-
-  it('level 1 uses emerald theme in badge', () => {
+  it('level 1 uses emerald theme in badge (Infrastructure)', () => {
     expect(LAYER_STYLES[1].badge).toContain('emerald');
   });
 });
@@ -434,8 +414,6 @@ describe('card structure invariants', () => {
     const cards = getAllCards();
     const ids = cards.map((c) => c.id);
     const unique = new Set(ids);
-    // Some ids may be reused (like 'activity'), allow for a reasonable spread
-    // Expect at most 5% duplicates — here we just check no catastrophic collision
     expect(unique.size).toBeGreaterThan(cards.length * 0.8);
   });
 
@@ -451,6 +429,3 @@ describe('card structure invariants', () => {
     }
   });
 });
-
-// needed for beforeEach to be available
-import { beforeEach } from 'vitest';

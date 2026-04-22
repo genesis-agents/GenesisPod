@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils/common';
 
 interface ArchitectureCardProps {
   card: CardType;
-  layerLevel: 1 | 2 | 3 | 4 | 5 | 6;
+  layerLevel: 1 | 2 | 3 | 4 | 5;
   fixedWidth?: boolean;
   overviewStats?: Record<string, number>;
 }

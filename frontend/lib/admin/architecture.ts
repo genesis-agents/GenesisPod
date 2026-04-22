@@ -1,13 +1,16 @@
 /**
  * Admin Architecture Diagram Configuration
  *
- * Six-layer architecture visualization:
- * Layer 6: Agent Intent Gateway (Entry, Intent Routing, Traces)
- * Layer 5: External Agent Access (Open Interfaces)
- * Layer 4: Agent Apps (Business Applications - Read-only)
- * Layer 3: Agent Engine (Core Capabilities)
- * Layer 2: Agent Runtime (Process, Memory, IPC, Resources)
- * Layer 1: Infrastructure (Foundation)
+ * Five-layer architecture visualization (matches backend modules/):
+ * Layer 5: Intent Gateway         → modules/intent-gateway/
+ * Layer 4: Open API               → modules/open-api/
+ * Layer 3: AI Apps                → modules/ai-app/
+ * Layer 2: AI Engine              → modules/ai-engine/
+ *            ├── Core Capabilities (llm/tools/skills/rag/agents/teams/safety)
+ *            └── Runtime          → modules/ai-engine/runtime/
+ *                                   (process/journal/memory/ipc/resource/
+ *                                    observability/security/scheduler/...)
+ * Layer 1: Infrastructure         → modules/ai-infra/
  */
 
 import {
@@ -64,7 +67,7 @@ export interface ArchitectureCard {
   stats?: CardStat[]; // Optional stats to display on the card
 }
 
-// Card group for AI Apps layer
+// Card group for layers that need sub-grouping
 export interface CardGroup {
   id: string;
   titleKey: string;
@@ -76,17 +79,17 @@ export interface ArchitectureLayer {
   id: string;
   titleKey: string; // i18n key for layer title
   subtitleKey?: string; // i18n key for subtitle
-  level: 1 | 2 | 3 | 4 | 5 | 6; // Layer level for styling
+  level: 1 | 2 | 3 | 4 | 5; // Layer level for styling
   cards?: ArchitectureCard[];
-  groups?: CardGroup[]; // For grouped cards (AI Apps layer)
+  groups?: CardGroup[]; // For grouped cards (AI Engine, AI Apps, Infrastructure)
 }
 
-// Layer 6: Agent Intent Gateway (Entry, Intent Routing, Traces)
-const agentOsLayer: ArchitectureLayer = {
-  id: 'agentOs',
-  titleKey: 'admin.architecture.layers.agentOs',
-  subtitleKey: 'admin.architecture.layers.agentOsDesc',
-  level: 6,
+// Layer 5: Intent Gateway (Entry, Intent Routing, Traces)
+const intentGatewayLayer: ArchitectureLayer = {
+  id: 'intentGateway',
+  titleKey: 'admin.architecture.layers.intentGateway',
+  subtitleKey: 'admin.architecture.layers.intentGatewayDesc',
+  level: 5,
   cards: [
     {
       id: 'aiAskEntry',
@@ -108,12 +111,12 @@ const agentOsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 5: External Agent Access
+// Layer 4: Open API (External access for agents and third parties)
 const openApiLayer: ArchitectureLayer = {
   id: 'openApi',
   titleKey: 'admin.architecture.layers.openApi',
   subtitleKey: 'admin.architecture.layers.openApiDesc',
-  level: 5,
+  level: 4,
   cards: [
     {
       id: 'mcpServer',
@@ -135,12 +138,12 @@ const openApiLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 4: Agent Apps (Business Applications - Read-only from main sidebar)
+// Layer 3: AI Apps (Business Applications - Read-only from main sidebar)
 const aiAppsLayer: ArchitectureLayer = {
   id: 'aiApps',
   titleKey: 'admin.architecture.layers.aiApps',
   subtitleKey: 'admin.architecture.layers.aiAppsDesc',
-  level: 4,
+  level: 3,
   groups: [
     {
       id: 'knowledge',
@@ -264,158 +267,164 @@ const aiAppsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 2: Agent Runtime (Process, Memory, IPC, Resources)
-const aiKernelLayer: ArchitectureLayer = {
-  id: 'aiKernel',
-  titleKey: 'admin.architecture.layers.aiKernel',
-  subtitleKey: 'admin.architecture.layers.aiKernelDesc',
-  level: 2,
-  cards: [
-    {
-      id: 'kernelProcesses',
-      i18nKey: 'admin.architecture.cards.kernelProcesses',
-      descriptionKey: 'admin.architecture.cards.kernelProcessesDesc',
-      href: '/admin/kernel/processes',
-      icon: Cpu,
-      clickable: true,
-      stats: [{ label: '进程', key: 'kernelProcesses' }],
-    },
-    {
-      id: 'kernelJournal',
-      i18nKey: 'admin.architecture.cards.kernelJournal',
-      descriptionKey: 'admin.architecture.cards.kernelJournalDesc',
-      href: '/admin/kernel/journal',
-      icon: ScrollText,
-      clickable: true,
-      stats: [{ label: '事件', key: 'kernelEvents' }],
-    },
-    {
-      id: 'kernelMemory',
-      i18nKey: 'admin.architecture.cards.kernelMemory',
-      descriptionKey: 'admin.architecture.cards.kernelMemoryDesc',
-      href: '/admin/kernel/memory',
-      icon: Database,
-      clickable: true,
-      stats: [{ label: '条目', key: 'kernelMemories' }],
-    },
-    {
-      id: 'kernelIPC',
-      i18nKey: 'admin.architecture.cards.kernelIPC',
-      descriptionKey: 'admin.architecture.cards.kernelIPCDesc',
-      href: '/admin/kernel/ipc',
-      icon: GitBranch,
-      clickable: true,
-      stats: [{ label: '订阅', key: 'kernelSubscriptions' }],
-    },
-    {
-      id: 'kernelResources',
-      i18nKey: 'admin.architecture.cards.kernelResources',
-      descriptionKey: 'admin.architecture.cards.kernelResourcesDesc',
-      href: '/admin/kernel/resources',
-      icon: Gauge,
-      clickable: true,
-      stats: [{ label: '熔断器', key: 'kernelBreakers' }],
-    },
-    {
-      id: 'kernelObservability',
-      i18nKey: 'admin.architecture.cards.kernelObservability',
-      descriptionKey: 'admin.architecture.cards.kernelObservabilityDesc',
-      href: '/admin/kernel/observability',
-      icon: Activity,
-      clickable: true,
-      stats: [{ label: 'LLM调用', key: 'kernelLLMCalls' }],
-    },
-    {
-      id: 'kernelSecurity',
-      i18nKey: 'admin.architecture.cards.kernelSecurity',
-      descriptionKey: 'admin.architecture.cards.kernelSecurityDesc',
-      href: '/admin/kernel/security',
-      icon: Shield,
-      clickable: true,
-      stats: [{ label: '受控进程', key: 'kernelProcesses' }],
-    },
-    {
-      id: 'kernelScheduler',
-      i18nKey: 'admin.architecture.cards.kernelScheduler',
-      descriptionKey: 'admin.architecture.cards.kernelSchedulerDesc',
-      href: '/admin/kernel/scheduler',
-      icon: Clock,
-      clickable: true,
-      stats: [{ label: '运行中', key: 'kernelRunning' }],
-    },
-  ],
-};
-
-// Layer 3: Agent Engine (Core Capabilities)
+// Layer 2: AI Engine
+// Split into two sub-groups:
+//  - Core Capabilities: Models/Tools/Skills/RAG/Agents/Teams/Guardrails
+//  - Runtime: Processes/Journal/Memory/IPC/Resources/Observability/Security/Scheduler
+//    (formerly the standalone "AI Kernel" layer; now merged under ai-engine/runtime/)
 const aiEngineLayer: ArchitectureLayer = {
   id: 'aiEngine',
   titleKey: 'admin.architecture.layers.aiEngine',
   subtitleKey: 'admin.architecture.layers.aiEngineDesc',
-  level: 3,
-  cards: [
+  level: 2,
+  groups: [
     {
-      id: 'models',
-      i18nKey: 'admin.nav.models',
-      href: '/admin/ai/models',
-      icon: Bot,
-      clickable: true,
-      stats: [{ label: '已配置', key: 'aiModels' }],
+      id: 'engineCore',
+      titleKey: 'admin.architecture.groups.engineCore',
+      cards: [
+        {
+          id: 'models',
+          i18nKey: 'admin.nav.models',
+          href: '/admin/ai/models',
+          icon: Bot,
+          clickable: true,
+          stats: [{ label: '已配置', key: 'aiModels' }],
+        },
+        {
+          id: 'tools',
+          i18nKey: 'admin.nav.tools',
+          href: '/admin/ai/tools',
+          icon: Wrench,
+          clickable: true,
+          stats: [{ label: '工具', key: 'tools' }],
+        },
+        {
+          id: 'skills',
+          i18nKey: 'admin.nav.skills',
+          href: '/admin/ai/skills',
+          icon: Sparkles,
+          clickable: true,
+          stats: [{ label: '技能', key: 'skills' }],
+        },
+        {
+          id: 'rag',
+          i18nKey: 'admin.nav.rag',
+          descriptionKey: 'admin.architecture.cards.ragDesc',
+          href: '/library/rag',
+          icon: Brain,
+          clickable: true,
+          stats: [{ label: '知识库', key: 'knowledgeBases' }],
+        },
+        {
+          id: 'agents',
+          i18nKey: 'admin.nav.agents',
+          descriptionKey: 'admin.architecture.cards.agentsDesc',
+          href: '/admin/ai/agents',
+          icon: Cpu,
+          clickable: true,
+          stats: [{ label: '已注册', key: 'agents' }],
+        },
+        {
+          id: 'teams',
+          i18nKey: 'admin.nav.teams',
+          href: '/admin/ai/teams',
+          icon: UsersRound,
+          clickable: true,
+          stats: [{ label: '辩论话题', key: 'topics' }],
+        },
+        {
+          id: 'guardrails',
+          i18nKey: 'admin.nav.guardrails',
+          descriptionKey: 'admin.architecture.cards.guardrailsDesc',
+          href: '/admin/ai/guardrails',
+          icon: Shield,
+          clickable: true,
+          stats: [{ label: '规则', key: 'guardrailRules' }],
+        },
+      ],
     },
     {
-      id: 'tools',
-      i18nKey: 'admin.nav.tools',
-      href: '/admin/ai/tools',
-      icon: Wrench,
-      clickable: true,
-      stats: [{ label: '工具', key: 'tools' }],
-    },
-    {
-      id: 'skills',
-      i18nKey: 'admin.nav.skills',
-      href: '/admin/ai/skills',
-      icon: Sparkles,
-      clickable: true,
-      stats: [{ label: '技能', key: 'skills' }],
-    },
-    {
-      id: 'rag',
-      i18nKey: 'admin.nav.rag',
-      descriptionKey: 'admin.architecture.cards.ragDesc',
-      href: '/library/rag',
-      icon: Brain,
-      clickable: true,
-      stats: [{ label: '知识库', key: 'knowledgeBases' }],
-    },
-    {
-      id: 'agents',
-      i18nKey: 'admin.nav.agents',
-      descriptionKey: 'admin.architecture.cards.agentsDesc',
-      href: '/admin/ai/agents',
-      icon: Cpu,
-      clickable: true,
-      stats: [{ label: '已注册', key: 'agents' }],
-    },
-    {
-      id: 'teams',
-      i18nKey: 'admin.nav.teams',
-      href: '/admin/ai/teams',
-      icon: UsersRound,
-      clickable: true,
-      stats: [{ label: '辩论话题', key: 'topics' }],
-    },
-    {
-      id: 'guardrails',
-      i18nKey: 'admin.nav.guardrails',
-      descriptionKey: 'admin.architecture.cards.guardrailsDesc',
-      href: '/admin/ai/guardrails',
-      icon: Shield,
-      clickable: true,
-      stats: [{ label: '规则', key: 'guardrailRules' }],
+      id: 'engineRuntime',
+      titleKey: 'admin.architecture.groups.engineRuntime',
+      cards: [
+        {
+          id: 'runtimeProcesses',
+          i18nKey: 'admin.architecture.cards.runtimeProcesses',
+          descriptionKey: 'admin.architecture.cards.runtimeProcessesDesc',
+          href: '/admin/kernel/processes',
+          icon: Cpu,
+          clickable: true,
+          stats: [{ label: '进程', key: 'kernelProcesses' }],
+        },
+        {
+          id: 'runtimeJournal',
+          i18nKey: 'admin.architecture.cards.runtimeJournal',
+          descriptionKey: 'admin.architecture.cards.runtimeJournalDesc',
+          href: '/admin/kernel/journal',
+          icon: ScrollText,
+          clickable: true,
+          stats: [{ label: '事件', key: 'kernelEvents' }],
+        },
+        {
+          id: 'runtimeMemory',
+          i18nKey: 'admin.architecture.cards.runtimeMemory',
+          descriptionKey: 'admin.architecture.cards.runtimeMemoryDesc',
+          href: '/admin/kernel/memory',
+          icon: Database,
+          clickable: true,
+          stats: [{ label: '条目', key: 'kernelMemories' }],
+        },
+        {
+          id: 'runtimeIPC',
+          i18nKey: 'admin.architecture.cards.runtimeIPC',
+          descriptionKey: 'admin.architecture.cards.runtimeIPCDesc',
+          href: '/admin/kernel/ipc',
+          icon: GitBranch,
+          clickable: true,
+          stats: [{ label: '订阅', key: 'kernelSubscriptions' }],
+        },
+        {
+          id: 'runtimeResources',
+          i18nKey: 'admin.architecture.cards.runtimeResources',
+          descriptionKey: 'admin.architecture.cards.runtimeResourcesDesc',
+          href: '/admin/kernel/resources',
+          icon: Gauge,
+          clickable: true,
+          stats: [{ label: '熔断器', key: 'kernelBreakers' }],
+        },
+        {
+          id: 'runtimeObservability',
+          i18nKey: 'admin.architecture.cards.runtimeObservability',
+          descriptionKey: 'admin.architecture.cards.runtimeObservabilityDesc',
+          href: '/admin/kernel/observability',
+          icon: Activity,
+          clickable: true,
+          stats: [{ label: 'LLM调用', key: 'kernelLLMCalls' }],
+        },
+        {
+          id: 'runtimeSecurity',
+          i18nKey: 'admin.architecture.cards.runtimeSecurity',
+          descriptionKey: 'admin.architecture.cards.runtimeSecurityDesc',
+          href: '/admin/kernel/security',
+          icon: Shield,
+          clickable: true,
+          stats: [{ label: '受控进程', key: 'kernelProcesses' }],
+        },
+        {
+          id: 'runtimeScheduler',
+          i18nKey: 'admin.architecture.cards.runtimeScheduler',
+          descriptionKey: 'admin.architecture.cards.runtimeSchedulerDesc',
+          href: '/admin/kernel/scheduler',
+          icon: Clock,
+          clickable: true,
+          stats: [{ label: '运行中', key: 'kernelRunning' }],
+        },
+      ],
     },
   ],
 };
 
-// Layer 1: Infrastructure Layer (Foundation)
+// Layer 1: Infrastructure (Foundation)
 // 12 modules in 4 groups: User & Access, Operations & Billing, Data & Storage, System Ops
 const infrastructureLayer: ArchitectureLayer = {
   id: 'infrastructure',
@@ -554,18 +563,17 @@ const infrastructureLayer: ArchitectureLayer = {
 
 // Export all layers in order (top to bottom)
 export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
-  agentOsLayer,
+  intentGatewayLayer,
   openApiLayer,
   aiAppsLayer,
   aiEngineLayer,
-  aiKernelLayer,
   infrastructureLayer,
 ];
 
 // Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
-  6: {
-    // Agent Intent Gateway - Cyan theme (top layer)
+  5: {
+    // Intent Gateway - Cyan theme (top layer)
     badge: 'bg-cyan-100 text-cyan-700',
     border: 'border-cyan-200',
     accent: 'text-cyan-600',
@@ -574,8 +582,8 @@ export const LAYER_STYLES = {
     iconBg: 'bg-cyan-100 text-cyan-600',
     hoverBorder: 'hover:border-cyan-300',
   },
-  5: {
-    // External Agent Access - Orange theme
+  4: {
+    // Open API - Orange theme
     badge: 'bg-orange-100 text-orange-700',
     border: 'border-orange-200',
     accent: 'text-orange-600',
@@ -584,8 +592,8 @@ export const LAYER_STYLES = {
     iconBg: 'bg-orange-100 text-orange-600',
     hoverBorder: 'hover:border-orange-300',
   },
-  4: {
-    // Agent Apps - Purple theme
+  3: {
+    // AI Apps - Purple theme
     badge: 'bg-violet-100 text-violet-700',
     border: 'border-violet-200',
     accent: 'text-violet-600',
@@ -594,8 +602,8 @@ export const LAYER_STYLES = {
     iconBg: 'bg-violet-100 text-violet-600',
     hoverBorder: 'hover:border-violet-300',
   },
-  3: {
-    // Agent Engine - Blue theme
+  2: {
+    // AI Engine (Core + Runtime) - Blue theme
     badge: 'bg-blue-100 text-blue-700',
     border: 'border-blue-200',
     accent: 'text-blue-600',
@@ -603,16 +611,6 @@ export const LAYER_STYLES = {
     accentBar: 'bg-gradient-to-b from-blue-500 to-cyan-600',
     iconBg: 'bg-blue-100 text-blue-600',
     hoverBorder: 'hover:border-blue-300',
-  },
-  2: {
-    // Agent Runtime - Teal theme
-    badge: 'bg-teal-100 text-teal-700',
-    border: 'border-teal-200',
-    accent: 'text-teal-600',
-    bg: 'bg-gradient-to-br from-teal-50 to-slate-50/80',
-    accentBar: 'bg-gradient-to-b from-teal-500 to-slate-600',
-    iconBg: 'bg-teal-100 text-teal-600',
-    hoverBorder: 'hover:border-teal-300',
   },
   1: {
     // Infrastructure - Green theme (bottom layer)
