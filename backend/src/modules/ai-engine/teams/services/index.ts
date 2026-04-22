@@ -9,4 +9,4 @@ export {
   TeamInfo,
 } from "./teams.service";
 
-// A2AMessageBusService — migrated to ai-kernel
+// A2AMessageBusService — migrated to ai-engine/runtime

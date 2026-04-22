@@ -1,11 +1,12 @@
 /**
  * Observability exports
  */
-export { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
-export { KernelMetricsService as AiObservabilityService } from "../../../ai-kernel/facade";
-export { CostAttributionService } from "../../../ai-kernel/facade";
-export { EvalPipelineService } from "../../infra/observability/eval-pipeline.service";
-export type { TraceType } from "../../infra/observability/trace.interface";
+export { TraceCollectorService } from "../../runtime/observability/trace-collector.service";
+export { AiObservabilityService } from "../../runtime/observability/ai-observability.service";
+export { CostAttributionService } from "../../runtime/observability/cost-attribution.service";
+export { SessionLatencyTrackerService } from "../../runtime/observability/session-latency-tracker.service";
+export { EvalPipelineService } from "../../runtime/observability/eval-pipeline.service";
+export type { TraceType } from "../../runtime/observability/trace.interface";
 export type {
   SpanType,
   ExecutionStatus,
@@ -17,4 +18,4 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../../infra/observability/trace.interface";
+} from "../../runtime/observability/trace.interface";

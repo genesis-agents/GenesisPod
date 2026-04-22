@@ -14,7 +14,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { withTimeout } from "@/common/utils/timeout.utils";
-import { StateTransitionValidator } from "@/modules/ai-kernel/facade";
+import { StateTransitionValidator } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ResearchMissionStatus,

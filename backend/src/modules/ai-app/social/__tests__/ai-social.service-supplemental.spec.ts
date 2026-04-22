@@ -39,8 +39,8 @@ jest.mock("../utils/session-crypto", () => ({
   decryptSession: jest.fn((data: string) => JSON.parse(data) as unknown),
 }));
 
-// From __tests__/ subfolder, the path is 3 levels up to ai-kernel/facade
-jest.mock("../../../ai-kernel/facade", () => ({
+// From __tests__/ subfolder, the path is 3 levels up to ai-engine/facade
+jest.mock("../../../ai-engine/facade", () => ({
   MissionExecutorService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));

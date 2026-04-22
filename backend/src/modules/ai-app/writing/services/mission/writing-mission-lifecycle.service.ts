@@ -29,7 +29,7 @@ import {
 import {
   MissionExecutorService,
   KernelContext,
-} from "../../../../ai-kernel/facade";
+} from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { BillingContext } from "../../../../ai-infra/facade";
 import { LruMap } from "@/common/utils/lru-map";

@@ -40,7 +40,9 @@ import { AiEngineKnowledgeModule } from "./ai-engine-knowledge.module";
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
 import { CollaborationModule } from "./agents/collaboration/collaboration.module";
-import { RealtimeModule } from "./infra/realtime/realtime.module";
+import { RealtimeModule } from "./runtime/realtime/realtime.module";
+import { RuntimeModule } from "./runtime/runtime.module";
+import { HarnessModule } from "./harness/harness.module";
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -75,14 +77,10 @@ import { MCPClientRegistryService } from "./mcp/registry/mcp-client-registry.ser
 // Capabilities
 import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
 
-// Observability
-import { AiEngineTracingService } from "./infra/observability/ai-engine-tracing.service";
-import { ProcessEventLogService as TraceCollectorService } from "../ai-kernel/facade";
-import { KernelMetricsService as AiObservabilityService } from "../ai-kernel/facade";
-import { CostAttributionService } from "../ai-kernel/facade";
-// ObservabilityController migrated to AiKernelModule
-// 支柱五：EvalPipeline
-import { EvalPipelineService } from "./infra/observability/eval-pipeline.service";
+// Observability: core services provided by ObservabilityModule (@Global);
+// only AiEngineTracingService and EvalPipelineService are engine-local extensions.
+import { AiEngineTracingService } from "./runtime/observability/ai-engine-tracing.service";
+import { EvalPipelineService } from "./runtime/observability/eval-pipeline.service";
 
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
@@ -132,6 +130,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     QualityModule,
     CollaborationModule,
     RealtimeModule,
+    RuntimeModule,
+    HarnessModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -142,7 +142,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
-  controllers: [AiCoreController], // ObservabilityController migrated to AiKernelModule
+  controllers: [AiCoreController], // ObservabilityController now in ObservabilityModule
   providers: [
     // === Facade Feature Providers (分组注入) ===
     ...FACADE_FEATURE_PROVIDERS,
@@ -159,11 +159,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Capabilities ===
     AICapabilityResolver,
 
-    // === Observability ===
+    // === Observability (core services come from ObservabilityModule @Global) ===
     AiEngineTracingService,
-    TraceCollectorService,
-    AiObservabilityService,
-    CostAttributionService,
     EvalPipelineService,
 
     // === Prompt Registry ===
@@ -197,6 +194,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     QualityModule,
     CollaborationModule,
     RealtimeModule,
+    RuntimeModule,
+    HarnessModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -215,11 +214,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Capabilities ===
     AICapabilityResolver,
 
-    // === Observability ===
+    // === Observability (core services from ObservabilityModule @Global) ===
     AiEngineTracingService,
-    TraceCollectorService,
-    AiObservabilityService,
-    CostAttributionService,
     EvalPipelineService,
 
     // === Prompt Registry ===

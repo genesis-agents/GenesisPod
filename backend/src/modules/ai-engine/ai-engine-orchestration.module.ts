@@ -26,22 +26,22 @@ import { ParallelExecutor } from "./orchestration/executors/parallel-executor";
 import { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
 
 // Checkpoints
-import { CheckpointManager } from "../ai-kernel/facade";
+import { CheckpointManager } from "../ai-engine/facade";
 
 // ★ Kernel services for executor integration
-import { ProgressTrackerService } from "../ai-kernel/facade";
-import { ProcessEventLogService } from "../ai-kernel/facade";
+import { ProgressTrackerService } from "../ai-engine/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
 
 // Orchestration Services
 import { TaskDecomposerService } from "./orchestration/services/task-decomposer.service";
 import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
 import { OutputReviewerService } from "./orchestration/services/output-reviewer.service";
 import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
-import { CircuitBreakerService } from "../ai-kernel/facade";
+import { CircuitBreakerService } from "../ai-engine/facade";
 import { TokenBudgetService } from "./orchestration/services/token-budget.service";
 import { ContextEvolutionService } from "./orchestration/services/context-evolution.service";
 import { ContextInitializationService } from "./orchestration/services/context-initialization.service";
-import { ConstraintEnforcementService } from "../ai-kernel/facade";
+import { ConstraintEnforcementService } from "../ai-engine/facade";
 import { ContextCompressionService } from "./orchestration/services/context-compression.service";
 import { IntentDetectionService } from "./orchestration/services/intent-detection.service";
 import { ReflectionService } from "./orchestration/services/reflection.service";
@@ -63,7 +63,7 @@ import { AutoDreamService } from "./orchestration/services/auto-dream.service";
 import { AutoDreamSchedulerService } from "./orchestration/services/auto-dream-scheduler.service";
 
 // State Machine
-import { ProcessSupervisorService as ExecutionStateManager } from "../ai-kernel/facade";
+import { ProcessSupervisorService as ExecutionStateManager } from "../ai-engine/facade";
 
 // Handlers
 import { WorkflowHandlerRegistry } from "./orchestration/handlers/handler-registry";
@@ -115,7 +115,7 @@ const dagExecutorFactory = {
     checkpointManager: CheckpointManager,
     circuitBreaker: CircuitBreakerService,
     progressTracker: ProgressTrackerService,
-    traceCollector: ProcessEventLogService,
+    traceCollector: TraceCollectorService,
   ) => {
     const executor = new DAGExecutor();
     executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
@@ -134,7 +134,7 @@ const dagExecutorFactory = {
     CheckpointManager,
     CircuitBreakerService,
     ProgressTrackerService,
-    ProcessEventLogService,
+    TraceCollectorService,
   ],
 };
 
@@ -202,7 +202,7 @@ const checkpointManagerFactory = {
     // Checkpoint
     checkpointManagerFactory,
 
-    // NOTE: ProgressTrackerService, ProcessEventLogService, CheckpointManager,
+    // NOTE: ProgressTrackerService, TraceCollectorService, CheckpointManager,
     // CircuitBreakerService come from @Global() AiKernelModule — no need to re-declare
 
     // Orchestration Services

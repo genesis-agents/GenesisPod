@@ -18,10 +18,10 @@ import {
   MissionExecutorService,
   KernelContext,
   EventJournalService,
-  KernelMemoryManagerService,
   ResourceManagerService,
   EventBusService,
-} from "../../ai-kernel/facade";
+} from "../../ai-engine/facade";
+import { ProcessMemoryManagerService } from "@/modules/ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 interface EvidenceRef {
@@ -128,7 +128,7 @@ export class AiSimulationEngineService {
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
     @Optional() private readonly kernelJournal?: EventJournalService,
-    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
+    @Optional() private readonly kernelMemory?: ProcessMemoryManagerService,
     @Optional() private readonly resourceManager?: ResourceManagerService,
     @Optional() private readonly eventBus?: EventBusService,
   ) {

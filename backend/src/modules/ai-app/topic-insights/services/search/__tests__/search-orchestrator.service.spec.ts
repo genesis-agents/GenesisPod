@@ -21,7 +21,7 @@ import { ResultFusionService } from "../fusion/result-fusion.service";
 import { QualityGateService } from "../fusion/quality-gate.service";
 import { LlmRerankerAdapter } from "../rerank/llm-reranker.adapter";
 import { ToolFacade } from "@/modules/ai-engine/facade";
-import { CapabilityGuardService } from "@/modules/ai-kernel/facade";
+import { CapabilityGuardService } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 import type {
   AggregatedSearchResult,

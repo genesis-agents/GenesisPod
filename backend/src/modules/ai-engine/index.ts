@@ -116,13 +116,15 @@ export * as Image from "./content/image";
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
 export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
-export { WorkingMemoryStore as ShortTermMemoryService } from "../ai-kernel/facade";
+export { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
 export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
+export { HierarchicalMemoryCascadeService } from "./runtime/memory/hierarchical-memory-cascade.service";
+export { ProcessMemoryManagerService } from "./runtime/memory/process-memory-manager.service";
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
 // Teams 模块核心服务
 export { RoleRegistry, TeamRegistry, MissionOrchestrator } from "./teams";
-export { ConstraintEngine } from "../ai-kernel/facade";
+export { ConstraintEngine } from "../ai-engine/facade";
 export {
   // Team types
   TeamId,
@@ -190,8 +192,10 @@ export type {
 } from "./facade/types";
 
 // Observability 导出
-export { KernelMetricsService as AiObservabilityService } from "../ai-kernel/facade";
-export { CostAttributionService } from "../ai-kernel/facade";
+export { AiObservabilityService } from "./runtime/observability/ai-observability.service";
+export { CostAttributionService } from "./runtime/observability/cost-attribution.service";
+export { TraceCollectorService } from "./runtime/observability/trace-collector.service";
+export { SessionLatencyTrackerService } from "./runtime/observability/session-latency-tracker.service";
 
 // Prompt Registry 导出
 export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

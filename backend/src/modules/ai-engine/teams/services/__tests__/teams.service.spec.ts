@@ -16,7 +16,7 @@ import { TeamFactory } from "../../factory/team-factory";
 import { TeamRegistry } from "../../registry/team-registry";
 import { RoleRegistry } from "../../registry/role-registry";
 import { MissionOrchestrator } from "../../orchestrator/mission-orchestrator";
-import { ConstraintEngine } from "../../../../ai-kernel/facade";
+import { ConstraintEngine } from "../../../../ai-engine/facade";
 import { getDefaultConstraintProfile } from "../../constraints/constraint-profile";
 import { ITeam, TeamConfig, TeamId } from "../../abstractions/team.interface";
 import {

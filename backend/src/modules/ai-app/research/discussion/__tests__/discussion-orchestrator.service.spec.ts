@@ -129,7 +129,7 @@ jest.mock("../../idea/research-idea.service", () => ({
   ResearchIdeaService: jest.fn(),
 }));
 
-jest.mock("../../../../ai-kernel/facade", () => ({
+jest.mock("../../../../ai-engine/facade", () => ({
   MissionExecutorService: jest.fn(),
   KernelContext: jest.fn(),
 }));

@@ -29,7 +29,7 @@ import {
   BookmarkMessageDto,
 } from "./dto";
 import { ChatFacade, ChatMessage } from "../../ai-engine/facade";
-import { KernelContext, MissionExecutorService } from "../../ai-kernel/facade";
+import { KernelContext, MissionExecutorService } from "../../ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 import {
   UrlParserService,

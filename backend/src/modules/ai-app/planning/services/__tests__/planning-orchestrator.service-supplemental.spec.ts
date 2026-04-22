@@ -41,11 +41,9 @@ jest.mock("../../../../ai-engine/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-}));
-jest.mock("../../../../ai-kernel/facade", () => ({
   MissionExecutorService: class {},
   EventJournalService: class {},
-  KernelMemoryManagerService: class {},
+  ProcessMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
@@ -90,7 +88,7 @@ import {
 import {
   MissionExecutorService,
   EventJournalService,
-} from "../../../../ai-kernel/facade";
+} from "../../../../ai-engine/facade";
 import { CreatePlanDto, PlanningDepth } from "../../dto/create-plan.dto";
 
 // ======================================================

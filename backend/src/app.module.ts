@@ -42,7 +42,6 @@ import { KeyResolverModule } from "./modules/ai-infra/key-resolver";
 import { UserModelConfigsModule } from "./modules/ai-infra/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
-import { AiKernelModule } from "./modules/ai-kernel/ai-kernel.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
@@ -88,7 +87,7 @@ import { WebhooksModule } from "./modules/open-api/webhooks";
 import { MCPServerModule } from "./modules/open-api/mcp-server";
 import { PublicApiModule } from "./modules/open-api/public-api/public-api.module";
 // A2A Server module
-import { A2AModule } from "./modules/ai-engine/infra/a2a";
+import { A2AModule } from "./modules/ai-engine/runtime/a2a";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 // L1→L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
@@ -168,7 +167,6 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
 
     // AI modules (ai-* prefix)
     AiEngineModule,
-    AiKernelModule,
     AiAskModule,
     AiImageModule,
     AiOfficeModule,

@@ -9,7 +9,7 @@ import {
   CircuitBreakerService,
   TaskCompletionType,
   CircuitState as _CircuitState,
-} from "../../../../ai-kernel/facade";
+} from "../../../../ai-engine/facade";
 
 describe("CircuitBreakerService", () => {
   let service: CircuitBreakerService;

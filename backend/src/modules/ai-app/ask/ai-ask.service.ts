@@ -19,10 +19,8 @@ import {
   IntentRouterService,
   RAGPipelineService,
 } from "../../ai-engine/facade";
-import {
-  MissionExecutorService,
-  KernelMemoryManagerService,
-} from "../../ai-kernel/facade";
+import { MissionExecutorService } from "../../ai-engine/facade";
+import { ProcessMemoryManagerService } from "@/modules/ai-engine/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,
@@ -92,7 +90,7 @@ export class AiAskService {
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
-    @Optional() private readonly kernelMemory?: KernelMemoryManagerService,
+    @Optional() private readonly kernelMemory?: ProcessMemoryManagerService,
   ) {}
 
   /**

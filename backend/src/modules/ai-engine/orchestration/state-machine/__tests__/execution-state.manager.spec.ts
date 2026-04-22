@@ -9,7 +9,7 @@ import {
   ProcessSupervisorService as ExecutionStateManager,
   StateCategory,
   ExecutionStateConfig,
-} from "../../../../ai-kernel/facade";
+} from "../../../../ai-engine/facade";
 import { CacheService } from "@/common/cache/cache.service";
 
 describe("ExecutionStateManager", () => {

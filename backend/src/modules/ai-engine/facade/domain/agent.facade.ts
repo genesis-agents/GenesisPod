@@ -33,7 +33,7 @@ import type {
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../../infra/observability/trace.interface";
+} from "../../runtime/observability/trace.interface";
 import type {
   MemoryEvent,
   MemoryQuery,
@@ -46,12 +46,12 @@ import type {
 import type {
   RoomConfig,
   ProgressEvent,
-} from "../../infra/realtime/abstractions/event-emitter.interface";
-import { CircuitBreakerService } from "../../../ai-kernel/facade";
+} from "../../runtime/realtime/abstractions/event-emitter.interface";
+import { CircuitBreakerService } from "../../runtime/resource/circuit-breaker.service";
 import { AgentExecutorService } from "../../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../../orchestration/services/intent-detection.service";
-import { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-kernel/facade";
+import { ProcessSupervisorService as ExecutionStateManager } from "../../runtime/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../../orchestration/services/context-evolution.service";
 import { AgentRegistry } from "../../agents/registry";

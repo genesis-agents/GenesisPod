@@ -35,7 +35,7 @@ import {
   ResourceUsage,
   mergeConstraintProfiles,
 } from "../constraints";
-import { ConstraintEngine } from "../../../ai-kernel/facade";
+import { ConstraintEngine } from "../../../ai-engine/facade";
 import {
   IMissionOrchestrator,
   MissionExecutionPlan,
@@ -57,7 +57,7 @@ import {
 import { LLMFactory } from "../../llm/factory/llm-factory";
 import { LLMToolDefinition } from "../../llm/abstractions/llm-adapter.interface";
 import { MCPManager } from "../../mcp/manager/mcp-manager";
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import {
   HandoffCoordinator,
   HandoffContextBuilder,
@@ -70,20 +70,20 @@ import {
 } from "../../llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
-import { CheckpointManager } from "../../../ai-kernel/facade";
-import { MessageBusService as A2AMessageBusService } from "../../../ai-kernel/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
+import { CheckpointManager } from "../../../ai-engine/facade";
+import { MessageBusService as A2AMessageBusService } from "../../../ai-engine/facade";
 import {
   ExecutionContext,
   StepResult,
 } from "../../orchestration/abstractions/orchestrator.interface";
-import { MissionExecutorService } from "../../../ai-kernel/facade";
-import { EventJournalService } from "../../../ai-kernel/facade";
-import { HierarchicalMemoryCascadeService } from "../../../ai-kernel/facade";
+import { MissionExecutorService } from "../../../ai-engine/facade";
+import { EventJournalService } from "../../../ai-engine/facade";
+import { HierarchicalMemoryCascadeService } from "@/modules/ai-engine/facade";
 import {
   AgentLifecycleProtocolService,
   type TaskNotificationPayload,
-} from "../../../ai-kernel/facade";
+} from "../../../ai-engine/facade";
 import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,

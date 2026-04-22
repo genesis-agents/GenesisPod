@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../../../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 
 // ─── Mock ConfigService ───────────────────────────────────
 

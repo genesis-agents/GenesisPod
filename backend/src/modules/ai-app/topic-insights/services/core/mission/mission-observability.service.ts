@@ -10,10 +10,8 @@ import {
   ErrorTrackingService,
   AIMetricsService,
 } from "@/modules/ai-infra/facade";
-import {
-  CostAttributionService,
-  EventBusService,
-} from "@/modules/ai-kernel/facade";
+import { EventBusService } from "@/modules/ai-engine/facade";
+import { CostAttributionService } from "@/modules/ai-engine/facade";
 import type { EngineEvent } from "@/modules/ai-engine/facade";
 import { TraceCollectorService } from "@/modules/ai-engine/facade";
 import type { SpanType } from "@/modules/ai-engine/facade";

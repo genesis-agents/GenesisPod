@@ -18,19 +18,19 @@ import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pi
 import {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../../ai-kernel/facade";
-import { ProcessEventLogService as TraceCollectorService } from "../../../ai-kernel/facade";
+} from "../../../ai-engine/facade";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
 // ★ 拆分后的子服务
 import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { EventJournalService } from "../../../ai-kernel/facade";
-import { CostAttributionService } from "../../../ai-kernel/facade";
-import { KernelMetricsService } from "../../../ai-kernel/facade";
-import { KernelContext } from "../../../ai-kernel/facade";
-import { SessionLatencyTrackerService } from "../../../ai-kernel/facade";
+import { EventJournalService } from "../../../ai-engine/facade";
+import { CostAttributionService } from "@/modules/ai-engine/runtime/observability/cost-attribution.service";
+import { AiObservabilityService } from "@/modules/ai-engine/runtime/observability/ai-observability.service";
+import { KernelContext } from "../../../ai-engine/facade";
+import { SessionLatencyTrackerService } from "@/modules/ai-engine/runtime/observability/session-latency-tracker.service";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import {
   BYOKError,
@@ -134,7 +134,7 @@ export class AiChatService {
     @Optional() private readonly traceCollector?: TraceCollectorService,
     @Optional() private readonly eventJournal?: EventJournalService,
     @Optional() private readonly costAttribution?: CostAttributionService,
-    @Optional() private readonly kernelMetrics?: KernelMetricsService,
+    @Optional() private readonly kernelMetrics?: AiObservabilityService,
     @Optional()
     private readonly latencyTracker?: SessionLatencyTrackerService,
     @Optional() private readonly keyResolver?: KeyResolverService,
@@ -1402,7 +1402,7 @@ export class AiChatService {
             provider: currentModelConfig?.provider ?? "",
             inputTokens: 0,
             outputTokens: result.tokensUsed,
-            estimatedCost: KernelMetricsService.estimateCost(
+            estimatedCost: AiObservabilityService.estimateCost(
               currentModel,
               0,
               result.tokensUsed,
@@ -1421,7 +1421,7 @@ export class AiChatService {
             outputTokens: result.tokensUsed,
             totalTokens: result.tokensUsed,
             latencyMs: duration,
-            estimatedCost: KernelMetricsService.estimateCost(
+            estimatedCost: AiObservabilityService.estimateCost(
               currentModel,
               0,
               result.tokensUsed,
@@ -1908,7 +1908,7 @@ export class AiChatService {
           latencyMs: streamDuration,
           ttftMs: streamTiming?.ttftMs,
           ttltMs: streamTiming?.ttltMs,
-          estimatedCost: KernelMetricsService.estimateCost(
+          estimatedCost: AiObservabilityService.estimateCost(
             model,
             streamUsage?.promptTokens ?? 0,
             streamUsage?.completionTokens ?? 0,

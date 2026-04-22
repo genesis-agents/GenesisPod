@@ -16,16 +16,16 @@
 
 import { ConfigService } from "@nestjs/config";
 import { MissionOrchestrator } from "../mission-orchestrator";
-import { ConstraintEngine } from "../../../../ai-kernel/facade";
+import { ConstraintEngine } from "../../../../ai-engine/facade";
 import { MissionInput } from "../../abstractions/mission.interface";
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../../../ai-kernel/facade";
-import { ProcessEventLogService as TraceCollectorService } from "../../../../ai-kernel/facade";
-import { CheckpointManager } from "../../../../ai-kernel/facade";
-import { MissionExecutorService } from "../../../ai-kernel/facade";
-import { EventJournalService } from "../../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
+import { CheckpointManager } from "../../../../ai-engine/facade";
+import { MissionExecutorService } from "../../../ai-engine/facade";
+import { EventJournalService } from "../../../ai-engine/facade";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

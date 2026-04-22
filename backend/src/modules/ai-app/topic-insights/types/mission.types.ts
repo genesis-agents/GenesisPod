@@ -11,7 +11,7 @@ import type {
 } from "@prisma/client";
 import type { ResearchMode } from "../dto/leader.dto";
 import type { DimensionAnalysisResult } from "./research.types";
-import type { StateTransitionMap } from "@/modules/ai-kernel/facade";
+import type { StateTransitionMap } from "@/modules/ai-engine/facade";
 
 /**
  * Research Mission 状态转移规则

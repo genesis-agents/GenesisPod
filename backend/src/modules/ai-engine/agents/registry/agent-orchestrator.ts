@@ -10,9 +10,9 @@ import { AgentRegistry } from "./agent-registry";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
-import { EventJournalService } from "../../../ai-kernel/facade";
-import { CapabilityGuardService } from "../../../ai-kernel/facade";
-import { KernelContext } from "../../../ai-kernel/facade";
+import { EventJournalService } from "../../../ai-engine/facade";
+import { CapabilityGuardService } from "../../../ai-engine/facade";
+import { KernelContext } from "../../../ai-engine/facade";
 
 /**
  * 状态报告项

@@ -12,9 +12,9 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   CircuitBreakerService,
   TaskCompletionType,
-  SessionLatencyTrackerService,
-} from "@/modules/ai-kernel/facade";
-import { KernelContext } from "@/modules/ai-kernel/facade";
+} from "@/modules/ai-engine/facade";
+import { SessionLatencyTrackerService } from "@/modules/ai-engine/facade";
+import { KernelContext } from "@/modules/ai-engine/facade";
 import { withTimeout } from "@/common/utils/timeout.utils";
 import { ToolRegistry, type ToolContext } from "@/modules/ai-engine/facade";
 import type { DataSourceResult } from "../../../types/data-source.types";
@@ -38,7 +38,8 @@ export abstract class SearchAdapterBase implements ISearchAdapter {
 
   constructor(
     @Optional() protected readonly circuitBreaker?: CircuitBreakerService,
-    @Optional() protected readonly latencyTracker?: SessionLatencyTrackerService,
+    @Optional()
+    protected readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
 
   /**

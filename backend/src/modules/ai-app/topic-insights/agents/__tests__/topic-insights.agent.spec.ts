@@ -13,7 +13,7 @@ jest.mock("@prisma/client", () => ({
   AIModelType: { CHAT: "CHAT" },
 }));
 
-jest.mock("@/modules/ai-kernel/facade", () => ({
+jest.mock("@/modules/ai-engine/facade", () => ({
   CircuitBreakerService: class {},
   TaskCompletionType: {
     TIMEOUT: "TIMEOUT",

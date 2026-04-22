@@ -23,7 +23,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import { WorkingMemoryStore as ShortTermMemoryService } from "../../../../ai-kernel/facade";
+import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 
 // ============================================================================
 // Types

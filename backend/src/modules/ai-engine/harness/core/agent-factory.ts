@@ -1,0 +1,145 @@
+/**
+ * AgentFactory — 从 IAgentSpec 构造 HarnessedAgent
+ *
+ * 循环依赖处理：AgentFactory ↔ SubagentSpawner。
+ * 采用 setter injection：HarnessModule onApplicationBootstrap 时把 spawner wire 进来。
+ * 这比 forwardRef + @Inject(class) 更稳，测试里也可直接 factory.setSubagentSpawner(mock)。
+ */
+
+import { Injectable, Optional } from "@nestjs/common";
+import { randomUUID } from "crypto";
+import type {
+  IAgent,
+  IAgentLoop,
+  IAgentSpec,
+  IBudgetSnapshot,
+  IContextEnvelope,
+  IMemoryBinding,
+  ISubagentSpawner,
+} from "../abstractions";
+import { AgentIdentity } from "./agent-identity";
+import { ContextEnvelope } from "./context-envelope";
+import { HarnessedAgent } from "./harnessed-agent";
+import { ReActLoop } from "../loop/react-loop";
+import { MemoryBridge } from "../memory-bridge/memory-bridge.service";
+import { SkillActivator } from "../skills/skill-activator";
+import { CheckpointService } from "../checkpoint/checkpoint.service";
+
+@Injectable()
+export class AgentFactory {
+  private readonly defaultLoop?: IAgentLoop;
+  private subagentSpawner?: ISubagentSpawner;
+
+  constructor(
+    @Optional() reactLoop?: ReActLoop,
+    @Optional() private readonly memoryBridge?: MemoryBridge,
+    @Optional() private readonly skillActivator?: SkillActivator,
+    @Optional() private readonly checkpointService?: CheckpointService,
+  ) {
+    this.defaultLoop = reactLoop;
+  }
+
+  /**
+   * 供 HarnessModule onApplicationBootstrap 调用，打破循环依赖。
+   * 不提供 spawner 时，agent.spawnSubagent() 会抛错。
+   */
+  setSubagentSpawner(spawner: ISubagentSpawner): void {
+    this.subagentSpawner = spawner;
+  }
+
+  create(spec: IAgentSpec): IAgent {
+    const identity =
+      spec.identity instanceof AgentIdentity
+        ? spec.identity
+        : new AgentIdentity(spec.identity);
+
+    const sessionId = spec.sessionId ?? randomUUID();
+    const memory: IMemoryBinding = {
+      sessionId,
+      userId: spec.userId,
+    };
+
+    const budget: IBudgetSnapshot = {
+      tokensUsed: 0,
+      tokensRemaining: identity.constraints?.maxTokens ?? 50_000,
+      iterationsUsed: 0,
+      iterationsRemaining: identity.constraints?.maxIterations ?? 20,
+      wallTimeStartMs: Date.now(),
+    };
+
+    const systemPrompt = spec.systemPrompt ?? identity.toSystemPrompt();
+
+    const envelope = new ContextEnvelope({
+      system: systemPrompt,
+      messages: [],
+      reminders: [],
+      tools: [...identity.tools],
+      memory,
+      budget,
+    });
+
+    return new HarnessedAgent({
+      identity,
+      envelope,
+      loop: this.defaultLoop,
+      memoryBridge: this.memoryBridge,
+      skillActivator: this.skillActivator,
+      subagentSpawner: this.subagentSpawner,
+      checkpointService: this.checkpointService,
+      checkpointEveryNActions: this.checkpointService ? 3 : 0,
+    });
+  }
+
+  /**
+   * 供 SubagentSpawner 使用：在已派生的 envelope 上创建 agent，
+   * 不重新计算 memory/budget（isolation policy 已经准备好了）。
+   */
+  createWithEnvelope(spec: IAgentSpec, envelope: IContextEnvelope): IAgent {
+    const identity =
+      spec.identity instanceof AgentIdentity
+        ? spec.identity
+        : new AgentIdentity(spec.identity);
+
+    const env =
+      envelope instanceof ContextEnvelope
+        ? envelope
+        : new ContextEnvelope({
+            system: envelope.system,
+            messages: [...envelope.messages],
+            reminders: [...envelope.reminders],
+            tools: [...envelope.tools],
+            memory: envelope.memory,
+            budget: envelope.budget,
+            metadata: envelope.metadata,
+          });
+
+    return new HarnessedAgent({
+      identity,
+      envelope: env,
+      loop: this.defaultLoop,
+      memoryBridge: this.memoryBridge,
+      skillActivator: this.skillActivator,
+      subagentSpawner: this.subagentSpawner,
+      checkpointService: this.checkpointService,
+      checkpointEveryNActions: this.checkpointService ? 3 : 0,
+    });
+  }
+
+  /**
+   * Resume：从 checkpoint 重建 agent（envelope + identity 还原）。
+   * 适合长任务失败/中断后续跑。
+   */
+  createFromCheckpoint(checkpoint: {
+    identity: IAgentSpec["identity"];
+    envelope: IContextEnvelope;
+    sessionId?: string;
+  }): IAgent {
+    return this.createWithEnvelope(
+      {
+        identity: checkpoint.identity,
+        sessionId: checkpoint.sessionId,
+      },
+      checkpoint.envelope,
+    );
+  }
+}

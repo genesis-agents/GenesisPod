@@ -1,4 +1,29 @@
 // ─── Module-level mocks (must be before any imports that pull them in) ───────
+// Mock @prisma/client FIRST to provide AIModelType and TopicType enums
+// (Prisma may not be fully generated in all environments)
+jest.mock("@prisma/client", () => ({
+  AIModelType: {
+    CHAT: "CHAT",
+    CHAT_FAST: "CHAT_FAST",
+    REASONING: "REASONING",
+    EMBEDDING: "EMBEDDING",
+    IMAGE: "IMAGE",
+  },
+  TopicType: { PRIVATE: "PRIVATE", PUBLIC: "PUBLIC" },
+  PlanningDepth: {
+    QUICK: "quick",
+    STANDARD: "standard",
+    COMPREHENSIVE: "comprehensive",
+  },
+  Prisma: {
+    DbNull: "DbNull",
+    JsonNull: "JsonNull",
+  },
+  PrismaClient: class {
+    $connect = jest.fn();
+    $disconnect = jest.fn();
+  },
+}));
 // These prevent transitive NestCacheModule / ioredis imports from exploding
 jest.mock("@nestjs/cache-manager", () => ({ CACHE_MANAGER: "CACHE_MANAGER" }));
 jest.mock("cache-manager", () => ({}));
@@ -16,11 +41,9 @@ jest.mock("../../../../ai-engine/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-}));
-jest.mock("../../../../ai-kernel/facade", () => ({
   MissionExecutorService: class {},
   EventJournalService: class {},
-  KernelMemoryManagerService: class {},
+  ProcessMemoryManagerService: class {},
   ResourceManagerService: class {},
   EventBusService: class {},
   KernelContext: { run: jest.fn((_, fn) => fn()) },

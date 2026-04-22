@@ -21,7 +21,7 @@ import {
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SlidesMissionStatus, SlidesTaskStatus } from "@prisma/client";
-import { HealthCheckRunner } from "@/modules/ai-kernel/facade";
+import { HealthCheckRunner } from "@/modules/ai-engine/facade";
 import { mapWithConcurrencySettled } from "@/common/utils/concurrency.utils";
 
 // Type alias for the actual status used in slides (IN_PROGRESS vs EXECUTING)

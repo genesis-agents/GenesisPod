@@ -28,7 +28,7 @@ jest.mock("../utils/session-crypto", () => ({
   decryptSession: jest.fn((data: string) => JSON.parse(data) as unknown),
 }));
 
-jest.mock("../../../ai-kernel/facade", () => ({
+jest.mock("../../../ai-engine/facade", () => ({
   MissionExecutorService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
