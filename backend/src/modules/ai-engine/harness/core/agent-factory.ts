@@ -1,13 +1,14 @@
 /**
  * AgentFactory — 从 IAgentSpec 构造 HarnessedAgent
  *
- * Phase 1 只做最小装配：identity + envelope。
- * Phase 2 将注入 AgentLoop / Skills / Memory bridge。
+ * Phase 2：注入 loop + memoryBridge（可选；单测可以 new AgentFactory() 不传任何依赖）。
  */
 
+import { Injectable, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import type {
   IAgent,
+  IAgentLoop,
   IAgentSpec,
   IBudgetSnapshot,
   IMemoryBinding,
@@ -15,8 +16,20 @@ import type {
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
 import { HarnessedAgent } from "./harnessed-agent";
+import { ReActLoop } from "../loop/react-loop";
+import { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 
+@Injectable()
 export class AgentFactory {
+  private readonly defaultLoop?: IAgentLoop;
+
+  constructor(
+    @Optional() reactLoop?: ReActLoop,
+    @Optional() private readonly memoryBridge?: MemoryBridge,
+  ) {
+    this.defaultLoop = reactLoop;
+  }
+
   create(spec: IAgentSpec): IAgent {
     const identity =
       spec.identity instanceof AgentIdentity
@@ -48,6 +61,11 @@ export class AgentFactory {
       budget,
     });
 
-    return new HarnessedAgent({ identity, envelope });
+    return new HarnessedAgent({
+      identity,
+      envelope,
+      loop: this.defaultLoop,
+      memoryBridge: this.memoryBridge,
+    });
   }
 }

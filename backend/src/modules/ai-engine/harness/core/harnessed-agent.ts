@@ -1,12 +1,10 @@
 /**
- * HarnessedAgent — IAgent 的默认实现（Phase 1 骨架）
+ * HarnessedAgent — IAgent 的默认实现（Phase 2）
  *
- * Phase 1 状态：
- *   - execute() 立即返回 finalize event（不跑真实 loop）
- *   - spawnSubagent() 抛出 Not Implemented
- *   - 只支撑 Harness 的 plumbing 可编译、可注入、可 mock 测试
- *
- * Phase 2 将引入真实 loop（ReAct）+ memory-bridge + tool-invoker。
+ * Phase 2 变更：
+ *   - execute() 不再是骨架；若注入了 Loop（e.g. ReActLoop）则走真实循环
+ *   - 如果没注入 loop（用于单测），回退到 Phase 1 骨架行为
+ *   - 新增 MemoryBridge preExecute 钩子：注入召回记忆
  */
 
 import { randomUUID } from "crypto";
@@ -16,24 +14,33 @@ import type {
   IAgent,
   IAgentEvent,
   IAgentIdentity,
+  IAgentLoop,
   IAgentTask,
   IContextEnvelope,
+  ILoopTerminationCriteria,
   ISubagentHandle,
   ISubagentSpec,
 } from "../abstractions";
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
+import type { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;
   envelope: ContextEnvelope;
+  loop?: IAgentLoop;
+  memoryBridge?: MemoryBridge;
 }
 
 export class HarnessedAgent implements IAgent {
   readonly id: AgentId;
   readonly identity: IAgentIdentity;
   state: AgentState;
+
   private envelope: ContextEnvelope;
+  private readonly loop?: IAgentLoop;
+  private readonly memoryBridge?: MemoryBridge;
+  private abortController: AbortController | null = null;
 
   constructor(init: HarnessedAgentInit, id?: string) {
     this.id = id ?? randomUUID();
@@ -42,13 +49,15 @@ export class HarnessedAgent implements IAgent {
         ? init.identity
         : new AgentIdentity(init.identity);
     this.envelope = init.envelope;
+    this.loop = init.loop;
+    this.memoryBridge = init.memoryBridge;
     this.state = "idle";
   }
 
   async *execute(task: IAgentTask): AsyncIterable<IAgentEvent> {
     this.state = "running";
+    this.abortController = new AbortController();
 
-    // Append user task as a message on the envelope
     const userMsg = {
       role: "user" as const,
       content: task.input
@@ -56,35 +65,86 @@ export class HarnessedAgent implements IAgent {
         : task.goal,
       timestamp: Date.now(),
     };
-    const appended = this.envelope.append([userMsg]);
-    this.envelope = appended.envelope as ContextEnvelope;
+    this.envelope = this.envelope.append([userMsg]).envelope as ContextEnvelope;
 
-    // Phase 1 skeleton: emit thinking → output → terminated
+    // Memory recall (optional)
+    if (this.memoryBridge) {
+      const withMemory = await this.memoryBridge.preExecute(this.envelope, {
+        query: task.goal,
+      });
+      if (withMemory instanceof ContextEnvelope) {
+        this.envelope = withMemory;
+      }
+    }
+
+    if (this.loop) {
+      const constraints = this.identity.constraints;
+      const criteria: ILoopTerminationCriteria = {
+        maxIterations: constraints?.maxIterations ?? 20,
+        maxTokens: constraints?.maxTokens,
+        maxWallTimeMs: constraints?.maxWallTimeMs,
+        terminateOn: ["finalize"],
+      };
+      try {
+        // The loop is typed IAgentLoop (run returns AsyncIterable<IAgentEvent>);
+        // Phase 2 implementations (ReActLoop) optionally accept a 3rd options arg.
+        const runFn = this.loop.run.bind(this.loop) as (
+          envelope: IContextEnvelope,
+          criteria: ILoopTerminationCriteria,
+          options?: { agentId?: string; signal?: AbortSignal },
+        ) => AsyncIterable<IAgentEvent>;
+
+        for await (const ev of runFn(this.envelope, criteria, {
+          agentId: this.id,
+          signal: this.abortController.signal,
+        })) {
+          yield ev;
+          if (ev.type === "terminated") this.updateStateFromTerminated(ev);
+        }
+      } catch (err) {
+        this.state = "failed";
+        yield {
+          type: "error",
+          agentId: this.id,
+          timestamp: Date.now(),
+          payload: {
+            message: err instanceof Error ? err.message : String(err),
+            recoverable: false,
+          },
+        };
+        yield {
+          type: "terminated",
+          agentId: this.id,
+          timestamp: Date.now(),
+          payload: { reason: "error" as const },
+        };
+      }
+      return;
+    }
+
+    // Skeleton fallback (unit tests without loop)
     yield {
       type: "thinking",
       agentId: this.id,
       timestamp: Date.now(),
-      payload: { text: "[skeleton] Phase 1 placeholder", tokenCount: 0 },
+      payload: { text: "[skeleton] no loop injected", tokenCount: 0 },
     };
-
-    const output = {
-      ok: true,
-      stub: true,
-      agent: this.identity.role.id,
-      goal: task.goal,
-      message:
-        "HarnessedAgent Phase 1 skeleton — real loop will be implemented in Phase 2.",
-    };
-
     yield {
       type: "output",
       agentId: this.id,
       timestamp: Date.now(),
-      payload: { output },
+      payload: {
+        output: {
+          ok: true,
+          stub: true,
+          agent: this.identity.role.id,
+          goal: task.goal,
+          message:
+            "HarnessedAgent skeleton — inject a loop (e.g. ReActLoop) via factory for real execution.",
+        },
+      },
     };
-
     this.state = "completed";
-
     yield {
       type: "terminated",
       agentId: this.id,
@@ -95,7 +155,7 @@ export class HarnessedAgent implements IAgent {
 
   spawnSubagent(_spec: ISubagentSpec): Promise<ISubagentHandle> {
     return Promise.reject(
-      new Error("HarnessedAgent.spawnSubagent: not implemented in Phase 1"),
+      new Error("HarnessedAgent.spawnSubagent: not implemented (Phase 4)"),
     );
   }
 
@@ -103,10 +163,19 @@ export class HarnessedAgent implements IAgent {
     return this.envelope;
   }
 
-  async cancel(reason = "cancelled by caller"): Promise<void> {
+  async cancel(_reason = "cancelled by caller"): Promise<void> {
     this.state = "cancelled";
-    // Record in envelope metadata for observability
-    void reason;
+    this.abortController?.abort();
     return Promise.resolve();
+  }
+
+  private updateStateFromTerminated(event: IAgentEvent): void {
+    const reason =
+      typeof event.payload === "object" && event.payload !== null
+        ? (event.payload as { reason?: string }).reason
+        : undefined;
+    if (reason === "error") this.state = "failed";
+    else if (reason === "cancelled") this.state = "cancelled";
+    else this.state = "completed";
   }
 }

@@ -76,7 +76,7 @@ describe("HarnessedAgent (Phase 1 skeleton)", () => {
     expect(env.messages[0].content).toContain("details");
   });
 
-  it("spawnSubagent throws Not Implemented in Phase 1", async () => {
+  it("spawnSubagent throws Not Implemented (Phase 4)", async () => {
     const agent = factory.create(makeSpec());
     await expect(
       agent.spawnSubagent({
@@ -88,7 +88,7 @@ describe("HarnessedAgent (Phase 1 skeleton)", () => {
         }),
         prompt: "do something",
       }),
-    ).rejects.toThrow(/not implemented in Phase 1/i);
+    ).rejects.toThrow(/not implemented/i);
   });
 
   it("cancel() sets state to cancelled", async () => {
