@@ -40,9 +40,12 @@ export class MessagePersistenceService implements OnModuleDestroy {
 
   constructor() {
     // Cleanup delivered + expired messages every 10 minutes
-    this.cleanupTimer = setInterval(() => {
-      this.cleanup();
-    }, 10 * 60 * 1000);
+    this.cleanupTimer = setInterval(
+      () => {
+        this.cleanup();
+      },
+      10 * 60 * 1000,
+    );
     this.cleanupTimer.unref();
   }
 
@@ -78,7 +81,9 @@ export class MessagePersistenceService implements OnModuleDestroy {
       createdAt: new Date(),
     };
     this.messages.set(id, msg);
-    this.logger.debug(`[persist] ${id}: ${fromAgentId} → ${toAgentId} (${type})`);
+    this.logger.debug(
+      `[persist] ${id}: ${fromAgentId} → ${toAgentId} (${type})`,
+    );
     return id;
   }
 
@@ -113,8 +118,7 @@ export class MessagePersistenceService implements OnModuleDestroy {
   }
 
   cleanup(olderThan?: Date): number {
-    const threshold =
-      olderThan ?? new Date(Date.now() - 24 * 60 * 60 * 1000); // default 24h
+    const threshold = olderThan ?? new Date(Date.now() - 24 * 60 * 60 * 1000); // default 24h
     let cleaned = 0;
     const now = new Date();
     for (const [id, msg] of this.messages) {

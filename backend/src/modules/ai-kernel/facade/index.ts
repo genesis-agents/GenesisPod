@@ -22,27 +22,30 @@ export {
   type KernelContextData,
 } from "../../../common/context/kernel-context";
 
-// Journal
-export { EventJournalService } from "../journal/event-journal.service";
+// Journal: moved to ai-engine/runtime/journal (PR 4); re-exported for backward compat
+export { EventJournalService } from "../../ai-engine/runtime/journal/event-journal.service";
 export {
   CheckpointManager,
   InMemoryCheckpointStore,
-} from "../journal/checkpoint-manager";
+} from "../../ai-engine/runtime/journal/checkpoint-manager";
 export type {
   ICheckpointStore,
   CheckpointManagerConfig,
-} from "../journal/checkpoint-manager";
+} from "../../ai-engine/runtime/journal/checkpoint-manager";
 
 // Memory: moved to ai-engine/runtime/memory + ai-engine/knowledge/memory (PR 3 of kernel-merge refactor)
 // Consumers should import Memory symbols from @/modules/ai-engine/facade
 
-// IPC
-export { EventBusService } from "../ipc/event-bus.service";
-export { MessageBusService } from "../ipc/message-bus.service";
-export type { A2AMessage, A2AMessageType } from "../ipc/message-bus.service";
+// IPC: moved to ai-engine/runtime/ipc (PR 4); re-exported for backward compat
+export { EventBusService } from "../../ai-engine/runtime/ipc/event-bus.service";
+export { MessageBusService } from "../../ai-engine/runtime/ipc/message-bus.service";
+export type {
+  A2AMessage,
+  A2AMessageType,
+} from "../../ai-engine/runtime/ipc/message-bus.service";
 
-// Resource
-export { ResourceManagerService } from "../resource/resource-manager.service";
+// Resource: moved to ai-engine/runtime/resource (PR 4); re-exported for backward compat
+export { ResourceManagerService } from "../../ai-engine/runtime/resource/resource-manager.service";
 
 // Observability: moved to ai-engine/runtime/observability (PR 2 of kernel-merge refactor)
 // Consumers should import Observability symbols from @/modules/ai-engine/facade
@@ -82,11 +85,11 @@ export type {
 // Consumers should import A2A symbols directly from @/modules/ai-engine/runtime/a2a
 
 // IPC — Progress
-export { ProgressTrackerService } from "../ipc/progress-tracker.service";
+export { ProgressTrackerService } from "../../ai-engine/runtime/ipc/progress-tracker.service";
 
 // Resource — Health Check
-export { HealthCheckRunner } from "../resource/health-check-runner";
-export type { HealthCheckRunnerConfig } from "../resource/health-check-runner";
+export { HealthCheckRunner } from "../../ai-engine/runtime/resource/health-check-runner";
+export type { HealthCheckRunnerConfig } from "../../ai-engine/runtime/resource/health-check-runner";
 
 // Process — State Transition
 export {
@@ -96,23 +99,26 @@ export {
 export type { StateTransitionMap } from "../process/state-transition-validator";
 
 // Resource — additional
-export { CircuitBreakerService } from "../resource/circuit-breaker.service";
+export { CircuitBreakerService } from "../../ai-engine/runtime/resource/circuit-breaker.service";
 export {
   TaskCompletionType,
   type CircuitState,
-} from "../resource/circuit-breaker.service";
+} from "../../ai-engine/runtime/resource/circuit-breaker.service";
 export type {
   CircuitBreakerConfig,
   HealthMetrics,
-} from "../resource/circuit-breaker.service";
-export { ConstraintEnforcementService } from "../resource/constraint-enforcement.service";
-export { ConstraintEngine } from "../resource/constraint-engine";
-export { RateLimiter, TokenBucket } from "../resource/rate-limiter";
+} from "../../ai-engine/runtime/resource/circuit-breaker.service";
+export { ConstraintEnforcementService } from "../../ai-engine/runtime/resource/constraint-enforcement.service";
+export { ConstraintEngine } from "../../ai-engine/runtime/resource/constraint-engine";
+export {
+  RateLimiter,
+  TokenBucket,
+} from "../../ai-engine/runtime/resource/rate-limiter";
 export type {
   RateLimitResult,
   RateLimitConfig,
-} from "../resource/rate-limiter";
-export { CostController } from "../resource/cost-controller";
+} from "../../ai-engine/runtime/resource/rate-limiter";
+export { CostController } from "../../ai-engine/runtime/resource/cost-controller";
 export type {
   CostRecord,
   CostCategory,
@@ -120,20 +126,20 @@ export type {
   CostCheckResult,
   BudgetPeriod,
   ModelPricing,
-} from "../resource/cost-controller";
+} from "../../ai-engine/runtime/resource/cost-controller";
 
 // API
 export { KernelApiService } from "../api/kernel-api.service";
 
 // IPC — Message Persistence
-export { MessagePersistenceService } from "../ipc/message-persistence.service";
-export type { PersistedMessage } from "../ipc/message-persistence.service";
+export { MessagePersistenceService } from "../../ai-engine/runtime/ipc/message-persistence.service";
+export type { PersistedMessage } from "../../ai-engine/runtime/ipc/message-persistence.service";
 
 // IPC — Agent Lifecycle Protocol
-export { AgentLifecycleProtocolService } from "../ipc/agent-lifecycle-protocol.service";
+export { AgentLifecycleProtocolService } from "../../ai-engine/runtime/ipc/agent-lifecycle-protocol.service";
 export type {
   LifecycleMessageType,
   ShutdownRequestPayload,
   PlanApprovalPayload,
   TaskNotificationPayload,
-} from "../ipc/agent-lifecycle-protocol.service";
+} from "../../ai-engine/runtime/ipc/agent-lifecycle-protocol.service";

@@ -43,6 +43,9 @@ import { CollaborationModule } from "./agents/collaboration/collaboration.module
 import { RealtimeModule } from "./runtime/realtime/realtime.module";
 import { ObservabilityModule } from "./runtime/observability/observability.module";
 import { RuntimeMemoryModule } from "./runtime/memory/memory.module";
+import { RuntimeJournalModule } from "./runtime/journal/journal.module";
+import { RuntimeIpcModule } from "./runtime/ipc/ipc.module";
+import { RuntimeResourceModule } from "./runtime/resource/resource.module";
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -132,6 +135,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     RealtimeModule,
     ObservabilityModule,
     RuntimeMemoryModule,
+    RuntimeJournalModule,
+    RuntimeIpcModule,
+    RuntimeResourceModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -196,6 +202,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     RealtimeModule,
     ObservabilityModule,
     RuntimeMemoryModule,
+    RuntimeJournalModule,
+    RuntimeIpcModule,
+    RuntimeResourceModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,

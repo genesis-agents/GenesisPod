@@ -1,7 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ProcessId, JournalEntry, StepResult } from "../process/process.types";
+import {
+  ProcessId,
+  JournalEntry,
+  StepResult,
+} from "../../../ai-kernel/process/process.types";
 
 @Injectable()
 export class EventJournalService implements OnModuleInit {

@@ -24,7 +24,10 @@ import {
   InMemoryCheckpointStore,
   ICheckpointStore,
 } from "../../journal/checkpoint-manager";
-import type { Checkpoint, ExecutionContext } from "../../abstractions";
+import type {
+  Checkpoint,
+  ExecutionContext,
+} from "../../../../ai-kernel/abstractions";
 
 // Silence NestJS logger
 jest.spyOn(Logger.prototype, "log").mockImplementation();

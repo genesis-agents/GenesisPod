@@ -17,7 +17,7 @@ import type {
   EngineEvent,
   ProgressEvent,
   RoomConfig,
-} from "../../abstractions";
+} from "../../../../ai-kernel/abstractions";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,9 +1,9 @@
 export { AiKernelModule } from "./ai-kernel.module";
 export * from "./process";
-export * from "./journal";
+// journal: moved to ai-engine/runtime/journal (PR 4)
 // memory: moved to ai-engine/runtime/memory + ai-engine/knowledge/memory (PR 3)
-export * from "./ipc";
-export * from "./resource";
+// ipc: moved to ai-engine/runtime/ipc (PR 4)
+// resource: moved to ai-engine/runtime/resource (PR 4)
 // observability: moved to ai-engine/runtime/observability (PR 2)
 export * from "./security";
 export * from "./scheduler";

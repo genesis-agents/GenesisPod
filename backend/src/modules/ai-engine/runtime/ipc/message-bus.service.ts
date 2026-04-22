@@ -5,9 +5,12 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../abstractions";
+} from "../../../ai-kernel/abstractions";
 
-export type { A2AMessage, A2AMessageType } from "../abstractions";
+export type {
+  A2AMessage,
+  A2AMessageType,
+} from "../../../ai-kernel/abstractions";
 
 /**
  * Message Bus Service

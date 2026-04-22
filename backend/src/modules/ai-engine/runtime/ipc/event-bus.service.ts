@@ -11,7 +11,7 @@ import type {
   EngineEvent,
   ProgressEvent,
   RoomConfig,
-} from "../abstractions";
+} from "../../../ai-kernel/abstractions";
 
 /**
  * 事件订阅
