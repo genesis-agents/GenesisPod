@@ -76,7 +76,8 @@ describe("HarnessedAgent (Phase 1 skeleton)", () => {
     expect(env.messages[0].content).toContain("details");
   });
 
-  it("spawnSubagent throws Not Implemented (Phase 4)", async () => {
+  it("spawnSubagent without spawner wired rejects with clear error", async () => {
+    // Factory without SubagentSpawner injected
     const agent = factory.create(makeSpec());
     await expect(
       agent.spawnSubagent({
@@ -88,7 +89,7 @@ describe("HarnessedAgent (Phase 1 skeleton)", () => {
         }),
         prompt: "do something",
       }),
-    ).rejects.toThrow(/not implemented/i);
+    ).rejects.toThrow(/SubagentSpawner not wired/i);
   });
 
   it("cancel() sets state to cancelled", async () => {

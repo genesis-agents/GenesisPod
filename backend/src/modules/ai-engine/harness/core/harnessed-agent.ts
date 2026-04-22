@@ -25,6 +25,7 @@ import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
 import type { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 import type { SkillActivator } from "../skills/skill-activator";
+import type { ISubagentSpawner } from "../abstractions";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;
@@ -32,6 +33,7 @@ export interface HarnessedAgentInit {
   loop?: IAgentLoop;
   memoryBridge?: MemoryBridge;
   skillActivator?: SkillActivator;
+  subagentSpawner?: ISubagentSpawner;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -43,6 +45,7 @@ export class HarnessedAgent implements IAgent {
   private readonly loop?: IAgentLoop;
   private readonly memoryBridge?: MemoryBridge;
   private readonly skillActivator?: SkillActivator;
+  private readonly subagentSpawner?: ISubagentSpawner;
   private abortController: AbortController | null = null;
 
   constructor(init: HarnessedAgentInit, id?: string) {
@@ -55,6 +58,7 @@ export class HarnessedAgent implements IAgent {
     this.loop = init.loop;
     this.memoryBridge = init.memoryBridge;
     this.skillActivator = init.skillActivator;
+    this.subagentSpawner = init.subagentSpawner;
     this.state = "idle";
   }
 
@@ -173,10 +177,15 @@ export class HarnessedAgent implements IAgent {
     skillCleanup?.();
   }
 
-  spawnSubagent(_spec: ISubagentSpec): Promise<ISubagentHandle> {
-    return Promise.reject(
-      new Error("HarnessedAgent.spawnSubagent: not implemented (Phase 4)"),
-    );
+  spawnSubagent(spec: ISubagentSpec): Promise<ISubagentHandle> {
+    if (!this.subagentSpawner) {
+      return Promise.reject(
+        new Error(
+          "HarnessedAgent.spawnSubagent: SubagentSpawner not wired — construct via AgentFactory in HarnessModule.",
+        ),
+      );
+    }
+    return this.subagentSpawner.spawn(this, spec);
   }
 
   getEnvelope(): IContextEnvelope {
