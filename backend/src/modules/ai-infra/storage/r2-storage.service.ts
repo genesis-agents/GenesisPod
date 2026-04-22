@@ -94,6 +94,15 @@ export class R2StorageService implements OnModuleInit {
     return this.isConfigured ? this.provider : "none";
   }
 
+  /** 对外暴露底层 S3 client（仅给同模块 service 用，避免破坏封装） */
+  getS3Client(): S3Client | null {
+    return this.s3Client;
+  }
+
+  getBucketName(): string {
+    return this.bucketName;
+  }
+
   /**
    * 上传 base64 图片并返回预签名 URL
    *

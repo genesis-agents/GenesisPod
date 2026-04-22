@@ -37,6 +37,9 @@ const BATCH_SIZE = 50;
 const CONCURRENCY = 4;
 const OFFLOAD_THRESHOLD = 2048; // <2KB 不迁
 
+// pg_advisory_lock 键：任意 64bit 整数；取自 crc32("storage_offload") 便于唯一识别
+const ADVISORY_LOCK_KEY = 834_612_099;
+
 interface OffloadTarget {
   name: string;
   // 查询符合条件的行（uri IS NULL, 内容非空/非 null）
@@ -208,6 +211,22 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn("[StorageOffload] previous run still in progress, skip");
       return;
     }
+
+    // ★ 2026-04-22 加固：跨实例 advisory lock
+    // Railway 若横向扩容多 Pod，每个 Pod 都会在 02:00 UTC 触发 cron；
+    // try_advisory_lock 保证同时只有一个 Pod 跑 offload，其他 Pod 直接跳过。
+    // 如果本机被 SIGTERM，PostgreSQL 会话断开自动释放锁。
+    const lockRows = await this.prisma.$queryRawUnsafe<{ locked: boolean }[]>(
+      `SELECT pg_try_advisory_lock(${ADVISORY_LOCK_KEY}) AS locked`,
+    );
+    const locked = lockRows[0]?.locked === true;
+    if (!locked) {
+      this.logger.log(
+        "[StorageOffload] another instance holds advisory lock, skip",
+      );
+      return;
+    }
+
     this.running = true;
     const start = Date.now();
     const summary: Record<
@@ -228,6 +247,15 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
       );
     } finally {
       this.running = false;
+      try {
+        await this.prisma.$queryRawUnsafe(
+          `SELECT pg_advisory_unlock(${ADVISORY_LOCK_KEY})`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[StorageOffload] unlock failed (conn may be closed already): ${(error as Error).message}`,
+        );
+      }
     }
   }
 

@@ -203,9 +203,15 @@ export class PrismaService
     }
   }
 
+  /** 追踪已警告的 (model, uriField) 组合，避免刷屏 */
+  private readonly warnedMissingUri = new Set<string>();
+
   /**
    * 通用 hydrate：按 (uriField, contentField) 对检查并从对象存储拉回 content。
    * 当 DB content 为空串或 null 才拉，Phase 1 dual-write 期间直接用 DB 省 round-trip。
+   *
+   * ★ 2026-04-22 加固：partial select 未包含 uriField 或 contentField 时打警告，
+   * 避免调用方 select: { fullReport: true } 静默读到空串。
    */
   private async hydrateRowField(
     row: Record<string, unknown> | null | undefined,
@@ -213,6 +219,22 @@ export class PrismaService
     contentField: string,
   ): Promise<void> {
     if (!row) return;
+    const hasUri = uriField in row;
+    const hasContent = contentField in row;
+    // 两个字段都不在 → 调用方明确不需要 content，正常
+    if (!hasUri && !hasContent) return;
+    // 只 select 了 content 但没 select uri → 无法 hydrate，打警告
+    if (hasContent && !hasUri) {
+      const key = `${contentField}:without:${uriField}`;
+      if (!this.warnedMissingUri.has(key)) {
+        this.warnedMissingUri.add(key);
+        this.logger.warn(
+          `[hydrate] select contains '${contentField}' but not '${uriField}'. ` +
+            `Off-loaded content will be empty. Add '${uriField}: true' to select.`,
+        );
+      }
+      return;
+    }
     const uri = row[uriField] as string | null | undefined;
     const current = row[contentField] as string | null | undefined;
     if (!uri) return;
@@ -238,24 +260,36 @@ export class PrismaService
     await this.hydrateJsonField(row, "dataPointsUri", "dataPoints");
   }
 
-  /** JSON 字段版本的 hydrate：从对象存储拉回文本后 JSON.parse */
+  /**
+   * JSON 字段版本的 hydrate：从对象存储拉回文本后 JSON.parse。
+   * ★ 2026-04-22 修正：只在 DB 字段严格为 null/undefined 时 hydrate，
+   * 不再误判合法的空对象 `{}`（业务有可能就是空结果）。
+   */
   private async hydrateJsonField(
     row: Record<string, unknown> | null | undefined,
     uriField: string,
     contentField: string,
   ): Promise<void> {
     if (!row) return;
+    const hasUri = uriField in row;
+    const hasContent = contentField in row;
+    if (!hasUri && !hasContent) return;
+    if (hasContent && !hasUri) {
+      const key = `${contentField}:without:${uriField}`;
+      if (!this.warnedMissingUri.has(key)) {
+        this.warnedMissingUri.add(key);
+        this.logger.warn(
+          `[hydrate] select contains JSON '${contentField}' but not '${uriField}'. ` +
+            `Off-loaded content will be empty. Add '${uriField}: true' to select.`,
+        );
+      }
+      return;
+    }
     const uri = row[uriField] as string | null | undefined;
     if (!uri) return;
     const current = row[contentField];
-    // DB 里 null 或空对象才去拉（Phase 1 dual-write 期间保留 DB 值）
-    if (
-      current !== null &&
-      current !== undefined &&
-      !(typeof current === "object" && Object.keys(current).length === 0)
-    ) {
-      return;
-    }
+    // 只在 null/undefined 时 hydrate（Phase 2 清空后状态），不再拿空对象误触发
+    if (current !== null && current !== undefined) return;
     const text = await this.downloadText(uri);
     if (text !== null) {
       try {
@@ -288,13 +322,27 @@ export class PrismaService
    * 为了让所有已有 Service 注入的 PrismaService 不改代码就生效，
    * 这里用 Object.defineProperty 在运行时 shadow 掉 topicReport 属性。
    */
+  /** findMany 结果中并发 hydrate 上限（避免 50 条并发 50 个 R2 GET） */
+  private static readonly HYDRATE_CONCURRENCY = 8;
+
   private installTopicReportHydration(): void {
+    const concurrency = PrismaService.HYDRATE_CONCURRENCY;
     const makeHydrator =
       (hydrateFn: (row: Record<string, unknown>) => Promise<void>) =>
       async (result: unknown) => {
         if (Array.isArray(result)) {
+          // 带并发上限的池子式 hydrate（避免 findMany 50 条 → 50 个 R2 GET 并发）
+          let idx = 0;
           await Promise.all(
-            result.map((r) => hydrateFn(r as Record<string, unknown>)),
+            Array.from(
+              { length: Math.min(concurrency, result.length) },
+              async () => {
+                while (idx < result.length) {
+                  const my = idx++;
+                  await hydrateFn(result[my] as Record<string, unknown>);
+                }
+              },
+            ),
           );
         } else if (result && typeof result === "object") {
           await hydrateFn(result as Record<string, unknown>);
@@ -350,6 +398,17 @@ export class PrismaService
           },
         },
       },
+    });
+
+    // ★ 2026-04-22 加固：同时 shadow $transaction 让 tx.topicReport 等也走扩展版
+    // 不然 $transaction(async tx => tx.topicReport.findUnique(...)) 内会拿到原版 client，
+    // hydrate 不生效，事务内读到空字段。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const extendedTx = (extended as any).$transaction.bind(extended);
+    Object.defineProperty(this, "$transaction", {
+      value: extendedTx,
+      writable: false,
+      configurable: true,
     });
 
     for (const modelKey of [

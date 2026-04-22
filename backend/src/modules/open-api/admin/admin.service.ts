@@ -3283,10 +3283,6 @@ export class AdminService {
       gdriveClientId,
       gdriveClientSecret,
       gdriveFolderId,
-      b2KeyId,
-      b2AppKey,
-      b2BucketName,
-      b2BucketId,
       maxFileSize,
       allowedTypes,
     ] = await Promise.all([
@@ -3299,10 +3295,6 @@ export class AdminService {
       this.getSetting("storage.gdriveClientId"),
       this.getSetting("storage.gdriveClientSecret"),
       this.getSetting("storage.gdriveFolderId"),
-      this.getSetting("storage.b2KeyId"),
-      this.getSetting("storage.b2AppKey"),
-      this.getSetting("storage.b2BucketName"),
-      this.getSetting("storage.b2BucketId"),
       this.getSetting("storage.maxUploadSizeMb"),
       this.getSetting("storage.allowedFileTypes"),
     ]);
@@ -3319,10 +3311,6 @@ export class AdminService {
         ? this.maskApiKey(gdriveClientSecret)
         : "",
       gdriveFolderId: gdriveFolderId || "",
-      b2KeyId: b2KeyId || "",
-      b2AppKey: b2AppKey ? this.maskApiKey(b2AppKey) : "",
-      b2BucketName: b2BucketName || "",
-      b2BucketId: b2BucketId || "",
       maxFileSize: maxFileSize || 10,
       allowedTypes: allowedTypes
         ? allowedTypes.split(",").map((s: string) => s.trim())
@@ -3343,10 +3331,6 @@ export class AdminService {
     gdriveClientId?: string;
     gdriveClientSecret?: string;
     gdriveFolderId?: string;
-    b2KeyId?: string;
-    b2AppKey?: string;
-    b2BucketName?: string;
-    b2BucketId?: string;
     maxFileSize?: number;
     allowedTypes?: string[];
   }) {
@@ -3397,15 +3381,6 @@ export class AdminService {
       config.gdriveFolderId,
       "Google Drive folder ID",
     );
-    addUpdate("b2KeyId", config.b2KeyId, "Backblaze B2 key ID");
-    addUpdate(
-      "b2AppKey",
-      config.b2AppKey,
-      "Backblaze B2 application key",
-      true,
-    );
-    addUpdate("b2BucketName", config.b2BucketName, "Backblaze B2 bucket name");
-    addUpdate("b2BucketId", config.b2BucketId, "Backblaze B2 bucket ID");
     addUpdate("maxUploadSizeMb", config.maxFileSize, "Max upload size in MB");
 
     if (config.allowedTypes) {
@@ -3421,87 +3396,6 @@ export class AdminService {
     }
 
     return this.getStorageProviderConfig();
-  }
-
-  /**
-   * 测试 Backblaze B2 连接
-   */
-  async testB2Connection(config: {
-    keyId: string;
-    appKey: string;
-    bucketName: string;
-  }): Promise<{ success: boolean; message: string }> {
-    try {
-      // Step 1: Authorize with B2
-      const authString = Buffer.from(
-        `${config.keyId}:${config.appKey}`,
-      ).toString("base64");
-
-      const authResponse = await fetch(
-        "https://api.backblazeb2.com/b2api/v2/b2_authorize_account",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Basic ${authString}`,
-          },
-        },
-      );
-
-      if (!authResponse.ok) {
-        const errorText = await authResponse.text();
-        return {
-          success: false,
-          message: `B2 authorization failed: ${errorText}`,
-        };
-      }
-
-      const authData = await authResponse.json();
-
-      // Step 2: List buckets to verify access
-      const listResponse = await fetch(
-        `${authData.apiUrl}/b2api/v2/b2_list_buckets`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: authData.authorizationToken,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            accountId: authData.accountId,
-            bucketName: config.bucketName,
-          }),
-        },
-      );
-
-      if (!listResponse.ok) {
-        return {
-          success: false,
-          message: "B2 connection successful but bucket access failed",
-        };
-      }
-
-      const bucketsData = await listResponse.json();
-      const bucketExists = bucketsData.buckets?.some(
-        (b: Record<string, unknown>) => b.bucketName === config.bucketName,
-      );
-
-      if (!bucketExists) {
-        return {
-          success: false,
-          message: `Bucket "${config.bucketName}" not found`,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Connected to Backblaze B2. Bucket "${config.bucketName}" is accessible.`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Connection failed",
-      };
-    }
   }
 
   /**

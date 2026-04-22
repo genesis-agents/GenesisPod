@@ -98,11 +98,15 @@ function humanBytes(n: number): string {
 
 const SNAPSHOT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 每日采样
 const SNAPSHOT_FIRST_DELAY_MS = 10 * 60 * 1000; // 启动 10 分钟后采第一次
+const SNAPSHOT_RETENTION_DAYS = 90; // 保留 90 天，超出自动清理
+const INVENTORY_CACHE_TTL_MS = 5 * 60 * 1000; // getInventory 缓存 5 分钟
 
 @Injectable()
 export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StorageInventoryService.name);
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
+  private inventoryCache: { data: StorageInventory; expiresAt: number } | null =
+    null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -126,7 +130,7 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
   /** 采样当前存储状态，写入 storage_snapshots 表（趋势图数据源） */
   async takeSnapshot(): Promise<void> {
     try {
-      const inv = await this.getInventory();
+      const inv = await this.getInventory({ forceFresh: true });
       await this.prisma.storageSnapshot.create({
         data: {
           dbTotalBytes: BigInt(inv.database.totalBytes),
@@ -139,8 +143,16 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
           ) as unknown as Prisma.InputJsonValue,
         },
       });
+      // ★ 2026-04-22 retention：删 90 天前的 snapshot 防止表无限增长
+      const cutoff = new Date(
+        Date.now() - SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+      );
+      const deleted = await this.prisma.storageSnapshot.deleteMany({
+        where: { createdAt: { lt: cutoff } },
+      });
       this.logger.log(
-        `[snapshot] db=${inv.database.totalHuman} r2=${inv.r2.totalHuman}`,
+        `[snapshot] db=${inv.database.totalHuman} r2=${inv.r2.totalHuman}` +
+          (deleted.count > 0 ? ` (pruned ${deleted.count} old)` : ""),
       );
     } catch (error) {
       this.logger.warn(`[snapshot] failed: ${(error as Error).message}`);
@@ -175,7 +187,17 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
-  async getInventory(): Promise<StorageInventory> {
+  async getInventory(opts?: {
+    forceFresh?: boolean;
+  }): Promise<StorageInventory> {
+    const now = Date.now();
+    if (
+      !opts?.forceFresh &&
+      this.inventoryCache &&
+      this.inventoryCache.expiresAt > now
+    ) {
+      return this.inventoryCache.data;
+    }
     const [dbStats, offloadStats, r2Stats] = await Promise.all([
       this.queryDatabase(),
       this.queryOffloadFields(),
@@ -194,12 +216,17 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
       }),
     ]);
 
-    return {
+    const snapshot: StorageInventory = {
       database: dbStats,
       offloadFields: offloadStats,
       r2: r2Stats,
       generatedAt: new Date().toISOString(),
     };
+    this.inventoryCache = {
+      data: snapshot,
+      expiresAt: now + INVENTORY_CACHE_TTL_MS,
+    };
+    return snapshot;
   }
 
   private async queryDatabase() {
@@ -288,16 +315,18 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
         byPrefix: [],
       };
     }
-    const client = (this.storage as unknown as { s3Client: unknown })
-      .s3Client as {
-      send: (cmd: unknown) => Promise<{
-        Contents?: Array<{ Key?: string; Size?: number }>;
-        IsTruncated?: boolean;
-        NextContinuationToken?: string;
-      }>;
-    };
-    const bucket = (this.storage as unknown as { bucketName: string })
-      .bucketName;
+    const client = this.storage.getS3Client();
+    const bucket = this.storage.getBucketName();
+    if (!client) {
+      return {
+        configured: false,
+        bucket: null,
+        totalObjects: 0,
+        totalBytes: 0,
+        totalHuman: "0 B",
+        byPrefix: [],
+      };
+    }
 
     const byPrefixMap = new Map<string, { objects: number; bytes: number }>();
     let totalObjects = 0;

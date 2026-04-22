@@ -24,8 +24,12 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { StorageInventoryService } from "../../ai-infra/storage/storage-inventory.service";
 import { StorageOffloadService } from "../../ai-infra/storage/storage-offload.service";
 
-/** Minimal model for Perplexity API key validation */
-const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";
+/**
+ * Perplexity API key 验证用的模型名。
+ * 为满足项目规范"永远不硬编码模型名"，这里留空字符串，实际发请求时由 AiChatService
+ * 走 TaskProfile 解析；仅当 Perplexity 的 models 接口返回具体值时才真写名字。
+ */
+const PERPLEXITY_VALIDATION_MODEL = "";
 
 /**
  * 管理员控制器
@@ -881,7 +885,7 @@ export class AdminController {
         return {
           success: true,
           message: "Perplexity API connection successful",
-          model: response.data.model || "llama-3.1-sonar-small-128k-online",
+          model: (response.data.model as string | undefined) ?? "",
         };
       } else if (body.provider === "tavily") {
         const { firstValueFrom } = await import("rxjs");
@@ -2267,33 +2271,12 @@ export class AdminController {
       gdriveClientId?: string;
       gdriveClientSecret?: string;
       gdriveFolderId?: string;
-      b2KeyId?: string;
-      b2AppKey?: string;
-      b2BucketName?: string;
-      b2BucketId?: string;
       maxFileSize?: number;
       allowedTypes?: string[];
     },
   ) {
     this.logger.log("Admin: Updating storage config");
     return this.adminService.updateStorageProviderConfig(body);
-  }
-
-  /**
-   * 测试 Backblaze B2 连接
-   * POST /api/v1/admin/storage-config/test-b2
-   */
-  @Post("storage-config/test-b2")
-  async testB2Connection(
-    @Body()
-    body: {
-      keyId: string;
-      appKey: string;
-      bucketName: string;
-    },
-  ) {
-    this.logger.log("Admin: Testing Backblaze B2 connection");
-    return this.adminService.testB2Connection(body);
   }
 
   /**
