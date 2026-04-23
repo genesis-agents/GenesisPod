@@ -22,6 +22,17 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { KernelContext } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../../services/core/research/research-event-emitter.service";
 import {
+  HarnessAgentRegistry,
+  type RemediatedSection,
+  type SectionRemediatorInput,
+  type SectionResult,
+} from "../agents";
+import type {
+  QualityGateStageOutput,
+  ReviewStageOutput,
+  WriteStageOutput,
+} from "../stages/stage-context";
+import {
   BudgetExhaustedError,
   DEPTH_CONFIG_DEFAULTS,
   PipelineBudget,
@@ -70,6 +81,7 @@ export class PipelineOrchestratorService {
     private readonly stageRegistry: StageRegistry,
     @Optional()
     private readonly researchEventEmitter?: ResearchEventEmitterService,
+    @Optional() private readonly agentRegistry?: HarnessAgentRegistry,
   ) {}
 
   async run(
@@ -220,10 +232,10 @@ export class PipelineOrchestratorService {
   }
 
   /**
-   * QGATE verdict=fail 时的 remediate 循环：
-   * 重跑 ST-07-SYNTH + ST-08-QGATE 最多 maxRounds 轮。
-   * 真实 section-level AG-12-SREM 修订由 Advanced Tier 未来集成，
-   * 此处仅提供 loop 骨架。
+   * QGATE verdict=fail 时的 remediate 循环（Group K-1）：
+   * 1. 基于 ST-04-REVIEW 找 needsRevision=true 的 section
+   * 2. 若 agentRegistry 有 AG-12-SREM，对每个 section 调 remediator 替换内容
+   * 3. 重跑 ST-07-SYNTH + ST-08-QGATE 最多 maxRounds 轮
    */
   private async maybeRemediateLoop(
     identity: PipelineIdentityContext,
@@ -235,19 +247,23 @@ export class PipelineOrchestratorService {
     let rounds = 0;
     while (rounds < maxRounds) {
       if (signal.aborted) return;
-      const qgate = results.get<QGateOutputLike>("ST-08-QGATE");
+      const qgate = results.get<QGateOutputLike & QualityGateStageOutput>(
+        "ST-08-QGATE",
+      );
       if (!qgate.needsRemediate) return;
 
       rounds += 1;
       this.logger.warn(
-        `[${identity.missionId}] QGATE fail → remediate round ${rounds}/${maxRounds}`,
+        `[${identity.missionId}] QGATE fail → remediate round ${rounds}/${maxRounds} (score=${qgate.score ?? "?"})`,
       );
+
+      // ★ Group K-1: section-level remediate
+      await this.remediateSections(identity, results, qgate, signal);
 
       const synthStage = this.stageRegistry.get("ST-07-SYNTH");
       const qgateStage = this.stageRegistry.get("ST-08-QGATE");
       if (!synthStage || !qgateStage) return;
 
-      // 重跑 SYNTH → QGATE
       await this.runStageWithMetrics(synthStage, identity, results, completed);
       if (signal.aborted) return;
       await this.runStageWithMetrics(qgateStage, identity, results, completed);
@@ -257,6 +273,81 @@ export class PipelineOrchestratorService {
     if (finalQGate.needsRemediate) {
       this.logger.warn(
         `[${identity.missionId}] QGATE still fail after ${maxRounds} rounds — proceeding anyway`,
+      );
+    }
+  }
+
+  /**
+   * 调 AG-12-SREM 对需要修订的 section 重写，替换 ST-03-WRITE 的 sections。
+   * 无 agentRegistry 或无 AG-12-SREM → no-op。
+   */
+  private async remediateSections(
+    identity: PipelineIdentityContext,
+    results: StageResults,
+    qgate: QualityGateStageOutput,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (!this.agentRegistry) return;
+    const remediator = this.agentRegistry.get<
+      SectionRemediatorInput,
+      RemediatedSection
+    >("AG-12-SREM");
+    if (!remediator) return;
+
+    if (!results.has("ST-03-WRITE") || !results.has("ST-04-REVIEW")) return;
+    const write = results.get<WriteStageOutput>("ST-03-WRITE");
+    const review = results.get<ReviewStageOutput>("ST-04-REVIEW");
+
+    const reviewBySection = new Map(
+      review.reviews.map((r) => [r.sectionId, r]),
+    );
+
+    const updatedSections: SectionResult[] = [];
+    let remediatedCount = 0;
+
+    for (const section of write.sections) {
+      if (signal.aborted) return;
+      const rev = reviewBySection.get(section.sectionId);
+      if (!rev || !rev.needsRevision) {
+        updatedSections.push(section);
+        continue;
+      }
+
+      try {
+        const res = await remediator.run({
+          input: {
+            sectionId: section.sectionId,
+            sectionTitle: section.title,
+            originalContent: section.content,
+            issues: rev.issues,
+            revisionInstructions: rev.revisionInstructions,
+            targetWords: section.wordCount,
+          },
+          identity,
+          signal,
+        });
+        updatedSections.push({
+          ...section,
+          content: res.output.newContent,
+          wordCount: res.output.wordCount,
+        });
+        remediatedCount += 1;
+      } catch (err) {
+        this.logger.warn(
+          `[${identity.missionId}] AG-12-SREM failed for ${section.sectionId}: ${err instanceof Error ? err.message : String(err)} — keeping original`,
+        );
+        updatedSections.push(section);
+      }
+    }
+
+    if (remediatedCount > 0) {
+      // StageResults 是 Map<StageId, unknown>；set 会覆盖先前内容
+      results.set<WriteStageOutput>("ST-03-WRITE", {
+        ...write,
+        sections: updatedSections,
+      });
+      this.logger.log(
+        `[${identity.missionId}] AG-12-SREM remediated ${remediatedCount} section(s) (QGATE score=${qgate.score})`,
       );
     }
   }

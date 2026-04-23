@@ -144,6 +144,16 @@ export interface ChatOptions {
   };
   /** 操作名称 — 用于时延跟踪标识 step */
   operationName?: string;
+  /**
+   * AbortSignal — 用户取消 / 超时 / budget 耗尽时提前中止当次调用。
+   *
+   * 实施说明（Gate 1 决策）：
+   * - 接受 signal 是 backward-compat overload；既有调用方不传 signal 行为不变
+   * - AiChatService 在调用下游 API / stream 前检查 signal.aborted；
+   *   已在途的 HTTP 请求不保证立刻 abort（需要 fetch 层 propagate）
+   * - 最小语义：signal.aborted 时抛 DOMException("...", "AbortError")
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -1049,6 +1059,10 @@ export class AiChatService {
    * 拆分动机：外层 `chat()` 负责 observer dispatch，本方法保持单一职责。
    */
   private async chatInner(options: ChatOptions): Promise<ChatResult> {
+    // ★ AbortSignal fast-path check
+    if (options.signal?.aborted) {
+      throw new DOMException("AiChatService.chat aborted", "AbortError");
+    }
     const {
       messages,
       systemPrompt,

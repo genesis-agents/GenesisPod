@@ -163,6 +163,7 @@ export class LlmInvokerService {
           userId: input.userId,
           processId: input.processId,
           operationName: input.operationName ?? input.agentId,
+          signal: input.signal, // ★ Group K-3: 端到端 AbortSignal
           // 不传 model → 走 TaskProfile 自动解析
         });
       } catch (err) {
