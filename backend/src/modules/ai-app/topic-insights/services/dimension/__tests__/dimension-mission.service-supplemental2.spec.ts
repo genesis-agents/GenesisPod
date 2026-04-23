@@ -21,16 +21,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionMissionService } from "../dimension-mission.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchLeaderService } from "../../core/research/research-leader.service";
-import { LeaderPlanningService } from "../../core/leader/leader-planning.service";
-import { LeaderReviewService } from "../../core/leader/leader-review.service";
+import { ResearchLeaderService } from "../../research/research-leader.service";
+import { LeaderPlanningService } from "../../leader/leader-planning.service";
+import { LeaderReviewService } from "../../leader/leader-review.service";
 import { SectionWriterService } from "../section-writer.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../../core/research/research-event-emitter.service";
-import { AgentActivityService } from "../../monitoring/agent-activity.service";
+import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
+import { AgentActivityService } from "../../health/agent-activity.service";
 import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";
-import { MissionObservabilityService } from "../../core/mission/mission-observability.service";
+import { MissionObservabilityService } from "../../mission/mission-observability.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { DimensionProgressService } from "../dimension-progress.service";
 import {

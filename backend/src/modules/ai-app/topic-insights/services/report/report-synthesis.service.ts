@@ -74,7 +74,7 @@ import {
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { ReportQualityTraceService } from "../quality/report-quality-trace.service";
 import { LatexRepairService } from "./latex-repair.service";
-import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
 import {
   verifyCitations,

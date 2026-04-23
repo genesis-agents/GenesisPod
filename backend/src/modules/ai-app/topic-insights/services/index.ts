@@ -9,43 +9,43 @@ export { BaselineRecorderService } from "./baseline";
 
 // ==================== Core ====================
 // Research
-export { ResearchLeaderService } from "./core/research/research-leader.service";
+export { ResearchLeaderService } from "./research/research-leader.service";
 export {
   ResearchEventEmitterService,
   RESEARCH_INTERNAL_EVENTS,
   type ResumeMissionExecutionPayload,
-} from "./core/research/research-event-emitter.service";
-export { ResearchRealtimeAdapter } from "./core/research/research-realtime.adapter";
-export { ResearchStrategyService } from "./core/research/research-strategy.service";
-export { ResearchMemoryService } from "./core/research/research-memory.service";
-export { ResearchTemplateService } from "./core/research/research-template.service";
+} from "./research/research-event-emitter.service";
+export { ResearchRealtimeAdapter } from "./research/research-realtime.adapter";
+export { ResearchStrategyService } from "./research/research-strategy.service";
+export { ResearchMemoryService } from "./research/research-memory.service";
+export { ResearchTemplateService } from "./research/research-template.service";
 
 // Leader
-export { LeaderPlanningService } from "./core/leader/leader-planning.service";
-export { LeaderIntentService } from "./core/leader/leader-intent.service";
-export { LeaderAgentSelectionService } from "./core/leader/leader-agent-selection.service";
-export { LeaderReviewService } from "./core/leader/leader-review.service";
+export { LeaderPlanningService } from "./leader/leader-planning.service";
+export { LeaderIntentService } from "./leader/leader-intent.service";
+export { LeaderAgentSelectionService } from "./leader/leader-agent-selection.service";
+export { LeaderReviewService } from "./leader/leader-review.service";
 
 // Mission
-export { MissionQueryService } from "./core/mission/mission-query.service";
-export { MissionLifecycleService } from "./core/mission/mission-lifecycle.service";
-export { MissionExecutionService } from "./core/mission/mission-execution.service";
-export { MissionObservabilityService } from "./core/mission/mission-observability.service";
-export { MissionNotificationService } from "./core/mission/mission-notification.service";
+export { MissionQueryService } from "./mission/mission-query.service";
+export { MissionLifecycleService } from "./mission/mission-lifecycle.service";
+export { MissionExecutionService } from "./mission/mission-execution.service";
+export { MissionObservabilityService } from "./mission/mission-observability.service";
+export { MissionNotificationService } from "./mission/mission-notification.service";
 
 // Topic
-export { TopicTeamOrchestratorService } from "./core/topic/topic-team-orchestrator.service";
-export { TopicCrudService } from "./core/topic/topic-crud.service";
-export { EventSourceParsingService } from "./core/topic/event-source-parsing.service";
-export { TopicDimensionService } from "./core/topic/topic-dimension.service";
-export { TopicExportService } from "./core/topic/topic-export.service";
-export { TopicScheduleService } from "./core/topic/topic-schedule.service";
+export { TopicTeamOrchestratorService } from "./topic/topic-team-orchestrator.service";
+export { TopicCrudService } from "./topic/topic-crud.service";
+export { EventSourceParsingService } from "./topic/event-source-parsing.service";
+export { TopicDimensionService } from "./topic/topic-dimension.service";
+export { TopicExportService } from "./topic/topic-export.service";
+export { TopicScheduleService } from "./topic/topic-schedule.service";
 
 // Task executors
-export { DimensionResearchExecutor } from "./core/task-executors/dimension-research.executor";
-export { ReviewDimensionExecutor } from "./core/task-executors/review-dimension.executor";
-export { SynthesisReportExecutor } from "./core/task-executors/synthesis-report.executor";
-export { GenericTaskExecutor } from "./core/task-executors/generic-task.executor";
+export { DimensionResearchExecutor } from "./mission/task-executors/dimension-research.executor";
+export { ReviewDimensionExecutor } from "./mission/task-executors/review-dimension.executor";
+export { SynthesisReportExecutor } from "./mission/task-executors/synthesis-report.executor";
+export { GenericTaskExecutor } from "./mission/task-executors/generic-task.executor";
 
 // ==================== Dimension ====================
 export { DimensionMissionService } from "./dimension/dimension-mission.service";
@@ -107,10 +107,10 @@ export { SectionSelfEvalService } from "./quality/section-self-eval.service";
 export { SectionRemediationService } from "./quality/section-remediation.service";
 
 // ==================== Monitoring ====================
-export { AgentActivityService } from "./monitoring/agent-activity.service";
-export { ResearchMissionHealthService } from "./monitoring/research-mission-health.service";
-export { ResearchCheckpointService } from "./monitoring/research-checkpoint.service";
-export { TopicRefreshScheduler } from "./monitoring/topic-refresh.scheduler";
+export { AgentActivityService } from "./health/agent-activity.service";
+export { ResearchMissionHealthService } from "./health/research-mission-health.service";
+export { ResearchCheckpointService } from "./health/research-checkpoint.service";
+export { TopicRefreshScheduler } from "./health/topic-refresh.scheduler";
 
 // ==================== Search Pipeline ====================
 export {

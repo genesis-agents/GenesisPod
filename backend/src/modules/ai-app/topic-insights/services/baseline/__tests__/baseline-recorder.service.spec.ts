@@ -2,7 +2,7 @@ import { BaselineRecorderService } from "../baseline-recorder.service";
 import {
   ResearchEventEmitterService,
   ResearchEventType,
-} from "../../core/research/research-event-emitter.service";
+} from "../../research/research-event-emitter.service";
 import type {
   AiChatService,
   ChatObserver,
@@ -62,16 +62,14 @@ describe("BaselineRecorderService", () => {
     },
     dimensionAnalysis: { findMany: jest.fn().mockResolvedValue([]) },
     topicEvidence: {
-      findMany: jest
-        .fn()
-        .mockResolvedValue([
-          {
-            id: "ev-1",
-            sourceType: "web",
-            url: "https://x",
-            credibilityScore: 80,
-          },
-        ]),
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: "ev-1",
+          sourceType: "web",
+          url: "https://x",
+          credibilityScore: 80,
+        },
+      ]),
     },
   };
 

@@ -17,16 +17,16 @@ import {
   type ResearchTopic,
   type TopicDimension,
 } from "@prisma/client";
-import { LeaderReviewService } from "../core/leader/leader-review.service";
-import { ResearchLeaderService } from "../core/research/research-leader.service";
+import { LeaderReviewService } from "../leader/leader-review.service";
+import { ResearchLeaderService } from "../research/research-leader.service";
 import {
   SectionWriterService,
   type SectionWriteResult,
   type TemporalContext,
 } from "./section-writer.service";
-import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
-import { AgentActivityService } from "../monitoring/agent-activity.service";
-import type { ThinkingPhase } from "../monitoring/agent-activity.service";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
+import { AgentActivityService } from "../health/agent-activity.service";
+import type { ThinkingPhase } from "../health/agent-activity.service";
 import {
   type DimensionOutline,
   type SectionPlan,

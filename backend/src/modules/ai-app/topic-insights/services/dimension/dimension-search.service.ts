@@ -18,11 +18,11 @@ import {
   type TopicDimension,
 } from "@prisma/client";
 import { DataSourceRouterService } from "../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import {
   AgentActivityService,
   type ThinkingPhase,
-} from "../monitoring/agent-activity.service";
+} from "../health/agent-activity.service";
 import { type SearchResultsRecord } from "../../types/monitoring.types";
 import { DataEnrichmentService } from "../data/data-enrichment.service";
 import { LeaderToolService } from "../data/leader-tool.service";

@@ -29,20 +29,20 @@ import {
   type ResearchTopic,
   type TopicDimension,
 } from "@prisma/client";
-import { LeaderPlanningService } from "../core/leader/leader-planning.service";
-import { LeaderReviewService } from "../core/leader/leader-review.service";
-import { ResearchLeaderService } from "../core/research/research-leader.service";
+import { LeaderPlanningService } from "../leader/leader-planning.service";
+import { LeaderReviewService } from "../leader/leader-review.service";
+import { ResearchLeaderService } from "../research/research-leader.service";
 import {
   SectionWriterService,
   type SectionWriteResult,
   type TemporalContext,
 } from "./section-writer.service";
 import { DataSourceRouterService } from "../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import {
   AgentActivityService,
   type ThinkingPhase,
-} from "../monitoring/agent-activity.service";
+} from "../health/agent-activity.service";
 import {
   type DimensionOutline,
   type SectionPlan,
@@ -92,7 +92,7 @@ import {
   ExecutionCheckpointService,
   SessionMemorySidecarService,
 } from "@/modules/ai-engine/facade";
-import { MissionObservabilityService } from "../core/mission/mission-observability.service";
+import { MissionObservabilityService } from "../mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 

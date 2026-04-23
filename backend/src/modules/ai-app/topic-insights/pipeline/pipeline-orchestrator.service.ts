@@ -20,7 +20,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { KernelContext } from "@/modules/ai-engine/facade";
-import { ResearchEventEmitterService } from "../services/core/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../services/research/research-event-emitter.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
 import type {
   MissionAdjusterInput,

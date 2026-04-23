@@ -10,7 +10,7 @@ import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.
 import { sanitize } from "./utils/prompt-sanitizer";
 import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { RESEARCH_INTERNAL_EVENTS } from "./services/core/research/research-event-emitter.service";
+import { RESEARCH_INTERNAL_EVENTS } from "./services/research/research-event-emitter.service";
 import { Observable, Subject, filter, map } from "rxjs";
 import { MessageEvent } from "@nestjs/common";
 import {
@@ -33,7 +33,7 @@ import {
   ListLogsDto,
 } from "./dto";
 import { AIModelType, AnnotationStatus, AnnotationType } from "@prisma/client";
-import type { RefreshProgressEvent } from "./services/core/topic/topic-team-orchestrator.service";
+import type { RefreshProgressEvent } from "./services/topic/topic-team-orchestrator.service";
 import {
   TopicTeamOrchestratorService,
   ReportSynthesisService,

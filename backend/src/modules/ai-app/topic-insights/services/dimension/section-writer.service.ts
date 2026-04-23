@@ -24,7 +24,7 @@ import {
 import type { QueryLoopConfig } from "@/modules/ai-engine/facade";
 import { PromptCacheCoordinatorService } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import type { SectionPlan } from "../core/research/research-leader.service";
+import type { SectionPlan } from "../research/research-leader.service";
 import type { FigureRegistryEntry } from "./evidence-summary.utils";
 import {
   SECTION_WRITING_SYSTEM_PROMPT,
@@ -130,7 +130,7 @@ export interface SectionWriteInput {
   /** ★ 时间上下文（当前日期和时效性要求） */
   temporalContext?: TemporalContext;
   /** ★ Leader 预分配的图表（避免写手重复选图） */
-  allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[];
+  allocatedFigures?: import("../research/research-leader.service").AllocatedFigure[];
   /** V5: 验证结果上下文（注入到写作 prompt 中） */
   validationContext?: string;
   /** 研究语言设置 (zh/en) */
@@ -1475,7 +1475,7 @@ export class SectionWriterService {
    * ★ 使用 figureId 标识图表，LLM 引用时只需提供 figureId
    */
   private formatFiguresForSection(
-    allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[],
+    allocatedFigures?: import("../research/research-leader.service").AllocatedFigure[],
   ): string {
     if (allocatedFigures && allocatedFigures.length > 0) {
       const entries = allocatedFigures
@@ -1499,7 +1499,7 @@ export class SectionWriterService {
    */
   private backfillFigureUrls(
     figureRefs: FigureReference[],
-    allocatedFigures?: import("../core/research/research-leader.service").AllocatedFigure[],
+    allocatedFigures?: import("../research/research-leader.service").AllocatedFigure[],
     figureRegistry?: Map<string, FigureRegistryEntry>,
   ): FigureReference[] {
     if (figureRefs.length === 0) {
@@ -1509,7 +1509,7 @@ export class SectionWriterService {
     // Build allocated figureId → AllocatedFigure map for fallback
     const allocatedMap = new Map<
       string,
-      import("../core/research/research-leader.service").AllocatedFigure
+      import("../research/research-leader.service").AllocatedFigure
     >();
     if (allocatedFigures) {
       for (const fig of allocatedFigures) {

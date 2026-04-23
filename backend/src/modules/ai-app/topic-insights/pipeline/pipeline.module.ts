@@ -29,10 +29,10 @@ import {
   PlanContextProvider,
 } from "./stages";
 import {
-  HarnessDispatcherService,
-  HarnessHealthController,
-  HarnessRolloutService,
-} from "../rollout";
+  MissionMetricsService,
+  TopicInsightsHealthController,
+} from "../telemetry";
+import { DispatcherService } from "../intent";
 import { TopicInsightsCapabilityReconciler } from "../capability";
 
 const STAGES = [
@@ -54,12 +54,12 @@ const STAGES = [
 ];
 
 @Module({
-  controllers: [HarnessHealthController],
+  controllers: [TopicInsightsHealthController],
   providers: [
     StageRegistry,
     PipelineOrchestratorService,
-    HarnessRolloutService,
-    HarnessDispatcherService,
+    MissionMetricsService,
+    DispatcherService,
     TopicInsightsCapabilityReconciler,
     { provide: PlanContextProvider, useClass: PrismaPlanContextProvider },
     ...STAGES,
@@ -67,8 +67,8 @@ const STAGES = [
   exports: [
     StageRegistry,
     PipelineOrchestratorService,
-    HarnessRolloutService,
-    HarnessDispatcherService,
+    MissionMetricsService,
+    DispatcherService,
     TopicInsightsCapabilityReconciler,
   ],
 })

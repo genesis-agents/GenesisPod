@@ -12,11 +12,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionWritingService } from "../dimension-writing.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchLeaderService } from "../../core/research/research-leader.service";
-import { LeaderReviewService } from "../../core/leader/leader-review.service";
+import { ResearchLeaderService } from "../../research/research-leader.service";
+import { LeaderReviewService } from "../../leader/leader-review.service";
 import { SectionWriterService } from "../section-writer.service";
-import { ResearchEventEmitterService } from "../../core/research/research-event-emitter.service";
-import { AgentActivityService } from "../../monitoring/agent-activity.service";
+import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
+import { AgentActivityService } from "../../health/agent-activity.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { SectionSelfEvalService } from "../../quality/section-self-eval.service";
 import { SectionRemediationService } from "../../quality/section-remediation.service";

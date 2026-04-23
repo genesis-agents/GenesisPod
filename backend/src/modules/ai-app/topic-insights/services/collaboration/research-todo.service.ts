@@ -27,8 +27,8 @@ import {
   DimensionStatus,
 } from "@prisma/client";
 import type { ResearchTodo, ResearchMission } from "@prisma/client";
-import { ResearchEventEmitterService } from "../core/research/research-event-emitter.service";
-import { LeaderReviewService } from "../core/leader/leader-review.service";
+import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
+import { LeaderReviewService } from "../leader/leader-review.service";
 import { BillingContext } from "@/modules/ai-infra/facade";
 import type { ReviewDecision } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";

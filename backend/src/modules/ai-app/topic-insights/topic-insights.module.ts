@@ -20,8 +20,8 @@ import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
 import { TOPIC_INSIGHTS_DATA_EXPORT } from "../shared/interfaces/data-export.interface";
-import { TopicInsightsAgent } from "./agents";
-import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./teams";
+import { TopicInsightsAgent } from "./intent";
+import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./intent";
 // ★ Tier Core: Harness pipeline module (flag-gated via TOPIC_INSIGHTS_USE_HARNESS)
 import { PipelineModule } from "./pipeline/pipeline.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源

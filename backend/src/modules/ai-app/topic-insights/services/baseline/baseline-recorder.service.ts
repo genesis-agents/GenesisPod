@@ -39,7 +39,7 @@ import {
   ResearchEventEmitterService,
   ResearchEventType,
   type ResearchEmitObserver,
-} from "../core/research/research-event-emitter.service";
+} from "../research/research-event-emitter.service";
 
 interface MissionMetrics {
   missionId: string;

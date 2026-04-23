@@ -16,7 +16,7 @@ import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
 
 import { TopicInsightsGateway } from "../topic-insights.gateway";
-import { ResearchEventEmitterService } from "../services/core/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../services/research/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 import { createMockPrisma, createMockResearchEventEmitter } from "./mocks";
