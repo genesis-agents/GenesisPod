@@ -15,7 +15,12 @@
 
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import {
+  DimensionPlannerAgent,
+  FactCheckerAgent,
+  FactExtractorAgent,
+  GapSearcherAgent,
   HarnessAgentRegistry,
+  HypothesisVerifierAgent,
   LeaderPlannerAgent,
   MetaExtractorAgent,
   QualityReviewerAgent,
@@ -28,8 +33,12 @@ import { PipelineOrchestratorService, StageRegistry } from "./pipeline";
 import {
   AssemblyStage,
   CleanupStage,
+  CogLoopStage,
+  EvalStage,
+  FactCheckStage,
   InitStage,
   IntegrateStage,
+  LatexStage,
   PersistStage,
   PlanStage,
   PrismaPlanContextProvider,
@@ -42,15 +51,23 @@ import {
 } from "./stages";
 
 const AGENTS = [
+  // Core
   LeaderPlannerAgent,
   SectionWriterAgent,
   SectionReviewerAgent,
   MetaExtractorAgent,
   QualityReviewerAgent,
   SynthesizerAgent,
+  // Enhancement
+  DimensionPlannerAgent,
+  FactCheckerAgent,
+  GapSearcherAgent,
+  HypothesisVerifierAgent,
+  FactExtractorAgent,
 ];
 
 const STAGES = [
+  // Core
   InitStage,
   PlanStage,
   ResearchStage,
@@ -58,8 +75,13 @@ const STAGES = [
   ReviewStage,
   IntegrateStage,
   SynthStage,
-  QualityGateStage,
   AssemblyStage,
+  // Enhancement
+  CogLoopStage,
+  QualityGateStage,
+  EvalStage,
+  FactCheckStage,
+  LatexStage,
   PersistStage,
   CleanupStage,
 ];
@@ -94,38 +116,56 @@ export class HarnessModule implements OnModuleInit {
     private readonly metaExtractor: MetaExtractorAgent,
     private readonly qualityReviewer: QualityReviewerAgent,
     private readonly synthesizer: SynthesizerAgent,
+    private readonly dimPlanner: DimensionPlannerAgent,
+    private readonly factChecker: FactCheckerAgent,
+    private readonly gapSearcher: GapSearcherAgent,
+    private readonly hypVerifier: HypothesisVerifierAgent,
+    private readonly factExtractor: FactExtractorAgent,
     private readonly init: InitStage,
     private readonly plan: PlanStage,
     private readonly research: ResearchStage,
     private readonly write: WriteStage,
     private readonly review: ReviewStage,
     private readonly integrate: IntegrateStage,
+    private readonly cogLoop: CogLoopStage,
     private readonly synth: SynthStage,
     private readonly qgate: QualityGateStage,
+    private readonly evalStage: EvalStage,
+    private readonly factCheckStage: FactCheckStage,
     private readonly assembly: AssemblyStage,
+    private readonly latexStage: LatexStage,
     private readonly persistStage: PersistStage,
     private readonly cleanupStage: CleanupStage,
   ) {}
 
   onModuleInit(): void {
-    // 注册 6 Core Agents
+    // 注册 11 Agents（Core 6 + Enhancement 5）
     this.agentRegistry.register(this.leader);
     this.agentRegistry.register(this.writer);
     this.agentRegistry.register(this.reviewer);
     this.agentRegistry.register(this.metaExtractor);
     this.agentRegistry.register(this.qualityReviewer);
     this.agentRegistry.register(this.synthesizer);
+    this.agentRegistry.register(this.dimPlanner);
+    this.agentRegistry.register(this.factChecker);
+    this.agentRegistry.register(this.gapSearcher);
+    this.agentRegistry.register(this.hypVerifier);
+    this.agentRegistry.register(this.factExtractor);
 
-    // 注册 11 Stages（Core 8 + Enhancement 3：QGATE / PERSIST / CLEANUP）
+    // 注册 15 Stages（Core 8 + Enhancement 7：COGLOOP/QGATE/EVAL/FACT/LATEX/PERSIST/CLEANUP）
     this.stageRegistry.register(this.init);
     this.stageRegistry.register(this.plan);
     this.stageRegistry.register(this.research);
     this.stageRegistry.register(this.write);
     this.stageRegistry.register(this.review);
     this.stageRegistry.register(this.integrate);
+    this.stageRegistry.register(this.cogLoop);
     this.stageRegistry.register(this.synth);
     this.stageRegistry.register(this.qgate);
+    this.stageRegistry.register(this.evalStage);
+    this.stageRegistry.register(this.factCheckStage);
     this.stageRegistry.register(this.assembly);
+    this.stageRegistry.register(this.latexStage);
     this.stageRegistry.register(this.persistStage);
     this.stageRegistry.register(this.cleanupStage);
 

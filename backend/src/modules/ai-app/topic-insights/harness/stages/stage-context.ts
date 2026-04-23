@@ -99,3 +99,32 @@ export interface CleanupStageOutput {
   readonly analysisIdBackfilled: number;
   readonly cacheReleased: boolean;
 }
+
+// ST-06-COGLOOP
+export interface CogLoopStageOutput {
+  readonly gapsByDimension: Record<string, ReadonlyArray<unknown>>;
+  readonly hypotheses: ReadonlyArray<unknown>;
+  readonly facts: ReadonlyArray<unknown>;
+}
+
+// ST-09-EVAL (10-dim rubric)
+export interface EvalStageOutput {
+  readonly rubricScores: Record<string, number>;
+  readonly totalScore: number;
+  readonly verdict: "excellent" | "good" | "acceptable" | "poor";
+  readonly notes: ReadonlyArray<string>;
+}
+
+// ST-10-FACT
+export interface FactCheckStageOutput {
+  readonly accuracyScore: number;
+  readonly issueCount: number;
+  readonly overallAssessment: string;
+}
+
+// ST-12-LATEX
+export interface LatexStageOutput {
+  readonly fullMarkdown: string;
+  readonly repaired: boolean;
+  readonly issuesFound: number;
+}

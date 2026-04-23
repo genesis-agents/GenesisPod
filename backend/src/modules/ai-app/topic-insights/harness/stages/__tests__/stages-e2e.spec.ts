@@ -17,6 +17,10 @@ import {
   QualityGateStage,
   PersistStage,
   CleanupStage,
+  CogLoopStage,
+  EvalStage,
+  FactCheckStage,
+  LatexStage,
 } from "../../stages";
 import { StageRegistry } from "../../pipeline/stage-registry";
 import {
@@ -24,7 +28,12 @@ import {
   buildIdentityContext,
 } from "../../pipeline";
 import {
+  DimensionPlannerAgent,
+  FactCheckerAgent,
+  FactExtractorAgent,
+  GapSearcherAgent,
   HarnessAgentRegistry,
+  HypothesisVerifierAgent,
   LeaderPlannerAgent,
   MetaExtractorAgent,
   QualityReviewerAgent,
@@ -95,6 +104,61 @@ describe("Stages · end-to-end (stub mode)", () => {
       "ST-13-PERSIST",
       "ST-14-CLEANUP",
     ]);
+    expect(result.failed ?? 0).toBe(0);
+  });
+
+  it("thorough depth 触发所有 thorough-only stages (COGLOOP / EVAL / FACT)", async () => {
+    const stageRegistry = new StageRegistry();
+    const agentRegistry = new HarnessAgentRegistry();
+
+    // Core + Enhancement agents
+    agentRegistry.register(new LeaderPlannerAgent());
+    agentRegistry.register(new SectionWriterAgent());
+    agentRegistry.register(new SectionReviewerAgent());
+    agentRegistry.register(new MetaExtractorAgent());
+    agentRegistry.register(new QualityReviewerAgent());
+    agentRegistry.register(new SynthesizerAgent());
+    agentRegistry.register(new DimensionPlannerAgent());
+    agentRegistry.register(new FactCheckerAgent());
+    agentRegistry.register(new GapSearcherAgent());
+    agentRegistry.register(new HypothesisVerifierAgent());
+    agentRegistry.register(new FactExtractorAgent());
+
+    stageRegistry.register(new InitStage());
+    stageRegistry.register(
+      new PlanStage(agentRegistry, new StubPlanContextProvider()),
+    );
+    stageRegistry.register(new ResearchStage());
+    stageRegistry.register(new WriteStage(agentRegistry));
+    stageRegistry.register(new ReviewStage(agentRegistry));
+    stageRegistry.register(new IntegrateStage(agentRegistry));
+    stageRegistry.register(new CogLoopStage(agentRegistry));
+    stageRegistry.register(new SynthStage(agentRegistry));
+    stageRegistry.register(new QualityGateStage());
+    stageRegistry.register(new EvalStage());
+    stageRegistry.register(new FactCheckStage(agentRegistry));
+    stageRegistry.register(new AssemblyStage());
+    stageRegistry.register(new LatexStage());
+    stageRegistry.register(new PersistStage());
+    stageRegistry.register(new CleanupStage());
+
+    const orchestrator = new PipelineOrchestratorService(stageRegistry);
+    const identity = buildIdentityContext({
+      missionId: "e2e-thorough-1",
+      topicId: "t-1",
+      reportId: "r-1",
+      userId: "u-1",
+      depth: "thorough",
+      mode: "fresh",
+    });
+
+    const result = await orchestrator.run(identity);
+
+    // thorough 下 COGLOOP / EVAL / FACT 都应 run；LATEX 因 hasLatex 默认 false skip
+    expect(result.completedStages).toContain("ST-06-COGLOOP");
+    expect(result.completedStages).toContain("ST-09-EVAL");
+    expect(result.completedStages).toContain("ST-10-FACT");
+    expect(result.skippedStages).toContain("ST-12-LATEX");
     expect(result.failed ?? 0).toBe(0);
   });
 

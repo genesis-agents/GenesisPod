@@ -25,3 +25,12 @@ export { PersistStage } from "./st-13-persist.stage";
 export type { PersistStageInput } from "./st-13-persist.stage";
 export { CleanupStage } from "./st-14-cleanup.stage";
 export type { CleanupStageInput } from "./st-14-cleanup.stage";
+
+// Enhancement stages (Group I)
+export { CogLoopStage } from "./st-06-cogloop.stage";
+export type { CogLoopStageInput } from "./st-06-cogloop.stage";
+export { EvalStage } from "./st-09-eval.stage";
+export type { EvalStageInput } from "./st-09-eval.stage";
+export { FactCheckStage } from "./st-10-fact.stage";
+export type { FactCheckStageInput } from "./st-10-fact.stage";
+export { LatexStage } from "./st-12-latex.stage";

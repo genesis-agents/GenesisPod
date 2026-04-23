@@ -17,3 +17,9 @@ export type {
   CitationDensityResult,
   CitationDensityOptions,
 } from "./citation-density-check";
+
+export { validateLatexDelimiters } from "./validate-latex-delimiters";
+export type {
+  LatexIssue,
+  LatexValidationResult,
+} from "./validate-latex-delimiters";

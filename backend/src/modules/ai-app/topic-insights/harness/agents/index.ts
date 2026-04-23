@@ -30,3 +30,19 @@ export type { QualityReviewerInput } from "./quality-reviewer.agent";
 
 export { SynthesizerAgent } from "./synthesizer.agent";
 export type { SynthesizerInput } from "./synthesizer.agent";
+
+// 5 Enhancement Agents
+export { DimensionPlannerAgent } from "./dimension-planner.agent";
+export type { DimensionPlannerInput } from "./dimension-planner.agent";
+
+export { FactCheckerAgent } from "./fact-checker.agent";
+export type { FactCheckerInput } from "./fact-checker.agent";
+
+export { GapSearcherAgent } from "./gap-searcher.agent";
+export type { GapSearcherInput } from "./gap-searcher.agent";
+
+export { HypothesisVerifierAgent } from "./hypothesis-verifier.agent";
+export type { HypothesisVerifierInput } from "./hypothesis-verifier.agent";
+
+export { FactExtractorAgent } from "./fact-extractor.agent";
+export type { FactExtractorInput } from "./fact-extractor.agent";

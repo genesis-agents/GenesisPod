@@ -44,6 +44,11 @@ async function runHarnessPipeline(
     MetaExtractorAgent,
     QualityReviewerAgent,
     SynthesizerAgent,
+    DimensionPlannerAgent,
+    FactCheckerAgent,
+    GapSearcherAgent,
+    HypothesisVerifierAgent,
+    FactExtractorAgent,
   } =
     await import("../../src/modules/ai-app/topic-insights/harness/agents/index");
   const {
@@ -58,6 +63,10 @@ async function runHarnessPipeline(
     AssemblyStage,
     PersistStage,
     CleanupStage,
+    CogLoopStage,
+    EvalStage,
+    FactCheckStage,
+    LatexStage,
     StubPlanContextProvider,
   } =
     await import("../../src/modules/ai-app/topic-insights/harness/stages/index");
@@ -69,6 +78,11 @@ async function runHarnessPipeline(
   agentRegistry.register(new MetaExtractorAgent());
   agentRegistry.register(new QualityReviewerAgent());
   agentRegistry.register(new SynthesizerAgent());
+  agentRegistry.register(new DimensionPlannerAgent());
+  agentRegistry.register(new FactCheckerAgent());
+  agentRegistry.register(new GapSearcherAgent());
+  agentRegistry.register(new HypothesisVerifierAgent());
+  agentRegistry.register(new FactExtractorAgent());
 
   const stageRegistry = new StageRegistry();
   stageRegistry.register(new InitStage());
@@ -79,9 +93,13 @@ async function runHarnessPipeline(
   stageRegistry.register(new WriteStage(agentRegistry));
   stageRegistry.register(new ReviewStage(agentRegistry));
   stageRegistry.register(new IntegrateStage(agentRegistry));
+  stageRegistry.register(new CogLoopStage(agentRegistry));
   stageRegistry.register(new SynthStage(agentRegistry));
   stageRegistry.register(new QualityGateStage());
+  stageRegistry.register(new EvalStage());
+  stageRegistry.register(new FactCheckStage(agentRegistry));
   stageRegistry.register(new AssemblyStage());
+  stageRegistry.register(new LatexStage());
   stageRegistry.register(new PersistStage());
   stageRegistry.register(new CleanupStage());
 

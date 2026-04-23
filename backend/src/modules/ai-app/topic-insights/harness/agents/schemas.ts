@@ -154,6 +154,102 @@ export const RecommendationSchema = z.object({
   relatedDimensions: z.array(z.string()).min(1),
 });
 
+// =========== AG-02-DP · DimensionPlanner ===========
+
+export const SectionPlanSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string(),
+  targetWords: z.number().int().positive(),
+  keyPoints: z.array(z.string()).min(1),
+  dependsOn: z.array(z.string()),
+});
+
+export const DimensionOutlineSchema = z.object({
+  dimensionId: z.string().min(1),
+  dimensionName: z.string().min(1),
+  sections: z.array(SectionPlanSchema).min(1).max(8),
+});
+
+export type DimensionOutline = z.infer<typeof DimensionOutlineSchema>;
+export type SectionPlan = z.infer<typeof SectionPlanSchema>;
+
+// =========== AG-07-FC · FactChecker ===========
+
+export const FactIssueSchema = z.object({
+  claimId: z.string().min(1),
+  severity: z.enum(["high", "medium", "low"]),
+  description: z.string().min(10),
+  suggestedFix: z.string().optional(),
+});
+
+export const FactCheckReportSchema = z.object({
+  missionId: z.string().min(1),
+  accuracyScore: z.number().min(0).max(10),
+  totalClaims: z.number().int().nonnegative(),
+  issuesByClaim: z.array(FactIssueSchema),
+  overallAssessment: z.string().min(10),
+});
+
+export type FactCheckReport = z.infer<typeof FactCheckReportSchema>;
+
+// =========== AG-08-GS · GapSearcher ===========
+
+export const KnowledgeGapSchema = z.object({
+  id: z.string().min(1),
+  dimensionId: z.string().min(1),
+  gapStatement: z.string().min(10),
+  suggestedQueries: z.array(z.string()).min(1),
+  priority: z.number().min(0).max(10),
+});
+
+export const GapSearcherResultSchema = z.object({
+  dimensionId: z.string().min(1),
+  gaps: z.array(KnowledgeGapSchema),
+});
+
+export type KnowledgeGap = z.infer<typeof KnowledgeGapSchema>;
+export type GapSearcherResult = z.infer<typeof GapSearcherResultSchema>;
+
+// =========== AG-09-HV · HypothesisVerifier ===========
+
+export const HypothesisSchema = z.object({
+  id: z.string().min(1),
+  statement: z.string().min(10),
+  verdict: z.enum(["verified", "refuted", "inconclusive"]),
+  supportingEvidenceIds: z.array(z.string()),
+  confidence: z.number().min(0).max(1),
+  reasoning: z.string().min(10),
+});
+
+export const HypothesisVerifierResultSchema = z.object({
+  hypotheses: z.array(HypothesisSchema),
+});
+
+export type Hypothesis = z.infer<typeof HypothesisSchema>;
+export type HypothesisVerifierResult = z.infer<
+  typeof HypothesisVerifierResultSchema
+>;
+
+// =========== AG-10-FX · FactExtractor ===========
+
+export const ExtractedFactSchema = z.object({
+  id: z.string().min(1),
+  dimensionId: z.string().min(1),
+  statement: z.string().min(5),
+  evidenceIds: z.array(z.string()),
+  category: z.enum(["trend", "data_point", "insight", "risk"]),
+});
+
+export const FactExtractorResultSchema = z.object({
+  facts: z.array(ExtractedFactSchema),
+});
+
+export type ExtractedFact = z.infer<typeof ExtractedFactSchema>;
+export type FactExtractorResult = z.infer<typeof FactExtractorResultSchema>;
+
+// =========== AG-11-SY · Synthesizer ===========
+
 export const SynthesisResultSchema = z.object({
   missionId: z.string().min(1),
   executiveSummary: z.string().min(100).max(4000),
