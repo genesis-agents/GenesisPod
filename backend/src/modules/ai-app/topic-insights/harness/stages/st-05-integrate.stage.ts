@@ -115,27 +115,19 @@ export class IntegrateStage implements Stage<
   ): Promise<void> {
     if (!this.prisma) return;
 
-    // 每个 dimensionMeta 写一条 DimensionAnalysis。
-    // dimensionId 当前是 harness 内部 id（`${missionId}-dim-N`），真 prod
-    // 应该映射到 TopicDimension 表的 id — 这里先 upsert 按 harness id 存，
-    // Enhancement Tier 后续统一做 ID mapping。
+    // ★ Group G-1 起，meta.dimensionId 是真 TopicDimension.id（ST-01-PLAN
+    // persist 已回写），FK 不再违约。
     for (const meta of output.dimensionMetas) {
-      await this.prisma.dimensionAnalysis
-        .create({
-          data: {
-            dimensionId: meta.dimensionId,
-            reportId: identity.reportId,
-            summary: meta.summary,
-            keyFindings: toPrismaJson(meta.keyFindings),
-            sourcesUsed: meta.evidenceCount,
-            modelUsed: null,
-          },
-        })
-        .catch((err: unknown) => {
-          // dimensionId 不在 TopicDimension 表时会 FK 违约 — 当前骨架
-          // 允许 skip，Enhancement Tier 接 ID mapping 后去掉 catch
-          void err;
-        });
+      await this.prisma.dimensionAnalysis.create({
+        data: {
+          dimensionId: meta.dimensionId,
+          reportId: identity.reportId,
+          summary: meta.summary,
+          keyFindings: toPrismaJson(meta.keyFindings),
+          sourcesUsed: meta.evidenceCount,
+          modelUsed: null,
+        },
+      });
     }
   }
 }

@@ -106,7 +106,52 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     output: PlanStageOutput,
   ): Promise<void> {
     if (!this.prisma) return; // 单测环境可无 Prisma，安全 skip
-    await this.prisma.researchMission.update({
+
+    // ★ Group G-1: 把 harness plan.dimensions 落成 TopicDimension 行，
+    // 并把真实 DB id 回写进 output.plan.dimensions[*].id。
+    // 没有 (topicId, name) unique constraint，走 findFirst + create/update。
+    const prisma = this.prisma;
+    const upserted = await Promise.all(
+      output.plan.dimensions.map(async (d, idx) => {
+        const existing = await prisma.topicDimension.findFirst({
+          where: { topicId: identity.topicId, name: d.name },
+          select: { id: true },
+        });
+        if (existing) {
+          await prisma.topicDimension.update({
+            where: { id: existing.id },
+            data: {
+              description: d.description,
+              searchQueries: toPrismaJson(d.searchQueries),
+              searchSources: toPrismaJson(d.dataSources),
+              sortOrder: idx,
+            },
+          });
+          return { id: existing.id };
+        }
+        return prisma.topicDimension.create({
+          data: {
+            topicId: identity.topicId,
+            name: d.name,
+            description: d.description,
+            searchQueries: toPrismaJson(d.searchQueries),
+            searchSources: toPrismaJson(d.dataSources),
+            sortOrder: idx,
+          },
+          select: { id: true },
+        });
+      }),
+    );
+
+    // Mutate plan.dimensions in place to carry真 DB id（后续 stage 依赖）
+    const mutablePlan = output.plan as {
+      dimensions: Array<{ id: string } & Record<string, unknown>>;
+    };
+    for (let i = 0; i < mutablePlan.dimensions.length; i++) {
+      mutablePlan.dimensions[i].id = upserted[i].id;
+    }
+
+    await prisma.researchMission.update({
       where: { id: identity.missionId },
       data: {
         leaderPlan: toPrismaJson(output.plan),

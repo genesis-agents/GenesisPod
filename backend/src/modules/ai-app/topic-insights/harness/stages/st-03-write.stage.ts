@@ -5,7 +5,8 @@
  * 骨架：每个 dim 产出 2 个占位 section。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   HarnessAgentRegistry,
   type SectionResult,
@@ -40,7 +41,12 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
   };
   readonly emitsEvents = ["section:write_started", "section:write_completed"];
 
-  constructor(private readonly agentRegistry: HarnessAgentRegistry) {}
+  private readonly logger = new Logger(WriteStage.name);
+
+  constructor(
+    private readonly agentRegistry: HarnessAgentRegistry,
+    @Optional() private readonly prisma?: PrismaService,
+  ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -63,7 +69,13 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
     >("AG-03-SW");
     const sections: SectionResult[] = [];
 
+    // dimensionId → evidence rows（ST-02 写入的真 evidence）
+    const evidenceByDim = await this.loadEvidenceByDimension(input.research);
+
     for (const dim of input.plan.dimensions) {
+      const dimEvidence = evidenceByDim.get(dim.id) ?? [];
+      const evidenceSummary = this.buildEvidenceSummary(dim.name, dimEvidence);
+
       for (let si = 0; si < 2; si++) {
         if (signal.aborted) {
           throw new DOMException(
@@ -83,7 +95,7 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
             targetWords: 400,
             keyPoints: [`子章节 ${si + 1} 要点 A`, `要点 B`],
           },
-          evidenceSummary: `evidence for ${dim.name}`,
+          evidenceSummary,
           language: "zh",
         };
         const res = await runner.run({ input: sectionInput, identity, signal });
@@ -92,6 +104,84 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
     }
 
     return { sections };
+  }
+
+  /**
+   * 根据 ResearchStageOutput.byDimension[*].evidenceIds 从 DB 拉真 evidence 行。
+   * 无 prisma（测试模式）返回空 Map。
+   */
+  private async loadEvidenceByDimension(research: ResearchStageOutput): Promise<
+    Map<
+      string,
+      Array<{
+        id: string;
+        title: string;
+        url: string;
+        snippet: string | null;
+        domain: string | null;
+        citationIndex: number | null;
+      }>
+    >
+  > {
+    const byDim = new Map<
+      string,
+      Array<{
+        id: string;
+        title: string;
+        url: string;
+        snippet: string | null;
+        domain: string | null;
+        citationIndex: number | null;
+      }>
+    >();
+    if (!this.prisma) return byDim;
+
+    for (const outcome of research.byDimension) {
+      if (outcome.evidenceIds.length === 0) continue;
+      try {
+        const rows = await this.prisma.topicEvidence.findMany({
+          where: { id: { in: [...outcome.evidenceIds] } },
+          select: {
+            id: true,
+            title: true,
+            url: true,
+            snippet: true,
+            domain: true,
+            citationIndex: true,
+          },
+        });
+        byDim.set(outcome.dimensionId, rows);
+      } catch (err) {
+        this.logger.warn(
+          `loadEvidence dim=${outcome.dimensionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    return byDim;
+  }
+
+  /** 构造喂给 SectionWriter 的 evidenceSummary 字符串 */
+  private buildEvidenceSummary(
+    dimensionName: string,
+    rows: Array<{
+      id: string;
+      title: string;
+      url: string;
+      snippet: string | null;
+      domain: string | null;
+      citationIndex: number | null;
+    }>,
+  ): string {
+    if (rows.length === 0) {
+      return `维度 "${dimensionName}" 暂无可用证据。`;
+    }
+    const lines = rows.slice(0, 12).map((r, idx) => {
+      const ref = r.citationIndex ?? idx + 1;
+      const dom = r.domain ? `（${r.domain}）` : "";
+      const snippet = (r.snippet ?? "").slice(0, 220);
+      return `[${ref}] ${r.title}${dom}\n    ${snippet}\n    来源: ${r.url}\n    evidenceId: ${r.id}`;
+    });
+    return `证据（${rows.length} 条，取前 ${Math.min(rows.length, 12)} 条）:\n\n${lines.join("\n\n")}`;
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
