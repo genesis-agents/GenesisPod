@@ -30,6 +30,23 @@ export class ToolNotFoundError extends Error {
   }
 }
 
+/**
+ * Access matrix 违反：agent 声明的 forbiddenTools 包含被调用的 toolId，
+ * 或 tools 白名单非空且不包含该 toolId。
+ */
+export class AgentAccessDeniedError extends Error {
+  constructor(
+    public readonly agentId: string,
+    public readonly toolId: string,
+    public readonly reason: "forbidden" | "not_in_whitelist",
+  ) {
+    super(
+      `[${agentId}] Access denied to tool "${toolId}" (${reason === "forbidden" ? "in forbiddenTools" : "not in tools whitelist"})`,
+    );
+    this.name = "AgentAccessDeniedError";
+  }
+}
+
 @Injectable()
 export class ToolInvoker {
   private readonly logger = new Logger(ToolInvoker.name);
@@ -43,9 +60,45 @@ export class ToolInvoker {
       agentId: string;
       signal?: AbortSignal;
       timeoutMs?: number;
+      /** v2 · access matrix 白名单（空 = 无限制） */
+      allowedTools?: readonly string[];
+      /** v2 · access matrix 黑名单（优先级高于白名单） */
+      forbiddenTools?: readonly string[];
     },
   ): Promise<IActionResult> {
     const startMs = Date.now();
+
+    // ★ v2 Access matrix 强校验
+    if (options.forbiddenTools?.includes(action.toolId)) {
+      const err = new AgentAccessDeniedError(
+        options.agentId,
+        action.toolId,
+        "forbidden",
+      );
+      return {
+        action,
+        output: undefined,
+        error: err,
+        latencyMs: Date.now() - startMs,
+      };
+    }
+    if (
+      options.allowedTools &&
+      options.allowedTools.length > 0 &&
+      !options.allowedTools.includes(action.toolId)
+    ) {
+      const err = new AgentAccessDeniedError(
+        options.agentId,
+        action.toolId,
+        "not_in_whitelist",
+      );
+      return {
+        action,
+        output: undefined,
+        error: err,
+        latencyMs: Date.now() - startMs,
+      };
+    }
 
     if (!this.toolRegistry.has(action.toolId)) {
       const err = new ToolNotFoundError(action.toolId);

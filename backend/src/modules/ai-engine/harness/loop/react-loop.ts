@@ -79,9 +79,16 @@ export class ReActLoop implements IAgentLoop {
   async *run(
     envelope: IContextEnvelope,
     criteria: ILoopTerminationCriteria,
-    options?: { agentId?: string; signal?: AbortSignal },
+    options?: {
+      agentId?: string;
+      signal?: AbortSignal;
+      allowedTools?: readonly string[];
+      forbiddenTools?: readonly string[];
+    },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
+    const allowedTools = options?.allowedTools;
+    const forbiddenTools = options?.forbiddenTools;
     let currentEnvelope = envelope;
     let iteration = 0;
 
@@ -132,6 +139,8 @@ export class ReActLoop implements IAgentLoop {
         currentEnvelope,
         agentId,
         options?.signal,
+        allowedTools,
+        forbiddenTools,
       );
 
       yield this.makeEvent(agentId, "action_executed", actionResult);
@@ -272,6 +281,8 @@ export class ReActLoop implements IAgentLoop {
     envelope: IContextEnvelope,
     agentId: string,
     signal?: AbortSignal,
+    allowedTools?: readonly string[],
+    forbiddenTools?: readonly string[],
   ): Promise<IActionResult> {
     if (action.kind === "tool_call") {
       // PreToolUse hook (may block)
@@ -292,6 +303,8 @@ export class ReActLoop implements IAgentLoop {
       const result = await this.toolInvoker.invoke(action, envelope, {
         agentId,
         signal,
+        allowedTools,
+        forbiddenTools,
       });
 
       // PostToolUse hook (fire-and-forget, not blocking)

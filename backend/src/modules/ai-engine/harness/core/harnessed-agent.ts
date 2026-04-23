@@ -135,12 +135,19 @@ export class HarnessedAgent implements IAgent {
         const runFn = this.loop.run.bind(this.loop) as (
           envelope: IContextEnvelope,
           criteria: ILoopTerminationCriteria,
-          options?: { agentId?: string; signal?: AbortSignal },
+          options?: {
+            agentId?: string;
+            signal?: AbortSignal;
+            allowedTools?: readonly string[];
+            forbiddenTools?: readonly string[];
+          },
         ) => AsyncIterable<IAgentEvent>;
 
         for await (const ev of runFn(this.envelope, criteria, {
           agentId: this.id,
           signal: this.abortController.signal,
+          allowedTools: this.identity.tools,
+          forbiddenTools: this.identity.forbiddenTools,
         })) {
           yield ev;
           eventCount += 1;

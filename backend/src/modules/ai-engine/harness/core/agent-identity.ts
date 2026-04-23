@@ -27,6 +27,7 @@ export class AgentIdentity implements IAgentIdentity {
   readonly constraints: IAgentConstraints;
   readonly skills: readonly SkillRef[];
   readonly tools: readonly ToolRef[];
+  readonly forbiddenTools: readonly ToolRef[];
 
   constructor(spec: IAgentIdentity) {
     this.role = spec.role;
@@ -35,6 +36,7 @@ export class AgentIdentity implements IAgentIdentity {
     this.constraints = { ...DEFAULT_CONSTRAINTS, ...spec.constraints };
     this.skills = spec.skills ?? [];
     this.tools = spec.tools ?? [];
+    this.forbiddenTools = spec.forbiddenTools ?? [];
   }
 
   /** Builder：快捷创建 */

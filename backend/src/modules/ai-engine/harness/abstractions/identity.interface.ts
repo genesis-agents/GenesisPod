@@ -53,5 +53,14 @@ export interface IAgentIdentity {
   readonly goal?: IAgentGoal;
   readonly constraints?: IAgentConstraints;
   readonly skills?: readonly SkillRef[];
+  /**
+   * 白名单：agent 执行期可调用的工具。未设置/空 = 允许全部已注册工具。
+   */
   readonly tools?: readonly ToolRef[];
+  /**
+   * 黑名单：**绝对不能调用**的工具（即使出现在 tools 白名单中也不行）。
+   * 用于 access matrix 强校验——如 Synthesizer 禁用 evidence-save 防越权。
+   * ToolInvoker 在 invoke 前检查；命中抛 AgentAccessDeniedError。
+   */
+  readonly forbiddenTools?: readonly ToolRef[];
 }

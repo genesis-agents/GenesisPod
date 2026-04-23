@@ -32,11 +32,22 @@ export interface ILoopTerminationCriteria {
   readonly terminateOn?: readonly IAction["kind"][];
 }
 
+/** Loop 运行选项（v2 · 支持 access matrix + agent id + signal） */
+export interface ILoopRunOptions {
+  readonly agentId?: string;
+  readonly signal?: AbortSignal;
+  /** v2 access matrix：允许的 tool id（空 = 无限制） */
+  readonly allowedTools?: readonly string[];
+  /** v2 access matrix：禁止的 tool id（优先级高于 allowedTools） */
+  readonly forbiddenTools?: readonly string[];
+}
+
 /** AgentLoop 接口 */
 export interface IAgentLoop {
   readonly kind: AgentLoopKind;
   run(
     envelope: IContextEnvelope,
     criteria: ILoopTerminationCriteria,
+    options?: ILoopRunOptions,
   ): AsyncIterable<IAgentEvent>;
 }
