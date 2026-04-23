@@ -433,11 +433,11 @@ export class MissionController {
         dto.taskIds.map((taskId) => this.lifecycleService.retryTask(taskId)),
       );
 
-      // ★ Bug fix: 单个任务重试后，需要确保 scheduler 能拾取
-      // 如果 mission 已经是终态（COMPLETED/FAILED），scheduler 已退出，
-      // 需要调用 resumeExecutionForNewTask 重启 scheduler
+      // H5: retry triggers harness resume. resumeWithHarness loads the last
+      // checkpoint (if any) so the pipeline picks up from the last completed
+      // stage rather than re-running stages that already succeeded.
       void this.executionService
-        .resumeExecutionForNewTask(mission.id, id)
+        .resumeWithHarness(mission.id, id)
         .catch((error) => {
           this.logger.error(
             `[retryMission] Failed to resume execution after task retry: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -449,11 +449,10 @@ export class MissionController {
     // 重试整个 Mission
     const updatedMission = await this.lifecycleService.retryMission(mission.id);
 
-    // ★ Bug fix: retryMission 只重置任务状态（→ EXECUTING），不启动 scheduler
-    // 使用 resumeExecution 而非 startExecution — 复用已有报告，避免维度分析分散到不同报告
-    // 注意：不能用 resumeExecutionForNewTask，因为它看到 EXECUTING 会以为 scheduler 还在跑
+    // H5: full-mission retry — same path. resumeWithHarness falls back to a
+    // fresh run when no checkpoint is available.
     void this.executionService
-      .resumeExecution(mission.id, id)
+      .resumeWithHarness(mission.id, id)
       .catch((error) => {
         this.logger.error(
           `[retryMission] Failed to resume execution after mission retry: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -855,11 +854,23 @@ export class MissionController {
   @ApiResponse({ status: 200, description: "恢复成功" })
   @ApiResponse({ status: 403, description: "无权限" })
   async resumeMission(
-    @Param("topicId") _topicId: string, // Used by TopicAccessGuard for permission check
+    @Param("topicId") topicId: string, // Used by TopicAccessGuard for permission check
     @Param("missionId") missionId: string,
   ) {
-    // ★ 权限检查已由 TopicAccessGuard 完成（使用 _topicId 验证权限）
+    // ★ 权限检查已由 TopicAccessGuard 完成（使用 topicId 验证权限）
     const result = await this.checkpointService.resumeMission(missionId);
+    // H5: after DB state is flipped to PENDING/EXECUTING, kick the harness so
+    // the pipeline actually continues. resumeWithHarness picks up from the
+    // last completed stage via PipelineRunCheckpoint, or runs fresh if none.
+    if (result.success) {
+      void this.executionService
+        .resumeWithHarness(missionId, topicId)
+        .catch((error) => {
+          this.logger.error(
+            `[resumeMission] harness resume failed for mission=${missionId}: ${error instanceof Error ? error.message : "Unknown error"}`,
+          );
+        });
+    }
     return result;
   }
 

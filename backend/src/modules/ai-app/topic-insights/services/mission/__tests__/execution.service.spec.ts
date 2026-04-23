@@ -2505,14 +2505,14 @@ describe("MissionExecutionService", () => {
   // ─── handleResumeMissionExecution (lines 1494-1501) ──────────────────────────
 
   describe("handleResumeMissionExecution event handler", () => {
-    it("should call resumeExecutionForNewTask with payload", async () => {
+    it("should call resumeWithHarness with payload (H5 rewire)", async () => {
       prisma.researchMission.findUnique.mockResolvedValueOnce({
         status: ResearchMissionStatus.EXECUTING,
       });
 
       const resumeSpy = jest
-        .spyOn(service, "resumeExecutionForNewTask")
-        .mockResolvedValue(true);
+        .spyOn(service, "resumeWithHarness")
+        .mockResolvedValue(undefined);
 
       await service.handleResumeMissionExecution({
         missionId: "mission-1",
@@ -2522,9 +2522,9 @@ describe("MissionExecutionService", () => {
       expect(resumeSpy).toHaveBeenCalledWith("mission-1", "topic-1");
     });
 
-    it("should not propagate error if resumeExecutionForNewTask fails", async () => {
+    it("should not propagate error if resumeWithHarness fails", async () => {
       const _resumeSpy = jest
-        .spyOn(service, "resumeExecutionForNewTask")
+        .spyOn(service, "resumeWithHarness")
         .mockRejectedValue(new Error("Resume failed"));
 
       await expect(
@@ -2539,7 +2539,7 @@ describe("MissionExecutionService", () => {
   // ─── handleRecoveryNeeded event handler (lines 1509-1530) ────────────────────
 
   describe("handleRecoveryNeeded event handler", () => {
-    it("should call continueExecution on recovery event", async () => {
+    it("should be a no-op in harness mode (H5) — does not trigger continueExecution", async () => {
       const continueSpy = jest
         .spyOn(service, "continueExecution")
         .mockResolvedValue(undefined);
@@ -2550,10 +2550,10 @@ describe("MissionExecutionService", () => {
         resetTaskCount: 2,
       });
 
-      expect(continueSpy).toHaveBeenCalledWith("mission-1");
+      expect(continueSpy).not.toHaveBeenCalled();
     });
 
-    it("should not propagate error when continueExecution fails", async () => {
+    it("should not propagate error when continueExecution fails (still a no-op)", async () => {
       jest
         .spyOn(service, "continueExecution")
         .mockRejectedValue(new Error("Continue failed"));

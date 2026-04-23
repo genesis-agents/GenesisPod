@@ -1422,9 +1422,11 @@ export class MissionExecutionService {
     missionId: string;
     topicId: string;
   }): Promise<void> {
-    // ★ Event handlers have no HTTP context — construct BillingContext from topic owner
+    // ★ Event handlers have no HTTP context — construct BillingContext from topic owner.
+    // H5: route through harness resume. resumeWithHarness loads the last checkpoint
+    // (if any) and otherwise starts fresh.
     const startFn = () =>
-      this.resumeExecutionForNewTask(payload.missionId, payload.topicId);
+      this.resumeWithHarness(payload.missionId, payload.topicId);
 
     const existingCtx = BillingContext.get();
     if (existingCtx) {
@@ -1465,8 +1467,16 @@ export class MissionExecutionService {
   // ==================== Phase 5: Recovery Methods ====================
 
   /**
-   * ★ Phase 5: 事件监听器 - 处理恢复事件
-   * 当 HealthService 检测到需要恢复的任务时，会发出此事件
+   * H5: RECOVERY_NEEDED handler is now a no-op.
+   *
+   * In the harness model, a mission either completes atomically or its
+   * checkpoint remains for an explicit user-initiated resume. The legacy
+   * auto-recovery flow (health service -> continueExecution) tried to restart
+   * missions behind the user's back, which conflicts with harness's atomic
+   * stage contract and the explicit resumeWithHarness primitive. Keeping the
+   * @OnEvent binding so the event doesn't get dropped silently during
+   * migration; we log and move on. Health service will be simplified (read-only)
+   * as part of the legacy sweep.
    */
   @OnEvent(RESEARCH_INTERNAL_EVENTS.RECOVERY_NEEDED)
   async handleRecoveryNeeded(payload: {
@@ -1474,21 +1484,9 @@ export class MissionExecutionService {
     topicId: string;
     resetTaskCount: number;
   }): Promise<void> {
-    const { missionId, resetTaskCount } = payload;
     this.logger.log(
-      `[handleRecoveryNeeded] Received recovery event for mission ${missionId}, ` +
-        `${resetTaskCount} tasks were reset`,
+      `[handleRecoveryNeeded] harness mode: auto-recovery disabled for mission=${payload.missionId} (${payload.resetTaskCount} tasks were reset). User must trigger resume.`,
     );
-
-    try {
-      await this.continueExecution(missionId);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `[handleRecoveryNeeded] Failed to continue execution: ${errorMessage}`,
-      );
-    }
   }
 
   /**

@@ -72,6 +72,7 @@ const mockExecutionService = {
   startExecution: jest.fn(),
   resumeExecution: jest.fn().mockResolvedValue(undefined),
   resumeExecutionForNewTask: jest.fn().mockResolvedValue(undefined),
+  resumeWithHarness: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockLeaderService = {
