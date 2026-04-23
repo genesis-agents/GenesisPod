@@ -665,6 +665,8 @@ export function buildIdentityContext(params: {
   depth: ResearchDepth;
   mode: "fresh" | "incremental";
   cachePrefix?: string;
+  /** 目标架构 v2：mission-execution 通过 reconciler 生成，注入给所有下游 */
+  capabilities?: import("../capability/topic-insights-capability.types").TopicInsightsCapabilitySnapshot;
 }): PipelineIdentityContext {
   const cfg = DEPTH_CONFIG_DEFAULTS[params.depth];
   void cfg; // currently consumed by Stage impls, referenced here for future hooks
@@ -680,5 +682,6 @@ export function buildIdentityContext(params: {
     depth: params.depth,
     mode: params.mode,
     degradationMode: false,
+    capabilities: params.capabilities,
   };
 }

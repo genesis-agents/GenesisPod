@@ -43,6 +43,7 @@ import {
   buildIdentityContext,
   type ResearchDepth as HarnessResearchDepth,
 } from "../../../pipeline";
+import { TopicInsightsCapabilityReconciler } from "../../../capability";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type { ResearchDepth } from "../../../types/research-depth.types";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
@@ -96,6 +97,8 @@ export class MissionExecutionService {
     private readonly harnessOrchestrator?: PipelineOrchestratorService,
     @Optional()
     private readonly harnessRollout?: HarnessRolloutService,
+    @Optional()
+    private readonly capabilityReconciler?: TopicInsightsCapabilityReconciler,
   ) {
     this.executorMap = new Map<string, ITaskExecutor>([
       ["dimension_research", this.dimensionResearchExecutor],
@@ -1715,8 +1718,53 @@ export class MissionExecutionService {
       where: { id: missionId },
       select: { researchDepth: true },
     });
-    const depth = (missionRow?.researchDepth ??
+    const requestedDepth = (missionRow?.researchDepth ??
       "standard") as HarnessResearchDepth;
+
+    // ★ 目标架构 v2：调 reconciler 产出能力快照，致命 degradation 直接 fail mission
+    const capabilities = this.capabilityReconciler
+      ? await this.capabilityReconciler.reconcile({
+          userId: topic.userId,
+          requestedDepth,
+        })
+      : undefined;
+
+    const fatalDegrade = capabilities?.degradations.find(
+      (d) => d.severity === "error",
+    );
+    if (fatalDegrade) {
+      const msg = `Capability check failed: ${capabilities!.degradations
+        .filter((d) => d.severity === "error")
+        .map((d) => d.detail)
+        .join("; ")}`;
+      this.logger.error(`[runWithHarness] ${msg}`);
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          status: ResearchMissionStatus.FAILED,
+          completedAt: new Date(),
+        },
+      });
+      await this.researchEventEmitter.emitMissionFailed(
+        topicId,
+        missionId,
+        msg,
+      );
+      this.harnessRollout?.recordRun({
+        missionId,
+        userId: topic.userId,
+        success: false,
+        durationMs: 0,
+        tokensUsed: 0,
+        costUsd: 0,
+        errorMessage: msg,
+        recordedAt: new Date(),
+      });
+      return;
+    }
+
+    // 实际执行 depth = 能力推荐的（可能 < 用户 requested）
+    const depth = capabilities?.recommendedDepth ?? requestedDepth;
 
     // 创建 draft report（harness 的 ST-XX 会向它关联 evidence / 写入 content）
     const draftReport =
@@ -1743,6 +1791,7 @@ export class MissionExecutionService {
       userId: topic.userId,
       depth,
       mode: "fresh",
+      capabilities,
     });
 
     try {

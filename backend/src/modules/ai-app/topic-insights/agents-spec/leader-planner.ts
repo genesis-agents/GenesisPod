@@ -22,6 +22,10 @@ export interface LeaderPlannerInput {
   readonly researchDepth: "quick" | "standard" | "thorough" | "deep";
   readonly maxDimensions: number;
   readonly existingDimensions?: ReadonlyArray<{ id: string; name: string }>;
+  /** v2 目标架构：runWithHarness 注入的能力快照信息 */
+  readonly availableAgentIds?: ReadonlyArray<string>;
+  readonly availableToolIds?: ReadonlyArray<string>;
+  readonly recommendedDepth?: "quick" | "standard" | "thorough" | "deep";
 }
 
 export const LEADER_PLANNER_SPEC: IAgentSpec<LeaderPlannerInput, LeaderPlan> = {
@@ -89,6 +93,16 @@ export const LEADER_PLANNER_SPEC: IAgentSpec<LeaderPlannerInput, LeaderPlan> = {
     const existing = input.existingDimensions?.length
       ? `\n已有维度（避免重复）：${input.existingDimensions.map((d) => d.name).join("、")}`
       : "";
+    const agentsHint = input.availableAgentIds?.length
+      ? `\n可用 agent 白名单: ${input.availableAgentIds.join(", ")}`
+      : "";
+    const toolsHint = input.availableToolIds?.length
+      ? `\n可用 tool 白名单: ${input.availableToolIds.join(", ")}`
+      : "";
+    const depthNote =
+      input.recommendedDepth && input.recommendedDepth !== input.researchDepth
+        ? `\n⚠️ 环境能力对齐后建议 depth=${input.recommendedDepth}（用户请求 ${input.researchDepth}）。按 ${input.recommendedDepth} 规划。`
+        : "";
     return [
       `missionId: ${input.missionId}`,
       `topicId: ${input.topicId}`,
@@ -100,8 +114,11 @@ export const LEADER_PLANNER_SPEC: IAgentSpec<LeaderPlannerInput, LeaderPlan> = {
       `availableModels: ${input.availableModels.join(", ") || "（未提供）"}`,
       input.userPrompt ? `userPrompt: ${input.userPrompt}` : "",
       existing,
+      agentsHint,
+      toolsHint,
+      depthNote,
       "",
-      "请输出符合 LeaderPlan schema 的 JSON。",
+      "请输出符合 LeaderPlan schema 的 JSON。modelId 必须来自 availableModels。",
     ]
       .filter(Boolean)
       .join("\n");

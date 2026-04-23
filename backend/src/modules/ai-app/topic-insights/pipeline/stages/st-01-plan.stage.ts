@@ -71,16 +71,30 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     _upstream: StageResults,
   ): Promise<LeaderPlannerInput> {
     const meta = await this.contextProvider.load(identity);
+    // ★ v2: 能力快照优先：有 capabilities 就透出给 Leader（models/agents/tools/降级建议）
+    const caps = identity.capabilities;
+    const envChatModels = caps
+      ? [
+          ...caps.env.models.CHAT.map((m) => m.modelId),
+          ...caps.env.models.REASONING.map((m) => m.modelId),
+        ]
+      : meta.availableModels;
     return {
       missionId: identity.missionId,
       topicId: identity.topicId,
       topicName: meta.topicName,
       topicType: meta.topicType,
       userPrompt: meta.userPrompt,
-      availableModels: meta.availableModels,
+      availableModels:
+        envChatModels.length > 0 ? envChatModels : meta.availableModels,
       language: meta.language,
-      researchDepth: identity.depth,
+      researchDepth: caps?.requestedDepth ?? identity.depth,
       maxDimensions: 6,
+      availableAgentIds: caps?.env.agents,
+      availableToolIds: caps?.env.tools
+        .filter((t) => t.healthy)
+        .map((t) => t.toolId),
+      recommendedDepth: caps?.recommendedDepth,
     };
   }
 

@@ -7,6 +7,7 @@
  * 不含业务数据（outline / sections / evidence 等）—— 那些走 StageResults。
  */
 
+import type { TopicInsightsCapabilitySnapshot } from "../../capability/topic-insights-capability.types";
 import type { PipelineBudget } from "./budget";
 import type { ResearchDepth } from "./depth-config";
 
@@ -25,4 +26,11 @@ export interface PipelineIdentityContext {
   readonly mode: "fresh" | "incremental";
   /** Degradation 模式：Budget 80% 触发，后续 stage 跳过 optional */
   degradationMode: boolean;
+  /**
+   * ★ 目标架构 v2（2026-04-23）：能力快照
+   * runWithHarness 入口通过 TopicInsightsCapabilityReconciler.reconcile 产出注入，
+   * ST-00-INIT / Leader / 其它 stage 读 capabilities.env 而不自己重查环境。
+   * Optional 保留以兼容纯单元测试；runtime 路径保证填充。
+   */
+  readonly capabilities?: TopicInsightsCapabilitySnapshot;
 }

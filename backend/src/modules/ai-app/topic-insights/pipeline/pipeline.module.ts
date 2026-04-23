@@ -33,6 +33,7 @@ import {
   HarnessHealthController,
   HarnessRolloutService,
 } from "../rollout";
+import { TopicInsightsCapabilityReconciler } from "../capability";
 
 const STAGES = [
   InitStage,
@@ -59,6 +60,7 @@ const STAGES = [
     PipelineOrchestratorService,
     HarnessRolloutService,
     HarnessDispatcherService,
+    TopicInsightsCapabilityReconciler,
     { provide: PlanContextProvider, useClass: PrismaPlanContextProvider },
     ...STAGES,
   ],
@@ -67,6 +69,7 @@ const STAGES = [
     PipelineOrchestratorService,
     HarnessRolloutService,
     HarnessDispatcherService,
+    TopicInsightsCapabilityReconciler,
   ],
 })
 export class PipelineModule implements OnModuleInit {

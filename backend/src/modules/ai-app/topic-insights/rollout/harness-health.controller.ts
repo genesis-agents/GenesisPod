@@ -15,6 +15,7 @@ import {
   Get,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
@@ -26,6 +27,11 @@ import {
   HarnessDispatcherService,
   type DispatchResponse,
 } from "./harness-dispatcher.service";
+import {
+  TopicInsightsCapabilityReconciler,
+  type TopicInsightsCapabilitySnapshot,
+} from "../capability";
+import type { ResearchDepth } from "../pipeline/types";
 
 interface DispatchBody {
   userPrompt?: unknown;
@@ -33,11 +39,20 @@ interface DispatchBody {
   lastReportSummary?: unknown;
 }
 
+interface JwtRequest {
+  user?: { id?: string; userId?: string };
+}
+
+function isValidDepth(d: string): d is ResearchDepth {
+  return d === "quick" || d === "standard" || d === "thorough" || d === "deep";
+}
+
 @Controller("harness")
 export class HarnessHealthController {
   constructor(
     private readonly rollout: HarnessRolloutService,
     private readonly dispatcher: HarnessDispatcherService,
+    private readonly capabilityReconciler: TopicInsightsCapabilityReconciler,
   ) {}
 
   @Get("health")
@@ -65,6 +80,23 @@ export class HarnessHealthController {
   resetRollback(): { ok: true; timestamp: string } {
     this.rollout.resetAutoRollback();
     return { ok: true, timestamp: new Date().toISOString() };
+  }
+
+  /**
+   * ★ 目标架构 v2（2026-04-23）：Topic Insights 能力快照。
+   * 给前端 / 运维 / 自动化脚本在触发 mission 前查"这个环境现在实际支持什么"。
+   * Query: ?depth=quick|standard|thorough|deep（默认 standard）
+   */
+  @Get("capabilities")
+  @UseGuards(JwtAuthGuard)
+  async getCapabilities(
+    @Req() req: JwtRequest,
+    @Query("depth") depth?: string,
+  ): Promise<TopicInsightsCapabilitySnapshot> {
+    const userId = req.user?.id ?? req.user?.userId ?? "anonymous";
+    const requestedDepth: ResearchDepth =
+      depth && isValidDepth(depth) ? depth : "standard";
+    return this.capabilityReconciler.reconcile({ userId, requestedDepth });
   }
 
   /**
