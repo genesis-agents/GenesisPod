@@ -29,6 +29,7 @@ import { AgentFactory } from "./core/agent-factory";
 import { HookRegistry } from "./core/hook-registry";
 import { ReActLoop } from "./loop/react-loop";
 import { ToolInvoker } from "./executor/tool-invoker";
+import { LlmExecutor } from "./executor/llm-executor";
 import { MemoryBridge } from "./memory-bridge/memory-bridge.service";
 import { SkillRegistry, SkillLoader, SkillActivator } from "./skills";
 import { SubagentSpawner } from "./subagent";
@@ -53,6 +54,7 @@ import { AiEngineMemoryModule } from "../ai-engine-memory.module";
 
     // Executor / Loop / Memory (Phase 2)
     ToolInvoker,
+    LlmExecutor,
     ReActLoop,
     MemoryBridge,
 
@@ -86,6 +88,7 @@ import { AiEngineMemoryModule } from "../ai-engine-memory.module";
   exports: [
     HarnessFacade,
     AgentFactory,
+    LlmExecutor,
     SkillRegistry,
     ContextManager,
     CheckpointService,
