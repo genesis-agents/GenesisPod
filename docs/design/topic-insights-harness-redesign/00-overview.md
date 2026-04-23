@@ -360,8 +360,11 @@ SLO 违反连续 3 次触发自动降级到 legacy。SLO 体系见 `08-test-stra
 
 - `00-overview.md`（v2）← 本文档
 - `01-capability-matrix.md`（v2）
-- `02-target-architecture.md`（v2）
+- `02-target-architecture.md`（v2.1 · Capability Discovery 补丁 · 2026-04-23 · 需与 11/12 对齐后进一步改写）
 - `10-review-and-gaps.md`（审视结果）
+- `11-capability-discovery.md`（v1 · **已作废** · 见下）
+- **`11-target-architecture.md`**（v2 · 2026-04-23 · 单 harness 目标架构，本项目唯一标杆）
+- **`12-target-migration-plan.md`**（v1 · 2026-04-23 · P0-P5 执行总纲）
 
 用户审批项：
 

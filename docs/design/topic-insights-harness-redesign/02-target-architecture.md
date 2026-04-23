@@ -44,8 +44,24 @@ export interface PipelineIdentityContext {
   readonly budget: PipelineBudget;
   readonly depthConfig: ResearchDepthConfig; // non-optional
   readonly mode: "fresh" | "incremental";
+  /**
+   * ★ v2.1（2026-04-23）：运行时能力快照。
+   * 由 CapabilityDiscoveryService.snapshot() 在 runWithHarness 入口生成，
+   * 所有 stage / agent 通过 identity.capabilities 读可用模型 / 工具 / agent，
+   * 禁止再直接访问 process.env 或 registry（运行时漂移由 ModelFallback 层处理）。
+   * 详见 11-capability-discovery.md。
+   */
+  readonly capabilities: CapabilitySnapshot;
 }
 ```
+
+### 2.1.1 Capability Discovery（Pipeline 启动前置环节）
+
+**v2.1 架构补丁（2026-04-23）**：`runWithHarness` 进入 `ST-00-INIT` 之前必须先调用 `CapabilityDiscoveryService.snapshot(userId, requestedDepth)`，生成 `CapabilitySnapshot` 注入 `PipelineIdentityContext`。
+
+- `CapabilitySnapshot` 字段、降级规则、失败模式：见 **[11-capability-discovery.md](./11-capability-discovery.md)**
+- Leader（AG-01-LD）规划时，system prompt 必须列出 snapshot 中的可用模型 / agent / tool，Leader 输出受 Zod + business-rule 双重校验（unknown modelId → retry）
+- 致命 degradation（CHAT 模型全挂 / BYOK 缺失且无共享 key / 关键表缺失）→ mission 在 runWithHarness 入口即 fail，不进入 pipeline
 
 ### 2.2 Stage 输入输出显式类型
 

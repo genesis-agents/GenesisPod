@@ -25,6 +25,7 @@ import { ConstraintEnforcementService } from "./constraint-enforcement.service";
 import { CostController } from "./cost-controller";
 import { RateLimiter } from "./rate-limiter";
 import { TokenBudgetService } from "./token-budget.service";
+import { RuntimeEnvironmentService } from "./runtime-environment.service";
 
 const RUNTIME_RESOURCE_PROVIDERS = [
   ResourceManagerService,
@@ -34,6 +35,7 @@ const RUNTIME_RESOURCE_PROVIDERS = [
   CostController,
   RateLimiter,
   TokenBudgetService,
+  RuntimeEnvironmentService,
 ];
 
 @Global()

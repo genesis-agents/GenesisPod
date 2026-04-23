@@ -25,10 +25,75 @@ export class StartupMigrationService implements OnModuleInit {
       // Migration 2: Create story_bible_audit_logs table and enums
       await this.createStoryBibleAuditLogs();
 
+      // Migration 3: Create harness_run_metrics table (Topic Insights harness)
+      await this.ensureHarnessRunMetricsTable();
+
       this.logger.log("[Migration] Startup migrations completed");
     } catch (error) {
       this.logger.error("[Migration] Startup migration failed:", error);
       // 不阻止应用启动，只记录错误
+    }
+  }
+
+  /**
+   * 兜底创建 harness_run_metrics 表。
+   *
+   * Background: docs/design/topic-insights-harness-redesign/11-capability-discovery.md
+   * 设计文件迁移 `20260423_add_harness_run_metrics/migration.sql` 由 `prisma migrate deploy`
+   * 在部署期执行，但若 Railway 的 startCommand 未走标准 deploy 流程或迁移卡住，
+   * HarnessRolloutService.persistToDb 就会因为表不存在每次 mission 都 warn。
+   *
+   * 这里做幂等 CREATE IF NOT EXISTS 兜底 —— 与 writing_chapters / story_bible_audit_logs
+   * 同一个模式，属于"运行时 schema self-heal"能力。
+   */
+  private async ensureHarnessRunMetricsTable() {
+    try {
+      const exists = await this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*) as count FROM information_schema.tables
+        WHERE table_name = 'harness_run_metrics'
+      `;
+
+      if (Number(exists[0].count) > 0) {
+        this.logger.debug("[Migration] harness_run_metrics already exists");
+        return;
+      }
+
+      await this.prisma.$executeRawUnsafe(`
+        CREATE TABLE "harness_run_metrics" (
+          "id"            TEXT NOT NULL,
+          "mission_id"    VARCHAR(100) NOT NULL,
+          "user_id"       VARCHAR(100) NOT NULL,
+          "success"       BOOLEAN NOT NULL,
+          "duration_ms"   INTEGER NOT NULL,
+          "quality_score" INTEGER,
+          "tokens_used"   INTEGER NOT NULL DEFAULT 0,
+          "cost_usd"      DECIMAL(10, 4) NOT NULL DEFAULT 0,
+          "error_message" VARCHAR(500),
+          "created_at"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "harness_run_metrics_pkey" PRIMARY KEY ("id")
+        )
+      `);
+      await this.prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "harness_run_metrics_created_at_idx"
+          ON "harness_run_metrics" ("created_at" DESC)
+      `);
+      await this.prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "harness_run_metrics_user_id_created_at_idx"
+          ON "harness_run_metrics" ("user_id", "created_at" DESC)
+      `);
+      await this.prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "harness_run_metrics_success_created_at_idx"
+          ON "harness_run_metrics" ("success", "created_at" DESC)
+      `);
+
+      this.logger.log(
+        "[Migration] Created harness_run_metrics table with 3 indexes",
+      );
+    } catch (error) {
+      this.logger.warn(
+        "[Migration] Failed to ensure harness_run_metrics table:",
+        error,
+      );
     }
   }
 

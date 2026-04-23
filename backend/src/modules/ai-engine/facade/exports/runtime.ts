@@ -84,6 +84,18 @@ export type {
   ModelPricing,
 } from "../../runtime/resource/cost-controller";
 
+// Environment Discovery（L2 通用·2026-04-23）
+export { RuntimeEnvironmentService } from "../../runtime/resource/runtime-environment.service";
+export type {
+  EnvironmentSnapshot,
+  EnvironmentSnapshotParams,
+  RuntimeModelCapability,
+  RuntimeModelType,
+  RuntimeToolCapability,
+  RuntimeDepHealth,
+  RuntimeUserKeyState,
+} from "../../runtime/resource/runtime-environment.types";
+
 // Mission
 export { MissionExecutorService } from "../../runtime/mission/mission-executor.service";
 export type {

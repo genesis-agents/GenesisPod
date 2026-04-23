@@ -84,7 +84,9 @@ IAgentSpec = {
   input: {
     topicId, topicName, topicType,
     userPrompt,
-    availableModels: [...],     // CP-1.3: 动态注入
+    // ★ v2.1（2026-04-23）：传整个 CapabilitySnapshot，取代离散的 availableModels 字段
+    //   详见 11-capability-discovery.md
+    capabilities: identity.capabilities, // CapabilitySnapshot
     anchorArticleContent,        // CP-1.5: EVENT 类型必传
     existingDimensions,          // CP-1.6
     language: topic.language,
@@ -93,9 +95,22 @@ IAgentSpec = {
 }
 ```
 
+system prompt 自动展开 `capabilities`：
+
+```
+可用 CHAT 模型：gpt-4o / claude-sonnet-4-5 / grok-4
+可用 REASONING 模型：o1-preview
+可用工具：TL-01-SEARCH (healthy) / TL-03-RAG (healthy)
+可用 agent：AG-01-LD, AG-03-SW, AG-04-SR, AG-05-MEX, AG-06-QR, AG-11-SY
+recommendedDepth：standard（已根据 capabilities 降级）
+规则：agentAssignments[].modelId 必须在上述 CHAT/REASONING 列表内或留空
+```
+
 #### Output
 
-`LeaderPlanSchema`（09-data-contracts.md 定义）+ custom `validateLeaderPlan`（检查 modelId ∈ availableModels）
+`LeaderPlanSchema`（09-data-contracts.md 定义）+ custom `validateLeaderPlan`（检查 `modelId ∈ capabilities.availableModels`，`dataSources ⊆ capabilities.availableTools`）。
+
+Zod 或 business-rule 校验失败 → `LlmInvokerService` 自动 error-fed retry（最多 3 轮），把"上次你选了 X，但不可用"反喂到下一轮 prompt。
 
 ---
 

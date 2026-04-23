@@ -54,6 +54,77 @@ export const AgentRunMetrics = z.object({
 
 ## 二、17 个 Agent 输出 Schema
 
+> **v2.1 架构补丁（2026-04-23）**：Leader 的 input 从离散字段（`availableModels: string[]`）
+> 收拢为完整 `CapabilitySnapshot`，详见 [11-capability-discovery.md](./11-capability-discovery.md)。
+> Business-rule 校验（`validateLeaderPlan`）从接受 `availableModels: string[]` 升级为接受
+> `capabilities: CapabilitySnapshot`，校验维度同步扩展（modelId / tool / agent / depth 是否 align）。
+
+### AG-00 · CapabilitySnapshot（前置契约）
+
+```typescript
+// ai-engine/runtime/resource/capability-discovery.types.ts
+
+export const CapabilitySnapshotSchema = z.object({
+  generatedAt: z.string(),
+  userId: z.string().min(1),
+  requestedDepth: z.enum(["quick", "standard", "thorough", "deep"]),
+  availableModels: z.object({
+    CHAT: z.array(
+      z.object({
+        modelId: z.string().min(1),
+        provider: z.string().min(1),
+        modelType: z.literal("CHAT"),
+        contextWindow: z.number().int().positive(),
+        costTier: z.enum(["cheap", "standard", "premium"]),
+        healthy: z.boolean(),
+        recentErrorRate: z.number().min(0).max(1).optional(),
+      }),
+    ),
+    REASONING: z.array(z.any()), // same shape, modelType=REASONING
+    EMBEDDING: z.array(z.any()),
+    VISION: z.array(z.any()),
+  }),
+  userKeys: z.object({
+    hasByok: z.boolean(),
+    byokProviders: z.array(z.string()),
+    sharedKeyAvailable: z.boolean(),
+  }),
+  availableAgents: z.array(z.string()),
+  availableTools: z.array(
+    z.object({
+      toolId: z.string(),
+      healthy: z.boolean(),
+      dependencyNote: z.string().optional(),
+    }),
+  ),
+  dbSchema: z.record(z.string(), z.boolean()), // { harnessRunMetrics: true, ... }
+  externalDeps: z.record(
+    z.string(),
+    z.object({
+      healthy: z.boolean(),
+      checkedAt: z.string(),
+      note: z.string().optional(),
+    }),
+  ),
+  recommendedDepth: z.enum(["quick", "standard", "thorough", "deep"]),
+  degradations: z.array(
+    z.object({
+      kind: z.enum([
+        "model_missing",
+        "tool_unhealthy",
+        "schema_missing",
+        "byok_exhausted",
+        "depth_downgrade",
+      ]),
+      detail: z.string(),
+      severity: z.enum(["info", "warn", "error"]),
+    }),
+  ),
+});
+
+export type CapabilitySnapshot = z.infer<typeof CapabilitySnapshotSchema>;
+```
+
 ### AG-01-LD · Leader
 
 ```typescript
@@ -122,16 +193,26 @@ export const LeaderPlanSchema = z.object({
 
 export type LeaderPlan = z.infer<typeof LeaderPlanSchema>;
 
-// Custom validation: modelId must be in availableModels
+// v2.1（2026-04-23）：校验 plan 与 capabilities 对齐
 export function validateLeaderPlan(
   plan: LeaderPlan,
-  availableModels: string[],
+  capabilities: CapabilitySnapshot,
 ): { valid: boolean; errors?: string[] } {
   const errors: string[] = [];
+  const validModelIds = new Set<string>([
+    "", // 空串 = 由下游 TaskProfile 自动解析，允许
+    ...capabilities.availableModels.CHAT.map((m) => m.modelId),
+    ...capabilities.availableModels.REASONING.map((m) => m.modelId),
+  ]);
+  const validToolIds = new Set(
+    capabilities.availableTools.filter((t) => t.healthy).map((t) => t.toolId),
+  );
+
   for (const a of plan.agentAssignments) {
-    if (!availableModels.includes(a.modelId)) {
+    if (!validModelIds.has(a.modelId)) {
       errors.push(
-        `agentAssignments[${a.agentId}].modelId ${a.modelId} not in availableModels`,
+        `agentAssignments[${a.agentId}].modelId "${a.modelId}" not in availableModels. ` +
+          `Valid: [${[...validModelIds].join(", ")}]`,
       );
     }
   }
@@ -142,6 +223,14 @@ export function validateLeaderPlan(
       if (!dimIds.has(dimId)) {
         errors.push(
           `agentAssignments[${a.agentId}].assignedDimensions contains unknown id: ${dimId}`,
+        );
+      }
+    }
+    // tool 校验：agent 指定的 tools 必须在可用池里（tools 字段可选，为空跳过）
+    for (const t of a.tools ?? []) {
+      if (!validToolIds.has(t)) {
+        errors.push(
+          `agentAssignments[${a.agentId}].tools contains unavailable tool: ${t}`,
         );
       }
     }
