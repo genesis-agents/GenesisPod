@@ -18,8 +18,9 @@
  * - Orchestrator 不直接访问 DB，写入走 Stage.persist
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { KernelContext } from "@/modules/ai-engine/facade";
+import { ResearchEventEmitterService } from "../../services/core/research/research-event-emitter.service";
 import {
   BudgetExhaustedError,
   DEPTH_CONFIG_DEFAULTS,
@@ -53,7 +54,11 @@ export interface RunPipelineResult {
 export class PipelineOrchestratorService {
   private readonly logger = new Logger(PipelineOrchestratorService.name);
 
-  constructor(private readonly stageRegistry: StageRegistry) {}
+  constructor(
+    private readonly stageRegistry: StageRegistry,
+    @Optional()
+    private readonly researchEventEmitter?: ResearchEventEmitterService,
+  ) {}
 
   async run(
     identity: PipelineIdentityContext,
@@ -107,6 +112,11 @@ export class PipelineOrchestratorService {
       }
 
       const stageStart = Date.now();
+      await this.emitStageEvent(identity, stage.id, "stage:started", {
+        stageId: stage.id,
+        stageName: stage.name,
+      });
+
       try {
         const input = await stage.prepare(identity, results);
         const output = await stage.execute(identity, input, signal);
@@ -116,6 +126,12 @@ export class PipelineOrchestratorService {
 
         const elapsed = Date.now() - stageStart;
         identity.budget.charge({ wallTimeMs: elapsed });
+
+        await this.emitStageEvent(identity, stage.id, "stage:completed", {
+          stageId: stage.id,
+          stageName: stage.name,
+          durationMs: elapsed,
+        });
 
         if (identity.budget.isExhausted()) {
           const snap = identity.budget.snapshot();
@@ -133,9 +149,15 @@ export class PipelineOrchestratorService {
           );
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         this.logger.error(
-          `[${identity.missionId}] Stage ${stage.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[${identity.missionId}] Stage ${stage.id} failed: ${msg}`,
         );
+        await this.emitStageEvent(identity, stage.id, "stage:failed", {
+          stageId: stage.id,
+          stageName: stage.name,
+          error: msg,
+        });
         await stage
           .cleanup?.(identity)
           .catch((e) =>
@@ -154,6 +176,27 @@ export class PipelineOrchestratorService {
       budgetSnapshot: identity.budget.snapshot(),
       durationMs: Date.now() - startedAt,
     };
+  }
+
+  /** 发布 stage 事件到 ResearchEventEmitterService（SSE → 前端进度） */
+  private async emitStageEvent(
+    identity: PipelineIdentityContext,
+    stageId: StageId,
+    eventType: "stage:started" | "stage:completed" | "stage:failed",
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.researchEventEmitter) return;
+    try {
+      await this.researchEventEmitter.emitToTopic(identity.topicId, eventType, {
+        missionId: identity.missionId,
+        stageId,
+        ...data,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[${identity.missionId}] emitStageEvent ${eventType} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   /** 决定 stage 是否在本次 mission 执行 */

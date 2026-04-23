@@ -8,7 +8,9 @@
  * Group E 接入 utils/assemble 的 UT-ASM-FULL / UT-ASM-TOC。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { numberSubHeadings } from "../utils";
 import type {
   PipelineIdentityContext,
@@ -28,6 +30,8 @@ export class AssemblyStage implements Stage<
   readonly runsWhen = "always" as const;
   readonly slo = { p95Ms: 10_000, tokenBudget: 0, targetSuccessRate: 0.99 };
   readonly emitsEvents = ["report:assembled"];
+
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -81,11 +85,27 @@ export class AssemblyStage implements Stage<
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async persist(
-    _identity: PipelineIdentityContext,
-    _output: AssemblyStageOutput,
+    identity: PipelineIdentityContext,
+    output: AssemblyStageOutput,
   ): Promise<void> {
-    // Group E: 最终写 TopicReport
+    if (!this.prisma) return;
+
+    // 从 ST-07-SYNTH 的产物拿 highlights / riskMatrix / recommendations
+    // 这里无法拿 upstream（persist 没接收 StageResults），退化用空数组。
+    // 合理折中：ST-07 的 persist 已经把关键字段写了（F-2），这里只覆盖
+    // `fullReport` / `totalDimensions` / `totalSources`（来自 assembly 后的最终值）。
+    await this.prisma.topicReport.update({
+      where: { id: identity.reportId },
+      data: {
+        fullReport: output.fullMarkdown,
+        fullReportSize: Buffer.byteLength(output.fullMarkdown, "utf8"),
+        executiveSummary: output.executiveSummary,
+        totalDimensions: output.sectionCount,
+      },
+    });
+
+    // 保留 toPrismaJson 以防后续扩展 highlights/charts 存入（当前无操作）
+    void toPrismaJson;
   }
 }

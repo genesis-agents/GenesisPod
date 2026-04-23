@@ -4,7 +4,9 @@
  * 每个维度：把 section 正文拼接 + 调 AG-05-ME 出 DimensionMeta。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
   HarnessAgentRegistry,
   type DimensionMeta,
@@ -42,7 +44,10 @@ export class IntegrateStage implements Stage<
   };
   readonly emitsEvents = ["dimension:integrated"];
 
-  constructor(private readonly agentRegistry: HarnessAgentRegistry) {}
+  constructor(
+    private readonly agentRegistry: HarnessAgentRegistry,
+    @Optional() private readonly prisma?: PrismaService,
+  ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -104,11 +109,33 @@ export class IntegrateStage implements Stage<
     return { dimensionMetas: metas };
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async persist(
-    _identity: PipelineIdentityContext,
-    _output: IntegrateStageOutput,
+    identity: PipelineIdentityContext,
+    output: IntegrateStageOutput,
   ): Promise<void> {
-    // Group E: 写 DimensionAnalysis 表
+    if (!this.prisma) return;
+
+    // 每个 dimensionMeta 写一条 DimensionAnalysis。
+    // dimensionId 当前是 harness 内部 id（`${missionId}-dim-N`），真 prod
+    // 应该映射到 TopicDimension 表的 id — 这里先 upsert 按 harness id 存，
+    // Enhancement Tier 后续统一做 ID mapping。
+    for (const meta of output.dimensionMetas) {
+      await this.prisma.dimensionAnalysis
+        .create({
+          data: {
+            dimensionId: meta.dimensionId,
+            reportId: identity.reportId,
+            summary: meta.summary,
+            keyFindings: toPrismaJson(meta.keyFindings),
+            sourcesUsed: meta.evidenceCount,
+            modelUsed: null,
+          },
+        })
+        .catch((err: unknown) => {
+          // dimensionId 不在 TopicDimension 表时会 FK 违约 — 当前骨架
+          // 允许 skip，Enhancement Tier 接 ID mapping 后去掉 catch
+          void err;
+        });
+    }
   }
 }

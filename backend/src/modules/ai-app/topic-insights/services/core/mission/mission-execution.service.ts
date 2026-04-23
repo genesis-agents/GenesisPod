@@ -37,6 +37,11 @@ import {
   SessionLatencyTrackerService,
 } from "@/modules/ai-engine/facade";
 import { KernelContext } from "@/modules/ai-engine/facade";
+import {
+  PipelineOrchestratorService,
+  buildIdentityContext,
+  type ResearchDepth as HarnessResearchDepth,
+} from "../../../harness";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type { ResearchDepth } from "../../../types/research-depth.types";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
@@ -86,6 +91,8 @@ export class MissionExecutionService {
     private readonly genericTaskExecutor: GenericTaskExecutor,
     @Optional()
     private readonly latencyTracker?: SessionLatencyTrackerService,
+    @Optional()
+    private readonly harnessOrchestrator?: PipelineOrchestratorService,
   ) {
     this.executorMap = new Map<string, ITaskExecutor>([
       ["dimension_research", this.dimensionResearchExecutor],
@@ -102,6 +109,16 @@ export class MissionExecutionService {
     this.logger.log(
       `[startExecution] Starting execution for mission ${missionId}`,
     );
+
+    // ★ Enhancement Tier Group F-1: feature-flag 分叉到 harness pipeline
+    //   TOPIC_INSIGHTS_USE_HARNESS=1 → 调 harness 8-stage pipeline
+    //   否则（默认） → 继续 legacy 流程（零影响）
+    if (
+      process.env.TOPIC_INSIGHTS_USE_HARNESS === "1" &&
+      this.harnessOrchestrator
+    ) {
+      return this.runWithHarness(missionId, topicId);
+    }
 
     // 获取专题信息
     const topic = await this.prisma.researchTopic.findUnique({
@@ -1657,6 +1674,107 @@ export class MissionExecutionService {
         `[addAgentToLeaderPlan] Failed to update leaderPlan: ${error}`,
       );
       // 不抛出异常，避免影响主流程
+    }
+  }
+
+  // ========================================================================
+  // ★ Enhancement Tier Group F-1 · Harness dispatch
+  // ========================================================================
+
+  /**
+   * 通过 harness pipeline 执行 mission（flag=1 路径）。
+   * 与 legacy 路径互斥：此函数内部不调用任何 legacy research service，
+   * 整个 mission 由 PipelineOrchestratorService 管理。
+   */
+  private async runWithHarness(
+    missionId: string,
+    topicId: string,
+  ): Promise<void> {
+    if (!this.harnessOrchestrator) {
+      throw new Error(
+        "[runWithHarness] PipelineOrchestratorService not available; " +
+          "check HarnessModule is imported",
+      );
+    }
+
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+    });
+    if (!topic) {
+      throw new NotFoundException(`Topic ${topicId} not found`);
+    }
+
+    const missionRow = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { researchDepth: true },
+    });
+    const depth = (missionRow?.researchDepth ??
+      "standard") as HarnessResearchDepth;
+
+    // 创建 draft report（harness 的 ST-XX 会向它关联 evidence / 写入 content）
+    const draftReport =
+      await this.reportSynthesisService.createDraftReport(topicId);
+
+    // 标记 mission 为 EXECUTING
+    await this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: { status: ResearchMissionStatus.EXECUTING, startedAt: new Date() },
+    });
+
+    // 启动 mission:started 事件（保持与 legacy 相同的 UI 入口）
+    await this.researchEventEmitter.emitMissionStarted(
+      topicId,
+      missionId,
+      undefined,
+      depth === "quick",
+    );
+
+    const identity = buildIdentityContext({
+      missionId,
+      topicId,
+      reportId: draftReport.id,
+      userId: topic.userId,
+      depth,
+      mode: "fresh",
+    });
+
+    try {
+      const result = await this.harnessOrchestrator.run(identity);
+      this.logger.log(
+        `[runWithHarness] mission=${missionId} completed stages=${result.completedStages.length} ` +
+          `tokens=${result.budgetSnapshot.tokensUsed} cost=$${result.budgetSnapshot.costUsd.toFixed(4)} ` +
+          `duration=${result.durationMs}ms`,
+      );
+
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          status: ResearchMissionStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      });
+      await this.researchEventEmitter.emitMissionCompleted(
+        topicId,
+        missionId,
+        result.completedStages.length,
+        result.completedStages.length,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`[runWithHarness] mission=${missionId} failed: ${msg}`);
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          status: ResearchMissionStatus.FAILED,
+          completedAt: new Date(),
+        },
+      });
+      await this.researchEventEmitter.emitMissionFailed(
+        topicId,
+        missionId,
+        msg,
+      );
+      throw err;
     }
   }
 }

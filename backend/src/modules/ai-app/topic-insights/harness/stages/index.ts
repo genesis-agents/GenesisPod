@@ -3,6 +3,7 @@
  */
 
 export * from "./stage-context";
+export { PrismaPlanContextProvider } from "./prisma-plan-context-provider";
 export { InitStage } from "./st-00-init.stage";
 export {
   PlanStage,

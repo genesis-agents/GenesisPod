@@ -6,6 +6,8 @@
  */
 
 import { Injectable, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
   HarnessAgentRegistry,
   type LeaderPlannerInput,
@@ -33,21 +35,20 @@ export abstract class PlanContextProvider {
 
 /** Stub 实现 — 测试用 */
 export class StubPlanContextProvider extends PlanContextProvider {
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async load(_identity: PipelineIdentityContext): Promise<{
+  load(_identity: PipelineIdentityContext): Promise<{
     readonly topicName: string;
     readonly topicType: "MACRO" | "TECHNOLOGY" | "COMPANY" | "EVENT";
     readonly userPrompt?: string;
     readonly availableModels: ReadonlyArray<string>;
     readonly language: string;
   }> {
-    return {
+    return Promise.resolve({
       topicName: "Stub Topic",
-      topicType: "MACRO",
+      topicType: "MACRO" as const,
       userPrompt: "stub prompt",
       availableModels: ["stub-model-1", "stub-model-2"],
       language: "zh",
-    };
+    });
   }
 }
 
@@ -68,6 +69,7 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     private readonly agentRegistry: HarnessAgentRegistry,
     @Optional()
     private readonly contextProvider: PlanContextProvider = new StubPlanContextProvider(),
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   async prepare(
@@ -99,11 +101,17 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     return { plan: res.output };
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async persist(
-    _identity: PipelineIdentityContext,
-    _output: PlanStageOutput,
+    identity: PipelineIdentityContext,
+    output: PlanStageOutput,
   ): Promise<void> {
-    // Group E 接入真实 DB（写 ResearchMission.plan）
+    if (!this.prisma) return; // 单测环境可无 Prisma，安全 skip
+    await this.prisma.researchMission.update({
+      where: { id: identity.missionId },
+      data: {
+        leaderPlan: toPrismaJson(output.plan),
+        totalTasks: output.plan.dimensions.length,
+      },
+    });
   }
 }

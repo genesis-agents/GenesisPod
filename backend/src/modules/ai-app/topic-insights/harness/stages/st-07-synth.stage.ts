@@ -5,7 +5,9 @@
  * 严禁 Synthesizer 访问 evidence-save 工具（由 Agent 自身 forbiddenTools 保护）。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
   HarnessAgentRegistry,
   type SynthesisResult,
@@ -43,7 +45,10 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
     "report:synthesis_completed",
   ];
 
-  constructor(private readonly agentRegistry: HarnessAgentRegistry) {}
+  constructor(
+    private readonly agentRegistry: HarnessAgentRegistry,
+    @Optional() private readonly prisma?: PrismaService,
+  ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -87,11 +92,27 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
     return { synthesis: res.output };
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async persist(
-    _identity: PipelineIdentityContext,
-    _output: SynthStageOutput,
+    identity: PipelineIdentityContext,
+    output: SynthStageOutput,
   ): Promise<void> {
-    // Group E: 写 TopicReport.fullReport / executiveSummary / highlights / riskMatrix
+    if (!this.prisma) return;
+    const synth = output.synthesis;
+    await this.prisma.topicReport.update({
+      where: { id: identity.reportId },
+      data: {
+        executiveSummary: synth.executiveSummary,
+        fullReport: synth.fullMarkdown,
+        fullReportSize: Buffer.byteLength(synth.fullMarkdown, "utf8"),
+        highlights: toPrismaJson(synth.highlights),
+        // charts / riskMatrix / recommendations 未来纳入独立字段；
+        // 当前合并 riskMatrix + recommendations 一并存入 charts 字段（schema 已有）
+        charts: toPrismaJson({
+          crossDimensionAnalysis: synth.crossDimensionAnalysis,
+          riskMatrix: synth.riskMatrix,
+          recommendations: synth.recommendations,
+        }),
+      },
+    });
   }
 }
