@@ -17,6 +17,8 @@ import { ExportModule } from "../../../common/export/export.module";
 import { TOPIC_INSIGHTS_DATA_EXPORT } from "../shared/interfaces/data-export.interface";
 import { TopicInsightsAgent } from "./agents";
 import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./teams";
+// ★ Tier Core: Harness pipeline module (flag-gated via TOPIC_INSIGHTS_USE_HARNESS)
+import { HarnessModule } from "./harness/harness.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule
@@ -270,6 +272,7 @@ const services = [
     ConfigModule,
     SecretsModule,
     StorageModule, // ★ Phase 6: R2 报告云存储
+    HarnessModule, // ★ Tier Core Group E: harness pipeline (flag-gated)
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

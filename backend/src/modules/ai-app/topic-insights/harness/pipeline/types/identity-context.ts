@@ -1,0 +1,28 @@
+/**
+ * Pipeline Identity Context
+ *
+ * 顶层 context：所有 stage 可读，整个 mission 生命周期不变。
+ * 替代原 god-object PipelineContext（见 02-target-architecture §2.1）。
+ *
+ * 不含业务数据（outline / sections / evidence 等）—— 那些走 StageResults。
+ */
+
+import type { PipelineBudget } from "./budget";
+import type { ResearchDepth } from "./depth-config";
+
+export interface PipelineIdentityContext {
+  readonly missionId: string;
+  readonly topicId: string;
+  /** Draft report id，在 ST-00-INIT 创建，后续 stage 用于挂证据/章节 */
+  readonly reportId: string;
+  readonly userId: string;
+  /** Per-mission prompt cache prefix */
+  readonly cachePrefix: string;
+  /** 端到端 cancel 信号（Budget 超限 / 用户取消 / SLO 超时都走这里） */
+  readonly abortController: AbortController;
+  readonly budget: PipelineBudget;
+  readonly depth: ResearchDepth;
+  readonly mode: "fresh" | "incremental";
+  /** Degradation 模式：Budget 80% 触发，后续 stage 跳过 optional */
+  degradationMode: boolean;
+}

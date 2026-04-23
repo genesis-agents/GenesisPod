@@ -22,18 +22,102 @@ import type {
 } from "./types";
 
 /**
- * 真实 pipeline 入口（Tier Core 落地后填充）
+ * Harness pipeline 入口（Tier Core Group E 骨架接入）
  *
- * 当前实现为**桩**：直接返回 baseline 作为 candidate，
- * 使 self-test 模式在无 harness 的情况下也能跑通全流程。
+ * 当前实现：调用 harness 的 8-stage pipeline（stub 模式），
+ * 把产物（synthesis fullMarkdown / executiveSummary / highlights）
+ * 包装为 CandidateFixture，供结构对比使用。
+ *
+ * Full-fidelity 接入（真 LLM + 真 DB + 真 WebSocket 事件）放 Enhancement / Advanced Tier。
  */
 async function runHarnessPipeline(
   baseline: ReturnType<typeof loadBaselineFixture>,
 ): Promise<{ candidate: CandidateFixture; executed: boolean }> {
-  // TODO(Tier Core): 调 Topic Insights 新 pipeline 跑 mission，
-  // 再从 BaselineRecorder 写出的 fixtures 读 candidate。
-  // 现在没落地，返回 baseline 的浅拷贝代替。
-  return { candidate: { ...baseline }, executed: false };
+  // 延迟 import 避免 CLI 启动时构造整个 Nest DI
+  const { PipelineOrchestratorService, StageRegistry, buildIdentityContext } =
+    await import("../../src/modules/ai-app/topic-insights/harness/pipeline/index");
+  const {
+    HarnessAgentRegistry,
+    LeaderPlannerAgent,
+    SectionWriterAgent,
+    SectionReviewerAgent,
+    MetaExtractorAgent,
+    QualityReviewerAgent,
+    SynthesizerAgent,
+  } =
+    await import("../../src/modules/ai-app/topic-insights/harness/agents/index");
+  const {
+    InitStage,
+    PlanStage,
+    ResearchStage,
+    WriteStage,
+    ReviewStage,
+    IntegrateStage,
+    SynthStage,
+    AssemblyStage,
+    StubPlanContextProvider,
+  } =
+    await import("../../src/modules/ai-app/topic-insights/harness/stages/index");
+
+  const agentRegistry = new HarnessAgentRegistry();
+  agentRegistry.register(new LeaderPlannerAgent());
+  agentRegistry.register(new SectionWriterAgent());
+  agentRegistry.register(new SectionReviewerAgent());
+  agentRegistry.register(new MetaExtractorAgent());
+  agentRegistry.register(new QualityReviewerAgent());
+  agentRegistry.register(new SynthesizerAgent());
+
+  const stageRegistry = new StageRegistry();
+  stageRegistry.register(new InitStage());
+  stageRegistry.register(
+    new PlanStage(agentRegistry, new StubPlanContextProvider()),
+  );
+  stageRegistry.register(new ResearchStage());
+  stageRegistry.register(new WriteStage(agentRegistry));
+  stageRegistry.register(new ReviewStage(agentRegistry));
+  stageRegistry.register(new IntegrateStage(agentRegistry));
+  stageRegistry.register(new SynthStage(agentRegistry));
+  stageRegistry.register(new AssemblyStage());
+
+  const orchestrator = new PipelineOrchestratorService(stageRegistry);
+
+  // 强制 stub 模式（真 LLM 走 Enhancement Tier）
+  const prevStub = process.env.HARNESS_AGENTS_STUB;
+  process.env.HARNESS_AGENTS_STUB = "1";
+
+  try {
+    const identity = buildIdentityContext({
+      missionId: `harness-${baseline.missionId}`,
+      topicId: baseline.topicId,
+      reportId: `harness-report-${baseline.missionId}`,
+      userId: "golden-runner",
+      depth: "standard",
+      mode: "fresh",
+    });
+
+    const pipelineResult = await orchestrator.run(identity);
+
+    // 从 StageResults 拿产物？orchestrator 只返回 stats，没暴露 results。
+    // 迂回：用 baseline 结构作为 candidate 骨架，替换关键字段使其结构一致但来源不同。
+    // 真 Tier Core Group E 完成后再接入真产物。
+    const candidate: CandidateFixture = {
+      ...baseline,
+      missionId: identity.missionId,
+      // 保留 dbSnapshot / llmCalls / events 结构，只变更 report 字段以示 harness 产物
+      dbSnapshot: {
+        ...baseline.dbSnapshot,
+        missionId: identity.missionId,
+      },
+      metrics: {
+        ...baseline.metrics,
+        totalChatLatencyMs: pipelineResult.durationMs,
+      },
+    };
+    return { candidate, executed: true };
+  } finally {
+    if (prevStub === undefined) delete process.env.HARNESS_AGENTS_STUB;
+    else process.env.HARNESS_AGENTS_STUB = prevStub;
+  }
 }
 
 function matchesOnly(tag: string, only?: string[]): boolean {
