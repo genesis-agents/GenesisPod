@@ -8913,3 +8913,27 @@ model HarnessRunMetric {
   @@index([success, createdAt(sort: Desc)])
   @@map("harness_run_metrics")
 }
+
+/// 每个 mission 的 harness pipeline checkpoint。每个 stage.persist 后更新，
+/// resume 时加载 completedStages + stageResults + budgetSnapshot 跳过已完成 stage。
+/// 单 mission 单行：用 missionId 作为 unique key，后续 stage 成功直接 upsert。
+model PipelineRunCheckpoint {
+  id               String  @id @default(uuid())
+  missionId        String  @unique @map("mission_id") @db.VarChar(100)
+  /// 已完成 stage 的 id 列表，顺序执行顺序（JSON string array）
+  completedStages  Json    @map("completed_stages")
+  /// stageId -> stage 输出对象 的 map（JSON object）
+  stageResults     Json    @map("stage_results")
+  /// PipelineBudget.snapshot() — 恢复 budget 计数用
+  budgetSnapshot   Json    @map("budget_snapshot")
+  /// 恢复时需要的 identity 片段：depth, mode, capabilities（JSON object）
+  /// 完整 AbortController / budget 在 runtime 重建，不持久化
+  identitySnapshot Json    @map("identity_snapshot")
+  /// 最后一个完成的 stage id，便于监控
+  lastStageId      String? @map("last_stage_id") @db.VarChar(50)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt        @map("updated_at")
+
+  @@index([updatedAt(sort: Desc)])
+  @@map("pipeline_run_checkpoints")
+}

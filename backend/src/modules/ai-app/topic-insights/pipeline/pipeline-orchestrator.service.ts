@@ -49,6 +49,7 @@ import {
   type StageId,
 } from "./types";
 import { StageRegistry } from "./stage-registry";
+import { PipelineCheckpointService } from "./pipeline-checkpoint.service";
 
 export interface RunPipelineOptions {
   /** 如不提供则按 dependsOn 拓扑排序全跑 */
@@ -63,6 +64,15 @@ export interface RunPipelineOptions {
    * 失败异常被 catch，不影响 pipeline。
    */
   onStageComplete?: (stageId: StageId, output: unknown) => void;
+  /**
+   * H2 Resume primitive：从已持久化的 checkpoint 恢复。
+   * 若提供：orchestrator 用 completedStages 预填 results，跳过已完成 stage，
+   * 从下一个未完成 stage 继续。budgetSnapshot 需调用方在 identity.budget 重建。
+   */
+  resumeFromCheckpoint?: {
+    readonly completedStages: readonly StageId[];
+    readonly stageResults: Record<string, unknown>;
+  };
 }
 
 /** QGATE 输出结构简化（只取 needsRemediate） */
@@ -95,6 +105,7 @@ export class PipelineOrchestratorService {
     @Optional()
     private readonly researchEventEmitter?: ResearchEventEmitterService,
     @Optional() private readonly agentRegistry?: SpecAgentRegistry,
+    @Optional() private readonly checkpoint?: PipelineCheckpointService,
   ) {}
 
   async run(
@@ -132,6 +143,22 @@ export class PipelineOrchestratorService {
     const completed: StageId[] = [];
     const skipped: StageId[] = [];
     const allStageIds = stages.map((s) => s.id);
+
+    // H2 resume: seed results with persisted stage outputs; orchestrator will
+    // see these ids in `completed` and short-circuit them via shouldRunStage.
+    if (options.resumeFromCheckpoint) {
+      const { completedStages, stageResults } = options.resumeFromCheckpoint;
+      for (const id of completedStages) {
+        const out = stageResults[id];
+        if (out !== undefined) {
+          results.set(id, out);
+          completed.push(id);
+        }
+      }
+      this.logger.log(
+        `[${identity.missionId}] Resuming from checkpoint: ${completed.length} stages already completed (${completed.join(", ")})`,
+      );
+    }
     // 每次 mission 只咨询 AG-16-MA 一次，避免连环中断
     let missionAdjusterConsulted = false;
     let degradationWasActive = identity.degradationMode;
@@ -142,6 +169,15 @@ export class PipelineOrchestratorService {
           `[${identity.missionId}] Aborted mid-pipeline at ${stage.id}`,
         );
         throw new DOMException("Pipeline aborted", "AbortError");
+      }
+
+      // H2 resume: stage already completed in a prior run; keep its output,
+      // don't re-run, don't push to skipped.
+      if (completed.includes(stage.id)) {
+        this.logger.debug(
+          `[${identity.missionId}] Skip ${stage.id} — already completed (resume)`,
+        );
+        continue;
       }
 
       if (!this.shouldRunStage(stage, identity, results)) {
@@ -345,6 +381,20 @@ export class PipelineOrchestratorService {
             `[${identity.missionId}] onStageComplete(${stage.id}) threw: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
+      }
+
+      // H2: persist checkpoint after each successful stage (fire-and-forget;
+      // failure here doesn't block the pipeline — see service.saveStage).
+      if (this.checkpoint) {
+        const accumulated: Record<string, unknown> = {};
+        for (const id of completed) accumulated[id] = results.get(id);
+        void this.checkpoint.saveStage(
+          identity,
+          stage.id,
+          output,
+          [...completed],
+          accumulated,
+        );
       }
 
       const elapsed = Date.now() - stageStart;

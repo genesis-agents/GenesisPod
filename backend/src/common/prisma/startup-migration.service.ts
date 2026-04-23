@@ -28,6 +28,9 @@ export class StartupMigrationService implements OnModuleInit {
       // Migration 3: Create harness_run_metrics table (Topic Insights harness)
       await this.ensureHarnessRunMetricsTable();
 
+      // Migration 4: Create pipeline_run_checkpoints table (H2 resume primitive)
+      await this.ensurePipelineRunCheckpointsTable();
+
       this.logger.log("[Migration] Startup migrations completed");
     } catch (error) {
       this.logger.error("[Migration] Startup migration failed:", error);
@@ -92,6 +95,58 @@ export class StartupMigrationService implements OnModuleInit {
     } catch (error) {
       this.logger.warn(
         "[Migration] Failed to ensure harness_run_metrics table:",
+        error,
+      );
+    }
+  }
+
+  /**
+   * 兜底创建 pipeline_run_checkpoints 表。
+   * H2 primitive：harness pipeline 每个 stage.persist 后写入 checkpoint，
+   * resume 时从最后一个 completed stage 继续。与 ensureHarnessRunMetricsTable
+   * 同一 self-heal 模式。
+   */
+  private async ensurePipelineRunCheckpointsTable() {
+    try {
+      const exists = await this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*) as count FROM information_schema.tables
+        WHERE table_name = 'pipeline_run_checkpoints'
+      `;
+      if (Number(exists[0].count) > 0) {
+        this.logger.debug(
+          "[Migration] pipeline_run_checkpoints already exists",
+        );
+        return;
+      }
+
+      await this.prisma.$executeRawUnsafe(`
+        CREATE TABLE "pipeline_run_checkpoints" (
+          "id"                TEXT NOT NULL,
+          "mission_id"        VARCHAR(100) NOT NULL,
+          "completed_stages"  JSONB NOT NULL,
+          "stage_results"     JSONB NOT NULL,
+          "budget_snapshot"   JSONB NOT NULL,
+          "identity_snapshot" JSONB NOT NULL,
+          "last_stage_id"     VARCHAR(50),
+          "created_at"        TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at"        TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "pipeline_run_checkpoints_pkey" PRIMARY KEY ("id")
+        )
+      `);
+      await this.prisma.$executeRawUnsafe(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "pipeline_run_checkpoints_mission_id_key"
+          ON "pipeline_run_checkpoints" ("mission_id")
+      `);
+      await this.prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "pipeline_run_checkpoints_updated_at_idx"
+          ON "pipeline_run_checkpoints" ("updated_at" DESC)
+      `);
+      this.logger.log(
+        "[Migration] Created pipeline_run_checkpoints table with indexes",
+      );
+    } catch (error) {
+      this.logger.warn(
+        "[Migration] Failed to ensure pipeline_run_checkpoints table:",
         error,
       );
     }

@@ -52,6 +52,7 @@ import { getModelDisplayNameMap } from "../../utils/model-display-name.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { ResearchMemoryService } from "../research/memory.service";
 import { MissionCancellationService } from "./cancellation.service";
+import { PipelineCheckpointService } from "../../pipeline/pipeline-checkpoint.service";
 import {
   DimensionResearchExecutor,
   ReviewDimensionExecutor,
@@ -102,6 +103,8 @@ export class MissionExecutionService {
     private readonly capabilityReconciler?: TopicInsightsCapabilityReconciler,
     @Optional()
     private readonly cancellation?: MissionCancellationService,
+    @Optional()
+    private readonly checkpoint?: PipelineCheckpointService,
   ) {
     this.executorMap = new Map<string, ITaskExecutor>([
       ["dimension_research", this.dimensionResearchExecutor],
@@ -1840,6 +1843,9 @@ export class MissionExecutionService {
         costUsd: result.budgetSnapshot.costUsd,
         recordedAt: new Date(),
       });
+
+      // H2: mission completed — drop the checkpoint.
+      await this.checkpoint?.clear(missionId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const wasCancelled = identity.abortController.signal.aborted;
@@ -1879,6 +1885,117 @@ export class MissionExecutionService {
         errorMessage: msg,
         recordedAt: new Date(),
       });
+      // H2: keep checkpoint on cancel (so resume works); drop it on hard fail
+      // so a later retry starts clean.
+      if (!wasCancelled) await this.checkpoint?.clear(missionId);
+      if (!wasCancelled) throw err;
+    } finally {
+      this.cancellation?.unregister(missionId);
+    }
+  }
+
+  /**
+   * H2 Resume primitive — re-enter a paused/cancelled mission from its last
+   * completed stage. Called by the /missions/:missionId/resume endpoint and by
+   * `RESUME_MISSION_EXECUTION` event handlers (leader chat, todo resume, etc).
+   *
+   * Safe to call when no checkpoint exists: falls back to a fresh run.
+   */
+  async resumeWithHarness(missionId: string, topicId: string): Promise<void> {
+    if (!this.harnessOrchestrator) {
+      throw new Error(
+        "[resumeWithHarness] PipelineOrchestratorService not available",
+      );
+    }
+
+    const cp = await this.checkpoint?.load(missionId);
+    if (!cp) {
+      this.logger.warn(
+        `[resumeWithHarness] no checkpoint for mission=${missionId} — falling back to fresh start`,
+      );
+      await this.runWithHarness(missionId, topicId);
+      return;
+    }
+
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+    });
+    if (!topic) throw new NotFoundException(`Topic ${topicId} not found`);
+
+    await this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: { status: ResearchMissionStatus.EXECUTING },
+    });
+
+    // Rebuild identity from the persisted snapshot. AbortController + Budget
+    // are fresh runtime objects (budget snapshot is re-seeded so usage counters
+    // don't reset below the water line).
+    const identity = buildIdentityContext({
+      missionId,
+      topicId,
+      reportId: cp.identitySnapshot.reportId,
+      userId: cp.identitySnapshot.userId,
+      depth: cp.identitySnapshot.depth,
+      mode: cp.identitySnapshot.mode,
+      capabilities: cp.identitySnapshot.capabilities,
+    });
+    identity.degradationMode = cp.identitySnapshot.degradationMode;
+
+    this.cancellation?.register(missionId, identity.abortController);
+
+    try {
+      const result = await this.harnessOrchestrator.run(identity, {
+        resumeFromCheckpoint: {
+          completedStages: cp.completedStages,
+          stageResults: cp.stageResults,
+        },
+      });
+      this.logger.log(
+        `[resumeWithHarness] mission=${missionId} completed stages=${result.completedStages.length} duration=${result.durationMs}ms`,
+      );
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          status: ResearchMissionStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      });
+      await this.researchEventEmitter.emitMissionCompleted(
+        topicId,
+        missionId,
+        result.completedStages.length,
+        result.completedStages.length,
+      );
+      await this.checkpoint?.clear(missionId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const wasCancelled = identity.abortController.signal.aborted;
+      this.logger.error(
+        `[resumeWithHarness] mission=${missionId} ${wasCancelled ? "cancelled" : "failed"}: ${msg}`,
+      );
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          status: wasCancelled
+            ? ResearchMissionStatus.CANCELLED
+            : ResearchMissionStatus.FAILED,
+          completedAt: new Date(),
+        },
+      });
+      if (wasCancelled) {
+        await this.researchEventEmitter.emitMissionCancelled(
+          topicId,
+          missionId,
+          msg,
+        );
+      } else {
+        await this.researchEventEmitter.emitMissionFailed(
+          topicId,
+          missionId,
+          msg,
+        );
+        await this.checkpoint?.clear(missionId);
+      }
       if (!wasCancelled) throw err;
     } finally {
       this.cancellation?.unregister(missionId);

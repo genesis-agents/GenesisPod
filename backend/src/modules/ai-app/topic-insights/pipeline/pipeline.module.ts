@@ -8,6 +8,7 @@
 
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { PipelineOrchestratorService } from "./pipeline-orchestrator.service";
+import { PipelineCheckpointService } from "./pipeline-checkpoint.service";
 import { StageRegistry } from "./stage-registry";
 import {
   AssemblyStage,
@@ -58,6 +59,7 @@ const STAGES = [
   providers: [
     StageRegistry,
     PipelineOrchestratorService,
+    PipelineCheckpointService,
     MissionMetricsService,
     DispatcherService,
     TopicInsightsCapabilityReconciler,
@@ -67,6 +69,7 @@ const STAGES = [
   exports: [
     StageRegistry,
     PipelineOrchestratorService,
+    PipelineCheckpointService,
     MissionMetricsService,
     DispatcherService,
     TopicInsightsCapabilityReconciler,

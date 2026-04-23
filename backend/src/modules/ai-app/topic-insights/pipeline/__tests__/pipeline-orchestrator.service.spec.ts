@@ -392,4 +392,37 @@ describe("PipelineOrchestratorService", () => {
       await expect(orchestrator.run(ctx())).resolves.toBeDefined();
     });
   });
+
+  describe("H2 resume from checkpoint", () => {
+    it("skips stages listed in completedStages and keeps their seeded output", async () => {
+      const s0 = mkStage({ id: "ST-00-INIT" });
+      const s1 = mkStage({ id: "ST-01-PLAN", dependsOn: ["ST-00-INIT"] });
+      registry.register(s0);
+      registry.register(s1);
+
+      const result = await orchestrator.run(ctx(), {
+        resumeFromCheckpoint: {
+          completedStages: ["ST-00-INIT"],
+          stageResults: { "ST-00-INIT": { seeded: true } },
+        },
+      });
+
+      // ST-00 should NOT be re-executed; ST-01 should run.
+      expect(s0.execute).not.toHaveBeenCalled();
+      expect(s1.execute).toHaveBeenCalled();
+      // Both end up in completed (the resumed + the newly run).
+      expect(result.completedStages).toEqual(
+        expect.arrayContaining(["ST-00-INIT", "ST-01-PLAN"]),
+      );
+      // Not in skipped — resumed stages are not "skipped".
+      expect(result.skippedStages).not.toContain("ST-00-INIT");
+    });
+
+    it("without checkpoint, runs all stages normally", async () => {
+      const s = mkStage({ id: "ST-00-INIT" });
+      registry.register(s);
+      await orchestrator.run(ctx());
+      expect(s.execute).toHaveBeenCalled();
+    });
+  });
 });
