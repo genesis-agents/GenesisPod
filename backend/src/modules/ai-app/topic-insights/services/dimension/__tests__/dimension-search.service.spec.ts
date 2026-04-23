@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionSearchService } from "../dimension-search.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { DataSourceRouterService } from "../../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import { AgentActivityService } from "../../health/agent-activity.service";
 import { DataEnrichmentService } from "../../data/data-enrichment.service";
 import { LeaderToolService } from "../../data/leader-tool.service";

@@ -11,7 +11,10 @@
  */
 
 import { TIER_ADAPTATIONS } from "../prompt-adaptation.config";
-import { ModelTier, classifyModelTier } from "../model-tier.config";
+import {
+  ModelTier,
+  classifyModelTier,
+} from "@/modules/ai-engine/llm/types/model-tier";
 
 describe("TIER_ADAPTATIONS", () => {
   it("defines adaptations for all 3 tiers", () => {

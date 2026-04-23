@@ -1,1 +1,1 @@
-export { BaselineRecorderService } from "./baseline-recorder.service";
+export { BaselineRecorderService } from "./recorder.service";

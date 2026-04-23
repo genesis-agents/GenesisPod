@@ -35,8 +35,8 @@ jest.mock("@/modules/ai-engine/facade", () => ({
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { FinanceSearchAdapter } from "../finance-search.adapter";
-import { WeatherSearchAdapter } from "../weather-search.adapter";
+import { FinanceSearchAdapter } from "../finance.adapter";
+import { WeatherSearchAdapter } from "../weather.adapter";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../../types/data-source.types";
 

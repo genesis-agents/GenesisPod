@@ -15,7 +15,7 @@
  * - 任何用户或系统无法预先审查的外部文本
  */
 
-import { sanitize } from "./prompt-sanitizer";
+import { sanitize } from "./prompt-sanitizer.utils";
 
 export interface WrapExternalContentOptions {
   /** 来源 URL（可选，拼入标签属性） */

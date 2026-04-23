@@ -15,7 +15,7 @@ import type {
   RemediationAction,
   RemediationResult,
 } from "../../types/quality.types";
-import { classifyModelTier, ModelTier } from "../../config/model-tier.config";
+import { classifyModelTier, ModelTier } from "@/modules/ai-engine/facade";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 
 @Injectable()

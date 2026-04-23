@@ -13,18 +13,18 @@ import { InternalServerErrorException } from "@nestjs/common";
 import { DimensionResearchExecutor } from "../dimension-research.executor";
 import { ReviewDimensionExecutor } from "../review-dimension.executor";
 import { SynthesisReportExecutor } from "../synthesis-report.executor";
-import { GenericTaskExecutor } from "../generic-task.executor";
+import { GenericTaskExecutor } from "../generic.executor";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchEventEmitterService } from "../../../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../../research/event-emitter.service";
 import { DimensionMissionService } from "../../../dimension/dimension-mission.service";
 import { ResearchReviewerService } from "../../../collaboration/research-reviewer.service";
 import { AgentActivityService } from "../../../health/agent-activity.service";
 import { DataSourceFetcherService } from "../../../data/data-source-fetcher.service";
-import { ReportSynthesisService } from "../../../report/report-synthesis.service";
+import { ReportSynthesisService } from "../../../report/synthesis.service";
 import { ResearchTaskStatus } from "@prisma/client";
 import { ReviewQualityLevel } from "../../../../types/collaboration.types";
 import { resolveResearchDepthConfig } from "../../../../types/research-depth.types";
-import type { TaskExecutionContext } from "../task-executor.interface";
+import type { TaskExecutionContext } from "../executor.interface";
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 

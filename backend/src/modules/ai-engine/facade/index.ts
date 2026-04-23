@@ -47,6 +47,9 @@ export type {
   ImageUrlContentPart,
 } from "../llm/types";
 
+// Model classification by id pattern (STRONG/STANDARD/BASIC) — cross-app utility
+export { classifyModelTier, ModelTier } from "../llm/types/model-tier";
+
 // ★ Stream timing types (for TTFT/TTLT tracking)
 export type {
   StreamTiming,

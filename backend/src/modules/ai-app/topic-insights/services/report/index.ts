@@ -1,10 +1,10 @@
-export { ReportSynthesisService } from "./report-synthesis.service";
-export { ReportEditorService } from "./report-editor.service";
-export { ReportValidationService } from "./report-validation.service";
-export { ReportChangeService } from "./report-change.service";
-export { ReportAnnotationService } from "./report-annotation.service";
+export { ReportSynthesisService } from "./synthesis.service";
+export { ReportEditorService } from "./editor.service";
+export { ReportValidationService } from "./validation.service";
+export { ReportChangeService } from "./change.service";
+export { ReportAnnotationService } from "./annotation.service";
 export { CredibilityReportService } from "./credibility-report.service";
 export { FigureExtractorService } from "./figure-extractor.service";
 export { FigureRelevanceService } from "./figure-relevance.service";
-export { ReportAssemblerService } from "./report-assembler.service";
-export { ReportDataService } from "./report-data.service";
+export { ReportAssemblerService } from "./assembler.service";
+export { ReportDataService } from "./data.service";

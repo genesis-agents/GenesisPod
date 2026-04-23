@@ -30,7 +30,7 @@ import type {
   PlanStageOutput,
   ResearchStageOutput,
 } from "./stage-context";
-import { SearchOrchestratorService } from "../../services/search/search-orchestrator.service";
+import { SearchOrchestratorService } from "../../services/search/orchestrator.service";
 
 /** 并发上限（同时查询的维度数），防压垮上游搜索 API */
 const DIMENSION_CONCURRENCY = 3;

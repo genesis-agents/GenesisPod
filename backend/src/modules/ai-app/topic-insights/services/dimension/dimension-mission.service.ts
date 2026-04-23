@@ -31,14 +31,14 @@ import {
 } from "@prisma/client";
 import { LeaderPlanningService } from "../leader/leader-planning.service";
 import { LeaderReviewService } from "../leader/leader-review.service";
-import { ResearchLeaderService } from "../research/research-leader.service";
+import { ResearchLeaderService } from "../research/leader.service";
 import {
   SectionWriterService,
   type SectionWriteResult,
   type TemporalContext,
 } from "./section-writer.service";
 import { DataSourceRouterService } from "../data/data-source-router.service";
-import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/event-emitter.service";
 import {
   AgentActivityService,
   type ThinkingPhase,
@@ -78,7 +78,7 @@ import {
   type FigureRegistryEntry,
 } from "./evidence-summary.utils";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
-import { hintToWeightProfile } from "../../config/evidence-weight-profiles.config";
+import { hintToWeightProfile } from "../quality/evidence-weight-profiles.config";
 import type { EvidenceWeightProfile } from "../../types/evidence-weight-profile.types";
 import {
   ContextCompressionService,
@@ -92,7 +92,7 @@ import {
   ExecutionCheckpointService,
   SessionMemorySidecarService,
 } from "@/modules/ai-engine/facade";
-import { MissionObservabilityService } from "../mission/mission-observability.service";
+import { MissionObservabilityService } from "../mission/observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 

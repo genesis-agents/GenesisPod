@@ -24,7 +24,7 @@ import { AgentActivityType } from "@prisma/client";
 // Module-level mock for getModelDisplayNameMap
 // ──────────────────────────────────────────────────────────────────────────────
 
-jest.mock("../../../utils/model-display-name", () => ({
+jest.mock("../../../utils/model-display-name.utils", () => ({
   getModelDisplayNameMap: jest
     .fn()
     .mockResolvedValue(new Map([["model-001", "GPT-4"]])),

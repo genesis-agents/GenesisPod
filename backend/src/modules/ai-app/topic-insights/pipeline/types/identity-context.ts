@@ -7,7 +7,7 @@
  * 不含业务数据（outline / sections / evidence 等）—— 那些走 StageResults。
  */
 
-import type { TopicInsightsCapabilitySnapshot } from "../../capability/topic-insights-capability.types";
+import type { TopicInsightsCapabilitySnapshot } from "../../capability/types";
 import type { PipelineBudget } from "./budget";
 import type { ResearchDepth } from "./depth-config";
 

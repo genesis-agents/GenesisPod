@@ -27,7 +27,7 @@ import type {
   QualityTraceContext,
   DimensionOutputProbe,
 } from "../report-quality-trace.service";
-import { createEmptyScan } from "../defect-scanner";
+import { createEmptyScan } from "../defect-scanner.service";
 import type { TopicEvidence } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────

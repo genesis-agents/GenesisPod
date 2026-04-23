@@ -7,10 +7,10 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
-import { sanitize } from "./utils/prompt-sanitizer";
+import { sanitize } from "./utils/prompt-sanitizer.utils";
 import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { RESEARCH_INTERNAL_EVENTS } from "./services/research/research-event-emitter.service";
+import { RESEARCH_INTERNAL_EVENTS } from "./services/research/event-emitter.service";
 import { Observable, Subject, filter, map } from "rxjs";
 import { MessageEvent } from "@nestjs/common";
 import {

@@ -13,7 +13,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AgentActivityType } from "@prisma/client";
-import { getModelDisplayNameMap } from "../../utils/model-display-name";
+import { getModelDisplayNameMap } from "../../utils/model-display-name.utils";
 import type {
   SearchResultsRecord,
   WritingProgressRecord,

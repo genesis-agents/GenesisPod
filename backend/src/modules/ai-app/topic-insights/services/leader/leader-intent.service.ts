@@ -27,8 +27,8 @@ import {
   ResearchMissionStatus,
   ResearchTaskStatus,
 } from "@prisma/client";
-import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
-import { sanitize } from "../../utils/prompt-sanitizer";
+import { ResearchEventEmitterService } from "../research/event-emitter.service";
+import { sanitize } from "../../utils/prompt-sanitizer.utils";
 import { extractJsonFromResponse } from "../../utils/extract-json.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {

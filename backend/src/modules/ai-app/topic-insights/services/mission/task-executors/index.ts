@@ -2,8 +2,8 @@ export type {
   ITaskExecutor,
   TaskExecutionContext,
   TaskExecutionResult,
-} from "./task-executor.interface";
+} from "./executor.interface";
 export { DimensionResearchExecutor } from "./dimension-research.executor";
 export { ReviewDimensionExecutor } from "./review-dimension.executor";
 export { SynthesisReportExecutor } from "./synthesis-report.executor";
-export { GenericTaskExecutor } from "./generic-task.executor";
+export { GenericTaskExecutor } from "./generic.executor";

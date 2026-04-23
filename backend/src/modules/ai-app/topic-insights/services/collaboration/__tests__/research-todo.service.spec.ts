@@ -21,7 +21,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResearchTodoService } from "../research-todo.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import { LeaderReviewService } from "../../leader/leader-review.service";
 import { ResearchTodoStatus, ResearchTodoType } from "@prisma/client";
 import { TodoEventType } from "../../../types/collaboration.types";

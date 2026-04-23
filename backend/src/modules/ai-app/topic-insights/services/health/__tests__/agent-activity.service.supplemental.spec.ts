@@ -14,9 +14,9 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AgentActivityService } from "../agent-activity.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AgentActivityType } from "@prisma/client";
-import { getModelDisplayNameMap } from "../../../utils/model-display-name";
+import { getModelDisplayNameMap } from "../../../utils/model-display-name.utils";
 
-jest.mock("../../../utils/model-display-name", () => ({
+jest.mock("../../../utils/model-display-name.utils", () => ({
   getModelDisplayNameMap: jest
     .fn()
     .mockResolvedValue(new Map([["model-001", "GPT-4"]])),

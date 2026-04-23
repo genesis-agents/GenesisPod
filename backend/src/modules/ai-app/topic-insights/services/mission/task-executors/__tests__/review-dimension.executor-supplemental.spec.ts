@@ -12,14 +12,14 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReviewDimensionExecutor } from "../review-dimension.executor";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchEventEmitterService } from "../../../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../../research/event-emitter.service";
 import { ResearchReviewerService } from "../../../collaboration/research-reviewer.service";
 import { AgentActivityService } from "../../../health/agent-activity.service";
 import { DataSourceFetcherService } from "../../../data/data-source-fetcher.service";
 import { ResearchTaskStatus } from "@prisma/client";
 import { ReviewQualityLevel } from "../../../../types/collaboration.types";
 import { resolveResearchDepthConfig } from "../../../../types/research-depth.types";
-import type { TaskExecutionContext } from "../task-executor.interface";
+import type { TaskExecutionContext } from "../executor.interface";
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 

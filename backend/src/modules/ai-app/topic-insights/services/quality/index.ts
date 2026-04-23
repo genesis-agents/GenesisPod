@@ -7,6 +7,6 @@
 export * from "./critique-refine.service";
 export * from "./report-quality-gate.service";
 export * from "./report-quality-trace.service";
-export * from "./defect-scanner";
+export * from "./defect-scanner.service";
 export * from "./section-self-eval.service";
 export * from "./section-remediation.service";

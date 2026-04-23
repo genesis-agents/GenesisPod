@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { DimensionStatus } from "@prisma/client";
-import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/event-emitter.service";
 
 export interface MissionProgress {
   stage:

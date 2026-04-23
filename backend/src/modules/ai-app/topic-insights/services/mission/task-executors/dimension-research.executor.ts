@@ -5,14 +5,14 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { TopicDimension } from "@prisma/client";
-import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import { DimensionMissionService } from "../../dimension/dimension-mission.service";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type {
   ITaskExecutor,
   TaskExecutionContext,
   TaskExecutionResult,
-} from "./task-executor.interface";
+} from "./executor.interface";
 
 @Injectable()
 export class DimensionResearchExecutor implements ITaskExecutor {

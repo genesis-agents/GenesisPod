@@ -198,7 +198,7 @@ describe("stripLLMMetaNotes — new patterns", () => {
 // 3. defect-scanner.ts (countLeakedMetaNotes)
 // ============================================================
 
-import { scanContentDefects } from "../ai-app/topic-insights/services/quality/defect-scanner";
+import { scanContentDefects } from "../ai-app/topic-insights/services/quality/defect-scanner.service";
 
 describe("scanContentDefects — countLeakedMetaNotes new patterns", () => {
   it("scenario 1: contains （不含要点和标题） → leakedMetaNotes >= 1", () => {
@@ -437,17 +437,17 @@ describe("ReportQualityGateService — marketing language replacement", () => {
 import { Test, TestingModule } from "@nestjs/testing";
 import { DimensionMissionService } from "../ai-app/topic-insights/services/dimension/dimension-mission.service";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { ResearchLeaderService } from "../ai-app/topic-insights/services/research/research-leader.service";
+import { ResearchLeaderService } from "../ai-app/topic-insights/services/research/leader.service";
 import { LeaderPlanningService } from "../ai-app/topic-insights/services/leader/leader-planning.service";
 import { LeaderReviewService } from "../ai-app/topic-insights/services/leader/leader-review.service";
 import { SectionWriterService } from "../ai-app/topic-insights/services/dimension/section-writer.service";
 import { DataSourceRouterService } from "../ai-app/topic-insights/services/data/data-source-router.service";
-import { ResearchEventEmitterService } from "../ai-app/topic-insights/services/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../ai-app/topic-insights/services/research/event-emitter.service";
 import { AgentActivityService } from "../ai-app/topic-insights/services/health/agent-activity.service";
 import { DataEnrichmentService } from "../ai-app/topic-insights/services/data/data-enrichment.service";
 import { LeaderToolService } from "../ai-app/topic-insights/services/data/leader-tool.service";
 import { DimensionProgressService } from "../ai-app/topic-insights/services/dimension/dimension-progress.service";
-import { MissionObservabilityService } from "../ai-app/topic-insights/services/mission/mission-observability.service";
+import { MissionObservabilityService } from "../ai-app/topic-insights/services/mission/observability.service";
 // Unused facade imports removed by lint
 
 type SectionPlan = {

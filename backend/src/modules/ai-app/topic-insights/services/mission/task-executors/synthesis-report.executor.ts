@@ -2,8 +2,8 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchTaskStatus } from "@prisma/client";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";
-import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
-import { ReportSynthesisService } from "../../report/report-synthesis.service";
+import { ResearchEventEmitterService } from "../../research/event-emitter.service";
+import { ReportSynthesisService } from "../../report/synthesis.service";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import { AutoDreamSchedulerService } from "@/modules/ai-engine/facade";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
@@ -11,7 +11,7 @@ import type {
   ITaskExecutor,
   TaskExecutionContext,
   TaskExecutionResult,
-} from "./task-executor.interface";
+} from "./executor.interface";
 
 /** Shape of ResearchTask.result (Prisma Json field) for dimension_research tasks */
 interface TaskResultJson {

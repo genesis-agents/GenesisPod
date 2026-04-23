@@ -18,13 +18,13 @@ import {
   type TopicDimension,
 } from "@prisma/client";
 import { LeaderReviewService } from "../leader/leader-review.service";
-import { ResearchLeaderService } from "../research/research-leader.service";
+import { ResearchLeaderService } from "../research/leader.service";
 import {
   SectionWriterService,
   type SectionWriteResult,
   type TemporalContext,
 } from "./section-writer.service";
-import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../research/event-emitter.service";
 import { AgentActivityService } from "../health/agent-activity.service";
 import type { ThinkingPhase } from "../health/agent-activity.service";
 import {

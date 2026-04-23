@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchTaskStatus } from "@prisma/client";
-import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
 import { AgentActivityService } from "../../health/agent-activity.service";
 import { DataSourceFetcherService } from "../../data/data-source-fetcher.service";
@@ -16,7 +16,7 @@ import type {
   ITaskExecutor,
   TaskExecutionContext,
   TaskExecutionResult,
-} from "./task-executor.interface";
+} from "./executor.interface";
 
 /** Shape of task result json for quality_review */
 interface TaskResultJson {

@@ -21,7 +21,7 @@ import {
   extractDefectDetails,
   type ContentDefectScan,
   type DefectDetails,
-} from "./defect-scanner";
+} from "./defect-scanner.service";
 import {
   PROMPT_METADATA,
   type PromptMetadata,

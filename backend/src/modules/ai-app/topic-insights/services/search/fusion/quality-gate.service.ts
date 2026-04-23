@@ -10,7 +10,7 @@ import {
   DataSourceType,
   type AggregatedSearchResult,
 } from "../../../types/data-source.types";
-import type { QualityVerdict, SuggestedAction } from "../search.types";
+import type { QualityVerdict, SuggestedAction } from "../types";
 
 /** Default minimum number of results required to pass the quality gate */
 const DEFAULT_MIN_RESULTS = 5;
@@ -18,7 +18,7 @@ const DEFAULT_MIN_RESULTS = 5;
 /** Minimum fraction of items with publishedAt in the last 6 months to pass freshness check */
 const FRESHNESS_RATIO_THRESHOLD = 0.2;
 
-import { DATA_FRESHNESS } from "../../../config/health-monitoring.config";
+import { DATA_FRESHNESS } from "../../../telemetry/health-monitoring.config";
 
 /** Six months expressed in milliseconds */
 const SIX_MONTHS_MS = DATA_FRESHNESS.SIX_MONTHS_MS;

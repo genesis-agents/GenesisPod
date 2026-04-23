@@ -21,7 +21,7 @@ import {
   type DataSourceResult,
   type AggregatedSearchResult,
 } from "../../../types/data-source.types";
-import type { AdapterSearchResult } from "../search.types";
+import type { AdapterSearchResult } from "../types";
 
 /** Maximum number of items allowed from the same domain */
 const MAX_ITEMS_PER_DOMAIN = 3;

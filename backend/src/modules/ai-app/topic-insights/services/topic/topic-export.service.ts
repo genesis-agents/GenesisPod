@@ -8,7 +8,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { ExportReportDto } from "../../dto";
 import { ExportOrchestratorService } from "@/common/export/services/export-orchestrator.service";
 import { ExportFormat } from "@prisma/client";
-import { ReportSynthesisService } from "../report/report-synthesis.service";
+import { ReportSynthesisService } from "../report/synthesis.service";
 import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 
 /**

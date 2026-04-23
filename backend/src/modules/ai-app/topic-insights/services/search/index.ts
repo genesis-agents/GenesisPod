@@ -6,9 +6,9 @@
  */
 
 // Core
-export { SearchOrchestratorService } from "./search-orchestrator.service";
+export { SearchOrchestratorService } from "./orchestrator.service";
 export { GlobalSourceThrottleService } from "./global-source-throttle.service";
-export { SearchExecutorService } from "./search-executor.service";
+export { SearchExecutorService } from "./executor.service";
 
 // Query
 export { QueryStrategyService } from "./query";
@@ -42,4 +42,4 @@ export {
 } from "./adapters";
 
 // Types
-export * from "./search.types";
+export * from "./types";

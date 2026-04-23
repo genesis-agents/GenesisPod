@@ -21,7 +21,7 @@ import {
 } from "../../types/research.exceptions";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { sanitize } from "../../utils/prompt-sanitizer";
+import { sanitize } from "../../utils/prompt-sanitizer.utils";
 import { stripLLMMetaNotes } from "../../../shared/report-template/pipeline/report-formatting.utils";
 import { extractJsonFromResponse } from "../../utils/extract-json.utils";
 import { formatAnchorContentForPrompt } from "../../utils/event-source-parser.utils";

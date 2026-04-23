@@ -20,7 +20,7 @@ import {
   type LocalToGlobalMap,
 } from "../utils/citation-verifier.utils";
 import { wrapExternalContent } from "../utils/external-content-wrapper.utils";
-import { sanitizeExternalContent } from "../utils/prompt-sanitizer";
+import { sanitizeExternalContent } from "../utils/prompt-sanitizer.utils";
 
 /**
  * 维度研究系统提示词

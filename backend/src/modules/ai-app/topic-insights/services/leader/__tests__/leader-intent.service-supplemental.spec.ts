@@ -25,7 +25,7 @@ import {
   ToolFacade,
   UserIntent,
 } from "@/modules/ai-engine/facade";
-import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import {
   LeaderToolService,
   LeaderActionType,

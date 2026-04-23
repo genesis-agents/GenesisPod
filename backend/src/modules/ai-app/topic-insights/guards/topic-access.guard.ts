@@ -23,7 +23,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import { TopicCollaboratorService } from "../services";
 import { CollaboratorRole } from "../dto/collaborator.dto";
-import { createSecurityLogger } from "../utils/security-audit-logger";
+import { createSecurityLogger } from "../utils/security-audit-logger.utils";
 
 // ==================== Metadata Key ====================
 

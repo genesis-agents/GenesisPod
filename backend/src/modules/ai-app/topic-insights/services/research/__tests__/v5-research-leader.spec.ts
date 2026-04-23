@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "@jest/globals";
-import { ResearchLeaderService } from "../research-leader.service";
+import { ResearchLeaderService } from "../leader.service";
 import { LeaderReviewService } from "../../leader/leader-review.service";
 import type { ResearchHypothesis } from "../../../types/research-depth.types";
 import { createMockAiEngineFacade } from "../../../__tests__/mocks";

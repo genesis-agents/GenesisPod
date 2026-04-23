@@ -20,7 +20,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { KernelContext } from "@/modules/ai-engine/facade";
-import { ResearchEventEmitterService } from "../services/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../services/research/event-emitter.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
 import type {
   MissionAdjusterInput,
@@ -666,7 +666,7 @@ export function buildIdentityContext(params: {
   mode: "fresh" | "incremental";
   cachePrefix?: string;
   /** 目标架构 v2：mission-execution 通过 reconciler 生成，注入给所有下游 */
-  capabilities?: import("../capability/topic-insights-capability.types").TopicInsightsCapabilitySnapshot;
+  capabilities?: import("../capability/types").TopicInsightsCapabilitySnapshot;
 }): PipelineIdentityContext {
   const cfg = DEPTH_CONFIG_DEFAULTS[params.depth];
   void cfg; // currently consumed by Stage impls, referenced here for future hooks

@@ -14,7 +14,7 @@ import {
   type LatencySessionSummary,
 } from "@/modules/ai-engine/facade";
 import { KernelContext } from "@/modules/ai-engine/facade";
-import { RESEARCH_INTERNAL_EVENTS } from "../research/research-event-emitter.service";
+import { RESEARCH_INTERNAL_EVENTS } from "../research/event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DimensionStatus,
@@ -32,9 +32,9 @@ import type {
 } from "@prisma/client";
 import { DimensionMissionService } from "../dimension/dimension-mission.service";
 import { DataSourceRouterService } from "../data/data-source-router.service";
-import { ReportSynthesisService } from "../report/report-synthesis.service";
+import { ReportSynthesisService } from "../report/synthesis.service";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
-import { ResearchLeaderService } from "../research/research-leader.service";
+import { ResearchLeaderService } from "../research/leader.service";
 import { type AgentAssignment } from "../../types/leader.types";
 import { ResearchCheckpointService } from "../health/research-checkpoint.service";
 import { ResearchTodoService } from "../collaboration/research-todo.service";

@@ -5,8 +5,7 @@
  * 使不同能力层级的模型都能产出高质量内容。
  */
 
-import type { TaskProfile } from "@/modules/ai-engine/facade";
-import { ModelTier } from "./model-tier.config";
+import type { TaskProfile, ModelTier } from "@/modules/ai-engine/facade";
 
 export interface TierAdaptation {
   /** 追加到 userPrompt 末尾的额外指令（空字符串=不修改） */
@@ -18,7 +17,7 @@ export interface TierAdaptation {
 }
 
 export const TIER_ADAPTATIONS: Record<ModelTier, TierAdaptation> = {
-  [ModelTier.STRONG]: {
+  STRONG: {
     promptSuffix: [
       "",
       "【高级分析模式】",
@@ -34,7 +33,7 @@ export const TIER_ADAPTATIONS: Record<ModelTier, TierAdaptation> = {
     },
   },
 
-  [ModelTier.STANDARD]: {
+  STANDARD: {
     promptSuffix: "", // 不修改，保持基线行为
     maxEvidenceItems: 0,
     taskProfile: {
@@ -43,7 +42,7 @@ export const TIER_ADAPTATIONS: Record<ModelTier, TierAdaptation> = {
     },
   },
 
-  [ModelTier.BASIC]: {
+  BASIC: {
     promptSuffix: [
       "",
       "【结构化写作模式】",

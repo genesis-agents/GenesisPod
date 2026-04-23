@@ -13,7 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { createConcurrencyLimiter } from "@/common/utils/concurrency.utils";
-import type { ThrottleStats } from "./search.types";
+import type { ThrottleStats } from "./types";
 
 /** Default per-source concurrency limits based on API rate constraints */
 const DEFAULT_CONCURRENCY: Record<string, number> = {

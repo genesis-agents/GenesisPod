@@ -39,11 +39,11 @@ import { DataSourcePlannerService } from "./data-source-planner.service";
 import {
   dataSourceToToolId,
   convertToolsToDataSources,
-} from "../../config/data-source-mapping.config";
+} from "./data-source-mapping.config";
 import { LruMap } from "@/common/utils/lru-map";
 import { RAGFusionService } from "./rag-fusion.service";
 import type { RAGFusionConfig } from "../../types/rag-fusion.types";
-import { IndustryReportSearchAdapter } from "../search/adapters/industry-report-search.adapter";
+import { IndustryReportSearchAdapter } from "../search/adapters/industry-report.adapter";
 
 /**
  * 数据获取选项

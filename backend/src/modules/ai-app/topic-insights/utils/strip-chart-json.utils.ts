@@ -5,8 +5,8 @@
  * separated by parseChartOutput from dimension/report content.
  *
  * Used by:
- * - report-synthesis.service.ts (buildFullReportFromDimensions)
- * - report-generator.service.ts (buildFullReportFromDimensions)
+ * - synthesis.service.ts (buildFullReportFromDimensions)
+ * - generator.service.ts (buildFullReportFromDimensions)
  */
 
 /**
