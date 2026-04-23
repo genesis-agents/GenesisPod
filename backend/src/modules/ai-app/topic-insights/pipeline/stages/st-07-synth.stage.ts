@@ -12,12 +12,8 @@ import {
   HarnessAgentRegistry,
   type SynthesisResult,
   type SynthesizerInput,
-} from "../agents";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+} from "../../harness/agents";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
   SynthStageOutput,

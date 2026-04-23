@@ -13,11 +13,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import { citationDensityCheck } from "../utils";
 import type {
   IntegrateStageOutput,

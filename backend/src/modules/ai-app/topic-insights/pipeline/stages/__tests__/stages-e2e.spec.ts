@@ -22,11 +22,8 @@ import {
   FactCheckStage,
   LatexStage,
 } from "../../stages";
-import { StageRegistry } from "../../pipeline/stage-registry";
-import {
-  PipelineOrchestratorService,
-  buildIdentityContext,
-} from "../../pipeline";
+import { StageRegistry } from "../../stage-registry";
+import { PipelineOrchestratorService, buildIdentityContext } from "../..";
 import {
   DimensionPlannerAgent,
   FactCheckerAgent,
@@ -40,7 +37,7 @@ import {
   SectionReviewerAgent,
   SectionWriterAgent,
   SynthesizerAgent,
-} from "../../agents";
+} from "../../../harness/agents";
 
 describe("Stages · end-to-end (stub mode)", () => {
   const origFlag = process.env.HARNESS_AGENTS_STUB;

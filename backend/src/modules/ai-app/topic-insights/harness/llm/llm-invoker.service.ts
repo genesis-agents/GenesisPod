@@ -22,7 +22,7 @@ import {
   AiObservabilityService,
   type TaskProfile,
 } from "@/modules/ai-engine/facade";
-import { StageSchemaError } from "../pipeline/types";
+import { StageSchemaError } from "../../pipeline/types";
 
 export interface LlmInvokerInput<TOutput> {
   readonly agentId: string;

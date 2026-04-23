@@ -37,12 +37,12 @@ import {
   SessionLatencyTrackerService,
 } from "@/modules/ai-engine/facade";
 import { KernelContext } from "@/modules/ai-engine/facade";
+import { HarnessRolloutService } from "../../../rollout";
 import {
-  HarnessRolloutService,
   PipelineOrchestratorService,
   buildIdentityContext,
   type ResearchDepth as HarnessResearchDepth,
-} from "../../../harness";
+} from "../../../pipeline";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type { ResearchDepth } from "../../../types/research-depth.types";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";

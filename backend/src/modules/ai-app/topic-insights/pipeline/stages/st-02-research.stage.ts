@@ -24,11 +24,7 @@ async function getPLimit(): Promise<(concurrency: number) => LimitFn> {
   }
   return pLimitModule;
 }
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   DimensionResearchOutcome,
   PlanStageOutput,

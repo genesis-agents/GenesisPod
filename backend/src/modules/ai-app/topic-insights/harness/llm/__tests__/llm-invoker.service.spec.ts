@@ -15,7 +15,7 @@ import {
   __extractJsonForTests as extractJson,
 } from "../llm-invoker.service";
 import type { AiChatService } from "@/modules/ai-engine/facade";
-import { StageSchemaError } from "../../pipeline/types";
+import { StageSchemaError } from "../../../pipeline/types";
 
 describe("extractJson", () => {
   it("纯 JSON", () => {

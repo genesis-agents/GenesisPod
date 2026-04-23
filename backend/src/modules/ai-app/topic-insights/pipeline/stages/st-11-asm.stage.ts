@@ -12,11 +12,7 @@ import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { numberSubHeadings } from "../utils";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { AssemblyStageOutput, SynthStageOutput } from "./stage-context";
 
 @Injectable()

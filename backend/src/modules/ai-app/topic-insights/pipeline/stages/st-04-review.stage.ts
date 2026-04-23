@@ -9,12 +9,8 @@ import {
   HarnessAgentRegistry,
   type SectionReview,
   type SectionReviewerInput,
-} from "../agents";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+} from "../../harness/agents";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { ReviewStageOutput, WriteStageOutput } from "./stage-context";
 
 @Injectable()

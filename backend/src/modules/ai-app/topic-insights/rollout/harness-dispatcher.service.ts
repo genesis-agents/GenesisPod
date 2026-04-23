@@ -22,7 +22,7 @@ import {
   HarnessAgentRegistry,
   type LeaderDispatcherInput,
   type LeaderDispatchDecision,
-} from "../agents";
+} from "../harness/agents";
 import { buildIdentityContext } from "../pipeline";
 
 export interface DispatchRequest {

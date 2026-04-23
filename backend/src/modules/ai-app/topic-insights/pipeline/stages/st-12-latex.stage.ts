@@ -15,11 +15,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { validateLatexDelimiters } from "../utils";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { AssemblyStageOutput, LatexStageOutput } from "./stage-context";
 
 @Injectable()

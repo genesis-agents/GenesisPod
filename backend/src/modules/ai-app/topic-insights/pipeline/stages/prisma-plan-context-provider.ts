@@ -13,7 +13,7 @@ import { AIModelType } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { PlanContextProvider } from "./st-01-plan.stage";
-import type { PipelineIdentityContext } from "../pipeline/types";
+import type { PipelineIdentityContext } from "../types";
 
 const TOPIC_TYPE_WHITELIST = [
   "MACRO",

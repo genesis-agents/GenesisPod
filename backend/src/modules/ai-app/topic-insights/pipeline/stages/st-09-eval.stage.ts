@@ -15,11 +15,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   EvalStageOutput,
   IntegrateStageOutput,

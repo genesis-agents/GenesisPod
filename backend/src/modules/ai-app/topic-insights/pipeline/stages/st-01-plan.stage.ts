@@ -12,12 +12,8 @@ import {
   HarnessAgentRegistry,
   type LeaderPlannerInput,
   type LeaderPlan,
-} from "../agents";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+} from "../../harness/agents";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { PlanStageOutput } from "./stage-context";
 
 /**

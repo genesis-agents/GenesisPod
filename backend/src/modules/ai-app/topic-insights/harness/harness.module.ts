@@ -35,12 +35,12 @@ import {
   SynthesizerAgent,
 } from "./agents";
 import { LlmInvokerService } from "./llm";
-import { PipelineOrchestratorService, StageRegistry } from "./pipeline";
+import { PipelineOrchestratorService, StageRegistry } from "../pipeline";
 import {
   HarnessDispatcherService,
   HarnessHealthController,
   HarnessRolloutService,
-} from "./rollout";
+} from "../rollout";
 import {
   AssemblyStage,
   CleanupStage,
@@ -59,7 +59,7 @@ import {
   SynthStage,
   WriteStage,
   PlanContextProvider,
-} from "./stages";
+} from "../pipeline/stages";
 
 const AGENTS = [
   // Core

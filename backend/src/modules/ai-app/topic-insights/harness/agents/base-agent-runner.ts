@@ -17,7 +17,7 @@
 import { Logger } from "@nestjs/common";
 import type { z } from "zod";
 import type { TaskProfile } from "@/modules/ai-engine/facade";
-import { StageSchemaError } from "../pipeline/types";
+import { StageSchemaError } from "../../pipeline/types";
 import {
   type AccessToolId,
   type AgentRunContext,

@@ -11,12 +11,8 @@ import {
   HarnessAgentRegistry,
   type DimensionMeta,
   type MetaExtractorInput,
-} from "../agents";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+} from "../../harness/agents";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
   ResearchStageOutput,

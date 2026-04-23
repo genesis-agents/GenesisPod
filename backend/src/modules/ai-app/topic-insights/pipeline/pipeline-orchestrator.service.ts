@@ -20,7 +20,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { KernelContext } from "@/modules/ai-engine/facade";
-import { ResearchEventEmitterService } from "../../services/core/research/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../services/core/research/research-event-emitter.service";
 import {
   HarnessAgentRegistry,
   type MissionAdjusterInput,
@@ -28,12 +28,12 @@ import {
   type RemediatedSection,
   type SectionRemediatorInput,
   type SectionResult,
-} from "../agents";
+} from "../harness/agents";
 import type {
   QualityGateStageOutput,
   ReviewStageOutput,
   WriteStageOutput,
-} from "../stages/stage-context";
+} from "./stages/stage-context";
 import {
   BudgetExhaustedError,
   DEPTH_CONFIG_DEFAULTS,

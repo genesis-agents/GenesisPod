@@ -19,12 +19,8 @@ import {
   type HypothesisVerifierResult,
   type FactExtractorInput,
   type FactExtractorResult,
-} from "../agents";
-import type {
-  PipelineIdentityContext,
-  Stage,
-  StageResults,
-} from "../pipeline/types";
+} from "../../harness/agents";
+import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   CogLoopStageOutput,
   IntegrateStageOutput,

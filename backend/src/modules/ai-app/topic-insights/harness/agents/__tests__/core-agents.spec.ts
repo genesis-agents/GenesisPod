@@ -10,7 +10,7 @@
  * - Real LLM 模式（STUB=0）→ throw "not yet wired"
  */
 
-import { buildIdentityContext } from "../../pipeline";
+import { buildIdentityContext } from "../../../pipeline";
 import { canUseTool, type AgentRunContext } from "../types";
 import {
   LeaderPlannerAgent,

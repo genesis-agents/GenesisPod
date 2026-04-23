@@ -12,7 +12,7 @@ import type {
   SectionResult,
   SectionReview,
   SynthesisResult,
-} from "../agents/schemas";
+} from "../../harness/agents/schemas";
 
 // ST-00-INIT
 export interface InitStageOutput {

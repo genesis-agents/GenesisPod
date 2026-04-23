@@ -15,7 +15,7 @@
  */
 
 import type { z } from "zod";
-import type { PipelineIdentityContext } from "../pipeline/types";
+import type { PipelineIdentityContext } from "../../pipeline/types";
 
 /** Access matrix tool id（对应 02 文档；后续 PR 接真 ToolRegistry 时强约束） */
 export type AccessToolId =

@@ -7,7 +7,7 @@
  */
 
 import type { AiChatService } from "@/modules/ai-engine/facade";
-import { buildIdentityContext } from "../../pipeline";
+import { buildIdentityContext } from "../../../pipeline";
 import { LlmInvokerService } from "../../llm";
 import {
   LeaderPlannerAgent,
