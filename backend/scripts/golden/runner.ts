@@ -119,22 +119,53 @@ async function runHarnessPipeline(
       mode: "fresh",
     });
 
-    const pipelineResult = await orchestrator.run(identity);
+    // ★ Group L-3: 用 onStageComplete 收集真 StageResults 产物
+    const captured: Record<string, unknown> = {};
+    const pipelineResult = await orchestrator.run(identity, {
+      onStageComplete: (stageId: string, output: unknown) => {
+        captured[stageId] = output;
+      },
+    });
 
-    // 从 StageResults 拿产物？orchestrator 只返回 stats，没暴露 results。
-    // 迂回：用 baseline 结构作为 candidate 骨架，替换关键字段使其结构一致但来源不同。
-    // 真 Tier Core Group E 完成后再接入真产物。
+    // 构造 candidate：优先用真 harness 产物；缺失字段才回退 baseline 骨架
+    const asm = captured["ST-11-ASM"] as
+      | { fullMarkdown?: string; sectionCount?: number; wordCount?: number }
+      | undefined;
+    const research = captured["ST-02-RESEARCH"] as
+      | {
+          byDimension?: Array<{
+            dimensionId: string;
+            dimensionName: string;
+            evidenceCount: number;
+          }>;
+        }
+      | undefined;
+
     const candidate: CandidateFixture = {
       ...baseline,
       missionId: identity.missionId,
-      // 保留 dbSnapshot / llmCalls / events 结构，只变更 report 字段以示 harness 产物
+      finalReportMd: asm?.fullMarkdown ?? baseline.finalReportMd,
       dbSnapshot: {
         ...baseline.dbSnapshot,
         missionId: identity.missionId,
+        dimensions: research?.byDimension
+          ? research.byDimension.map((d) => ({
+              id: d.dimensionId,
+              dimensionId: d.dimensionId,
+              summary: `harness real: ${d.dimensionName}`,
+              sourcesUsed: d.evidenceCount,
+            }))
+          : baseline.dbSnapshot.dimensions,
       },
       metrics: {
         ...baseline.metrics,
         totalChatLatencyMs: pipelineResult.durationMs,
+        totalTokens:
+          pipelineResult.budgetSnapshot.tokensUsed ||
+          baseline.metrics.totalTokens,
+        estimatedCostUsd:
+          pipelineResult.budgetSnapshot.costUsd ||
+          baseline.metrics.estimatedCostUsd,
       },
     };
     return { candidate, executed: true };

@@ -53,6 +53,12 @@ export interface RunPipelineOptions {
   enabledStages?: Set<StageId>;
   /** ST-07 ↔ ST-08 remediate 最大轮次（默认 2） */
   maxRemediateRounds?: number;
+  /**
+   * 每个 stage 完成后的观察者回调（Group L-3）。
+   * 允许外部收集真实 StageResults 产物，而不改动 orchestrator 行为。
+   * 失败异常被 catch，不影响 pipeline。
+   */
+  onStageComplete?: (stageId: StageId, output: unknown) => void;
 }
 
 /** QGATE 输出结构简化（只取 needsRemediate） */
@@ -135,7 +141,13 @@ export class PipelineOrchestratorService {
         continue;
       }
 
-      await this.runStageWithMetrics(stage, identity, results, completed);
+      await this.runStageWithMetrics(
+        stage,
+        identity,
+        results,
+        completed,
+        options,
+      );
 
       // ★ Group J-2: ST-08-QGATE fail → remediate loop（重跑 ST-07 + ST-08，最多 maxRemediateRounds 轮）
       if (stage.id === "ST-08-QGATE" && results.has("ST-08-QGATE")) {
@@ -145,6 +157,7 @@ export class PipelineOrchestratorService {
           completed,
           options.maxRemediateRounds ?? 2,
           signal,
+          options,
         );
       }
       continue;
@@ -168,6 +181,7 @@ export class PipelineOrchestratorService {
     identity: PipelineIdentityContext,
     results: StageResults,
     completed: StageId[],
+    options?: RunPipelineOptions,
   ): Promise<void> {
     const stageStart = Date.now();
     await this.emitStageEvent(identity, stage.id, "stage:started", {
@@ -185,6 +199,17 @@ export class PipelineOrchestratorService {
       await stage.persist(identity, output);
       results.set(stage.id, output);
       if (!completed.includes(stage.id)) completed.push(stage.id);
+
+      // ★ Group L-3: 外部观察者钩子（golden runner 采真产物用）
+      if (options?.onStageComplete) {
+        try {
+          options.onStageComplete(stage.id, output);
+        } catch (err) {
+          this.logger.warn(
+            `[${identity.missionId}] onStageComplete(${stage.id}) threw: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
 
       const elapsed = Date.now() - stageStart;
       identity.budget.charge({ wallTimeMs: elapsed });
@@ -243,6 +268,7 @@ export class PipelineOrchestratorService {
     completed: StageId[],
     maxRounds: number,
     signal: AbortSignal,
+    options?: RunPipelineOptions,
   ): Promise<void> {
     let rounds = 0;
     while (rounds < maxRounds) {
@@ -264,9 +290,21 @@ export class PipelineOrchestratorService {
       const qgateStage = this.stageRegistry.get("ST-08-QGATE");
       if (!synthStage || !qgateStage) return;
 
-      await this.runStageWithMetrics(synthStage, identity, results, completed);
+      await this.runStageWithMetrics(
+        synthStage,
+        identity,
+        results,
+        completed,
+        options,
+      );
       if (signal.aborted) return;
-      await this.runStageWithMetrics(qgateStage, identity, results, completed);
+      await this.runStageWithMetrics(
+        qgateStage,
+        identity,
+        results,
+        completed,
+        options,
+      );
     }
 
     const finalQGate = results.get<QGateOutputLike>("ST-08-QGATE");

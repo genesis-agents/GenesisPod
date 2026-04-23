@@ -1,12 +1,11 @@
 /**
- * LLM judge — 10 维 rubric 评分（Group K-2 启用真 AG-13-RE 路径）
+ * LLM judge — 10 维 rubric 评分
  *
- * 路径：
+ * 路径（Group L-1 完整打通）：
  * - GOLDEN_JUDGE_ENABLED !== '1' → 返回 enabled=false skip
- * - stub 默认：调 AG-13-RE 的 stub 路径（无需真 LLM）
- * - 真实 judge：apiKey + HARNESS_AGENTS_STUB=0 → 调 AG-13-RE real LLM path
- *
- * 独立 3 次取中位数（以减小单次 LLM 随机性）。
+ * - HARNESS_AGENTS_STUB=1（default）→ AG-13-RE stub 判分（deterministic）
+ * - HARNESS_AGENTS_STUB=0 + apiKey → 启动 NestApplicationContext 拿真 invoker，
+ *   AG-13-RE 走真 Claude Opus-4.7 路径，独立 3 次取中位数
  */
 
 import type { BaselineFixture, JudgeResult, QualityRubric } from "./types";
@@ -55,30 +54,24 @@ export async function judge(
     };
   }
 
-  // 动态 import AG-13-RE（避免 CLI 启动时构造 DI）
-  const { ReportEvaluatorAgent, LlmInvokerService } =
+  const { ReportEvaluatorAgent } =
     await import("../../src/modules/ai-app/topic-insights/harness/agents/index");
   const { buildIdentityContext } =
     await import("../../src/modules/ai-app/topic-insights/harness/pipeline/index");
 
-  const useRealLlm = options.apiKey && process.env.HARNESS_AGENTS_STUB === "0";
+  const stubMode = process.env.HARNESS_AGENTS_STUB !== "0";
+  const useRealLlm = !stubMode && !!options.apiKey;
 
-  // stub 模式下无需 AiChatService，invoker 传 undefined；agent 走 stubOutput
-  let invoker: InstanceType<typeof LlmInvokerService> | undefined;
+  // 构造 agent：real 模式从 NestApplicationContext 拿 LlmInvoker；否则 stub
+  let agent: InstanceType<typeof ReportEvaluatorAgent>;
   if (useRealLlm) {
-    // 真 LLM 调用需要一个 AiChatService 实例。CLI 环境我们无法
-    // 便捷拿到完整 Nest DI；真实 judge 建议走 `npm run test:golden`
-    // 启动一个 NestApplicationContext。此处如果 apiKey 存在但 DI 未
-    // 就绪，fallback 到 stub 模式并记录原因。
-    return {
-      enabled: false,
-      skippedReason:
-        "real LLM judge requires NestApplicationContext (not wired in CLI); use stub mode",
-    };
+    const { createHarnessCLIContext } = await import("./harness-context");
+    const ctx = await createHarnessCLIContext();
+    agent = new ReportEvaluatorAgent(ctx.llmInvoker);
+  } else {
+    agent = new ReportEvaluatorAgent();
   }
 
-  // Stub mode：独立 3 次取中位（stub 是 deterministic 所以 3 次相同，median 简化）
-  const agent = new ReportEvaluatorAgent(invoker);
   const identity = buildIdentityContext({
     missionId: "golden-judge",
     topicId: baseline.topicId,

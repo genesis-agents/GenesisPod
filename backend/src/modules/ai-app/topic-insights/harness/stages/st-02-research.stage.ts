@@ -12,6 +12,18 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+// p-limit v5 is ESM-only; use dynamic import to stay CommonJS-compatible
+type LimitFn = <T>(fn: () => Promise<T>) => Promise<T>;
+let pLimitModule: ((concurrency: number) => LimitFn) | null = null;
+async function getPLimit(): Promise<(concurrency: number) => LimitFn> {
+  if (!pLimitModule) {
+    const mod = (await import("p-limit")) as {
+      default: (concurrency: number) => LimitFn;
+    };
+    pLimitModule = mod.default;
+  }
+  return pLimitModule;
+}
 import type {
   PipelineIdentityContext,
   Stage,
@@ -23,6 +35,9 @@ import type {
   ResearchStageOutput,
 } from "./stage-context";
 import { SearchOrchestratorService } from "../../services/search/search-orchestrator.service";
+
+/** 并发上限（同时查询的维度数），防压垮上游搜索 API */
+const DIMENSION_CONCURRENCY = 3;
 
 /**
  * Prisma 模型的最小投影（避免 harness 直接 import Prisma types 导致耦合）
@@ -105,100 +120,114 @@ export class ResearchStage implements Stage<
       );
     }
 
-    const outcomes: DimensionResearchOutcome[] = [];
-    for (const planDim of input.plan.dimensions) {
-      if (signal.aborted) {
-        throw new DOMException(`[${this.id}] aborted mid-dim`, "AbortError");
-      }
+    // ★ Group L-2: 维度并行（有限并发）执行搜索 + evidence 写入
+    const pLimitFactory = await getPLimit();
+    const limit = pLimitFactory(DIMENSION_CONCURRENCY);
+    const tasks = input.plan.dimensions.map((planDim) =>
+      limit(() => this.researchOneDimension(identity, topic, planDim, signal)),
+    );
+    const outcomes = await Promise.all(tasks);
 
-      const dimRow = (await this.prisma.topicDimension.findUnique({
-        where: { id: planDim.id },
-      })) as TopicDimensionLite | null;
-      if (!dimRow) {
+    return { byDimension: outcomes };
+  }
+
+  /**
+   * 研究单个维度：DB findUnique → search → evidence 写入。
+   * 返回 DimensionResearchOutcome（失败 / 不存在都返回 0 evidence，不抛）。
+   */
+  private async researchOneDimension(
+    identity: PipelineIdentityContext,
+    topic: TopicLite,
+    planDim: PlanStageOutput["plan"]["dimensions"][number],
+    signal: AbortSignal,
+  ): Promise<DimensionResearchOutcome> {
+    if (signal.aborted) {
+      throw new DOMException(`[${this.id}] aborted mid-dim`, "AbortError");
+    }
+    if (!this.prisma || !this.searchOrchestrator) {
+      return {
+        dimensionId: planDim.id,
+        dimensionName: planDim.name,
+        evidenceIds: [],
+        evidenceCount: 0,
+      };
+    }
+
+    const dimRow = (await this.prisma.topicDimension.findUnique({
+      where: { id: planDim.id },
+    })) as TopicDimensionLite | null;
+    if (!dimRow) {
+      this.logger.warn(
+        `[${this.id}] dimension ${planDim.id} not in DB — skipping search`,
+      );
+      return {
+        dimensionId: planDim.id,
+        dimensionName: planDim.name,
+        evidenceIds: [],
+        evidenceCount: 0,
+      };
+    }
+
+    const searchResult = await this.searchOrchestrator
+      .search(dimRow as never, topic as never)
+      .catch((err: unknown) => {
         this.logger.warn(
-          `[${this.id}] dimension ${planDim.id} not in DB — skipping search`,
+          `[${this.id}] search failed for dim=${planDim.name}: ${err instanceof Error ? err.message : String(err)}`,
         );
-        outcomes.push({
-          dimensionId: planDim.id,
-          dimensionName: planDim.name,
-          evidenceIds: [],
-          evidenceCount: 0,
-        });
-        continue;
-      }
+        return null;
+      });
 
-      const searchResult = await this.searchOrchestrator
-        // 这里的 topic / dimension 都是 DB 实际行（非 stub 数据）
-        .search(dimRow as never, topic as never)
+    if (!searchResult) {
+      return {
+        dimensionId: planDim.id,
+        dimensionName: planDim.name,
+        evidenceIds: [],
+        evidenceCount: 0,
+      };
+    }
+
+    const items = searchResult.scoredItems
+      ? searchResult.scoredItems.map((s) => ({
+          item: s.item,
+          credibilityScore: Math.round(s.credibilityScore * 100),
+        }))
+      : searchResult.items.map((item) => ({ item, credibilityScore: 50 }));
+
+    const evidenceIds: string[] = [];
+    let citationIndex = 1;
+    for (const { item, credibilityScore } of items) {
+      if (signal.aborted) break;
+      const created = await this.prisma.topicEvidence
+        .create({
+          data: {
+            reportId: identity.reportId,
+            analysisId: null,
+            title: item.title.slice(0, 500),
+            url: item.url,
+            domain: item.domain ?? null,
+            snippet: item.snippet ?? null,
+            publishedAt: item.publishedAt ?? null,
+            sourceType: item.sourceType,
+            credibilityScore,
+            citationIndex: citationIndex++,
+          },
+          select: { id: true },
+        })
         .catch((err: unknown) => {
           this.logger.warn(
-            `[${this.id}] search failed for dim=${planDim.name}: ${err instanceof Error ? err.message : String(err)}`,
+            `[${this.id}] evidence create failed url=${item.url}: ${err instanceof Error ? err.message : String(err)}`,
           );
           return null;
         });
-
-      if (!searchResult) {
-        outcomes.push({
-          dimensionId: planDim.id,
-          dimensionName: planDim.name,
-          evidenceIds: [],
-          evidenceCount: 0,
-        });
-        continue;
-      }
-
-      // 写 TopicEvidence（scoredItems 含 credibility 走优先；没有则走 items）
-      const items = searchResult.scoredItems
-        ? searchResult.scoredItems.map((s) => ({
-            item: s.item,
-            credibilityScore: Math.round(s.credibilityScore * 100),
-          }))
-        : searchResult.items.map((item) => ({ item, credibilityScore: 50 }));
-
-      const evidenceIds: string[] = [];
-      let citationIndex = 1;
-      for (const { item, credibilityScore } of items) {
-        const created = await this.prisma.topicEvidence
-          .create({
-            data: {
-              reportId: identity.reportId,
-              analysisId: null, // ST-05 之前 DimensionAnalysis 还没建
-              title: item.title.slice(0, 500),
-              url: item.url,
-              domain: item.domain ?? null,
-              snippet: item.snippet ?? null,
-              publishedAt: item.publishedAt ?? null,
-              sourceType: item.sourceType,
-              credibilityScore,
-              citationIndex: citationIndex++,
-            },
-            select: { id: true },
-          })
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `[${this.id}] evidence create failed url=${item.url}: ${err instanceof Error ? err.message : String(err)}`,
-            );
-            return null;
-          });
-        if (created) evidenceIds.push(created.id);
-      }
-
-      // 原则 6：evidenceCount 从 DB count 读
-      const dbCount = await this.prisma.topicEvidence.count({
-        where: { reportId: identity.reportId },
-      });
-      void dbCount; // 当前还没按 dimension 独立 count（需 analysisId），
-      // 暂用本次写入的数量；ST-05 会重新按 DimensionAnalysis 挂载
-
-      outcomes.push({
-        dimensionId: planDim.id,
-        dimensionName: planDim.name,
-        evidenceIds,
-        evidenceCount: evidenceIds.length,
-      });
+      if (created) evidenceIds.push(created.id);
     }
 
-    return { byDimension: outcomes };
+    return {
+      dimensionId: planDim.id,
+      dimensionName: planDim.name,
+      evidenceIds,
+      evidenceCount: evidenceIds.length,
+    };
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
