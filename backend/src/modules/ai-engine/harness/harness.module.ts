@@ -26,6 +26,7 @@ import {
 } from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
 import { AgentFactory } from "./core/agent-factory";
+import { SpecAgentRegistry } from "./core/spec-agent-registry";
 import { HookRegistry } from "./core/hook-registry";
 import { ReActLoop } from "./loop/react-loop";
 import { ToolInvoker } from "./executor/tool-invoker";
@@ -83,11 +84,13 @@ import { AiEngineMemoryModule } from "../ai-engine-memory.module";
 
     // Core
     AgentFactory,
+    SpecAgentRegistry,
     HarnessFacade,
   ],
   exports: [
     HarnessFacade,
     AgentFactory,
+    SpecAgentRegistry,
     LlmExecutor,
     SkillRegistry,
     ContextManager,

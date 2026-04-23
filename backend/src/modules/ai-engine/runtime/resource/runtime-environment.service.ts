@@ -20,6 +20,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AgentRegistry } from "../../agents/registry/agent-registry";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
+import { SpecAgentRegistry } from "../../harness/core/spec-agent-registry";
 import type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -45,6 +46,7 @@ export class RuntimeEnvironmentService {
     @Optional() private readonly agentRegistry?: AgentRegistry,
     @Optional() private readonly toolRegistry?: ToolRegistry,
     @Optional() private readonly skillRegistry?: SkillRegistry,
+    @Optional() private readonly specAgentRegistry?: SpecAgentRegistry,
   ) {
     // P1-5: registry @Optional 是为了单元测试（没完整 DI 图）简单；
     // 生产环境（AppModule 完整组装）下这些必须到位，否则 snapshot 数据残缺。
@@ -222,12 +224,23 @@ export class RuntimeEnvironmentService {
   }
 
   private discoverAgents(): string[] {
-    if (!this.agentRegistry) return [];
-    try {
-      return [...this.agentRegistry.getAllIds()];
-    } catch {
-      return [];
+    // 合并 legacy AgentRegistry（plan-based agents）+ 新 SpecAgentRegistry（spec agents）
+    const ids = new Set<string>();
+    if (this.agentRegistry) {
+      try {
+        for (const id of this.agentRegistry.getAllIds()) ids.add(id);
+      } catch {
+        // ignore
+      }
     }
+    if (this.specAgentRegistry) {
+      try {
+        for (const id of this.specAgentRegistry.getAllIds()) ids.add(id);
+      } catch {
+        // ignore
+      }
+    }
+    return [...ids];
   }
 
   private discoverTools(): Promise<RuntimeToolCapability[]> {

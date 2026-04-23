@@ -20,10 +20,12 @@ import type {
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
 import { HarnessedAgent } from "./harnessed-agent";
+import { SpecBasedAgent } from "./spec-based-agent";
 import { ReActLoop } from "../loop/react-loop";
 import { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 import { SkillActivator } from "../skills/skill-activator";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
+import { LlmExecutor } from "../executor/llm-executor";
 
 @Injectable()
 export class AgentFactory {
@@ -35,8 +37,25 @@ export class AgentFactory {
     @Optional() private readonly memoryBridge?: MemoryBridge,
     @Optional() private readonly skillActivator?: SkillActivator,
     @Optional() private readonly checkpointService?: CheckpointService,
+    @Optional() private readonly llmExecutor?: LlmExecutor,
   ) {
     this.defaultLoop = reactLoop;
+  }
+
+  /**
+   * ★ 目标架构 v2：从声明式 IAgentSpec 创建 SpecBasedAgent。
+   * Spec 必须包含 outputSchema 或 stubFn 之一（否则使用 createAgent 走 ReActLoop）。
+   */
+  createSpecAgent<TInput, TOutput>(
+    spec: IAgentSpec<TInput, TOutput>,
+  ): SpecBasedAgent<TInput, TOutput> {
+    if (!this.llmExecutor) {
+      throw new Error(
+        "LlmExecutor not available — cannot create spec agent. Ensure AiEngineHarnessModule is imported.",
+      );
+    }
+    const id = spec.identity.role.id;
+    return new SpecBasedAgent<TInput, TOutput>(id, spec, this.llmExecutor);
   }
 
   /**

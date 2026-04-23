@@ -21,6 +21,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineToolsModule } from "../../ai-engine-tools.module";
 import { AiEngineSkillsModule } from "../../ai-engine-skills.module";
 import { AiEngineOrchestrationModule } from "../../ai-engine-orchestration.module";
+import { HarnessModule as L2HarnessModule } from "../../harness/harness.module";
 import { ResourceManagerService } from "./resource-manager.service";
 import { CircuitBreakerService } from "./circuit-breaker.service";
 import { ConstraintEngine } from "./constraint-engine";
@@ -45,12 +46,13 @@ const RUNTIME_RESOURCE_PROVIDERS = [
 @Module({
   imports: [
     PrismaModule,
-    // v2（P1-5）引入三个 registry 模块，让 RuntimeEnvironmentService 能真正看到
-    // L2 AgentRegistry / ToolRegistry / SkillRegistry。用 forwardRef 解决构造期
-    // 模块加载顺序问题（AiEngineOrchestrationModule 内部依赖 Tools/Skills）。
+    // v2（P1-5 / P2-2）引入四个 registry 模块，让 RuntimeEnvironmentService 能看到
+    // 全部 L2 能力：legacy AgentRegistry + ToolRegistry + SkillRegistry +
+    // 新的 SpecAgentRegistry（spec-driven agents）。
     forwardRef(() => AiEngineToolsModule),
     forwardRef(() => AiEngineSkillsModule),
     forwardRef(() => AiEngineOrchestrationModule),
+    forwardRef(() => L2HarnessModule),
   ],
   providers: RUNTIME_RESOURCE_PROVIDERS,
   exports: RUNTIME_RESOURCE_PROVIDERS,

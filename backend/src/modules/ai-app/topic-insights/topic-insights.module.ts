@@ -10,6 +10,11 @@ import {
   AgentRegistry,
   TeamRegistry,
 } from "../../ai-engine/facade";
+import {
+  AgentFactory as HarnessAgentFactory,
+  SpecAgentRegistry,
+} from "../../ai-engine/harness";
+import { TOPIC_INSIGHTS_AGENT_SPECS } from "./agents-spec";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
@@ -325,6 +330,9 @@ export class TopicInsightsModule implements OnModuleInit {
     // 是隐蔽的生产事故源。因此不使用 @Optional — 缺失即启动失败。
     private readonly agentRegistry: AgentRegistry,
     private readonly teamRegistry: TeamRegistry,
+    // ★ P2-2 目标架构：17 agent spec → L2 AgentFactory → SpecAgentRegistry
+    private readonly harnessAgentFactory: HarnessAgentFactory,
+    private readonly specAgentRegistry: SpecAgentRegistry,
   ) {}
 
   async onModuleInit() {
@@ -350,5 +358,23 @@ export class TopicInsightsModule implements OnModuleInit {
     this.logger.log("Registered TopicInsightsAgent");
     this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
     this.logger.log("Registered TOPIC_INSIGHTS team config");
+
+    // ★ P2-2 目标架构：17 个 topic-insights agent 从 spec 构造，注册到 L2 SpecAgentRegistry
+    // 后续 pipeline stage（P3-1 后）从这里 .get(id).executeSpec(input) 调用。
+    let registered = 0;
+    for (const spec of TOPIC_INSIGHTS_AGENT_SPECS) {
+      try {
+        const agent = this.harnessAgentFactory.createSpecAgent(spec);
+        this.specAgentRegistry.register(agent);
+        registered += 1;
+      } catch (err) {
+        this.logger.error(
+          `Failed to register spec agent ${spec.identity.role.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    this.logger.log(
+      `Registered ${registered}/${TOPIC_INSIGHTS_AGENT_SPECS.length} topic-insights spec agents to L2 SpecAgentRegistry`,
+    );
   }
 }

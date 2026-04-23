@@ -10,3 +10,15 @@
 export * from "./abstractions";
 export { HarnessFacade } from "./facade";
 export { HarnessModule } from "./harness.module";
+export { AgentFactory } from "./core/agent-factory";
+export { SpecBasedAgent } from "./core/spec-based-agent";
+export { SpecAgentRegistry } from "./core/spec-agent-registry";
+export {
+  LlmExecutor,
+  SchemaRetryExhaustedError,
+  StubNotConfiguredError,
+} from "./executor/llm-executor";
+export type {
+  LlmExecutorInput,
+  LlmExecutorResult,
+} from "./executor/llm-executor";
