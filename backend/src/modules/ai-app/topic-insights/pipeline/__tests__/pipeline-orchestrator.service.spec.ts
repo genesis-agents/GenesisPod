@@ -205,35 +205,45 @@ describe("PipelineOrchestratorService", () => {
   describe("AG-16-MA runtime integration", () => {
     function mkAgentRegistryWithAdjuster(
       decision: "continue" | "extend_budget" | "downgrade_depth" | "abort",
-      runSpy?: jest.Mock,
-    ): import("../../agents").HarnessAgentRegistry {
-      const run =
-        runSpy ??
+      execSpy?: jest.Mock,
+    ) {
+      const executeSpec =
+        execSpy ??
         jest.fn().mockResolvedValue({
           output: {
             decision,
             reason: "test reason exceeds min length",
             recommendedActions: [],
           },
+          state: "completed",
+          iterations: 1,
           tokensUsed: 0,
           costUsd: 0,
+          model: "stub",
+          wallTimeMs: 0,
         });
       return {
-        get: jest.fn((id: string) => (id === "AG-16-MA" ? { run } : undefined)),
-      } as unknown as import("../../agents").HarnessAgentRegistry;
+        get: jest.fn((id: string) =>
+          id === "AG-16-MA" ? { executeSpec } : undefined,
+        ),
+      } as any;
     }
 
     it("QGATE 低分 → 咨询 AG-16-MA（一次）", async () => {
-      const runSpy = jest.fn().mockResolvedValue({
+      const execSpy = jest.fn().mockResolvedValue({
         output: {
           decision: "continue",
           reason: "score ok but borderline",
           recommendedActions: [],
         },
+        state: "completed",
+        iterations: 1,
         tokensUsed: 0,
         costUsd: 0,
+        model: "stub",
+        wallTimeMs: 0,
       });
-      const agentRegistry = mkAgentRegistryWithAdjuster("continue", runSpy);
+      const agentRegistry = mkAgentRegistryWithAdjuster("continue", execSpy);
       orchestrator = new PipelineOrchestratorService(
         registry,
         undefined,
@@ -253,9 +263,9 @@ describe("PipelineOrchestratorService", () => {
       );
 
       await orchestrator.run(ctx());
-      expect(runSpy).toHaveBeenCalledTimes(1);
-      const args = runSpy.mock.calls[0][0];
-      expect(args.input.qualityScore).toBe(40);
+      expect(execSpy).toHaveBeenCalledTimes(1);
+      const input = execSpy.mock.calls[0][0];
+      expect(input.qualityScore).toBe(40);
     });
 
     it("decision=abort → abort controller + next run 抛 AbortError", async () => {
@@ -318,8 +328,8 @@ describe("PipelineOrchestratorService", () => {
     });
 
     it("QGATE 分 >= 阈值 且未降级 → 不咨询", async () => {
-      const runSpy = jest.fn();
-      const agentRegistry = mkAgentRegistryWithAdjuster("continue", runSpy);
+      const execSpy = jest.fn();
+      const agentRegistry = mkAgentRegistryWithAdjuster("continue", execSpy);
       orchestrator = new PipelineOrchestratorService(
         registry,
         undefined,
@@ -338,12 +348,12 @@ describe("PipelineOrchestratorService", () => {
         }),
       );
       await orchestrator.run(ctx());
-      expect(runSpy).not.toHaveBeenCalled();
+      expect(execSpy).not.toHaveBeenCalled();
     });
 
     it("AG-16-MA 运行失败 → 吞异常继续", async () => {
-      const runSpy = jest.fn().mockRejectedValue(new Error("adjuster down"));
-      const agentRegistry = mkAgentRegistryWithAdjuster("continue", runSpy);
+      const execSpy = jest.fn().mockRejectedValue(new Error("adjuster down"));
+      const agentRegistry = mkAgentRegistryWithAdjuster("continue", execSpy);
       orchestrator = new PipelineOrchestratorService(
         registry,
         undefined,

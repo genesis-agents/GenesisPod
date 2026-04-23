@@ -3,10 +3,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  MissionAdjustmentSchema,
-  type MissionAdjustment,
-} from "../harness/agents/schemas";
+import { MissionAdjustmentSchema, type MissionAdjustment } from "./schemas";
 
 export interface MissionAdjusterInput {
   readonly budgetUsagePct: number;

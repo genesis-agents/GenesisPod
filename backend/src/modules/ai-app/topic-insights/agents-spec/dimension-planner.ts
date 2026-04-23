@@ -4,10 +4,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  DimensionOutlineSchema,
-  type DimensionOutline,
-} from "../harness/agents/schemas";
+import { DimensionOutlineSchema, type DimensionOutline } from "./schemas";
 
 export interface DimensionPlannerInput {
   readonly dimensionId: string;

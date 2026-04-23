@@ -9,7 +9,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import { LeaderPlanSchema, type LeaderPlan } from "../harness/agents/schemas";
+import { LeaderPlanSchema, type LeaderPlan } from "./schemas";
 
 export interface LeaderPlannerInput {
   readonly missionId: string;

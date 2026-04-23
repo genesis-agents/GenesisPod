@@ -3,10 +3,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  FactExtractorResultSchema,
-  type FactExtractorResult,
-} from "../harness/agents/schemas";
+import { FactExtractorResultSchema, type FactExtractorResult } from "./schemas";
 
 export interface FactExtractorInput {
   readonly dimensions: ReadonlyArray<{

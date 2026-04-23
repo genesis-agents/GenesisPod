@@ -6,7 +6,7 @@ import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import {
   HypothesisVerifierResultSchema,
   type HypothesisVerifierResult,
-} from "../harness/agents/schemas";
+} from "./schemas";
 
 export interface HypothesisVerifierInput {
   readonly hypotheses: ReadonlyArray<{ id: string; statement: string }>;

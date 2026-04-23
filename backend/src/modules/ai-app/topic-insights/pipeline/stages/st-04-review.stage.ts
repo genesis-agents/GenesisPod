@@ -5,11 +5,9 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import {
-  HarnessAgentRegistry,
-  type SectionReview,
-  type SectionReviewerInput,
-} from "../../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type { SectionReviewerInput } from "../../agents-spec";
+import type { SectionReview } from "../../agents-spec/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { ReviewStageOutput, WriteStageOutput } from "./stage-context";
 
@@ -26,7 +24,7 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
   };
   readonly emitsEvents = ["section:review_started", "section:review_completed"];
 
-  constructor(private readonly agentRegistry: HarnessAgentRegistry) {}
+  constructor(private readonly agentRegistry: SpecAgentRegistry) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -37,35 +35,37 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
   }
 
   async execute(
-    identity: PipelineIdentityContext,
+    _identity: PipelineIdentityContext,
     input: WriteStageOutput,
     signal: AbortSignal,
   ): Promise<ReviewStageOutput> {
-    const runner = this.agentRegistry.mustGet<
-      SectionReviewerInput,
-      SectionReview
-    >("AG-04-SR");
+    const runner = this.agentRegistry.get<SectionReviewerInput, SectionReview>(
+      "AG-04-SR",
+    );
+    if (!runner)
+      throw new Error("AG-04-SR not registered in SpecAgentRegistry");
 
     const reviews: SectionReview[] = [];
     for (const section of input.sections) {
       if (signal.aborted) {
         throw new DOMException(`[${this.id}] aborted`, "AbortError");
       }
-      const res = await runner.run({
-        input: {
-          sectionResult: {
-            sectionId: section.sectionId,
-            dimensionId: section.dimensionId,
-            title: section.title,
-            content: section.content,
-            wordCount: section.wordCount,
-            keyFindings: section.keyFindings,
-          },
-          revisionRound: 1,
+      const res = await runner.executeSpec({
+        sectionResult: {
+          sectionId: section.sectionId,
+          dimensionId: section.dimensionId,
+          title: section.title,
+          content: section.content,
+          wordCount: section.wordCount,
+          keyFindings: section.keyFindings,
         },
-        identity,
-        signal,
+        revisionRound: 1,
       });
+      if (res.state !== "completed") {
+        throw new Error(
+          `AG-04-SR failed at ${section.sectionId}: ${res.errors?.join("; ") ?? "unknown"}`,
+        );
+      }
       reviews.push(res.output);
     }
     return { reviews };

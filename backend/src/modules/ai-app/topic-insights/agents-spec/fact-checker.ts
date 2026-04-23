@@ -3,10 +3,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  FactCheckReportSchema,
-  type FactCheckReport,
-} from "../harness/agents/schemas";
+import { FactCheckReportSchema, type FactCheckReport } from "./schemas";
 
 export interface FactCheckerInput {
   readonly missionId: string;

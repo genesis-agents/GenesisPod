@@ -11,15 +11,17 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import {
-  HarnessAgentRegistry,
-  type GapSearcherInput,
-  type GapSearcherResult,
-  type HypothesisVerifierInput,
-  type HypothesisVerifierResult,
-  type FactExtractorInput,
-  type FactExtractorResult,
-} from "../../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type {
+  GapSearcherInput,
+  HypothesisVerifierInput,
+  FactExtractorInput,
+} from "../../agents-spec";
+import type {
+  GapSearcherResult,
+  HypothesisVerifierResult,
+  FactExtractorResult,
+} from "../../agents-spec/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   CogLoopStageOutput,
@@ -48,7 +50,7 @@ export class CogLoopStage implements Stage<
   };
   readonly emitsEvents = ["cogloop:started", "cogloop:completed"];
 
-  constructor(private readonly agentRegistry: HarnessAgentRegistry) {}
+  constructor(private readonly agentRegistry: SpecAgentRegistry) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -62,22 +64,27 @@ export class CogLoopStage implements Stage<
   }
 
   async execute(
-    identity: PipelineIdentityContext,
+    _identity: PipelineIdentityContext,
     input: CogLoopStageInput,
     signal: AbortSignal,
   ): Promise<CogLoopStageOutput> {
-    const gapRunner = this.agentRegistry.mustGet<
+    const gapRunner = this.agentRegistry.get<
       GapSearcherInput,
       GapSearcherResult
     >("AG-08-GS");
-    const hvRunner = this.agentRegistry.mustGet<
+    const hvRunner = this.agentRegistry.get<
       HypothesisVerifierInput,
       HypothesisVerifierResult
     >("AG-09-HV");
-    const fxRunner = this.agentRegistry.mustGet<
+    const fxRunner = this.agentRegistry.get<
       FactExtractorInput,
       FactExtractorResult
     >("AG-10-FX");
+    if (!gapRunner || !hvRunner || !fxRunner) {
+      throw new Error(
+        "AG-08-GS / AG-09-HV / AG-10-FX missing in SpecAgentRegistry",
+      );
+    }
 
     // 1. Gap search per dimension
     const gapsByDim: Record<string, GapSearcherResult["gaps"]> = {};
@@ -85,17 +92,18 @@ export class CogLoopStage implements Stage<
       if (signal.aborted) {
         throw new DOMException(`[${this.id}] aborted`, "AbortError");
       }
-      const res = await gapRunner.run({
-        input: {
-          dimensionId: meta.dimensionId,
-          dimensionName: meta.dimensionName,
-          dimensionSummary: meta.summary,
-          existingKeyFindings: meta.keyFindings,
-          existingEvidenceCount: meta.evidenceCount,
-        },
-        identity,
-        signal,
+      const res = await gapRunner.executeSpec({
+        dimensionId: meta.dimensionId,
+        dimensionName: meta.dimensionName,
+        dimensionSummary: meta.summary,
+        existingKeyFindings: meta.keyFindings,
+        existingEvidenceCount: meta.evidenceCount,
       });
+      if (res.state !== "completed") {
+        throw new Error(
+          `AG-08-GS failed: ${res.errors?.join("; ") ?? "unknown"}`,
+        );
+      }
       gapsByDim[meta.dimensionId] = res.output.gaps;
     }
 
@@ -125,28 +133,30 @@ export class CogLoopStage implements Stage<
 
     let hvResult: HypothesisVerifierResult = { hypotheses: [] };
     if (hypotheses.length > 0) {
-      const res = await hvRunner.run({
-        input: { hypotheses, evidenceSummaries },
-        identity,
-        signal,
-      });
+      const res = await hvRunner.executeSpec({ hypotheses, evidenceSummaries });
+      if (res.state !== "completed") {
+        throw new Error(
+          `AG-09-HV failed: ${res.errors?.join("; ") ?? "unknown"}`,
+        );
+      }
       hvResult = res.output;
     }
 
     // 3. Fact extraction
-    const fxResult = await fxRunner.run({
-      input: {
-        dimensions: input.integrate.dimensionMetas.map((m) => ({
-          id: m.dimensionId,
-          name: m.dimensionName,
-          summary: m.summary,
-          keyFindings: m.keyFindings,
-        })),
-        evidenceIds,
-      },
-      identity,
-      signal,
+    const fxResult = await fxRunner.executeSpec({
+      dimensions: input.integrate.dimensionMetas.map((m) => ({
+        id: m.dimensionId,
+        name: m.dimensionName,
+        summary: m.summary,
+        keyFindings: m.keyFindings,
+      })),
+      evidenceIds,
     });
+    if (fxResult.state !== "completed") {
+      throw new Error(
+        `AG-10-FX failed: ${fxResult.errors?.join("; ") ?? "unknown"}`,
+      );
+    }
 
     return {
       gapsByDimension: gapsByDim,

@@ -12,26 +12,30 @@ function mkAgentRegistry(
     | "restart_mission"
     | null,
   opts?: { throws?: Error },
-): import("../../agents").HarnessAgentRegistry {
-  const run = jest.fn();
+) {
+  const executeSpec = jest.fn();
   if (opts?.throws) {
-    run.mockRejectedValue(opts.throws);
+    executeSpec.mockRejectedValue(opts.throws);
   } else if (decision != null) {
-    run.mockResolvedValue({
+    executeSpec.mockResolvedValue({
       output: {
         intent: decision,
         confidence: 0.9,
         reasoning: "agent decision reasoning",
       },
+      state: "completed",
+      iterations: 1,
       tokensUsed: 0,
       costUsd: 0,
+      model: "stub",
+      wallTimeMs: 0,
     });
   }
   return {
     get: jest.fn((id: string) =>
-      id === "AG-17-LDP" && decision != null ? { run } : undefined,
+      id === "AG-17-LDP" && decision != null ? { executeSpec } : undefined,
     ),
-  } as unknown as import("../../agents").HarnessAgentRegistry;
+  } as any;
 }
 
 describe("HarnessDispatcherService", () => {
@@ -77,16 +81,15 @@ describe("HarnessDispatcherService", () => {
       userPrompt: "x",
       hasExistingReport: false,
     });
-    // registry 但 agent 未注册 → fallback，fromAgent=false
     expect(res.fromAgent).toBe(false);
     expect(res.intent).toBe("new_research");
   });
 
-  it("agent 存在但 run 抛错 → fallback", async () => {
-    const throwRun = jest.fn().mockRejectedValue(new Error("boom"));
+  it("agent 存在但 executeSpec 抛错 → fallback", async () => {
+    const throwExec = jest.fn().mockRejectedValue(new Error("boom"));
     const reg = {
-      get: jest.fn(() => ({ run: throwRun })),
-    } as unknown as import("../../agents").HarnessAgentRegistry;
+      get: jest.fn(() => ({ executeSpec: throwExec })),
+    } as any;
     const svc = new HarnessDispatcherService(reg);
     const res = await svc.dispatch({
       userPrompt: "x",

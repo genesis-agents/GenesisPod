@@ -9,7 +9,7 @@ import {
   type DimensionMeta,
   type QualityReview,
   type SectionReview,
-} from "../harness/agents/schemas";
+} from "./schemas";
 
 export type QualityReviewerInput =
   | {

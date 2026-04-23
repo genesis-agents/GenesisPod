@@ -7,11 +7,9 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import {
-  HarnessAgentRegistry,
-  type DimensionMeta,
-  type MetaExtractorInput,
-} from "../../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type { MetaExtractorInput } from "../../agents-spec";
+import type { DimensionMeta } from "../../agents-spec/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
@@ -41,7 +39,7 @@ export class IntegrateStage implements Stage<
   readonly emitsEvents = ["dimension:integrated"];
 
   constructor(
-    private readonly agentRegistry: HarnessAgentRegistry,
+    private readonly agentRegistry: SpecAgentRegistry,
     @Optional() private readonly prisma?: PrismaService,
   ) {}
 
@@ -57,14 +55,15 @@ export class IntegrateStage implements Stage<
   }
 
   async execute(
-    identity: PipelineIdentityContext,
+    _identity: PipelineIdentityContext,
     input: IntegrateStageInput,
     signal: AbortSignal,
   ): Promise<IntegrateStageOutput> {
-    const runner = this.agentRegistry.mustGet<
-      MetaExtractorInput,
-      DimensionMeta
-    >("AG-05-ME");
+    const runner = this.agentRegistry.get<MetaExtractorInput, DimensionMeta>(
+      "AG-05-ME",
+    );
+    if (!runner)
+      throw new Error("AG-05-ME not registered in SpecAgentRegistry");
 
     // 按维度聚合 section 正文
     const sectionsByDim = new Map<string, string[]>();
@@ -89,16 +88,17 @@ export class IntegrateStage implements Stage<
       const dim = input.research.byDimension.find(
         (d) => d.dimensionId === dimensionId,
       );
-      const res = await runner.run({
-        input: {
-          dimensionId,
-          dimensionName: dim?.dimensionName ?? dimensionId,
-          integratedSections: contents.join("\n\n---\n\n"),
-          evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
-        },
-        identity,
-        signal,
+      const res = await runner.executeSpec({
+        dimensionId,
+        dimensionName: dim?.dimensionName ?? dimensionId,
+        integratedSections: contents.join("\n\n---\n\n"),
+        evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
       });
+      if (res.state !== "completed") {
+        throw new Error(
+          `AG-05-ME failed at ${dimensionId}: ${res.errors?.join("; ") ?? "unknown"}`,
+        );
+      }
       metas.push(res.output);
     }
 

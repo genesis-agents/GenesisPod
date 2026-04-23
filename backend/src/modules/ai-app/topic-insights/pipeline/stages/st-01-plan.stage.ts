@@ -8,11 +8,9 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import {
-  HarnessAgentRegistry,
-  type LeaderPlannerInput,
-  type LeaderPlan,
-} from "../../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type { LeaderPlannerInput } from "../../agents-spec";
+import type { LeaderPlan } from "../../agents-spec/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { PlanStageOutput } from "./stage-context";
 
@@ -62,7 +60,7 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
   readonly emitsEvents = ["leader:planning", "leader:plan_ready"];
 
   constructor(
-    private readonly agentRegistry: HarnessAgentRegistry,
+    private readonly agentRegistry: SpecAgentRegistry,
     @Optional()
     private readonly contextProvider: PlanContextProvider = new StubPlanContextProvider(),
     @Optional() private readonly prisma?: PrismaService,
@@ -74,6 +72,7 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
   ): Promise<LeaderPlannerInput> {
     const meta = await this.contextProvider.load(identity);
     return {
+      missionId: identity.missionId,
       topicId: identity.topicId,
       topicName: meta.topicName,
       topicType: meta.topicType,
@@ -86,14 +85,21 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
   }
 
   async execute(
-    identity: PipelineIdentityContext,
+    _identity: PipelineIdentityContext,
     input: LeaderPlannerInput,
-    signal: AbortSignal,
+    _signal: AbortSignal,
   ): Promise<PlanStageOutput> {
-    const runner = this.agentRegistry.mustGet<LeaderPlannerInput, LeaderPlan>(
+    const runner = this.agentRegistry.get<LeaderPlannerInput, LeaderPlan>(
       "AG-01-LD",
     );
-    const res = await runner.run({ input, identity, signal });
+    if (!runner)
+      throw new Error("AG-01-LD not registered in SpecAgentRegistry");
+    const res = await runner.executeSpec(input);
+    if (res.state !== "completed") {
+      throw new Error(
+        `AG-01-LD failed: ${res.errors?.join("; ") ?? "unknown"}`,
+      );
+    }
     return { plan: res.output };
   }
 

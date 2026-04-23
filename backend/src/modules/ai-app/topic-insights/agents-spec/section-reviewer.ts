@@ -4,10 +4,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  SectionReviewSchema,
-  type SectionReview,
-} from "../harness/agents/schemas";
+import { SectionReviewSchema, type SectionReview } from "./schemas";
 
 export interface SectionReviewerInput {
   readonly sectionResult: {

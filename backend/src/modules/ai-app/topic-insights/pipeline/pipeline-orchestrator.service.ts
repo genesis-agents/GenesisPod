@@ -21,14 +21,16 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { KernelContext } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../services/core/research/research-event-emitter.service";
-import {
-  HarnessAgentRegistry,
-  type MissionAdjusterInput,
-  type MissionAdjustment,
-  type RemediatedSection,
-  type SectionRemediatorInput,
-  type SectionResult,
-} from "../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type {
+  MissionAdjusterInput,
+  SectionRemediatorInput,
+} from "../agents-spec";
+import type {
+  MissionAdjustment,
+  RemediatedSection,
+  SectionResult,
+} from "../agents-spec/schemas";
 import type {
   QualityGateStageOutput,
   ReviewStageOutput,
@@ -92,7 +94,7 @@ export class PipelineOrchestratorService {
     private readonly stageRegistry: StageRegistry,
     @Optional()
     private readonly researchEventEmitter?: ResearchEventEmitterService,
-    @Optional() private readonly agentRegistry?: HarnessAgentRegistry,
+    @Optional() private readonly agentRegistry?: SpecAgentRegistry,
   ) {}
 
   async run(
@@ -238,18 +240,19 @@ export class PipelineOrchestratorService {
     const pending = allStageIds.filter((id) => !completed.includes(id));
 
     try {
-      const res = await adjuster.run({
-        input: {
-          budgetUsagePct,
-          currentDepth: identity.depth,
-          completedStages: completed,
-          pendingStages: pending,
-          qualityScore: qgateScore,
-          elapsedMs: Date.now() - startedAt,
-        },
-        identity,
-        signal,
+      const res = await adjuster.executeSpec({
+        budgetUsagePct,
+        currentDepth: identity.depth,
+        completedStages: completed,
+        pendingStages: pending,
+        qualityScore: qgateScore,
+        elapsedMs: Date.now() - startedAt,
       });
+      if (res.state !== "completed") {
+        throw new Error(
+          `AG-16-MA failed: ${res.errors?.join("; ") ?? "unknown"}`,
+        );
+      }
       const decision = res.output.decision;
       this.logger.log(
         `[${identity.missionId}] AG-16-MA decision=${decision} reason="${res.output.reason}"`,
@@ -485,18 +488,19 @@ export class PipelineOrchestratorService {
       }
 
       try {
-        const res = await remediator.run({
-          input: {
-            sectionId: section.sectionId,
-            sectionTitle: section.title,
-            originalContent: section.content,
-            issues: rev.issues,
-            revisionInstructions: rev.revisionInstructions,
-            targetWords: section.wordCount,
-          },
-          identity,
-          signal,
+        const res = await remediator.executeSpec({
+          sectionId: section.sectionId,
+          sectionTitle: section.title,
+          originalContent: section.content,
+          issues: rev.issues,
+          revisionInstructions: rev.revisionInstructions,
+          targetWords: section.wordCount,
         });
+        if (res.state !== "completed") {
+          throw new Error(
+            `AG-12-SREM failed: ${res.errors?.join("; ") ?? "unknown"}`,
+          );
+        }
         updatedSections.push({
           ...section,
           content: res.output.newContent,

@@ -3,10 +3,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  EditedReportSchema,
-  type EditedReport,
-} from "../harness/agents/schemas";
+import { EditedReportSchema, type EditedReport } from "./schemas";
 
 export interface ReportEditorInput {
   readonly fullMarkdown: string;

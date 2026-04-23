@@ -7,11 +7,9 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  HarnessAgentRegistry,
-  type SectionResult,
-  type SectionWriterInput,
-} from "../../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type { SectionWriterInput } from "../../agents-spec";
+import type { SectionResult } from "../../agents-spec/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   PlanStageOutput,
@@ -40,7 +38,7 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
   private readonly logger = new Logger(WriteStage.name);
 
   constructor(
-    private readonly agentRegistry: HarnessAgentRegistry,
+    private readonly agentRegistry: SpecAgentRegistry,
     @Optional() private readonly prisma?: PrismaService,
   ) {}
 
@@ -59,10 +57,11 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
     input: WriteStageInput,
     signal: AbortSignal,
   ): Promise<WriteStageOutput> {
-    const runner = this.agentRegistry.mustGet<
-      SectionWriterInput,
-      SectionResult
-    >("AG-03-SW");
+    const runner = this.agentRegistry.get<SectionWriterInput, SectionResult>(
+      "AG-03-SW",
+    );
+    if (!runner)
+      throw new Error("AG-03-SW not registered in SpecAgentRegistry");
     const sections: SectionResult[] = [];
 
     // dimensionId → evidence rows（ST-02 写入的真 evidence）
@@ -94,7 +93,12 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           evidenceSummary,
           language: "zh",
         };
-        const res = await runner.run({ input: sectionInput, identity, signal });
+        const res = await runner.executeSpec(sectionInput);
+        if (res.state !== "completed") {
+          throw new Error(
+            `AG-03-SW failed at ${dim.id}/s-${si + 1}: ${res.errors?.join("; ") ?? "unknown"}`,
+          );
+        }
         sections.push(res.output);
       }
     }

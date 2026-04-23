@@ -4,10 +4,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  DimensionMetaSchema,
-  type DimensionMeta,
-} from "../harness/agents/schemas";
+import { DimensionMetaSchema, type DimensionMeta } from "./schemas";
 
 export interface MetaExtractorInput {
   readonly dimensionId: string;

@@ -9,7 +9,7 @@ import {
   type DimensionMeta,
   type QualityReview,
   type SynthesisResult,
-} from "../harness/agents/schemas";
+} from "./schemas";
 
 export interface SynthesizerInput {
   readonly missionId: string;

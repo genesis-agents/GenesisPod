@@ -3,10 +3,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  LatexRepairResultSchema,
-  type LatexRepairResult,
-} from "../harness/agents/schemas";
+import { LatexRepairResultSchema, type LatexRepairResult } from "./schemas";
 
 export interface LatexRepairInput {
   readonly markdown: string;

@@ -3,10 +3,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  GapSearcherResultSchema,
-  type GapSearcherResult,
-} from "../harness/agents/schemas";
+import { GapSearcherResultSchema, type GapSearcherResult } from "./schemas";
 
 export interface GapSearcherInput {
   readonly dimensionId: string;

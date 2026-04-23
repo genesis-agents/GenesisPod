@@ -3,10 +3,7 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
-import {
-  RemediatedSectionSchema,
-  type RemediatedSection,
-} from "../harness/agents/schemas";
+import { RemediatedSectionSchema, type RemediatedSection } from "./schemas";
 
 export interface SectionRemediatorInput {
   readonly sectionId: string;

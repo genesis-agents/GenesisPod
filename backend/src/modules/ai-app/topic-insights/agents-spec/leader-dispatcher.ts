@@ -6,7 +6,7 @@ import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import {
   LeaderDispatchDecisionSchema,
   type LeaderDispatchDecision,
-} from "../harness/agents/schemas";
+} from "./schemas";
 
 export interface LeaderDispatcherInput {
   readonly userPrompt: string;

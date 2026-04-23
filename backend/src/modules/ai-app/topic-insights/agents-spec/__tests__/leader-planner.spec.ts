@@ -9,7 +9,7 @@
  */
 
 import { LEADER_PLANNER_SPEC } from "../leader-planner";
-import { LeaderPlanSchema } from "../../harness/agents/schemas";
+import { LeaderPlanSchema } from "../schemas";
 
 describe("LEADER_PLANNER_SPEC", () => {
   it("identity has AG-01-LD role + tools + forbiddenTools", () => {

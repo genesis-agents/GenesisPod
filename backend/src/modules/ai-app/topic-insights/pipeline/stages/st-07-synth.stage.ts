@@ -8,11 +8,9 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import {
-  HarnessAgentRegistry,
-  type SynthesisResult,
-  type SynthesizerInput,
-} from "../../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type { SynthesizerInput } from "../../agents-spec";
+import type { SynthesisResult } from "../../agents-spec/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
@@ -42,7 +40,7 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
   ];
 
   constructor(
-    private readonly agentRegistry: HarnessAgentRegistry,
+    private readonly agentRegistry: SpecAgentRegistry,
     @Optional() private readonly prisma?: PrismaService,
   ) {}
 
@@ -68,23 +66,26 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
   async execute(
     identity: PipelineIdentityContext,
     input: SynthStageInput,
-    signal: AbortSignal,
+    _signal: AbortSignal,
   ): Promise<SynthStageOutput> {
-    const runner = this.agentRegistry.mustGet<
-      SynthesizerInput,
-      SynthesisResult
-    >("AG-11-SY");
-    const res = await runner.run({
-      input: {
-        topicId: identity.topicId,
-        topicName: `Mission-${identity.missionId}`, // Group E 接真 topic name
-        dimensionMetas: input.dimensionMetas,
-        integratedSectionsPerDim: input.integratedSectionsPerDim,
-        language: "zh",
-      },
-      identity,
-      signal,
+    const runner = this.agentRegistry.get<SynthesizerInput, SynthesisResult>(
+      "AG-11-SY",
+    );
+    if (!runner)
+      throw new Error("AG-11-SY not registered in SpecAgentRegistry");
+    const res = await runner.executeSpec({
+      missionId: identity.missionId,
+      topicId: identity.topicId,
+      topicName: `Mission-${identity.missionId}`, // Group E 接真 topic name
+      dimensionMetas: input.dimensionMetas,
+      integratedSectionsPerDim: input.integratedSectionsPerDim,
+      language: "zh",
     });
+    if (res.state !== "completed") {
+      throw new Error(
+        `AG-11-SY failed: ${res.errors?.join("; ") ?? "unknown"}`,
+      );
+    }
     return { synthesis: res.output };
   }
 

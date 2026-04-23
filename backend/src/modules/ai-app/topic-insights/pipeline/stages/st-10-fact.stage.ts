@@ -7,11 +7,9 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  HarnessAgentRegistry,
-  type FactCheckerInput,
-  type FactCheckReport,
-} from "../../harness/agents";
+import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import type { FactCheckerInput } from "../../agents-spec";
+import type { FactCheckReport } from "../../agents-spec/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   FactCheckStageOutput,
@@ -42,7 +40,7 @@ export class FactCheckStage implements Stage<
   readonly emitsEvents = ["fact:check_completed"];
 
   constructor(
-    private readonly agentRegistry: HarnessAgentRegistry,
+    private readonly agentRegistry: SpecAgentRegistry,
     @Optional() private readonly prisma?: PrismaService,
   ) {}
 
@@ -59,12 +57,13 @@ export class FactCheckStage implements Stage<
   async execute(
     identity: PipelineIdentityContext,
     input: FactCheckStageInput,
-    signal: AbortSignal,
+    _signal: AbortSignal,
   ): Promise<FactCheckStageOutput> {
-    const runner = this.agentRegistry.mustGet<
-      FactCheckerInput,
-      FactCheckReport
-    >("AG-07-FC");
+    const runner = this.agentRegistry.get<FactCheckerInput, FactCheckReport>(
+      "AG-07-FC",
+    );
+    if (!runner)
+      throw new Error("AG-07-FC not registered in SpecAgentRegistry");
 
     // 汇总所有 section reviews 的 claims
     const allClaims = input.reviews.flatMap((r) =>
@@ -108,16 +107,17 @@ export class FactCheckStage implements Stage<
       };
     }
 
-    const res = await runner.run({
-      input: {
-        missionId: identity.missionId,
-        reportContent: input.synthesis.fullMarkdown,
-        allClaims,
-        evidenceSummaries,
-      },
-      identity,
-      signal,
+    const res = await runner.executeSpec({
+      missionId: identity.missionId,
+      reportContent: input.synthesis.fullMarkdown,
+      allClaims,
+      evidenceSummaries,
     });
+    if (res.state !== "completed") {
+      throw new Error(
+        `AG-07-FC failed: ${res.errors?.join("; ") ?? "unknown"}`,
+      );
+    }
 
     return {
       accuracyScore: res.output.accuracyScore,
