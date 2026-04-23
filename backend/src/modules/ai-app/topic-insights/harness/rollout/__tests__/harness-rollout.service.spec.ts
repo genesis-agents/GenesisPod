@@ -122,6 +122,111 @@ describe("HarnessRolloutService", () => {
     });
   });
 
+  describe("DB persistence (Optional PrismaService)", () => {
+    it("recordRun 调用 prisma.harnessRunMetric.create (fire-and-forget)", async () => {
+      const create = jest.fn().mockResolvedValue({});
+      const prisma = { harnessRunMetric: { create } } as any;
+      const svcDb = new HarnessRolloutService(prisma);
+
+      svcDb.recordRun({
+        missionId: "m-1",
+        userId: "u-1",
+        success: true,
+        durationMs: 2000,
+        qualityScore: 80,
+        tokensUsed: 500,
+        costUsd: 0.1234,
+        recordedAt: new Date("2026-04-23T00:00:00Z"),
+      });
+
+      // fire-and-forget: 等 microtask
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).toHaveBeenCalledTimes(1);
+      const payload = create.mock.calls[0][0].data;
+      expect(payload.missionId).toBe("m-1");
+      expect(payload.userId).toBe("u-1");
+      expect(payload.success).toBe(true);
+      expect(payload.qualityScore).toBe(80);
+      // Decimal 对象 — toFixed(4) 保留 4 位
+      expect(payload.costUsd.toString()).toBe("0.1234");
+    });
+
+    it("DB 写失败时不影响主流程（swallow + warn）", async () => {
+      const create = jest.fn().mockRejectedValue(new Error("boom"));
+      const prisma = { harnessRunMetric: { create } } as any;
+      const svcDb = new HarnessRolloutService(prisma);
+
+      expect(() =>
+        svcDb.recordRun({
+          missionId: "m",
+          userId: "u",
+          success: true,
+          durationMs: 1000,
+          tokensUsed: 100,
+          costUsd: 0,
+          recordedAt: new Date(),
+        }),
+      ).not.toThrow();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      // 内存窗口仍然更新
+      expect(svcDb.getHealthSnapshot().totalRuns).toBe(1);
+    });
+
+    it("getHistorySnapshot 从 DB 聚合", async () => {
+      const rows = [
+        {
+          success: true,
+          durationMs: 1000,
+          qualityScore: 80,
+          tokensUsed: 500,
+          costUsd: { toString: () => "0.5" },
+        },
+        {
+          success: false,
+          durationMs: 2000,
+          qualityScore: 60,
+          tokensUsed: 1000,
+          costUsd: { toString: () => "1.0" },
+        },
+      ];
+      const findMany = jest.fn().mockResolvedValue(rows);
+      const prisma = { harnessRunMetric: { findMany } } as any;
+      const svcDb = new HarnessRolloutService(prisma);
+
+      const snap = await svcDb.getHistorySnapshot(24);
+      expect(findMany).toHaveBeenCalledTimes(1);
+      expect(snap.totalRuns).toBe(2);
+      expect(snap.successRate).toBe(0.5);
+      expect(snap.avgQualityScore).toBe(70);
+      expect(snap.avgDurationMs).toBe(1500);
+      expect(snap.totalCostUsd).toBeCloseTo(1.5, 4);
+    });
+
+    it("getHistorySnapshot DB 0 行 → 回落到内存窗口", async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const prisma = { harnessRunMetric: { findMany } } as any;
+      const svcDb = new HarnessRolloutService(prisma);
+      const snap = await svcDb.getHistorySnapshot(24);
+      expect(snap.totalRuns).toBe(0);
+    });
+
+    it("getHistorySnapshot DB 失败 → 回落到内存窗口", async () => {
+      const findMany = jest.fn().mockRejectedValue(new Error("db down"));
+      const prisma = { harnessRunMetric: { findMany } } as any;
+      const svcDb = new HarnessRolloutService(prisma);
+      const snap = await svcDb.getHistorySnapshot(24);
+      expect(snap.totalRuns).toBe(0);
+    });
+
+    it("没有 prisma 时 getHistorySnapshot 直接返回内存 snapshot", async () => {
+      const snap = await svc.getHistorySnapshot(24);
+      expect(snap.totalRuns).toBe(0);
+    });
+  });
+
   describe("getHealthSnapshot", () => {
     beforeEach(() => {
       process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
