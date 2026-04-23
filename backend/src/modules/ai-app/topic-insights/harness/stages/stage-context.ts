@@ -67,3 +67,35 @@ export interface AssemblyStageOutput {
   readonly wordCount: number;
   readonly sectionCount: number;
 }
+
+// ST-08-QGATE
+export interface QualityGateStageOutput {
+  /** overall score 0-100 */
+  readonly score: number;
+  /** 各维度分项得分 */
+  readonly breakdown: {
+    readonly citationDensity: number;
+    readonly sectionStructure: number;
+    readonly wordCount: number;
+    readonly evidenceCoverage: number;
+  };
+  /** fail 时需要 remediate（保留 flag 供未来 remediate loop） */
+  readonly needsRemediate: boolean;
+  readonly verdict: "pass" | "warn" | "fail";
+  readonly issues: ReadonlyArray<string>;
+}
+
+// ST-13-PERSIST
+export interface PersistStageOutput {
+  readonly reportId: string;
+  readonly totalTokens: number;
+  readonly totalSources: number;
+  readonly totalDimensions: number;
+  readonly generationTimeMs: number;
+}
+
+// ST-14-CLEANUP
+export interface CleanupStageOutput {
+  readonly analysisIdBackfilled: number;
+  readonly cacheReleased: boolean;
+}

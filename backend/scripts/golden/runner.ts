@@ -54,7 +54,10 @@ async function runHarnessPipeline(
     ReviewStage,
     IntegrateStage,
     SynthStage,
+    QualityGateStage,
     AssemblyStage,
+    PersistStage,
+    CleanupStage,
     StubPlanContextProvider,
   } =
     await import("../../src/modules/ai-app/topic-insights/harness/stages/index");
@@ -77,7 +80,10 @@ async function runHarnessPipeline(
   stageRegistry.register(new ReviewStage(agentRegistry));
   stageRegistry.register(new IntegrateStage(agentRegistry));
   stageRegistry.register(new SynthStage(agentRegistry));
+  stageRegistry.register(new QualityGateStage());
   stageRegistry.register(new AssemblyStage());
+  stageRegistry.register(new PersistStage());
+  stageRegistry.register(new CleanupStage());
 
   const orchestrator = new PipelineOrchestratorService(stageRegistry);
 

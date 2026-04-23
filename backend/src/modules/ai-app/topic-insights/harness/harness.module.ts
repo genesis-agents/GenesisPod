@@ -27,10 +27,13 @@ import { LlmInvokerService } from "./llm";
 import { PipelineOrchestratorService, StageRegistry } from "./pipeline";
 import {
   AssemblyStage,
+  CleanupStage,
   InitStage,
   IntegrateStage,
+  PersistStage,
   PlanStage,
   PrismaPlanContextProvider,
+  QualityGateStage,
   ResearchStage,
   ReviewStage,
   SynthStage,
@@ -55,7 +58,10 @@ const STAGES = [
   ReviewStage,
   IntegrateStage,
   SynthStage,
+  QualityGateStage,
   AssemblyStage,
+  PersistStage,
+  CleanupStage,
 ];
 
 @Module({
@@ -95,7 +101,10 @@ export class HarnessModule implements OnModuleInit {
     private readonly review: ReviewStage,
     private readonly integrate: IntegrateStage,
     private readonly synth: SynthStage,
+    private readonly qgate: QualityGateStage,
     private readonly assembly: AssemblyStage,
+    private readonly persistStage: PersistStage,
+    private readonly cleanupStage: CleanupStage,
   ) {}
 
   onModuleInit(): void {
@@ -107,7 +116,7 @@ export class HarnessModule implements OnModuleInit {
     this.agentRegistry.register(this.qualityReviewer);
     this.agentRegistry.register(this.synthesizer);
 
-    // 注册 8 Core Stages
+    // 注册 11 Stages（Core 8 + Enhancement 3：QGATE / PERSIST / CLEANUP）
     this.stageRegistry.register(this.init);
     this.stageRegistry.register(this.plan);
     this.stageRegistry.register(this.research);
@@ -115,7 +124,10 @@ export class HarnessModule implements OnModuleInit {
     this.stageRegistry.register(this.review);
     this.stageRegistry.register(this.integrate);
     this.stageRegistry.register(this.synth);
+    this.stageRegistry.register(this.qgate);
     this.stageRegistry.register(this.assembly);
+    this.stageRegistry.register(this.persistStage);
+    this.stageRegistry.register(this.cleanupStage);
 
     const useHarness = process.env.TOPIC_INSIGHTS_USE_HARNESS === "1";
     this.logger.log(

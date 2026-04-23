@@ -14,6 +14,9 @@ import {
   StubPlanContextProvider,
   SynthStage,
   WriteStage,
+  QualityGateStage,
+  PersistStage,
+  CleanupStage,
 } from "../../stages";
 import { StageRegistry } from "../../pipeline/stage-registry";
 import {
@@ -42,7 +45,7 @@ describe("Stages · end-to-end (stub mode)", () => {
     else process.env.HARNESS_AGENTS_STUB = origFlag;
   });
 
-  it("8 stages 全部跑完，产出 AssemblyStage 输出", async () => {
+  it("11 stages 全部跑完（Core 8 + QGATE/PERSIST/CLEANUP），产出最终输出", async () => {
     const stageRegistry = new StageRegistry();
     const agentRegistry = new HarnessAgentRegistry();
 
@@ -62,7 +65,10 @@ describe("Stages · end-to-end (stub mode)", () => {
     stageRegistry.register(new ReviewStage(agentRegistry));
     stageRegistry.register(new IntegrateStage(agentRegistry));
     stageRegistry.register(new SynthStage(agentRegistry));
+    stageRegistry.register(new QualityGateStage());
     stageRegistry.register(new AssemblyStage());
+    stageRegistry.register(new PersistStage());
+    stageRegistry.register(new CleanupStage());
 
     const orchestrator = new PipelineOrchestratorService(stageRegistry);
     const identity = buildIdentityContext({
@@ -84,7 +90,10 @@ describe("Stages · end-to-end (stub mode)", () => {
       "ST-04-REVIEW",
       "ST-05-INTEGRATE",
       "ST-07-SYNTH",
+      "ST-08-QGATE",
       "ST-11-ASM",
+      "ST-13-PERSIST",
+      "ST-14-CLEANUP",
     ]);
     expect(result.failed ?? 0).toBe(0);
   });
