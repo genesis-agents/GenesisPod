@@ -10,6 +10,7 @@
  *   4. 提供 hook 钩子扩展点
  */
 
+import type { z } from "zod";
 import type { IAgent, IAgentTask, IAgentResult } from "./agent.interface";
 import type { IAgentIdentity } from "./identity.interface";
 import type {
@@ -18,9 +19,20 @@ import type {
 } from "./context-envelope.interface";
 import type { IHookRegistry } from "./hook.interface";
 import type { IAgentLoop, AgentLoopKind } from "./agent-loop.interface";
+import type { TaskProfile } from "../../llm/types/task-profile";
 
-/** 创建 Agent 的规格（App 层提供） */
-export interface IAgentSpec {
+/**
+ * 创建 Agent 的规格（App 层提供）
+ *
+ * 目标架构 v2（docs/design/topic-insights-harness-redesign/11-target-architecture.md）：
+ * AI App 只写 spec，不写 Agent 执行代码。L2 AgentFactory 读 spec 产出 IAgent。
+ *
+ * 泛型：
+ *   - TInput  IAgentTask.input 的类型
+ *   - TOutput 经 outputSchema + validateBusinessRules 校验后的输出类型
+ * 默认 unknown 保持向后兼容 —— 旧调用点不传泛型照常工作。
+ */
+export interface IAgentSpec<TInput = unknown, TOutput = unknown> {
   readonly identity: IAgentIdentity;
   /** 指定 loop 策略（默认 react） */
   readonly loop?: AgentLoopKind;
@@ -29,6 +41,51 @@ export interface IAgentSpec {
   /** 初始 session id（用于 memory scoping） */
   readonly sessionId?: string;
   readonly userId?: string;
+
+  // ============ v2 目标架构字段（全部 optional，向后兼容） ============
+
+  /**
+   * 输出 Zod schema。P1-2 实施后：LlmExecutor 收到 raw output → safeParse →
+   * 失败触发 error-fed retry（最多 3 轮）。未启用 schema 时行为不变。
+   */
+  readonly outputSchema?: z.ZodType<TOutput>;
+
+  /**
+   * 业务规则校验钩子。Zod 解析成功后调用；throw 则同 Zod 失败处理（重试）。
+   * 用于跨字段校验，如"assignment.modelId 必须在 capabilities.env.models 内"。
+   */
+  readonly validateBusinessRules?: (
+    output: TOutput,
+    ctx: { readonly input: TInput; readonly identity: IAgentIdentity },
+  ) => void;
+
+  /**
+   * Stub 模式产出函数。设置时（或环境变量 AI_ENGINE_AGENT_STUB=1）绕过 LLM 调用，
+   * 直接返回用于测试的 schema-valid 占位数据。产出必须过 outputSchema 校验。
+   */
+  readonly stubFn?: (ctx: {
+    readonly input: TInput;
+    readonly identity: IAgentIdentity;
+  }) => Promise<TOutput>;
+
+  /**
+   * 语义化模型参数（creativity / outputLength → temperature / maxTokens）。
+   * 透给 AiChatService；禁止在 spec 里硬编码 temperature/maxTokens。
+   */
+  readonly taskProfile?: TaskProfile;
+
+  /**
+   * 可选动态 prompt builder（当静态 systemPrompt 不够用时）。
+   * 基于 TInput 动态构造；两个字段任一存在都会覆盖默认 identity.toSystemPrompt()。
+   */
+  readonly buildSystemPrompt?: (ctx: {
+    readonly input: TInput;
+    readonly identity: IAgentIdentity;
+  }) => string;
+  readonly buildUserPrompt?: (ctx: {
+    readonly input: TInput;
+    readonly identity: IAgentIdentity;
+  }) => string;
 }
 
 /** Context 操作接口（只读 envelope 上的变换器） */
