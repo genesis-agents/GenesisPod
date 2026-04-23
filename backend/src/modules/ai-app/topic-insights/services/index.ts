@@ -42,12 +42,6 @@ export { TopicDimensionService } from "./topic/topic-dimension.service";
 export { TopicExportService } from "./topic/topic-export.service";
 export { TopicScheduleService } from "./topic/topic-schedule.service";
 
-// Task executors
-export { DimensionResearchExecutor } from "./mission/task-executors/dimension-research.executor";
-export { ReviewDimensionExecutor } from "./mission/task-executors/review-dimension.executor";
-export { SynthesisReportExecutor } from "./mission/task-executors/synthesis-report.executor";
-export { GenericTaskExecutor } from "./mission/task-executors/generic.executor";
-
 // ==================== Dimension ====================
 export { DimensionMissionService } from "./dimension/dimension-mission.service";
 export { DimensionProgressService } from "./dimension/dimension-progress.service";

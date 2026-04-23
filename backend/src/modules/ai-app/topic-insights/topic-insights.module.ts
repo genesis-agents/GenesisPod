@@ -51,11 +51,6 @@ import {
   LeaderIntentService,
   LeaderAgentSelectionService,
   LeaderReviewService,
-  // ★ Task executors
-  DimensionResearchExecutor,
-  ReviewDimensionExecutor,
-  SynthesisReportExecutor,
-  GenericTaskExecutor,
   TopicCollaboratorService,
   ResearchEventEmitterService,
   DimensionMissionService,
@@ -168,11 +163,6 @@ const services = [
   MissionLifecycleService,
   MissionExecutionService,
   MissionCancellationService,
-  // ★ Task executors (MissionExecution decomposition)
-  DimensionResearchExecutor,
-  ReviewDimensionExecutor,
-  SynthesisReportExecutor,
-  GenericTaskExecutor,
   // ★ Mission sub-services (God Service decomposition)
   MissionObservabilityService,
   MissionNotificationService,
