@@ -19,7 +19,7 @@ import type {
   WritingProgressRecord,
   DimensionActivities,
   AgentActivityWithTiming,
-} from "../../types/monitoring.types";
+} from "../../types/health.types";
 
 /**
  * 思考阶段类型

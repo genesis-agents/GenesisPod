@@ -28,7 +28,7 @@ import {
   CircuitBreakerService,
   CapabilityGuardService,
 } from "@/modules/ai-engine/facade";
-import { RAGFusionService } from "../rag-fusion.service";
+import { RAGFusionService } from "../../search/rag-fusion.service";
 
 // ============================================================
 // Helpers

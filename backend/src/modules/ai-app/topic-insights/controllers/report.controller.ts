@@ -35,7 +35,7 @@ import {
 } from "../dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
-import { BillingContextInterceptor } from "../guards/billing-context.interceptor";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 import { TopicAccessGuard, RequireTopicAccess } from "../guards";
 import { CollaboratorRole } from "../dto/collaborator.dto";
 

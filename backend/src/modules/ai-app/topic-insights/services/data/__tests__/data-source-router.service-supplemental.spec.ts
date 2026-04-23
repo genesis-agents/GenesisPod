@@ -31,7 +31,7 @@ import {
 import { DataSourcePlannerService } from "../data-source-planner.service";
 import { DataSourceConnectorRegistry } from "../connectors/data-source-connector.registry";
 import { DataSourceType } from "../../../types/data-source.types";
-import { RAGFusionService } from "../rag-fusion.service";
+import { RAGFusionService } from "../../search/rag-fusion.service";
 
 // ============================================================
 // Helpers

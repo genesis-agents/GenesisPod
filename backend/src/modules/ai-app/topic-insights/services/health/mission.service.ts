@@ -31,7 +31,7 @@ import type {
   MissionHealthDetail,
   MissionHealthStatus,
   RecoveryResult,
-} from "../../types/monitoring.types";
+} from "../../types/health.types";
 import { HEALTH_MONITORING } from "../../telemetry/health-monitoring.config";
 
 // ==================== Configuration ====================

@@ -37,7 +37,7 @@ import {
   MissionQueryService,
 } from "../services";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
-import { BillingContextInterceptor } from "../guards/billing-context.interceptor";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")

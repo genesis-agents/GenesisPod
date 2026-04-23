@@ -7,4 +7,4 @@ export * from "./leader.types";
 export * from "./mission.types";
 export * from "./strategy.types";
 export * from "./collaboration.types";
-export * from "./monitoring.types";
+export * from "./health.types";

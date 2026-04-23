@@ -45,7 +45,7 @@ import {
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
-import { BillingContextInterceptor } from "../guards/billing-context.interceptor";
+import { BillingContextInterceptor } from "../interceptors/billing-context.interceptor";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -635,7 +635,11 @@ export class TopicController {
     description: "返回专题的 Token 消耗、模型分布、Credit 历史和研究任务信息",
   })
   @ApiParam({ name: "topicId", description: "专题ID" })
-  @ApiQuery({ name: "missionId", required: false, description: "按研究任务 ID 筛选（不传则返回最新一次）" })
+  @ApiQuery({
+    name: "missionId",
+    required: false,
+    description: "按研究任务 ID 筛选（不传则返回最新一次）",
+  })
   @ApiResponse({ status: 200, description: "返回算力消耗数据" })
   @ApiResponse({ status: 401, description: "未认证" })
   async getComputeUsage(
@@ -647,7 +651,11 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.topicResearchService.getComputeUsage(userId, topicId, missionId);
+    return this.topicResearchService.getComputeUsage(
+      userId,
+      topicId,
+      missionId,
+    );
   }
 
   // ==================== Stats ====================

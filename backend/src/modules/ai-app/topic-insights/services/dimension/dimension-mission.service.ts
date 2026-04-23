@@ -48,7 +48,7 @@ import {
   type SectionPlan,
   type IntegratedDimensionResult,
 } from "../../types/leader.types";
-import { type SearchResultsRecord } from "../../types/monitoring.types";
+import { type SearchResultsRecord } from "../../types/health.types";
 import { DataEnrichmentService } from "../data/data-enrichment.service";
 import { LeaderToolService } from "../data/leader-tool.service";
 import type {

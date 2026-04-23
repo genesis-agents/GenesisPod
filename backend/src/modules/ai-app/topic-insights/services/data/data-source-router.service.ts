@@ -41,7 +41,7 @@ import {
   convertToolsToDataSources,
 } from "./data-source-mapping.config";
 import { LruMap } from "@/common/utils/lru-map";
-import { RAGFusionService } from "./rag-fusion.service";
+import { RAGFusionService } from "../search/rag-fusion.service";
 import type { RAGFusionConfig } from "../../types/rag-fusion.types";
 import { IndustryReportSearchAdapter } from "../search/adapters/industry-report.adapter";
 

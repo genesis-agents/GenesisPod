@@ -16,7 +16,7 @@ import {
 import type {
   ResearchCheckpoint,
   ResumableMissionInfo,
-} from "../../types/monitoring.types";
+} from "../../types/health.types";
 
 // ==================== Service ====================
 
