@@ -19,6 +19,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AgentRegistry } from "../../agents/registry/agent-registry";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
+import { SkillRegistry } from "../../skills/registry/skill-registry";
 import type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -43,7 +44,32 @@ export class RuntimeEnvironmentService {
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly agentRegistry?: AgentRegistry,
     @Optional() private readonly toolRegistry?: ToolRegistry,
-  ) {}
+    @Optional() private readonly skillRegistry?: SkillRegistry,
+  ) {
+    // P1-5: registry @Optional 是为了单元测试（没完整 DI 图）简单；
+    // 生产环境（AppModule 完整组装）下这些必须到位，否则 snapshot 数据残缺。
+    // 启动日志里 warn 缺项，帮助排查。
+    if (!this.prisma) {
+      this.logger.warn(
+        "PrismaService missing — models & DB schema discovery disabled",
+      );
+    }
+    if (!this.agentRegistry) {
+      this.logger.warn(
+        "AgentRegistry missing — env.agents will be empty (caller should ensure AiEngineOrchestrationModule is imported)",
+      );
+    }
+    if (!this.toolRegistry) {
+      this.logger.warn(
+        "ToolRegistry missing — env.tools will be empty (caller should ensure AiEngineToolsModule is imported)",
+      );
+    }
+    if (!this.skillRegistry) {
+      this.logger.warn(
+        "SkillRegistry missing — env.skills will be empty (caller should ensure AiEngineSkillsModule is imported)",
+      );
+    }
+  }
 
   async snapshot(
     params: EnvironmentSnapshotParams,
@@ -227,8 +253,13 @@ export class RuntimeEnvironmentService {
   }
 
   private discoverSkills(): string[] {
-    // SkillRegistry 暂不注入（模块依赖尚未梳理）；后续 PR 接入。
-    return [];
+    if (!this.skillRegistry) return [];
+    try {
+      // BaseRegistry.getAll returns ISkill[]; we map to id strings
+      return this.skillRegistry.getAll().map((s) => s.id);
+    } catch {
+      return [];
+    }
   }
 
   private discoverUserKeys(_userId: string): EnvironmentSnapshot["userKeys"] {
