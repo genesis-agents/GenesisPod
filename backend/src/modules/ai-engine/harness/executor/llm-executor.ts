@@ -44,6 +44,17 @@ export interface LlmExecutorInput<TOutput> {
   /** KernelContext 自动透传；若显式提供覆盖 */
   readonly processId?: string;
   readonly operationName?: string;
+
+  /**
+   * ★ v2 stub 模式（P1-4）：
+   * 设置时**绕过 LLM 调用**，直接同步产出占位数据走 Zod + business-rule 校验。
+   * 结合环境变量 AI_ENGINE_AGENT_STUB=1 激活：
+   *   - env 设为 "1" + spec 提供 stubFn → 绕过 LLM，调 stubFn
+   *   - env 设为 "1" + 无 stubFn → 抛 StubNotConfiguredError
+   *   - env 未设/= "0" → 正常 LLM 流程（stubFn 被忽略）
+   * 用途：测试环境零 LLM 成本跑完整 pipeline；CI 不 flaky。
+   */
+  readonly stubFn?: () => Promise<TOutput>;
 }
 
 export interface LlmExecutorResult<TOutput> {
@@ -67,6 +78,23 @@ export class SchemaRetryExhaustedError extends Error {
     );
     this.name = "SchemaRetryExhaustedError";
   }
+}
+
+export class StubNotConfiguredError extends Error {
+  constructor(agentId: string) {
+    super(
+      `[${agentId}] AI_ENGINE_AGENT_STUB=1 set but spec has no stubFn — cannot stub`,
+    );
+    this.name = "StubNotConfiguredError";
+  }
+}
+
+/**
+ * 全局 stub 模式开关：env 变量 AI_ENGINE_AGENT_STUB=1 时所有 spec 带 stubFn 的 agent
+ * 绕过 LLM，直接走 stub。测试友好；禁止用于生产。
+ */
+export function isStubModeEnabled(): boolean {
+  return process.env.AI_ENGINE_AGENT_STUB === "1";
 }
 
 // ============ 工具：JSON 提取 ============
@@ -134,6 +162,47 @@ export class LlmExecutor {
   async execute<TOutput>(
     input: LlmExecutorInput<TOutput>,
   ): Promise<LlmExecutorResult<TOutput>> {
+    // ★ Stub 模式：env + spec.stubFn 同时存在才生效
+    if (isStubModeEnabled()) {
+      if (!input.stubFn) {
+        throw new StubNotConfiguredError(input.agentId);
+      }
+      const output = await input.stubFn();
+      // 仍然走 schema + business-rule 校验（保证 stub 契约）
+      if (input.outputSchema) {
+        const parsed = input.outputSchema.safeParse(output);
+        if (!parsed.success) {
+          const issues = parsed.error.issues
+            .map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join("; ");
+          throw new Error(
+            `[${input.agentId}] stubFn output failed schema: ${issues}`,
+          );
+        }
+        if (input.validateBusinessRules) {
+          input.validateBusinessRules(parsed.data);
+        }
+        return {
+          output: parsed.data,
+          tokensUsed: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          model: "stub",
+          costUsd: 0,
+          retries: 0,
+        };
+      }
+      return {
+        output,
+        tokensUsed: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        model: "stub",
+        costUsd: 0,
+        retries: 0,
+      };
+    }
+
     const maxRetries = input.maxRetries ?? 2;
 
     // KernelContext 自动带出 processId / userId（若 caller 未显式传）

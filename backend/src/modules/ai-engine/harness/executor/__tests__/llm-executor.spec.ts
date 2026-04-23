@@ -14,6 +14,7 @@ import { z } from "zod";
 import {
   LlmExecutor,
   SchemaRetryExhaustedError,
+  StubNotConfiguredError,
   extractJsonFromLlmContent,
 } from "../llm-executor";
 
@@ -179,5 +180,110 @@ describe("LlmExecutor", () => {
     });
     expect(res.inputTokens).toBe(20);
     expect(res.outputTokens).toBe(40);
+  });
+
+  describe("stub mode (AI_ENGINE_AGENT_STUB=1)", () => {
+    let origEnv: string | undefined;
+    beforeEach(() => {
+      origEnv = process.env.AI_ENGINE_AGENT_STUB;
+      process.env.AI_ENGINE_AGENT_STUB = "1";
+    });
+    afterEach(() => {
+      if (origEnv === undefined) delete process.env.AI_ENGINE_AGENT_STUB;
+      else process.env.AI_ENGINE_AGENT_STUB = origEnv;
+    });
+
+    it("bypasses LLM and calls stubFn when env=1 + stubFn provided", async () => {
+      const chat = { chat: jest.fn() };
+      const exec = new LlmExecutor(chat as any);
+      const res = await exec.execute({
+        agentId: "TEST",
+        systemPrompt: "sys",
+        userPrompt: "usr",
+        outputSchema: Schema,
+        taskProfile: { creativity: "low", outputLength: "medium" },
+        stubFn: async () => ({ a: 42, b: "stub" }),
+      });
+      expect(res.output).toEqual({ a: 42, b: "stub" });
+      expect(res.model).toBe("stub");
+      expect(res.tokensUsed).toBe(0);
+      expect(res.costUsd).toBe(0);
+      expect(chat.chat).not.toHaveBeenCalled();
+    });
+
+    it("stub output still goes through Zod schema validation", async () => {
+      const chat = { chat: jest.fn() };
+      const exec = new LlmExecutor(chat as any);
+      await expect(
+        exec.execute({
+          agentId: "TEST",
+          systemPrompt: "sys",
+          userPrompt: "usr",
+          outputSchema: Schema,
+          taskProfile: { creativity: "low", outputLength: "medium" },
+          stubFn: async () => ({ a: "not a number" }) as any,
+        }),
+      ).rejects.toThrow(/stubFn output failed schema/);
+    });
+
+    it("stub output goes through validateBusinessRules", async () => {
+      const chat = { chat: jest.fn() };
+      const exec = new LlmExecutor(chat as any);
+      await expect(
+        exec.execute({
+          agentId: "TEST",
+          systemPrompt: "sys",
+          userPrompt: "usr",
+          outputSchema: Schema,
+          validateBusinessRules: (o) => {
+            if (o.a === 1) throw new Error("a must not be 1");
+          },
+          taskProfile: { creativity: "low", outputLength: "medium" },
+          stubFn: async () => ({ a: 1, b: "x" }),
+        }),
+      ).rejects.toThrow(/a must not be 1/);
+    });
+
+    it("throws StubNotConfiguredError when env=1 but no stubFn", async () => {
+      const chat = { chat: jest.fn() };
+      const exec = new LlmExecutor(chat as any);
+      await expect(
+        exec.execute({
+          agentId: "TEST",
+          systemPrompt: "sys",
+          userPrompt: "usr",
+          taskProfile: { creativity: "low", outputLength: "medium" },
+        }),
+      ).rejects.toBeInstanceOf(StubNotConfiguredError);
+      expect(chat.chat).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("stub disabled (env != 1)", () => {
+    let origEnv: string | undefined;
+    beforeEach(() => {
+      origEnv = process.env.AI_ENGINE_AGENT_STUB;
+      delete process.env.AI_ENGINE_AGENT_STUB;
+    });
+    afterEach(() => {
+      if (origEnv !== undefined) process.env.AI_ENGINE_AGENT_STUB = origEnv;
+    });
+
+    it("ignores stubFn and goes through LLM path", async () => {
+      const stubFn = jest.fn();
+      const chat = mkChat([{ content: '{"a":1,"b":"x"}' }]);
+      const exec = new LlmExecutor(chat as any);
+      const res = await exec.execute({
+        agentId: "TEST",
+        systemPrompt: "sys",
+        userPrompt: "usr",
+        outputSchema: Schema,
+        taskProfile: { creativity: "low", outputLength: "medium" },
+        stubFn: stubFn as any,
+      });
+      expect(stubFn).not.toHaveBeenCalled();
+      expect(chat.chat).toHaveBeenCalledTimes(1);
+      expect(res.model).toBe("test-model");
+    });
   });
 });
