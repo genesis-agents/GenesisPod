@@ -8,7 +8,7 @@
  * 部署层面应通过外部反代限 admin 访问。
  */
 
-import { Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import {
   HarnessRolloutService,
@@ -23,6 +23,20 @@ export class HarnessHealthController {
   @UseGuards(JwtAuthGuard)
   getHealth(): HarnessHealthSnapshot {
     return this.rollout.getHealthSnapshot();
+  }
+
+  /**
+   * 聚合最近 N 小时的 harness run 指标（从 DB）
+   * ?hours=24 默认；合法范围 1-168（7 天）
+   */
+  @Get("health/history")
+  @UseGuards(JwtAuthGuard)
+  async getHistory(
+    @Query("hours") hours?: string,
+  ): Promise<HarnessHealthSnapshot> {
+    const n = hours ? parseInt(hours, 10) : 24;
+    const safe = Number.isFinite(n) ? Math.max(1, Math.min(168, n)) : 24;
+    return this.rollout.getHistorySnapshot(safe);
   }
 
   @Post("reset-rollback")

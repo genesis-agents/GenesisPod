@@ -13,8 +13,10 @@
  * 内部指标窗口：最近 50 次 run，失败率 >= 0.3 触发 auto-rollback（返回 false）。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { createHash } from "crypto";
+import { Decimal } from "@prisma/client/runtime/library";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 export interface HarnessRunMetric {
   readonly missionId: string;
@@ -51,6 +53,8 @@ export class HarnessRolloutService {
   private readonly window: HarnessRunMetric[] = [];
   private autoRolledBack = false;
 
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
   /**
    * 是否走 harness 路径。
    * 规则：
@@ -78,6 +82,80 @@ export class HarnessRolloutService {
     if (this.window.length > WINDOW_SIZE) this.window.shift();
 
     this.evaluateAutoRollback();
+
+    // 持久化到 DB（fire-and-forget，失败不影响主流程）
+    if (this.prisma) {
+      void this.persistToDb(metric);
+    }
+  }
+
+  private async persistToDb(metric: HarnessRunMetric): Promise<void> {
+    try {
+      await this.prisma!.harnessRunMetric.create({
+        data: {
+          missionId: metric.missionId.slice(0, 100),
+          userId: metric.userId.slice(0, 100),
+          success: metric.success,
+          durationMs: metric.durationMs,
+          qualityScore: metric.qualityScore ?? null,
+          tokensUsed: metric.tokensUsed,
+          costUsd: new Decimal(metric.costUsd.toFixed(4)),
+          errorMessage: metric.errorMessage?.slice(0, 500) ?? null,
+          createdAt: metric.recordedAt,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `persistToDb failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * 从 DB 聚合最近 N 小时的指标（用于 /harness/health/history）
+   */
+  async getHistorySnapshot(hours = 24): Promise<HarnessHealthSnapshot> {
+    if (!this.prisma) return this.getHealthSnapshot();
+
+    const since = new Date(Date.now() - hours * 3600_000);
+    try {
+      const rows = await this.prisma.harnessRunMetric.findMany({
+        where: { createdAt: { gte: since } },
+        select: {
+          success: true,
+          durationMs: true,
+          qualityScore: true,
+          tokensUsed: true,
+          costUsd: true,
+        },
+      });
+      if (rows.length === 0) return this.getHealthSnapshot();
+      const success = rows.filter((r) => r.success).length;
+      const withQ = rows.filter((r) => r.qualityScore != null);
+      const avgQ =
+        withQ.length > 0
+          ? withQ.reduce((s, r) => s + (r.qualityScore ?? 0), 0) / withQ.length
+          : 0;
+      const avgDur = rows.reduce((s, r) => s + r.durationMs, 0) / rows.length;
+      const avgTok = rows.reduce((s, r) => s + r.tokensUsed, 0) / rows.length;
+      const totalCost = rows.reduce((s, r) => s + Number(r.costUsd), 0);
+      return {
+        totalRuns: rows.length,
+        successRate: success / rows.length,
+        avgQualityScore: Math.round(avgQ * 10) / 10,
+        avgDurationMs: Math.round(avgDur),
+        avgTokens: Math.round(avgTok),
+        totalCostUsd: Math.round(totalCost * 10000) / 10000,
+        autoRolledBack: this.autoRolledBack,
+        rolloutPct: this.getRolloutPercentage(),
+        rolloutActive: process.env.TOPIC_INSIGHTS_USE_HARNESS === "1",
+      };
+    } catch (err) {
+      this.logger.warn(
+        `getHistorySnapshot failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return this.getHealthSnapshot();
+    }
   }
 
   getHealthSnapshot(): HarnessHealthSnapshot {

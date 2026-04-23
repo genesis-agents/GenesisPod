@@ -8885,3 +8885,31 @@ model StorageSnapshot {
   @@index([createdAt(sort: Desc)])
   @@map("storage_snapshots")
 }
+
+// ============================================================================
+// Topic Insights Harness · Rollout Metrics
+// ============================================================================
+
+/// 每次 harness pipeline run 的结果记录（Group N-1）
+/// 用于灰度监控 dashboard / 历史 P95 / 跨 pod 聚合 / 事故 post-mortem
+model HarnessRunMetric {
+  id        String  @id @default(uuid())
+  missionId String  @map("mission_id") @db.VarChar(100)
+  userId    String  @map("user_id") @db.VarChar(100)
+
+  success    Boolean
+  durationMs Int     @map("duration_ms")
+  /// ST-08-QGATE 产出的 overall score（0-100），失败时可为 null
+  qualityScore Int? @map("quality_score")
+  tokensUsed Int    @default(0) @map("tokens_used")
+  costUsd    Decimal @default(0) @map("cost_usd") @db.Decimal(10, 4)
+  /// 失败时填 error message 前 500 字符
+  errorMessage String? @map("error_message") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([success, createdAt(sort: Desc)])
+  @@map("harness_run_metrics")
+}
