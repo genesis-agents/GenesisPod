@@ -88,6 +88,11 @@ export enum ResearchEventType {
   ENTITY_EXTRACTED = "knowledge:entity_extracted",
   RELATION_DISCOVERED = "knowledge:relation_discovered",
   KNOWLEDGE_REUSED = "knowledge:reused",
+
+  // ★ H4 harness primitive: structured decision events emitted by stages/agents
+  // so the /leader/decisions endpoint and audit log can replace the legacy
+  // LeaderDecision table derivation.
+  DECISION = "decision",
 }
 
 /**
@@ -428,6 +433,31 @@ export class ResearchEventEmitterService {
    * 发送任务失败事件
    * ★ 同时标记进度追踪失败
    */
+  /**
+   * H4 — broadcast a structured decision made by a stage or agent (leader plan
+   * picked dimensions, mission-adjuster chose to downgrade, remediate loop
+   * selected sections, etc.). Consumed by the leader/decisions endpoint.
+   */
+  async emitDecision(
+    topicId: string,
+    payload: {
+      missionId: string;
+      /** stage or agent id that made the decision (ST-01-PLAN, AG-16-MA, etc.) */
+      source: string;
+      /** short machine-readable kind: plan_ready, downgrade, remediate, cancel, ... */
+      kind: string;
+      /** human-readable summary */
+      summary: string;
+      /** optional structured payload — anything json-serialisable */
+      details?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.DECISION, {
+      ...payload,
+      at: new Date().toISOString(),
+    });
+  }
+
   async emitMissionCancelled(
     topicId: string,
     missionId: string,

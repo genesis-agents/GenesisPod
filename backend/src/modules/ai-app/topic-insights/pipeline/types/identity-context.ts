@@ -33,4 +33,11 @@ export interface PipelineIdentityContext {
    * Optional 保留以兼容纯单元测试；runtime 路径保证填充。
    */
   readonly capabilities?: TopicInsightsCapabilitySnapshot;
+  /**
+   * H3 primitive: 单维度刷新模式。
+   * 若存在，RESEARCH / WRITE / REVIEW / INTEGRATE / REMEDIATE 只处理 dimension id
+   * 在此列表里的部分。空数组 = 全维度（等价于不传）。
+   * 由 /dimensions/:id/refresh 端点驱动。
+   */
+  readonly dimensionScope?: readonly string[];
 }

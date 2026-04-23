@@ -196,6 +196,28 @@ export class PipelineOrchestratorService {
         options,
       );
 
+      // H4: structured decision event after key stages complete
+      if (stage.id === "ST-01-PLAN" && results.has("ST-01-PLAN")) {
+        const plan = results.get<{
+          dimensions: Array<{ id?: string; name: string }>;
+        }>("ST-01-PLAN");
+        const planOutput = (plan as { plan?: typeof plan })?.plan ?? plan;
+        const dims = planOutput?.dimensions ?? [];
+        void this.researchEventEmitter?.emitDecision(identity.topicId, {
+          missionId: identity.missionId,
+          source: "ST-01-PLAN",
+          kind: "plan_ready",
+          summary: `Leader selected ${dims.length} research dimension(s)`,
+          details: {
+            dimensionCount: dims.length,
+            dimensions: dims.map((d) => ({ id: d.id, name: d.name })),
+            scopedToSubset: Boolean(
+              identity.dimensionScope && identity.dimensionScope.length > 0,
+            ),
+          },
+        });
+      }
+
       // ★ Group J-2: ST-08-QGATE fail → remediate loop（重跑 ST-07 + ST-08，最多 maxRemediateRounds 轮）
       if (stage.id === "ST-08-QGATE" && results.has("ST-08-QGATE")) {
         await this.maybeRemediateLoop(
@@ -293,9 +315,23 @@ export class PipelineOrchestratorService {
       this.logger.log(
         `[${identity.missionId}] AG-16-MA decision=${decision} reason="${res.output.reason}"`,
       );
-      // 有意不通过 emitStageEvent 发 SSE：mission-adjuster 不是 stage，
-      // 用假 stageId 会污染前端 stage 进度条。日志已足够观察；未来如需
-      // 前端展示，应新增 ResearchEventType.MISSION_ADJUSTED 专用事件。
+
+      // H4: structured decision event (replaces the legacy LeaderDecision
+      // table derivation). Consumed by /topics/:id/leader/decisions.
+      void this.researchEventEmitter?.emitDecision(identity.topicId, {
+        missionId: identity.missionId,
+        source: "AG-16-MA",
+        kind: `mission_adjuster_${decision}`,
+        summary: `MissionAdjuster decided ${decision}: ${res.output.reason}`,
+        details: {
+          decision,
+          reason: res.output.reason,
+          budgetUsagePct,
+          qgateScore,
+          completedStages: completed,
+          pendingStages: pending,
+        },
+      });
 
       switch (decision) {
         case "abort":
@@ -717,6 +753,8 @@ export function buildIdentityContext(params: {
   cachePrefix?: string;
   /** 目标架构 v2：mission-execution 通过 reconciler 生成，注入给所有下游 */
   capabilities?: import("../capability/types").TopicInsightsCapabilitySnapshot;
+  /** H3 single-dimension scope */
+  dimensionScope?: readonly string[];
 }): PipelineIdentityContext {
   const cfg = DEPTH_CONFIG_DEFAULTS[params.depth];
   void cfg; // currently consumed by Stage impls, referenced here for future hooks
@@ -733,5 +771,6 @@ export function buildIdentityContext(params: {
     mode: params.mode,
     degradationMode: false,
     capabilities: params.capabilities,
+    dimensionScope: params.dimensionScope,
   };
 }

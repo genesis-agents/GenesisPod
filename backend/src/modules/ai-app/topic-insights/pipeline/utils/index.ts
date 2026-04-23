@@ -23,3 +23,6 @@ export type {
   LatexIssue,
   LatexValidationResult,
 } from "./validate-latex-delimiters";
+
+export { filterScopedDimensions } from "./filter-scoped-dimensions";
+export type { ScopableDimension } from "./filter-scoped-dimensions";

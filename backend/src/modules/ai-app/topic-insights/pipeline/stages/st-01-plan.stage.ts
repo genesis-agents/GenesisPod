@@ -167,6 +167,20 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
       mutablePlan.dimensions[i].id = upserted[i].id;
     }
 
+    // H3 single-dimension scope: after IDs are assigned, prune plan.dimensions
+    // to just the scoped ids so all downstream stages (RESEARCH/WRITE/REVIEW/
+    // INTEGRATE/REMEDIATE) naturally operate on the subset.
+    if (identity.dimensionScope && identity.dimensionScope.length > 0) {
+      const wanted = new Set(identity.dimensionScope);
+      const filtered = mutablePlan.dimensions.filter(
+        (d) =>
+          (typeof d.id === "string" && wanted.has(d.id)) ||
+          (typeof d.name === "string" && wanted.has(d.name)),
+      );
+      mutablePlan.dimensions.length = 0;
+      mutablePlan.dimensions.push(...filtered);
+    }
+
     await prisma.researchMission.update({
       where: { id: identity.missionId },
       data: {
