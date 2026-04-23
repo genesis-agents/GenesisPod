@@ -23,6 +23,8 @@ import { KernelContext } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../../services/core/research/research-event-emitter.service";
 import {
   HarnessAgentRegistry,
+  type MissionAdjusterInput,
+  type MissionAdjustment,
   type RemediatedSection,
   type SectionRemediatorInput,
   type SectionResult,
@@ -83,6 +85,9 @@ export interface RunPipelineResult {
 export class PipelineOrchestratorService {
   private readonly logger = new Logger(PipelineOrchestratorService.name);
 
+  /** AG-16-MA 质量阈值：QGATE 分 < 此值时咨询 MissionAdjuster */
+  private static readonly MA_QUALITY_THRESHOLD = 60;
+
   constructor(
     private readonly stageRegistry: StageRegistry,
     @Optional()
@@ -124,6 +129,10 @@ export class PipelineOrchestratorService {
     const results = new StageResults();
     const completed: StageId[] = [];
     const skipped: StageId[] = [];
+    const allStageIds = stages.map((s) => s.id);
+    // 每次 mission 只咨询 AG-16-MA 一次，避免连环中断
+    let missionAdjusterConsulted = false;
+    let degradationWasActive = identity.degradationMode;
 
     for (const stage of stages) {
       if (signal.aborted) {
@@ -160,7 +169,28 @@ export class PipelineOrchestratorService {
           options,
         );
       }
-      continue;
+
+      // ★ AG-16-MA 运行时接入：降级首发 或 QGATE 低分 → 咨询 MissionAdjuster
+      if (!missionAdjusterConsulted) {
+        const enteredDegrade =
+          !degradationWasActive && identity.degradationMode;
+        const lowQuality = this.qgateScoreBelow(
+          results,
+          PipelineOrchestratorService.MA_QUALITY_THRESHOLD,
+        );
+        if (enteredDegrade || lowQuality) {
+          missionAdjusterConsulted = true;
+          await this.consultMissionAdjuster(
+            identity,
+            results,
+            completed,
+            allStageIds,
+            startedAt,
+            signal,
+          );
+        }
+      }
+      degradationWasActive = identity.degradationMode;
     }
 
     return {
@@ -170,6 +200,116 @@ export class PipelineOrchestratorService {
       budgetSnapshot: identity.budget.snapshot(),
       durationMs: Date.now() - startedAt,
     };
+  }
+
+  /**
+   * AG-16-MA · MissionAdjuster 咨询：在 budget 降级 或 QGATE 低分时调用。
+   *
+   * 决策映射：
+   * - continue:        继续，无副作用
+   * - downgrade_depth: 强制降级模式（跳过 thoroughOrDeep stages）
+   * - extend_budget:   提升 degradation 阈值（但不改硬上限），只 log
+   * - abort:           abort AbortController → pipeline 下一轮 signal.aborted 命中
+   *
+   * 失败不影响主流程（any error → log warn → continue）。
+   */
+  private async consultMissionAdjuster(
+    identity: PipelineIdentityContext,
+    results: StageResults,
+    completed: StageId[],
+    allStageIds: StageId[],
+    startedAt: number,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (signal.aborted) return;
+    if (!this.agentRegistry) return;
+    const adjuster = this.agentRegistry.get<
+      MissionAdjusterInput,
+      MissionAdjustment
+    >("AG-16-MA");
+    if (!adjuster) return;
+
+    const budgetSnap = identity.budget.snapshot();
+    const maxTokens = identity.budget.config.maxTotalTokens;
+    const budgetUsagePct =
+      maxTokens > 0 ? Math.min(1, budgetSnap.tokensUsed / maxTokens) : 0;
+
+    const qgateScore = this.readQgateScore(results);
+    const pending = allStageIds.filter((id) => !completed.includes(id));
+
+    try {
+      const res = await adjuster.run({
+        input: {
+          budgetUsagePct,
+          currentDepth: identity.depth,
+          completedStages: completed,
+          pendingStages: pending,
+          qualityScore: qgateScore,
+          elapsedMs: Date.now() - startedAt,
+        },
+        identity,
+        signal,
+      });
+      const decision = res.output.decision;
+      this.logger.log(
+        `[${identity.missionId}] AG-16-MA decision=${decision} reason="${res.output.reason}"`,
+      );
+      await this.emitStageEvent(
+        identity,
+        "ST-00-INIT" as StageId,
+        "stage:completed",
+        {
+          event: "mission-adjuster",
+          decision,
+          reason: res.output.reason,
+        },
+      );
+
+      switch (decision) {
+        case "abort":
+          this.logger.warn(
+            `[${identity.missionId}] AG-16-MA requested abort — aborting pipeline`,
+          );
+          identity.abortController.abort();
+          break;
+        case "downgrade_depth":
+          if (!identity.degradationMode) {
+            identity.degradationMode = true;
+            this.logger.warn(
+              `[${identity.missionId}] AG-16-MA downgrade_depth — entering degradation mode`,
+            );
+          }
+          break;
+        case "extend_budget":
+          // 不改硬上限：设计上 Budget 是硬边界，此处只记录策略意图
+          this.logger.log(
+            `[${identity.missionId}] AG-16-MA extend_budget suggested — budget stays hard-capped; log only`,
+          );
+          break;
+        case "continue":
+        default:
+          break;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[${identity.missionId}] AG-16-MA failed: ${err instanceof Error ? err.message : String(err)} — continuing without adjustment`,
+      );
+    }
+  }
+
+  private readQgateScore(results: StageResults): number | undefined {
+    if (!results.has("ST-08-QGATE")) return undefined;
+    try {
+      const q = results.get<QualityGateStageOutput>("ST-08-QGATE");
+      return typeof q.score === "number" ? q.score : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private qgateScoreBelow(results: StageResults, threshold: number): boolean {
+    const s = this.readQgateScore(results);
+    return typeof s === "number" && s < threshold;
   }
 
   /**

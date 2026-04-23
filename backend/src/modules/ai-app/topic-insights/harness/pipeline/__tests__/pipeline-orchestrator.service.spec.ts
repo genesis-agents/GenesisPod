@@ -201,4 +201,185 @@ describe("PipelineOrchestratorService", () => {
     await expect(orchestrator.run(ctx())).rejects.toThrow("boom");
     expect(cleanup).toHaveBeenCalled();
   });
+
+  describe("AG-16-MA runtime integration", () => {
+    function mkAgentRegistryWithAdjuster(
+      decision: "continue" | "extend_budget" | "downgrade_depth" | "abort",
+      runSpy?: jest.Mock,
+    ): import("../../agents").HarnessAgentRegistry {
+      const run =
+        runSpy ??
+        jest.fn().mockResolvedValue({
+          output: {
+            decision,
+            reason: "test reason exceeds min length",
+            recommendedActions: [],
+          },
+          tokensUsed: 0,
+          costUsd: 0,
+        });
+      return {
+        get: jest.fn((id: string) => (id === "AG-16-MA" ? { run } : undefined)),
+      } as unknown as import("../../agents").HarnessAgentRegistry;
+    }
+
+    it("QGATE 低分 → 咨询 AG-16-MA（一次）", async () => {
+      const runSpy = jest.fn().mockResolvedValue({
+        output: {
+          decision: "continue",
+          reason: "score ok but borderline",
+          recommendedActions: [],
+        },
+        tokensUsed: 0,
+        costUsd: 0,
+      });
+      const agentRegistry = mkAgentRegistryWithAdjuster("continue", runSpy);
+      orchestrator = new PipelineOrchestratorService(
+        registry,
+        undefined,
+        agentRegistry,
+      );
+      registry.register(
+        mkStage({
+          id: "ST-08-QGATE",
+          execute: jest.fn().mockResolvedValue({
+            score: 40,
+            needsRemediate: false,
+            breakdown: {},
+            failedDimensions: [],
+            passedDimensions: [],
+          }),
+        }),
+      );
+
+      await orchestrator.run(ctx());
+      expect(runSpy).toHaveBeenCalledTimes(1);
+      const args = runSpy.mock.calls[0][0];
+      expect(args.input.qualityScore).toBe(40);
+    });
+
+    it("decision=abort → abort controller + next run 抛 AbortError", async () => {
+      const agentRegistry = mkAgentRegistryWithAdjuster("abort");
+      orchestrator = new PipelineOrchestratorService(
+        registry,
+        undefined,
+        agentRegistry,
+      );
+      registry.register(
+        mkStage({
+          id: "ST-08-QGATE",
+          execute: jest.fn().mockResolvedValue({
+            score: 30,
+            needsRemediate: false,
+            breakdown: {},
+            failedDimensions: [],
+            passedDimensions: [],
+          }),
+        }),
+      );
+      registry.register(
+        mkStage({ id: "ST-11-ASM", dependsOn: ["ST-08-QGATE"] }),
+      );
+
+      await expect(orchestrator.run(ctx())).rejects.toMatchObject({
+        name: "AbortError",
+      });
+    });
+
+    it("decision=downgrade_depth → 设置 degradationMode 跳过 thoroughOrDeep", async () => {
+      const agentRegistry = mkAgentRegistryWithAdjuster("downgrade_depth");
+      orchestrator = new PipelineOrchestratorService(
+        registry,
+        undefined,
+        agentRegistry,
+      );
+      registry.register(
+        mkStage({
+          id: "ST-08-QGATE",
+          execute: jest.fn().mockResolvedValue({
+            score: 40,
+            needsRemediate: false,
+            breakdown: {},
+            failedDimensions: [],
+            passedDimensions: [],
+          }),
+        }),
+      );
+      registry.register(
+        mkStage({
+          id: "ST-06-COGLOOP",
+          runsWhen: "thoroughOrDeep",
+          dependsOn: ["ST-08-QGATE"],
+        }),
+      );
+
+      const result = await orchestrator.run(ctx({ depth: "thorough" }));
+      expect(result.skippedStages).toContain("ST-06-COGLOOP");
+    });
+
+    it("QGATE 分 >= 阈值 且未降级 → 不咨询", async () => {
+      const runSpy = jest.fn();
+      const agentRegistry = mkAgentRegistryWithAdjuster("continue", runSpy);
+      orchestrator = new PipelineOrchestratorService(
+        registry,
+        undefined,
+        agentRegistry,
+      );
+      registry.register(
+        mkStage({
+          id: "ST-08-QGATE",
+          execute: jest.fn().mockResolvedValue({
+            score: 85,
+            needsRemediate: false,
+            breakdown: {},
+            failedDimensions: [],
+            passedDimensions: [],
+          }),
+        }),
+      );
+      await orchestrator.run(ctx());
+      expect(runSpy).not.toHaveBeenCalled();
+    });
+
+    it("AG-16-MA 运行失败 → 吞异常继续", async () => {
+      const runSpy = jest.fn().mockRejectedValue(new Error("adjuster down"));
+      const agentRegistry = mkAgentRegistryWithAdjuster("continue", runSpy);
+      orchestrator = new PipelineOrchestratorService(
+        registry,
+        undefined,
+        agentRegistry,
+      );
+      registry.register(
+        mkStage({
+          id: "ST-08-QGATE",
+          execute: jest.fn().mockResolvedValue({
+            score: 30,
+            needsRemediate: false,
+            breakdown: {},
+            failedDimensions: [],
+            passedDimensions: [],
+          }),
+        }),
+      );
+      const result = await orchestrator.run(ctx());
+      expect(result.completedStages).toContain("ST-08-QGATE");
+    });
+
+    it("无 agentRegistry → 不咨询（向后兼容）", async () => {
+      // 默认 orchestrator (beforeEach) 没注入 agentRegistry
+      registry.register(
+        mkStage({
+          id: "ST-08-QGATE",
+          execute: jest.fn().mockResolvedValue({
+            score: 30,
+            needsRemediate: false,
+            breakdown: {},
+            failedDimensions: [],
+            passedDimensions: [],
+          }),
+        }),
+      );
+      await expect(orchestrator.run(ctx())).resolves.toBeDefined();
+    });
+  });
 });
