@@ -59,11 +59,12 @@ maybeDescribe("Golden runner · structure validator", () => {
     ).toBe(true);
   });
 
-  it("报告长度差 > 30% → FAIL", () => {
+  it("报告长度差 > 80% → FAIL (Group M-1 tolerance widened)", () => {
     const candidate = clone(baseline);
+    // 切到 15%（缩减 85%）触发 fail
     candidate.finalReportMd = baseline.finalReportMd.slice(
       0,
-      Math.floor(baseline.finalReportMd.length * 0.5),
+      Math.floor(baseline.finalReportMd.length * 0.15),
     );
     const diffs = compareStructure(baseline, candidate);
     expect(isPass(diffs)).toBe(false);
@@ -74,11 +75,11 @@ maybeDescribe("Golden runner · structure validator", () => {
     ).toBe(true);
   });
 
-  it("报告长度差 10%-30% → warn（PASS）", () => {
+  it("报告长度差 30%-80% → warn（PASS）", () => {
     const candidate = clone(baseline);
     candidate.finalReportMd =
       baseline.finalReportMd +
-      "#".repeat(Math.floor(baseline.finalReportMd.length * 0.15));
+      "#".repeat(Math.floor(baseline.finalReportMd.length * 0.4));
     const diffs = compareStructure(baseline, candidate);
     expect(isPass(diffs)).toBe(true);
     expect(

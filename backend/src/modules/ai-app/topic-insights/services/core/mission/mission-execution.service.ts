@@ -38,6 +38,7 @@ import {
 } from "@/modules/ai-engine/facade";
 import { KernelContext } from "@/modules/ai-engine/facade";
 import {
+  HarnessRolloutService,
   PipelineOrchestratorService,
   buildIdentityContext,
   type ResearchDepth as HarnessResearchDepth,
@@ -93,6 +94,8 @@ export class MissionExecutionService {
     private readonly latencyTracker?: SessionLatencyTrackerService,
     @Optional()
     private readonly harnessOrchestrator?: PipelineOrchestratorService,
+    @Optional()
+    private readonly harnessRollout?: HarnessRolloutService,
   ) {
     this.executorMap = new Map<string, ITaskExecutor>([
       ["dimension_research", this.dimensionResearchExecutor],
@@ -110,14 +113,24 @@ export class MissionExecutionService {
       `[startExecution] Starting execution for mission ${missionId}`,
     );
 
-    // ★ Enhancement Tier Group F-1: feature-flag 分叉到 harness pipeline
-    //   TOPIC_INSIGHTS_USE_HARNESS=1 → 调 harness 8-stage pipeline
-    //   否则（默认） → 继续 legacy 流程（零影响）
-    if (
-      process.env.TOPIC_INSIGHTS_USE_HARNESS === "1" &&
-      this.harnessOrchestrator
-    ) {
-      return this.runWithHarness(missionId, topicId);
+    // ★ Group M-2: 灰度分叉 — HarnessRolloutService 综合决定（env flag +
+    // 用户 hash + rollout 百分比 + auto-rollback）是否走 harness pipeline。
+    // 只在 flag 开启时做 userId 查询，避免 legacy 路径多 1 次 DB 往返。
+    const harnessFlagOn = process.env.TOPIC_INSIGHTS_USE_HARNESS === "1";
+    if (harnessFlagOn && this.harnessOrchestrator) {
+      let shouldUseHarness = true;
+      if (this.harnessRollout) {
+        const topicForRoute = await this.prisma.researchTopic.findUnique({
+          where: { id: topicId },
+          select: { userId: true },
+        });
+        shouldUseHarness = this.harnessRollout.shouldUseHarness(
+          topicForRoute?.userId ?? "",
+        );
+      }
+      if (shouldUseHarness) {
+        return this.runWithHarness(missionId, topicId);
+      }
     }
 
     // 获取专题信息
@@ -1739,7 +1752,15 @@ export class MissionExecutionService {
     });
 
     try {
-      const result = await this.harnessOrchestrator.run(identity);
+      let qualityScore: number | undefined;
+      const result = await this.harnessOrchestrator.run(identity, {
+        onStageComplete: (stageId, output) => {
+          if (stageId === "ST-08-QGATE") {
+            const qg = output as { score?: number };
+            if (typeof qg.score === "number") qualityScore = qg.score;
+          }
+        },
+      });
       this.logger.log(
         `[runWithHarness] mission=${missionId} completed stages=${result.completedStages.length} ` +
           `tokens=${result.budgetSnapshot.tokensUsed} cost=$${result.budgetSnapshot.costUsd.toFixed(4)} ` +
@@ -1759,6 +1780,18 @@ export class MissionExecutionService {
         result.completedStages.length,
         result.completedStages.length,
       );
+
+      // ★ Group M-2: 记录 harness run 指标（auto-rollback 输入）
+      this.harnessRollout?.recordRun({
+        missionId,
+        userId: topic.userId,
+        success: true,
+        durationMs: result.durationMs,
+        qualityScore,
+        tokensUsed: result.budgetSnapshot.tokensUsed,
+        costUsd: result.budgetSnapshot.costUsd,
+        recordedAt: new Date(),
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`[runWithHarness] mission=${missionId} failed: ${msg}`);
@@ -1774,6 +1807,16 @@ export class MissionExecutionService {
         missionId,
         msg,
       );
+      this.harnessRollout?.recordRun({
+        missionId,
+        userId: topic.userId,
+        success: false,
+        durationMs: 0,
+        tokensUsed: 0,
+        costUsd: 0,
+        errorMessage: msg,
+        recordedAt: new Date(),
+      });
       throw err;
     }
   }

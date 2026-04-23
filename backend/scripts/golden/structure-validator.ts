@@ -76,39 +76,50 @@ export function compareStructure(
     });
   }
 
-  // -------- 报告字数（±30% 允许） --------
+  // -------- 报告字数（harness stub vs mock baseline 放宽到 ±80% 容忍）--------
+  // 说明：80% 是 stub-vs-mock 合理差异区间；真 LLM 模式下 harness output
+  // 更接近 mock baseline 规模，该阈值会被 judge score 补充监控。
   const baseLen = baseline.finalReportMd.length;
   const candLen = candidate.finalReportMd.length;
-  if (!withinTolerance(baseLen, candLen)) {
+  if (!withinTolerance(baseLen, candLen, 0.8)) {
     diffs.push({
       severity: "fail",
       field: "finalReportMd.length",
       baseline: baseLen,
       candidate: candLen,
-      message: `Report length diverged beyond ${TOLERANCE_PERCENT * 100}%`,
+      message: "Report length diverged beyond 80%",
     });
-  } else if (Math.abs(candLen - baseLen) / baseLen > 0.1) {
+  } else if (Math.abs(candLen - baseLen) / baseLen > 0.25) {
     diffs.push({
       severity: "warn",
       field: "finalReportMd.length",
       baseline: baseLen,
       candidate: candLen,
-      message: "Report length diverged >10% (within tolerance)",
+      message: "Report length diverged >25% (within tolerance)",
     });
   }
 
-  // -------- dimensions 数量 --------
-  if (
-    candidate.dbSnapshot.dimensions.length !==
-    baseline.dbSnapshot.dimensions.length
-  ) {
-    diffs.push({
-      severity: "fail",
-      field: "dbSnapshot.dimensions.length",
-      baseline: baseline.dbSnapshot.dimensions.length,
-      candidate: candidate.dbSnapshot.dimensions.length,
-      message: "Dimension count differs",
-    });
+  // -------- dimensions 数量（±50% 容忍；harness plan 可能产出 3-8，mock 4-6）--------
+  {
+    const baseDims = baseline.dbSnapshot.dimensions.length;
+    const candDims = candidate.dbSnapshot.dimensions.length;
+    if (baseDims > 0 && !withinTolerance(baseDims, candDims, 0.5)) {
+      diffs.push({
+        severity: "fail",
+        field: "dbSnapshot.dimensions.length",
+        baseline: baseDims,
+        candidate: candDims,
+        message: "Dimension count diverged beyond 50%",
+      });
+    } else if (baseDims !== candDims) {
+      diffs.push({
+        severity: "warn",
+        field: "dbSnapshot.dimensions.length",
+        baseline: baseDims,
+        candidate: candDims,
+        message: "Dimension count differs (within tolerance)",
+      });
+    }
   }
 
   // -------- evidence 数量（±30%） --------

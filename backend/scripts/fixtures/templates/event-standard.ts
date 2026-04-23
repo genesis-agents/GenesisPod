@@ -18,6 +18,7 @@ export function eventStandardTemplate(input: TemplateInput): MissionFixture {
     { id: `d-${seed}-1`, name: "事件经过与事实核查" },
     { id: `d-${seed}-2`, name: "影响分析" },
     { id: `d-${seed}-3`, name: "各方反应" },
+    { id: `d-${seed}-4`, name: "后续趋势" },
   ];
 
   const llmCalls = [
