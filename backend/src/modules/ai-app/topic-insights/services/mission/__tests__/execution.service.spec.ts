@@ -1134,85 +1134,10 @@ describe("MissionExecutionService", () => {
     });
   });
 
-  // ─── continueExecution ───────────────────────────────────────────────────────
-
-  describe("continueExecution", () => {
-    it("should throw when mission not found", async () => {
-      prisma.researchMission.findUnique.mockResolvedValueOnce(null);
-
-      await expect(service.continueExecution("missing")).rejects.toThrow(
-        "Mission missing not found",
-      );
-    });
-
-    it("should throw when mission status is not EXECUTING", async () => {
-      prisma.researchMission.findUnique.mockResolvedValueOnce({
-        status: ResearchMissionStatus.COMPLETED,
-        topicId: "topic-1",
-        tasks: [],
-      });
-
-      await expect(service.continueExecution("mission-1")).rejects.toThrow(
-        "not in EXECUTING status",
-      );
-    });
-
-    it("should reset EXECUTING tasks to PENDING", async () => {
-      prisma.researchMission.findUnique.mockResolvedValueOnce({
-        id: "mission-1",
-        status: ResearchMissionStatus.EXECUTING,
-        topicId: "topic-1",
-        tasks: [{ id: "exec-task-1" }, { id: "exec-task-2" }],
-      });
-      prisma.researchTask.count
-        .mockResolvedValueOnce(1) // completed
-        .mockResolvedValueOnce(3); // total
-
-      // startExecution needs these to not hang
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      prisma.researchMission.findUnique.mockResolvedValue({
-        ...mockMission,
-        status: ResearchMissionStatus.CANCELLED,
-      });
-      queryService.getExecutableTasks.mockResolvedValue([]);
-      prisma.researchTask.findMany.mockResolvedValue([]);
-      prisma.researchTask.count.mockResolvedValue(0);
-
-      await service.continueExecution("mission-1");
-
-      expect(prisma.researchTask.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: { in: ["exec-task-1", "exec-task-2"] } },
-          data: { status: ResearchTaskStatus.PENDING, startedAt: null },
-        }),
-      );
-    });
-
-    it("should not call updateMany when no EXECUTING tasks", async () => {
-      prisma.researchMission.findUnique.mockResolvedValueOnce({
-        id: "mission-1",
-        status: ResearchMissionStatus.EXECUTING,
-        topicId: "topic-1",
-        tasks: [], // empty
-      });
-      prisma.researchTask.count
-        .mockResolvedValueOnce(2)
-        .mockResolvedValueOnce(5);
-
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      prisma.researchMission.findUnique.mockResolvedValue({
-        ...mockMission,
-        status: ResearchMissionStatus.CANCELLED,
-      });
-      queryService.getExecutableTasks.mockResolvedValue([]);
-      prisma.researchTask.findMany.mockResolvedValue([]);
-      prisma.researchTask.count.mockResolvedValue(0);
-
-      await service.continueExecution("mission-1");
-
-      expect(prisma.researchTask.updateMany).not.toHaveBeenCalled();
-    });
-  });
+  // H6: continueExecution describe block removed — the method itself was
+  // deleted. It was a legacy auto-recovery path called only from
+  // handleRecoveryNeeded (now a no-op) and from retry logic (rewired to
+  // resumeWithHarness in H5).
 
   // ─── executeDynamicScheduler ─────────────────────────────────────────────────
 
@@ -2539,70 +2464,24 @@ describe("MissionExecutionService", () => {
   // ─── handleRecoveryNeeded event handler (lines 1509-1530) ────────────────────
 
   describe("handleRecoveryNeeded event handler", () => {
-    it("should be a no-op in harness mode (H5) — does not trigger continueExecution", async () => {
-      const continueSpy = jest
-        .spyOn(service, "continueExecution")
-        .mockResolvedValue(undefined);
-
-      await service.handleRecoveryNeeded({
-        missionId: "mission-1",
-        topicId: "topic-1",
-        resetTaskCount: 2,
-      });
-
-      expect(continueSpy).not.toHaveBeenCalled();
-    });
-
-    it("should not propagate error when continueExecution fails (still a no-op)", async () => {
-      jest
-        .spyOn(service, "continueExecution")
-        .mockRejectedValue(new Error("Continue failed"));
-
+    it("is a no-op in harness mode (H5/H6) — logs and returns without touching db", async () => {
       await expect(
         service.handleRecoveryNeeded({
           missionId: "mission-1",
           topicId: "topic-1",
-          resetTaskCount: 0,
+          resetTaskCount: 2,
         }),
-      ).resolves.not.toThrow();
+      ).resolves.toBeUndefined();
+
+      // No db mutation triggered by the recovery event — resume is now a
+      // user-initiated action via /resume endpoint -> resumeWithHarness.
+      expect(prisma.researchMission.update).not.toHaveBeenCalled();
+      expect(prisma.researchTask.updateMany).not.toHaveBeenCalled();
     });
   });
 
-  // ─── continueExecution - startExecution error (lines 1612-1622) ──────────────
-
-  describe("continueExecution - async start error handling", () => {
-    it("should mark mission as FAILED when async startExecution fails", async () => {
-      prisma.researchMission.findUnique.mockResolvedValueOnce({
-        id: "mission-1",
-        status: ResearchMissionStatus.EXECUTING,
-        topicId: "topic-1",
-        tasks: [],
-      });
-      prisma.researchTask.count
-        .mockResolvedValueOnce(1)
-        .mockResolvedValueOnce(3);
-
-      // startExecution will fail asynchronously
-      const startSpy = jest
-        .spyOn(service, "startExecution")
-        .mockRejectedValue(new Error("Start execution failed"));
-
-      prisma.researchMission.update = jest.fn().mockResolvedValue({});
-
-      await service.continueExecution("mission-1");
-
-      // Give async operation time to fail
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { status: ResearchMissionStatus.FAILED },
-        }),
-      );
-
-      startSpy.mockRestore();
-    });
-  });
+  // H6: "continueExecution - async start error handling" describe block
+  // removed along with the continueExecution method itself.
 
   // ─── addAgentToLeaderPlan - null agentAssignments (line 1695) ────────────────
 

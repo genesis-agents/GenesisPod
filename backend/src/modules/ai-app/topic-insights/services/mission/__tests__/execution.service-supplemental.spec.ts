@@ -15,7 +15,6 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { MissionExecutionService } from "../execution.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../../research/event-emitter.service";
@@ -531,147 +530,21 @@ describe("MissionExecutionService (supplemental)", () => {
     });
   });
 
-  // ─── continueExecution ───────────────────────────────────────────────────────
-
-  describe("continueExecution", () => {
-    it("should throw NotFoundException when mission not found", async () => {
-      mocks.mockPrisma.researchMission.findUnique.mockResolvedValue(null);
-
-      await expect(service.continueExecution("mission-x")).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it("should throw BadRequestException when mission is not EXECUTING", async () => {
-      mocks.mockPrisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-1",
-        topicId: "topic-1",
-        status: ResearchMissionStatus.COMPLETED,
-        tasks: [],
-      });
-
-      await expect(service.continueExecution("mission-1")).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it("should reset EXECUTING tasks to PENDING and resume", async () => {
-      mocks.mockPrisma.researchMission.findUnique
-        .mockResolvedValueOnce({
-          id: "mission-1",
-          topicId: "topic-1",
-          status: ResearchMissionStatus.EXECUTING,
-          tasks: [{ id: "stuck-task-1" }, { id: "stuck-task-2" }],
-        })
-        // scheduler iteration: immediately CANCELLED to exit
-        .mockResolvedValue({ status: ResearchMissionStatus.CANCELLED });
-      mocks.mockPrisma.researchTask.count
-        .mockResolvedValueOnce(2) // completedCount
-        .mockResolvedValueOnce(5); // totalCount
-      mocks.mockResearchEventEmitter.emitMissionProgress.mockResolvedValue(
-        undefined,
-      );
-      mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      mocks.mockPrisma.researchTask.updateMany.mockResolvedValue({ count: 2 });
-      mocks.mockPrisma.researchMission.update.mockResolvedValue({});
-
-      await expect(
-        service.continueExecution("mission-1"),
-      ).resolves.not.toThrow();
-
-      // Should have called updateMany to reset EXECUTING tasks to PENDING
-      expect(mocks.mockPrisma.researchTask.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: { in: ["stuck-task-1", "stuck-task-2"] } },
-          data: expect.objectContaining({
-            status: ResearchTaskStatus.PENDING,
-          }),
-        }),
-      );
-    });
-
-    it("should not reset tasks when no EXECUTING tasks exist", async () => {
-      mocks.mockPrisma.researchMission.findUnique
-        .mockResolvedValueOnce({
-          id: "mission-1",
-          topicId: "topic-1",
-          status: ResearchMissionStatus.EXECUTING,
-          tasks: [], // no stuck tasks
-        })
-        .mockResolvedValue({ status: ResearchMissionStatus.CANCELLED });
-      mocks.mockPrisma.researchTask.count
-        .mockResolvedValueOnce(1)
-        .mockResolvedValueOnce(3);
-      mocks.mockResearchEventEmitter.emitMissionProgress.mockResolvedValue(
-        undefined,
-      );
-      mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      mocks.mockPrisma.researchMission.update.mockResolvedValue({});
-
-      await expect(
-        service.continueExecution("mission-1"),
-      ).resolves.not.toThrow();
-
-      // updateMany for task reset should NOT be called
-      expect(mocks.mockPrisma.researchTask.updateMany).not.toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: ResearchTaskStatus.PENDING }),
-        }),
-      );
-    });
-  });
+  // H6: continueExecution describe block removed — the method was deleted.
+  // It was an auto-recovery path called only from handleRecoveryNeeded (now
+  // a no-op) and from retry logic (rewired to resumeWithHarness in H5).
 
   // ─── handleRecoveryNeeded ────────────────────────────────────────────────────
 
   describe("handleRecoveryNeeded", () => {
-    it("should call continueExecution on recovery event", async () => {
-      // continueExecution will fail because mission is COMPLETED → BadRequestException
-      mocks.mockPrisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-1",
-        topicId: "topic-1",
-        status: ResearchMissionStatus.COMPLETED,
-        tasks: [],
-      });
-
-      // Should not throw even if continueExecution throws
+    it("is a no-op in harness mode — resolves without touching db", async () => {
       await expect(
         service.handleRecoveryNeeded({
           missionId: "mission-1",
           topicId: "topic-1",
           resetTaskCount: 2,
         }),
-      ).resolves.not.toThrow();
-    });
-
-    it("should handle continueExecution success", async () => {
-      mocks.mockPrisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-1",
-        topicId: "topic-1",
-        status: ResearchMissionStatus.EXECUTING,
-        tasks: [],
-      });
-      mocks.mockPrisma.researchTask.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
-      mocks.mockResearchEventEmitter.emitMissionProgress.mockResolvedValue(
-        undefined,
-      );
-      mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      // startExecution will quickly exit via CANCELLED mission
-      mocks.mockPrisma.researchMission.findUnique.mockResolvedValueOnce({
-        id: "mission-1",
-        topicId: "topic-1",
-        status: ResearchMissionStatus.CANCELLED,
-        tasks: [],
-      });
-
-      await expect(
-        service.handleRecoveryNeeded({
-          missionId: "mission-1",
-          topicId: "topic-1",
-          resetTaskCount: 0,
-        }),
-      ).resolves.not.toThrow();
+      ).resolves.toBeUndefined();
     });
   });
 

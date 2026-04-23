@@ -11,7 +11,6 @@ import {
   Optional,
   forwardRef,
   NotFoundException,
-  BadRequestException,
 } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -1471,8 +1470,8 @@ export class MissionExecutionService {
    *
    * In the harness model, a mission either completes atomically or its
    * checkpoint remains for an explicit user-initiated resume. The legacy
-   * auto-recovery flow (health service -> continueExecution) tried to restart
-   * missions behind the user's back, which conflicts with harness's atomic
+   * auto-recovery flow (health service -> continueExecution, now deleted)
+   * tried to restart missions behind the user's back, which conflicts with the
    * stage contract and the explicit resumeWithHarness primitive. Keeping the
    * @OnEvent binding so the event doesn't get dropped silently during
    * migration; we log and move on. Health service will be simplified (read-only)
@@ -1487,108 +1486,6 @@ export class MissionExecutionService {
     this.logger.log(
       `[handleRecoveryNeeded] harness mode: auto-recovery disabled for mission=${payload.missionId} (${payload.resetTaskCount} tasks were reset). User must trigger resume.`,
     );
-  }
-
-  /**
-   * ★ Phase 5: 继续执行被中断的 Mission
-   *
-   * 用于服务重启后自动恢复被中断的任务：
-   * 1. 验证 Mission 存在且状态为 EXECUTING
-   * 2. 将 EXECUTING 状态的任务重置为 PENDING（它们可能在执行中被中断）
-   * 3. 调用 startExecution 继续执行
-   *
-   * @param missionId 要恢复的 Mission ID
-   * @returns Promise<void>
-   * @throws Error 如果 Mission 不存在或状态不正确
-   */
-  async continueExecution(missionId: string): Promise<void> {
-    this.logger.log(
-      `[continueExecution] Attempting to continue mission ${missionId}`,
-    );
-
-    // 1. 查询 Mission 及其相关信息
-    const mission = await this.prisma.researchMission.findUnique({
-      where: { id: missionId },
-      include: {
-        topic: true,
-        tasks: {
-          where: { status: ResearchTaskStatus.EXECUTING },
-        },
-      },
-    });
-
-    if (!mission) {
-      throw new NotFoundException(`Mission ${missionId} not found`);
-    }
-
-    if (mission.status !== ResearchMissionStatus.EXECUTING) {
-      throw new BadRequestException(
-        `Mission ${missionId} is not in EXECUTING status (current: ${mission.status})`,
-      );
-    }
-
-    // 2. 将 EXECUTING 状态的任务重置为 PENDING
-    // 这些任务在服务重启前可能正在执行，需要重新执行
-    if (mission.tasks.length > 0) {
-      const taskIds = mission.tasks.map((t) => t.id);
-      await this.prisma.researchTask.updateMany({
-        where: { id: { in: taskIds } },
-        data: {
-          status: ResearchTaskStatus.PENDING,
-          startedAt: null, // 重置开始时间
-        },
-      });
-      this.logger.log(
-        `[continueExecution] Reset ${taskIds.length} EXECUTING tasks to PENDING`,
-      );
-    }
-
-    // 3. 发送恢复进度事件
-    const completedCount = await this.prisma.researchTask.count({
-      where: { missionId, status: ResearchTaskStatus.COMPLETED },
-    });
-    const totalCount = await this.prisma.researchTask.count({
-      where: { missionId },
-    });
-    const progress =
-      totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-    await this.researchEventEmitter.emitMissionProgress(mission.topicId, {
-      missionId,
-      progress,
-      phase: "executing",
-      message: `任务已恢复，继续执行... (${completedCount}/${totalCount})`,
-      completedTasks: completedCount,
-      totalTasks: totalCount,
-    });
-
-    this.logger.log(
-      `[continueExecution] Resuming mission ${missionId} for topic ${mission.topicId}, ` +
-        `progress: ${completedCount}/${totalCount} (${progress}%)`,
-    );
-
-    // 4. 异步启动执行（不阻塞，确保 BillingContext 传播）
-    const existingCtx2 = BillingContext.get();
-    const startFn2 = () => this.startExecution(missionId, mission.topicId);
-    const wrappedStart2 = existingCtx2
-      ? () => BillingContext.run(existingCtx2, startFn2)
-      : startFn2;
-    void wrappedStart2().catch((err) => {
-      this.logger.error(
-        `[continueExecution] Failed to continue execution: ${err.message}`,
-      );
-      // 更新状态为失败
-      void this.prisma.researchMission
-        .update({
-          where: { id: missionId },
-          data: { status: ResearchMissionStatus.FAILED },
-        })
-        .catch((updateErr) => {
-          this.logger.error(
-            `[continueExecution] Failed to mark mission as FAILED: ${updateErr.message}`,
-          );
-        });
-    });
   }
 
   /**
