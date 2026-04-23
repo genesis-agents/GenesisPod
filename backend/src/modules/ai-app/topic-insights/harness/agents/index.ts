@@ -46,3 +46,22 @@ export type { HypothesisVerifierInput } from "./hypothesis-verifier.agent";
 
 export { FactExtractorAgent } from "./fact-extractor.agent";
 export type { FactExtractorInput } from "./fact-extractor.agent";
+
+// 6 Advanced Agents (Group J)
+export { SectionRemediatorAgent } from "./section-remediator.agent";
+export type { SectionRemediatorInput } from "./section-remediator.agent";
+
+export { ReportEvaluatorAgent } from "./report-evaluator.agent";
+export type { ReportEvaluatorInput } from "./report-evaluator.agent";
+
+export { ReportEditorAgent } from "./report-editor.agent";
+export type { ReportEditorInput } from "./report-editor.agent";
+
+export { LatexRepairAgent } from "./latex-repair.agent";
+export type { LatexRepairInput } from "./latex-repair.agent";
+
+export { MissionAdjusterAgent } from "./mission-adjuster.agent";
+export type { MissionAdjusterInput } from "./mission-adjuster.agent";
+
+export { LeaderDispatcherAgent } from "./leader-dispatcher.agent";
+export type { LeaderDispatcherInput } from "./leader-dispatcher.agent";

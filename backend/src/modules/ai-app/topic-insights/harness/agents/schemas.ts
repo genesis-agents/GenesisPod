@@ -248,6 +248,87 @@ export const FactExtractorResultSchema = z.object({
 export type ExtractedFact = z.infer<typeof ExtractedFactSchema>;
 export type FactExtractorResult = z.infer<typeof FactExtractorResultSchema>;
 
+// =========== AG-12-SREM · SectionRemediator ===========
+
+export const RemediatedSectionSchema = z.object({
+  sectionId: z.string().min(1),
+  newContent: z.string().min(50),
+  wordCount: z.number().int().nonnegative(),
+  resolvedIssues: z.array(z.string()),
+});
+
+export type RemediatedSection = z.infer<typeof RemediatedSectionSchema>;
+
+// =========== AG-13-RE · ReportEvaluator (LLM judge) ===========
+
+export const ReportEvalRubricSchema = z.object({
+  contentCompleteness: z.number().min(0).max(10),
+  analysisDepth: z.number().min(0).max(10),
+  evidenceUse: z.number().min(0).max(10),
+  logicCoherence: z.number().min(0).max(10),
+  wordCount: z.number().min(0).max(10),
+  planAlignment: z.number().min(0).max(10),
+  writingQuality: z.number().min(0).max(10),
+  figuresUse: z.number().min(0).max(10),
+  sectionTransitions: z.number().min(0).max(10),
+  independentAnalysis: z.number().min(0).max(10),
+});
+
+export const ReportEvalResultSchema = z.object({
+  rubric: ReportEvalRubricSchema,
+  totalScore: z.number().min(0).max(100),
+  verdict: z.enum(["excellent", "good", "acceptable", "poor"]),
+  reasoning: z.string().min(10),
+});
+
+export type ReportEvalResult = z.infer<typeof ReportEvalResultSchema>;
+
+// =========== AG-14-LX · LatexRepair ===========
+
+export const LatexRepairResultSchema = z.object({
+  repairedMarkdown: z.string().min(50),
+  issuesFixed: z.array(z.string()),
+});
+
+export type LatexRepairResult = z.infer<typeof LatexRepairResultSchema>;
+
+// =========== AG-16-MA · MissionAdjuster ===========
+
+export const MissionAdjustmentSchema = z.object({
+  decision: z.enum(["continue", "extend_budget", "downgrade_depth", "abort"]),
+  reason: z.string().min(10),
+  recommendedActions: z.array(z.string()),
+});
+
+export type MissionAdjustment = z.infer<typeof MissionAdjustmentSchema>;
+
+// =========== AG-17-LDP · LeaderDispatcher ===========
+
+export const LeaderDispatchDecisionSchema = z.object({
+  intent: z.enum([
+    "new_research",
+    "refine_report",
+    "answer_followup",
+    "restart_mission",
+  ]),
+  confidence: z.number().min(0).max(1),
+  reasoning: z.string().min(5),
+});
+
+export type LeaderDispatchDecision = z.infer<
+  typeof LeaderDispatchDecisionSchema
+>;
+
+// =========== AG-15-RED · ReportEditor ===========
+
+export const EditedReportSchema = z.object({
+  fullMarkdown: z.string().min(100),
+  editsApplied: z.array(z.string()),
+  wordCount: z.number().int().nonnegative(),
+});
+
+export type EditedReport = z.infer<typeof EditedReportSchema>;
+
 // =========== AG-11-SY · Synthesizer ===========
 
 export const SynthesisResultSchema = z.object({

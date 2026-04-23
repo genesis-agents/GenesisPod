@@ -21,9 +21,15 @@ import {
   GapSearcherAgent,
   HarnessAgentRegistry,
   HypothesisVerifierAgent,
+  LatexRepairAgent,
+  LeaderDispatcherAgent,
   LeaderPlannerAgent,
   MetaExtractorAgent,
+  MissionAdjusterAgent,
   QualityReviewerAgent,
+  ReportEditorAgent,
+  ReportEvaluatorAgent,
+  SectionRemediatorAgent,
   SectionReviewerAgent,
   SectionWriterAgent,
   SynthesizerAgent,
@@ -64,6 +70,13 @@ const AGENTS = [
   GapSearcherAgent,
   HypothesisVerifierAgent,
   FactExtractorAgent,
+  // Advanced (Group J)
+  SectionRemediatorAgent,
+  ReportEvaluatorAgent,
+  ReportEditorAgent,
+  LatexRepairAgent,
+  MissionAdjusterAgent,
+  LeaderDispatcherAgent,
 ];
 
 const STAGES = [
@@ -121,6 +134,12 @@ export class HarnessModule implements OnModuleInit {
     private readonly gapSearcher: GapSearcherAgent,
     private readonly hypVerifier: HypothesisVerifierAgent,
     private readonly factExtractor: FactExtractorAgent,
+    private readonly sectionRemediator: SectionRemediatorAgent,
+    private readonly reportEvaluator: ReportEvaluatorAgent,
+    private readonly reportEditor: ReportEditorAgent,
+    private readonly latexRepair: LatexRepairAgent,
+    private readonly missionAdjuster: MissionAdjusterAgent,
+    private readonly leaderDispatcher: LeaderDispatcherAgent,
     private readonly init: InitStage,
     private readonly plan: PlanStage,
     private readonly research: ResearchStage,
@@ -139,7 +158,7 @@ export class HarnessModule implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    // 注册 11 Agents（Core 6 + Enhancement 5）
+    // 注册 17 Agents（Core 6 + Enhancement 5 + Advanced 6）
     this.agentRegistry.register(this.leader);
     this.agentRegistry.register(this.writer);
     this.agentRegistry.register(this.reviewer);
@@ -151,6 +170,12 @@ export class HarnessModule implements OnModuleInit {
     this.agentRegistry.register(this.gapSearcher);
     this.agentRegistry.register(this.hypVerifier);
     this.agentRegistry.register(this.factExtractor);
+    this.agentRegistry.register(this.sectionRemediator);
+    this.agentRegistry.register(this.reportEvaluator);
+    this.agentRegistry.register(this.reportEditor);
+    this.agentRegistry.register(this.latexRepair);
+    this.agentRegistry.register(this.missionAdjuster);
+    this.agentRegistry.register(this.leaderDispatcher);
 
     // 注册 15 Stages（Core 8 + Enhancement 7：COGLOOP/QGATE/EVAL/FACT/LATEX/PERSIST/CLEANUP）
     this.stageRegistry.register(this.init);

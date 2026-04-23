@@ -40,6 +40,18 @@ export interface RunPipelineOptions {
   stageOrder?: StageId[];
   /** 传入要启用的 stage id 子集（默认全部） */
   enabledStages?: Set<StageId>;
+  /** ST-07 ↔ ST-08 remediate 最大轮次（默认 2） */
+  maxRemediateRounds?: number;
+}
+
+/** QGATE 输出结构简化（只取 needsRemediate） */
+interface QGateOutputLike {
+  needsRemediate?: boolean;
+}
+
+/** AssemblyStageOutput 简化（只取 fullMarkdown，用于 hasLatex 检测） */
+interface AssemblyOutputLike {
+  fullMarkdown?: string;
 }
 
 export interface RunPipelineResult {
@@ -103,7 +115,7 @@ export class PipelineOrchestratorService {
         throw new DOMException("Pipeline aborted", "AbortError");
       }
 
-      if (!this.shouldRunStage(stage, identity)) {
+      if (!this.shouldRunStage(stage, identity, results)) {
         skipped.push(stage.id);
         this.logger.debug(
           `[${identity.missionId}] Skip ${stage.id} (runsWhen=${stage.runsWhen}, depth=${identity.depth}, degrade=${identity.degradationMode})`,
@@ -111,62 +123,19 @@ export class PipelineOrchestratorService {
         continue;
       }
 
-      const stageStart = Date.now();
-      await this.emitStageEvent(identity, stage.id, "stage:started", {
-        stageId: stage.id,
-        stageName: stage.name,
-      });
+      await this.runStageWithMetrics(stage, identity, results, completed);
 
-      try {
-        const input = await stage.prepare(identity, results);
-        const output = await stage.execute(identity, input, signal);
-        await stage.persist(identity, output);
-        results.set(stage.id, output);
-        completed.push(stage.id);
-
-        const elapsed = Date.now() - stageStart;
-        identity.budget.charge({ wallTimeMs: elapsed });
-
-        await this.emitStageEvent(identity, stage.id, "stage:completed", {
-          stageId: stage.id,
-          stageName: stage.name,
-          durationMs: elapsed,
-        });
-
-        if (identity.budget.isExhausted()) {
-          const snap = identity.budget.snapshot();
-          throw new BudgetExhaustedError(
-            stage.id,
-            "tokens",
-            identity.budget.config.maxTotalTokens,
-            snap.tokensUsed,
-          );
-        }
-        if (identity.budget.shouldDegrade() && !identity.degradationMode) {
-          identity.degradationMode = true;
-          this.logger.warn(
-            `[${identity.missionId}] Budget reached ${Math.floor(identity.budget.config.degradationThresholdPct * 100)}% — entering degradation mode`,
-          );
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        this.logger.error(
-          `[${identity.missionId}] Stage ${stage.id} failed: ${msg}`,
+      // ★ Group J-2: ST-08-QGATE fail → remediate loop（重跑 ST-07 + ST-08，最多 maxRemediateRounds 轮）
+      if (stage.id === "ST-08-QGATE" && results.has("ST-08-QGATE")) {
+        await this.maybeRemediateLoop(
+          identity,
+          results,
+          completed,
+          options.maxRemediateRounds ?? 2,
+          signal,
         );
-        await this.emitStageEvent(identity, stage.id, "stage:failed", {
-          stageId: stage.id,
-          stageName: stage.name,
-          error: msg,
-        });
-        await stage
-          .cleanup?.(identity)
-          .catch((e) =>
-            this.logger.warn(
-              `[${identity.missionId}] Cleanup failed for ${stage.id}: ${e instanceof Error ? e.message : String(e)}`,
-            ),
-          );
-        throw err;
       }
+      continue;
     }
 
     return {
@@ -176,6 +145,120 @@ export class PipelineOrchestratorService {
       budgetSnapshot: identity.budget.snapshot(),
       durationMs: Date.now() - startedAt,
     };
+  }
+
+  /**
+   * 单个 stage 的执行 + metrics + event + budget。
+   * 抽出为独立方法便于 remediate loop 复用。
+   */
+  private async runStageWithMetrics(
+    stage: Stage,
+    identity: PipelineIdentityContext,
+    results: StageResults,
+    completed: StageId[],
+  ): Promise<void> {
+    const stageStart = Date.now();
+    await this.emitStageEvent(identity, stage.id, "stage:started", {
+      stageId: stage.id,
+      stageName: stage.name,
+    });
+
+    try {
+      const input = await stage.prepare(identity, results);
+      const output = await stage.execute(
+        identity,
+        input,
+        identity.abortController.signal,
+      );
+      await stage.persist(identity, output);
+      results.set(stage.id, output);
+      if (!completed.includes(stage.id)) completed.push(stage.id);
+
+      const elapsed = Date.now() - stageStart;
+      identity.budget.charge({ wallTimeMs: elapsed });
+
+      await this.emitStageEvent(identity, stage.id, "stage:completed", {
+        stageId: stage.id,
+        stageName: stage.name,
+        durationMs: elapsed,
+      });
+
+      if (identity.budget.isExhausted()) {
+        const snap = identity.budget.snapshot();
+        throw new BudgetExhaustedError(
+          stage.id,
+          "tokens",
+          identity.budget.config.maxTotalTokens,
+          snap.tokensUsed,
+        );
+      }
+      if (identity.budget.shouldDegrade() && !identity.degradationMode) {
+        identity.degradationMode = true;
+        this.logger.warn(
+          `[${identity.missionId}] Budget reached ${Math.floor(identity.budget.config.degradationThresholdPct * 100)}% — entering degradation mode`,
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[${identity.missionId}] Stage ${stage.id} failed: ${msg}`,
+      );
+      await this.emitStageEvent(identity, stage.id, "stage:failed", {
+        stageId: stage.id,
+        stageName: stage.name,
+        error: msg,
+      });
+      await stage
+        .cleanup?.(identity)
+        .catch((e) =>
+          this.logger.warn(
+            `[${identity.missionId}] Cleanup failed for ${stage.id}: ${e instanceof Error ? e.message : String(e)}`,
+          ),
+        );
+      throw err;
+    }
+  }
+
+  /**
+   * QGATE verdict=fail 时的 remediate 循环：
+   * 重跑 ST-07-SYNTH + ST-08-QGATE 最多 maxRounds 轮。
+   * 真实 section-level AG-12-SREM 修订由 Advanced Tier 未来集成，
+   * 此处仅提供 loop 骨架。
+   */
+  private async maybeRemediateLoop(
+    identity: PipelineIdentityContext,
+    results: StageResults,
+    completed: StageId[],
+    maxRounds: number,
+    signal: AbortSignal,
+  ): Promise<void> {
+    let rounds = 0;
+    while (rounds < maxRounds) {
+      if (signal.aborted) return;
+      const qgate = results.get<QGateOutputLike>("ST-08-QGATE");
+      if (!qgate.needsRemediate) return;
+
+      rounds += 1;
+      this.logger.warn(
+        `[${identity.missionId}] QGATE fail → remediate round ${rounds}/${maxRounds}`,
+      );
+
+      const synthStage = this.stageRegistry.get("ST-07-SYNTH");
+      const qgateStage = this.stageRegistry.get("ST-08-QGATE");
+      if (!synthStage || !qgateStage) return;
+
+      // 重跑 SYNTH → QGATE
+      await this.runStageWithMetrics(synthStage, identity, results, completed);
+      if (signal.aborted) return;
+      await this.runStageWithMetrics(qgateStage, identity, results, completed);
+    }
+
+    const finalQGate = results.get<QGateOutputLike>("ST-08-QGATE");
+    if (finalQGate.needsRemediate) {
+      this.logger.warn(
+        `[${identity.missionId}] QGATE still fail after ${maxRounds} rounds — proceeding anyway`,
+      );
+    }
   }
 
   /** 发布 stage 事件到 ResearchEventEmitterService（SSE → 前端进度） */
@@ -203,11 +286,13 @@ export class PipelineOrchestratorService {
   private shouldRunStage(
     stage: Stage,
     identity: PipelineIdentityContext,
+    results: StageResults,
   ): boolean {
     return this.evalCondition(
       stage.runsWhen,
       identity.depth,
       identity.degradationMode,
+      results,
     );
   }
 
@@ -215,6 +300,7 @@ export class PipelineOrchestratorService {
     cond: StageCondition,
     depth: ResearchDepth,
     degradationMode: boolean,
+    results: StageResults,
   ): boolean {
     switch (cond) {
       case "always":
@@ -224,11 +310,25 @@ export class PipelineOrchestratorService {
         if (degradationMode) return false;
         return depth === "thorough" || depth === "deep";
       case "hasLatex":
+        // 读取 ST-11-ASM 的 fullMarkdown，runtime 检测 LaTeX delimiter
+        return this.detectLatexFromAssembly(results);
       case "qualityGateFailed":
-        // 由 upstream output 决定；目前骨架层还没实现，默认跳过
+        // 由 ST-08-QGATE 输出决定；当前 pipeline 用 remediate loop 处理，此分支保留
         return false;
       default:
         return false;
+    }
+  }
+
+  /** 运行时检测 assembly 产物是否含 LaTeX delimiter */
+  private detectLatexFromAssembly(results: StageResults): boolean {
+    if (!results.has("ST-11-ASM")) return false;
+    try {
+      const asm = results.get<AssemblyOutputLike>("ST-11-ASM");
+      const md = asm.fullMarkdown ?? "";
+      return /\$\$|\\\(|\\\[|(?<!\\)\$[^\n$]+\$/.test(md);
+    } catch {
+      return false;
     }
   }
 
