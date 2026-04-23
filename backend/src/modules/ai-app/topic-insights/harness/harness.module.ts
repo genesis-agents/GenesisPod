@@ -36,7 +36,11 @@ import {
 } from "./agents";
 import { LlmInvokerService } from "./llm";
 import { PipelineOrchestratorService, StageRegistry } from "./pipeline";
-import { HarnessHealthController, HarnessRolloutService } from "./rollout";
+import {
+  HarnessDispatcherService,
+  HarnessHealthController,
+  HarnessRolloutService,
+} from "./rollout";
 import {
   AssemblyStage,
   CleanupStage,
@@ -108,6 +112,7 @@ const STAGES = [
     PipelineOrchestratorService,
     LlmInvokerService,
     HarnessRolloutService,
+    HarnessDispatcherService,
     { provide: PlanContextProvider, useClass: PrismaPlanContextProvider },
     ...AGENTS,
     ...STAGES,
@@ -118,6 +123,7 @@ const STAGES = [
     PipelineOrchestratorService,
     LlmInvokerService,
     HarnessRolloutService,
+    HarnessDispatcherService,
   ],
 })
 export class HarnessModule implements OnModuleInit {
