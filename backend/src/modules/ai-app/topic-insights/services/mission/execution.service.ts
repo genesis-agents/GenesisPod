@@ -51,6 +51,7 @@ import type { LeaderPlan } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { ResearchMemoryService } from "../research/memory.service";
+import { MissionCancellationService } from "./cancellation.service";
 import {
   DimensionResearchExecutor,
   ReviewDimensionExecutor,
@@ -99,6 +100,8 @@ export class MissionExecutionService {
     private readonly harnessRollout?: MissionMetricsService,
     @Optional()
     private readonly capabilityReconciler?: TopicInsightsCapabilityReconciler,
+    @Optional()
+    private readonly cancellation?: MissionCancellationService,
   ) {
     this.executorMap = new Map<string, ITaskExecutor>([
       ["dimension_research", this.dimensionResearchExecutor],
@@ -1794,6 +1797,8 @@ export class MissionExecutionService {
       capabilities,
     });
 
+    this.cancellation?.register(missionId, identity.abortController);
+
     try {
       let qualityScore: number | undefined;
       const result = await this.harnessOrchestrator.run(identity, {
@@ -1837,19 +1842,33 @@ export class MissionExecutionService {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`[runWithHarness] mission=${missionId} failed: ${msg}`);
+      const wasCancelled = identity.abortController.signal.aborted;
+      const terminalStatus = wasCancelled
+        ? ResearchMissionStatus.CANCELLED
+        : ResearchMissionStatus.FAILED;
+      this.logger.error(
+        `[runWithHarness] mission=${missionId} ${wasCancelled ? "cancelled" : "failed"}: ${msg}`,
+      );
       await this.prisma.researchMission.update({
         where: { id: missionId },
         data: {
-          status: ResearchMissionStatus.FAILED,
+          status: terminalStatus,
           completedAt: new Date(),
         },
       });
-      await this.researchEventEmitter.emitMissionFailed(
-        topicId,
-        missionId,
-        msg,
-      );
+      if (wasCancelled) {
+        await this.researchEventEmitter.emitMissionCancelled(
+          topicId,
+          missionId,
+          msg,
+        );
+      } else {
+        await this.researchEventEmitter.emitMissionFailed(
+          topicId,
+          missionId,
+          msg,
+        );
+      }
       this.harnessRollout?.recordRun({
         missionId,
         userId: topic.userId,
@@ -1860,7 +1879,9 @@ export class MissionExecutionService {
         errorMessage: msg,
         recordedAt: new Date(),
       });
-      throw err;
+      if (!wasCancelled) throw err;
+    } finally {
+      this.cancellation?.unregister(missionId);
     }
   }
 }

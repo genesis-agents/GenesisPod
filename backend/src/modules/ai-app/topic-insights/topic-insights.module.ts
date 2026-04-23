@@ -90,6 +90,7 @@ import {
   MissionQueryService,
   MissionLifecycleService,
   MissionExecutionService,
+  MissionCancellationService,
   // ★ Data sub-services
   DataSourceFetcherService,
   DataSourceStrategyService,
@@ -166,6 +167,7 @@ const services = [
   MissionQueryService,
   MissionLifecycleService,
   MissionExecutionService,
+  MissionCancellationService,
   // ★ Task executors (MissionExecution decomposition)
   DimensionResearchExecutor,
   ReviewDimensionExecutor,

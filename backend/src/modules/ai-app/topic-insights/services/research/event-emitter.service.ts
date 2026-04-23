@@ -428,6 +428,43 @@ export class ResearchEventEmitterService {
    * 发送任务失败事件
    * ★ 同时标记进度追踪失败
    */
+  async emitMissionCancelled(
+    topicId: string,
+    missionId: string,
+    reason: string,
+  ): Promise<void> {
+    const cancelMessage = `研究已取消: ${reason}`;
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.failMissionTracking(missionId, cancelMessage);
+    }
+    await this.emitToTopic(topicId, ResearchEventType.MISSION_FAILED, {
+      missionId,
+      error: reason,
+      message: cancelMessage,
+      cancelled: true,
+    });
+    try {
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+      if (!topicExists) return;
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId,
+          messageType: "SYSTEM_MESSAGE",
+          senderRole: "system",
+          senderName: "系统",
+          content: cancelMessage,
+          metadata: { cancelled: true, reason },
+        },
+      });
+    } catch (dbError) {
+      this.logger.error(`Failed to persist mission cancelled: ${dbError}`);
+    }
+  }
+
   async emitMissionFailed(
     topicId: string,
     missionId: string,

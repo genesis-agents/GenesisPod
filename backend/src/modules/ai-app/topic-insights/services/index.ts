@@ -30,6 +30,7 @@ export { LeaderReviewService } from "./leader/leader-review.service";
 export { MissionQueryService } from "./mission/query.service";
 export { MissionLifecycleService } from "./mission/lifecycle.service";
 export { MissionExecutionService } from "./mission/execution.service";
+export { MissionCancellationService } from "./mission/cancellation.service";
 export { MissionObservabilityService } from "./mission/observability.service";
 export { MissionNotificationService } from "./mission/notification.service";
 

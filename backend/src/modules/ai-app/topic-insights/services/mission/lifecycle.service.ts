@@ -12,6 +12,7 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Optional,
 } from "@nestjs/common";
 import { withTimeout } from "@/common/utils/timeout.utils";
 import { StateTransitionValidator } from "@/modules/ai-engine/facade";
@@ -29,6 +30,7 @@ import type { LeaderPlan } from "../../types/leader.types";
 import { ResearchEventEmitterService } from "../research/event-emitter.service";
 import { TopicCollaboratorService } from "../collaboration/topic-collaborator.service";
 import { AgentActivityService } from "../health/agent-activity.service";
+import { MissionCancellationService } from "./cancellation.service";
 import { CollaboratorRole } from "../../dto/collaborator.dto";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
@@ -69,6 +71,8 @@ export class MissionLifecycleService {
     // Lifecycle triggers Execution after planning; Execution updates Mission state managed by Lifecycle
     @Inject(forwardRef(() => MissionExecutionService))
     private readonly executionService: MissionExecutionService,
+    @Optional()
+    private readonly cancellation?: MissionCancellationService,
   ) {}
 
   /**
@@ -1235,6 +1239,16 @@ export class MissionLifecycleService {
     if (!mission) {
       throw new NotFoundException(`Mission ${missionId} not found`);
     }
+
+    // ★ Harness primitive 1: abort the in-flight pipeline synchronously BEFORE
+    // the DB cleanup runs. runWithHarness's catch block observes signal.aborted
+    // and will mark the mission CANCELLED itself; the DB work below is the
+    // idempotent/legacy cleanup (tasks, todos, agent activities).
+    this.cancellation?.cancel(missionId, {
+      reason: "user requested cancel",
+      requestedBy: userId,
+      requestedAt: new Date(),
+    });
 
     // 验证用户权限（使用统一的权限检查）
     // PUBLIC 专题：任何登录用户都可以取消
