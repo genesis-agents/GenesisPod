@@ -227,71 +227,11 @@ describe("MissionExecutionService (supplemental)", () => {
 
   // ─── resumeExecution ─────────────────────────────────────────────────────────
 
-  describe("resumeExecution", () => {
-    it("should throw NotFoundException when topic not found", async () => {
-      mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
-      mocks.mockPrisma.researchMission.findUnique.mockResolvedValue(
-        mockMission,
-      );
-
-      await expect(
-        service.resumeExecution("mission-1", "nonexistent-topic"),
-      ).rejects.toThrow("Topic nonexistent-topic not found");
-    });
-
-    it("should fallback to startExecution when no existing report found", async () => {
-      mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      mocks.mockPrisma.researchMission.findUnique
-        .mockResolvedValueOnce(mockMission) // resumeExecution query
-        .mockResolvedValue({
-          // startExecution + scheduler queries
-          ...mockMission,
-          status: ResearchMissionStatus.CANCELLED,
-        });
-      mocks.mockPrisma.topicReport.findFirst.mockResolvedValue(null);
-      // createDraftReport for fallback startExecution
-      mocks.mockReportSynthesisService.createDraftReport.mockResolvedValue({
-        id: "new-draft",
-      });
-      mocks.mockPrisma.researchTask.findMany.mockResolvedValue([]);
-      mocks.mockQueryService.getExecutableTasks.mockResolvedValue([]);
-      mocks.mockPrisma.researchTask.count.mockResolvedValue(0);
-
-      await expect(
-        service.resumeExecution("mission-1", "topic-1"),
-      ).resolves.not.toThrow();
-
-      // createDraftReport is called from the startExecution fallback
-      expect(
-        mocks.mockReportSynthesisService.createDraftReport,
-      ).toHaveBeenCalled();
-    });
-
-    it("should reuse existing report when found", async () => {
-      mocks.mockPrisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      mocks.mockPrisma.researchMission.findUnique
-        .mockResolvedValueOnce(mockMission)
-        .mockResolvedValue({
-          ...mockMission,
-          status: ResearchMissionStatus.CANCELLED,
-        });
-      mocks.mockPrisma.topicReport.findFirst.mockResolvedValue({
-        id: "existing-report",
-      });
-      mocks.mockPrisma.researchTask.findMany.mockResolvedValue([]);
-      mocks.mockQueryService.getExecutableTasks.mockResolvedValue([]);
-      mocks.mockPrisma.researchTask.count.mockResolvedValue(0);
-
-      await expect(
-        service.resumeExecution("mission-1", "topic-1"),
-      ).resolves.not.toThrow();
-
-      // createDraftReport is NOT called when existing report is reused
-      expect(
-        mocks.mockReportSynthesisService.createDraftReport,
-      ).not.toHaveBeenCalled();
-    });
-  });
+  // H6: resumeExecution describe block removed — method deleted.
+  // retry controller paths and @OnEvent(RESUME_MISSION_EXECUTION) handler
+  // were rewired to resumeWithHarness in H5. The "reuse existing report"
+  // concern is now handled by PipelineRunCheckpoint (resume continues from
+  // last completed stage; no new draft report created).
 
   // ─── executeTask – InsufficientCreditsException ──────────────────────────────
 
