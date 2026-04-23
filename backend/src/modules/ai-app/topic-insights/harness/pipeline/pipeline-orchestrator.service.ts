@@ -19,6 +19,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { KernelContext } from "@/modules/ai-engine/facade";
 import {
   BudgetExhaustedError,
   DEPTH_CONFIG_DEFAULTS,
@@ -57,6 +58,28 @@ export class PipelineOrchestratorService {
   async run(
     identity: PipelineIdentityContext,
     options: RunPipelineOptions = {},
+  ): Promise<RunPipelineResult> {
+    // ★ 关键：用 KernelContext.run 包裹整个 pipeline 执行，
+    // 确保下游 AiChatService.chat 能通过 KernelContext.get() 读到
+    // missionId / baselineTag（BaselineRecorder observer 的过滤依据）。
+    //
+    // 合并既有 context（mission-execution 若已设置 processId / latencySessionId，
+    // 保留不丢），只补 missionId + baselineTag + userId。
+    const existing = KernelContext.get();
+    return KernelContext.run(
+      {
+        ...(existing ?? { processId: "" }),
+        userId: existing?.userId ?? identity.userId,
+        missionId: identity.missionId,
+        baselineTag: existing?.baselineTag ?? `harness-${identity.missionId}`,
+      },
+      () => this.runInner(identity, options),
+    );
+  }
+
+  private async runInner(
+    identity: PipelineIdentityContext,
+    options: RunPipelineOptions,
   ): Promise<RunPipelineResult> {
     const startedAt = Date.now();
     const signal = identity.abortController.signal;

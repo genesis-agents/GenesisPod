@@ -35,7 +35,7 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
   readonly runsWhen = "always" as const;
   readonly slo = {
     p95Ms: 180_000,
-    maxTokens: 20_000,
+    tokenBudget: 20_000,
     targetSuccessRate: 0.9,
   };
   readonly emitsEvents = ["section:write_started", "section:write_completed"];

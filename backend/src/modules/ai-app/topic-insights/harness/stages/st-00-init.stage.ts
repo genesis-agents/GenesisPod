@@ -20,7 +20,7 @@ export class InitStage implements Stage<void, InitStageOutput> {
   readonly name = "Initialize pipeline";
   readonly dependsOn = [];
   readonly runsWhen = "always" as const;
-  readonly slo = { p95Ms: 500, maxTokens: 0, targetSuccessRate: 0.99 };
+  readonly slo = { p95Ms: 500, tokenBudget: 0, targetSuccessRate: 0.99 };
   readonly emitsEvents = ["pipeline:init"];
 
   // eslint-disable-next-line @typescript-eslint/require-await

@@ -23,6 +23,7 @@ import {
   SectionWriterAgent,
   SynthesizerAgent,
 } from "./agents";
+import { LlmInvokerService } from "./llm";
 import { PipelineOrchestratorService, StageRegistry } from "./pipeline";
 import {
   AssemblyStage,
@@ -62,11 +63,17 @@ const STAGES = [
     HarnessAgentRegistry,
     StageRegistry,
     PipelineOrchestratorService,
+    LlmInvokerService,
     { provide: PlanContextProvider, useClass: StubPlanContextProvider },
     ...AGENTS,
     ...STAGES,
   ],
-  exports: [HarnessAgentRegistry, StageRegistry, PipelineOrchestratorService],
+  exports: [
+    HarnessAgentRegistry,
+    StageRegistry,
+    PipelineOrchestratorService,
+    LlmInvokerService,
+  ],
 })
 export class HarnessModule implements OnModuleInit {
   private readonly logger = new Logger(HarnessModule.name);

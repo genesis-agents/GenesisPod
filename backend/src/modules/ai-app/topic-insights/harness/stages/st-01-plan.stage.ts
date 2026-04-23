@@ -57,7 +57,11 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
   readonly name = "Leader plan";
   readonly dependsOn = ["ST-00-INIT" as const];
   readonly runsWhen = "always" as const;
-  readonly slo = { p95Ms: 60_000, maxTokens: 30_000, targetSuccessRate: 0.95 };
+  readonly slo = {
+    p95Ms: 60_000,
+    tokenBudget: 30_000,
+    targetSuccessRate: 0.95,
+  };
   readonly emitsEvents = ["leader:planning", "leader:plan_ready"];
 
   constructor(

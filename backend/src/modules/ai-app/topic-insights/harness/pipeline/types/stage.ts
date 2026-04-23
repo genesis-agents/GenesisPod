@@ -35,8 +35,12 @@ export type StageCondition =
 export interface StageSLO {
   /** P95 执行时长（ms） */
   readonly p95Ms: number;
-  /** 单次执行最大 tokens（0 = 不涉及 LLM） */
-  readonly maxTokens: number;
+  /**
+   * Stage 预算上限（0 = 不涉及 LLM）
+   * 注意：这是 stage 级 budget 的 metadata，不是直接传给 LLM 的 `maxTokens` 参数；
+   * LLM 调用参数走 agent 自己的 TaskProfile。
+   */
+  readonly tokenBudget: number;
   /** 预期成功率（0-1） */
   readonly targetSuccessRate: number;
 }

@@ -5,10 +5,12 @@
  * Access matrix：只读 rag/knowledge-graph/TL-04-DIMMEM；严禁 TL-02-EVSAVE。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { BaseAgentRunner } from "./base-agent-runner";
 import { SectionReviewSchema, type SectionReview } from "./schemas";
 import type { AccessToolId, AgentRunContext } from "./types";
+import { LlmInvokerService } from "../llm";
 
 export interface SectionReviewerInput {
   readonly sectionResult: {
@@ -40,16 +42,58 @@ export class SectionReviewerAgent extends BaseAgentRunner<
   ];
   readonly forbiddenTools: ReadonlyArray<AccessToolId> = ["TL-02-EVSAVE"];
   readonly outputSchema = SectionReviewSchema;
+  protected readonly taskProfile: TaskProfile = {
+    creativity: "low",
+    outputLength: "medium",
+  };
 
-  protected async executeImpl(
-    _ctx: AgentRunContext<SectionReviewerInput>,
-  ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
-    throw new Error(
-      `[${this.id}] Real LLM execution not yet wired — use HARNESS_AGENTS_STUB=1`,
-    );
+  constructor(@Optional() llmInvoker?: LlmInvokerService) {
+    super(llmInvoker);
   }
 
-  protected async stubOutput(
+  protected buildSystemPrompt(
+    _ctx: AgentRunContext<SectionReviewerInput>,
+  ): string {
+    return [
+      "你是章节审核员。独立审核一个 SectionResult，按 5 维打分（accuracy / completeness / coherence / evidenceQuality / depth）。",
+      "要求：",
+      "1. overallScore 0-10",
+      "2. 若 needsRevision=true，revisionInstructions 不少于 1 条",
+      "3. 抽取 claims（事实性陈述）供后续 V5 认知循环使用，每个 claim 含 id / statement / evidenceRefs",
+      "4. 严禁创造新 evidence 或修改正文",
+      "",
+      "严格 JSON 输出。",
+    ].join("\n");
+  }
+
+  protected buildUserPrompt(
+    ctx: AgentRunContext<SectionReviewerInput>,
+  ): string {
+    const { input } = ctx;
+    const section = input.sectionResult;
+    return [
+      `revisionRound: ${input.revisionRound}`,
+      input.priorReview
+        ? `priorReview.overallScore: ${input.priorReview.overallScore}`
+        : "",
+      "",
+      `section:`,
+      `  sectionId=${section.sectionId}`,
+      `  dimensionId=${section.dimensionId}`,
+      `  title=${section.title}`,
+      `  wordCount=${section.wordCount}`,
+      `  keyFindings: ${section.keyFindings.map((kf) => kf.statement).join(" | ")}`,
+      "",
+      "section content:",
+      section.content.slice(0, 6000),
+      "",
+      "请输出 SectionReview JSON。",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  protected stubOutput(
     ctx: AgentRunContext<SectionReviewerInput>,
   ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
     const { input } = ctx;
@@ -75,6 +119,6 @@ export class SectionReviewerAgent extends BaseAgentRunner<
         evidenceRefs: [...kf.evidenceRefs],
       })),
     };
-    return { output: review, tokensUsed: 0, costUsd: 0 };
+    return Promise.resolve({ output: review, tokensUsed: 0, costUsd: 0 });
   }
 }

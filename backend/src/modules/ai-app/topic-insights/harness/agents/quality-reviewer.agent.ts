@@ -5,7 +5,8 @@
  * Access matrix：只读 rag/TL-04-DIMMEM；严禁 TL-02-EVSAVE。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { BaseAgentRunner } from "./base-agent-runner";
 import {
   QualityReviewSchema,
@@ -14,6 +15,7 @@ import {
   type SectionReview,
 } from "./schemas";
 import type { AccessToolId, AgentRunContext } from "./types";
+import { LlmInvokerService } from "../llm";
 
 export type QualityReviewerInput =
   | {
@@ -39,16 +41,64 @@ export class QualityReviewerAgent extends BaseAgentRunner<
   readonly tools: ReadonlyArray<AccessToolId> = ["rag-search", "TL-04-DIMMEM"];
   readonly forbiddenTools: ReadonlyArray<AccessToolId> = ["TL-02-EVSAVE"];
   readonly outputSchema = QualityReviewSchema;
+  protected readonly taskProfile: TaskProfile = {
+    creativity: "low",
+    outputLength: "medium",
+  };
 
-  protected async executeImpl(
-    _ctx: AgentRunContext<QualityReviewerInput>,
-  ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
-    throw new Error(
-      `[${this.id}] Real LLM execution not yet wired — use HARNESS_AGENTS_STUB=1`,
-    );
+  constructor(@Optional() llmInvoker?: LlmInvokerService) {
+    super(llmInvoker);
   }
 
-  protected async stubOutput(
+  protected buildSystemPrompt(
+    ctx: AgentRunContext<QualityReviewerInput>,
+  ): string {
+    const scope = ctx.input.scope;
+    if (scope === "dimension") {
+      return [
+        "你是维度质量审核员（dimension scope）。",
+        "基于提供的 DimensionMeta + 子章节 reviews 对本维度打 overallScore（0-10），列出 issues / recommendations，判断 needsReresearch。",
+        "严格 JSON 输出，scope 字段必须为 'dimension'。",
+      ].join("\n");
+    }
+    return [
+      "你是跨维度综合审核员（overall scope）。",
+      "基于所有 DimensionMeta 产出整体 overallScore、crossDimensionIssues、recommendations。",
+      "needsReresearch 为 true 时必须列出 dimensionsToReresearch（可以为空数组）。",
+      "严格 JSON 输出，scope 字段必须为 'overall'。",
+    ].join("\n");
+  }
+
+  protected buildUserPrompt(
+    ctx: AgentRunContext<QualityReviewerInput>,
+  ): string {
+    const input = ctx.input;
+    if (input.scope === "dimension") {
+      return [
+        `scope: dimension`,
+        `dimensionId: ${input.dimensionId}`,
+        `dimensionName: ${input.dimensionName}`,
+        `dimensionMeta.summary: ${input.dimensionMeta.summary}`,
+        `dimensionMeta.evidenceCount: ${input.dimensionMeta.evidenceCount}`,
+        `sectionReviews.overallScores: ${input.sectionReviews.map((r) => r.overallScore).join(", ")}`,
+        "",
+        "请输出 QualityReview JSON（scope=dimension）。",
+      ].join("\n");
+    }
+    return [
+      `scope: overall`,
+      `missionId: ${input.missionId}`,
+      "dimensionMetas:",
+      ...input.dimensionMetas.map(
+        (m, i) =>
+          `  (${i + 1}) ${m.dimensionName} | summary=${m.summary.slice(0, 100)}... | evidenceCount=${m.evidenceCount}`,
+      ),
+      "",
+      "请输出 QualityReview JSON（scope=overall）。",
+    ].join("\n");
+  }
+
+  protected stubOutput(
     ctx: AgentRunContext<QualityReviewerInput>,
   ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
     const { input } = ctx;
@@ -58,7 +108,7 @@ export class QualityReviewerAgent extends BaseAgentRunner<
           ? input.sectionReviews.reduce((a, r) => a + r.overallScore, 0) /
             input.sectionReviews.length
           : 7;
-      return {
+      return Promise.resolve({
         output: {
           scope: "dimension" as const,
           dimensionId: input.dimensionId,
@@ -69,7 +119,7 @@ export class QualityReviewerAgent extends BaseAgentRunner<
         },
         tokensUsed: 0,
         costUsd: 0,
-      };
+      });
     }
     // overall
     const avg =
@@ -79,7 +129,7 @@ export class QualityReviewerAgent extends BaseAgentRunner<
             0,
           ) / input.dimensionMetas.length
         : 7;
-    return {
+    return Promise.resolve({
       output: {
         scope: "overall" as const,
         missionId: input.missionId,
@@ -91,6 +141,6 @@ export class QualityReviewerAgent extends BaseAgentRunner<
       },
       tokensUsed: 0,
       costUsd: 0,
-    };
+    });
   }
 }

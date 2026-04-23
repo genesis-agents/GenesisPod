@@ -5,10 +5,12 @@
  * 纯 LLM transformation，无工具访问。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { BaseAgentRunner } from "./base-agent-runner";
 import { DimensionMetaSchema, type DimensionMeta } from "./schemas";
 import type { AccessToolId, AgentRunContext } from "./types";
+import { LlmInvokerService } from "../llm";
 
 export interface MetaExtractorInput {
   readonly dimensionId: string;
@@ -27,16 +29,44 @@ export class MetaExtractorAgent extends BaseAgentRunner<
   readonly name = "Dimension Meta Extractor";
   readonly tools: ReadonlyArray<AccessToolId> = [];
   readonly outputSchema = DimensionMetaSchema;
+  protected readonly taskProfile: TaskProfile = {
+    creativity: "low",
+    outputLength: "medium",
+  };
 
-  protected async executeImpl(
-    _ctx: AgentRunContext<MetaExtractorInput>,
-  ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
-    throw new Error(
-      `[${this.id}] Real LLM execution not yet wired — use HARNESS_AGENTS_STUB=1`,
-    );
+  constructor(@Optional() llmInvoker?: LlmInvokerService) {
+    super(llmInvoker);
   }
 
-  protected async stubOutput(
+  protected buildSystemPrompt(
+    _ctx: AgentRunContext<MetaExtractorInput>,
+  ): string {
+    return [
+      "你是维度元信息提取员。从整合后的章节合集中提取 dimension 级：summary（30+ 字）/ keyFindings（≥ 1）/ trends / challenges / opportunities。",
+      "约束：",
+      "1. 不创造新内容，只做总结提炼",
+      "2. evidenceCount 必须使用给定值（不自报）",
+      "3. summary 不超过 300 字",
+      "",
+      "严格 JSON 输出。",
+    ].join("\n");
+  }
+
+  protected buildUserPrompt(ctx: AgentRunContext<MetaExtractorInput>): string {
+    const { input } = ctx;
+    return [
+      `dimensionId: ${input.dimensionId}`,
+      `dimensionName: ${input.dimensionName}`,
+      `evidenceCount: ${input.evidenceCount}（必须原样填入 output.evidenceCount）`,
+      "",
+      "integratedSections（可能较长，需概括）：",
+      input.integratedSections.slice(0, 8000),
+      "",
+      "请输出 DimensionMeta JSON。",
+    ].join("\n");
+  }
+
+  protected stubOutput(
     ctx: AgentRunContext<MetaExtractorInput>,
   ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
     const { input } = ctx;
@@ -57,6 +87,6 @@ export class MetaExtractorAgent extends BaseAgentRunner<
       opportunities: [`${input.dimensionName} 机会 1`],
       evidenceCount: input.evidenceCount,
     };
-    return { output: meta, tokensUsed: 0, costUsd: 0 };
+    return Promise.resolve({ output: meta, tokensUsed: 0, costUsd: 0 });
   }
 }

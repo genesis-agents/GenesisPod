@@ -35,7 +35,11 @@ export class IntegrateStage implements Stage<
   readonly name = "Dimension integrate + meta";
   readonly dependsOn = ["ST-04-REVIEW" as const];
   readonly runsWhen = "always" as const;
-  readonly slo = { p95Ms: 60_000, maxTokens: 10_000, targetSuccessRate: 0.95 };
+  readonly slo = {
+    p95Ms: 60_000,
+    tokenBudget: 10_000,
+    targetSuccessRate: 0.95,
+  };
   readonly emitsEvents = ["dimension:integrated"];
 
   constructor(private readonly agentRegistry: HarnessAgentRegistry) {}

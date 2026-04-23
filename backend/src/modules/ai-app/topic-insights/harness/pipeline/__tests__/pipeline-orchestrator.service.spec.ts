@@ -24,7 +24,7 @@ function mkStage(overrides: Partial<Stage> & { id: StageId }): Stage {
     name: overrides.id,
     dependsOn: [],
     runsWhen: "always",
-    slo: { p95Ms: 1000, maxTokens: 0, targetSuccessRate: 0.95 },
+    slo: { p95Ms: 1000, tokenBudget: 0, targetSuccessRate: 0.95 },
     emitsEvents: [],
     prepare: jest.fn().mockResolvedValue({}),
     execute: jest.fn().mockResolvedValue({ ok: true }),
@@ -79,18 +79,18 @@ describe("PipelineOrchestratorService", () => {
       mkStage({
         id: "ST-03-WRITE",
         dependsOn: ["ST-01-PLAN"],
-        execute: jest.fn(async () => {
+        execute: jest.fn(() => {
           calls.push("ST-03-WRITE");
-          return {};
+          return Promise.resolve({});
         }),
       }),
     );
     registry.register(
       mkStage({
         id: "ST-01-PLAN",
-        execute: jest.fn(async () => {
+        execute: jest.fn(() => {
           calls.push("ST-01-PLAN");
-          return {};
+          return Promise.resolve({});
         }),
       }),
     );
@@ -98,9 +98,9 @@ describe("PipelineOrchestratorService", () => {
       mkStage({
         id: "ST-02-RESEARCH",
         dependsOn: ["ST-01-PLAN"],
-        execute: jest.fn(async () => {
+        execute: jest.fn(() => {
           calls.push("ST-02-RESEARCH");
-          return {};
+          return Promise.resolve({});
         }),
       }),
     );
@@ -147,11 +147,9 @@ describe("PipelineOrchestratorService", () => {
     registry.register(
       mkStage({
         id: "ST-01-PLAN",
-        execute: jest.fn(async () => {
-          return {};
-        }),
+        execute: jest.fn(() => Promise.resolve({})),
         persist: jest.fn(async () => {
-          // ignore
+          await Promise.resolve(); // ignore
         }),
       }),
     );

@@ -31,6 +31,7 @@ import * as path from "path";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   AiChatService,
+  AiObservabilityService,
   type ChatObserver,
   KernelContext,
 } from "@/modules/ai-engine/facade";
@@ -344,26 +345,16 @@ export class BaselineRecorderService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * 简单成本估算（与 AiObservabilityService.estimateCost 同口径，避免跨模块依赖）
-   */
+  /** 成本估算：复用 AiObservabilityService.estimateCost（唯一定价表） */
   private estimateCost(
     model: string | undefined,
     inputTokens: number,
     outputTokens: number,
   ): number {
-    const pricing: Record<string, { input: number; output: number }> = {
-      "gpt-4o": { input: 0.0025, output: 0.01 },
-      "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
-      "claude-3.5-sonnet": { input: 0.003, output: 0.015 },
-      "claude-3-haiku": { input: 0.00025, output: 0.00125 },
-      "grok-2": { input: 0.002, output: 0.01 },
-      "grok-beta": { input: 0.005, output: 0.015 },
-    };
-    const p = model ? pricing[model] : undefined;
-    const rate = p ?? { input: 0.001, output: 0.002 };
-    return (
-      (inputTokens / 1000) * rate.input + (outputTokens / 1000) * rate.output
+    return AiObservabilityService.estimateCost(
+      model ?? "default",
+      inputTokens,
+      outputTokens,
     );
   }
 }

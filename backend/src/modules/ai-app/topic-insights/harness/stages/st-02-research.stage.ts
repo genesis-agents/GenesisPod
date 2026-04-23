@@ -25,7 +25,7 @@ export class ResearchStage implements Stage<
   readonly runsWhen = "always" as const;
   readonly slo = {
     p95Ms: 300_000,
-    maxTokens: 50_000,
+    tokenBudget: 50_000,
     targetSuccessRate: 0.9,
   };
   readonly emitsEvents = [

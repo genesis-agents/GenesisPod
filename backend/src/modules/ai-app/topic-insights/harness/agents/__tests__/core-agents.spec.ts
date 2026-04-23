@@ -353,7 +353,7 @@ describe("Core Agents · signal abort", () => {
   });
 });
 
-describe("Core Agents · real LLM mode not yet wired", () => {
+describe("Core Agents · real LLM mode requires invoker", () => {
   const origFlag = process.env.HARNESS_AGENTS_STUB;
 
   beforeAll(() => {
@@ -365,8 +365,8 @@ describe("Core Agents · real LLM mode not yet wired", () => {
     else process.env.HARNESS_AGENTS_STUB = origFlag;
   });
 
-  it("STUB=0 时调用 Leader 抛 not-yet-wired", async () => {
-    const agent = new LeaderPlannerAgent();
+  it("STUB=0 时调用 Leader 但未注入 LlmInvoker → 清晰报错", async () => {
+    const agent = new LeaderPlannerAgent(); // 无 invoker
     const input: LeaderPlannerInput = {
       topicId: "t-1",
       topicName: "X",
@@ -376,7 +376,9 @@ describe("Core Agents · real LLM mode not yet wired", () => {
       researchDepth: "standard",
       maxDimensions: 3,
     };
-    await expect(agent.run(ctx(input))).rejects.toThrow(/not yet wired/);
+    await expect(agent.run(ctx(input))).rejects.toThrow(
+      /LlmInvokerService not injected/,
+    );
   });
 });
 

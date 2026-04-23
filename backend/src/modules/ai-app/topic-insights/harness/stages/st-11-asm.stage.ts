@@ -26,7 +26,7 @@ export class AssemblyStage implements Stage<
   readonly name = "Report assembly";
   readonly dependsOn = ["ST-07-SYNTH" as const];
   readonly runsWhen = "always" as const;
-  readonly slo = { p95Ms: 10_000, maxTokens: 0, targetSuccessRate: 0.99 };
+  readonly slo = { p95Ms: 10_000, tokenBudget: 0, targetSuccessRate: 0.99 };
   readonly emitsEvents = ["report:assembled"];
 
   // eslint-disable-next-line @typescript-eslint/require-await

@@ -5,7 +5,8 @@
  * Access matrix：只读 rag/TL-04-DIMMEM；**严禁** TL-02-EVSAVE（防止假证据）。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { BaseAgentRunner } from "./base-agent-runner";
 import {
   SynthesisResultSchema,
@@ -14,6 +15,7 @@ import {
   type SynthesisResult,
 } from "./schemas";
 import type { AccessToolId, AgentRunContext } from "./types";
+import { LlmInvokerService } from "../llm";
 
 export interface SynthesizerInput {
   readonly topicId: string;
@@ -35,16 +37,55 @@ export class SynthesizerAgent extends BaseAgentRunner<
   readonly tools: ReadonlyArray<AccessToolId> = ["rag-search", "TL-04-DIMMEM"];
   readonly forbiddenTools: ReadonlyArray<AccessToolId> = ["TL-02-EVSAVE"];
   readonly outputSchema = SynthesisResultSchema;
+  protected readonly taskProfile: TaskProfile = {
+    creativity: "medium",
+    outputLength: "extended",
+  };
 
-  protected async executeImpl(
-    _ctx: AgentRunContext<SynthesizerInput>,
-  ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
-    throw new Error(
-      `[${this.id}] Real LLM execution not yet wired — use HARNESS_AGENTS_STUB=1`,
-    );
+  constructor(@Optional() llmInvoker?: LlmInvokerService) {
+    super(llmInvoker);
   }
 
-  protected async stubOutput(
+  protected buildSystemPrompt(_ctx: AgentRunContext<SynthesizerInput>): string {
+    return [
+      "你是报告综合专家。基于 dimension metas + 整合后的章节产出最终报告。",
+      "约束（严厉）：",
+      "1. executiveSummary 300-2000 字，含 3-5 核心结论 + 3-5 量化指标 + 2-3 风险 + 2-3 行动建议",
+      "2. crossDimensionAnalysis 识别 2-3 因果链（≥50 字）",
+      "3. riskMatrix 分 high/medium/low 三档，每条有 relatedDimensions",
+      "4. recommendations 按 P0/P1/P2 排序，每条关联具体维度",
+      "5. **严禁**重写 dimension 正文；**严禁**新增来源；**严禁**臆造数据",
+      "6. highlights ≥ 3 条 KEY_FINDING",
+      "",
+      "严格 JSON 输出。",
+    ].join("\n");
+  }
+
+  protected buildUserPrompt(ctx: AgentRunContext<SynthesizerInput>): string {
+    const { input, identity } = ctx;
+    return [
+      `missionId: ${identity.missionId}`,
+      `topic: ${input.topicName}（id=${input.topicId}）`,
+      `language: ${input.language}`,
+      input.userPrompt ? `userPrompt: ${input.userPrompt}` : "",
+      "",
+      "dimensionMetas:",
+      ...input.dimensionMetas.map(
+        (m) =>
+          `  - ${m.dimensionName}\n    summary: ${m.summary}\n    keyFindings: ${m.keyFindings.join(" | ")}\n    evidenceCount: ${m.evidenceCount}`,
+      ),
+      "",
+      input.overallReview
+        ? `overallReview score: ${input.overallReview.overallScore}`
+        : "",
+      "",
+      "请输出 SynthesisResult JSON。",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  protected stubOutput(
     ctx: AgentRunContext<SynthesizerInput>,
   ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
     const { input, identity } = ctx;
@@ -116,6 +157,6 @@ export class SynthesizerAgent extends BaseAgentRunner<
       ],
     };
 
-    return { output: result, tokensUsed: 0, costUsd: 0 };
+    return Promise.resolve({ output: result, tokensUsed: 0, costUsd: 0 });
   }
 }

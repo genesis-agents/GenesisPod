@@ -35,7 +35,7 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
   readonly runsWhen = "always" as const;
   readonly slo = {
     p95Ms: 180_000,
-    maxTokens: 40_000,
+    tokenBudget: 40_000,
     targetSuccessRate: 0.9,
   };
   readonly emitsEvents = [

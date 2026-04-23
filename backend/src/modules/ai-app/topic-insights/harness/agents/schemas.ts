@@ -26,7 +26,11 @@ export const AgentAssignmentSchema = z.object({
     "quality_reviewer",
     "report_writer",
   ]),
-  modelId: z.string().min(1),
+  /**
+   * 模型 ID。允许空字符串作为 fallback（按 CLAUDE.md：空字符串由下游
+   * TaskProfile 自动解析；禁止硬编码 "gpt-4" 等具体模型名）。
+   */
+  modelId: z.string(),
   skills: z.array(z.string()).optional(),
 });
 

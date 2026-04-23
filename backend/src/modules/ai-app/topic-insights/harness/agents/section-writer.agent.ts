@@ -5,10 +5,12 @@
  * Access matrix：写 evidence（TL-02-EVSAVE）是允许的；搜索/图表/memory 只读。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { BaseAgentRunner } from "./base-agent-runner";
 import { SectionResultSchema, type SectionResult } from "./schemas";
 import type { AccessToolId, AgentRunContext } from "./types";
+import { LlmInvokerService } from "../llm";
 
 export interface SectionWriterInput {
   readonly topicId: string;
@@ -42,16 +44,54 @@ export class SectionWriterAgent extends BaseAgentRunner<
     "short-term-memory",
   ];
   readonly outputSchema = SectionResultSchema;
+  protected readonly taskProfile: TaskProfile = {
+    creativity: "medium",
+    outputLength: "long",
+  };
 
-  protected async executeImpl(
-    _ctx: AgentRunContext<SectionWriterInput>,
-  ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
-    throw new Error(
-      `[${this.id}] Real LLM execution not yet wired — use HARNESS_AGENTS_STUB=1`,
-    );
+  constructor(@Optional() llmInvoker?: LlmInvokerService) {
+    super(llmInvoker);
   }
 
-  protected async stubOutput(
+  protected buildSystemPrompt(
+    _ctx: AgentRunContext<SectionWriterInput>,
+  ): string {
+    return [
+      "你是章节研究写作员。给定 sectionPlan 和 evidenceSummary，请完成该 section 深度写作。",
+      "要求：",
+      "1. wordCount 须达到 targetWords × 0.85 - 1.15",
+      "2. keyFindings ≥ sectionPlan.keyPoints.length 个；每个至少关联 2 个 evidenceRefs",
+      "3. citationCount ≥ keyFindings.length × 1.5",
+      "4. 正文必须引用提供的证据（[1][2] 格式）",
+      "5. evidenceIdsUsed 列出所有用到的 evidence id",
+      "",
+      "严格 JSON 输出，不要 markdown fence。",
+    ].join("\n");
+  }
+
+  protected buildUserPrompt(ctx: AgentRunContext<SectionWriterInput>): string {
+    const { input } = ctx;
+    const plan = input.sectionPlan;
+    return [
+      `topic: ${input.topicName}（id=${input.topicId}）`,
+      `dimension: ${input.dimensionName}（id=${input.dimensionId}）`,
+      `language: ${input.language}`,
+      "",
+      `sectionPlan:`,
+      `  id=${plan.id}`,
+      `  title=${plan.title}`,
+      `  description=${plan.description}`,
+      `  targetWords=${plan.targetWords}`,
+      `  keyPoints: ${plan.keyPoints.map((k, i) => `(${i + 1}) ${k}`).join(" / ")}`,
+      "",
+      `evidenceSummary:`,
+      input.evidenceSummary,
+      "",
+      "请输出 SectionResult JSON。",
+    ].join("\n");
+  }
+
+  protected stubOutput(
     ctx: AgentRunContext<SectionWriterInput>,
   ): Promise<{ output: unknown; tokensUsed: number; costUsd: number }> {
     const { input } = ctx;
@@ -86,7 +126,11 @@ export class SectionWriterAgent extends BaseAgentRunner<
       ]),
     };
 
-    return { output: sectionResult, tokensUsed: 0, costUsd: 0 };
+    return Promise.resolve({
+      output: sectionResult,
+      tokensUsed: 0,
+      costUsd: 0,
+    });
   }
 
   /**

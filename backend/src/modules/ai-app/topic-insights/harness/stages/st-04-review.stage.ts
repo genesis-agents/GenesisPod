@@ -25,7 +25,7 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
   readonly runsWhen = "always" as const;
   readonly slo = {
     p95Ms: 120_000,
-    maxTokens: 15_000,
+    tokenBudget: 15_000,
     targetSuccessRate: 0.9,
   };
   readonly emitsEvents = ["section:review_started", "section:review_completed"];
