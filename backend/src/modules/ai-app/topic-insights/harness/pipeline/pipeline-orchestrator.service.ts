@@ -254,16 +254,9 @@ export class PipelineOrchestratorService {
       this.logger.log(
         `[${identity.missionId}] AG-16-MA decision=${decision} reason="${res.output.reason}"`,
       );
-      await this.emitStageEvent(
-        identity,
-        "ST-00-INIT" as StageId,
-        "stage:completed",
-        {
-          event: "mission-adjuster",
-          decision,
-          reason: res.output.reason,
-        },
-      );
+      // 有意不通过 emitStageEvent 发 SSE：mission-adjuster 不是 stage，
+      // 用假 stageId 会污染前端 stage 进度条。日志已足够观察；未来如需
+      // 前端展示，应新增 ResearchEventType.MISSION_ADJUSTED 专用事件。
 
       switch (decision) {
         case "abort":

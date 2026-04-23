@@ -91,15 +91,29 @@ export class HarnessRolloutService {
 
   private async persistToDb(metric: HarnessRunMetric): Promise<void> {
     try {
+      // 防御：NaN / Infinity / 负数可能来自上游 budget 计算异常
+      // Prisma 会把 "NaN" 写入 DB 再失败；或污染聚合统计。此处统一落到 0。
+      const safeNum = (n: number, min = 0): number =>
+        Number.isFinite(n) && n >= min ? n : min;
+      const safeInt = (n: number): number =>
+        Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+      const safeQuality =
+        metric.qualityScore != null &&
+        Number.isFinite(metric.qualityScore) &&
+        metric.qualityScore >= 0 &&
+        metric.qualityScore <= 100
+          ? Math.round(metric.qualityScore)
+          : null;
+
       await this.prisma!.harnessRunMetric.create({
         data: {
           missionId: metric.missionId.slice(0, 100),
           userId: metric.userId.slice(0, 100),
           success: metric.success,
-          durationMs: metric.durationMs,
-          qualityScore: metric.qualityScore ?? null,
-          tokensUsed: metric.tokensUsed,
-          costUsd: new Decimal(metric.costUsd.toFixed(4)),
+          durationMs: safeInt(metric.durationMs),
+          qualityScore: safeQuality,
+          tokensUsed: safeInt(metric.tokensUsed),
+          costUsd: new Decimal(safeNum(metric.costUsd).toFixed(4)),
           errorMessage: metric.errorMessage?.slice(0, 500) ?? null,
           createdAt: metric.recordedAt,
         },

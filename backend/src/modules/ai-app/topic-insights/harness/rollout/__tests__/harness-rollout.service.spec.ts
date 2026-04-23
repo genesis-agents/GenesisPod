@@ -225,6 +225,32 @@ describe("HarnessRolloutService", () => {
       const snap = await svc.getHistorySnapshot(24);
       expect(snap.totalRuns).toBe(0);
     });
+
+    it("持久化前 sanitize NaN/Infinity/负数数值字段", async () => {
+      const create = jest.fn().mockResolvedValue({});
+      const prisma = { harnessRunMetric: { create } } as any;
+      const svcDb = new HarnessRolloutService(prisma);
+
+      svcDb.recordRun({
+        missionId: "m",
+        userId: "u",
+        success: true,
+        durationMs: Number.NaN,
+        qualityScore: Infinity,
+        tokensUsed: -50,
+        costUsd: Number.NaN,
+        recordedAt: new Date(),
+      });
+
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).toHaveBeenCalledTimes(1);
+      const d = create.mock.calls[0][0].data;
+      expect(d.durationMs).toBe(0);
+      expect(d.qualityScore).toBeNull(); // Infinity → 越界 → null
+      expect(d.tokensUsed).toBe(0);
+      expect(d.costUsd.toString()).toBe("0");
+    });
   });
 
   describe("getHealthSnapshot", () => {
