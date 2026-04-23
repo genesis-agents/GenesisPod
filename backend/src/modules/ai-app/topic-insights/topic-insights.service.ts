@@ -34,6 +34,7 @@ import {
 } from "./dto";
 import { AIModelType, AnnotationStatus, AnnotationType } from "@prisma/client";
 import type { RefreshProgressEvent } from "./services/topic/topic-team-orchestrator.service";
+import { MissionExecutionService } from "./services/mission/execution.service";
 import {
   TopicTeamOrchestratorService,
   ReportSynthesisService,
@@ -126,6 +127,7 @@ export class TopicInsightsService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly orchestrator: TopicTeamOrchestratorService,
+    private readonly missionExecution: MissionExecutionService,
     private readonly reportService: ReportSynthesisService,
     private readonly evidenceService: EvidenceManagementService,
     private readonly chatFacade: ChatFacade,
@@ -460,20 +462,32 @@ export class TopicInsightsService {
         // 验证专题所有权
         const topic = await this.crudService.getTopic(userId, topicId);
 
-        // 根据刷新类型决定是否增量刷新
+        // H6 step 5: route refresh through harness pipeline.
         const isIncremental = dto.type === "INCREMENTAL";
+        const mission = await this.prisma.researchMission.create({
+          data: {
+            topicId: topic.id,
+            status: "EXECUTING",
+            researchDepth: (dto.researchDepth as ResearchDepth) ?? "standard",
+            leaderPlan: {},
+            totalTasks: 0,
+            userPrompt: "",
+            startedAt: new Date(),
+            userContext: isIncremental ? { mode: "incremental" } : undefined,
+          },
+        });
+        await this.missionExecution.startExecution(mission.id, topic.id);
 
-        // 执行刷新
-        const report = await this.orchestrator.executeRefresh(topic, {
-          forceRefresh: dto.type === "FULL",
-          dimensionIds: dto.dimensionIds,
-          incremental: isIncremental,
-          researchDepth: dto.researchDepth as ResearchDepth,
+        // harness writes/updates the latest report for this topic
+        const latestReport = await this.prisma.topicReport.findFirst({
+          where: { topicId: topic.id },
+          orderBy: { generatedAt: "desc" },
+          select: { id: true },
         });
 
         return {
           success: true,
-          reportId: report.id,
+          reportId: latestReport?.id ?? "",
           message: "刷新完成",
         };
       },
@@ -523,16 +537,32 @@ export class TopicInsightsService {
           `Smart research for topic ${topicId}: ${smartOptions.strategy} - ${smartOptions.message}`,
         );
 
-        // 执行研究
-        const report = await this.orchestrator.executeRefresh(topic, {
-          forceRefresh: smartOptions.forceRefresh,
-          dimensionIds: smartOptions.dimensionIds,
-          incremental: smartOptions.incremental,
+        // H6 step 5: harness-driven smart refresh.
+        const mission = await this.prisma.researchMission.create({
+          data: {
+            topicId: topic.id,
+            status: "EXECUTING",
+            researchDepth: "standard",
+            leaderPlan: {},
+            totalTasks: 0,
+            userPrompt: "",
+            startedAt: new Date(),
+            userContext: smartOptions.incremental
+              ? { mode: "incremental" }
+              : undefined,
+          },
+        });
+        await this.missionExecution.startExecution(mission.id, topic.id);
+
+        const latestReport = await this.prisma.topicReport.findFirst({
+          where: { topicId: topic.id },
+          orderBy: { generatedAt: "desc" },
+          select: { id: true },
         });
 
         return {
           success: true,
-          reportId: report.id,
+          reportId: latestReport?.id ?? "",
           strategy: smartOptions.strategy,
           message: smartOptions.message,
         };

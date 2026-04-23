@@ -31,6 +31,7 @@ import {
   ReportDataService,
   LatexRepairService,
 } from "../services";
+import { MissionExecutionService } from "../services/mission/execution.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -50,6 +51,9 @@ function buildMocks() {
     researchTopic: {
       findUnique: jest.fn(),
     },
+    researchMission: {
+      create: jest.fn().mockResolvedValue({ id: "mission-default" }),
+    },
     topicReportRevision: {
       findFirst: jest.fn(),
       create: jest.fn(),
@@ -68,6 +72,10 @@ function buildMocks() {
     executeRefresh: jest.fn(),
     getRefreshStatus: jest.fn(),
     cancelRefresh: jest.fn(),
+  };
+
+  const mockMissionExecution = {
+    startExecution: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockReportService = {
@@ -173,6 +181,7 @@ function buildMocks() {
     mockPrisma,
     mockEventEmitter,
     mockOrchestrator,
+    mockMissionExecution,
     mockReportService,
     mockEvidenceService,
     mockFacade,
@@ -199,6 +208,9 @@ describe("TopicInsightsService", () => {
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockEventEmitter: ReturnType<typeof buildMocks>["mockEventEmitter"];
   let mockOrchestrator: ReturnType<typeof buildMocks>["mockOrchestrator"];
+  let mockMissionExecution: ReturnType<
+    typeof buildMocks
+  >["mockMissionExecution"];
   let mockReportService: ReturnType<typeof buildMocks>["mockReportService"];
   let mockCrudService: ReturnType<typeof buildMocks>["mockCrudService"];
   let mockDimensionService: ReturnType<
@@ -217,6 +229,7 @@ describe("TopicInsightsService", () => {
     mockPrisma = mocks.mockPrisma;
     mockEventEmitter = mocks.mockEventEmitter;
     mockOrchestrator = mocks.mockOrchestrator;
+    mockMissionExecution = mocks.mockMissionExecution;
     mockReportService = mocks.mockReportService;
     mockCrudService = mocks.mockCrudService;
     mockDimensionService = mocks.mockDimensionService;
@@ -230,6 +243,7 @@ describe("TopicInsightsService", () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: TopicTeamOrchestratorService, useValue: mockOrchestrator },
+        { provide: MissionExecutionService, useValue: mockMissionExecution },
         { provide: ReportSynthesisService, useValue: mockReportService },
         {
           provide: EvidenceManagementService,
@@ -564,15 +578,15 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("triggerRefresh", () => {
-    it("should call orchestrator executeRefresh with correct options for FULL refresh", async () => {
+    it("should start a harness mission for FULL refresh", async () => {
       const mockTopic = {
         id: "topic-001",
         name: "测试专题",
         userId: "user-001",
       };
       mockCrudService.getTopic.mockResolvedValue(mockTopic);
-      const mockReport = { id: "report-001" };
-      mockOrchestrator.executeRefresh.mockResolvedValue(mockReport);
+      mockPrisma.researchMission.create.mockResolvedValue({ id: "mission-1" });
+      mockPrisma.topicReport.findFirst.mockResolvedValue({ id: "report-001" });
 
       const dto = { type: "FULL" };
       const result = await service.triggerRefresh(
@@ -581,33 +595,30 @@ describe("TopicInsightsService", () => {
         dto as never,
       );
 
-      expect(mockOrchestrator.executeRefresh).toHaveBeenCalledWith(
-        mockTopic,
-        expect.objectContaining({
-          forceRefresh: true,
-          incremental: false,
-        }),
+      expect(mockPrisma.researchMission.create).toHaveBeenCalledTimes(1);
+      expect(mockMissionExecution.startExecution).toHaveBeenCalledWith(
+        "mission-1",
+        "topic-001",
       );
       expect(result.success).toBe(true);
       expect(result.reportId).toBe("report-001");
     });
 
-    it("should use incremental option for INCREMENTAL refresh type", async () => {
+    it("should start a harness mission with incremental mode for INCREMENTAL refresh", async () => {
       const mockTopic = {
         id: "topic-001",
         name: "测试专题",
         userId: "user-001",
       };
       mockCrudService.getTopic.mockResolvedValue(mockTopic);
-      mockOrchestrator.executeRefresh.mockResolvedValue({ id: "report-002" });
+      mockPrisma.researchMission.create.mockResolvedValue({ id: "mission-2" });
+      mockPrisma.topicReport.findFirst.mockResolvedValue({ id: "report-002" });
 
       const dto = { type: "INCREMENTAL" };
       await service.triggerRefresh("user-001", "topic-001", dto as never);
 
-      expect(mockOrchestrator.executeRefresh).toHaveBeenCalledWith(
-        mockTopic,
-        expect.objectContaining({ incremental: true }),
-      );
+      const createCall = mockPrisma.researchMission.create.mock.calls[0][0];
+      expect(createCall.data.userContext).toEqual({ mode: "incremental" });
     });
 
     it("should propagate error when topic not found", async () => {
@@ -789,7 +800,7 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("smartStartResearch", () => {
-    it("should use smart strategy to determine refresh options", async () => {
+    it("should use smart strategy and start a harness mission", async () => {
       const mockTopic = {
         id: "topic-001",
         name: "智能研究",
@@ -803,7 +814,10 @@ describe("TopicInsightsService", () => {
         dimensionIds: undefined,
         incremental: true,
       });
-      mockOrchestrator.executeRefresh.mockResolvedValue({
+      mockPrisma.researchMission.create.mockResolvedValue({
+        id: "mission-smart",
+      });
+      mockPrisma.topicReport.findFirst.mockResolvedValue({
         id: "report-smart-001",
       });
 
@@ -812,10 +826,12 @@ describe("TopicInsightsService", () => {
       expect(
         mockResearchStrategyService.getSmartRefreshOptions,
       ).toHaveBeenCalledWith("topic-001");
-      expect(mockOrchestrator.executeRefresh).toHaveBeenCalledWith(
-        mockTopic,
-        expect.objectContaining({ incremental: true }),
+      expect(mockMissionExecution.startExecution).toHaveBeenCalledWith(
+        "mission-smart",
+        "topic-001",
       );
+      const createCall = mockPrisma.researchMission.create.mock.calls[0][0];
+      expect(createCall.data.userContext).toEqual({ mode: "incremental" });
       expect(result.strategy).toBe("INCREMENTAL");
     });
   });

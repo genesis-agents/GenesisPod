@@ -17,7 +17,7 @@ import { RefreshFrequency, ResearchTopicStatus } from "@prisma/client";
 
 import { TopicRefreshScheduler } from "../topic-refresh.scheduler";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { TopicTeamOrchestratorService } from "../../topic/topic-team-orchestrator.service";
+import { MissionExecutionService } from "../../mission/execution.service";
 
 // ============================================================================
 // Helpers
@@ -46,6 +46,9 @@ function buildPrismaMock() {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    researchMission: {
+      create: jest.fn().mockResolvedValue({ id: "mission-1" }),
+    },
     topicSchedule: {
       findFirst: jest.fn(),
       create: jest.fn(),
@@ -54,9 +57,9 @@ function buildPrismaMock() {
   };
 }
 
-function buildOrchestratorMock() {
+function buildMissionExecutionMock() {
   return {
-    executeRefresh: jest.fn().mockResolvedValue(undefined),
+    startExecution: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -67,12 +70,12 @@ function buildOrchestratorMock() {
 describe("TopicRefreshScheduler", () => {
   let scheduler: TopicRefreshScheduler;
   let prisma: ReturnType<typeof buildPrismaMock>;
-  let orchestrator: ReturnType<typeof buildOrchestratorMock>;
+  let missionExecution: ReturnType<typeof buildMissionExecutionMock>;
 
   beforeEach(async () => {
     jest.useFakeTimers();
     prisma = buildPrismaMock();
-    orchestrator = buildOrchestratorMock();
+    missionExecution = buildMissionExecutionMock();
 
     // Default: no topics needing refresh on init
     prisma.researchTopic.findMany.mockResolvedValue([]);
@@ -81,7 +84,7 @@ describe("TopicRefreshScheduler", () => {
       providers: [
         TopicRefreshScheduler,
         { provide: PrismaService, useValue: prisma },
-        { provide: TopicTeamOrchestratorService, useValue: orchestrator },
+        { provide: MissionExecutionService, useValue: missionExecution },
       ],
     }).compile();
 
@@ -158,7 +161,7 @@ describe("TopicRefreshScheduler", () => {
 
       await scheduler.checkAndRefreshTopics();
 
-      expect(orchestrator.executeRefresh).not.toHaveBeenCalled();
+      expect(missionExecution.startExecution).not.toHaveBeenCalled();
     });
 
     it("should refresh all topics that are overdue", async () => {
@@ -174,7 +177,7 @@ describe("TopicRefreshScheduler", () => {
 
       await scheduler.checkAndRefreshTopics();
 
-      expect(orchestrator.executeRefresh).toHaveBeenCalledTimes(2);
+      expect(missionExecution.startExecution).toHaveBeenCalledTimes(2);
       expect(prisma.researchTopic.update).toHaveBeenCalledTimes(2);
     });
 
@@ -206,7 +209,7 @@ describe("TopicRefreshScheduler", () => {
       prisma.researchTopic.findUnique
         .mockResolvedValueOnce(topics[0])
         .mockResolvedValueOnce(topics[1]);
-      orchestrator.executeRefresh
+      missionExecution.startExecution
         .mockRejectedValueOnce(new Error("Refresh failed"))
         .mockResolvedValueOnce(undefined);
       prisma.researchTopic.update.mockResolvedValue({});
@@ -214,7 +217,7 @@ describe("TopicRefreshScheduler", () => {
       await scheduler.checkAndRefreshTopics();
 
       // Second topic should still have been attempted
-      expect(orchestrator.executeRefresh).toHaveBeenCalledTimes(2);
+      expect(missionExecution.startExecution).toHaveBeenCalledTimes(2);
     });
 
     it("should skip refreshTopic gracefully if topic not found during refresh", async () => {
@@ -224,7 +227,7 @@ describe("TopicRefreshScheduler", () => {
 
       await scheduler.checkAndRefreshTopics();
 
-      expect(orchestrator.executeRefresh).not.toHaveBeenCalled();
+      expect(missionExecution.startExecution).not.toHaveBeenCalled();
     });
   });
 

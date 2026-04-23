@@ -5,8 +5,12 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { RefreshFrequency, ResearchTopicStatus } from "@prisma/client";
-import { TopicTeamOrchestratorService } from "../topic/topic-team-orchestrator.service";
+import {
+  RefreshFrequency,
+  ResearchMissionStatus,
+  ResearchTopicStatus,
+} from "@prisma/client";
+import { MissionExecutionService } from "../mission/execution.service";
 
 /**
  * Topic Refresh Scheduler
@@ -26,7 +30,7 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly orchestrator: TopicTeamOrchestratorService,
+    private readonly missionExecution: MissionExecutionService,
   ) {}
 
   async onModuleInit() {
@@ -139,10 +143,22 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Starting scheduled refresh for topic: ${topic.name}`);
 
     try {
-      // 执行增量刷新
-      await this.orchestrator.executeRefresh(topic, {
-        incremental: true,
+      // H6 step 5: scheduled refresh runs through the harness pipeline.
+      // Creates a minimal mission row (no legacy planning) and delegates to
+      // startExecution — the pipeline's ST-01-PLAN fills leaderPlan in place.
+      const mission = await this.prisma.researchMission.create({
+        data: {
+          topicId: topic.id,
+          status: ResearchMissionStatus.EXECUTING,
+          researchDepth: "standard",
+          leaderPlan: {},
+          totalTasks: 0,
+          userPrompt: "",
+          startedAt: new Date(),
+        },
       });
+
+      await this.missionExecution.startExecution(mission.id, topic.id);
 
       // 更新下次刷新时间
       const nextRefreshAt = this.calculateNextRefreshTime(

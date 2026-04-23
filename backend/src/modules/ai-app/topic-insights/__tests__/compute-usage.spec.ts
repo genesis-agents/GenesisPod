@@ -31,6 +31,7 @@ import {
   ReportDataService,
   LatexRepairService,
 } from "../services";
+import { MissionExecutionService } from "../services/mission/execution.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -214,6 +215,10 @@ async function buildService(mocks: ReturnType<typeof buildMocks>) {
       {
         provide: TopicTeamOrchestratorService,
         useValue: mocks.mockOrchestrator,
+      },
+      {
+        provide: MissionExecutionService,
+        useValue: { startExecution: jest.fn().mockResolvedValue(undefined) },
       },
       { provide: ReportSynthesisService, useValue: mocks.mockReportService },
       {
