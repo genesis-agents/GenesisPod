@@ -1,80 +1,23 @@
 /**
- * HarnessRolloutService 单元测试
+ * HarnessRolloutService 单元测试（目标架构 v2 · harness 是唯一路径）
+ *
+ * 原 shouldUseHarness / env-flag / rollout-pct 分流能力已删除，仅保留：
+ *  - recordRun + 滚动窗口 + auto-rollback 告警
+ *  - DB 持久化
+ *  - getHealthSnapshot / getHistorySnapshot
+ *  - resetAutoRollback / resetMetrics
  */
 
 import { HarnessRolloutService } from "../harness-rollout.service";
 
 describe("HarnessRolloutService", () => {
-  let origFlag: string | undefined;
-  let origPct: string | undefined;
   let svc: HarnessRolloutService;
 
   beforeEach(() => {
-    origFlag = process.env.TOPIC_INSIGHTS_USE_HARNESS;
-    origPct = process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT;
     svc = new HarnessRolloutService();
   });
 
-  afterEach(() => {
-    if (origFlag === undefined) delete process.env.TOPIC_INSIGHTS_USE_HARNESS;
-    else process.env.TOPIC_INSIGHTS_USE_HARNESS = origFlag;
-    if (origPct === undefined)
-      delete process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT;
-    else process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT = origPct;
-  });
-
-  describe("shouldUseHarness", () => {
-    it("env flag 关闭 → false", () => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "0";
-      expect(svc.shouldUseHarness("u1")).toBe(false);
-    });
-
-    it("env flag 开 + pct=100 → 所有用户 true", () => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
-      process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT = "100";
-      expect(svc.shouldUseHarness("u1")).toBe(true);
-      expect(svc.shouldUseHarness("u2")).toBe(true);
-    });
-
-    it("env flag 开 + pct=0 → 所有用户 false", () => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
-      process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT = "0";
-      expect(svc.shouldUseHarness("u1")).toBe(false);
-    });
-
-    it("默认 pct=100 当未设置", () => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
-      delete process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT;
-      expect(svc.shouldUseHarness("u1")).toBe(true);
-    });
-
-    it("pct=50 时结果是 deterministic（相同 userId 永远相同）", () => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
-      process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT = "50";
-      const a = svc.shouldUseHarness("stable-user-123");
-      const b = svc.shouldUseHarness("stable-user-123");
-      expect(a).toBe(b);
-    });
-
-    it("pct=50 时 100 个用户约 40-60% 命中", () => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
-      process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT = "50";
-      let hits = 0;
-      for (let i = 0; i < 200; i++) {
-        if (svc.shouldUseHarness(`user-${i}`)) hits += 1;
-      }
-      const rate = hits / 200;
-      expect(rate).toBeGreaterThan(0.35);
-      expect(rate).toBeLessThan(0.65);
-    });
-  });
-
   describe("recordRun + auto-rollback", () => {
-    beforeEach(() => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
-      process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT = "100";
-    });
-
     function mk(success: boolean, quality?: number) {
       return {
         missionId: "m",
@@ -90,16 +33,13 @@ describe("HarnessRolloutService", () => {
 
     it("< MIN_SAMPLES 不触发 rollback", () => {
       for (let i = 0; i < 5; i++) svc.recordRun(mk(false));
-      expect(svc.shouldUseHarness("u1")).toBe(true);
       expect(svc.getHealthSnapshot().autoRolledBack).toBe(false);
     });
 
-    it("failure rate ≥ 30% over 10+ samples → auto-rollback", () => {
+    it("failure rate ≥ 30% over 10+ samples → auto-rollback 告警", () => {
       for (let i = 0; i < 4; i++) svc.recordRun(mk(false));
       for (let i = 0; i < 6; i++) svc.recordRun(mk(true));
-      // 4/10 = 40% fail → rollback
       expect(svc.getHealthSnapshot().autoRolledBack).toBe(true);
-      expect(svc.shouldUseHarness("any")).toBe(false);
     });
 
     it("低 quality score 也触发 rollback", () => {
@@ -112,7 +52,7 @@ describe("HarnessRolloutService", () => {
       for (let i = 0; i < 6; i++) svc.recordRun(mk(true));
       expect(svc.getHealthSnapshot().autoRolledBack).toBe(true);
       svc.resetAutoRollback();
-      expect(svc.shouldUseHarness("any")).toBe(true);
+      expect(svc.getHealthSnapshot().autoRolledBack).toBe(false);
     });
 
     it("window 滚动：最多保留 WINDOW_SIZE=50 条", () => {
@@ -139,7 +79,6 @@ describe("HarnessRolloutService", () => {
         recordedAt: new Date("2026-04-23T00:00:00Z"),
       });
 
-      // fire-and-forget: 等 microtask
       await Promise.resolve();
       await Promise.resolve();
       expect(create).toHaveBeenCalledTimes(1);
@@ -148,11 +87,10 @@ describe("HarnessRolloutService", () => {
       expect(payload.userId).toBe("u-1");
       expect(payload.success).toBe(true);
       expect(payload.qualityScore).toBe(80);
-      // Decimal 对象 — toFixed(4) 保留 4 位
       expect(payload.costUsd.toString()).toBe("0.1234");
     });
 
-    it("DB 写失败时不影响主流程（swallow + warn）", async () => {
+    it("DB 写失败时不影响主流程", async () => {
       const create = jest.fn().mockRejectedValue(new Error("boom"));
       const prisma = { harnessRunMetric: { create } } as any;
       const svcDb = new HarnessRolloutService(prisma);
@@ -171,7 +109,6 @@ describe("HarnessRolloutService", () => {
 
       await Promise.resolve();
       await Promise.resolve();
-      // 内存窗口仍然更新
       expect(svcDb.getHealthSnapshot().totalRuns).toBe(1);
     });
 
@@ -247,23 +184,18 @@ describe("HarnessRolloutService", () => {
       expect(create).toHaveBeenCalledTimes(1);
       const d = create.mock.calls[0][0].data;
       expect(d.durationMs).toBe(0);
-      expect(d.qualityScore).toBeNull(); // Infinity → 越界 → null
+      expect(d.qualityScore).toBeNull();
       expect(d.tokensUsed).toBe(0);
       expect(d.costUsd.toString()).toBe("0");
     });
   });
 
   describe("getHealthSnapshot", () => {
-    beforeEach(() => {
-      process.env.TOPIC_INSIGHTS_USE_HARNESS = "1";
-      process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT = "80";
-    });
-
-    it("空窗口返回默认值", () => {
+    it("空窗口返回默认值 (rolloutPct=100 rolloutActive=true)", () => {
       const snap = svc.getHealthSnapshot();
       expect(snap.totalRuns).toBe(0);
       expect(snap.successRate).toBe(1);
-      expect(snap.rolloutPct).toBe(80);
+      expect(snap.rolloutPct).toBe(100);
       expect(snap.rolloutActive).toBe(true);
     });
 

@@ -113,25 +113,19 @@ export class MissionExecutionService {
       `[startExecution] Starting execution for mission ${missionId}`,
     );
 
-    // ★ Group M-2: 灰度分叉 — HarnessRolloutService 综合决定（env flag +
-    // 用户 hash + rollout 百分比 + auto-rollback）是否走 harness pipeline。
-    // 只在 flag 开启时做 userId 查询，避免 legacy 路径多 1 次 DB 往返。
-    const harnessFlagOn = process.env.TOPIC_INSIGHTS_USE_HARNESS === "1";
-    if (harnessFlagOn && this.harnessOrchestrator) {
-      let shouldUseHarness = true;
-      if (this.harnessRollout) {
-        const topicForRoute = await this.prisma.researchTopic.findUnique({
-          where: { id: topicId },
-          select: { userId: true },
-        });
-        shouldUseHarness = this.harnessRollout.shouldUseHarness(
-          topicForRoute?.userId ?? "",
-        );
-      }
-      if (shouldUseHarness) {
-        return this.runWithHarness(missionId, topicId);
-      }
+    // ★ 目标架构 v2（2026-04-23）：harness pipeline 是唯一路径。
+    // 之前的 feature flag (TOPIC_INSIGHTS_USE_HARNESS / ROLLOUT_PCT) + legacy
+    // fallback 已删除。harnessOrchestrator 是必选依赖（topic-insights.module
+    // import PipelineModule 保证注入），直接分发即可。
+    if (this.harnessOrchestrator) {
+      return this.runWithHarness(missionId, topicId);
     }
+
+    // 降级：仅在 pipeline 未接入时（开发者注释掉 PipelineModule），走 legacy。
+    // 生产环境不应走到这里。
+    this.logger.warn(
+      `[startExecution] PipelineOrchestratorService not available — falling back to legacy dynamic scheduler. Check PipelineModule is imported.`,
+    );
 
     // 获取专题信息
     const topic = await this.prisma.researchTopic.findUnique({

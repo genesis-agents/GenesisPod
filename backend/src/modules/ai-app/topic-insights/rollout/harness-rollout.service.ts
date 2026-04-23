@@ -1,20 +1,18 @@
 /**
- * HarnessRolloutService — 灰度控制 + auto-rollback
+ * HarnessRolloutService — 指标收集 + auto-alert（目标架构 v2）
  *
  * 职责：
- * 1. 决定给定用户是否走 harness 路径（基于 userId hash + rollout 百分比）
- * 2. 跟踪 harness run 成败 + 质量分
- * 3. 失败率 / 低分率超阈值时自动熄灯（ephemeral rollback，不改 env）
+ * 1. 跟踪 harness run 成败 + 质量分 + 持久化到 DB
+ * 2. 失败率 / 低分率超阈值时触发 auto-rollback 告警（纯观察信号，不影响执行路径）
+ * 3. 给监控面板 / 健康端点提供快照
  *
- * 环境变量：
- * - TOPIC_INSIGHTS_USE_HARNESS=1       主开关
- * - TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT=10   百分比（0-100，默认 100）
+ * 注：2026-04-23 目标架构改造后，harness 是唯一执行路径，原 "按用户百分比分流"
+ * 能力（shouldUseHarness）已删除。本 service 仅承担 SLO 观察职责。
  *
- * 内部指标窗口：最近 50 次 run，失败率 >= 0.3 触发 auto-rollback（返回 false）。
+ * 内部指标窗口：最近 50 次 run，失败率 >= 0.3 触发 auto-rollback 告警。
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { createHash } from "crypto";
 import { Decimal } from "@prisma/client/runtime/library";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
@@ -54,27 +52,6 @@ export class HarnessRolloutService {
   private autoRolledBack = false;
 
   constructor(@Optional() private readonly prisma?: PrismaService) {}
-
-  /**
-   * 是否走 harness 路径。
-   * 规则：
-   * - env flag 关闭 → false
-   * - autoRolledBack → false
-   * - userId hash % 100 < rolloutPct → true
-   */
-  shouldUseHarness(userId: string): boolean {
-    if (process.env.TOPIC_INSIGHTS_USE_HARNESS !== "1") return false;
-    if (this.autoRolledBack) return false;
-
-    const pct = this.getRolloutPercentage();
-    if (pct <= 0) return false;
-    if (pct >= 100) return true;
-
-    // 取 userId md5 前 4 byte 做 0-99 哈希
-    const hash = createHash("md5").update(userId).digest();
-    const bucket = hash.readUInt32BE(0) % 100;
-    return bucket < pct;
-  }
 
   /** 记录一次 harness run 的指标，触发窗口滚动 + auto-rollback 判定 */
   recordRun(metric: HarnessRunMetric): void {
@@ -161,8 +138,8 @@ export class HarnessRolloutService {
         avgTokens: Math.round(avgTok),
         totalCostUsd: Math.round(totalCost * 10000) / 10000,
         autoRolledBack: this.autoRolledBack,
-        rolloutPct: this.getRolloutPercentage(),
-        rolloutActive: process.env.TOPIC_INSIGHTS_USE_HARNESS === "1",
+        rolloutPct: 100,
+        rolloutActive: true,
       };
     } catch (err) {
       this.logger.warn(
@@ -182,8 +159,8 @@ export class HarnessRolloutService {
         avgTokens: 0,
         totalCostUsd: 0,
         autoRolledBack: this.autoRolledBack,
-        rolloutPct: this.getRolloutPercentage(),
-        rolloutActive: process.env.TOPIC_INSIGHTS_USE_HARNESS === "1",
+        rolloutPct: 100,
+        rolloutActive: true,
       };
     }
 
@@ -208,8 +185,8 @@ export class HarnessRolloutService {
       avgTokens: Math.round(avgTokens),
       totalCostUsd: Math.round(totalCost * 10000) / 10000,
       autoRolledBack: this.autoRolledBack,
-      rolloutPct: this.getRolloutPercentage(),
-      rolloutActive: process.env.TOPIC_INSIGHTS_USE_HARNESS === "1",
+      rolloutPct: 100,
+      rolloutActive: true,
     };
   }
 
@@ -225,14 +202,6 @@ export class HarnessRolloutService {
   resetMetrics(): void {
     this.window.length = 0;
     this.autoRolledBack = false;
-  }
-
-  private getRolloutPercentage(): number {
-    const raw = process.env.TOPIC_INSIGHTS_HARNESS_ROLLOUT_PCT;
-    if (!raw) return 100;
-    const n = parseInt(raw, 10);
-    if (Number.isNaN(n)) return 100;
-    return Math.max(0, Math.min(100, n));
   }
 
   private evaluateAutoRollback(): void {
