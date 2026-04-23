@@ -4,6 +4,9 @@
  * 导出所有研究相关的服务（通过子目录 barrel re-export）
  */
 
+// ==================== Baseline (Phase 0 recorder) ====================
+export { BaselineRecorderService } from "./baseline";
+
 // ==================== Core ====================
 // Research
 export { ResearchLeaderService } from "./core/research/research-leader.service";

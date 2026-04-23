@@ -15,6 +15,13 @@ export interface KernelContextData {
   latencySessionId?: string;
   /** 当前活跃的时延跟踪阶段 ID */
   latencyPhaseId?: string;
+  /**
+   * Topic Insights mission ID（用于 BaselineRecorder 过滤 + 分组）
+   * 只在 topic-insights 的 mission execution 流程中设置
+   */
+  missionId?: string;
+  /** 用于 fixture 分组的 topicId + depth 标签（topic-insights baseline 录制使用） */
+  baselineTag?: string;
 }
 
 class KernelContextStore {
@@ -30,6 +37,14 @@ class KernelContextStore {
 
   getProcessId(): string | undefined {
     return this.storage.getStore()?.processId;
+  }
+
+  getMissionId(): string | undefined {
+    return this.storage.getStore()?.missionId;
+  }
+
+  getBaselineTag(): string | undefined {
+    return this.storage.getStore()?.baselineTag;
   }
 }
 

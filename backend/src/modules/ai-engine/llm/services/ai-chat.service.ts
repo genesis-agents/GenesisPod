@@ -109,9 +109,88 @@ export type { ChatMessage } from "../types";
  * - AiChatRetryService: 重试策略（已存在）
  * - AiModelConfigService: 模型配置查询（已存在）
  */
+/**
+ * AiChatService.chat 的入参类型（供外部 wrapper / observer 直接引用，避免 Parameters<> 自引用）
+ */
+export interface ChatOptions {
+  messages: ChatMessage[];
+  systemPrompt?: string;
+  taskProfile?: TaskProfile;
+  maxTokens?: number;
+  temperature?: number;
+  model?: string;
+  modelType?: AIModelType;
+  strictMode?: boolean;
+  provider?: string;
+  apiKey?: string;
+  apiEndpoint?: string;
+  displayName?: string;
+  capabilities?: string[];
+  enableSearch?: boolean;
+  userId?: string;
+  traceId?: string;
+  responseFormat?: string;
+  processId?: string;
+  /** Skip input/output guardrails for internal system calls */
+  skipGuardrails?: boolean;
+  /** Prompt cache policy */
+  cachePolicy?: "auto";
+  /** Native structured output schema */
+  outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
+  /** Shared cache prefix from PromptCacheCoordinatorService — uses frozen system prompt + tools */
+  sharedCachePrefix?: {
+    systemPromptText: string;
+    toolDefinitions?: unknown[];
+  };
+  /** 操作名称 — 用于时延跟踪标识 step */
+  operationName?: string;
+}
+
+/**
+ * AiChatService.chat 的返回类型
+ */
+export interface ChatResult {
+  content: string;
+  usage?: {
+    totalTokens: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  };
+  model: string;
+  finishReason?: string;
+  isError?: boolean;
+  apiKeySource?: "personal" | "donated" | "system";
+}
+
+/**
+ * Chat 调用观察者事件（observer pattern）
+ *
+ * 订阅 AiChatService.chat 的入参 / 返回值 / 异常 / 延迟，用于：
+ * - Topic Insights baseline 录制（fixture 对比）
+ * - 调试 / 审计场景
+ *
+ * 订阅通过 `addChatObserver(fn)`，解除用 `removeChatObserver(fn)`。
+ * Observer 函数抛错会被 catch 并降级为 warn log，不影响 chat 主流程。
+ */
+export interface ChatObserverEvent {
+  options: ChatOptions;
+  result?: ChatResult;
+  error?: Error;
+  durationMs: number;
+  /** 便于观察者从 KernelContext 取 missionId / baselineTag 之外直接拿到 */
+  kernelContext?: import("../../../../common/context/kernel-context").KernelContextData;
+}
+
+export type ChatObserver = (event: ChatObserverEvent) => void;
+
 @Injectable()
 export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
+
+  /** Chat 观察者列表 — 非生产热路径，Set 保持去重 + 插入顺序 */
+  private readonly chatObservers = new Set<ChatObserver>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -903,6 +982,36 @@ export class AiChatService {
     };
   }
 
+  // ==================== Observer pattern（chat 调用观察）====================
+
+  /**
+   * 注册 chat 调用观察者。
+   *
+   * 返回一个 dispose 函数；调用 dispose 等同于 `removeChatObserver(fn)`。
+   * 典型消费者：Topic Insights baseline 录制（通过 KernelContext.missionId 过滤）。
+   */
+  addChatObserver(fn: ChatObserver): () => void {
+    this.chatObservers.add(fn);
+    return () => this.chatObservers.delete(fn);
+  }
+
+  removeChatObserver(fn: ChatObserver): boolean {
+    return this.chatObservers.delete(fn);
+  }
+
+  private dispatchChatObservers(event: ChatObserverEvent): void {
+    if (this.chatObservers.size === 0) return;
+    for (const observer of this.chatObservers) {
+      try {
+        observer(event);
+      } catch (err) {
+        this.logger.warn(
+          `[chat] Observer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  }
+
   // ==================== 统一入口 ====================
 
   /**
@@ -910,53 +1019,36 @@ export class AiChatService {
    * AI App 可以通过两种方式指定模型：
    * 1. model: 直接指定模型 ID
    * 2. modelType: 指定模型类型，由 AI Engine 选择具体模型（推荐）
+   *
+   * 本方法是 thin wrapper：委托 `chatInner` 执行，并在 `finally` 调用观察者。
+   * Observer 故障不影响主流程返回。
    */
-  async chat(options: {
-    messages: ChatMessage[];
-    systemPrompt?: string;
-    taskProfile?: TaskProfile;
-    maxTokens?: number;
-    temperature?: number;
-    model?: string;
-    modelType?: AIModelType;
-    strictMode?: boolean;
-    provider?: string;
-    apiKey?: string;
-    apiEndpoint?: string;
-    displayName?: string;
-    capabilities?: string[];
-    enableSearch?: boolean;
-    userId?: string;
-    traceId?: string;
-    responseFormat?: string;
-    processId?: string;
-    /** Skip input/output guardrails for internal system calls */
-    skipGuardrails?: boolean;
-    /** Prompt cache policy */
-    cachePolicy?: "auto";
-    /** Native structured output schema */
-    outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
-    /** Shared cache prefix from PromptCacheCoordinatorService — uses frozen system prompt + tools */
-    sharedCachePrefix?: {
-      systemPromptText: string;
-      toolDefinitions?: unknown[];
-    };
-    /** 操作名称 — 用于时延跟踪标识 step */
-    operationName?: string;
-  }): Promise<{
-    content: string;
-    usage?: {
-      totalTokens: number;
-      inputTokens?: number;
-      outputTokens?: number;
-      cacheCreationTokens?: number;
-      cacheReadTokens?: number;
-    };
-    model: string;
-    finishReason?: string;
-    isError?: boolean;
-    apiKeySource?: "personal" | "donated" | "system";
-  }> {
+  async chat(options: ChatOptions): Promise<ChatResult> {
+    const startedAt = Date.now();
+    let result: ChatResult | undefined;
+    let error: Error | undefined;
+    try {
+      result = await this.chatInner(options);
+      return result;
+    } catch (e) {
+      error = e instanceof Error ? e : new Error(String(e));
+      throw e;
+    } finally {
+      this.dispatchChatObservers({
+        options,
+        result,
+        error,
+        durationMs: Date.now() - startedAt,
+        kernelContext: KernelContext.get(),
+      });
+    }
+  }
+
+  /**
+   * Chat 主逻辑（原 `chat` 方法 body）
+   * 拆分动机：外层 `chat()` 负责 observer dispatch，本方法保持单一职责。
+   */
+  private async chatInner(options: ChatOptions): Promise<ChatResult> {
     const {
       messages,
       systemPrompt,

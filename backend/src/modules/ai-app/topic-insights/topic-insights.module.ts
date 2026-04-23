@@ -137,6 +137,8 @@ import {
   WeatherSearchAdapter,
   LocalSearchAdapter,
   IndustryReportSearchAdapter,
+  // ★ Phase 0: BaselineRecorder (flag-gated)
+  BaselineRecorderService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -252,6 +254,8 @@ const services = [
   WeatherSearchAdapter,
   LocalSearchAdapter,
   IndustryReportSearchAdapter,
+  // ★ Phase 0: BaselineRecorder (flag-gated via TOPIC_INSIGHTS_RECORD_BASELINE)
+  BaselineRecorderService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];

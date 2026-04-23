@@ -2,6 +2,10 @@
  * LLM service exports
  */
 export { AiChatService } from "../../llm/services/ai-chat.service";
+export type {
+  ChatObserver,
+  ChatObserverEvent,
+} from "../../llm/services/ai-chat.service";
 export {
   inferIsReasoning,
   getKnownModelLimit,

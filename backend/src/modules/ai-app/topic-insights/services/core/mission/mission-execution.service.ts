@@ -142,6 +142,8 @@ export class MissionExecutionService {
         processId: "", // 不设置 processId，避免 EventJournal 外键违约
         userId: topic.userId,
         latencySessionId,
+        missionId,
+        baselineTag: `${topicId}-${researchDepth}`,
       },
       () =>
         this.startExecutionBody(
@@ -314,8 +316,22 @@ export class MissionExecutionService {
       metadata: { topicName: topic.name, missionId, mode: "resume" },
     });
 
+    // resume 路径：复用现有报告时，沿用原 researchDepth。
+    // 这里 existingReport 不含 depth；mission 记录里有。
+    const resumeMission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { researchDepth: true },
+    });
+    const resumeDepth = resumeMission?.researchDepth ?? "standard";
+
     await KernelContext.run(
-      { processId: "", userId: topic.userId, latencySessionId },
+      {
+        processId: "",
+        userId: topic.userId,
+        latencySessionId,
+        missionId,
+        baselineTag: `${topicId}-${resumeDepth}`,
+      },
       async () => {
         if (latencySessionId) {
           this.latencyTracker?.startStep(latencySessionId, {

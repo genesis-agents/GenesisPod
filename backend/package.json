@@ -39,7 +39,9 @@
     "release:notify": "tsx scripts/devops/send-release-notification.ts",
     "dev:circular": "tsx scripts/dev-tools/detect-circular-deps.ts",
     "maintenance:policy": "tsx scripts/maintenance/update-policy-whitelist.ts",
-    "maintenance:validate": "tsx scripts/maintenance/validate-data-integrity.ts"
+    "maintenance:validate": "tsx scripts/maintenance/validate-data-integrity.ts",
+    "fixtures:generate": "tsx scripts/fixtures/generate-mock-fixtures.ts",
+    "test:golden": "tsx scripts/golden/run-golden.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

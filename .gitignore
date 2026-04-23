@@ -134,6 +134,9 @@ frontend/lib/generated/*
 .ui-patrol/baselines/
 .ui-patrol/diffs/
 
+# Topic Insights golden runner transient outputs（每次 run 都会生成新文件，不入库）
+backend/fixtures/golden-reports/
+
 .aider*
 .claude/settings.local.json
 .claude/CLAUDE.local.md

@@ -1,3 +1,10 @@
 # Ensure shell scripts always have LF line endings
 *.sh text eol=lf
 docker-entrypoint.sh text eol=lf
+
+# Topic Insights baseline fixtures (Phase 0 PR-0.2 will populate this dir)
+# 每个 mission 产出 ndjson + json + md，累计可达 10MB/mission，20 mission 约 200MB。
+# 用 git-lfs 管理防止 PR diff 爆炸。
+fixtures/golden/**/*.ndjson filter=lfs diff=lfs merge=lfs -text
+fixtures/golden/**/*.json filter=lfs diff=lfs merge=lfs -text
+fixtures/golden/**/*.md filter=lfs diff=lfs merge=lfs -text

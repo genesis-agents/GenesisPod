@@ -319,6 +319,12 @@ export type { IPlanBasedAgent } from "../agents/base/plan-based-agent";
 
 // ★ Batch 2 — Core services（for admin, mcp-server, and cross-cutting concerns）
 export { AiChatService } from "../llm/services/ai-chat.service";
+export type {
+  ChatObserver,
+  ChatObserverEvent,
+  ChatOptions,
+  ChatResult,
+} from "../llm/services/ai-chat.service";
 export type { ChatMessage } from "../llm/types";
 export { inferIsReasoning, getKnownModelLimit } from "../llm/types/model-utils";
 export { SearchService } from "../knowledge/search/search.service";

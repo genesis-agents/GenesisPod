@@ -185,10 +185,23 @@ export interface MissionProgressData {
   activeAgents?: string[];
 }
 
+/** Baseline 录制观察者事件 */
+export interface ResearchEmitObserverEvent {
+  topicId: string;
+  event: ResearchEventType | string;
+  data: Record<string, unknown>;
+  timestamp: string;
+}
+
+export type ResearchEmitObserver = (event: ResearchEmitObserverEvent) => void;
+
 @Injectable()
 export class ResearchEventEmitterService {
   private readonly logger = new Logger(ResearchEventEmitterService.name);
   private emitHandler?: ResearchEmitHandler;
+
+  /** 发射事件观察者列表（baseline 录制等只读消费者） */
+  private readonly emitObservers = new Set<ResearchEmitObserver>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -221,6 +234,42 @@ export class ResearchEventEmitterService {
   }
 
   /**
+   * 注册只读观察者（baseline 录制等）。
+   * 观察者异常被吞掉，不影响主流程。
+   */
+  addEmitObserver(fn: ResearchEmitObserver): () => void {
+    this.emitObservers.add(fn);
+    return () => this.emitObservers.delete(fn);
+  }
+
+  removeEmitObserver(fn: ResearchEmitObserver): boolean {
+    return this.emitObservers.delete(fn);
+  }
+
+  private dispatchEmitObservers(
+    topicId: string,
+    event: ResearchEventType | string,
+    normalizedData: Record<string, unknown>,
+  ): void {
+    if (this.emitObservers.size === 0) return;
+    const payload: ResearchEmitObserverEvent = {
+      topicId,
+      event,
+      data: normalizedData,
+      timestamp: String(normalizedData.timestamp ?? new Date().toISOString()),
+    };
+    for (const observer of this.emitObservers) {
+      try {
+        observer(payload);
+      } catch (err) {
+        this.logger.warn(
+          `[emitToTopic] Observer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  }
+
+  /**
    * 发射事件到专题
    * ★ 优先使用 RealtimeAdapter（如果可用），同时保持原有 handler 兼容
    */
@@ -233,6 +282,9 @@ export class ResearchEventEmitterService {
       timestamp: new Date().toISOString(),
       ...this.normalizeEventData(data),
     };
+
+    // ★ Baseline 录制 / 调试观察者（只读，失败被吞掉）
+    this.dispatchEmitObservers(topicId, event, normalizedData);
 
     // ★ 使用 RealtimeAdapter 发射事件（如果可用）
     if (this.realtimeAdapter) {
