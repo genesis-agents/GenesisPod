@@ -12,6 +12,7 @@ import type { SectionReview } from "@/modules/ai-app/topic-insights/agents/specs
 import {
   parseRevisionRound,
   determineRevisionTargets,
+  scoreDeterministically,
   type DimensionReviewLite,
 } from "@/modules/ai-app/topic-insights/shared/config";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
@@ -81,9 +82,13 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
         identity.capabilities?.env,
       );
       if (res.state !== "completed") {
-        throw new Error(
-          `AG-04-SR failed at ${section.sectionId}: ${res.errors?.join("; ") ?? "unknown"}`,
+        // ★ baseline L442-L580 确定性审核模式：LLM 失败时 fallback 启发式打分，
+        //   不让整条 pipeline 因 Reviewer LLM 失效崩溃。
+        this.logger.warn(
+          `[${identity.missionId}] AG-04-SR failed at ${section.sectionId}: ${res.errors?.join("; ") ?? "unknown"} — fallback to deterministic scoring`,
         );
+        reviews.push(this.buildDeterministicReview(section));
+        continue;
       }
       reviews.push(res.output);
     }
@@ -181,6 +186,55 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
       });
     }
     return result;
+  }
+
+  /**
+   * baseline L442-L580 确定性 fallback。把 section 的 content/keyFindings 喂给
+   * scoreDeterministically，构造符合 SectionReviewSchema 的记录。
+   */
+  private buildDeterministicReview(section: {
+    sectionId: string;
+    dimensionId: string;
+    content: string;
+    wordCount: number;
+    keyFindings: ReadonlyArray<{
+      statement: string;
+      evidenceRefs: ReadonlyArray<string>;
+    }>;
+  }): SectionReview {
+    const res = scoreDeterministically({
+      contentLength: section.content.length,
+      keyFindingsCount: section.keyFindings.length,
+      evidenceCount: section.keyFindings.reduce(
+        (sum, k) => sum + k.evidenceRefs.length,
+        0,
+      ),
+      hasSummary: section.content.length > 0,
+      hasConfidenceLevel: false,
+    });
+    // SectionReview scores 是 0-10 量纲；confidentScore 是 0-100 量纲 → /10
+    const to10 = (n: number) => Math.round((n / 10) * 10) / 10;
+    return {
+      sectionId: section.sectionId,
+      overallScore: to10(res.overallScore),
+      scores: {
+        accuracy: to10(res.scores.coherence),
+        completeness: to10(res.scores.breadth),
+        coherence: to10(res.scores.coherence),
+        evidenceQuality: to10(res.scores.evidence),
+        depth: to10(res.scores.depth),
+      },
+      needsRevision:
+        res.qualityLevel === "needs_revision" ||
+        res.qualityLevel === "rejected",
+      revisionInstructions: res.issues.map((i) => i.description),
+      issues: res.issues.map((i) => i.description),
+      claims: section.keyFindings.map((f, idx) => ({
+        id: `${section.sectionId}-c-${idx}`,
+        statement: f.statement,
+        evidenceRefs: [...f.evidenceRefs],
+      })),
+    };
   }
 
   private extractDimensionId(sectionId: string): string | null {

@@ -38,3 +38,11 @@ export type {
   DimensionReviewLite,
   TaskLite,
 } from "./review-thresholds";
+
+export { scoreDeterministically } from "./deterministic-review";
+export type {
+  DeterministicReviewInput,
+  DeterministicReviewResult,
+  DeterministicReviewScores,
+  DeterministicQualityLevel,
+} from "./deterministic-review";

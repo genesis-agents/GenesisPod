@@ -21,7 +21,11 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { ResearchTaskStatus } from "@prisma/client";
+import {
+  DimensionStatus,
+  ResearchMissionStatus,
+  ResearchTaskStatus,
+} from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { DataSourceResult } from "@/modules/ai-app/topic-insights/shared/types/data-source.types";
 import { DataSourceType } from "@/modules/ai-app/topic-insights/shared/types/data-source.types";
@@ -62,6 +66,26 @@ export interface MergeDimensionsParams {
   readonly targetDimensionName: string;
 }
 
+export interface CreateDimensionParams {
+  readonly topicId: string;
+  readonly name: string;
+  readonly description?: string;
+}
+
+export interface DeleteDimensionParams {
+  readonly topicId: string;
+  readonly dimensionId?: string;
+  readonly dimensionName?: string;
+}
+
+export interface UpdateDimensionParams {
+  readonly topicId: string;
+  readonly dimensionId?: string;
+  readonly dimensionName?: string;
+  readonly newName?: string;
+  readonly newDescription?: string;
+}
+
 export interface SearchLatestDataOptions {
   readonly maxResults?: number;
   readonly since?: Date;
@@ -97,6 +121,260 @@ export class LeaderToolService {
     @Optional() private readonly contentFetcher?: ContentFetcherService,
     @Optional() private readonly prisma?: PrismaService,
   ) {}
+
+  /**
+   * ★ baseline `services/data/leader-tool.service.ts:L168-L225` 对齐
+   *
+   * 创建新维度。检查重名 + 自动递增 sortOrder + status=PENDING。
+   */
+  async createDimension(
+    params: CreateDimensionParams,
+  ): Promise<LeaderToolActionResult> {
+    if (!this.prisma) {
+      return {
+        success: false,
+        action: LeaderToolActionType.CREATE_DIMENSION,
+        message: "Prisma 不可用（测试模式）",
+      };
+    }
+    const { topicId, name, description } = params;
+    this.logger.log(`[createDimension] topic=${topicId} name="${name}"`);
+
+    try {
+      const existing = await this.prisma.topicDimension.findFirst({
+        where: { topicId, name },
+        select: { id: true },
+      });
+      if (existing) {
+        return {
+          success: false,
+          action: LeaderToolActionType.CREATE_DIMENSION,
+          message: `维度「${name}」已存在，无需重复创建`,
+        };
+      }
+
+      const maxOrder = await this.prisma.topicDimension.aggregate({
+        where: { topicId },
+        _max: { sortOrder: true },
+      });
+
+      const dim = await this.prisma.topicDimension.create({
+        data: {
+          topicId,
+          name,
+          description: description || `关于${name}的研究维度`,
+          sortOrder: (maxOrder._max.sortOrder ?? 0) + 1,
+          status: DimensionStatus.PENDING,
+        },
+      });
+      return {
+        success: true,
+        action: LeaderToolActionType.CREATE_DIMENSION,
+        message: `已成功创建研究维度「${name}」`,
+        data: { dimensionId: dim.id, name: dim.name },
+      };
+    } catch (err) {
+      this.logger.error(
+        `[createDimension] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return {
+        success: false,
+        action: LeaderToolActionType.CREATE_DIMENSION,
+        message: `创建维度失败：${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  /**
+   * ★ baseline `services/data/leader-tool.service.ts:L231-L337` 对齐
+   *
+   * 删除维度。严防 FK 违约：
+   *   - 有 EXECUTING/REVIEWING mission 引用 → 跳过（safety）
+   *   - 残留 PENDING/EXECUTING task 先 → FAILED
+   */
+  async deleteDimension(
+    params: DeleteDimensionParams,
+  ): Promise<LeaderToolActionResult> {
+    if (!this.prisma) {
+      return {
+        success: false,
+        action: LeaderToolActionType.DELETE_DIMENSION,
+        message: "Prisma 不可用（测试模式）",
+      };
+    }
+    const { topicId, dimensionId, dimensionName } = params;
+    this.logger.log(
+      `[deleteDimension] topic=${topicId} dim=${dimensionId ?? dimensionName}`,
+    );
+
+    try {
+      let dim: { id: string; name: string } | null = null;
+      if (dimensionId) {
+        dim = await this.prisma.topicDimension.findUnique({
+          where: { id: dimensionId },
+          select: { id: true, name: true },
+        });
+      } else if (dimensionName) {
+        dim = await this.prisma.topicDimension.findFirst({
+          where: {
+            topicId,
+            name: { contains: dimensionName, mode: "insensitive" },
+          },
+          select: { id: true, name: true },
+        });
+      }
+
+      if (!dim) {
+        return {
+          success: false,
+          action: LeaderToolActionType.DELETE_DIMENSION,
+          message: `未找到匹配的维度「${dimensionName || dimensionId}」`,
+        };
+      }
+
+      // 检查 in-flight mission 引用（防 FK 违约）
+      const inFlight = await this.prisma.researchMission.count({
+        where: {
+          topicId,
+          status: {
+            in: [
+              ResearchMissionStatus.EXECUTING,
+              ResearchMissionStatus.REVIEWING,
+            ],
+          },
+          tasks: { some: { dimensionId: dim.id } },
+        },
+      });
+      if (inFlight > 0) {
+        return {
+          success: false,
+          action: LeaderToolActionType.DELETE_DIMENSION,
+          message: `维度「${dim.name}」有 ${inFlight} 个正在执行的任务，无法删除`,
+          data: { dimensionId: dim.id, name: dim.name },
+        };
+      }
+
+      const pendingTasks = await this.prisma.researchTask.count({
+        where: {
+          dimensionId: dim.id,
+          status: {
+            in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
+          },
+        },
+      });
+      if (pendingTasks > 0) {
+        await this.prisma.researchTask.updateMany({
+          where: {
+            dimensionId: dim.id,
+            status: {
+              in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
+            },
+          },
+          data: {
+            status: ResearchTaskStatus.FAILED,
+            completedAt: new Date(),
+          },
+        });
+      }
+
+      await this.prisma.topicDimension.delete({ where: { id: dim.id } });
+      return {
+        success: true,
+        action: LeaderToolActionType.DELETE_DIMENSION,
+        message: `已成功删除研究维度「${dim.name}」${pendingTasks > 0 ? `，并取消了 ${pendingTasks} 个相关任务` : ""}`,
+        data: { dimensionId: dim.id, name: dim.name },
+      };
+    } catch (err) {
+      this.logger.error(
+        `[deleteDimension] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return {
+        success: false,
+        action: LeaderToolActionType.DELETE_DIMENSION,
+        message: `删除维度失败：${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  /**
+   * ★ baseline `services/data/leader-tool.service.ts:L429-L499` 对齐
+   *
+   * 更新维度 name 或 description。dimensionId 优先，否则 dimensionName 模糊匹配。
+   */
+  async updateDimension(
+    params: UpdateDimensionParams,
+  ): Promise<LeaderToolActionResult> {
+    if (!this.prisma) {
+      return {
+        success: false,
+        action: LeaderToolActionType.UPDATE_DIMENSION,
+        message: "Prisma 不可用（测试模式）",
+      };
+    }
+    const { topicId, dimensionId, dimensionName, newName, newDescription } =
+      params;
+    this.logger.log(
+      `[updateDimension] topic=${topicId} dim=${dimensionId ?? dimensionName}`,
+    );
+
+    try {
+      let dim: { id: string; name: string } | null = null;
+      if (dimensionId) {
+        dim = await this.prisma.topicDimension.findUnique({
+          where: { id: dimensionId },
+          select: { id: true, name: true },
+        });
+      } else if (dimensionName) {
+        dim = await this.prisma.topicDimension.findFirst({
+          where: {
+            topicId,
+            name: { contains: dimensionName, mode: "insensitive" },
+          },
+          select: { id: true, name: true },
+        });
+      }
+
+      if (!dim) {
+        return {
+          success: false,
+          action: LeaderToolActionType.UPDATE_DIMENSION,
+          message: `未找到匹配的维度「${dimensionName || dimensionId}」`,
+        };
+      }
+
+      const updateData: { name?: string; description?: string } = {};
+      if (newName) updateData.name = newName;
+      if (newDescription) updateData.description = newDescription;
+      if (Object.keys(updateData).length === 0) {
+        return {
+          success: false,
+          action: LeaderToolActionType.UPDATE_DIMENSION,
+          message: "没有提供需要更新的内容",
+        };
+      }
+
+      const updated = await this.prisma.topicDimension.update({
+        where: { id: dim.id },
+        data: updateData,
+        select: { id: true, name: true },
+      });
+      return {
+        success: true,
+        action: LeaderToolActionType.UPDATE_DIMENSION,
+        message: `已成功更新维度「${dim.name}」${newName ? ` -> 「${newName}」` : ""}`,
+        data: { dimensionId: updated.id, name: updated.name },
+      };
+    } catch (err) {
+      this.logger.error(
+        `[updateDimension] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return {
+        success: false,
+        action: LeaderToolActionType.UPDATE_DIMENSION,
+        message: `更新维度失败：${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
 
   /**
    * ★ baseline `services/data/leader-tool.service.ts:L342-L423` 对齐

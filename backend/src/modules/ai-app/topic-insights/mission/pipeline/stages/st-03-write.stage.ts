@@ -19,6 +19,12 @@ import { TIER_ADAPTATIONS } from "../config/tier-adaptations.config";
 // ★ baseline sanitizeSectionOutput（section-writer.service.ts L442 / assembler L-）
 //   第一道铁墙：LLM 输出落 DB 前必须过 sanitize
 import { sanitizeSectionOutput } from "@/modules/ai-app/topic-insights/shared/utils/sanitize-output.utils";
+// ★ baseline dimension-mission.distributeDiverseEvidence：section 间 evidence 差异化
+import {
+  distributeDiverseEvidence,
+  type EvidenceData,
+  type SectionLite,
+} from "@/modules/ai-app/topic-insights/shared/utils/evidence-distribution.utils";
 import type {
   PlanStageOutput,
   ResearchStageOutput,
@@ -92,34 +98,83 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
         dimEvidence.length > adaptation.maxEvidenceItems
           ? dimEvidence.slice(0, adaptation.maxEvidenceItems)
           : dimEvidence;
-      const evidenceSummary = this.buildEvidenceSummary(
-        dim.name,
-        effectiveDimEvidence,
-      );
 
-      // ★ targetWords 按 Tier 自适应 + dim.priority 分配（替代硬编码 400）。
+      // ★ targetWords 按 Tier 自适应（替代硬编码 400）。
       // baseline section-writer 用 outline.sections[*].targetWords，我们
       // 在 harness 目前没跑 DimensionOutline，退化方案：按 tier 推荐字数平均分配。
       const baseTargetWords = adaptation.targetWordsPerSection ?? 600;
 
-      for (let si = 0; si < 2; si++) {
+      // ★ baseline dimension-mission.distributeDiverseEvidence 接入：
+      //   section 间 evidence 差异化分配（top-3 共享 + round-robin 独占）。
+      //   每个 section 最多 core(3) + extra(5) = 8 条；promptIndex 全局一致。
+      const sectionPlans: SectionLite[] = Array.from({ length: 2 }).map(
+        (_, si) => ({
+          id: `${dim.id}-s-${si + 1}`,
+          title: `${dim.name} 子章节 ${si + 1}`,
+          keyPoints: [`子章节 ${si + 1} 要点 A`, `要点 B`],
+          description: dim.description,
+        }),
+      );
+      const evidenceBySection = distributeDiverseEvidence(
+        sectionPlans,
+        effectiveDimEvidence.map(
+          (r) =>
+            ({
+              id: r.id,
+              title: r.title,
+              snippet: r.snippet,
+              url: r.url,
+              domain: r.domain,
+              // credibilityScore 暂未喂 weightProfile，后续接 Leader evidenceWeightHint 再补
+            }) satisfies EvidenceData,
+        ),
+      );
+
+      for (let si = 0; si < sectionPlans.length; si++) {
         if (signal.aborted) {
           throw new DOMException(
             `[${this.id}] aborted at dim=${dim.id} section=${si}`,
             "AbortError",
           );
         }
+        const sectionPlan = sectionPlans[si];
+        const distributedEvidence = evidenceBySection.get(sectionPlan.id);
+        // 把 EvidenceData (带 promptIndex) → 原行形；无分配时用整 dim evidence
+        const resolvedEvidence: Array<{
+          id: string;
+          title: string;
+          url: string;
+          snippet: string | null;
+          domain: string | null;
+          citationIndex: number | null;
+        }> = distributedEvidence
+          ? distributedEvidence.flatMap((e) => {
+              const orig = effectiveDimEvidence.find((r) => r.id === e.id);
+              if (!orig) return [];
+              return [
+                {
+                  ...orig,
+                  citationIndex: e.promptIndex ?? orig.citationIndex,
+                },
+              ];
+            })
+          : effectiveDimEvidence;
+        const evidenceSummary = this.buildEvidenceSummary(
+          dim.name,
+          resolvedEvidence,
+        );
+
         const sectionInput: SectionWriterInput = {
           topicId: identity.topicId,
           topicName: dim.name, // upstream context（Group E 接真 topic name）
           dimensionId: dim.id,
           dimensionName: dim.name,
           sectionPlan: {
-            id: `${dim.id}-s-${si + 1}`,
-            title: `${dim.name} 子章节 ${si + 1}`,
-            description: dim.description,
+            id: sectionPlan.id,
+            title: sectionPlan.title,
+            description: sectionPlan.description ?? "",
             targetWords: baseTargetWords,
-            keyPoints: [`子章节 ${si + 1} 要点 A`, `要点 B`],
+            keyPoints: [...sectionPlan.keyPoints],
           },
           evidenceSummary,
           language: "zh",
@@ -136,8 +191,7 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
             `AG-03-SW failed at ${dim.id}/s-${si + 1}: ${res.errors?.join("; ") ?? "unknown"}`,
           );
         }
-        // ★ baseline 第一道铁墙：LLM 输出必须过 sanitize 再入管道，
-        //   避免 JSON 残留 / 英文占位 / 非法标记污染下游 assembler
+        // ★ baseline 第一道铁墙：LLM 输出必须过 sanitize 再入管道
         const rawOutput = res.output;
         const cleanContent = sanitizeSectionOutput(rawOutput.content);
         sections.push({
