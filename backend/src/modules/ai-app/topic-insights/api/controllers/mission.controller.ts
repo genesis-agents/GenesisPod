@@ -32,7 +32,10 @@ import {
 import { CollaboratorRole } from "@/modules/ai-app/topic-insights/api/dto/collaborator.dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
-import { TopicAccessGuard, RequireTopicAccess } from "@/modules/ai-app/topic-insights/api/guards";
+import {
+  TopicAccessGuard,
+  RequireTopicAccess,
+} from "@/modules/ai-app/topic-insights/api/guards";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   MissionLifecycleService,
@@ -45,6 +48,7 @@ import {
 import type { RequestWithUser } from "@/common/types/express-request.types";
 import { BillingContext } from "@/modules/ai-infra/facade";
 import { BillingContextInterceptor } from "@/modules/ai-app/topic-insights/api/interceptors/billing-context.interceptor";
+import { LeaderChatService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/leader-chat.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -63,6 +67,7 @@ export class MissionController {
     private readonly eventEmitterService: ResearchEventEmitterService,
     private readonly healthService: ResearchMissionHealthService,
     private readonly checkpointService: ResearchCheckpointService,
+    private readonly leaderChatService: LeaderChatService,
   ) {}
 
   // ==================== Leader API ====================
@@ -175,20 +180,29 @@ export class MissionController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // 获取当前 Mission
     const mission = await this.queryService.getMissionByTopicId(id);
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
-    // H6 step 10: leader chat becomes read-only — save the user message so it
-    // appears in mission history; no side-effect planning (that conflicts with
-    // harness atomic stages). Frontend can still display the thread.
-    await this.eventEmitterService.saveUserMessage(id, mission.id, dto.content);
-    return {
-      missionId: mission.id,
-      message: dto.content,
-      acknowledged: true,
-    };
+    // F2: route /leader/message through LeaderChatService so @Leader pings
+    // also get intent decoding + CREATE_TODO seeding. When F3 lands the
+    // amendment primitive, CREATE_TODO can escalate to a plan mutation.
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "topic-insights",
+        operationType: "research",
+        referenceId: id,
+      },
+      () =>
+        this.leaderChatService.handle({
+          userId,
+          userName: req.user?.name ?? req.user?.email,
+          topicId: id,
+          message: dto.content,
+          missionId: mission.id,
+        }),
+    );
   }
 
   /**
@@ -240,6 +254,8 @@ export class MissionController {
       throw new UnauthorizedException("User not authenticated");
     }
 
+    // F2 · AG-18-LI Intent spec decodes the message and LeaderChatService
+    // dispatches the side effects (persist, emit, seed todo).
     return BillingContext.run(
       {
         userId,
@@ -247,38 +263,15 @@ export class MissionController {
         operationType: "research",
         referenceId: topicId,
       },
-      async () => {
-        // 1. 获取当前 Mission（如果有）
-        let missionId = dto.missionId;
-        if (!missionId) {
-          const mission = await this.queryService.getMissionByTopicId(topicId);
-          missionId = mission?.id;
-        }
-
-        // H6 step 10: leader-chat side effects (decode intent + select agent
-        // + create TODO + mutate leaderPlan) are retired. The harness pipeline
-        // is atomic and does not support mid-run plan mutations. Behavior is
-        // now: save the message to history and return an acknowledgment. The
-        // "chat intervention" primitive is a planned follow-up.
-        if (missionId) {
-          await this.eventEmitterService.saveUserMessage(
-            topicId,
-            missionId,
-            dto.message,
-          );
-        }
-
-        return {
-          decisionType: "ACK",
-          understanding: dto.message,
-          response:
-            "消息已记录。当前版本不支持通过对话动态添加研究任务；请使用新建 / 重启 Mission 来调整研究计划。",
-          todo: null,
-          clarifyQuestion: null,
-          clarifyOptions: null,
-        };
-      }, // end BillingContext.run callback
-    ); // end BillingContext.run
+      () =>
+        this.leaderChatService.handle({
+          userId,
+          userName: req.user?.name ?? req.user?.email,
+          topicId,
+          message: dto.message,
+          missionId: dto.missionId,
+        }),
+    );
   }
 
   /**

@@ -538,6 +538,56 @@ export class ResearchEventEmitterService {
 
   // ==================== Leader 事件 ====================
 
+  /**
+   * F2 · Leader 思考信号 — UX 提示 Leader 在处理，尚未产出。
+   * fire-and-forget emit；可接收 null missionId（消息未绑定 mission）。
+   */
+  async emitLeaderThinking(
+    topicId: string,
+    missionId: string | null,
+    payload: { phase?: string; message?: string } = {},
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.LEADER_THINKING, {
+      missionId,
+      phase: payload.phase ?? "understanding",
+      message: payload.message ?? "Leader 正在思考…",
+    });
+  }
+
+  /**
+   * F4 · Leader 开始规划（LLM 调用期间）。由 ST-01-PLAN 触发。
+   */
+  async emitLeaderPlanning(
+    topicId: string,
+    missionId: string,
+    payload: { leaderModel?: string; message?: string } = {},
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.LEADER_PLANNING, {
+      missionId,
+      leaderModel: payload.leaderModel,
+      message: payload.message ?? "Leader 正在规划研究维度…",
+    });
+  }
+
+  /**
+   * F4 · Leader 规划完成（plan 已落库，准备进入执行）。
+   */
+  async emitLeaderPlanReady(
+    topicId: string,
+    missionId: string,
+    payload: {
+      dimensions?: number;
+      totalTasks?: number;
+      message?: string;
+    } = {},
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.LEADER_PLAN_READY, {
+      missionId,
+      dimensions: payload.dimensions,
+      totalTasks: payload.totalTasks,
+      message: payload.message ?? "Leader 规划完成，开始执行研究。",
+    });
+  }
 
   /**
    * 发送 Leader 响应事件（多轮对话）
@@ -694,7 +744,6 @@ export class ResearchEventEmitterService {
     }
   }
 
-
   /**
    * 映射 Agent 状态到活动类型
    */
@@ -739,6 +788,192 @@ export class ResearchEventEmitterService {
     );
   }
 
+  // ==================== F4 · Agent / Task / Dimension / Research emit ====================
+
+  async emitAgentCompleted(
+    topicId: string,
+    data: {
+      agentId: string;
+      agentName?: string;
+      missionId?: string;
+      durationMs?: number;
+      taskDescription?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.AGENT_COMPLETED, data);
+  }
+
+  async emitAgentFailed(
+    topicId: string,
+    data: {
+      agentId: string;
+      agentName?: string;
+      missionId?: string;
+      error: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.AGENT_FAILED, data);
+  }
+
+  async emitTaskStarted(
+    topicId: string,
+    data: {
+      taskId: string;
+      missionId?: string;
+      title?: string;
+      dimensionId?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.TASK_STARTED, data);
+  }
+
+  async emitTaskProgress(
+    topicId: string,
+    data: {
+      taskId: string;
+      missionId?: string;
+      progress: number;
+      message?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.TASK_PROGRESS, data);
+  }
+
+  async emitTaskCompleted(
+    topicId: string,
+    data: {
+      taskId: string;
+      missionId?: string;
+      summary?: string;
+      durationMs?: number;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.TASK_COMPLETED, data);
+  }
+
+  async emitTaskFailed(
+    topicId: string,
+    data: { taskId: string; missionId?: string; error: string },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.TASK_FAILED, data);
+  }
+
+  async emitDimensionCreated(
+    topicId: string,
+    data: {
+      dimensionId: string;
+      name: string;
+      sortOrder?: number;
+      sourceOfCreation?: "user" | "leader" | "template";
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.DIMENSION_CREATED, data);
+  }
+
+  async emitDimensionAdded(
+    topicId: string,
+    data: {
+      dimensionId: string;
+      name: string;
+      missionId?: string;
+      reason?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.DIMENSION_ADDED, data);
+  }
+
+  async emitDimensionRemoved(
+    topicId: string,
+    data: {
+      dimensionId: string;
+      name?: string;
+      missionId?: string;
+      reason?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.DIMENSION_REMOVED, data);
+  }
+
+  async emitDimensionResearchStarted(
+    topicId: string,
+    data: {
+      dimensionId: string;
+      name: string;
+      missionId?: string;
+      agentId?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(
+      topicId,
+      ResearchEventType.DIMENSION_RESEARCH_STARTED,
+      data,
+    );
+  }
+
+  async emitDimensionResearchCompleted(
+    topicId: string,
+    data: {
+      dimensionId: string;
+      name: string;
+      missionId?: string;
+      sourcesUsed?: number;
+      durationMs?: number;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(
+      topicId,
+      ResearchEventType.DIMENSION_RESEARCH_COMPLETED,
+      data,
+    );
+  }
+
+  async emitReportSynthesisStarted(
+    topicId: string,
+    data: { reportId: string; missionId?: string; message?: string },
+  ): Promise<void> {
+    await this.emitToTopic(
+      topicId,
+      ResearchEventType.REPORT_SYNTHESIS_STARTED,
+      {
+        ...data,
+        message: data.message ?? "开始生成综合报告…",
+      },
+    );
+  }
+
+  async emitReportSynthesisCompleted(
+    topicId: string,
+    data: {
+      reportId: string;
+      missionId?: string;
+      wordCount?: number;
+      durationMs?: number;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(
+      topicId,
+      ResearchEventType.REPORT_SYNTHESIS_COMPLETED,
+      data,
+    );
+  }
+
+  async emitResearchPaused(
+    topicId: string,
+    data: { missionId: string; reason?: string; requestedBy?: string },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.RESEARCH_PAUSED, data);
+  }
+
+  async emitResearchResumed(
+    topicId: string,
+    data: {
+      missionId: string;
+      resumedFromStage?: string;
+      requestedBy?: string;
+    },
+  ): Promise<void> {
+    await this.emitToTopic(topicId, ResearchEventType.RESEARCH_RESUMED, data);
+  }
 
   // ==================== 数据查询方法 ====================
 

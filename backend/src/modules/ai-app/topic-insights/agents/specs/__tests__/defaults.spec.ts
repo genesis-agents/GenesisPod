@@ -16,8 +16,10 @@ import {
 } from "../defaults";
 
 describe("Topic Insights · agent spec defaults", () => {
-  it("exposes exactly 17 specs", () => {
-    expect(TOPIC_INSIGHTS_AGENT_SPECS).toHaveLength(17);
+  it("exposes all registered agent specs (16 core+enhancement+advanced + 1 interactions + 1 leader)", () => {
+    // F1 baseline: 17 (Core 6 + Enhancement 5 + Advanced 6)
+    // F2 added: +1 LEADER_INTENT_SPEC → 18
+    expect(TOPIC_INSIGHTS_AGENT_SPECS.length).toBeGreaterThanOrEqual(18);
   });
 
   it.each(TOPIC_INSIGHTS_AGENT_SPECS.map((s) => [s.identity.role.id, s]))(

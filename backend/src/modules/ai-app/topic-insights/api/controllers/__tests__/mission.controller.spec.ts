@@ -25,6 +25,7 @@ import {
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
 import { TopicAccessGuard } from "@/modules/ai-app/topic-insights/api/guards";
+import { LeaderChatService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/leader-chat.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,13 +76,6 @@ const mockExecutionService = {
   resumeWithHarness: jest.fn().mockResolvedValue(undefined),
 };
 
-const mockLeaderService = {
-  handleUserMessage: jest.fn(),
-  decodeUserInput: jest.fn(),
-  selectAgentForTask: jest.fn(),
-  getDecisionHistory: jest.fn(),
-};
-
 const mockEventEmitterService = {
   saveUserMessage: jest.fn(),
   emitLeaderResponse: jest.fn(),
@@ -105,6 +99,18 @@ const mockCheckpointService = {
   getResumableMissions: jest.fn(),
 };
 
+const mockLeaderChatService = {
+  handle: jest.fn().mockResolvedValue({
+    missionId: "mission-1",
+    decisionType: "ACKNOWLEDGE",
+    understanding: "",
+    response: "ok",
+    todo: null,
+    clarifyQuestion: null,
+    clarifyOptions: null,
+  }),
+};
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -124,7 +130,9 @@ describe("MissionController", () => {
         { provide: MissionExecutionService, useValue: mockExecutionService },
         {
           provide: PrismaService,
-          useValue: { leaderDecision: { findMany: jest.fn().mockResolvedValue([]) } },
+          useValue: {
+            leaderDecision: { findMany: jest.fn().mockResolvedValue([]) },
+          },
         },
         {
           provide: ResearchEventEmitterService,
@@ -133,6 +141,7 @@ describe("MissionController", () => {
         { provide: ResearchTodoService, useValue: mockTodoService },
         { provide: ResearchMissionHealthService, useValue: mockHealthService },
         { provide: ResearchCheckpointService, useValue: mockCheckpointService },
+        { provide: LeaderChatService, useValue: mockLeaderChatService },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -256,23 +265,34 @@ describe("MissionController", () => {
   });
 
   describe("leaderMessage", () => {
-    it("saves user message and returns ack (H6: read-only leader chat)", async () => {
+    beforeEach(() => {
+      mockLeaderChatService.handle.mockResolvedValue({
+        missionId: "m-1",
+        decisionType: "ACKNOWLEDGE",
+        understanding: "Focus on quantum computing",
+        response: "ok",
+        todo: null,
+        clarifyQuestion: null,
+        clarifyOptions: null,
+      });
+    });
+
+    it("delegates to LeaderChatService with mission context", async () => {
       const dto = { content: "Focus on quantum computing" };
       const mission = { id: "m-1" };
       mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
 
       const result = await controller.leaderMessage(makeReq(), "topic-1", dto);
 
-      expect(mockEventEmitterService.saveUserMessage).toHaveBeenCalledWith(
-        "topic-1",
-        "m-1",
-        "Focus on quantum computing",
+      expect(mockLeaderChatService.handle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-1",
+          topicId: "topic-1",
+          missionId: "m-1",
+          message: "Focus on quantum computing",
+        }),
       );
-      expect(result).toMatchObject({
-        missionId: "m-1",
-        message: "Focus on quantum computing",
-        acknowledged: true,
-      });
+      expect(result).toMatchObject({ missionId: "m-1" });
     });
 
     it("throws UnauthorizedException when user is not authenticated", async () => {
@@ -293,23 +313,31 @@ describe("MissionController", () => {
   });
 
   describe("leaderChat", () => {
-    it("returns ACK decision and saves user message (H6: no side effects)", async () => {
+    beforeEach(() => {
+      mockLeaderChatService.handle.mockResolvedValue({
+        missionId: "m-1",
+        decisionType: "ACKNOWLEDGE",
+        understanding: "",
+        response: "ok",
+        todo: null,
+        clarifyQuestion: null,
+        clarifyOptions: null,
+      });
+    });
+
+    it("delegates to LeaderChatService and returns the intent decision", async () => {
       const dto = { message: "What is AI?" };
-      const mission = { id: "m-1" };
-      mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
-      mockEventEmitterService.saveUserMessage.mockResolvedValue(undefined);
 
       const result = await controller.leaderChat(makeReq(), "topic-1", dto);
 
-      expect(mockEventEmitterService.saveUserMessage).toHaveBeenCalledWith(
-        "topic-1",
-        "m-1",
-        "What is AI?",
+      expect(mockLeaderChatService.handle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-1",
+          topicId: "topic-1",
+          message: "What is AI?",
+        }),
       );
-      expect(result).toMatchObject({
-        decisionType: "ACK",
-        todo: null,
-      });
+      expect(result.decisionType).toBe("ACKNOWLEDGE");
     });
 
     it("throws UnauthorizedException when user is not authenticated", async () => {
@@ -320,30 +348,14 @@ describe("MissionController", () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it("uses provided missionId when given in dto", async () => {
+    it("forwards provided missionId to LeaderChatService", async () => {
       const dto = { message: "Continue", missionId: "explicit-mission-1" };
-      mockEventEmitterService.saveUserMessage.mockResolvedValue(undefined);
 
-      const result = await controller.leaderChat(makeReq(), "topic-1", dto);
+      await controller.leaderChat(makeReq(), "topic-1", dto);
 
-      // Should not call getMissionByTopicId since missionId is provided
-      expect(mockQueryService.getMissionByTopicId).not.toHaveBeenCalled();
-      expect(mockEventEmitterService.saveUserMessage).toHaveBeenCalledWith(
-        "topic-1",
-        "explicit-mission-1",
-        "Continue",
+      expect(mockLeaderChatService.handle).toHaveBeenCalledWith(
+        expect.objectContaining({ missionId: "explicit-mission-1" }),
       );
-      expect(result.decisionType).toBe("ACK");
-    });
-
-    it("does not save messages when no mission exists", async () => {
-      const dto = { message: "hello" };
-      mockQueryService.getMissionByTopicId.mockResolvedValue(null);
-
-      const result = await controller.leaderChat(makeReq(), "topic-1", dto);
-
-      expect(mockEventEmitterService.saveUserMessage).not.toHaveBeenCalled();
-      expect(result.decisionType).toBe("ACK");
     });
   });
 

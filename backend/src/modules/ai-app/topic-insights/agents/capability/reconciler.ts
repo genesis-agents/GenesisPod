@@ -23,9 +23,9 @@ import type {
 // ================== 业务常量（Topic Insights 专用） ==================
 
 const TI_REQUIRED_TABLES = [
-  "research_mission",
+  "research_missions",
   "research_topics",
-  "topic_report",
+  "topic_reports",
 ];
 const TI_OPTIONAL_TABLES = ["harness_run_metrics"];
 
@@ -167,8 +167,8 @@ export class TopicInsightsCapabilityReconciler {
     if (
       missingCoreAgents.length > 0 ||
       env.models.CHAT.length === 0 ||
-      !tablesPresent["research_mission"] ||
-      !tablesPresent["topic_report"]
+      !tablesPresent["research_missions"] ||
+      !tablesPresent["topic_reports"]
     ) {
       maxDepth = "quick";
     }

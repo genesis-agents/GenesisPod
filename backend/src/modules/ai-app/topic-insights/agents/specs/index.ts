@@ -43,6 +43,9 @@ import { LATEX_REPAIR_SPEC } from "./latex-repair";
 import { MISSION_ADJUSTER_SPEC } from "./mission-adjuster";
 import { LEADER_DISPATCHER_SPEC } from "./leader-dispatcher";
 
+// F2 · Interactions
+import { LEADER_INTENT_SPEC } from "./leader-intent";
+
 // Re-export specs + input types
 export {
   LEADER_PLANNER_SPEC,
@@ -62,6 +65,7 @@ export {
   LATEX_REPAIR_SPEC,
   MISSION_ADJUSTER_SPEC,
   LEADER_DISPATCHER_SPEC,
+  LEADER_INTENT_SPEC,
 };
 
 export type { LeaderPlannerInput } from "./leader-planner";
@@ -81,6 +85,8 @@ export type { ReportEditorInput } from "./report-editor";
 export type { LatexRepairInput } from "./latex-repair";
 export type { MissionAdjusterInput } from "./mission-adjuster";
 export type { LeaderDispatcherInput } from "./leader-dispatcher";
+export type { LeaderIntentInput } from "./leader-intent";
+export type { LeaderIntentDecision } from "./schemas";
 
 /**
  * 全部 17 个 topic-insights agent spec。
@@ -108,4 +114,6 @@ export const TOPIC_INSIGHTS_AGENT_SPECS: ReadonlyArray<IAgentSpec<any, any>> = [
   LATEX_REPAIR_SPEC,
   MISSION_ADJUSTER_SPEC,
   LEADER_DISPATCHER_SPEC,
+  // F2 · Interactions
+  LEADER_INTENT_SPEC,
 ];

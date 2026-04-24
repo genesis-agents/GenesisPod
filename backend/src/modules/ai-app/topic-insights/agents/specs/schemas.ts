@@ -319,6 +319,30 @@ export type LeaderDispatchDecision = z.infer<
   typeof LeaderDispatchDecisionSchema
 >;
 
+// =========== AG-18-LI · LeaderIntent (F2) ===========
+
+export const LeaderIntentDecisionSchema = z.object({
+  decisionType: z.enum([
+    "DIRECT_ANSWER",
+    "CREATE_TODO",
+    "CLARIFY",
+    "ACKNOWLEDGE",
+  ]),
+  understanding: z.string().min(5),
+  response: z.string().nullable(),
+  todoCandidate: z
+    .object({
+      title: z.string().min(2).max(200),
+      description: z.string().min(5),
+      priority: z.enum(["low", "medium", "high"]),
+    })
+    .nullable(),
+  clarifyQuestion: z.string().nullable(),
+  clarifyOptions: z.array(z.string()).nullable(),
+});
+
+export type LeaderIntentDecision = z.infer<typeof LeaderIntentDecisionSchema>;
+
 // =========== AG-15-RED · ReportEditor ===========
 
 export const EditedReportSchema = z.object({
