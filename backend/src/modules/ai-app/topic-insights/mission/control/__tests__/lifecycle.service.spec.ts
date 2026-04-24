@@ -9,11 +9,7 @@ import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/artifa
 import { MissionQueryService } from "@/modules/ai-app/topic-insights/mission/observation/query.service";
 import { MissionExecutionService } from "../execution.service";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
-import {
-  ResearchMissionStatus,
-  ResearchTaskStatus,
-  _ResearchTodoStatus,
-} from "@prisma/client";
+import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
