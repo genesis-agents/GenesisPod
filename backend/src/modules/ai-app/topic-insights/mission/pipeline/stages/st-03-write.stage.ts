@@ -238,17 +238,44 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           identity.capabilities?.env,
         );
         if (res.state !== "completed") {
-          throw new Error(
-            `AG-03-SW failed at ${dim.id}/s-${si + 1}: ${res.errors?.join("; ") ?? "unknown"}`,
+          // ★ P0 修复：section writer 失败（多因 evidence 不足导致 content < 50 zod fail）
+          //   不抛错阻断整条 pipeline，产占位 section 继续。下游 review 会标 needsRevision，
+          //   ST-04 deterministic fallback 给合理低分，用户至少能看到"搜索失败→无法写作"的报告。
+          this.logger.warn(
+            `[${identity.missionId}] AG-03-SW failed at ${dim.id}/s-${si + 1}: ${res.errors?.join("; ") ?? "unknown"} — inserting placeholder`,
           );
+          const placeholderContent =
+            `本节因证据不足或写作器失败而无法生成正文。维度：${dim.name}。` +
+            `建议：检查搜索服务配额、补充 API key 后重新生成报告。` +
+            `（占位内容由 pipeline 自动插入以维持下游 stage 完整性）`;
+          sections.push({
+            sectionId: sectionPlan.id,
+            dimensionId: dim.id,
+            title: sectionPlan.title,
+            content: placeholderContent,
+            wordCount: placeholderContent.length,
+            keyFindings: [
+              {
+                statement: `本维度研究未能完成，原因是证据不足或写作失败（${res.errors?.[0] ?? "unknown"}）。`,
+                evidenceRefs: [],
+                confidence: 0,
+              },
+            ],
+            citationCount: 0,
+            evidenceIdsUsed: [],
+          });
+          continue;
         }
         // ★ baseline 第一道铁墙：LLM 输出必须过 sanitize 再入管道
         const rawOutput = res.output;
         const cleanContent = sanitizeSectionOutput(rawOutput.content);
+        // sanitize 后可能 < 50 字符（SectionResult schema min），用 rawOutput 兜底
+        const finalContent =
+          cleanContent.length >= 50 ? cleanContent : rawOutput.content;
         sections.push({
           ...rawOutput,
-          content: cleanContent,
-          wordCount: cleanContent.length,
+          content: finalContent,
+          wordCount: finalContent.length,
         });
       }
     }

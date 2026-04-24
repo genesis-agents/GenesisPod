@@ -213,21 +213,40 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     output: PlanStageOutput,
   ): Promise<void> {
     if (!this.prisma) return; // 单测环境可无 Prisma，安全 skip
-
-    // ★ Group G-1: 把 harness plan.dimensions 落成 TopicDimension 行，
-    // 并把真实 DB id 回写进 output.plan.dimensions[*].id。
-    // 没有 (topicId, name) unique constraint，走 findFirst + create/update。
     const prisma = this.prisma;
-    const upserted = await Promise.all(
-      output.plan.dimensions.map(async (d, idx) => {
-        const existing = await prisma.topicDimension.findFirst({
-          where: { topicId: identity.topicId, name: d.name },
-          select: { id: true },
-        });
-        if (existing) {
+
+    // ★ P0 修复：维度堆积 bug
+    //   之前按 name 精确匹配 findFirst，LLM 每次产的 name 略异（如"TTLT定义与边界" vs
+    //   "TTLT定义边界与参考模型"）就会新建，跑 N 次 mission 累积 6N 个 dim 垃圾数据。
+    //
+    //   新策略（对齐 baseline dimension-mission 替换逻辑）：
+    //   1. FRESH mode 或 topic 已有 dim 数 == plan dim 数：按 sortOrder 顺序 1:1 更新
+    //      （复用现有 id，只改 name/desc/queries/sources）
+    //   2. 数量不匹配（用户加/减维度）：按 name 精确匹配 upsert，其他保留
+    //   3. 尾部多余的旧 dim 不删（保留历史分析），但不会被新 plan 引用
+    //
+    //   dimensionScope 模式（增量刷新单 dim）不走这条路径，直接按 id 匹配。
+    const existingDims = await prisma.topicDimension.findMany({
+      where: { topicId: identity.topicId },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true, sortOrder: true },
+    });
+
+    let upserted: Array<{ id: string }>;
+    const isFreshReplace =
+      identity.mode === "fresh" &&
+      (!identity.dimensionScope || identity.dimensionScope.length === 0);
+    const countMatches = existingDims.length === output.plan.dimensions.length;
+
+    if (isFreshReplace && countMatches && existingDims.length > 0) {
+      // ★ 数量匹配的重跑：按 sortOrder 逐位更新，**复用现有 id**，避免堆积新 dim
+      upserted = await Promise.all(
+        output.plan.dimensions.map(async (d, idx) => {
+          const existing = existingDims[idx];
           await prisma.topicDimension.update({
             where: { id: existing.id },
             data: {
+              name: d.name,
               description: d.description,
               searchQueries: toPrismaJson(d.searchQueries),
               searchSources: toPrismaJson(d.dataSources),
@@ -235,20 +254,45 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
             },
           });
           return { id: existing.id };
-        }
-        return prisma.topicDimension.create({
-          data: {
-            topicId: identity.topicId,
-            name: d.name,
-            description: d.description,
-            searchQueries: toPrismaJson(d.searchQueries),
-            searchSources: toPrismaJson(d.dataSources),
-            sortOrder: idx,
-          },
-          select: { id: true },
-        });
-      }),
-    );
+        }),
+      );
+      this.logger.log(
+        `[${identity.missionId}] Replaced ${existingDims.length} existing dims by sortOrder (no new dims created)`,
+      );
+    } else {
+      // 数量不匹配 / 增量 / 首次：按 name 匹配 upsert（原有行为）
+      upserted = await Promise.all(
+        output.plan.dimensions.map(async (d, idx) => {
+          const existing = await prisma.topicDimension.findFirst({
+            where: { topicId: identity.topicId, name: d.name },
+            select: { id: true },
+          });
+          if (existing) {
+            await prisma.topicDimension.update({
+              where: { id: existing.id },
+              data: {
+                description: d.description,
+                searchQueries: toPrismaJson(d.searchQueries),
+                searchSources: toPrismaJson(d.dataSources),
+                sortOrder: idx,
+              },
+            });
+            return { id: existing.id };
+          }
+          return prisma.topicDimension.create({
+            data: {
+              topicId: identity.topicId,
+              name: d.name,
+              description: d.description,
+              searchQueries: toPrismaJson(d.searchQueries),
+              searchSources: toPrismaJson(d.dataSources),
+              sortOrder: idx,
+            },
+            select: { id: true },
+          });
+        }),
+      );
+    }
 
     // Mutate plan.dimensions in place to carry真 DB id（后续 stage 依赖）
     const mutablePlan = output.plan as {

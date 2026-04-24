@@ -4,7 +4,7 @@
  * 每个维度：把 section 正文拼接 + 调 AG-05-ME 出 DimensionMeta。
  */
 
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
@@ -40,6 +40,8 @@ export class IntegrateStage implements Stage<
     targetSuccessRate: 0.95,
   };
   readonly emitsEvents = ["dimension:integrated"];
+
+  private readonly logger = new Logger(IntegrateStage.name);
 
   constructor(
     private readonly agentRegistry: SpecAgentRegistry,
@@ -133,9 +135,21 @@ export class IntegrateStage implements Stage<
         identity.capabilities?.env,
       );
       if (res.state !== "completed") {
-        throw new Error(
-          `AG-05-ME failed at ${dimensionId}: ${res.errors?.join("; ") ?? "unknown"}`,
+        // ★ P0 修复：MetaExtractor 失败不阻断 pipeline，产占位 meta 保留 ST-07 可跑
+        this.logger.warn(
+          `[${identity.missionId}] AG-05-ME failed at ${dimensionId}: ${res.errors?.join("; ") ?? "unknown"} — inserting placeholder meta`,
         );
+        metas.push({
+          dimensionId,
+          dimensionName: dim?.dimensionName ?? dimensionId,
+          summary: `本维度元数据提取失败（${res.errors?.[0] ?? "unknown"}）。内容已采集但未能提炼关键发现。`,
+          keyFindings: ["维度元数据提取失败"],
+          trends: [],
+          challenges: [],
+          opportunities: [],
+          evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
+        });
+        continue;
       }
       metas.push(res.output);
     }
