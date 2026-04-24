@@ -77,10 +77,13 @@ export class SpecBasedAgent<
     private readonly spec: IAgentSpec<TInput, TOutput>,
     private readonly llmExecutor: LlmExecutor,
     /**
-     * Environment-aware election. Optional so unit tests that hand-mock
-     * LlmExecutor can skip election; production always has it via DI.
+     * Lazy election accessor — 由 AgentFactory 传入的闭包 `() => factory.electionService`。
+     * 必须 lazy：本 agent 在 OnModuleInit 阶段创建，AgentFactory.electionService
+     * 在 OnApplicationBootstrap 阶段才被 wire（setter injection 绕开 Nest v10
+     * forwardRef+Optional DI 时序坑，见 docs/16-facade-barrel-rule.md）。
+     * 构造时捕获 ref = 永远 undefined；必须运行时拉取。
      */
-    private readonly electionService?: ModelElectionService,
+    private readonly electionProvider?: () => ModelElectionService | undefined,
     /**
      * 运行时环境快照。通常由 pipeline orchestrator 在 executeSpec 前注入（来自
      * identity.capabilities.env）。没有 snapshot 时，election 退化到 DB 全表。
@@ -260,7 +263,9 @@ export class SpecBasedAgent<
     userId: string | undefined,
     env: EnvironmentSnapshot | undefined,
   ): Promise<string | undefined> {
-    if (!this.electionService) return undefined;
+    // Lazy resolve — 此时 OnApplicationBootstrap 已跑过，factory.electionService 已 wire
+    const electionService = this.electionProvider?.();
+    if (!electionService) return undefined;
 
     const role = this.resolveRoleHint(this._identity.role.id);
     const requestedModelType = AIModelType.CHAT;
@@ -270,7 +275,7 @@ export class SpecBasedAgent<
     );
 
     try {
-      const res = await this.electionService.elect({
+      const res = await electionService.elect({
         modelType: requestedModelType,
         candidates,
         taskProfile,

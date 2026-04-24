@@ -78,11 +78,18 @@ export class AgentFactory {
       );
     }
     const id = spec.identity.role.id;
+    // ★ Lazy accessor (closure) — NOT this.electionService directly.
+    // createSpecAgent is called during OnModuleInit (topic-insights.module.ts:346)
+    // but setElectionService runs at OnApplicationBootstrap (HarnessModule).
+    // Capturing the field ref here would freeze `undefined` forever; the closure
+    // defers the read until runtime (executeSpec), by which point the setter has
+    // wired the real service. This is the fix for Railway "AG-01-LD chat failed:
+    // DEFAULT_AI_MODEL 未设置" that persisted after DI was fixed.
     return new SpecBasedAgent<TInput, TOutput>(
       id,
       spec,
       this.llmExecutor,
-      this.electionService,
+      () => this.electionService,
       envSnapshot,
     );
   }
