@@ -11,8 +11,15 @@
  *   - Pluggable: accepts a fetcher override for tests / future instrumentation.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import type { DataSourceResult } from "@/modules/ai-app/topic-insights/shared/types/data-source.types";
+
+/**
+ * DI token for overriding the HEAD-check fetcher in tests. In production the
+ * service falls back to {@link defaultFetcher} when no override is bound.
+ * Kept as a token (not a bare type) so Nest's DI resolution can inject it.
+ */
+export const URL_VALIDATION_FETCHER = Symbol("URL_VALIDATION_FETCHER");
 
 export interface UrlValidationOptions {
   /** Milliseconds to wait for HEAD response before giving up. Default 2500ms. */
@@ -36,8 +43,19 @@ const defaultFetcher: UrlFetcher = async (url, signal) => {
 @Injectable()
 export class UrlValidationService {
   private readonly logger = new Logger(UrlValidationService.name);
+  private readonly fetcher: UrlFetcher;
 
-  constructor(private readonly fetcher: UrlFetcher = defaultFetcher) {}
+  constructor(
+    @Optional()
+    @Inject(URL_VALIDATION_FETCHER)
+    injectedFetcher?: UrlFetcher,
+  ) {
+    // Default to the global fetch-based HEAD check when no override is bound.
+    // Previously the default lived in the constructor parameter, which made
+    // Nest's DI treat the parameter as a required Function provider and fail
+    // bootstrap with "Nest can't resolve dependencies of UrlValidationService".
+    this.fetcher = injectedFetcher ?? defaultFetcher;
+  }
 
   /**
    * Returns a fresh list excluding URLs that look clearly dead.

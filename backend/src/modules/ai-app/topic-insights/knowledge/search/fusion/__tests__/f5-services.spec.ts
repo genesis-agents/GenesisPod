@@ -108,7 +108,7 @@ describe("UrlValidationService", () => {
       ok: url.includes("live"),
       status: url.includes("live") ? 200 : 404,
     });
-    const svc = new UrlValidationService(fetcher);
+    const svc = new UrlValidationService(fetcher as unknown as undefined);
     const kept = await svc.filterAlive(
       [
         sample({ url: "https://example.com/live" }),
@@ -124,7 +124,7 @@ describe("UrlValidationService", () => {
     const fetcher: UrlFetcher = async () => {
       throw new Error("network");
     };
-    const svc = new UrlValidationService(fetcher);
+    const svc = new UrlValidationService(fetcher as unknown as undefined);
     const kept = await svc.filterAlive([sample()]);
     expect(kept).toHaveLength(1);
   });
