@@ -33,10 +33,31 @@ import {
   ListLogsDto,
 } from "./dto";
 import { AIModelType, AnnotationStatus, AnnotationType } from "@prisma/client";
-import type { RefreshProgressEvent } from "./services/topic/topic-team-orchestrator.service";
+// H6 step 6: RefreshProgressEvent was originally exported from the legacy
+// team-orchestrator. That orchestrator is being deleted; the SSE progress
+// stream below listens on the TOPIC_RESEARCH_PROGRESS event, which harness
+// stages will emit (see ResearchEventEmitterService). Keep the wire shape
+// stable for the frontend.
+interface RefreshProgressEvent {
+  topicId: string;
+  reportId: string;
+  phase:
+    | "starting"
+    | "researching"
+    | "reviewing"
+    | "synthesizing"
+    | "completed"
+    | "failed";
+  progress: number;
+  currentDimension?: string;
+  completedDimensions: number;
+  totalDimensions: number;
+  message: string;
+  error?: string;
+}
 import { MissionExecutionService } from "./services/mission/execution.service";
+import { MissionCancellationService } from "./services/mission/cancellation.service";
 import {
-  TopicTeamOrchestratorService,
   ReportSynthesisService,
   EvidenceManagementService,
   ReportChangeService,
@@ -126,8 +147,8 @@ export class TopicInsightsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly orchestrator: TopicTeamOrchestratorService,
     private readonly missionExecution: MissionExecutionService,
+    private readonly cancellation: MissionCancellationService,
     private readonly reportService: ReportSynthesisService,
     private readonly evidenceService: EvidenceManagementService,
     private readonly chatFacade: ChatFacade,
@@ -768,17 +789,23 @@ export class TopicInsightsService {
     // 验证专题读取权限（支持公开专题访问）
     await this.verifyTopicReadAccess(userId, topicId);
 
-    const status = this.orchestrator.getRefreshStatus(topicId);
+    // H6 step 6: harness-based "is refreshing" = "does the topic have an
+    // EXECUTING mission right now". Refresh history comes from TopicRefreshLog
+    // unchanged.
+    const activeMission = await this.prisma.researchMission.findFirst({
+      where: { topicId, status: "EXECUTING" },
+      select: { id: true, startedAt: true },
+      orderBy: { startedAt: "desc" },
+    });
 
-    // 获取最近的刷新日志
     const latestLog = await this.prisma.topicRefreshLog.findFirst({
       where: { topicId },
       orderBy: { startedAt: "desc" },
     });
 
     return {
-      isRunning: status.isRunning,
-      startedAt: status.startedAt,
+      isRunning: Boolean(activeMission),
+      startedAt: activeMission?.startedAt ?? null,
       latestLog,
     };
   }
@@ -855,7 +882,20 @@ export class TopicInsightsService {
     // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
-    const cancelled = await this.orchestrator.cancelRefresh(topicId);
+    // H6 step 6: harness cancel — find the active mission and abort via
+    // MissionCancellationService (H1 primitive).
+    const activeMission = await this.prisma.researchMission.findFirst({
+      where: { topicId, status: "EXECUTING" },
+      select: { id: true },
+      orderBy: { startedAt: "desc" },
+    });
+    const cancelled = activeMission
+      ? this.cancellation.cancel(activeMission.id, {
+          reason: "user requested cancel refresh",
+          requestedBy: userId,
+          requestedAt: new Date(),
+        })
+      : false;
 
     return {
       success: cancelled,

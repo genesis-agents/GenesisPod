@@ -32,6 +32,7 @@ import {
   LatexRepairService,
 } from "../services";
 import { MissionExecutionService } from "../services/mission/execution.service";
+import { MissionCancellationService } from "../services/mission/cancellation.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -244,6 +245,10 @@ describe("TopicInsightsService", () => {
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: TopicTeamOrchestratorService, useValue: mockOrchestrator },
         { provide: MissionExecutionService, useValue: mockMissionExecution },
+        {
+          provide: MissionCancellationService,
+          useValue: { cancel: jest.fn().mockReturnValue(false) },
+        },
         { provide: ReportSynthesisService, useValue: mockReportService },
         {
           provide: EvidenceManagementService,
@@ -921,15 +926,12 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("getRefreshStatus", () => {
-    it("should return refresh status and latest log", async () => {
+    it("should return refresh status from harness mission + latest log", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockOrchestrator.getRefreshStatus.mockReturnValue({
-        isRunning: false,
-        startedAt: null,
-      });
+      mockPrisma.researchMission.findFirst = jest.fn().mockResolvedValue(null);
       const latestLog = { id: "log-001", startedAt: new Date() };
       mockPrisma.topicRefreshLog.findFirst.mockResolvedValue(latestLog);
 
@@ -953,12 +955,18 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("cancelRefresh", () => {
-    it("should cancel refresh and return success true when running", async () => {
+    it("should cancel active harness mission and return success", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockOrchestrator.cancelRefresh = jest.fn().mockResolvedValue(true);
+      mockPrisma.researchMission.findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: "m-active" });
+      // Re-provide cancellation mock returning true
+      (
+        service as unknown as { cancellation: { cancel: jest.Mock } }
+      ).cancellation = { cancel: jest.fn().mockReturnValue(true) };
 
       const result = await service.cancelRefresh(
         "user-001",
@@ -970,12 +978,12 @@ describe("TopicInsightsService", () => {
       expect(result.message).toContain("取消");
     });
 
-    it("should return success false when no refresh is running", async () => {
+    it("should return success false when no refresh mission is active", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockOrchestrator.cancelRefresh = jest.fn().mockResolvedValue(false);
+      mockPrisma.researchMission.findFirst = jest.fn().mockResolvedValue(null);
 
       const result = await service.cancelRefresh(
         "user-001",
@@ -1852,13 +1860,18 @@ describe("TopicInsightsService", () => {
   // cancelRefresh
   // ============================================================
 
-  describe("cancelRefresh", () => {
-    it("should verify ownership and cancel via orchestrator", async () => {
+  describe("cancelRefresh (harness path)", () => {
+    it("should verify ownership and cancel the active mission", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockOrchestrator.cancelRefresh.mockResolvedValue(true);
+      mockPrisma.researchMission.findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: "m-1" });
+      (
+        service as unknown as { cancellation: { cancel: jest.Mock } }
+      ).cancellation = { cancel: jest.fn().mockReturnValue(true) };
 
       const result = await service.cancelRefresh(
         "user-001",
@@ -1870,12 +1883,12 @@ describe("TopicInsightsService", () => {
       expect(result.message).toBe("刷新已取消");
     });
 
-    it("should return not-cancelled message when no refresh in progress", async () => {
+    it("should return not-cancelled message when no mission is active", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockOrchestrator.cancelRefresh.mockResolvedValue(false);
+      mockPrisma.researchMission.findFirst = jest.fn().mockResolvedValue(null);
 
       const result = await service.cancelRefresh(
         "user-001",

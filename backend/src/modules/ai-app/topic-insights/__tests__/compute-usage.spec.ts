@@ -32,6 +32,7 @@ import {
   LatexRepairService,
 } from "../services";
 import { MissionExecutionService } from "../services/mission/execution.service";
+import { MissionCancellationService } from "../services/mission/cancellation.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -219,6 +220,10 @@ async function buildService(mocks: ReturnType<typeof buildMocks>) {
       {
         provide: MissionExecutionService,
         useValue: { startExecution: jest.fn().mockResolvedValue(undefined) },
+      },
+      {
+        provide: MissionCancellationService,
+        useValue: { cancel: jest.fn().mockReturnValue(false) },
       },
       { provide: ReportSynthesisService, useValue: mocks.mockReportService },
       {
