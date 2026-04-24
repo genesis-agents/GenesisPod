@@ -6969,13 +6969,38 @@ enum ResearchMissionStatus {
 }
 
 /// 研究任务状态
+/// ★ SOTA v1 (30-sota-task-centric-architecture.md)：扩展为完整 FSM
 enum ResearchTaskStatus {
-  PENDING // 待分配
-  ASSIGNED // 已分配
-  EXECUTING // 执行中
+  PENDING // 待分配（legacy，保留）
+  ASSIGNED // 已分配（legacy，保留）
+  EXECUTING // 执行中（legacy，保留）
   COMPLETED // 完成
   NEEDS_REVISION // 需要修订
   FAILED // 失败
+  // ===== SOTA FSM 新增状态 =====
+  CREATED // 新建但未进入 queue
+  QUEUED // 已入 BullMQ queue
+  SCHEDULED // 已被 worker 领取但未开始
+  RUNNING // ReAct loop 正在执行
+  PAUSED // 用户手动暂停
+  AWAITING_HUMAN // 等待 HITL 干预
+  VERIFYING // ReAct loop 完成后进入 judge 阶段
+  CANCELLED // 用户取消
+}
+
+/// ★ SOTA v1: AgentStep 类型（ReAct loop 每步）
+enum AgentStepType {
+  OBSERVE
+  THINK
+  PLAN
+  TOOL_CALL
+  TOOL_RESULT
+  REFLECT
+  SELF_EVAL
+  JUDGE_EVAL
+  HUMAN_INPUT
+  CHECKPOINT
+  DONE
 }
 
 /// Leader 决策类型
@@ -7078,18 +7103,138 @@ model ResearchTask {
   revisionCount Int     @default(0) @map("revision_count") // 修订次数
 
   // ========== 时间戳 ==========
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  queuedAt    DateTime? @map("queued_at") // ★ SOTA
+  scheduledAt DateTime? @map("scheduled_at") // ★ SOTA
+  pausedAt    DateTime? @map("paused_at") // ★ SOTA
+  resumedAt   DateTime? @map("resumed_at") // ★ SOTA
+
+  // ========== SOTA v1 (30-sota)：ReAct 执行状态 ==========
+  currentIteration Int     @default(0) @map("current_iteration") // ReAct loop 当前迭代
+  maxIterations    Int     @default(20) @map("max_iterations") // 硬上限（protocol 配置）
+  lastCheckpointId String? @map("last_checkpoint_id") // 恢复锚点
+
+  // retry + verification
+  retryCount       Int     @default(0) @map("retry_count")
+  maxRetries       Int     @default(2) @map("max_retries")
+  requiresRevision Boolean @default(false) @map("requires_revision")
+
+  // budget accounting
+  tokenBudget Int?     @map("token_budget")
+  tokensUsed  Int      @default(0) @map("tokens_used")
+  costUsd     Decimal? @map("cost_usd") @db.Decimal(10, 6)
+  latencyMs   Int      @default(0) @map("latency_ms")
+
+  // parent-child（动态 spawn sub-task）
+  parentTaskId String?        @map("parent_task_id")
+  parent       ResearchTask?  @relation("TaskTree", fields: [parentTaskId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     ResearchTask[] @relation("TaskTree")
+
+  // ResultScore (0-100)
+  resultScore Int? @map("result_score")
 
   // ========== 关系 ==========
-  mission ResearchMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  mission       ResearchMission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  steps         AgentStep[]
+  checkpoints   TaskCheckpoint[]
+  verifications VerificationRecord[]
 
   // ========== 索引 ==========
   @@index([missionId, status])
   @@index([assignedAgent])
   @@index([dimensionId])
   @@index([missionId, status, taskType]) // 任务查询优化
+  @@index([status, scheduledAt]) // ★ SOTA: queue puller
+  @@index([parentTaskId])
   @@map("research_tasks")
+}
+
+/// ★ SOTA v1: AgentStep — ReAct loop 每步细粒度记录
+/// 替代 ResearchAgentActivity（后者保留为 legacy 展示副本）
+model AgentStep {
+  id        String @id @default(uuid())
+  taskId    String @map("task_id")
+  missionId String @map("mission_id")
+  topicId   String @map("topic_id")
+
+  iteration Int
+  stepIndex Int           @map("step_index")
+  stepType  AgentStepType @map("step_type")
+
+  // LLM call 细节
+  modelId          String?  @map("model_id") @db.VarChar(100)
+  promptTokens     Int?     @map("prompt_tokens")
+  completionTokens Int?     @map("completion_tokens")
+  costUsd          Decimal? @map("cost_usd") @db.Decimal(10, 6)
+
+  // tool call 细节
+  toolName      String?  @map("tool_name") @db.VarChar(100)
+  toolArgs      Json?    @map("tool_args")
+  toolResult    Json?    @map("tool_result")
+  toolLatencyMs Int?     @map("tool_latency_ms")
+  toolSuccess   Boolean? @map("tool_success")
+
+  // 内容（thought / plan / reflection）
+  content        String? @db.Text
+  structuredData Json?   @map("structured_data")
+
+  // OTel 追踪
+  traceId      String? @map("trace_id") @db.VarChar(64)
+  spanId       String? @map("span_id") @db.VarChar(64)
+  parentSpanId String? @map("parent_span_id") @db.VarChar(64)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task ResearchTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, iteration, stepIndex])
+  @@index([missionId, createdAt])
+  @@index([traceId])
+  @@map("agent_steps")
+}
+
+/// ★ SOTA v1: TaskCheckpoint — ReAct loop 崩溃恢复锚点
+model TaskCheckpoint {
+  id        String @id @default(uuid())
+  taskId    String @map("task_id")
+  iteration Int
+  stepIndex Int    @default(0) @map("step_index")
+
+  // 恢复快照
+  observations         Json // 历史观察
+  reasoningMemory      Json @map("reasoning_memory") // scratchpad
+  toolInvocationHistory Json @default("[]") @map("tool_invocation_history")
+  budgetSnapshot       Json @map("budget_snapshot")
+
+  status ResearchTaskStatus
+  reason String? @db.VarChar(200) // budget_exhausted / human_pause / crash_recovery / ...
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task ResearchTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_checkpoints")
+}
+
+/// ★ SOTA v1: VerificationRecord — multi-judge 审核结果
+model VerificationRecord {
+  id        String @id @default(uuid())
+  taskId    String @map("task_id")
+  iteration Int
+
+  judgeVerdicts Json   @map("judge_verdicts") // [{judgeId, score, critique, criteria}, ...]
+  consensus     String @db.VarChar(50) // pass / fail / escalate_to_meta / escalate_to_human
+  decidedScore  Int    @map("decided_score")
+  metaJudgeNote String? @map("meta_judge_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task ResearchTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("verification_records")
 }
 
 /// 研究记忆

@@ -1081,7 +1081,11 @@ async runMission(mission) {
 
 ---
 
-## 14. 实施 Commit 列表（28 个）
+## 14. 实施 Commit 列表（7 个 Phase-level commit）
+
+> 用户要求每个 Phase 一个 commit（不拆子项）。以下标注每 commit 包含的子项清单，但 git 只提交 7 次，每次一个 Phase 完整交付。
+
+## 14a. 子项参考（细化视图）
 
 ### Phase 1 · 数据模型改造
 
