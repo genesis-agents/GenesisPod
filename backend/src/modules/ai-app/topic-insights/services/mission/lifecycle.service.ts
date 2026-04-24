@@ -23,12 +23,8 @@ import {
   LeaderDecisionType,
 } from "@prisma/client";
 import type { ResearchMission, ResearchTask } from "@prisma/client";
-import { LeaderPlanningService } from "../leader/leader-planning.service";
-import { LeaderIntentService } from "../leader/leader-intent.service";
 import type { LeaderPlan } from "../../types/leader.types";
-import { ResearchEventEmitterService } from "../research/event-emitter.service";
 import { TopicCollaboratorService } from "../collaboration/topic-collaborator.service";
-import { AgentActivityService } from "../health/agent-activity.service";
 import { MissionCancellationService } from "./cancellation.service";
 import { CollaboratorRole } from "../../dto/collaborator.dto";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
@@ -38,7 +34,6 @@ import {
   type CreateMissionInput,
   type CompletedTaskData,
 } from "../../types/mission.types";
-import { AgentActivityType } from "@prisma/client";
 import { MissionQueryService } from "./query.service";
 import { MissionExecutionService } from "./execution.service";
 import { BillingContext } from "@/modules/ai-infra/facade";
@@ -57,11 +52,7 @@ export class MissionLifecycleService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly leaderPlanning: LeaderPlanningService,
-    private readonly leaderIntent: LeaderIntentService,
-    private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly collaboratorService: TopicCollaboratorService,
-    private readonly agentActivity: AgentActivityService,
     // forwardRef: MissionLifecycleService <-> MissionQueryService
     // Lifecycle emits progress events via QueryService; QueryService reads task states that Lifecycle updates
     @Inject(forwardRef(() => MissionQueryService))
@@ -278,259 +269,6 @@ export class MissionLifecycleService {
     return mission;
   }
 
-  /**
-   * 异步执行 Leader 规划
-   * ★ 关键：从 createMission 中分离出来，避免阻塞 HTTP 响应
-   */
-  async executePlanningAsync(
-    missionId: string,
-    topicId: string,
-    topicName: string,
-    userPrompt?: string,
-    completedTasks: CompletedTaskData[] = [], // ★ 增量模式：已完成的任务（完整数据）
-  ): Promise<void> {
-    this.logger.log(
-      `[executePlanningAsync] Starting planning for mission ${missionId}` +
-        (completedTasks.length > 0
-          ? `, incremental mode with ${completedTasks.length} completed tasks`
-          : ""),
-    );
-
-    // ★ 发送 Leader 思考事件：理解任务
-    await this.researchEventEmitter.emitLeaderThinking(topicId, {
-      missionId,
-      phase: "understanding",
-      content: `正在理解研究主题「${topicName}」的需求...`,
-      progress: 10,
-    });
-
-    try {
-      // ★ 发送 Leader 思考事件：分析
-      await this.researchEventEmitter.emitLeaderThinking(topicId, {
-        missionId,
-        phase: "analyzing",
-        content: "正在分析研究范围和关键维度...",
-        progress: 20,
-      });
-
-      // ★ 发送 Leader 规划中事件
-      await this.researchEventEmitter.emitLeaderPlanning(
-        topicId,
-        missionId,
-        "Leader 正在制定研究计划，确定研究维度和任务分配...",
-      );
-
-      const leaderPlan = await this.leaderPlanning.planResearch(
-        topicId,
-        userPrompt,
-      );
-
-      // ★ 发送 Leader 思考事件：规划完成
-      await this.researchEventEmitter.emitLeaderThinking(topicId, {
-        missionId,
-        phase: "planning",
-        content: `已规划 ${leaderPlan.dimensions.length} 个研究维度：${leaderPlan.dimensions.map((d) => d.name).join("、")}`,
-        progress: 40,
-      });
-
-      // 记录 Leader 决策
-      await this.prisma.leaderDecision.create({
-        data: {
-          missionId,
-          type: LeaderDecisionType.PLAN,
-          input: { topicId, userPrompt },
-          decision: toPrismaJson(leaderPlan),
-          reasoning: `规划了 ${leaderPlan.dimensions.length} 个研究维度，分配了 ${leaderPlan.agentAssignments.length} 个 Agent`,
-        },
-      });
-
-      // ★ 记录 Leader 团队组建活动到 Activity（持久化）
-      await this.agentActivity.recordActivity({
-        topicId,
-        missionId,
-        agentId: "leader",
-        agentName: "研究组长",
-        agentRole: "leader",
-        activityType: AgentActivityType.PLANNING,
-        phase: "team_building",
-        content: `组建研究团队：规划了 ${leaderPlan.dimensions.length} 个研究维度，分配了 ${leaderPlan.agentAssignments.length} 个研究员`,
-        progress: 50,
-        thinkingPhase: "understanding",
-        thinkingContent: `研究维度：${leaderPlan.dimensions.map((d) => d.name).join("、")}\n研究员分配：${leaderPlan.agentAssignments.map((a) => `${a.agentName || a.agentId}${a.modelId ? ` [${a.modelId}]` : ""}`).join("、")}`,
-      });
-
-      // ★ 发送 Leader 思考事件：分配任务（结构化显示模型分配）
-      const researcherAssignments = leaderPlan.agentAssignments.filter(
-        (a) => a.agentType === "dimension_researcher",
-      );
-      // 按模型分组统计
-      const modelGroups = new Map<string, string[]>();
-      for (const a of researcherAssignments) {
-        const modelId = a.modelId || "默认模型";
-        if (!modelGroups.has(modelId)) {
-          modelGroups.set(modelId, []);
-        }
-        modelGroups.get(modelId)!.push(a.agentName || a.agentId);
-      }
-      // 格式化输出：按模型分组
-      const groupedAssignments = Array.from(modelGroups.entries())
-        .map(([model, agents]) => `【${model}】${agents.join("、")}`)
-        .join("\n");
-      await this.researchEventEmitter.emitLeaderThinking(topicId, {
-        missionId,
-        phase: "assigning",
-        content: `团队组建完成（${researcherAssignments.length}人）：\n${groupedAssignments}`,
-        progress: 50,
-      });
-
-      // 将 Leader 规划的维度同步到数据库，并创建任务
-      // ★ 增量模式：先复制已完成的任务，再创建新任务
-      const tasks = await this.createTasksFromPlan(
-        missionId,
-        topicId,
-        leaderPlan,
-        completedTasks,
-      );
-
-      // ★ 发送 Leader 规划完成事件
-      await this.researchEventEmitter.emitLeaderPlanReady(
-        topicId,
-        missionId,
-        leaderPlan.dimensions.length,
-        leaderPlan.agentAssignments.length,
-      );
-
-      // 更新 Mission
-      await this.prisma.researchMission.update({
-        where: { id: missionId },
-        data: {
-          leaderPlan: toPrismaJson(leaderPlan),
-          totalTasks: tasks.length,
-          status: ResearchMissionStatus.EXECUTING,
-          startedAt: new Date(),
-        },
-      });
-
-      // 发送进度事件
-      this.queryService.emitProgress({
-        missionId,
-        topicId,
-        status: ResearchMissionStatus.EXECUTING,
-        progress: 10,
-        phase: "executing",
-        message: `规划完成，开始执行 ${tasks.length} 个任务`,
-        completedTasks: 0,
-        totalTasks: tasks.length,
-      });
-
-      this.logger.log(
-        `[executePlanningAsync] Mission ${missionId} planning completed with ${tasks.length} tasks`,
-      );
-
-      // ★ 启动异步任务执行（确保 BillingContext 传播）
-      const existingCtx = BillingContext.get();
-      const startFn = () =>
-        this.executionService.startExecution(missionId, topicId);
-      const wrappedStart = existingCtx
-        ? () => BillingContext.run(existingCtx, startFn)
-        : startFn;
-      void wrappedStart().catch((err: unknown) => {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        this.logger.error(`[executePlanningAsync] Execution failed: ${errMsg}`);
-        // 孤儿清理：标记 mission FAILED + 未完成的任务/todo
-        void this.prisma.researchMission
-          .update({
-            where: { id: missionId },
-            data: { status: ResearchMissionStatus.FAILED },
-          })
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `[executePlanningAsync] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-        void this.prisma.researchTask
-          .updateMany({
-            where: {
-              missionId,
-              status: {
-                notIn: [
-                  ResearchTaskStatus.COMPLETED,
-                  ResearchTaskStatus.FAILED,
-                ],
-              },
-            },
-            data: { status: ResearchTaskStatus.FAILED },
-          })
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `[executePlanningAsync] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-        void this.prisma.researchTodo
-          .updateMany({
-            where: {
-              missionId,
-              status: {
-                notIn: [
-                  ResearchTodoStatus.COMPLETED,
-                  ResearchTodoStatus.CANCELLED,
-                ],
-              },
-            },
-            data: {
-              status: ResearchTodoStatus.CANCELLED,
-              statusMessage: "执行启动失败",
-              completedAt: new Date(),
-            },
-          })
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `[executePlanningAsync] Non-critical operation failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-      });
-    } catch (error) {
-      const errorMsg =
-        error instanceof Error ? error.message : "规划失败：未知错误";
-
-      // 规划失败，更新状态
-      // ★ 使用 try-catch 包裹更新操作，避免 mission 已被删除时报错
-      try {
-        // ★ 先检查 mission 是否仍存在
-        const missionExists = await this.prisma.researchMission.findUnique({
-          where: { id: missionId },
-          select: { id: true },
-        });
-
-        if (missionExists) {
-          await this.prisma.researchMission.update({
-            where: { id: missionId },
-            data: {
-              status: ResearchMissionStatus.FAILED,
-            },
-          });
-        } else {
-          this.logger.debug(
-            `[executePlanningAsync] Mission ${missionId} no longer exists, skipping status update`,
-          );
-        }
-      } catch (updateError) {
-        this.logger.debug(
-          `[executePlanningAsync] Could not update mission status: ${updateError}`,
-        );
-      }
-
-      // ★ 发送失败事件，让前端知道规划失败
-      // 使用 emitMissionFailed 发送正确的 mission:failed 事件
-      await this.researchEventEmitter.emitMissionFailed(
-        topicId,
-        missionId,
-        errorMsg,
-      );
-
-      this.logger.error(`[executePlanningAsync] Planning failed: ${errorMsg}`);
-    }
-  }
 
   /**
    * 审批研究规划并启动执行
@@ -1138,15 +876,14 @@ export class MissionLifecycleService {
       }
     }
 
-    // 3. 调整聚焦领域（通知 Leader）
+    // 3. 调整聚焦领域 — H6: harness pipeline runs atomically; mid-mission
+    // priority re-balancing via leader chat is not supported. record intent
+    // in the change log; user can resume or re-run the mission with the new
+    // focus areas if needed.
     if (adjustment.focusAreas?.length) {
-      // 请求 Leader 重新评估任务优先级
-      await this.leaderIntent.handleUserMessage(
-        mission.topicId,
-        missionId,
-        `请调整研究重点，优先关注以下领域：${adjustment.focusAreas.join("、")}`,
+      changes.push(
+        `调整聚焦（记录，不重排任务）: ${adjustment.focusAreas.join("、")}`,
       );
-      changes.push(`调整聚焦: ${adjustment.focusAreas.join("、")}`);
     }
 
     // 4. 记录 Leader 决策

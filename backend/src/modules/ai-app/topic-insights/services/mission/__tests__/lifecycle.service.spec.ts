@@ -5,11 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionLifecycleService } from "../lifecycle.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { LeaderPlanningService } from "../../leader/leader-planning.service";
-import { LeaderIntentService } from "../../leader/leader-intent.service";
-import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import { TopicCollaboratorService } from "../../collaboration/topic-collaborator.service";
-import { AgentActivityService } from "../../health/agent-activity.service";
 import { MissionQueryService } from "../query.service";
 import { MissionExecutionService } from "../execution.service";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
@@ -200,22 +196,9 @@ describe("MissionLifecycleService", () => {
         MissionLifecycleService,
         { provide: PrismaService, useValue: mocks.mockPrisma },
         {
-          provide: LeaderPlanningService,
-          useValue: mocks.mockLeaderPlanningService,
-        },
-        {
-          provide: LeaderIntentService,
-          useValue: mocks.mockLeaderIntentService,
-        },
-        {
-          provide: ResearchEventEmitterService,
-          useValue: mocks.mockResearchEventEmitter,
-        },
-        {
           provide: TopicCollaboratorService,
           useValue: mocks.mockCollaboratorService,
         },
-        { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
         { provide: MissionQueryService, useValue: mocks.mockQueryService },
         {
           provide: MissionExecutionService,
@@ -625,14 +608,11 @@ describe("MissionLifecycleService", () => {
       expect(prisma.researchTask.delete).not.toHaveBeenCalled();
     });
 
-    it("should call handleUserMessage for focusAreas adjustment", async () => {
+    it("should record focusAreas adjustment in change log (H6: no leader chat)", async () => {
       prisma.researchMission.findUnique.mockResolvedValue({
         ...mockMission,
         topic: { userId: "user-1" },
         status: ResearchMissionStatus.EXECUTING,
-      });
-      leaderIntentService.handleUserMessage.mockResolvedValue({
-        response: "OK",
       });
       prisma.leaderDecision.create.mockResolvedValue({});
       prisma.researchMission.findUniqueOrThrow.mockResolvedValue(mockMission);
@@ -641,11 +621,8 @@ describe("MissionLifecycleService", () => {
         focusAreas: ["AI安全", "算法伦理"],
       });
 
-      expect(leaderIntentService.handleUserMessage).toHaveBeenCalledWith(
-        "topic-1",
-        "mission-1",
-        expect.stringContaining("AI安全"),
-      );
+      // Decision row captures the adjustment; no leaderIntent call anymore.
+      expect(prisma.leaderDecision.create).toHaveBeenCalled();
     });
   });
 
@@ -832,96 +809,6 @@ describe("MissionLifecycleService", () => {
 
   // ─── executePlanningAsync ────────────────────────────────────────────────────
 
-  describe("executePlanningAsync", () => {
-    it("should call planResearch and create tasks then start execution", async () => {
-      const mockPlan = mockLeaderPlan;
-      leaderService.planResearch.mockResolvedValue(mockPlan);
-
-      prisma.leaderDecision.create.mockResolvedValue({});
-      prisma.topicDimension.findFirst.mockResolvedValue(null);
-      prisma.topicDimension.findMany.mockResolvedValue([]);
-      prisma.topicDimension.create.mockResolvedValue({
-        id: "dim-db-1",
-        name: "Market Analysis",
-      });
-      prisma.researchTask.create.mockImplementation(
-        (args: { data: { taskType: string; title: string } }) =>
-          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
-      );
-      prisma.researchMission.update.mockResolvedValue({});
-
-      await service.executePlanningAsync(
-        "mission-1",
-        "topic-1",
-        "AI Research",
-        "Analyze AI market",
-      );
-
-      expect(leaderService.planResearch).toHaveBeenCalledWith(
-        "topic-1",
-        "Analyze AI market",
-      );
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "mission-1" },
-          data: expect.objectContaining({
-            status: ResearchMissionStatus.EXECUTING,
-          }),
-        }),
-      );
-      expect(executionService.startExecution).toHaveBeenCalledWith(
-        "mission-1",
-        "topic-1",
-      );
-    });
-
-    it("should update mission to FAILED when planResearch throws", async () => {
-      leaderService.planResearch.mockRejectedValue(
-        new Error("AI service unavailable"),
-      );
-
-      prisma.researchMission.findUnique.mockResolvedValue({ id: "mission-1" });
-      prisma.researchMission.update.mockResolvedValue({});
-
-      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
-
-      expect(prisma.researchMission.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "mission-1" },
-          data: { status: ResearchMissionStatus.FAILED },
-        }),
-      );
-    });
-
-    it("should skip mission update when mission no longer exists after planning failure", async () => {
-      leaderService.planResearch.mockRejectedValue(
-        new Error("Planning failed"),
-      );
-
-      // mission doesn't exist anymore
-      prisma.researchMission.findUnique.mockResolvedValue(null);
-      prisma.researchMission.update.mockResolvedValue({});
-
-      await service.executePlanningAsync("mission-gone", "topic-1", "Test");
-
-      // update should NOT be called since mission doesn't exist
-      expect(prisma.researchMission.update).not.toHaveBeenCalled();
-    });
-
-    it("should emit missionFailed event when planning throws", async () => {
-      const mocks = buildMocks();
-      leaderService.planResearch.mockRejectedValue(new Error("plan error"));
-      prisma.researchMission.findUnique.mockResolvedValue({ id: "mission-1" });
-      prisma.researchMission.update.mockResolvedValue({});
-
-      await service.executePlanningAsync("mission-1", "topic-1", "Research");
-
-      expect(
-        mocks.mockResearchEventEmitter.emitMissionFailed,
-      ).not.toHaveBeenCalled();
-      // The actual service instance has the mock, check that the injected one was called
-    });
-  });
 
   // ─── createTasksFromPlan - reuse existing dimension ─────────────────────────
 
@@ -1077,103 +964,7 @@ describe("MissionLifecycleService", () => {
   // The failure path tested here (plan timeout → mission FAILED) is now covered
   // by runWithHarness's catch + MissionCancellationService.
 
-  // ─── executePlanningAsync - execution startExecution failure ─────────────────
 
-  describe("executePlanningAsync - startExecution failure fire-and-forget", () => {
-    it("should handle startExecution failure by updating mission to FAILED (fire-and-forget)", async () => {
-      leaderService.planResearch.mockResolvedValue(mockLeaderPlan);
-      prisma.leaderDecision.create.mockResolvedValue({});
-      prisma.topicDimension.findFirst.mockResolvedValue(null);
-      prisma.topicDimension.findMany.mockResolvedValue([]);
-      prisma.topicDimension.create.mockResolvedValue({
-        id: "dim-db-1",
-        name: "Market Analysis",
-      });
-      prisma.researchTask.create.mockImplementation(
-        (args: { data: { taskType: string; title: string } }) =>
-          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
-      );
-      prisma.researchMission.update.mockResolvedValue({});
-      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
-      prisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
-
-      // Make startExecution fail
-      executionService.startExecution.mockRejectedValue(
-        new Error("Execution failed"),
-      );
-
-      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
-
-      // Let the fire-and-forget catch run
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-
-      // Should have called update to FAILED + updateMany for tasks and todos
-      const updateCalls = prisma.researchMission.update.mock.calls;
-      const failedCall = updateCalls.find(
-        (c) => c[0]?.data?.status === ResearchMissionStatus.FAILED,
-      );
-      expect(failedCall).toBeDefined();
-    });
-
-    it("should handle updateMany errors gracefully in execution failure catch", async () => {
-      leaderService.planResearch.mockResolvedValue(mockLeaderPlan);
-      prisma.leaderDecision.create.mockResolvedValue({});
-      prisma.topicDimension.findFirst.mockResolvedValue(null);
-      prisma.topicDimension.findMany.mockResolvedValue([]);
-      prisma.topicDimension.create.mockResolvedValue({
-        id: "dim-db-1",
-        name: "Market Analysis",
-      });
-      prisma.researchTask.create.mockImplementation(
-        (args: { data: { taskType: string; title: string } }) =>
-          Promise.resolve({ id: `task-${Date.now()}`, ...args.data }),
-      );
-      prisma.researchMission.update.mockResolvedValue({});
-      // Make updateMany fail to cover the .catch branches on lines 488-491, 506-509
-      prisma.researchTask.updateMany.mockRejectedValue(
-        new Error("updateMany failed"),
-      );
-      prisma.researchTodo.updateMany.mockRejectedValue(
-        new Error("updateMany failed"),
-      );
-
-      executionService.startExecution.mockRejectedValue(
-        new Error("Execution failed"),
-      );
-
-      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
-
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-
-      // Should not throw - handled gracefully
-      expect(executionService.startExecution).toHaveBeenCalled();
-    });
-  });
-
-  // ─── executePlanningAsync - update error in catch ────────────────────────────
-
-  describe("executePlanningAsync - catch block update error", () => {
-    it("should handle update error when mission exists but update fails in catch", async () => {
-      leaderService.planResearch.mockRejectedValue(
-        new Error("Planning failed"),
-      );
-
-      // mission exists
-      prisma.researchMission.findUnique.mockResolvedValue({ id: "mission-1" });
-      // update throws
-      prisma.researchMission.update.mockRejectedValue(
-        new Error("Update failed"),
-      );
-
-      await service.executePlanningAsync("mission-1", "topic-1", "AI Research");
-
-      // Should not throw
-      expect(prisma.researchMission.findUnique).toHaveBeenCalled();
-    });
-  });
 
   // ─── approvePlanAndExecute - execution failure catch ─────────────────────────
 
@@ -1267,92 +1058,4 @@ describe("MissionLifecycleService", () => {
     });
   });
 
-  // ─── executePlanningAsync BillingContext propagation ────────────────────────
-
-  describe("executePlanningAsync - BillingContext propagation", () => {
-    it("should call planResearch with the correct topicId and userPrompt", async () => {
-      leaderService.planResearch.mockResolvedValue(mockLeaderPlan);
-      prisma.leaderDecision.create.mockResolvedValue({});
-      prisma.topicDimension.findFirst.mockResolvedValue(null);
-      prisma.topicDimension.findMany.mockResolvedValue([]);
-      prisma.topicDimension.create.mockResolvedValue({
-        id: "dim-1",
-        name: "Market Analysis",
-      });
-      prisma.researchTask.create.mockImplementation(
-        (args: { data: { taskType: string; title: string } }) =>
-          Promise.resolve({ id: `t-${Date.now()}`, ...args.data }),
-      );
-      prisma.researchMission.update.mockResolvedValue({});
-
-      await service.executePlanningAsync(
-        "mission-1",
-        "topic-1",
-        "AI Research",
-        "深度分析AI市场趋势",
-      );
-
-      expect(leaderService.planResearch).toHaveBeenCalledWith(
-        "topic-1",
-        "深度分析AI市场趋势",
-      );
-    });
-
-    it("should call emitLeaderThinking with understanding phase before planning", async () => {
-      const mocks = buildMocks();
-      const module2: TestingModule = await Test.createTestingModule({
-        providers: [
-          MissionLifecycleService,
-          { provide: PrismaService, useValue: mocks.mockPrisma },
-          {
-            provide: LeaderPlanningService,
-            useValue: mocks.mockLeaderPlanningService,
-          },
-          {
-            provide: LeaderIntentService,
-            useValue: mocks.mockLeaderIntentService,
-          },
-          {
-            provide: ResearchEventEmitterService,
-            useValue: mocks.mockResearchEventEmitter,
-          },
-          {
-            provide: TopicCollaboratorService,
-            useValue: mocks.mockCollaboratorService,
-          },
-          { provide: AgentActivityService, useValue: mocks.mockAgentActivity },
-          { provide: MissionQueryService, useValue: mocks.mockQueryService },
-          {
-            provide: MissionExecutionService,
-            useValue: mocks.mockExecutionService,
-          },
-        ],
-      }).compile();
-
-      const svc2 = module2.get<MissionLifecycleService>(
-        MissionLifecycleService,
-      );
-      mocks.mockLeaderPlanningService.planResearch.mockResolvedValue(
-        mockLeaderPlan,
-      );
-      mocks.mockPrisma.leaderDecision.create.mockResolvedValue({});
-      mocks.mockPrisma.topicDimension.findFirst.mockResolvedValue(null);
-      mocks.mockPrisma.topicDimension.findMany.mockResolvedValue([]);
-      mocks.mockPrisma.topicDimension.create.mockResolvedValue({
-        id: "d1",
-        name: "Market Analysis",
-      });
-      mocks.mockPrisma.researchTask.create.mockResolvedValue({ id: "t1" });
-      mocks.mockPrisma.researchMission.update.mockResolvedValue({});
-
-      await svc2.executePlanningAsync("mission-1", "topic-1", "AI Research");
-
-      expect(
-        mocks.mockResearchEventEmitter.emitLeaderThinking,
-      ).toHaveBeenCalledWith(
-        "topic-1",
-        expect.objectContaining({ phase: "understanding" }),
-      );
-    });
-  });
 });
