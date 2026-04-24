@@ -7,6 +7,10 @@
  */
 
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
+// ★ Fix prod "prisma/search unavailable" — ResearchStage 需要 SearchOrchestrator
+// 跨 topic-insights.module scope 拿不到；把 knowledge/search 打包成独立 module
+// 由 PipelineModule 和 topic-insights.module 共同 import
+import { SearchModule } from "@/modules/ai-app/topic-insights/knowledge/search/search.module";
 import { PipelineOrchestratorService } from "./pipeline-orchestrator.service";
 import { PipelineCheckpointService } from "./pipeline-checkpoint.service";
 import { StageRegistry } from "./stage-registry";
@@ -55,6 +59,7 @@ const STAGES = [
 ];
 
 @Module({
+  imports: [SearchModule],
   controllers: [TopicInsightsHealthController],
   providers: [
     StageRegistry,

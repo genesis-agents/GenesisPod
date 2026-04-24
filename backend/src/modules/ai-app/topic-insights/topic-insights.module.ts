@@ -19,12 +19,6 @@ import { DimensionTemplatesRepository } from "./artifacts/topic/templates";
 import { FrameworkSkillPolicyRepository } from "./skills/frameworks";
 import { LeaderChatService } from "./artifacts/collaboration/leader-chat.service";
 import { MissionAmendmentService } from "./mission/control/amendment.service";
-import {
-  UrlValidationService,
-  ContentEnrichmentService,
-  EvidenceEvaluationService,
-  ResultFilterService,
-} from "./knowledge/search/fusion";
 import { EvidenceSyncCompensationService } from "./knowledge/evidence-sync/compensation.service";
 import { CreditsModule } from "@/modules/ai-infra/credits/credits.module";
 import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
@@ -106,26 +100,9 @@ import { EvidenceManagementService } from "./knowledge/evidence.service";
 import { KnowledgeGraphService } from "./knowledge/graph.service";
 import { MultiLanguageResearchService } from "./knowledge/multi-language.service";
 import { TopicInsightsDataExportService } from "./knowledge/export.service";
-import { RAGFusionService } from "./knowledge/search/rag-fusion.service";
-import {
-  SearchOrchestratorService,
-  GlobalSourceThrottleService,
-  SearchExecutorService,
-  QueryStrategyService,
-  ResultFusionService,
-  QualityGateService,
-  LlmRerankerAdapter,
-  WebSearchAdapter,
-  AcademicSearchAdapter,
-  GithubSearchAdapter,
-  HackernewsSearchAdapter,
-  SocialSearchAdapter,
-  PolicySearchAdapter,
-  FinanceSearchAdapter,
-  WeatherSearchAdapter,
-  LocalSearchAdapter,
-  IndustryReportSearchAdapter,
-} from "./knowledge/search";
+// ★ 所有 knowledge/search/ providers 打包在 SearchModule (2026-04-24 修 prod
+// "prisma/search unavailable" — ResearchStage 跨 PipelineModule scope 拿不到)
+import { SearchModule } from "./knowledge/search/search.module";
 import { AgentActivityService } from "./agents/activity.service";
 import { ComputeUsageService } from "./shared/compute-usage/compute-usage.service";
 // ★ F1 · Foundation: dimension template data layer for /topics/templates
@@ -170,7 +147,7 @@ const services = [
   // ★ Data sub-services
   DataSourceFetcherService,
   DataSourceStrategyService,
-  RAGFusionService,
+  // RAGFusionService moved to SearchModule
   // ★ Dimension sub-services
   // ★ Report sub-services
   ReportGeneratorService,
@@ -208,24 +185,7 @@ const services = [
   SectionRemediationService,
   CitationFormatterService,
   ResearchExportService,
-  // ★ Search Pipeline (modular search architecture)
-  GlobalSourceThrottleService,
-  QueryStrategyService,
-  SearchExecutorService,
-  ResultFusionService,
-  QualityGateService,
-  SearchOrchestratorService,
-  LlmRerankerAdapter,
-  WebSearchAdapter,
-  AcademicSearchAdapter,
-  GithubSearchAdapter,
-  HackernewsSearchAdapter,
-  SocialSearchAdapter,
-  PolicySearchAdapter,
-  FinanceSearchAdapter,
-  WeatherSearchAdapter,
-  LocalSearchAdapter,
-  IndustryReportSearchAdapter,
+  // ★ Search Pipeline → SearchModule (fixes PipelineModule scope issue)
   // ★ Phase 0: BaselineRecorder (flag-gated via TOPIC_INSIGHTS_RECORD_BASELINE)
   BaselineRecorderService,
   // ★ F1 · dimension template data layer
@@ -236,11 +196,7 @@ const services = [
   LeaderChatService,
   // ★ F3 · Pause-Amend-Resume primitive for /mission/adjust
   MissionAmendmentService,
-  // ★ F5 · Search quality + evidence sync
-  UrlValidationService,
-  ContentEnrichmentService,
-  EvidenceEvaluationService,
-  ResultFilterService,
+  // ★ F5 · Search quality + evidence sync (moved to SearchModule)
   EvidenceSyncCompensationService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
@@ -256,6 +212,7 @@ const services = [
     ConfigModule,
     SecretsModule,
     StorageModule, // ★ Phase 6: R2 报告云存储
+    SearchModule, // ★ Search pipeline (provides SearchOrchestrator + adapters)
     PipelineModule, // ★ target architecture v2: 15 stages + rollout + dispatcher
     JwtModule.registerAsync({
       imports: [ConfigModule],
