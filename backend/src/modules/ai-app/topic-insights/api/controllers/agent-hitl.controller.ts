@@ -49,7 +49,7 @@ export class InjectObservationDto {
 @ApiTags("Topic Insights - Agent HITL")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller("api/topic-insights/agent-hitl")
+@Controller("topic-insights/agent-hitl")
 export class AgentHITLController {
   constructor(private readonly hitl: ResearchHITLService) {}
 
