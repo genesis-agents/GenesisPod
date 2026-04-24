@@ -17,7 +17,7 @@ import {
   ResearchEventEmitterService,
   RESEARCH_INTERNAL_EVENTS,
 } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
-import { ReportSynthesisService } from "@/modules/ai-app/topic-insights/services";
+import { ReportSynthesisService } from "@/modules/ai-app/topic-insights/artifacts/report/core/synthesis.service";
 import { MissionMetricsService } from "@/modules/ai-app/topic-insights/shared/telemetry";
 import {
   PipelineOrchestratorService,
