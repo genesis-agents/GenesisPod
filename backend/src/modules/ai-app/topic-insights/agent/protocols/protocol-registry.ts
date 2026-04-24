@@ -7,7 +7,10 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import type { TaskExecutionProtocol } from "@/modules/ai-engine/harness/runtime";
+import type {
+  TaskExecutionProtocol,
+  ProtocolRegistry as ProtocolRegistryInterface,
+} from "@/modules/ai-engine/harness/runtime";
 import type { ResearchTaskMetadata } from "../adapters/research-task-metadata";
 
 import { createDimensionResearchProtocol } from "./dimension-research.protocol";
@@ -21,7 +24,7 @@ import { createFactCheckProtocol } from "./fact-check.protocol";
  * Phase 4 verification 就位后，通过 registerJudges(taskType, judges) 注入 judge。
  */
 @Injectable()
-export class ProtocolRegistry {
+export class ProtocolRegistry implements ProtocolRegistryInterface<ResearchTaskMetadata> {
   private readonly logger = new Logger(ProtocolRegistry.name);
   private readonly protocols = new Map<
     string,

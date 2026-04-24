@@ -29,6 +29,16 @@ import { TopicInsightsAgent } from "./intent";
 import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./intent";
 // ★ Tier Core: Harness pipeline module (flag-gated via TOPIC_INSIGHTS_USE_HARNESS)
 import { PipelineModule } from "./mission/pipeline/pipeline.module";
+// ★ SOTA task-centric runtime · agent/ (Phase 5): adapters + protocols + orchestrator
+import { PrismaStepStore } from "./agent/adapters/prisma-step-store";
+import { PrismaCheckpointStore } from "./agent/adapters/prisma-checkpoint-store";
+import { PrismaVerificationStore } from "./agent/adapters/prisma-verification-store";
+import { ResearchTaskStore } from "./agent/adapters/research-task-store";
+import { ResearchTaskQueue } from "./agent/adapters/research-task-queue";
+import { ProtocolRegistry } from "./agent/protocols/protocol-registry";
+import { ChatFacadeLLMCaller } from "./agent/orchestrator/chat-facade-llm-caller";
+import { ResearchDynamicReplanner } from "./agent/orchestrator/research-dynamic-replanner";
+import { ResearchMissionOrchestrator } from "./agent/orchestrator/research-mission-orchestrator";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule
@@ -202,6 +212,16 @@ const services = [
   EvidenceSyncCompensationService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
+  // ★ SOTA task-centric runtime · Phase 5 orchestration layer（L3 业务适配）
+  PrismaStepStore,
+  PrismaCheckpointStore,
+  PrismaVerificationStore,
+  ResearchTaskStore,
+  ResearchTaskQueue,
+  ProtocolRegistry,
+  ChatFacadeLLMCaller,
+  ResearchDynamicReplanner,
+  ResearchMissionOrchestrator,
 ];
 
 @Module({

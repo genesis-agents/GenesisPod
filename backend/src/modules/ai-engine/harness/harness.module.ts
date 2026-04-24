@@ -40,6 +40,14 @@ import { ContextManager, ContextCompactor, PriorityPruner } from "./context";
 import { CheckpointService, InMemoryCheckpointStore } from "./checkpoint";
 import { SkillLearner } from "./learning";
 
+// ★ SOTA task-centric runtime (Phase 2-5) — 通用 L2 组件，任何 AI App 可注入
+import {
+  ReActRunner,
+  AgentTracer,
+  ToolRegistry,
+  MissionOrchestrator,
+} from "./runtime";
+
 import { AiEngineLLMModule } from "../ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine-tools.module";
 import { AiEngineMemoryModule } from "../ai-engine-memory.module";
@@ -88,6 +96,12 @@ import { AiEngineMemoryModule } from "../ai-engine-memory.module";
     AgentFactory,
     SpecAgentRegistry,
     HarnessFacade,
+
+    // ★ SOTA task-centric runtime (L2 generic — any AI App can inject)
+    AgentTracer,
+    ToolRegistry,
+    ReActRunner,
+    MissionOrchestrator,
   ],
   exports: [
     HarnessFacade,
@@ -98,6 +112,12 @@ import { AiEngineMemoryModule } from "../ai-engine-memory.module";
     ContextManager,
     CheckpointService,
     SkillLearner,
+
+    // ★ SOTA runtime exports
+    AgentTracer,
+    ToolRegistry,
+    ReActRunner,
+    MissionOrchestrator,
   ],
 })
 export class HarnessModule implements OnApplicationBootstrap {

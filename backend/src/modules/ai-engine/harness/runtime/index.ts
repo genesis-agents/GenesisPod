@@ -50,5 +50,22 @@ export type {
 // Verification (self / external / meta judge + consensus resolver)
 export * from "./verification";
 
+// Orchestration (thin mission orchestrator + replanner/registry 接口)
+export {
+  MissionOrchestrator,
+  type OrchestrateOptions,
+  type FinalizerCallback,
+  type TaskCompletedHook,
+} from "./mission-orchestrator";
+
+export type { ProtocolRegistry } from "./protocol-registry-interface";
+
+export type {
+  DynamicReplanner,
+  ReplanOperation,
+  ReplanObservations,
+  ReplanDecision,
+} from "./dynamic-replanner-interface";
+
 // 通用 types / DSL
 export * from "./types";
