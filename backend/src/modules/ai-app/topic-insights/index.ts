@@ -15,4 +15,4 @@ export {
   TodoController,
   ReportReviewController,
 } from "./controllers";
-export { TopicInsightsGateway } from "./topic-insights.gateway";
+export { TopicInsightsGateway } from "./gateways/realtime.gateway";

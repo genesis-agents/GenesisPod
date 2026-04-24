@@ -10,12 +10,12 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
 
-import { TopicInsightsGateway } from "../topic-insights.gateway";
-import { ResearchEventEmitterService } from "../services/research/event-emitter.service";
+import { TopicInsightsGateway } from "../realtime.gateway";
+import { ResearchEventEmitterService } from "../../services/research/event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
-import { createMockPrisma, createMockResearchEventEmitter } from "./mocks";
-import { MOCK_MISSION_EXECUTING } from "./fixtures/topics.fixture";
+import { createMockPrisma, createMockResearchEventEmitter } from "../../__tests__/mocks";
+import { MOCK_MISSION_EXECUTING } from "../../__tests__/fixtures/topics.fixture";
 
 // ★ Security: Mock services for JWT authentication
 const createMockJwtService = () => ({

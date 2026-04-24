@@ -37,7 +37,7 @@ import {
   LatencyController,
 } from "./controllers";
 import { TopicInsightsService } from "./topic-insights.service";
-import { TopicInsightsGateway } from "./topic-insights.gateway";
+import { TopicInsightsGateway } from "./gateways/realtime.gateway";
 import {
   DataSourceRouterService,
   ReportSynthesisService,
