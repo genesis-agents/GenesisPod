@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   ITopicInsightsDataExport,
   IExportableTopicInsightsData,
   ITopicInsightsListItem,
-} from "../../shared/interfaces/data-export.interface";
+} from "../../../shared/interfaces/data-export.interface";
 
 /**
  * Topic Insights Data Export Service
