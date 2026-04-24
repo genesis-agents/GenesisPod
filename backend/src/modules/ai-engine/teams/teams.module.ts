@@ -15,26 +15,27 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
-import { ConstraintEngine } from "../../ai-engine/facade";
+// ★ L2 internal — direct relative paths (禁 facade barrel)
+import { ConstraintEngine } from "../runtime/resource/constraint-engine";
 import { MissionOrchestrator } from "./orchestrator/mission-orchestrator";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
-import { MessageBusService as A2AMessageBusService } from "../../ai-engine/facade";
+import { MessageBusService as A2AMessageBusService } from "../runtime/ipc/message-bus.service";
 import { TeamsController } from "./controllers/teams.controller";
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 import { LLMFactory } from "../llm/factory/llm-factory";
-import { CostController } from "../../ai-engine/facade";
-import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { CostController } from "../runtime/resource/cost-controller";
+import { ShortTermMemoryService } from "../knowledge/memory/stores/short-term-memory.service";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
-import { CheckpointManager } from "../../ai-engine/facade";
-import { MissionExecutorService } from "../../ai-engine/facade";
-import { EventJournalService } from "../../ai-engine/facade";
+import { TraceCollectorService } from "../runtime/observability/trace-collector.service";
+import { CheckpointManager } from "../runtime/journal/checkpoint-manager";
+import { MissionExecutorService } from "../runtime/mission/mission-executor.service";
+import { EventJournalService } from "../runtime/journal/event-journal.service";
 
 /**
  * Teams 模块

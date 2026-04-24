@@ -4,8 +4,9 @@
  */
 
 import { Module } from "@nestjs/common";
-import { EventBusService as EngineEventEmitterService } from "../../../ai-engine/facade";
-import { ProgressTrackerService } from "../../../ai-engine/facade";
+// ★ L2 internal — 绝不从 facade barrel 导入自己的兄弟子模块
+import { EventBusService as EngineEventEmitterService } from "../ipc/event-bus.service";
+import { ProgressTrackerService } from "../ipc/progress-tracker.service";
 
 @Module({
   imports: [

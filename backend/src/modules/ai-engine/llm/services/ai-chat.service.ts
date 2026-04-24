@@ -15,22 +15,26 @@ import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
 import { AIMetricsService } from "../../../ai-infra/facade";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
+// ★ L2 ai-engine 内部代码禁止从 @/modules/ai-engine/facade 导入 —— facade 是 L3
+// AI App 的单向入口，L2 自己走 facade barrel 会触发 barrel → 50+ 子模块 → L2
+// 的回环加载，在 module-evaluation 阶段产生 undefined class ref，Nest DI 随后
+// 报 "LlmExecutor dependency at index [0]"。全部改直接相对路径。
 import {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../../ai-engine/facade";
-import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
+} from "../../runtime/resource/circuit-breaker.service";
+import { TraceCollectorService } from "../../runtime/observability/trace-collector.service";
 // ★ 拆分后的子服务
 import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { EventJournalService } from "../../../ai-engine/facade";
-import { CostAttributionService } from "@/modules/ai-engine/runtime/observability/cost-attribution.service";
-import { AiObservabilityService } from "@/modules/ai-engine/runtime/observability/ai-observability.service";
-import { KernelContext } from "../../../ai-engine/facade";
-import { SessionLatencyTrackerService } from "@/modules/ai-engine/runtime/observability/session-latency-tracker.service";
+import { EventJournalService } from "../../runtime/journal/event-journal.service";
+import { CostAttributionService } from "../../runtime/observability/cost-attribution.service";
+import { AiObservabilityService } from "../../runtime/observability/ai-observability.service";
+import { KernelContext } from "../../../../common/context/kernel-context";
+import { SessionLatencyTrackerService } from "../../runtime/observability/session-latency-tracker.service";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import {
   BYOKError,

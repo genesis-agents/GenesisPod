@@ -8,8 +8,11 @@
 
 import { Injectable, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
-// ★ 直接相对路径 — 与 spec-based-agent.ts 同理，绕开 facade barrel 避免 DI 循环
-import { ModelElectionService } from "../../llm/election";
+// ★ type-only import — ModelElectionService is wired via setter injection
+// (HarnessModule.onApplicationBootstrap) to avoid NestJS v10 forwardRef+Optional
+// timing issues on sibling providers (LlmExecutor was losing AiChatService
+// resolution in prod when this was a constructor @Optional inject).
+import type { ModelElectionService } from "../../llm/election";
 import type { EnvironmentSnapshot } from "../../runtime/resource/runtime-environment.types";
 import type {
   IAgent,
@@ -34,6 +37,14 @@ import { LlmExecutor } from "../executor/llm-executor";
 export class AgentFactory {
   private readonly defaultLoop?: IAgentLoop;
   private subagentSpawner?: ISubagentSpawner;
+  /**
+   * Model election service — wired via setter by HarnessModule.onApplicationBootstrap.
+   * Same pattern as `subagentSpawner` above. Not using @Optional constructor inject
+   * because in Nest v10 that combo with a forwardRef-provided dependency reliably
+   * destabilised resolution of sibling providers (LlmExecutor lost AiChatService
+   * in prod). Setter injection runs after all constructors, so no timing risk.
+   */
+  private electionService?: ModelElectionService;
 
   constructor(
     @Optional() reactLoop?: ReActLoop,
@@ -41,9 +52,13 @@ export class AgentFactory {
     @Optional() private readonly skillActivator?: SkillActivator,
     @Optional() private readonly checkpointService?: CheckpointService,
     @Optional() private readonly llmExecutor?: LlmExecutor,
-    @Optional() private readonly electionService?: ModelElectionService,
   ) {
     this.defaultLoop = reactLoop;
+  }
+
+  /** Called by HarnessModule.onApplicationBootstrap to avoid forwardRef timing. */
+  setElectionService(election: ModelElectionService): void {
+    this.electionService = election;
   }
 
   /**

@@ -14,12 +14,16 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import type { z } from "zod";
-import {
-  AiChatService,
-  AiObservabilityService,
-  KernelContext,
-  type TaskProfile,
-} from "@/modules/ai-engine/facade";
+// ★ 直接相对路径导入，绕开 facade barrel。
+// 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
+// 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
+// 导致 TypeScript 在 module evaluation 阶段产生 `undefined` 类 reference，
+// Nest DI 随后报 "LlmExecutor dependency at index [0]"。
+// 参考 8ac343b98（agent-factory / spec-based-agent 已同此修复）。
+import { AiChatService } from "../../llm/services/ai-chat.service";
+import { AiObservabilityService } from "../../runtime/observability/ai-observability.service";
+import { KernelContext } from "../../../../common/context/kernel-context";
+import type { TaskProfile } from "../../llm/types/task-profile";
 
 // ============ 契约 ============
 

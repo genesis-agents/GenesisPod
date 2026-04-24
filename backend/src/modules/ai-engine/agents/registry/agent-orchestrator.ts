@@ -10,9 +10,10 @@ import { AgentRegistry } from "./agent-registry";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
-import { EventJournalService } from "../../../ai-engine/facade";
-import { CapabilityGuardService } from "../../../ai-engine/facade";
-import { KernelContext } from "../../../ai-engine/facade";
+// ★ L2 internal — 直接相对路径（不走 facade barrel，见 ai-chat.service.ts 说明）
+import { EventJournalService } from "../../runtime/journal/event-journal.service";
+import { CapabilityGuardService } from "../../runtime/security/capability-guard.service";
+import { KernelContext } from "../../../../common/context/kernel-context";
 
 /**
  * 状态报告项

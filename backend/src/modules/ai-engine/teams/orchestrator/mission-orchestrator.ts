@@ -35,7 +35,7 @@ import {
   ResourceUsage,
   mergeConstraintProfiles,
 } from "../constraints";
-import { ConstraintEngine } from "../../../ai-engine/facade";
+import { ConstraintEngine } from "../../runtime/resource/constraint-engine";
 import {
   IMissionOrchestrator,
   MissionExecutionPlan,
@@ -71,19 +71,19 @@ import {
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
-import { CheckpointManager } from "../../../ai-engine/facade";
-import { MessageBusService as A2AMessageBusService } from "../../../ai-engine/facade";
+import { CheckpointManager } from "../../runtime/journal/checkpoint-manager";
+import { MessageBusService as A2AMessageBusService } from "../../runtime/ipc/message-bus.service";
 import {
   ExecutionContext,
   StepResult,
 } from "../../orchestration/abstractions/orchestrator.interface";
-import { MissionExecutorService } from "../../../ai-engine/facade";
-import { EventJournalService } from "../../../ai-engine/facade";
-import { HierarchicalMemoryCascadeService } from "@/modules/ai-engine/facade";
+import { MissionExecutorService } from "../../runtime/mission/mission-executor.service";
+import { EventJournalService } from "../../runtime/journal/event-journal.service";
+import { HierarchicalMemoryCascadeService } from "../../runtime/memory/hierarchical-memory-cascade.service";
 import {
   AgentLifecycleProtocolService,
   type TaskNotificationPayload,
-} from "../../../ai-engine/facade";
+} from "../../runtime/ipc/agent-lifecycle-protocol.service";
 import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,

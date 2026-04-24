@@ -26,7 +26,7 @@ import {
   MissionResult,
   MissionInput,
 } from "../abstractions/mission.interface";
-import { ConstraintEngine } from "../../../ai-engine/facade";
+import { ConstraintEngine } from "../../runtime/resource/constraint-engine";
 import { ITeam, TeamConfig, TeamId } from "../abstractions/team.interface";
 import { ConstraintProfile } from "../constraints/constraint-profile";
 import { LruMap } from "@/common/utils/lru-map";

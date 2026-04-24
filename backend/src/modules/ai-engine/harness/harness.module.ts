@@ -23,9 +23,11 @@ import {
   forwardRef,
   OnApplicationBootstrap,
   Inject,
+  Optional,
 } from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
 import { AgentFactory } from "./core/agent-factory";
+import { ModelElectionService } from "../llm/election";
 import { SpecAgentRegistry } from "./core/spec-agent-registry";
 import { HookRegistry } from "./core/hook-registry";
 import { ReActLoop } from "./loop/react-loop";
@@ -102,6 +104,9 @@ export class HarnessModule implements OnApplicationBootstrap {
   constructor(
     @Inject(AgentFactory) private readonly factory: AgentFactory,
     @Inject(SubagentSpawner) private readonly spawner: SubagentSpawner,
+    @Optional()
+    @Inject(ModelElectionService)
+    private readonly election?: ModelElectionService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -109,5 +114,11 @@ export class HarnessModule implements OnApplicationBootstrap {
     // Constructor injection requires both instances up-front; setter injection
     // lets NestJS finish provider instantiation, then we wire the cycle here.
     this.factory.setSubagentSpawner(this.spawner);
+    // Same rationale for ModelElectionService — forwardRef-provided dep.
+    // At onApplicationBootstrap the container is fully instantiated so Optional
+    // inject here resolves cleanly without sibling-provider timing side effects.
+    if (this.election) {
+      this.factory.setElectionService(this.election);
+    }
   }
 }
