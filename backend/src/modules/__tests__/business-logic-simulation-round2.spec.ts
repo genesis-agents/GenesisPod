@@ -441,7 +441,7 @@ import { ResearchLeaderService } from "../ai-app/topic-insights/services/researc
 import { LeaderPlanningService } from "../ai-app/topic-insights/services/leader/leader-planning.service";
 import { LeaderReviewService } from "../ai-app/topic-insights/services/leader/leader-review.service";
 import { SectionWriterService } from "../ai-app/topic-insights/services/dimension/section-writer.service";
-import { DataSourceRouterService } from "../ai-app/topic-insights/services/data/data-source-router.service";
+import { DataSourceRouterService } from "../ai-app/topic-insights/services/data/source-router.service";
 import { ResearchEventEmitterService } from "../ai-app/topic-insights/services/research/event-emitter.service";
 import { AgentActivityService } from "../ai-app/topic-insights/services/health/agent-activity.service";
 import { DataEnrichmentService } from "../ai-app/topic-insights/services/data/data-enrichment.service";

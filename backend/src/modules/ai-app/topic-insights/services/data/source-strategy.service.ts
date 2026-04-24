@@ -8,7 +8,7 @@ import {
   dataSourceToToolId,
   toolIdToDataSource,
   convertToolsToDataSources,
-} from "./data-source-mapping.config";
+} from "./source-mapping.config";
 
 /**
  * Data Source Strategy Service

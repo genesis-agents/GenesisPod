@@ -19,7 +19,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { DataSourceFetcherService } from "../data-source-fetcher.service";
+import { DataSourceFetcherService } from "../source-fetcher.service";
 import {
   ToolRegistry,
   FederalRegisterTool,

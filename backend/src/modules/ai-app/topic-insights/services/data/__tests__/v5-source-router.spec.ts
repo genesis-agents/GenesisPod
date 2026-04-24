@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { DataSourceRouterService } from "../data-source-router.service";
+import { DataSourceRouterService } from "../source-router.service";
 
 describe("DataSourceRouterService - V5 Methods", () => {
   let service: DataSourceRouterService;

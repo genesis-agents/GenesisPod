@@ -7,7 +7,7 @@ import { withTimeout, withTimeoutFallback } from "@/common/utils/timeout.utils";
 // import { HackernewsService } from '../../../ingestion/crawlers/hackernews.service';
 
 // ★ P0: 数据源连接器注册中心
-import { DataSourceConnectorRegistry } from "./connectors/data-source-connector.registry";
+import { DataSourceConnectorRegistry } from "./connectors/connector.registry";
 
 // ★ 政策研究工具导入
 // ★ 架构重构：通过 ToolRegistry 调用工具
@@ -35,11 +35,11 @@ import {
   DataSourcePlan,
 } from "../../types/data-source.types";
 import { AIModelType, ResearchTopic, TopicDimension } from "@prisma/client";
-import { DataSourcePlannerService } from "./data-source-planner.service";
+import { DataSourcePlannerService } from "./source-planner.service";
 import {
   dataSourceToToolId,
   convertToolsToDataSources,
-} from "./data-source-mapping.config";
+} from "./source-mapping.config";
 import { LruMap } from "@/common/utils/lru-map";
 import { RAGFusionService } from "../search/rag-fusion.service";
 import type { RAGFusionConfig } from "../../types/rag-fusion.types";

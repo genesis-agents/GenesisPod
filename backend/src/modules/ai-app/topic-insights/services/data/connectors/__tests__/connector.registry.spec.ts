@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { DataSourceConnectorRegistry } from "../data-source-connector.registry";
+import { DataSourceConnectorRegistry } from "../connector.registry";
 import { DataSourceType } from "../../../../types/data-source.types";
 import type { IDataSourceConnector } from "../../../../types/data-source-connector.types";
 

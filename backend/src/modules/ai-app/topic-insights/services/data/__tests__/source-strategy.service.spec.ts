@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { DataSourceStrategyService } from "../data-source-strategy.service";
+import { DataSourceStrategyService } from "../source-strategy.service";
 import { DataSourceType } from "../../../types/data-source.types";
 import type { DataSourceResult } from "../../../types/data-source.types";
 

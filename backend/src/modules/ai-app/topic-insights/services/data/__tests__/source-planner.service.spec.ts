@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { DataSourcePlannerService } from "../data-source-planner.service";
+import { DataSourcePlannerService } from "../source-planner.service";
 import { ChatFacade, ToolFacade } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 

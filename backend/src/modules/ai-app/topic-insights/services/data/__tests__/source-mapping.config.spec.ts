@@ -2,10 +2,10 @@ import {
   dataSourceToToolId,
   toolIdToDataSource,
   convertToolsToDataSources,
-} from "../data-source-mapping.config";
+} from "../source-mapping.config";
 import { DataSourceType } from "../../../types/data-source.types";
 
-describe("data-source-mapping.config", () => {
+describe("source-mapping.config", () => {
   describe("dataSourceToToolId", () => {
     it("should map WEB to web-search", () => {
       expect(dataSourceToToolId(DataSourceType.WEB)).toBe("web-search");

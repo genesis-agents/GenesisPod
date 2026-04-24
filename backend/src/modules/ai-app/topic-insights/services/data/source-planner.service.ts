@@ -7,8 +7,8 @@ import {
   DataSourcePlan,
   DataSourceCapability,
 } from "../../types/data-source.types";
-import { dataSourceToToolId } from "./data-source-mapping.config";
-import { DATA_SOURCE_CAPABILITIES } from "./data-source-capabilities.config";
+import { dataSourceToToolId } from "./source-mapping.config";
+import { DATA_SOURCE_CAPABILITIES } from "./source-capabilities.config";
 
 interface DataSourcePlanResponse {
   recommendedSources: string[];

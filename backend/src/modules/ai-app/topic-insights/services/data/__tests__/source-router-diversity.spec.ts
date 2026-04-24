@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
-import { DataSourceRouterService } from "../data-source-router.service";
+import { DataSourceRouterService } from "../source-router.service";
 import {
   ToolRegistry,
   FederalRegisterTool,
@@ -20,7 +20,7 @@ import {
   RAGFacade,
   ToolFacade,
 } from "@/modules/ai-engine/facade";
-import { DataSourcePlannerService } from "../data-source-planner.service";
+import { DataSourcePlannerService } from "../source-planner.service";
 import { createMockAiEngineFacade } from "../../../__tests__/mocks";
 
 /** Local mock result type that includes extra test fields */

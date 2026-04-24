@@ -27,7 +27,7 @@ import {
   dataSourceToToolId,
   convertToolsToDataSources,
   TOOL_ID_TO_DATA_SOURCE,
-} from "../data/data-source-mapping.config";
+} from "../data/source-mapping.config";
 import type { SearchPipelineOptions, QualityVerdict } from "./types";
 import { QueryStrategyService } from "./query/query-strategy.service";
 import { SearchExecutorService } from "./executor.service";

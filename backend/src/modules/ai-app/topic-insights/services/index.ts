@@ -70,12 +70,12 @@ export {
 } from "./report/content-editing.service";
 
 // ==================== Data ====================
-export { DataSourceRouterService } from "./data/data-source-router.service";
-export { DataSourcePlannerService } from "./data/data-source-planner.service";
+export { DataSourceRouterService } from "./data/source-router.service";
+export { DataSourcePlannerService } from "./data/source-planner.service";
 export { EvidenceManagementService } from "./data/evidence-management.service";
-export { DataSourceFetcherService } from "./data/data-source-fetcher.service";
-export { DataSourceStrategyService } from "./data/data-source-strategy.service";
-export { DataSourceConnectorRegistry } from "./data/connectors/data-source-connector.registry";
+export { DataSourceFetcherService } from "./data/source-fetcher.service";
+export { DataSourceStrategyService } from "./data/source-strategy.service";
+export { DataSourceConnectorRegistry } from "./data/connectors/connector.registry";
 export { SemanticScholarConnector } from "./data/connectors/semantic-scholar.connector";
 export { PubMedConnector } from "./data/connectors/pubmed.connector";
 export { FinanceApiConnector } from "./data/connectors/finance-api.connector";

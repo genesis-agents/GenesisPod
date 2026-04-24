@@ -11,7 +11,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { DataSourceRouterService } from "../data-source-router.service";
+import { DataSourceRouterService } from "../source-router.service";
 import {
   ToolRegistry,
   FederalRegisterTool,
@@ -21,8 +21,8 @@ import {
   RAGFacade,
   ToolFacade,
 } from "@/modules/ai-engine/facade";
-import { DataSourcePlannerService } from "../data-source-planner.service";
-import { DataSourceConnectorRegistry } from "../connectors/data-source-connector.registry";
+import { DataSourcePlannerService } from "../source-planner.service";
+import { DataSourceConnectorRegistry } from "../connectors/connector.registry";
 import { DataSourceType } from "../../../types/data-source.types";
 import {
   CircuitBreakerService,
