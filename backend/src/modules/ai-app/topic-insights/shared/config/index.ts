@@ -23,3 +23,5 @@ export {
   summarizeResearcherAssignments,
 } from "./plan-post-process";
 export type { PlanPostProcessLogger } from "./plan-post-process";
+
+export { selectSkillsAndToolsForTask } from "./task-keyword-routing";

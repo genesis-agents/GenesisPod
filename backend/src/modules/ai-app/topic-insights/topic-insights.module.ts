@@ -53,6 +53,7 @@ import { MissionQueryService } from "./mission/observation/query.service";
 import { MissionLifecycleService } from "./mission/control/lifecycle.service";
 import { MissionExecutionService } from "./mission/control/execution.service";
 import { MissionCancellationService } from "./mission/control/cancellation.service";
+import { LeaderAgentSelectionService } from "./mission/control/leader-agent-selection.service";
 import { MissionObservabilityService } from "./mission/observation/observability.service";
 import { MissionNotificationService } from "./mission/observation/notification.service";
 import { ResearchCheckpointService } from "./mission/control/checkpoint.service";
@@ -119,6 +120,7 @@ const services = [
   MissionLifecycleService,
   MissionExecutionService,
   MissionCancellationService,
+  LeaderAgentSelectionService,
   // ★ Mission sub-services (God Service decomposition)
   MissionObservabilityService,
   MissionNotificationService,
