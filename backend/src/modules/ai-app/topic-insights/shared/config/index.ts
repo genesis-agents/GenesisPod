@@ -25,3 +25,16 @@ export {
 export type { PlanPostProcessLogger } from "./plan-post-process";
 
 export { selectSkillsAndToolsForTask } from "./task-keyword-routing";
+
+export {
+  parseRevisionRound,
+  determineRevisionTargets,
+  REVIEW_FAILURE_THRESHOLDS,
+  MAX_REVISION_ROUNDS,
+} from "./review-thresholds";
+export type {
+  DimensionRevisionTarget,
+  RevisionDecision,
+  DimensionReviewLite,
+  TaskLite,
+} from "./review-thresholds";

@@ -47,6 +47,16 @@ export interface WriteStageOutput {
 // ST-04-REVIEW
 export interface ReviewStageOutput {
   readonly reviews: ReadonlyArray<SectionReview>;
+  /** baseline determineRevisionTargets：需要重研究的维度 */
+  readonly revisionTargets: ReadonlyArray<{
+    readonly taskId: string;
+    readonly dimensionId: string;
+    readonly dimensionName: string;
+    readonly score: number;
+    readonly feedback: string;
+  }>;
+  /** 当前修订轮次（硬上限 2） */
+  readonly revisionRound: number;
 }
 
 // ST-05-INTEGRATE

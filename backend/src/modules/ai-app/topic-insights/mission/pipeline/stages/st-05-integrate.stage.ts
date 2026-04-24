@@ -10,6 +10,7 @@ import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { MetaExtractorInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { DimensionMeta } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
+import { assembleSectionsWithPromotedConclusion } from "@/modules/ai-app/topic-insights/shared/utils/promote-opening-conclusion.utils";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
@@ -65,15 +66,18 @@ export class IntegrateStage implements Stage<
     if (!runner)
       throw new Error("AG-05-ME not registered in SpecAgentRegistry");
 
-    // 按维度聚合 section 正文
-    const sectionsByDim = new Map<string, string[]>();
+    // 按维度聚合 section（保留 title + content 以支持 "开篇即结论" 提升）
+    const sectionsByDim = new Map<
+      string,
+      Array<{ title: string; content: string }>
+    >();
     for (const s of input.write.sections) {
       let arr = sectionsByDim.get(s.dimensionId);
       if (!arr) {
         arr = [];
         sectionsByDim.set(s.dimensionId, arr);
       }
-      arr.push(s.content);
+      arr.push({ title: s.title, content: s.content });
     }
 
     const evidenceCountByDim = new Map(
@@ -81,18 +85,21 @@ export class IntegrateStage implements Stage<
     );
 
     const metas: DimensionMeta[] = [];
-    for (const [dimensionId, contents] of sectionsByDim.entries()) {
+    for (const [dimensionId, sections] of sectionsByDim.entries()) {
       if (signal.aborted) {
         throw new DOMException(`[${this.id}] aborted`, "AbortError");
       }
       const dim = input.research.byDimension.find(
         (d) => d.dimensionId === dimensionId,
       );
+      // ★ baseline Direction B：首节 > **核心判断** 提升到 ### 标题前
+      const integratedMarkdown =
+        assembleSectionsWithPromotedConclusion(sections);
       const res = await runner.executeSpec(
         {
           dimensionId,
           dimensionName: dim?.dimensionName ?? dimensionId,
-          integratedSections: contents.join("\n\n---\n\n"),
+          integratedSections: integratedMarkdown,
           evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
         },
         identity.capabilities?.env,

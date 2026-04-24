@@ -4,10 +4,16 @@
  * 每个 section 调 AG-04-SR，产出 SectionReview。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { SectionReviewerInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { SectionReview } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
+import {
+  parseRevisionRound,
+  determineRevisionTargets,
+  type DimensionReviewLite,
+} from "@/modules/ai-app/topic-insights/shared/config";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { ReviewStageOutput, WriteStageOutput } from "./stage-context";
 
@@ -24,7 +30,12 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
   };
   readonly emitsEvents = ["section:review_started", "section:review_completed"];
 
-  constructor(private readonly agentRegistry: SpecAgentRegistry) {}
+  private readonly logger = new Logger(ReviewStage.name);
+
+  constructor(
+    private readonly agentRegistry: SpecAgentRegistry,
+    @Optional() private readonly prisma?: PrismaService,
+  ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -45,6 +56,10 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
     if (!runner)
       throw new Error("AG-04-SR not registered in SpecAgentRegistry");
 
+    // ★ baseline: revisionRound 从 dimension_research task.description 读取 [revision:N]
+    //   所有 dim task 同轮次（orchestrator 重跑时整批 +1），取任一 task 即可
+    const revisionRound = await this.readRevisionRound(identity.missionId);
+
     const reviews: SectionReview[] = [];
     for (const section of input.sections) {
       if (signal.aborted) {
@@ -60,7 +75,8 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
             wordCount: section.wordCount,
             keyFindings: section.keyFindings,
           },
-          revisionRound: 1,
+          // SectionReviewerInput 接 1|2；> 2 也只 review 一次（兼容 hard cap 语义）
+          revisionRound: revisionRound >= 2 ? 2 : 1,
         },
         identity.capabilities?.env,
       );
@@ -71,7 +87,133 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
       }
       reviews.push(res.output);
     }
-    return { reviews };
+
+    // ★ baseline determineRevisionTargets：把 section review 分数聚合到 dim 级，
+    //   应用硬阈值（overall<60, evidence<40, depth<35, breadth<35, coherence<30），
+    //   round >= 2 直接不 revise（硬上限）
+    const dimReviews = this.aggregateReviewsByDimension(reviews);
+    const completedTasks = await this.loadDimensionResearchTasks(
+      identity.missionId,
+    );
+    const decision = determineRevisionTargets(
+      dimReviews,
+      completedTasks,
+      revisionRound,
+    );
+    if (decision.needsRevision) {
+      this.logger.log(
+        `[${identity.missionId}] Round ${revisionRound}: ${decision.targets.length} dim(s) need revision`,
+      );
+    }
+
+    return {
+      reviews,
+      revisionTargets: decision.targets,
+      revisionRound,
+    };
+  }
+
+  /**
+   * 按 dimensionId 聚合 section 级 review，产出 dim 级 DimensionReviewLite。
+   * scores 做平均（避免单个 section 低分拖整 dim；单个极差 section 由 remediation 处理）。
+   */
+  private aggregateReviewsByDimension(
+    reviews: ReadonlyArray<SectionReview>,
+  ): DimensionReviewLite[] {
+    const byDim = new Map<
+      string,
+      {
+        overallSum: number;
+        evidenceSum: number;
+        depthSum: number;
+        coherenceSum: number;
+        accuracySum: number;
+        completenessSum: number;
+        count: number;
+        suggestions: string[];
+      }
+    >();
+
+    for (const r of reviews) {
+      // sectionId 前缀 "<dimId>-s-N" — 从 sectionId 反查 dimensionId 不稳，
+      // 我们借 SectionReview schema 没带 dimensionId 的事实：直接跳过聚合退化场景
+      // （stub 场景或上游丢字段）→ 后续 orchestrator 可自己跑 re-research decision。
+      const dimId = this.extractDimensionId(r.sectionId);
+      if (!dimId) continue;
+
+      let acc = byDim.get(dimId);
+      if (!acc) {
+        acc = {
+          overallSum: 0,
+          evidenceSum: 0,
+          depthSum: 0,
+          coherenceSum: 0,
+          accuracySum: 0,
+          completenessSum: 0,
+          count: 0,
+          suggestions: [],
+        };
+        byDim.set(dimId, acc);
+      }
+      acc.overallSum += r.overallScore * 10; // SectionReview 打分 0-10，转 0-100
+      acc.evidenceSum += r.scores.evidenceQuality * 10;
+      acc.depthSum += r.scores.depth * 10;
+      acc.coherenceSum += r.scores.coherence * 10;
+      acc.accuracySum += r.scores.accuracy * 10;
+      acc.completenessSum += r.scores.completeness * 10;
+      acc.count += 1;
+      acc.suggestions.push(...r.revisionInstructions);
+    }
+
+    const result: DimensionReviewLite[] = [];
+    for (const [dimensionId, acc] of byDim.entries()) {
+      const n = Math.max(1, acc.count);
+      result.push({
+        dimensionId,
+        overallScore: acc.overallSum / n,
+        scores: {
+          evidence: acc.evidenceSum / n,
+          depth: acc.depthSum / n,
+          breadth: acc.completenessSum / n, // completeness → breadth
+          coherence: acc.coherenceSum / n,
+        },
+        suggestions: acc.suggestions.slice(0, 10),
+      });
+    }
+    return result;
+  }
+
+  private extractDimensionId(sectionId: string): string | null {
+    // st-03 生成格式 `${dim.id}-s-${n}`；反向提取
+    const m = /^(.+?)-s-\d+$/.exec(sectionId);
+    return m ? m[1] : null;
+  }
+
+  private async readRevisionRound(missionId: string): Promise<number> {
+    if (!this.prisma) return 1;
+    try {
+      const task = await this.prisma.researchTask.findFirst({
+        where: { missionId, taskType: "dimension_research" },
+        select: { description: true },
+      });
+      return parseRevisionRound(task?.description);
+    } catch {
+      return 1;
+    }
+  }
+
+  private async loadDimensionResearchTasks(
+    missionId: string,
+  ): Promise<Array<{ id: string; dimensionId: string | null }>> {
+    if (!this.prisma) return [];
+    try {
+      return await this.prisma.researchTask.findMany({
+        where: { missionId, taskType: "dimension_research" },
+        select: { id: true, dimensionId: true },
+      });
+    } catch {
+      return [];
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
