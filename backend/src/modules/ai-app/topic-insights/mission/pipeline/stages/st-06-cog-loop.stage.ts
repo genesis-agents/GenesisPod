@@ -11,7 +11,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type {
   GapSearcherInput,
   HypothesisVerifierInput,

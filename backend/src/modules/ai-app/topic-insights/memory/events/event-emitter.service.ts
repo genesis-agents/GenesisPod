@@ -77,16 +77,23 @@ export enum ResearchEventType {
   // ★ P0: 交互式研究事件
   RESEARCH_PAUSED = "research:paused",
   RESEARCH_RESUMED = "research:resumed",
+  /** TODO · not yet emitted — reserved for leader-initiated redirect flows */
   RESEARCH_REDIRECTED = "research:redirected",
+  /** TODO · not yet emitted — reserved for post-report follow-up runs */
   RESEARCH_FOLLOW_UP = "research:follow_up",
+  /** TODO · not yet emitted — reserved for user-facing checkpoint signals */
   RESEARCH_CHECKPOINT = "research:checkpoint",
   DIMENSION_ADDED = "dimension:added",
   DIMENSION_REMOVED = "dimension:removed",
+  /** TODO · not yet emitted — reserved for Leader depth rebalancing */
   DEPTH_ADJUSTED = "depth:adjusted",
 
   // ★ P0: 知识图谱事件
+  /** TODO · not yet emitted — reserved for knowledge-graph entity ingestion */
   ENTITY_EXTRACTED = "knowledge:entity_extracted",
+  /** TODO · not yet emitted — reserved for knowledge-graph relation discovery */
   RELATION_DISCOVERED = "knowledge:relation_discovered",
+  /** TODO · not yet emitted — reserved for knowledge reuse signalling */
   KNOWLEDGE_REUSED = "knowledge:reused",
 
   // ★ H4 harness primitive: structured decision events emitted by stages/agents

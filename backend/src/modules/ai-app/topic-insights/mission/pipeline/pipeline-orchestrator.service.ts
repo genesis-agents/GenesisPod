@@ -21,7 +21,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { KernelContext } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type {
   MissionAdjusterInput,
   SectionRemediatorInput,

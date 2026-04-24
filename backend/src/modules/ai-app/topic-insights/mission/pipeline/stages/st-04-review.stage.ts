@@ -5,7 +5,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { SectionReviewerInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { SectionReview } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";

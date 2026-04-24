@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
 
 import { LeaderChatService } from "../leader-chat.service";

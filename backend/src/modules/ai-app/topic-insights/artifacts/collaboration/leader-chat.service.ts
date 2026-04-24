@@ -14,7 +14,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type {
   LeaderIntentInput,
   LeaderIntentDecision,

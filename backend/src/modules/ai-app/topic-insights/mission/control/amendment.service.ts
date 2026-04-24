@@ -77,6 +77,11 @@ export class MissionAmendmentService {
     private readonly prisma: PrismaService,
     private readonly events: ResearchEventEmitterService,
     private readonly cancellation: MissionCancellationService,
+    // forwardRef: MissionExecutionService ← lifecycle ← amendment.
+    // Amendment invokes Execution.startExecution as the "resume" leg of
+    // pause-amend-resume. The reverse path does not exist, but lifecycle +
+    // execution already participate in a forwardRef chain that amendment
+    // is pulled into transitively when the module builds its DI graph.
     @Inject(forwardRef(() => MissionExecutionService))
     private readonly execution: MissionExecutionService,
   ) {}

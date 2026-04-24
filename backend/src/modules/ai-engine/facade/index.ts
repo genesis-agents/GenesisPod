@@ -35,6 +35,10 @@ export { AgentRegistry } from "../agents/registry";
 export { TeamRegistry } from "../teams/registry/team-registry";
 export { RoleRegistry } from "../teams/registry/role-registry";
 export { SkillRegistry } from "../skills/registry/skill-registry";
+// Spec-based agent registry (harness core) — re-exported so AI App modules
+// don't need to reach into `ai-engine/harness/*`. Direct harness imports are
+// an architecture violation; route through this barrel instead.
+export { SpecAgentRegistry } from "../harness/core/spec-agent-registry";
 
 // ★ High-frequency types used across AI App modules
 export type {

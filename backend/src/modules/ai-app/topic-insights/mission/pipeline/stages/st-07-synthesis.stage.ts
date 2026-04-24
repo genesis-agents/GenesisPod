@@ -8,7 +8,7 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { SynthesizerInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { SynthesisResult } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";

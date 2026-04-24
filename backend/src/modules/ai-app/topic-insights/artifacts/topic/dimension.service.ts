@@ -40,6 +40,10 @@ export class TopicDimensionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly templateRepo: DimensionTemplatesRepository,
+    // forwardRef: MissionExecutionService constructs lifecycle which touches
+    // TopicDimensionService via forwardRef (dimension refresh creates a
+    // mission and starts execution). Keep forwardRef so both sides can load
+    // regardless of which module/service Nest initialises first.
     @Inject(forwardRef(() => MissionExecutionService))
     private readonly missionExecution: MissionExecutionService,
     private readonly events: ResearchEventEmitterService,

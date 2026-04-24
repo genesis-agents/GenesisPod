@@ -14,7 +14,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { LeaderDispatcherInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { LeaderDispatchDecision } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 

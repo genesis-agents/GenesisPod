@@ -7,7 +7,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
+import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { SectionWriterInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { SectionResult } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
