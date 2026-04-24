@@ -1,8 +1,15 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  forwardRef,
+  Inject,
+} from "@nestjs/common";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import type { ToolContext } from "@/modules/ai-engine/facade";
 import { withTimeoutFallback } from "@/common/utils/timeout.utils";
 import { resolveArxivFetchTarget } from "@/modules/ai-app/topic-insights/shared/utils/arxiv-url.utils";
+import { FigureRelevanceService } from "./figure-relevance.service";
 
 /**
  * 提取的图表信息
@@ -85,7 +92,13 @@ export const MAX_SEARCH_SUPPLEMENT_FIGURES = 5;
 export class FigureExtractorService {
   private readonly logger = new Logger(FigureExtractorService.name);
 
-  constructor(private readonly toolRegistry: ToolRegistry) {}
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    // ★ forwardRef + Optional 避免 FigureRelevanceService 未注册（测试环境）时解析失败
+    @Optional()
+    @Inject(forwardRef(() => FigureRelevanceService))
+    private readonly figureRelevance?: FigureRelevanceService,
+  ) {}
 
   /**
    * ★ baseline `services/data/data-enrichment.service.ts:L738-L833`
@@ -100,8 +113,9 @@ export class FigureExtractorService {
    *   - 返回前 maxCount 条，全部标 isImageSearchSupplement=true
    *
    * 质量关卡（同 extractFiguresFromUrl）：
-   *   - validateAndUpgradeFigures：GET+Range + magic bytes
-   *   - 调用方负责传入 FigureRelevanceService 以跑 Vision LLM 相关性
+   *   - Stage 1: validateAndUpgradeFigures：GET+Range + magic bytes
+   *   - Stage 2: figureRelevance.filterRelevantFigures: Embedding/Vision 相关性审查
+   *     （FigureRelevanceService 不可用时自动跳过此 stage）
    */
   async supplementFiguresViaImageSearch(
     searchContext: string,
@@ -178,6 +192,20 @@ export class FigureExtractorService {
         candidates = await this.validateAndUpgradeFigures(candidates);
       }
 
+      // 质量关卡 2: Embedding/Vision 相关性审查（baseline data-enrichment L512-L520）
+      if (candidates.length > 0 && this.figureRelevance) {
+        try {
+          candidates = await this.figureRelevance.filterRelevantFigures(
+            candidates,
+            searchContext,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `[supplementFiguresViaImageSearch] relevance filter failed: ${err instanceof Error ? err.message : String(err)} — keeping validated candidates`,
+          );
+        }
+      }
+
       // 最终截断
       return candidates.slice(0, maxCount);
     } catch (err) {
@@ -208,9 +236,18 @@ export class FigureExtractorService {
    * @param timeout 超时时间（毫秒）
    * @returns 提取的图表列表
    */
+  /**
+   * 从 URL 获取并提取图表（含 Vision 相关性审查如果服务可用）。
+   *
+   * @param url 目标 URL
+   * @param timeout 抓取超时
+   * @param relevanceContext 可选相关性上下文（通常是 topic name + dimension name）；
+   *                        传入后自动调 figureRelevance.filterRelevantFigures 做语义过滤
+   */
   async extractFiguresFromUrl(
     url: string,
     timeout: number = 10000,
+    relevanceContext?: string,
   ): Promise<ExtractedFigure[]> {
     try {
       // 通过 ToolRegistry 获取 web-scraper 工具
@@ -271,25 +308,40 @@ export class FigureExtractorService {
       );
 
       // ★ v4.5: 异步校验图片可访问性 + 质量
-      const validated = await this.validateAndUpgradeFigures(figures);
+      let finalFigures = await this.validateAndUpgradeFigures(figures);
+
+      // ★ baseline data-enrichment L512-L520：Vision/Embedding 相关性审查
+      //   有 relevanceContext 且 figureRelevance 服务可用时才跑；失败不阻断
+      if (finalFigures.length > 0 && relevanceContext && this.figureRelevance) {
+        try {
+          finalFigures = await this.figureRelevance.filterRelevantFigures(
+            finalFigures,
+            relevanceContext,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `[extractFiguresFromUrl] relevance filter failed: ${err instanceof Error ? err.message : String(err)} — keeping validated figures`,
+          );
+        }
+      }
 
       // ★ baseline data-enrichment L544-L567：网页提取不足 3 张时 image-search 补齐至 5 张
-      if (validated.length < MIN_FIGURES_THRESHOLD) {
-        const needed = MAX_SEARCH_SUPPLEMENT_FIGURES - validated.length;
+      if (finalFigures.length < MIN_FIGURES_THRESHOLD) {
+        const needed = MAX_SEARCH_SUPPLEMENT_FIGURES - finalFigures.length;
         if (needed > 0) {
           const supplemented = await this.supplementFiguresViaImageSearch(
-            fetchUrl,
+            relevanceContext ?? fetchUrl,
             needed,
           );
           if (supplemented.length > 0) {
             this.logger.log(
-              `[extractFiguresFromUrl] Supplemented ${supplemented.length} figures via image-search (had ${validated.length}/${MIN_FIGURES_THRESHOLD} threshold)`,
+              `[extractFiguresFromUrl] Supplemented ${supplemented.length} figures via image-search (had ${finalFigures.length}/${MIN_FIGURES_THRESHOLD} threshold)`,
             );
-            return [...validated, ...supplemented];
+            return [...finalFigures, ...supplemented];
           }
         }
       }
-      return validated;
+      return finalFigures;
     } catch (error) {
       this.logger.warn(
         `[extractFiguresFromUrl] Error: ${error instanceof Error ? error.message : String(error)}`,

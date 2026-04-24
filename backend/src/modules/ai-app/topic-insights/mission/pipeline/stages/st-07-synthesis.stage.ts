@@ -17,6 +17,7 @@ import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
   PlanStageOutput,
+  ReviewStageOutput,
   SynthStageOutput,
   WriteStageOutput,
 } from "./stage-context";
@@ -53,6 +54,22 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
     @Optional() private readonly prisma?: PrismaService,
   ) {}
 
+  private tryGetReview(upstream: StageResults): ReviewStageOutput | null {
+    try {
+      return upstream.get<ReviewStageOutput>("ST-04-REVIEW");
+    } catch {
+      return null;
+    }
+  }
+
+  private mergeRemediated(
+    original: WriteStageOutput["sections"],
+    remediated: ReviewStageOutput["remediatedSections"],
+  ): WriteStageOutput["sections"] {
+    const byId = new Map(remediated.map((s) => [s.sectionId, s]));
+    return original.map((s) => byId.get(s.sectionId) ?? s);
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
     _identity: PipelineIdentityContext,
@@ -64,8 +81,16 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
     //   不再使用 missionId placeholder；这影响 synthesis prompt 的 {topic} 展开。
     const plan = upstream.get<PlanStageOutput>("ST-01-PLAN").plan;
 
+    // ★ baseline section-writer QC loop 对齐：优先用 ST-04-REVIEW 产出的
+    //   remediated section 覆盖原始 write 内容，避免 synthesizer 消费被 Remediator 修订前的劣质正文
+    const review = this.tryGetReview(upstream);
+    const effectiveSections =
+      review && review.remediatedSections.length > 0
+        ? this.mergeRemediated(write.sections, review.remediatedSections)
+        : write.sections;
+
     const byDim: Record<string, string> = {};
-    for (const s of write.sections) {
+    for (const s of effectiveSections) {
       byDim[s.dimensionId] = (byDim[s.dimensionId] ?? "") + "\n\n" + s.content;
     }
 

@@ -25,8 +25,8 @@ import {
   type EvidenceData,
   type SectionLite,
 } from "@/modules/ai-app/topic-insights/shared/utils/evidence-distribution.utils";
-import type { OutlineStageOutput } from "./stage-context";
 import type {
+  OutlineStageOutput,
   PlanStageOutput,
   ResearchStageOutput,
   WriteStageOutput,
@@ -35,6 +35,8 @@ import type {
 export interface WriteStageInput {
   readonly plan: PlanStageOutput["plan"];
   readonly research: ResearchStageOutput;
+  /** 真实 topic name（从 plan.taskUnderstanding 读，用于 SectionWriter prompt） */
+  readonly topicName: string;
   /** Leader-driven section outlines (AG-02-DP 产出)；空时退化到硬编码 2 节 */
   readonly outlinesByDimension: Record<
     string,
@@ -85,6 +87,9 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
     return {
       plan: planOut.plan,
       research,
+      // ★ baseline：SectionWriter prompt 需要真实 topic name 上下文
+      topicName:
+        planOut.plan.taskUnderstanding?.topic || planOut.plan.missionId,
       outlinesByDimension: outlineOut?.outlinesByDimension ?? {},
     };
   }
@@ -211,7 +216,8 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           leaderSections[si]?.targetWords ?? baseTargetWords;
         const sectionInput: SectionWriterInput = {
           topicId: identity.topicId,
-          topicName: dim.name, // upstream context（Group E 接真 topic name）
+          // ★ 用真实 topic name 而非 dim.name 占位（baseline 对齐，避免 section 上下文错乱）
+          topicName: input.topicName,
           dimensionId: dim.id,
           dimensionName: dim.name,
           sectionPlan: {
