@@ -35,7 +35,6 @@ export { MissionObservabilityService } from "./mission/observability.service";
 export { MissionNotificationService } from "./mission/notification.service";
 
 // Topic
-export { TopicTeamOrchestratorService } from "./topic/topic-team-orchestrator.service";
 export { TopicCrudService } from "./topic/topic-crud.service";
 export { EventSourceParsingService } from "./topic/event-source-parsing.service";
 export { TopicDimensionService } from "./topic/topic-dimension.service";
@@ -43,11 +42,6 @@ export { TopicExportService } from "./topic/topic-export.service";
 export { TopicScheduleService } from "./topic/topic-schedule.service";
 
 // ==================== Dimension ====================
-export { DimensionMissionService } from "./dimension/dimension-mission.service";
-export { DimensionProgressService } from "./dimension/dimension-progress.service";
-export { SectionWriterService } from "./dimension/section-writer.service";
-export { DimensionSearchService } from "./dimension/dimension-search.service";
-export { DimensionWritingService } from "./dimension/dimension-writing.service";
 
 // ==================== Report ====================
 export { ReportSynthesisService } from "./report/synthesis.service";

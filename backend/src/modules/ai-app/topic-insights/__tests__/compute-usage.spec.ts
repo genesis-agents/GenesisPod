@@ -15,7 +15,6 @@ import { TopicInsightsService } from "../topic-insights.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
-  TopicTeamOrchestratorService,
   ReportSynthesisService,
   EvidenceManagementService,
   ReportChangeService,
@@ -116,11 +115,6 @@ function buildMocks() {
   return {
     mockPrisma,
     mockEventEmitter: { emit: jest.fn(), on: jest.fn(), off: jest.fn() },
-    mockOrchestrator: {
-      executeRefresh: jest.fn(),
-      getRefreshStatus: jest.fn(),
-      cancelRefresh: jest.fn(),
-    },
     mockReportService: {
       synthesizeReport: jest.fn(),
       getReport: jest.fn(),
@@ -213,10 +207,6 @@ async function buildService(mocks: ReturnType<typeof buildMocks>) {
       TopicInsightsService,
       { provide: PrismaService, useValue: mocks.mockPrisma },
       { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
-      {
-        provide: TopicTeamOrchestratorService,
-        useValue: mocks.mockOrchestrator,
-      },
       {
         provide: MissionExecutionService,
         useValue: { startExecution: jest.fn().mockResolvedValue(undefined) },

@@ -17,7 +17,6 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NotFoundException } from "@nestjs/common";
 import {
-  TopicTeamOrchestratorService,
   ReportSynthesisService,
   EvidenceManagementService,
   ReportChangeService,
@@ -65,12 +64,6 @@ function buildMocks() {
     emit: jest.fn(),
     on: jest.fn(),
     off: jest.fn(),
-  };
-
-  const mockOrchestrator = {
-    executeRefresh: jest.fn(),
-    getRefreshStatus: jest.fn(),
-    cancelRefresh: jest.fn(),
   };
 
   const mockReportService = {
@@ -178,7 +171,6 @@ function buildMocks() {
   return {
     mockPrisma,
     mockEventEmitter,
-    mockOrchestrator,
     mockReportService,
     mockEvidenceService,
     mockFacade,
@@ -213,10 +205,6 @@ describe("TopicInsightsService (supplemental)", () => {
         TopicInsightsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        {
-          provide: TopicTeamOrchestratorService,
-          useValue: mocks.mockOrchestrator,
-        },
         {
           provide: MissionExecutionService,
           useValue: { startExecution: jest.fn().mockResolvedValue(undefined) },

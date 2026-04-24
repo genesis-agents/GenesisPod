@@ -15,7 +15,6 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import {
-  TopicTeamOrchestratorService,
   ReportSynthesisService,
   EvidenceManagementService,
   ReportChangeService,
@@ -67,12 +66,6 @@ function buildMocks() {
 
   const mockEventEmitter = {
     emit: jest.fn(),
-  };
-
-  const mockOrchestrator = {
-    executeRefresh: jest.fn(),
-    getRefreshStatus: jest.fn(),
-    cancelRefresh: jest.fn(),
   };
 
   const mockMissionExecution = {
@@ -181,7 +174,6 @@ function buildMocks() {
   return {
     mockPrisma,
     mockEventEmitter,
-    mockOrchestrator,
     mockMissionExecution,
     mockReportService,
     mockEvidenceService,
@@ -208,7 +200,6 @@ describe("TopicInsightsService", () => {
   let service: TopicInsightsService;
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockEventEmitter: ReturnType<typeof buildMocks>["mockEventEmitter"];
-  let mockOrchestrator: ReturnType<typeof buildMocks>["mockOrchestrator"];
   let mockMissionExecution: ReturnType<
     typeof buildMocks
   >["mockMissionExecution"];
@@ -229,7 +220,6 @@ describe("TopicInsightsService", () => {
     const mocks = buildMocks();
     mockPrisma = mocks.mockPrisma;
     mockEventEmitter = mocks.mockEventEmitter;
-    mockOrchestrator = mocks.mockOrchestrator;
     mockMissionExecution = mocks.mockMissionExecution;
     mockReportService = mocks.mockReportService;
     mockCrudService = mocks.mockCrudService;
@@ -243,7 +233,6 @@ describe("TopicInsightsService", () => {
         TopicInsightsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: TopicTeamOrchestratorService, useValue: mockOrchestrator },
         { provide: MissionExecutionService, useValue: mockMissionExecution },
         {
           provide: MissionCancellationService,

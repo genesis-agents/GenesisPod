@@ -41,7 +41,6 @@ import { TopicInsightsGateway } from "./topic-insights.gateway";
 import {
   DataSourceRouterService,
   ReportSynthesisService,
-  TopicTeamOrchestratorService,
   TopicRefreshScheduler,
   EvidenceManagementService,
   ResearchReviewerService,
@@ -53,9 +52,6 @@ import {
   LeaderReviewService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
-  DimensionMissionService,
-  DimensionProgressService,
-  SectionWriterService,
   ReportChangeService,
   ReportAnnotationService,
   ResearchStrategyService,
@@ -90,8 +86,6 @@ import {
   DataSourceFetcherService,
   DataSourceStrategyService,
   // ★ Dimension sub-services
-  DimensionSearchService,
-  DimensionWritingService,
   // ★ Report sub-services
   ReportGeneratorService,
   ReportAssemblerService,
@@ -150,7 +144,6 @@ const services = [
   DataSourceRouterService,
   ReportSynthesisService,
   ResearchReviewerService,
-  TopicTeamOrchestratorService,
   TopicRefreshScheduler,
   EvidenceManagementService,
   ResearchLeaderService,
@@ -168,9 +161,6 @@ const services = [
   MissionNotificationService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
-  DimensionMissionService,
-  DimensionProgressService,
-  SectionWriterService,
   ReportChangeService,
   ReportAnnotationService,
   ResearchStrategyService,
@@ -199,8 +189,6 @@ const services = [
   DataSourceStrategyService,
   RAGFusionService,
   // ★ Dimension sub-services
-  DimensionSearchService,
-  DimensionWritingService,
   // ★ Report sub-services
   ReportGeneratorService,
   ReportAssemblerService,
