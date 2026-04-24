@@ -98,10 +98,10 @@ export { SectionSelfEvalService } from "./quality/section-self-eval.service";
 export { SectionRemediationService } from "./quality/section-remediation.service";
 
 // ==================== Monitoring ====================
-export { AgentActivityService } from "./health/agent-activity.service";
-export { ResearchMissionHealthService } from "./health/mission.service";
-export { ResearchCheckpointService } from "./health/research-checkpoint.service";
-export { TopicRefreshScheduler } from "./health/topic-refresh.scheduler";
+export { AgentActivityService } from "./monitoring/agent-activity.service";
+export { ResearchMissionHealthService } from "./monitoring/mission-health.service";
+export { ResearchCheckpointService } from "./monitoring/research-checkpoint.service";
+export { TopicRefreshScheduler } from "./monitoring/topic-refresh.scheduler";
 
 // ==================== Search Pipeline ====================
 export {

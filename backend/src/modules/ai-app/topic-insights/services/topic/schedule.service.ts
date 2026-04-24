@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { UpdateScheduleDto } from "../../dto";
-import { TopicRefreshScheduler } from "../health/topic-refresh.scheduler";
+import { TopicRefreshScheduler } from "../monitoring/topic-refresh.scheduler";
 
 /**
  * TopicScheduleService

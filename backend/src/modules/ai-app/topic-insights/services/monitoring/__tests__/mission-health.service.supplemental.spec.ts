@@ -14,7 +14,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { ResearchMissionHealthService } from "../mission.service";
+import { ResearchMissionHealthService } from "../mission-health.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
