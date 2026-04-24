@@ -18,6 +18,7 @@ import { TOPIC_INSIGHTS_AGENT_SPECS } from "./agents/specs";
 import { DimensionTemplatesRepository } from "./artifacts/topic/templates";
 import { FrameworkSkillPolicyRepository } from "./skills/frameworks";
 import { LeaderChatService } from "./artifacts/collaboration/leader-chat.service";
+import { MissionAmendmentService } from "./mission/control/amendment.service";
 import { CreditsModule } from "@/modules/ai-infra/credits/credits.module";
 import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
 import { StorageModule } from "@/modules/ai-infra/storage/storage.module";
@@ -239,6 +240,8 @@ const services = [
   FrameworkSkillPolicyRepository,
   // ★ F2 · Leader chat orchestration (AG-18-LI intent decoder)
   LeaderChatService,
+  // ★ F3 · Pause-Amend-Resume primitive for /mission/adjust
+  MissionAmendmentService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];

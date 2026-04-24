@@ -26,6 +26,7 @@ import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
 import { TopicAccessGuard } from "@/modules/ai-app/topic-insights/api/guards";
 import { LeaderChatService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/leader-chat.service";
+import { MissionAmendmentService } from "@/modules/ai-app/topic-insights/mission/control/amendment.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -111,6 +112,17 @@ const mockLeaderChatService = {
   }),
 };
 
+const mockAmendmentService = {
+  pauseAndAmend: jest.fn().mockResolvedValue({
+    missionId: "m-1",
+    topicId: "topic-1",
+    addedDimensionIds: [],
+    removedDimensionIds: [],
+    focusAreasRecorded: [],
+    resumed: false,
+  }),
+};
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -142,6 +154,7 @@ describe("MissionController", () => {
         { provide: ResearchMissionHealthService, useValue: mockHealthService },
         { provide: ResearchCheckpointService, useValue: mockCheckpointService },
         { provide: LeaderChatService, useValue: mockLeaderChatService },
+        { provide: MissionAmendmentService, useValue: mockAmendmentService },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -613,25 +626,29 @@ describe("MissionController", () => {
   });
 
   describe("adjustMission", () => {
-    it("adjusts an active mission", async () => {
-      const dto = { addDimensions: ["Technology"], removeDimensions: [] };
+    it("delegates to MissionAmendmentService for active missions", async () => {
+      const dto = {
+        addDimensions: [{ name: "Technology", description: "tech dim" }],
+        removeDimensions: ["old-dim"],
+        focusAreas: ["商业"],
+        reason: "扩展范围",
+      };
       const mission = { id: "m-1" };
-      const adjusted = { id: "m-1", dimensions: ["Technology"] };
       mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
-      mockLifecycleService.adjustMission.mockResolvedValue(adjusted);
 
-      const result = await controller.adjustMission(
-        makeReq(),
-        "topic-1",
-        dto as never,
-      );
+      await controller.adjustMission(makeReq(), "topic-1", dto as never);
 
-      expect(mockLifecycleService.adjustMission).toHaveBeenCalledWith(
+      expect(mockAmendmentService.pauseAndAmend).toHaveBeenCalledWith(
         "user-1",
         "m-1",
-        dto,
+        expect.objectContaining({
+          addDimensions: dto.addDimensions,
+          removeDimensions: dto.removeDimensions,
+          focusAreas: dto.focusAreas,
+          reason: dto.reason,
+          requestedBy: "user-1",
+        }),
       );
-      expect(result).toBe(adjusted);
     });
 
     it("throws NotFoundException when no active mission", async () => {

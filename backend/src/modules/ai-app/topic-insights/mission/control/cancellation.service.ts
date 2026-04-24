@@ -26,6 +26,17 @@ export class MissionCancellationService {
     { controller: AbortController; registeredAt: Date }
   >();
 
+  /**
+   * F3 · Task-level cancel signal registry.
+   *
+   * Stages that spawn per-task agent runs can check `isTaskCancelled(taskId)`
+   * inside their loop and early-return. This is cooperative: we do not abort
+   * in-flight LLM calls scoped to a specific task id — the closest abort that
+   * works today is mission-level. Task-level is expressive enough for UI
+   * "skip this dimension" buttons and avoids fighting the pipeline.
+   */
+  private readonly cancelledTasks = new Set<string>();
+
   /** Called by runWithHarness at pipeline start. */
   register(missionId: string, controller: AbortController): void {
     if (this.active.has(missionId)) {
@@ -68,5 +79,24 @@ export class MissionCancellationService {
   /** Debug/observability — list current active mission ids. */
   listActive(): string[] {
     return Array.from(this.active.keys());
+  }
+
+  // ─── F3 · Task-level cancel API ────────────────────────────────────────────
+
+  cancelTask(taskId: string, reason = "user requested task cancel"): void {
+    this.cancelledTasks.add(taskId);
+    this.logger.log(`[cancelTask] task=${taskId} reason="${reason}"`);
+  }
+
+  isTaskCancelled(taskId: string): boolean {
+    return this.cancelledTasks.has(taskId);
+  }
+
+  clearTaskCancel(taskId: string): void {
+    this.cancelledTasks.delete(taskId);
+  }
+
+  listCancelledTasks(): string[] {
+    return Array.from(this.cancelledTasks);
   }
 }

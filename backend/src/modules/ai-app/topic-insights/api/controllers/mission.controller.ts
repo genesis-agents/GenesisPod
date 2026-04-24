@@ -49,6 +49,7 @@ import type { RequestWithUser } from "@/common/types/express-request.types";
 import { BillingContext } from "@/modules/ai-infra/facade";
 import { BillingContextInterceptor } from "@/modules/ai-app/topic-insights/api/interceptors/billing-context.interceptor";
 import { LeaderChatService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/leader-chat.service";
+import { MissionAmendmentService } from "@/modules/ai-app/topic-insights/mission/control/amendment.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -68,6 +69,7 @@ export class MissionController {
     private readonly healthService: ResearchMissionHealthService,
     private readonly checkpointService: ResearchCheckpointService,
     private readonly leaderChatService: LeaderChatService,
+    private readonly amendmentService: MissionAmendmentService,
   ) {}
 
   // ==================== Leader API ====================
@@ -572,7 +574,15 @@ export class MissionController {
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
-    return this.lifecycleService.adjustMission(userId, mission.id, dto);
+    // F3: pause-amend-resume primitive actually mutates TopicDimension in a
+    // transaction and re-kicks the harness; prior shim only wrote ResearchTask.
+    return this.amendmentService.pauseAndAmend(userId, mission.id, {
+      addDimensions: dto.addDimensions,
+      removeDimensions: dto.removeDimensions,
+      focusAreas: dto.focusAreas,
+      reason: dto.reason,
+      requestedBy: userId,
+    });
   }
 
   /**

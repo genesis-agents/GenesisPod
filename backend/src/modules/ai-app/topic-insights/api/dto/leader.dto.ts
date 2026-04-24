@@ -147,4 +147,12 @@ export class MissionAdjustDto {
   @IsOptional()
   @IsString({ each: true })
   focusAreas?: string[];
+
+  @ApiPropertyOptional({
+    description: "调整原因（用于审计日志）",
+    example: "用户希望补充政策维度",
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
