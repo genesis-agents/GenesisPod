@@ -99,7 +99,7 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
   }
 
   async execute(
-    _identity: PipelineIdentityContext,
+    identity: PipelineIdentityContext,
     input: LeaderPlannerInput,
     _signal: AbortSignal,
   ): Promise<PlanStageOutput> {
@@ -108,7 +108,7 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     );
     if (!runner)
       throw new Error("AG-01-LD not registered in SpecAgentRegistry");
-    const res = await runner.executeSpec(input);
+    const res = await runner.executeSpec(input, identity.capabilities?.env);
     if (res.state !== "completed") {
       throw new Error(
         `AG-01-LD failed: ${res.errors?.join("; ") ?? "unknown"}`,

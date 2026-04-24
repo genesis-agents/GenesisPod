@@ -289,12 +289,18 @@ export class GeminiImageAdapter extends BaseImageAdapter {
         provider: this.provider,
       };
     } catch (error) {
-      // Final fallback to Gemini Flash
-      this.logger.warn(`Imagen predict failed, falling back to Gemini Flash`);
-      return this.generateWithGemini(apiKey, "gemini-2.0-flash-exp", prompt, {
-        width: 1024,
-        height: 1024,
-      });
+      // 之前此处静默 fallback 到硬编码 "gemini-2.0-flash-exp"，
+      // 违反 CLAUDE.md 规则（任何 fallback 不得用具体模型字面量）。
+      // 正确做法：直接把 Imagen 调用失败抛出，由上层 ImageGenerationService
+      // 根据 DB 中 IMAGE_GENERATION 的配置选择可用模型，或让用户/运维看到
+      // 真实错误——不要偷偷路由到某个可能未配置的模型上。
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Imagen predict failed for model ${model}: ${msg}. No silent fallback.`,
+      );
+      throw error instanceof Error
+        ? error
+        : new Error(`Imagen predict failed: ${msg}`);
     }
   }
 

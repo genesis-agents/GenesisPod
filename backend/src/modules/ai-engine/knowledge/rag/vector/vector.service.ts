@@ -383,12 +383,14 @@ export class VectorService implements OnModuleInit {
    *
    * @param childChunkId 子块 ID
    * @param embedding 向量数据
-   * @param model 使用的模型名称
+   * @param model 使用的模型名称（必填 — 之前默认 "text-embedding-3-small"
+   *   会在调用方漏传时把真实由 Gemini/Cohere 生成的向量错误标记为 OpenAI，
+   *   破坏 embedding 表的数据完整性。调用方必须传入实际使用的模型名。）
    */
   async storeEmbedding(
     childChunkId: string,
     embedding: number[],
-    model: string = "text-embedding-3-small",
+    model: string,
   ): Promise<void> {
     const dimensions = embedding.length;
 
@@ -425,12 +427,12 @@ export class VectorService implements OnModuleInit {
    * 批量存储嵌入
    *
    * @param items 块 ID 和嵌入数组
-   * @param model 使用的模型名称
+   * @param model 使用的模型名称（必填 — 参见 storeEmbedding 注释）
    * @returns 存储数量
    */
   async batchStoreEmbeddings(
     items: Array<{ childChunkId: string; embedding: number[] }>,
-    model: string = "text-embedding-3-small",
+    model: string,
   ): Promise<number> {
     let stored = 0;
 

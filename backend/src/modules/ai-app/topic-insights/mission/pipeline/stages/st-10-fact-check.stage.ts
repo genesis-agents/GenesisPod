@@ -107,12 +107,15 @@ export class FactCheckStage implements Stage<
       };
     }
 
-    const res = await runner.executeSpec({
-      missionId: identity.missionId,
-      reportContent: input.synthesis.fullMarkdown,
-      allClaims,
-      evidenceSummaries,
-    });
+    const res = await runner.executeSpec(
+      {
+        missionId: identity.missionId,
+        reportContent: input.synthesis.fullMarkdown,
+        allClaims,
+        evidenceSummaries,
+      },
+      identity.capabilities?.env,
+    );
     if (res.state !== "completed") {
       throw new Error(
         `AG-07-FC failed: ${res.errors?.join("; ") ?? "unknown"}`,

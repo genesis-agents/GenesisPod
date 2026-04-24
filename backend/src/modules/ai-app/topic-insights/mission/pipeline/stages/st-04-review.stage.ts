@@ -35,7 +35,7 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
   }
 
   async execute(
-    _identity: PipelineIdentityContext,
+    identity: PipelineIdentityContext,
     input: WriteStageOutput,
     signal: AbortSignal,
   ): Promise<ReviewStageOutput> {
@@ -50,17 +50,20 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
       if (signal.aborted) {
         throw new DOMException(`[${this.id}] aborted`, "AbortError");
       }
-      const res = await runner.executeSpec({
-        sectionResult: {
-          sectionId: section.sectionId,
-          dimensionId: section.dimensionId,
-          title: section.title,
-          content: section.content,
-          wordCount: section.wordCount,
-          keyFindings: section.keyFindings,
+      const res = await runner.executeSpec(
+        {
+          sectionResult: {
+            sectionId: section.sectionId,
+            dimensionId: section.dimensionId,
+            title: section.title,
+            content: section.content,
+            wordCount: section.wordCount,
+            keyFindings: section.keyFindings,
+          },
+          revisionRound: 1,
         },
-        revisionRound: 1,
-      });
+        identity.capabilities?.env,
+      );
       if (res.state !== "completed") {
         throw new Error(
           `AG-04-SR failed at ${section.sectionId}: ${res.errors?.join("; ") ?? "unknown"}`,

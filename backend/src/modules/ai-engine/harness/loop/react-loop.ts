@@ -217,11 +217,18 @@ export class ReActLoop implements IAgentLoop {
     baseSystem: string,
     signal?: AbortSignal,
   ): Promise<ParsedDecision> {
+    // Fail-fast: 进入 LLM 前先检查取消，避免发起一次注定浪费 token 的请求
+    if (signal?.aborted) {
+      throw new Error("ReAct loop aborted by signal");
+    }
     const systemPrompt = baseSystem + DECISION_SYSTEM_SUFFIX;
     const response = await this.chatService.chat({
       messages,
       systemPrompt,
       taskProfile: { creativity: "low", outputLength: "short" },
+      // signal 必须向下传给 AiChatService，推理模型 30-60s 调用期间
+      // 如果用户/外层 budget 取消，底层 HTTP 请求能立即中断
+      signal,
     });
     if (signal?.aborted) {
       throw new Error("ReAct loop aborted by signal");

@@ -298,14 +298,17 @@ export class PipelineOrchestratorService {
     const pending = allStageIds.filter((id) => !completed.includes(id));
 
     try {
-      const res = await adjuster.executeSpec({
-        budgetUsagePct,
-        currentDepth: identity.depth,
-        completedStages: completed,
-        pendingStages: pending,
-        qualityScore: qgateScore,
-        elapsedMs: Date.now() - startedAt,
-      });
+      const res = await adjuster.executeSpec(
+        {
+          budgetUsagePct,
+          currentDepth: identity.depth,
+          completedStages: completed,
+          pendingStages: pending,
+          qualityScore: qgateScore,
+          elapsedMs: Date.now() - startedAt,
+        },
+        identity.capabilities?.env,
+      );
       if (res.state !== "completed") {
         throw new Error(
           `AG-16-MA failed: ${res.errors?.join("; ") ?? "unknown"}`,
@@ -574,14 +577,17 @@ export class PipelineOrchestratorService {
       }
 
       try {
-        const res = await remediator.executeSpec({
-          sectionId: section.sectionId,
-          sectionTitle: section.title,
-          originalContent: section.content,
-          issues: rev.issues,
-          revisionInstructions: rev.revisionInstructions,
-          targetWords: section.wordCount,
-        });
+        const res = await remediator.executeSpec(
+          {
+            sectionId: section.sectionId,
+            sectionTitle: section.title,
+            originalContent: section.content,
+            issues: rev.issues,
+            revisionInstructions: rev.revisionInstructions,
+            targetWords: section.wordCount,
+          },
+          identity.capabilities?.env,
+        );
         if (res.state !== "completed") {
           throw new Error(
             `AG-12-SREM failed: ${res.errors?.join("; ") ?? "unknown"}`,

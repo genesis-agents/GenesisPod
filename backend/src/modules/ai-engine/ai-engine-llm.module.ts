@@ -56,6 +56,9 @@ import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
 // Long-term editable recommendation matrix (user + admin auto-configure share this)
 import { ModelRecommendationsService } from "./llm/recommendations/model-recommendations.service";
 
+// Environment-aware model election (pick modelId from env snapshot + request hints)
+import { ModelElectionService } from "./llm/election/model-election.service";
+
 @Module({
   imports: [
     HttpModule.register({
@@ -121,6 +124,9 @@ import { ModelRecommendationsService } from "./llm/recommendations/model-recomme
 
     // Admin — 系统模型全景
     SystemModelInventoryService,
+
+    // Environment-aware model election
+    ModelElectionService,
   ],
   exports: [
     LLMFactory,
@@ -142,6 +148,7 @@ import { ModelRecommendationsService } from "./llm/recommendations/model-recomme
     ModelFallbackService,
     ModelRecommendationsService,
     SystemModelInventoryService,
+    ModelElectionService,
   ],
 })
 export class AiEngineLLMModule {}

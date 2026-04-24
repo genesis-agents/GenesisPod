@@ -8,6 +8,10 @@
 
 import { Injectable, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import {
+  ModelElectionService,
+  type EnvironmentSnapshot,
+} from "@/modules/ai-engine/facade";
 import type {
   IAgent,
   IAgentLoop,
@@ -38,6 +42,7 @@ export class AgentFactory {
     @Optional() private readonly skillActivator?: SkillActivator,
     @Optional() private readonly checkpointService?: CheckpointService,
     @Optional() private readonly llmExecutor?: LlmExecutor,
+    @Optional() private readonly electionService?: ModelElectionService,
   ) {
     this.defaultLoop = reactLoop;
   }
@@ -45,9 +50,13 @@ export class AgentFactory {
   /**
    * ★ 目标架构 v2：从声明式 IAgentSpec 创建 SpecBasedAgent。
    * Spec 必须包含 outputSchema 或 stubFn 之一（否则使用 createAgent 走 ReActLoop）。
+   *
+   * @param envSnapshot 环境快照——pipeline stage 从 identity.capabilities.env
+   *   拿到后传进来，驱动 SpecBasedAgent 的环境感知选举。
    */
   createSpecAgent<TInput, TOutput>(
     spec: IAgentSpec<TInput, TOutput>,
+    envSnapshot?: EnvironmentSnapshot,
   ): SpecBasedAgent<TInput, TOutput> {
     if (!this.llmExecutor) {
       throw new Error(
@@ -55,7 +64,13 @@ export class AgentFactory {
       );
     }
     const id = spec.identity.role.id;
-    return new SpecBasedAgent<TInput, TOutput>(id, spec, this.llmExecutor);
+    return new SpecBasedAgent<TInput, TOutput>(
+      id,
+      spec,
+      this.llmExecutor,
+      this.electionService,
+      envSnapshot,
+    );
   }
 
   /**

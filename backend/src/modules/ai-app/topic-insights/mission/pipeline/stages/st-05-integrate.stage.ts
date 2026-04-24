@@ -55,7 +55,7 @@ export class IntegrateStage implements Stage<
   }
 
   async execute(
-    _identity: PipelineIdentityContext,
+    identity: PipelineIdentityContext,
     input: IntegrateStageInput,
     signal: AbortSignal,
   ): Promise<IntegrateStageOutput> {
@@ -88,12 +88,15 @@ export class IntegrateStage implements Stage<
       const dim = input.research.byDimension.find(
         (d) => d.dimensionId === dimensionId,
       );
-      const res = await runner.executeSpec({
-        dimensionId,
-        dimensionName: dim?.dimensionName ?? dimensionId,
-        integratedSections: contents.join("\n\n---\n\n"),
-        evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
-      });
+      const res = await runner.executeSpec(
+        {
+          dimensionId,
+          dimensionName: dim?.dimensionName ?? dimensionId,
+          integratedSections: contents.join("\n\n---\n\n"),
+          evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
+        },
+        identity.capabilities?.env,
+      );
       if (res.state !== "completed") {
         throw new Error(
           `AG-05-ME failed at ${dimensionId}: ${res.errors?.join("; ") ?? "unknown"}`,

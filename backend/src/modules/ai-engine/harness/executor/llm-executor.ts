@@ -36,6 +36,15 @@ export interface LlmExecutorInput<TOutput> {
 
   readonly taskProfile: TaskProfile;
 
+  /**
+   * 显式指定 modelId 覆盖环境感知选举。
+   * 正常路径：SpecBasedAgent 调用 ModelElectionService.elect() 拿到 modelId
+   * 后从这里传进来；LlmExecutor 再原样透给 AiChatService.chat({ model })。
+   *
+   * 为空时：AiChatService 走它自己的 modelType → DB 默认链路（单元测试兼容）。
+   */
+  readonly model?: string;
+
   /** Schema 失败最大重试次数，默认 2（首次 + 2 次修正 = 3 轮） */
   readonly maxRetries?: number;
 
@@ -92,8 +101,12 @@ export class StubNotConfiguredError extends Error {
 /**
  * 全局 stub 模式开关：env 变量 AI_ENGINE_AGENT_STUB=1 时所有 spec 带 stubFn 的 agent
  * 绕过 LLM，直接走 stub。测试友好；禁止用于生产。
+ *
+ * 生产防护：NODE_ENV === "production" 时强制禁用，防止运维误设该变量后
+ * 所有 agent 静默返回 stub 数据而报警盲区。
  */
 export function isStubModeEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   return process.env.AI_ENGINE_AGENT_STUB === "1";
 }
 
@@ -241,6 +254,8 @@ export class LlmExecutor {
         res = await this.aiChatService.chat({
           systemPrompt: input.systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
+          // Election 选出的 modelId（SpecBasedAgent 已完成环境感知选举）
+          model: input.model,
           taskProfile: input.taskProfile,
           responseFormat: "json",
           userId,

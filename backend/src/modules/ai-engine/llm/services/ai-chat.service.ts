@@ -439,7 +439,10 @@ export class AiChatService {
       const testResult = await this.generateChatCompletion({
         model: targetModel!,
         messages: [{ role: "user", content: "Hello" }],
-        maxTokens: 10,
+        // maxTokens=10 之前在推理模型上经常 truncate 到空输出（o1/o3/gpt-5
+        // 系列会先消耗 reasoning tokens 再出可见内容）。100 是覆盖绝大多数
+        // provider 最小 output buffer 的安全值，同时成本可忽略。
+        maxTokens: 100,
         temperature: 0,
       });
 

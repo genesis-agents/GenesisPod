@@ -73,14 +73,17 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
     );
     if (!runner)
       throw new Error("AG-11-SY not registered in SpecAgentRegistry");
-    const res = await runner.executeSpec({
-      missionId: identity.missionId,
-      topicId: identity.topicId,
-      topicName: `Mission-${identity.missionId}`, // Group E 接真 topic name
-      dimensionMetas: input.dimensionMetas,
-      integratedSectionsPerDim: input.integratedSectionsPerDim,
-      language: "zh",
-    });
+    const res = await runner.executeSpec(
+      {
+        missionId: identity.missionId,
+        topicId: identity.topicId,
+        topicName: `Mission-${identity.missionId}`, // Group E 接真 topic name
+        dimensionMetas: input.dimensionMetas,
+        integratedSectionsPerDim: input.integratedSectionsPerDim,
+        language: "zh",
+      },
+      identity.capabilities?.env,
+    );
     if (res.state !== "completed") {
       throw new Error(
         `AG-11-SY failed: ${res.errors?.join("; ") ?? "unknown"}`,

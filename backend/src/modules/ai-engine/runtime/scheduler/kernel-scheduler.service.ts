@@ -157,9 +157,13 @@ export class KernelSchedulerService implements OnModuleInit, OnModuleDestroy {
               `Process ${process.id} already scheduled by another instance`,
             );
           }
-        } catch {
-          this.logger.debug(
-            `Process ${process.id} scheduling failed unexpectedly`,
+        } catch (err) {
+          // 生产默认 warn+ 级别，debug 不可见；调度失败会让 process 停在 READY
+          // 循环重试，静默等于隐形循环失败
+          this.logger.warn(
+            `Process ${process.id} scheduling failed: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
           );
         }
       }

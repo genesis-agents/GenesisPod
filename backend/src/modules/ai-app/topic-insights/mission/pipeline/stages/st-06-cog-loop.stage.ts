@@ -64,10 +64,11 @@ export class CogLoopStage implements Stage<
   }
 
   async execute(
-    _identity: PipelineIdentityContext,
+    identity: PipelineIdentityContext,
     input: CogLoopStageInput,
     signal: AbortSignal,
   ): Promise<CogLoopStageOutput> {
+    const env = identity.capabilities?.env;
     const gapRunner = this.agentRegistry.get<
       GapSearcherInput,
       GapSearcherResult
@@ -92,13 +93,16 @@ export class CogLoopStage implements Stage<
       if (signal.aborted) {
         throw new DOMException(`[${this.id}] aborted`, "AbortError");
       }
-      const res = await gapRunner.executeSpec({
-        dimensionId: meta.dimensionId,
-        dimensionName: meta.dimensionName,
-        dimensionSummary: meta.summary,
-        existingKeyFindings: meta.keyFindings,
-        existingEvidenceCount: meta.evidenceCount,
-      });
+      const res = await gapRunner.executeSpec(
+        {
+          dimensionId: meta.dimensionId,
+          dimensionName: meta.dimensionName,
+          dimensionSummary: meta.summary,
+          existingKeyFindings: meta.keyFindings,
+          existingEvidenceCount: meta.evidenceCount,
+        },
+        env,
+      );
       if (res.state !== "completed") {
         throw new Error(
           `AG-08-GS failed: ${res.errors?.join("; ") ?? "unknown"}`,
@@ -133,7 +137,10 @@ export class CogLoopStage implements Stage<
 
     let hvResult: HypothesisVerifierResult = { hypotheses: [] };
     if (hypotheses.length > 0) {
-      const res = await hvRunner.executeSpec({ hypotheses, evidenceSummaries });
+      const res = await hvRunner.executeSpec(
+        { hypotheses, evidenceSummaries },
+        env,
+      );
       if (res.state !== "completed") {
         throw new Error(
           `AG-09-HV failed: ${res.errors?.join("; ") ?? "unknown"}`,
@@ -143,15 +150,18 @@ export class CogLoopStage implements Stage<
     }
 
     // 3. Fact extraction
-    const fxResult = await fxRunner.executeSpec({
-      dimensions: input.integrate.dimensionMetas.map((m) => ({
-        id: m.dimensionId,
-        name: m.dimensionName,
-        summary: m.summary,
-        keyFindings: m.keyFindings,
-      })),
-      evidenceIds,
-    });
+    const fxResult = await fxRunner.executeSpec(
+      {
+        dimensions: input.integrate.dimensionMetas.map((m) => ({
+          id: m.dimensionId,
+          name: m.dimensionName,
+          summary: m.summary,
+          keyFindings: m.keyFindings,
+        })),
+        evidenceIds,
+      },
+      env,
+    );
     if (fxResult.state !== "completed") {
       throw new Error(
         `AG-10-FX failed: ${fxResult.errors?.join("; ") ?? "unknown"}`,

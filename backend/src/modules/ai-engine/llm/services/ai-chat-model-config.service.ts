@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../ai-infra/facade";
 import { AIModel, AIModelType } from "@prisma/client";
+import { inferIsReasoning } from "../types/model-utils";
 
 /**
  * 数据库中的 AI 模型配置
@@ -87,8 +88,7 @@ export class AiChatModelConfigService {
    * ★ 统一处理所有字段，兼容新旧数据库
    */
   private buildModelConfig(model: AIModel): AIModelConfig {
-    const isReasoning =
-      model.isReasoning ?? this.inferIsReasoning(model.modelId);
+    const isReasoning = model.isReasoning ?? inferIsReasoning(model.modelId);
 
     return {
       id: model.id,
@@ -188,38 +188,9 @@ export class AiChatModelConfigService {
   }
 
   /**
-   * 根据模型名称推断是否为推理模型
-   * 当数据库中没有 isReasoning 字段时使用
-   */
-  private inferIsReasoning(modelId: string): boolean {
-    const modelLower = modelId.toLowerCase();
-    return (
-      // OpenAI reasoning models
-      modelLower.includes("o1") ||
-      modelLower.includes("o3") ||
-      modelLower.includes("gpt-5") ||
-      modelLower.includes("gpt5") ||
-      // Google/Gemini reasoning models
-      modelLower.includes("gemini-2.0-flash-thinking") ||
-      modelLower.includes("gemini-2.5") ||
-      modelLower.includes("gemini-3") ||
-      modelLower.includes("gemini-exp") ||
-      // DeepSeek reasoning models
-      modelLower.includes("deepseek-r1") ||
-      modelLower.includes("deepseek-reasoner") ||
-      // Anthropic reasoning models
-      modelLower.includes("claude-3.5-opus") ||
-      modelLower.includes("claude-4") ||
-      // Generic reasoning keyword (exclude "non-reasoning" variants)
-      (modelLower.includes("reasoning") &&
-        !modelLower.includes("non-reasoning")) ||
-      modelLower.includes("thinking")
-    );
-  }
-
-  /**
    * 检查模型是否为推理模型
-   * ★ 统一入口：优先使用数据库配置的 isReasoning 字段，否则推断
+   * 统一入口：优先使用数据库配置的 isReasoning 字段，否则推断。
+   * 推断委托给 types/model-utils.ts 的权威实现，不在此文件维护重复名单。
    */
   isReasoningModel(modelId: string): boolean {
     // 1. 从缓存获取配置
@@ -236,8 +207,8 @@ export class AiChatModelConfigService {
       }
     }
 
-    // 3. 缓存未命中，使用名称推断
-    return this.inferIsReasoning(modelId);
+    // 3. 缓存未命中，使用共享名称推断
+    return inferIsReasoning(modelId);
   }
 
   /**
@@ -407,19 +378,34 @@ export class AiChatModelConfigService {
 
   /**
    * 检查 Temperature 参数是否支持
-   * 推理模型（o1, o3, gpt-5 系列）不支持 temperature 参数
+   *
+   * 优先级：
+   * 1. DB 缓存的 supportsTemperature 字段（操作员显式声明）
+   * 2. 回落到 isReasoningModel() 的统一判断（推理模型不支持 temperature）
+   *
+   * 避免之前 o1/o3/gpt-5 硬编码漏 o4 系列的问题——所有"是否推理"的名单
+   * 统一在 types/model-utils.ts 的 inferIsReasoning 中维护。
    */
   isTemperatureSupported(model: string): boolean {
+    // 1. DB 配置优先
+    const config = this.modelConfigCache.get(model);
+    if (config?.supportsTemperature !== undefined) {
+      return config.supportsTemperature;
+    }
+
+    // 2. 不区分大小写再查一次
     const modelLower = model.toLowerCase();
+    for (const [key, cfg] of this.modelConfigCache.entries()) {
+      if (
+        key.toLowerCase() === modelLower &&
+        cfg.supportsTemperature !== undefined
+      ) {
+        return cfg.supportsTemperature;
+      }
+    }
 
-    // ★ 推理模型不支持 temperature 参数
-    const isReasoningModel =
-      modelLower.startsWith("o1") ||
-      modelLower.startsWith("o3") ||
-      modelLower.startsWith("gpt-5") ||
-      modelLower.includes("gpt-5");
-
-    if (isReasoningModel) {
+    // 3. 推理模型不支持 temperature 参数（委托统一判断）
+    if (this.isReasoningModel(model)) {
       this.logger.debug(
         `[isTemperatureSupported] Model "${model}" is a reasoning model, temperature not supported`,
       );

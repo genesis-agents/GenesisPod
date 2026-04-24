@@ -185,35 +185,17 @@ describe("GeminiImageAdapter", () => {
     expect(result.images[0].url).toContain("predictbytes");
   });
 
-  it("falls back to gemini flash when predict also fails", async () => {
+  it("propagates error when predict also fails (no silent fallback to hardcoded flash)", async () => {
+    // 违反 CLAUDE.md 规则的硬编码 "gemini-2.0-flash-exp" fallback 已移除：
+    // Imagen 两端（generateImages + predict）都失败时必须抛错，
+    // 由上层 ImageGenerationService 根据 DB 配置决定下一步动作。
     mockPost
       .mockReturnValueOnce(throwError(() => ({ response: { status: 404 } })))
-      .mockReturnValueOnce(throwError(() => new Error("predict failed")))
-      // final gemini flash call
-      .mockReturnValueOnce(
-        of({
-          data: {
-            candidates: [
-              {
-                content: {
-                  parts: [
-                    {
-                      inlineData: { data: "flashbytes", mimeType: "image/png" },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        }),
-      );
+      .mockReturnValueOnce(throwError(() => new Error("predict failed")));
 
-    const result = await adapter.generate({
-      prompt: "test",
-      model: "imagen-3.0-generate-001",
-    });
-
-    expect(result.images[0].url).toContain("flashbytes");
+    await expect(
+      adapter.generate({ prompt: "test", model: "imagen-3.0-generate-001" }),
+    ).rejects.toThrow("predict failed");
   });
 
   it("rethrows non-404 errors from generateImages", async () => {

@@ -8,7 +8,7 @@
  *   4. 返回 SubagentHandle，让父 agent 可以消费事件流或等结果
  */
 
-import { Injectable, Inject, forwardRef } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import type {
   IAgent,
@@ -28,10 +28,14 @@ export class SubagentSpawnBlockedError extends Error {
   }
 }
 
+/**
+ * AgentFactory ↔ SubagentSpawner 的循环依赖已由 HarnessModule.onApplicationBootstrap
+ * 的 setter injection（`factory.setSubagentSpawner(spawner)`）打破，所以这里直接
+ * 注入 AgentFactory 即可，不再需要 @Inject(forwardRef(...))。
+ */
 @Injectable()
 export class SubagentSpawner implements ISubagentSpawner {
   constructor(
-    @Inject(forwardRef(() => AgentFactory))
     private readonly factory: AgentFactory,
     private readonly hooks: HookRegistry,
   ) {}

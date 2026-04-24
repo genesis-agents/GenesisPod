@@ -20,6 +20,14 @@ export interface SectionWriterInput {
   };
   readonly evidenceSummary: string;
   readonly language: string;
+  /**
+   * 模型能力层级自适应（Apr 21 baseline 的 TIER_ADAPTATIONS 迁移）。
+   * 由 ST-03-WRITE 根据 capabilities.env 里的默认 CHAT 模型 tier 决定后注入。
+   * 为空（未注入 / STANDARD tier）时等价于基线行为，不改提示词。
+   */
+  readonly tierHint?: {
+    readonly promptSuffix: string;
+  };
 }
 
 export const SECTION_WRITER_SPEC: IAgentSpec<
@@ -71,7 +79,7 @@ export const SECTION_WRITER_SPEC: IAgentSpec<
   buildUserPrompt: (ctx) => {
     const { input } = ctx;
     const plan = input.sectionPlan;
-    return [
+    const base = [
       `topic: ${input.topicName}（id=${input.topicId}）`,
       `dimension: ${input.dimensionName}（id=${input.dimensionId}）`,
       `language: ${input.language}`,
@@ -88,6 +96,9 @@ export const SECTION_WRITER_SPEC: IAgentSpec<
       "",
       "请输出 SectionResult JSON。",
     ].join("\n");
+    // Tier 自适应提示（强模型鼓励综合推理；弱模型强制结构化写作）
+    const suffix = input.tierHint?.promptSuffix ?? "";
+    return suffix ? base + suffix : base;
   },
 
   validateBusinessRules: (output, ctx) => {

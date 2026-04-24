@@ -238,10 +238,14 @@ describe("VectorService", () => {
         expect(mockPrisma.$executeRaw).toHaveBeenCalled();
       });
 
-      it("uses default model name when not specified", async () => {
+      it("persists the caller-provided model name verbatim", async () => {
         mockPrisma.$executeRaw.mockResolvedValue(1);
 
-        await service.storeEmbedding("chunk-1", [0.1, 0.2]);
+        await service.storeEmbedding(
+          "chunk-1",
+          [0.1, 0.2],
+          "text-embedding-3-large",
+        );
 
         expect(mockPrisma.$executeRaw).toHaveBeenCalled();
       });
@@ -371,7 +375,7 @@ describe("VectorService", () => {
       it("stores embedding as JSONB when pgvector unavailable", async () => {
         mockPrisma.$executeRaw.mockResolvedValue(1);
 
-        await service.storeEmbedding("chunk-1", MOCK_EMBEDDING);
+        await service.storeEmbedding("chunk-1", MOCK_EMBEDDING, "test-model");
 
         expect(mockPrisma.$executeRaw).toHaveBeenCalled();
       });
@@ -407,7 +411,7 @@ describe("VectorService", () => {
           { childChunkId: "c3", embedding: [0.5, 0.6] },
         ];
 
-        const count = await service.batchStoreEmbeddings(items);
+        const count = await service.batchStoreEmbeddings(items, "test-model");
         expect(count).toBe(3);
       });
 
@@ -423,7 +427,7 @@ describe("VectorService", () => {
           { childChunkId: "c3", embedding: [0.3] },
         ];
 
-        const count = await service.batchStoreEmbeddings(items);
+        const count = await service.batchStoreEmbeddings(items, "test-model");
         expect(count).toBe(2); // only 2 succeeded
       });
 

@@ -15,13 +15,15 @@ export function inferIsReasoning(modelId: string): boolean {
   if (!modelId) return false;
   const modelLower = modelId.toLowerCase();
   return (
-    // OpenAI reasoning models
+    // OpenAI reasoning models (o1/o3/o4 families + gpt-5)
     modelLower.includes("o1") ||
     modelLower.includes("o3") ||
+    modelLower.includes("o4") ||
     modelLower.includes("gpt-5") ||
     modelLower.includes("gpt5") ||
     // Google/Gemini reasoning models
     modelLower.includes("gemini-2.0-flash-thinking") ||
+    modelLower.includes("gemini-2.5") || // gemini-2.5-pro / gemini-2.5-flash (thinking)
     modelLower.includes("gemini-3") || // gemini-3-pro-preview, etc.
     modelLower.includes("gemini-exp") ||
     // DeepSeek reasoning models

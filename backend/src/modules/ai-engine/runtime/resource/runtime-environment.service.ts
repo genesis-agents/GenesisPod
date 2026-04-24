@@ -172,6 +172,9 @@ export class RuntimeEnvironmentService {
           // discoverModels 遗漏，导致 reconciler 把 gpt-5 / o1 / deepseek-r1
           // 等已明确标 isReasoning=true 的模型错误地只归到 CHAT 桶。
           isReasoning: true,
+          // supportsVision 是 VISION 桶的唯一权威来源：DB AIModelType enum
+          // 不含 VISION，只有通过 supportsVision=true 才能识别多模态模型。
+          supportsVision: true,
         },
       });
 
@@ -244,6 +247,16 @@ export class RuntimeEnvironmentService {
           !result.REASONING.some((m) => m.modelId === row.modelId)
         ) {
           result.REASONING.push({ ...cap, modelType: "REASONING" });
+        }
+
+        // Vision 与 reasoning 同理：AIModelType enum 无 VISION 成员，
+        // 操作员通过 supportsVision=true 声明多模态模型。CHAT 桶保留，
+        // VISION 桶 additive 填充——Reconciler 读 VISION 时可以拿到候选。
+        if (
+          row.supportsVision === true &&
+          !result.VISION.some((m) => m.modelId === row.modelId)
+        ) {
+          result.VISION.push({ ...cap, modelType: "VISION" });
         }
       }
       return result;

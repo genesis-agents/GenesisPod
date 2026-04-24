@@ -39,6 +39,32 @@ export { SkillRegistry } from "../skills/registry/skill-registry";
 // don't need to reach into `ai-engine/harness/*`. Direct harness imports are
 // an architecture violation; route through this barrel instead.
 export { SpecAgentRegistry } from "../harness/core/spec-agent-registry";
+// Harness AgentFactory — used by AI App modules to build spec agents.
+// Re-exported to satisfy the facade-only rule; previously 22+ AI App files
+// had to reach into `@/modules/ai-engine/harness`.
+export { AgentFactory as HarnessAgentFactory } from "../harness/core/agent-factory";
+// Harness core types — IAgentSpec et al. Before this, the 21 spec files
+// under ai-app/topic-insights/agents/specs/ all imported from
+// `@/modules/ai-engine/harness/abstractions`, perforating the facade boundary.
+//
+// Note: harness `IAgent` / `IAgentEvent` differ from `agents/abstractions`
+// versions (harness = event-stream protocol, agents = legacy plan/result).
+// Aliased with `Harness*` prefix to prevent duplicate-identifier collisions.
+export type {
+  IAgent as HarnessIAgent,
+  IAgentEvent as HarnessIAgentEvent,
+  IAgentSpec,
+  IAgentLoop,
+  IAction,
+  IActionResult,
+  IContextEnvelope,
+  IContextMessage,
+  ILoopTerminationCriteria,
+  AgentLoopKind,
+  ISubagentHandle,
+  ISubagentSpec,
+  ISubagentSpawner,
+} from "../harness/abstractions";
 
 // ★ High-frequency types used across AI App modules
 export type {
@@ -334,6 +360,18 @@ export type {
 } from "../llm/services/ai-chat.service";
 export type { ChatMessage } from "../llm/types";
 export { inferIsReasoning, getKnownModelLimit } from "../llm/types/model-utils";
+
+// ★ Environment-aware Model Election — harness / AI App 通过 facade 调 elect()
+export { ModelElectionService } from "../llm/election";
+export {
+  NoEligibleModelError,
+  type ElectionCandidate,
+  type ElectionRequest,
+  type ElectionResult,
+  type ElectionRoleHint,
+  type ElectionScore,
+  type ElectionCostBias,
+} from "../llm/election";
 export { SearchService } from "../knowledge/search/search.service";
 export { MCPManager } from "../mcp/manager/mcp-manager";
 export { SkillLoaderService } from "../skills/loader/skill-loader.service";

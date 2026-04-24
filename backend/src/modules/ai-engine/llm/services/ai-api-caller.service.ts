@@ -502,11 +502,13 @@ export class AiApiCallerService {
       parts: resolveGeminiParts(m),
     }));
 
-    // ★ 构建请求体 - 只包含有效的 temperature
+    // ★ 构建请求体 - 不硬编码 topP/topK。
+    // 之前硬编码 topP=0.95/topK=40 会覆盖 Gemini 各模型的服务端默认值，
+    // 导致 Gemini 2.5 Pro / thinking 系列（这类模型官方推荐 topP=1.0）
+    // 采样分布被错误收紧。采样参数应由 TaskProfile / DB 配置驱动，
+    // 调用方不传就让服务端用模型自己的默认值。
     const generationConfig: Record<string, unknown> = {
       maxOutputTokens: maxTokens,
-      topP: 0.95,
-      topK: 40,
     };
 
     // 只有当 temperature 有值时才包含

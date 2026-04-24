@@ -7,10 +7,15 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
+import {
+  SpecAgentRegistry,
+  classifyModelTier,
+  ModelTier,
+} from "@/modules/ai-engine/facade";
 import type { SectionWriterInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { SectionResult } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
+import { TIER_ADAPTATIONS } from "../config/tier-adaptations.config";
 import type {
   PlanStageOutput,
   ResearchStageOutput,
@@ -67,9 +72,27 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
     // dimensionId → evidence rows（ST-02 写入的真 evidence）
     const evidenceByDim = await this.loadEvidenceByDimension(input.research);
 
+    // Tier 自适应（Apr 21 baseline TIER_ADAPTATIONS 恢复）
+    // 默认 CHAT 模型决定 tier；capabilities 缺失时回落 STANDARD（基线行为）。
+    const leaderModelId =
+      identity.capabilities?.env.models.CHAT[0]?.modelId ?? "";
+    const tier = leaderModelId
+      ? classifyModelTier(leaderModelId)
+      : ModelTier.STANDARD;
+    const adaptation = TIER_ADAPTATIONS[tier];
+
     for (const dim of input.plan.dimensions) {
       const dimEvidence = evidenceByDim.get(dim.id) ?? [];
-      const evidenceSummary = this.buildEvidenceSummary(dim.name, dimEvidence);
+      // 弱模型 (BASIC) 截断证据数量，避免上下文过长引起质量下降
+      const effectiveDimEvidence =
+        adaptation.maxEvidenceItems > 0 &&
+        dimEvidence.length > adaptation.maxEvidenceItems
+          ? dimEvidence.slice(0, adaptation.maxEvidenceItems)
+          : dimEvidence;
+      const evidenceSummary = this.buildEvidenceSummary(
+        dim.name,
+        effectiveDimEvidence,
+      );
 
       for (let si = 0; si < 2; si++) {
         if (signal.aborted) {
@@ -92,8 +115,14 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           },
           evidenceSummary,
           language: "zh",
+          tierHint: adaptation.promptSuffix
+            ? { promptSuffix: adaptation.promptSuffix }
+            : undefined,
         };
-        const res = await runner.executeSpec(sectionInput);
+        const res = await runner.executeSpec(
+          sectionInput,
+          identity.capabilities?.env,
+        );
         if (res.state !== "completed") {
           throw new Error(
             `AG-03-SW failed at ${dim.id}/s-${si + 1}: ${res.errors?.join("; ") ?? "unknown"}`,
@@ -160,7 +189,13 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
     return byDim;
   }
 
-  /** 构造喂给 SectionWriter 的 evidenceSummary 字符串 */
+  /**
+   * 构造喂给 SectionWriter 的 evidenceSummary 字符串。
+   *
+   * 不再内部 slice(0, 12) —— Tier 自适应 (`TIER_ADAPTATIONS.maxEvidenceItems`)
+   * 由 execute() 统一决定证据条数。这里原样格式化传入行，让 STRONG tier 能
+   * 真正拿到全部证据、BASIC tier 严格限制在 8 条。
+   */
   private buildEvidenceSummary(
     dimensionName: string,
     rows: Array<{
@@ -175,13 +210,13 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
     if (rows.length === 0) {
       return `维度 "${dimensionName}" 暂无可用证据。`;
     }
-    const lines = rows.slice(0, 12).map((r, idx) => {
+    const lines = rows.map((r, idx) => {
       const ref = r.citationIndex ?? idx + 1;
       const dom = r.domain ? `（${r.domain}）` : "";
       const snippet = (r.snippet ?? "").slice(0, 220);
       return `[${ref}] ${r.title}${dom}\n    ${snippet}\n    来源: ${r.url}\n    evidenceId: ${r.id}`;
     });
-    return `证据（${rows.length} 条，取前 ${Math.min(rows.length, 12)} 条）:\n\n${lines.join("\n\n")}`;
+    return `证据（${rows.length} 条）:\n\n${lines.join("\n\n")}`;
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await

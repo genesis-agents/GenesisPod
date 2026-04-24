@@ -18,7 +18,15 @@
  */
 
 import { Logger } from "@nestjs/common";
-import { KernelContext } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
+import {
+  KernelContext,
+  ModelElectionService,
+  NoEligibleModelError,
+  type ElectionCandidate,
+  type ElectionRoleHint,
+  type EnvironmentSnapshot,
+} from "@/modules/ai-engine/facade";
 import type {
   IAgent,
   IAgentEvent,
@@ -63,6 +71,16 @@ export class SpecBasedAgent<
     public readonly id: AgentId,
     private readonly spec: IAgentSpec<TInput, TOutput>,
     private readonly llmExecutor: LlmExecutor,
+    /**
+     * Environment-aware election. Optional so unit tests that hand-mock
+     * LlmExecutor can skip election; production always has it via DI.
+     */
+    private readonly electionService?: ModelElectionService,
+    /**
+     * 运行时环境快照。通常由 pipeline orchestrator 在 executeSpec 前注入（来自
+     * identity.capabilities.env）。没有 snapshot 时，election 退化到 DB 全表。
+     */
+    private readonly envSnapshot?: EnvironmentSnapshot,
   ) {
     this.logger = new Logger(`SpecBasedAgent:${id}`);
     this._identity =
@@ -96,8 +114,15 @@ export class SpecBasedAgent<
   /**
    * ★ 目标架构主入口：spec → LLM → typed output
    * Pipeline stages 用这个方法，得到强类型结果。
+   *
+   * @param envOverride 调用时传入的环境快照——通常来自 pipeline
+   *   `identity.capabilities.env`；缺省时使用构造时注入的 envSnapshot，
+   *   两者都缺就让 election 退到 DB 全表查询。
    */
-  async executeSpec(input: TInput): Promise<SpecAgentResult<TOutput>> {
+  async executeSpec(
+    input: TInput,
+    envOverride?: EnvironmentSnapshot,
+  ): Promise<SpecAgentResult<TOutput>> {
     this._state = "running";
     const startMs = Date.now();
     const ctx = { input, identity: this._identity };
@@ -112,22 +137,35 @@ export class SpecBasedAgent<
         : JSON.stringify(input);
 
     const kctx = KernelContext.get();
+    const effectiveUserId = this.spec.userId ?? kctx?.userId;
+
+    // ============================================================
+    // 环境感知选举：spec 没声明显式 model → 根据 role + TaskProfile 动态选
+    // ============================================================
+    const taskProfile = this.spec.taskProfile ?? {
+      creativity: "low",
+      outputLength: "medium",
+    };
+    const effectiveEnv = envOverride ?? this.envSnapshot;
+    const electedModelId = await this.electModelOrNull(
+      taskProfile,
+      effectiveUserId,
+      effectiveEnv,
+    );
 
     try {
       const result = await this.llmExecutor.execute<TOutput>({
         agentId: this.id,
         systemPrompt,
         userPrompt,
+        model: electedModelId,
         outputSchema: this.spec.outputSchema,
         validateBusinessRules: this.spec.validateBusinessRules
           ? (output) => this.spec.validateBusinessRules!(output, ctx)
           : undefined,
-        taskProfile: this.spec.taskProfile ?? {
-          creativity: "low",
-          outputLength: "medium",
-        },
+        taskProfile,
         signal: this.abortController.signal,
-        userId: this.spec.userId ?? kctx?.userId,
+        userId: effectiveUserId,
         operationName: this.id,
         stubFn: this.spec.stubFn ? () => this.spec.stubFn!(ctx) : undefined,
       });
@@ -205,5 +243,83 @@ export class SpecBasedAgent<
     this.abortController.abort(reason);
     this._state = "cancelled";
     return Promise.resolve();
+  }
+
+  /**
+   * 执行环境感知选举。失败时返回 undefined（让下游 LlmExecutor 走 AiChatService
+   * 的旧兜底链路，保持向后兼容）。抛 NoEligibleModelError 时 upstream 要看到
+   * 清晰报错，所以这里直接 throw，让 executeSpec 的 catch 接住。
+   */
+  private async electModelOrNull(
+    taskProfile: IAgentSpec<TInput, TOutput>["taskProfile"],
+    userId: string | undefined,
+    env: EnvironmentSnapshot | undefined,
+  ): Promise<string | undefined> {
+    if (!this.electionService) return undefined;
+
+    const role = this.resolveRoleHint(this._identity.role.id);
+    const requestedModelType = AIModelType.CHAT;
+    const candidates = this.buildCandidatesFromSnapshot(
+      env,
+      requestedModelType,
+    );
+
+    try {
+      const res = await this.electionService.elect({
+        modelType: requestedModelType,
+        candidates,
+        taskProfile,
+        role,
+        userId,
+      });
+      this.logger.debug(
+        `[electModel] ${this.id} → ${res.elected.modelId} (${res.reason})`,
+      );
+      return res.elected.modelId;
+    } catch (err) {
+      if (err instanceof NoEligibleModelError) throw err;
+      this.logger.warn(
+        `[electModel] ${this.id} election failed (non-fatal, falling back to AiChatService default): ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * 从 spec.identity.role.id 映射到 ElectionRoleHint。
+   * 规则：名字里出现 planner/leader/dispatch → leader；writer/section → writer；
+   * reviewer/evaluator/checker → reviewer；extractor/miner → extractor；
+   * classifier/intent → classifier；其余 default。
+   */
+  private resolveRoleHint(roleId: string): ElectionRoleHint {
+    const lc = roleId.toLowerCase();
+    if (/leader|planner|dispatch|adjust/.test(lc)) return "leader";
+    if (/writer|section|synthes|editor|report/.test(lc)) return "writer";
+    if (/review|evaluat|check|verif|repair/.test(lc)) return "reviewer";
+    if (/extract|miner|meta/.test(lc)) return "extractor";
+    if (/classif|intent/.test(lc)) return "classifier";
+    return "default";
+  }
+
+  /** 从环境快照构造候选池；无 snapshot 时返回空数组（election 退到 DB 全表） */
+  private buildCandidatesFromSnapshot(
+    env: EnvironmentSnapshot | undefined,
+    requestedType: AIModelType,
+  ): ElectionCandidate[] {
+    if (!env) return [];
+    const rows = [
+      ...env.models.CHAT,
+      ...env.models.REASONING,
+      ...(requestedType === AIModelType.EMBEDDING ? env.models.EMBEDDING : []),
+    ];
+    return rows.map((m) => ({
+      modelId: m.modelId,
+      provider: m.provider,
+      modelType: m.modelType,
+      healthy: m.healthy,
+      recentErrorRate: m.recentErrorRate,
+      costTier: m.costTier,
+    }));
   }
 }
