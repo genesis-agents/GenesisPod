@@ -6,7 +6,6 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
-import { sanitize } from "./utils/prompt-sanitizer.utils";
 import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { RESEARCH_INTERNAL_EVENTS } from "./services/research/event-emitter.service";
@@ -31,7 +30,7 @@ import {
   UpdateScheduleDto,
   ListLogsDto,
 } from "./dto";
-import { AIModelType, AnnotationStatus, AnnotationType } from "@prisma/client";
+import { AnnotationStatus, AnnotationType } from "@prisma/client";
 // H6 step 6: RefreshProgressEvent was originally exported from the legacy
 // team-orchestrator. That orchestrator is being deleted; the SSE progress
 // stream below listens on the TOPIC_RESEARCH_PROGRESS event, which harness
@@ -73,13 +72,10 @@ import {
   LatexRepairService,
   ComputeUsageService,
   type ComputeUsageResult,
+  ReportContentEditingService,
+  type AiEditReportDto,
+  type UpdateReportContentDto,
 } from "./services";
-import { ChatFacade } from "../../ai-engine/facade";
-import {
-  REPORT_EDITING_SYSTEM_PROMPT,
-  buildEditPrompt,
-  buildEnhancedEditPrompt,
-} from "./prompts";
 import { BillingContext } from "../../ai-infra/facade";
 import type { ResearchDepth } from "./types";
 
@@ -148,7 +144,6 @@ export class TopicInsightsService {
     private readonly cancellation: MissionCancellationService,
     private readonly reportService: ReportSynthesisService,
     private readonly evidenceService: EvidenceManagementService,
-    private readonly chatFacade: ChatFacade,
     private readonly reportChangeService: ReportChangeService,
     private readonly reportAnnotationService: ReportAnnotationService,
     private readonly researchStrategyService: ResearchStrategyService,
@@ -163,6 +158,7 @@ export class TopicInsightsService {
     private readonly reportDataService: ReportDataService,
     private readonly latexRepairService: LatexRepairService,
     private readonly computeUsageService: ComputeUsageService,
+    private readonly reportContentEditingService: ReportContentEditingService,
   ) {}
 
   /**
@@ -1090,247 +1086,64 @@ export class TopicInsightsService {
     return report;
   }
 
-  /**
-   * 更新报告内容
-   */
+  // ==================== Report Editing (delegated to ReportContentEditingService) ====================
+
   async updateReportContent(
     userId: string,
     topicId: string,
     reportId: string,
-    dto: {
-      executiveSummary?: string;
-      fullReport?: string;
-      changeDescription?: string;
-    },
+    dto: UpdateReportContentDto,
   ) {
-    await this.verifyTopicOwnership(userId, topicId);
-
-    const report = await this.reportService.getReport(reportId);
-    if (!report || report.topicId !== topicId) {
-      throw new NotFoundException("Report not found");
-    }
-
-    return this.reportDataService.updateReportContent(reportId, dto);
+    return this.reportContentEditingService.updateReportContent(
+      userId,
+      topicId,
+      reportId,
+      dto,
+    );
   }
 
-  /**
-   * AI 编辑报告
-   */
   async aiEditReport(
     userId: string,
     topicId: string,
     reportId: string,
-    dto: {
-      operation: "rewrite" | "polish" | "expand" | "compress" | "style";
-      selectedText?: string;
-      context?: string;
-      fullContent?: string;
-      styleGuide?: string;
-      selectorPrefix?: string;
-      selectorSuffix?: string;
-      selection?: string;
-      customInstruction?: string;
-      targetStyle?: "academic" | "business" | "casual" | "technical";
-    },
+    dto: AiEditReportDto,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
-
-    const report = await this.reportService.getReport(reportId);
-    if (!report || report.topicId !== topicId) {
-      throw new NotFoundException("Report not found");
-    }
-
-    // 确定使用新模式还是旧模式
-    const useNewMode = Boolean(dto.selectedText);
-
-    // 获取待编辑的文本（兼容两种模式）
-    const textToEdit = dto.selectedText || dto.selection || report.fullReport;
-
-    // 构建 AI 编辑 prompt
-    let prompt: string;
-    if (useNewMode) {
-      // 新模式：使用增强提示词
-      prompt = buildEnhancedEditPrompt(dto.operation, textToEdit, {
-        userInstruction: dto.context ? sanitize(dto.context) : undefined,
-        fullContent: dto.fullContent,
-        styleGuide: dto.styleGuide,
-        targetStyle: dto.targetStyle,
-      });
-    } else {
-      // 旧模式：使用简单提示词（向后兼容）
-      prompt = buildEditPrompt(dto.operation, textToEdit, {
-        targetStyle: dto.targetStyle,
-        customInstruction: dto.customInstruction
-          ? sanitize(dto.customInstruction)
-          : undefined,
-      });
-    }
-
-    // 调用 AI 服务进行编辑（带自动积分扣除）
-    // NOTE: report-editing skill 已注册但此处需 billing 字段，chatWithSkills 不支持
-    const aiResponse = await this.chatFacade.chat({
-      operationName: "报告编辑",
-      messages: [
-        {
-          role: "system",
-          content: REPORT_EDITING_SYSTEM_PROMPT,
-        },
-        { role: "user", content: prompt },
-      ],
-      modelType: AIModelType.CHAT,
-      // ★ Security: 不再 skipGuardrails —— 外部内容已通过 <external_source>
-      // 标签在 prompt builder 中结构化隔离，守卫层现在可以安全扫描用户指令段。
-      taskProfile: {
-        creativity: dto.operation === "rewrite" ? "high" : "medium",
-        outputLength: dto.operation === "compress" ? "short" : "medium",
-      },
-      // ★ 自动积分扣除：基于实际 token 消耗
-      billing: {
-        userId,
-        moduleType: "topic-insights",
-        operationType: "ai-edit",
-        referenceId: reportId,
-        description: `AI 编辑报告 (${dto.operation})`,
-      },
-    });
-
-    const editedContent = aiResponse.content || "";
-
-    // 计算新报告内容
-    const selectionToReplace = dto.selectedText || dto.selection;
-    let newFullReport = report.fullReport;
-
-    if (selectionToReplace) {
-      // 使用上下文定位进行精确替换
-      let selectionIndex = -1;
-
-      // 方法1：使用 selectorPrefix 和 selectorSuffix 进行上下文匹配
-      if (dto.selectorPrefix || dto.selectorSuffix) {
-        const prefix = dto.selectorPrefix || "";
-        const suffix = dto.selectorSuffix || "";
-        const contextPattern = prefix + selectionToReplace + suffix;
-        const contextIndex = report.fullReport.indexOf(contextPattern);
-
-        if (contextIndex !== -1) {
-          // 找到上下文匹配，计算实际选中文本的位置
-          selectionIndex = contextIndex + prefix.length;
-          this.logger.debug(
-            `Context-based match found at index ${selectionIndex}`,
-          );
-        } else {
-          this.logger.warn(`Context pattern not found, falling back`);
-        }
-      }
-
-      // 方法2：退回到简单的 indexOf 匹配
-      if (selectionIndex === -1) {
-        selectionIndex = report.fullReport.indexOf(selectionToReplace);
-      }
-
-      if (selectionIndex !== -1) {
-        newFullReport =
-          report.fullReport.substring(0, selectionIndex) +
-          editedContent +
-          report.fullReport.substring(
-            selectionIndex + selectionToReplace.length,
-          );
-      } else {
-        this.logger.warn(`Selection not found in report ${reportId}`);
-      }
-    } else {
-      // 替换整个报告
-      newFullReport = editedContent;
-    }
-
-    // 保存修订历史并更新报告（事务）
-    const changeDescription = dto.context
-      ? `AI ${dto.operation}: ${dto.context.slice(0, 50)}`
-      : `AI ${dto.operation} 操作`;
-    const updatedReport = await this.reportDataService.saveAiEditRevision(
+    return this.reportContentEditingService.aiEditReport(
+      userId,
+      topicId,
       reportId,
-      report.fullReport,
-      newFullReport,
-      changeDescription,
-      dto.operation,
+      dto,
     );
-
-    return {
-      report: updatedReport,
-      editedContent,
-      operation: dto.operation,
-    };
   }
 
-  /**
-   * 获取报告修订历史
-   */
   async getReportRevisions(userId: string, topicId: string, reportId: string) {
-    await this.verifyTopicReadAccess(userId, topicId);
-
-    const report = await this.reportService.getReport(reportId);
-    if (!report || report.topicId !== topicId) {
-      throw new NotFoundException("Report not found");
-    }
-
-    return this.reportDataService.getReportRevisions(reportId);
+    return this.reportContentEditingService.getReportRevisions(
+      userId,
+      topicId,
+      reportId,
+    );
   }
 
-  /**
-   * 回滚报告到指定版本
-   */
   async rollbackReport(
     userId: string,
     topicId: string,
     reportId: string,
     revisionNumber: number,
   ) {
-    await this.verifyTopicOwnership(userId, topicId);
-
-    const report = await this.reportService.getReport(reportId);
-    if (!report || report.topicId !== topicId) {
-      throw new NotFoundException("Report not found");
-    }
-
-    return this.reportDataService.rollbackToRevision(
+    return this.reportContentEditingService.rollbackReport(
+      userId,
+      topicId,
       reportId,
       revisionNumber,
-      report.fullReport,
     );
   }
 
-  /**
-   * 比较报告版本
-   */
   async compareReports(
     userId: string,
     topicId: string,
     dto: CompareReportsDto,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
-
-    // 通过版本号获取报告 ID
-    const [fromReport, toReport] = await Promise.all([
-      this.prisma.topicReport.findFirst({
-        where: { topicId, version: dto.from },
-        select: { id: true },
-      }),
-      this.prisma.topicReport.findFirst({
-        where: { topicId, version: dto.to },
-        select: { id: true },
-      }),
-    ]);
-
-    if (!fromReport || !toReport) {
-      throw new NotFoundException("One or both report versions not found");
-    }
-
-    return this.reportService.compareReports(
-      topicId,
-      fromReport.id,
-      toReport.id,
-    );
+    return this.reportContentEditingService.compareReports(userId, topicId, dto);
   }
 
   // ==================== Evidence (kept in Facade) ====================

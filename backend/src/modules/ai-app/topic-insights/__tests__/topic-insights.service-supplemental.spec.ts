@@ -32,6 +32,7 @@ import {
   ReportDataService,
   LatexRepairService,
   ComputeUsageService,
+  ReportContentEditingService,
 } from "../services";
 import { MissionExecutionService } from "../services/mission/execution.service";
 import { MissionCancellationService } from "../services/mission/cancellation.service";
@@ -259,6 +260,16 @@ describe("TopicInsightsService (supplemental)", () => {
         {
           provide: ComputeUsageService,
           useValue: { getComputeUsage: jest.fn() },
+        },
+        {
+          provide: ReportContentEditingService,
+          useValue: {
+            updateReportContent: jest.fn(),
+            aiEditReport: jest.fn(),
+            getReportRevisions: jest.fn(),
+            rollbackReport: jest.fn(),
+            compareReports: jest.fn(),
+          },
         },
       ],
     }).compile();

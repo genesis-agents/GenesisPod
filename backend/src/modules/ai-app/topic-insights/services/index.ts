@@ -62,6 +62,13 @@ export {
   type ComputeUsageResult,
 } from "./compute-usage/compute-usage.service";
 
+// ==================== Report Content Editing (god service split) ====================
+export {
+  ReportContentEditingService,
+  type AiEditReportDto,
+  type UpdateReportContentDto,
+} from "./report/content-editing.service";
+
 // ==================== Data ====================
 export { DataSourceRouterService } from "./data/data-source-router.service";
 export { DataSourcePlannerService } from "./data/data-source-planner.service";

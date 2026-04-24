@@ -86,6 +86,8 @@ import {
   TopicInsightsDataExportService,
   // ★ God service decomposition: compute usage
   ComputeUsageService,
+  // ★ God service decomposition: report editing
+  ReportContentEditingService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   ResearchMemoryService,
@@ -179,6 +181,8 @@ const services = [
   TopicInsightsDataExportService,
   // ★ God service decomposition: compute usage
   ComputeUsageService,
+  // ★ God service decomposition: report editing
+  ReportContentEditingService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   // ★ Memory
