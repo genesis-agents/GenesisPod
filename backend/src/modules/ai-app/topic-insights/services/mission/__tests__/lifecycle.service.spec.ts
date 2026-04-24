@@ -1071,78 +1071,11 @@ describe("MissionLifecycleService", () => {
     });
   });
 
-  // ─── createMission - async planning catch handler ────────────────────────────
-
-  describe("createMission - async planning failure catch handler", () => {
-    it("should update mission to FAILED when executePlanningAsync rejects (fire-and-forget catch)", async () => {
-      // Set up mission creation to succeed
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      prisma.researchMission.findFirst.mockResolvedValue(null);
-      const newMission = {
-        id: "mission-async-fail",
-        status: ResearchMissionStatus.PLANNING,
-        topicId: "topic-1",
-      };
-      prisma.researchMission.create.mockResolvedValue(newMission);
-      prisma.researchMission.update.mockResolvedValue({});
-
-      // Make planResearch reject immediately so executePlanningAsync throws
-      leaderService.planResearch.mockRejectedValue(
-        new Error("Planning timeout triggered"),
-      );
-      // executePlanningAsync catch path: findUnique returns null so no update
-      prisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-async-fail",
-      });
-
-      await service.createMission({ topicId: "topic-1" });
-
-      // Allow the fire-and-forget catch to run
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-
-      // The catch block in createMission should have called researchMission.update to FAILED
-      const updateCalls = prisma.researchMission.update.mock.calls;
-      const failedCall = updateCalls.find(
-        (c) =>
-          c[0]?.where?.id === "mission-async-fail" &&
-          c[0]?.data?.status === ResearchMissionStatus.FAILED,
-      );
-      expect(failedCall).toBeDefined();
-    });
-
-    it("should handle update error inside createMission async catch gracefully", async () => {
-      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
-      prisma.researchMission.findFirst.mockResolvedValue(null);
-      prisma.researchMission.create.mockResolvedValue({
-        id: "mission-update-err",
-        status: ResearchMissionStatus.PLANNING,
-        topicId: "topic-1",
-      });
-
-      // Make planning fail
-      leaderService.planResearch.mockRejectedValue(new Error("AI timeout"));
-      // executePlanningAsync catch: findUnique OK, then update throws in executePlanningAsync
-      // Then createMission catch: researchMission.update also throws
-      prisma.researchMission.findUnique.mockResolvedValue({
-        id: "mission-update-err",
-      });
-      prisma.researchMission.update.mockRejectedValue(
-        new Error("DB update failed"),
-      );
-
-      await service.createMission({ topicId: "topic-1" });
-
-      // Let all microtasks settle
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-
-      // Should not throw - error handled gracefully
-      expect(prisma.researchMission.update).toHaveBeenCalled();
-    });
-  });
+  // H6 step 8: "createMission - async planning failure catch handler" removed.
+  // createMission no longer triggers executePlanningAsync — planning happens
+  // inside the harness pipeline (ST-01-PLAN) when startExecution runs.
+  // The failure path tested here (plan timeout → mission FAILED) is now covered
+  // by runWithHarness's catch + MissionCancellationService.
 
   // ─── executePlanningAsync - execution startExecution failure ─────────────────
 

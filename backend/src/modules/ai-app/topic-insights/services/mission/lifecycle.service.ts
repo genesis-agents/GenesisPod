@@ -14,7 +14,6 @@ import {
   forwardRef,
   Optional,
 } from "@nestjs/common";
-import { withTimeout } from "@/common/utils/timeout.utils";
 import { StateTransitionValidator } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -249,77 +248,32 @@ export class MissionLifecycleService {
       );
     }
 
-    // 3. 获取 Leader 模型信息
-    const leaderModel = await this.leaderPlanning.getReasoningModel();
-    this.logger.log(
-      `[createMission] Leader model: ${leaderModel?.modelId || "null"} / ${leaderModel?.modelName || "null"}`,
-    );
-
-    // 4. 创建 Mission 记录（状态为 PLANNING）
+    // H6 step 8: legacy async planning path removed. Planning is now done
+    // inside the harness pipeline (ST-01-PLAN) when startExecution is called.
+    // createMission just persists a mission row; the pipeline fills leaderPlan
+    // in place during execution.
     const mission = await this.prisma.researchMission.create({
       data: {
         topicId,
         status: ResearchMissionStatus.PLANNING,
-        leaderModelId: leaderModel?.modelId,
-        leaderModelName: leaderModel?.modelName,
         userPrompt,
         userContext: userContext ? toPrismaJson(userContext) : undefined,
         researchDepth,
       },
     });
 
-    // 5. 发送进度事件
     this.queryService.emitProgress({
       missionId: mission.id,
       topicId,
       status: ResearchMissionStatus.PLANNING,
       progress: 5,
       phase: "planning",
-      message: "Leader 正在规划研究方案...",
+      message: "Mission created; harness will plan on execution",
       completedTasks: 0,
       totalTasks: 0,
     });
 
-    // ★ 关键修复：立即返回 mission，异步执行规划
-    // 原因：AI 推理可能需要 2-5 分钟，而 Next.js rewrite 代理默认 30 秒超时
-    // 前端会通过轮询 getMission 和 WebSocket 获取规划进度
-    const PLANNING_TIMEOUT_MS = 10 * 60 * 1000; // 10 分钟超时
-
-    // ★ 修复：添加超时控制，防止 AI 调用无限挂起
-    void withTimeout(
-      this.executePlanningAsync(
-        mission.id,
-        topicId,
-        topic.name,
-        userPrompt,
-        completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
-      ),
-      PLANNING_TIMEOUT_MS,
-      "Planning timeout after 10 minutes",
-    ).catch(async (err) => {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        `[createMission] Async planning failed: ${errorMessage}`,
-      );
-
-      // ★ 更新 Mission 状态为失败
-      try {
-        await this.prisma.researchMission.update({
-          where: { id: mission.id },
-          data: {
-            status: ResearchMissionStatus.FAILED,
-          },
-        });
-      } catch (updateErr) {
-        this.logger.error(
-          `[createMission] Failed to update mission status: ${updateErr}`,
-        );
-      }
-    });
-
-    this.logger.log(
-      `[createMission] Mission ${mission.id} created, planning started asynchronously`,
-    );
+    this.logger.log(`[createMission] Mission ${mission.id} created`);
 
     return mission;
   }
