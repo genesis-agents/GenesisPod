@@ -30,6 +30,16 @@ import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { MissionCancellationService } from "./cancellation.service";
 import { PipelineCheckpointService } from "../pipeline/pipeline-checkpoint.service";
 import { BillingContext } from "@/modules/ai-infra/facade";
+import { ResearchMissionOrchestrator } from "@/modules/ai-app/topic-insights/agent/orchestrator/research-mission-orchestrator";
+
+/**
+ * SOTA runtime feature flag: when `TOPIC_INSIGHTS_USE_SOTA=1`, task execution
+ * delegates to the task-centric SOTA orchestrator (agent/orchestrator/) instead
+ * of the stage-pipeline. Leader planning still runs via the pipeline to seed
+ * ResearchTask rows, then SOTA takes over the ReAct + judge + orchestrate loop.
+ */
+const SOTA_FLAG_ENV = "TOPIC_INSIGHTS_USE_SOTA";
+const isSOTAEnabled = (): boolean => process.env[SOTA_FLAG_ENV] === "1";
 
 @Injectable()
 export class MissionExecutionService {
@@ -49,7 +59,15 @@ export class MissionExecutionService {
     private readonly cancellation?: MissionCancellationService,
     @Optional()
     private readonly checkpoint?: PipelineCheckpointService,
-  ) {}
+    @Optional()
+    private readonly sotaOrchestrator?: ResearchMissionOrchestrator,
+  ) {
+    if (isSOTAEnabled()) {
+      this.logger.log(
+        `[ctor] SOTA runtime ENABLED via ${SOTA_FLAG_ENV}=1 — task execution will delegate to ResearchMissionOrchestrator`,
+      );
+    }
+  }
 
   /**
    * 启动任务执行循环 — harness pipeline is the single path.
@@ -64,10 +82,86 @@ export class MissionExecutionService {
     const scope = options?.dimensionScope;
     const scopeNote =
       scope && scope.length > 0 ? ` scope=[${scope.join(",")}]` : "";
+    const sotaActive = isSOTAEnabled() && this.sotaOrchestrator;
     this.logger.log(
-      `[startExecution] Starting execution for mission ${missionId}${scopeNote}`,
+      `[startExecution] Starting execution for mission ${missionId}${scopeNote} (path=${sotaActive ? "SOTA" : "pipeline"})`,
     );
+    if (sotaActive) {
+      return this.runWithSOTA(missionId, topicId, scope);
+    }
     return this.runWithHarness(missionId, topicId, scope);
+  }
+
+  /**
+   * SOTA runtime path — enabled via TOPIC_INSIGHTS_USE_SOTA=1.
+   *
+   * Flow:
+   *   1. Load ResearchTasks already seeded by Leader planning (pipeline st-01-plan
+   *      still seeds them; SOTA takes over from QUEUED state onward)
+   *   2. Pick tasks in CREATED/PENDING/QUEUED state as initial enqueue candidates
+   *   3. Delegate to ResearchMissionOrchestrator which drives ReAct + verification
+   */
+  private async runWithSOTA(
+    missionId: string,
+    topicId: string,
+    dimensionScope?: readonly string[],
+  ): Promise<void> {
+    if (!this.sotaOrchestrator) {
+      this.logger.warn(
+        `[runWithSOTA] sotaOrchestrator missing — falling back to pipeline path`,
+      );
+      return this.runWithHarness(missionId, topicId, dimensionScope);
+    }
+
+    const tasks = await this.prisma.researchTask.findMany({
+      where: {
+        missionId,
+        ...(dimensionScope && dimensionScope.length > 0
+          ? { dimensionId: { in: [...dimensionScope] } }
+          : {}),
+        status: { in: ["PENDING", "CREATED", "QUEUED"] },
+      },
+      select: { id: true },
+      orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
+    });
+
+    if (tasks.length === 0) {
+      this.logger.warn(
+        `[runWithSOTA] mission=${missionId} has no executable tasks; marking COMPLETED to avoid hang`,
+      );
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          status: ResearchMissionStatus.COMPLETED,
+          completedAt: new Date(),
+          progressPercent: 100,
+        },
+      });
+      return;
+    }
+
+    try {
+      const stats = await this.sotaOrchestrator.run({
+        missionId,
+        topicId,
+        initialTaskIds: tasks.map((t) => t.id),
+      });
+      this.logger.log(
+        `[runWithSOTA] mission=${missionId} final stats completed=${stats.completed}/${stats.total} failed=${stats.failed}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[runWithSOTA] mission=${missionId} crashed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          status: ResearchMissionStatus.FAILED,
+          completedAt: new Date(),
+        },
+      });
+      throw err;
+    }
   }
 
   /**
