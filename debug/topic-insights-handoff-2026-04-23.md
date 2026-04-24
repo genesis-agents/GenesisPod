@@ -1,7 +1,7 @@
 # Topic Insights · Handoff Document · 2026-04-23
 
 > **Session 切换节点**：2026-04-23 session-end
-> **下一 session 必读**：本文档 + `functional-restoration-plan.md` + 两份 debug 审计
+> **下一 session 必读**：本文档 + `docs/tasks/F-topic-insights-functional-restoration.md` + 两份 debug 审计
 
 ---
 
@@ -76,10 +76,10 @@
 
 | 文档 | 位置 | 作用 |
 |---|---|---|
-| 执行路线图 | `docs/topic-insights/functional-restoration-plan.md` | **F1-F8 分批执行方案** |
+| 执行路线图 | `docs/tasks/F-topic-insights-functional-restoration.md` | **F1-F8 分批执行方案** |
 | 功能丢失审计 | `debug/topic-insights-functional-loss-audit-2026-04-23.md` | 原始丢失清单 + 证据 |
 | 目录现状审计 | `debug/topic-insights-current-state-audit.md` | 当前目录结构 + SOTA 评分 |
-| 本交接文档 | `docs/topic-insights/HANDOFF-2026-04-23.md` | 上下文 + 红线 |
+| 本交接文档 | `debug/topic-insights-handoff-2026-04-23.md` | 上下文 + 红线 |
 
 ---
 
@@ -126,7 +126,7 @@ npx jest src/modules/ai-app/topic-insights --no-coverage
 #    - 创建 agents/specs/_base-agent-spec.ts
 #    - 修 3 个端点 (/templates, /from-template, /refreshDimension)
 #    - 跑测试 + commit + push
-#    - 更新 functional-restoration-plan.md 的验收表
+#    - 更新 docs/tasks/F-topic-insights-functional-restoration.md 的验收表
 
 # 5. F1 完成后再 F2 → F8（严格顺序）
 ```

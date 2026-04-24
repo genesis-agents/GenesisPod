@@ -321,7 +321,7 @@ artifacts/topic/dimension.service.ts (扩展)
 - [ ] 按 F1 → F8 顺序推进，**不要跳批次**（依赖关系严格）
 - [ ] 每批独立 commit + push，本文档同步更新验收状态
 - [ ] 遇到任何"想硬编码 / 走捷径"的冲动，**停下来**，参考"设计原则"章节
-- [ ] 全部完成后，删除 `services.ts` compat barrel 并归档本文档到 `docs/topic-insights/_archive/`
+- [ ] 全部完成后，删除 `services.ts` compat barrel 并归档本文档到 `docs/_archive/`
 
 ---
 
