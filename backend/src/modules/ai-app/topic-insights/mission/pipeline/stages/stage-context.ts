@@ -68,6 +68,21 @@ export interface ReviewStageOutput {
   }>;
   /** 当前修订轮次（硬上限 2） */
   readonly revisionRound: number;
+  /**
+   * ★ baseline section-writer QC + remediation loop：
+   * review 阶段对 needsRevision=true 的 section 调 AG-12-SREM 修订，
+   * 产出替换 section.content（保留 sectionId/dimensionId/title/keyFindings）。
+   * 下游 ST-05-INTEGRATE / ST-07-SYNTH 优先用此数组。
+   * 空数组 = 本轮无 remediation（全部 section 已达标 或 AG-12-SREM 失败 fallback 原文）。
+   */
+  readonly remediatedSections: ReadonlyArray<SectionResult>;
+  /** RemediationTrace 审计：remediation 前后状态追踪 */
+  readonly remediationTrace: ReadonlyArray<{
+    readonly sectionId: string;
+    readonly beforeScore: number;
+    readonly afterWordCount: number;
+    readonly resolvedIssues: ReadonlyArray<string>;
+  }>;
 }
 
 // ST-05-INTEGRATE

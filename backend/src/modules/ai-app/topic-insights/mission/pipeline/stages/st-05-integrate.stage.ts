@@ -15,6 +15,7 @@ import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
   ResearchStageOutput,
+  ReviewStageOutput,
   WriteStageOutput,
 } from "./stage-context";
 
@@ -30,6 +31,7 @@ export class IntegrateStage implements Stage<
 > {
   readonly id = "ST-05-INTEGRATE" as const;
   readonly name = "Dimension integrate + meta";
+  // ST-04-REVIEW 可能产出 remediatedSections，ST-05 消费的是 remediated content
   readonly dependsOn = ["ST-04-REVIEW" as const];
   readonly runsWhen = "always" as const;
   readonly slo = {
@@ -49,10 +51,36 @@ export class IntegrateStage implements Stage<
     _identity: PipelineIdentityContext,
     upstream: StageResults,
   ): Promise<IntegrateStageInput> {
+    const write = upstream.get<WriteStageOutput>("ST-03-WRITE");
+    const review = this.tryGetReview(upstream);
+
+    // ★ 如果 ST-04-REVIEW 产出了 remediatedSections，按 sectionId 覆盖原 section
+    //   content，让 INTEGRATE 消费修订后的内容。baseline section-writer QC loop 对齐。
+    const sections =
+      review && review.remediatedSections.length > 0
+        ? this.mergeRemediated(write.sections, review.remediatedSections)
+        : write.sections;
+
     return {
-      write: upstream.get<WriteStageOutput>("ST-03-WRITE"),
+      write: { sections },
       research: upstream.get<ResearchStageOutput>("ST-02-RESEARCH"),
     };
+  }
+
+  private tryGetReview(upstream: StageResults): ReviewStageOutput | null {
+    try {
+      return upstream.get<ReviewStageOutput>("ST-04-REVIEW");
+    } catch {
+      return null;
+    }
+  }
+
+  private mergeRemediated(
+    original: WriteStageOutput["sections"],
+    remediated: ReviewStageOutput["remediatedSections"],
+  ): WriteStageOutput["sections"] {
+    const byId = new Map(remediated.map((s) => [s.sectionId, s]));
+    return original.map((s) => byId.get(s.sectionId) ?? s);
   }
 
   async execute(

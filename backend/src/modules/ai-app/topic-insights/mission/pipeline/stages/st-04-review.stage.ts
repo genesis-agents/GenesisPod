@@ -7,8 +7,15 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
-import type { SectionReviewerInput } from "@/modules/ai-app/topic-insights/agents/specs";
-import type { SectionReview } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
+import type {
+  SectionReviewerInput,
+  SectionRemediatorInput,
+} from "@/modules/ai-app/topic-insights/agents/specs";
+import type {
+  SectionReview,
+  SectionResult,
+  RemediatedSection,
+} from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 import {
   parseRevisionRound,
   determineRevisionTargets,
@@ -111,11 +118,104 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
       );
     }
 
+    // ★ baseline section-writer QC + remediation loop：
+    //   对本轮 needsRevision=true 的 section 走 AG-12-SREM 修订一次
+    //   （不循环 — 上限 1 轮，避免 token 爆炸）
+    const { remediatedSections, remediationTrace } =
+      await this.runSectionRemediation(identity, input.sections, reviews);
+
     return {
       reviews,
       revisionTargets: decision.targets,
       revisionRound,
+      remediatedSections,
+      remediationTrace,
     };
+  }
+
+  /**
+   * 对 needsRevision 的 section 调 AG-12-SREM 修订。
+   * baseline section-writer.service writing phase QC loop 单轮简化实现。
+   */
+  private async runSectionRemediation(
+    identity: PipelineIdentityContext,
+    sections: ReadonlyArray<SectionResult>,
+    reviews: ReadonlyArray<SectionReview>,
+  ): Promise<{
+    remediatedSections: SectionResult[];
+    remediationTrace: Array<{
+      sectionId: string;
+      beforeScore: number;
+      afterWordCount: number;
+      resolvedIssues: string[];
+    }>;
+  }> {
+    const remediator = this.agentRegistry.get<
+      SectionRemediatorInput,
+      RemediatedSection
+    >("AG-12-SREM");
+    if (!remediator) {
+      this.logger.debug(
+        `[${identity.missionId}] AG-12-SREM not registered — skipping remediation`,
+      );
+      return { remediatedSections: [], remediationTrace: [] };
+    }
+
+    const reviewBySection = new Map(reviews.map((r) => [r.sectionId, r]));
+    const remediated: SectionResult[] = [];
+    const trace: Array<{
+      sectionId: string;
+      beforeScore: number;
+      afterWordCount: number;
+      resolvedIssues: string[];
+    }> = [];
+
+    for (const section of sections) {
+      const review = reviewBySection.get(section.sectionId);
+      if (!review || !review.needsRevision) continue;
+      // 仅对 score < 7.5 的 section 走 remediate（避免小问题触发全量重写）
+      if (review.overallScore >= 7.5) continue;
+
+      const res = await remediator.executeSpec(
+        {
+          sectionId: section.sectionId,
+          sectionTitle: section.title,
+          originalContent: section.content,
+          issues: review.issues,
+          revisionInstructions: review.revisionInstructions,
+          targetWords: section.wordCount > 0 ? section.wordCount : 600,
+        },
+        identity.capabilities?.env,
+      );
+
+      if (res.state !== "completed") {
+        this.logger.warn(
+          `[${identity.missionId}] AG-12-SREM failed for ${section.sectionId}: ${res.errors?.join("; ") ?? "unknown"} — keeping original`,
+        );
+        continue;
+      }
+
+      // 用 remediated content 构造新的 SectionResult（保留 sectionId/dimensionId/title/keyFindings）
+      remediated.push({
+        ...section,
+        content: res.output.newContent,
+        wordCount: res.output.wordCount,
+      });
+      trace.push({
+        sectionId: section.sectionId,
+        beforeScore: review.overallScore,
+        afterWordCount: res.output.wordCount,
+        resolvedIssues: res.output.resolvedIssues,
+      });
+    }
+
+    if (remediated.length > 0) {
+      this.logger.log(
+        `[${identity.missionId}] Remediated ${remediated.length}/${sections.length} sections`,
+      );
+    }
+
+    return { remediatedSections: remediated, remediationTrace: trace };
   }
 
   /**

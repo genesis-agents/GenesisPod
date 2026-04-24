@@ -20,6 +20,11 @@ export interface ExtractedFigure {
   width?: number;
   /** 图片高度 */
   height?: number;
+  /**
+   * ★ baseline data-enrichment L791-L803：来源于 image-search 补充的图片标记；
+   * 这类图不得继承文本证据的 citationIndex（独立来源，独立编号）。
+   */
+  isImageSearchSupplement?: boolean;
 }
 
 // ==================== Constants ====================
@@ -69,11 +74,119 @@ const MAX_IMAGE_BYTES = 5_000_000;
  *
  * 调用方：data-enrichment.service.ts（Stage 1→2→3 串联调用）
  */
+/**
+ * baseline MIN_FIGURES_THRESHOLD / MAX_SEARCH_SUPPLEMENT_FIGURES
+ * (data-enrichment.ts L44-L45)：网页提取不足 3 张时 image-search 补至 5 张
+ */
+export const MIN_FIGURES_THRESHOLD = 3;
+export const MAX_SEARCH_SUPPLEMENT_FIGURES = 5;
+
 @Injectable()
 export class FigureExtractorService {
   private readonly logger = new Logger(FigureExtractorService.name);
 
   constructor(private readonly toolRegistry: ToolRegistry) {}
+
+  /**
+   * ★ baseline `services/data/data-enrichment.service.ts:L738-L833`
+   *
+   * 当网页提取不足 3 张图时，调 image-search 工具补充图片搜索结果。
+   * 搜索查询 = `${searchContext} chart infographic data`，偏好图表/信息图。
+   *
+   * 业务不变量：
+   *   - image-search 工具不可用时返回空（降级不抛）
+   *   - numResults = maxCount * 2（质量关卡会淘汰一半）
+   *   - 超时 10s 硬断
+   *   - 返回前 maxCount 条，全部标 isImageSearchSupplement=true
+   *
+   * 质量关卡（同 extractFiguresFromUrl）：
+   *   - validateAndUpgradeFigures：GET+Range + magic bytes
+   *   - 调用方负责传入 FigureRelevanceService 以跑 Vision LLM 相关性
+   */
+  async supplementFiguresViaImageSearch(
+    searchContext: string,
+    maxCount: number = MAX_SEARCH_SUPPLEMENT_FIGURES,
+  ): Promise<ExtractedFigure[]> {
+    const imageSearchTool = this.toolRegistry.tryGet("image-search");
+    if (!imageSearchTool) {
+      this.logger.debug(
+        "[supplementFiguresViaImageSearch] image-search tool not registered — skipping",
+      );
+      return [];
+    }
+
+    try {
+      const query = `${searchContext} chart infographic data`;
+      const toolResult = await withTimeoutFallback(
+        imageSearchTool.execute(
+          {
+            query,
+            numResults: maxCount * 2,
+            size: "large",
+            imageType: "any",
+          },
+          this.createToolContext("image-search"),
+        ),
+        10_000,
+        {
+          success: false,
+          error: { code: "TIMEOUT", message: "Image search timeout" },
+        } as Awaited<ReturnType<typeof imageSearchTool.execute>>,
+      );
+
+      if (!toolResult.success || !toolResult.data) {
+        this.logger.warn(
+          `[supplementFiguresViaImageSearch] Image search failed: ${toolResult.error?.message ?? "unknown"}`,
+        );
+        return [];
+      }
+
+      const searchOutput = toolResult.data as {
+        results?: Array<{
+          imageUrl: string;
+          title?: string;
+          description?: string;
+          width?: number;
+          height?: number;
+          source?: string;
+        }>;
+        provider?: string;
+      };
+      if (!searchOutput.results || searchOutput.results.length === 0) {
+        return [];
+      }
+
+      let candidates: ExtractedFigure[] = searchOutput.results
+        .filter((r) => r.imageUrl && r.imageUrl.startsWith("http"))
+        .map(
+          (r) =>
+            ({
+              imageUrl: r.imageUrl,
+              caption: r.title ?? r.description ?? "",
+              // chart/infographic/data 搜索偏向图表类，type 保守选 "chart"
+              type: "chart" as const,
+              alt: r.title ?? "",
+              width: r.width,
+              height: r.height,
+              // ★ 关键标记：image-search 补充图，不得继承文本证据的 citationIndex
+              isImageSearchSupplement: true as const,
+            }) satisfies ExtractedFigure,
+        );
+
+      // 质量关卡 1: URL 可访问性 + magic bytes 验证
+      if (candidates.length > 0) {
+        candidates = await this.validateAndUpgradeFigures(candidates);
+      }
+
+      // 最终截断
+      return candidates.slice(0, maxCount);
+    } catch (err) {
+      this.logger.warn(
+        `[supplementFiguresViaImageSearch] error: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
+  }
 
   /**
    * 创建工具执行上下文
@@ -159,6 +272,23 @@ export class FigureExtractorService {
 
       // ★ v4.5: 异步校验图片可访问性 + 质量
       const validated = await this.validateAndUpgradeFigures(figures);
+
+      // ★ baseline data-enrichment L544-L567：网页提取不足 3 张时 image-search 补齐至 5 张
+      if (validated.length < MIN_FIGURES_THRESHOLD) {
+        const needed = MAX_SEARCH_SUPPLEMENT_FIGURES - validated.length;
+        if (needed > 0) {
+          const supplemented = await this.supplementFiguresViaImageSearch(
+            fetchUrl,
+            needed,
+          );
+          if (supplemented.length > 0) {
+            this.logger.log(
+              `[extractFiguresFromUrl] Supplemented ${supplemented.length} figures via image-search (had ${validated.length}/${MIN_FIGURES_THRESHOLD} threshold)`,
+            );
+            return [...validated, ...supplemented];
+          }
+        }
+      }
       return validated;
     } catch (error) {
       this.logger.warn(

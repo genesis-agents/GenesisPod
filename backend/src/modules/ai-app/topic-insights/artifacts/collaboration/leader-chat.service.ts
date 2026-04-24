@@ -11,7 +11,12 @@
  * through SpecAgentRegistry.get('AG-18-LI').executeSpec(input).
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
@@ -20,6 +25,8 @@ import type {
   LeaderIntentDecision,
 } from "@/modules/ai-app/topic-insights/agents/specs";
 import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
+// ★ CREATE_TODO 后自动 schedule，复现 baseline leader-intent 的端到端调度能力
+import { ResearchTodoService } from "./research-todo.service";
 
 export interface LeaderChatInput {
   readonly userId: string;
@@ -51,6 +58,7 @@ export class LeaderChatService {
     private readonly prisma: PrismaService,
     private readonly specRegistry: SpecAgentRegistry,
     private readonly events: ResearchEventEmitterService,
+    @Optional() private readonly todoService?: ResearchTodoService,
   ) {}
 
   /**
@@ -248,6 +256,18 @@ export class LeaderChatService {
           missionId,
           decision.response,
         );
+      }
+      // ★ baseline leader-intent.handleUserMessage L174-L185 对齐：
+      //   CREATE_TODO 后必须 schedule 进队列，否则 TODO 会停在 PENDING 无人执行。
+      //   Fire-and-forget — scheduleTodo 内部已有错误日志，不阻塞用户响应。
+      if (this.todoService) {
+        void this.todoService
+          .scheduleTodo(input.topicId, todo.id)
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `[applyDecision] scheduleTodo failed for ${todo.id}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
       }
       return todo;
     }
