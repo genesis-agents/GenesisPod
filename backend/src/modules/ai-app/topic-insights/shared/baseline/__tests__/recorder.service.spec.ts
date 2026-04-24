@@ -2,7 +2,7 @@ import { BaselineRecorderService } from "../recorder.service";
 import {
   ResearchEventEmitterService,
   ResearchEventType,
-} from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+} from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import type {
   AiChatService,
   ChatObserver,

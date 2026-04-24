@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { MissionQueryService } from "../query.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import { NotFoundException } from "@nestjs/common";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
@@ -122,7 +122,7 @@ describe("MissionQueryService", () => {
       mockEventEmitter,
       mockResearchEventEmitter,
       mockAiFacade,
-      mockLeaderService,
+      mockLeaderService: _mockLeaderService,
     } = buildMocks();
     prisma = mockPrisma;
     eventEmitter = mockEventEmitter;

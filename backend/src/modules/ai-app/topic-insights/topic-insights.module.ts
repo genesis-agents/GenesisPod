@@ -49,84 +49,71 @@ import {
 } from "./api/controllers";
 import { TopicInsightsService } from "./topic-insights.service";
 import { TopicInsightsGateway } from "./api/gateways/realtime.gateway";
+// ★ Direct imports per agent-centric domain (services.ts barrel 已删除)
+import { BaselineRecorderService } from "./shared/baseline";
+import { ResearchEventEmitterService } from "./mission/realtime/event-emitter.service";
+import { ResearchRealtimeAdapter } from "./mission/realtime/realtime.adapter";
+import { ResearchMemoryService } from "./mission/state/memory.service";
+import { ResearchStrategyService } from "./artifacts/strategy/strategy.service";
+import { MissionQueryService } from "./mission/observation/query.service";
+import { MissionLifecycleService } from "./mission/control/lifecycle.service";
+import { MissionExecutionService } from "./mission/control/execution.service";
+import { MissionCancellationService } from "./mission/control/cancellation.service";
+import { MissionObservabilityService } from "./mission/observation/observability.service";
+import { MissionNotificationService } from "./mission/observation/notification.service";
+import { ResearchCheckpointService } from "./mission/control/checkpoint.service";
+import { ResearchMissionHealthService } from "./mission/observation/mission-health.service";
+import { TopicRefreshScheduler } from "./mission/control/refresh.scheduler";
+import { TopicCrudService } from "./artifacts/topic/crud.service";
+import { EventSourceParsingService } from "./artifacts/topic/event-source-parsing.service";
+import { TopicDimensionService } from "./artifacts/topic/dimension.service";
+import { TopicExportService } from "./artifacts/topic/export.service";
+import { TopicScheduleService } from "./artifacts/topic/schedule.service";
+import { ReportSynthesisService } from "./artifacts/report/core/synthesis.service";
+import { ReportEditorService } from "./artifacts/report/core/editor.service";
+import { ReportValidationService } from "./artifacts/report/core/validation.service";
+import { ReportGeneratorService } from "./artifacts/report/core/generator.service";
+import { ReportAssemblerService } from "./artifacts/report/core/assembler.service";
+import { ReportDataService } from "./artifacts/report/core/data.service";
+import { LatexRepairService } from "./artifacts/report/enhancement/latex-repair.service";
+import { CitationFormatterService } from "./artifacts/report/enhancement/citation-formatter.service";
+import { FigureExtractorService } from "./artifacts/report/enhancement/figure-extractor.service";
+import { FigureRelevanceService } from "./artifacts/report/enhancement/figure-relevance.service";
+import { ResearchExportService } from "./artifacts/report/enhancement/research-export.service";
+import { CredibilityReportService } from "./artifacts/report/enhancement/credibility-report.service";
+import { ReportChangeService } from "./artifacts/report/editing/change.service";
+import { ReportAnnotationService } from "./artifacts/report/editing/annotation.service";
+import { ReportContentEditingService } from "./artifacts/report/editing/content-editing.service";
+import { CritiqueRefineService } from "./artifacts/report/quality/critique-refine.service";
+import { ReportQualityGateService } from "./artifacts/report/quality/report-quality-gate.service";
+import { ReportQualityTraceService } from "./artifacts/report/quality/report-quality-trace.service";
+import { ReportEvaluationService } from "./artifacts/report/quality/report-evaluation.service";
+import { SectionSelfEvalService } from "./artifacts/report/quality/section-self-eval.service";
+import { SectionRemediationService } from "./artifacts/report/quality/section-remediation.service";
+import { TopicCollaboratorService } from "./artifacts/collaboration/topic-collaborator.service";
+import { ReviewWorkflowService } from "./artifacts/collaboration/review-workflow.service";
+import { ResearchTodoService } from "./artifacts/collaboration/research-todo.service";
+import { DataSourceRouterService } from "./knowledge/sources/router.service";
+import { DataSourcePlannerService } from "./knowledge/sources/planner.service";
+import { DataSourceFetcherService } from "./knowledge/sources/fetcher.service";
+import { DataSourceStrategyService } from "./knowledge/sources/strategy.service";
+import { DataSourceConnectorRegistry } from "./knowledge/sources/connectors/connector.registry";
+import { SemanticScholarConnector } from "./knowledge/sources/connectors/semantic-scholar.connector";
+import { PubMedConnector } from "./knowledge/sources/connectors/pubmed.connector";
+import { FinanceApiConnector } from "./knowledge/sources/connectors/finance-api.connector";
+import { WeatherApiConnector } from "./knowledge/sources/connectors/weather-api.connector";
+import { EvidenceManagementService } from "./knowledge/evidence.service";
+import { KnowledgeGraphService } from "./knowledge/graph.service";
+import { MultiLanguageResearchService } from "./knowledge/multi-language.service";
+import { TopicInsightsDataExportService } from "./knowledge/export.service";
+import { RAGFusionService } from "./knowledge/search/rag-fusion.service";
 import {
-  DataSourceRouterService,
-  ReportSynthesisService,
-  TopicRefreshScheduler,
-  EvidenceManagementService,
-  // ★ Leader sub-services (God Service decomposition)
-  TopicCollaboratorService,
-  ResearchEventEmitterService,
-  ReportChangeService,
-  ReportAnnotationService,
-  ResearchStrategyService,
-  AgentActivityService,
-  CredibilityReportService,
-  ReviewWorkflowService,
-  ResearchTodoService,
-  ResearchMissionHealthService,
-  ResearchCheckpointService,
-  DataSourcePlannerService,
-  FigureExtractorService,
-  FigureRelevanceService,
-  ReportValidationService,
-  ReportEditorService,
-  // ★ Mission sub-services (God Service decomposition)
-  MissionObservabilityService,
-  MissionNotificationService,
-  // ★ Facade sub-services
-  TopicCrudService,
-  EventSourceParsingService,
-  TopicDimensionService,
-  TopicExportService,
-  TopicScheduleService,
-  MissionQueryService,
-  MissionLifecycleService,
-  MissionExecutionService,
-  MissionCancellationService,
-  // ★ Data sub-services
-  DataSourceFetcherService,
-  DataSourceStrategyService,
-  // ★ Dimension sub-services
-  // ★ Report sub-services
-  ReportGeneratorService,
-  ReportAssemblerService,
-  ReportDataService,
-  LatexRepairService,
-  // ★ Cross-module data export (Slides/Office consumer)
-  TopicInsightsDataExportService,
-  // ★ God service decomposition: compute usage
-  ComputeUsageService,
-  // ★ God service decomposition: report editing
-  ReportContentEditingService,
-  // ★ Engine Adapters (P2 能力下沉集成)
-  ResearchRealtimeAdapter,
-  ResearchMemoryService,
-  // ★ P0: 新增核心能力
-  DataSourceConnectorRegistry,
-  SemanticScholarConnector,
-  PubMedConnector,
-  FinanceApiConnector,
-  WeatherApiConnector,
-  KnowledgeGraphService,
-  MultiLanguageResearchService,
-  // ★ P1: 新增增强能力
-  CritiqueRefineService,
-  ReportQualityGateService,
-  ReportQualityTraceService,
-  ReportEvaluationService,
-  SectionSelfEvalService,
-  SectionRemediationService,
-  CitationFormatterService,
-  ResearchExportService,
-  RAGFusionService,
-  // ★ Search Pipeline (modular search architecture)
+  SearchOrchestratorService,
   GlobalSourceThrottleService,
-  QueryStrategyService,
   SearchExecutorService,
+  QueryStrategyService,
   ResultFusionService,
   QualityGateService,
-  SearchOrchestratorService,
   LlmRerankerAdapter,
   WebSearchAdapter,
   AcademicSearchAdapter,
@@ -138,9 +125,9 @@ import {
   WeatherSearchAdapter,
   LocalSearchAdapter,
   IndustryReportSearchAdapter,
-  // ★ Phase 0: BaselineRecorder (flag-gated)
-  BaselineRecorderService,
-} from "./services";
+} from "./knowledge/search";
+import { AgentActivityService } from "./agents/activity.service";
+import { ComputeUsageService } from "./shared/compute-usage/compute-usage.service";
 // ★ F1 · Foundation: dimension template data layer for /topics/templates
 // and /topics/from-template endpoints. Lives under artifacts/topic/templates/.
 import { TopicAccessGuard } from "./api/guards";

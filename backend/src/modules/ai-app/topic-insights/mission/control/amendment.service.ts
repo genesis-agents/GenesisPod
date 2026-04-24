@@ -42,7 +42,7 @@ import {
   ResearchTaskStatus,
 } from "@prisma/client";
 
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import { MissionCancellationService } from "./cancellation.service";
 import { MissionExecutionService } from "./execution.service";
 

@@ -39,7 +39,7 @@ import {
   ResearchEventEmitterService,
   ResearchEventType,
   type ResearchEmitObserver,
-} from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+} from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 
 interface MissionMetrics {
   missionId: string;

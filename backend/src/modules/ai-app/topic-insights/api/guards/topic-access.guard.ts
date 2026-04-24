@@ -21,7 +21,7 @@ import {
   SetMetadata,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/services";
+import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/topic-collaborator.service";
 import { CollaboratorRole } from "@/modules/ai-app/topic-insights/api/dto/collaborator.dto";
 import { createSecurityLogger } from "@/modules/ai-app/topic-insights/shared/utils/security-audit-logger.utils";
 

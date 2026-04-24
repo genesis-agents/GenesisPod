@@ -25,7 +25,7 @@ import {
 import {
   ResearchEventEmitterService,
   RESEARCH_INTERNAL_EVENTS,
-} from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+} from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import type {
   HealthCheckResult,
   MissionHealthDetail,

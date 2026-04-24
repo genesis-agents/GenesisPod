@@ -3,7 +3,7 @@ import { NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 
 import { LeaderChatService } from "../leader-chat.service";
 

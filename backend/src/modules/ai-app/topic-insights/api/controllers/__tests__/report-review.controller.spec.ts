@@ -4,7 +4,7 @@ jest.mock("@/modules/ai-engine/facade", () => ({}));
 import { UnauthorizedException } from "@nestjs/common";
 import { ReportReviewController } from "../report-review.controller";
 import type { TopicInsightsService } from "@/modules/ai-app/topic-insights/topic-insights.service";
-import type { ReviewWorkflowService } from "@/modules/ai-app/topic-insights/services";
+import type { ReviewWorkflowService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/review-workflow.service";
 
 function createMockTopicService() {
   return {

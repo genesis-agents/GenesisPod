@@ -7,11 +7,9 @@
 
 import { UnauthorizedException } from "@nestjs/common";
 import { TodoController } from "../todo.controller";
-import type {
-  ResearchTodoService,
-  MissionLifecycleService,
-  MissionQueryService,
-} from "@/modules/ai-app/topic-insights/services";
+import type { ResearchTodoService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/research-todo.service";
+import type { MissionLifecycleService } from "@/modules/ai-app/topic-insights/mission/control/lifecycle.service";
+import type { MissionQueryService } from "@/modules/ai-app/topic-insights/mission/observation/query.service";
 
 function createMockTodoService() {
   return {

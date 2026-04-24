@@ -19,7 +19,7 @@ import type {
   LeaderIntentInput,
   LeaderIntentDecision,
 } from "@/modules/ai-app/topic-insights/agents/specs";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 
 export interface LeaderChatInput {
   readonly userId: string;

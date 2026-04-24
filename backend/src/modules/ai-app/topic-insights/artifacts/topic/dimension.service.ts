@@ -24,7 +24,7 @@ import {
 import { MissionExecutionService } from "../../mission/control/execution.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { DimensionTemplatesRepository } from "./templates";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 
 /**
  * TopicDimensionService

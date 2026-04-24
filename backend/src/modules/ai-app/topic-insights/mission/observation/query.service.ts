@@ -17,7 +17,7 @@ import type { ResearchTask, ResearchAgentActivity } from "@prisma/client";
 import {
   ResearchEventEmitterService,
   RESEARCH_INTERNAL_EVENTS,
-} from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+} from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 
 import { ChatFacade } from "@/modules/ai-engine/facade";
 import type { LeaderPlan } from "@/modules/ai-app/topic-insights/shared/types/leader.types";

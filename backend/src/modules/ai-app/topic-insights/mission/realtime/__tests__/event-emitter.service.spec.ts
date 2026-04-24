@@ -39,9 +39,12 @@ const mockRealtimeAdapter = {
 };
 
 // Mock the getModelDisplayNameMap utility
-jest.mock("@/modules/ai-app/topic-insights/shared/utils/model-display-name.utils", () => ({
-  getModelDisplayNameMap: jest.fn().mockResolvedValue(new Map()),
-}));
+jest.mock(
+  "@/modules/ai-app/topic-insights/shared/utils/model-display-name.utils",
+  () => ({
+    getModelDisplayNameMap: jest.fn().mockResolvedValue(new Map()),
+  }),
+);
 
 describe("ResearchEventEmitterService", () => {
   let service: ResearchEventEmitterService;
@@ -307,8 +310,6 @@ describe("ResearchEventEmitterService", () => {
     });
   });
 
-
-
   describe("emitLeaderResponse", () => {
     it("should emit LEADER_RESPONSE event", async () => {
       const handler = jest.fn().mockResolvedValue(undefined);
@@ -530,12 +531,6 @@ describe("ResearchEventEmitterService", () => {
       });
     });
   });
-
-
-
-
-
-
 
   describe("getTeamMessages", () => {
     it("should query and return messages in chronological order", async () => {
@@ -807,8 +802,6 @@ describe("ResearchEventEmitterService", () => {
     });
   });
 
-
-
   describe("emitLeaderResponse persistence edge cases", () => {
     it("should skip persistence when topic not found in emitLeaderResponse", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue(null);
@@ -846,9 +839,6 @@ describe("ResearchEventEmitterService", () => {
       ).resolves.not.toThrow();
     });
   });
-
-
-
 
   describe("emitAgentWorking - task progress sync failure", () => {
     it("should log debug when task progress sync fails (catch in updateMany)", async () => {
@@ -894,8 +884,6 @@ describe("ResearchEventEmitterService", () => {
     });
   });
 
-
-
   describe("mapAgentStatusToActivityType - default branch", () => {
     it("should return THINKING for unknown status via emitAgentWorking", async () => {
       // The private method default branch is covered by passing an unexpected status
@@ -927,9 +915,6 @@ describe("ResearchEventEmitterService", () => {
     });
   });
 
-
-
-
   describe("emitReportSynthesisProgress", () => {
     it("should emit REPORT_SYNTHESIS_PROGRESS event with progress data", async () => {
       const handler = jest.fn().mockResolvedValue(undefined);
@@ -954,8 +939,6 @@ describe("ResearchEventEmitterService", () => {
       );
     });
   });
-
-
 
   describe("normalizeEventData - null/undefined branch", () => {
     it("should return empty object for null data via emitToTopic", async () => {
@@ -984,5 +967,4 @@ describe("ResearchEventEmitterService", () => {
       );
     });
   });
-
 });

@@ -8,7 +8,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { RESEARCH_INTERNAL_EVENTS } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { RESEARCH_INTERNAL_EVENTS } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import { Observable, Subject, filter, map } from "rxjs";
 import { MessageEvent } from "@nestjs/common";
 import {
@@ -55,27 +55,30 @@ interface RefreshProgressEvent {
 }
 import { MissionExecutionService } from "./mission/control/execution.service";
 import { MissionCancellationService } from "./mission/control/cancellation.service";
+// ★ Direct imports per domain (services.ts barrel 已删除)
+import { ReportSynthesisService } from "./artifacts/report/core/synthesis.service";
+import { EvidenceManagementService } from "./knowledge/evidence.service";
+import { ReportChangeService } from "./artifacts/report/editing/change.service";
+import { ReportAnnotationService } from "./artifacts/report/editing/annotation.service";
+import { ResearchStrategyService } from "./artifacts/strategy/strategy.service";
+import { AgentActivityService } from "./agents/activity.service";
+import { CredibilityReportService } from "./artifacts/report/enhancement/credibility-report.service";
+import { TopicCrudService } from "./artifacts/topic/crud.service";
+import { TopicDimensionService } from "./artifacts/topic/dimension.service";
+import { TopicExportService } from "./artifacts/topic/export.service";
+import { TopicScheduleService } from "./artifacts/topic/schedule.service";
+import { ReportQualityTraceService } from "./artifacts/report/quality/report-quality-trace.service";
+import { ReportDataService } from "./artifacts/report/core/data.service";
+import { LatexRepairService } from "./artifacts/report/enhancement/latex-repair.service";
 import {
-  ReportSynthesisService,
-  EvidenceManagementService,
-  ReportChangeService,
-  ReportAnnotationService,
-  ResearchStrategyService,
-  AgentActivityService,
-  CredibilityReportService,
-  TopicCrudService,
-  TopicDimensionService,
-  TopicExportService,
-  TopicScheduleService,
-  ReportQualityTraceService,
-  ReportDataService,
-  LatexRepairService,
   ComputeUsageService,
   type ComputeUsageResult,
+} from "./shared/compute-usage/compute-usage.service";
+import {
   ReportContentEditingService,
   type AiEditReportDto,
   type UpdateReportContentDto,
-} from "./services";
+} from "./artifacts/report/editing/content-editing.service";
 import { BillingContext } from "@/modules/ai-infra/facade";
 import type { ResearchDepth } from "./shared/types";
 
@@ -1143,7 +1146,11 @@ export class TopicInsightsService {
     topicId: string,
     dto: CompareReportsDto,
   ) {
-    return this.reportContentEditingService.compareReports(userId, topicId, dto);
+    return this.reportContentEditingService.compareReports(
+      userId,
+      topicId,
+      dto,
+    );
   }
 
   // ==================== Evidence (kept in Facade) ====================
@@ -1544,7 +1551,6 @@ export class TopicInsightsService {
   ): Promise<ComputeUsageResult> {
     return this.computeUsageService.getComputeUsage(userId, topicId, missionId);
   }
-
 
   /**
    * 检查用户是否有权访问专题

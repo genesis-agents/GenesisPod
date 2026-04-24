@@ -9,10 +9,13 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { UnauthorizedException } from "@nestjs/common";
 import { CollaborationController } from "../collaboration.controller";
 import { TopicInsightsService } from "@/modules/ai-app/topic-insights/topic-insights.service";
-import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/services";
+import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/topic-collaborator.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "@/common/types/express-request.types";
-import { CollaboratorRole, TopicVisibility } from "@/modules/ai-app/topic-insights/api/dto/collaborator.dto";
+import {
+  CollaboratorRole,
+  TopicVisibility,
+} from "@/modules/ai-app/topic-insights/api/dto/collaborator.dto";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -37,14 +37,12 @@ import {
   RequireTopicAccess,
 } from "@/modules/ai-app/topic-insights/api/guards";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  MissionLifecycleService,
-  MissionQueryService,
-  MissionExecutionService,
-  ResearchEventEmitterService,
-  ResearchMissionHealthService,
-  ResearchCheckpointService,
-} from "@/modules/ai-app/topic-insights/services";
+import { MissionLifecycleService } from "@/modules/ai-app/topic-insights/mission/control/lifecycle.service";
+import { MissionQueryService } from "@/modules/ai-app/topic-insights/mission/observation/query.service";
+import { MissionExecutionService } from "@/modules/ai-app/topic-insights/mission/control/execution.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
+import { ResearchMissionHealthService } from "@/modules/ai-app/topic-insights/mission/observation/mission-health.service";
+import { ResearchCheckpointService } from "@/modules/ai-app/topic-insights/mission/control/checkpoint.service";
 import type { RequestWithUser } from "@/common/types/express-request.types";
 import { BillingContext } from "@/modules/ai-infra/facade";
 import { BillingContextInterceptor } from "@/modules/ai-app/topic-insights/api/interceptors/billing-context.interceptor";

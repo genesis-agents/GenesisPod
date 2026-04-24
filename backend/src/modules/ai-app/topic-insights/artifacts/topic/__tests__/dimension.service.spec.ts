@@ -21,7 +21,7 @@ import {
 } from "../templates";
 import { MissionExecutionService } from "../../../mission/control/execution.service";
 import type { DimensionTemplate } from "../templates";
-import { ResearchEventEmitterService } from "../../../memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "../../../mission/realtime/event-emitter.service";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 

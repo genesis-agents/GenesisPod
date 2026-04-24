@@ -10,7 +10,7 @@ import {
   ResearchMissionStatus,
   ResearchTopicStatus,
 } from "@prisma/client";
-import { MissionExecutionService } from "../mission/control/execution.service";
+import { MissionExecutionService } from "./execution.service";
 
 /**
  * Topic Refresh Scheduler

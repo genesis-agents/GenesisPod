@@ -18,9 +18,12 @@ jest.mock("@prisma/client", () => ({
   PrismaClient: class {},
 }));
 
-jest.mock("@/modules/ai-app/topic-insights/services", () => ({
-  TopicCollaboratorService: class {},
-}));
+jest.mock(
+  "@/modules/ai-app/topic-insights/artifacts/collaboration/topic-collaborator.service",
+  () => ({
+    TopicCollaboratorService: class {},
+  }),
+);
 
 jest.mock("@/common/prisma/prisma.service", () => ({
   PrismaService: class {},
@@ -35,7 +38,7 @@ import {
   TOPIC_ACCESS_KEY,
 } from "../topic-access.guard";
 import { CollaboratorRole } from "@/modules/ai-app/topic-insights/api/dto/collaborator.dto";
-import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/services";
+import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/topic-collaborator.service";
 
 // Minimal mock for ExecutionContext
 function buildMockContext(

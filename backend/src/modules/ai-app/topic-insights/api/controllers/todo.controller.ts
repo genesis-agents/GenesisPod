@@ -31,11 +31,9 @@ import {
   CreateUserRequestTodoDto,
 } from "@/modules/ai-app/topic-insights/api/dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
-import {
-  ResearchTodoService,
-  MissionLifecycleService,
-  MissionQueryService,
-} from "@/modules/ai-app/topic-insights/services";
+import { ResearchTodoService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/research-todo.service";
+import { MissionLifecycleService } from "@/modules/ai-app/topic-insights/mission/control/lifecycle.service";
+import { MissionQueryService } from "@/modules/ai-app/topic-insights/mission/observation/query.service";
 import type { RequestWithUser } from "@/common/types/express-request.types";
 import { BillingContextInterceptor } from "@/modules/ai-app/topic-insights/api/interceptors/billing-context.interceptor";
 

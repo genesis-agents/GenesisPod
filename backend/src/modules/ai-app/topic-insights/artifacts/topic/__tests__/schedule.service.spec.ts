@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { TopicScheduleService } from "../schedule.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { TopicRefreshScheduler } from "@/modules/ai-app/topic-insights/memory/refresh.scheduler";
+import { TopicRefreshScheduler } from "@/modules/ai-app/topic-insights/mission/control/refresh.scheduler";
 import { UpdateScheduleDto } from "@/modules/ai-app/topic-insights/api/dto";
 
 const mockPrisma = {

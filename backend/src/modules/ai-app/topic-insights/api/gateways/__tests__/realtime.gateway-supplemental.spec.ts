@@ -16,10 +16,13 @@ import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
 
 import { TopicInsightsGateway } from "../realtime.gateway";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
-import { createMockPrisma, createMockResearchEventEmitter } from "@/modules/ai-app/topic-insights/__tests__/mocks";
+import {
+  createMockPrisma,
+  createMockResearchEventEmitter,
+} from "@/modules/ai-app/topic-insights/__tests__/mocks";
 import { MOCK_MISSION_EXECUTING } from "@/modules/ai-app/topic-insights/__tests__/fixtures/topics.fixture";
 
 const createMockJwtService = () => ({

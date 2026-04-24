@@ -7,7 +7,7 @@ import {
 import { ResearchMissionStatus } from "@prisma/client";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 
 import { MissionAmendmentService } from "../amendment.service";
 import { MissionCancellationService } from "../cancellation.service";

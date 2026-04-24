@@ -16,7 +16,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { TopicDimensionService } from "../dimension.service";
 import { DimensionTemplatesRepository } from "../templates";
 import { MissionExecutionService } from "../../../mission/control/execution.service";
-import { ResearchEventEmitterService } from "../../../memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "../../../mission/realtime/event-emitter.service";
 
 function buildMocks() {
   const mockPrisma = {

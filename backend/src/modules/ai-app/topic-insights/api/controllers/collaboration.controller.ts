@@ -28,8 +28,11 @@ import {
   ReviewApplicationDto,
 } from "@/modules/ai-app/topic-insights/api/dto/collaborator.dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
-import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/services";
-import { TopicAccessGuard, RequireTopicAccess } from "@/modules/ai-app/topic-insights/api/guards";
+import { TopicCollaboratorService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/topic-collaborator.service";
+import {
+  TopicAccessGuard,
+  RequireTopicAccess,
+} from "@/modules/ai-app/topic-insights/api/guards";
 import type { RequestWithUser } from "@/common/types/express-request.types";
 
 @ApiTags("Topic Research")

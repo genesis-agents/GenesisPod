@@ -29,10 +29,13 @@ import {
   UpdateAnnotationDto,
 } from "@/modules/ai-app/topic-insights/api/dto";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
-import { ReviewWorkflowService } from "@/modules/ai-app/topic-insights/services";
+import { ReviewWorkflowService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/review-workflow.service";
 import type { RequestWithUser } from "@/common/types/express-request.types";
 import { BillingContextInterceptor } from "@/modules/ai-app/topic-insights/api/interceptors/billing-context.interceptor";
-import { TopicAccessGuard, RequireTopicAccess } from "@/modules/ai-app/topic-insights/api/guards";
+import {
+  TopicAccessGuard,
+  RequireTopicAccess,
+} from "@/modules/ai-app/topic-insights/api/guards";
 import { CollaboratorRole } from "@/modules/ai-app/topic-insights/api/dto/collaborator.dto";
 
 @ApiTags("Topic Research")

@@ -29,7 +29,7 @@ import { ReportEditorService } from "../editor.service";
 import { ReportAssemblerService } from "../assembler.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { ReportQualityTraceService } from "../../quality/report-quality-trace.service";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import type { ResearchTopic } from "@prisma/client";
 
 // ──────────────────────────────────────────────────────────────────────────────

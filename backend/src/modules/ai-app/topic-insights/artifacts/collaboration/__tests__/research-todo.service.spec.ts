@@ -21,7 +21,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResearchTodoService } from "../research-todo.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import { ResearchTodoStatus, ResearchTodoType } from "@prisma/client";
 import { TodoEventType } from "@/modules/ai-app/topic-insights/shared/types/collaboration.types";
 
@@ -1826,7 +1826,6 @@ describe("ResearchTodoService", () => {
         expect.anything(),
       );
     });
-
 
     it("should auto-approve todo when missionId is null (reviewTodoResult auto-approve)", async () => {
       const todo = makeTodo({

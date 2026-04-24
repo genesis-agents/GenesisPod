@@ -13,15 +13,13 @@ import { NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { MissionController } from "../mission.controller";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { TopicInsightsService } from "@/modules/ai-app/topic-insights/topic-insights.service";
-import {
-  MissionLifecycleService,
-  MissionQueryService,
-  MissionExecutionService,
-  ResearchEventEmitterService,
-  ResearchTodoService,
-  ResearchMissionHealthService,
-  ResearchCheckpointService,
-} from "@/modules/ai-app/topic-insights/services";
+import { MissionLifecycleService } from "@/modules/ai-app/topic-insights/mission/control/lifecycle.service";
+import { MissionQueryService } from "@/modules/ai-app/topic-insights/mission/observation/query.service";
+import { MissionExecutionService } from "@/modules/ai-app/topic-insights/mission/control/execution.service";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
+import { ResearchTodoService } from "@/modules/ai-app/topic-insights/artifacts/collaboration/research-todo.service";
+import { ResearchMissionHealthService } from "@/modules/ai-app/topic-insights/mission/observation/mission-health.service";
+import { ResearchCheckpointService } from "@/modules/ai-app/topic-insights/mission/control/checkpoint.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
 import { TopicAccessGuard } from "@/modules/ai-app/topic-insights/api/guards";
