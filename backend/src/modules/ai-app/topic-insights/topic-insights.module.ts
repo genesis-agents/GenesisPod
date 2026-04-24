@@ -43,7 +43,6 @@ import {
   ReportSynthesisService,
   TopicRefreshScheduler,
   EvidenceManagementService,
-  ResearchReviewerService,
   // ★ Leader sub-services (God Service decomposition)
   TopicCollaboratorService,
   ResearchEventEmitterService,
@@ -56,9 +55,6 @@ import {
   ResearchTodoService,
   ResearchMissionHealthService,
   ResearchCheckpointService,
-  DataEnrichmentService,
-  LeaderToolService,
-  ResearchReflectionService,
   DataSourcePlannerService,
   FigureExtractorService,
   FigureRelevanceService,
@@ -90,7 +86,6 @@ import {
   TopicInsightsDataExportService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
-  EvidenceSyncCompensationService,
   ResearchMemoryService,
   // ★ P0: 新增核心能力
   DataSourceConnectorRegistry,
@@ -137,7 +132,6 @@ const services = [
   TopicInsightsService,
   DataSourceRouterService,
   ReportSynthesisService,
-  ResearchReviewerService,
   TopicRefreshScheduler,
   EvidenceManagementService,
   MissionQueryService,
@@ -158,9 +152,6 @@ const services = [
   ResearchTodoService,
   ResearchMissionHealthService,
   ResearchCheckpointService,
-  DataEnrichmentService,
-  LeaderToolService,
-  ResearchReflectionService,
   DataSourcePlannerService,
   FigureExtractorService,
   FigureRelevanceService,
@@ -186,7 +177,6 @@ const services = [
   TopicInsightsDataExportService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
-  EvidenceSyncCompensationService,
   // ★ Memory
   ResearchMemoryService,
   // ★ P0: 新增核心能力

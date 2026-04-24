@@ -59,12 +59,9 @@ export { TopicInsightsDataExportService } from "./topic-insights-data-export.ser
 // ==================== Data ====================
 export { DataSourceRouterService } from "./data/data-source-router.service";
 export { DataSourcePlannerService } from "./data/data-source-planner.service";
-export { DataEnrichmentService } from "./data/data-enrichment.service";
 export { EvidenceManagementService } from "./data/evidence-management.service";
-export { LeaderToolService } from "./data/leader-tool.service";
 export { DataSourceFetcherService } from "./data/data-source-fetcher.service";
 export { DataSourceStrategyService } from "./data/data-source-strategy.service";
-export { EvidenceSyncCompensationService } from "./data/evidence-sync-compensation.service";
 export { DataSourceConnectorRegistry } from "./data/connectors/data-source-connector.registry";
 export { SemanticScholarConnector } from "./data/connectors/semantic-scholar.connector";
 export { PubMedConnector } from "./data/connectors/pubmed.connector";
@@ -78,8 +75,6 @@ export { MultiLanguageResearchService } from "./data/multi-language-research.ser
 export { TopicCollaboratorService } from "./collaboration/topic-collaborator.service";
 export { ReviewWorkflowService } from "./collaboration/review-workflow.service";
 export { ResearchTodoService } from "./collaboration/research-todo.service";
-export { ResearchReviewerService } from "./collaboration/research-reviewer.service";
-export { ResearchReflectionService } from "./collaboration/research-reflection.service";
 
 // ==================== Quality ====================
 export { CritiqueRefineService } from "./quality/critique-refine.service";
