@@ -33,13 +33,12 @@ import { CollaboratorRole } from "../dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { TopicAccessGuard, RequireTopicAccess } from "../guards";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   MissionLifecycleService,
   MissionQueryService,
   MissionExecutionService,
-  ResearchLeaderService,
   ResearchEventEmitterService,
-  ResearchTodoService,
   ResearchMissionHealthService,
   ResearchCheckpointService,
 } from "../services";
@@ -60,9 +59,8 @@ export class MissionController {
     private readonly lifecycleService: MissionLifecycleService,
     private readonly queryService: MissionQueryService,
     private readonly executionService: MissionExecutionService,
-    private readonly leaderService: ResearchLeaderService,
+    private readonly prisma: PrismaService,
     private readonly eventEmitterService: ResearchEventEmitterService,
-    private readonly todoService: ResearchTodoService,
     private readonly healthService: ResearchMissionHealthService,
     private readonly checkpointService: ResearchCheckpointService,
   ) {}
@@ -182,7 +180,15 @@ export class MissionController {
     if (!mission) {
       throw new NotFoundException("No active mission for this topic");
     }
-    return this.leaderService.handleUserMessage(id, mission.id, dto.content);
+    // H6 step 10: leader chat becomes read-only — save the user message so it
+    // appears in mission history; no side-effect planning (that conflicts with
+    // harness atomic stages). Frontend can still display the thread.
+    await this.eventEmitterService.saveUserMessage(id, mission.id, dto.content);
+    return {
+      missionId: mission.id,
+      message: dto.content,
+      acknowledged: true,
+    };
   }
 
   /**
@@ -249,107 +255,27 @@ export class MissionController {
           missionId = mission?.id;
         }
 
-        // 2. Leader 解码用户输入
-        const decodeResult = await this.leaderService.decodeUserInput(
-          topicId,
-          dto.message,
-          missionId,
-        );
-
-        // 3. 如果决定创建 TODO，则创建并加入任务队列（不立即执行）
-        let createdTodo = null;
-        if (
-          decodeResult.decisionType === "CREATE_TODO" &&
-          decodeResult.todoTitle &&
-          missionId
-        ) {
-          try {
-            // ★ v7.2: Leader 先选择合适的 Agent，再创建 TODO
-            const agentAssignment = await this.leaderService.selectAgentForTask(
-              topicId,
-              missionId,
-              decodeResult.todoTitle,
-              decodeResult.todoDescription,
-            );
-
-            // ★ v8.2: 确保 Leader 创建的任务标题以 "研究:" 开头
-            // 这样 executeTodo 才能正确识别为研究任务并执行实际研究
-            let taskTitle = decodeResult.todoTitle;
-            if (
-              !taskTitle.startsWith("研究:") &&
-              !taskTitle.startsWith("研究：")
-            ) {
-              taskTitle = `研究: ${taskTitle}`;
-            }
-
-            const todo = await this.todoService.createTodo({
-              topicId,
-              missionId,
-              type: "USER_REQUEST",
-              title: taskTitle,
-              description: decodeResult.todoDescription,
-              // ★ 使用 Leader 分配的 Agent 信息
-              agentId: agentAssignment.agentId,
-              agentName: agentAssignment.agentName,
-              agentRole: agentAssignment.role,
-              modelId: agentAssignment.modelId,
-            });
-            createdTodo = {
-              id: todo.id,
-              title: todo.title,
-              assignedAgent: agentAssignment.agentName,
-            };
-
-            // ★ v8.1: 将新 Agent 的 skills 和 tools 添加到 leaderPlan 中
-            // 这样前端能够正确显示 Agent 的能力配置
-            await this.executionService.addAgentToLeaderPlan(missionId, {
-              agentId: agentAssignment.agentId,
-              agentName: agentAssignment.agentName,
-              agentType: agentAssignment.agentType,
-              role: agentAssignment.role,
-              modelId: agentAssignment.modelId,
-              skills: agentAssignment.skills,
-              tools: agentAssignment.tools,
-            });
-
-            // ★ v7.2: 不再立即执行，而是将任务加入队列
-            // 任务将通过 Mission 的调度器统一处理
-            // 异步调度新创建的 TODO（不阻塞响应）
-            this.todoService
-              .scheduleTodo(topicId, todo.id)
-              .catch((err: Error) => {
-                this.logger.error(
-                  `[leaderChat] Schedule TODO failed: ${err.message}`,
-                );
-              });
-          } catch (error) {
-            // 继续返回响应，但标记 TODO 创建失败
-            this.logger.error(`Failed to create TODO: ${error}`);
-          }
-        }
-
-        // 4. 保存用户消息和 Leader 响应到数据库（用于对话历史）
+        // H6 step 10: leader-chat side effects (decode intent + select agent
+        // + create TODO + mutate leaderPlan) are retired. The harness pipeline
+        // is atomic and does not support mid-run plan mutations. Behavior is
+        // now: save the message to history and return an acknowledgment. The
+        // "chat intervention" primitive is a planned follow-up.
         if (missionId) {
           await this.eventEmitterService.saveUserMessage(
             topicId,
             missionId,
             dto.message,
           );
-          await this.eventEmitterService.emitLeaderResponse(
-            topicId,
-            missionId,
-            decodeResult.response,
-          );
         }
 
-        // 5. 返回结果
         return {
-          decisionType: decodeResult.decisionType,
-          understanding: decodeResult.understanding,
-          response: decodeResult.response,
-          todo: createdTodo,
-          clarifyQuestion: decodeResult.clarifyQuestion,
-          clarifyOptions: decodeResult.clarifyOptions,
+          decisionType: "ACK",
+          understanding: dto.message,
+          response:
+            "消息已记录。当前版本不支持通过对话动态添加研究任务；请使用新建 / 重启 Mission 来调整研究计划。",
+          todo: null,
+          clarifyQuestion: null,
+          clarifyOptions: null,
         };
       }, // end BillingContext.run callback
     ); // end BillingContext.run
@@ -380,7 +306,13 @@ export class MissionController {
     if (!mission) {
       return [];
     }
-    return this.leaderService.getDecisionHistory(mission.id);
+    // H6 step 10: harness emits DECISION events (H4 primitive); legacy
+    // ResearchLeaderService.getDecisionHistory just read the leaderDecision
+    // table. Inline that query here so the endpoint stays harness-only.
+    return this.prisma.leaderDecision.findMany({
+      where: { missionId: mission.id },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   // ==================== Mission API ====================

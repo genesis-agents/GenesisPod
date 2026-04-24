@@ -9,7 +9,6 @@ export { BaselineRecorderService } from "./baseline";
 
 // ==================== Core ====================
 // Research
-export { ResearchLeaderService } from "./research/leader.service";
 export {
   ResearchEventEmitterService,
   RESEARCH_INTERNAL_EVENTS,
@@ -21,10 +20,6 @@ export { ResearchMemoryService } from "./research/memory.service";
 export { ResearchTemplateService } from "./research/template.service";
 
 // Leader
-export { LeaderPlanningService } from "./leader/leader-planning.service";
-export { LeaderIntentService } from "./leader/leader-intent.service";
-export { LeaderAgentSelectionService } from "./leader/leader-agent-selection.service";
-export { LeaderReviewService } from "./leader/leader-review.service";
 
 // Mission
 export { MissionQueryService } from "./mission/query.service";

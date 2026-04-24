@@ -28,7 +28,6 @@ import {
 } from "@prisma/client";
 import type { ResearchTodo, ResearchMission } from "@prisma/client";
 import { ResearchEventEmitterService } from "../research/event-emitter.service";
-import { LeaderReviewService } from "../leader/leader-review.service";
 import { BillingContext } from "@/modules/ai-infra/facade";
 import type { ReviewDecision } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name.utils";
@@ -50,7 +49,6 @@ export class ResearchTodoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: ResearchEventEmitterService,
-    private readonly leaderReview: LeaderReviewService,
   ) {}
 
   // ==================== CRUD 操作 ====================
@@ -1040,7 +1038,7 @@ export class ResearchTodoService {
   private async reviewTodoResult(
     topicId: string,
     todo: ResearchTodo,
-    executionResult: string,
+    _executionResult: string,
   ): Promise<ReviewDecision> {
     this.logger.log(`[reviewTodoResult] Leader reviewing TODO ${todo.id}`);
 
@@ -1074,18 +1072,15 @@ export class ResearchTodoService {
         };
       }
 
-      const reviewResult = await this.leaderReview.reviewTaskResult(
-        todo.missionId,
-        todo.id,
-        {
-          todoTitle: todo.title,
-          todoDescription: todo.description,
-          executionResult,
-          agentName: todo.agentName,
-          agentId: todo.agentId,
-        },
-        todo.dimensionName || todo.title,
-      );
+      // H6 step 10: legacy LeaderReviewService.reviewTaskResult removed.
+      // Harness ST-04-REVIEW + ST-08-QGATE handle task-level and mission-level
+      // quality review respectively. For externally-triggered TODOs that
+      // don't flow through harness stages, auto-approve so the todo completes.
+      const reviewResult = {
+        taskId: todo.id,
+        status: "approved" as const,
+        feedback: "Auto-approved (harness-native review is stage-level)",
+      };
 
       this.logger.log(
         `[reviewTodoResult] Review result for TODO ${todo.id}: ${reviewResult.status}`,

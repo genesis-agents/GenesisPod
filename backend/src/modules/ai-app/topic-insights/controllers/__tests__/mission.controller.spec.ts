@@ -11,12 +11,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { MissionController } from "../mission.controller";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { TopicInsightsService } from "../../topic-insights.service";
 import {
   MissionLifecycleService,
   MissionQueryService,
   MissionExecutionService,
-  ResearchLeaderService,
   ResearchEventEmitterService,
   ResearchTodoService,
   ResearchMissionHealthService,
@@ -122,7 +122,10 @@ describe("MissionController", () => {
         { provide: MissionLifecycleService, useValue: mockLifecycleService },
         { provide: MissionQueryService, useValue: mockQueryService },
         { provide: MissionExecutionService, useValue: mockExecutionService },
-        { provide: ResearchLeaderService, useValue: mockLeaderService },
+        {
+          provide: PrismaService,
+          useValue: { leaderDecision: { findMany: jest.fn().mockResolvedValue([]) } },
+        },
         {
           provide: ResearchEventEmitterService,
           useValue: mockEventEmitterService,
@@ -253,21 +256,23 @@ describe("MissionController", () => {
   });
 
   describe("leaderMessage", () => {
-    it("handles user message to leader", async () => {
+    it("saves user message and returns ack (H6: read-only leader chat)", async () => {
       const dto = { content: "Focus on quantum computing" };
       const mission = { id: "m-1" };
-      const response = { reply: "Understood, focusing on quantum computing" };
       mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
-      mockLeaderService.handleUserMessage.mockResolvedValue(response);
 
       const result = await controller.leaderMessage(makeReq(), "topic-1", dto);
 
-      expect(mockLeaderService.handleUserMessage).toHaveBeenCalledWith(
+      expect(mockEventEmitterService.saveUserMessage).toHaveBeenCalledWith(
         "topic-1",
         "m-1",
         "Focus on quantum computing",
       );
-      expect(result).toBe(response);
+      expect(result).toMatchObject({
+        missionId: "m-1",
+        message: "Focus on quantum computing",
+        acknowledged: true,
+      });
     });
 
     it("throws UnauthorizedException when user is not authenticated", async () => {
@@ -288,31 +293,21 @@ describe("MissionController", () => {
   });
 
   describe("leaderChat", () => {
-    it("returns DIRECT_ANSWER decision without creating a todo", async () => {
+    it("returns ACK decision and saves user message (H6: no side effects)", async () => {
       const dto = { message: "What is AI?" };
       const mission = { id: "m-1" };
-      const decodeResult = {
-        decisionType: "DIRECT_ANSWER",
-        understanding: "User asks about AI",
-        response: "AI is artificial intelligence",
-        clarifyQuestion: null,
-        clarifyOptions: [],
-      };
       mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
-      mockLeaderService.decodeUserInput.mockResolvedValue(decodeResult);
       mockEventEmitterService.saveUserMessage.mockResolvedValue(undefined);
-      mockEventEmitterService.emitLeaderResponse.mockResolvedValue(undefined);
 
       const result = await controller.leaderChat(makeReq(), "topic-1", dto);
 
-      expect(mockLeaderService.decodeUserInput).toHaveBeenCalledWith(
+      expect(mockEventEmitterService.saveUserMessage).toHaveBeenCalledWith(
         "topic-1",
-        "What is AI?",
         "m-1",
+        "What is AI?",
       );
       expect(result).toMatchObject({
-        decisionType: "DIRECT_ANSWER",
-        response: "AI is artificial intelligence",
+        decisionType: "ACK",
         todo: null,
       });
     });
@@ -325,157 +320,42 @@ describe("MissionController", () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it("creates a TODO when decisionType is CREATE_TODO", async () => {
-      const dto = { message: "研究量子计算的最新进展" };
-      const mission = { id: "m-1" };
-      const decodeResult = {
-        decisionType: "CREATE_TODO",
-        understanding: "User wants research on quantum computing",
-        response: "I will research this for you",
-        todoTitle: "量子计算最新进展",
-        todoDescription: "Research quantum computing advancements",
-        clarifyQuestion: null,
-        clarifyOptions: [],
-      };
-      const agentAssignment = {
-        agentId: "agent-1",
-        agentName: "Researcher",
-        role: "RESEARCHER",
-        modelId: "gpt-4",
-        agentType: "RESEARCHER",
-        skills: [],
-        tools: [],
-      };
-      const createdTodo = {
-        id: "todo-1",
-        title: "研究: 量子计算最新进展",
-      };
-
-      mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
-      mockLeaderService.decodeUserInput.mockResolvedValue(decodeResult);
-      mockLeaderService.selectAgentForTask.mockResolvedValue(agentAssignment);
-      mockTodoService.createTodo.mockResolvedValue(createdTodo);
-      mockTodoService.scheduleTodo.mockResolvedValue(undefined);
-      mockExecutionService.addAgentToLeaderPlan.mockResolvedValue(undefined);
-      mockEventEmitterService.saveUserMessage.mockResolvedValue(undefined);
-      mockEventEmitterService.emitLeaderResponse.mockResolvedValue(undefined);
-
-      const result = await controller.leaderChat(makeReq(), "topic-1", dto);
-
-      expect(mockLeaderService.selectAgentForTask).toHaveBeenCalledWith(
-        "topic-1",
-        "m-1",
-        "量子计算最新进展",
-        "Research quantum computing advancements",
-      );
-      expect(mockTodoService.createTodo).toHaveBeenCalledWith(
-        expect.objectContaining({
-          topicId: "topic-1",
-          missionId: "m-1",
-          type: "USER_REQUEST",
-        }),
-      );
-      expect(result.todo).toMatchObject({
-        id: "todo-1",
-        assignedAgent: "Researcher",
-      });
-    });
-
-    it("prepends '研究:' prefix to todo title when missing", async () => {
-      const dto = { message: "Check quantum computing" };
-      const mission = { id: "m-1" };
-      const decodeResult = {
-        decisionType: "CREATE_TODO",
-        understanding: "Research request",
-        response: "Will do",
-        todoTitle: "Quantum computing research", // no 研究: prefix
-        todoDescription: "Check latest papers",
-        clarifyQuestion: null,
-        clarifyOptions: [],
-      };
-      const agentAssignment = {
-        agentId: "agent-1",
-        agentName: "Researcher",
-        role: "RESEARCHER",
-        modelId: "",
-        agentType: "RESEARCHER",
-        skills: [],
-        tools: [],
-      };
-      mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
-      mockLeaderService.decodeUserInput.mockResolvedValue(decodeResult);
-      mockLeaderService.selectAgentForTask.mockResolvedValue(agentAssignment);
-      mockTodoService.createTodo.mockResolvedValue({
-        id: "todo-2",
-        title: "研究: Quantum computing research",
-      });
-      mockTodoService.scheduleTodo.mockResolvedValue(undefined);
-      mockExecutionService.addAgentToLeaderPlan.mockResolvedValue(undefined);
-      mockEventEmitterService.saveUserMessage.mockResolvedValue(undefined);
-      mockEventEmitterService.emitLeaderResponse.mockResolvedValue(undefined);
-
-      await controller.leaderChat(makeReq(), "topic-1", dto);
-
-      expect(mockTodoService.createTodo).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "研究: Quantum computing research" }),
-      );
-    });
-
     it("uses provided missionId when given in dto", async () => {
       const dto = { message: "Continue", missionId: "explicit-mission-1" };
-      const decodeResult = {
-        decisionType: "DIRECT_ANSWER",
-        understanding: "User wants to continue",
-        response: "Continuing...",
-        clarifyQuestion: null,
-        clarifyOptions: [],
-      };
-      mockLeaderService.decodeUserInput.mockResolvedValue(decodeResult);
       mockEventEmitterService.saveUserMessage.mockResolvedValue(undefined);
-      mockEventEmitterService.emitLeaderResponse.mockResolvedValue(undefined);
 
       const result = await controller.leaderChat(makeReq(), "topic-1", dto);
 
       // Should not call getMissionByTopicId since missionId is provided
       expect(mockQueryService.getMissionByTopicId).not.toHaveBeenCalled();
-      expect(mockLeaderService.decodeUserInput).toHaveBeenCalledWith(
+      expect(mockEventEmitterService.saveUserMessage).toHaveBeenCalledWith(
         "topic-1",
-        "Continue",
         "explicit-mission-1",
+        "Continue",
       );
-      expect(result.decisionType).toBe("DIRECT_ANSWER");
+      expect(result.decisionType).toBe("ACK");
     });
 
-    it("does not save messages when missionId is undefined", async () => {
+    it("does not save messages when no mission exists", async () => {
       const dto = { message: "hello" };
-      const decodeResult = {
-        decisionType: "DIRECT_ANSWER",
-        understanding: "Greeting",
-        response: "Hello!",
-        clarifyQuestion: null,
-        clarifyOptions: [],
-      };
       mockQueryService.getMissionByTopicId.mockResolvedValue(null);
-      mockLeaderService.decodeUserInput.mockResolvedValue(decodeResult);
 
-      await controller.leaderChat(makeReq(), "topic-1", dto);
+      const result = await controller.leaderChat(makeReq(), "topic-1", dto);
 
       expect(mockEventEmitterService.saveUserMessage).not.toHaveBeenCalled();
-      expect(mockEventEmitterService.emitLeaderResponse).not.toHaveBeenCalled();
+      expect(result.decisionType).toBe("ACK");
     });
   });
 
   describe("getLeaderDecisions", () => {
-    it("returns decision history when mission exists", async () => {
+    it("returns decision history from prisma.leaderDecision (H6: no legacy service)", async () => {
       const mission = { id: "m-1" };
-      const decisions = [{ id: "d-1", type: "PLAN" }];
       mockQueryService.getMissionByTopicId.mockResolvedValue(mission);
-      mockLeaderService.getDecisionHistory.mockResolvedValue(decisions);
 
       const result = await controller.getLeaderDecisions(makeReq(), "topic-1");
 
-      expect(mockLeaderService.getDecisionHistory).toHaveBeenCalledWith("m-1");
-      expect(result).toBe(decisions);
+      // prisma mock resolves to [] — assert no throw + empty array shape
+      expect(Array.isArray(result)).toBe(true);
     });
 
     it("returns empty array when no mission exists", async () => {

@@ -22,7 +22,6 @@ import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResearchTodoService } from "../research-todo.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../../research/event-emitter.service";
-import { LeaderReviewService } from "../../leader/leader-review.service";
 import { ResearchTodoStatus, ResearchTodoType } from "@prisma/client";
 import { TodoEventType } from "../../../types/collaboration.types";
 
@@ -154,7 +153,6 @@ describe("ResearchTodoService", () => {
         ResearchTodoService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ResearchEventEmitterService, useValue: mockEventEmitter },
-        { provide: LeaderReviewService, useValue: mockLeaderService },
       ],
     }).compile();
 
@@ -1829,83 +1827,6 @@ describe("ResearchTodoService", () => {
       );
     });
 
-    it("should handle Leader review returning needs_revision", async () => {
-      const todo = makeTodo({
-        type: ResearchTodoType.USER_REQUEST,
-        status: ResearchTodoStatus.PENDING,
-        title: "查询竞争对手数据",
-        missionId: "mission-1",
-      });
-      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
-      const inProgressTodo = makeTodo({
-        ...todo,
-        status: ResearchTodoStatus.IN_PROGRESS,
-        startedAt: new Date(),
-      });
-      const failedTodo = makeTodo({
-        ...todo,
-        status: ResearchTodoStatus.FAILED,
-        progress: 90,
-      });
-      // 3 update calls: IN_PROGRESS, progress-95 (reviewTodoResult), final FAILED
-      mockPrisma.researchTodo.update
-        .mockResolvedValueOnce(inProgressTodo)
-        .mockResolvedValueOnce(inProgressTodo) // progress 95 update
-        .mockResolvedValueOnce(failedTodo);
-
-      mockLeaderService.reviewTaskResult.mockResolvedValueOnce({
-        taskId: "todo-1",
-        status: "needs_revision",
-        feedback: "Please add more detail",
-        revisionInstructions: "Include market share data",
-      });
-
-      const result = await service.executeTodo("topic-1", "todo-1");
-
-      // The returned todo comes from the second update call (failedTodo)
-      expect(result.todo.status).toBe(ResearchTodoStatus.FAILED);
-      // emitTodoEvent calls eventEmitter.emitToTopic internally
-      expect(mockEventEmitter.emitToTopic).toHaveBeenCalledWith(
-        "topic-1",
-        TodoEventType.TODO_FAILED,
-        expect.anything(),
-      );
-    });
-
-    it("should handle Leader review returning rejected", async () => {
-      const todo = makeTodo({
-        type: ResearchTodoType.USER_REQUEST,
-        status: ResearchTodoStatus.PENDING,
-        title: "无关内容",
-        missionId: "mission-1",
-      });
-      mockPrisma.researchTodo.findUnique.mockResolvedValueOnce(todo);
-      const inProgressTodo = makeTodo({
-        ...todo,
-        status: ResearchTodoStatus.IN_PROGRESS,
-        startedAt: new Date(),
-      });
-      const failedTodo = makeTodo({
-        ...todo,
-        status: ResearchTodoStatus.FAILED,
-        progress: 90,
-      });
-      // 3 update calls: IN_PROGRESS, progress-95 (reviewTodoResult), final FAILED
-      mockPrisma.researchTodo.update
-        .mockResolvedValueOnce(inProgressTodo)
-        .mockResolvedValueOnce(inProgressTodo) // progress 95 update
-        .mockResolvedValueOnce(failedTodo);
-
-      mockLeaderService.reviewTaskResult.mockResolvedValueOnce({
-        taskId: "todo-1",
-        status: "rejected",
-        feedback: "Off topic",
-      });
-
-      const result = await service.executeTodo("topic-1", "todo-1");
-
-      expect(result.todo.status).toBe(ResearchTodoStatus.FAILED);
-    });
 
     it("should auto-approve todo when missionId is null (reviewTodoResult auto-approve)", async () => {
       const todo = makeTodo({

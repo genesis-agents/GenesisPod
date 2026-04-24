@@ -8,7 +8,6 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { ResearchEventEmitterService } from "../../research/event-emitter.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
-import { ResearchLeaderService } from "../../research/leader.service";
 import { NotFoundException } from "@nestjs/common";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
@@ -139,7 +138,6 @@ describe("MissionQueryService", () => {
           useValue: mockResearchEventEmitter,
         },
         { provide: ChatFacade, useValue: mockAiFacade },
-        { provide: ResearchLeaderService, useValue: mockLeaderService },
       ],
     }).compile();
 
@@ -530,7 +528,6 @@ describe("MissionQueryService", () => {
             useValue: mocks.mockResearchEventEmitter,
           },
           { provide: ChatFacade, useValue: mocks.mockAiFacade },
-          { provide: ResearchLeaderService, useValue: mocks.mockLeaderService },
         ],
       }).compile();
 
