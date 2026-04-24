@@ -7,6 +7,8 @@ import {
   HypothesisVerifierResultSchema,
   type HypothesisVerifierResult,
 } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 HYPOTHESIS_VERIFICATION_PROMPT
+import { HYPOTHESIS_VERIFICATION_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-depth.prompt";
 
 export interface HypothesisVerifierInput {
   readonly hypotheses: ReadonlyArray<{ id: string; statement: string }>;
@@ -47,13 +49,26 @@ export const HYPOTHESIS_VERIFIER_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是假设验证员。对每个 hypothesis：",
-      "1. 基于提供的 evidence 决定 verdict ∈ {verified, refuted, inconclusive}",
-      "2. 列出 supportingEvidenceIds（来自 evidenceSummaries）",
-      "3. confidence 0-1",
-      "4. reasoning 简明说明",
+      // ★ 直接复用 Apr 21 baseline 的 HYPOTHESIS_VERIFICATION_PROMPT 原文
+      HYPOTHESIS_VERIFICATION_PROMPT,
       "",
-      "只可使用提供的 evidence。严格 JSON 输出。",
+      "## 【关键覆盖】输出 JSON：",
+      "```json",
+      "{",
+      '  "hypotheses": [             // 可空数组',
+      "    {",
+      '      "id": "hyp-1",            // 复制 input.hypotheses[].id',
+      '      "statement": "≥10 字假设陈述",',
+      '      "verdict": "verified",    // enum: verified | refuted | inconclusive',
+      '      "supportingEvidenceIds": ["ev-id-1"],',
+      '      "confidence": 0.85,       // number 0-1',
+      '      "reasoning": "≥10 字推理说明"',
+      "    }",
+      "  ]",
+      "}",
+      "```",
+      "",
+      "⚠️ 只可使用提供的 evidence；number 是数字；id 原样回传；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

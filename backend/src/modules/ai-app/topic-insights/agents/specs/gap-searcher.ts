@@ -4,6 +4,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { GapSearcherResultSchema, type GapSearcherResult } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 GAP_SEARCH_QUERY_PROMPT
+import { GAP_SEARCH_QUERY_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-depth.prompt";
 
 export interface GapSearcherInput {
   readonly dimensionId: string;
@@ -40,12 +42,26 @@ export const GAP_SEARCHER_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是研究空白识别员。基于已有 summary + key findings + evidence count，指出：",
-      "1. 哪些关键问题尚未被回答（gapStatement）",
-      "2. 每个 gap 建议的补充搜索 queries（≥1）",
-      "3. priority 0-10（10=最关键）",
+      // ★ 直接复用 Apr 21 baseline 的 GAP_SEARCH_QUERY_PROMPT 原文
+      GAP_SEARCH_QUERY_PROMPT,
       "",
-      "只输出当前证据不足以支撑但对结论必要的 gap。严格 JSON 输出。",
+      "## 【关键覆盖】本次调用输出 JSON：",
+      "```json",
+      "{",
+      '  "dimensionId": "复制 input.dimensionId 原值",',
+      '  "gaps": [                   // 可空数组',
+      "    {",
+      '      "id": "gap-1",            // 短 id',
+      '      "dimensionId": "复制 input.dimensionId 原值",',
+      '      "gapStatement": "≥10 字的空白描述",',
+      '      "suggestedQueries": ["补充查询 1"],  // ≥1 条',
+      '      "priority": 8            // number 0-10（10=最关键）',
+      "    }",
+      "  ]",
+      "}",
+      "```",
+      "",
+      "⚠️ dimensionId 原样回传；priority 是数字；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

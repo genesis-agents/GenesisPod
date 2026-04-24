@@ -3,6 +3,8 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
+// ★ 复用 Apr 21 baseline 的 LEADER_INTERVENE_PROMPT（用户意图→决策 同源）
+import { LEADER_INTERVENE_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-leader.prompt";
 import {
   LeaderDispatchDecisionSchema,
   type LeaderDispatchDecision,
@@ -44,13 +46,21 @@ export const LEADER_DISPATCHER_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是意图分发员。分析用户 prompt 属于哪一类：",
-      "- new_research: 开启新研究",
-      "- refine_report: 微调已有 report（仅在 hasExistingReport=true 有效）",
-      "- answer_followup: 跟进问题（仅在 hasExistingReport=true）",
-      "- restart_mission: 丢弃已有，重启",
+      // ★ 复用 Apr 21 baseline 的 LEADER_INTERVENE_PROMPT 原文（同是用户意图→决策类）
+      LEADER_INTERVENE_PROMPT,
       "",
-      "confidence 0-1。严格 JSON 输出。",
+      "## 【关键覆盖】本 spec 是「新研究 vs 既有报告处理」分发，输出 JSON：",
+      "```json",
+      "{",
+      '  "intent": "new_research",     // enum: new_research | refine_report | answer_followup | restart_mission',
+      '  "confidence": 0.85,           // number 0-1',
+      '  "reasoning": "≥5 字的理由"',
+      "}",
+      "```",
+      "",
+      "语义：new_research=开启新研究；refine_report=微调已有（hasExistingReport=true 才有效）；",
+      "answer_followup=跟进问题；restart_mission=丢弃已有重启。",
+      "⚠️ confidence 是数字；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

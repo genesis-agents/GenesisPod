@@ -19,6 +19,8 @@ import {
   LeaderAgenticSearchResultSchema,
   type LeaderAgenticSearchResult,
 } from "./schemas";
+// ★ 复用 Apr 21 baseline 的 GAP_SEARCH_QUERY_PROMPT（研究策略专家 → 补充搜索查询，同源概念）
+import { GAP_SEARCH_QUERY_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-depth.prompt";
 
 export interface LeaderAgenticSearcherInput {
   readonly missionId: string;
@@ -70,13 +72,29 @@ export const LEADER_AGENTIC_SEARCHER_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是维度级研究的 agentic 探索者。",
-      "每轮基于已有证据 + gap summary，决定：",
-      "- suggestedQueries: 1-5 条新查询（具体、有可执行性，避免与已有重复）",
-      "- shortlistSummaries: 0-5 条对当前证据的短评（title/url/rationale）",
-      "- nextIteration: stop（信息已饱和）/ refine（要聚焦已有方向深挖）/ expand（要拓展新主题）",
-      "- reasoning: 为什么这么选",
-      "输出严格 JSON，符合 LeaderAgenticSearchResultSchema。",
+      // ★ 复用 Apr 21 baseline 的 GAP_SEARCH_QUERY_PROMPT（同源：证据→搜索策略）
+      GAP_SEARCH_QUERY_PROMPT,
+      "",
+      "## 【关键覆盖】本 spec 是迭代式探索，输出 JSON：",
+      "```json",
+      "{",
+      '  "missionId": "复制 input.missionId 原值",',
+      '  "dimensionId": "复制 input.dimensionId 原值",',
+      '  "suggestedQueries": ["查询 1", "查询 2"],  // ≥1 条；≥2 字',
+      '  "shortlistSummaries": [                  // 0-5 条对当前证据的短评',
+      "    {",
+      '      "title": "≥2 字",',
+      '      "url": "≥4 字",',
+      '      "rationale": "≥10 字"',
+      "    }",
+      "  ],",
+      '  "nextIteration": "refine",              // enum: stop | refine | expand',
+      '  "reasoning": "≥10 字的决策理由"',
+      "}",
+      "```",
+      "",
+      "决策语义：stop=信息已饱和；refine=聚焦已有方向深挖；expand=拓展新主题。",
+      "⚠️ 查询必须具体可执行，避免与已有重复；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

@@ -4,6 +4,8 @@
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
+// ★ 直接复用 Apr 21 baseline 的 SOTA LEADER_REVIEW_PROMPT
+import { LEADER_REVIEW_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-leader.prompt";
 import {
   QualityReviewSchema,
   type DimensionMeta,
@@ -55,16 +57,39 @@ export const QUALITY_REVIEWER_SPEC: IAgentSpec<
     const scope = ctx.input.scope;
     if (scope === "dimension") {
       return [
-        "你是维度质量审核员（dimension scope）。",
-        "基于提供的 DimensionMeta + 子章节 reviews 对本维度打 overallScore（0-10），列出 issues / recommendations，判断 needsReresearch。",
-        "严格 JSON 输出，scope 字段必须为 'dimension'。",
+        // ★ 直接复用 Apr 21 baseline 的 LEADER_REVIEW_PROMPT 原文（维度级别语义同源）
+        LEADER_REVIEW_PROMPT,
+        "",
+        '## 【关键覆盖】本次调用 scope="dimension"，输出 JSON：',
+        "```json",
+        "{",
+        '  "scope": "dimension",          // 固定字面量',
+        '  "dimensionId": "复制 input.dimensionId 原值",',
+        '  "overallScore": 7.5,           // number 0-10',
+        '  "issues": ["问题清单，可空"],',
+        '  "recommendations": ["改进建议，可空"],',
+        '  "needsReresearch": false       // boolean',
+        "}",
+        "```",
+        "⚠️ number 不是字符串；严格 JSON。",
       ].join("\n");
     }
     return [
-      "你是跨维度综合审核员（overall scope）。",
-      "基于所有 DimensionMeta 产出整体 overallScore、crossDimensionIssues、recommendations。",
-      "needsReresearch 为 true 时必须列出 dimensionsToReresearch（可以为空数组）。",
-      "严格 JSON 输出，scope 字段必须为 'overall'。",
+      LEADER_REVIEW_PROMPT,
+      "",
+      '## 【关键覆盖】本次调用 scope="overall"，输出 JSON：',
+      "```json",
+      "{",
+      '  "scope": "overall",            // 固定字面量',
+      '  "missionId": "复制 input.missionId 原值",',
+      '  "overallScore": 7.5,           // number 0-10',
+      '  "crossDimensionIssues": ["跨维度问题，可空"],',
+      '  "recommendations": ["改进建议，可空"],',
+      '  "needsReresearch": false,      // boolean',
+      '  "dimensionsToReresearch": []   // needsReresearch=true 时必须列',
+      "}",
+      "```",
+      "⚠️ number 不是字符串；严格 JSON。",
     ].join("\n");
   },
 

@@ -4,6 +4,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { EditedReportSchema, type EditedReport } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 REPORT_EDITING_SYSTEM_PROMPT
+import { REPORT_EDITING_SYSTEM_PROMPT } from "@/modules/ai-app/topic-insights/prompts/report-editing.prompt";
 
 export interface ReportEditorInput {
   readonly fullMarkdown: string;
@@ -34,10 +36,19 @@ export const REPORT_EDITOR_SPEC: IAgentSpec<ReportEditorInput, EditedReport> = {
 
   buildSystemPrompt: () =>
     [
-      "你是报告编辑员。对 markdown 做格式统一 / 术语一致 / 拼写修正。",
-      "严禁改变任何事实、数字、引用编号、结构 / 章节层级。",
-      "editsApplied 简要列出你做的编辑类别。",
-      "严格 JSON 输出。",
+      // ★ 直接复用 Apr 21 baseline 的 REPORT_EDITING_SYSTEM_PROMPT 原文
+      REPORT_EDITING_SYSTEM_PROMPT,
+      "",
+      "## 【关键覆盖】本次调用输出 JSON：",
+      "```json",
+      "{",
+      '  "fullMarkdown": "≥100 字的编辑后完整 markdown",',
+      '  "editsApplied": ["编辑类别 1"],',
+      '  "wordCount": 5000          // integer ≥0',
+      "}",
+      "```",
+      "",
+      "⚠️ 严禁改变事实、数字、引用编号、结构/章节层级；wordCount 是数字；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

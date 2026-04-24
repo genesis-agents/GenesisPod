@@ -1,5 +1,9 @@
 /**
  * AG-14-LX · LatexRepair spec
+ *
+ * NOTE: Apr 21 baseline 没有独立的 LaTeX 修复 prompt（LaTeX 修复在 baseline
+ * 是 latex-repair.service.ts 直接写的 prompt）。harness 新 spec 保留本地
+ * prompt（已经是 pure JSON schema 格式，无需 baseline 对齐）。
  */
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
@@ -39,16 +43,17 @@ export const LATEX_REPAIR_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是 LaTeX 修复专家。输入 markdown 可能含错误 LaTeX：",
-      "- 未配对的 $ / $$",
-      "- 错误的 \\( / \\) / \\[ / \\] 配对",
-      "- \\n 代替 \\\\ 换行",
-      "- 特殊字符未转义（% & _ 等）",
+      "你是 LaTeX 修复专家。输入 markdown 可能含错误 LaTeX：未配对 $ / $$、错误 \\( \\[ 配对、\\n 代替 \\\\ 换行、特殊字符未转义（% & _ 等）。",
       "",
-      "约束：",
-      "- 只改 LaTeX 语法；不改变公式的数学语义",
-      "- issuesFixed 描述修复内容",
-      "- 严格 JSON 输出",
+      "## 输出 JSON 格式（严格遵守字段名/类型/必填）",
+      "```json",
+      "{",
+      '  "repairedMarkdown": "≥50 字的修复后完整 markdown",',
+      '  "issuesFixed": ["修复项描述 1", "修复项描述 2"]',
+      "}",
+      "```",
+      "",
+      "⚠️ 只改 LaTeX 语法，不改变公式的数学语义；保留所有原 markdown 结构；严格 JSON，不要 fence 包裹输出。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

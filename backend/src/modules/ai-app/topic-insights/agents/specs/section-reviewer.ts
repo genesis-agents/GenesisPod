@@ -5,6 +5,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { SectionReviewSchema, type SectionReview } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 SOTA SECTION_REVIEW_PROMPT
+import { SECTION_REVIEW_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-leader.prompt";
 
 export interface SectionReviewerInput {
   readonly sectionResult: {
@@ -49,14 +51,35 @@ export const SECTION_REVIEWER_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是章节审核员。独立审核一个 SectionResult，按 5 维打分（accuracy / completeness / coherence / evidenceQuality / depth）。",
-      "要求：",
-      "1. overallScore 0-10",
-      "2. 若 needsRevision=true，revisionInstructions 不少于 1 条",
-      "3. 抽取 claims（事实性陈述）供后续 V5 认知循环使用，每个 claim 含 id / statement / evidenceRefs",
-      "4. 严禁创造新 evidence 或修改正文",
+      // ★ 直接复用 Apr 21 baseline 的 SOTA SECTION_REVIEW_PROMPT 原文
+      SECTION_REVIEW_PROMPT,
       "",
-      "严格 JSON 输出。",
+      "## 【关键覆盖】输出 JSON 格式（本次调用覆盖 baseline 输出）",
+      "```json",
+      "{",
+      '  "sectionId": "复制 input.sectionResult.sectionId 原值",',
+      '  "overallScore": 7.5,         // number 0-10',
+      '  "scores": {',
+      '    "accuracy": 8,              // number 0-10',
+      '    "completeness": 7,',
+      '    "coherence": 8,',
+      '    "evidenceQuality": 7,',
+      '    "depth": 7',
+      "  },",
+      '  "needsRevision": true,       // boolean',
+      '  "revisionInstructions": ["如 needsRevision=true，≥1 条具体指令"],',
+      '  "issues": ["问题清单，可空数组"],',
+      '  "claims": [',
+      "    {",
+      '      "id": "claim-1",             // 短 id',
+      '      "statement": "≥10 字的事实陈述",',
+      '      "evidenceRefs": ["ev-id-1"]',
+      "    }",
+      "  ]",
+      "}",
+      "```",
+      "",
+      "⚠️ number 是数字不是字符串；sectionId 原样回传；严禁创造新 evidence；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

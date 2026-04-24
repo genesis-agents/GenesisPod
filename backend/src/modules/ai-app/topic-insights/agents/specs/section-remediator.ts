@@ -4,6 +4,17 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { RemediatedSectionSchema, type RemediatedSection } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 SOTA section 修订 prompt（SECTION_WRITING 同源的质量准绳）
+import {
+  SECTION_WRITING_SYSTEM_PROMPT,
+  getLanguageInstruction,
+  renderPromptTemplate,
+} from "@/modules/ai-app/topic-insights/prompts/dimension-research.prompt";
+import { getExternalContentNotice } from "@/modules/ai-app/topic-insights/shared/utils/external-content-wrapper.utils";
+import {
+  getWritingStandards,
+  getDimensionResearchStandards,
+} from "@/modules/ai-app/shared/report-template";
 
 export interface SectionRemediatorInput {
   readonly sectionId: string;
@@ -39,17 +50,32 @@ export const SECTION_REMEDIATOR_SPEC: IAgentSpec<
   taskProfile: { creativity: "medium", outputLength: "long" },
   outputSchema: RemediatedSectionSchema,
 
-  buildSystemPrompt: () =>
-    [
-      "你是 section 修订员。基于 issues + revisionInstructions 修改原 section。",
-      "约束：",
-      "1. 保留原 section 的引用 [N]，不得删除或改编号",
-      "2. 不创造新 evidence（只能基于原 content 的引用）",
-      "3. resolvedIssues 列出你实际解决的问题编号",
-      "4. wordCount 必须接近 targetWords（± 15%）",
+  buildSystemPrompt: () => {
+    // ★ 复用 baseline SECTION_WRITING_SYSTEM_PROMPT 的同源质量准绳
+    //   （baseline 修订和写作用同样的 system prompt，user prompt 换成修订模板）
+    const baseline = renderPromptTemplate(SECTION_WRITING_SYSTEM_PROMPT, {
+      languageInstruction: getLanguageInstruction("zh"),
+      externalContentNotice: getExternalContentNotice("zh"),
+      writingStandards: getWritingStandards("zh"),
+      researchStandards: getDimensionResearchStandards("zh"),
+    });
+    return [
+      baseline,
       "",
-      "严格 JSON 输出。",
-    ].join("\n"),
+      "## 【关键覆盖】本次调用是「修订」不是新写",
+      "基于 issues + revisionInstructions 修改原 section，保留原引用编号[N]。输出 JSON：",
+      "```json",
+      "{",
+      '  "sectionId": "复制 input.sectionId 原值",',
+      '  "newContent": "≥50 字的修订后 Markdown 正文（遵循上方所有写作质量规则）",',
+      '  "wordCount": 600,               // integer ≥0',
+      '  "resolvedIssues": ["issue-1"]   // 你解决的问题索引/名称',
+      "}",
+      "```",
+      "",
+      "⚠️ 保留原 section 的 [N] 引用编号（不得改/删）；不创造新 evidence；wordCount 接近 targetWords ±15%；数字是数字；严格 JSON。",
+    ].join("\n");
+  },
 
   buildUserPrompt: (ctx) => {
     const { input } = ctx;

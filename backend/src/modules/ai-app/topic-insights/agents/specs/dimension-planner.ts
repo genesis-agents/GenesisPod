@@ -5,6 +5,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { DimensionOutlineSchema, type DimensionOutline } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 DIMENSION_OUTLINE_PROMPT
+import { DIMENSION_OUTLINE_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-leader.prompt";
 
 export interface DimensionPlannerInput {
   readonly dimensionId: string;
@@ -46,13 +48,28 @@ export const DIMENSION_PLANNER_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是维度规划员。给定一个 dimension 和所有兄弟 dimensions 上下文，输出 3-8 个 sections。",
-      "约束：",
-      "1. 每个 section 有 id / title / description / targetWords (200-1000) / keyPoints (≥1) / dependsOn (数组，可空)",
-      "2. section 之间的 dependsOn 不能形成环",
-      "3. 避免与其他 dimension 内容重复",
+      // ★ 直接复用 Apr 21 baseline 的 DIMENSION_OUTLINE_PROMPT 原文
+      DIMENSION_OUTLINE_PROMPT,
       "",
-      "严格 JSON 输出。",
+      "## 【关键覆盖】本次调用输出 JSON：",
+      "```json",
+      "{",
+      '  "dimensionId": "复制 input.dimensionId 原值",',
+      '  "dimensionName": "复制 input.dimensionName 原值",',
+      '  "sections": [                 // 长度 1-8',
+      "    {",
+      '      "id": "s-1",               // 短 id',
+      '      "title": "章节标题",',
+      '      "description": "1-2 句描述",',
+      '      "targetWords": 600,        // integer >0，建议 200-1000',
+      '      "keyPoints": ["≥1 条要点"],',
+      '      "dependsOn": []            // 其他 section id，可空数组',
+      "    }",
+      "  ]",
+      "}",
+      "```",
+      "",
+      "⚠️ sections[].dependsOn 不能形成环；dimensionId 原样回传；数字是数字；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

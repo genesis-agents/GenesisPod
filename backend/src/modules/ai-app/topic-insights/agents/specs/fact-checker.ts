@@ -4,6 +4,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { FactCheckReportSchema, type FactCheckReport } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 FACT_CHECK_PROMPT
+import { FACT_CHECK_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-depth.prompt";
 
 export interface FactCheckerInput {
   readonly missionId: string;
@@ -47,14 +49,28 @@ export const FACT_CHECKER_SPEC: IAgentSpec<FactCheckerInput, FactCheckReport> =
 
     buildSystemPrompt: () =>
       [
-        "你是事实核查员。对给定 claims + evidence 逐条核查。",
-        "约束：",
-        "1. 只基于提供的 evidence 判断；evidence 不足时标 severity=medium，description 说明缺失",
-        "2. accuracyScore 0-10 基于 verified / total 比例",
-        "3. issuesByClaim 只列有问题的；完全对的可省略",
-        "4. overallAssessment ≥ 10 字的总结",
+        // ★ 直接复用 Apr 21 baseline 的 FACT_CHECK_PROMPT 原文
+        FACT_CHECK_PROMPT,
         "",
-        "严格 JSON 输出，不猜测。",
+        "## 【关键覆盖】本次调用的输出 JSON：",
+        "```json",
+        "{",
+        '  "missionId": "复制 input.missionId 原值",',
+        '  "accuracyScore": 8.5,           // number 0-10 (verified/total 比例)',
+        '  "totalClaims": 20,              // integer ≥0，复制 input.allClaims.length',
+        '  "issuesByClaim": [              // 只列有问题的；对的可省略',
+        "    {",
+        '      "claimId": "claim-1",        // 复制 input.allClaims[].id',
+        '      "severity": "high",          // enum: high | medium | low',
+        '      "description": "≥10 字问题描述",',
+        '      "suggestedFix": "可选修正建议"',
+        "    }",
+        "  ],",
+        '  "overallAssessment": "≥10 字整体评估"',
+        "}",
+        "```",
+        "",
+        "⚠️ 只基于提供的 evidence 判断；evidence 不足时 severity=medium 并说明缺失；数字是数字；严格 JSON。",
       ].join("\n"),
 
     buildUserPrompt: (ctx) => {

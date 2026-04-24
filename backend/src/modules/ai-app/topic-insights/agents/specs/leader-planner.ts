@@ -10,6 +10,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { LeaderPlanSchema, type LeaderPlan } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 SOTA LEADER_PLAN_PROMPT
+import { LEADER_PLAN_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-leader.prompt";
 
 export interface LeaderPlannerInput {
   readonly missionId: string;
@@ -83,17 +85,41 @@ export const LEADER_PLANNER_SPEC: IAgentSpec<LeaderPlannerInput, LeaderPlan> = {
   outputSchema: LeaderPlanSchema,
 
   buildSystemPrompt: (ctx) => {
+    // ★ 直接复用 Apr 21 baseline 的 SOTA LEADER_PLAN_PROMPT 原文
     const base = [
-      "你是资深研究战略顾问，负责对研究主题做全局规划。",
-      "给定一个主题，你要：",
-      "1. 识别 3-8 个研究维度（根据 topicType 和 researchDepth 决定数量）",
-      "2. 为每个维度写出 description / purpose / searchQueries（≥1）/ dataSources（≥1）/ priority（1-10）",
-      "3. 产出 agentAssignments，包含至少 dimension_researcher / quality_reviewer / report_writer 三种角色",
-      "4. 每个 agentAssignment.modelId 必须从 availableModels 中选择",
-      "5. executionStrategy ∈ {sequential, parallel, hybrid}",
-      "6. complexityScore 0-10 自评",
+      LEADER_PLAN_PROMPT,
       "",
-      "输出要求：严格遵循 JSON schema。不要加 markdown fence、注释、前言。",
+      "## 【关键覆盖】输出格式说明（本次调用覆盖 baseline 输出）",
+      "本次调用要求输出**纯 JSON 对象**（不是 taskUnderstanding/causalAnalysis 等 baseline 字段集）。",
+      "本 spec 的 JSON schema：",
+      "```json",
+      "{",
+      '  "missionId": "复制 input.missionId 原值",',
+      '  "dimensions": [                     // 数组长度 3-8',
+      "    {",
+      '      "id": "dim-1",                   // 短 id',
+      '      "name": "维度名 ≤30 字",',
+      '      "description": "1-2 句描述",',
+      '      "purpose": "为什么研究此维度",',
+      '      "searchQueries": ["查询 1"],        // ≥1 条',
+      '      "dataSources": ["web", "academic"],  // ≥1 条',
+      '      "priority": 8                    // integer 1-10',
+      "    }",
+      "  ],",
+      '  "agentAssignments": [               // ≥3 条',
+      "    {",
+      '      "role": "dimension_researcher",   // enum: dimension_researcher | section_writer | quality_reviewer | report_writer',
+      '      "modelId": "从 availableModels 选一个；允许空字符串",',
+      '      "skills": ["可选技能 id 数组"]',
+      "    }",
+      "  ],",
+      '  "executionStrategy": "hybrid",      // enum: sequential | parallel | hybrid',
+      '  "complexityScore": 7.5,             // number 0-10',
+      '  "reasoning": "≥10 字的规划理由"',
+      "}",
+      "```",
+      "",
+      "⚠️ 严格红线：number 是数字不是字符串；字段名严格；不输出 ```json fence 包裹整个 JSON。",
     ].join("\n");
     // F6.2 · When the caller supplies framework-skill bodies
     // (FrameworkSkillPolicyRepository.loadFrameworks), prepend them as domain

@@ -10,6 +10,8 @@ import {
   type QualityReview,
   type SynthesisResult,
 } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 SOTA REPORT_SYNTHESIS_SYSTEM_PROMPT
+import { REPORT_SYNTHESIS_SYSTEM_PROMPT } from "@/modules/ai-app/topic-insights/prompts/report-synthesis.prompt";
 
 export interface SynthesizerInput {
   readonly missionId: string;
@@ -49,16 +51,43 @@ export const SYNTHESIZER_SPEC: IAgentSpec<SynthesizerInput, SynthesisResult> = {
 
   buildSystemPrompt: () =>
     [
-      "你是报告综合专家。基于 dimension metas + 整合后的章节产出最终报告。",
-      "约束（严厉）：",
-      "1. executiveSummary 300-2000 字，含 3-5 核心结论 + 3-5 量化指标 + 2-3 风险 + 2-3 行动建议",
-      "2. crossDimensionAnalysis 识别 2-3 因果链（≥50 字）",
-      "3. riskMatrix 分 high/medium/low 三档，每条有 relatedDimensions",
-      "4. recommendations 按 P0/P1/P2 排序，每条关联具体维度",
-      "5. **严禁**重写 dimension 正文；**严禁**新增来源；**严禁**臆造数据",
-      "6. highlights ≥ 3 条 KEY_FINDING",
+      // ★ 直接复用 Apr 21 baseline 的 SOTA REPORT_SYNTHESIS_SYSTEM_PROMPT 原文
+      REPORT_SYNTHESIS_SYSTEM_PROMPT,
       "",
-      "严格 JSON 输出。",
+      "## 【关键覆盖】输出格式说明（本次调用覆盖 baseline 输出）",
+      "本次调用要求输出**纯 JSON 对象**，字段如下：",
+      "```json",
+      "{",
+      '  "missionId": "复制 input.missionId 原值",',
+      '  "executiveSummary": "100-4000 字执行摘要",',
+      '  "preface": "≥50 字的报告前言",',
+      '  "fullMarkdown": "≥500 字完整 markdown 报告",',
+      '  "highlights": [                // ≥3 条',
+      "    {",
+      '      "type": "KEY_FINDING",       // 固定字面量',
+      '      "text": "≥10 字的核心发现"',
+      "    }",
+      "  ],",
+      '  "crossDimensionAnalysis": "≥50 字跨维度因果分析",',
+      '  "riskMatrix": [                 // ≥1 条',
+      "    {",
+      '      "level": "high",              // enum: high | medium | low',
+      '      "description": "≥10 字风险描述",',
+      '      "relatedDimensions": ["dim-id-1"]',
+      "    }",
+      "  ],",
+      '  "recommendations": [            // ≥1 条',
+      "    {",
+      '      "priority": "P0",             // enum: P0 | P1 | P2',
+      '      "action": "≥10 字具体行动",',
+      '      "rationale": "≥10 字理由",',
+      '      "relatedDimensions": ["dim-id-1"]  // ≥1 条',
+      "    }",
+      "  ]",
+      "}",
+      "```",
+      "",
+      "⚠️ 严厉约束：严禁重写 dimension 正文；严禁新增来源；严禁臆造数据；数字是数字不是字符串；严格 JSON；不输出 ```json 外层 fence。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

@@ -14,6 +14,8 @@ import {
   LeaderIntentDecisionSchema,
   type LeaderIntentDecision,
 } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 LEADER_DECODE_PROMPT
+import { LEADER_DECODE_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-leader.prompt";
 
 export interface LeaderIntentInput {
   readonly message: string;
@@ -65,13 +67,26 @@ export const LEADER_INTENT_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是研究团队的对话引导员。收到用户发给 Leader 的一条消息，先理解意图，再选一种响应：",
-      "- DIRECT_ANSWER: 消息是可以直接答复的问题（概念澄清 / 状态询问 / 范围确认）。必须填 response。",
-      "- CREATE_TODO: 消息实际是 mission 范畴内的新任务（补一个维度 / 扩展分析 / 深挖某点）。必须填 todoCandidate。",
-      "- CLARIFY: 消息模糊、缺关键约束，需反问。必须填 clarifyQuestion 和 2-4 个 clarifyOptions。",
-      "- ACKNOWLEDGE: 闲聊 / 感谢 / 低信息量消息。response 可填短确认。",
+      // ★ 直接复用 Apr 21 baseline 的 LEADER_DECODE_PROMPT 原文
+      LEADER_DECODE_PROMPT,
       "",
-      "输出严格 JSON，符合 LeaderIntentDecisionSchema；不要 markdown fence。",
+      "## 【关键覆盖】本次输出 JSON 字段（LeaderIntentDecisionSchema）：",
+      "```json",
+      "{",
+      '  "decisionType": "DIRECT_ANSWER",  // enum: DIRECT_ANSWER | CREATE_TODO | CLARIFY | ACKNOWLEDGE',
+      '  "understanding": "≥5 字对用户意图的理解",',
+      '  "response": "DIRECT_ANSWER 必填；其他可为 null",',
+      '  "todoCandidate": {                 // CREATE_TODO 必填；其他为 null',
+      '    "title": "2-200 字",',
+      '    "description": "≥5 字",',
+      '    "priority": "medium"             // enum: low | medium | high',
+      "  },",
+      '  "clarifyQuestion": "CLARIFY 必填；其他为 null",',
+      '  "clarifyOptions": ["选项 1", "选项 2"]  // CLARIFY 必填，≥2 条；其他为 null',
+      "}",
+      "```",
+      "",
+      "⚠️ 严格 JSON；不要 markdown fence；字段按 decisionType 填/置 null。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

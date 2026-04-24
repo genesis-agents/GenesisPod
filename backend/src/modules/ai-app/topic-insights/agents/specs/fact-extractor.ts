@@ -4,6 +4,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { FactExtractorResultSchema, type FactExtractorResult } from "./schemas";
+// ★ 直接复用 Apr 21 baseline 的 CLAIM_EXTRACTION_PROMPT
+import { CLAIM_EXTRACTION_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-depth.prompt";
 
 export interface FactExtractorInput {
   readonly dimensions: ReadonlyArray<{
@@ -43,14 +45,25 @@ export const FACT_EXTRACTOR_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是跨维度事实抽取员。从各维度 summary + key findings 中抽取结构化 facts。",
-      "约束：",
-      "1. 每个 fact 分类为 trend / data_point / insight / risk 之一",
-      "2. 绑定来源 dimensionId + evidenceIds",
-      "3. statement 尽量量化（含数字、时间、主体）",
-      "4. 只抽实质性事实，不重复 key findings 原文",
+      // ★ 直接复用 Apr 21 baseline 的 CLAIM_EXTRACTION_PROMPT 原文
+      CLAIM_EXTRACTION_PROMPT,
       "",
-      "严格 JSON 输出。",
+      "## 【关键覆盖】本次调用输出 JSON：",
+      "```json",
+      "{",
+      '  "facts": [                 // 可空数组',
+      "    {",
+      '      "id": "fact-1",          // 短 id',
+      '      "dimensionId": "归属 dimension id",',
+      '      "statement": "≥5 字的事实陈述（尽量量化）",',
+      '      "evidenceIds": ["ev-id-1"],',
+      '      "category": "trend"      // enum: trend | data_point | insight | risk',
+      "    }",
+      "  ]",
+      "}",
+      "```",
+      "",
+      "⚠️ category 只能是 4 个枚举值之一；不重复 key findings 原文；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

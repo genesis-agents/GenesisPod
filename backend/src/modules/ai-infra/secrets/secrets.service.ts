@@ -224,9 +224,19 @@ export class SecretsService {
       where: { name: normalizedName },
     });
     if (!secret || !secret.isActive || secret.deletedAt) {
-      this.logger.warn(
-        `[getValueInternal] Secret "${normalizedName}" lookup: found=${!!secret}, isActive=${secret?.isActive}, deletedAt=${secret?.deletedAt}`,
-      );
+      // 很多 caller（如 key-resolver `{provider}-api-endpoint`）做的是 optional
+      // lookup —— secret 没配是合理情况，不是错误。debug 级别记录即可。
+      // expired / deactivated 是需要告警的异常情况，但两者混在一个 warn 里
+      // 会让告警噪音淹没真信号，分开。
+      if (!secret) {
+        this.logger.debug(
+          `[getValueInternal] Secret "${normalizedName}" not found (optional lookup ok)`,
+        );
+      } else {
+        this.logger.warn(
+          `[getValueInternal] Secret "${normalizedName}" inactive: isActive=${secret.isActive}, deletedAt=${secret.deletedAt}`,
+        );
+      }
       return null;
     }
     if (secret.expiresAt && secret.expiresAt < new Date()) {

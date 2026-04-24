@@ -2,6 +2,12 @@
  * AG-16-MA · MissionAdjuster spec
  */
 
+/**
+ * NOTE: Apr 21 baseline 没有 mission-adjuster prompt（baseline 用 orchestrator
+ * 直接判断 budget/quality 信号，没有 LLM 咨询步骤）。harness 新 spec 保留本地
+ * prompt（JSON schema 格式，符合"budget/quality → 决策"语义）。
+ */
+
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { MissionAdjustmentSchema, type MissionAdjustment } from "./schemas";
 
@@ -45,13 +51,24 @@ export const MISSION_ADJUSTER_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是 mission 策略调整员。根据当前进度和预算，决定 4 种动作之一：",
+      "你是 mission 策略调整员。根据当前进度和预算，决定 4 种动作之一。",
+      "",
+      "## 输出 JSON 格式（严格遵守字段名/类型/必填）",
+      "```json",
+      "{",
+      '  "decision": "continue",      // enum: continue | extend_budget | downgrade_depth | abort',
+      '  "reason": "≥10 字的决策理由",',
+      '  "recommendedActions": ["具体的 next step 1", "具体的 next step 2"]',
+      "}",
+      "```",
+      "",
+      "决策语义：",
       "- continue: 维持当前路径",
       "- extend_budget: 申请延长 budget（只在质量关键才选）",
       "- downgrade_depth: 降级到更低 depth（thorough→standard 等）",
       "- abort: 终止 mission",
       "",
-      "recommendedActions 列出具体的 next steps。严格 JSON 输出。",
+      "⚠️ decision 只能是 4 个枚举值之一；严格 JSON，不要 fence 包裹输出。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

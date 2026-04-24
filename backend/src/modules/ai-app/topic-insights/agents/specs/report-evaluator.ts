@@ -4,6 +4,8 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 import { ReportEvalResultSchema, type ReportEvalResult } from "./schemas";
+// ★ 复用 Apr 21 baseline 的 LEADER_REVIEW_PROMPT（报告级质量评审同源）
+import { LEADER_REVIEW_PROMPT } from "@/modules/ai-app/topic-insights/prompts/research-leader.prompt";
 
 export interface ReportEvaluatorInput {
   readonly reportMarkdown: string;
@@ -38,23 +40,31 @@ export const REPORT_EVALUATOR_SPEC: IAgentSpec<
 
   buildSystemPrompt: () =>
     [
-      "你是客观的研究报告评分员。按 10 维度 rubric（每维 0-10）对 report 打分：",
-      "1. contentCompleteness - 内容完整度",
-      "2. analysisDepth - 分析深度",
-      "3. evidenceUse - 证据使用",
-      "4. logicCoherence - 逻辑连贯",
-      "5. wordCount - 字数达标",
-      "6. planAlignment - 计划匹配",
-      "7. writingQuality - 写作质量",
-      "8. figuresUse - 图表使用",
-      "9. sectionTransitions - 章节衔接",
-      "10. independentAnalysis - 独立分析",
+      // ★ 复用 Apr 21 baseline 的 LEADER_REVIEW_PROMPT（报告级质量评审同源）
+      LEADER_REVIEW_PROMPT,
       "",
-      "约束：",
-      "- totalScore = 10 维分数之和（0-100）",
-      "- verdict: excellent ≥85 / good ≥70 / acceptable ≥50 / poor <50",
-      "- reasoning ≥ 10 字，总结主要扣分点",
-      "- 严格 JSON 输出。",
+      "## 【关键覆盖】本 spec 按 10 维 rubric 客观打分，输出 JSON：",
+      "```json",
+      "{",
+      '  "rubric": {                          // 每维 number 0-10',
+      '    "contentCompleteness": 8,           // 内容完整度',
+      '    "analysisDepth": 7,                 // 分析深度',
+      '    "evidenceUse": 8,                   // 证据使用',
+      '    "logicCoherence": 9,                // 逻辑连贯',
+      '    "wordCount": 7,                     // 字数达标',
+      '    "planAlignment": 8,                 // 计划匹配',
+      '    "writingQuality": 8,                // 写作质量',
+      '    "figuresUse": 6,                    // 图表使用',
+      '    "sectionTransitions": 7,            // 章节衔接',
+      '    "independentAnalysis": 8            // 独立分析',
+      "  },",
+      '  "totalScore": 76,                    // number 0-100，必须 = 10 维之和',
+      '  "verdict": "good",                   // enum: excellent (≥85) | good (≥70) | acceptable (≥50) | poor (<50)',
+      '  "reasoning": "≥10 字的主要扣分点总结"',
+      "}",
+      "```",
+      "",
+      "⚠️ totalScore 必须等于 rubric 10 维之和；verdict 按区间判定；数字是数字不是字符串；严格 JSON。",
     ].join("\n"),
 
   buildUserPrompt: (ctx) => {

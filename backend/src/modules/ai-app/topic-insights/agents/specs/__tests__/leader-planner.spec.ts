@@ -46,8 +46,11 @@ describe("LEADER_PLANNER_SPEC", () => {
       },
       identity: LEADER_PLANNER_SPEC.identity,
     });
-    expect(prompt).toContain("资深研究战略顾问");
-    expect(prompt).toContain("3-8 个研究维度");
+    // Apr 21 baseline 的 LEADER_PLAN_PROMPT 开篇：
+    expect(prompt).toContain("资深的研究协调专家");
+    // 本 spec 的 JSON schema 覆盖段：
+    expect(prompt).toContain("dimensions");
+    expect(prompt).toContain("agentAssignments");
   });
 
   it("buildUserPrompt includes mission + topic fields", () => {
