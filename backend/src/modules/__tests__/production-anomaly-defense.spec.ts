@@ -5,7 +5,7 @@
  * Each test case uses real anomaly patterns found in reports 16c56e00 and 69e2f94f.
  */
 
-import { stripChartJsonFromContent } from "../ai-app/topic-insights/utils/strip-chart-json.utils";
+import { stripChartJsonFromContent } from "../ai-app/topic-insights/shared/utils/strip-chart-json.utils";
 import { stripLLMMetaNotes } from "../ai-app/shared/report-template";
 
 // ============================================================================

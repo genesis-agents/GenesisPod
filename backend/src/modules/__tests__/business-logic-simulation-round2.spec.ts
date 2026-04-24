@@ -17,7 +17,7 @@
 // 1. strip-chart-json.utils.ts
 // ============================================================
 
-import { stripChartJsonFromContent } from "../ai-app/topic-insights/utils/strip-chart-json.utils";
+import { stripChartJsonFromContent } from "../ai-app/topic-insights/shared/utils/strip-chart-json.utils";
 
 const LONG_PREFIX =
   "This is a long analysis content block that exceeds one hundred characters " +
@@ -198,7 +198,7 @@ describe("stripLLMMetaNotes — new patterns", () => {
 // 3. defect-scanner.ts (countLeakedMetaNotes)
 // ============================================================
 
-import { scanContentDefects } from "../ai-app/topic-insights/services/quality/defect-scanner.service";
+import { scanContentDefects } from "../ai-app/topic-insights/artifacts/report/quality/defect-scanner.service";
 
 describe("scanContentDefects — countLeakedMetaNotes new patterns", () => {
   it("scenario 1: contains （不含要点和标题） → leakedMetaNotes >= 1", () => {
@@ -256,7 +256,7 @@ describe("scanContentDefects — countLeakedMetaNotes new patterns", () => {
 // 4. report-quality-gate.service.ts
 // ============================================================
 
-import { ReportQualityGateService } from "../ai-app/topic-insights/services/quality/report-quality-gate.service";
+import { ReportQualityGateService } from "../ai-app/topic-insights/artifacts/report/quality/report-quality-gate.service";
 
 // Minimal stub — ReportQualityGateService uses Logger internally, no DI required for unit test
 function buildQualityGate(): ReportQualityGateService {
@@ -441,8 +441,8 @@ import { ResearchLeaderService } from "../ai-app/topic-insights/services/researc
 import { LeaderPlanningService } from "../ai-app/topic-insights/services/leader/leader-planning.service";
 import { LeaderReviewService } from "../ai-app/topic-insights/services/leader/leader-review.service";
 import { SectionWriterService } from "../ai-app/topic-insights/services/dimension/section-writer.service";
-import { DataSourceRouterService } from "../ai-app/topic-insights/services/data/source-router.service";
-import { ResearchEventEmitterService } from "../ai-app/topic-insights/services/research/event-emitter.service";
+import { DataSourceRouterService } from "../ai-app/topic-insights/knowledge/sources/router.service";
+import { ResearchEventEmitterService } from "../ai-app/topic-insights/memory/events/event-emitter.service";
 import { AgentActivityService } from "../ai-app/topic-insights/services/health/agent-activity.service";
 import { DataEnrichmentService } from "../ai-app/topic-insights/services/data/data-enrichment.service";
 import { LeaderToolService } from "../ai-app/topic-insights/services/data/leader-tool.service";

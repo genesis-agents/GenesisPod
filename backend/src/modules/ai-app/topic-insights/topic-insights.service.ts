@@ -4,11 +4,11 @@ import {
   ForbiddenException,
   Logger,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { RESEARCH_INTERNAL_EVENTS } from "./services/research/event-emitter.service";
+import { RESEARCH_INTERNAL_EVENTS } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
 import { Observable, Subject, filter, map } from "rxjs";
 import { MessageEvent } from "@nestjs/common";
 import {
@@ -29,7 +29,7 @@ import {
   CreateFromTemplateDto,
   UpdateScheduleDto,
   ListLogsDto,
-} from "./dto";
+} from "./api/dto";
 import { AnnotationStatus, AnnotationType } from "@prisma/client";
 // H6 step 6: RefreshProgressEvent was originally exported from the legacy
 // team-orchestrator. That orchestrator is being deleted; the SSE progress
@@ -53,8 +53,8 @@ interface RefreshProgressEvent {
   message: string;
   error?: string;
 }
-import { MissionExecutionService } from "./services/mission/execution.service";
-import { MissionCancellationService } from "./services/mission/cancellation.service";
+import { MissionExecutionService } from "./mission/control/execution.service";
+import { MissionCancellationService } from "./mission/control/cancellation.service";
 import {
   ReportSynthesisService,
   EvidenceManagementService,
@@ -76,8 +76,8 @@ import {
   type AiEditReportDto,
   type UpdateReportContentDto,
 } from "./services";
-import { BillingContext } from "../../ai-infra/facade";
-import type { ResearchDepth } from "./types";
+import { BillingContext } from "@/modules/ai-infra/facade";
+import type { ResearchDepth } from "./shared/types";
 
 // 维度模板已外置到 config/dimension-templates.config.ts
 /**

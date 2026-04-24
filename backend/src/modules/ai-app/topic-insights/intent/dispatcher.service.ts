@@ -15,8 +15,8 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { SpecAgentRegistry } from "@/modules/ai-engine/harness";
-import type { LeaderDispatcherInput } from "../agents-spec";
-import type { LeaderDispatchDecision } from "../agents-spec/schemas";
+import type { LeaderDispatcherInput } from "@/modules/ai-app/topic-insights/agents/specs";
+import type { LeaderDispatchDecision } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 
 export interface DispatchRequest {
   readonly userPrompt: string;

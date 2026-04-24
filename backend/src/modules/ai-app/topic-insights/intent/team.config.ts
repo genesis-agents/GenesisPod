@@ -10,8 +10,8 @@ import {
   BUILTIN_ROLES,
   createConstraintProfile,
   BUILTIN_TOOLS,
-} from "../../../ai-engine/facade";
-import type { TeamConfig, WorkflowConfig } from "../../../ai-engine/facade";
+} from "@/modules/ai-engine/facade";
+import type { TeamConfig, WorkflowConfig } from "@/modules/ai-engine/facade";
 
 /**
  * 深度洞察研究工作流配置

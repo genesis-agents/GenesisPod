@@ -12,7 +12,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { TopicInsightsService } from "../topic-insights.service";
+import { TopicInsightsService } from "@/modules/ai-app/topic-insights/topic-insights.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NotFoundException } from "@nestjs/common";
@@ -33,9 +33,9 @@ import {
   LatexRepairService,
   ComputeUsageService,
   ReportContentEditingService,
-} from "../services";
-import { MissionExecutionService } from "../services/mission/execution.service";
-import { MissionCancellationService } from "../services/mission/cancellation.service";
+} from "@/modules/ai-app/topic-insights/services";
+import { MissionExecutionService } from "../mission/control/execution.service";
+import { MissionCancellationService } from "../mission/control/cancellation.service";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
 function buildMocks() {

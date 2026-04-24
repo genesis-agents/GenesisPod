@@ -7,7 +7,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
+import { PlanBasedAgent } from "@/modules/ai-engine/facade/base-classes";
 import {
   BUILTIN_AGENTS,
   BUILTIN_TOOLS,
@@ -17,7 +17,7 @@ import {
   type AgentTemplate,
   type ToolId,
   type PlanStep,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-engine/facade";
 
 @Injectable()
 export class TopicInsightsAgent extends PlanBasedAgent {

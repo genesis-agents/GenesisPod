@@ -1,29 +1,29 @@
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { NotificationModule } from "../../ai-infra/notifications/notification.module";
+import { PrismaModule } from "@/common/prisma/prisma.module";
+import { NotificationModule } from "@/modules/ai-infra/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
-import { AiEngineModule } from "../../ai-engine/ai-engine.module";
+import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
 import {
   PromptSkillBridge,
   AgentRegistry,
   TeamRegistry,
-} from "../../ai-engine/facade";
+} from "@/modules/ai-engine/facade";
 import {
   AgentFactory as HarnessAgentFactory,
   SpecAgentRegistry,
-} from "../../ai-engine/harness";
-import { TOPIC_INSIGHTS_AGENT_SPECS } from "./agents-spec";
-import { CreditsModule } from "../../ai-infra/credits/credits.module";
-import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
-import { StorageModule } from "../../ai-infra/storage/storage.module";
-import { ExportModule } from "../../../common/export/export.module";
+} from "@/modules/ai-engine/harness";
+import { TOPIC_INSIGHTS_AGENT_SPECS } from "./agents/specs";
+import { CreditsModule } from "@/modules/ai-infra/credits/credits.module";
+import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
+import { StorageModule } from "@/modules/ai-infra/storage/storage.module";
+import { ExportModule } from "@/common/export/export.module";
 import { TOPIC_INSIGHTS_DATA_EXPORT } from "../shared/interfaces/data-export.interface";
 import { TopicInsightsAgent } from "./intent";
 import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./intent";
 // ★ Tier Core: Harness pipeline module (flag-gated via TOPIC_INSIGHTS_USE_HARNESS)
-import { PipelineModule } from "./pipeline/pipeline.module";
+import { PipelineModule } from "./mission/pipeline/pipeline.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule
@@ -35,9 +35,9 @@ import {
   TodoController,
   ReportReviewController,
   LatencyController,
-} from "./controllers";
+} from "./api/controllers";
 import { TopicInsightsService } from "./topic-insights.service";
-import { TopicInsightsGateway } from "./gateways/realtime.gateway";
+import { TopicInsightsGateway } from "./api/gateways/realtime.gateway";
 import {
   DataSourceRouterService,
   ReportSynthesisService,
@@ -130,7 +130,7 @@ import {
   // ★ Phase 0: BaselineRecorder (flag-gated)
   BaselineRecorderService,
 } from "./services";
-import { TopicAccessGuard } from "./guards";
+import { TopicAccessGuard } from "./api/guards";
 
 const services = [
   TopicInsightsService,
