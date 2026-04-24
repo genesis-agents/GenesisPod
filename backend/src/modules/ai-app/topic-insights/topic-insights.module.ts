@@ -39,6 +39,8 @@ import { ProtocolRegistry } from "./agent/protocols/protocol-registry";
 import { ChatFacadeLLMCaller } from "./agent/orchestrator/chat-facade-llm-caller";
 import { ResearchDynamicReplanner } from "./agent/orchestrator/research-dynamic-replanner";
 import { ResearchMissionOrchestrator } from "./agent/orchestrator/research-mission-orchestrator";
+// ★ SOTA Phase 6: Human-in-the-loop primitives
+import { ResearchHITLService } from "./agent/hitl/research-hitl.service";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule
@@ -50,6 +52,7 @@ import {
   TodoController,
   ReportReviewController,
   LatencyController,
+  AgentHITLController,
 } from "./api/controllers";
 import { TopicInsightsService } from "./topic-insights.service";
 import { TopicInsightsGateway } from "./api/gateways/realtime.gateway";
@@ -222,6 +225,7 @@ const services = [
   ChatFacadeLLMCaller,
   ResearchDynamicReplanner,
   ResearchMissionOrchestrator,
+  ResearchHITLService,
 ];
 
 @Module({
@@ -254,6 +258,7 @@ const services = [
     TodoController,
     ReportReviewController,
     LatencyController,
+    AgentHITLController,
   ],
   providers: [
     ...services,

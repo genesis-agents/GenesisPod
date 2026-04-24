@@ -7,7 +7,8 @@
  * （带 missionId/topicId/dimensionId 业务字段）。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma, type AgentStepType as PrismaStepType } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
@@ -18,9 +19,30 @@ import type {
 } from "@/modules/ai-engine/harness/runtime";
 import type { ResearchTaskMetadata } from "./research-task-metadata";
 
+/** Internal NestJS event emitted after every agent step persist; the realtime
+ *  gateway listens to broadcast to the subscribing topic room. */
+export const AGENT_STEP_EVENT = "topic-insights.agent.step";
+
+export interface AgentStepBroadcast {
+  readonly topicId: string;
+  readonly missionId: string;
+  readonly taskId: string;
+  readonly iteration: number;
+  readonly stepIndex: number;
+  readonly stepType: AgentStepType;
+  readonly content?: string;
+  readonly toolName?: string;
+  readonly toolSuccess?: boolean;
+  readonly modelId?: string;
+  readonly timestamp: number;
+}
+
 @Injectable()
 export class PrismaStepStore implements StepStore {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
+  ) {}
 
   async write(
     record: AgentStepRecord,
@@ -61,6 +83,24 @@ export class PrismaStepStore implements StepStore {
       },
       select: { id: true },
     });
+
+    // Fire-and-forget realtime broadcast; gateway ships this to socket room.
+    if (this.eventEmitter) {
+      const payload: AgentStepBroadcast = {
+        topicId: meta.topicId,
+        missionId: meta.missionId,
+        taskId: record.taskId,
+        iteration: record.iteration,
+        stepIndex: record.stepIndex,
+        stepType: record.stepType,
+        content: record.content?.slice(0, 2000),
+        toolName: record.toolName,
+        toolSuccess: record.toolSuccess,
+        modelId: record.modelId,
+        timestamp: Date.now(),
+      };
+      this.eventEmitter.emit(AGENT_STEP_EVENT, payload);
+    }
     return row.id;
   }
 

@@ -525,6 +525,36 @@ export class TopicInsightsGateway
     }
   }
 
+  // ==================== SOTA Phase 6: AgentStep live stream ====================
+
+  /**
+   * Broadcast each agent step (OBSERVE/THINK/PLAN/TOOL_CALL/...) to the topic
+   * subscribers. PrismaStepStore emits AGENT_STEP_EVENT after each persist.
+   * Receiving UI listens to "agent:step" and renders the ReAct timeline.
+   */
+  @OnEvent("topic-insights.agent.step")
+  async handleAgentStepEvent(payload: {
+    topicId: string;
+    missionId: string;
+    taskId: string;
+    iteration: number;
+    stepIndex: number;
+    stepType: string;
+    content?: string;
+    toolName?: string;
+    toolSuccess?: boolean;
+    modelId?: string;
+    timestamp: number;
+  }): Promise<void> {
+    try {
+      await this.emitToTopic(payload.topicId, "agent:step", payload);
+    } catch (err) {
+      this.logger.warn(
+        `[agent-step broadcast] failed topic=${payload.topicId} task=${payload.taskId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   // ==================== Phase 5: State Sync ====================
 
   /**
