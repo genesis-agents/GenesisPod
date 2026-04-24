@@ -28,7 +28,7 @@ import {
 import { EmailService } from "../email/email.service";
 
 @ApiTags("Admin - Settings")
-@Controller("api/v1/admin/settings")
+@Controller("admin/settings")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class SettingsController {
   private readonly logger = new Logger(SettingsController.name);

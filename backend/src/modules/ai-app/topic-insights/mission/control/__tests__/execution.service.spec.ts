@@ -31,12 +31,28 @@ function buildService() {
     researchTopic: {
       findUnique: jest.fn(),
     },
+    researchTask: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      groupBy: jest
+        .fn()
+        .mockResolvedValue([{ status: "COMPLETED", _count: { _all: 6 } }]),
+    },
+    topicReport: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "report-1",
+        fullReportSize: 5000,
+      }),
+    },
+    topicEvidence: {
+      count: jest.fn().mockResolvedValue(42),
+    },
   };
   const eventEmitter = {
     emitMissionStarted: jest.fn().mockResolvedValue(undefined),
     emitMissionCompleted: jest.fn().mockResolvedValue(undefined),
     emitMissionFailed: jest.fn().mockResolvedValue(undefined),
     emitMissionCancelled: jest.fn().mockResolvedValue(undefined),
+    emitToTopic: jest.fn().mockResolvedValue(undefined),
   };
   const reportSynth = {
     createDraftReport: jest.fn().mockResolvedValue({ id: "draft" }),

@@ -379,6 +379,38 @@ export class MissionExecutionService {
           `duration=${result.durationMs}ms`,
       );
 
+      // 2026-04-24 P0: 输出门槛校验 — 禁止"假 COMPLETED"mission
+      // 条件：dim_research tasks 有 COMPLETED + TopicEvidence > 0 + TopicReport.fullReportSize > 1000
+      const outputGate = await this.assertOutputGate(missionId, topicId);
+      if (!outputGate.ok) {
+        this.logger.error(
+          `[runWithHarness] mission=${missionId} output gate FAILED: ${outputGate.reason} — marking FAILED not COMPLETED`,
+        );
+        await this.prisma.researchMission.update({
+          where: { id: missionId },
+          data: {
+            status: ResearchMissionStatus.FAILED,
+            completedAt: new Date(),
+          },
+        });
+        await this.researchEventEmitter.emitToTopic(topicId, "mission:failed", {
+          missionId,
+          reason: `Output gate failed: ${outputGate.reason}`,
+        });
+        this.harnessRollout?.recordRun({
+          missionId,
+          userId: topic.userId,
+          success: false,
+          durationMs: result.durationMs,
+          qualityScore,
+          tokensUsed: result.budgetSnapshot.tokensUsed,
+          costUsd: result.budgetSnapshot.costUsd,
+          recordedAt: new Date(),
+        });
+        await this.checkpoint?.clear(missionId);
+        return;
+      }
+
       await this.prisma.researchMission.update({
         where: { id: missionId },
         data: {
@@ -389,8 +421,8 @@ export class MissionExecutionService {
       await this.researchEventEmitter.emitMissionCompleted(
         topicId,
         missionId,
-        result.completedStages.length,
-        result.completedStages.length,
+        outputGate.tasksCompleted,
+        outputGate.tasksCompleted + outputGate.tasksFailed,
       );
 
       // ★ Group M-2: 记录 harness run 指标（auto-rollback 输入）
@@ -534,6 +566,27 @@ export class MissionExecutionService {
       this.logger.log(
         `[resumeWithHarness] mission=${missionId} completed stages=${result.completedStages.length} duration=${result.durationMs}ms`,
       );
+
+      const resumeGate = await this.assertOutputGate(missionId, topicId);
+      if (!resumeGate.ok) {
+        this.logger.error(
+          `[resumeWithHarness] mission=${missionId} output gate FAILED: ${resumeGate.reason} — marking FAILED`,
+        );
+        await this.prisma.researchMission.update({
+          where: { id: missionId },
+          data: {
+            status: ResearchMissionStatus.FAILED,
+            completedAt: new Date(),
+          },
+        });
+        await this.researchEventEmitter.emitToTopic(topicId, "mission:failed", {
+          missionId,
+          reason: `Output gate failed: ${resumeGate.reason}`,
+        });
+        await this.checkpoint?.clear(missionId);
+        return;
+      }
+
       await this.prisma.researchMission.update({
         where: { id: missionId },
         data: {
@@ -544,8 +597,8 @@ export class MissionExecutionService {
       await this.researchEventEmitter.emitMissionCompleted(
         topicId,
         missionId,
-        result.completedStages.length,
-        result.completedStages.length,
+        resumeGate.tasksCompleted,
+        resumeGate.tasksCompleted + resumeGate.tasksFailed,
       );
       await this.checkpoint?.clear(missionId);
     } catch (err) {
@@ -581,5 +634,76 @@ export class MissionExecutionService {
     } finally {
       this.cancellation?.unregister(missionId);
     }
+  }
+
+  /**
+   * 2026-04-24 P0 gate: mission 标 COMPLETED 前必过的 3 项输出校验。
+   * 对齐 baseline 4.21 完成语义：不允许"stage 跑完但 0 产出"的假成功。
+   *
+   * 规则（任一失败即 ok=false）：
+   *   - 至少 1 个 dim_research task 状态为 COMPLETED
+   *   - TopicEvidence 行数 > 0（最新版 report）
+   *   - TopicReport.fullReportSize > 1000 chars
+   */
+  private async assertOutputGate(
+    missionId: string,
+    topicId: string,
+  ): Promise<
+    | {
+        ok: true;
+        tasksCompleted: number;
+        tasksFailed: number;
+        evidence: number;
+        reportSize: number;
+      }
+    | {
+        ok: false;
+        reason: string;
+        tasksCompleted: number;
+        tasksFailed: number;
+      }
+  > {
+    const finalReport = await this.prisma.topicReport.findFirst({
+      where: { topicId },
+      orderBy: { version: "desc" },
+      select: { id: true, fullReportSize: true },
+    });
+    const evidence = finalReport
+      ? await this.prisma.topicEvidence.count({
+          where: { reportId: finalReport.id },
+        })
+      : 0;
+    const grouped = await this.prisma.researchTask.groupBy({
+      by: ["status"],
+      where: { missionId, taskType: "dimension_research" },
+      _count: { _all: true },
+    });
+    const tasksCompleted =
+      grouped.find((g) => g.status === "COMPLETED")?._count._all ?? 0;
+    const tasksFailed =
+      grouped.find((g) => g.status === "FAILED")?._count._all ?? 0;
+    const reportSize = finalReport?.fullReportSize ?? 0;
+
+    const failures = [
+      tasksCompleted === 0 ? `dim_research completed=0` : null,
+      evidence === 0 ? `evidence=0` : null,
+      reportSize <= 1000 ? `reportSize=${reportSize}(<=1000)` : null,
+    ].filter(Boolean);
+
+    if (failures.length > 0) {
+      return {
+        ok: false,
+        reason: failures.join(", "),
+        tasksCompleted,
+        tasksFailed,
+      };
+    }
+    return {
+      ok: true,
+      tasksCompleted,
+      tasksFailed,
+      evidence,
+      reportSize,
+    };
   }
 }

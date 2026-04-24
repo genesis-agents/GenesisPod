@@ -386,6 +386,12 @@ export class PipelineOrchestratorService {
   /**
    * 单个 stage 的执行 + metrics + event + budget。
    * 抽出为独立方法便于 remediate loop 复用。
+   *
+   * 2026-04-24 · Activity-emission cross-cut:
+   *   before execute → emit AGENT_WORKING status=working
+   *   after  execute → emit AGENT_WORKING status=completed
+   *   on error       → emit AGENT_WORKING status=failed
+   * 15 个 stage 零改动，activity 面板立刻有数据（覆盖根因 A）。
    */
   private async runStageWithMetrics(
     stage: Stage,
@@ -399,6 +405,7 @@ export class PipelineOrchestratorService {
       stageId: stage.id,
       stageName: stage.name,
     });
+    await this.emitStageActivity(identity, stage, "working");
 
     try {
       const input = await stage.prepare(identity, results);
@@ -410,6 +417,7 @@ export class PipelineOrchestratorService {
       await stage.persist(identity, output);
       results.set(stage.id, output);
       if (!completed.includes(stage.id)) completed.push(stage.id);
+      await this.emitStageActivity(identity, stage, "completed");
 
       // ★ Group L-3: 外部观察者钩子（golden runner 采真产物用）
       if (options?.onStageComplete) {
@@ -470,6 +478,7 @@ export class PipelineOrchestratorService {
         stageName: stage.name,
         error: msg,
       });
+      await this.emitStageActivity(identity, stage, "failed", msg);
       await stage
         .cleanup?.(identity)
         .catch((e) =>
@@ -479,6 +488,65 @@ export class PipelineOrchestratorService {
         );
       throw err;
     }
+  }
+
+  /**
+   * Emit AGENT_WORKING (persists to researchAgentActivity + WebSocket).
+   * Stage 作为逻辑 agent：stageId → agentId，stageName → agentName；
+   * agentRole 按 stage 语义分类（leader / researcher / reviewer / synthesizer）。
+   */
+  private async emitStageActivity(
+    identity: PipelineIdentityContext,
+    stage: Stage,
+    status: "working" | "completed" | "failed",
+    errorMsg?: string,
+  ): Promise<void> {
+    if (!this.researchEventEmitter) return;
+    try {
+      await this.researchEventEmitter.emitAgentWorking(
+        identity.topicId,
+        {
+          agentId: stage.id.toLowerCase(),
+          agentName: stage.name,
+          agentRole: this.stageToAgentRole(stage.id),
+          status,
+          taskDescription:
+            status === "failed" && errorMsg
+              ? `${stage.name} 失败: ${errorMsg.slice(0, 200)}`
+              : stage.name,
+          progress:
+            status === "completed" ? 100 : status === "working" ? 10 : 0,
+        },
+        identity.missionId,
+      );
+    } catch (err) {
+      // emitter failure must not break pipeline — but do log loud so ops catches it
+      this.logger.error(
+        `[${identity.missionId}] emitStageActivity ${stage.id}/${status} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  private stageToAgentRole(
+    stageId: StageId,
+  ): "leader" | "researcher" | "reviewer" | "synthesizer" {
+    if (
+      stageId === "ST-00-INIT" ||
+      stageId === "ST-01-PLAN" ||
+      stageId === "ST-02B-OUTLINE"
+    ) {
+      return "leader";
+    }
+    if (stageId === "ST-02-RESEARCH") return "researcher";
+    if (
+      stageId === "ST-04-REVIEW" ||
+      stageId === "ST-08-QGATE" ||
+      stageId === "ST-09-EVAL" ||
+      stageId === "ST-10-FACT"
+    ) {
+      return "reviewer";
+    }
+    return "synthesizer";
   }
 
   /**

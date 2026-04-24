@@ -232,11 +232,25 @@ export class ResearchStage implements Stage<
       if (created) evidenceIds.push(created.id);
     }
 
-    // F-2 · 完成或失败转 COMPLETED（0 证据也算完成 — 下游 WriteStage 会处理缺证据）
-    await this.markDimensionTask(identity.missionId, planDim.id, "COMPLETED", {
-      resultSummary: `evidence=${evidenceIds.length}`,
-      progress: 100,
-    });
+    // 2026-04-24 P0 修复：evidence=0 不再伪装 COMPLETED，否则下游 mission 级
+    // 仍显示"成功但空" → 用户看到的是 COMPLETED mission，实际 activities/evidence=0。
+    // 0 evidence 一律标 FAILED，驱动 mission 级 verdict 真实反映产出缺失。
+    if (evidenceIds.length === 0) {
+      await this.markDimensionTask(identity.missionId, planDim.id, "FAILED", {
+        resultSummary: `evidence=0 (search returned nothing or all writes failed)`,
+        progress: 0,
+      });
+    } else {
+      await this.markDimensionTask(
+        identity.missionId,
+        planDim.id,
+        "COMPLETED",
+        {
+          resultSummary: `evidence=${evidenceIds.length}`,
+          progress: 100,
+        },
+      );
+    }
 
     return {
       dimensionId: planDim.id,

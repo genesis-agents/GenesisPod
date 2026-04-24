@@ -232,67 +232,65 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
       select: { id: true, name: true, sortOrder: true },
     });
 
-    let upserted: Array<{ id: string }>;
-    const isFreshReplace =
-      identity.mode === "fresh" &&
-      (!identity.dimensionScope || identity.dimensionScope.length === 0);
-    const countMatches = existingDims.length === output.plan.dimensions.length;
+    // ★ P0 修复（2026-04-24）：永远按 sortOrder 对位复用，不再按 name 匹配。
+    // 旧行为（name findFirst + create）对 LLM 不稳定的 name 累积新 dim，
+    // 实测 1 个 topic 跑 10 次 mission 就把 6 dim 膨胀到 37 个。
+    //
+    // 新策略：
+    //   - 前 min(existing, plan) 个 dim 按 sortOrder 1:1 update（name/desc/queries 全替换）
+    //   - plan 比 existing 多：尾部新建
+    //   - existing 比 plan 多：删除尾部多余 dim（无 dim → DimensionAnalysis cascade 级联清理）
+    //   - dimensionScope 模式仍按下面的 scope 过滤逻辑裁剪 plan，本段只关心对位
+    const reuseCount = Math.min(
+      existingDims.length,
+      output.plan.dimensions.length,
+    );
+    const upsertedList: Array<{ id: string }> = [];
 
-    if (isFreshReplace && countMatches && existingDims.length > 0) {
-      // ★ 数量匹配的重跑：按 sortOrder 逐位更新，**复用现有 id**，避免堆积新 dim
-      upserted = await Promise.all(
-        output.plan.dimensions.map(async (d, idx) => {
-          const existing = existingDims[idx];
-          await prisma.topicDimension.update({
-            where: { id: existing.id },
-            data: {
-              name: d.name,
-              description: d.description,
-              searchQueries: toPrismaJson(d.searchQueries),
-              searchSources: toPrismaJson(d.dataSources),
-              sortOrder: idx,
-            },
-          });
-          return { id: existing.id };
-        }),
-      );
-      this.logger.log(
-        `[${identity.missionId}] Replaced ${existingDims.length} existing dims by sortOrder (no new dims created)`,
-      );
-    } else {
-      // 数量不匹配 / 增量 / 首次：按 name 匹配 upsert（原有行为）
-      upserted = await Promise.all(
-        output.plan.dimensions.map(async (d, idx) => {
-          const existing = await prisma.topicDimension.findFirst({
-            where: { topicId: identity.topicId, name: d.name },
-            select: { id: true },
-          });
-          if (existing) {
-            await prisma.topicDimension.update({
-              where: { id: existing.id },
-              data: {
-                description: d.description,
-                searchQueries: toPrismaJson(d.searchQueries),
-                searchSources: toPrismaJson(d.dataSources),
-                sortOrder: idx,
-              },
-            });
-            return { id: existing.id };
-          }
-          return prisma.topicDimension.create({
-            data: {
-              topicId: identity.topicId,
-              name: d.name,
-              description: d.description,
-              searchQueries: toPrismaJson(d.searchQueries),
-              searchSources: toPrismaJson(d.dataSources),
-              sortOrder: idx,
-            },
-            select: { id: true },
-          });
-        }),
+    for (let idx = 0; idx < reuseCount; idx++) {
+      const existing = existingDims[idx];
+      const d = output.plan.dimensions[idx];
+      await prisma.topicDimension.update({
+        where: { id: existing.id },
+        data: {
+          name: d.name,
+          description: d.description,
+          searchQueries: toPrismaJson(d.searchQueries),
+          searchSources: toPrismaJson(d.dataSources),
+          sortOrder: idx,
+        },
+      });
+      upsertedList.push({ id: existing.id });
+    }
+    for (let idx = reuseCount; idx < output.plan.dimensions.length; idx++) {
+      const d = output.plan.dimensions[idx];
+      const created = await prisma.topicDimension.create({
+        data: {
+          topicId: identity.topicId,
+          name: d.name,
+          description: d.description,
+          searchQueries: toPrismaJson(d.searchQueries),
+          searchSources: toPrismaJson(d.dataSources),
+          sortOrder: idx,
+        },
+        select: { id: true },
+      });
+      upsertedList.push({ id: created.id });
+    }
+    if (existingDims.length > output.plan.dimensions.length) {
+      const stale = existingDims.slice(output.plan.dimensions.length);
+      const staleIds = stale.map((d) => d.id);
+      await prisma.topicDimension.deleteMany({
+        where: { id: { in: staleIds } },
+      });
+      this.logger.warn(
+        `[${identity.missionId}] Deleted ${staleIds.length} stale dims beyond plan.length=${output.plan.dimensions.length} (recovered from accumulation bug)`,
       );
     }
+    this.logger.log(
+      `[${identity.missionId}] dim sync: reused=${reuseCount} created=${output.plan.dimensions.length - reuseCount} deleted=${Math.max(0, existingDims.length - output.plan.dimensions.length)}`,
+    );
+    const upserted = upsertedList;
 
     // Mutate plan.dimensions in place to carry真 DB id（后续 stage 依赖）
     const mutablePlan = output.plan as {

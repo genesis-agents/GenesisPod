@@ -75,7 +75,7 @@ interface MissionCancelResponse {
 // ==================== Controller ====================
 
 @ApiTags("AI Teams")
-@Controller("api/ai/teams")
+@Controller("ai/teams")
 export class TeamsController {
   private readonly logger = new Logger(TeamsController.name);
 

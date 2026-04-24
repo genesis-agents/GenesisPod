@@ -23,7 +23,7 @@ import type { TraceType } from "./trace.interface";
  * GET /api/v1/admin/traces/:id     - trace detail with spans
  */
 @ApiTags("Admin - Observability")
-@Controller("api/v1/admin/traces")
+@Controller("admin/traces")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class ObservabilityController {
   constructor(private readonly traceCollector: TraceCollectorService) {}
