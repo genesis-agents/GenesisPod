@@ -343,6 +343,29 @@ export const LeaderIntentDecisionSchema = z.object({
 
 export type LeaderIntentDecision = z.infer<typeof LeaderIntentDecisionSchema>;
 
+// =========== AG-19-LAS · LeaderAgenticSearcher (F6.3) ===========
+
+export const LeaderAgenticSearchResultSchema = z.object({
+  missionId: z.string().min(1),
+  dimensionId: z.string().min(1),
+  suggestedQueries: z.array(z.string().min(2)).min(1),
+  shortlistSummaries: z
+    .array(
+      z.object({
+        title: z.string().min(2),
+        url: z.string().min(4),
+        rationale: z.string().min(10),
+      }),
+    )
+    .min(0),
+  nextIteration: z.enum(["stop", "refine", "expand"]),
+  reasoning: z.string().min(10),
+});
+
+export type LeaderAgenticSearchResult = z.infer<
+  typeof LeaderAgenticSearchResultSchema
+>;
+
 // =========== AG-15-RED · ReportEditor ===========
 
 export const EditedReportSchema = z.object({

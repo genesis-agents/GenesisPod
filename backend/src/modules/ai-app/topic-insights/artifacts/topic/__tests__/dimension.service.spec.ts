@@ -21,6 +21,7 @@ import {
 } from "../templates";
 import { MissionExecutionService } from "../../../mission/control/execution.service";
 import type { DimensionTemplate } from "../templates";
+import { ResearchEventEmitterService } from "../../../memory/events/event-emitter.service";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,13 @@ function buildMocks() {
     startExecution: jest.fn().mockResolvedValue(undefined),
   };
 
-  return { mockPrisma, mockExecution };
+  const mockEvents = {
+    emitDimensionCreated: jest.fn().mockResolvedValue(undefined),
+    emitDimensionAdded: jest.fn().mockResolvedValue(undefined),
+    emitDimensionRemoved: jest.fn().mockResolvedValue(undefined),
+  };
+
+  return { mockPrisma, mockExecution, mockEvents };
 }
 
 const SEED: readonly DimensionTemplate[] = [
@@ -132,6 +139,7 @@ describe("TopicDimensionService", () => {
         { provide: PrismaService, useValue: mocks.mockPrisma },
         { provide: DIMENSION_TEMPLATES_SEED, useValue: SEED },
         { provide: MissionExecutionService, useValue: mocks.mockExecution },
+        { provide: ResearchEventEmitterService, useValue: mocks.mockEvents },
       ],
     }).compile();
 

@@ -41,9 +41,15 @@ describe("Topic Insights · agent spec defaults", () => {
   );
 
   it.each(TOPIC_INSIGHTS_AGENT_SPECS.map((s) => [s.identity.role.id, s]))(
-    "%s · role.workStyle matches TOPIC_INSIGHTS_WORK_STYLE",
+    "%s · role.workStyle is structured or adaptive (F6 relaxation)",
     (_id, spec) => {
-      expect(spec.identity.role.workStyle).toBe(TOPIC_INSIGHTS_WORK_STYLE);
+      // Most specs are structured (single-shot LLM + schema validation).
+      // AG-19-LAS (LeaderAgenticSearcher) is intentionally adaptive — it runs
+      // an iterative search loop, which doesn't fit the structured contract.
+      // Keep the default pinned for new specs; allow "adaptive" as an opt-in.
+      expect([TOPIC_INSIGHTS_WORK_STYLE, "adaptive"]).toContain(
+        spec.identity.role.workStyle,
+      );
     },
   );
 

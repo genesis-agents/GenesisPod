@@ -76,4 +76,88 @@ export class DimensionTemplatesRepository {
   ): readonly RenderedDimension[] {
     return template.dimensions.map((d) => this.renderDimension(d, topicName));
   }
+
+  /**
+   * F7 · Recommend templates for a topic name using simple keyword heuristics
+   * across template descriptions + dimension names. LLM-backed ranking lands
+   * in a follow-up; this heuristic is deterministic and serves as a baseline.
+   *
+   * Optional `preferredType` narrows the candidate pool first.
+   */
+  recommendForTopic(
+    topicName: string,
+    preferredType?: ResearchTopicType,
+  ): ReadonlyArray<{
+    readonly template: DimensionTemplate;
+    readonly score: number;
+    readonly matchedKeywords: readonly string[];
+  }> {
+    const pool = preferredType
+      ? this.listByType(preferredType)
+      : this.templates;
+    const keywords = tokenizeTopic(topicName);
+    if (keywords.length === 0) {
+      return pool.map((t) => ({ template: t, score: 0, matchedKeywords: [] }));
+    }
+    const scored = pool.map((t) => {
+      const haystack = [
+        t.name,
+        t.description,
+        ...t.dimensions.map((d) => `${d.name} ${d.description} ${d.purpose}`),
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matched = keywords.filter((k) => haystack.includes(k));
+      return {
+        template: t,
+        score: matched.length / Math.max(1, keywords.length),
+        matchedKeywords: matched,
+      };
+    });
+    return scored.slice().sort((a, b) => b.score - a.score);
+  }
+
+  /**
+   * F7 · Built-in template "sync" is a no-op — the config is the source of
+   * truth and is already in sync at module load. When DB-backed overrides
+   * land (custom templates), this method upserts each built-in into that
+   * table so user-defined rows don't shadow canonical ids.
+   */
+  async syncBuiltIn(): Promise<{ synced: number; source: "config" }> {
+    return { synced: this.templates.length, source: "config" };
+  }
+
+  /**
+   * F7 · Placeholder for user-created templates. Throws until a DB-backed
+   * override store lands; keeps the API surface stable for the frontend.
+   */
+  async createCustom(
+    _dto: Omit<DimensionTemplate, "id">,
+  ): Promise<DimensionTemplate> {
+    throw new Error(
+      "[DimensionTemplatesRepository.createCustom] custom template persistence not yet implemented — use config extension for now",
+    );
+  }
+
+  async update(
+    _id: string,
+    _patch: Partial<DimensionTemplate>,
+  ): Promise<DimensionTemplate> {
+    throw new Error(
+      "[DimensionTemplatesRepository.update] mutation not yet implemented — config is the current source of truth",
+    );
+  }
+}
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function tokenizeTopic(topicName: string): string[] {
+  const normalized = topicName.trim().toLowerCase();
+  if (!normalized) return [];
+  // Split on whitespace + common separators; drop very short tokens that are
+  // too generic to score against.
+  return normalized
+    .split(/[\s/·,.;:!?()\[\]{}<>"'`~@#$%^&*+=|\\-]+/u)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
 }

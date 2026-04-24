@@ -26,6 +26,14 @@ export interface LeaderPlannerInput {
   readonly availableAgentIds?: ReadonlyArray<string>;
   readonly availableToolIds?: ReadonlyArray<string>;
   readonly recommendedDepth?: "quick" | "standard" | "thorough" | "deep";
+  /**
+   * F6.2 · Framework-skill markdown blocks injected from
+   * FrameworkSkillPolicyRepository.loadFrameworks(topicType, eventSubtype).
+   * Each string is the full body of a `.skill.md` framework (MACRO / EVENT-CRISIS
+   * / etc.) and gets appended to the system prompt in order. Optional: empty
+   * list = no injection, keeps legacy prompt shape.
+   */
+  readonly frameworkPrompts?: ReadonlyArray<string>;
 }
 
 export const LEADER_PLANNER_SPEC: IAgentSpec<LeaderPlannerInput, LeaderPlan> = {
@@ -74,8 +82,8 @@ export const LEADER_PLANNER_SPEC: IAgentSpec<LeaderPlannerInput, LeaderPlan> = {
 
   outputSchema: LeaderPlanSchema,
 
-  buildSystemPrompt: (_ctx) =>
-    [
+  buildSystemPrompt: (ctx) => {
+    const base = [
       "你是资深研究战略顾问，负责对研究主题做全局规划。",
       "给定一个主题，你要：",
       "1. 识别 3-8 个研究维度（根据 topicType 和 researchDepth 决定数量）",
@@ -86,7 +94,19 @@ export const LEADER_PLANNER_SPEC: IAgentSpec<LeaderPlannerInput, LeaderPlan> = {
       "6. complexityScore 0-10 自评",
       "",
       "输出要求：严格遵循 JSON schema。不要加 markdown fence、注释、前言。",
-    ].join("\n"),
+    ].join("\n");
+    // F6.2 · When the caller supplies framework-skill bodies
+    // (FrameworkSkillPolicyRepository.loadFrameworks), prepend them as domain
+    // analysis framework context so the plan reflects topicType-specific method.
+    const fw = ctx.input.frameworkPrompts ?? [];
+    if (fw.length === 0) return base;
+    return [
+      base,
+      "",
+      "## 领域分析框架（请在规划维度时遵循以下方法论）",
+      ...fw.map((body, i) => `### 框架 ${i + 1}\n${body}`),
+    ].join("\n");
+  },
 
   buildUserPrompt: (ctx) => {
     const { input } = ctx;

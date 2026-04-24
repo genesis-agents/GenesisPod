@@ -16,6 +16,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { TopicDimensionService } from "../dimension.service";
 import { DimensionTemplatesRepository } from "../templates";
 import { MissionExecutionService } from "../../../mission/control/execution.service";
+import { ResearchEventEmitterService } from "../../../memory/events/event-emitter.service";
 
 function buildMocks() {
   const mockPrisma = {
@@ -57,6 +58,14 @@ describe("TopicDimensionService — supplemental", () => {
         {
           provide: MissionExecutionService,
           useValue: { startExecution: jest.fn() },
+        },
+        {
+          provide: ResearchEventEmitterService,
+          useValue: {
+            emitDimensionCreated: jest.fn().mockResolvedValue(undefined),
+            emitDimensionAdded: jest.fn().mockResolvedValue(undefined),
+            emitDimensionRemoved: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();

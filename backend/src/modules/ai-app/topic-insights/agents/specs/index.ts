@@ -46,6 +46,9 @@ import { LEADER_DISPATCHER_SPEC } from "./leader-dispatcher";
 // F2 · Interactions
 import { LEADER_INTENT_SPEC } from "./leader-intent";
 
+// F6.3 · Agentic search
+import { LEADER_AGENTIC_SEARCHER_SPEC } from "./leader-agentic-searcher";
+
 // Re-export specs + input types
 export {
   LEADER_PLANNER_SPEC,
@@ -66,6 +69,7 @@ export {
   MISSION_ADJUSTER_SPEC,
   LEADER_DISPATCHER_SPEC,
   LEADER_INTENT_SPEC,
+  LEADER_AGENTIC_SEARCHER_SPEC,
 };
 
 export type { LeaderPlannerInput } from "./leader-planner";
@@ -87,6 +91,8 @@ export type { MissionAdjusterInput } from "./mission-adjuster";
 export type { LeaderDispatcherInput } from "./leader-dispatcher";
 export type { LeaderIntentInput } from "./leader-intent";
 export type { LeaderIntentDecision } from "./schemas";
+export type { LeaderAgenticSearcherInput } from "./leader-agentic-searcher";
+export type { LeaderAgenticSearchResult } from "./schemas";
 
 /**
  * 全部 17 个 topic-insights agent spec。
@@ -116,4 +122,6 @@ export const TOPIC_INSIGHTS_AGENT_SPECS: ReadonlyArray<IAgentSpec<any, any>> = [
   LEADER_DISPATCHER_SPEC,
   // F2 · Interactions
   LEADER_INTENT_SPEC,
+  // F6.3 · Agentic search
+  LEADER_AGENTIC_SEARCHER_SPEC,
 ];

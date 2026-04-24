@@ -1072,18 +1072,14 @@ export class ResearchTodoService {
         };
       }
 
-      // H6 step 10: legacy LeaderReviewService.reviewTaskResult removed.
-      // Harness ST-04-REVIEW + ST-08-QGATE handle task-level and mission-level
-      // quality review respectively. For externally-triggered TODOs that
-      // don't flow through harness stages, auto-approve so the todo completes.
-      const reviewResult = {
-        taskId: todo.id,
-        status: "approved" as const,
-        feedback: "Auto-approved (harness-native review is stage-level)",
-      };
+      // F6.1 · Replace unconditional auto-approve with a real heuristic check.
+      // Harness ST-04-REVIEW + ST-08-QGATE still handle pipeline-scoped review
+      // with full context; externally-triggered TODOs (USER_REQUEST, ad-hoc
+      // skills) flow through here and deserve at least structural validation.
+      const reviewResult = this.assessTodoResult(todo, _executionResult);
 
       this.logger.log(
-        `[reviewTodoResult] Review result for TODO ${todo.id}: ${reviewResult.status}`,
+        `[reviewTodoResult] Review for TODO ${todo.id}: ${reviewResult.status} — ${reviewResult.feedback}`,
       );
 
       return reviewResult;
@@ -1098,6 +1094,63 @@ export class ResearchTodoService {
         feedback: "审核服务异常，默认通过",
       };
     }
+  }
+
+  /**
+   * F6.1 · Heuristic quality assessment for externally-triggered TODO results.
+   *
+   * Harness-scope review is done by ST-04-REVIEW + ST-08-QGATE where the
+   * structured context (DimensionMeta / SectionReview) is available. For ad-hoc
+   * TODOs we only see a result blob, so the check focuses on shape + size +
+   * obvious error signals. The goal is not full LLM review but preventing
+   * empty / broken results from silently marking the TODO complete.
+   */
+  private assessTodoResult(
+    todo: ResearchTodo,
+    executionResult: string,
+  ): ReviewDecision {
+    const content = (executionResult ?? "").trim();
+    if (content.length === 0) {
+      return {
+        taskId: todo.id,
+        status: "needs_revision",
+        feedback: "执行结果为空，需要重新执行",
+      };
+    }
+    // Length-based rejection only applies to research-style TODOs that are
+    // expected to return substantial content. USER_REQUEST TODOs are often
+    // short acknowledgments ("任务已记录，将在后续研究中考虑") and should
+    // pass on length alone — error-signal check below still guards them.
+    const heavyTypes = new Set(["DIMENSION_RESEARCH", "REPORT_WRITING"]);
+    if (heavyTypes.has(todo.type) && content.length < 150) {
+      return {
+        taskId: todo.id,
+        status: "needs_revision",
+        feedback: `结果过短（${content.length} 字符 < 150），可能执行失败或上下文缺失`,
+      };
+    }
+    const errorSignals = [
+      "stack trace",
+      "Error:",
+      "Exception:",
+      "Traceback",
+      "Failed to",
+      "执行失败",
+      "无法完成",
+    ];
+    const hit = errorSignals.find((s) => content.includes(s));
+    if (hit) {
+      return {
+        taskId: todo.id,
+        status: "needs_revision",
+        feedback: `结果疑似包含错误信息（匹配 "${hit}"），需人工复核`,
+      };
+    }
+    return {
+      taskId: todo.id,
+      status: "approved",
+      feedback: "通过结构化质量检查（长度 / 错误关键字）",
+    };
   }
 
   /**

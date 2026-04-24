@@ -24,6 +24,7 @@ import {
 import { MissionExecutionService } from "../../mission/control/execution.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { DimensionTemplatesRepository } from "./templates";
+import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/memory/events/event-emitter.service";
 
 /**
  * TopicDimensionService
@@ -41,6 +42,7 @@ export class TopicDimensionService {
     private readonly templateRepo: DimensionTemplatesRepository,
     @Inject(forwardRef(() => MissionExecutionService))
     private readonly missionExecution: MissionExecutionService,
+    private readonly events: ResearchEventEmitterService,
   ) {}
 
   // ── Dimension CRUD ─────────────────────────────────────────────────────────
@@ -109,7 +111,96 @@ export class TopicDimensionService {
     });
 
     this.logger.log(`Added dimension ${dimension.id} to topic ${topicId}`);
+    // F7 · emit DIMENSION_CREATED so sockets can animate the new card.
+    await this.events.emitDimensionCreated(topicId, {
+      dimensionId: dimension.id,
+      name: dimension.name,
+      sortOrder: dimension.sortOrder,
+      sourceOfCreation: "user",
+    });
     return dimension;
+  }
+
+  /**
+   * F7 · Batch variant of addDimension. Creates N dimensions in a single
+   * transaction, bumping sortOrder monotonically; emits DIMENSION_ADDED for each.
+   */
+  async createMultipleDimensions(
+    userId: string,
+    topicId: string,
+    dtos: ReadonlyArray<AddDimensionDto>,
+  ) {
+    await this.verifyTopicOwnership(userId, topicId);
+    if (dtos.length === 0) return [];
+
+    const current = await this.prisma.topicDimension.findFirst({
+      where: { topicId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    let next = (current?.sortOrder ?? 0) + 1;
+
+    const created = await this.prisma.$transaction(
+      dtos.map((dto) => {
+        const sortOrder = dto.sortOrder ?? next++;
+        return this.prisma.topicDimension.create({
+          data: {
+            topicId,
+            name: dto.name,
+            description: dto.description,
+            sortOrder,
+            searchQueries: dto.searchQueries || [],
+            searchSources: dto.searchSources || [],
+            minSources: dto.minSources ?? 5,
+            isEnabled: true,
+            status: DimensionStatus.PENDING,
+          },
+        });
+      }),
+    );
+
+    for (const row of created) {
+      await this.events.emitDimensionAdded(topicId, {
+        dimensionId: row.id,
+        name: row.name,
+      });
+    }
+
+    this.logger.log(
+      `[createMultipleDimensions] created ${created.length} dimensions on topic ${topicId}`,
+    );
+    return created;
+  }
+
+  /**
+   * F7 · Update a single dimension's research status without touching other
+   * fields. Used by dimension-level resume flows and manual UI toggles.
+   */
+  async updateDimensionStatus(
+    userId: string,
+    topicId: string,
+    dimensionId: string,
+    status: DimensionStatus,
+  ) {
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const existing = await this.prisma.topicDimension.findFirst({
+      where: { id: dimensionId, topicId },
+    });
+    if (!existing) {
+      throw new NotFoundException(
+        `Dimension ${dimensionId} not found in topic ${topicId}`,
+      );
+    }
+
+    const updated = await this.prisma.topicDimension.update({
+      where: { id: dimensionId },
+      data: { status, lastResearchedAt: new Date() },
+    });
+    this.logger.log(
+      `[updateDimensionStatus] dim=${dimensionId} status=${status}`,
+    );
+    return updated;
   }
 
   async updateDimension(
@@ -162,6 +253,10 @@ export class TopicDimensionService {
 
     await this.prisma.topicDimension.delete({ where: { id: dimensionId } });
     this.logger.log(`Deleted dimension ${dimensionId}`);
+    await this.events.emitDimensionRemoved(topicId, {
+      dimensionId,
+      name: existing.name,
+    });
     return { success: true };
   }
 
