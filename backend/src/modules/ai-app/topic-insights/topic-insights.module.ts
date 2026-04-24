@@ -84,6 +84,8 @@ import {
   LatexRepairService,
   // ★ Cross-module data export (Slides/Office consumer)
   TopicInsightsDataExportService,
+  // ★ God service decomposition: compute usage
+  ComputeUsageService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   ResearchMemoryService,
@@ -175,6 +177,8 @@ const services = [
   LatexRepairService,
   // ★ Cross-module data export (Slides/Office consumer)
   TopicInsightsDataExportService,
+  // ★ God service decomposition: compute usage
+  ComputeUsageService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   // ★ Memory

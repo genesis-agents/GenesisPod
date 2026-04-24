@@ -29,6 +29,7 @@ import {
   ReportQualityTraceService,
   ReportDataService,
   LatexRepairService,
+  ComputeUsageService,
 } from "../services";
 import { MissionExecutionService } from "../services/mission/execution.service";
 import { MissionCancellationService } from "../services/mission/cancellation.service";
@@ -279,6 +280,10 @@ describe("TopicInsightsService", () => {
         {
           provide: LatexRepairService,
           useValue: { repairMarkdown: jest.fn() },
+        },
+        {
+          provide: ComputeUsageService,
+          useValue: { getComputeUsage: jest.fn() },
         },
       ],
     }).compile();
