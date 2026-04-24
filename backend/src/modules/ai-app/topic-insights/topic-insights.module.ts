@@ -109,7 +109,6 @@ import {
   SectionRemediationService,
   CitationFormatterService,
   ResearchExportService,
-  ResearchTemplateService,
   RAGFusionService,
   // ★ Search Pipeline (modular search architecture)
   GlobalSourceThrottleService,
@@ -211,7 +210,6 @@ const services = [
   SectionRemediationService,
   CitationFormatterService,
   ResearchExportService,
-  ResearchTemplateService,
   // ★ Search Pipeline (modular search architecture)
   GlobalSourceThrottleService,
   QueryStrategyService,

@@ -17,7 +17,6 @@ export {
 export { ResearchRealtimeAdapter } from "./research/realtime.adapter";
 export { ResearchStrategyService } from "./research/strategy.service";
 export { ResearchMemoryService } from "./research/memory.service";
-export { ResearchTemplateService } from "./research/template.service";
 
 // Leader
 
