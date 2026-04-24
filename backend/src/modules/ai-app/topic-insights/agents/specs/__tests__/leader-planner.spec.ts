@@ -21,10 +21,13 @@ describe("LEADER_PLANNER_SPEC", () => {
     );
   });
 
-  it("taskProfile = low creativity / medium length", () => {
+  it("taskProfile aligned with baseline planResearch (medium creativity / extended length / deep reasoning)", () => {
+    // baseline leader-planning.service.ts:L315-L319：
+    //   creativity: medium / outputLength: extended / reasoningDepth: deep
     expect(LEADER_PLANNER_SPEC.taskProfile).toEqual({
-      creativity: "low",
-      outputLength: "medium",
+      creativity: "medium",
+      outputLength: "extended",
+      reasoningDepth: "deep",
     });
   });
 
@@ -51,6 +54,52 @@ describe("LEADER_PLANNER_SPEC", () => {
     // 本 spec 的 JSON schema 覆盖段：
     expect(prompt).toContain("dimensions");
     expect(prompt).toContain("agentAssignments");
+  });
+
+  it("buildSystemPrompt fully resolves ALL prompt placeholders (no literal braces left)", () => {
+    // 回归测试：任何未替换的 {placeholder} 会让 LLM 收到字面量 → 灾难。
+    const prompt = LEADER_PLANNER_SPEC.buildSystemPrompt!({
+      input: {
+        missionId: "m-1",
+        topicId: "t-1",
+        topicName: "Specific Topic Name",
+        topicType: "EVENT",
+        topicDescription: "Some description",
+        userPrompt: "user query",
+        availableModels: ["model-a", "model-b"],
+        language: "zh",
+        researchDepth: "standard",
+        maxDimensions: 6,
+        existingDimensions: [
+          { id: "d1", name: "Dim One", description: "desc", status: "PENDING" },
+        ],
+        anchorContent: "## 锚文章\n内容片段",
+      },
+      identity: LEADER_PLANNER_SPEC.identity,
+    });
+    // baseline 所有占位符必须替换完（leader-planner.ts buildSystemPrompt 有 11 个 replace）
+    const placeholders = [
+      "{topic}",
+      "{topicType}",
+      "{description}",
+      "{userPrompt}",
+      "{availableModels}",
+      "{existingDimensions}",
+      "{currentDate}",
+      "{currentYear}",
+      "{recommendedDepth}",
+      "{anchorArticleContent}",
+      "{languageInstruction}",
+    ];
+    for (const ph of placeholders) {
+      expect(prompt).not.toContain(ph);
+    }
+    // 内容被正确展开
+    expect(prompt).toContain("Specific Topic Name");
+    expect(prompt).toContain("EVENT");
+    expect(prompt).toContain("model-a");
+    expect(prompt).toContain("Dim One");
+    expect(prompt).toContain("锚文章");
   });
 
   it("buildUserPrompt includes mission + topic fields", () => {
@@ -97,11 +146,26 @@ describe("LEADER_PLANNER_SPEC", () => {
       missionId: "m1",
       dimensions: [],
       agentAssignments: [
-        { role: "dimension_researcher", modelId: "gpt-4o" },
-        { role: "quality_reviewer", modelId: "claude" },
-        { role: "report_writer", modelId: "gpt-4o" },
+        {
+          agentId: "r1",
+          agentType: "dimension_researcher",
+          role: "domain_expert",
+          modelId: "gpt-4o",
+        },
+        {
+          agentId: "rv1",
+          agentType: "quality_reviewer",
+          role: "quality_reviewer",
+          modelId: "claude",
+        },
+        {
+          agentId: "w1",
+          agentType: "report_writer",
+          role: "report_writer",
+          modelId: "gpt-4o",
+        },
       ],
-      executionStrategy: "parallel",
+      executionStrategy: { parallelism: 3, priorityOrder: [] },
       complexityScore: 5,
       reasoning: "x",
     } as any;
@@ -120,9 +184,14 @@ describe("LEADER_PLANNER_SPEC", () => {
       missionId: "m1",
       dimensions: [],
       agentAssignments: [
-        { role: "dimension_researcher", modelId: "unknown-model" },
+        {
+          agentId: "r1",
+          agentType: "dimension_researcher",
+          role: "domain_expert",
+          modelId: "unknown-model",
+        },
       ],
-      executionStrategy: "parallel",
+      executionStrategy: { parallelism: 1, priorityOrder: [] },
       complexityScore: 5,
       reasoning: "x",
     } as any;
@@ -137,12 +206,37 @@ describe("LEADER_PLANNER_SPEC", () => {
   it("validateBusinessRules skips when availableModels empty", () => {
     const plan = {
       agentAssignments: [
-        { role: "dimension_researcher", modelId: "any-model" },
+        {
+          agentId: "r1",
+          agentType: "dimension_researcher",
+          role: "domain_expert",
+          modelId: "any-model",
+        },
       ],
     } as any;
     expect(() =>
       LEADER_PLANNER_SPEC.validateBusinessRules!(plan, {
         input: { availableModels: [] } as any,
+        identity: LEADER_PLANNER_SPEC.identity,
+      }),
+    ).not.toThrow();
+  });
+
+  it("validateBusinessRules skips modelId check when modelId is empty string", () => {
+    // 空 modelId 是合法 fallback（后处理会轮询分配）
+    const plan = {
+      agentAssignments: [
+        {
+          agentId: "r1",
+          agentType: "dimension_researcher",
+          role: "domain_expert",
+          modelId: "",
+        },
+      ],
+    } as any;
+    expect(() =>
+      LEADER_PLANNER_SPEC.validateBusinessRules!(plan, {
+        input: { availableModels: ["gpt-4o"] } as any,
         identity: LEADER_PLANNER_SPEC.identity,
       }),
     ).not.toThrow();

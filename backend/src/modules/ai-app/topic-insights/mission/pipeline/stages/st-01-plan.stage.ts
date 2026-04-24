@@ -11,21 +11,48 @@ import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { LeaderPlannerInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { LeaderPlan } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
+import {
+  postProcessLeaderPlan,
+  summarizeResearcherAssignments,
+} from "@/modules/ai-app/topic-insights/shared/config";
 import { LeaderToolService } from "@/modules/ai-app/topic-insights/knowledge/leader-tools";
+import { sanitize } from "@/modules/ai-app/topic-insights/shared/utils/prompt-sanitizer.utils";
 // F-1: ResearchTaskStatus default=PENDING handled by Prisma — no runtime import needed.
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { PlanStageOutput } from "./stage-context";
 
 /**
- * Topic 元信息提供者 — Group E 集成时改用 Prisma 查询
+ * 已有维度摘要（供 LEADER_PLAN_PROMPT {existingDimensions} 展开）
+ */
+export interface ExistingDimensionSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string | null;
+  readonly status?: string;
+  readonly searchQueries?: ReadonlyArray<string>;
+}
+
+/**
+ * Topic 元信息提供者 — baseline `planResearch:L189-L251` 对齐契约。
+ *
+ * 必须返回：
+ *  - topicName / topicType / language（用于 {topic}/{topicType}/语言指令）
+ *  - topicDescription（{description} 占位符，baseline L287）
+ *  - userPrompt（{userPrompt}；sanitize 在 Stage 内统一处理）
+ *  - availableModels（已过滤 isAvailable !== false 并按 id 去重，baseline L209-L219）
+ *  - existingDimensions（{existingDimensions}，baseline L253-L262）
+ *  - anchorContent（EVENT 专属，baseline formatAnchorContentForPrompt）
  */
 export abstract class PlanContextProvider {
   abstract load(identity: PipelineIdentityContext): Promise<{
     readonly topicName: string;
     readonly topicType: "MACRO" | "TECHNOLOGY" | "COMPANY" | "EVENT";
+    readonly topicDescription?: string;
     readonly userPrompt?: string;
     readonly availableModels: ReadonlyArray<string>;
     readonly language: string;
+    readonly existingDimensions?: ReadonlyArray<ExistingDimensionSummary>;
+    readonly anchorContent?: string;
   }>;
 }
 
@@ -34,16 +61,22 @@ export class StubPlanContextProvider extends PlanContextProvider {
   load(_identity: PipelineIdentityContext): Promise<{
     readonly topicName: string;
     readonly topicType: "MACRO" | "TECHNOLOGY" | "COMPANY" | "EVENT";
+    readonly topicDescription?: string;
     readonly userPrompt?: string;
     readonly availableModels: ReadonlyArray<string>;
     readonly language: string;
+    readonly existingDimensions?: ReadonlyArray<ExistingDimensionSummary>;
+    readonly anchorContent?: string;
   }> {
     return Promise.resolve({
       topicName: "Stub Topic",
       topicType: "MACRO" as const,
+      topicDescription: "stub description",
       userPrompt: "stub prompt",
       availableModels: ["stub-model-1", "stub-model-2"],
       language: "zh",
+      existingDimensions: [],
+      anchorContent: "",
     });
   }
 }
@@ -111,17 +144,26 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
       }
     }
 
+    // ★ baseline L271：Prompt Injection 防护（用户输入必须 sanitize）。
+    // Leader pre-planning 注入的 preCtx 已是内部可信内容，只对原始 userPrompt 头部 sanitize。
+    const sanitizedUserPrompt = userPrompt
+      ? sanitize(userPrompt, 3000)
+      : undefined;
+
     return {
       missionId: identity.missionId,
       topicId: identity.topicId,
       topicName: meta.topicName,
       topicType: meta.topicType,
-      userPrompt,
+      topicDescription: meta.topicDescription,
+      userPrompt: sanitizedUserPrompt,
       availableModels:
         envChatModels.length > 0 ? envChatModels : meta.availableModels,
       language: meta.language,
       researchDepth: caps?.requestedDepth ?? identity.depth,
       maxDimensions: 6,
+      existingDimensions: meta.existingDimensions,
+      anchorContent: meta.anchorContent,
       availableAgentIds: caps?.env.agents,
       availableToolIds: caps?.env.tools
         .filter((t) => t.healthy)
@@ -146,7 +188,24 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
         `AG-01-LD failed: ${res.errors?.join("; ") ?? "unknown"}`,
       );
     }
-    return { plan: res.output };
+    const plan = res.output;
+
+    // ★ baseline L358-L527 后处理 16 项业务不变量（恢复丢失的 Leader 业务语义）：
+    // - modelId 反解（lower-case + 最长前缀模糊匹配）
+    // - skills 白名单过滤（LLM 幻觉 skill 丢弃）
+    // - 缺 modelId 轮询分配
+    // - dimension_researcher/quality_reviewer/report_writer 专属 skill/tool/reason 补齐
+    postProcessLeaderPlan(plan, input.topicType, input.availableModels, {
+      log: (msg) => this.logger.log(`[${identity.missionId}] ${msg}`),
+      debug: (msg) => this.logger.debug(`[${identity.missionId}] ${msg}`),
+    });
+
+    this.logger.log(
+      `[${identity.missionId}] Plan ready: ${plan.dimensions.length} dim | ` +
+        summarizeResearcherAssignments(plan.agentAssignments),
+    );
+
+    return { plan };
   }
 
   async persist(
@@ -233,8 +292,11 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
    * 为 mission 创建 ResearchTask 行（幂等）。
    * 前端 `/api/v1/topic-insights/topics/:id/todos` 读这些行渲染"任务列表"。
    *
-   * harness LeaderPlan 按 role 分配 agent（每种角色 1 条 assignment）；
-   * per-dimension 的 agent 绑定不在 schema 里，因此所有维度共享 dimension_researcher assignment。
+   * ★ baseline `mission-execution.executeTask:L429-L434` 对齐：
+   *   每个 dimension 根据 assignment.assignedDimensions 找到**对应的 researcher**，
+   *   而非所有 dim 共享单一 dimension_researcher。这样前端任务列表
+   *   在 6 个 dim 下会展示 6 个不同的 agentName/role，复原 baseline 的
+   *   "多样化研究员"能力。
    */
   private async seedResearchTasks(
     prisma: PrismaService,
@@ -246,55 +308,70 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
       return; // 幂等：已 seed 过（ST-01-PLAN 重跑时直接返回）
     }
 
-    const byRole = new Map<string, (typeof plan.agentAssignments)[number]>();
-    for (const a of plan.agentAssignments) {
-      if (!byRole.has(a.role)) byRole.set(a.role, a);
-    }
+    const researchers = plan.agentAssignments.filter(
+      (a) => a.agentType === "dimension_researcher",
+    );
+    const fallbackResearcher = researchers[0]; // 退化：无 assignedDimensions 时用首个
 
-    const researcher = byRole.get("dimension_researcher");
-    const dimensionTasks = plan.dimensions.map((d, idx) => ({
-      missionId,
-      title: `研究: ${d.name}`,
-      description: d.description,
-      taskType: "dimension_research",
-      dimensionId: d.id,
-      dimensionName: d.name,
-      assignedAgent: "researcher_default",
-      assignedAgentType: "dimension_researcher",
-      modelId: researcher?.modelId || undefined,
-      skills: researcher?.skills ?? [],
-      tools: [] as string[],
-      priority: d.priority ?? idx,
-    }));
+    const dimensionTasks = plan.dimensions.map((d, idx) => {
+      // per-dim 分配：优先 assignedDimensions 精确匹配，无匹配退化为轮询
+      const assignment =
+        researchers.find((a) => a.assignedDimensions?.includes(d.id)) ||
+        researchers[idx % Math.max(1, researchers.length)] ||
+        fallbackResearcher;
+
+      return {
+        missionId,
+        title: `研究: ${d.name}`,
+        description: d.description,
+        taskType: "dimension_research",
+        dimensionId: d.id,
+        dimensionName: d.name,
+        // ★ per-dim 绑定真实 agentId（baseline mission-execution L429）
+        assignedAgent: assignment?.agentId || "researcher_default",
+        // baseline 用 role（9 种 specialist role）而非粗粒度 agentType
+        assignedAgentType: assignment?.role || "dimension_researcher",
+        modelId: assignment?.modelId || undefined,
+        skills: assignment?.skills ?? [],
+        tools: assignment?.tools ?? [],
+        priority: d.priority ?? idx,
+      };
+    });
     await prisma.researchTask.createMany({ data: dimensionTasks });
 
-    const reviewer = byRole.get("quality_reviewer");
+    const reviewer = plan.agentAssignments.find(
+      (a) => a.agentType === "quality_reviewer",
+    );
     const reviewTask = await prisma.researchTask.create({
       data: {
         missionId,
         title: "质量审核",
         description: "审核所有维度研究结果的质量",
         taskType: "quality_review",
-        assignedAgent: "reviewer_default",
-        assignedAgentType: "quality_reviewer",
+        assignedAgent: reviewer?.agentId || "reviewer_default",
+        assignedAgentType: reviewer?.role || "quality_reviewer",
         modelId: reviewer?.modelId || undefined,
         skills: reviewer?.skills ?? [],
+        tools: reviewer?.tools ?? [],
         priority: 100,
       },
       select: { id: true },
     });
 
-    const writer = byRole.get("report_writer");
+    const writer = plan.agentAssignments.find(
+      (a) => a.agentType === "report_writer",
+    );
     await prisma.researchTask.create({
       data: {
         missionId,
         title: "报告撰写",
         description: "整合研究结果，生成最终报告",
         taskType: "report_synthesis",
-        assignedAgent: "writer_default",
-        assignedAgentType: "report_writer",
+        assignedAgent: writer?.agentId || "writer_default",
+        assignedAgentType: writer?.role || "report_writer",
         modelId: writer?.modelId || undefined,
         skills: writer?.skills ?? [],
+        tools: writer?.tools ?? [],
         priority: 101,
         dependencies: [reviewTask.id],
       },

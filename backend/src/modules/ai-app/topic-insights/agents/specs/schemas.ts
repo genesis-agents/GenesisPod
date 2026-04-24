@@ -19,31 +19,74 @@ export const LeaderDimensionSchema = z.object({
   priority: z.number().int().min(1).max(10),
 });
 
+/**
+ * AgentAssignment schema — 对齐 baseline `types/leader.types.ts:L38-L56`。
+ *
+ * `agentType` 为粗粒度三分类（3 种），后处理按 agentType 分支；
+ * `role` 为细粒度 specialist role（9 种，含 devil_advocate/domain_expert 等），
+ * 不用 enum 是因为 baseline 允许 Leader 产出任意角色名，下游 prompt 按 role 注入人设。
+ * `assignedDimensions` 是 per-dim 绑定真相 — seedResearchTasks 按此分配。
+ */
 export const AgentAssignmentSchema = z.object({
-  role: z.enum([
+  agentId: z.string().min(1),
+  agentName: z.string().optional(),
+  agentType: z.enum([
     "dimension_researcher",
-    "section_writer",
     "quality_reviewer",
     "report_writer",
   ]),
+  assignedDimensions: z.array(z.string()).optional(),
+  role: z.string().min(1),
   /**
    * 模型 ID。允许空字符串作为 fallback（按 CLAUDE.md：空字符串由下游
    * TaskProfile 自动解析；禁止硬编码 "gpt-4" 等具体模型名）。
    */
-  modelId: z.string(),
+  modelId: z.string().optional(),
   skills: z.array(z.string()).optional(),
+  tools: z.array(z.string()).optional(),
+  assignmentReason: z
+    .object({
+      agentReason: z.string().optional(),
+      modelReason: z.string().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * TaskUnderstanding — baseline `types/leader.types.ts:L10-L16` 原样。
+ * Leader 规划前先对任务做结构化理解。
+ */
+export const TaskUnderstandingSchema = z.object({
+  topic: z.string().min(1),
+  scope: z.string().min(1),
+  objectives: z.array(z.string()).min(1),
+  constraints: z.array(z.string()).optional(),
+});
+
+/**
+ * ExecutionStrategy — baseline `types/leader.types.ts:L19-L24` 原样（object 形）。
+ * 与 HEAD 原 enum 形态不同；mission/control/execution.service 已用 object 形。
+ */
+export const ExecutionStrategySchema = z.object({
+  parallelism: z.number().int().positive(),
+  priorityOrder: z.array(z.string()),
+  estimatedTime: z.string().optional(),
 });
 
 export const LeaderPlanSchema = z.object({
   missionId: z.string().min(1),
+  taskUnderstanding: TaskUnderstandingSchema,
   dimensions: z.array(LeaderDimensionSchema).min(3).max(8),
   agentAssignments: z.array(AgentAssignmentSchema).min(3),
-  executionStrategy: z.enum(["sequential", "parallel", "hybrid"]),
+  executionStrategy: ExecutionStrategySchema,
   /** Leader 自评的复杂度（0-10） */
   complexityScore: z.number().min(0).max(10),
   reasoning: z.string().min(10),
 });
 
+export type AgentAssignment = z.infer<typeof AgentAssignmentSchema>;
+export type TaskUnderstanding = z.infer<typeof TaskUnderstandingSchema>;
+export type ExecutionStrategy = z.infer<typeof ExecutionStrategySchema>;
 export type LeaderPlan = z.infer<typeof LeaderPlanSchema>;
 
 // =========== AG-03-SW · SectionWriter ===========
