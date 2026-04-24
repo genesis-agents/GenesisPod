@@ -11,14 +11,19 @@ import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { SynthesizerInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { SynthesisResult } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
+import { sanitizeSectionOutput } from "@/modules/ai-app/topic-insights/shared/utils/sanitize-output.utils";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
+  PlanStageOutput,
   SynthStageOutput,
   WriteStageOutput,
 } from "./stage-context";
 
 export interface SynthStageInput {
+  /** baseline：合成必须带真实 topic name 而非 missionId placeholder */
+  readonly topicName: string;
+  readonly language: string;
   readonly dimensionMetas: IntegrateStageOutput["dimensionMetas"];
   readonly integratedSectionsPerDim: Record<string, string>;
 }
@@ -51,6 +56,9 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
   ): Promise<SynthStageInput> {
     const integrate = upstream.get<IntegrateStageOutput>("ST-05-INTEGRATE");
     const write = upstream.get<WriteStageOutput>("ST-03-WRITE");
+    // ★ baseline：从 LeaderPlan.taskUnderstanding.topic 读真实 topic name，
+    //   不再使用 missionId placeholder；这影响 synthesis prompt 的 {topic} 展开。
+    const plan = upstream.get<PlanStageOutput>("ST-01-PLAN").plan;
 
     const byDim: Record<string, string> = {};
     for (const s of write.sections) {
@@ -58,6 +66,8 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
     }
 
     return {
+      topicName: plan.taskUnderstanding?.topic || plan.missionId,
+      language: "zh",
       dimensionMetas: integrate.dimensionMetas,
       integratedSectionsPerDim: byDim,
     };
@@ -77,10 +87,10 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
       {
         missionId: identity.missionId,
         topicId: identity.topicId,
-        topicName: `Mission-${identity.missionId}`, // Group E 接真 topic name
+        topicName: input.topicName,
         dimensionMetas: input.dimensionMetas,
         integratedSectionsPerDim: input.integratedSectionsPerDim,
-        language: "zh",
+        language: input.language,
       },
       identity.capabilities?.env,
     );
@@ -89,7 +99,15 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
         `AG-11-SY failed: ${res.errors?.join("; ") ?? "unknown"}`,
       );
     }
-    return { synthesis: res.output };
+    // ★ baseline 第三道铁墙：最终合成 markdown 在入 DB 前最后一次 sanitize，
+    //   对冲 LLM 偶发的 JSON 残留 / 英文占位 / 元注释。
+    const synth = res.output;
+    return {
+      synthesis: {
+        ...synth,
+        fullMarkdown: sanitizeSectionOutput(synth.fullMarkdown),
+      },
+    };
   }
 
   async persist(

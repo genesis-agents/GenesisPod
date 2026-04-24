@@ -19,6 +19,12 @@ export interface TierAdaptation {
   readonly maxEvidenceItems: number;
   /** 覆盖的 taskProfile 片段 */
   readonly taskProfile: Pick<TaskProfile, "creativity" | "outputLength">;
+  /**
+   * ★ baseline section-writer.service.ts L196/L307/L492：
+   * 每个 section 的目标字数。STRONG 模型允许更长，BASIC 模型缩紧；
+   * MIN_CONTENT_LENGTH_RATIO * targetWords 作为下限供 quality gate 校验。
+   */
+  readonly targetWordsPerSection: number;
 }
 
 export const TIER_ADAPTATIONS: Readonly<Record<ModelTier, TierAdaptation>> = {
@@ -33,12 +39,14 @@ export const TIER_ADAPTATIONS: Readonly<Record<ModelTier, TierAdaptation>> = {
     ].join("\n"),
     maxEvidenceItems: 0,
     taskProfile: { creativity: "medium", outputLength: "long" },
+    targetWordsPerSection: 900,
   },
 
   [ModelTier.STANDARD]: {
     promptSuffix: "",
     maxEvidenceItems: 0,
     taskProfile: { creativity: "medium", outputLength: "long" },
+    targetWordsPerSection: 700,
   },
 
   [ModelTier.BASIC]: {
@@ -53,5 +61,6 @@ export const TIER_ADAPTATIONS: Readonly<Record<ModelTier, TierAdaptation>> = {
     ].join("\n"),
     maxEvidenceItems: 8,
     taskProfile: { creativity: "low", outputLength: "long" },
+    targetWordsPerSection: 500,
   },
 };

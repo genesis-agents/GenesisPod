@@ -16,6 +16,9 @@ import type { SectionWriterInput } from "@/modules/ai-app/topic-insights/agents/
 import type { SectionResult } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import { TIER_ADAPTATIONS } from "../config/tier-adaptations.config";
+// ★ baseline sanitizeSectionOutput（section-writer.service.ts L442 / assembler L-）
+//   第一道铁墙：LLM 输出落 DB 前必须过 sanitize
+import { sanitizeSectionOutput } from "@/modules/ai-app/topic-insights/shared/utils/sanitize-output.utils";
 import type {
   PlanStageOutput,
   ResearchStageOutput,
@@ -94,6 +97,11 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
         effectiveDimEvidence,
       );
 
+      // ★ targetWords 按 Tier 自适应 + dim.priority 分配（替代硬编码 400）。
+      // baseline section-writer 用 outline.sections[*].targetWords，我们
+      // 在 harness 目前没跑 DimensionOutline，退化方案：按 tier 推荐字数平均分配。
+      const baseTargetWords = adaptation.targetWordsPerSection ?? 600;
+
       for (let si = 0; si < 2; si++) {
         if (signal.aborted) {
           throw new DOMException(
@@ -110,7 +118,7 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
             id: `${dim.id}-s-${si + 1}`,
             title: `${dim.name} 子章节 ${si + 1}`,
             description: dim.description,
-            targetWords: 400,
+            targetWords: baseTargetWords,
             keyPoints: [`子章节 ${si + 1} 要点 A`, `要点 B`],
           },
           evidenceSummary,
@@ -128,7 +136,15 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
             `AG-03-SW failed at ${dim.id}/s-${si + 1}: ${res.errors?.join("; ") ?? "unknown"}`,
           );
         }
-        sections.push(res.output);
+        // ★ baseline 第一道铁墙：LLM 输出必须过 sanitize 再入管道，
+        //   避免 JSON 残留 / 英文占位 / 非法标记污染下游 assembler
+        const rawOutput = res.output;
+        const cleanContent = sanitizeSectionOutput(rawOutput.content);
+        sections.push({
+          ...rawOutput,
+          content: cleanContent,
+          wordCount: cleanContent.length,
+        });
       }
     }
 

@@ -192,8 +192,19 @@ export class ResearchStage implements Stage<
         }))
       : searchResult.items.map((item) => ({ item, credibilityScore: 50 }));
 
+    // ★ baseline dimension-mission.executeSearchPhase：
+    //   citationIndex 必须从 aggregate(max, reportId) + 1 起始，
+    //   否则增量模式（追加新维度）会与已有 evidence 的 citationIndex 撞号，
+    //   导致前端引用锚点错乱（严重 P0 bug）。
+    const existingMax = await this.prisma.topicEvidence
+      .aggregate({
+        where: { reportId: identity.reportId },
+        _max: { citationIndex: true },
+      })
+      .catch(() => ({ _max: { citationIndex: 0 as number | null } }));
+    let citationIndex = (existingMax._max.citationIndex ?? 0) + 1;
+
     const evidenceIds: string[] = [];
-    let citationIndex = 1;
     for (const { item, credibilityScore } of items) {
       if (signal.aborted) break;
       const created = await this.prisma.topicEvidence
