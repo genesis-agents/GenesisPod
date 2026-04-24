@@ -1,6 +1,5 @@
 import { describe, it, expect } from "@jest/globals";
 import { resolveResearchDepthConfig } from "../research-depth.types";
-import { buildValidationContextForWriting } from "../../prompts/research-depth.prompt";
 
 describe("V5 Research Types", () => {
   describe("resolveResearchDepthConfig", () => {
@@ -34,47 +33,6 @@ describe("V5 Research Types", () => {
     });
   });
 
-  describe("buildValidationContextForWriting", () => {
-    it("should include disputed/unverified claims in output", () => {
-      const result = buildValidationContextForWriting(
-        [
-          {
-            claimId: "c1",
-            status: "disputed",
-            explanation: "conflicting data",
-          },
-          {
-            claimId: "c2",
-            status: "unverified",
-            explanation: "no source found",
-          },
-          { claimId: "c3", status: "verified", explanation: "confirmed" },
-        ],
-        [
-          { hypothesisId: "h1", status: "refuted" },
-          {
-            hypothesisId: "h2",
-            status: "partially_supported",
-            refinedStatement: "revised statement",
-          },
-        ],
-      );
-      expect(result).toContain("验证注意事项");
-      expect(result).toContain("c1");
-      expect(result).toContain("conflicting data");
-      expect(result).toContain("c2");
-      expect(result).toContain("假设验证结果");
-      expect(result).toContain("h1");
-      expect(result).toContain("h2");
-      expect(result).toContain("revised statement");
-    });
-
-    it("should return empty string when no issues", () => {
-      const result = buildValidationContextForWriting(
-        [{ claimId: "c1", status: "verified", explanation: "ok" }],
-        [{ hypothesisId: "h1", status: "supported" }],
-      );
-      expect(result).toBe("");
-    });
-  });
+  // H6 step 14: buildValidationContextForWriting describe removed with
+  // research-depth.prompt.ts (orphan — harness specs own their own prompts).
 });
