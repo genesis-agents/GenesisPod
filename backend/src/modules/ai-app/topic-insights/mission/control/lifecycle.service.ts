@@ -266,9 +266,62 @@ export class MissionLifecycleService {
 
     this.logger.log(`[createMission] Mission ${mission.id} created`);
 
+    // ★ H6 repaired: createMission is the single trigger for harness execution.
+    // Before this fix the legacy `executePlanningAsync` trigger was removed
+    // (H6 step 8) without being replaced, so missions persisted in PLANNING
+    // forever and the UI stuck at "等待 Leader 规划". Planning now lives inside
+    // ST-01-PLAN, so kicking off startExecution here runs planning + the rest
+    // of the pipeline as a single atomic flow.
+    //
+    // Fire-and-forget: HTTP returns the mission row immediately; progress
+    // flows through WebSocket events. BillingContext is preserved so downstream
+    // credit deductions charge the correct user.
+    const existingCtx = BillingContext.get();
+    const startFn = () =>
+      this.executionService.startExecution(mission.id, topicId);
+    const runStart = existingCtx
+      ? () => BillingContext.run(existingCtx, startFn)
+      : async () => {
+          const ownerTopic = await this.prisma.researchTopic.findUnique({
+            where: { id: topicId },
+            select: { userId: true },
+          });
+          if (ownerTopic?.userId) {
+            return BillingContext.run(
+              {
+                userId: ownerTopic.userId,
+                moduleType: "topic-insights",
+                operationType: "research",
+                referenceId: topicId,
+              },
+              startFn,
+            );
+          }
+          return startFn();
+        };
+
+    void runStart().catch((err: unknown) => {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[createMission] Execution failed for mission ${mission.id}: ${errorMsg}`,
+      );
+      void this.prisma.researchMission
+        .update({
+          where: { id: mission.id },
+          data: {
+            status: ResearchMissionStatus.FAILED,
+            completedAt: new Date(),
+          },
+        })
+        .catch((updateErr: unknown) => {
+          this.logger.error(
+            `[createMission] Failed to mark mission FAILED: ${updateErr}`,
+          );
+        });
+    });
+
     return mission;
   }
-
 
   /**
    * 审批研究规划并启动执行

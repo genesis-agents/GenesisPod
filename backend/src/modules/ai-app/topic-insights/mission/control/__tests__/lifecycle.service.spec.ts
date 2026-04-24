@@ -174,8 +174,10 @@ const mockLeaderPlan = {
 describe("MissionLifecycleService", () => {
   let service: MissionLifecycleService;
   let prisma: ReturnType<typeof buildMocks>["mockPrisma"];
-  let leaderService: ReturnType<typeof buildMocks>["mockLeaderPlanningService"];
-  let leaderIntentService: ReturnType<
+  let _leaderService: ReturnType<
+    typeof buildMocks
+  >["mockLeaderPlanningService"];
+  let _leaderIntentService: ReturnType<
     typeof buildMocks
   >["mockLeaderIntentService"];
   let collaboratorService: ReturnType<
@@ -186,8 +188,8 @@ describe("MissionLifecycleService", () => {
   beforeEach(async () => {
     const mocks = buildMocks();
     prisma = mocks.mockPrisma;
-    leaderService = mocks.mockLeaderPlanningService;
-    leaderIntentService = mocks.mockLeaderIntentService;
+    _leaderService = mocks.mockLeaderPlanningService;
+    _leaderIntentService = mocks.mockLeaderIntentService;
     collaboratorService = mocks.mockCollaboratorService;
     executionService = mocks.mockExecutionService;
 
@@ -266,6 +268,56 @@ describe("MissionLifecycleService", () => {
           where: { id: "old-mission" },
           data: expect.objectContaining({
             status: ResearchMissionStatus.CANCELLED,
+          }),
+        }),
+      );
+    });
+
+    it("should fire-and-forget startExecution so harness picks up the new mission", async () => {
+      // ★ H6 repair regression guard: createMission MUST trigger startExecution.
+      // Prior to this fix, the /leader/plan endpoint returned PLANNING rows that
+      // no one executed, trapping the UI at "等待 Leader 规划" 0%.
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.researchMission.findFirst.mockResolvedValue(null);
+      prisma.researchMission.create.mockResolvedValue({
+        id: "mission-new",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      });
+
+      await service.createMission({
+        topicId: "topic-1",
+        userPrompt: "Research AI",
+      });
+
+      // fire-and-forget: let the microtask flush
+      await new Promise((r) => setImmediate(r));
+      expect(executionService.startExecution).toHaveBeenCalledWith(
+        "mission-new",
+        "topic-1",
+      );
+    });
+
+    it("marks the mission FAILED when startExecution rejects", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue({ userId: "user-1" });
+      prisma.researchMission.findFirst.mockResolvedValue(null);
+      prisma.researchMission.create.mockResolvedValue({
+        id: "mission-new",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      });
+      prisma.researchMission.update.mockResolvedValue({});
+      executionService.startExecution.mockRejectedValue(new Error("boom"));
+
+      await service.createMission({ topicId: "topic-1" });
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "mission-new" },
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.FAILED,
           }),
         }),
       );
@@ -809,7 +861,6 @@ describe("MissionLifecycleService", () => {
 
   // ─── executePlanningAsync ────────────────────────────────────────────────────
 
-
   // ─── createTasksFromPlan - reuse existing dimension ─────────────────────────
 
   describe("createTasksFromPlan - reuse existing dimension", () => {
@@ -964,8 +1015,6 @@ describe("MissionLifecycleService", () => {
   // The failure path tested here (plan timeout → mission FAILED) is now covered
   // by runWithHarness's catch + MissionCancellationService.
 
-
-
   // ─── approvePlanAndExecute - execution failure catch ─────────────────────────
 
   describe("approvePlanAndExecute - startExecution failure fire-and-forget", () => {
@@ -1057,5 +1106,4 @@ describe("MissionLifecycleService", () => {
       expect(executionService.startExecution).toHaveBeenCalled();
     });
   });
-
 });
