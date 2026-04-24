@@ -45,7 +45,10 @@ export interface ISimpleLLMAdapter {
  * 1. 调用时指定的 model 参数
  * 2. 数据库中配置的默认 CHAT 模型
  * 3. 环境变量 DEFAULT_AI_MODEL
- * 4. 硬编码 fallback: "gemini"
+ *
+ * ❌ 不再做硬编码字面量 fallback。拿不到 modelId 时返回空字符串，
+ *    调用方 / 下游 resolver 必须显式报错，而不是把一个 DB 里不存在的
+ *    名字（如 "gemini"）偷偷传给下游引发"模型未配置"错误。
  */
 @Injectable()
 export class AiChatLLMAdapter implements ISimpleLLMAdapter {
@@ -170,10 +173,12 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
   }
 
   /**
-   * 获取 fallback 模型（环境变量或硬编码）
+   * Fallback modelId — operators only. Empty string signals "no fallback"
+   * and force callers up the stack to surface a clear error instead of
+   * transparently routing to a hard-coded modelId that may not exist in DB.
    */
   private getFallbackModel(): string {
-    return this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
+    return this.configService.get<string>("DEFAULT_AI_MODEL", "");
   }
 
   /**

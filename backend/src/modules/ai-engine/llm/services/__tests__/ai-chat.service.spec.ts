@@ -524,8 +524,14 @@ describe("AiChatService", () => {
       );
     });
 
-    it("should fallback to DEFAULT_AI_MODEL when no model or modelType provided", async () => {
+    it("should read DEFAULT_AI_MODEL with empty-string default (no hardcoded fallback) when no model or modelType provided", async () => {
       const mockConfig = createMockModelConfig({ modelId: "gpt-4o" });
+      // Operator opts in via env. With empty string default, the service
+      // still honours DEFAULT_AI_MODEL when it is set.
+      mockConfigService.get.mockImplementation((key: string, def?: unknown) => {
+        if (key === "DEFAULT_AI_MODEL") return "gpt-4o";
+        return def;
+      });
       mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
 
       await service.chat({
@@ -534,11 +540,19 @@ describe("AiChatService", () => {
 
       expect(mockConfigService.get).toHaveBeenCalledWith(
         "DEFAULT_AI_MODEL",
-        "gemini",
+        "",
       );
       expect(mockModelConfigService.getModelConfig).toHaveBeenCalledWith(
         "gpt-4o",
       );
+    });
+
+    it("should throw AiServiceUnavailableError when no modelId can be resolved (no hardcoded gemini fallback)", async () => {
+      mockConfigService.get.mockReturnValue("");
+
+      await expect(
+        service.chat({ messages: [{ role: "user", content: "Hello" }] }),
+      ).rejects.toThrow(/DEFAULT_AI_MODEL 未设置|DEFAULT_AI_MODEL is not set/);
     });
 
     it("should apply taskProfile parameters when provided", async () => {
@@ -1505,41 +1519,41 @@ describe("AiChatService", () => {
 
   // ==================== getAvailableModels (sync) ====================
 
-  describe("getAvailableModels (sync)", () => {
-    it("returns grok when XAI_API_KEY is set", () => {
+  describe("getAvailableProviders / getAvailableModels (sync)", () => {
+    // The service now returns provider names (xai/openai/anthropic/google)
+    // instead of model-name literals. The legacy getAvailableModels() alias
+    // delegates to getAvailableProviders and is kept only for migration.
+    it("returns xai when XAI_API_KEY is set", () => {
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "XAI_API_KEY") return "xai-key";
         return undefined;
       });
-      const models = service.getAvailableModels();
-      expect(models).toContain("grok");
+      expect(service.getAvailableProviders()).toContain("xai");
+      expect(service.getAvailableModels()).toContain("xai");
     });
 
-    it("returns gpt-4 when OPENAI_API_KEY is set", () => {
+    it("returns openai when OPENAI_API_KEY is set", () => {
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "OPENAI_API_KEY") return "openai-key";
         return undefined;
       });
-      const models = service.getAvailableModels();
-      expect(models).toContain("gpt-4");
+      expect(service.getAvailableProviders()).toContain("openai");
     });
 
-    it("returns claude when ANTHROPIC_API_KEY is set", () => {
+    it("returns anthropic when ANTHROPIC_API_KEY is set", () => {
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "ANTHROPIC_API_KEY") return "anthropic-key";
         return undefined;
       });
-      const models = service.getAvailableModels();
-      expect(models).toContain("claude");
+      expect(service.getAvailableProviders()).toContain("anthropic");
     });
 
-    it("returns gemini when GOOGLE_AI_API_KEY is set", () => {
+    it("returns google when GOOGLE_AI_API_KEY is set", () => {
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === "GOOGLE_AI_API_KEY") return "google-key";
         return undefined;
       });
-      const models = service.getAvailableModels();
-      expect(models).toContain("gemini");
+      expect(service.getAvailableProviders()).toContain("google");
     });
 
     it("returns empty array when no env vars are set", () => {

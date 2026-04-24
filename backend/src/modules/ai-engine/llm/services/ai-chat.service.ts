@@ -414,9 +414,17 @@ export class AiChatService {
     }
 
     if (!hasDbConfig) {
+      // CLAUDE.md 红线：fallback 模型名必须为空字符串，由下游 UserModelResolver
+      // 从 DB 解析。绝不硬编码 "gemini" / "gpt-4" 等字面量，否则 DB 没配对应
+      // 模型时会把一个根本不存在的 modelId 透传下去并报"模型未配置"。
       targetModel =
-        targetModel ||
-        this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
+        targetModel || this.configService.get<string>("DEFAULT_AI_MODEL", "");
+      if (!targetModel) {
+        throw new AiServiceUnavailableError(
+          "AI 服务不可用：没有可用模型。请在数据库中至少配置 1 个启用的 AI 模型，或设置 DEFAULT_AI_MODEL 环境变量。",
+          "",
+        );
+      }
       const requiredEnvKey = this.getRequiredApiKeyName(targetModel);
 
       if (!this.configService.get<string>(requiredEnvKey)) {
@@ -502,17 +510,33 @@ export class AiChatService {
 
   /**
    * 获取所有已配置的 AI 模型列表（同步，仅检查环境变量）
-   * @deprecated 优先使用 getAvailableModelsAsync
+   *
+   * @deprecated 这个方法曾经返回硬编码字面量（"grok"/"gpt-4"/"claude"/"gemini"）
+   * 作为"有 key 就算有模型"的粗略信号，但字面量本身不是 DB 中的真实 modelId，
+   * 透传下去必然导致"模型未配置"错误。**永远不要用返回值做模型名**——只用来
+   * 做"是否有任意 provider 凭证"的布尔判断；要拿真正的 modelId 请用
+   * `getAvailableModelsAsync()` 或 `AiModelConfigService.getEnabledModels()`。
+   */
+  getAvailableProviders(): string[] {
+    const providers: string[] = [];
+    if (this.configService.get<string>("XAI_API_KEY")) providers.push("xai");
+    if (this.configService.get<string>("OPENAI_API_KEY"))
+      providers.push("openai");
+    if (this.configService.get<string>("ANTHROPIC_API_KEY"))
+      providers.push("anthropic");
+    if (this.configService.get<string>("GOOGLE_AI_API_KEY"))
+      providers.push("google");
+    return providers;
+  }
+
+  /**
+   * @deprecated Use {@link getAvailableProviders} + {@link getAvailableModelsAsync}.
+   * Kept only as a thin alias because a handful of legacy callers still
+   * destructure the returned array — they should migrate before the next
+   * minor release. Never use the returned strings as model ids.
    */
   getAvailableModels(): string[] {
-    const models: string[] = [];
-    if (this.configService.get<string>("XAI_API_KEY")) models.push("grok");
-    if (this.configService.get<string>("OPENAI_API_KEY")) models.push("gpt-4");
-    if (this.configService.get<string>("ANTHROPIC_API_KEY"))
-      models.push("claude");
-    if (this.configService.get<string>("GOOGLE_AI_API_KEY"))
-      models.push("gemini");
-    return models;
+    return this.getAvailableProviders();
   }
 
   /**
@@ -1321,13 +1345,33 @@ export class AiChatService {
           `[chat] Using ${modelType} model from database: ${model}`,
         );
       } else {
-        model = this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
+        // No DB config for the requested modelType. DO NOT fall back to a
+        // hard-coded string like "gemini" — that silently routes the call to
+        // a modelId the DB may not have, producing the misleading "模型未配置"
+        // error. Honour DEFAULT_AI_MODEL only when operators explicitly set it.
+        const envDefault = this.configService.get<string>(
+          "DEFAULT_AI_MODEL",
+          "",
+        );
+        if (!envDefault) {
+          throw new AiServiceUnavailableError(
+            `AI 服务不可用：没有可用的 ${modelType} 模型。请在数据库中启用至少 1 个该用途的模型，或设置 DEFAULT_AI_MODEL 环境变量。`,
+            "",
+          );
+        }
+        model = envDefault;
         this.logger.warn(
-          `[chat] No ${modelType} model found, falling back to ${model}`,
+          `[chat] No ${modelType} model found, falling back to DEFAULT_AI_MODEL=${model}`,
         );
       }
     } else {
-      model = this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
+      model = this.configService.get<string>("DEFAULT_AI_MODEL", "");
+      if (!model) {
+        throw new AiServiceUnavailableError(
+          "AI 服务不可用：DEFAULT_AI_MODEL 未设置且未指定 modelType/modelId。",
+          "",
+        );
+      }
       modelConfig = await this.getModelConfig(model);
     }
 

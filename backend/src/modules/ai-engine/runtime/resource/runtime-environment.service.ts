@@ -21,6 +21,7 @@ import { AgentRegistry } from "../../agents/registry/agent-registry";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
 import { SpecAgentRegistry } from "../../harness/core/spec-agent-registry";
+import { AiChatModelConfigService } from "../../llm/services/ai-chat-model-config.service";
 import type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -47,6 +48,8 @@ export class RuntimeEnvironmentService {
     @Optional() private readonly toolRegistry?: ToolRegistry,
     @Optional() private readonly skillRegistry?: SkillRegistry,
     @Optional() private readonly specAgentRegistry?: SpecAgentRegistry,
+    @Optional()
+    private readonly modelConfigService?: AiChatModelConfigService,
   ) {
     // P1-5: registry @Optional 是为了单元测试（没完整 DI 图）简单；
     // 生产环境（AppModule 完整组装）下这些必须到位，否则 snapshot 数据残缺。
@@ -165,6 +168,10 @@ export class RuntimeEnvironmentService {
           provider: true,
           modelType: true,
           maxTokens: true,
+          // AIModel.isReasoning 是操作员在管理后台勾选的事实声明，之前被
+          // discoverModels 遗漏，导致 reconciler 把 gpt-5 / o1 / deepseek-r1
+          // 等已明确标 isReasoning=true 的模型错误地只归到 CHAT 桶。
+          isReasoning: true,
         },
       });
 
@@ -213,6 +220,31 @@ export class RuntimeEnvironmentService {
         };
         const bucket = result[row.modelType as RuntimeModelType];
         if (bucket) bucket.push(cap);
+
+        // Reasoning is a *capability*, not an exclusive enum value:
+        // 1. DB `AIModelType` enum has no REASONING member — operators mark
+        //    reasoning models as CHAT + `isReasoning=true`.
+        // 2. A single model (gpt-5 / o1 / claude-4 / deepseek-r1) serves
+        //    both plain CHAT calls and reasoning calls; a reconciler that
+        //    reads only `modelType` will always report REAS:0 even when
+        //    the user has explicitly enabled a reasoning model.
+        //
+        // Resolution: the DB `isReasoning` boolean is the operator-declared
+        // truth. When absent, fall back to the shared
+        // AiChatModelConfigService.isReasoningModel() which already knows
+        // the o1/o3/gpt-5/deepseek-r1/gemini-2.5/*-thinking families.
+        // Mirror the capability into the REASONING bucket additively — the
+        // CHAT bucket entry stays so chat callers see the same model.
+        const isReasoning =
+          row.isReasoning === true ||
+          (row.isReasoning !== false &&
+            (this.modelConfigService?.isReasoningModel(row.modelId) ?? false));
+        if (
+          isReasoning &&
+          !result.REASONING.some((m) => m.modelId === row.modelId)
+        ) {
+          result.REASONING.push({ ...cap, modelType: "REASONING" });
+        }
       }
       return result;
     } catch (err) {
