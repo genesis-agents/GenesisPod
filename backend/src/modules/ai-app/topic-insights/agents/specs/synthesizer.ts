@@ -22,6 +22,12 @@ export interface SynthesizerInput {
   readonly overallReview?: QualityReview;
   readonly userPrompt?: string;
   readonly language: string;
+  /**
+   * ★ baseline leader-planning.planGlobalOutline 对齐：跨维度协调上下文
+   * 空数组 → 无注入（兼容旧 caller）
+   */
+  readonly globalThemes?: ReadonlyArray<string>;
+  readonly deduplicationRules?: ReadonlyArray<string>;
 }
 
 export const SYNTHESIZER_SPEC: IAgentSpec<SynthesizerInput, SynthesisResult> = {
@@ -92,6 +98,18 @@ export const SYNTHESIZER_SPEC: IAgentSpec<SynthesizerInput, SynthesisResult> = {
 
   buildUserPrompt: (ctx) => {
     const { input } = ctx;
+    const globalThemesBlock =
+      input.globalThemes && input.globalThemes.length > 0
+        ? `\n跨维度主题（Leader 识别的全局共性，请在 crossDimensionAnalysis 中引用）：\n${input.globalThemes
+            .map((t, i) => `  ${i + 1}. ${t}`)
+            .join("\n")}`
+        : "";
+    const dedupBlock =
+      input.deduplicationRules && input.deduplicationRules.length > 0
+        ? `\n去重规则（避免在不同维度重复描述同一事实）：\n${input.deduplicationRules
+            .map((r, i) => `  ${i + 1}. ${r}`)
+            .join("\n")}`
+        : "";
     return [
       `missionId: ${input.missionId}`,
       `topic: ${input.topicName}（id=${input.topicId}）`,
@@ -103,7 +121,8 @@ export const SYNTHESIZER_SPEC: IAgentSpec<SynthesizerInput, SynthesisResult> = {
         (m) =>
           `  - ${m.dimensionName}\n    summary: ${m.summary}\n    keyFindings: ${m.keyFindings.join(" | ")}\n    evidenceCount: ${m.evidenceCount}`,
       ),
-      "",
+      globalThemesBlock,
+      dedupBlock,
       input.overallReview
         ? `overallReview score: ${input.overallReview.overallScore}`
         : "",

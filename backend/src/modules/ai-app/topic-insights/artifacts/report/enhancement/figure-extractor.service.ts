@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import type { ToolContext } from "@/modules/ai-engine/facade";
 import { withTimeoutFallback } from "@/common/utils/timeout.utils";
+import { resolveArxivFetchTarget } from "@/modules/ai-app/topic-insights/shared/utils/arxiv-url.utils";
 
 /**
  * 提取的图表信息
@@ -108,11 +109,16 @@ export class FigureExtractorService {
         return [];
       }
 
+      // ★ baseline data-enrichment.service.ts:L445-L491 arXiv 升级：
+      //   /abs/{id} 页面不含图片，必须改爬 /html/{id}/ 提取图表；
+      //   URL 必须带尾部斜杠，否则 new URL("fig.png", base) 会解析到父目录 → 404
+      const { fetchUrl, baseUrl } = resolveArxivFetchTarget(url);
+
       // 超时控制
       const toolResult = await withTimeoutFallback(
         webScraperTool.execute(
           {
-            url,
+            url: fetchUrl,
             maxLength: 50000, // 获取更多内容以便提取图片
             returnHtml: true, // 请求返回 HTML（如果工具支持）
           },
@@ -127,7 +133,7 @@ export class FigureExtractorService {
 
       if (!toolResult.success || !toolResult.data) {
         this.logger.debug(
-          `[extractFiguresFromUrl] Failed to fetch ${url}: ${toolResult.error?.message}`,
+          `[extractFiguresFromUrl] Failed to fetch ${fetchUrl}: ${toolResult.error?.message}`,
         );
         return [];
       }
@@ -145,10 +151,10 @@ export class FigureExtractorService {
       // 使用 HTML 内容（如果可用），否则使用 content
       const htmlContent = scraperData.html || scraperData.content || "";
 
-      // 提取图表
-      const figures = this.extractFigures(url, htmlContent);
+      // 提取图表（baseUrl 用于解析相对路径，arXiv 时带尾部斜杠）
+      const figures = this.extractFigures(baseUrl, htmlContent);
       this.logger.debug(
-        `[extractFiguresFromUrl] Extracted ${figures.length} figures from ${url}`,
+        `[extractFiguresFromUrl] Extracted ${figures.length} figures from ${fetchUrl}`,
       );
 
       // ★ v4.5: 异步校验图片可访问性 + 质量

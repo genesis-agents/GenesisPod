@@ -94,6 +94,7 @@ const STOP_WORDS = new Set([
   "even",
   "still",
   "way",
+  // 中文停用词（对齐 baseline L2398-L2448）
   "的",
   "了",
   "在",
@@ -178,9 +179,11 @@ export interface SectionLite {
 /**
  * 从文本中提取关键词（简单分词 + 停用词过滤）。
  * baseline L2321-L2456 完整对齐。
+ *
+ * 正则用 Unicode 转义 `一-鿿` 表达 CJK 统一汉字区间，
+ * 避免源文件编码/transpile 过程中的字面量漂移。
  */
 export function extractKeywords(text: string): string[] {
-  // baseline: replace 非字母数字/下划线/中文/空白 为空格。`一-鿿` = CJK 统一汉字。
   return text
     .toLowerCase()
     .replace(/[^\w一-鿿\s]/g, " ")

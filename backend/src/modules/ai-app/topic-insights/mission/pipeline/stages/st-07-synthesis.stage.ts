@@ -12,6 +12,7 @@ import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { SynthesizerInput } from "@/modules/ai-app/topic-insights/agents/specs";
 import type { SynthesisResult } from "@/modules/ai-app/topic-insights/agents/specs/schemas";
 import { sanitizeSectionOutput } from "@/modules/ai-app/topic-insights/shared/utils/sanitize-output.utils";
+import { computeGlobalOutline } from "@/modules/ai-app/topic-insights/shared/utils/global-outline.utils";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
   IntegrateStageOutput,
@@ -26,6 +27,9 @@ export interface SynthStageInput {
   readonly language: string;
   readonly dimensionMetas: IntegrateStageOutput["dimensionMetas"];
   readonly integratedSectionsPerDim: Record<string, string>;
+  /** ★ 跨维度全局协调（baseline planGlobalOutline 精简版，算法型，无 LLM） */
+  readonly globalThemes: ReadonlyArray<string>;
+  readonly deduplicationRules: ReadonlyArray<string>;
 }
 
 @Injectable()
@@ -65,11 +69,24 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
       byDim[s.dimensionId] = (byDim[s.dimensionId] ?? "") + "\n\n" + s.content;
     }
 
+    // ★ baseline planGlobalOutline 算法化：跨 dim 共现 keyword → globalThemes
+    //   + deduplicationRules。注入 AG-11-SY prompt 作跨维度协调上下文。
+    const globalOutline = computeGlobalOutline(
+      integrate.dimensionMetas.map((m) => ({
+        dimensionId: m.dimensionId,
+        dimensionName: m.dimensionName,
+        keyFindings: m.keyFindings,
+        summary: m.summary,
+      })),
+    );
+
     return {
       topicName: plan.taskUnderstanding?.topic || plan.missionId,
       language: "zh",
       dimensionMetas: integrate.dimensionMetas,
       integratedSectionsPerDim: byDim,
+      globalThemes: globalOutline.globalThemes,
+      deduplicationRules: globalOutline.deduplicationRules,
     };
   }
 
@@ -91,6 +108,8 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
         dimensionMetas: input.dimensionMetas,
         integratedSectionsPerDim: input.integratedSectionsPerDim,
         language: input.language,
+        globalThemes: input.globalThemes,
+        deduplicationRules: input.deduplicationRules,
       },
       identity.capabilities?.env,
     );
