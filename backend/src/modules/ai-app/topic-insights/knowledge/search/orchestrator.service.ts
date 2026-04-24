@@ -34,10 +34,7 @@ import { SearchExecutorService } from "./executor.service";
 import { ResultFusionService } from "./fusion/result-fusion.service";
 import { QualityGateService } from "./fusion/quality-gate.service";
 import { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";
-import {
-  DEFAULT_RERANK_CONFIG,
-  type RerankCandidate,
-} from "./rerank/rerank.types";
+import { DEFAULT_RERANK_CONFIG, type RerankCandidate } from "./rerank/types";
 
 /** Default data sources when dimension provides none */
 const DEFAULT_SOURCES: DataSourceType[] = [

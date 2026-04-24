@@ -9,7 +9,7 @@ import type {
   DataSourceType,
   DataSourceResult,
 } from "@/modules/ai-app/topic-insights/shared/types/data-source.types";
-import type { RerankConfig } from "./rerank/rerank.types";
+import type { RerankConfig } from "./rerank/types";
 
 // ============================================================================
 // Adapter Interface

@@ -24,7 +24,7 @@ export type {
   RerankRequest,
   RerankedItem,
   RerankConfig,
-} from "./rerank/rerank.types";
+} from "./rerank/types";
 
 // Adapters
 export {

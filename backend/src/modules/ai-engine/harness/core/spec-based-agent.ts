@@ -19,14 +19,19 @@
 
 import { Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
+// ★ 直接相对路径导入，绕开 facade barrel。
+// 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
+// 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
+// 导致 TypeScript 在 module evaluation 阶段产生 `undefined` 类 reference，
+// Nest DI 随后报 "Cannot resolve dependency at index [0]"。
+import { KernelContext } from "../../../../common/context/kernel-context";
 import {
-  KernelContext,
   ModelElectionService,
   NoEligibleModelError,
   type ElectionCandidate,
   type ElectionRoleHint,
-  type EnvironmentSnapshot,
-} from "@/modules/ai-engine/facade";
+} from "../../llm/election";
+import type { EnvironmentSnapshot } from "../../runtime/resource/runtime-environment.types";
 import type {
   IAgent,
   IAgentEvent,

@@ -25,7 +25,7 @@ import type {
   RerankRequest,
   RerankResult,
   RerankedItem,
-} from "./rerank.types";
+} from "./types";
 
 /** 单条候选送入 LLM 前的 snippet 上限 */
 const SNIPPET_MAX_CHARS = 300;

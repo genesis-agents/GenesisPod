@@ -8,10 +8,9 @@
 
 import { Injectable, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import {
-  ModelElectionService,
-  type EnvironmentSnapshot,
-} from "@/modules/ai-engine/facade";
+// ★ 直接相对路径 — 与 spec-based-agent.ts 同理，绕开 facade barrel 避免 DI 循环
+import { ModelElectionService } from "../../llm/election";
+import type { EnvironmentSnapshot } from "../../runtime/resource/runtime-environment.types";
 import type {
   IAgent,
   IAgentLoop,
