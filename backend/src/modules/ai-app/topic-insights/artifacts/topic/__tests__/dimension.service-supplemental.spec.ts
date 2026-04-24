@@ -1,51 +1,45 @@
 /**
  * TopicDimensionService — Supplemental Tests
  *
- * Covers uncovered branches:
- * - getDefaultDimensionsByType: EVENT case (line 279)
- * - checkTopicAccess: creator short-circuit (line 351)
- * - checkTopicAccess: empty SQL result → false (line 371)
- * - checkTopicAccess: visibility=PUBLIC → true (line 378)
- * - checkTopicAccess: visibility=SHARED + is_collaborator=true → true (line 383)
- * - checkTopicAccess: visibility=SHARED + is_collaborator=false → false
- * - checkTopicAccess: visibility=PRIVATE → false
+ * Covers visibility / access branches not in the main spec:
+ * - checkTopicAccess: creator short-circuit
+ * - checkTopicAccess: empty SQL result → false
+ * - checkTopicAccess: visibility=PUBLIC → true
+ * - checkTopicAccess: visibility=SHARED + is_collaborator branches
  * - verifyTopicReadAccess: non-owner without access → ForbiddenException
- * - verifyTopicReadAccess: non-owner with PUBLIC access → OK (no throw)
- * - getTemplates: EVENT type returns EVENT_INSIGHT_REFERENCE_DIMENSIONS
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { TopicDimensionService } from "../dimension.service";
-import { PrismaService } from "@/common/prisma/prisma.service";
 import { ForbiddenException } from "@nestjs/common";
-import { ResearchTopicType } from "@prisma/client";
 
-// ─── Mock factory ─────────────────────────────────────────────────────────────
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { TopicDimensionService } from "../dimension.service";
+import { DimensionTemplatesRepository } from "../templates";
+import { MissionExecutionService } from "../../../mission/control/execution.service";
 
 function buildMocks() {
   const mockPrisma = {
-    researchTopic: {
-      findUnique: jest.fn(),
+    researchTopic: { findUnique: jest.fn() },
+    researchMission: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
     },
     topicDimension: {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn(),
       create: jest.fn(),
+      createMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
     $transaction: jest.fn(async (ops: unknown) => {
-      if (Array.isArray(ops)) {
-        return Promise.all(ops);
-      }
+      if (Array.isArray(ops)) return Promise.all(ops);
       return (ops as (tx: unknown) => Promise<unknown>)(mockPrisma);
     }),
     $queryRaw: jest.fn(),
   };
   return { mockPrisma };
 }
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("TopicDimensionService — supplemental", () => {
   let service: TopicDimensionService;
@@ -58,7 +52,12 @@ describe("TopicDimensionService — supplemental", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TopicDimensionService,
+        DimensionTemplatesRepository,
         { provide: PrismaService, useValue: mocks.mockPrisma },
+        {
+          provide: MissionExecutionService,
+          useValue: { startExecution: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -67,27 +66,9 @@ describe("TopicDimensionService — supplemental", () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  // ─── getTemplates: EVENT type ──────────────────────────────────────────────
-
-  describe("getTemplates — EVENT type", () => {
-    it("returns empty templates for EVENT type (H6: harness generates dimensions)", async () => {
-      const result = await service.getTemplates({
-        type: ResearchTopicType.EVENT,
-      } as never);
-
-      expect(result.type).toBe(ResearchTopicType.EVENT);
-      expect(result.dimensions).toEqual([]);
-    });
-  });
-
-  // ─── checkTopicAccess: via listDimensions (calls verifyTopicReadAccess) ────
-
   describe("verifyTopicReadAccess — non-owner paths", () => {
-    it("throws ForbiddenException for non-owner when checkTopicAccess returns false (PRIVATE)", async () => {
-      // findUnique returns topic owned by someone else
+    it("throws ForbiddenException for non-owner when PRIVATE", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue({ userId: "owner-1" });
-
-      // $queryRaw returns PRIVATE, is_collaborator=false
       prisma.$queryRaw.mockResolvedValue([
         { visibility: "PRIVATE", is_collaborator: false },
       ]);
@@ -97,7 +78,7 @@ describe("TopicDimensionService — supplemental", () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("throws ForbiddenException for non-owner when checkTopicAccess returns false (SHARED, not collaborator)", async () => {
+    it("throws ForbiddenException for non-owner when SHARED + not collaborator", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue({ userId: "owner-1" });
       prisma.$queryRaw.mockResolvedValue([
         { visibility: "SHARED", is_collaborator: false },
@@ -108,7 +89,7 @@ describe("TopicDimensionService — supplemental", () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("does NOT throw for non-owner when visibility=PUBLIC", async () => {
+    it("does NOT throw for non-owner when PUBLIC", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue({ userId: "owner-1" });
       prisma.$queryRaw.mockResolvedValue([
         { visibility: "PUBLIC", is_collaborator: false },
@@ -120,7 +101,7 @@ describe("TopicDimensionService — supplemental", () => {
       ).resolves.toEqual([]);
     });
 
-    it("does NOT throw for non-owner when visibility=SHARED and user is a collaborator", async () => {
+    it("does NOT throw for non-owner when SHARED + collaborator", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue({ userId: "owner-1" });
       prisma.$queryRaw.mockResolvedValue([
         { visibility: "SHARED", is_collaborator: true },
@@ -132,9 +113,8 @@ describe("TopicDimensionService — supplemental", () => {
       ).resolves.toEqual([]);
     });
 
-    it("throws ForbiddenException when $queryRaw returns empty result (topic gone)", async () => {
+    it("throws ForbiddenException when $queryRaw returns empty result", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue({ userId: "owner-1" });
-      // Empty array → checkTopicAccess returns false
       prisma.$queryRaw.mockResolvedValue([]);
 
       await expect(
@@ -148,7 +128,6 @@ describe("TopicDimensionService — supplemental", () => {
 
       await service.listDimensions("user-1", "topic-1");
 
-      // $queryRaw should never be called when creator accesses their own topic
       expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
   });

@@ -3,6 +3,7 @@
 > **驱动原则**：所有因 H6 legacy sweep 丢失的功能必须**完整补回**。不接受 fail-fast / deprecated / remove。实现可以 harness-native（不复活旧 service 类），但**行为必须等价**。
 >
 > **业界最佳实践约束**：
+>
 > - 数据与逻辑分离（config 不内联到 service body）
 > - 类型安全（强类型 `.config.ts` + `.types.ts`）
 > - DI-friendly（config 通过 Repository/Service provider 注入）
@@ -18,14 +19,14 @@
 
 ## 一、丢失范围复核（已验证）
 
-| 类别 | 规模 | 严重度 |
-|---|---:|---|
-| WebSocket 事件（enum 存在但无 emit） | 16 | 🔴 P0（UI 大面积空白） |
-| HTTP 端点行为降级 | 6 | 🔴 P0（静默失败 / 501 / 返空） |
-| 配置文件删除 | 4 | 🔴 P0（LLM 质量退化） |
-| Service 类删除（无真替代） | 8 / 17 | 🟠 P1 |
-| 公共方法删除 | 41 | 🟠 P1-P2 |
-| 行为静默改变 | 14 | 🟠 P1-P2 |
+| 类别                                 |   规模 | 严重度                         |
+| ------------------------------------ | -----: | ------------------------------ |
+| WebSocket 事件（enum 存在但无 emit） |     16 | 🔴 P0（UI 大面积空白）         |
+| HTTP 端点行为降级                    |      6 | 🔴 P0（静默失败 / 501 / 返空） |
+| 配置文件删除                         |      4 | 🔴 P0（LLM 质量退化）          |
+| Service 类删除（无真替代）           | 8 / 17 | 🟠 P1                          |
+| 公共方法删除                         |     41 | 🟠 P1-P2                       |
+| 行为静默改变                         |     14 | 🟠 P1-P2                       |
 
 详细证据见审计文档。
 
@@ -35,12 +36,12 @@
 
 ### 2.1 数据归属（反硬编码）
 
-| 领域数据 | 归属目录 | 形态 |
-|---|---|---|
-| 维度模板 | `artifacts/topic/templates/` | `.config.ts` + Repository + Types + 测试 |
-| Framework-skill 注入策略 | `skills/frameworks/` | `_policy.config.ts` + Repository |
-| Prompt tier 自适应 | `ai-engine/llm/prompt-adaptation/` **(L2)** | Config + Service 挂入 LlmExecutor pipeline |
-| Agent 统一角色基类 | `agents/specs/_base-agent-spec.ts` | 抽象类 + 17 specs 继承 |
+| 领域数据                 | 归属目录                                    | 形态                                       |
+| ------------------------ | ------------------------------------------- | ------------------------------------------ |
+| 维度模板                 | `artifacts/topic/templates/`                | `.config.ts` + Repository + Types + 测试   |
+| Framework-skill 注入策略 | `skills/frameworks/`                        | `_policy.config.ts` + Repository           |
+| Prompt tier 自适应       | `ai-engine/llm/prompt-adaptation/` **(L2)** | Config + Service 挂入 LlmExecutor pipeline |
+| Agent 统一角色基类       | `agents/specs/_base-agent-spec.ts`          | 抽象类 + 17 specs 继承                     |
 
 **拒绝理由**：把 `MACRO → ["macro-analysis"]` 直接写到 `leader-planner.ts` 的函数体里，违反单一数据源原则，未来加 topicType 或改映射需要改代码；config 分离后可单测数据完整性，可未来切外部源（DB / Redis / CMS）。
 
@@ -65,6 +66,7 @@
 ### F1 · Foundation（1 天）— 配置资产与基类就位
 
 **产出目录**：
+
 ```
 artifacts/topic/templates/
 ├── dimension-templates.config.ts        # 4 topicType × 5~6 默认维度（强类型）
@@ -94,11 +96,13 @@ agents/specs/
 ```
 
 **端点修复**：
+
 - F1.5 `GET /topics/templates` → 读 `DimensionTemplatesRepository.listByType(topicType)`
 - F1.6 `POST /topics/from-template` → 实现真功能：Repository 取模板 → 事务创建 `researchTopic` + N 个 `topicDimension`
 - F1.7 `PATCH /topics/:id/dimensions/:dimId/refresh` → 调 `MissionExecutionService.startExecution` 以 **H3 single-dimension scope** 启动
 
 **验收**：
+
 - [ ] 4 个 topicType 模板全部可取 + 单测覆盖
 - [ ] from-template E2E：创建话题返回 topic + dimensions 完整
 - [ ] /refreshDimension E2E：触发单维度 mission 并完成
@@ -108,6 +112,7 @@ agents/specs/
 ### F2 · Leader Interactions（1.5 天）
 
 **产出**：
+
 ```
 agents/specs/
 └── leader-intent.ts                     # IAgentSpec — LLM 意图解码
@@ -127,10 +132,12 @@ artifacts/collaboration/
 ```
 
 **端点修复**：
+
 - F2.3 `POST /topics/:id/leader/chat` → 走 `LeaderChatService.handle()`，返回真实 decisionType
 - F2.4 `POST /topics/:id/leader/message` → one-shot plan adjustment（复用 amendment primitive F3.1）
 
 **事件**：
+
 - `LEADER_THINKING` → LeaderChatService 开始执行时 emit
 - `LEADER_RESPONSE` → decisionType = DIRECT_ANSWER 时 emit
 - `DECISION` → 已有 H4 基础，保留
@@ -159,6 +166,7 @@ mission/control/
 ```
 
 **端点修复**：
+
 - F3.2 `POST /topics/:id/mission/adjust` → 改走 `amendment.pauseAndAmend()`
   - addDimensions → amendment.addDimensionsToPlan
   - removeDimensions → amendment.removeDimensionsFromPlan
@@ -172,26 +180,27 @@ mission/control/
 **event-emitter.service.ts** 补回 16 个 emit 方法：
 
 ```typescript
-emitLeaderThinking(topicId, payload)
-emitLeaderPlanning(topicId, payload)
-emitLeaderPlanReady(topicId, payload)
-emitLeaderResponse(topicId, payload)
-emitAgentCompleted(topicId, payload)
-emitAgentFailed(topicId, payload)
-emitTaskStarted(topicId, payload)
-emitTaskProgress(topicId, payload)
-emitTaskCompleted(topicId, payload)
-emitTaskFailed(topicId, payload)
-emitDimensionCreated(topicId, payload)
-emitDimensionAdded(topicId, payload)
-emitDimensionRemoved(topicId, payload)
-emitDimensionResearchStarted(topicId, payload)
-emitDimensionResearchCompleted(topicId, payload)
-emitReportSynthesisStarted(topicId, payload)
-emitReportSynthesisCompleted(topicId, payload)
+emitLeaderThinking(topicId, payload);
+emitLeaderPlanning(topicId, payload);
+emitLeaderPlanReady(topicId, payload);
+emitLeaderResponse(topicId, payload);
+emitAgentCompleted(topicId, payload);
+emitAgentFailed(topicId, payload);
+emitTaskStarted(topicId, payload);
+emitTaskProgress(topicId, payload);
+emitTaskCompleted(topicId, payload);
+emitTaskFailed(topicId, payload);
+emitDimensionCreated(topicId, payload);
+emitDimensionAdded(topicId, payload);
+emitDimensionRemoved(topicId, payload);
+emitDimensionResearchStarted(topicId, payload);
+emitDimensionResearchCompleted(topicId, payload);
+emitReportSynthesisStarted(topicId, payload);
+emitReportSynthesisCompleted(topicId, payload);
 ```
 
 **Stages 接入点**：
+
 - `st-01-plan.stage.ts` → LEADER_THINKING（进入时）/ LEADER_PLANNING（LLM 调用时）/ LEADER_PLAN_READY（完成时）
 - `st-02-research.stage.ts` → 每维度：DIMENSION_RESEARCH_STARTED / PROGRESS / COMPLETED + 每 agent spec 执行：AGENT_WORKING / COMPLETED / FAILED + 内部 task：TASK_STARTED / COMPLETED / FAILED
 - `st-07-synthesis.stage.ts` → REPORT_SYNTHESIS_STARTED / COMPLETED
@@ -202,6 +211,7 @@ emitReportSynthesisCompleted(topicId, payload)
 ### F5 · Search Quality + Evidence Sync（1.5 天）
 
 **产出**：
+
 ```
 knowledge/search/fusion/
 ├── (existing quality-gate.service.ts, result-fusion.service.ts)
@@ -219,6 +229,7 @@ knowledge/evidence-sync/                  (新)
 ```
 
 **Pipeline 接入**：
+
 - ST-02-RESEARCH 的 search 子步骤增加顺序：fetch → `url-validation` → `content-enrichment` → `evidence-evaluation` → `result-filter` → `quality-gate`（现有）
 - ST-HH-CHECKPOINT 时调 `compensation.service.snapshot()`
 - resumeWithHarness 时调 `compensation.service.reconcile()`
@@ -226,10 +237,12 @@ knowledge/evidence-sync/                  (新)
 ### F6 · Review + Framework + Agent Selection（1 天）
 
 **F6.1 TODO 真审**：
+
 - `research-todo.service.ts#reviewTodoResult` 改：调用 `AgentRegistry.get('quality-reviewer').execute({ taskOutput })` 替代 auto-approve
 - 返回 spec 输出的 `{status, feedback}`
 
 **F6.2 Framework-skill 注入**：
+
 - `leader-planner.ts` spec.prompt() 逻辑：
   ```
   const skills = FrameworkSkillPolicy.getSkillsForTopic(input.topicType, input.eventSubtype);
@@ -238,11 +251,13 @@ knowledge/evidence-sync/                  (新)
   ```
 
 **F6.3 Leader agentic search**：
+
 - `agents/specs/leader-agentic-searcher.ts`（新 IAgentSpec）
 - ST-02-RESEARCH 增加 `mode: "static" | "agentic"`；agentic 模式调新 spec 驱动 agent-loop search
 - input 带 `agenticMode: boolean` 控制
 
 **F6.4 Dynamic agent selection**：
+
 - L2 `AgentRegistry` 加 `selectByCapability(requirements: CapabilityRequirements)` 方法
 - pipeline stages 在 fan-out 时调用，替代硬编码 spec 绑定
 
@@ -276,16 +291,16 @@ artifacts/topic/dimension.service.ts (扩展)
 
 ## 四、工作量估算
 
-| 批次 | 估时 | 累计 | 依赖 |
-|---|---:|---:|---|
-| F1 Foundation | 1 天 | 1 | 无（独立落地） |
-| F2 Leader Interactions | 1.5 天 | 2.5 | F1（需 base spec） |
-| F3 Mission Dynamic | 1.5 天 | 4 | H2 checkpoint primitive（已完成） |
-| F4 WebSocket Events | 1 天 | 5 | F1 agent specs（需在 stages 调 emit） |
-| F5 Search + Evidence | 1.5 天 | 6.5 | F1（Repository 模式借鉴） |
-| F6 Review + Framework + Selection | 1 天 | 7.5 | F1（framework-skill policy）+ F2（spec）|
-| F7 CRUD Methods | 0.5 天 | 8 | F1 + F4 事件 |
-| F8 Final Sweep | 0.5 天 | 8.5 | 全部完成 |
+| 批次                              |   估时 | 累计 | 依赖                                     |
+| --------------------------------- | -----: | ---: | ---------------------------------------- |
+| F1 Foundation                     |   1 天 |    1 | 无（独立落地）                           |
+| F2 Leader Interactions            | 1.5 天 |  2.5 | F1（需 base spec）                       |
+| F3 Mission Dynamic                | 1.5 天 |    4 | H2 checkpoint primitive（已完成）        |
+| F4 WebSocket Events               |   1 天 |    5 | F1 agent specs（需在 stages 调 emit）    |
+| F5 Search + Evidence              | 1.5 天 |  6.5 | F1（Repository 模式借鉴）                |
+| F6 Review + Framework + Selection |   1 天 |  7.5 | F1（framework-skill policy）+ F2（spec） |
+| F7 CRUD Methods                   | 0.5 天 |    8 | F1 + F4 事件                             |
+| F8 Final Sweep                    | 0.5 天 |  8.5 | 全部完成                                 |
 
 **总估**：8-10 天 focused work。
 
@@ -294,6 +309,7 @@ artifacts/topic/dimension.service.ts (扩展)
 ## 五、分批交接点（每批一个 commit + PR）
 
 每批完成后必须：
+
 1. `npx tsc --noEmit` exit 0
 2. `npx jest src/modules/ai-app/topic-insights` 145/145 suites 绿
 3. `npx jest` 全后端 ≥ 1044/1045 suites 绿（pre-existing round2 legacy 可忽略）
@@ -304,13 +320,13 @@ artifacts/topic/dimension.service.ts (扩展)
 
 ## 六、风险与缓解
 
-| 风险 | 缓解 |
-|---|---|
-| Pause-Amend-Resume 原语复杂度（F3） | 先做最小可用（仅 addDimensions），focusAreas / removeDimensions 增量加 |
-| 16 个 WS 事件 E2E 断言不稳（F4） | 用 socket.io-mock-server + fake-timers 做确定性测试 |
-| Prompt-adaptation 影响所有 AI App（F1） | 加 feature flag，默认关，先拿 topic-insights 验证 |
-| Leader agentic search 可能无限 loop（F6.3） | 加 `maxIterations` + `budget` 约束（L2 PipelineBudget 已有） |
-| DataEnrichment 4 方法的 spec 源代码已删 | 参考 git log 39000 提交 recover 逻辑（P3-3 之前） |
+| 风险                                        | 缓解                                                                   |
+| ------------------------------------------- | ---------------------------------------------------------------------- |
+| Pause-Amend-Resume 原语复杂度（F3）         | 先做最小可用（仅 addDimensions），focusAreas / removeDimensions 增量加 |
+| 16 个 WS 事件 E2E 断言不稳（F4）            | 用 socket.io-mock-server + fake-timers 做确定性测试                    |
+| Prompt-adaptation 影响所有 AI App（F1）     | 加 feature flag，默认关，先拿 topic-insights 验证                      |
+| Leader agentic search 可能无限 loop（F6.3） | 加 `maxIterations` + `budget` 约束（L2 PipelineBudget 已有）           |
+| DataEnrichment 4 方法的 spec 源代码已删     | 参考 git log 39000 提交 recover 逻辑（P3-3 之前）                      |
 
 ---
 
@@ -327,16 +343,16 @@ artifacts/topic/dimension.service.ts (扩展)
 
 ## 八、验收状态（由执行者更新）
 
-| 批次 | 状态 | commit | 备注 |
-|---|---|---|---|
-| F1 Foundation | ⏳ 未开始 | — | — |
-| F2 Leader Interactions | ⏳ 未开始 | — | — |
-| F3 Mission Dynamic | ⏳ 未开始 | — | — |
-| F4 WebSocket Events | ⏳ 未开始 | — | — |
-| F5 Search + Evidence | ⏳ 未开始 | — | — |
-| F6 Review + Framework + Selection | ⏳ 未开始 | — | — |
-| F7 CRUD Methods | ⏳ 未开始 | — | — |
-| F8 Final Sweep | ⏳ 未开始 | — | — |
+| 批次                              | 状态                 | commit    | 备注                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------- | -------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1 Foundation                     | ✅ 完成 (2026-04-24) | 本 commit | artifacts/topic/templates/（数据层） · skills/frameworks/（框架策略） · ai-engine/llm/prompt-adaptation/（L2 · flag=off 默认） · agents/specs/defaults.ts（17-spec 一致性断言） · 3 端点真实现（/templates · /from-template 事务 · /dimensions/:id/refresh H3 scope）。SOTA 短名（types/config/repository）。150 suites · 4441 tests 绿。 |
+| F2 Leader Interactions            | ⏳ 未开始            | —         | —                                                                                                                                                                                                                                                                                                                                         |
+| F3 Mission Dynamic                | ⏳ 未开始            | —         | —                                                                                                                                                                                                                                                                                                                                         |
+| F4 WebSocket Events               | ⏳ 未开始            | —         | —                                                                                                                                                                                                                                                                                                                                         |
+| F5 Search + Evidence              | ⏳ 未开始            | —         | —                                                                                                                                                                                                                                                                                                                                         |
+| F6 Review + Framework + Selection | ⏳ 未开始            | —         | —                                                                                                                                                                                                                                                                                                                                         |
+| F7 CRUD Methods                   | ⏳ 未开始            | —         | —                                                                                                                                                                                                                                                                                                                                         |
+| F8 Final Sweep                    | ⏳ 未开始            | —         | —                                                                                                                                                                                                                                                                                                                                         |
 
 ---
 

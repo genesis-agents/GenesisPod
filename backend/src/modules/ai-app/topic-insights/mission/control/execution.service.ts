@@ -56,11 +56,18 @@ export class MissionExecutionService {
    * H6: legacy scheduler fallback removed. PipelineModule is mandatory in
    * topic-insights.module, so harnessOrchestrator is always injected.
    */
-  async startExecution(missionId: string, topicId: string): Promise<void> {
+  async startExecution(
+    missionId: string,
+    topicId: string,
+    options?: { readonly dimensionScope?: readonly string[] },
+  ): Promise<void> {
+    const scope = options?.dimensionScope;
+    const scopeNote =
+      scope && scope.length > 0 ? ` scope=[${scope.join(",")}]` : "";
     this.logger.log(
-      `[startExecution] Starting execution for mission ${missionId}`,
+      `[startExecution] Starting execution for mission ${missionId}${scopeNote}`,
     );
-    return this.runWithHarness(missionId, topicId);
+    return this.runWithHarness(missionId, topicId, scope);
   }
 
   /**
@@ -251,6 +258,7 @@ export class MissionExecutionService {
   private async runWithHarness(
     missionId: string,
     topicId: string,
+    dimensionScope?: readonly string[],
   ): Promise<void> {
     if (!this.harnessOrchestrator) {
       throw new Error(
@@ -342,8 +350,10 @@ export class MissionExecutionService {
       reportId: draftReport.id,
       userId: topic.userId,
       depth,
-      mode: "fresh",
+      mode:
+        dimensionScope && dimensionScope.length > 0 ? "incremental" : "fresh",
       capabilities,
+      dimensionScope,
     });
 
     this.cancellation?.register(missionId, identity.abortController);

@@ -1,11 +1,11 @@
 import {
-  Injectable,
-  NotFoundException,
+  BadRequestException,
   ForbiddenException,
-
-  HttpException,
-  HttpStatus,
+  Injectable,
   Logger,
+  NotFoundException,
+  forwardRef,
+  Inject,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -16,29 +16,36 @@ import {
   GetTemplatesDto,
   CreateFromTemplateDto,
 } from "@/modules/ai-app/topic-insights/api/dto";
-import { ResearchTopicType, DimensionStatus } from "@prisma/client";
-// H6 step 11: dimension-templates.config.ts deleted. Harness AG-01-LD
-// (leader-planner spec) generates dimensions dynamically based on topic type
-// and user prompt, so hard-coded per-type defaults are no longer needed.
-// getTemplates endpoint now returns an empty dimension list — frontend
-// prompts the user to trigger leader planning instead.
+import {
+  DimensionStatus,
+  ResearchMissionStatus,
+  ResearchTopicStatus,
+} from "@prisma/client";
+import { MissionExecutionService } from "../../mission/control/execution.service";
+import { toPrismaJson } from "@/common/utils/prisma-json.utils";
+import { DimensionTemplatesRepository } from "./templates";
 
 /**
  * TopicDimensionService
  *
- * 负责专题维度的管理：添加、更新、删除、重排、刷新、模板
+ * 负责专题维度的管理：添加、更新、删除、重排、刷新、模板。
+ * F1 restoration: /topics/templates、/topics/from-template、/dimensions/:id/refresh
+ * 均走 DimensionTemplatesRepository + H3 single-dimension scope，不再返空或 501。
  */
 @Injectable()
 export class TopicDimensionService {
   private readonly logger = new Logger(TopicDimensionService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly templateRepo: DimensionTemplatesRepository,
+    @Inject(forwardRef(() => MissionExecutionService))
+    private readonly missionExecution: MissionExecutionService,
+  ) {}
 
-  /**
-   * 获取维度列表
-   */
+  // ── Dimension CRUD ─────────────────────────────────────────────────────────
+
   async listDimensions(userId: string, topicId: string) {
-    // 验证专题读取权限（支持公开专题访问）
     await this.verifyTopicReadAccess(userId, topicId);
 
     const dimensions = await this.prisma.topicDimension.findMany({
@@ -52,7 +59,6 @@ export class TopicDimensionService {
       },
     });
 
-    // 将最新 analysis 的数据扁平化到 dataPoints 字段
     return dimensions.map((dim) => {
       const latestAnalysis = dim.analyses?.[0];
       return {
@@ -75,14 +81,9 @@ export class TopicDimensionService {
     });
   }
 
-  /**
-   * 添加维度
-   */
   async addDimension(userId: string, topicId: string, dto: AddDimensionDto) {
-    // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
-    // 如果没有指定 sortOrder，设置为最大值 + 1
     let sortOrder = dto.sortOrder;
     if (!sortOrder) {
       const maxDimension = await this.prisma.topicDimension.findFirst({
@@ -111,19 +112,14 @@ export class TopicDimensionService {
     return dimension;
   }
 
-  /**
-   * 更新维度
-   */
   async updateDimension(
     userId: string,
     topicId: string,
     dimensionId: string,
     dto: UpdateDimensionDto,
   ) {
-    // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
-    // 验证维度属于该专题
     const existing = await this.prisma.topicDimension.findFirst({
       where: { id: dimensionId, topicId },
     });
@@ -151,14 +147,9 @@ export class TopicDimensionService {
     return updated;
   }
 
-  /**
-   * 删除维度
-   */
   async deleteDimension(userId: string, topicId: string, dimensionId: string) {
-    // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
-    // 验证维度属于该专题
     const existing = await this.prisma.topicDimension.findFirst({
       where: { id: dimensionId, topicId },
     });
@@ -169,54 +160,26 @@ export class TopicDimensionService {
       );
     }
 
-    await this.prisma.topicDimension.delete({
-      where: { id: dimensionId },
-    });
-
+    await this.prisma.topicDimension.delete({ where: { id: dimensionId } });
     this.logger.log(`Deleted dimension ${dimensionId}`);
     return { success: true };
   }
 
-  /**
-   * 刷新单个维度
-   */
-  async refreshDimension(
-    _userId: string,
-    _topicId: string,
-    _dimensionId: string,
-    _dto: RefreshDimensionDto,
-  ) {
-    // TODO: Implement refreshDimension (高级功能，暂不实现)
-    throw new HttpException(
-      "refreshDimension is not yet implemented",
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  /**
-   * 调整维度顺序
-   */
   async reorderDimensions(
     userId: string,
     topicId: string,
     dto: ReorderDimensionsDto,
   ) {
-    // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
-    // 验证所有维度都属于该专题
     const dimensions = await this.prisma.topicDimension.findMany({
-      where: {
-        id: { in: dto.dimensionIds },
-        topicId,
-      },
+      where: { id: { in: dto.dimensionIds }, topicId },
     });
 
     if (dimensions.length !== dto.dimensionIds.length) {
       throw new NotFoundException("Some dimensions not found in this topic");
     }
 
-    // 使用事务更新所有维度的 sortOrder
     await this.prisma.$transaction(
       dto.dimensionIds.map((dimensionId, index) =>
         this.prisma.topicDimension.update({
@@ -232,57 +195,232 @@ export class TopicDimensionService {
     return { success: true };
   }
 
+  // ── H3 single-dimension refresh ────────────────────────────────────────────
+
   /**
-   * 获取模板列表
+   * Kick off an incremental mission scoped to a single dimension.
+   *
+   * Uses H3 primitive (PipelineIdentityContext.dimensionScope). The harness
+   * pipeline's RESEARCH / WRITE / REVIEW / INTEGRATE / REMEDIATE stages see
+   * the scope and skip non-matching dimensions.
+   */
+  async refreshDimension(
+    userId: string,
+    topicId: string,
+    dimensionId: string,
+    _dto: RefreshDimensionDto,
+  ) {
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const dimension = await this.prisma.topicDimension.findFirst({
+      where: { id: dimensionId, topicId },
+    });
+    if (!dimension) {
+      throw new NotFoundException(
+        `Dimension ${dimensionId} not found in topic ${topicId}`,
+      );
+    }
+
+    // Block double-starts: a mission for this topic already active.
+    const activeMission = await this.prisma.researchMission.findFirst({
+      where: {
+        topicId,
+        status: {
+          in: [
+            ResearchMissionStatus.PLANNING,
+            ResearchMissionStatus.PLAN_READY,
+            ResearchMissionStatus.EXECUTING,
+            ResearchMissionStatus.REVIEWING,
+          ],
+        },
+      },
+      select: { id: true, status: true },
+    });
+    if (activeMission) {
+      throw new BadRequestException(
+        `Topic has an active mission (${activeMission.id} · ${activeMission.status}); ` +
+          `refresh blocked until it completes or is cancelled.`,
+      );
+    }
+
+    const mission = await this.prisma.researchMission.create({
+      data: {
+        topicId,
+        status: ResearchMissionStatus.EXECUTING,
+        userPrompt: `Refresh dimension: ${dimension.name}`,
+        researchDepth: "standard",
+        startedAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `[refreshDimension] mission=${mission.id} topic=${topicId} dim=${dimensionId} (${dimension.name})`,
+    );
+
+    // Fire-and-forget; client tracks via /missions/:id/progress.
+    void this.missionExecution
+      .startExecution(mission.id, topicId, {
+        dimensionScope: [dimensionId],
+      })
+      .catch(async (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `[refreshDimension] execution failed mission=${mission.id}: ${msg}`,
+        );
+        await this.prisma.researchMission
+          .update({
+            where: { id: mission.id },
+            data: {
+              status: ResearchMissionStatus.FAILED,
+              completedAt: new Date(),
+            },
+          })
+          .catch((updateErr: unknown) => {
+            this.logger.error(
+              `[refreshDimension] failed to mark mission FAILED: ${updateErr}`,
+            );
+          });
+      });
+
+    return {
+      missionId: mission.id,
+      dimensionId,
+      dimensionName: dimension.name,
+      status: ResearchMissionStatus.EXECUTING,
+    };
+  }
+
+  // ── Templates ──────────────────────────────────────────────────────────────
+
+  /**
+   * List templates for a topicType. The response keeps a back-compat `dimensions`
+   * array pointing to the default template so existing callers don't break.
    */
   async getTemplates(query: GetTemplatesDto) {
-    const dimensions = this.getDefaultDimensionsByType(query.type);
+    const templates = this.templateRepo.listByType(query.type);
 
     return {
       type: query.type,
-      dimensions: dimensions.map((dim) => ({
-        id: dim.id,
-        name: dim.name,
-        description: dim.description,
-        searchQueries: dim.searchQueries,
-        searchSources: dim.searchSources,
-        minSources: dim.minSources,
-        sortOrder: dim.sortOrder,
+      templates: templates.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        defaultLanguage: t.defaultLanguage,
+        defaultIcon: t.defaultIcon,
+        defaultColor: t.defaultColor,
+        dimensions: t.dimensions.map((d) => ({
+          id: d.id,
+          name: d.name,
+          description: d.description,
+          purpose: d.purpose,
+          queryTemplates: [...d.queryTemplates],
+          dataSources: [...d.dataSources],
+          minSources: d.minSources,
+          sortOrder: d.sortOrder,
+        })),
       })),
+      // Back-compat shape for callers predating F1.
+      dimensions:
+        templates[0]?.dimensions.map((d) => ({
+          id: d.id,
+          name: d.name,
+          description: d.description,
+          searchQueries: [...d.queryTemplates],
+          searchSources: [...d.dataSources],
+          minSources: d.minSources,
+          sortOrder: d.sortOrder,
+        })) ?? [],
     };
   }
 
   /**
-   * 从模板创建专题
+   * Create a fresh topic + dimensions from a template. Applies
+   * `customizations.dimensions.{add,remove}` if supplied.
    */
-  async createFromTemplate(_userId: string, _dto: CreateFromTemplateDto) {
-    // TODO: Implement createFromTemplate (高级功能，暂不实现)
-    throw new HttpException(
-      "createFromTemplate is not yet implemented",
-      HttpStatus.NOT_IMPLEMENTED,
+  async createFromTemplate(userId: string, dto: CreateFromTemplateDto) {
+    const template = this.templateRepo.getById(dto.templateId);
+    if (!template) {
+      throw new NotFoundException(`Template ${dto.templateId} not found`);
+    }
+
+    const rendered = [...this.templateRepo.renderTemplate(template, dto.name)];
+
+    // Remove by dimension name (case-sensitive; matches DB UNIQUE semantics).
+    const removeNames = new Set(dto.customizations?.dimensions?.remove ?? []);
+    let finalDims = rendered.filter((d) => !removeNames.has(d.name));
+
+    // Append user-provided extras with sortOrder continuing from template.
+    const extras = dto.customizations?.dimensions?.add ?? [];
+    if (extras.length > 0) {
+      const baseOrder =
+        finalDims.length > 0
+          ? Math.max(...finalDims.map((d) => d.sortOrder))
+          : 0;
+      finalDims = [
+        ...finalDims,
+        ...extras.map((extra, idx) => ({
+          name: extra.name,
+          description: extra.description ?? "",
+          searchQueries: extra.searchQueries ?? [],
+          searchSources: [] as string[],
+          minSources: 5,
+          sortOrder: baseOrder + idx + 1,
+        })),
+      ];
+    }
+
+    const { topic, dimensionCount } = await this.prisma.$transaction(
+      async (tx) => {
+        const created = await tx.researchTopic.create({
+          data: {
+            userId,
+            name: dto.name,
+            type: template.topicType,
+            language: template.defaultLanguage,
+            icon: template.defaultIcon,
+            color: template.defaultColor,
+            description: template.description,
+            status: ResearchTopicStatus.DRAFT,
+            topicConfig: dto.topicConfig
+              ? toPrismaJson(dto.topicConfig)
+              : toPrismaJson({}),
+          },
+        });
+
+        if (finalDims.length > 0) {
+          await tx.topicDimension.createMany({
+            data: finalDims.map((d) => ({
+              topicId: created.id,
+              name: d.name,
+              description: d.description,
+              sortOrder: d.sortOrder,
+              searchQueries: [...d.searchQueries],
+              searchSources: [...d.searchSources],
+              minSources: d.minSources,
+              isEnabled: true,
+              status: DimensionStatus.PENDING,
+            })),
+          });
+        }
+
+        return { topic: created, dimensionCount: finalDims.length };
+      },
     );
+
+    this.logger.log(
+      `[createFromTemplate] topic=${topic.id} template=${template.id} dims=${dimensionCount} user=${userId}`,
+    );
+
+    return {
+      topicId: topic.id,
+      templateId: template.id,
+      topic,
+      dimensionCount,
+    };
   }
 
-  /**
-   * H6 step 11: legacy static dimension templates deleted. Harness generates
-   * dimensions per-topic on planning. Returns empty list so getTemplates
-   * endpoint stays non-breaking for callers.
-   */
-  private getDefaultDimensionsByType(_topicType: ResearchTopicType): Array<{
-    id: string;
-    name: string;
-    description: string;
-    searchQueries: string[];
-    searchSources: string[];
-    minSources: number;
-    sortOrder: number;
-  }> {
-    return [];
-  }
+  // ── Access control ─────────────────────────────────────────────────────────
 
-  /**
-   * 验证专题所有权（仅创建者可访问，用于写入操作）
-   */
   private async verifyTopicOwnership(
     userId: string,
     topicId: string,
@@ -303,9 +441,6 @@ export class TopicDimensionService {
     }
   }
 
-  /**
-   * 验证专题读取权限（支持公开专题访问，用于只读操作）
-   */
   private async verifyTopicReadAccess(
     userId: string,
     topicId: string,
@@ -319,12 +454,8 @@ export class TopicDimensionService {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
-    // 创建者始终有权限
-    if (topic.userId === userId) {
-      return;
-    }
+    if (topic.userId === userId) return;
 
-    // 检查 visibility 和协作者状态
     const hasAccess = await this.checkTopicAccess(
       userId,
       topicId,
@@ -337,20 +468,13 @@ export class TopicDimensionService {
     }
   }
 
-  /**
-   * 检查用户是否有权访问专题
-   */
   private async checkTopicAccess(
     userId: string,
     topicId: string,
     ownerId: string,
   ): Promise<boolean> {
-    // 1. 创建者始终有权限
-    if (userId === ownerId) {
-      return true;
-    }
+    if (userId === ownerId) return true;
 
-    // 2. 检查visibility和协作者状态
     const result = await this.prisma.$queryRaw<
       { visibility: string; is_collaborator: boolean }[]
     >`
@@ -366,23 +490,10 @@ export class TopicDimensionService {
       WHERE rt.id = ${topicId}
     `;
 
-    if (!result.length) {
-      return false;
-    }
-
+    if (!result.length) return false;
     const { visibility, is_collaborator } = result[0];
-
-    // PUBLIC: 所有登录用户可见
-    if (visibility === "PUBLIC") {
-      return true;
-    }
-
-    // SHARED: 协作者可见
-    if (visibility === "SHARED" && is_collaborator) {
-      return true;
-    }
-
-    // PRIVATE: 只有创建者可见（已在上面检查过）
+    if (visibility === "PUBLIC") return true;
+    if (visibility === "SHARED" && is_collaborator) return true;
     return false;
   }
 }

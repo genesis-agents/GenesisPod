@@ -10,6 +10,16 @@
 
 import type { IAgentSpec } from "@/modules/ai-engine/harness/abstractions";
 
+// F1 · Shared persona / workStyle / safety defaults. Re-exported so new specs
+// import from the barrel. See __tests__/defaults.spec.ts for the consistency
+// assertion that locks all 17 specs to these values.
+export {
+  TOPIC_INSIGHTS_PERSONA_DEFAULTS,
+  TOPIC_INSIGHTS_WORK_STYLE,
+  TOPIC_INSIGHTS_SAFETY_LEVEL,
+  buildPersona,
+} from "./defaults";
+
 // Core 6
 import { LEADER_PLANNER_SPEC } from "./leader-planner";
 import { SECTION_WRITER_SPEC } from "./section-writer";

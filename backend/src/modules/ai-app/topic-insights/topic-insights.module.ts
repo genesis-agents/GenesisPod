@@ -15,6 +15,8 @@ import {
   SpecAgentRegistry,
 } from "@/modules/ai-engine/harness";
 import { TOPIC_INSIGHTS_AGENT_SPECS } from "./agents/specs";
+import { DimensionTemplatesRepository } from "./artifacts/topic/templates";
+import { FrameworkSkillPolicyRepository } from "./skills/frameworks";
 import { CreditsModule } from "@/modules/ai-infra/credits/credits.module";
 import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
 import { StorageModule } from "@/modules/ai-infra/storage/storage.module";
@@ -130,6 +132,8 @@ import {
   // ★ Phase 0: BaselineRecorder (flag-gated)
   BaselineRecorderService,
 } from "./services";
+// ★ F1 · Foundation: dimension template data layer for /topics/templates
+// and /topics/from-template endpoints. Lives under artifacts/topic/templates/.
 import { TopicAccessGuard } from "./api/guards";
 
 const services = [
@@ -228,6 +232,10 @@ const services = [
   IndustryReportSearchAdapter,
   // ★ Phase 0: BaselineRecorder (flag-gated via TOPIC_INSIGHTS_RECORD_BASELINE)
   BaselineRecorderService,
+  // ★ F1 · dimension template data layer
+  DimensionTemplatesRepository,
+  // ★ F1 · framework-skill policy (topicType + eventSubtype → skill ids)
+  FrameworkSkillPolicyRepository,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];
