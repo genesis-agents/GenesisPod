@@ -13,6 +13,7 @@ export type StageId =
   | "ST-00-INIT"
   | "ST-01-PLAN"
   | "ST-02-RESEARCH"
+  | "ST-02B-OUTLINE"
   | "ST-03-WRITE"
   | "ST-04-REVIEW"
   | "ST-05-INTEGRATE"

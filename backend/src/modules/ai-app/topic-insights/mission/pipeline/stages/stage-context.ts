@@ -7,6 +7,7 @@
 
 import type {
   DimensionMeta,
+  DimensionOutline,
   LeaderPlan,
   QualityReview,
   SectionResult,
@@ -37,6 +38,16 @@ export interface DimensionResearchOutcome {
 
 export interface ResearchStageOutput {
   readonly byDimension: ReadonlyArray<DimensionResearchOutcome>;
+}
+
+// ST-02B-OUTLINE
+export interface OutlineStageOutput {
+  /**
+   * 按 dimensionId 索引的每维度章节大纲（AG-02-DP 产出）。
+   * ST-03-WRITE 消费此数据按 Leader 规划的 sections 写作；
+   * 缺失 dim 时 st-03 fallback 硬编码"子章节 1/2"。
+   */
+  readonly outlinesByDimension: Record<string, DimensionOutline>;
 }
 
 // ST-03-WRITE

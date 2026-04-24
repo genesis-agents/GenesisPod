@@ -23,6 +23,7 @@ import {
   ResearchTodoStatus,
   ResearchTodoType,
   ResearchTaskStatus,
+  ResearchMissionStatus,
   Prisma,
   DimensionStatus,
 } from "@prisma/client";
@@ -1486,13 +1487,56 @@ export class ResearchTodoService {
             where: { id: qualityReviewTask.id },
             data: {
               dependencies: [...currentDeps, task.id],
+              // ★ baseline leader-intent.handleUserMessage L178-L181 对齐：
+              //   新增维度后 quality_review 必须重置 PENDING（否则已 COMPLETED 时不会再触发）
+              status: ResearchTaskStatus.PENDING,
+              completedAt: null,
+              result: Prisma.DbNull,
+              resultSummary: null,
             },
           });
           this.logger.log(
-            `[executeAddDimension] Updated quality_review task dependencies to include ${task.id}`,
+            `[executeAddDimension] Updated quality_review task dependencies to include ${task.id} (reset to PENDING)`,
           );
         }
       }
+
+      // ★ baseline 新增维度后同时重置 report_synthesis 任务，避免已完成报告不再刷新
+      await this.prisma.researchTask.updateMany({
+        where: {
+          missionId: todo.missionId,
+          taskType: "report_synthesis",
+          status: {
+            in: [ResearchTaskStatus.COMPLETED, ResearchTaskStatus.FAILED],
+          },
+        },
+        data: {
+          status: ResearchTaskStatus.PENDING,
+          completedAt: null,
+          result: Prisma.DbNull,
+          resultSummary: null,
+        },
+      });
+
+      // ★ baseline leader-intent.handleUserMessage L182-L183 对齐：
+      //   Mission 若已 COMPLETED/FAILED 需恢复 EXECUTING，让 orchestrator 重启
+      await this.prisma.researchMission.updateMany({
+        where: {
+          id: todo.missionId,
+          status: {
+            in: [
+              ResearchMissionStatus.COMPLETED,
+              ResearchMissionStatus.FAILED,
+              ResearchMissionStatus.CANCELLED,
+            ],
+          },
+        },
+        data: {
+          status: ResearchMissionStatus.EXECUTING,
+          progressPercent: 0,
+          completedAt: null,
+        },
+      });
 
       this.logger.log(
         `[executeAddDimension] Created ResearchTask ${task.id} for dimension ${dimensionName}, priority: ${newPriority}, queue position: ${queuePosition}`,

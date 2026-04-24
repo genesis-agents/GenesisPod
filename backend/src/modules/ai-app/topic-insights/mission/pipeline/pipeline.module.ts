@@ -23,6 +23,7 @@ import {
   InitStage,
   IntegrateStage,
   LatexStage,
+  OutlineStage,
   PersistStage,
   PlanStage,
   PrismaPlanContextProvider,
@@ -44,6 +45,7 @@ const STAGES = [
   InitStage,
   PlanStage,
   ResearchStage,
+  OutlineStage,
   WriteStage,
   ReviewStage,
   IntegrateStage,
@@ -88,6 +90,7 @@ export class PipelineModule implements OnModuleInit {
     private readonly init: InitStage,
     private readonly plan: PlanStage,
     private readonly research: ResearchStage,
+    private readonly outline: OutlineStage,
     private readonly write: WriteStage,
     private readonly review: ReviewStage,
     private readonly integrate: IntegrateStage,
@@ -107,6 +110,7 @@ export class PipelineModule implements OnModuleInit {
     this.stageRegistry.register(this.init);
     this.stageRegistry.register(this.plan);
     this.stageRegistry.register(this.research);
+    this.stageRegistry.register(this.outline);
     this.stageRegistry.register(this.write);
     this.stageRegistry.register(this.review);
     this.stageRegistry.register(this.integrate);
@@ -125,3 +129,6 @@ export class PipelineModule implements OnModuleInit {
     );
   }
 }
+
+// Export stage classes re-use only; not meant for public API surface
+export { OutlineStage };

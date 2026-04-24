@@ -25,6 +25,7 @@ import {
   type EvidenceData,
   type SectionLite,
 } from "@/modules/ai-app/topic-insights/shared/utils/evidence-distribution.utils";
+import type { OutlineStageOutput } from "./stage-context";
 import type {
   PlanStageOutput,
   ResearchStageOutput,
@@ -34,13 +35,29 @@ import type {
 export interface WriteStageInput {
   readonly plan: PlanStageOutput["plan"];
   readonly research: ResearchStageOutput;
+  /** Leader-driven section outlines (AG-02-DP 产出)；空时退化到硬编码 2 节 */
+  readonly outlinesByDimension: Record<
+    string,
+    {
+      readonly sections: ReadonlyArray<{
+        readonly id: string;
+        readonly title: string;
+        readonly description: string;
+        readonly targetWords: number;
+        readonly keyPoints: ReadonlyArray<string>;
+        readonly dependsOn: ReadonlyArray<string>;
+      }>;
+    }
+  >;
 }
 
 @Injectable()
 export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
   readonly id = "ST-03-WRITE" as const;
   readonly name = "Section writing";
-  readonly dependsOn = ["ST-02-RESEARCH" as const];
+  // ST-02B-OUTLINE 提供 Leader-driven sections (AG-02-DP) 给 ST-03 消费；
+  // ST-02-RESEARCH 间接通过 ST-02B.dependsOn 传递（DAG 拓扑排序仍保证顺序）
+  readonly dependsOn = ["ST-02-RESEARCH" as const, "ST-02B-OUTLINE" as const];
   readonly runsWhen = "always" as const;
   readonly slo = {
     p95Ms: 180_000,
@@ -63,7 +80,23 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
   ): Promise<WriteStageInput> {
     const planOut = upstream.get<PlanStageOutput>("ST-01-PLAN");
     const research = upstream.get<ResearchStageOutput>("ST-02-RESEARCH");
-    return { plan: planOut.plan, research };
+    // ST-02B 可能跳过（pipeline orchestrator 根据 runsWhen 决定），这里 tryGet
+    const outlineOut = this.tryGetOutlineStage(upstream);
+    return {
+      plan: planOut.plan,
+      research,
+      outlinesByDimension: outlineOut?.outlinesByDimension ?? {},
+    };
+  }
+
+  private tryGetOutlineStage(
+    upstream: StageResults,
+  ): OutlineStageOutput | null {
+    try {
+      return upstream.get<OutlineStageOutput>("ST-02B-OUTLINE");
+    } catch {
+      return null;
+    }
   }
 
   async execute(
@@ -99,22 +132,31 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           ? dimEvidence.slice(0, adaptation.maxEvidenceItems)
           : dimEvidence;
 
-      // ★ targetWords 按 Tier 自适应（替代硬编码 400）。
-      // baseline section-writer 用 outline.sections[*].targetWords，我们
-      // 在 harness 目前没跑 DimensionOutline，退化方案：按 tier 推荐字数平均分配。
+      // ★ targetWords 按 Tier 自适应（作为 outline 缺失时的 fallback）
       const baseTargetWords = adaptation.targetWordsPerSection ?? 600;
 
       // ★ baseline dimension-mission.distributeDiverseEvidence 接入：
       //   section 间 evidence 差异化分配（top-3 共享 + round-robin 独占）。
       //   每个 section 最多 core(3) + extra(5) = 8 条；promptIndex 全局一致。
-      const sectionPlans: SectionLite[] = Array.from({ length: 2 }).map(
-        (_, si) => ({
-          id: `${dim.id}-s-${si + 1}`,
-          title: `${dim.name} 子章节 ${si + 1}`,
-          keyPoints: [`子章节 ${si + 1} 要点 A`, `要点 B`],
-          description: dim.description,
-        }),
-      );
+      //
+      // ★ ST-02B-OUTLINE 接入：优先用 AG-02-DP 产出的 Leader-规划 sections；
+      //   若该 dim 无 outline（AG-02-DP 失败或 stage 跳过），退化 2 节硬编码。
+      const outlineForDim = input.outlinesByDimension[dim.id];
+      const leaderSections = outlineForDim?.sections ?? [];
+      const sectionPlans: SectionLite[] =
+        leaderSections.length > 0
+          ? leaderSections.map((s) => ({
+              id: s.id,
+              title: s.title,
+              keyPoints: s.keyPoints,
+              description: s.description,
+            }))
+          : Array.from({ length: 2 }).map((_, si) => ({
+              id: `${dim.id}-s-${si + 1}`,
+              title: `${dim.name} 子章节 ${si + 1}`,
+              keyPoints: [`子章节 ${si + 1} 要点 A`, `要点 B`],
+              description: dim.description,
+            }));
       const evidenceBySection = distributeDiverseEvidence(
         sectionPlans,
         effectiveDimEvidence.map(
@@ -164,6 +206,9 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           resolvedEvidence,
         );
 
+        // ★ 若 Leader outline 指定了 targetWords，优先使用；否则 tier 推荐值
+        const leaderTargetWords =
+          leaderSections[si]?.targetWords ?? baseTargetWords;
         const sectionInput: SectionWriterInput = {
           topicId: identity.topicId,
           topicName: dim.name, // upstream context（Group E 接真 topic name）
@@ -173,7 +218,7 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
             id: sectionPlan.id,
             title: sectionPlan.title,
             description: sectionPlan.description ?? "",
-            targetWords: baseTargetWords,
+            targetWords: leaderTargetWords,
             keyPoints: [...sectionPlan.keyPoints],
           },
           evidenceSummary,

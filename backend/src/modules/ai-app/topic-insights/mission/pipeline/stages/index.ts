@@ -11,6 +11,8 @@ export {
   StubPlanContextProvider,
 } from "./st-01-plan.stage";
 export { ResearchStage } from "./st-02-research.stage";
+export { OutlineStage } from "./st-02b-outline.stage";
+export type { OutlineStageInput } from "./st-02b-outline.stage";
 export { WriteStage } from "./st-03-write.stage";
 export type { WriteStageInput } from "./st-03-write.stage";
 export { ReviewStage } from "./st-04-review.stage";

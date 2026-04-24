@@ -91,9 +91,11 @@ const mockPrisma = {
     create: jest.fn(),
     findFirst: jest.fn().mockResolvedValue(null),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   researchMission: {
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
 };
 
