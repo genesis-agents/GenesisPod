@@ -47,5 +47,8 @@ export type {
   EnqueueOptions,
 } from "./task-queue-interface";
 
+// Verification (self / external / meta judge + consensus resolver)
+export * from "./verification";
+
 // 通用 types / DSL
 export * from "./types";
