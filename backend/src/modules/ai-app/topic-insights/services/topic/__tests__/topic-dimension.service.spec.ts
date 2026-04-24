@@ -308,12 +308,11 @@ describe("TopicDimensionService", () => {
       expect(result.type).toBe(ResearchTopicType.COMPANY);
     });
 
-    it("should throw for unknown topic type", async () => {
-      await expect(
-        service.getTemplates({
-          type: "UNKNOWN_TYPE" as ResearchTopicType,
-        } as any),
-      ).rejects.toThrow("Unknown topic type");
+    it("returns empty dimensions for unknown topic type (H6: no throw)", async () => {
+      const result = await service.getTemplates({
+        type: "UNKNOWN_TYPE" as ResearchTopicType,
+      } as any);
+      expect(result.dimensions).toEqual([]);
     });
   });
 

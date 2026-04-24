@@ -70,15 +70,13 @@ describe("TopicDimensionService — supplemental", () => {
   // ─── getTemplates: EVENT type ──────────────────────────────────────────────
 
   describe("getTemplates — EVENT type", () => {
-    it("should return EVENT templates for ResearchTopicType.EVENT", async () => {
+    it("returns empty templates for EVENT type (H6: harness generates dimensions)", async () => {
       const result = await service.getTemplates({
         type: ResearchTopicType.EVENT,
       } as never);
 
       expect(result.type).toBe(ResearchTopicType.EVENT);
-      expect(Array.isArray(result.dimensions)).toBe(true);
-      // EVENT_INSIGHT_REFERENCE_DIMENSIONS is non-empty
-      expect(result.dimensions.length).toBeGreaterThan(0);
+      expect(result.dimensions).toEqual([]);
     });
   });
 

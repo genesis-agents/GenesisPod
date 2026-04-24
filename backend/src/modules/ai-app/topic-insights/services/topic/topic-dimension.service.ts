@@ -2,7 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
+
   HttpException,
   HttpStatus,
   Logger,
@@ -17,12 +17,11 @@ import {
   CreateFromTemplateDto,
 } from "../../dto";
 import { ResearchTopicType, DimensionStatus } from "@prisma/client";
-import {
-  MACRO_INSIGHT_DIMENSIONS,
-  TECH_INSIGHT_DIMENSIONS,
-  COMPANY_INSIGHT_DIMENSIONS,
-  EVENT_INSIGHT_REFERENCE_DIMENSIONS,
-} from "../../config/dimension-templates.config";
+// H6 step 11: dimension-templates.config.ts deleted. Harness AG-01-LD
+// (leader-planner spec) generates dimensions dynamically based on topic type
+// and user prompt, so hard-coded per-type defaults are no longer needed.
+// getTemplates endpoint now returns an empty dimension list — frontend
+// prompts the user to trigger leader planning instead.
 
 /**
  * TopicDimensionService
@@ -265,21 +264,20 @@ export class TopicDimensionService {
   }
 
   /**
-   * 根据专题类型获取默认维度模板
+   * H6 step 11: legacy static dimension templates deleted. Harness generates
+   * dimensions per-topic on planning. Returns empty list so getTemplates
+   * endpoint stays non-breaking for callers.
    */
-  private getDefaultDimensionsByType(topicType: ResearchTopicType) {
-    switch (topicType) {
-      case ResearchTopicType.MACRO:
-        return MACRO_INSIGHT_DIMENSIONS;
-      case ResearchTopicType.TECHNOLOGY:
-        return TECH_INSIGHT_DIMENSIONS;
-      case ResearchTopicType.COMPANY:
-        return COMPANY_INSIGHT_DIMENSIONS;
-      case ResearchTopicType.EVENT:
-        return EVENT_INSIGHT_REFERENCE_DIMENSIONS;
-      default:
-        throw new BadRequestException(`Unknown topic type: ${topicType}`);
-    }
+  private getDefaultDimensionsByType(_topicType: ResearchTopicType): Array<{
+    id: string;
+    name: string;
+    description: string;
+    searchQueries: string[];
+    searchSources: string[];
+    minSources: number;
+    sortOrder: number;
+  }> {
+    return [];
   }
 
   /**
