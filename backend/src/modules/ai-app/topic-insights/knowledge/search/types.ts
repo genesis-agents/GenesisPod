@@ -143,4 +143,10 @@ export interface SearchPipelineOptions {
    * ★ Rerank 阶段配置（默认关闭；开启后在 fusion 与 quality-gate 之间插入精排）。
    */
   rerankConfig?: RerankConfig;
+  /**
+   * F-3B · 整个搜索管线（含 fallback 重搜）的墙钟预算（ms）。
+   * 超过后：跳过剩余 fallback 轮次，返回当前尽力结果。
+   * 默认 60_000；tier thorough/deep 可抬升到 120_000。
+   */
+  maxWallTimeMs?: number;
 }

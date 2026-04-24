@@ -17,6 +17,7 @@ import type { ThrottleStats } from "./types";
 
 /** Default per-source concurrency limits based on API rate constraints */
 const DEFAULT_CONCURRENCY: Record<string, number> = {
+  // Top-level adapters (orchestrator → adapter.search)
   "arxiv-search": 1, // 3 req/s but retry backoff is expensive
   "semantic-scholar": 2, // 1 req/s unauthenticated, 100 with key
   pubmed: 3, // 3-10 req/s depending on API key
@@ -25,10 +26,20 @@ const DEFAULT_CONCURRENCY: Record<string, number> = {
   "github-search": 2, // 30 req/min with token
   "hackernews-search": 3, // Public Algolia API
   "social-x": 2, // Grok Live Search
-  policy: 3, // FedReg + Congress + WH combined
+  policy: 3, // FedReg + Congress + WH combined (at the adapter level)
   "finance-api": 1, // 5 req/min free tier
   "weather-api": 1, // 60 req/min free tier
   "local-search": 3, // Internal RAG, no external limit
+  // F-5 · Adapter-level sub-sources (fan-out inside a single adapter.search)
+  // policy adapter 内部并行/串行 3 个 tool；每个子 tool 独立限速，避免 429
+  "policy.federal-register": 1, // federalregister.gov - unauthenticated 60 req/min
+  "policy.congress-gov": 1, // api.congress.gov - 5000 req/hr 但突发敏感
+  "policy.whitehouse": 1, // whitehouse.gov RSS-like - conservative
+  // academic adapter 内部 4 阶段查询
+  "academic.openalex": 3,
+  "academic.pubmed": 2,
+  "academic.arxiv": 1, // ArXiv 最敏感，上游 timeout 常见
+  "academic.semantic-scholar": 2,
 };
 
 /** Fallback concurrency for unregistered sources */

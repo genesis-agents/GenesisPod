@@ -17,6 +17,8 @@ import { DataSourceType } from "@/modules/ai-app/topic-insights/shared/types/dat
 import type { DataSourceResult } from "@/modules/ai-app/topic-insights/shared/types/data-source.types";
 import type { AdapterSearchRequest } from "../types";
 import { SearchAdapterBase } from "./base.adapter";
+import { GlobalSourceThrottleService } from "../global-source-throttle.service";
+import { subSourceThrottleKey } from "../throttle-key.util";
 
 function makeToolContext(toolId: string): ToolContext {
   return {
@@ -25,6 +27,26 @@ function makeToolContext(toolId: string): ToolContext {
     callerType: "orchestrator",
     createdAt: new Date(),
   };
+}
+
+/**
+ * Policy sub-tool descriptors — table-driven so new policy sources can be
+ * added without touching doSearch control flow. Each entry declares:
+ *   toolId   — the ai-engine ToolRegistry id
+ *   domain   — published-at / metadata origin
+ *   destType — DataSourceType tag for fused results
+ *   buildInput / parse — per-tool adaptation
+ * Throttle bucket is derived as `${sourceId}.${toolId}` by subSourceThrottleKey.
+ */
+interface PolicySubTool {
+  readonly toolId: string;
+  readonly domain: string;
+  readonly destType: DataSourceType;
+  readonly buildInput: (
+    query: string,
+    perSource: number,
+  ) => Record<string, unknown>;
+  readonly parse: (data: Record<string, unknown>) => DataSourceResult[];
 }
 
 @Injectable()
@@ -40,72 +62,47 @@ export class PolicySearchAdapter extends SearchAdapterBase {
   readonly concurrency = 3;
   readonly defaultTimeoutMs = 15000;
 
-  constructor(
-    private readonly toolRegistry: ToolRegistry,
-    @Optional() circuitBreaker?: CircuitBreakerService,
-    @Optional() latencyTracker?: SessionLatencyTrackerService,
-  ) {
-    super(circuitBreaker, latencyTracker);
-  }
-
-  protected async doSearch(
-    request: AdapterSearchRequest,
-  ): Promise<DataSourceResult[]> {
-    const { query, maxResults } = request;
-    const perSource = Math.ceil(maxResults / 3);
-
-    const [fedResult, congressResult, whResult] = await Promise.allSettled([
-      this.executePolicyTool("federal-register", {
-        query,
-        maxResults: perSource,
-      }),
-      this.executePolicyTool("congress-gov", { query, limit: perSource }),
-      this.executePolicyTool("whitehouse-news", { query, limit: perSource }),
-    ]);
-
-    const results: DataSourceResult[] = [];
-
-    // Federal Register
-    if (fedResult.status === "fulfilled" && fedResult.value) {
-      const data = fedResult.value as Record<string, unknown>;
-      if (data["success"]) {
+  private readonly subTools: ReadonlyArray<PolicySubTool> = [
+    {
+      toolId: "federal-register",
+      domain: "federalregister.gov",
+      destType: DataSourceType.FEDERAL_REGISTER,
+      buildInput: (query, n) => ({ query, maxResults: n }),
+      parse: (data) => {
+        if (!data["success"]) return [];
         const documents = (data["documents"] ?? []) as Array<
           Record<string, unknown>
         >;
-        for (const doc of documents) {
-          results.push({
-            sourceType: DataSourceType.FEDERAL_REGISTER,
-            title: String(doc["title"] ?? ""),
-            url: String(doc["htmlUrl"] ?? ""),
-            snippet: String(doc["abstract"] ?? ""),
-            publishedAt: doc["publicationDate"]
-              ? new Date(String(doc["publicationDate"]))
-              : undefined,
-            domain: "federalregister.gov",
-            metadata: {
-              documentNumber: doc["documentNumber"],
-              documentType: doc["type"],
-              agencies: doc["agencies"],
-            },
-          });
-        }
-      }
-    } else if (fedResult.status === "rejected") {
-      this.logger.warn(
-        `[doSearch] FederalRegister failed: ${fedResult.reason}`,
-      );
-    }
-
-    // Congress.gov
-    if (congressResult.status === "fulfilled" && congressResult.value) {
-      const data = congressResult.value as Record<string, unknown>;
-      if (data["success"]) {
+        return documents.map((doc) => ({
+          sourceType: DataSourceType.FEDERAL_REGISTER,
+          title: String(doc["title"] ?? ""),
+          url: String(doc["htmlUrl"] ?? ""),
+          snippet: String(doc["abstract"] ?? ""),
+          publishedAt: doc["publicationDate"]
+            ? new Date(String(doc["publicationDate"]))
+            : undefined,
+          domain: "federalregister.gov",
+          metadata: {
+            documentNumber: doc["documentNumber"],
+            documentType: doc["type"],
+            agencies: doc["agencies"],
+          },
+        }));
+      },
+    },
+    {
+      toolId: "congress-gov",
+      domain: "congress.gov",
+      destType: DataSourceType.CONGRESS,
+      buildInput: (query, n) => ({ query, limit: n }),
+      parse: (data) => {
+        if (!data["success"]) return [];
         const bills = (data["bills"] ?? []) as Array<Record<string, unknown>>;
-        for (const bill of bills) {
+        return bills.map((bill) => {
           const latestAction = bill["latestAction"] as
             | Record<string, unknown>
             | undefined;
-          results.push({
+          return {
             sourceType: DataSourceType.CONGRESS,
             title: String(bill["shortTitle"] ?? bill["title"] ?? ""),
             url: String(bill["url"] ?? ""),
@@ -121,39 +118,75 @@ export class PolicySearchAdapter extends SearchAdapterBase {
               policyArea: bill["policyArea"],
               latestActionDate: latestAction?.["actionDate"],
             },
-          });
-        }
-      }
-    } else if (congressResult.status === "rejected") {
-      this.logger.warn(
-        `[doSearch] CongressGov failed: ${congressResult.reason}`,
-      );
-    }
-
-    // White House News
-    if (whResult.status === "fulfilled" && whResult.value) {
-      const data = whResult.value as Record<string, unknown>;
-      if (data["success"]) {
+          };
+        });
+      },
+    },
+    {
+      toolId: "whitehouse-news",
+      domain: "whitehouse.gov",
+      destType: DataSourceType.WHITEHOUSE,
+      buildInput: (query, n) => ({ query, limit: n }),
+      parse: (data) => {
+        if (!data["success"]) return [];
         const items = (data["items"] ?? []) as Array<Record<string, unknown>>;
-        for (const item of items) {
-          results.push({
-            sourceType: DataSourceType.WHITEHOUSE,
-            title: String(item["title"] ?? ""),
-            url: String(item["url"] ?? ""),
-            snippet: String(item["summary"] ?? ""),
-            publishedAt: item["date"]
-              ? new Date(String(item["date"]))
-              : undefined,
-            domain: "whitehouse.gov",
-            metadata: {
-              contentType: item["type"],
-            },
-          });
-        }
+        return items.map((item) => ({
+          sourceType: DataSourceType.WHITEHOUSE,
+          title: String(item["title"] ?? ""),
+          url: String(item["url"] ?? ""),
+          snippet: String(item["summary"] ?? ""),
+          publishedAt: item["date"]
+            ? new Date(String(item["date"]))
+            : undefined,
+          domain: "whitehouse.gov",
+          metadata: { contentType: item["type"] },
+        }));
+      },
+    },
+  ];
+
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    @Optional() private readonly throttle?: GlobalSourceThrottleService,
+    @Optional() circuitBreaker?: CircuitBreakerService,
+    @Optional() latencyTracker?: SessionLatencyTrackerService,
+  ) {
+    super(circuitBreaker, latencyTracker);
+  }
+
+  protected async doSearch(
+    request: AdapterSearchRequest,
+  ): Promise<DataSourceResult[]> {
+    const { query, maxResults } = request;
+    const perSource = Math.ceil(maxResults / this.subTools.length);
+
+    // F-5 · 每个子工具走独立 throttle bucket（key 由 subSourceThrottleKey 派生：
+    //   `${sourceId}.${toolId}` — policy.federal-register / policy.congress-gov / ...)
+    // 防止 4 维并行时 12 请求同时打上游 API 触发 429（生产事故 16:04:01）。
+    const runSubTool = (sub: PolicySubTool) => {
+      const throttleKey = subSourceThrottleKey(this.sourceId, sub.toolId);
+      const invoke = () =>
+        this.executePolicyTool(sub.toolId, sub.buildInput(query, perSource));
+      return this.throttle
+        ? this.throttle.execute(throttleKey, invoke, request.signal)
+        : invoke();
+    };
+
+    const settled = await Promise.allSettled(
+      this.subTools.map((sub) => runSubTool(sub)),
+    );
+
+    const results: DataSourceResult[] = [];
+    settled.forEach((outcome, idx) => {
+      const sub = this.subTools[idx];
+      if (outcome.status === "rejected") {
+        this.logger.warn(`[doSearch] ${sub.toolId} failed: ${outcome.reason}`);
+        return;
       }
-    } else if (whResult.status === "rejected") {
-      this.logger.warn(`[doSearch] WhiteHouseNews failed: ${whResult.reason}`);
-    }
+      if (!outcome.value) return;
+      const data = outcome.value as Record<string, unknown>;
+      results.push(...sub.parse(data));
+    });
 
     return results;
   }

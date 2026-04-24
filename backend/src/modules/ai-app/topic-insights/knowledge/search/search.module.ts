@@ -26,6 +26,7 @@ import {
   QualityGateService,
   UrlValidationService,
   ContentEnrichmentService,
+  ContentFetcherService,
   EvidenceEvaluationService,
   ResultFilterService,
 } from "./fusion";
@@ -43,6 +44,7 @@ import {
 } from "./adapters";
 import { LlmRerankerAdapter } from "./rerank/llm-reranker.adapter";
 import { RAGFusionService } from "./rag-fusion.service";
+import { LeaderToolService } from "../leader-tools/leader-tool.service";
 
 @Module({
   imports: [PrismaModule, HttpModule, SecretsModule, AiEngineModule],
@@ -58,6 +60,7 @@ import { RAGFusionService } from "./rag-fusion.service";
     QualityGateService,
     UrlValidationService,
     ContentEnrichmentService,
+    ContentFetcherService,
     EvidenceEvaluationService,
     ResultFilterService,
     // Adapters
@@ -75,6 +78,8 @@ import { RAGFusionService } from "./rag-fusion.service";
     LlmRerankerAdapter,
     // Fusion/RAG
     RAGFusionService,
+    // F-7 · Leader proactive tools
+    LeaderToolService,
   ],
   exports: [
     SearchOrchestratorService,
@@ -85,6 +90,7 @@ import { RAGFusionService } from "./rag-fusion.service";
     QualityGateService,
     UrlValidationService,
     ContentEnrichmentService,
+    ContentFetcherService,
     EvidenceEvaluationService,
     ResultFilterService,
     WebSearchAdapter,
@@ -99,6 +105,7 @@ import { RAGFusionService } from "./rag-fusion.service";
     IndustryReportSearchAdapter,
     LlmRerankerAdapter,
     RAGFusionService,
+    LeaderToolService,
   ],
 })
 export class SearchModule {}

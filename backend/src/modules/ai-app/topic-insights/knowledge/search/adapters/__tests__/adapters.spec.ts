@@ -2012,10 +2012,15 @@ describe("SearchExecutorService", () => {
       expect(results.size).toBe(0);
     });
 
-    it("should continue with remaining queries when one query fails", async () => {
+    it("should continue with remaining queries when one query exhausts retries", async () => {
+      // F-3C · executor 现在对 adapter.search 做 3 次 attempts (1 + 2 retries)
+      // 带 exponential backoff。mock 需要覆盖 q1 的全部 3 次失败，才能验证
+      // "q1 彻底失败 → q2 补上"的行为。
       const webAdapter = service.getAdapter(DataSourceType.WEB) as any;
       webAdapter.search
-        .mockRejectedValueOnce(new Error("First query failed"))
+        .mockRejectedValueOnce(new Error("q1 attempt 1 failed"))
+        .mockRejectedValueOnce(new Error("q1 attempt 2 failed"))
+        .mockRejectedValueOnce(new Error("q1 attempt 3 failed"))
         .mockResolvedValueOnce({
           items: [
             {
@@ -2043,7 +2048,7 @@ describe("SearchExecutorService", () => {
       );
 
       expect(results.get(DataSourceType.WEB)?.items).toHaveLength(1);
-    });
+    }, 15_000);
 
     it("should handle multiple sources in parallel", async () => {
       const results = await service.searchAllSources(

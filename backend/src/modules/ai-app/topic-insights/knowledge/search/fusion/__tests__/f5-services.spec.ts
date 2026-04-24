@@ -142,7 +142,7 @@ describe("EvidenceSyncCompensationService", () => {
       },
     };
     const { EvidenceSyncCompensationService } =
-      await import("../../../evidence-sync/compensation.service");
+      await import("../../../evidence/sync.service");
     const { PrismaService } = await import("@/common/prisma/prisma.service");
     const mod = await Test.createTestingModule({
       providers: [
@@ -169,7 +169,7 @@ describe("EvidenceSyncCompensationService", () => {
       topicEvidence: { findMany: jest.fn(), deleteMany: jest.fn() },
     };
     const { EvidenceSyncCompensationService } =
-      await import("../../../evidence-sync/compensation.service");
+      await import("../../../evidence/sync.service");
     const { PrismaService } = await import("@/common/prisma/prisma.service");
     const mod = await Test.createTestingModule({
       providers: [

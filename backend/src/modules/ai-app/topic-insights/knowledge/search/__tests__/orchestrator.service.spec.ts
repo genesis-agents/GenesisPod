@@ -620,7 +620,7 @@ describe("SearchOrchestratorService", () => {
       expect(mockExecutor.searchAllSources).toHaveBeenCalledTimes(1);
     });
 
-    it("should not retry when WEB is already in sources", async () => {
+    it("F-3A skips round-1 WEB fallback when WEB is already in sources but still tries round-2 re-query", async () => {
       // Ensure both WEB and ACADEMIC pass ToolFacade filter
       mockToolFacade.capabilityResolveTools.mockResolvedValue([
         "web-search",
@@ -645,11 +645,19 @@ describe("SearchOrchestratorService", () => {
 
       await service.search(dimension as any, topic as any);
 
-      // Should NOT retry since WEB already in sources
-      expect(mockExecutor.searchAllSources).toHaveBeenCalledTimes(1);
+      // Round-1 (WEB fallback) is skipped (WEB already in sources), but
+      // Round-2 (re-query underfed sources with full baseQueries) still runs.
+      // So 2 executor calls total: initial + round-2.
+      expect(
+        mockExecutor.searchAllSources.mock.calls.length,
+      ).toBeGreaterThanOrEqual(2);
     });
 
-    it("should not retry when suggestedActions does not include add_web_fallback", async () => {
+    it("F-3 widens whenever verdict is insufficient, regardless of suggestedActions", async () => {
+      // F-3A · baseline router behavior was gated on the specific
+      // "add_web_fallback" suggestedAction. harness widening is more aggressive:
+      // any insufficient verdict triggers Round-1 (WEB fallback) if WEB not
+      // already in sources. This is the "每维度只 1 条结果" 根因修复。
       const dimension = makeTopicDimension({
         searchSources: JSON.stringify([DataSourceType.ACADEMIC]),
       });
@@ -659,13 +667,17 @@ describe("SearchOrchestratorService", () => {
         makeQualityVerdict({
           sufficient: false,
           gaps: ["Low freshness"],
-          suggestedActions: ["extend_time_range"],
+          suggestedActions: ["extend_time_range"], // no add_web_fallback
         }),
       );
 
       await service.search(dimension as any, topic as any);
 
-      expect(mockExecutor.searchAllSources).toHaveBeenCalledTimes(1);
+      // widening runs regardless of suggestedActions — 2 calls expected
+      // (1) ACADEMIC initial; (2) WEB fallback (round-1)
+      expect(
+        mockExecutor.searchAllSources.mock.calls.length,
+      ).toBeGreaterThanOrEqual(2);
     });
 
     it("should handle WEB fallback retry failure gracefully (non-blocking)", async () => {

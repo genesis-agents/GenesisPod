@@ -164,6 +164,9 @@ export class ResearchStage implements Stage<
       };
     }
 
+    // F-2 · ResearchTask 状态流转：PENDING → EXECUTING（前端任务列表进度条）
+    await this.markDimensionTask(identity.missionId, planDim.id, "EXECUTING");
+
     const searchResult = await this.searchOrchestrator
       .search(dimRow as never, topic as never)
       .catch((err: unknown) => {
@@ -218,12 +221,53 @@ export class ResearchStage implements Stage<
       if (created) evidenceIds.push(created.id);
     }
 
+    // F-2 · 完成或失败转 COMPLETED（0 证据也算完成 — 下游 WriteStage 会处理缺证据）
+    await this.markDimensionTask(identity.missionId, planDim.id, "COMPLETED", {
+      resultSummary: `evidence=${evidenceIds.length}`,
+      progress: 100,
+    });
+
     return {
       dimensionId: planDim.id,
       dimensionName: planDim.name,
       evidenceIds,
       evidenceCount: evidenceIds.length,
     };
+  }
+
+  /**
+   * F-2 · 更新 dimension_research task 的状态 / 进度 / 摘要。
+   * 幂等：按 (missionId, dimensionId, taskType) 定位，updateMany 可接受 0 行。
+   * 失败不抛 — task 行丢失不影响 search 产出，只影响前端显示。
+   */
+  private async markDimensionTask(
+    missionId: string,
+    dimensionId: string,
+    status: "EXECUTING" | "COMPLETED" | "FAILED",
+    extras?: { resultSummary?: string; progress?: number },
+  ): Promise<void> {
+    if (!this.prisma) return;
+    try {
+      const now = new Date();
+      const data: Record<string, unknown> = {
+        status,
+        progress:
+          extras?.progress ??
+          (status === "EXECUTING" ? 10 : status === "COMPLETED" ? 100 : 0),
+      };
+      if (status === "EXECUTING") data.startedAt = now;
+      if (status === "COMPLETED" || status === "FAILED") data.completedAt = now;
+      if (extras?.resultSummary) data.resultSummary = extras.resultSummary;
+
+      await this.prisma.researchTask.updateMany({
+        where: { missionId, dimensionId, taskType: "dimension_research" },
+        data,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[${this.id}] markDimensionTask dim=${dimensionId} → ${status} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await

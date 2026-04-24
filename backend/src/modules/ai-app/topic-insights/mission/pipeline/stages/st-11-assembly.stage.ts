@@ -8,7 +8,7 @@
  * Group E 接入 utils/assemble 的 UT-ASM-FULL / UT-ASM-TOC。
  */
 
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { numberSubHeadings } from "../utils";
@@ -20,6 +20,7 @@ export class AssemblyStage implements Stage<
   SynthStageOutput,
   AssemblyStageOutput
 > {
+  private readonly logger = new Logger(AssemblyStage.name);
   readonly id = "ST-11-ASM" as const;
   readonly name = "Report assembly";
   readonly dependsOn = ["ST-07-SYNTH" as const];
@@ -100,6 +101,25 @@ export class AssemblyStage implements Stage<
         totalDimensions: output.sectionCount,
       },
     });
+
+    // F-2 · 到 assembly 已跑完 research + write + review + synth，因此
+    // quality_review 和 report_synthesis 两类全局 task 也应标 COMPLETED。
+    // 幂等：updateMany 对 0 行安全；失败 catch 后仅 warn。
+    try {
+      const now = new Date();
+      await this.prisma.researchTask.updateMany({
+        where: {
+          missionId: identity.missionId,
+          taskType: { in: ["quality_review", "report_synthesis"] },
+          status: { notIn: ["COMPLETED", "FAILED"] },
+        },
+        data: { status: "COMPLETED", progress: 100, completedAt: now },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[${this.id}] finalize task status failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
 
     // 保留 toPrismaJson 以防后续扩展 highlights/charts 存入（当前无操作）
     void toPrismaJson;

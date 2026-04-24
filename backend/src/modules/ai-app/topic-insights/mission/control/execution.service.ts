@@ -418,6 +418,26 @@ export class MissionExecutionService {
           completedAt: new Date(),
         },
       });
+      // F-2 · 把未完成的 ResearchTask 标成 FAILED，避免前端停留在 EXECUTING
+      try {
+        await this.prisma.researchTask.updateMany({
+          where: {
+            missionId,
+            status: { in: ["PENDING", "ASSIGNED", "EXECUTING"] },
+          },
+          data: {
+            status: "FAILED",
+            completedAt: new Date(),
+            resultSummary: wasCancelled
+              ? `mission ${terminalStatus}`
+              : `mission failed: ${msg.slice(0, 200)}`,
+          },
+        });
+      } catch (taskErr) {
+        this.logger.warn(
+          `[runWithHarness] mark pending tasks FAILED failed: ${taskErr instanceof Error ? taskErr.message : String(taskErr)}`,
+        );
+      }
       if (wasCancelled) {
         await this.researchEventEmitter.emitMissionCancelled(
           topicId,

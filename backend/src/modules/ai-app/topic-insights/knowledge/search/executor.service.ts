@@ -136,37 +136,34 @@ export class SearchExecutorService {
         const remaining = maxResults - accumulatedItems.length;
         const formattedQuery = adapter.formatQuery(query);
 
-        try {
-          const adapterResult = await this.throttle.execute(
-            adapter.sourceId,
-            () =>
-              adapter.search({
-                query: formattedQuery,
-                maxResults: remaining,
-                since,
-                timeoutMs: adapter.defaultTimeoutMs,
-                signal,
-                metadata,
-              }),
-            signal,
-          );
-
-          accumulatedItems.push(...adapterResult.items);
-          queriesUsed.push(formattedQuery);
-          totalDurationMs += adapterResult.sourceMetrics.durationMs;
-          lastError = adapterResult.sourceMetrics.error;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          this.logger.warn(
-            `[${source}] Query "${formattedQuery}" failed: ${message}`,
-          );
-
-          queriesUsed.push(formattedQuery);
-          lastError = message;
-          // Do not break — try remaining queries unless aborted
+        // F-3C · query 级 retry + exponential backoff
+        // 单个 query 失败不放弃，重试 2 次（300ms, 900ms），让临时网络抖动、
+        // 429/5xx 有机会恢复。仍失败后才继续下一个 query。
+        const ran = await this.runQueryWithRetry(
+          adapter,
+          source,
+          formattedQuery,
+          remaining,
+          since,
+          metadata,
+          signal,
+        );
+        queriesUsed.push(formattedQuery);
+        if (ran.ok) {
+          accumulatedItems.push(...ran.result.items);
+          totalDurationMs += ran.result.sourceMetrics.durationMs;
+          lastError = ran.result.sourceMetrics.error;
+        } else {
+          lastError = ran.error;
           if (signal?.aborted) break;
         }
       }
+
+      // F-3A · per-source minResults 重搜
+      // baseline DataSourceRouter standardSearch() 的关键能力：若某 source
+      // 返回不足 minPerSource，用下一个可用 query 继续重搜（最多 2 轮）。
+      // 这里我们已经把所有 queries 都跑了一遍；如果还是 <minPerSource，
+      // orchestrator 会触发 widenWithWebFallback。这里的职责只是累计。
 
       if (queriesUsed.length === 0) {
         // No queries ran at all (e.g. empty sourceQueries)
@@ -210,6 +207,78 @@ export class SearchExecutorService {
     );
 
     return resultMap;
+  }
+
+  /**
+   * F-3C · Execute a single adapter query through the throttle, with limited
+   * retry + exponential backoff for transient failures (network blip, 429/5xx).
+   *
+   * Retries up to `MAX_QUERY_RETRIES` times before giving up. Backoff is
+   * `BASE_BACKOFF_MS * 3^attempt` (300ms, 900ms). Abort signal short-circuits.
+   */
+  private async runQueryWithRetry(
+    adapter: ISearchAdapter,
+    source: DataSourceType,
+    formattedQuery: string,
+    remaining: number,
+    since: Date | undefined,
+    metadata: Record<string, unknown> | undefined,
+    signal: AbortSignal | undefined,
+  ): Promise<
+    { ok: true; result: AdapterSearchResult } | { ok: false; error: string }
+  > {
+    const MAX_QUERY_RETRIES = 2;
+    const BASE_BACKOFF_MS = 300;
+    let lastErr: string = "";
+
+    for (let attempt = 0; attempt <= MAX_QUERY_RETRIES; attempt++) {
+      if (signal?.aborted) return { ok: false, error: "aborted" };
+      try {
+        const res = await this.throttle.execute(
+          adapter.sourceId,
+          () =>
+            adapter.search({
+              query: formattedQuery,
+              maxResults: remaining,
+              since,
+              timeoutMs: adapter.defaultTimeoutMs,
+              signal,
+              metadata,
+            }),
+          signal,
+        );
+        return { ok: true, result: res };
+      } catch (err) {
+        lastErr = err instanceof Error ? err.message : String(err);
+        if (attempt < MAX_QUERY_RETRIES && !signal?.aborted) {
+          const backoff = BASE_BACKOFF_MS * Math.pow(3, attempt);
+          this.logger.warn(
+            `[${source}] query "${formattedQuery}" attempt ${attempt + 1} failed (${lastErr}) — retry in ${backoff}ms`,
+          );
+          await this.sleep(backoff, signal);
+          continue;
+        }
+        this.logger.warn(
+          `[${source}] query "${formattedQuery}" exhausted retries: ${lastErr}`,
+        );
+        return { ok: false, error: lastErr };
+      }
+    }
+    return { ok: false, error: lastErr };
+  }
+
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      const t = setTimeout(resolve, ms);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(t);
+          resolve();
+        },
+        { once: true },
+      );
+    });
   }
 
   /**

@@ -164,10 +164,15 @@ export const SECTION_WRITER_SPEC: IAgentSpec<
         `[AG-03-SW] wordCount=${output.wordCount} below 85% of target=${target}`,
       );
     }
-    const minCites = Math.ceil(output.keyFindings.length * 1.5);
-    if (output.citationCount < minCites) {
+    // F-4 · citation rule 软化
+    // baseline 的引用数阈值只是参考，实际通过 ST-08-QGATE 的 cite 维度评分（0-100）
+    // 来把控报告质量，并可走 ST-07-synth + remediate loop 自动补偿。
+    // harness 早期把它放在 spec validateBusinessRules，retry 耗尽后 stage abort 级联
+    // 到 mission cancel —— 生产案例 mission=1db5d822 就是这个链路触发的。
+    // 现在只对"几乎没有引用"（<2 且 keyFindings>0）时硬拒绝，其余交给 QGATE。
+    if (output.keyFindings.length > 0 && output.citationCount < 2) {
       throw new Error(
-        `[AG-03-SW] citationCount=${output.citationCount} below min=${minCites}`,
+        `[AG-03-SW] citationCount=${output.citationCount} insufficient (need >=2 with ${output.keyFindings.length} keyFindings)`,
       );
     }
   },

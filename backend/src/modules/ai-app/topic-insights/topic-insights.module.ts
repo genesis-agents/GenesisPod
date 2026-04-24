@@ -19,7 +19,7 @@ import { DimensionTemplatesRepository } from "./artifacts/topic/templates";
 import { FrameworkSkillPolicyRepository } from "./skills/frameworks";
 import { LeaderChatService } from "./artifacts/collaboration/leader-chat.service";
 import { MissionAmendmentService } from "./mission/control/amendment.service";
-import { EvidenceSyncCompensationService } from "./knowledge/evidence-sync/compensation.service";
+import { EvidenceSyncCompensationService } from "./knowledge/evidence/sync.service";
 import { CreditsModule } from "@/modules/ai-infra/credits/credits.module";
 import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
 import { StorageModule } from "@/modules/ai-infra/storage/storage.module";
@@ -96,10 +96,10 @@ import { SemanticScholarConnector } from "./knowledge/sources/connectors/semanti
 import { PubMedConnector } from "./knowledge/sources/connectors/pubmed.connector";
 import { FinanceApiConnector } from "./knowledge/sources/connectors/finance-api.connector";
 import { WeatherApiConnector } from "./knowledge/sources/connectors/weather-api.connector";
-import { EvidenceManagementService } from "./knowledge/evidence.service";
-import { KnowledgeGraphService } from "./knowledge/graph.service";
-import { MultiLanguageResearchService } from "./knowledge/multi-language.service";
-import { TopicInsightsDataExportService } from "./knowledge/export.service";
+import { EvidenceManagementService } from "./knowledge/evidence/evidence.service";
+import { KnowledgeGraphService } from "./knowledge/graph/graph.service";
+import { MultiLanguageResearchService } from "./knowledge/evidence/multi-language.service";
+import { TopicInsightsDataExportService } from "./knowledge/export/export.service";
 // ★ 所有 knowledge/search/ providers 打包在 SearchModule (2026-04-24 修 prod
 // "prisma/search unavailable" — ResearchStage 跨 PipelineModule scope 拿不到)
 import { SearchModule } from "./knowledge/search/search.module";

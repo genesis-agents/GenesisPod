@@ -17,7 +17,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NotFoundException } from "@nestjs/common";
 import { ReportSynthesisService } from "@/modules/ai-app/topic-insights/artifacts/report/core/synthesis.service";
-import { EvidenceManagementService } from "@/modules/ai-app/topic-insights/knowledge/evidence.service";
+import { EvidenceManagementService } from "@/modules/ai-app/topic-insights/knowledge/evidence/evidence.service";
 import { ReportChangeService } from "@/modules/ai-app/topic-insights/artifacts/report/editing/change.service";
 import { ReportAnnotationService } from "@/modules/ai-app/topic-insights/artifacts/report/editing/annotation.service";
 import { ResearchStrategyService } from "@/modules/ai-app/topic-insights/artifacts/strategy/strategy.service";

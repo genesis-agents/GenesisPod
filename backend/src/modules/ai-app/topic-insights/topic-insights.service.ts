@@ -57,7 +57,7 @@ import { MissionExecutionService } from "./mission/control/execution.service";
 import { MissionCancellationService } from "./mission/control/cancellation.service";
 // ★ Direct imports per domain (services.ts barrel 已删除)
 import { ReportSynthesisService } from "./artifacts/report/core/synthesis.service";
-import { EvidenceManagementService } from "./knowledge/evidence.service";
+import { EvidenceManagementService } from "./knowledge/evidence/evidence.service";
 import { ReportChangeService } from "./artifacts/report/editing/change.service";
 import { ReportAnnotationService } from "./artifacts/report/editing/annotation.service";
 import { ResearchStrategyService } from "./artifacts/strategy/strategy.service";
