@@ -627,9 +627,88 @@ export class PipelineOrchestratorService {
         stageId,
         ...data,
       });
+      // F4 · map generic stage lifecycle → semantic events the frontend expects
+      // (LEADER_PLANNING / LEADER_PLAN_READY / REPORT_SYNTHESIS_*).
+      await this.emitSemanticStageEvent(identity, stageId, eventType, data);
     } catch (err) {
       this.logger.warn(
         `[${identity.missionId}] emitStageEvent ${eventType} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * Fan out a stage lifecycle event to its semantic counterpart(s) so existing
+   * frontend subscribers (LEADER panel / report progress bar / task list) get
+   * the signal without every stage needing to emit directly.
+   */
+  private async emitSemanticStageEvent(
+    identity: PipelineIdentityContext,
+    stageId: StageId,
+    eventType: "stage:started" | "stage:completed" | "stage:failed",
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    const e = this.researchEventEmitter;
+    if (!e) return;
+    const topicId = identity.topicId;
+    const missionId = identity.missionId;
+    const durationMs = (data as { durationMs?: number }).durationMs;
+
+    try {
+      if (stageId === "ST-01-PLAN") {
+        if (eventType === "stage:started") {
+          await e.emitLeaderThinking(topicId, missionId, {
+            phase: "planning",
+            message: "Leader 开始规划研究维度…",
+          });
+          await e.emitLeaderPlanning(topicId, missionId, {});
+        } else if (eventType === "stage:completed") {
+          const plan = data as { dimensions?: number; totalTasks?: number };
+          await e.emitLeaderPlanReady(topicId, missionId, {
+            dimensions: plan.dimensions,
+            totalTasks: plan.totalTasks,
+          });
+        }
+      }
+      if (stageId === "ST-07-SYNTH") {
+        if (eventType === "stage:started") {
+          await e.emitReportSynthesisStarted(topicId, {
+            reportId: identity.reportId,
+            missionId,
+          });
+        } else if (eventType === "stage:completed") {
+          const syn = data as { wordCount?: number };
+          await e.emitReportSynthesisCompleted(topicId, {
+            reportId: identity.reportId,
+            missionId,
+            wordCount: syn.wordCount,
+            durationMs,
+          });
+        }
+      }
+      // Task-level semantic echo — each stage = one "task" unit of UI progress.
+      if (eventType === "stage:started") {
+        await e.emitTaskStarted(topicId, {
+          taskId: stageId,
+          missionId,
+          title: stageId,
+        });
+      } else if (eventType === "stage:completed") {
+        await e.emitTaskCompleted(topicId, {
+          taskId: stageId,
+          missionId,
+          durationMs,
+        });
+      } else if (eventType === "stage:failed") {
+        await e.emitTaskFailed(topicId, {
+          taskId: stageId,
+          missionId,
+          error: String((data as { error?: unknown }).error ?? ""),
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[${identity.missionId}] emitSemanticStageEvent ${eventType} ${stageId} failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

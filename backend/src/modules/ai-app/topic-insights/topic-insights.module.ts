@@ -19,6 +19,13 @@ import { DimensionTemplatesRepository } from "./artifacts/topic/templates";
 import { FrameworkSkillPolicyRepository } from "./skills/frameworks";
 import { LeaderChatService } from "./artifacts/collaboration/leader-chat.service";
 import { MissionAmendmentService } from "./mission/control/amendment.service";
+import {
+  UrlValidationService,
+  ContentEnrichmentService,
+  EvidenceEvaluationService,
+  ResultFilterService,
+} from "./knowledge/search/fusion";
+import { EvidenceSyncCompensationService } from "./knowledge/evidence-sync/compensation.service";
 import { CreditsModule } from "@/modules/ai-infra/credits/credits.module";
 import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
 import { StorageModule } from "@/modules/ai-infra/storage/storage.module";
@@ -242,6 +249,12 @@ const services = [
   LeaderChatService,
   // ★ F3 · Pause-Amend-Resume primitive for /mission/adjust
   MissionAmendmentService,
+  // ★ F5 · Search quality + evidence sync
+  UrlValidationService,
+  ContentEnrichmentService,
+  EvidenceEvaluationService,
+  ResultFilterService,
+  EvidenceSyncCompensationService,
   // ★ Gap 1: Agent 注册
   TopicInsightsAgent,
 ];
