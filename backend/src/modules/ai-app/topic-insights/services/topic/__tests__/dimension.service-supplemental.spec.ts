@@ -15,7 +15,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { TopicDimensionService } from "../topic-dimension.service";
+import { TopicDimensionService } from "../dimension.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ForbiddenException } from "@nestjs/common";
 import { ResearchTopicType } from "@prisma/client";

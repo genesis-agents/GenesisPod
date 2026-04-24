@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
-import { TopicExportService } from "../topic-export.service";
+import { TopicExportService } from "../export.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ExportOrchestratorService } from "@/common/export/services/export-orchestrator.service";
 import { ReportSynthesisService } from "../../report/synthesis.service";

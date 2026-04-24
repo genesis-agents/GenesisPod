@@ -29,11 +29,11 @@ export { MissionObservabilityService } from "./mission/observability.service";
 export { MissionNotificationService } from "./mission/notification.service";
 
 // Topic
-export { TopicCrudService } from "./topic/topic-crud.service";
+export { TopicCrudService } from "./topic/crud.service";
 export { EventSourceParsingService } from "./topic/event-source-parsing.service";
-export { TopicDimensionService } from "./topic/topic-dimension.service";
-export { TopicExportService } from "./topic/topic-export.service";
-export { TopicScheduleService } from "./topic/topic-schedule.service";
+export { TopicDimensionService } from "./topic/dimension.service";
+export { TopicExportService } from "./topic/export.service";
+export { TopicScheduleService } from "./topic/schedule.service";
 
 // ==================== Dimension ====================
 

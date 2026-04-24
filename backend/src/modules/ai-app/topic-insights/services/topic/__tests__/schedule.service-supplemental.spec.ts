@@ -8,7 +8,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ForbiddenException } from "@nestjs/common";
-import { TopicScheduleService } from "../topic-schedule.service";
+import { TopicScheduleService } from "../schedule.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { TopicRefreshScheduler } from "../../health/topic-refresh.scheduler";
 
