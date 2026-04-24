@@ -10,6 +10,24 @@
 
 ## 0. 核心设计原则（不可违反）
 
+### 0.1 架构归属第一原则（Topic Insights = 标杆）
+
+Topic Insights 是本次 SOTA 切换的**第一个标杆 AI App**。实现过程中沉淀的**通用能力**归入 `ai-engine/harness/`，供 Research / Teams / Writing / Office / Simulation 等后续 AI App 直接复用；**业务特定实现**（Prisma schema / prompt / tool 接入）归 `ai-app/topic-insights/`。
+
+**归属唯一判准**："如果明天做另一个 AI App，这个代码能 100% 复用吗？"
+
+- 能复用 → `L2 ai-engine/harness/`（禁止 import 任何业务 schema）
+- 不能复用（强业务字段/强业务 prompt） → `L3 ai-app/topic-insights/agent/adapters/` 或 `/protocols/`
+
+**L2 harness 层边界（硬约束）**：
+
+- 不得 import `ResearchTask / ResearchMission / TopicReport / AgentStep` 等业务 model
+- 不得 import 任何 `ai-app/**`
+- 可以 import NestJS、Node std、`@prisma/client` 的**通用类型**（`Prisma.JsonValue` 等）
+- 通过**依赖注入接口**（StepStore / CheckpointStore / TaskStore / VerificationStore）消费 App 层持久化
+
+### 0.2 执行原则
+
 1. **Task is the only source of truth** — 执行产物、状态、trace 全挂 task；Mission 计数器、前端展示、报告章节均 derived
 2. **Agent 是 ReAct 循环，不是一次性 LLM call** — 每 task 执行是完整 Observe→Think→Plan→Act→Reflect→Converge 循环，baseline 每 mission 产 ≥300 agent step 才是基准
 3. **Stage 消失 / 替换为 Protocol** — stage 不是流水线，stage 是"某类 task 的 ReAct 配置"（maxIter/judges/tools/budget）
@@ -20,6 +38,46 @@
 8. **Dynamic replanning** — Leader 观察 task 产出可 spawn/merge/cancel，不再"规划一次跑到死"
 9. **Human-in-loop editable state** — 任意时刻 pause → 编辑 task/evidence/prompt → resume
 10. **Backpressure-aware scheduling** — task queue 有优先级+并发+rate-limit+circuit-breaker
+
+### 0.3 归属分类（对每个组件的归属判定）
+
+| 组件                                                                                           | 归属                                  | 通用性                                |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------- |
+| ReActRunner                                                                                    | L2 harness/runtime/                   | 所有 agent 都跑 observe-think-act     |
+| TaskExecutionProtocol (接口)                                                                   | L2 harness/runtime/                   | 任何 task type 的协议抽象             |
+| BudgetAccountant                                                                               | L2 harness/runtime/                   | 纯计算，无 DB                         |
+| ToolRegistry + Tool (接口)                                                                     | L2 harness/runtime/                   | function calling 通用                 |
+| AgentTracer                                                                                    | L2 harness/runtime/                   | OTel 通用                             |
+| JudgeSpec / ConsensusResolver                                                                  | L2 harness/runtime/                   | multi-judge 模式通用                  |
+| StepStore / CheckpointStore / VerificationStore / TaskStore (接口)                             | L2 harness/runtime/                   | persistence 抽象                      |
+| TaskQueueInterface                                                                             | L2 harness/runtime/                   | DAG 调度接口                          |
+| AgentTask\<TMetadata\>（通用 DSL）                                                             | L2 harness/runtime/                   | 无业务字段，metadata 泛型             |
+| AgentStepRecord / AgentAction / Message / ToolResult                                           | L2 harness/runtime/                   | 通用 DSL                              |
+| **PrismaStepStore**                                                                            | L3 topic-insights/agent/adapters/     | 写 agent_steps 表                     |
+| **PrismaCheckpointStore**                                                                      | L3 topic-insights/agent/adapters/     | 写 task_checkpoints 表                |
+| **PrismaVerificationStore**                                                                    | L3 topic-insights/agent/adapters/     | 写 verification_records 表            |
+| **ResearchTaskQueue**                                                                          | L3 topic-insights/agent/adapters/     | 操作 research_tasks 表 DAG            |
+| **ResearchTaskAdapter**                                                                        | L3 topic-insights/agent/adapters/     | ResearchTask ↔ AgentTask 转换         |
+| 5 个 Protocol (DimensionResearch / SectionWrite / QualityReview / ReportSynthesis / FactCheck) | L3 topic-insights/agent/protocols/    | 业务 prompt / 业务 tool / 业务 schema |
+| 5 个业务 Tool (web_search / academic / scraper / evidence_persist / figure_extract)            | L3 topic-insights/agent/tools/        | 业务数据源接入                        |
+| MissionOrchestrator                                                                            | L3 topic-insights/agent/orchestrator/ | 操作 research_missions 表             |
+| DynamicReplanner                                                                               | L3 topic-insights/agent/orchestrator/ | Leader 业务逻辑                       |
+
+### 0.4 标杆沉淀路径
+
+```
+Topic Insights 实现 SOTA
+       ↓
+  实现过程中发现通用能力
+       ↓
+  沉淀到 ai-engine/harness/runtime/
+       ↓
+Research App 复用 harness runtime + 自己的 Protocol/Adapter/Tool
+       ↓
+Teams / Writing / Office / Simulation 同样模式
+```
+
+**本方案 28 子项中，只有 14 个 Protocol/Adapter/Tool 归 L3（topic-insights 业务实现），14 个 Runtime/接口归 L2（harness 通用沉淀）。**
 
 ---
 
