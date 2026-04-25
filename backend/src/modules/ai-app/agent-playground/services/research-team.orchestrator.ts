@@ -52,6 +52,7 @@ import {
   type RunMissionInput,
 } from "../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "../adapters/billing-runtime-env.adapter";
+import { MissionStore } from "./mission-store.service";
 
 interface MissionResult {
   readonly missionId: string;
@@ -106,6 +107,7 @@ export class ResearchTeamOrchestrator {
     private readonly eventBus: DomainEventBus,
     private readonly credits: CreditsService,
     private readonly runtimeEnv: RuntimeEnvironmentService,
+    private readonly store: MissionStore,
   ) {}
 
   async runMission(
@@ -142,6 +144,17 @@ export class ResearchTeamOrchestrator {
       throw new Error(hint.userMessage ?? "Credit balance too low");
     }
 
+    // 先持久化 mission record (status=running)
+    await this.store.create({
+      id: missionId,
+      userId,
+      workspaceId,
+      topic: input.topic,
+      depth: input.depth,
+      language: input.language,
+      maxCredits: input.maxCredits,
+    });
+
     return BillingContext.run(
       {
         userId,
@@ -152,7 +165,7 @@ export class ResearchTeamOrchestrator {
       async () => {
         const t0 = Date.now();
         try {
-          return await this.runMissionBody(
+          const result = await this.runMissionBody(
             missionId,
             input,
             userId,
@@ -160,8 +173,25 @@ export class ResearchTeamOrchestrator {
             pool,
             t0,
           );
+          // 持久化 completed 状态 + 完整结果
+          const snap = pool.snapshot();
+          await this.store.markCompleted(missionId, {
+            finalScore: result.reviewScore,
+            tokensUsed: snap.poolTokensUsed,
+            costUsd: snap.poolCostUsd,
+            trajectoryStored: result.trajectoryStored,
+            wallTimeMs: Date.now() - t0,
+            report: result.report as unknown as {
+              title?: string;
+              summary?: string;
+            },
+            // dimensions / verdicts 由 runMissionBody 在 emit 时已经累积，
+            // 这里用 buffer 也能拿到，但简单起见暂留 null（detail 页可走 /replay）
+          });
+          return result;
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
+          const snap = pool.snapshot();
           // 任何 uncaught 错误都要让 UI 知道 —— 否则 status 永远停在 "running"
           await this.emit({
             type: "agent-playground.mission:failed",
@@ -170,10 +200,16 @@ export class ResearchTeamOrchestrator {
             payload: {
               message,
               wallTimeMs: Date.now() - t0,
-              tokensUsed: pool.snapshot().poolTokensUsed,
-              costUsd: pool.snapshot().poolCostUsd,
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
             },
           }).catch(() => {});
+          await this.store.markFailed(missionId, {
+            errorMessage: message,
+            tokensUsed: snap.poolTokensUsed,
+            costUsd: snap.poolCostUsd,
+            wallTimeMs: Date.now() - t0,
+          });
           throw err;
         }
       },

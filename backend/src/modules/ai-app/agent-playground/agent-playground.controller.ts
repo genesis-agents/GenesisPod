@@ -25,6 +25,7 @@ import {
 } from "./dto/run-mission.dto";
 import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission-event-buffer.service";
+import { MissionStore } from "./services/mission-store.service";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
@@ -35,7 +36,38 @@ export class AgentPlaygroundController {
     private readonly orchestrator: ResearchTeamOrchestrator,
     private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
+    private readonly store: MissionStore,
   ) {}
+
+  /**
+   * GET /api/v1/agent-playground/missions
+   * 当前用户的 mission 列表（所有历史，按 startedAt 倒序）
+   */
+  @Get("missions")
+  async listMissions(
+    @Request() req: RequestWithUser,
+  ): Promise<{ items: unknown[] }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const items = await this.store.listByUser(userId, 100);
+    return { items };
+  }
+
+  /**
+   * GET /api/v1/agent-playground/missions/:id
+   * 单个 mission 完整 detail（含 reportFull / dimensions / verdicts）
+   */
+  @Get("missions/:id")
+  async getMission(
+    @Param("id") id: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{ mission: unknown }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const mission = await this.store.getById(id, userId);
+    if (!mission) throw new ForbiddenException("Mission not found");
+    return { mission };
+  }
 
   /**
    * POST /api/v1/agent-playground/research-team/run

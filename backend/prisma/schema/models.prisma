@@ -77,6 +77,9 @@ model User {
   // Team Mission 团队任务
   createdMissions TeamMission[] @relation("MissionCreator")
 
+  // Agent Playground demo missions
+  agentPlaygroundMissions AgentPlaygroundMission[]
+
   // ASK AI 会话
   askSessions AskSession[]
 
@@ -9177,4 +9180,52 @@ model HarnessVectorMemory {
   @@index([namespace, lastAccessedAt(sort: Desc)])
   @@index([source])
   @@map("harness_vector_memory")
+}
+
+/// ============================================================
+/// Agent Playground Mission (2026-04-25)
+///
+/// Demo 模块的 mission 持久化。让用户能在列表页回看历史 mission：
+///   - 启动时插入 record (status=running)
+///   - 完成时 update status + finalScore + reportFull + verdicts + ...
+///   - 失败时 update status=failed + errorMessage
+///
+/// 不复用 TeamMission（那是 topic-insights 业务的，schema 不一样）。
+/// ============================================================
+model AgentPlaygroundMission {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String? @map("workspace_id")
+
+  /// 输入
+  topic      String @db.VarChar(500)
+  depth      String @db.VarChar(20) // quick / standard / deep
+  language   String @db.VarChar(20)
+  maxCredits Int    @default(300) @map("max_credits")
+
+  /// 状态
+  status      String    @db.VarChar(20) // running / completed / failed / rejected
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  wallTimeMs  Int?      @map("wall_time_ms")
+
+  /// 完成时填充
+  finalScore       Int?    @map("final_score")
+  tokensUsed       Int?    @map("tokens_used")
+  costUsd          Float?  @map("cost_usd")
+  trajectoryStored Int?    @map("trajectory_stored")
+  reportTitle      String? @map("report_title") @db.VarChar(500)
+  reportSummary    String? @map("report_summary") @db.Text
+  errorMessage     String? @map("error_message") @db.Text
+
+  /// 持久化的 blob（detail 页重新渲染用）
+  themeSummary String? @map("theme_summary") @db.Text
+  dimensions   Json? // [{id, name, rationale}]
+  reportFull   Json?   @map("report_full") // 完整 ResearchReport
+  verdicts     Json? // [{verifierId, score, critique, attempt}]
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@index([status])
+  @@map("agent_playground_missions")
 }

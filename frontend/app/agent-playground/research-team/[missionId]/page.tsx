@@ -17,6 +17,10 @@ import {
 } from '@/components/agent-playground';
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
 import { deriveView } from '@/lib/agent-playground/derive';
+import {
+  getMissionDetail,
+  type MissionDetail,
+} from '@/lib/api/agent-playground';
 
 function StatusPill({
   state,
@@ -76,7 +80,62 @@ export default function MissionDetailPage() {
     return () => clearInterval(t);
   }, []);
 
-  const view = useMemo(() => deriveView(events), [events]);
+  // 持久化 fallback —— buffer 因 Railway recycle 清空时，从 DB 拉
+  const [persisted, setPersisted] = useState<MissionDetail | null>(null);
+  useEffect(() => {
+    if (invalidId) return;
+    let cancelled = false;
+    getMissionDetail(missionId)
+      .then((d) => {
+        if (!cancelled) setPersisted(d);
+      })
+      .catch(() => {
+        // 静默失败：mission 可能还没持久化或权限问题，UI 走 buffer / replay
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [missionId, invalidId]);
+
+  const view = useMemo(() => {
+    const liveView = deriveView(events);
+    // 没有事件时（buffer 已被 GC）从持久化 detail 重建 view
+    if (events.length === 0 && persisted) {
+      return {
+        ...liveView,
+        mission: {
+          ...liveView.mission,
+          topic: persisted.topic,
+          depth: persisted.depth,
+          language: persisted.language,
+          startedAt: new Date(persisted.startedAt).getTime(),
+          completedAt: persisted.completedAt
+            ? new Date(persisted.completedAt).getTime()
+            : undefined,
+          failedAt:
+            persisted.status === 'failed' && persisted.completedAt
+              ? new Date(persisted.completedAt).getTime()
+              : undefined,
+          failedMessage: persisted.errorMessage ?? undefined,
+          themeSummary: persisted.themeSummary ?? undefined,
+          dimensions: persisted.dimensions ?? undefined,
+          finalScore: persisted.finalScore ?? undefined,
+        },
+        cost: {
+          tokensUsed: persisted.tokensUsed ?? 0,
+          costUsd: persisted.costUsd ?? 0,
+          byStage: liveView.cost.byStage,
+        },
+        memory:
+          persisted.trajectoryStored != null
+            ? { chunks: persisted.trajectoryStored }
+            : liveView.memory,
+        verdicts: persisted.verdicts ?? liveView.verdicts,
+        finalReport: persisted.reportFull ?? liveView.finalReport,
+      };
+    }
+    return liveView;
+  }, [events, persisted]);
   const finishedAt = view.mission.completedAt ?? view.mission.failedAt ?? null;
   const wallTimeMs = view.mission.startedAt
     ? (finishedAt ?? now) - view.mission.startedAt

@@ -80,6 +80,65 @@ export async function runResearchTeam(
   return data as RunMissionResponse;
 }
 
+export interface MissionListItem {
+  id: string;
+  topic: string;
+  depth: 'quick' | 'standard' | 'deep' | string;
+  language: string;
+  status: 'running' | 'completed' | 'failed' | 'rejected' | string;
+  startedAt: string;
+  completedAt: string | null;
+  wallTimeMs: number | null;
+  finalScore: number | null;
+  tokensUsed: number | null;
+  costUsd: number | null;
+  reportTitle: string | null;
+  reportSummary: string | null;
+  errorMessage: string | null;
+}
+
+export interface MissionDetail extends MissionListItem {
+  themeSummary: string | null;
+  dimensions: { id: string; name: string; rationale: string }[] | null;
+  reportFull: {
+    title?: string;
+    summary?: string;
+    sections?: { heading: string; body: string; sources?: string[] }[];
+    conclusion?: string;
+    citations?: string[];
+  } | null;
+  verdicts:
+    | {
+        verifierId: string;
+        score: number;
+        critique?: string;
+        attempt?: number;
+      }[]
+    | null;
+  trajectoryStored: number | null;
+}
+
+export async function listMissions(): Promise<MissionListItem[]> {
+  const res = await fetch(`${API_BASE}/missions`, {
+    headers: { ...getAuthHeader() },
+  });
+  if (!res.ok) throw new Error(`Failed to list missions: ${res.status}`);
+  const raw = await res.json();
+  const data = unwrapStandard<{ items?: MissionListItem[] }>(raw);
+  return data.items ?? [];
+}
+
+export async function getMissionDetail(id: string): Promise<MissionDetail> {
+  const res = await fetch(`${API_BASE}/missions/${encodeURIComponent(id)}`, {
+    headers: { ...getAuthHeader() },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch mission: ${res.status}`);
+  const raw = await res.json();
+  const data = unwrapStandard<{ mission?: MissionDetail }>(raw);
+  if (!data.mission) throw new Error('Mission not found');
+  return data.mission;
+}
+
 export async function replayMission(
   missionId: string,
   sinceTs?: number
