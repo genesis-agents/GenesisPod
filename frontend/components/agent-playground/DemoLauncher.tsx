@@ -55,7 +55,7 @@ export function DemoLauncher() {
             t('playground.researchTeam.topicPlaceholder') ||
             'e.g. AI agents market 2026 Q2'
           }
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           maxLength={200}
           required
         />
@@ -71,7 +71,7 @@ export function DemoLauncher() {
             onChange={(e) =>
               setDepth(e.target.value as RunMissionInput['depth'])
             }
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           >
             <option value="quick">Quick (2-3 dims)</option>
             <option value="standard">Standard (3-5)</option>
@@ -88,7 +88,7 @@ export function DemoLauncher() {
             onChange={(e) =>
               setLanguage(e.target.value as RunMissionInput['language'])
             }
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           >
             <option value="zh-CN">中文</option>
             <option value="en-US">English</option>
@@ -106,7 +106,7 @@ export function DemoLauncher() {
             min={50}
             max={5000}
             step={50}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
       </div>
@@ -120,7 +120,7 @@ export function DemoLauncher() {
       <button
         type="submit"
         disabled={submitting || !topic.trim()}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white shadow hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {submitting ? (
           <>
