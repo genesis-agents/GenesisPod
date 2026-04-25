@@ -13,6 +13,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { IAgentEvent, IAgentIdentity, IAction } from "../abstractions";
 import { AiChatService } from "../../llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 export interface SkillCandidate {
   /** 可作为 SKILL.md 文件名的 id */
@@ -93,6 +94,9 @@ export class SkillLearner {
         messages: [{ role: "user", content: userInput }],
         systemPrompt: SKILL_SYNTHESIS_PROMPT,
         taskProfile: { creativity: "low", outputLength: "medium" },
+        // 系统配置感知 —— skill-learner 是后台任务，无 userId 上下文，
+        // 走全局默认 CHAT 模型
+        modelType: AIModelType.CHAT,
       });
       markdown = response.content.trim();
       // Strip possible code fences

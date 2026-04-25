@@ -96,11 +96,6 @@ export type {
 } from "../harness/events";
 export { MemoryAutoIndexer } from "../harness/memory-bridge/memory-auto-indexer";
 export { MissionBudgetPool } from "../harness/runtime/mission-budget-pool";
-export { ModelPricingRegistry } from "../harness/runtime/model-pricing-registry";
-export type { ModelPricing } from "../harness/runtime/model-pricing-registry";
-// Note: harness has its own ModelTier in budget-accountant ("strong"|"standard"|"basic")
-// distinct from llm/types/model-tier — kept internal to avoid name collision; AI Apps
-// pass tier as string literal to ModelPricingRegistry.promoteToPrimary().
 export { AgentEventStore, CheckpointService } from "../harness/checkpoint";
 export type { ICheckpoint, AgentEventRecord } from "../harness/checkpoint";
 

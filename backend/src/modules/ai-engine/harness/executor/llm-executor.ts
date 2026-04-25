@@ -24,6 +24,7 @@ import { AiChatService } from "../../llm/services/ai-chat.service";
 import { AiObservabilityService } from "../../runtime/observability/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import type { TaskProfile } from "../../llm/types/task-profile";
+import { AIModelType } from "@prisma/client";
 
 // ============ 契约 ============
 
@@ -260,6 +261,9 @@ export class LlmExecutor {
           messages: [{ role: "user", content: userPrompt }],
           // Election 选出的 modelId（SpecBasedAgent 已完成环境感知选举）
           model: input.model,
+          // 没有 elected model 时 fallback 走系统配置的默认 CHAT 模型
+          // （AiChatService 优先用 model，model 空时走 modelType → DB 默认）
+          modelType: input.model ? undefined : AIModelType.CHAT,
           taskProfile: input.taskProfile,
           responseFormat: "json",
           userId,

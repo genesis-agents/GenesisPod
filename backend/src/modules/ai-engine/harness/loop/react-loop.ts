@@ -38,6 +38,7 @@ import type {
 import { ContextEnvelope } from "../core/context-envelope";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import type { ChatMessage } from "../../llm/types";
+import { AIModelType } from "@prisma/client";
 import { ToolInvoker } from "../executor/tool-invoker";
 import { ContextManager } from "../context/context-manager";
 import { CacheControlPlanner } from "../context/cache-control-planner";
@@ -207,6 +208,9 @@ export class ReActLoop implements IAgentLoop {
           options?.signal,
           tierModelId ?? undefined,
           cachePrefix,
+          // BYOK 关键：把 envelope.memory.userId 透给 chat()，让
+          // findUserDefaultByType(userId, "chat") 命中用户自己的 BYOK 默认模型
+          currentEnvelope.memory.userId,
         );
         decision = reasoned.decision;
         usage = reasoned.usage;
@@ -339,6 +343,8 @@ export class ReActLoop implements IAgentLoop {
     cachePrefix?:
       | import("../context/cache-control-planner").SharedCachePrefix
       | null,
+    /** BYOK：从 envelope.memory.userId 透传，让 chat() 走 user-default 查找链 */
+    userId?: string,
   ): Promise<{
     decision: ParsedDecision;
     usage: {
@@ -358,6 +364,8 @@ export class ReActLoop implements IAgentLoop {
       // PR-I 修复 #1: 让 BudgetAccountant.downgrade() 真正生效——
       // 把 tier 选出的 modelId 透给 ChatService（缺省走 election）。
       model: modelOverride,
+      // 没有 elected/tier model 时 fallback 走系统配置的默认 CHAT 模型
+      modelType: modelOverride ? undefined : AIModelType.CHAT,
       // PR-Q: prompt-cache 自动化 —— 重复 prefix 1/10 价
       cachePolicy: "auto",
       sharedCachePrefix: cachePrefix
@@ -368,6 +376,8 @@ export class ReActLoop implements IAgentLoop {
         : undefined,
       taskProfile: { creativity: "low", outputLength: "short" },
       responseFormat: "json",
+      // BYOK 环境感知：userId 透给 chat() → 用户的 UserModelConfig 默认值优先
+      userId,
       signal,
     });
     if (signal?.aborted) {

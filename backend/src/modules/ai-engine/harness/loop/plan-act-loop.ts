@@ -29,6 +29,7 @@ import { ContextEnvelope } from "../core/context-envelope";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import type { ChatMessage } from "../../llm/types";
 import { ReActLoop } from "./react-loop";
+import { AIModelType } from "@prisma/client";
 import type { BudgetAccountant } from "../runtime/budget-accountant";
 
 interface PlanStep {
@@ -190,6 +191,9 @@ export class PlanActLoop implements IAgentLoop {
       systemPrompt: envelope.system + PLAN_PROMPT_SUFFIX,
       taskProfile: { creativity: "low", outputLength: "medium" },
       responseFormat: "json",
+      // 系统配置感知 + BYOK：modelType 走 DB 默认，userId 命中用户偏好
+      modelType: AIModelType.CHAT,
+      userId: envelope.memory.userId,
       signal,
     });
     const raw = JSON.parse(this.stripFences(res.content));
@@ -309,6 +313,9 @@ export class PlanActLoop implements IAgentLoop {
         { role: "user", content: `# Plan results\n\n${summaryBlock}` },
       ],
       taskProfile: { creativity: "low", outputLength: "long" },
+      // 系统配置感知 + BYOK
+      modelType: AIModelType.CHAT,
+      userId: envelope.memory.userId,
     });
     return res.content;
   }

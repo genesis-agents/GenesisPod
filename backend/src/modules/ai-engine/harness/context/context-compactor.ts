@@ -17,6 +17,7 @@ import type { IContextEnvelope, IContextMessage } from "../abstractions";
 import { ContextEnvelope } from "../core/context-envelope";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { estimateEnvelopeTokens } from "./token-estimator";
+import { AIModelType } from "@prisma/client";
 
 export const COMPACTOR_CONFIG_TOKEN = "HARNESS_COMPACTOR_CONFIG";
 
@@ -107,6 +108,9 @@ export class ContextCompactor {
           String(summaryMax),
         ),
         taskProfile: { creativity: "low", outputLength: "short" },
+        // 系统配置感知 + BYOK
+        modelType: AIModelType.CHAT,
+        userId: envelope.memory.userId,
       });
       summary = response.content.slice(0, summaryMax);
     } catch (err) {
