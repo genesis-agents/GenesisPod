@@ -1,5 +1,9 @@
 /**
  * Agent Playground API client
+ *
+ * 后端走全局 ResponseTransformInterceptor，响应被包成
+ *   { success: true, data: {...原始返回...}, metadata: {...} }
+ * 所有调用必须 unwrapStandard() 取出 .data
  */
 
 import { config } from '@/lib/utils/config';
@@ -32,6 +36,20 @@ export interface ReplayResponse {
   serverNow: number;
 }
 
+/**
+ * 兼容拆包：标准 { success, data, metadata } 优先取 data；
+ * 没有 wrapping 时直接用原始对象。
+ */
+function unwrapStandard<T>(raw: unknown): T {
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const wrapper = raw as { success?: boolean; data?: unknown };
+    if (wrapper.data && typeof wrapper.data === 'object') {
+      return wrapper.data as T;
+    }
+  }
+  return raw as T;
+}
+
 export async function runResearchTeam(
   input: RunMissionInput
 ): Promise<RunMissionResponse> {
@@ -45,17 +63,17 @@ export async function runResearchTeam(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    // text 可能是 HTML（404 页）→ 截断防止 UI 爆炸
     const detail = text.length > 200 ? text.slice(0, 200) + '…' : text;
     throw new Error(`Failed to start mission: ${res.status} ${detail}`);
   }
-  let data: unknown;
+  let raw: unknown;
   try {
-    data = await res.json();
+    raw = await res.json();
   } catch {
     throw new Error('Failed to start mission: invalid JSON response');
   }
-  const missionId = (data as { missionId?: unknown }).missionId;
+  const data = unwrapStandard<{ missionId?: unknown }>(raw);
+  const missionId = data.missionId;
   if (typeof missionId !== 'string' || missionId.length === 0) {
     throw new Error('Failed to start mission: missionId missing in response');
   }
@@ -66,8 +84,7 @@ export async function replayMission(
   missionId: string,
   sinceTs?: number
 ): Promise<ReplayResponse> {
-  // 用字符串拼接，不要 new URL —— 本地开发 apiBaseUrl 是空字符串（走 Next.js rewrites），
-  // 相对路径喂给 URL 构造器会抛 "Invalid URL"。
+  // 字符串拼接，不要 new URL —— 本地开发 apiBaseUrl 是空字符串走 Next rewrites
   const qs =
     sinceTs != null ? `?since=${encodeURIComponent(String(sinceTs))}` : '';
   const res = await fetch(
@@ -77,14 +94,14 @@ export async function replayMission(
   if (!res.ok) {
     throw new Error(`Failed to replay mission: ${res.status}`);
   }
-  let data: unknown;
+  let raw: unknown;
   try {
-    data = await res.json();
+    raw = await res.json();
   } catch {
     throw new Error('Failed to replay mission: invalid JSON response');
   }
-  const events = (data as { events?: unknown }).events;
-  if (!Array.isArray(events)) {
+  const data = unwrapStandard<{ events?: unknown; serverNow?: number }>(raw);
+  if (!Array.isArray(data.events)) {
     throw new Error('Failed to replay mission: events array missing');
   }
   return data as ReplayResponse;

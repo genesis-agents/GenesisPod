@@ -77,8 +77,9 @@ export default function MissionDetailPage() {
   }, []);
 
   const view = useMemo(() => deriveView(events), [events]);
+  const finishedAt = view.mission.completedAt ?? view.mission.failedAt ?? null;
   const wallTimeMs = view.mission.startedAt
-    ? (view.mission.completedAt ?? now) - view.mission.startedAt
+    ? (finishedAt ?? now) - view.mission.startedAt
     : 0;
 
   if (invalidId) {
@@ -170,6 +171,18 @@ export default function MissionDetailPage() {
             {view.mission.rejectedMessage && (
               <p className="mt-1 text-xs">{view.mission.rejectedMessage}</p>
             )}
+          </div>
+        )}
+
+        {view.mission.failedMessage && (
+          <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">Mission failed</p>
+              <p className="mt-1 break-words text-xs">
+                {view.mission.failedMessage}
+              </p>
+            </div>
           </div>
         )}
 

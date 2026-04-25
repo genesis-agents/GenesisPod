@@ -151,6 +151,45 @@ export class ResearchTeamOrchestrator {
       },
       async () => {
         const t0 = Date.now();
+        try {
+          return await this.runMissionBody(
+            missionId,
+            input,
+            userId,
+            workspaceId,
+            pool,
+            t0,
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          // 任何 uncaught 错误都要让 UI 知道 —— 否则 status 永远停在 "running"
+          await this.emit({
+            type: "agent-playground.mission:failed",
+            missionId,
+            userId,
+            payload: {
+              message,
+              wallTimeMs: Date.now() - t0,
+              tokensUsed: pool.snapshot().poolTokensUsed,
+              costUsd: pool.snapshot().poolCostUsd,
+            },
+          }).catch(() => {});
+          throw err;
+        }
+      },
+    );
+  }
+
+  private async runMissionBody(
+    missionId: string,
+    input: RunMissionInput,
+    userId: string,
+    workspaceId: string | undefined,
+    pool: MissionBudgetPool,
+    t0: number,
+  ): Promise<MissionResult> {
+    {
+      {
         await this.emit({
           type: "agent-playground.mission:started",
           missionId,
@@ -229,77 +268,99 @@ export class ResearchTeamOrchestrator {
           3,
           async (dim, idx) => {
             const agentId = `researcher#${idx}`;
-            await this.lifecycle(
-              missionId,
-              userId,
-              agentId,
-              "researcher",
-              "started",
-              { dimension: dim.name },
-            );
-            const r = await this.runner.run(ResearcherAgent, {
-              topic: input.topic,
-              dimension: dim.name,
-              language: input.language,
-            });
-            await this.relayAgentEvents(r.events, {
-              missionId,
-              userId,
-              agentId,
-              role: "researcher",
-            });
-            await this.tickCostDelta(
-              missionId,
-              userId,
-              "researchers",
-              pool,
-              extractTokenSpend(r.events),
-            );
-            await this.lifecycle(
-              missionId,
-              userId,
-              agentId,
-              "researcher",
-              r.state === "completed" ? "completed" : "failed",
-              {
-                wallTimeMs: r.wallTimeMs,
-                iterations: r.iterations,
+            // 单个 researcher 失败不能拖垮整个 mission：
+            // 任何抛错都收敛成 "(failed: ...)" 占位，让 Analyst 拿剩下的维度继续
+            try {
+              await this.lifecycle(
+                missionId,
+                userId,
+                agentId,
+                "researcher",
+                "started",
+                { dimension: dim.name },
+              );
+              const r = await this.runner.run(ResearcherAgent, {
+                topic: input.topic,
                 dimension: dim.name,
-              },
-            );
-            await this.emit({
-              type: "agent-playground.researcher:completed",
-              missionId,
-              userId,
-              agentId,
-              payload: {
-                dimension: dim.name,
-                state: r.state,
-                iterations: r.iterations,
-                wallTimeMs: r.wallTimeMs,
-                summary:
-                  r.state === "completed" && r.output
-                    ? (r.output as { summary?: string }).summary
-                    : undefined,
-                findingsCount:
-                  r.state === "completed" && r.output
-                    ? ((r.output as { findings?: unknown[] }).findings ?? [])
-                        .length
-                    : 0,
-              },
-            });
-            if (r.state !== "completed" || !r.output) {
+                language: input.language,
+              });
+              await this.relayAgentEvents(r.events, {
+                missionId,
+                userId,
+                agentId,
+                role: "researcher",
+              });
+              await this.tickCostDelta(
+                missionId,
+                userId,
+                "researchers",
+                pool,
+                extractTokenSpend(r.events),
+              );
+              await this.lifecycle(
+                missionId,
+                userId,
+                agentId,
+                "researcher",
+                r.state === "completed" ? "completed" : "failed",
+                {
+                  wallTimeMs: r.wallTimeMs,
+                  iterations: r.iterations,
+                  dimension: dim.name,
+                },
+              );
+              await this.emit({
+                type: "agent-playground.researcher:completed",
+                missionId,
+                userId,
+                agentId,
+                payload: {
+                  dimension: dim.name,
+                  state: r.state,
+                  iterations: r.iterations,
+                  wallTimeMs: r.wallTimeMs,
+                  summary:
+                    r.state === "completed" && r.output
+                      ? (r.output as { summary?: string }).summary
+                      : undefined,
+                  findingsCount:
+                    r.state === "completed" && r.output
+                      ? ((r.output as { findings?: unknown[] }).findings ?? [])
+                          .length
+                      : 0,
+                },
+              });
+              if (r.state !== "completed" || !r.output) {
+                return {
+                  dimension: dim.name,
+                  findings: [],
+                  summary: `(failed: ${r.state})`,
+                };
+              }
+              return r.output as {
+                dimension: string;
+                findings: { claim: string; evidence: string; source: string }[];
+                summary: string;
+              };
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              this.log.warn(
+                `[researcher#${idx}] threw on dim "${dim.name}": ${message}`,
+              );
+              await this.lifecycle(
+                missionId,
+                userId,
+                agentId,
+                "researcher",
+                "failed",
+                { dimension: dim.name, error: message },
+              ).catch(() => {});
               return {
                 dimension: dim.name,
                 findings: [],
-                summary: `(failed: ${r.state})`,
+                summary: `(error: ${message})`,
               };
             }
-            return r.output as {
-              dimension: string;
-              findings: { claim: string; evidence: string; source: string }[];
-              summary: string;
-            };
           },
         );
         // researchers cost 已在 runWithConcurrency 内 per-researcher tickCostDelta 累加
@@ -606,8 +667,8 @@ export class ResearchTeamOrchestrator {
           costUsd: snap.poolCostUsd,
           trajectoryStored: indexed,
         };
-      },
-    );
+      }
+    }
   }
 
   // ─── private ────────────────────────────────────────────────

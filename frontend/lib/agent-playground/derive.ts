@@ -94,6 +94,8 @@ export interface ReportDraft {
 export interface MissionState {
   startedAt?: number;
   completedAt?: number;
+  failedAt?: number;
+  failedMessage?: string;
   rejectedAt?: number;
   rejectedReason?: string;
   rejectedMessage?: string;
@@ -155,6 +157,9 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
     } else if (t === 'agent-playground.mission:completed') {
       mission.completedAt = ev.timestamp;
       mission.finalScore = p?.reviewScore as number | undefined;
+    } else if (t === 'agent-playground.mission:failed') {
+      mission.failedAt = ev.timestamp;
+      mission.failedMessage = p?.message as string | undefined;
     } else if (t === 'agent-playground.mission:rejected') {
       mission.rejectedAt = ev.timestamp;
       mission.rejectedReason = p?.reason as string | undefined;

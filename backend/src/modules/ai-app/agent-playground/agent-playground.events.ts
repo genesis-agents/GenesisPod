@@ -14,6 +14,7 @@ const T = (suffix: string): DomainEventTypeSpec => ({
 export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("mission:started"),
   T("mission:completed"),
+  T("mission:failed"),
   T("mission:rejected"),
   T("stage:started"),
   T("stage:completed"),

@@ -6,6 +6,10 @@
  *
  * 不替代 AgentEventStore（那是 per-agentId 持久化），仅给 demo 的
  * "刷新页面 / WS 连不上时回放" 服务。
+ *
+ * ⚠️ 多实例部署限制：
+ * 缓冲在进程内 Map，路由到不同后端实例的 mission 互不可见。
+ * 单 Railway 实例 demo 可用；prod 多副本要换 Redis pub/sub 或 PrismaEventStore。
  */
 
 import { Injectable } from "@nestjs/common";
