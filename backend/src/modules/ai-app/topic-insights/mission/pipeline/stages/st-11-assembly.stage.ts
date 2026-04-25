@@ -8,7 +8,7 @@
  * Group E 接入 utils/assemble 的 UT-ASM-FULL / UT-ASM-TOC。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { numberSubHeadings } from "../utils";
@@ -28,7 +28,7 @@ export class AssemblyStage implements Stage<
   readonly slo = { p95Ms: 10_000, tokenBudget: 0, targetSuccessRate: 0.99 };
   readonly emitsEvents = ["report:assembled"];
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(
@@ -86,8 +86,6 @@ export class AssemblyStage implements Stage<
     identity: PipelineIdentityContext,
     output: AssemblyStageOutput,
   ): Promise<void> {
-    if (!this.prisma) return;
-
     // 从 ST-07-SYNTH 的产物拿 highlights / riskMatrix / recommendations
     // 这里无法拿 upstream（persist 没接收 StageResults），退化用空数组。
     // 合理折中：ST-07 的 persist 已经把关键字段写了（F-2），这里只覆盖

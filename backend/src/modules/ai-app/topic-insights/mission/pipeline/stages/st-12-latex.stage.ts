@@ -12,7 +12,7 @@
  * 真 Advanced Tier 的 AG-14-LX 做 LLM-based 修复。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { validateLatexDelimiters } from "../utils";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
@@ -35,7 +35,7 @@ export class LatexStage implements Stage<
   };
   readonly emitsEvents = ["latex:repaired"];
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(

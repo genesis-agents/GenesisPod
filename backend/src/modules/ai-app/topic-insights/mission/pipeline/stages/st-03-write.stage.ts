@@ -5,7 +5,7 @@
  * 骨架：每个 dim 产出 2 个占位 section。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   SpecAgentRegistry,
@@ -72,7 +72,7 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
 
   constructor(
     private readonly agentRegistry: SpecAgentRegistry,
-    @Optional() private readonly prisma?: PrismaService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -311,7 +311,6 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
         citationIndex: number | null;
       }>
     >();
-    if (!this.prisma) return byDim;
 
     for (const outcome of research.byDimension) {
       if (outcome.evidenceIds.length === 0) continue;

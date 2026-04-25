@@ -5,7 +5,7 @@
  * 并行于 ST-08-QGATE 与 ST-09-EVAL（都依赖 ST-07-SYNTH）。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type { FactCheckerInput } from "@/modules/ai-app/topic-insights/agents/specs";
@@ -41,7 +41,7 @@ export class FactCheckStage implements Stage<
 
   constructor(
     private readonly agentRegistry: SpecAgentRegistry,
-    @Optional() private readonly prisma?: PrismaService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await

@@ -33,13 +33,23 @@ function mkStage(overrides: Partial<Stage> & { id: StageId }): Stage {
   } as Stage;
 }
 
+// Stub prisma so emitStageActivity (which writes researchAgentActivity)
+// doesn't blow up in tests. Real wire-up uses the actual @Global PrismaService.
+function mkPrismaStub() {
+  return {
+    researchAgentActivity: {
+      create: jest.fn().mockResolvedValue({ id: "act-1" }),
+    },
+  } as never;
+}
+
 describe("PipelineOrchestratorService", () => {
   let registry: StageRegistry;
   let orchestrator: PipelineOrchestratorService;
 
   beforeEach(() => {
     registry = new StageRegistry();
-    orchestrator = new PipelineOrchestratorService(registry);
+    orchestrator = new PipelineOrchestratorService(registry, mkPrismaStub());
   });
 
   function ctx(
@@ -246,6 +256,7 @@ describe("PipelineOrchestratorService", () => {
       const agentRegistry = mkAgentRegistryWithAdjuster("continue", execSpy);
       orchestrator = new PipelineOrchestratorService(
         registry,
+        mkPrismaStub(),
         undefined,
         agentRegistry,
       );
@@ -272,6 +283,7 @@ describe("PipelineOrchestratorService", () => {
       const agentRegistry = mkAgentRegistryWithAdjuster("abort");
       orchestrator = new PipelineOrchestratorService(
         registry,
+        mkPrismaStub(),
         undefined,
         agentRegistry,
       );
@@ -300,6 +312,7 @@ describe("PipelineOrchestratorService", () => {
       const agentRegistry = mkAgentRegistryWithAdjuster("downgrade_depth");
       orchestrator = new PipelineOrchestratorService(
         registry,
+        mkPrismaStub(),
         undefined,
         agentRegistry,
       );
@@ -332,6 +345,7 @@ describe("PipelineOrchestratorService", () => {
       const agentRegistry = mkAgentRegistryWithAdjuster("continue", execSpy);
       orchestrator = new PipelineOrchestratorService(
         registry,
+        mkPrismaStub(),
         undefined,
         agentRegistry,
       );
@@ -356,6 +370,7 @@ describe("PipelineOrchestratorService", () => {
       const agentRegistry = mkAgentRegistryWithAdjuster("continue", execSpy);
       orchestrator = new PipelineOrchestratorService(
         registry,
+        mkPrismaStub(),
         undefined,
         agentRegistry,
       );

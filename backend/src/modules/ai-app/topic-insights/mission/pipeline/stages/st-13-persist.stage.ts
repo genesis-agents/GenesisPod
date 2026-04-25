@@ -10,7 +10,7 @@
  *   此处只负责 report 级的指标补全
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
@@ -39,7 +39,7 @@ export class PersistStage implements Stage<
   readonly slo = { p95Ms: 5_000, tokenBudget: 0, targetSuccessRate: 0.99 };
   readonly emitsEvents = ["persist:completed"];
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(

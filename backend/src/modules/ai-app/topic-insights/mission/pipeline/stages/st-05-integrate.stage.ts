@@ -4,7 +4,7 @@
  * 每个维度：把 section 正文拼接 + 调 AG-05-ME 出 DimensionMeta。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
@@ -45,7 +45,7 @@ export class IntegrateStage implements Stage<
 
   constructor(
     private readonly agentRegistry: SpecAgentRegistry,
-    @Optional() private readonly prisma?: PrismaService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -161,8 +161,6 @@ export class IntegrateStage implements Stage<
     identity: PipelineIdentityContext,
     output: IntegrateStageOutput,
   ): Promise<void> {
-    if (!this.prisma) return;
-
     // ★ Group G-1 起，meta.dimensionId 是真 TopicDimension.id（ST-01-PLAN
     // persist 已回写），FK 不再违约。
     for (const meta of output.dimensionMetas) {

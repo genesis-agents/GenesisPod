@@ -4,7 +4,7 @@
  * 每个 section 调 AG-04-SR，产出 SectionReview。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
 import type {
@@ -42,7 +42,7 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
 
   constructor(
     private readonly agentRegistry: SpecAgentRegistry,
-    @Optional() private readonly prisma?: PrismaService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -344,7 +344,6 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
   }
 
   private async readRevisionRound(missionId: string): Promise<number> {
-    if (!this.prisma) return 1;
     try {
       const task = await this.prisma.researchTask.findFirst({
         where: { missionId, taskType: "dimension_research" },
@@ -359,7 +358,6 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
   private async loadDimensionResearchTasks(
     missionId: string,
   ): Promise<Array<{ id: string; dimensionId: string | null }>> {
-    if (!this.prisma) return [];
     try {
       return await this.prisma.researchTask.findMany({
         where: { missionId, taskType: "dimension_research" },

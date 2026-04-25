@@ -100,7 +100,7 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     private readonly agentRegistry: SpecAgentRegistry,
     @Optional()
     private readonly contextProvider: PlanContextProvider = new StubPlanContextProvider(),
-    @Optional() private readonly prisma?: PrismaService,
+    private readonly prisma: PrismaService,
     @Optional() private readonly leaderTool?: LeaderToolService,
   ) {}
 
@@ -212,7 +212,6 @@ export class PlanStage implements Stage<LeaderPlannerInput, PlanStageOutput> {
     identity: PipelineIdentityContext,
     output: PlanStageOutput,
   ): Promise<void> {
-    if (!this.prisma) return; // 单测环境可无 Prisma，安全 skip
     const prisma = this.prisma;
 
     // ★ P0 修复：维度堆积 bug

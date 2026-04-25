@@ -13,7 +13,7 @@
  *   objects, not persisted.
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import type { BudgetUsage } from "./types/budget";
@@ -47,7 +47,7 @@ export interface Checkpoint {
 export class PipelineCheckpointService {
   private readonly logger = new Logger(PipelineCheckpointService.name);
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async saveStage(
     identity: PipelineIdentityContext,
@@ -56,8 +56,6 @@ export class PipelineCheckpointService {
     completedStages: readonly StageId[],
     accumulatedResults: Record<string, unknown>,
   ): Promise<void> {
-    if (!this.prisma) return; // unit-test safe
-
     const identitySnapshot: PersistableIdentitySnapshot = {
       reportId: identity.reportId,
       userId: identity.userId,
@@ -97,7 +95,6 @@ export class PipelineCheckpointService {
   }
 
   async load(missionId: string): Promise<Checkpoint | null> {
-    if (!this.prisma) return null;
     try {
       const row = await this.prisma.pipelineRunCheckpoint.findUnique({
         where: { missionId },
@@ -123,7 +120,6 @@ export class PipelineCheckpointService {
 
   /** Called on terminal success/fail — checkpoint no longer needed for resume. */
   async clear(missionId: string): Promise<void> {
-    if (!this.prisma) return;
     try {
       await this.prisma.pipelineRunCheckpoint.deleteMany({
         where: { missionId },

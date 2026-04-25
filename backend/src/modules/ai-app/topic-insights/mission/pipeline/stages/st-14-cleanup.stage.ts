@@ -8,7 +8,7 @@
  * - 审计日志（已由 ResearchEventEmitter 的 stage:completed 事件覆盖）
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type {
@@ -35,7 +35,7 @@ export class CleanupStage implements Stage<
   readonly slo = { p95Ms: 2_000, tokenBudget: 0, targetSuccessRate: 0.99 };
   readonly emitsEvents = ["cleanup:completed"];
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async prepare(

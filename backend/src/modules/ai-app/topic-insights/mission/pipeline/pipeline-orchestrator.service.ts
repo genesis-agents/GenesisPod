@@ -103,11 +103,13 @@ export class PipelineOrchestratorService {
 
   constructor(
     private readonly stageRegistry: StageRegistry,
+    // PrismaService is @Global; mandatory for activity write — must NOT be Optional
+    // (silent undefined caused production activities=0 across all missions).
+    private readonly prisma: PrismaService,
     @Optional()
     private readonly researchEventEmitter?: ResearchEventEmitterService,
     @Optional() private readonly agentRegistry?: SpecAgentRegistry,
     @Optional() private readonly checkpoint?: PipelineCheckpointService,
-    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   async run(
@@ -509,12 +511,6 @@ export class PipelineOrchestratorService {
     // activity write (production showed activities=0 across all missions).
     // Write directly via PrismaService (PrismaModule is global) so the row
     // lands regardless of which module registers the emitter.
-    if (!this.prisma) {
-      this.logger.warn(
-        `[${identity.missionId}] emitStageActivity skipped — prisma unavailable`,
-      );
-      return;
-    }
     const activityType: "RESEARCHING" | "COMPLETED" | "FAILED" =
       status === "completed"
         ? "COMPLETED"

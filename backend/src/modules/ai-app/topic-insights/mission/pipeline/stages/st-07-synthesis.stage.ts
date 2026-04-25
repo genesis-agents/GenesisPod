@@ -5,7 +5,7 @@
  * 严禁 Synthesizer 访问 evidence-save 工具（由 Agent 自身 forbiddenTools 保护）。
  */
 
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
@@ -51,7 +51,7 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
 
   constructor(
     private readonly agentRegistry: SpecAgentRegistry,
-    @Optional() private readonly prisma?: PrismaService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private tryGetReview(upstream: StageResults): ReviewStageOutput | null {
@@ -158,7 +158,6 @@ export class SynthStage implements Stage<SynthStageInput, SynthStageOutput> {
     identity: PipelineIdentityContext,
     output: SynthStageOutput,
   ): Promise<void> {
-    if (!this.prisma) return;
     const synth = output.synthesis;
     await this.prisma.topicReport.update({
       where: { id: identity.reportId },

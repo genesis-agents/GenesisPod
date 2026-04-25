@@ -75,7 +75,7 @@ export class ResearchStage implements Stage<
   ];
 
   constructor(
-    @Optional() private readonly prisma?: PrismaService,
+    private readonly prisma: PrismaService,
     @Optional()
     private readonly searchOrchestrator?: SearchOrchestratorService,
   ) {}
@@ -271,7 +271,6 @@ export class ResearchStage implements Stage<
     status: "EXECUTING" | "COMPLETED" | "FAILED",
     extras?: { resultSummary?: string; progress?: number },
   ): Promise<void> {
-    if (!this.prisma) return;
     try {
       const now = new Date();
       const data: Record<string, unknown> = {
