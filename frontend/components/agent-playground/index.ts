@@ -9,3 +9,4 @@ export { ReportPanel } from './ReportPanel';
 export { DimensionsPanel } from './DimensionsPanel';
 export { RawEventLog } from './RawEventLog';
 export { TeamRosterPanel } from './TeamRosterPanel';
+export { TaskListPanel } from './TaskListPanel';

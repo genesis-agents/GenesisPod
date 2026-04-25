@@ -19,18 +19,18 @@ import {
   FileText,
   Gavel,
   Layers,
+  ListChecks,
   RefreshCw,
-  ScrollText,
 } from 'lucide-react';
 import {
   AgentLiveGrid,
   CapabilityMeters,
   CostBreakdownPanel,
-  DimensionsPanel,
   MemoryIndexPanel,
   PipelineTimeline,
   RawEventLog,
   ReportPanel,
+  TaskListPanel,
   TeamRosterPanel,
   VerifyConsensusPanel,
 } from '@/components/agent-playground';
@@ -41,15 +41,14 @@ import {
   type MissionDetail,
 } from '@/lib/api/agent-playground';
 
-type TabKey = 'live' | 'report' | 'verify' | 'sources' | 'cost' | 'raw';
+type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost';
 
 const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
-  { key: 'live', label: 'Live Collab', Icon: Activity },
-  { key: 'report', label: 'Report', Icon: FileText },
-  { key: 'verify', label: 'Verify', Icon: Gavel },
-  { key: 'sources', label: 'Sources', Icon: Layers },
-  { key: 'cost', label: 'Cost & Memory', Icon: Coins },
-  { key: 'raw', label: 'Raw Events', Icon: ScrollText },
+  { key: 'tasks', label: '任务列表', Icon: ListChecks },
+  { key: 'collab', label: '协作动态', Icon: Activity },
+  { key: 'report', label: '输出报告', Icon: FileText },
+  { key: 'references', label: '参考文献', Icon: Layers },
+  { key: 'cost', label: '算力消耗', Icon: Coins },
 ];
 
 const ArrowLeftIcon = ({ className }: { className?: string }) => (
@@ -197,7 +196,7 @@ export default function MissionDetailPage() {
     ? (finishedAt ?? now) - view.mission.startedAt
     : 0;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('live');
+  const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   useEffect(() => {
     if (view.finalReport) setActiveTab('report');
   }, [view.finalReport]);
@@ -416,27 +415,36 @@ export default function MissionDetailPage() {
 
           {/* Tab body */}
           <div className="flex-1 overflow-auto px-6 py-5">
-            {activeTab === 'live' && (
+            {activeTab === 'tasks' && (
+              <TaskListPanel
+                mission={view.mission}
+                stages={view.stages}
+                agents={view.agents}
+              />
+            )}
+
+            {activeTab === 'collab' && (
               <div className="space-y-4">
                 <PipelineTimeline stages={view.stages} />
-                <DimensionsPanel mission={view.mission} />
                 <AgentLiveGrid agents={view.agents} />
+                <RawEventLog events={events} />
               </div>
             )}
 
             {activeTab === 'report' && (
-              <ReportPanel
-                finalReport={view.finalReport}
-                reports={view.reports}
-                finalScore={view.mission.finalScore}
-              />
+              <div className="space-y-4">
+                <ReportPanel
+                  finalReport={view.finalReport}
+                  reports={view.reports}
+                  finalScore={view.mission.finalScore}
+                />
+                {view.verdicts.length > 0 && (
+                  <VerifyConsensusPanel verdicts={view.verdicts} />
+                )}
+              </div>
             )}
 
-            {activeTab === 'verify' && (
-              <VerifyConsensusPanel verdicts={view.verdicts} />
-            )}
-
-            {activeTab === 'sources' && <SourcesTab sources={allSources} />}
+            {activeTab === 'references' && <SourcesTab sources={allSources} />}
 
             {activeTab === 'cost' && (
               <div className="space-y-4">
@@ -453,16 +461,13 @@ export default function MissionDetailPage() {
                     </h3>
                   </div>
                   <p className="text-xs text-gray-600">
-                    The mission&apos;s trajectory (Writer&apos;s envelope +
-                    events) is auto-vectorized into the user&apos;s memory
-                    namespace on completion. Future similar missions can
-                    semantically retrieve these chunks.
+                    Mission 完成后，Writer envelope +
+                    事件流会自动向量化进入用户记忆 namespace，未来同类 mission
+                    可语义召回这些 chunks。
                   </p>
                 </div>
               </div>
             )}
-
-            {activeTab === 'raw' && <RawEventLog events={events} />}
           </div>
         </div>
       </div>
