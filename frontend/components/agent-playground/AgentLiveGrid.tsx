@@ -336,7 +336,7 @@ function AgentCard({ agent }: { agent: AgentLiveState }) {
               {meta.label}
               {agent.attempt && agent.attempt > 1 && (
                 <span className="ml-1 text-[10px] font-normal text-gray-400">
-                  (attempt {agent.attempt})
+                  （第 {agent.attempt} 轮）
                 </span>
               )}
             </p>
@@ -355,9 +355,9 @@ function AgentCard({ agent }: { agent: AgentLiveState }) {
           </span>
         )}
         {agent.iterations != null && agent.iterations > 0 && (
-          <span>· {agent.iterations} iters</span>
+          <span>· {agent.iterations} 次迭代</span>
         )}
-        <span className="ml-auto">{agent.trace.length} trace</span>
+        <span className="ml-auto">{agent.trace.length} 条 trace</span>
       </div>
 
       {agent.trace.length === 0 ? (
@@ -386,9 +386,7 @@ function AgentCard({ agent }: { agent: AgentLiveState }) {
               <ChevronDown
                 className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
               />
-              {expanded
-                ? 'Collapse'
-                : `Show all ${agent.trace.length} trace items`}
+              {expanded ? '收起' : `展开全部 ${agent.trace.length} 条 trace`}
             </button>
           )}
         </>

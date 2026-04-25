@@ -407,12 +407,8 @@ export function RawEventLog({ events }: { events: PlaygroundEvent[] }) {
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-violet-500" />
-          <h3 className="text-sm font-semibold text-gray-900">
-            Event timeline
-          </h3>
-          <span className="text-xs text-gray-500">
-            · {events.length} events
-          </span>
+          <h3 className="text-sm font-semibold text-gray-900">事件时间线</h3>
+          <span className="text-xs text-gray-500">· 共 {events.length} 条</span>
         </div>
         <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-gray-500">
           <input
@@ -421,13 +417,13 @@ export function RawEventLog({ events }: { events: PlaygroundEvent[] }) {
             onChange={(e) => setAutoScroll(e.target.checked)}
             className="h-3 w-3 cursor-pointer rounded border-gray-300 text-violet-600 focus:ring-violet-500"
           />
-          Auto-scroll
+          自动滚动
         </label>
       </div>
       <div className="max-h-[640px] overflow-y-auto p-3">
         {events.length === 0 ? (
           <p className="rounded-lg bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
-            No events yet · waiting for mission to start
+            暂无事件 · 等待 Mission 启动
           </p>
         ) : (
           <div className="space-y-1">
