@@ -78,7 +78,7 @@ function MissionCard({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
+      className="group relative flex min-h-[220px] cursor-pointer flex-col rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
     >
       {/* Mission Icon — gradient like TopicCard */}
       <div
@@ -161,7 +161,8 @@ function MissionCard({
         )}
       </div>
 
-      {/* Footer date */}
+      {/* Footer date — auto-pushed to bottom via flex-1 spacer */}
+      <div className="flex-1" />
       <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
         <ClientDate date={mission.startedAt} format="datetime" />
       </div>
@@ -333,7 +334,7 @@ export default function PlaygroundIndexPage() {
                 {filtered.length === 1 ? 'mission' : 'missions'}
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map((m) => (
                 <MissionCard
                   key={m.id}
@@ -343,6 +344,18 @@ export default function PlaygroundIndexPage() {
                   }
                 />
               ))}
+
+              {/* Create New Card — TI 风格末尾 dashed 占位 */}
+              <button
+                type="button"
+                onClick={() => router.push('/agent-playground/research-team')}
+                className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
+              >
+                <PlusIcon className="h-10 w-10 text-gray-400" />
+                <span className="mt-2 text-sm font-medium text-gray-600">
+                  Start a new mission
+                </span>
+              </button>
             </div>
           </>
         )}

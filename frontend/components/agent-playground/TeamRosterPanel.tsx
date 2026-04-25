@@ -67,9 +67,31 @@ interface Props {
   stages: StageState[];
   finalScore?: number;
   topic?: string;
+  onCollapse?: () => void;
 }
 
-export function TeamRosterPanel({ agents, stages, finalScore }: Props) {
+const CollapseIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 9V5m0 0H5m4 0L4 10m11-1V5m0 0h4m-4 0l5 5M9 15v4m0 0H5m4 0l-5-5m11 5l5-5m-5 5v-4m0 4h4"
+    />
+  </svg>
+);
+
+export function TeamRosterPanel({
+  agents,
+  stages,
+  finalScore,
+  onCollapse,
+}: Props) {
   const stageMap = new Map(stages.map((s) => [s.id, s]));
   const completedStages = stages.filter((s) => s.status === 'done').length;
   const totalStages = stages.length;
@@ -77,12 +99,24 @@ export function TeamRosterPanel({ agents, stages, finalScore }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Section header — TI style */}
+      {/* Section header — TI TopicTeamPanel style */}
       <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Research Team
         </span>
-        <span className="text-xs text-gray-400">{agents.length} agents</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">{agents.length} agents</span>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              title="Collapse panel"
+            >
+              <CollapseIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Roster body */}

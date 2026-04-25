@@ -55,54 +55,6 @@ const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'raw', label: 'Raw Events', Icon: ScrollText },
 ];
 
-// Topic-Insights style status pill
-function StatusPill({
-  state,
-}: {
-  state: 'connecting' | 'live' | 'polling' | 'disconnected';
-}) {
-  const meta = {
-    connecting: {
-      label: 'Connecting',
-      bg: 'bg-blue-50',
-      text: 'text-blue-700',
-      dot: 'bg-blue-500',
-      pulse: true,
-    },
-    live: {
-      label: 'Live',
-      bg: 'bg-emerald-50',
-      text: 'text-emerald-700',
-      dot: 'bg-emerald-500',
-      pulse: true,
-    },
-    polling: {
-      label: 'Polling',
-      bg: 'bg-amber-50',
-      text: 'text-amber-700',
-      dot: 'bg-amber-500',
-      pulse: false,
-    },
-    disconnected: {
-      label: 'Disconnected',
-      bg: 'bg-gray-100',
-      text: 'text-gray-600',
-      dot: 'bg-gray-400',
-      pulse: false,
-    },
-  }[state];
-  return (
-    <div
-      className={`flex items-center gap-2 rounded-full ${meta.bg} px-3 py-1.5`}
-    >
-      <span
-        className={`h-2 w-2 rounded-full ${meta.dot} ${meta.pulse ? 'animate-pulse' : ''}`}
-      />
-      <span className={`text-sm font-medium ${meta.text}`}>{meta.label}</span>
-    </div>
-  );
-}
-
 const ArrowLeftIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -284,15 +236,33 @@ export default function MissionDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isRunning && (
+          {isRunning ? (
             <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></span>
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
               <span className="text-sm font-medium text-blue-700">
                 Researching · {Math.floor(wallTimeMs / 1000)}s
               </span>
             </div>
+          ) : view.mission.failedAt ? (
+            <div className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              <span className="text-sm font-medium text-red-700">Failed</span>
+            </div>
+          ) : view.mission.completedAt ? (
+            <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="text-sm font-medium text-emerald-700">
+                Completed
+              </span>
+            </div>
+          ) : null}
+          {/* Connection state — small tertiary indicator */}
+          {connState !== 'live' && connState !== 'connecting' && (
+            <span
+              title={`WebSocket: ${connState}`}
+              className="inline-flex h-2 w-2 rounded-full bg-amber-400"
+            />
           )}
-          <StatusPill state={connState} />
         </div>
       </header>
 
@@ -327,26 +297,13 @@ export default function MissionDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="flex h-full flex-col">
-              <div className="flex items-center justify-end border-b border-gray-100 px-2 py-1">
-                <button
-                  type="button"
-                  onClick={() => setLeftCollapsed(true)}
-                  className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  title="Collapse panel"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <TeamRosterPanel
-                  agents={view.agents}
-                  stages={view.stages}
-                  finalScore={view.mission.finalScore}
-                  topic={view.mission.topic}
-                />
-              </div>
-            </div>
+            <TeamRosterPanel
+              agents={view.agents}
+              stages={view.stages}
+              finalScore={view.mission.finalScore}
+              topic={view.mission.topic}
+              onCollapse={() => setLeftCollapsed(true)}
+            />
           )}
         </div>
 
