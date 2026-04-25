@@ -105,7 +105,24 @@ export class AgentRunner {
 
     // outputSchema 校验（DX 层兜底；LlmExecutor 已在内部 self-heal —— 这里是最终断言）
     if (meta.outputSchema) {
-      const parsed = meta.outputSchema.safeParse(lastOutput);
+      // ReActLoop.finalize 经常把 LLM 输出原样塞回 output 字段；当 LLM 把
+      // 对象 stringify 后传出（{"output": "{\"key\":..."}"}），此处 safeParse
+      // 会因为类型是 string 而失败。先尝试 JSON.parse 一次，再做 schema 校验。
+      let candidate = lastOutput;
+      if (typeof candidate === "string") {
+        const trimmed = candidate.trim();
+        if (
+          (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+          (trimmed.startsWith("[") && trimmed.endsWith("]"))
+        ) {
+          try {
+            candidate = JSON.parse(trimmed);
+          } catch {
+            // keep original — schema parse will fail and mark state=failed
+          }
+        }
+      }
+      const parsed = meta.outputSchema.safeParse(candidate);
       if (!parsed.success) {
         // Don't throw — preserve partial output for diagnosis; mark failed
         state = "failed";
