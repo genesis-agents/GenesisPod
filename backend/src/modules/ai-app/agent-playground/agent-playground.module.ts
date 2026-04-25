@@ -22,6 +22,7 @@ import { ResearchTeamOrchestrator } from "./services/research-team.orchestrator"
 import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission-event-buffer.service";
 import { MissionStore } from "./services/mission-store.service";
+import { LeaderChatService } from "./services/leader-chat.service";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { DomainEventBus, DomainEventRegistry } from "../../ai-engine/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
@@ -45,6 +46,7 @@ import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
     MissionOwnershipRegistry,
     MissionEventBuffer,
     MissionStore,
+    LeaderChatService,
   ],
   exports: [MissionEventBuffer],
 })

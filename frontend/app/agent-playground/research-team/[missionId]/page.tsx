@@ -26,6 +26,7 @@ import {
   AgentLiveGrid,
   CapabilityMeters,
   CostBreakdownPanel,
+  LeaderChatModal,
   MemoryIndexPanel,
   PipelineTimeline,
   RawEventLog,
@@ -202,6 +203,7 @@ export default function MissionDetailPage() {
   }, [view.finalReport]);
 
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [leaderChatOpen, setLeaderChatOpen] = useState(false);
 
   const allSources = useMemo(() => {
     const set = new Set<string>();
@@ -355,6 +357,7 @@ export default function MissionDetailPage() {
               finalScore={view.mission.finalScore}
               topic={view.mission.topic}
               onCollapse={() => setLeftCollapsed(true)}
+              onLeaderClick={() => setLeaderChatOpen(true)}
             />
           )}
         </div>
@@ -471,6 +474,14 @@ export default function MissionDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Floating Leader chat modal — triggered by clicking Leader node */}
+      <LeaderChatModal
+        missionId={missionId}
+        topic={view.mission.topic}
+        open={leaderChatOpen}
+        onClose={() => setLeaderChatOpen(false)}
+      />
     </div>
   );
 }

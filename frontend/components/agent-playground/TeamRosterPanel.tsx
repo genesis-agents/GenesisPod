@@ -100,6 +100,8 @@ interface Props {
   finalScore?: number;
   topic?: string;
   onCollapse?: () => void;
+  /** 点击 Leader 节点时触发（详情页用来打开 LeaderChatModal） */
+  onLeaderClick?: () => void;
 }
 
 export function TeamRosterPanel({
@@ -107,6 +109,7 @@ export function TeamRosterPanel({
   stages,
   finalScore,
   onCollapse,
+  onLeaderClick,
 }: Props) {
   const stageMap = useMemo(
     () => new Map(stages.map((s) => [s.id, s])),
@@ -218,6 +221,15 @@ export function TeamRosterPanel({
                   ROLE_ROW.find((r) => r.role === (node.role as AgentRole))
                     ?.stage ?? 'leader'
                 )}
+                onChatWithLeader={
+                  node.role === 'leader' && onLeaderClick
+                    ? () => {
+                        onClose();
+                        setSelectedRole(null);
+                        onLeaderClick();
+                      }
+                    : undefined
+                }
                 onClose={() => {
                   onClose();
                   setSelectedRole(null);
@@ -355,11 +367,13 @@ function RoleDetailCard({
   agents,
   stage,
   onClose,
+  onChatWithLeader,
 }: {
   role: AgentRole;
   agents: AgentLiveState[];
   stage?: StageState;
   onClose: () => void;
+  onChatWithLeader?: () => void;
 }) {
   const Icon = ROLE_ICON[role];
   const running = agents.filter((a) => a.phase === 'running').length;
@@ -442,6 +456,16 @@ function RoleDetailCard({
           <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
           {lastThought}
         </p>
+      )}
+
+      {onChatWithLeader && (
+        <button
+          type="button"
+          onClick={onChatWithLeader}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-2 text-[12px] font-medium text-white shadow-sm transition-all hover:shadow-md"
+        >
+          <Lightbulb className="h-3.5 w-3.5" />与 Leader 对话
+        </button>
       )}
     </div>
   );

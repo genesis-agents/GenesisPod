@@ -26,6 +26,7 @@ import {
 import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission-event-buffer.service";
 import { MissionStore } from "./services/mission-store.service";
+import { LeaderChatService } from "./services/leader-chat.service";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
@@ -37,6 +38,7 @@ export class AgentPlaygroundController {
     private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly store: MissionStore,
+    private readonly leaderChat: LeaderChatService,
   ) {}
 
   /**
@@ -127,6 +129,44 @@ export class AgentPlaygroundController {
       Number.isFinite(sinceTs as number) ? (sinceTs as number) : undefined,
     );
     return { events, serverNow: Date.now() };
+  }
+
+  /**
+   * GET /api/v1/agent-playground/missions/:id/leader-chat
+   * 拉取该 mission 的 Leader 对话历史。
+   */
+  @Get("missions/:id/leader-chat")
+  async listLeaderChat(
+    @Param("id") missionId: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{ messages: unknown[] }> {
+    await this.assertOwnership(missionId, req.user?.id);
+    const messages = await this.leaderChat.list(missionId);
+    return { messages };
+  }
+
+  /**
+   * POST /api/v1/agent-playground/missions/:id/leader-chat
+   * Body: { content: string }
+   * 用户向 Leader 提问 → 系统回复（基于 mission 上下文）→ 两条都持久化。
+   */
+  @Post("missions/:id/leader-chat")
+  async sendLeaderChat(
+    @Param("id") missionId: string,
+    @Body() body: { content?: string },
+    @Request() req: RequestWithUser,
+  ): Promise<{ user: unknown; assistant: unknown }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    await this.assertOwnership(missionId, userId);
+    const content = (body?.content ?? "").toString();
+    if (!content.trim()) {
+      throw new BadRequestException("content must be a non-empty string");
+    }
+    if (content.length > 4000) {
+      throw new BadRequestException("content exceeds 4000 chars");
+    }
+    return this.leaderChat.send(missionId, userId, content);
   }
 
   /**

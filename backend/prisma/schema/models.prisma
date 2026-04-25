@@ -9225,7 +9225,25 @@ model AgentPlaygroundMission {
   reportFull   Json?   @map("report_full") // 完整 ResearchReport
   verdicts     Json? // [{verifierId, score, critique, attempt}]
 
+  /// Leader 对话历史（点击 Leader 节点弹出聊天框）
+  leaderChats AgentPlaygroundLeaderChat[]
+
   @@index([userId, startedAt(sort: Desc)])
   @@index([status])
   @@map("agent_playground_missions")
+}
+
+/// agent-playground 中用户与 mission Leader 的对话记录
+model AgentPlaygroundLeaderChat {
+  id         String                 @id @default(uuid())
+  missionId  String                 @map("mission_id")
+  mission    AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  userId     String                 @map("user_id")
+  role       String                 @db.VarChar(20) // user / assistant
+  content    String                 @db.Text
+  tokensUsed Int?                   @map("tokens_used")
+  createdAt  DateTime               @default(now()) @map("created_at")
+
+  @@index([missionId, createdAt])
+  @@map("agent_playground_leader_chats")
 }

@@ -139,6 +139,55 @@ export async function getMissionDetail(id: string): Promise<MissionDetail> {
   return data.mission;
 }
 
+export interface LeaderChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  tokensUsed: number | null;
+  createdAt: string;
+}
+
+export async function listLeaderChat(
+  missionId: string
+): Promise<LeaderChatMessage[]> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/leader-chat`,
+    { headers: { ...getAuthHeader() } }
+  );
+  if (!res.ok) throw new Error(`Failed to load leader chat: ${res.status}`);
+  const raw: unknown = await res.json();
+  const data = unwrapStandard<{ messages?: LeaderChatMessage[] }>(raw);
+  return data.messages ?? [];
+}
+
+export async function sendLeaderChat(
+  missionId: string,
+  content: string
+): Promise<{ user: LeaderChatMessage; assistant: LeaderChatMessage }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/leader-chat`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ content }),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Failed to send to leader: ${res.status} ${text.slice(0, 200)}`
+    );
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{
+    user: LeaderChatMessage;
+    assistant: LeaderChatMessage;
+  }>(raw);
+}
+
 export async function replayMission(
   missionId: string,
   sinceTs?: number
