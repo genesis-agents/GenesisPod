@@ -81,6 +81,26 @@ function PhaseBadge({ phase }: { phase: AgentLiveState['phase'] }) {
   );
 }
 
+function compactScalar(v: unknown, maxLen = 80): string {
+  if (v == null) return '∅';
+  if (typeof v === 'string') {
+    const t = v.trim();
+    return t.length > maxLen ? t.slice(0, maxLen) + '…' : t;
+  }
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) {
+    if (v.length === 0) return '[]';
+    return `[${v.length}]`;
+  }
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const keys = Object.keys(o);
+    if (keys.length === 0) return '{}';
+    return `{${keys.slice(0, 3).join(',')}${keys.length > 3 ? '…' : ''}}`;
+  }
+  return String(v);
+}
+
 function previewOutput(output: unknown): string {
   if (output == null) return '';
   if (typeof output === 'string') {
@@ -106,21 +126,24 @@ function previewOutput(output: unknown): string {
       .map((it) => {
         if (it && typeof it === 'object') {
           const o = it as Record<string, unknown>;
-          return (o.title || o.name || o.url || JSON.stringify(it)) as string;
+          const t = o.title ?? o.name ?? o.url ?? o.headline ?? o.heading;
+          if (typeof t === 'string') return t;
+          // fallback：列出前几个 key
+          return compactScalar(o);
         }
-        return String(it);
+        return compactScalar(it);
       })
-      .map((s) => (typeof s === 'string' ? s.slice(0, 80) : String(s)));
-    return `${output.length} results · ${titles.join(' / ')}`;
+      .map((s) => (s.length > 80 ? s.slice(0, 80) + '…' : s));
+    return `${output.length} items · ${titles.join(' / ')}`;
   }
   if (typeof output === 'object') {
     const o = output as Record<string, unknown>;
     if (typeof o.preview === 'string') return o.preview.slice(0, 240);
-    // 显示首 2 个字段做摘要
-    const entries = Object.entries(o).slice(0, 2);
-    return entries
-      .map(([k, v]) => `${k}: ${String(v).slice(0, 80)}`)
-      .join(' · ');
+    if (typeof o.summary === 'string') return o.summary.slice(0, 240);
+    if (typeof o.text === 'string') return o.text.slice(0, 240);
+    // 显示首 3 个字段，值用 compactScalar 而不是 String()
+    const entries = Object.entries(o).slice(0, 3);
+    return entries.map(([k, v]) => `${k}: ${compactScalar(v)}`).join(' · ');
   }
   try {
     const s = JSON.stringify(output);
@@ -147,7 +170,7 @@ function previewSearchResults(output: unknown):
     else if (Array.isArray(o.hits)) arr = o.hits;
   } else if (typeof output === 'string') {
     try {
-      const parsed = JSON.parse(output.trim().replace(/…$/, ''));
+      const parsed: unknown = JSON.parse(output.trim().replace(/…$/, ''));
       return previewSearchResults(parsed);
     } catch {
       return null;
