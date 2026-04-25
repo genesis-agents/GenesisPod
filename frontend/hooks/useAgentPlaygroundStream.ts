@@ -88,13 +88,19 @@ export function useAgentPlaygroundStream(missionId: string | null) {
     })();
 
     // Step 2: 连 socket
+    // 必须直连后端 —— gens.team 等自定义域名上 apiBaseUrl 是空字符串（走 Next.js
+    // rewrites 代理 REST），但 Next.js 只代理 /api/v1/*，不代理 /socket.io/*，
+    // 用相对 URL 会让 ws 连到 wss://gens.team/socket.io 永久 timeout。
+    // getBackendUrl() 在浏览器/SSR 下都返回完整后端 URL（NEXT_PUBLIC_API_URL 或
+    // RAILWAY_BACKEND_URL fallback）。
     const auth = getAuthHeader();
     const token = auth.Authorization?.replace(/^Bearer\s+/i, '') ?? auth.token;
-    socket = io(`${config.apiBaseUrl}/agent-playground`, {
+    socket = io(`${config.getBackendUrl()}/agent-playground`, {
       transports: ['websocket'],
       auth: token ? { token } : {},
       reconnectionAttempts: 3,
       timeout: 8000,
+      withCredentials: true,
     });
 
     const onConnect = () => {

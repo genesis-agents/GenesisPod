@@ -257,6 +257,11 @@ export class ReActLoop implements IAgentLoop {
       yield this.makeEvent(agentId, "thinking", {
         text: decision.thinking,
         tokenCount: decision.thinking.length,
+        // 暴露 LLM 调用的真实用量给上游（DX runner / 业务 orchestrator 用来算成本）
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        cacheReadTokens: usage.cacheReadTokens,
+        costUsd: usage.costUsd,
       });
       yield this.makeEvent(agentId, "action_planned", decision.action);
 
@@ -271,7 +276,16 @@ export class ReActLoop implements IAgentLoop {
         options?.parent,
         options?.spawner,
       );
-      yield this.makeEvent(agentId, "action_executed", actionResult);
+      // 把 LLM reasoning tokens 累加到本轮 action 的 tokensUsed —— 让上游 extractTokenSpend
+      // 拿到完整用量；action 自身 tokensUsed（如 tool 运行）也保留累计
+      const enrichedActionResult = {
+        ...actionResult,
+        tokensUsed:
+          (actionResult.tokensUsed ?? 0) +
+          usage.promptTokens +
+          usage.completionTokens,
+      };
+      yield this.makeEvent(agentId, "action_executed", enrichedActionResult);
 
       // 4. reflect
       currentEnvelope = this.updateEnvelope(
