@@ -216,6 +216,10 @@ import { AiEngineMemoryModule } from "../ai-engine-memory.module";
     ToolCircuitBreaker,
     InMemoryVectorStore,
 
+    // PR-S: Vector memory + auto-index
+    PrismaVectorStore,
+    MemoryAutoIndexer,
+
     // PR-J..P exports
     LeaderWorkerLoop,
     DomainEventRegistry,
