@@ -476,6 +476,11 @@ export class ResearchTeamOrchestrator {
             confidence: number;
           }[];
           themeSummary: string;
+          contradictions?: {
+            claim: string;
+            conflictingSources: string[];
+            resolution: string;
+          }[];
         };
         await this.emit({
           type: "agent-playground.stage:completed",
@@ -512,9 +517,11 @@ export class ResearchTeamOrchestrator {
           );
           const writerRes = await this.runner.run(WriterAgent, {
             topic: input.topic,
+            depth: input.depth,
             language: input.language,
             insights: analyst.insights,
             themeSummary: analyst.themeSummary,
+            contradictions: analyst.contradictions,
           });
           await this.relayAgentEvents(writerRes.events, {
             missionId,

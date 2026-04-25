@@ -14,6 +14,7 @@ import { ResearchReportSchema } from "../dto/run-mission.dto";
 
 const Input = z.object({
   topic: z.string(),
+  depth: z.enum(["quick", "standard", "deep"]).default("standard"),
   language: z.enum(["zh-CN", "en-US"]),
   insights: z.array(
     z.object({
@@ -24,7 +25,37 @@ const Input = z.object({
     }),
   ),
   themeSummary: z.string(),
+  contradictions: z
+    .array(
+      z.object({
+        claim: z.string(),
+        conflictingSources: z.array(z.string()),
+        resolution: z.string(),
+      }),
+    )
+    .optional(),
 });
+
+const DEPTH_SECTION_PLAN: Record<
+  "quick" | "standard" | "deep",
+  { sectionCount: string; wordsPerSection: string; totalWords: string }
+> = {
+  quick: {
+    sectionCount: "3-4",
+    wordsPerSection: "250-400",
+    totalWords: "1,000-1,600",
+  },
+  standard: {
+    sectionCount: "4-6",
+    wordsPerSection: "350-650",
+    totalWords: "1,800-3,200",
+  },
+  deep: {
+    sectionCount: "5-8",
+    wordsPerSection: "500-900",
+    totalWords: "3,000-5,500",
+  },
+};
 
 @DefineAgent({
   id: "playground.writer",
@@ -37,35 +68,58 @@ const Input = z.object({
   taskProfile: { creativity: "medium", outputLength: "extended" },
   inputSchema: Input,
   outputSchema: ResearchReportSchema,
-  budget: { maxTokens: 20_000, maxIterations: 5 },
+  budget: { maxTokens: 32_000, maxIterations: 5 },
 })
 export class WriterAgent extends AgentSpec<
   typeof Input,
   typeof ResearchReportSchema
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    const plan = DEPTH_SECTION_PLAN[input.depth];
+    const langGuide =
+      input.language === "zh-CN"
+        ? "用简体中文撰写。文字风格要专业、严谨、引述准确，不要使用「相信」「或许」等弱化措辞。"
+        : "Write in formal English with precise terminology. Avoid hedging language ('perhaps', 'may'). Prefer evidence-backed prose.";
+
     return [
-      `You write a publication-quality research report on "${input.topic}".`,
-      `Language: ${input.language}.`,
+      `You are a senior research analyst at a top-tier consulting firm (think McKinsey / BCG / Stanford HAI).`,
+      `Produce a publication-quality research report on "${input.topic}".`,
       ``,
-      `Final output JSON shape (exact field names required):`,
+      `## Output requirements`,
+      `- Depth tier: ${input.depth} → ${plan.sectionCount} sections, ${plan.wordsPerSection} words per section, total ~${plan.totalWords} words`,
+      `- ${langGuide}`,
+      `- Structure each section with:`,
+      `  · Opening Key Finding callout (markdown blockquote: "> **Key Finding**: ...")`,
+      `  · 2-4 evidence-backed paragraphs with concrete numbers, dates, named entities, mechanisms`,
+      `  · Inline citations referencing specific sources where claims are made`,
+      `  · Closing "Implications" line covering what this means for the reader`,
+      `- Use markdown bold (**...**) for critical terms and numbers; lists only when enumeration adds clarity`,
+      `- AVOID generic filler ("In conclusion", "It is important to note") — every sentence must add information`,
+      ``,
+      `## Available materials`,
+      `- Theme synthesis (from Analyst): ${input.themeSummary}`,
+      `- ${input.insights.length} validated insights (each with confidence + supporting dimensions) — see user message`,
+      input.contradictions && input.contradictions.length > 0
+        ? `- ${input.contradictions.length} cross-source contradictions to acknowledge transparently`
+        : `- No major source contradictions detected`,
+      ``,
+      `## Report shape (return EXACTLY this JSON; field names must match)`,
       `{`,
-      `  "title": "<<= 80 chars>",`,
-      `  "summary": "<2-3 sentence executive summary, >= 20 chars>",`,
+      `  "title": "<<= 80 chars, specific not generic — name the angle>",`,
+      `  "summary": "<3-5 sentence executive summary leading with the single most important finding>",`,
       `  "sections": [`,
       `    {`,
-      `      "heading": "<section title>",`,
-      `      "body": "<full section text in markdown>",`,
-      `      "sources": ["<https://...>", ...]  // optional, must be valid URLs`,
+      `      "heading": "<descriptive heading, NOT 'Introduction' / 'Background' / 'Conclusion'>",`,
+      `      "body": "<full markdown body following structure above>",`,
+      `      "sources": ["<https://...>", ...]  // 1-5 valid http(s) URLs that back this section`,
       `    }`,
-      `    // 3-7 sections`,
+      `    // produce ${plan.sectionCount} sections`,
       `  ],`,
-      `  "conclusion": "<actionable takeaways, >= 20 chars>",`,
-      `  "citations": ["<https://...>", ...]  // optional, all unique URLs`,
+      `  "conclusion": "<actionable takeaways: 3-5 bullet points starting with action verbs>",`,
+      `  "citations": ["<https://...>", ...]  // unique union of all section sources, deduplicated`,
       `}`,
       ``,
-      `Use field names exactly as shown.`,
-      `Write in clear, evidence-backed prose. Cite sources inline as needed.`,
+      `Field names exactly as shown. All URLs must start with http(s):// and be sourced from the insights — do not fabricate.`,
     ].join("\n");
   }
 }
