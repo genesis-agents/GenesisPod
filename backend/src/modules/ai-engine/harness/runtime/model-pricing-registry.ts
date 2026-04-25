@@ -127,6 +127,23 @@ export class ModelPricingRegistry {
     return list && list.length > 0 ? list[0] : null;
   }
 
+  /**
+   * 把 modelId 提升为某 tier 的首选（pickModelForTier 返回它）。
+   * 用于 AI App 在启动时把"系统当前默认模型"覆盖 Harness 内置 DEFAULT_TABLE
+   * （DEFAULT_TABLE 是基线候选，业务方有 DB 配置时应优先用真实启用的模型）。
+   * 若 modelId 还未通过 register() 登记 pricing，调用方必须先 register 一次再 promote。
+   */
+  promoteToPrimary(tier: ModelTier, modelId: string): void {
+    if (!this.byId.has(modelId)) {
+      throw new Error(
+        `[ModelPricingRegistry] cannot promote unregistered modelId="${modelId}". Call register() first.`,
+      );
+    }
+    const list = this.byTier.get(tier) ?? [];
+    const without = list.filter((m) => m !== modelId);
+    this.byTier.set(tier, [modelId, ...without]);
+  }
+
   list(): readonly ModelPricing[] {
     return [...this.byId.values()];
   }
