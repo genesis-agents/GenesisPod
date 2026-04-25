@@ -119,17 +119,32 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
       <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
         <FileText className="mx-auto mb-3 h-7 w-7 text-gray-300" />
         <p className="text-sm font-medium text-gray-700">
-          Final report will render here
+          输出报告将在这里呈现
         </p>
         <p className="mt-1 text-xs text-gray-500">
-          Writer drafts → Reviewer scores → if &lt; 70, Reflexion retries (max
-          2)
+          Writer 起草 → Reviewer 共识评分 → 不达 70 分自动 Reflexion 重写（最多
+          2 轮）
         </p>
       </div>
     );
   }
 
   const sections = finalReport.sections ?? [];
+  const wordCount = (() => {
+    const all = [
+      finalReport.summary ?? '',
+      ...sections.map((s) => s.body ?? ''),
+      finalReport.conclusion ?? '',
+    ].join('\n');
+    // 中英混合粗略统计：中文字符 ≈ 1 字，英文 word 按空格切
+    const cn = (all.match(/[一-龥]/g) ?? []).length;
+    const en = all
+      .replace(/[一-龥]/g, '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
+    return cn + en;
+  })();
 
   return (
     <div className="space-y-4">
@@ -141,18 +156,22 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
             </span>
             <div>
               <h2 className="text-lg font-bold text-gray-900">
-                {finalReport.title || 'Research Report'}
+                {finalReport.title || '研究报告'}
               </h2>
               <p className="text-xs text-gray-500">
-                {sections.length} sections ·{' '}
-                {finalReport.citations?.length ?? 0} citations
+                {sections.length} 章节 · {finalReport.citations?.length ?? 0}{' '}
+                条引用 ·{' '}
+                {wordCount >= 1000
+                  ? `${(wordCount / 1000).toFixed(1)}k`
+                  : wordCount}{' '}
+                字
               </p>
             </div>
           </div>
           {finalScore != null && (
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                Consensus
+                CONSENSUS
               </p>
               <p className={`text-2xl font-bold ${scoreColor(finalScore)}`}>
                 {finalScore}
@@ -162,9 +181,10 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
         </div>
 
         {finalReport.summary && (
-          <div className="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
-              Executive summary
+          <div className="border-b border-violet-100 bg-gradient-to-br from-violet-50/60 to-purple-50/40 px-5 py-4">
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700">
+              <Sparkles className="h-3 w-3" />
+              执行摘要
             </p>
             <Markdown content={finalReport.summary} />
           </div>
@@ -233,7 +253,7 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
         {finalReport.conclusion && (
           <div className="border-t border-gray-100 bg-gradient-to-br from-violet-50/40 to-purple-50/40 px-5 py-4">
             <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-violet-700">
-              Conclusion
+              结论与建议
             </p>
             <Markdown content={finalReport.conclusion} />
           </div>
@@ -249,7 +269,7 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
           >
             <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <History className="h-4 w-4 text-gray-500" />
-              Writer Reflexion history · {reports.length} attempts
+              Writer Reflexion 历史 · 共 {reports.length} 轮
             </span>
             <ChevronDown
               className={`h-4 w-4 text-gray-400 transition-transform ${showHistory ? 'rotate-180' : ''}`}
@@ -263,7 +283,7 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
                   className="rounded-lg border border-gray-100 bg-gray-50/40 p-2"
                 >
                   <p className="text-xs font-medium text-gray-700">
-                    Attempt #{r.attempt} · {r.report?.title ?? 'untitled'}
+                    第 {r.attempt} 轮 · {r.report?.title ?? '（无标题）'}
                   </p>
                   <p className="mt-0.5 line-clamp-2 text-[11px] text-gray-500">
                     {r.report?.summary}
