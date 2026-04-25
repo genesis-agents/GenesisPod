@@ -140,8 +140,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // Tool Store section — AI 商店 暂时隐藏
-  const toolStoreItems: typeof creativeItems = [];
+  // 工具市场 / AI 商店 — 暂时不要
 
   const bottomNavItems = [
     { href: '/notifications', label: t('nav.notifications'), icon: 'bell' },
@@ -665,33 +664,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* AI 商店 / Tool Store — 暂时隐藏 */}
-              {toolStoreItems.length > 0 && (
-                <>
-                  <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                    {t('nav.sections.toolStore')}
-                  </div>
-                  {toolStoreItems.map((item) => {
-                    const active = item.prefix
-                      ? isActivePrefix(item.href)
-                      : isActive(item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                          active
-                            ? `${item.activeClass} text-gray-900`
-                            : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {getIcon(item.icon)}
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </>
-              )}
+              {/* AI 商店 / 工具市场 — 暂时不要；管理后台直接接在创新 Labs 下 */}
 
               {isAdmin && (
                 <Link

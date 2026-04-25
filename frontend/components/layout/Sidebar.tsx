@@ -650,18 +650,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.playground')}</span>}
           </Link>
 
-          {/* AI 商店 — 暂时隐藏（用户未开放） */}
+          {/* AI 商店 / 工具市场 — 暂时不要 */}
 
-          {/* Section: Admin (admin only) */}
-          {isAdmin && showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.toolStore')}
-            </div>
-          )}
-          {isAdmin && !showExpanded && (
-            <div className="my-1 border-t border-gray-200/60" />
-          )}
-
+          {/* 管理后台 — 直接接在创新 Labs 下，admin only */}
           {isAdmin && (
             <Link
               href="/admin/overview"
