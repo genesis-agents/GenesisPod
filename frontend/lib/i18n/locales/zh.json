@@ -141,6 +141,17 @@
       "toolStore": "工具市场"
     }
   },
+  "playground": {
+    "researchTeam": {
+      "topicLabel": "研究话题",
+      "topicPlaceholder": "例如：2026 Q2 AI Agent 市场分析",
+      "depth": "深度",
+      "language": "语言",
+      "maxCredits": "积分上限",
+      "starting": "启动中…",
+      "start": "启动 Research Team"
+    }
+  },
   "home": {
     "welcome": "欢迎使用 AI Teams Engine",
     "tagline": "AI 驱动的知识发现平台",

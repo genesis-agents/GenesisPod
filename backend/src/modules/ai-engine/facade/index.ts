@@ -64,7 +64,40 @@ export type {
   ISubagentHandle,
   ISubagentSpec,
   ISubagentSpawner,
+  // 必修 #8: Runtime-env 接口 + verifier hint —— ai-app 通过 facade 引用
+  IRuntimeEnvironment,
+  ICreditState,
+  IModelAvailability,
+  IFallbackHint,
+  IQuotaSnapshot,
+  ByokStatus,
 } from "../harness/abstractions";
+
+// 必修 #8: Harness DX + verify + events + memory + checkpoint + runtime —— 全部 re-export，
+// ai-app 不再需要穿透 `harness/*` 子路径
+export {
+  AgentRunner,
+  AgentSpec as HarnessAgentSpec,
+  DefineAgent,
+  FixtureStore,
+} from "../harness/dx";
+export type { RunResult as HarnessRunResult } from "../harness/dx";
+export { JudgeService } from "../harness/verify";
+export type { BuiltInVerifierId } from "../harness/verify";
+export {
+  DomainEventBus,
+  DomainEventRegistry,
+  LoggerBroadcastAdapter,
+} from "../harness/events";
+export type {
+  DomainEvent,
+  IBroadcastAdapter,
+  DomainEventTypeSpec,
+} from "../harness/events";
+export { MemoryAutoIndexer } from "../harness/memory-bridge/memory-auto-indexer";
+export { MissionBudgetPool } from "../harness/runtime/mission-budget-pool";
+export { AgentEventStore, CheckpointService } from "../harness/checkpoint";
+export type { ICheckpoint, AgentEventRecord } from "../harness/checkpoint";
 
 // ★ High-frequency types used across AI App modules
 export type {

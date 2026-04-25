@@ -141,6 +141,17 @@
       "toolStore": "Tool Store"
     }
   },
+  "playground": {
+    "researchTeam": {
+      "topicLabel": "Topic",
+      "topicPlaceholder": "e.g. AI agents market 2026 Q2",
+      "depth": "Depth",
+      "language": "Language",
+      "maxCredits": "Max Credits",
+      "starting": "Starting…",
+      "start": "Run Research Team"
+    }
+  },
   "home": {
     "welcome": "Welcome to AI Teams Engine",
     "tagline": "AI-Powered Knowledge Discovery Platform",

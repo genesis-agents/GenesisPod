@@ -35,6 +35,8 @@ export function DemoLauncher() {
       router.push(`/agent-playground/research-team/${missionId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      // 必修 #10: 跳转或失败都要重置；防 navigation 异常时按钮永久 loading
       setSubmitting(false);
     }
   }

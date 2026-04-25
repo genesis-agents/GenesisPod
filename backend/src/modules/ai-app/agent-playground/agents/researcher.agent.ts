@@ -6,7 +6,10 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../ai-engine/harness/dx";
+import {
+  HarnessAgentSpec as AgentSpec,
+  DefineAgent,
+} from "../../../ai-engine/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -20,7 +23,9 @@ const Output = z.object({
     z.object({
       claim: z.string(),
       evidence: z.string(),
-      source: z.string().url(),
+      // 必修 #17: 放宽 URL 校验。真实搜索结果的 source 经常是带 query 的非规范 URL
+      // 或学术 DOI / arxiv id；严格 .url() 校验失败会让整个 Researcher state=failed
+      source: z.string().min(1),
     }),
   ),
   summary: z.string(),

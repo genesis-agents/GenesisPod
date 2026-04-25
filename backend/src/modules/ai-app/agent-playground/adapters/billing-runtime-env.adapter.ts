@@ -17,7 +17,7 @@ import type {
   IModelAvailability,
   IQuotaSnapshot,
   IRuntimeEnvironment,
-} from "../../../ai-engine/harness/abstractions";
+} from "../../../ai-engine/facade";
 import type { CreditsService } from "../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
 

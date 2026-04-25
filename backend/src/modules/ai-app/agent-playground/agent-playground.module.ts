@@ -6,20 +6,33 @@
  */
 
 import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
 import { ResearchTeamOrchestrator } from "./services/research-team.orchestrator";
+import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 
 @Module({
   imports: [
-    // CreditsService 由 CreditsModule 提供
     CreditsModule,
-    // HarnessModule 是 @Global，自动注入 AgentRunner / DomainEventBus / JudgeService /
-    // MemoryAutoIndexer / AgentEventStore 等
-    // RuntimeEnvironmentService 由 ResourceModule 提供（也是 @Global）
+    // 必修 #4: Gateway 用 JwtService 解析 socket auth.token 做 ownership 鉴权
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>("JWT_SECRET"),
+        signOptions: { expiresIn: "7d" },
+      }),
+      inject: [ConfigService],
+    }),
+    // HarnessModule / RuntimeEnvironmentService 是 @Global，自动可注入
   ],
   controllers: [AgentPlaygroundController],
-  providers: [AgentPlaygroundGateway, ResearchTeamOrchestrator],
+  providers: [
+    AgentPlaygroundGateway,
+    ResearchTeamOrchestrator,
+    MissionOwnershipRegistry,
+  ],
 })
 export class AgentPlaygroundModule {}

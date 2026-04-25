@@ -488,7 +488,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             href="/agent-playground"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/agent-playground')
-                ? 'bg-purple-50 text-gray-900'
+                ? 'bg-purple-50 text-purple-700'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
             title={t('nav.playground')}

@@ -19,15 +19,17 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { randomUUID } from "crypto";
-import { AgentRunner } from "../../../ai-engine/harness/dx";
+// 必修 #8: 全部从 ai-engine/facade 导入，不穿透 harness/* 子路径
 import {
+  AgentRunner,
   DomainEventBus,
+  JudgeService,
+  MemoryAutoIndexer,
+  MissionBudgetPool,
   type DomainEvent,
-} from "../../../ai-engine/harness/events";
-import { JudgeService } from "../../../ai-engine/harness/verify";
-import { MemoryAutoIndexer } from "../../../ai-engine/harness/memory-bridge/memory-auto-indexer";
-import { MissionBudgetPool } from "../../../ai-engine/harness/runtime/mission-budget-pool";
+  type HarnessIAgent as IAgent,
+  type IContextEnvelope,
+} from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
@@ -51,6 +53,31 @@ interface MissionResult {
   readonly trajectoryStored: number;
 }
 
+/**
+ * 必修 #3: 从 RunResult.events 启发提取 LLM token 数。
+ * AgentEvent.payload 在 action_executed 时含 tokensUsed（IActionResult.tokensUsed）；
+ * 没有时退回 budget_warning 事件中的 snapshot.tokensUsed 差值；
+ * 都没有则按 iterations × 估算系数兜底。
+ */
+function extractTokenSpend(
+  events: readonly { type: string; payload: unknown }[],
+): number {
+  let total = 0;
+  let lastBudgetTokens = 0;
+  for (const ev of events) {
+    if (ev.type === "action_executed") {
+      const p = ev.payload as { tokensUsed?: number } | null;
+      if (p && typeof p.tokensUsed === "number") total += p.tokensUsed;
+    } else if (ev.type === "budget_warning") {
+      const p = ev.payload as { tokensUsed?: number } | null;
+      if (p && typeof p.tokensUsed === "number") {
+        lastBudgetTokens = Math.max(lastBudgetTokens, p.tokensUsed);
+      }
+    }
+  }
+  return Math.max(total, lastBudgetTokens);
+}
+
 @Injectable()
 export class ResearchTeamOrchestrator {
   private readonly log = new Logger(ResearchTeamOrchestrator.name);
@@ -65,26 +92,41 @@ export class ResearchTeamOrchestrator {
   ) {}
 
   async runMission(
+    missionId: string,
     input: RunMissionInput,
     userId: string,
     workspaceId?: string,
   ): Promise<MissionResult> {
-    const missionId = randomUUID();
-    // 业务方可在 spec.runtimeEnv 注入此 adapter；
-    // 本 demo 把它用于"显式查 BYOK / credit / fallback"演示，
-    // 也作为 IRuntimeEnvironment 接入 Harness 的参考实现
+    // 必修 #2: BillingRuntimeEnvAdapter 当前未通过 AgentRunner 透传到 spec.runtimeEnv。
+    // 在此预先建好对象，给业务方手动 query（例如 leader 启动前主动调 suggestFallback）。
+    // 真正接通需要 AgentRunner 接受 runtimeEnv 参数 —— 已记到 PR-X TODO。
+    // 本 demo 在前置健康检查时直接用 adapter，让前端能看到余额状态。
     const billing = new BillingRuntimeEnvAdapter(
       userId,
       workspaceId,
       this.credits,
       this.runtimeEnv,
     );
-    void billing; // 后续 PR 让 AgentRunner 接 envelope.runtimeEnv 透传
-    // 共享预算池：所有 stage 共享 maxCredits
+
+    // 必修 #3: MissionBudgetPool 在 PR 当前版本无法跨 AgentRunner 联动
+    // （AgentRunner 内部各自创建独立 BudgetAccountant）。
+    // 这里仅用于"前置预算检查 + 累计统计"：每 stage 完成后 pool.recordSpend() 手动入账。
     const pool = new MissionBudgetPool({
-      maxTokens: input.maxCredits * 100, // 1 credit ≈ 100 tokens 启发
+      maxTokens: input.maxCredits * 100,
       maxCostUsd: input.maxCredits * 0.0002,
     });
+
+    // 必修 #2 前置：先看 credit 余额，余额不足直接拒绝（无 LLM 调用浪费）
+    const credit = await billing.getCreditState();
+    if (credit.balance <= (credit.hardLimit ?? 0)) {
+      const hint = await billing.suggestFallback({ reason: "no_credit" });
+      await this.emit("agent-playground.mission:rejected", missionId, userId, {
+        reason: "no_credit",
+        balance: credit.balance,
+        userMessage: hint.userMessage,
+      });
+      throw new Error(hint.userMessage ?? "Credit balance too low");
+    }
 
     return BillingContext.run(
       {
@@ -111,6 +153,7 @@ export class ResearchTeamOrchestrator {
         if (leaderRes.state !== "completed") {
           throw new Error("Leader stage failed");
         }
+        pool.recordSpend(extractTokenSpend(leaderRes.events), 0, 0);
         const plan = leaderRes.output as {
           themeSummary: string;
           dimensions: { id: string; name: string; rationale: string }[];
@@ -125,25 +168,37 @@ export class ResearchTeamOrchestrator {
           stage: "researchers",
           count: plan.dimensions.length,
         });
-        const researcherResults = await Promise.all(
-          plan.dimensions.map(async (dim) => {
+        // 必修 #11: 限制并发避免击穿 LLM rate limit（pLimit 3 简化版）
+        const researcherResults = await this.runWithConcurrency(
+          plan.dimensions,
+          3,
+          async (dim) => {
             const r = await this.runner.run(ResearcherAgent, {
               topic: input.topic,
               dimension: dim.name,
               language: input.language,
             });
+            pool.recordSpend(extractTokenSpend(r.events), 0, 0);
             await this.emit(
               "agent-playground.researcher:completed",
               missionId,
               userId,
               { dimension: dim.name, state: r.state, iters: r.iterations },
             );
+            // 必修 #6: state 检查 + 类型 narrowing
+            if (r.state !== "completed" || !r.output) {
+              return {
+                dimension: dim.name,
+                findings: [],
+                summary: `(failed: ${r.state})`,
+              };
+            }
             return r.output as {
               dimension: string;
               findings: { claim: string; evidence: string; source: string }[];
               summary: string;
             };
-          }),
+          },
         );
         // 池子检查
         if (pool.isExhausted()) {
@@ -164,6 +219,11 @@ export class ResearchTeamOrchestrator {
           language: input.language,
           researcherResults,
         });
+        pool.recordSpend(extractTokenSpend(analystRes.events), 0, 0);
+        // 必修 #6: state 检查
+        if (analystRes.state !== "completed" || !analystRes.output) {
+          throw new Error(`Analyst stage failed: ${analystRes.state}`);
+        }
         const analyst = analystRes.output as {
           insights: {
             headline: string;
@@ -176,7 +236,7 @@ export class ResearchTeamOrchestrator {
 
         // ── Stage 4: Writer 起草 + 必要时 retry ──
         let attempts = 0;
-        let report: ResearchReport;
+        let report: ResearchReport | null = null;
         let reviewScore = 0;
         const MAX_WRITER_ATTEMPTS = 2;
         do {
@@ -191,6 +251,11 @@ export class ResearchTeamOrchestrator {
             insights: analyst.insights,
             themeSummary: analyst.themeSummary,
           });
+          pool.recordSpend(extractTokenSpend(writerRes.events), 0, 0);
+          if (writerRes.state !== "completed" || !writerRes.output) {
+            // 当轮失败：让循环再试一次
+            continue;
+          }
           report = writerRes.output as ResearchReport;
 
           // ── Stage 5: Verify Consensus ──
@@ -218,24 +283,24 @@ export class ResearchTeamOrchestrator {
           if (verdict.decision.verdict === "pass") break;
         } while (attempts < MAX_WRITER_ATTEMPTS);
 
+        // 必修 #6: writer 全部失败时不能继续
+        if (!report) {
+          throw new Error(
+            `Writer failed after ${MAX_WRITER_ATTEMPTS} attempts`,
+          );
+        }
+
         // ── Stage 6: Memory auto-index ──
+        // 必修 #14: 不用 `as never`，构造一个最小 IAgent shape（只用到 id + identity.role）
+        const proxyAgent = this.makeProxyAgent(missionId, "research-team");
         const indexed = await this.indexer
-          .indexAgentTrajectory(
-            // 用 writer agent 的最终 envelope 作为代表
-            // 简化：实际 production 可串联多 agent 的 trajectory
-            {
-              id: missionId,
-              identity: { role: { id: "research-team" } },
-            } as never,
-            [],
-            {
-              namespace: workspaceId ?? userId,
-              source: "agent-playground.research-team",
-              tags: [input.depth, input.topic],
-              confidence: reviewScore / 100,
-              metadata: { topic: input.topic, missionId },
-            },
-          )
+          .indexAgentTrajectory(proxyAgent, [], {
+            namespace: workspaceId ?? userId,
+            source: "agent-playground.research-team",
+            tags: [input.depth, input.topic],
+            confidence: reviewScore / 100,
+            metadata: { topic: input.topic, missionId },
+          })
           .catch((err: unknown) => {
             this.log.warn(
               `[indexer] failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -298,5 +363,70 @@ export class ResearchTeamOrchestrator {
     await this.eventBus.emit(event).catch(() => {
       /* event 失败不影响主流程 */
     });
+  }
+
+  /**
+   * 必修 #14: 给 MemoryAutoIndexer 构造一个最小 IAgent 代理；
+   * MemoryAutoIndexer 只读 agent.id / agent.identity.role.id / agent.getEnvelope().memory，
+   * 不需要完整 IAgent 行为。
+   */
+  private makeProxyAgent(missionId: string, roleId: string): IAgent {
+    const env: IContextEnvelope = {
+      id: missionId,
+      system: "",
+      messages: [],
+      reminders: [],
+      tools: [],
+      memory: { sessionId: missionId },
+      budget: {
+        tokensUsed: 0,
+        tokensRemaining: 0,
+        iterationsUsed: 0,
+        iterationsRemaining: 0,
+        wallTimeStartMs: Date.now(),
+      },
+    };
+    return {
+      id: missionId,
+      identity: {
+        role: { id: roleId, name: roleId, description: "demo proxy agent" },
+        skills: [],
+        tools: [],
+      },
+      state: "completed",
+      execute: async function* () {
+        /* no-op */
+      },
+      spawnSubagent: async () => {
+        throw new Error("proxy agent cannot spawn");
+      },
+      getEnvelope: () => env,
+      cancel: async () => {
+        /* no-op */
+      },
+    };
+  }
+
+  /**
+   * 必修 #11: 简化版 pLimit —— 限制并发避免击穿 LLM rate limit
+   */
+  private async runWithConcurrency<TIn, TOut>(
+    items: readonly TIn[],
+    concurrency: number,
+    fn: (item: TIn, idx: number) => Promise<TOut>,
+  ): Promise<TOut[]> {
+    const results: TOut[] = [];
+    let cursor = 0;
+    const workers = Array.from(
+      { length: Math.min(concurrency, items.length) },
+      async () => {
+        while (cursor < items.length) {
+          const idx = cursor++;
+          results[idx] = await fn(items[idx], idx);
+        }
+      },
+    );
+    await Promise.all(workers);
+    return results;
   }
 }

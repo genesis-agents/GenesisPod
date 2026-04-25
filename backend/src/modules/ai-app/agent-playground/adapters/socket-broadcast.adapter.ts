@@ -7,8 +7,8 @@
 
 import { Logger } from "@nestjs/common";
 import type { Server as IoServer } from "socket.io";
-import type { DomainEvent } from "../../../ai-engine/harness/events/domain-event.types";
-import type { IBroadcastAdapter } from "../../../ai-engine/harness/events/broadcast-adapter";
+// 必修 #8: 走 facade，不穿透 harness/events 子路径
+import type { DomainEvent, IBroadcastAdapter } from "../../../ai-engine/facade";
 
 export class SocketBroadcastAdapter implements IBroadcastAdapter {
   readonly id = "agent-playground.socket";

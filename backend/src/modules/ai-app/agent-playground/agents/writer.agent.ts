@@ -6,7 +6,10 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../ai-engine/harness/dx";
+import {
+  HarnessAgentSpec as AgentSpec,
+  DefineAgent,
+} from "../../../ai-engine/facade";
 import { ResearchReportSchema } from "../dto/run-mission.dto";
 
 const Input = z.object({
