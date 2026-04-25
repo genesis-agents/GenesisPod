@@ -42,6 +42,15 @@ export {
   renderSynthesisSystemPrompt,
 } from "./report-synthesis.prompt";
 
+export {
+  LEADER_PLAN_PROMPT,
+  LEADER_REVIEW_PROMPT,
+  GLOBAL_OUTLINE_PROMPT,
+  DIMENSION_OUTLINE_PROMPT,
+  SECTION_REVIEW_PROMPT,
+  LEADER_DECODE_PROMPT,
+  LEADER_INTERVENE_PROMPT,
+} from "./research-leader.prompt";
 
 export {
   REPORT_EDITING_SYSTEM_PROMPT,

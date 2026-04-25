@@ -342,7 +342,7 @@ export const ENHANCED_DEDUP_EXTENSION = `
 export function buildValidationContextForWriting(
   claimResults?: Array<{
     claimId: string;
-    status: import("../shared/types/research-depth.types").ClaimVerificationStatus;
+    status: import("../types/research-depth.types").ClaimVerificationStatus;
     explanation: string;
   }>,
   hypothesisResults?: Array<{

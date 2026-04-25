@@ -3,12 +3,14 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from "@nestjs/common";
-import { PrismaService } from "@/common/prisma/prisma.service";
-import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
+import { sanitize } from "./utils/prompt-sanitizer";
 import { preprocessDimensionContent } from "../shared/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { RESEARCH_INTERNAL_EVENTS } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
+import { RESEARCH_INTERNAL_EVENTS } from "./services/core/research/research-event-emitter.service";
 import { Observable, Subject, filter, map } from "rxjs";
 import { MessageEvent } from "@nestjs/common";
 import {
@@ -29,58 +31,38 @@ import {
   CreateFromTemplateDto,
   UpdateScheduleDto,
   ListLogsDto,
-} from "./api/dto";
-import { AnnotationStatus, AnnotationType } from "@prisma/client";
-// H6 step 6: RefreshProgressEvent was originally exported from the legacy
-// team-orchestrator. That orchestrator is being deleted; the SSE progress
-// stream below listens on the TOPIC_RESEARCH_PROGRESS event, which harness
-// stages will emit (see ResearchEventEmitterService). Keep the wire shape
-// stable for the frontend.
-interface RefreshProgressEvent {
-  topicId: string;
-  reportId: string;
-  phase:
-    | "starting"
-    | "researching"
-    | "reviewing"
-    | "synthesizing"
-    | "completed"
-    | "failed";
-  progress: number;
-  currentDimension?: string;
-  completedDimensions: number;
-  totalDimensions: number;
-  message: string;
-  error?: string;
-}
-import { MissionExecutionService } from "./mission/control/execution.service";
-import { MissionCancellationService } from "./mission/control/cancellation.service";
-// ★ Direct imports per domain (services.ts barrel 已删除)
-import { ReportSynthesisService } from "./artifacts/report/core/synthesis.service";
-import { EvidenceManagementService } from "./knowledge/evidence/evidence.service";
-import { ReportChangeService } from "./artifacts/report/editing/change.service";
-import { ReportAnnotationService } from "./artifacts/report/editing/annotation.service";
-import { ResearchStrategyService } from "./artifacts/strategy/strategy.service";
-import { AgentActivityService } from "./agents/activity.service";
-import { CredibilityReportService } from "./artifacts/report/enhancement/credibility-report.service";
-import { TopicCrudService } from "./artifacts/topic/crud.service";
-import { TopicDimensionService } from "./artifacts/topic/dimension.service";
-import { TopicExportService } from "./artifacts/topic/export.service";
-import { TopicScheduleService } from "./artifacts/topic/schedule.service";
-import { ReportQualityTraceService } from "./artifacts/report/quality/report-quality-trace.service";
-import { ReportDataService } from "./artifacts/report/core/data.service";
-import { LatexRepairService } from "./artifacts/report/enhancement/latex-repair.service";
+} from "./dto";
+import { AIModelType, AnnotationStatus, AnnotationType } from "@prisma/client";
+import type { RefreshProgressEvent } from "./services/core/topic/topic-team-orchestrator.service";
 import {
-  ComputeUsageService,
-  type ComputeUsageResult,
-} from "./shared/compute-usage/compute-usage.service";
+  TopicTeamOrchestratorService,
+  ReportSynthesisService,
+  EvidenceManagementService,
+  ReportChangeService,
+  ReportAnnotationService,
+  ResearchStrategyService,
+  AgentActivityService,
+  CredibilityReportService,
+  TopicCrudService,
+  TopicDimensionService,
+  TopicExportService,
+  TopicScheduleService,
+  ReportQualityTraceService,
+  ReportDataService,
+  LatexRepairService,
+} from "./services";
 import {
-  ReportContentEditingService,
-  type AiEditReportDto,
-  type UpdateReportContentDto,
-} from "./artifacts/report/editing/content-editing.service";
-import { BillingContext } from "@/modules/ai-infra/facade";
-import type { ResearchDepth } from "./shared/types";
+  ChatFacade,
+  SessionLatencyTrackerService,
+  type LatencySessionSummary,
+} from "../../ai-engine/facade";
+import {
+  REPORT_EDITING_SYSTEM_PROMPT,
+  buildEditPrompt,
+  buildEnhancedEditPrompt,
+} from "./prompts";
+import { BillingContext } from "../../ai-infra/facade";
+import type { ResearchDepth } from "./types";
 
 // 维度模板已外置到 config/dimension-templates.config.ts
 /**
@@ -143,10 +125,10 @@ export class TopicInsightsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly missionExecution: MissionExecutionService,
-    private readonly cancellation: MissionCancellationService,
+    private readonly orchestrator: TopicTeamOrchestratorService,
     private readonly reportService: ReportSynthesisService,
     private readonly evidenceService: EvidenceManagementService,
+    private readonly chatFacade: ChatFacade,
     private readonly reportChangeService: ReportChangeService,
     private readonly reportAnnotationService: ReportAnnotationService,
     private readonly researchStrategyService: ResearchStrategyService,
@@ -160,8 +142,8 @@ export class TopicInsightsService {
     private readonly qualityTraceService: ReportQualityTraceService,
     private readonly reportDataService: ReportDataService,
     private readonly latexRepairService: LatexRepairService,
-    private readonly computeUsageService: ComputeUsageService,
-    private readonly reportContentEditingService: ReportContentEditingService,
+    @Optional()
+    private readonly latencyTracker?: SessionLatencyTrackerService,
   ) {}
 
   /**
@@ -478,32 +460,20 @@ export class TopicInsightsService {
         // 验证专题所有权
         const topic = await this.crudService.getTopic(userId, topicId);
 
-        // H6 step 5: route refresh through harness pipeline.
+        // 根据刷新类型决定是否增量刷新
         const isIncremental = dto.type === "INCREMENTAL";
-        const mission = await this.prisma.researchMission.create({
-          data: {
-            topicId: topic.id,
-            status: "EXECUTING",
-            researchDepth: (dto.researchDepth as ResearchDepth) ?? "standard",
-            leaderPlan: {},
-            totalTasks: 0,
-            userPrompt: "",
-            startedAt: new Date(),
-            userContext: isIncremental ? { mode: "incremental" } : undefined,
-          },
-        });
-        await this.missionExecution.startExecution(mission.id, topic.id);
 
-        // harness writes/updates the latest report for this topic
-        const latestReport = await this.prisma.topicReport.findFirst({
-          where: { topicId: topic.id },
-          orderBy: { generatedAt: "desc" },
-          select: { id: true },
+        // 执行刷新
+        const report = await this.orchestrator.executeRefresh(topic, {
+          forceRefresh: dto.type === "FULL",
+          dimensionIds: dto.dimensionIds,
+          incremental: isIncremental,
+          researchDepth: dto.researchDepth as ResearchDepth,
         });
 
         return {
           success: true,
-          reportId: latestReport?.id ?? "",
+          reportId: report.id,
           message: "刷新完成",
         };
       },
@@ -553,32 +523,16 @@ export class TopicInsightsService {
           `Smart research for topic ${topicId}: ${smartOptions.strategy} - ${smartOptions.message}`,
         );
 
-        // H6 step 5: harness-driven smart refresh.
-        const mission = await this.prisma.researchMission.create({
-          data: {
-            topicId: topic.id,
-            status: "EXECUTING",
-            researchDepth: "standard",
-            leaderPlan: {},
-            totalTasks: 0,
-            userPrompt: "",
-            startedAt: new Date(),
-            userContext: smartOptions.incremental
-              ? { mode: "incremental" }
-              : undefined,
-          },
-        });
-        await this.missionExecution.startExecution(mission.id, topic.id);
-
-        const latestReport = await this.prisma.topicReport.findFirst({
-          where: { topicId: topic.id },
-          orderBy: { generatedAt: "desc" },
-          select: { id: true },
+        // 执行研究
+        const report = await this.orchestrator.executeRefresh(topic, {
+          forceRefresh: smartOptions.forceRefresh,
+          dimensionIds: smartOptions.dimensionIds,
+          incremental: smartOptions.incremental,
         });
 
         return {
           success: true,
-          reportId: latestReport?.id ?? "",
+          reportId: report.id,
           strategy: smartOptions.strategy,
           message: smartOptions.message,
         };
@@ -784,23 +738,17 @@ export class TopicInsightsService {
     // 验证专题读取权限（支持公开专题访问）
     await this.verifyTopicReadAccess(userId, topicId);
 
-    // H6 step 6: harness-based "is refreshing" = "does the topic have an
-    // EXECUTING mission right now". Refresh history comes from TopicRefreshLog
-    // unchanged.
-    const activeMission = await this.prisma.researchMission.findFirst({
-      where: { topicId, status: "EXECUTING" },
-      select: { id: true, startedAt: true },
-      orderBy: { startedAt: "desc" },
-    });
+    const status = this.orchestrator.getRefreshStatus(topicId);
 
+    // 获取最近的刷新日志
     const latestLog = await this.prisma.topicRefreshLog.findFirst({
       where: { topicId },
       orderBy: { startedAt: "desc" },
     });
 
     return {
-      isRunning: Boolean(activeMission),
-      startedAt: activeMission?.startedAt ?? null,
+      isRunning: status.isRunning,
+      startedAt: status.startedAt,
       latestLog,
     };
   }
@@ -877,20 +825,7 @@ export class TopicInsightsService {
     // 验证专题所有权
     await this.verifyTopicOwnership(userId, topicId);
 
-    // H6 step 6: harness cancel — find the active mission and abort via
-    // MissionCancellationService (H1 primitive).
-    const activeMission = await this.prisma.researchMission.findFirst({
-      where: { topicId, status: "EXECUTING" },
-      select: { id: true },
-      orderBy: { startedAt: "desc" },
-    });
-    const cancelled = activeMission
-      ? this.cancellation.cancel(activeMission.id, {
-          reason: "user requested cancel refresh",
-          requestedBy: userId,
-          requestedAt: new Date(),
-        })
-      : false;
+    const cancelled = await this.orchestrator.cancelRefresh(topicId);
 
     return {
       success: cancelled,
@@ -1089,67 +1024,246 @@ export class TopicInsightsService {
     return report;
   }
 
-  // ==================== Report Editing (delegated to ReportContentEditingService) ====================
-
+  /**
+   * 更新报告内容
+   */
   async updateReportContent(
     userId: string,
     topicId: string,
     reportId: string,
-    dto: UpdateReportContentDto,
+    dto: {
+      executiveSummary?: string;
+      fullReport?: string;
+      changeDescription?: string;
+    },
   ) {
-    return this.reportContentEditingService.updateReportContent(
-      userId,
-      topicId,
-      reportId,
-      dto,
-    );
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportDataService.updateReportContent(reportId, dto);
   }
 
+  /**
+   * AI 编辑报告
+   */
   async aiEditReport(
     userId: string,
     topicId: string,
     reportId: string,
-    dto: AiEditReportDto,
+    dto: {
+      operation: "rewrite" | "polish" | "expand" | "compress" | "style";
+      selectedText?: string;
+      context?: string;
+      fullContent?: string;
+      styleGuide?: string;
+      selectorPrefix?: string;
+      selectorSuffix?: string;
+      selection?: string;
+      customInstruction?: string;
+      targetStyle?: "academic" | "business" | "casual" | "technical";
+    },
   ) {
-    return this.reportContentEditingService.aiEditReport(
-      userId,
-      topicId,
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    // 确定使用新模式还是旧模式
+    const useNewMode = Boolean(dto.selectedText);
+
+    // 获取待编辑的文本（兼容两种模式）
+    const textToEdit = dto.selectedText || dto.selection || report.fullReport;
+
+    // 构建 AI 编辑 prompt
+    let prompt: string;
+    if (useNewMode) {
+      // 新模式：使用增强提示词
+      prompt = buildEnhancedEditPrompt(dto.operation, textToEdit, {
+        userInstruction: dto.context ? sanitize(dto.context) : undefined,
+        fullContent: dto.fullContent,
+        styleGuide: dto.styleGuide,
+        targetStyle: dto.targetStyle,
+      });
+    } else {
+      // 旧模式：使用简单提示词（向后兼容）
+      prompt = buildEditPrompt(dto.operation, textToEdit, {
+        targetStyle: dto.targetStyle,
+        customInstruction: dto.customInstruction
+          ? sanitize(dto.customInstruction)
+          : undefined,
+      });
+    }
+
+    // 调用 AI 服务进行编辑（带自动积分扣除）
+    // NOTE: report-editing skill 已注册但此处需 billing 字段，chatWithSkills 不支持
+    const aiResponse = await this.chatFacade.chat({
+      operationName: "报告编辑",
+      messages: [
+        {
+          role: "system",
+          content: REPORT_EDITING_SYSTEM_PROMPT,
+        },
+        { role: "user", content: prompt },
+      ],
+      modelType: AIModelType.CHAT,
+      // ★ Security: 不再 skipGuardrails —— 外部内容已通过 <external_source>
+      // 标签在 prompt builder 中结构化隔离，守卫层现在可以安全扫描用户指令段。
+      taskProfile: {
+        creativity: dto.operation === "rewrite" ? "high" : "medium",
+        outputLength: dto.operation === "compress" ? "short" : "medium",
+      },
+      // ★ 自动积分扣除：基于实际 token 消耗
+      billing: {
+        userId,
+        moduleType: "topic-insights",
+        operationType: "ai-edit",
+        referenceId: reportId,
+        description: `AI 编辑报告 (${dto.operation})`,
+      },
+    });
+
+    const editedContent = aiResponse.content || "";
+
+    // 计算新报告内容
+    const selectionToReplace = dto.selectedText || dto.selection;
+    let newFullReport = report.fullReport;
+
+    if (selectionToReplace) {
+      // 使用上下文定位进行精确替换
+      let selectionIndex = -1;
+
+      // 方法1：使用 selectorPrefix 和 selectorSuffix 进行上下文匹配
+      if (dto.selectorPrefix || dto.selectorSuffix) {
+        const prefix = dto.selectorPrefix || "";
+        const suffix = dto.selectorSuffix || "";
+        const contextPattern = prefix + selectionToReplace + suffix;
+        const contextIndex = report.fullReport.indexOf(contextPattern);
+
+        if (contextIndex !== -1) {
+          // 找到上下文匹配，计算实际选中文本的位置
+          selectionIndex = contextIndex + prefix.length;
+          this.logger.debug(
+            `Context-based match found at index ${selectionIndex}`,
+          );
+        } else {
+          this.logger.warn(`Context pattern not found, falling back`);
+        }
+      }
+
+      // 方法2：退回到简单的 indexOf 匹配
+      if (selectionIndex === -1) {
+        selectionIndex = report.fullReport.indexOf(selectionToReplace);
+      }
+
+      if (selectionIndex !== -1) {
+        newFullReport =
+          report.fullReport.substring(0, selectionIndex) +
+          editedContent +
+          report.fullReport.substring(
+            selectionIndex + selectionToReplace.length,
+          );
+      } else {
+        this.logger.warn(`Selection not found in report ${reportId}`);
+      }
+    } else {
+      // 替换整个报告
+      newFullReport = editedContent;
+    }
+
+    // 保存修订历史并更新报告（事务）
+    const changeDescription = dto.context
+      ? `AI ${dto.operation}: ${dto.context.slice(0, 50)}`
+      : `AI ${dto.operation} 操作`;
+    const updatedReport = await this.reportDataService.saveAiEditRevision(
       reportId,
-      dto,
+      report.fullReport,
+      newFullReport,
+      changeDescription,
+      dto.operation,
     );
+
+    return {
+      report: updatedReport,
+      editedContent,
+      operation: dto.operation,
+    };
   }
 
+  /**
+   * 获取报告修订历史
+   */
   async getReportRevisions(userId: string, topicId: string, reportId: string) {
-    return this.reportContentEditingService.getReportRevisions(
-      userId,
-      topicId,
-      reportId,
-    );
+    await this.verifyTopicReadAccess(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportDataService.getReportRevisions(reportId);
   }
 
+  /**
+   * 回滚报告到指定版本
+   */
   async rollbackReport(
     userId: string,
     topicId: string,
     reportId: string,
     revisionNumber: number,
   ) {
-    return this.reportContentEditingService.rollbackReport(
-      userId,
-      topicId,
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportDataService.rollbackToRevision(
       reportId,
       revisionNumber,
+      report.fullReport,
     );
   }
 
+  /**
+   * 比较报告版本
+   */
   async compareReports(
     userId: string,
     topicId: string,
     dto: CompareReportsDto,
   ) {
-    return this.reportContentEditingService.compareReports(
-      userId,
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 通过版本号获取报告 ID
+    const [fromReport, toReport] = await Promise.all([
+      this.prisma.topicReport.findFirst({
+        where: { topicId, version: dto.from },
+        select: { id: true },
+      }),
+      this.prisma.topicReport.findFirst({
+        where: { topicId, version: dto.to },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!fromReport || !toReport) {
+      throw new NotFoundException("One or both report versions not found");
+    }
+
+    return this.reportService.compareReports(
       topicId,
-      dto,
+      fromReport.id,
+      toReport.id,
     );
   }
 
@@ -1542,14 +1656,473 @@ export class TopicInsightsService {
   // ==================== Compute Usage ====================
 
   /**
-   * 获取专题算力消耗数据 — 委托到 ComputeUsageService
+   * 获取专题算力消耗数据
    */
   async getComputeUsage(
     userId: string,
     topicId: string,
     missionId?: string,
-  ): Promise<ComputeUsageResult> {
-    return this.computeUsageService.getComputeUsage(userId, topicId, missionId);
+  ): Promise<{
+    summary: {
+      totalTokens: number;
+      inputTokens: number;
+      outputTokens: number;
+      cacheCreationTokens: number;
+      cacheReadTokens: number;
+      totalCreditsConsumed: number;
+      estimatedCostUsd: number;
+      totalLlmCalls: number;
+      totalDimensions: number;
+      researchDurationMs: number;
+      reportGenerationMs: number;
+    };
+    dimensions: Array<{
+      dimensionName: string;
+      modelUsed: string | null;
+      tokensUsed: number | null;
+      sourcesUsed: number;
+    }>;
+    modelDistribution: Array<{
+      modelId: string;
+      callCount: number;
+      totalTokens: number;
+      inputTokens: number;
+      outputTokens: number;
+      cacheCreationTokens: number;
+      cacheReadTokens: number;
+      estimatedCost: number;
+      percentage: number;
+    }>;
+    creditHistory: Array<{
+      operationType: string;
+      amount: number;
+      tokenCount: number | null;
+      inputTokens: number | null;
+      outputTokens: number | null;
+      cacheCreationTokens: number | null;
+      cacheReadTokens: number | null;
+      modelName: string | null;
+      createdAt: string;
+    }>;
+    mission: {
+      leaderModel: string;
+      researchDepth: string;
+      startedAt: string | null;
+      completedAt: string | null;
+      totalTasks: number;
+      completedTasks: number;
+    } | null;
+    latency: LatencySessionSummary | null;
+    latencySteps: Array<{
+      name: string;
+      durationMs: number;
+      parentStepId?: string;
+      actions: Array<{
+        name: string;
+        type: string;
+        model: string;
+        totalDurationMs: number;
+        ttftMs?: number;
+        ttltMs: number;
+        inputTokens: number;
+        outputTokens: number;
+      }>;
+    }>;
+    /** 该 Topic 的所有 Mission 列表（用于前端选择器） */
+    missions: Array<{
+      id: string;
+      status: string;
+      researchDepth: string | null;
+      startedAt: string | null;
+      completedAt: string | null;
+      createdAt: string;
+    }>;
+    /** 当前选中的 Mission ID */
+    currentMissionId: string | null;
+  }> {
+    await this.verifyTopicReadAccess(userId, topicId);
+
+    this.logger.log(
+      `[getComputeUsage] topicId=${topicId} missionId=${missionId ?? "latest"}`,
+    );
+
+    // 0. 解析目标 Mission 和时间窗口
+    const targetMission = missionId
+      ? await this.prisma.researchMission.findFirst({
+          where: { id: missionId, topicId },
+          select: {
+            id: true,
+            topicId: true,
+            leaderModelId: true,
+            leaderModelName: true,
+            researchDepth: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            totalTasks: true,
+            completedTasks: true,
+          },
+        })
+      : await this.prisma.researchMission.findFirst({
+          where: { topicId },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            topicId: true,
+            leaderModelId: true,
+            leaderModelName: true,
+            researchDepth: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            totalTasks: true,
+            completedTasks: true,
+          },
+        });
+
+    // 验证 missionId 有效性
+    if (missionId && !targetMission) {
+      throw new NotFoundException(
+        `Mission ${missionId} not found for topic ${topicId}`,
+      );
+    }
+
+    // 时间窗口：mission 的 startedAt → completedAt（或 now）
+    const windowStart = targetMission?.startedAt ?? targetMission?.createdAt;
+    const windowEnd = targetMission?.completedAt ?? new Date();
+
+    // 1. 获取该 Mission 时间窗口内的报告
+    const latestReport = await this.prisma.topicReport.findFirst({
+      where: {
+        topicId,
+        ...(windowStart
+          ? { generatedAt: { gte: windowStart, lte: windowEnd } }
+          : {}),
+      },
+      orderBy: { generatedAt: "desc" },
+      select: {
+        id: true,
+        totalTokens: true,
+        generationTimeMs: true,
+        totalDimensions: true,
+      },
+    });
+
+    // 2. 获取该报告的维度分析（复用 latestReport.id，不重新查询）
+    const dimensionAnalyses = await this.prisma.dimensionAnalysis.findMany({
+      where: {
+        reportId: {
+          in: latestReport ? [latestReport.id] : [],
+        },
+      },
+      select: {
+        tokensUsed: true,
+        modelUsed: true,
+        sourcesUsed: true,
+        dimension: {
+          select: { name: true },
+        },
+      },
+    });
+
+    // 3. Mission 已在步骤 0 获取（targetMission）
+    const latestMission = targetMission;
+
+    // 4. 按 modelName 聚合 CreditTransaction（ai_engine_metrics 的 missionId 大多为 null，不可靠）
+    type CreditAggRow = {
+      model_name: string | null;
+      call_count: bigint;
+      total_tokens: bigint | null;
+      total_input_tokens: bigint | null;
+      total_output_tokens: bigint | null;
+      total_cache_creation_tokens: bigint | null;
+      total_cache_read_tokens: bigint | null;
+    };
+
+    const creditAggGroups: CreditAggRow[] = await this.prisma.$queryRaw<
+      CreditAggRow[]
+    >`
+        SELECT
+          model_name,
+          COUNT(*) AS call_count,
+          SUM(COALESCE(token_count, 0)) AS total_tokens,
+          SUM(COALESCE(input_tokens, 0)) AS total_input_tokens,
+          SUM(COALESCE(output_tokens, 0)) AS total_output_tokens,
+          SUM(COALESCE(cache_creation_tokens, 0)) AS total_cache_creation_tokens,
+          SUM(COALESCE(cache_read_tokens, 0)) AS total_cache_read_tokens
+        FROM credit_transactions
+        WHERE reference_id = ${topicId}
+          AND amount < 0
+          AND created_at >= ${windowStart ?? new Date("2020-01-01")}
+          AND created_at <= ${windowEnd}
+        GROUP BY model_name
+        ORDER BY call_count DESC
+      `;
+
+    // 5. 查询 CreditTransaction（referenceId = topicId，按 Mission 时间窗口）
+    const creditTransactions = await this.prisma.creditTransaction.findMany({
+      where: {
+        referenceId: topicId,
+        ...(windowStart
+          ? { createdAt: { gte: windowStart, lte: windowEnd } }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        operationType: true,
+        amount: true,
+        tokenCount: true,
+        inputTokens: true,
+        outputTokens: true,
+        cacheCreationTokens: true,
+        cacheReadTokens: true,
+        modelName: true,
+        createdAt: true,
+      },
+    });
+
+    // ---- 汇总计算 ----
+
+    // totalCreditsConsumed: 所有 credit 交易中负数部分的绝对值之和
+    const totalCreditsConsumed = creditTransactions
+      .filter((t) => t.amount < 0)
+      .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+
+    // totalLlmCalls / totalTokens from credit aggregation
+    let totalLlmCalls = 0;
+    let creditTotalTokens = 0;
+    let creditInputTokens = 0;
+    let creditOutputTokens = 0;
+    let creditCacheCreationTokens = 0;
+    let creditCacheReadTokens = 0;
+
+    for (const g of creditAggGroups) {
+      totalLlmCalls += Number(g.call_count);
+      creditTotalTokens += Number(g.total_tokens ?? 0);
+      creditInputTokens += Number(g.total_input_tokens ?? 0);
+      creditOutputTokens += Number(g.total_output_tokens ?? 0);
+      creditCacheCreationTokens += Number(g.total_cache_creation_tokens ?? 0);
+      creditCacheReadTokens += Number(g.total_cache_read_tokens ?? 0);
+    }
+
+    // 优先使用 CreditTransaction 的 token 汇总（最可靠），fallback 到 TopicReport.totalTokens
+    const reportTotalTokens = latestReport?.totalTokens ?? 0;
+    const finalTotalTokens =
+      creditTotalTokens > 0 ? creditTotalTokens : reportTotalTokens;
+    // 预估 USD（基于 token 总量和平均 $2/1M token 估算）
+    const estimatedCostUsd =
+      finalTotalTokens > 0 ? (finalTotalTokens * 2) / 1_000_000 : 0;
+
+    // researchDurationMs: mission.startedAt → completedAt
+    let researchDurationMs = 0;
+    if (latestMission?.startedAt && latestMission?.completedAt) {
+      researchDurationMs =
+        new Date(latestMission.completedAt).getTime() -
+        new Date(latestMission.startedAt).getTime();
+    }
+
+    // modelDistribution from credit aggregation
+    const modelDistribution = creditAggGroups
+      .filter((g) => g.model_name !== null)
+      .map((g) => {
+        const tokens = Number(g.total_tokens ?? 0);
+        return {
+          modelId: g.model_name as string,
+          callCount: Number(g.call_count),
+          totalTokens: tokens,
+          inputTokens: Number(g.total_input_tokens ?? 0),
+          outputTokens: Number(g.total_output_tokens ?? 0),
+          cacheCreationTokens: Number(g.total_cache_creation_tokens ?? 0),
+          cacheReadTokens: Number(g.total_cache_read_tokens ?? 0),
+          estimatedCost: tokens > 0 ? (tokens * 2) / 1_000_000 : 0,
+          percentage:
+            totalLlmCalls > 0
+              ? Math.round((Number(g.call_count) / totalLlmCalls) * 100)
+              : 0,
+        };
+      })
+      .sort((a, b) => b.callCount - a.callCount);
+
+    // 6. 获取该 Topic 的所有 Mission 列表（用于前端选择器）
+    const allMissions = await this.prisma.researchMission.findMany({
+      where: { topicId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        status: true,
+        researchDepth: true,
+        startedAt: true,
+        completedAt: true,
+        createdAt: true,
+      },
+    });
+
+    // 7. 获取最新的时延跟踪数据（summary + steps 树形明细）
+    type StepWithActions = {
+      name: string;
+      durationMs: number;
+      actions: Array<{
+        name: string;
+        type: string;
+        model: string;
+        totalDurationMs: number;
+        ttftMs?: number;
+        ttltMs: number;
+        inputTokens: number;
+        outputTokens: number;
+      }>;
+    };
+    let latencySummary: LatencySessionSummary | undefined;
+    let latencySteps: StepWithActions[] = [];
+    if (this.latencyTracker) {
+      // 优先从 DB 查已完成的 session（phases 列存储 Step[]，含 actions）
+      try {
+        const dbSession = await this.prisma.latencySession.findFirst({
+          where: {
+            entityId: topicId,
+            type: "topic_insights_refresh",
+            ...(windowStart
+              ? { startTime: { gte: windowStart, lte: windowEnd } }
+              : {}),
+          },
+          orderBy: { createdAt: "desc" },
+          select: { summary: true, phases: true },
+        });
+        if (dbSession?.summary) {
+          latencySummary =
+            dbSession.summary as unknown as LatencySessionSummary;
+          // phases 列实际存储的是 LatencyStep[]（含 actions[]）
+          const rawSteps = (dbSession.phases ?? []) as unknown as Array<{
+            id?: string;
+            name: string;
+            parentStepId?: string;
+            durationMs?: number;
+            startTime?: number;
+            endTime?: number;
+            actions?: Array<{
+              name: string;
+              type?: string;
+              model: string;
+              totalDurationMs: number;
+              ttftMs?: number;
+              ttltMs: number;
+              inputTokens: number;
+              outputTokens: number;
+            }>;
+          }>;
+          latencySteps = rawSteps.map((s) => ({
+            name: s.name,
+            parentStepId: s.parentStepId,
+            durationMs:
+              s.durationMs ??
+              (s.startTime && s.endTime ? s.endTime - s.startTime : 0),
+            actions: (s.actions ?? []).map((a) => ({
+              name: a.name,
+              type: a.type ?? "llm_call",
+              model: a.model,
+              totalDurationMs: a.totalDurationMs,
+              ttftMs: a.ttftMs,
+              ttltMs: a.ttltMs,
+              inputTokens: a.inputTokens,
+              outputTokens: a.outputTokens,
+            })),
+          }));
+        }
+      } catch {
+        /* non-fatal */
+      }
+      // fallback 到内存中活跃的 session（实时数据）
+      if (!latencySummary) {
+        const activeSession = this.latencyTracker.getActiveSession(
+          topicId,
+          "topic_insights_refresh",
+        );
+        if (activeSession) {
+          latencySummary = this.latencyTracker.getActiveSessionSummary(
+            topicId,
+            "topic_insights_refresh",
+          );
+          // 从内存 session 提取 steps+actions 树
+          latencySteps = activeSession.steps.map((s) => ({
+            name: s.name,
+            parentStepId: s.parentStepId,
+            durationMs:
+              s.durationMs ??
+              (s.endTime ? s.endTime - s.startTime : Date.now() - s.startTime),
+            actions: s.actions.map((a) => ({
+              name: a.name,
+              type: a.type ?? "llm_call",
+              model: a.model,
+              totalDurationMs: a.totalDurationMs,
+              ttftMs: a.ttftMs,
+              ttltMs: a.ttltMs,
+              inputTokens: a.inputTokens,
+              outputTokens: a.outputTokens,
+            })),
+          }));
+        }
+      }
+    }
+
+    return {
+      summary: {
+        totalTokens: finalTotalTokens,
+        inputTokens: creditInputTokens,
+        outputTokens: creditOutputTokens,
+        cacheCreationTokens: creditCacheCreationTokens,
+        cacheReadTokens: creditCacheReadTokens,
+        totalCreditsConsumed,
+        estimatedCostUsd,
+        totalLlmCalls,
+        totalDimensions: latestReport?.totalDimensions ?? 0,
+        researchDurationMs,
+        reportGenerationMs: latestReport?.generationTimeMs ?? 0,
+      },
+      dimensions: dimensionAnalyses.map((da) => ({
+        dimensionName: da.dimension.name,
+        modelUsed: da.modelUsed,
+        tokensUsed: da.tokensUsed,
+        sourcesUsed: da.sourcesUsed,
+      })),
+      modelDistribution,
+      creditHistory: creditTransactions.map((t) => ({
+        operationType: t.operationType ?? "",
+        amount: t.amount,
+        tokenCount: t.tokenCount,
+        inputTokens: t.inputTokens,
+        outputTokens: t.outputTokens,
+        cacheCreationTokens: t.cacheCreationTokens,
+        cacheReadTokens: t.cacheReadTokens,
+        modelName: t.modelName,
+        createdAt: t.createdAt.toISOString(),
+      })),
+      mission: latestMission
+        ? {
+            leaderModel:
+              latestMission.leaderModelName ??
+              latestMission.leaderModelId ??
+              "",
+            researchDepth: latestMission.researchDepth ?? "",
+            startedAt: latestMission.startedAt?.toISOString() ?? null,
+            completedAt: latestMission.completedAt?.toISOString() ?? null,
+            totalTasks: latestMission.totalTasks,
+            completedTasks: latestMission.completedTasks,
+          }
+        : null,
+      latency: latencySummary ?? null,
+      latencySteps,
+      missions: allMissions.map((m) => ({
+        id: m.id,
+        status: m.status,
+        researchDepth: m.researchDepth,
+        startedAt: m.startedAt?.toISOString() ?? null,
+        completedAt: m.completedAt?.toISOString() ?? null,
+        createdAt: m.createdAt.toISOString(),
+      })),
+      currentMissionId: targetMission?.id ?? null,
+    };
   }
 
   /**

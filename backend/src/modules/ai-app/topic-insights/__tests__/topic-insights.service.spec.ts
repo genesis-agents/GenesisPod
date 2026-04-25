@@ -10,28 +10,27 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { TopicInsightsService } from "@/modules/ai-app/topic-insights/topic-insights.service";
+import { TopicInsightsService } from "../topic-insights.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
-import { ReportSynthesisService } from "@/modules/ai-app/topic-insights/artifacts/report/core/synthesis.service";
-import { EvidenceManagementService } from "@/modules/ai-app/topic-insights/knowledge/evidence/evidence.service";
-import { ReportChangeService } from "@/modules/ai-app/topic-insights/artifacts/report/editing/change.service";
-import { ReportAnnotationService } from "@/modules/ai-app/topic-insights/artifacts/report/editing/annotation.service";
-import { ResearchStrategyService } from "@/modules/ai-app/topic-insights/artifacts/strategy/strategy.service";
-import { AgentActivityService } from "@/modules/ai-app/topic-insights/agents/activity.service";
-import { CredibilityReportService } from "@/modules/ai-app/topic-insights/artifacts/report/enhancement/credibility-report.service";
-import { TopicCrudService } from "@/modules/ai-app/topic-insights/artifacts/topic/crud.service";
-import { TopicDimensionService } from "@/modules/ai-app/topic-insights/artifacts/topic/dimension.service";
-import { TopicExportService } from "@/modules/ai-app/topic-insights/artifacts/topic/export.service";
-import { TopicScheduleService } from "@/modules/ai-app/topic-insights/artifacts/topic/schedule.service";
-import { ReportQualityTraceService } from "@/modules/ai-app/topic-insights/artifacts/report/quality/report-quality-trace.service";
-import { ReportDataService } from "@/modules/ai-app/topic-insights/artifacts/report/core/data.service";
-import { LatexRepairService } from "@/modules/ai-app/topic-insights/artifacts/report/enhancement/latex-repair.service";
-import { ComputeUsageService } from "@/modules/ai-app/topic-insights/shared/compute-usage/compute-usage.service";
-import { ReportContentEditingService } from "@/modules/ai-app/topic-insights/artifacts/report/editing/content-editing.service";
-import { MissionExecutionService } from "../mission/control/execution.service";
-import { MissionCancellationService } from "../mission/control/cancellation.service";
+import {
+  TopicTeamOrchestratorService,
+  ReportSynthesisService,
+  EvidenceManagementService,
+  ReportChangeService,
+  ReportAnnotationService,
+  ResearchStrategyService,
+  AgentActivityService,
+  CredibilityReportService,
+  TopicCrudService,
+  TopicDimensionService,
+  TopicExportService,
+  TopicScheduleService,
+  ReportQualityTraceService,
+  ReportDataService,
+  LatexRepairService,
+} from "../services";
 import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -51,9 +50,6 @@ function buildMocks() {
     researchTopic: {
       findUnique: jest.fn(),
     },
-    researchMission: {
-      create: jest.fn().mockResolvedValue({ id: "mission-default" }),
-    },
     topicReportRevision: {
       findFirst: jest.fn(),
       create: jest.fn(),
@@ -68,8 +64,10 @@ function buildMocks() {
     emit: jest.fn(),
   };
 
-  const mockMissionExecution = {
-    startExecution: jest.fn().mockResolvedValue(undefined),
+  const mockOrchestrator = {
+    executeRefresh: jest.fn(),
+    getRefreshStatus: jest.fn(),
+    cancelRefresh: jest.fn(),
   };
 
   const mockReportService = {
@@ -174,7 +172,7 @@ function buildMocks() {
   return {
     mockPrisma,
     mockEventEmitter,
-    mockMissionExecution,
+    mockOrchestrator,
     mockReportService,
     mockEvidenceService,
     mockFacade,
@@ -200,9 +198,7 @@ describe("TopicInsightsService", () => {
   let service: TopicInsightsService;
   let mockPrisma: ReturnType<typeof buildMocks>["mockPrisma"];
   let mockEventEmitter: ReturnType<typeof buildMocks>["mockEventEmitter"];
-  let mockMissionExecution: ReturnType<
-    typeof buildMocks
-  >["mockMissionExecution"];
+  let mockOrchestrator: ReturnType<typeof buildMocks>["mockOrchestrator"];
   let mockReportService: ReturnType<typeof buildMocks>["mockReportService"];
   let mockCrudService: ReturnType<typeof buildMocks>["mockCrudService"];
   let mockDimensionService: ReturnType<
@@ -220,7 +216,7 @@ describe("TopicInsightsService", () => {
     const mocks = buildMocks();
     mockPrisma = mocks.mockPrisma;
     mockEventEmitter = mocks.mockEventEmitter;
-    mockMissionExecution = mocks.mockMissionExecution;
+    mockOrchestrator = mocks.mockOrchestrator;
     mockReportService = mocks.mockReportService;
     mockCrudService = mocks.mockCrudService;
     mockDimensionService = mocks.mockDimensionService;
@@ -233,11 +229,7 @@ describe("TopicInsightsService", () => {
         TopicInsightsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: MissionExecutionService, useValue: mockMissionExecution },
-        {
-          provide: MissionCancellationService,
-          useValue: { cancel: jest.fn().mockReturnValue(false) },
-        },
+        { provide: TopicTeamOrchestratorService, useValue: mockOrchestrator },
         { provide: ReportSynthesisService, useValue: mockReportService },
         {
           provide: EvidenceManagementService,
@@ -279,20 +271,6 @@ describe("TopicInsightsService", () => {
         {
           provide: LatexRepairService,
           useValue: { repairMarkdown: jest.fn() },
-        },
-        {
-          provide: ComputeUsageService,
-          useValue: { getComputeUsage: jest.fn() },
-        },
-        {
-          provide: ReportContentEditingService,
-          useValue: {
-            updateReportContent: jest.fn(),
-            aiEditReport: jest.fn(),
-            getReportRevisions: jest.fn(),
-            rollbackReport: jest.fn(),
-            compareReports: jest.fn(),
-          },
         },
       ],
     }).compile();
@@ -586,15 +564,15 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("triggerRefresh", () => {
-    it("should start a harness mission for FULL refresh", async () => {
+    it("should call orchestrator executeRefresh with correct options for FULL refresh", async () => {
       const mockTopic = {
         id: "topic-001",
         name: "测试专题",
         userId: "user-001",
       };
       mockCrudService.getTopic.mockResolvedValue(mockTopic);
-      mockPrisma.researchMission.create.mockResolvedValue({ id: "mission-1" });
-      mockPrisma.topicReport.findFirst.mockResolvedValue({ id: "report-001" });
+      const mockReport = { id: "report-001" };
+      mockOrchestrator.executeRefresh.mockResolvedValue(mockReport);
 
       const dto = { type: "FULL" };
       const result = await service.triggerRefresh(
@@ -603,30 +581,33 @@ describe("TopicInsightsService", () => {
         dto as never,
       );
 
-      expect(mockPrisma.researchMission.create).toHaveBeenCalledTimes(1);
-      expect(mockMissionExecution.startExecution).toHaveBeenCalledWith(
-        "mission-1",
-        "topic-001",
+      expect(mockOrchestrator.executeRefresh).toHaveBeenCalledWith(
+        mockTopic,
+        expect.objectContaining({
+          forceRefresh: true,
+          incremental: false,
+        }),
       );
       expect(result.success).toBe(true);
       expect(result.reportId).toBe("report-001");
     });
 
-    it("should start a harness mission with incremental mode for INCREMENTAL refresh", async () => {
+    it("should use incremental option for INCREMENTAL refresh type", async () => {
       const mockTopic = {
         id: "topic-001",
         name: "测试专题",
         userId: "user-001",
       };
       mockCrudService.getTopic.mockResolvedValue(mockTopic);
-      mockPrisma.researchMission.create.mockResolvedValue({ id: "mission-2" });
-      mockPrisma.topicReport.findFirst.mockResolvedValue({ id: "report-002" });
+      mockOrchestrator.executeRefresh.mockResolvedValue({ id: "report-002" });
 
       const dto = { type: "INCREMENTAL" };
       await service.triggerRefresh("user-001", "topic-001", dto as never);
 
-      const createCall = mockPrisma.researchMission.create.mock.calls[0][0];
-      expect(createCall.data.userContext).toEqual({ mode: "incremental" });
+      expect(mockOrchestrator.executeRefresh).toHaveBeenCalledWith(
+        mockTopic,
+        expect.objectContaining({ incremental: true }),
+      );
     });
 
     it("should propagate error when topic not found", async () => {
@@ -808,7 +789,7 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("smartStartResearch", () => {
-    it("should use smart strategy and start a harness mission", async () => {
+    it("should use smart strategy to determine refresh options", async () => {
       const mockTopic = {
         id: "topic-001",
         name: "智能研究",
@@ -822,10 +803,7 @@ describe("TopicInsightsService", () => {
         dimensionIds: undefined,
         incremental: true,
       });
-      mockPrisma.researchMission.create.mockResolvedValue({
-        id: "mission-smart",
-      });
-      mockPrisma.topicReport.findFirst.mockResolvedValue({
+      mockOrchestrator.executeRefresh.mockResolvedValue({
         id: "report-smart-001",
       });
 
@@ -834,12 +812,10 @@ describe("TopicInsightsService", () => {
       expect(
         mockResearchStrategyService.getSmartRefreshOptions,
       ).toHaveBeenCalledWith("topic-001");
-      expect(mockMissionExecution.startExecution).toHaveBeenCalledWith(
-        "mission-smart",
-        "topic-001",
+      expect(mockOrchestrator.executeRefresh).toHaveBeenCalledWith(
+        mockTopic,
+        expect.objectContaining({ incremental: true }),
       );
-      const createCall = mockPrisma.researchMission.create.mock.calls[0][0];
-      expect(createCall.data.userContext).toEqual({ mode: "incremental" });
       expect(result.strategy).toBe("INCREMENTAL");
     });
   });
@@ -929,12 +905,15 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("getRefreshStatus", () => {
-    it("should return refresh status from harness mission + latest log", async () => {
+    it("should return refresh status and latest log", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockPrisma.researchMission.findFirst = jest.fn().mockResolvedValue(null);
+      mockOrchestrator.getRefreshStatus.mockReturnValue({
+        isRunning: false,
+        startedAt: null,
+      });
       const latestLog = { id: "log-001", startedAt: new Date() };
       mockPrisma.topicRefreshLog.findFirst.mockResolvedValue(latestLog);
 
@@ -958,18 +937,12 @@ describe("TopicInsightsService", () => {
   // ============================================================
 
   describe("cancelRefresh", () => {
-    it("should cancel active harness mission and return success", async () => {
+    it("should cancel refresh and return success true when running", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockPrisma.researchMission.findFirst = jest
-        .fn()
-        .mockResolvedValue({ id: "m-active" });
-      // Re-provide cancellation mock returning true
-      (
-        service as unknown as { cancellation: { cancel: jest.Mock } }
-      ).cancellation = { cancel: jest.fn().mockReturnValue(true) };
+      mockOrchestrator.cancelRefresh = jest.fn().mockResolvedValue(true);
 
       const result = await service.cancelRefresh(
         "user-001",
@@ -981,12 +954,12 @@ describe("TopicInsightsService", () => {
       expect(result.message).toContain("取消");
     });
 
-    it("should return success false when no refresh mission is active", async () => {
+    it("should return success false when no refresh is running", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockPrisma.researchMission.findFirst = jest.fn().mockResolvedValue(null);
+      mockOrchestrator.cancelRefresh = jest.fn().mockResolvedValue(false);
 
       const result = await service.cancelRefresh(
         "user-001",
@@ -1215,6 +1188,179 @@ describe("TopicInsightsService", () => {
       expect(evidenceSvcMock.recalculateCredibilityScores).toHaveBeenCalledWith(
         "report-001",
       );
+    });
+  });
+
+  // ============================================================
+  // aiEditReport
+  // ============================================================
+
+  describe("aiEditReport", () => {
+    const setupAiEditMocks = () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({
+        id: "report-001",
+        topicId: "topic-001",
+        fullReport: "Original report content with [some text] to replace.",
+      });
+      const prismaMock = mockPrisma as unknown as { $transaction: jest.Mock };
+      prismaMock.$transaction = jest
+        .fn()
+        .mockImplementation(
+          async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+            const fakeTx = {
+              topicReportRevision: {
+                findFirst: jest.fn().mockResolvedValue(null),
+                create: jest.fn(),
+              },
+              topicReport: {
+                update: jest.fn().mockResolvedValue({
+                  id: "report-001",
+                  fullReport: "Edited content",
+                }),
+              },
+            };
+            return fn(fakeTx);
+          },
+        );
+    };
+
+    it("should perform AI edit with selectedText and replace in report", async () => {
+      setupAiEditMocks();
+      const facadeMock = (
+        service as unknown as { chatFacade: { chat: jest.Mock } }
+      ).chatFacade;
+      facadeMock.chat = jest
+        .fn()
+        .mockResolvedValue({ content: "Edited content", isError: false });
+
+      const result = await service.aiEditReport(
+        "user-001",
+        "topic-001",
+        "report-001",
+        {
+          operation: "rewrite",
+          selectedText: "some text",
+          context: "Make it better",
+        },
+      );
+
+      expect(result.editedContent).toBe("Edited content");
+      expect(result.operation).toBe("rewrite");
+    });
+
+    it("should use entire report when no selectedText is provided", async () => {
+      setupAiEditMocks();
+      const facadeMock = (
+        service as unknown as { chatFacade: { chat: jest.Mock } }
+      ).chatFacade;
+      facadeMock.chat = jest.fn().mockResolvedValue({
+        content: "Completely new report",
+        isError: false,
+      });
+
+      const result = await service.aiEditReport(
+        "user-001",
+        "topic-001",
+        "report-001",
+        {
+          operation: "polish",
+        },
+      );
+
+      expect(result.editedContent).toBe("Completely new report");
+    });
+
+    it("should throw NotFoundException when report not found for AI edit", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        service.aiEditReport("user-001", "topic-001", "no-report", {
+          operation: "polish",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw ForbiddenException when user does not own topic for AI edit", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "other-user",
+      });
+
+      await expect(
+        service.aiEditReport("user-001", "topic-001", "report-001", {
+          operation: "polish",
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ============================================================
+  // getReportRevisions
+  // ============================================================
+
+  describe("getReportRevisions", () => {
+    it("should delegate to reportDataService.getReportRevisions", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest
+        .fn()
+        .mockResolvedValue({ id: "report-001", topicId: "topic-001" });
+      const revisions = [
+        { id: "rev-001", revisionNumber: 1, changeDescription: "Initial" },
+      ];
+      const reportDataSvcMock = (
+        service as unknown as {
+          reportDataService: { getReportRevisions: jest.Mock };
+        }
+      ).reportDataService;
+      reportDataSvcMock.getReportRevisions = jest
+        .fn()
+        .mockResolvedValue(revisions);
+
+      const result = await service.getReportRevisions(
+        "user-001",
+        "topic-001",
+        "report-001",
+      );
+
+      expect(reportDataSvcMock.getReportRevisions).toHaveBeenCalledWith(
+        "report-001",
+      );
+      expect(result).toEqual(revisions);
+    });
+
+    it("should throw NotFoundException when report not found for revisions", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        service.getReportRevisions("user-001", "topic-001", "no-report"),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -1690,18 +1836,13 @@ describe("TopicInsightsService", () => {
   // cancelRefresh
   // ============================================================
 
-  describe("cancelRefresh (harness path)", () => {
-    it("should verify ownership and cancel the active mission", async () => {
+  describe("cancelRefresh", () => {
+    it("should verify ownership and cancel via orchestrator", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockPrisma.researchMission.findFirst = jest
-        .fn()
-        .mockResolvedValue({ id: "m-1" });
-      (
-        service as unknown as { cancellation: { cancel: jest.Mock } }
-      ).cancellation = { cancel: jest.fn().mockReturnValue(true) };
+      mockOrchestrator.cancelRefresh.mockResolvedValue(true);
 
       const result = await service.cancelRefresh(
         "user-001",
@@ -1713,12 +1854,12 @@ describe("TopicInsightsService", () => {
       expect(result.message).toBe("刷新已取消");
     });
 
-    it("should return not-cancelled message when no mission is active", async () => {
+    it("should return not-cancelled message when no refresh in progress", async () => {
       mockPrisma.researchTopic.findUnique.mockResolvedValue({
         id: "topic-001",
         userId: "user-001",
       });
-      mockPrisma.researchMission.findFirst = jest.fn().mockResolvedValue(null);
+      mockOrchestrator.cancelRefresh.mockResolvedValue(false);
 
       const result = await service.cancelRefresh(
         "user-001",
@@ -2041,6 +2182,286 @@ describe("TopicInsightsService", () => {
 
       expect(received.length).toBe(0);
       sub.unsubscribe();
+    });
+  });
+
+  // ============================================================
+  // updateReportContent
+  // ============================================================
+
+  describe("updateReportContent", () => {
+    it("should delegate to reportDataService.updateReportContent", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({
+        id: "report-001",
+        topicId: "topic-001",
+        fullReport: "Original content",
+      });
+
+      const reportDataSvcMock = (
+        service as unknown as {
+          reportDataService: { updateReportContent: jest.Mock };
+        }
+      ).reportDataService;
+      reportDataSvcMock.updateReportContent = jest.fn().mockResolvedValue({
+        id: "report-001",
+        fullReport: "New content",
+      });
+
+      const dto = {
+        fullReport: "New content",
+        changeDescription: "Manual edit",
+      };
+      const result = (await service.updateReportContent(
+        "user-001",
+        "topic-001",
+        "report-001",
+        dto,
+      )) as Record<string, unknown>;
+
+      expect(reportDataSvcMock.updateReportContent).toHaveBeenCalledWith(
+        "report-001",
+        dto,
+      );
+      expect(result.id).toBe("report-001");
+    });
+
+    it("should throw NotFoundException when report not found for updateReportContent", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        service.updateReportContent("user-001", "topic-001", "no-report", {
+          fullReport: "new",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ============================================================
+  // rollbackReport
+  // ============================================================
+
+  describe("rollbackReport", () => {
+    it("should delegate to reportDataService.rollbackToRevision", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({
+        id: "report-001",
+        topicId: "topic-001",
+        fullReport: "Current content",
+      });
+
+      const reportDataSvcMock = (
+        service as unknown as {
+          reportDataService: { rollbackToRevision: jest.Mock };
+        }
+      ).reportDataService;
+      reportDataSvcMock.rollbackToRevision = jest.fn().mockResolvedValue({
+        report: { id: "report-001", fullReport: "Version 1 content" },
+        rolledBackFrom: 3,
+        rolledBackTo: 1,
+      });
+
+      const result = (await service.rollbackReport(
+        "user-001",
+        "topic-001",
+        "report-001",
+        1,
+      )) as Record<string, unknown>;
+
+      expect(reportDataSvcMock.rollbackToRevision).toHaveBeenCalledWith(
+        "report-001",
+        1,
+        "Current content",
+      );
+      expect(result.rolledBackTo).toBe(1);
+      expect(result.rolledBackFrom).toBe(3);
+    });
+
+    it("should throw NotFoundException when report not found for rollback", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        service.rollbackReport("user-001", "topic-001", "no-report", 1),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ============================================================
+  // compareReports
+  // ============================================================
+
+  describe("compareReports", () => {
+    it("should compare two report versions successfully", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      // Two reports for from/to versions
+      mockPrisma.topicReport.findFirst
+        .mockResolvedValueOnce({ id: "report-v1" })
+        .mockResolvedValueOnce({ id: "report-v2" });
+
+      const reportSvcMock = (
+        service as unknown as { reportService: { compareReports: jest.Mock } }
+      ).reportService;
+      reportSvcMock.compareReports = jest
+        .fn()
+        .mockResolvedValue({ diff: "some diff" });
+
+      const result = await service.compareReports("user-001", "topic-001", {
+        from: 1,
+        to: 2,
+      } as never);
+
+      expect(reportSvcMock.compareReports).toHaveBeenCalledWith(
+        "topic-001",
+        "report-v1",
+        "report-v2",
+      );
+      expect((result as Record<string, unknown>).diff).toBe("some diff");
+    });
+
+    it("should throw NotFoundException when one or both report versions not found", async () => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      mockPrisma.topicReport.findFirst
+        .mockResolvedValueOnce({ id: "report-v1" })
+        .mockResolvedValueOnce(null); // second version not found
+
+      await expect(
+        service.compareReports("user-001", "topic-001", {
+          from: 1,
+          to: 99,
+        } as never),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ============================================================
+  // aiEditReport — context-based selection paths
+  // ============================================================
+
+  describe("aiEditReport — selection context paths", () => {
+    const setupMocks = (fullReport: string) => {
+      mockPrisma.researchTopic.findUnique.mockResolvedValue({
+        id: "topic-001",
+        userId: "user-001",
+      });
+      const reportSvcMock = (
+        service as unknown as { reportService: { getReport: jest.Mock } }
+      ).reportService;
+      reportSvcMock.getReport = jest.fn().mockResolvedValue({
+        id: "report-001",
+        topicId: "topic-001",
+        fullReport,
+      });
+      const prismaMock = mockPrisma as unknown as { $transaction: jest.Mock };
+      prismaMock.$transaction = jest
+        .fn()
+        .mockImplementation(
+          async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+            const fakeTx = {
+              topicReportRevision: {
+                findFirst: jest.fn().mockResolvedValue(null),
+                create: jest.fn(),
+              },
+              topicReport: {
+                update: jest.fn().mockResolvedValue({
+                  id: "report-001",
+                  fullReport: "replaced",
+                }),
+              },
+            };
+            return fn(fakeTx);
+          },
+        );
+      const facadeMock = (
+        service as unknown as { chatFacade: { chat: jest.Mock } }
+      ).chatFacade;
+      facadeMock.chat = jest
+        .fn()
+        .mockResolvedValue({ content: "AI edited text", isError: false });
+    };
+
+    it("should use selectorPrefix+selectorSuffix for context-based replacement", async () => {
+      setupMocks("PREFIXselected textSUFFIX rest of report");
+
+      const result = (await service.aiEditReport(
+        "user-001",
+        "topic-001",
+        "report-001",
+        {
+          operation: "rewrite",
+          selectedText: "selected text",
+          selectorPrefix: "PREFIX",
+          selectorSuffix: "SUFFIX",
+        },
+      )) as Record<string, unknown>;
+
+      expect(result.editedContent).toBe("AI edited text");
+    });
+
+    it("should fall back to indexOf when selectorPrefix context not found", async () => {
+      setupMocks("hello selected text world");
+
+      const result = (await service.aiEditReport(
+        "user-001",
+        "topic-001",
+        "report-001",
+        {
+          operation: "rewrite",
+          selectedText: "selected text",
+          selectorPrefix: "NONEXISTENT_PREFIX",
+          selectorSuffix: "",
+        },
+      )) as Record<string, unknown>;
+
+      expect(result.editedContent).toBe("AI edited text");
+    });
+
+    it("should log warning when selection not found anywhere in report", async () => {
+      setupMocks("completely different content");
+
+      const result = (await service.aiEditReport(
+        "user-001",
+        "topic-001",
+        "report-001",
+        {
+          operation: "rewrite",
+          selectedText: "text that is not there",
+        },
+      )) as Record<string, unknown>;
+
+      // When selection not found, editedContent is still returned
+      expect(result.editedContent).toBe("AI edited text");
     });
   });
 

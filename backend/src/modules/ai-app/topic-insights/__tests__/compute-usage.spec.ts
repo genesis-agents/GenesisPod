@@ -1,9 +1,5 @@
 /**
- * ComputeUsageService – getComputeUsage unit tests
- *
- * Migrated from TopicInsightsService god-service split (God Service decomposition
- * step 1 — extract getComputeUsage into its own service). Tests the same
- * behaviors against the new standalone ComputeUsageService which owns the logic.
+ * TopicInsightsService – getComputeUsage unit tests
  *
  * Tests cover:
  * - Mission resolution: latest, specific, invalid, cross-topic, no missions
@@ -15,8 +11,27 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
-import { ComputeUsageService } from "@/modules/ai-app/topic-insights/shared/compute-usage/compute-usage.service";
+import { TopicInsightsService } from "../topic-insights.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  TopicTeamOrchestratorService,
+  ReportSynthesisService,
+  EvidenceManagementService,
+  ReportChangeService,
+  ReportAnnotationService,
+  ResearchStrategyService,
+  AgentActivityService,
+  CredibilityReportService,
+  TopicCrudService,
+  TopicDimensionService,
+  TopicExportService,
+  TopicScheduleService,
+  ReportQualityTraceService,
+  ReportDataService,
+  LatexRepairService,
+} from "../services";
+import { ChatFacade } from "@/modules/ai-engine/facade";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -94,26 +109,157 @@ function buildMocks() {
     $queryRaw: jest.fn().mockResolvedValue([]),
   };
 
-  return { mockPrisma };
+  const _noop = () => ({});
+
+  return {
+    mockPrisma,
+    mockEventEmitter: { emit: jest.fn(), on: jest.fn(), off: jest.fn() },
+    mockOrchestrator: {
+      executeRefresh: jest.fn(),
+      getRefreshStatus: jest.fn(),
+      cancelRefresh: jest.fn(),
+    },
+    mockReportService: {
+      synthesizeReport: jest.fn(),
+      getReport: jest.fn(),
+      listReports: jest.fn(),
+      compareReports: jest.fn(),
+      reprocessExistingReport: jest.fn(),
+      getLatestReport: jest.fn(),
+    },
+    mockEvidenceService: {
+      recalculateCredibilityScores: jest.fn(),
+      listEvidence: jest.fn(),
+      getEvidence: jest.fn(),
+    },
+    mockFacade: { chat: jest.fn() },
+    mockReportChangeService: {
+      getChanges: jest.fn(),
+      addChange: jest.fn(),
+      checkinChange: jest.fn(),
+      checkinAllChanges: jest.fn(),
+    },
+    mockReportAnnotationService: {
+      getAnnotations: jest.fn(),
+      addAnnotation: jest.fn(),
+      createAnnotation: jest.fn(),
+      updateAnnotation: jest.fn(),
+      deleteAnnotation: jest.fn(),
+      resolveAnnotation: jest.fn(),
+      resolveAllAnnotations: jest.fn(),
+    },
+    mockResearchStrategyService: {
+      analyzeAndRecommend: jest.fn(),
+      quickCheck: jest.fn(),
+      getSmartRefreshOptions: jest.fn(),
+    },
+    mockAgentActivityService: {
+      getActivitiesByDimension: jest.fn(),
+      getActivityStats: jest.fn(),
+    },
+    mockCredibilityReportService: {
+      getOrGenerateCredibilityReport: jest.fn(),
+      generateCredibilityReport: jest.fn(),
+    },
+    mockCrudService: {
+      createTopic: jest.fn(),
+      listTopics: jest.fn(),
+      getTopic: jest.fn(),
+      updateTopic: jest.fn(),
+      deleteTopic: jest.fn(),
+      getResearchHistory: jest.fn(),
+      getLogs: jest.fn(),
+      getStats: jest.fn(),
+      recalculateTopicStats: jest.fn(),
+    },
+    mockDimensionService: {
+      listDimensions: jest.fn(),
+      addDimension: jest.fn(),
+      updateDimension: jest.fn(),
+      deleteDimension: jest.fn(),
+      refreshDimension: jest.fn(),
+      reorderDimensions: jest.fn(),
+      getTemplates: jest.fn(),
+      createFromTemplate: jest.fn(),
+    },
+    mockExportService: {
+      exportReport: jest.fn(),
+      updateVisibility: jest.fn(),
+      getSharingSettings: jest.fn(),
+      getSharedTopic: jest.fn(),
+      getSharedTopicLatestReport: jest.fn(),
+    },
+    mockScheduleService: { getSchedule: jest.fn(), updateSchedule: jest.fn() },
+    mockQualityTraceService: {
+      getQualityTrace: jest.fn(),
+      getQualitySummary: jest.fn(),
+      getQualityDetails: jest.fn(),
+    },
+    mockReportDataService: {
+      deleteReportCascade: jest.fn(),
+      updateReportContent: jest.fn(),
+      getReportRevisions: jest.fn(),
+      rollbackToRevision: jest.fn(),
+      saveAiEditRevision: jest.fn(),
+    },
+  };
 }
 
 async function buildService(mocks: ReturnType<typeof buildMocks>) {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
-      ComputeUsageService,
+      TopicInsightsService,
       { provide: PrismaService, useValue: mocks.mockPrisma },
+      { provide: EventEmitter2, useValue: mocks.mockEventEmitter },
+      {
+        provide: TopicTeamOrchestratorService,
+        useValue: mocks.mockOrchestrator,
+      },
+      { provide: ReportSynthesisService, useValue: mocks.mockReportService },
+      {
+        provide: EvidenceManagementService,
+        useValue: mocks.mockEvidenceService,
+      },
+      { provide: ChatFacade, useValue: mocks.mockFacade },
+      { provide: ReportChangeService, useValue: mocks.mockReportChangeService },
+      {
+        provide: ReportAnnotationService,
+        useValue: mocks.mockReportAnnotationService,
+      },
+      {
+        provide: ResearchStrategyService,
+        useValue: mocks.mockResearchStrategyService,
+      },
+      {
+        provide: AgentActivityService,
+        useValue: mocks.mockAgentActivityService,
+      },
+      {
+        provide: CredibilityReportService,
+        useValue: mocks.mockCredibilityReportService,
+      },
+      { provide: TopicCrudService, useValue: mocks.mockCrudService },
+      { provide: TopicDimensionService, useValue: mocks.mockDimensionService },
+      { provide: TopicExportService, useValue: mocks.mockExportService },
+      { provide: TopicScheduleService, useValue: mocks.mockScheduleService },
+      {
+        provide: ReportQualityTraceService,
+        useValue: mocks.mockQualityTraceService,
+      },
+      { provide: ReportDataService, useValue: mocks.mockReportDataService },
+      { provide: LatexRepairService, useValue: { repairMarkdown: jest.fn() } },
     ],
   }).compile();
 
-  return module.get<ComputeUsageService>(ComputeUsageService);
+  return module.get<TopicInsightsService>(TopicInsightsService);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("ComputeUsageService – getComputeUsage", () => {
-  let service: ComputeUsageService;
+describe("TopicInsightsService – getComputeUsage", () => {
+  let service: TopicInsightsService;
   let mocks: ReturnType<typeof buildMocks>;
 
   beforeEach(async () => {

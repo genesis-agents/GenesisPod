@@ -11,7 +11,7 @@
 import {
   wrapExternalContent,
   EXTERNAL_CONTENT_SYSTEM_NOTICE_ZH,
-} from "@/modules/ai-app/topic-insights/shared/utils/external-content-wrapper.utils";
+} from "../utils/external-content-wrapper.utils";
 
 /**
  * 报告编辑系统提示词

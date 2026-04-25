@@ -14,13 +14,13 @@ import {
   TABLE_STANDARDS,
   QUALITY_CHECKLIST,
 } from "@/modules/ai-app/shared/report-template";
-import { isValidFigureUrl } from "@/modules/ai-app/topic-insights/shared/utils/sanitize-image-url.utils";
+import { isValidFigureUrl } from "../utils/sanitize-image-url.utils";
 import {
   buildContiguousMapping,
   type LocalToGlobalMap,
-} from "@/modules/ai-app/topic-insights/shared/utils/citation-verifier.utils";
-import { wrapExternalContent } from "@/modules/ai-app/topic-insights/shared/utils/external-content-wrapper.utils";
-import { sanitizeExternalContent } from "@/modules/ai-app/topic-insights/shared/utils/prompt-sanitizer.utils";
+} from "../utils/citation-verifier.utils";
+import { wrapExternalContent } from "../utils/external-content-wrapper.utils";
+import { sanitizeExternalContent } from "../utils/prompt-sanitizer";
 
 /**
  * 维度研究系统提示词

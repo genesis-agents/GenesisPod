@@ -14,5 +14,5 @@ export {
   CollaborationController,
   TodoController,
   ReportReviewController,
-} from "./api/controllers";
-export { TopicInsightsGateway } from "./api/gateways/realtime.gateway";
+} from "./controllers";
+export { TopicInsightsGateway } from "./topic-insights.gateway";
