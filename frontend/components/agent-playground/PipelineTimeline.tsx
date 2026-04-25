@@ -38,11 +38,9 @@ export function PipelineTimeline({ stages }: { stages: StageState[] }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">
-          Mission Pipeline
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-900">Mission 流水线</h3>
         <span className="text-xs font-medium text-gray-500">
-          {completed} / {stages.length} stages · {pct}%
+          {completed} / {stages.length} 阶段 · {pct}%
         </span>
       </div>
       <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-gray-100">
@@ -100,7 +98,7 @@ export function PipelineTimeline({ stages }: { stages: StageState[] }) {
                   </p>
                 ) : (
                   <p className="mt-1 text-[11px] text-gray-400">
-                    {s.status === 'pending' ? 'Waiting' : 'In progress'}
+                    {s.status === 'pending' ? '等待' : '进行中'}
                   </p>
                 )}
                 {dur && (

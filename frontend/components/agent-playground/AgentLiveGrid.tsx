@@ -363,8 +363,12 @@ function AgentCard({ agent }: { agent: AgentLiveState }) {
       {agent.trace.length === 0 ? (
         <p className="rounded-lg bg-gray-50 px-3 py-2 text-[11px] text-gray-400">
           {agent.phase === 'pending'
-            ? 'Waiting to start…'
-            : 'No trace events yet'}
+            ? '等待启动…'
+            : agent.phase === 'completed'
+              ? '✓ 已完成（执行轨迹已从内存释放）'
+              : agent.phase === 'failed'
+                ? '✗ 已失败（执行轨迹已从内存释放）'
+                : '执行中（暂无 trace 事件）…'}
         </p>
       ) : (
         <>
@@ -398,11 +402,9 @@ export function AgentLiveGrid({ agents }: { agents: AgentLiveState[] }) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
         <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-gray-400" />
-        <p className="text-sm font-medium text-gray-700">
-          Waiting for agents to spin up
-        </p>
+        <p className="text-sm font-medium text-gray-700">等待 Agent 启动</p>
         <p className="mt-1 text-xs text-gray-500">
-          Once Leader plans dimensions, parallel Researchers will appear here
+          Leader 拆分维度后，并行 Researcher 会出现在这里
         </p>
       </div>
     );
@@ -410,10 +412,10 @@ export function AgentLiveGrid({ agents }: { agents: AgentLiveState[] }) {
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">Agents · Live</h3>
+        <h3 className="text-sm font-semibold text-gray-900">实时 Agent 协作</h3>
         <span className="text-xs text-gray-500">
-          {agents.filter((a) => a.phase === 'running').length} running ·{' '}
-          {agents.filter((a) => a.phase === 'completed').length} done
+          进行中 {agents.filter((a) => a.phase === 'running').length} · 完成{' '}
+          {agents.filter((a) => a.phase === 'completed').length}
         </span>
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
