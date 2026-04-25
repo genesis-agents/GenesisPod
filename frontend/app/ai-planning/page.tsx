@@ -10,7 +10,8 @@ import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';
 import type { PlanSummary } from '@/lib/api/ai-planning';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
-import ClientDate from '@/components/common/ClientDate';
+import { AssetCard } from '@/components/common/asset-card';
+import { Users } from 'lucide-react';
 
 export default function AiPlanningPage() {
   const { t } = useTranslation();
@@ -324,85 +325,36 @@ function PlanCard({
   const { t } = useTranslation();
 
   const currentPhaseKey = PHASE_KEYS[plan.currentPhase] || '';
-
   const activePhase = Object.entries(plan.phaseStatus).find(
     ([, s]) => s.status === 'active'
   );
 
   return (
-    <div className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md">
-      {/* Action buttons */}
-      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditClick();
-          }}
-          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-amber-50 hover:text-amber-600"
+    <AssetCard
+      title={plan.name}
+      description={plan.goal}
+      icon={
+        <svg
+          className="h-6 w-6 text-white"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-            />
-          </svg>
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <div onClick={onClick}>
-        {/* Icon */}
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25 transition-transform group-hover:scale-105">
-          <svg
-            className="h-6 w-6 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-            />
-          </svg>
-        </div>
-
-        {/* Title & Goal */}
-        <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-amber-600">
-          {plan.name}
-        </h3>
-        <p className="mt-1 line-clamp-2 text-sm text-gray-500">{plan.goal}</p>
-
-        {/* Phase Progress */}
-        <div className="mt-3">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+          />
+        </svg>
+      }
+      gradient="from-amber-500 to-orange-600"
+      isOwner
+      onEdit={onEditClick}
+      onDelete={onDelete}
+      onClick={onClick}
+      customSection={
+        <div>
           <div className="flex items-center gap-1.5">
             {[1, 2, 3, 4, 5, 6].map((phase) => {
               const status = plan.phaseStatus[phase]?.status || 'pending';
@@ -431,28 +383,15 @@ function PlanCard({
             )}
           </p>
         </div>
-
-        {/* Footer */}
-        <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            {plan.memberCount} AI
-          </span>
-          <ClientDate date={plan.updatedAt} format="date" />
-        </div>
-      </div>
-    </div>
+      }
+      stats={[
+        {
+          key: 'members',
+          icon: <Users className="h-3.5 w-3.5" />,
+          text: `${plan.memberCount} AI`,
+        },
+      ]}
+      timestamp={plan.updatedAt}
+    />
   );
 }

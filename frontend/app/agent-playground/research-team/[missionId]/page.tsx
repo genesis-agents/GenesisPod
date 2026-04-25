@@ -852,51 +852,87 @@ function CompactMeters({
 }
 
 function SourcesTab({ sources }: { sources: string[] }) {
+  // 把 URL 按域名聚类便于浏览
+  const grouped = (() => {
+    const map = new Map<string, string[]>();
+    for (const u of sources) {
+      let host = '其它';
+      try {
+        host = new URL(u).hostname.replace(/^www\./, '');
+      } catch {
+        // ignore non-URLs
+      }
+      const arr = map.get(host) ?? [];
+      arr.push(u);
+      map.set(host, arr);
+    }
+    return [...map.entries()].sort((a, b) => b[1].length - a[1].length);
+  })();
+
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-4 flex items-center gap-2">
         <Layers className="h-4 w-4 text-violet-500" />
-        <h3 className="text-sm font-semibold text-gray-900">
-          All sources cited in report
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-900">参考文献</h3>
         <span className="ml-auto text-xs text-gray-500">
-          {sources.length} unique URLs
+          {sources.length} 个唯一来源 · {grouped.length} 个域名
         </span>
       </div>
       {sources.length === 0 ? (
-        <p className="rounded-lg bg-gray-50 px-3 py-3 text-[12px] text-gray-500">
-          Sources will appear once Researchers / Writer cite them.
-        </p>
+        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/40 px-4 py-8 text-center">
+          <Layers className="mx-auto mb-2 h-7 w-7 text-gray-300" />
+          <p className="text-sm font-medium text-gray-700">暂无引用来源</p>
+          <p className="mt-1 text-[11px] text-gray-500">
+            Researcher / Writer 在报告中引用 URL 后会自动收集到这里
+          </p>
+        </div>
       ) : (
-        <ul className="space-y-1.5">
-          {sources.map((u, i) => {
-            const safe = /^https?:\/\//i.test(u) ? u : null;
-            return (
-              <li
-                key={`${u}-${i}`}
-                className="rounded-lg border border-gray-100 px-3 py-2 hover:border-violet-200 hover:bg-violet-50/30"
-              >
-                {safe ? (
-                  <a
-                    href={safe}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block break-words text-xs text-violet-700 underline-offset-2 hover:underline"
-                  >
-                    {safe}
-                  </a>
-                ) : (
-                  <span
-                    className="block break-words text-xs text-gray-400"
-                    title="non-http(s) source filtered"
-                  >
-                    {u}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <div className="space-y-3">
+          {grouped.map(([host, urls]) => (
+            <div
+              key={host}
+              className="rounded-xl border border-gray-100 bg-gray-50/30"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+                <span className="font-mono text-[11px] font-semibold text-gray-700">
+                  {host}
+                </span>
+                <span className="text-[10px] text-gray-500">
+                  {urls.length} 条
+                </span>
+              </div>
+              <ul className="space-y-1 p-2">
+                {urls.map((u, i) => {
+                  const safe = /^https?:\/\//i.test(u) ? u : null;
+                  return (
+                    <li
+                      key={`${u}-${i}`}
+                      className="rounded-md px-2 py-1.5 hover:bg-violet-50/40"
+                    >
+                      {safe ? (
+                        <a
+                          href={safe}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="line-clamp-2 break-all text-[11px] text-violet-700 underline-offset-2 hover:underline"
+                        >
+                          {safe}
+                        </a>
+                      ) : (
+                        <span
+                          className="line-clamp-2 break-all text-[11px] text-gray-400"
+                          title="non-http(s) source filtered"
+                        >
+                          {u}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

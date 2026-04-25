@@ -83,9 +83,11 @@ export async function runResearchTeam(
 export interface MissionListItem {
   id: string;
   topic: string;
-  depth: 'quick' | 'standard' | 'deep' | string;
+  /** quick / standard / deep（后端可能扩展，故用 string） */
+  depth: string;
   language: string;
-  status: 'running' | 'completed' | 'failed' | 'rejected' | string;
+  /** running / completed / failed / rejected（后端可能扩展，故用 string） */
+  status: string;
   startedAt: string;
   completedAt: string | null;
   wallTimeMs: number | null;
