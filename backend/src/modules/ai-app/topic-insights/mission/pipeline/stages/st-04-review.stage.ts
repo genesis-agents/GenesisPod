@@ -24,6 +24,7 @@ import {
 } from "@/modules/ai-app/topic-insights/shared/config";
 import type { PipelineIdentityContext, Stage, StageResults } from "../types";
 import type { ReviewStageOutput, WriteStageOutput } from "./stage-context";
+import { writeActivity } from "@/modules/ai-app/topic-insights/mission/realtime/activity-writer.utils";
 
 @Injectable()
 export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
@@ -73,6 +74,19 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
       if (signal.aborted) {
         throw new DOMException(`[${this.id}] aborted`, "AbortError");
       }
+      // 章节级审核 activity #1: 开始审核
+      await writeActivity(this.prisma, {
+        topicId: identity.topicId,
+        missionId: identity.missionId,
+        agentId: `reviewer-${section.sectionId}`,
+        agentName: `审核: ${section.title}`,
+        agentRole: "reviewer",
+        status: "RESEARCHING",
+        content: `开始审核章节: ${section.title}`,
+        progress: 10,
+        dimensionId: section.dimensionId,
+        thinkingPhase: "reviewing",
+      });
       const res = await runner.executeSpec(
         {
           sectionResult: {
@@ -94,10 +108,34 @@ export class ReviewStage implements Stage<WriteStageOutput, ReviewStageOutput> {
         this.logger.warn(
           `[${identity.missionId}] AG-04-SR failed at ${section.sectionId}: ${res.errors?.join("; ") ?? "unknown"} — fallback to deterministic scoring`,
         );
-        reviews.push(this.buildDeterministicReview(section));
+        const detReview = this.buildDeterministicReview(section);
+        reviews.push(detReview);
+        await writeActivity(this.prisma, {
+          topicId: identity.topicId,
+          missionId: identity.missionId,
+          agentId: `reviewer-${section.sectionId}`,
+          agentName: `审核: ${section.title}`,
+          agentRole: "reviewer",
+          status: "COMPLETED",
+          content: `审核完成（确定性 fallback）: 综合分 ${detReview.overallScore.toFixed(1)}`,
+          progress: 100,
+          dimensionId: section.dimensionId,
+        });
         continue;
       }
       reviews.push(res.output);
+      // 章节级审核 activity: 完成
+      await writeActivity(this.prisma, {
+        topicId: identity.topicId,
+        missionId: identity.missionId,
+        agentId: `reviewer-${section.sectionId}`,
+        agentName: `审核: ${section.title}`,
+        agentRole: "reviewer",
+        status: "COMPLETED",
+        content: `审核完成: 综合分 ${res.output.overallScore.toFixed(1)} ${res.output.needsRevision ? "(需修订)" : ""}`,
+        progress: 100,
+        dimensionId: section.dimensionId,
+      });
     }
 
     // ★ baseline determineRevisionTargets：把 section review 分数聚合到 dim 级，

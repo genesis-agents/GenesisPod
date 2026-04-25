@@ -31,6 +31,7 @@ import type {
   ResearchStageOutput,
 } from "./stage-context";
 import { SearchOrchestratorService } from "@/modules/ai-app/topic-insights/knowledge/search/orchestrator.service";
+import { writeActivity } from "@/modules/ai-app/topic-insights/mission/realtime/activity-writer.utils";
 
 /** 并发上限（同时查询的维度数），防压垮上游搜索 API */
 const DIMENSION_CONCURRENCY = 3;
@@ -167,6 +168,23 @@ export class ResearchStage implements Stage<
     // F-2 · ResearchTask 状态流转：PENDING → EXECUTING（前端任务列表进度条）
     await this.markDimensionTask(identity.missionId, planDim.id, "EXECUTING");
 
+    // 维度级 activity #1: 开始研究（前端"维度详情"右侧第一条）
+    const dimAgentId = `researcher-${planDim.id}`;
+    const dimAgentName = planDim.name;
+    await writeActivity(this.prisma, {
+      topicId: identity.topicId,
+      missionId: identity.missionId,
+      agentId: dimAgentId,
+      agentName: dimAgentName,
+      agentRole: "researcher",
+      status: "RESEARCHING",
+      content: `开始研究维度: ${planDim.name}`,
+      progress: 5,
+      dimensionId: planDim.id,
+      dimensionName: planDim.name,
+      thinkingPhase: "searching",
+    });
+
     const searchResult = await this.searchOrchestrator
       .search(dimRow as never, topic as never)
       .catch((err: unknown) => {
@@ -177,6 +195,19 @@ export class ResearchStage implements Stage<
       });
 
     if (!searchResult) {
+      // 维度级 activity: 搜索失败
+      await writeActivity(this.prisma, {
+        topicId: identity.topicId,
+        missionId: identity.missionId,
+        agentId: dimAgentId,
+        agentName: dimAgentName,
+        agentRole: "researcher",
+        status: "FAILED",
+        content: `搜索失败: ${planDim.name} (无搜索结果，可能 API 配额耗尽)`,
+        progress: 0,
+        dimensionId: planDim.id,
+        dimensionName: planDim.name,
+      });
       return {
         dimensionId: planDim.id,
         dimensionName: planDim.name,
@@ -231,6 +262,33 @@ export class ResearchStage implements Stage<
         });
       if (created) evidenceIds.push(created.id);
     }
+
+    // 维度级 activity: 搜索结果摘要（含 sources）— 给前端透明度
+    await writeActivity(this.prisma, {
+      topicId: identity.topicId,
+      missionId: identity.missionId,
+      agentId: dimAgentId,
+      agentName: dimAgentName,
+      agentRole: "researcher",
+      status: evidenceIds.length > 0 ? "COMPLETED" : "FAILED",
+      content:
+        evidenceIds.length > 0
+          ? `维度研究完成: 收集到 ${evidenceIds.length} 条证据`
+          : `维度研究失败: 0 条证据写入（搜索无结果或写入失败）`,
+      progress: evidenceIds.length > 0 ? 100 : 0,
+      dimensionId: planDim.id,
+      dimensionName: planDim.name,
+      searchResults: {
+        total: items.length,
+        filtered: evidenceIds.length,
+        sources: items.slice(0, 10).map(({ item }) => ({
+          title: item.title?.slice(0, 200) ?? "",
+          url: item.url,
+          domain: item.domain ?? null,
+          sourceType: item.sourceType,
+        })),
+      },
+    });
 
     // 2026-04-24 P0 修复：evidence=0 不再伪装 COMPLETED，否则下游 mission 级
     // 仍显示"成功但空" → 用户看到的是 COMPLETED mission，实际 activities/evidence=0。

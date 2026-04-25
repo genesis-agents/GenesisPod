@@ -18,6 +18,7 @@ import type {
   ReviewStageOutput,
   WriteStageOutput,
 } from "./stage-context";
+import { writeActivity } from "@/modules/ai-app/topic-insights/mission/realtime/activity-writer.utils";
 
 export interface IntegrateStageInput {
   readonly write: WriteStageOutput;
@@ -122,13 +123,28 @@ export class IntegrateStage implements Stage<
       const dim = input.research.byDimension.find(
         (d) => d.dimensionId === dimensionId,
       );
+      const dimName = dim?.dimensionName ?? dimensionId;
+      // 维度级 activity #1: 开始整合
+      await writeActivity(this.prisma, {
+        topicId: identity.topicId,
+        missionId: identity.missionId,
+        agentId: `integrator-${dimensionId}`,
+        agentName: `整合: ${dimName}`,
+        agentRole: "synthesizer",
+        status: "RESEARCHING",
+        content: `开始整合维度: ${dimName}`,
+        progress: 10,
+        dimensionId,
+        dimensionName: dimName,
+        thinkingPhase: "integrating",
+      });
       // ★ baseline Direction B：首节 > **核心判断** 提升到 ### 标题前
       const integratedMarkdown =
         assembleSectionsWithPromotedConclusion(sections);
       const res = await runner.executeSpec(
         {
           dimensionId,
-          dimensionName: dim?.dimensionName ?? dimensionId,
+          dimensionName: dimName,
           integratedSections: integratedMarkdown,
           evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
         },
@@ -141,7 +157,7 @@ export class IntegrateStage implements Stage<
         );
         metas.push({
           dimensionId,
-          dimensionName: dim?.dimensionName ?? dimensionId,
+          dimensionName: dimName,
           summary: `本维度元数据提取失败（${res.errors?.[0] ?? "unknown"}）。内容已采集但未能提炼关键发现。`,
           keyFindings: ["维度元数据提取失败"],
           trends: [],
@@ -149,9 +165,34 @@ export class IntegrateStage implements Stage<
           opportunities: [],
           evidenceCount: evidenceCountByDim.get(dimensionId) ?? 0,
         });
+        await writeActivity(this.prisma, {
+          topicId: identity.topicId,
+          missionId: identity.missionId,
+          agentId: `integrator-${dimensionId}`,
+          agentName: `整合: ${dimName}`,
+          agentRole: "synthesizer",
+          status: "FAILED",
+          content: `维度整合失败 → 占位 meta: ${res.errors?.[0] ?? "unknown"}`,
+          progress: 0,
+          dimensionId,
+          dimensionName: dimName,
+        });
         continue;
       }
       metas.push(res.output);
+      // 维度级 activity: 完成
+      await writeActivity(this.prisma, {
+        topicId: identity.topicId,
+        missionId: identity.missionId,
+        agentId: `integrator-${dimensionId}`,
+        agentName: `整合: ${dimName}`,
+        agentRole: "synthesizer",
+        status: "COMPLETED",
+        content: `维度整合完成: ${res.output.keyFindings.length} 个关键发现`,
+        progress: 100,
+        dimensionId,
+        dimensionName: dimName,
+      });
     }
 
     return { dimensionMetas: metas };

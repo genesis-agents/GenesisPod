@@ -31,6 +31,7 @@ import type {
   ResearchStageOutput,
   WriteStageOutput,
 } from "./stage-context";
+import { writeActivity } from "@/modules/ai-app/topic-insights/mission/realtime/activity-writer.utils";
 
 export interface WriteStageInput {
   readonly plan: PlanStageOutput["plan"];
@@ -185,6 +186,22 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           );
         }
         const sectionPlan = sectionPlans[si];
+
+        // 章节级 activity #1: 开始撰写（前端"撰写进度"轨迹）
+        const sectionAgentId = `writer-${sectionPlan.id}`;
+        await writeActivity(this.prisma, {
+          topicId: identity.topicId,
+          missionId: identity.missionId,
+          agentId: sectionAgentId,
+          agentName: `章节: ${sectionPlan.title}`,
+          agentRole: "synthesizer",
+          status: "RESEARCHING",
+          content: `开始撰写章节: ${sectionPlan.title} (维度: ${dim.name})`,
+          progress: 10,
+          dimensionId: dim.id,
+          dimensionName: dim.name,
+          thinkingPhase: "writing",
+        });
         const distributedEvidence = evidenceBySection.get(sectionPlan.id);
         // 把 EvidenceData (带 promptIndex) → 原行形；无分配时用整 dim evidence
         const resolvedEvidence: Array<{
@@ -264,6 +281,19 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
             citationCount: 0,
             evidenceIdsUsed: [],
           });
+          // 章节级 activity: 失败
+          await writeActivity(this.prisma, {
+            topicId: identity.topicId,
+            missionId: identity.missionId,
+            agentId: `writer-${sectionPlan.id}`,
+            agentName: `章节: ${sectionPlan.title}`,
+            agentRole: "synthesizer",
+            status: "FAILED",
+            content: `章节撰写失败 → 占位内容: ${sectionPlan.title} (原因: ${res.errors?.[0] ?? "unknown"})`,
+            progress: 0,
+            dimensionId: dim.id,
+            dimensionName: dim.name,
+          });
           continue;
         }
         // ★ baseline 第一道铁墙：LLM 输出必须过 sanitize 再入管道
@@ -276,6 +306,19 @@ export class WriteStage implements Stage<WriteStageInput, WriteStageOutput> {
           ...rawOutput,
           content: finalContent,
           wordCount: finalContent.length,
+        });
+        // 章节级 activity: 完成
+        await writeActivity(this.prisma, {
+          topicId: identity.topicId,
+          missionId: identity.missionId,
+          agentId: `writer-${sectionPlan.id}`,
+          agentName: `章节: ${sectionPlan.title}`,
+          agentRole: "synthesizer",
+          status: "COMPLETED",
+          content: `章节撰写完成: ${sectionPlan.title} (字数 ${finalContent.length})`,
+          progress: 100,
+          dimensionId: dim.id,
+          dimensionName: dim.name,
         });
       }
     }
