@@ -13,15 +13,12 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   Activity,
   AlertTriangle,
-  ChevronLeft,
   ChevronRight,
   Coins,
   Database,
   FileText,
   Gavel,
   Layers,
-  Maximize2,
-  Minimize2,
   RefreshCw,
   ScrollText,
 } from 'lucide-react';
@@ -333,9 +330,9 @@ export default function MissionDetailPage() {
             </div>
           ) : null}
 
-          {/* Tabs — TI style: border-b primary underline */}
-          <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4">
-            <div className="flex">
+          {/* Tabs — TI style: border-b primary underline; horizontal scroll on overflow */}
+          <div className="flex min-w-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
+            <div className="scrollbar-thin flex min-w-0 flex-1 overflow-x-auto">
               {TABS.map((tab) => {
                 const Icon = tab.Icon;
                 const active = activeTab === tab.key;
@@ -344,7 +341,7 @@ export default function MissionDetailPage() {
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1.5 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
                       active
                         ? 'border-violet-500 text-violet-700'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -356,7 +353,9 @@ export default function MissionDetailPage() {
                 );
               })}
             </div>
-            <CompactMeters view={view} wallTimeMs={wallTimeMs} />
+            <div className="shrink-0">
+              <CompactMeters view={view} wallTimeMs={wallTimeMs} />
+            </div>
           </div>
 
           {/* Tab body */}
