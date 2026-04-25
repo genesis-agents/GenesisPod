@@ -13,14 +13,10 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   Sparkles,
-  Plus,
-  Search,
   Loader2,
   CheckCircle2,
   XCircle,
   Activity,
-  FileText,
-  Link2,
   Coins,
   Trophy,
 } from 'lucide-react';
@@ -37,22 +33,22 @@ const STATUS_CONFIG: Record<
   }
 > = {
   completed: {
-    label: 'Completed',
+    label: '已完成',
     color: 'bg-emerald-50 text-emerald-700',
     icon: CheckCircle2,
   },
   failed: {
-    label: 'Failed',
+    label: '失败',
     color: 'bg-red-50 text-red-700',
     icon: XCircle,
   },
   running: {
-    label: 'Running',
+    label: '进行中',
     color: 'bg-blue-50 text-blue-700',
     icon: Loader2,
   },
   rejected: {
-    label: 'Rejected',
+    label: '已拒绝',
     color: 'bg-amber-50 text-amber-700',
     icon: XCircle,
   },
@@ -119,9 +115,7 @@ function MissionCard({
         </p>
       ) : (
         <p className="mt-1 text-sm italic text-gray-400">
-          {mission.status === 'running'
-            ? 'Mission in progress…'
-            : 'No report available'}
+          {mission.status === 'running' ? 'Mission 进行中…' : '暂无报告'}
         </p>
       )}
 
@@ -132,8 +126,8 @@ function MissionCard({
             <Coins className="h-3.5 w-3.5" />
             <span>
               {mission.tokensUsed >= 1000
-                ? `${(mission.tokensUsed / 1000).toFixed(1)}k tokens`
-                : `${mission.tokensUsed} tokens`}
+                ? `${(mission.tokensUsed / 1000).toFixed(1)}k tk`
+                : `${mission.tokensUsed} tk`}
             </span>
           </div>
         )}
@@ -257,7 +251,7 @@ export default function PlaygroundIndexPage() {
                   {t('nav.playground') || 'Agent Playground'}
                 </h1>
                 <p className="text-sm text-gray-500">
-                  Demo agent teams powered by the full Harness runtime
+                  基于 Harness runtime 的多智能体协作演示
                 </p>
               </div>
             </div>
@@ -269,7 +263,7 @@ export default function PlaygroundIndexPage() {
                 className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
               >
                 <PlusIcon className="h-5 w-5" />
-                New Mission
+                新建 Mission
               </button>
             </div>
           </div>
@@ -282,7 +276,7 @@ export default function PlaygroundIndexPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search missions by topic or report content…"
+                placeholder="按 topic 或报告内容搜索…"
                 className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
@@ -295,22 +289,22 @@ export default function PlaygroundIndexPage() {
         {loading ? (
           <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
             <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-gray-400" />
-            <p className="text-sm text-gray-500">Loading mission history…</p>
+            <p className="text-sm text-gray-500">加载 mission 历史…</p>
           </div>
         ) : error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            Failed to load missions: {error}
+            加载失败：{error}
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
             <Sparkles className="mx-auto mb-3 h-10 w-10 text-violet-300" />
             <h3 className="text-lg font-semibold text-gray-900">
-              {missions.length === 0 ? 'No missions yet' : 'No matches'}
+              {missions.length === 0 ? '还没有 Mission' : '没有匹配项'}
             </h3>
             <p className="mt-1 text-sm text-gray-500">
               {missions.length === 0
-                ? 'Start your first research mission with the Harness runtime'
-                : 'Try a different search term'}
+                ? '基于 Harness runtime 启动你的第一个研究 mission'
+                : '换个关键字试试'}
             </p>
             {missions.length === 0 && (
               <button
@@ -319,7 +313,7 @@ export default function PlaygroundIndexPage() {
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25"
               >
                 <PlusIcon className="h-5 w-5" />
-                Start a Research Mission
+                启动研究 Mission
               </button>
             )}
           </div>
@@ -327,11 +321,10 @@ export default function PlaygroundIndexPage() {
           <>
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="text-base font-semibold text-gray-900">
-                {searchQuery ? 'Search results' : 'Your missions'}
+                {searchQuery ? '搜索结果' : '我的 Mission'}
               </h2>
               <span className="text-xs text-gray-500">
-                {filtered.length}{' '}
-                {filtered.length === 1 ? 'mission' : 'missions'}
+                共 {filtered.length} 个
               </span>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -353,7 +346,7 @@ export default function PlaygroundIndexPage() {
               >
                 <PlusIcon className="h-10 w-10 text-gray-400" />
                 <span className="mt-2 text-sm font-medium text-gray-600">
-                  Start a new mission
+                  新建一个 Mission
                 </span>
               </button>
             </div>
