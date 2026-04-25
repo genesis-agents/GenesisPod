@@ -55,6 +55,7 @@ export class AgentPlaygroundModule implements OnModuleInit {
     private readonly eventBus: DomainEventBus,
     private readonly registry: DomainEventRegistry,
     private readonly buffer: MissionEventBuffer,
+    private readonly store: MissionStore,
   ) {}
 
   onModuleInit(): void {
@@ -62,5 +63,7 @@ export class AgentPlaygroundModule implements OnModuleInit {
     this.registry.registerAll(AGENT_PLAYGROUND_EVENTS);
     // 2. 注册缓冲 adapter，截获所有 agent-playground.* 事件入内存（给 /replay 用）
     this.eventBus.registerAdapter(this.buffer);
+    // 3. 启动恢复：清理 Railway recycle 后悬挂的 running missions
+    void this.store.recoverOrphanedRunning(30);
   }
 }

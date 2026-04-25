@@ -69,6 +69,39 @@ export class MissionStore {
       });
   }
 
+  /**
+   * 启动恢复：把所有 status='running' 但已经超过 maxAgeMinutes 的 mission
+   * 标记为 failed（Railway 重启后 in-memory orchestrator 已死，但 DB 还停在 running）
+   */
+  async recoverOrphanedRunning(maxAgeMinutes = 30): Promise<number> {
+    const cutoff = new Date(Date.now() - maxAgeMinutes * 60_000);
+    const result = await this.prisma.agentPlaygroundMission
+      .updateMany({
+        where: {
+          status: "running",
+          startedAt: { lt: cutoff },
+        },
+        data: {
+          status: "failed",
+          completedAt: new Date(),
+          errorMessage:
+            "Mission orphaned - service recycled during execution; in-memory state lost.",
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[recoverOrphanedRunning] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return { count: 0 };
+      });
+    if (result.count > 0) {
+      this.log.warn(
+        `[recoverOrphanedRunning] marked ${result.count} orphaned running missions as failed`,
+      );
+    }
+    return result.count;
+  }
+
   async markCompleted(
     id: string,
     data: {

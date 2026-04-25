@@ -60,6 +60,14 @@ interface MissionResult {
   readonly reviewScore: number;
   readonly costUsd: number;
   readonly trajectoryStored: number;
+  readonly themeSummary?: string;
+  readonly dimensions?: { id: string; name: string; rationale: string }[];
+  readonly verdicts?: {
+    verifierId: string;
+    score: number;
+    critique?: string;
+    attempt?: number;
+  }[];
 }
 
 interface RelayCtx {
@@ -173,7 +181,7 @@ export class ResearchTeamOrchestrator {
             pool,
             t0,
           );
-          // 持久化 completed 状态 + 完整结果
+          // 持久化 completed 状态 + 完整结果（含 dimensions / themeSummary / verdicts）
           const snap = pool.snapshot();
           await this.store.markCompleted(missionId, {
             finalScore: result.reviewScore,
@@ -181,12 +189,13 @@ export class ResearchTeamOrchestrator {
             costUsd: snap.poolCostUsd,
             trajectoryStored: result.trajectoryStored,
             wallTimeMs: Date.now() - t0,
+            themeSummary: result.themeSummary,
+            dimensions: result.dimensions,
             report: result.report as unknown as {
               title?: string;
               summary?: string;
             },
-            // dimensions / verdicts 由 runMissionBody 在 emit 时已经累积，
-            // 这里用 buffer 也能拿到，但简单起见暂留 null（detail 页可走 /replay）
+            verdicts: result.verdicts,
           });
           return result;
         } catch (err) {
@@ -709,6 +718,9 @@ export class ResearchTeamOrchestrator {
           reviewScore,
           costUsd: snap.poolCostUsd,
           trajectoryStored: indexed,
+          themeSummary: plan.themeSummary,
+          dimensions: plan.dimensions,
+          verdicts: verifierVerdicts as MissionResult["verdicts"],
         };
       }
     }
