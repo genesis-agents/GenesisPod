@@ -83,8 +83,45 @@ function PhaseBadge({ phase }: { phase: AgentLiveState['phase'] }) {
 
 function previewOutput(output: unknown): string {
   if (output == null) return '';
-  if (typeof output === 'string')
-    return output.length > 240 ? output.slice(0, 240) + '…' : output;
+  if (typeof output === 'string') {
+    const trimmed = output.trim();
+    // 字符串其实是 JSON 时尝试解析后取摘要
+    if (
+      (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
+      (trimmed.endsWith('}') || trimmed.endsWith(']') || trimmed.endsWith('…'))
+    ) {
+      try {
+        return previewOutput(JSON.parse(trimmed.replace(/…$/, '')));
+      } catch {
+        // 字符串不是合法 JSON 就走通用截断
+      }
+    }
+    return trimmed.length > 240 ? trimmed.slice(0, 240) + '…' : trimmed;
+  }
+  if (Array.isArray(output)) {
+    if (output.length === 0) return '(empty array)';
+    // search 类工具返回 [{title, url, snippet}, ...]，挑前 3 条标题
+    const titles = output
+      .slice(0, 3)
+      .map((it) => {
+        if (it && typeof it === 'object') {
+          const o = it as Record<string, unknown>;
+          return (o.title || o.name || o.url || JSON.stringify(it)) as string;
+        }
+        return String(it);
+      })
+      .map((s) => (typeof s === 'string' ? s.slice(0, 80) : String(s)));
+    return `${output.length} results · ${titles.join(' / ')}`;
+  }
+  if (typeof output === 'object') {
+    const o = output as Record<string, unknown>;
+    if (typeof o.preview === 'string') return o.preview.slice(0, 240);
+    // 显示首 2 个字段做摘要
+    const entries = Object.entries(o).slice(0, 2);
+    return entries
+      .map(([k, v]) => `${k}: ${String(v).slice(0, 80)}`)
+      .join(' · ');
+  }
   try {
     const s = JSON.stringify(output);
     return s.length > 240 ? s.slice(0, 240) + '…' : s;
@@ -93,81 +130,158 @@ function previewOutput(output: unknown): string {
   }
 }
 
+function previewSearchResults(output: unknown):
+  | {
+      title: string;
+      url?: string;
+      snippet?: string;
+    }[]
+  | null {
+  // 接受三种 shape: array, {results:[]}, {items:[]}
+  let arr: unknown[] | null = null;
+  if (Array.isArray(output)) arr = output;
+  else if (output && typeof output === 'object') {
+    const o = output as Record<string, unknown>;
+    if (Array.isArray(o.results)) arr = o.results;
+    else if (Array.isArray(o.items)) arr = o.items;
+    else if (Array.isArray(o.hits)) arr = o.hits;
+  } else if (typeof output === 'string') {
+    try {
+      const parsed = JSON.parse(output.trim().replace(/…$/, ''));
+      return previewSearchResults(parsed);
+    } catch {
+      return null;
+    }
+  }
+  if (!arr) return null;
+  return arr.slice(0, 5).map((it) => {
+    if (!it || typeof it !== 'object') return { title: String(it) };
+    const o = it as Record<string, unknown>;
+    return {
+      title:
+        (typeof o.title === 'string' && o.title) ||
+        (typeof o.name === 'string' && o.name) ||
+        (typeof o.url === 'string' && o.url) ||
+        'untitled',
+      url:
+        (typeof o.url === 'string' && o.url) ||
+        (typeof o.link === 'string' && o.link) ||
+        undefined,
+      snippet:
+        (typeof o.snippet === 'string' && o.snippet) ||
+        (typeof o.description === 'string' && o.description) ||
+        (typeof o.summary === 'string' && o.summary) ||
+        undefined,
+    };
+  });
+}
+
 function TraceItem({ item }: { item: AgentTraceItem }) {
   if (item.kind === 'thought')
     return (
-      <li className="flex gap-2">
+      <li className="flex gap-2 rounded-md bg-amber-50/40 px-2 py-1.5">
         <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-        <p className="flex-1 text-[12px] leading-relaxed text-gray-700">
-          <span className="font-medium text-gray-900">Thought · </span>
+        <p className="flex-1 text-[12px] leading-relaxed text-gray-800">
+          <span className="font-semibold text-amber-700">Thought · </span>
           {item.text || '(empty)'}
         </p>
       </li>
     );
   if (item.kind === 'action')
     return (
-      <li className="flex gap-2">
+      <li className="flex gap-2 rounded-md bg-violet-50/40 px-2 py-1.5">
         <Wrench className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
-        <p className="flex-1 text-[12px] leading-relaxed text-gray-700">
-          <span className="font-medium text-gray-900">Action · </span>
-          <span className="font-mono rounded bg-violet-50 px-1 py-0.5 text-[11px] text-violet-700">
+        <div className="flex-1 text-[12px] leading-relaxed text-gray-800">
+          <span className="font-semibold text-violet-700">Action · </span>
+          <span className="font-mono rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-medium text-violet-800">
             {item.toolId || 'unknown'}
           </span>
           {item.input != null && (
-            <span className="ml-1 text-gray-500">
+            <span className="ml-1.5 text-gray-600">
               {previewOutput(item.input)}
             </span>
           )}
-        </p>
+        </div>
       </li>
     );
-  if (item.kind === 'observation')
+  if (item.kind === 'observation') {
+    const search = !item.error ? previewSearchResults(item.output) : null;
     return (
-      <li className="flex gap-2">
+      <li className="flex gap-2 rounded-md bg-sky-50/40 px-2 py-1.5">
         <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
-        <div className="flex-1 text-[12px] leading-relaxed text-gray-700">
-          <p>
-            <span className="font-medium text-gray-900">Observation</span>
+        <div className="min-w-0 flex-1 text-[12px] leading-relaxed text-gray-800">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="font-semibold text-sky-700">Observation</span>
             {item.toolId && (
-              <span className="ml-1 text-gray-500">
-                · <span className="font-mono">{item.toolId}</span>
+              <span className="text-gray-500">
+                · <span className="font-mono text-[11px]">{item.toolId}</span>
               </span>
             )}
             {item.latencyMs != null && (
-              <span className="font-mono ml-1 text-[10px] text-gray-400">
+              <span className="font-mono text-[10px] text-gray-400">
                 {item.latencyMs}ms
               </span>
             )}
             {item.tokensUsed != null && item.tokensUsed > 0 && (
-              <span className="font-mono ml-1 text-[10px] text-amber-600">
+              <span className="font-mono text-[10px] text-amber-600">
                 +{item.tokensUsed}tk
               </span>
             )}
-          </p>
+          </div>
           {item.error ? (
-            <p className="mt-0.5 text-[11px] text-red-600">{item.error}</p>
+            <p className="mt-1 text-[11px] text-red-600">{item.error}</p>
+          ) : search && search.length > 0 ? (
+            <ul className="mt-1.5 space-y-1">
+              {search.map((r, i) => (
+                <li
+                  key={`${r.url ?? r.title}-${i}`}
+                  className="rounded border border-sky-100 bg-white/60 px-2 py-1"
+                >
+                  {r.url ? (
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="line-clamp-1 text-[11px] font-medium text-sky-700 hover:underline"
+                    >
+                      {r.title}
+                    </a>
+                  ) : (
+                    <p className="line-clamp-1 text-[11px] font-medium text-gray-800">
+                      {r.title}
+                    </p>
+                  )}
+                  {r.snippet && (
+                    <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-500">
+                      {r.snippet}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
           ) : (
-            <p className="mt-0.5 line-clamp-2 text-[11px] text-gray-500">
+            <p className="mt-1 line-clamp-2 text-[11px] text-gray-600">
               {previewOutput(item.output)}
             </p>
           )}
         </div>
       </li>
     );
+  }
   if (item.kind === 'reflection')
     return (
-      <li className="flex gap-2">
+      <li className="flex gap-2 rounded-md bg-purple-50/40 px-2 py-1.5">
         <Repeat className="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-500" />
-        <p className="flex-1 text-[12px] leading-relaxed text-gray-700">
-          <span className="font-medium text-gray-900">Reflexion · </span>
+        <p className="flex-1 text-[12px] leading-relaxed text-gray-800">
+          <span className="font-semibold text-purple-700">Reflexion · </span>
           {item.text || '(empty)'}
         </p>
       </li>
     );
   return (
-    <li className="flex gap-2">
+    <li className="flex gap-2 rounded-md bg-red-50/40 px-2 py-1.5">
       <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
-      <p className="flex-1 text-[12px] text-red-600">{item.error}</p>
+      <p className="flex-1 text-[12px] text-red-700">{item.error}</p>
     </li>
   );
 }

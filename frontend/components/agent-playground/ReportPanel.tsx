@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   FileText,
   ChevronDown,
@@ -9,6 +11,71 @@ import {
   History,
 } from 'lucide-react';
 import type { ReportDraft } from '@/lib/agent-playground/derive';
+
+const MD_COMPONENTS = {
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+    const safe = href && /^https?:\/\//i.test(href) ? href : undefined;
+    return safe ? (
+      <a
+        href={safe}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-words text-violet-600 underline decoration-violet-300 underline-offset-2 hover:text-violet-700"
+      >
+        {children}
+      </a>
+    ) : (
+      <span className="text-gray-500">{children}</span>
+    );
+  },
+  p: ({ children }: { children?: React.ReactNode }) => (
+    <p className="mb-3 leading-7 text-gray-700">{children}</p>
+  ),
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul className="mb-3 ml-5 list-disc space-y-1 text-gray-700">{children}</ul>
+  ),
+  ol: ({ children }: { children?: React.ReactNode }) => (
+    <ol className="mb-3 ml-5 list-decimal space-y-1 text-gray-700">
+      {children}
+    </ol>
+  ),
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h3 className="mb-2 mt-4 text-base font-semibold text-gray-900">
+      {children}
+    </h3>
+  ),
+  h2: ({ children }: { children?: React.ReactNode }) => (
+    <h4 className="mb-2 mt-3 text-sm font-semibold text-gray-900">
+      {children}
+    </h4>
+  ),
+  h3: ({ children }: { children?: React.ReactNode }) => (
+    <h5 className="mb-1 mt-3 text-sm font-medium text-gray-900">{children}</h5>
+  ),
+  strong: ({ children }: { children?: React.ReactNode }) => (
+    <strong className="font-semibold text-gray-900">{children}</strong>
+  ),
+  blockquote: ({ children }: { children?: React.ReactNode }) => (
+    <blockquote className="border-l-3 my-3 border-violet-200 bg-violet-50/30 px-3 py-1 text-gray-700">
+      {children}
+    </blockquote>
+  ),
+  code: ({ children }: { children?: React.ReactNode }) => (
+    <code className="font-mono rounded bg-gray-100 px-1 py-0.5 text-[12px] text-gray-800">
+      {children}
+    </code>
+  ),
+};
+
+function Markdown({ content }: { content: string }) {
+  return (
+    <div className="text-sm">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 interface Props {
   finalReport: ReportDraft['report'] | null;
@@ -35,8 +102,17 @@ function safeHref(src: string | undefined): string | null {
 }
 
 export function ReportPanel({ finalReport, reports, finalScore }: Props) {
-  const [openIdx, setOpenIdx] = useState<number>(0);
+  // 默认全展开 —— accordion 让人误以为"没内容"
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [showHistory, setShowHistory] = useState(false);
+  const toggleSection = (i: number) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
 
   if (!finalReport) {
     return (
@@ -87,37 +163,36 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
 
         {finalReport.summary && (
           <div className="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
               Executive summary
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-gray-700">
-              {finalReport.summary}
-            </p>
+            <Markdown content={finalReport.summary} />
           </div>
         )}
 
         <div className="divide-y divide-gray-100">
           {sections.map((s, i) => {
-            const open = openIdx === i;
+            const open = !collapsed.has(i);
             return (
               <div key={`${s.heading}-${i}`} className="px-5 py-4">
                 <button
                   type="button"
-                  onClick={() => setOpenIdx(open ? -1 : i)}
+                  onClick={() => toggleSection(i)}
                   className="flex w-full items-center justify-between gap-3 text-left"
                 >
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    {i + 1}. {s.heading}
+                  <h3 className="flex items-center gap-2 text-base font-semibold text-gray-900">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
+                      {i + 1}
+                    </span>
+                    {s.heading}
                   </h3>
                   <ChevronDown
                     className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {open && (
-                  <div className="mt-3">
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                      {s.body}
-                    </p>
+                  <div className="mt-3 pl-8">
+                    <Markdown content={s.body || '(empty)'} />
                     {s.sources && s.sources.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {s.sources.map((src, j) => {
@@ -157,12 +232,10 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
 
         {finalReport.conclusion && (
           <div className="border-t border-gray-100 bg-gradient-to-br from-violet-50/40 to-purple-50/40 px-5 py-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-violet-700">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-violet-700">
               Conclusion
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-gray-800">
-              {finalReport.conclusion}
-            </p>
+            <Markdown content={finalReport.conclusion} />
           </div>
         )}
       </div>
