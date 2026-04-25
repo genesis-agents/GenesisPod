@@ -1,19 +1,29 @@
 'use client';
 
+/**
+ * Mission Detail Page — 完全照搬 Topic Insights TopicResearchLayout 视觉结构
+ *
+ * Header: ← back · 🎯 gradient icon · title + meta · status pill + actions
+ * Main: 360px collapsible left team + flex-1 right tabbed content
+ * Tabs: Live Collab / Report / Verify / Sources / Cost & Memory / Raw Events
+ */
+
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   Activity,
   AlertTriangle,
-  RefreshCw,
-  FileText,
-  Layers,
-  Gavel,
+  ChevronLeft,
+  ChevronRight,
   Coins,
-  ScrollText,
   Database,
+  FileText,
+  Gavel,
+  Layers,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  ScrollText,
 } from 'lucide-react';
 import {
   AgentLiveGrid,
@@ -45,6 +55,7 @@ const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'raw', label: 'Raw Events', Icon: ScrollText },
 ];
 
+// Topic-Insights style status pill
 function StatusPill({
   state,
 }: {
@@ -53,43 +64,64 @@ function StatusPill({
   const meta = {
     connecting: {
       label: 'Connecting',
-      bg: 'bg-gray-100 text-gray-600 ring-gray-200',
-      dot: 'bg-gray-400',
+      bg: 'bg-blue-50',
+      text: 'text-blue-700',
+      dot: 'bg-blue-500',
       pulse: true,
     },
     live: {
       label: 'Live',
-      bg: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-700',
       dot: 'bg-emerald-500',
       pulse: true,
     },
     polling: {
       label: 'Polling',
-      bg: 'bg-amber-50 text-amber-700 ring-amber-200',
+      bg: 'bg-amber-50',
+      text: 'text-amber-700',
       dot: 'bg-amber-500',
       pulse: false,
     },
     disconnected: {
       label: 'Disconnected',
-      bg: 'bg-gray-100 text-gray-600 ring-gray-200',
+      bg: 'bg-gray-100',
+      text: 'text-gray-600',
       dot: 'bg-gray-400',
       pulse: false,
     },
   }[state];
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${meta.bg}`}
+    <div
+      className={`flex items-center gap-2 rounded-full ${meta.bg} px-3 py-1.5`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${meta.pulse ? 'animate-pulse' : ''}`}
+        className={`h-2 w-2 rounded-full ${meta.dot} ${meta.pulse ? 'animate-pulse' : ''}`}
       />
-      {meta.label}
-    </span>
+      <span className={`text-sm font-medium ${meta.text}`}>{meta.label}</span>
+    </div>
   );
 }
 
+const ArrowLeftIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+    />
+  </svg>
+);
+
 export default function MissionDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const missionId = params?.missionId as string;
   const invalidId = !missionId || missionId === 'undefined';
   const { events, connState, error } = useAgentPlaygroundStream(
@@ -160,15 +192,13 @@ export default function MissionDetailPage() {
     ? (finishedAt ?? now) - view.mission.startedAt
     : 0;
 
-  // Default to "report" tab if mission already has a final report; else "live"
   const [activeTab, setActiveTab] = useState<TabKey>('live');
   useEffect(() => {
     if (view.finalReport) setActiveTab('report');
   }, [view.finalReport]);
 
-  const [teamCollapsed, setTeamCollapsed] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
 
-  // collect all source URLs from final report sections
   const allSources = useMemo(() => {
     const set = new Set<string>();
     const r = view.finalReport;
@@ -181,6 +211,8 @@ export default function MissionDetailPage() {
     return [...set];
   }, [view.finalReport]);
 
+  const isRunning = !view.mission.completedAt && !view.mission.failedAt;
+
   if (invalidId) {
     return (
       <div className="h-full overflow-auto bg-gray-50">
@@ -189,16 +221,14 @@ export default function MissionDetailPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             Mission not found
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            The URL doesn&apos;t carry a valid mission id.
-          </p>
-          <Link
-            href="/agent-playground/research-team"
+          <button
+            type="button"
+            onClick={() => router.push('/agent-playground')}
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl"
           >
             <RefreshCw className="h-4 w-4" />
-            Start a new mission
-          </Link>
+            Back to mission list
+          </button>
         </div>
       </div>
     );
@@ -206,84 +236,149 @@ export default function MissionDetailPage() {
 
   return (
     <div className="flex h-full flex-col bg-gray-50">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
-        <div className="flex min-w-0 items-center gap-4">
-          <Link
-            href="/agent-playground"
+      {/* Header — 完全照搬 TopicResearchLayout */}
+      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => router.push('/agent-playground')}
             className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
             title="Back to mission list"
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
-              <Activity className="h-5 w-5 text-white" />
+            <ArrowLeftIcon className="h-5 w-5" />
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
+              <svg
+                className="h-5 w-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-base font-bold text-gray-900">
+              <h1 className="truncate text-lg font-bold text-gray-900">
                 {view.mission.topic ?? 'Research Mission'}
               </h1>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
-                {view.mission.depth && (
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">
-                    {view.mission.depth}
-                  </span>
-                )}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                {view.mission.depth && <span>{view.mission.depth}</span>}
                 {view.mission.language && (
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">
-                    {view.mission.language}
-                  </span>
+                  <>
+                    <span>·</span>
+                    <span>{view.mission.language}</span>
+                  </>
                 )}
-                <span className="font-mono text-[10px] text-gray-400">
-                  {missionId}
-                </span>
+                <span>·</span>
+                <span className="font-mono text-[10px]">{missionId}</span>
               </div>
             </div>
           </div>
         </div>
-        <StatusPill state={connState} />
+
+        <div className="flex items-center gap-2">
+          {isRunning && (
+            <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></span>
+              <span className="text-sm font-medium text-blue-700">
+                Researching · {Math.floor(wallTimeMs / 1000)}s
+              </span>
+            </div>
+          )}
+          <StatusPill state={connState} />
+        </div>
       </header>
 
-      {/* Main split layout */}
-      <div className="flex min-h-0 flex-1">
-        {/* Left team roster */}
-        <TeamRosterPanel
-          agents={view.agents}
-          stages={view.stages}
-          collapsed={teamCollapsed}
-          onToggleCollapse={() => setTeamCollapsed((c) => !c)}
-        />
-
-        {/* Right content */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* Pipeline + meters strip */}
-          <div className="space-y-3 border-b border-gray-200 bg-white px-6 py-4">
-            {error && connState !== 'live' && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <p>
-                  Live stream unavailable · falling back to polling /replay
-                  every 4s
-                </p>
+      {/* Main — flex split exactly like TopicResearchLayout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Panel - 360px, collapsible to 48px (w-12) */}
+        <div
+          className={`flex-shrink-0 border-r border-gray-200 bg-white transition-all duration-300 ${
+            leftCollapsed ? 'w-12' : 'w-[360px]'
+          }`}
+        >
+          {leftCollapsed ? (
+            <div className="flex h-full flex-col items-center py-4">
+              <button
+                type="button"
+                onClick={() => setLeftCollapsed(false)}
+                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                title="Expand team panel"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <div className="mt-4 flex flex-col items-center gap-2">
+                {isRunning && (
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                )}
+                <span
+                  className="text-xs uppercase tracking-wide text-gray-500"
+                  style={{ writingMode: 'vertical-rl' }}
+                >
+                  Team
+                </span>
               </div>
-            )}
-            {view.mission.failedMessage && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <p>
-                  <span className="font-medium">Mission failed:</span>{' '}
-                  {view.mission.failedMessage}
-                </p>
+            </div>
+          ) : (
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-end border-b border-gray-100 px-2 py-1">
+                <button
+                  type="button"
+                  onClick={() => setLeftCollapsed(true)}
+                  className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title="Collapse panel"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
               </div>
-            )}
-            <CapabilityMeters view={view} wallTimeMs={wallTimeMs} />
-            <PipelineTimeline stages={view.stages} />
-          </div>
+              <div className="flex-1 overflow-hidden">
+                <TeamRosterPanel
+                  agents={view.agents}
+                  stages={view.stages}
+                  finalScore={view.mission.finalScore}
+                  topic={view.mission.topic}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
-          {/* Tabs */}
-          <div className="border-b border-gray-200 bg-white px-6">
-            <div className="flex gap-1">
+        {/* Right Panel - tabbed content */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Status banners */}
+          {(error && connState !== 'live') || view.mission.failedMessage ? (
+            <div className="space-y-2 border-b border-gray-200 bg-white px-4 py-2">
+              {error && connState !== 'live' && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <p>
+                    Live stream unavailable · falling back to polling /replay
+                    every 4s
+                  </p>
+                </div>
+              )}
+              {view.mission.failedMessage && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <p>
+                    <span className="font-medium">Mission failed:</span>{' '}
+                    {view.mission.failedMessage}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* Tabs — TI style: border-b primary underline */}
+          <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4">
+            <div className="flex">
               {TABS.map((tab) => {
                 const Icon = tab.Icon;
                 const active = activeTab === tab.key;
@@ -292,10 +387,10 @@ export default function MissionDetailPage() {
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-1.5 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                       active
                         ? 'border-violet-500 text-violet-700'
-                        : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -304,12 +399,14 @@ export default function MissionDetailPage() {
                 );
               })}
             </div>
+            <CompactMeters view={view} wallTimeMs={wallTimeMs} />
           </div>
 
-          {/* Tab content */}
-          <div className="min-h-0 flex-1 overflow-auto bg-gray-50 px-6 py-5">
+          {/* Tab body */}
+          <div className="flex-1 overflow-auto px-6 py-5">
             {activeTab === 'live' && (
               <div className="space-y-4">
+                <PipelineTimeline stages={view.stages} />
                 <DimensionsPanel mission={view.mission} />
                 <AgentLiveGrid agents={view.agents} />
               </div>
@@ -327,60 +424,16 @@ export default function MissionDetailPage() {
               <VerifyConsensusPanel verdicts={view.verdicts} />
             )}
 
-            {activeTab === 'sources' && (
-              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                <div className="mb-3 flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-violet-500" />
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    All sources cited in report
-                  </h3>
-                  <span className="ml-auto text-xs text-gray-500">
-                    {allSources.length} unique URLs
-                  </span>
-                </div>
-                {allSources.length === 0 ? (
-                  <p className="rounded-lg bg-gray-50 px-3 py-3 text-[12px] text-gray-500">
-                    Sources will appear once Researchers / Writer cite them.
-                  </p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {allSources.map((u, i) => {
-                      const safe = /^https?:\/\//i.test(u) ? u : null;
-                      return (
-                        <li
-                          key={`${u}-${i}`}
-                          className="rounded-lg border border-gray-100 px-3 py-2 hover:border-violet-200 hover:bg-violet-50/30"
-                        >
-                          {safe ? (
-                            <a
-                              href={safe}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block break-words text-xs text-violet-700 underline-offset-2 hover:underline"
-                            >
-                              {safe}
-                            </a>
-                          ) : (
-                            <span
-                              className="block break-words text-xs text-gray-400"
-                              title="non-http(s) source filtered"
-                            >
-                              {u}
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            )}
+            {activeTab === 'sources' && <SourcesTab sources={allSources} />}
 
             {activeTab === 'cost' && (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <CostBreakdownPanel cost={view.cost} />
-                <MemoryIndexPanel memory={view.memory} />
-                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm lg:col-span-2">
+              <div className="space-y-4">
+                <CapabilityMeters view={view} wallTimeMs={wallTimeMs} />
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <CostBreakdownPanel cost={view.cost} />
+                  <MemoryIndexPanel memory={view.memory} />
+                </div>
+                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                   <div className="mb-3 flex items-center gap-2">
                     <Database className="h-4 w-4 text-emerald-500" />
                     <h3 className="text-sm font-semibold text-gray-900">
@@ -401,6 +454,96 @@ export default function MissionDetailPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Compact inline meters in the tab bar (cost / score / wall / memory)
+function CompactMeters({
+  view,
+  wallTimeMs,
+}: {
+  view: ReturnType<typeof deriveView>;
+  wallTimeMs: number;
+}) {
+  const fmtTokens = (n: number) =>
+    n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}k`;
+  const fmtTime = (ms: number) =>
+    ms < 60_000 ? `${Math.floor(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m`;
+
+  return (
+    <div className="hidden items-center gap-4 text-xs text-gray-500 lg:flex">
+      <span className="flex items-center gap-1">
+        <Coins className="h-3.5 w-3.5 text-amber-500" />
+        {fmtTokens(view.cost.tokensUsed)} tk
+      </span>
+      {view.mission.finalScore != null && (
+        <span className="flex items-center gap-1">
+          <Gavel className="h-3.5 w-3.5 text-violet-500" />
+          {view.mission.finalScore} / 100
+        </span>
+      )}
+      <span className="flex items-center gap-1">
+        <Activity className="h-3.5 w-3.5 text-sky-500" />
+        {fmtTime(wallTimeMs)}
+      </span>
+      {view.memory && (
+        <span className="flex items-center gap-1">
+          <Database className="h-3.5 w-3.5 text-emerald-500" />
+          {view.memory.chunks} chunks
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SourcesTab({ sources }: { sources: string[] }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Layers className="h-4 w-4 text-violet-500" />
+        <h3 className="text-sm font-semibold text-gray-900">
+          All sources cited in report
+        </h3>
+        <span className="ml-auto text-xs text-gray-500">
+          {sources.length} unique URLs
+        </span>
+      </div>
+      {sources.length === 0 ? (
+        <p className="rounded-lg bg-gray-50 px-3 py-3 text-[12px] text-gray-500">
+          Sources will appear once Researchers / Writer cite them.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {sources.map((u, i) => {
+            const safe = /^https?:\/\//i.test(u) ? u : null;
+            return (
+              <li
+                key={`${u}-${i}`}
+                className="rounded-lg border border-gray-100 px-3 py-2 hover:border-violet-200 hover:bg-violet-50/30"
+              >
+                {safe ? (
+                  <a
+                    href={safe}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block break-words text-xs text-violet-700 underline-offset-2 hover:underline"
+                  >
+                    {safe}
+                  </a>
+                ) : (
+                  <span
+                    className="block break-words text-xs text-gray-400"
+                    title="non-http(s) source filtered"
+                  >
+                    {u}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

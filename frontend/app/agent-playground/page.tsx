@@ -1,148 +1,213 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+/**
+ * Agent Playground Index Page — 完全照搬 ai-insights 主页结构
+ *
+ * - sticky header with gradient icon + title + subtitle + actions
+ * - search bar (gens.team style)
+ * - mission card grid (mirror TopicCard 风格)
+ */
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   Sparkles,
-  ArrowRight,
-  Users,
-  Cpu,
-  Activity,
-  Database,
-  History,
+  Plus,
+  Search,
   Loader2,
   CheckCircle2,
   XCircle,
-  Clock,
+  Activity,
+  FileText,
+  Link2,
+  Coins,
+  Trophy,
 } from 'lucide-react';
 import { listMissions, type MissionListItem } from '@/lib/api/agent-playground';
 import { ClientDate } from '@/components/common/ClientDate';
 
-const DEMOS = [
+// Status visual config — TI style
+const STATUS_CONFIG: Record<
+  string,
   {
-    id: 'research-team',
-    title: 'Research Team',
-    tagline: '5-Agent · LeaderWorker · Reflexion · Verify Consensus',
-    description:
-      'Leader plans dimensions → 5 Researchers run in parallel → Analyst reflects → Writer drafts → 3-judge consensus.',
-    badges: ['LeaderWorker', 'Reflexion', 'Verify Consensus', 'Memory Index'],
-    href: '/agent-playground/research-team',
-    accent: 'from-violet-500 to-purple-600',
-    iconAccent: 'shadow-violet-500/25',
-    icon: Users,
+    label: string;
+    color: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
+> = {
+  completed: {
+    label: 'Completed',
+    color: 'bg-emerald-50 text-emerald-700',
+    icon: CheckCircle2,
   },
-] as const;
+  failed: {
+    label: 'Failed',
+    color: 'bg-red-50 text-red-700',
+    icon: XCircle,
+  },
+  running: {
+    label: 'Running',
+    color: 'bg-blue-50 text-blue-700',
+    icon: Loader2,
+  },
+  rejected: {
+    label: 'Rejected',
+    color: 'bg-amber-50 text-amber-700',
+    icon: XCircle,
+  },
+};
 
-const CAPABILITIES = [
-  {
-    icon: Cpu,
-    title: 'Loop strategies',
-    desc: 'ReAct · Reflexion · LeaderWorker',
-  },
-  {
-    icon: Activity,
-    title: 'Verify consensus',
-    desc: 'Self · external · critical judges',
-  },
-  {
-    icon: Database,
-    title: 'Memory auto-index',
-    desc: 'Trajectory → vector store',
-  },
-  {
-    icon: Sparkles,
-    title: 'BYOK / credits',
-    desc: 'Real billing · OTel tracing',
-  },
-];
+const DEPTH_GRADIENT: Record<string, string> = {
+  quick: 'from-emerald-500 to-teal-600',
+  standard: 'from-violet-500 to-purple-600',
+  deep: 'from-rose-500 to-pink-600',
+};
 
-function StatusPill({ status }: { status: string }) {
-  if (status === 'completed')
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-200">
-        <CheckCircle2 className="h-3 w-3" /> Completed
-      </span>
-    );
-  if (status === 'failed')
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700 ring-1 ring-red-200">
-        <XCircle className="h-3 w-3" /> Failed
-      </span>
-    );
-  if (status === 'running')
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200">
-        <Loader2 className="h-3 w-3 animate-spin" /> Running
-      </span>
-    );
+function MissionCard({
+  mission,
+  onClick,
+}: {
+  mission: MissionListItem;
+  onClick: () => void;
+}) {
+  const status = STATUS_CONFIG[mission.status] ?? STATUS_CONFIG.running;
+  const StatusIcon = status.icon;
+  const gradient = DEPTH_GRADIENT[mission.depth] ?? DEPTH_GRADIENT.standard;
+
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500 ring-1 ring-gray-200">
-      <Clock className="h-3 w-3" /> {status}
-    </span>
-  );
-}
-
-function MissionHistoryCard({ mission }: { mission: MissionListItem }) {
-  return (
-    <Link
-      href={`/agent-playground/research-team/${mission.id}`}
-      className="group block rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md"
+    <div
+      onClick={onClick}
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
     >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="line-clamp-2 flex-1 text-sm font-semibold text-gray-900 group-hover:text-violet-700">
-          {mission.topic}
-        </p>
-        <StatusPill status={mission.status} />
+      {/* Mission Icon — gradient like TopicCard */}
+      <div
+        className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-md`}
+      >
+        <Sparkles className="h-6 w-6 text-white" />
       </div>
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
-        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+
+      {/* Type / status badges */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-gray-600">
           {mission.depth}
         </span>
-        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+        <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
           {mission.language}
         </span>
-        <ClientDate date={mission.startedAt} format="datetime" />
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}
+        >
+          <StatusIcon
+            className={`h-3 w-3 ${mission.status === 'running' ? 'animate-spin' : ''}`}
+          />
+          {status.label}
+        </span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-        {mission.finalScore != null && (
-          <span
-            className={`font-semibold ${
-              mission.finalScore >= 80
-                ? 'text-emerald-600'
-                : mission.finalScore >= 60
-                  ? 'text-amber-600'
-                  : 'text-red-600'
-            }`}
-          >
-            Score {mission.finalScore}
-          </span>
-        )}
-        {mission.tokensUsed != null && mission.tokensUsed > 0 && (
-          <span className="text-gray-500">
-            {mission.tokensUsed.toLocaleString()} tokens
-          </span>
-        )}
-        {mission.wallTimeMs != null && (
-          <span className="text-gray-500">
-            {(mission.wallTimeMs / 1000).toFixed(1)}s
-          </span>
-        )}
-      </div>
-      {mission.errorMessage && (
-        <p className="mt-2 line-clamp-2 text-[11px] text-red-600">
+
+      {/* Title + summary */}
+      <h3 className="line-clamp-1 font-semibold text-gray-900 group-hover:text-violet-700">
+        {mission.topic}
+      </h3>
+      {mission.reportSummary ? (
+        <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+          {mission.reportSummary}
+        </p>
+      ) : mission.errorMessage ? (
+        <p className="mt-1 line-clamp-2 text-sm text-red-500">
           {mission.errorMessage}
         </p>
+      ) : (
+        <p className="mt-1 text-sm italic text-gray-400">
+          {mission.status === 'running'
+            ? 'Mission in progress…'
+            : 'No report available'}
+        </p>
       )}
-    </Link>
+
+      {/* Stats — TI TopicCard 同款 */}
+      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+        {mission.tokensUsed != null && mission.tokensUsed > 0 && (
+          <div className="flex items-center gap-1">
+            <Coins className="h-3.5 w-3.5" />
+            <span>
+              {mission.tokensUsed >= 1000
+                ? `${(mission.tokensUsed / 1000).toFixed(1)}k tokens`
+                : `${mission.tokensUsed} tokens`}
+            </span>
+          </div>
+        )}
+        {mission.finalScore != null && (
+          <div className="flex items-center gap-1">
+            <Trophy className="h-3.5 w-3.5" />
+            <span
+              className={
+                mission.finalScore >= 80
+                  ? 'text-emerald-600'
+                  : mission.finalScore >= 60
+                    ? 'text-amber-600'
+                    : 'text-red-600'
+              }
+            >
+              {mission.finalScore} / 100
+            </span>
+          </div>
+        )}
+        {mission.wallTimeMs != null && (
+          <div className="flex items-center gap-1">
+            <Activity className="h-3.5 w-3.5" />
+            <span>{(mission.wallTimeMs / 1000).toFixed(1)}s</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer date */}
+      <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
+        <ClientDate date={mission.startedAt} format="datetime" />
+      </div>
+    </div>
   );
 }
+
+const SearchIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    />
+  </svg>
+);
+
+const PlusIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 4v16m8-8H4"
+    />
+  </svg>
+);
 
 export default function PlaygroundIndexPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [missions, setMissions] = useState<MissionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -165,9 +230,20 @@ export default function PlaygroundIndexPage() {
     };
   }, []);
 
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return missions;
+    const q = searchQuery.toLowerCase();
+    return missions.filter(
+      (m) =>
+        m.topic.toLowerCase().includes(q) ||
+        m.reportSummary?.toLowerCase().includes(q) ||
+        m.reportTitle?.toLowerCase().includes(q)
+    );
+  }, [missions, searchQuery]);
+
   return (
     <div className="h-full overflow-auto bg-gray-50">
-      {/* Header */}
+      {/* Header — 完全照搬 ai-insights/page.tsx 结构 */}
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
         <div className="px-8 py-6">
           <div className="flex items-center justify-between">
@@ -177,129 +253,98 @@ export default function PlaygroundIndexPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {t('nav.playground') || 'Playground'}
+                  {t('nav.playground') || 'Agent Playground'}
                 </h1>
                 <p className="text-sm text-gray-500">
                   Demo agent teams powered by the full Harness runtime
                 </p>
               </div>
             </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => router.push('/agent-playground/research-team')}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
+              >
+                <PlusIcon className="h-5 w-5" />
+                New Mission
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mt-6">
+            <div className="relative">
+              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search missions by topic or report content…"
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-8 py-8">
-        {/* Capabilities strip */}
-        <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {CAPABILITIES.map((c) => {
-            const Icon = c.icon;
-            return (
-              <div
-                key={c.title}
-                className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
-              >
-                <div className="mb-1.5 flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-violet-500" />
-                  <p className="text-sm font-semibold text-gray-900">
-                    {c.title}
-                  </p>
-                </div>
-                <p className="text-xs text-gray-500">{c.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Demo teams */}
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-base font-semibold text-gray-900">
-            Available teams
-          </h2>
-          <span className="text-xs text-gray-500">
-            {DEMOS.length} {DEMOS.length === 1 ? 'team' : 'teams'}
-          </span>
-        </div>
-
-        <div className="mb-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {DEMOS.map((demo) => {
-            const Icon = demo.icon;
-            return (
-              <Link
-                key={demo.id}
-                href={demo.href}
-                className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg"
-              >
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${demo.accent} shadow-md ${demo.iconAccent}`}
-                    >
-                      <Icon className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {demo.title}
-                      </h3>
-                      <p className="text-xs font-medium text-violet-600">
-                        {demo.tagline}
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-5 w-5 text-gray-300 transition-all group-hover:translate-x-1 group-hover:text-violet-500" />
-                </div>
-
-                <p className="mb-4 text-sm leading-relaxed text-gray-600">
-                  {demo.description}
-                </p>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {demo.badges.map((b) => (
-                    <span
-                      key={b}
-                      className="inline-flex items-center rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700"
-                    >
-                      {b}
-                    </span>
-                  ))}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Mission history */}
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
-            <History className="h-4 w-4 text-gray-500" />
-            Your mission history
-          </h2>
-          <span className="text-xs text-gray-500">
-            {missions.length} {missions.length === 1 ? 'mission' : 'missions'}
-          </span>
-        </div>
-
+      {/* Body */}
+      <div className="px-8 py-6">
         {loading ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
-            <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-gray-400" />
+          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
+            <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-gray-400" />
             <p className="text-sm text-gray-500">Loading mission history…</p>
           </div>
         ) : error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             Failed to load missions: {error}
           </div>
-        ) : missions.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
-            <p className="text-sm text-gray-500">
-              No missions yet. Start one above ↑
+        ) : filtered.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
+            <Sparkles className="mx-auto mb-3 h-10 w-10 text-violet-300" />
+            <h3 className="text-lg font-semibold text-gray-900">
+              {missions.length === 0 ? 'No missions yet' : 'No matches'}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {missions.length === 0
+                ? 'Start your first research mission with the Harness runtime'
+                : 'Try a different search term'}
             </p>
+            {missions.length === 0 && (
+              <button
+                type="button"
+                onClick={() => router.push('/agent-playground/research-team')}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25"
+              >
+                <PlusIcon className="h-5 w-5" />
+                Start a Research Mission
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {missions.map((m) => (
-              <MissionHistoryCard key={m.id} mission={m} />
-            ))}
-          </div>
+          <>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="text-base font-semibold text-gray-900">
+                {searchQuery ? 'Search results' : 'Your missions'}
+              </h2>
+              <span className="text-xs text-gray-500">
+                {filtered.length}{' '}
+                {filtered.length === 1 ? 'mission' : 'missions'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((m) => (
+                <MissionCard
+                  key={m.id}
+                  mission={m}
+                  onClick={() =>
+                    router.push(`/agent-playground/research-team/${m.id}`)
+                  }
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
