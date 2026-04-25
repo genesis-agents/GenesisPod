@@ -8,3 +8,4 @@ export { CostBreakdownPanel } from './CostBreakdownPanel';
 export { ReportPanel } from './ReportPanel';
 export { DimensionsPanel } from './DimensionsPanel';
 export { RawEventLog } from './RawEventLog';
+export { TeamRosterPanel } from './TeamRosterPanel';
