@@ -24,6 +24,8 @@ import type { IVerifier } from "../loop/reflexion-loop";
 import type { IContextEnvelope } from "../abstractions";
 import { createConsensusResolver } from "../runtime/verification/consensus";
 import type { Verdict, ConsensusDecision } from "../runtime/types";
+import { AIModelType } from "@prisma/client";
+import { KernelContext } from "../../../../common/context/kernel-context";
 
 export type BuiltInVerifierId = "self" | "external" | "critical";
 
@@ -82,6 +84,9 @@ export class JudgeService {
             ],
             taskProfile: { creativity: "deterministic", outputLength: "short" },
             responseFormat: "json",
+            // 系统配置感知 + BYOK：让 chat() 走 user default → DB default 链路
+            modelType: AIModelType.CHAT,
+            userId: KernelContext.get()?.userId,
             signal,
           });
           const parsed = this.parseVerdict(res.content);
