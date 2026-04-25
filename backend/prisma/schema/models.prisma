@@ -9139,3 +9139,42 @@ model HarnessAgentEvent {
   @@index([traceId])
   @@map("harness_agent_events")
 }
+
+/// ============================================================
+/// Harness Vector Memory (PR-S, 2026-04-25)
+///
+/// Agent 长期语义记忆持久层。Mission 完成后自动 index：
+///   - 取 mission output / 关键 thinking / final reflection
+///   - embed 后入库
+///   - 下次同 user/workspace 跑相似 mission 时自动召回
+///
+/// 注意：当前用 Float[] 存 embedding（PG 原生数组）。
+/// 大规模生产应改用 pgvector 扩展（schema 加 @db.Vector(1536)）。
+/// ============================================================
+model HarnessVectorMemory {
+  id            String    @id @default(uuid())
+  /// namespace = userId / workspaceId / sessionId（业务方决定隔离粒度）
+  namespace     String    @db.VarChar(128)
+  /// 业务可塞 'topic-insights:mission' / 'research:report' 等
+  source        String?   @db.VarChar(64)
+  /// 业务自定义 key（'mission:abc123' / 'topic:xyz'）
+  entryKey      String    @map("entry_key") @db.VarChar(128)
+  /// 原文（compaction 后入库的精炼文本，<= 2000 chars）
+  content       String
+  /// embedding 向量（OpenAI text-embedding-3-small = 1536 维）
+  embedding     Float[]
+  /// confidence: 0..1（learner 置信度；越高优先召回）
+  confidence    Float     @default(1.0)
+  /// 业务标签：['mission', 'success'], ['topic', 'finance'] 等
+  tags          String[]
+  /// 任意业务 metadata
+  metadata      Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  /// LRU 淘汰用：每次召回更新 lastAccessedAt
+  lastAccessedAt DateTime @default(now()) @map("last_accessed_at")
+
+  @@index([namespace, createdAt(sort: Desc)])
+  @@index([namespace, lastAccessedAt(sort: Desc)])
+  @@index([source])
+  @@map("harness_vector_memory")
+}

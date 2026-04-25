@@ -19,6 +19,9 @@ import { ConfigService } from "@nestjs/config";
 /**
  * 标准化 span 事件 —— 任何 sink 收到的形状一致。
  * 字段集合参考 OTel Span 子集 + 我们 harness 关心的 cost/token 维度。
+ *
+ * PR-U：增加 `otelAttributes` 字段，按 GenAI Semantic Conventions 标准化。
+ * 业务自定义字段保留在 `attributes`；要导出到 OTel collector 用 `otelAttributes`。
  */
 export interface SpanRecord {
   readonly traceId: string;
@@ -29,6 +32,8 @@ export interface SpanRecord {
   readonly endedAt: number;
   readonly durationMs: number;
   readonly attributes: Readonly<Record<string, unknown>>;
+  /** PR-U: OTel GenAI semantic conventions 兼容字段（gen_ai.system / gen_ai.usage.* 等） */
+  readonly otelAttributes: Readonly<Record<string, unknown>>;
   readonly exception?: { name: string; message: string; stack?: string };
 }
 

@@ -38,10 +38,15 @@ import { ToolInvoker } from "./executor/tool-invoker";
 import { ToolCircuitBreaker } from "./executor/tool-circuit-breaker";
 import { LlmExecutor } from "./executor/llm-executor";
 import { InMemoryVectorStore } from "./memory-bridge/in-memory-vector-store";
+import { PrismaVectorStore } from "./memory-bridge/prisma-vector-store";
+import { MemoryAutoIndexer } from "./memory-bridge/memory-auto-indexer";
 import { MemoryBridge } from "./memory-bridge/memory-bridge.service";
 import { SkillRegistry, SkillLoader, SkillActivator } from "./skills";
 import { SubagentSpawner } from "./subagent";
 import { ContextManager, ContextCompactor, PriorityPruner } from "./context";
+import { CacheControlPlanner } from "./context/cache-control-planner";
+import { AgentRegistry } from "./handoff/agent-registry";
+import { HandoffService } from "./handoff/handoff.service";
 import {
   CheckpointService,
   InMemoryCheckpointStore,
@@ -111,6 +116,15 @@ import { AiEngineMemoryModule } from "../ai-engine-memory.module";
     ContextCompactor,
     PriorityPruner,
     ContextManager,
+    CacheControlPlanner,
+
+    // PR-R: Agent Handoff
+    AgentRegistry,
+    HandoffService,
+
+    // PR-S: Vector memory + auto-index
+    PrismaVectorStore,
+    MemoryAutoIndexer,
 
     // Checkpoint + Learning (Phase 6) — PR-C 升级为 Prisma 可选
     InMemoryCheckpointStore,

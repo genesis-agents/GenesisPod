@@ -34,6 +34,7 @@ import { SkillActivator } from "../skills/skill-activator";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 import { AgentEventStore } from "../checkpoint/agent-event-store";
 import { LlmExecutor } from "../executor/llm-executor";
+import { AgentRegistry } from "../handoff/agent-registry";
 
 @Injectable()
 export class AgentFactory {
@@ -64,6 +65,10 @@ export class AgentFactory {
      * 不提供时事件不入库（向后兼容）。
      */
     @Optional() private readonly eventStore?: AgentEventStore,
+    /**
+     * PR-R: AgentRegistry — agent 实例中央目录，handoff 必需。
+     */
+    @Optional() private readonly agentRegistry?: AgentRegistry,
   ) {
     this.defaultLoop = reactLoop;
   }
@@ -175,6 +180,7 @@ export class AgentFactory {
       checkpointService: this.checkpointService,
       checkpointEveryNActions: this.checkpointService ? 3 : 0,
       eventStore: this.eventStore,
+      agentRegistry: this.agentRegistry,
     });
   }
 
@@ -214,6 +220,7 @@ export class AgentFactory {
       checkpointService: this.checkpointService,
       checkpointEveryNActions: this.checkpointService ? 3 : 0,
       eventStore: this.eventStore,
+      agentRegistry: this.agentRegistry,
     });
   }
 

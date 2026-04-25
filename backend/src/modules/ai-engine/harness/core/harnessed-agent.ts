@@ -29,6 +29,7 @@ import type { ISubagentSpawner } from "../abstractions";
 import type { CheckpointService } from "../checkpoint/checkpoint.service";
 import type { AgentEventStore } from "../checkpoint/agent-event-store";
 import { BudgetAccountant } from "../runtime/budget-accountant";
+import type { AgentRegistry } from "../handoff/agent-registry";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;
@@ -50,6 +51,11 @@ export interface HarnessedAgentInit {
    * 不提供时事件只在 stream yield 给 caller，不入库（向后兼容）。
    */
   eventStore?: AgentEventStore;
+  /**
+   * PR-R: AgentRegistry — 注册到中心目录后，其它 agent 可 handoff 给本 agent。
+   * 不提供时 handoff 系统看不见此 agent，但本 agent 仍可作为 handoff 源。
+   */
+  agentRegistry?: AgentRegistry;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -66,6 +72,7 @@ export class HarnessedAgent implements IAgent {
   private readonly checkpointEveryNActions: number;
   private readonly budget?: BudgetAccountant;
   private readonly eventStore?: AgentEventStore;
+  private readonly agentRegistry?: AgentRegistry;
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
 
@@ -84,6 +91,7 @@ export class HarnessedAgent implements IAgent {
     this.checkpointEveryNActions = init.checkpointEveryNActions ?? 0;
     this.budget = init.budget;
     this.eventStore = init.eventStore;
+    this.agentRegistry = init.agentRegistry;
     this.state = "idle";
   }
 
@@ -100,6 +108,8 @@ export class HarnessedAgent implements IAgent {
       return;
     }
     this.state = "running";
+    // PR-R: 注册到 AgentRegistry，让其它 agent 可 handoff 给本 agent
+    this.agentRegistry?.register(this);
 
     let actionCount = 0;
     let eventCount = 0;
@@ -260,6 +270,8 @@ export class HarnessedAgent implements IAgent {
         };
       } finally {
         skillCleanup?.();
+        // PR-R: 终止时自动注销，防止 registry 持有死引用
+        this.agentRegistry?.unregister(this.id);
       }
       return;
     }

@@ -1,43 +1,73 @@
 /**
  * TokenEstimator — 精确 + 启发双层 token 计数
  *
- * v2 (PR-D)：
- *   - 默认走 gpt-tokenizer（cl100k_base，OpenAI / Claude 都接近，差 < 5%）
- *   - 失败时 fallback 到 4 chars/token 启发（保护初始化期 / Edge runtime 等环境）
- *   - 暴露 estimateForModel(model, text) — 未来按 model family 切分；当前都用 cl100k_base
+ * v3 (PR-U)：按 model family 选 encoder
+ *   - GPT-4o / o-series：o200k_base
+ *   - GPT-4 / GPT-3.5 / Claude（近似）：cl100k_base
+ *   - 未知 model：cl100k_base (默认)
+ *   - encoder 加载失败：4 chars/token 启发兜底
  *
- * 用途：
- *   - ContextManager.ensureBudget 决定是否 compact
- *   - BudgetAccountant 不直接用本估算（用 LLM provider 返回的真值）；
- *     仅 Loop 决策"现在还能放下多少消息"时调
+ * Anthropic 官方 tokenizer 暂未开源 JS 版；用 cl100k_base 估算误差 < 10%（够用）。
  */
 
 import type { IContextEnvelope, IContextMessage } from "../abstractions";
 
 const CHARS_PER_TOKEN_FALLBACK = 4;
 
-let encoder: { encode: (text: string) => number[] } | null = null;
-let encoderInitFailed = false;
+type EncoderName = "cl100k_base" | "o200k_base";
+type Encoder = { encode: (text: string) => number[] };
 
-function getEncoder(): { encode: (text: string) => number[] } | null {
-  if (encoderInitFailed) return null;
-  if (encoder) return encoder;
+const encoderCache = new Map<EncoderName, Encoder | null>();
+let baseModuleInitFailed = false;
+
+/**
+ * Lazy 加载特定 encoder。
+ * gpt-tokenizer 默认导出是 cl100k_base；o200k_base 通过 sub-import 路径取。
+ */
+function getEncoder(name: EncoderName): Encoder | null {
+  if (encoderCache.has(name)) return encoderCache.get(name) ?? null;
+  if (baseModuleInitFailed) return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const lib = require("gpt-tokenizer") as {
-      encode: (text: string) => number[];
-    };
-    encoder = lib;
-    return lib;
+    let mod: Encoder;
+    if (name === "o200k_base") {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      mod = require("gpt-tokenizer/encoding/o200k_base") as Encoder;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      mod = require("gpt-tokenizer") as Encoder;
+    }
+    encoderCache.set(name, mod);
+    return mod;
   } catch {
-    encoderInitFailed = true;
+    encoderCache.set(name, null);
+    if (name === "cl100k_base") baseModuleInitFailed = true;
     return null;
   }
 }
 
-function encodedLength(text: string): number {
+/**
+ * PR-U: 按 modelId 选合适的 encoder。
+ * - gpt-4o / gpt-5 / o1 / o3 → o200k_base
+ * - 其余（gpt-4 / claude / 未知）→ cl100k_base
+ */
+function pickEncoderName(modelId?: string): EncoderName {
+  if (!modelId) return "cl100k_base";
+  const m = modelId.toLowerCase();
+  if (
+    m.startsWith("gpt-4o") ||
+    m.startsWith("gpt-5") ||
+    m.startsWith("o1") ||
+    m.startsWith("o3") ||
+    m.startsWith("o4")
+  ) {
+    return "o200k_base";
+  }
+  return "cl100k_base";
+}
+
+function encodedLength(text: string, modelId?: string): number {
   if (!text) return 0;
-  const enc = getEncoder();
+  const enc = getEncoder(pickEncoderName(modelId));
   if (enc) {
     try {
       return enc.encode(text).length;
@@ -91,9 +121,11 @@ export function estimateEnvelopeTokens(envelope: IContextEnvelope): number {
 }
 
 /**
- * 按 modelId 估算（v2 占位 —— 当前所有 model 共用 cl100k_base 表）。
- * 未来 Anthropic 发布官方 tokenizer 时按 model family switch。
+ * 按 modelId 选合适 encoder 估算（PR-U）。
+ *   - GPT-4o / GPT-5 / o-series → o200k_base
+ *   - GPT-4 / Claude / 其它 → cl100k_base
+ *   - encoder 加载失败 → 4 chars/token 启发
  */
-export function estimateForModel(_modelId: string, text: string): number {
-  return encodedLength(text);
+export function estimateForModel(modelId: string, text: string): number {
+  return encodedLength(text, modelId);
 }

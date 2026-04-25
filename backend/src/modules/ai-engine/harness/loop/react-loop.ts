@@ -40,6 +40,7 @@ import { AiChatService } from "../../llm/services/ai-chat.service";
 import type { ChatMessage } from "../../llm/types";
 import { ToolInvoker } from "../executor/tool-invoker";
 import { ContextManager } from "../context/context-manager";
+import { CacheControlPlanner } from "../context/cache-control-planner";
 import { HookRegistry } from "../core/hook-registry";
 import { BudgetAccountant } from "../runtime/budget-accountant";
 import { ModelPricingRegistry } from "../runtime/model-pricing-registry";
@@ -86,6 +87,7 @@ export class ReActLoop implements IAgentLoop {
     private readonly hookRegistry: HookRegistry,
     @Optional() private readonly contextManager?: ContextManager,
     @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
+    @Optional() private readonly cachePlanner?: CacheControlPlanner,
   ) {}
 
   async *run(
@@ -197,11 +199,14 @@ export class ReActLoop implements IAgentLoop {
             }
           }
         }
+        // PR-Q: 自动 prompt-cache 规划 —— 重复 prefix 享受 1/10 价
+        const cachePrefix = this.cachePlanner?.plan(currentEnvelope) ?? null;
         const reasoned = await this.reason(
           messages,
           currentEnvelope.system,
           options?.signal,
           tierModelId ?? undefined,
+          cachePrefix,
         );
         decision = reasoned.decision;
         usage = reasoned.usage;
@@ -331,6 +336,9 @@ export class ReActLoop implements IAgentLoop {
     baseSystem: string,
     signal?: AbortSignal,
     modelOverride?: string,
+    cachePrefix?:
+      | import("../context/cache-control-planner").SharedCachePrefix
+      | null,
   ): Promise<{
     decision: ParsedDecision;
     usage: {
@@ -350,8 +358,14 @@ export class ReActLoop implements IAgentLoop {
       // PR-I 修复 #1: 让 BudgetAccountant.downgrade() 真正生效——
       // 把 tier 选出的 modelId 透给 ChatService（缺省走 election）。
       model: modelOverride,
-      // PR-I 修复 #5: 启用 prompt cache（Claude 5min 内重复 prefix 省 90%）
+      // PR-Q: prompt-cache 自动化 —— 重复 prefix 1/10 价
       cachePolicy: "auto",
+      sharedCachePrefix: cachePrefix
+        ? {
+            systemPromptText: cachePrefix.systemPromptText,
+            toolDefinitions: cachePrefix.toolDefinitions,
+          }
+        : undefined,
       taskProfile: { creativity: "low", outputLength: "short" },
       responseFormat: "json",
       signal,

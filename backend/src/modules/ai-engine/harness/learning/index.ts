@@ -4,4 +4,6 @@ export { SkillLearningCoordinator } from "./skill-learning-coordinator";
 export type {
   CloseLoopOptions,
   CloseLoopResult,
+  SandboxReplayer,
 } from "./skill-learning-coordinator";
+export { NoopSandboxReplayer, LlmSelfCheckReplayer } from "./sandbox-replayer";

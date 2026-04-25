@@ -60,6 +60,16 @@ export class AgentTracer {
       const durationMs = endedAt - startedAt;
       const merged = { ...attributes, ...(endAttrs ?? {}), durationMs };
       if (this.exporter) {
+        // PR-U: 同时输出 OTel GenAI semantic conventions 兼容字段
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { toOtelGenAiAttributes } =
+          require("./otel-semantic-conventions") as {
+            toOtelGenAiAttributes: (
+              n: string,
+              r: Record<string, unknown>,
+            ) => Record<string, unknown>;
+          };
+        const otelAttributes = toOtelGenAiAttributes(name, merged);
         this.exporter.emit({
           traceId,
           spanId,
@@ -69,6 +79,7 @@ export class AgentTracer {
           endedAt,
           durationMs,
           attributes: merged,
+          otelAttributes,
           exception,
         });
       }
