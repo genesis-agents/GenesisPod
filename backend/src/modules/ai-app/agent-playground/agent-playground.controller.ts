@@ -115,12 +115,12 @@ export class AgentPlaygroundController {
    *   - WS 失败时 polling 兜底
    */
   @Get("replay/:missionId")
-  replay(
+  async replay(
     @Param("missionId") missionId: string,
     @Query("since") since: string | undefined,
     @Request() req: RequestWithUser,
-  ): { events: readonly unknown[]; serverNow: number } {
-    this.assertOwnership(missionId, req.user?.id);
+  ): Promise<{ events: readonly unknown[]; serverNow: number }> {
+    await this.assertOwnership(missionId, req.user?.id);
     const sinceTs = since ? Number(since) : undefined;
     const events = this.buffer.read(
       missionId,
@@ -129,12 +129,29 @@ export class AgentPlaygroundController {
     return { events, serverNow: Date.now() };
   }
 
-  private assertOwnership(missionId: string, userId?: string): void {
+  /**
+   * 双层 ownership：先查内存 registry（fast path），miss 时回退查 DB。
+   * Railway recycle 后 in-memory registry 清空，但 mission 在 DB 中仍存在，
+   * 不应该让用户看不到自己的历史 mission。
+   */
+  private async assertOwnership(
+    missionId: string,
+    userId?: string,
+  ): Promise<void> {
     if (!userId) throw new ForbiddenException("Authentication required");
     const owner = this.ownership.getOwner(missionId);
-    if (!owner) throw new ForbiddenException(`mission ${missionId} not found`);
-    if (owner !== userId) {
-      throw new ForbiddenException(`mission ${missionId} not owned by you`);
+    if (owner) {
+      if (owner !== userId) {
+        throw new ForbiddenException(`mission ${missionId} not owned by you`);
+      }
+      return;
     }
+    // Fallback: registry miss → 查 DB
+    const persisted = await this.store.getById(missionId, userId);
+    if (!persisted) {
+      throw new ForbiddenException(`mission ${missionId} not found`);
+    }
+    // DB 命中 → 重新登记 in-memory（下次 hot path），保留 ownership
+    this.ownership.assign(missionId, userId);
   }
 }
