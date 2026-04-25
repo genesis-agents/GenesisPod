@@ -52,6 +52,7 @@ import { RAGModule } from "./modules/ai-app/library/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
 import { TopicInsightsModule } from "./modules/ai-app/topic-insights";
+import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/agent-playground.module";
 import { AiSocialModule } from "./modules/ai-app/social/ai-social.module";
 // Explore modules (content discovery)
 import { ExploreModule } from "./modules/ai-app/explore/explore.module";
@@ -177,6 +178,7 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
     AiWritingModule,
     ResearchModule, // Deep Research 模块 (Deep Research + Notebook Research)
     TopicInsightsModule, // Topic Insights 专题洞察模块 (从 Research 拆分)
+    AgentPlaygroundModule, // ★ Harness 全栈能力 demo（research-team）
     AiSocialModule, // AI 社交媒体发布模块
     // Content engine modules (Phase 3: moved from ai-engine)
     LongContentModule,
