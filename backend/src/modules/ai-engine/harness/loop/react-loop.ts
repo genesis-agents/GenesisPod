@@ -406,6 +406,11 @@ export class ReActLoop implements IAgentLoop {
     if (text.startsWith("```")) {
       text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
     }
+    // LLM 偶尔违规返回多个 top-level JSON 对象（NDJSON-like）：
+    //   {"thinking":"...", "action":{...}}
+    //   {"thinking":"...", "action":{...}}
+    // 普通 JSON.parse 会卡在第二个 { 报错。先尝试提取首个完整对象。
+    text = this.extractFirstJsonObject(text) ?? text;
     try {
       const obj = JSON.parse(text) as {
         thinking?: unknown;
@@ -446,6 +451,49 @@ export class ReActLoop implements IAgentLoop {
         action: { kind: "finalize", output: raw },
       };
     }
+  }
+
+  /**
+   * 扫描 text 找出首个完整的 top-level JSON 对象（平衡 { } 计数，
+   * 跳过字符串字面量内的引号 / 转义）。
+   * 用于 LLM 输出多个 JSON 对象时只取第一个；也兼容首部带闲聊文本的情况。
+   * 返回 null 表示没找到完整对象。
+   */
+  private extractFirstJsonObject(text: string): string | null {
+    let start = text.indexOf("{");
+    if (start === -1) return null;
+    while (start !== -1) {
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (inString) {
+          if (ch === "\\") {
+            escape = true;
+          } else if (ch === '"') {
+            inString = false;
+          }
+          continue;
+        }
+        if (ch === '"') {
+          inString = true;
+          continue;
+        }
+        if (ch === "{") depth += 1;
+        else if (ch === "}") {
+          depth -= 1;
+          if (depth === 0) return text.slice(start, i + 1);
+        }
+      }
+      // 不平衡 → 从下一个 { 重试
+      start = text.indexOf("{", start + 1);
+    }
+    return null;
   }
 
   private normalizeToolCall(action: unknown): IToolCallAction | null {
