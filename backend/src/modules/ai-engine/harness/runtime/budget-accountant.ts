@@ -10,11 +10,11 @@ import type { TokenBudget, BudgetSnapshot } from "./types";
 export type ModelTier = "strong" | "standard" | "basic";
 
 export class BudgetAccountant {
-  private tokensUsed = 0;
-  private costUsd = 0;
-  private currentTier: ModelTier = "strong";
+  protected tokensUsed = 0;
+  protected costUsd = 0;
+  protected currentTier: ModelTier = "strong";
 
-  constructor(private readonly cap: TokenBudget) {}
+  constructor(protected readonly cap: TokenBudget) {}
 
   exhausted(): boolean {
     return (
@@ -39,12 +39,18 @@ export class BudgetAccountant {
     return this.currentTier;
   }
 
+  /**
+   * @param cacheReadTokens (PR-I 必修 #4) Anthropic prompt-cache 命中的 token 数。
+   *   虽然计费按 1/10 价（已在 estimateCost 体现），但仍占用上下文窗口，必须计入 tokensUsed
+   *   以防"context 已满但 budget 显未超 → provider 报 context-too-long"。
+   */
   accountLLM(
     promptTokens: number,
     completionTokens: number,
     costUsd: number,
+    cacheReadTokens = 0,
   ): void {
-    this.tokensUsed += promptTokens + completionTokens;
+    this.tokensUsed += promptTokens + completionTokens + cacheReadTokens;
     this.costUsd += costUsd;
   }
 

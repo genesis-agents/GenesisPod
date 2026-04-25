@@ -18,8 +18,13 @@ import type {
 } from "../abstractions";
 import { AgentFactory } from "../core/agent-factory";
 import { HookRegistry } from "../core/hook-registry";
+import { LoopRegistry } from "../loop/loop-registry";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 import type { ICheckpoint } from "../checkpoint/checkpoint.types";
+import {
+  AgentEventStore,
+  type AgentEventRecord,
+} from "../checkpoint/agent-event-store";
 
 @Injectable()
 export class HarnessFacade implements IHarness {
@@ -30,7 +35,12 @@ export class HarnessFacade implements IHarness {
      * SkillActivator, ReActLoop. Hooks registered here are visible to all.
      */
     private readonly hookRegistry: HookRegistry,
+    /**
+     * v2: LoopRegistry — registerLoop() 由 facade 真正派发（不再 no-op）。
+     */
+    private readonly loopRegistry: LoopRegistry,
     @Optional() private readonly checkpointService?: CheckpointService,
+    @Optional() private readonly eventStore?: AgentEventStore,
   ) {}
 
   createAgent(spec: IAgentSpec): IAgent {
@@ -70,13 +80,12 @@ export class HarnessFacade implements IHarness {
   }
 
   /**
-   * registerLoop is part of IHarness contract for future Loop polymorphism
-   * (ReAct vs Plan-Execute vs Reflexion). Currently ReActLoop is the default
-   * wired via DI; this method is a forward-compatibility hook — NOT YET USED
-   * to dispatch to alternative loops. Marked as known-dead until Phase 7.
+   * v2: 真正接通 LoopRegistry。
+   * AI App 可注册自定义 loop（ToT / Debate / SWE-style 等），AgentFactory
+   * 在 createAgent(spec) 时按 spec.loop 派发。
    */
-  registerLoop(_loop: IAgentLoop): void {
-    // no-op: alternative loops not yet dispatched (Phase 7)
+  registerLoop(loop: IAgentLoop): void {
+    this.loopRegistry.register(loop);
   }
 
   get hooks(): HookRegistry {
@@ -109,5 +118,72 @@ export class HarnessFacade implements IHarness {
       sessionId: checkpoint.envelope.memory.sessionId,
     });
     return { agent, checkpoint };
+  }
+
+  /**
+   * Fork — 从已有 checkpoint 创建一个独立分支的 agent。
+   * 用于 branch-and-bound：从同一断点尝试两条路线（如 plan A vs plan B）。
+   *
+   * PR-I 修复 #4: 完全隔离 memory scope（之前只换 sessionId，userId 不变 →
+   * fork 后子 agent 仍可读父 agent 的 user-scope 记忆 → 信息泄漏）。
+   * 现在：sessionId + workingMemoryKey + longTermScope 全部隔离；userId 可选保留。
+   *
+   * @param options.preserveUserId 显式保留原 userId（默认 false——完全隔离）
+   *   仅在你确定 fork 后的 agent 仍代表同一用户（如 A/B 实验）时设为 true。
+   */
+  async fork(
+    checkpointId: string,
+    options?: {
+      newSessionId?: string;
+      /** 默认 false —— 强烈推荐保持隔离，避免 fork 跨用户读取记忆 */
+      preserveUserId?: boolean;
+    },
+  ): Promise<{
+    agent: import("../abstractions").IAgent;
+    checkpoint: ICheckpoint;
+  } | null> {
+    if (!this.checkpointService) {
+      throw new Error("HarnessFacade.fork: CheckpointService not wired");
+    }
+    const checkpoint = await this.checkpointService.load(checkpointId);
+    if (!checkpoint) return null;
+    const newSessionId =
+      options?.newSessionId ??
+      `${checkpoint.envelope.memory.sessionId}.fork.${Date.now()}`;
+    // PR-I: 强隔离 memory scope —— sessionId/workingMemoryKey/longTermScope 全换
+    // userId 默认丢弃（preserveUserId=true 才保留）
+    const forkedEnv = {
+      ...checkpoint.envelope,
+      memory: {
+        sessionId: newSessionId,
+        userId: options?.preserveUserId
+          ? checkpoint.envelope.memory.userId
+          : undefined,
+        workingMemoryKey: undefined,
+        longTermScope: undefined,
+      },
+    };
+    const agent = this.factory.createFromCheckpoint({
+      identity: checkpoint.identity,
+      envelope: forkedEnv,
+      sessionId: newSessionId,
+    });
+    return { agent, checkpoint };
+  }
+
+  /**
+   * Replay — 拉取 agent 完整事件流（用于审计 / 调试 / Inspector UI）。
+   * 不重新执行任何 LLM/tool；只读 event store。
+   */
+  async replay(
+    agentId: string,
+    options?: { fromSeq?: number; limit?: number },
+  ): Promise<readonly AgentEventRecord[]> {
+    if (!this.eventStore) {
+      throw new Error(
+        "HarnessFacade.replay: AgentEventStore not wired — enable PR-C providers in HarnessModule",
+      );
+    }
+    return this.eventStore.readStream(agentId, options);
   }
 }

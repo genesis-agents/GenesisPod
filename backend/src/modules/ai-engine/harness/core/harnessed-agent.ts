@@ -27,6 +27,8 @@ import type { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 import type { SkillActivator } from "../skills/skill-activator";
 import type { ISubagentSpawner } from "../abstractions";
 import type { CheckpointService } from "../checkpoint/checkpoint.service";
+import type { AgentEventStore } from "../checkpoint/agent-event-store";
+import { BudgetAccountant } from "../runtime/budget-accountant";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;
@@ -38,6 +40,16 @@ export interface HarnessedAgentInit {
   checkpointService?: CheckpointService;
   /** 每 N 个 action_executed 事件自动 snapshot（默认 0 = 关闭） */
   checkpointEveryNActions?: number;
+  /**
+   * v2: BudgetAccountant — Loop 内强制 token/cost 预算 + 自动 tier 降级。
+   * 不提供时退回 identity.constraints 软约束。
+   */
+  budget?: BudgetAccountant;
+  /**
+   * PR-C: AgentEventStore — 事件溯源持久化。
+   * 不提供时事件只在 stream yield 给 caller，不入库（向后兼容）。
+   */
+  eventStore?: AgentEventStore;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -52,6 +64,8 @@ export class HarnessedAgent implements IAgent {
   private readonly subagentSpawner?: ISubagentSpawner;
   private readonly checkpointService?: CheckpointService;
   private readonly checkpointEveryNActions: number;
+  private readonly budget?: BudgetAccountant;
+  private readonly eventStore?: AgentEventStore;
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
 
@@ -68,6 +82,8 @@ export class HarnessedAgent implements IAgent {
     this.subagentSpawner = init.subagentSpawner;
     this.checkpointService = init.checkpointService;
     this.checkpointEveryNActions = init.checkpointEveryNActions ?? 0;
+    this.budget = init.budget;
+    this.eventStore = init.eventStore;
     this.state = "idle";
   }
 
@@ -140,17 +156,46 @@ export class HarnessedAgent implements IAgent {
             signal?: AbortSignal;
             allowedTools?: readonly string[];
             forbiddenTools?: readonly string[];
+            budget?: BudgetAccountant;
+            parent?: IAgent;
+            spawner?: ISubagentSpawner;
           },
         ) => AsyncIterable<IAgentEvent>;
+
+        // PR-I 修复 #2: 事件 batch buffer，避免 N+1 写库
+        const eventBuffer: IAgentEvent[] = [];
+        const FLUSH_THRESHOLD = 10;
+        const flushBuffer = () => {
+          if (!this.eventStore || eventBuffer.length === 0) return;
+          const batch = eventBuffer.splice(0);
+          void this.eventStore.appendBatch(batch).catch(() => {
+            /* never block agent on event-store failure */
+          });
+        };
 
         for await (const ev of runFn(this.envelope, criteria, {
           agentId: this.id,
           signal: this.abortController.signal,
           allowedTools: this.identity.tools,
           forbiddenTools: this.identity.forbiddenTools,
+          budget: this.budget,
+          // PR-D: 让 ReActLoop 能调度 subagent_spawn action
+          parent: this,
+          spawner: this.subagentSpawner,
         })) {
           yield ev;
           eventCount += 1;
+
+          // PR-I 修复 #2: 入 buffer 而非每事件单独写
+          if (this.eventStore) {
+            eventBuffer.push(ev);
+            if (
+              eventBuffer.length >= FLUSH_THRESHOLD ||
+              ev.type === "terminated"
+            ) {
+              flushBuffer();
+            }
+          }
 
           if (ev.type === "action_executed") {
             actionCount += 1;

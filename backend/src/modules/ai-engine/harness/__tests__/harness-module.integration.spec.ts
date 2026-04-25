@@ -11,6 +11,9 @@ import { HarnessFacade } from "../facade/harness.facade";
 import { AgentFactory } from "../core/agent-factory";
 import { HookRegistry } from "../core/hook-registry";
 import { ReActLoop } from "../loop/react-loop";
+import { PlanActLoop } from "../loop/plan-act-loop";
+import { ReflexionLoop } from "../loop/reflexion-loop";
+import { LoopRegistry } from "../loop/loop-registry";
 import { ToolInvoker } from "../executor/tool-invoker";
 import { SkillRegistry } from "../skills/skill-registry";
 import { SkillActivator } from "../skills/skill-activator";
@@ -54,6 +57,9 @@ describe("HarnessModule (NestJS DI integration)", () => {
         PriorityPruner,
         ContextManager,
         ReActLoop,
+        PlanActLoop,
+        ReflexionLoop,
+        LoopRegistry,
         MemoryBridge,
         SkillRegistry,
         SkillLoader,
@@ -75,6 +81,11 @@ describe("HarnessModule (NestJS DI integration)", () => {
     moduleRef
       .get(AgentFactory)
       .setSubagentSpawner(moduleRef.get(SubagentSpawner));
+    // v2: Simulate loop registration (mirrors HarnessModule.onApplicationBootstrap)
+    const registry = moduleRef.get(LoopRegistry);
+    registry.register(moduleRef.get(ReActLoop));
+    registry.register(moduleRef.get(PlanActLoop));
+    registry.register(moduleRef.get(ReflexionLoop));
     return moduleRef;
   }
 

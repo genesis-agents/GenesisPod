@@ -10,7 +10,12 @@ import type { IContextEnvelope } from "./context-envelope.interface";
 import type { IAction, IActionResult } from "./action.interface";
 
 /** Loop 类型标识 */
-export type AgentLoopKind = "react" | "plan-execute" | "reflexion" | "simple";
+export type AgentLoopKind =
+  | "react"
+  | "plan-execute"
+  | "reflexion"
+  | "leader-worker" // PR-L: 五元环
+  | "simple";
 
 /** Loop 单步的四阶段结果 */
 export interface ILoopStep {

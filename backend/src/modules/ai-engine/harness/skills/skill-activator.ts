@@ -100,7 +100,18 @@ export class SkillActivator {
             }
           },
           registerHook: <E extends HookEvent>(binding: IHookBinding<E>) => {
-            const unreg = this.hooks.register(binding);
+            // PR-I 建议修联动：HookRegistry 现要求非 global scope 必须有 scopeTarget。
+            // SkillActivator 自动用 skill name 兜底，业务方无感。
+            const enriched: IHookBinding<E> = {
+              ...binding,
+              scopeTarget:
+                binding.scopeTarget ??
+                (binding.scope === "skill"
+                  ? skill.frontmatter.name
+                  : binding.scopeTarget),
+              scope: binding.scope === "skill" ? "global" : binding.scope,
+            };
+            const unreg = this.hooks.register(enriched);
             unregisterFns.push(unreg);
           },
         };

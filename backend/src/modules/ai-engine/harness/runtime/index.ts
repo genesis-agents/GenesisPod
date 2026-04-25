@@ -19,6 +19,13 @@ export {
 } from "./react-runner";
 
 export { BudgetAccountant, type ModelTier } from "./budget-accountant";
+export { MissionBudgetPool } from "./mission-budget-pool";
+export {
+  AgentExecutionContext,
+  classifyError,
+  shouldRetry,
+} from "./agent-execution-context";
+export { NoopRuntimeEnvironment } from "./noop-runtime-environment";
 
 export {
   ToolRegistry,
@@ -31,6 +38,11 @@ export {
 } from "./tool-registry";
 
 export { AgentTracer, type Span, type StartSpanOptions } from "./otel-tracer";
+export { SpanExporter, type SpanRecord, type SpanSink } from "./span-exporter";
+export {
+  ModelPricingRegistry,
+  type ModelPricing,
+} from "./model-pricing-registry";
 
 // 持久化抽象接口（App 层实现）
 export type {

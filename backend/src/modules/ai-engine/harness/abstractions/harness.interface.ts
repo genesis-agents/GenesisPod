@@ -41,6 +41,10 @@ export interface IAgentSpec<TInput = unknown, TOutput = unknown> {
   /** 初始 session id（用于 memory scoping） */
   readonly sessionId?: string;
   readonly userId?: string;
+  /** PR-J: workspace（多租户隔离） */
+  readonly workspaceId?: string;
+  /** PR-J: 运行时环境（BYOK / credit / model 可用性）；不传走 Noop */
+  readonly runtimeEnv?: import("./runtime-env.interface").IRuntimeEnvironment;
 
   // ============ v2 目标架构字段（全部 optional，向后兼容） ============
 

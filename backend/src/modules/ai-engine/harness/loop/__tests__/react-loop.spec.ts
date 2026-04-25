@@ -230,4 +230,115 @@ describe("ReActLoop (Phase 2)", () => {
     const actionExecs = events.filter((e) => e.type === "action_executed");
     expect(actionExecs).toHaveLength(2);
   });
+
+  // ── v2: Parallel tool calls ──
+  it("executes multiple tools in parallel via parallel_tool_call", async () => {
+    const chat = mkChat([
+      JSON.stringify({
+        thinking: "fan out",
+        action: {
+          kind: "parallel_tool_call",
+          calls: [
+            { kind: "tool_call", toolId: "a", input: {} },
+            { kind: "tool_call", toolId: "b", input: {} },
+            { kind: "tool_call", toolId: "c", input: {} },
+          ],
+        },
+      }),
+      JSON.stringify({
+        thinking: "merge",
+        action: { kind: "finalize", output: "merged" },
+      }),
+    ]);
+    const reg = mkToolRegistry({
+      a: { success: true, data: "A" },
+      b: { success: true, data: "B" },
+      c: { success: true, data: "C" },
+    });
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(["a", "b", "c"]), criteria, { agentId: "p1" }),
+    );
+    const exec = events.find((e) => e.type === "action_executed");
+    expect(exec?.payload).toMatchObject({
+      action: { kind: "parallel_tool_call" },
+      subResults: expect.arrayContaining([
+        expect.objectContaining({ output: "A" }),
+        expect.objectContaining({ output: "B" }),
+        expect.objectContaining({ output: "C" }),
+      ]),
+    });
+    expect(reg.get).toHaveBeenCalledTimes(3);
+  });
+
+  it("treats top-level 'actions' shorthand as parallel_tool_call", async () => {
+    const chat = mkChat([
+      JSON.stringify({
+        thinking: "fan out shorthand",
+        actions: [
+          { toolId: "a", input: {} },
+          { toolId: "b", input: {} },
+        ],
+      }),
+      JSON.stringify({
+        thinking: "done",
+        action: { kind: "finalize", output: "done" },
+      }),
+    ]);
+    const reg = mkToolRegistry({
+      a: { success: true, data: 1 },
+      b: { success: true, data: 2 },
+    });
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(["a", "b"]), criteria, { agentId: "s1" }),
+    );
+    const exec = events.find((e) => e.type === "action_executed");
+    expect(exec?.payload).toMatchObject({
+      action: { kind: "parallel_tool_call" },
+    });
+    expect(reg.get).toHaveBeenCalledTimes(2);
+  });
+
+  // ── v2: BudgetAccountant integration ──
+  it("aborts loop when BudgetAccountant.exhausted() returns true", async () => {
+    const { BudgetAccountant } =
+      await import("../../runtime/budget-accountant");
+    const budget = new BudgetAccountant({ maxTokens: 100, maxCostUsd: 0.01 });
+    // Pre-exhaust
+    budget.accountLLM(150, 0, 0);
+
+    const chat = mkChat([
+      JSON.stringify({
+        thinking: "shouldn't be called",
+        action: { kind: "finalize", output: "x" },
+      }),
+    ]);
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(), criteria, { agentId: "b1", budget }),
+    );
+    const types = events.map((e) => e.type);
+    expect(types).toContain("budget_warning");
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toEqual({ reason: "budget" });
+    // chat must NOT have been called — exhausted before reasoning
+    expect(chat.chat).not.toHaveBeenCalled();
+  });
 });

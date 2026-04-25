@@ -28,9 +28,11 @@ import { ContextEnvelope } from "./context-envelope";
 import { HarnessedAgent } from "./harnessed-agent";
 import { SpecBasedAgent } from "./spec-based-agent";
 import { ReActLoop } from "../loop/react-loop";
+import { LoopRegistry } from "../loop/loop-registry";
 import { MemoryBridge } from "../memory-bridge/memory-bridge.service";
 import { SkillActivator } from "../skills/skill-activator";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
+import { AgentEventStore } from "../checkpoint/agent-event-store";
 import { LlmExecutor } from "../executor/llm-executor";
 
 @Injectable()
@@ -52,8 +54,36 @@ export class AgentFactory {
     @Optional() private readonly skillActivator?: SkillActivator,
     @Optional() private readonly checkpointService?: CheckpointService,
     @Optional() private readonly llmExecutor?: LlmExecutor,
+    /**
+     * v2: LoopRegistry — 按 spec.loop 选择 loop 实现。
+     * 缺省时退回 reactLoop（默认 ReActLoop）。
+     */
+    @Optional() private readonly loopRegistry?: LoopRegistry,
+    /**
+     * PR-C: AgentEventStore — 事件溯源持久化。
+     * 不提供时事件不入库（向后兼容）。
+     */
+    @Optional() private readonly eventStore?: AgentEventStore,
   ) {
     this.defaultLoop = reactLoop;
+  }
+
+  /**
+   * 按 spec.loop 字段从 LoopRegistry 取实现；缺省 react。
+   * 没有 LoopRegistry 时退回 defaultLoop（向后兼容）。
+   */
+  private pickLoop(spec: IAgentSpec): IAgentLoop | undefined {
+    if (this.loopRegistry) {
+      const kind = spec.loop ?? "react";
+      if (this.loopRegistry.has(kind)) {
+        return this.loopRegistry.get(kind);
+      }
+      // 未注册时静默 fallback 到 react
+      if (this.loopRegistry.has("react")) {
+        return this.loopRegistry.get("react");
+      }
+    }
+    return this.defaultLoop;
   }
 
   /** Called by HarnessModule.onApplicationBootstrap to avoid forwardRef timing. */
@@ -112,6 +142,7 @@ export class AgentFactory {
     const memory: IMemoryBinding = {
       sessionId,
       userId: spec.userId,
+      workspaceId: spec.workspaceId,
     };
 
     const budget: IBudgetSnapshot = {
@@ -131,17 +162,19 @@ export class AgentFactory {
       tools: [...identity.tools],
       memory,
       budget,
+      runtimeEnv: spec.runtimeEnv, // PR-J
     });
 
     return new HarnessedAgent({
       identity,
       envelope,
-      loop: this.defaultLoop,
+      loop: this.pickLoop(spec),
       memoryBridge: this.memoryBridge,
       skillActivator: this.skillActivator,
       subagentSpawner: this.subagentSpawner,
       checkpointService: this.checkpointService,
       checkpointEveryNActions: this.checkpointService ? 3 : 0,
+      eventStore: this.eventStore,
     });
   }
 
@@ -165,18 +198,22 @@ export class AgentFactory {
             tools: [...envelope.tools],
             memory: envelope.memory,
             budget: envelope.budget,
+            // PR-J 必修：plain envelope 重建时不能丢 runtimeEnv，
+            // 否则 subagent 失去环境感知 → credit/quota 检查全 noop
+            runtimeEnv: envelope.runtimeEnv,
             metadata: envelope.metadata,
           });
 
     return new HarnessedAgent({
       identity,
       envelope: env,
-      loop: this.defaultLoop,
+      loop: this.pickLoop(spec),
       memoryBridge: this.memoryBridge,
       skillActivator: this.skillActivator,
       subagentSpawner: this.subagentSpawner,
       checkpointService: this.checkpointService,
       checkpointEveryNActions: this.checkpointService ? 3 : 0,
+      eventStore: this.eventStore,
     });
   }
 

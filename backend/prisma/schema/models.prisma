@@ -9082,3 +9082,60 @@ model PipelineRunCheckpoint {
   @@index([updatedAt(sort: Desc)])
   @@map("pipeline_run_checkpoints")
 }
+
+/// ============================================================
+/// Harness Checkpoint + Event Sourcing  (PR-C, 2026-04-24)
+///
+/// 为通用 Harness 层（任何 AI App 跑的 IAgent）提供持久化与可回放：
+///   - HarnessCheckpoint: 任意时刻的 envelope + identity + budget 快照
+///   - HarnessAgentEvent: 完整事件流（thinking/action/output/...），按 seq 严格有序
+///
+/// 与 PipelineRunCheckpoint 区别：
+///   - PipelineRunCheckpoint 是 topic-insights 业务 stage 级断点（mission scoped）
+///   - HarnessCheckpoint 是通用 agent 级断点（agent scoped, App agnostic）
+///   - 一个 mission 可关联多个 HarnessCheckpoint（每个 sub-agent 各自）
+/// ============================================================
+
+model HarnessCheckpoint {
+  id              String   @id @default(uuid())
+  agentId         String   @map("agent_id") @db.VarChar(64)
+  /// auto-interval / key-event / manual / pre-cancel / pre-terminate
+  reason          String   @db.VarChar(32)
+  /// "idle" | "running" | "completed" | "failed" | "cancelled"
+  agentState      String   @map("agent_state") @db.VarChar(16)
+  /// envelope snapshot (system / messages / reminders / tools / memory / budget / metadata)
+  envelope        Json
+  /// identity snapshot (role / persona / goal / constraints / skills / tools)
+  identity        Json
+  /// 已发射的事件计数 — 与 HarnessAgentEvent.seq 对齐用于 replay
+  eventsEmitted   Int      @map("events_emitted")
+  /// task snapshot { goal, input } 用于 resume 时还原入口；可空
+  taskSnapshot    Json?    @map("task_snapshot")
+  /// 业务可塞自己的索引字段（missionId / topicId / sessionId 等）
+  scope           Json?
+  takenAt         DateTime @default(now()) @map("taken_at")
+
+  @@index([agentId, takenAt(sort: Desc)])
+  @@index([takenAt(sort: Desc)])
+  @@map("harness_checkpoints")
+}
+
+model HarnessAgentEvent {
+  id              String   @id @default(uuid())
+  agentId         String   @map("agent_id") @db.VarChar(64)
+  /// 全局严格递增（按 agent 分区即可）— resume 时按 seq 读取并重放
+  seq             Int
+  /// thinking / action_planned / action_executed / reflection / output / error / budget_warning / terminated
+  type            String   @db.VarChar(32)
+  /// payload 原样存（任意 IAgentEvent.payload）
+  payload         Json
+  /// trace 关联（PR-G 的 SpanRecord）
+  traceId         String?  @map("trace_id") @db.VarChar(40)
+  spanId          String?  @map("span_id") @db.VarChar(20)
+  emittedAt       DateTime @default(now()) @map("emitted_at")
+
+  @@unique([agentId, seq])
+  @@index([agentId, emittedAt])
+  @@index([traceId])
+  @@map("harness_agent_events")
+}

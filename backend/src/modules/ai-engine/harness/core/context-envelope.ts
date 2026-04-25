@@ -12,6 +12,7 @@ import type {
   IContextMessage,
   IContextMutation,
   IMemoryBinding,
+  IRuntimeEnvironment,
   ISystemReminder,
 } from "../abstractions";
 
@@ -22,6 +23,8 @@ export interface ContextEnvelopeInit {
   tools?: readonly string[];
   memory: IMemoryBinding;
   budget: IBudgetSnapshot;
+  /** PR-J: 运行时环境快照（BYOK/credit/model 可用性） */
+  runtimeEnv?: IRuntimeEnvironment;
   metadata?: Readonly<Record<string, unknown>>;
 }
 
@@ -33,6 +36,7 @@ export class ContextEnvelope implements IContextEnvelope {
   readonly tools: readonly string[];
   readonly memory: IMemoryBinding;
   readonly budget: IBudgetSnapshot;
+  readonly runtimeEnv?: IRuntimeEnvironment;
   readonly metadata?: Readonly<Record<string, unknown>>;
 
   constructor(init: ContextEnvelopeInit, id?: string) {
@@ -43,6 +47,7 @@ export class ContextEnvelope implements IContextEnvelope {
     this.tools = init.tools ?? [];
     this.memory = init.memory;
     this.budget = init.budget;
+    this.runtimeEnv = init.runtimeEnv;
     this.metadata = init.metadata;
   }
 
@@ -56,6 +61,7 @@ export class ContextEnvelope implements IContextEnvelope {
         tools: this.tools,
         memory: this.memory,
         budget: this.budget,
+        runtimeEnv: this.runtimeEnv,
         metadata: this.metadata,
       },
       this.id,
@@ -78,6 +84,7 @@ export class ContextEnvelope implements IContextEnvelope {
         tools: this.tools,
         memory: this.memory,
         budget: this.budget,
+        runtimeEnv: this.runtimeEnv,
         metadata: this.metadata,
       },
       this.id,
@@ -94,6 +101,7 @@ export class ContextEnvelope implements IContextEnvelope {
       tools: [...this.tools],
       memory: { ...this.memory },
       budget: { ...this.budget },
+      runtimeEnv: this.runtimeEnv,
       metadata: this.metadata,
     });
   }

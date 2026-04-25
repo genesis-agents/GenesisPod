@@ -34,6 +34,7 @@ export interface IBudgetSnapshot {
 export interface IMemoryBinding {
   sessionId: string;
   userId?: string;
+  workspaceId?: string; // PR-J: 多租户隔离
   workingMemoryKey?: string;
   longTermScope?: string;
 }
@@ -51,6 +52,12 @@ export interface IContextEnvelope {
   readonly tools: readonly string[]; // 可用 tool id 列表
   readonly memory: IMemoryBinding;
   readonly budget: IBudgetSnapshot;
+  /**
+   * PR-J: Runtime 环境（BYOK / credit / model 可用性 / quota）
+   * 接口而非数据 —— Loop 调用方按需 lazy 查询，避免快照失效。
+   * 不提供时退回静态行为（兼容旧调用）。
+   */
+  readonly runtimeEnv?: import("./runtime-env.interface").IRuntimeEnvironment;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
 

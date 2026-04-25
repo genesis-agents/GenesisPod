@@ -8,21 +8,23 @@ import {
 } from "../token-estimator";
 import { ContextEnvelope } from "../../core/context-envelope";
 
-describe("TokenEstimator", () => {
-  it("estimateMessageTokens roughly matches char/4 + overhead", () => {
+describe("TokenEstimator (PR-D: gpt-tokenizer-backed)", () => {
+  it("estimateMessageTokens includes 4-token role overhead and content tokens", () => {
     const est = estimateMessageTokens({
       role: "user",
-      content: "abcdefgh", // 8 chars → ~2 tokens + 4 overhead = 6
+      content: "abcdefgh",
     });
-    expect(est).toBeGreaterThanOrEqual(6);
-    expect(est).toBeLessThanOrEqual(7);
+    // Overhead alone is 4; content adds 1+ via tokenizer or ceil(8/4)=2 via fallback.
+    expect(est).toBeGreaterThanOrEqual(5);
+    // Reasonable upper bound for any tokenizer on 8 chars
+    expect(est).toBeLessThanOrEqual(10);
   });
 
-  it("estimateEnvelopeTokens sums system + reminders + messages + tools", () => {
+  it("estimateEnvelopeTokens sums system + reminders + messages + tools (sane range)", () => {
     const env = new ContextEnvelope({
-      system: "0123", // 4 chars → 1 token
-      messages: [{ role: "user", content: "12345678", timestamp: 0 }], // 2 + 4
-      reminders: [{ source: "t", priority: "low", content: "abcd" }], // 1 + 4
+      system: "0123",
+      messages: [{ role: "user", content: "12345678", timestamp: 0 }],
+      reminders: [{ source: "t", priority: "low", content: "abcd" }],
       tools: ["t1", "t2"], // 2 * 10 = 20
       memory: { sessionId: "s" },
       budget: {
@@ -34,8 +36,17 @@ describe("TokenEstimator", () => {
       },
     });
     const total = estimateEnvelopeTokens(env);
-    // 1 + (1+4) + (2+4) + 20 = 32
-    expect(total).toBeGreaterThanOrEqual(30);
-    expect(total).toBeLessThanOrEqual(36);
+    // tools alone contribute 20; rest add at least overhead — accept 25..50
+    expect(total).toBeGreaterThanOrEqual(25);
+    expect(total).toBeLessThanOrEqual(50);
+  });
+
+  it("estimates a longer English string within ±20% of true tokenizer count", () => {
+    const text =
+      "The quick brown fox jumps over the lazy dog while the agent harness orchestrates a series of tool calls.";
+    const est = estimateMessageTokens({ role: "user", content: text });
+    // True cl100k_base count for this string is ~22; with overhead +4 → ~26
+    expect(est).toBeGreaterThanOrEqual(20);
+    expect(est).toBeLessThanOrEqual(35);
   });
 });

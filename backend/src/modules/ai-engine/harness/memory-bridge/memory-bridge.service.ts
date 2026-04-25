@@ -132,15 +132,38 @@ export class MemoryBridge {
       key: string;
       value: unknown;
       relevanceScore: number;
+      // PR-D 新增可选字段（MemoryCoordinator 提供时启用加权）
+      createdAt?: number | Date;
+      confidence?: number;
     }[],
   ): string {
+    // PR-D: 综合加权（relevance × confidence × freshness）
+    const now = Date.now();
+    const weighted = fragments.map((f) => {
+      const ageDays =
+        f.createdAt != null
+          ? Math.max(
+              0,
+              (now - new Date(f.createdAt).getTime()) / (1000 * 60 * 60 * 24),
+            )
+          : 0;
+      // freshness decay: 30 天半衰期
+      const freshness = Math.exp(-0.023 * ageDays);
+      const confidence = f.confidence ?? 1;
+      const score = f.relevanceScore * confidence * freshness;
+      return { f, score };
+    });
+    // 按综合分降序，过滤极低分（< 0.1 视为噪音）
+    weighted.sort((a, b) => b.score - a.score);
+    const filtered = weighted.filter((w) => w.score > 0.1);
+
     const lines: string[] = ["## Relevant memories recalled:"];
-    for (const f of fragments) {
+    for (const { f, score } of filtered) {
       const value =
         typeof f.value === "string" ? f.value : JSON.stringify(f.value);
       const snippet = value.length > 200 ? `${value.slice(0, 200)}…` : value;
       lines.push(
-        `- [L${f.layer} · score=${f.relevanceScore.toFixed(2)}] ${f.key}: ${snippet}`,
+        `- [L${f.layer} · w=${score.toFixed(2)}] ${f.key}: ${snippet}`,
       );
     }
     return lines.join("\n");

@@ -171,4 +171,59 @@ describe("SubagentSpawner", () => {
     // Avoid unused var warning
     void childUserId;
   });
+
+  // ── PR-D: spawnMany ──
+  describe("spawnMany", () => {
+    it("mode=all returns one result per spec", async () => {
+      const factory = new AgentFactory();
+      const spawner = new SubagentSpawner(factory, new HookRegistry());
+      const parent = factory.create({
+        identity: AgentIdentity.of({ id: "p", name: "P", description: "" }),
+      });
+
+      const { handles, results } = await spawner.spawnMany(
+        parent,
+        [makeSpec(), makeSpec(), makeSpec()],
+        "all",
+      );
+      expect(handles).toHaveLength(3);
+      expect(results).toHaveLength(3);
+      // Skeleton agents return ok=true with stub output
+      expect(results.every((r) => r.ok)).toBe(true);
+    });
+
+    it("mode=majority resolves once N/2 succeed", async () => {
+      const factory = new AgentFactory();
+      const spawner = new SubagentSpawner(factory, new HookRegistry());
+      const parent = factory.create({
+        identity: AgentIdentity.of({ id: "p", name: "P", description: "" }),
+      });
+
+      // 3 specs, threshold=2 (ceil(3/2))
+      const { results } = await spawner.spawnMany(
+        parent,
+        [makeSpec(), makeSpec(), makeSpec()],
+        "majority",
+      );
+      // At least threshold succeeded
+      const ok = results.filter((r) => r.ok);
+      expect(ok.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("mode=first returns when first sibling completes", async () => {
+      const factory = new AgentFactory();
+      const spawner = new SubagentSpawner(factory, new HookRegistry());
+      const parent = factory.create({
+        identity: AgentIdentity.of({ id: "p", name: "P", description: "" }),
+      });
+
+      const { results } = await spawner.spawnMany(
+        parent,
+        [makeSpec(), makeSpec()],
+        "first",
+      );
+      // At least one ok result
+      expect(results.some((r) => r.ok)).toBe(true);
+    });
+  });
 });

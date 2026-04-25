@@ -14,3 +14,4 @@ export * from "./hook.interface";
 export * from "./action.interface";
 export * from "./agent-event.interface";
 export * from "./harness.interface";
+export * from "./runtime-env.interface";
