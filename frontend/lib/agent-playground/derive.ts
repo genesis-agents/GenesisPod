@@ -263,14 +263,18 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       cur.trace.sort((a, b) => a.ts - b.ts);
       agents.set(agentId, cur);
     } else if (t === 'agent-playground.cost:tick') {
+      // Backend emits cumulative tokensUsed/costUsd + per-stage delta
       totalTokens = Math.max(totalTokens, (p?.tokensUsed as number) ?? 0);
       totalCost = Math.max(totalCost, (p?.costUsd as number) ?? 0);
       const stage = p?.stage as string | undefined;
-      if (stage) {
+      const deltaTokens = (p?.deltaTokens as number) ?? 0;
+      const deltaCostUsd = (p?.deltaCostUsd as number) ?? 0;
+      if (stage && (deltaTokens > 0 || deltaCostUsd > 0)) {
+        // sum deltas per-stage（同 stage 多次 emit 例如 researchers × N 全部累加）
         const prev = costByStage.get(stage) ?? { tokensUsed: 0, costUsd: 0 };
         costByStage.set(stage, {
-          tokensUsed: Math.max(prev.tokensUsed, (p?.tokensUsed as number) ?? 0),
-          costUsd: Math.max(prev.costUsd, (p?.costUsd as number) ?? 0),
+          tokensUsed: prev.tokensUsed + deltaTokens,
+          costUsd: prev.costUsd + deltaCostUsd,
         });
       }
     } else if (t === 'agent-playground.verifier:verdict') {

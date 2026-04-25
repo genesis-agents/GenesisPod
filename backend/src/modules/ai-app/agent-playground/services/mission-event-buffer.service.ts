@@ -60,7 +60,8 @@ export class MissionEventBuffer implements IBroadcastAdapter {
     const slot = this.byMission.get(missionId);
     if (!slot) return [];
     if (sinceTs == null) return [...slot.events];
-    return slot.events.filter((e) => e.timestamp > sinceTs);
+    // 用 >= 防止同 ms 边界事件被吞；前端 dedupe 会去重
+    return slot.events.filter((e) => e.timestamp >= sinceTs);
   }
 
   private lastGcAt = 0;

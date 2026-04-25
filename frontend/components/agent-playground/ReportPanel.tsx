@@ -22,6 +22,18 @@ function scoreColor(s: number): string {
   return 'text-red-600';
 }
 
+/**
+ * Sanitize a URL string before rendering as <a href>.
+ * 后端 ResearcherAgent 输出 schema 放宽到 z.string()，LLM 可能产生
+ * `javascript:`/`data:` 等危险协议，必须 allowlist 校验。
+ */
+function safeHref(src: string | undefined): string | null {
+  if (!src || typeof src !== 'string') return null;
+  const trimmed = src.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
+}
+
 export function ReportPanel({ finalReport, reports, finalScore }: Props) {
   const [openIdx, setOpenIdx] = useState<number>(0);
   const [showHistory, setShowHistory] = useState(false);
@@ -108,18 +120,32 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
                     </p>
                     {s.sources && s.sources.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {s.sources.map((src, j) => (
-                          <a
-                            key={`${src}-${j}`}
-                            href={src}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex max-w-full items-center gap-1 rounded-lg border border-gray-100 bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-600 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
-                          >
-                            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-                            <span className="truncate">{src}</span>
-                          </a>
-                        ))}
+                        {s.sources.map((src, j) => {
+                          const href = safeHref(src);
+                          if (!href) {
+                            return (
+                              <span
+                                key={`${src}-${j}`}
+                                title="non-http(s) source filtered"
+                                className="inline-flex max-w-full items-center gap-1 rounded-lg border border-gray-100 bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-400"
+                              >
+                                <span className="truncate">{src}</span>
+                              </span>
+                            );
+                          }
+                          return (
+                            <a
+                              key={`${href}-${j}`}
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex max-w-full items-center gap-1 rounded-lg border border-gray-100 bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-600 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                            >
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                              <span className="truncate">{href}</span>
+                            </a>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

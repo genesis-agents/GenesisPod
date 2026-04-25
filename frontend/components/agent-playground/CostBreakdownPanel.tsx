@@ -60,6 +60,11 @@ export function CostBreakdownPanel({ cost }: { cost: CostState }) {
               <span className="text-gray-600">{o.label}</span>
               <span className="font-mono text-gray-500">
                 {fmtTokens(o.tokensUsed)}
+                {o.costUsd > 0 && (
+                  <span className="ml-1.5 text-gray-400">
+                    {fmtUsd(o.costUsd)}
+                  </span>
+                )}
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
@@ -73,6 +78,10 @@ export function CostBreakdownPanel({ cost }: { cost: CostState }) {
           </div>
         ))}
       </div>
+      <p className="mt-3 text-[10px] text-gray-400">
+        Cost is rough estimate (~$3 / 1M tokens). Real billing via Credits
+        service.
+      </p>
     </div>
   );
 }

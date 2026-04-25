@@ -66,13 +66,26 @@ export async function replayMission(
   missionId: string,
   sinceTs?: number
 ): Promise<ReplayResponse> {
-  const url = new URL(`${API_BASE}/replay/${missionId}`);
-  if (sinceTs != null) url.searchParams.set('since', String(sinceTs));
-  const res = await fetch(url.toString(), {
-    headers: { ...getAuthHeader() },
-  });
+  // 用字符串拼接，不要 new URL —— 本地开发 apiBaseUrl 是空字符串（走 Next.js rewrites），
+  // 相对路径喂给 URL 构造器会抛 "Invalid URL"。
+  const qs =
+    sinceTs != null ? `?since=${encodeURIComponent(String(sinceTs))}` : '';
+  const res = await fetch(
+    `${API_BASE}/replay/${encodeURIComponent(missionId)}${qs}`,
+    { headers: { ...getAuthHeader() } }
+  );
   if (!res.ok) {
     throw new Error(`Failed to replay mission: ${res.status}`);
   }
-  return (await res.json()) as ReplayResponse;
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('Failed to replay mission: invalid JSON response');
+  }
+  const events = (data as { events?: unknown }).events;
+  if (!Array.isArray(events)) {
+    throw new Error('Failed to replay mission: events array missing');
+  }
+  return data as ReplayResponse;
 }

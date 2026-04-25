@@ -86,6 +86,15 @@ function extractTokenSpend(events: readonly IAgentEvent[]): number {
   return Math.max(total, lastBudgetTokens);
 }
 
+/**
+ * 粗略 USD 估算 —— demo 用，避免 Cost meter 永远 $0。
+ * 真实账单走 CreditsService.consumeCredits（按模型分级算积分）。
+ * Sonnet/4o 量级混合估算：~$3 / 1M tokens。
+ */
+function estimateUsdFromTokens(tokens: number): number {
+  return tokens * 0.000003;
+}
+
 @Injectable()
 export class ResearchTeamOrchestrator {
   private readonly log = new Logger(ResearchTeamOrchestrator.name);
@@ -162,15 +171,19 @@ export class ResearchTeamOrchestrator {
           depth: input.depth,
           language: input.language,
         });
-        this.relayAgentEvents(leaderRes.events, {
+        await this.relayAgentEvents(leaderRes.events, {
           missionId,
           userId,
           agentId: "leader",
           role: "leader",
         });
-        const leaderTokens = extractTokenSpend(leaderRes.events);
-        pool.recordSpend(leaderTokens, 0, 0);
-        await this.tickCost(missionId, userId, "leader", pool);
+        await this.tickCostDelta(
+          missionId,
+          userId,
+          "leader",
+          pool,
+          extractTokenSpend(leaderRes.events),
+        );
         await this.lifecycle(
           missionId,
           userId,
@@ -229,13 +242,19 @@ export class ResearchTeamOrchestrator {
               dimension: dim.name,
               language: input.language,
             });
-            this.relayAgentEvents(r.events, {
+            await this.relayAgentEvents(r.events, {
               missionId,
               userId,
               agentId,
               role: "researcher",
             });
-            pool.recordSpend(extractTokenSpend(r.events), 0, 0);
+            await this.tickCostDelta(
+              missionId,
+              userId,
+              "researchers",
+              pool,
+              extractTokenSpend(r.events),
+            );
             await this.lifecycle(
               missionId,
               userId,
@@ -283,7 +302,7 @@ export class ResearchTeamOrchestrator {
             };
           },
         );
-        await this.tickCost(missionId, userId, "researchers", pool);
+        // researchers cost 已在 runWithConcurrency 内 per-researcher tickCostDelta 累加
         if (pool.isExhausted()) {
           await this.emit({
             type: "agent-playground.budget:exhausted",
@@ -325,14 +344,19 @@ export class ResearchTeamOrchestrator {
           language: input.language,
           researcherResults,
         });
-        this.relayAgentEvents(analystRes.events, {
+        await this.relayAgentEvents(analystRes.events, {
           missionId,
           userId,
           agentId: "analyst",
           role: "analyst",
         });
-        pool.recordSpend(extractTokenSpend(analystRes.events), 0, 0);
-        await this.tickCost(missionId, userId, "analyst", pool);
+        await this.tickCostDelta(
+          missionId,
+          userId,
+          "analyst",
+          pool,
+          extractTokenSpend(analystRes.events),
+        );
         await this.lifecycle(
           missionId,
           userId,
@@ -368,6 +392,9 @@ export class ResearchTeamOrchestrator {
         let report: ResearchReport | null = null;
         let reviewScore = 0;
         let verifierVerdicts: unknown[] = [];
+        // 指针指向最后一次成功的 writer agent + 它的事件流，用于 memory auto-index
+        let lastWriterAgent: IAgent | null = null;
+        let lastWriterEvents: readonly IAgentEvent[] = [];
         const MAX_WRITER_ATTEMPTS = 2;
         do {
           attempts += 1;
@@ -392,14 +419,19 @@ export class ResearchTeamOrchestrator {
             insights: analyst.insights,
             themeSummary: analyst.themeSummary,
           });
-          this.relayAgentEvents(writerRes.events, {
+          await this.relayAgentEvents(writerRes.events, {
             missionId,
             userId,
             agentId: writerAgentId,
             role: "writer",
           });
-          pool.recordSpend(extractTokenSpend(writerRes.events), 0, 0);
-          await this.tickCost(missionId, userId, "writer", pool);
+          await this.tickCostDelta(
+            missionId,
+            userId,
+            "writer",
+            pool,
+            extractTokenSpend(writerRes.events),
+          );
           await this.lifecycle(
             missionId,
             userId,
@@ -416,6 +448,8 @@ export class ResearchTeamOrchestrator {
             continue;
           }
           report = writerRes.output as ResearchReport;
+          lastWriterAgent = writerRes.agent;
+          lastWriterEvents = writerRes.events;
           await this.emit({
             type: "agent-playground.report:draft",
             missionId,
@@ -504,9 +538,12 @@ export class ResearchTeamOrchestrator {
         });
 
         // ── Stage 6: Memory auto-index ──
-        const proxyAgent = this.makeProxyAgent(missionId, "research-team");
+        // 用最后一次成功的 writer agent + 它的事件流喂 indexer：
+        // extractCandidates() 从 envelope.messages 取 assistant 输出，从 events 取 tool 观察
+        const indexAgent =
+          lastWriterAgent ?? this.makeProxyAgent(missionId, "research-team");
         const indexed = await this.indexer
-          .indexAgentTrajectory(proxyAgent, [], {
+          .indexAgentTrajectory(indexAgent, lastWriterEvents, {
             namespace: workspaceId ?? userId,
             source: "agent-playground.research-team",
             tags: [input.depth, input.topic],
@@ -613,12 +650,19 @@ export class ResearchTeamOrchestrator {
     });
   }
 
-  private async tickCost(
+  /**
+   * 记录本 stage 的 token/cost 增量到 pool，并 emit cost:tick：
+   * payload 同时携带 stage delta（让 UI 画 per-stage 条形图，避免 cumulative 错觉）。
+   */
+  private async tickCostDelta(
     missionId: string,
     userId: string,
     stage: string,
     pool: MissionBudgetPool,
+    deltaTokens: number,
   ): Promise<void> {
+    const deltaCostUsd = estimateUsdFromTokens(deltaTokens);
+    pool.recordSpend(deltaTokens, 0, deltaCostUsd);
     const snap = pool.snapshot();
     await this.emit({
       type: "agent-playground.cost:tick",
@@ -626,6 +670,8 @@ export class ResearchTeamOrchestrator {
       userId,
       payload: {
         stage,
+        deltaTokens,
+        deltaCostUsd,
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
       },
@@ -634,16 +680,16 @@ export class ResearchTeamOrchestrator {
 
   /**
    * 把 RunResult.events 转成 demo 友好的 thought / action / observation 事件。
-   * 注：post-stage relay，事件按 stage 批量到达，UI 仍按 timestamp 顺序渲染。
+   * 必须 await 每条 emit —— 否则 caller 紧接的 lifecycle:completed 会赶在 trace 之前到达 UI。
    */
-  private relayAgentEvents(
+  private async relayAgentEvents(
     events: readonly IAgentEvent[],
     ctx: RelayCtx,
-  ): void {
+  ): Promise<void> {
     for (const ev of events) {
       if (ev.type === "thinking") {
         const p = ev.payload as { text: string; tokenCount?: number };
-        void this.emit({
+        await this.emit({
           type: "agent-playground.agent:thought",
           missionId: ctx.missionId,
           userId: ctx.userId,
@@ -665,7 +711,7 @@ export class ResearchTeamOrchestrator {
           skillId?: string;
           name?: string;
         };
-        void this.emit({
+        await this.emit({
           type: "agent-playground.agent:action",
           missionId: ctx.missionId,
           userId: ctx.userId,
@@ -690,7 +736,7 @@ export class ResearchTeamOrchestrator {
           latencyMs: number;
           tokensUsed?: number;
         };
-        void this.emit({
+        await this.emit({
           type: "agent-playground.agent:observation",
           missionId: ctx.missionId,
           userId: ctx.userId,
@@ -709,7 +755,7 @@ export class ResearchTeamOrchestrator {
         });
       } else if (ev.type === "reflection") {
         const p = ev.payload as { text?: string; verdict?: string };
-        void this.emit({
+        await this.emit({
           type: "agent-playground.agent:reflection",
           missionId: ctx.missionId,
           userId: ctx.userId,
@@ -724,7 +770,7 @@ export class ResearchTeamOrchestrator {
         });
       } else if (ev.type === "error") {
         const p = ev.payload as { message: string };
-        void this.emit({
+        await this.emit({
           type: "agent-playground.agent:error",
           missionId: ctx.missionId,
           userId: ctx.userId,

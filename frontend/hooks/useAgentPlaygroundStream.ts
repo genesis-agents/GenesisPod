@@ -30,11 +30,17 @@ export interface PlaygroundEvent {
 type ConnState = 'connecting' | 'live' | 'polling' | 'disconnected';
 
 function dedupeAndCap(events: PlaygroundEvent[]): PlaygroundEvent[] {
-  // 用 type+timestamp+JSON(payload) 简单去重；事件量不大
+  // 用 type+timestamp+agentId+payload 序列化做 key —— 同 ms 内多条 trace 不会被误吞
   const seen = new Set<string>();
   const out: PlaygroundEvent[] = [];
   for (const e of events) {
-    const key = `${e.type}|${e.timestamp}|${e.agentId ?? ''}`;
+    let payloadKey = '';
+    try {
+      payloadKey = JSON.stringify(e.payload);
+    } catch {
+      payloadKey = String(e.payload);
+    }
+    const key = `${e.type}|${e.timestamp}|${e.agentId ?? ''}|${payloadKey.slice(0, 120)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);

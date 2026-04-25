@@ -13,7 +13,8 @@ import { ResearchTeamOrchestrator } from "./services/research-team.orchestrator"
 import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission-event-buffer.service";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
-import { DomainEventBus } from "../../ai-engine/facade";
+import { DomainEventBus, DomainEventRegistry } from "../../ai-engine/facade";
+import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 
 @Module({
   imports: [
@@ -39,11 +40,14 @@ import { DomainEventBus } from "../../ai-engine/facade";
 export class AgentPlaygroundModule implements OnModuleInit {
   constructor(
     private readonly eventBus: DomainEventBus,
+    private readonly registry: DomainEventRegistry,
     private readonly buffer: MissionEventBuffer,
   ) {}
 
   onModuleInit(): void {
-    // 注册到 DomainEventBus，截获所有 agent-playground.* 事件入内存缓冲
+    // 1. 注册事件类型 —— DomainEventBus 校验未注册的 type 会 drop+warn
+    this.registry.registerAll(AGENT_PLAYGROUND_EVENTS);
+    // 2. 注册缓冲 adapter，截获所有 agent-playground.* 事件入内存（给 /replay 用）
     this.eventBus.registerAdapter(this.buffer);
   }
 }
