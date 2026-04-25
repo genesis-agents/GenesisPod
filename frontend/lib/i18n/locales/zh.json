@@ -134,10 +134,11 @@
     "openMenu": "打开菜单",
     "appTitle": "Raven AI Engine",
     "sections": {
-      "materialsKnowledge": "知识库",
+      "materialsKnowledge": "知识沉淀",
       "researchAnalysis": "洞察研究",
       "planningDecision": "规划决策",
-      "creativeWriting": "创意写作",
+      "creativeWriting": "内容产出",
+      "collabLab": "创新 Labs",
       "toolStore": "工具市场"
     }
   },

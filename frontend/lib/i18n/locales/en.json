@@ -134,10 +134,11 @@
     "openMenu": "Open menu",
     "appTitle": "Raven AI Engine",
     "sections": {
-      "materialsKnowledge": "Knowledge",
+      "materialsKnowledge": "Knowledge Vault",
       "researchAnalysis": "Research & Analysis",
       "planningDecision": "Planning & Decision",
-      "creativeWriting": "Creative Writing",
+      "creativeWriting": "Content Output",
+      "collabLab": "Innovation Labs",
       "toolStore": "Tool Store"
     }
   },

@@ -126,27 +126,22 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // Admin-only creative tools
-  const adminCreativeItems = [
+  // Admin-only creative tools — AI 社媒 暂时隐藏
+  const adminCreativeItems: typeof creativeItems = [];
+
+  // 创新 Labs section
+  const collabLabItems = [
     {
-      href: '/ai-social',
-      label: t('nav.aiSocial'),
-      icon: 'share',
-      activeClass: 'bg-rose-50',
+      href: '/agent-playground',
+      label: t('nav.playground'),
+      icon: 'lightbulb',
+      activeClass: 'bg-purple-50',
       prefix: true,
     },
   ];
 
-  // Tool Store section
-  const toolStoreItems = [
-    {
-      href: '/ai-store',
-      label: t('nav.aiStore'),
-      icon: 'store',
-      activeClass: 'bg-cyan-50',
-      prefix: true,
-    },
-  ];
+  // Tool Store section — AI 商店 暂时隐藏
+  const toolStoreItems: typeof creativeItems = [];
 
   const bottomNavItems = [
     { href: '/notifications', label: t('nav.notifications'), icon: 'bell' },
@@ -646,11 +641,11 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                   );
                 })}
 
-              {/* Section: Tool Store */}
+              {/* Section: 创新 Labs */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.toolStore')}
+                {t('nav.sections.collabLab')}
               </div>
-              {toolStoreItems.map((item) => {
+              {collabLabItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
                   : isActive(item.href);
@@ -669,6 +664,34 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                   </Link>
                 );
               })}
+
+              {/* AI 商店 / Tool Store — 暂时隐藏 */}
+              {toolStoreItems.length > 0 && (
+                <>
+                  <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    {t('nav.sections.toolStore')}
+                  </div>
+                  {toolStoreItems.map((item) => {
+                    const active = item.prefix
+                      ? isActivePrefix(item.href)
+                      : isActive(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                          active
+                            ? `${item.activeClass} text-gray-900`
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {getIcon(item.icon)}
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </>
+              )}
 
               {isAdmin && (
                 <Link

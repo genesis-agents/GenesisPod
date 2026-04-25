@@ -485,31 +485,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </Link>
 
           <Link
-            href="/agent-playground"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/agent-playground')
-                ? 'bg-purple-50 text-purple-700'
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.playground')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.playground')}</span>}
-          </Link>
-
-          <Link
             href="/ai-planning"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-planning')
@@ -638,37 +613,12 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiWriting')}</span>}
           </Link>
 
-          {isAdmin && (
-            <Link
-              href="/ai-social"
-              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-                pathname?.startsWith('/ai-social')
-                  ? 'bg-rose-50 text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-              title={t('nav.aiSocial')}
-            >
-              <svg
-                className="h-5 w-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-              {showExpanded && <span>{t('nav.aiSocial')}</span>}
-            </Link>
-          )}
+          {/* AI 社媒 — 暂时隐藏（用户未开放） */}
 
-          {/* Section: Tool Store */}
+          {/* Section: 创新 Labs */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.toolStore')}
+              {t('nav.sections.collabLab')}
             </div>
           )}
           {!showExpanded && (
@@ -676,14 +626,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           )}
 
           <Link
-            href="/ai-store"
+            href="/agent-playground"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-store') ||
-              pathname?.startsWith('/ai-skills')
-                ? 'bg-cyan-50 text-gray-900'
+              pathname?.startsWith('/agent-playground')
+                ? 'bg-purple-50 text-purple-700'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title={t('nav.aiStore')}
+            title={t('nav.playground')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -695,11 +644,23 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
               />
             </svg>
-            {showExpanded && <span>{t('nav.aiStore')}</span>}
+            {showExpanded && <span>{t('nav.playground')}</span>}
           </Link>
+
+          {/* AI 商店 — 暂时隐藏（用户未开放） */}
+
+          {/* Section: Admin (admin only) */}
+          {isAdmin && showExpanded && (
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.toolStore')}
+            </div>
+          )}
+          {isAdmin && !showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
 
           {isAdmin && (
             <Link
