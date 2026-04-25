@@ -42,8 +42,9 @@ export default function AppShell({
 
           {/* Main Content */}
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* BYOK 引导横幅（未配置 Key 时温和提示，可关闭，30 天内不再弹） */}
-            <div className="px-4 pt-3 md:px-6">
+            {/* BYOK 引导横幅（未配置 Key 时温和提示）—— empty:hidden 确保
+                banner 不显示时不占 padding 高度，避免主内容底部内容被裁切 */}
+            <div className="px-4 pt-3 md:px-6 [&:empty]:hidden [&:has(>:empty)]:hidden">
               <ByokOnboardingBanner />
             </div>
             <div className="flex min-h-0 flex-1">{children}</div>

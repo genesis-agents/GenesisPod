@@ -736,8 +736,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         </div>
       </nav>
 
-      {/* Bottom Navigation */}
-      <div className="flex-shrink-0 space-y-0 border-t border-gray-200 px-3 py-1.5">
+      {/* Bottom Navigation —— pb-3 留呼吸位，防被视口/任务栏裁切；
+          space-y-0.5 让 notifications / user / language 间距清晰 */}
+      <div className="flex-shrink-0 space-y-0.5 border-t border-gray-200 px-3 pb-3 pt-1.5">
         <Link
           href="/notifications"
           onClick={(e) => {
