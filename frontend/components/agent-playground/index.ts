@@ -1,3 +1,10 @@
 export { DemoLauncher } from './DemoLauncher';
-export { MissionDashboard } from './MissionDashboard';
-export { EventStream } from './EventStream';
+export { CapabilityMeters } from './CapabilityMeters';
+export { PipelineTimeline } from './PipelineTimeline';
+export { AgentLiveGrid } from './AgentLiveGrid';
+export { VerifyConsensusPanel } from './VerifyConsensusPanel';
+export { MemoryIndexPanel } from './MemoryIndexPanel';
+export { CostBreakdownPanel } from './CostBreakdownPanel';
+export { ReportPanel } from './ReportPanel';
+export { DimensionsPanel } from './DimensionsPanel';
+export { RawEventLog } from './RawEventLog';

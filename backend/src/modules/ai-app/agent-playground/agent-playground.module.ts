@@ -2,22 +2,22 @@
  * AgentPlaygroundModule
  *
  * Demo 模块 —— 展示 Harness 全栈能力（loop / verify / handoff / memory / cost）。
- * 所有依赖来自既有真实系统（Harness facade + ai-infra/credits + RuntimeEnvironmentService）。
  */
 
-import { Module } from "@nestjs/common";
+import { Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
 import { ResearchTeamOrchestrator } from "./services/research-team.orchestrator";
 import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
+import { MissionEventBuffer } from "./services/mission-event-buffer.service";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
+import { DomainEventBus } from "../../ai-engine/facade";
 
 @Module({
   imports: [
     CreditsModule,
-    // 必修 #4: Gateway 用 JwtService 解析 socket auth.token 做 ownership 鉴权
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -26,13 +26,24 @@ import { CreditsModule } from "../../ai-infra/credits/credits.module";
       }),
       inject: [ConfigService],
     }),
-    // HarnessModule / RuntimeEnvironmentService 是 @Global，自动可注入
   ],
   controllers: [AgentPlaygroundController],
   providers: [
     AgentPlaygroundGateway,
     ResearchTeamOrchestrator,
     MissionOwnershipRegistry,
+    MissionEventBuffer,
   ],
+  exports: [MissionEventBuffer],
 })
-export class AgentPlaygroundModule {}
+export class AgentPlaygroundModule implements OnModuleInit {
+  constructor(
+    private readonly eventBus: DomainEventBus,
+    private readonly buffer: MissionEventBuffer,
+  ) {}
+
+  onModuleInit(): void {
+    // 注册到 DomainEventBus，截获所有 agent-playground.* 事件入内存缓冲
+    this.eventBus.registerAdapter(this.buffer);
+  }
+}

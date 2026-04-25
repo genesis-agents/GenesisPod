@@ -16,10 +16,19 @@
  *   4. Writer  → ReAct + outputSchema 自愈
  *   5. Reviewer → JudgeService.judgeWithConsensus → < 80 分 retry Writer
  *   6. MemoryAutoIndexer → trajectory 入向量库
+ *
+ * 事件粒度：
+ *   - mission:started / mission:completed / mission:rejected
+ *   - stage:started / stage:completed
+ *   - agent:lifecycle (start/end per agent invocation)
+ *   - agent:thought / agent:action / agent:observation （relayed from RunResult.events）
+ *   - cost:tick （每个 stage 完成后累计）
+ *   - verifier:verdict （三个 judge 各一条）
+ *   - report:draft （writer 每次产出）
+ *   - memory:indexed
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-// 必修 #8: 全部从 ai-engine/facade 导入，不穿透 harness/* 子路径
 import {
   AgentRunner,
   DomainEventBus,
@@ -28,6 +37,7 @@ import {
   MissionBudgetPool,
   type DomainEvent,
   type HarnessIAgent as IAgent,
+  type HarnessIAgentEvent as IAgentEvent,
   type IContextEnvelope,
 } from "../../../ai-engine/facade";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
@@ -37,8 +47,6 @@ import { LeaderAgent } from "../agents/leader.agent";
 import { ResearcherAgent } from "../agents/researcher.agent";
 import { AnalystAgent } from "../agents/analyst.agent";
 import { WriterAgent } from "../agents/writer.agent";
-// ReviewerAgent 是显式 reviewer 角色 spec；本 demo 用 JudgeService 三 verifier 投票替代，
-// 业务方可注入 ReviewerAgent 替换 critical verifier
 import {
   type ResearchReport,
   type RunMissionInput,
@@ -53,15 +61,15 @@ interface MissionResult {
   readonly trajectoryStored: number;
 }
 
-/**
- * 必修 #3: 从 RunResult.events 启发提取 LLM token 数。
- * AgentEvent.payload 在 action_executed 时含 tokensUsed（IActionResult.tokensUsed）；
- * 没有时退回 budget_warning 事件中的 snapshot.tokensUsed 差值；
- * 都没有则按 iterations × 估算系数兜底。
- */
-function extractTokenSpend(
-  events: readonly { type: string; payload: unknown }[],
-): number {
+interface RelayCtx {
+  missionId: string;
+  userId: string;
+  /** demo agentId — 稳定且对人友好（如 "researcher#0"），不是 runtime UUID */
+  agentId: string;
+  role: string;
+}
+
+function extractTokenSpend(events: readonly IAgentEvent[]): number {
   let total = 0;
   let lastBudgetTokens = 0;
   for (const ev of events) {
@@ -97,10 +105,6 @@ export class ResearchTeamOrchestrator {
     userId: string,
     workspaceId?: string,
   ): Promise<MissionResult> {
-    // 必修 #2: BillingRuntimeEnvAdapter 当前未通过 AgentRunner 透传到 spec.runtimeEnv。
-    // 在此预先建好对象，给业务方手动 query（例如 leader 启动前主动调 suggestFallback）。
-    // 真正接通需要 AgentRunner 接受 runtimeEnv 参数 —— 已记到 PR-X TODO。
-    // 本 demo 在前置健康检查时直接用 adapter，让前端能看到余额状态。
     const billing = new BillingRuntimeEnvAdapter(
       userId,
       workspaceId,
@@ -108,22 +112,23 @@ export class ResearchTeamOrchestrator {
       this.runtimeEnv,
     );
 
-    // 必修 #3: MissionBudgetPool 在 PR 当前版本无法跨 AgentRunner 联动
-    // （AgentRunner 内部各自创建独立 BudgetAccountant）。
-    // 这里仅用于"前置预算检查 + 累计统计"：每 stage 完成后 pool.recordSpend() 手动入账。
     const pool = new MissionBudgetPool({
       maxTokens: input.maxCredits * 100,
       maxCostUsd: input.maxCredits * 0.0002,
     });
 
-    // 必修 #2 前置：先看 credit 余额，余额不足直接拒绝（无 LLM 调用浪费）
     const credit = await billing.getCreditState();
     if (credit.balance <= (credit.hardLimit ?? 0)) {
       const hint = await billing.suggestFallback({ reason: "no_credit" });
-      await this.emit("agent-playground.mission:rejected", missionId, userId, {
-        reason: "no_credit",
-        balance: credit.balance,
-        userMessage: hint.userMessage,
+      await this.emit({
+        type: "agent-playground.mission:rejected",
+        missionId,
+        userId,
+        payload: {
+          reason: "no_credit",
+          balance: credit.balance,
+          userMessage: hint.userMessage,
+        },
       });
       throw new Error(hint.userMessage ?? "Credit balance too low");
     }
@@ -136,56 +141,134 @@ export class ResearchTeamOrchestrator {
         referenceId: missionId,
       },
       async () => {
-        await this.emit("agent-playground.mission:started", missionId, userId, {
-          input,
-          workspaceId,
+        const t0 = Date.now();
+        await this.emit({
+          type: "agent-playground.mission:started",
+          missionId,
+          userId,
+          payload: { input, workspaceId, startedAt: t0 },
         });
 
         // ── Stage 1: Leader 拆维度 ──
-        await this.emit("agent-playground.stage:started", missionId, userId, {
-          stage: "leader",
+        await this.emit({
+          type: "agent-playground.stage:started",
+          missionId,
+          userId,
+          payload: { stage: "leader" },
         });
+        await this.lifecycle(missionId, userId, "leader", "leader", "started");
         const leaderRes = await this.runner.run(LeaderAgent, {
           topic: input.topic,
           depth: input.depth,
           language: input.language,
         });
+        this.relayAgentEvents(leaderRes.events, {
+          missionId,
+          userId,
+          agentId: "leader",
+          role: "leader",
+        });
+        const leaderTokens = extractTokenSpend(leaderRes.events);
+        pool.recordSpend(leaderTokens, 0, 0);
+        await this.tickCost(missionId, userId, "leader", pool);
+        await this.lifecycle(
+          missionId,
+          userId,
+          "leader",
+          "leader",
+          leaderRes.state === "completed" ? "completed" : "failed",
+          {
+            wallTimeMs: leaderRes.wallTimeMs,
+            iterations: leaderRes.iterations,
+          },
+        );
         if (leaderRes.state !== "completed") {
           throw new Error("Leader stage failed");
         }
-        pool.recordSpend(extractTokenSpend(leaderRes.events), 0, 0);
         const plan = leaderRes.output as {
           themeSummary: string;
           dimensions: { id: string; name: string; rationale: string }[];
         };
-        await this.emit("agent-playground.stage:completed", missionId, userId, {
-          stage: "leader",
-          dimensions: plan.dimensions.map((d) => d.name),
+        await this.emit({
+          type: "agent-playground.stage:completed",
+          missionId,
+          userId,
+          payload: {
+            stage: "leader",
+            dimensions: plan.dimensions,
+            themeSummary: plan.themeSummary,
+          },
         });
 
         // ── Stage 2: Researcher×N 并行 ──
-        await this.emit("agent-playground.stage:started", missionId, userId, {
-          stage: "researchers",
-          count: plan.dimensions.length,
+        await this.emit({
+          type: "agent-playground.stage:started",
+          missionId,
+          userId,
+          payload: {
+            stage: "researchers",
+            count: plan.dimensions.length,
+            dimensions: plan.dimensions.map((d) => d.name),
+          },
         });
-        // 必修 #11: 限制并发避免击穿 LLM rate limit（pLimit 3 简化版）
         const researcherResults = await this.runWithConcurrency(
           plan.dimensions,
           3,
-          async (dim) => {
+          async (dim, idx) => {
+            const agentId = `researcher#${idx}`;
+            await this.lifecycle(
+              missionId,
+              userId,
+              agentId,
+              "researcher",
+              "started",
+              { dimension: dim.name },
+            );
             const r = await this.runner.run(ResearcherAgent, {
               topic: input.topic,
               dimension: dim.name,
               language: input.language,
             });
-            pool.recordSpend(extractTokenSpend(r.events), 0, 0);
-            await this.emit(
-              "agent-playground.researcher:completed",
+            this.relayAgentEvents(r.events, {
               missionId,
               userId,
-              { dimension: dim.name, state: r.state, iters: r.iterations },
+              agentId,
+              role: "researcher",
+            });
+            pool.recordSpend(extractTokenSpend(r.events), 0, 0);
+            await this.lifecycle(
+              missionId,
+              userId,
+              agentId,
+              "researcher",
+              r.state === "completed" ? "completed" : "failed",
+              {
+                wallTimeMs: r.wallTimeMs,
+                iterations: r.iterations,
+                dimension: dim.name,
+              },
             );
-            // 必修 #6: state 检查 + 类型 narrowing
+            await this.emit({
+              type: "agent-playground.researcher:completed",
+              missionId,
+              userId,
+              agentId,
+              payload: {
+                dimension: dim.name,
+                state: r.state,
+                iterations: r.iterations,
+                wallTimeMs: r.wallTimeMs,
+                summary:
+                  r.state === "completed" && r.output
+                    ? (r.output as { summary?: string }).summary
+                    : undefined,
+                findingsCount:
+                  r.state === "completed" && r.output
+                    ? ((r.output as { findings?: unknown[] }).findings ?? [])
+                        .length
+                    : 0,
+              },
+            });
             if (r.state !== "completed" || !r.output) {
               return {
                 dimension: dim.name,
@@ -200,27 +283,67 @@ export class ResearchTeamOrchestrator {
             };
           },
         );
-        // 池子检查
+        await this.tickCost(missionId, userId, "researchers", pool);
         if (pool.isExhausted()) {
-          await this.emit(
-            "agent-playground.budget:exhausted",
+          await this.emit({
+            type: "agent-playground.budget:exhausted",
             missionId,
             userId,
-            pool.snapshot(),
-          );
+            payload: pool.snapshot(),
+          });
         }
+        await this.emit({
+          type: "agent-playground.stage:completed",
+          missionId,
+          userId,
+          payload: {
+            stage: "researchers",
+            results: researcherResults.map((r) => ({
+              dimension: r.dimension,
+              findingsCount: r.findings.length,
+              summary: r.summary,
+            })),
+          },
+        });
 
         // ── Stage 3: Analyst 反思整合 ──
-        await this.emit("agent-playground.stage:started", missionId, userId, {
-          stage: "analyst",
+        await this.emit({
+          type: "agent-playground.stage:started",
+          missionId,
+          userId,
+          payload: { stage: "analyst" },
         });
+        await this.lifecycle(
+          missionId,
+          userId,
+          "analyst",
+          "analyst",
+          "started",
+        );
         const analystRes = await this.runner.run(AnalystAgent, {
           topic: input.topic,
           language: input.language,
           researcherResults,
         });
+        this.relayAgentEvents(analystRes.events, {
+          missionId,
+          userId,
+          agentId: "analyst",
+          role: "analyst",
+        });
         pool.recordSpend(extractTokenSpend(analystRes.events), 0, 0);
-        // 必修 #6: state 检查
+        await this.tickCost(missionId, userId, "analyst", pool);
+        await this.lifecycle(
+          missionId,
+          userId,
+          "analyst",
+          "analyst",
+          analystRes.state === "completed" ? "completed" : "failed",
+          {
+            wallTimeMs: analystRes.wallTimeMs,
+            iterations: analystRes.iterations,
+          },
+        );
         if (analystRes.state !== "completed" || !analystRes.output) {
           throw new Error(`Analyst stage failed: ${analystRes.state}`);
         }
@@ -233,35 +356,89 @@ export class ResearchTeamOrchestrator {
           }[];
           themeSummary: string;
         };
+        await this.emit({
+          type: "agent-playground.stage:completed",
+          missionId,
+          userId,
+          payload: { stage: "analyst", insightsCount: analyst.insights.length },
+        });
 
         // ── Stage 4: Writer 起草 + 必要时 retry ──
         let attempts = 0;
         let report: ResearchReport | null = null;
         let reviewScore = 0;
+        let verifierVerdicts: unknown[] = [];
         const MAX_WRITER_ATTEMPTS = 2;
         do {
           attempts += 1;
-          await this.emit("agent-playground.stage:started", missionId, userId, {
-            stage: "writer",
-            attempt: attempts,
+          const writerAgentId = `writer#${attempts}`;
+          await this.emit({
+            type: "agent-playground.stage:started",
+            missionId,
+            userId,
+            payload: { stage: "writer", attempt: attempts },
           });
+          await this.lifecycle(
+            missionId,
+            userId,
+            writerAgentId,
+            "writer",
+            "started",
+            { attempt: attempts },
+          );
           const writerRes = await this.runner.run(WriterAgent, {
             topic: input.topic,
             language: input.language,
             insights: analyst.insights,
             themeSummary: analyst.themeSummary,
           });
+          this.relayAgentEvents(writerRes.events, {
+            missionId,
+            userId,
+            agentId: writerAgentId,
+            role: "writer",
+          });
           pool.recordSpend(extractTokenSpend(writerRes.events), 0, 0);
+          await this.tickCost(missionId, userId, "writer", pool);
+          await this.lifecycle(
+            missionId,
+            userId,
+            writerAgentId,
+            "writer",
+            writerRes.state === "completed" ? "completed" : "failed",
+            {
+              wallTimeMs: writerRes.wallTimeMs,
+              iterations: writerRes.iterations,
+              attempt: attempts,
+            },
+          );
           if (writerRes.state !== "completed" || !writerRes.output) {
-            // 当轮失败：让循环再试一次
             continue;
           }
           report = writerRes.output as ResearchReport;
+          await this.emit({
+            type: "agent-playground.report:draft",
+            missionId,
+            userId,
+            agentId: writerAgentId,
+            payload: { attempt: attempts, report },
+          });
 
           // ── Stage 5: Verify Consensus ──
-          await this.emit("agent-playground.stage:started", missionId, userId, {
-            stage: "reviewer",
+          await this.emit({
+            type: "agent-playground.stage:started",
+            missionId,
+            userId,
+            payload: { stage: "reviewer", attempt: attempts },
           });
+          await this.lifecycle(
+            missionId,
+            userId,
+            "reviewer",
+            "reviewer",
+            "started",
+            { attempt: attempts },
+          );
           const verdict = await this.judge.judgeWithConsensus({
             output: report,
             envelope: writerRes.agent.getEnvelope(),
@@ -269,29 +446,64 @@ export class ResearchTeamOrchestrator {
             passThreshold: 70,
           });
           reviewScore = verdict.decision.score;
-          await this.emit(
-            "agent-playground.reviewer:scored",
+          verifierVerdicts = verdict.verdicts as unknown[];
+          // 每个 judge 单独 emit，前端可以并排显示
+          for (const v of verdict.verdicts) {
+            await this.emit({
+              type: "agent-playground.verifier:verdict",
+              missionId,
+              userId,
+              agentId: "reviewer",
+              payload: {
+                verifierId: v.judgeId,
+                score: v.score,
+                critique: v.critique,
+                criteria: v.criteria,
+                modelId: v.modelId,
+                attempt: attempts,
+              },
+            });
+          }
+          await this.lifecycle(
             missionId,
             userId,
+            "reviewer",
+            "reviewer",
+            "completed",
             {
+              attempt: attempts,
+              consensusScore: reviewScore,
+              consensusVerdict: verdict.decision.verdict,
+            },
+          );
+          await this.emit({
+            type: "agent-playground.stage:completed",
+            missionId,
+            userId,
+            payload: {
+              stage: "reviewer",
               attempt: attempts,
               score: reviewScore,
               decision: verdict.decision.verdict,
-              verdicts: verdict.verdicts,
             },
-          );
+          });
           if (verdict.decision.verdict === "pass") break;
         } while (attempts < MAX_WRITER_ATTEMPTS);
 
-        // 必修 #6: writer 全部失败时不能继续
         if (!report) {
           throw new Error(
             `Writer failed after ${MAX_WRITER_ATTEMPTS} attempts`,
           );
         }
 
+        await this.emit({
+          type: "agent-playground.stage:completed",
+          missionId,
+          userId,
+          payload: { stage: "writer", attempts, finalScore: reviewScore },
+        });
+
         // ── Stage 6: Memory auto-index ──
-        // 必修 #14: 不用 `as never`，构造一个最小 IAgent shape（只用到 id + identity.role）
         const proxyAgent = this.makeProxyAgent(missionId, "research-team");
         const indexed = await this.indexer
           .indexAgentTrajectory(proxyAgent, [], {
@@ -307,20 +519,33 @@ export class ResearchTeamOrchestrator {
             );
             return 0;
           });
-
-        const snap = pool.snapshot();
-        await this.emit(
-          "agent-playground.mission:completed",
+        await this.emit({
+          type: "agent-playground.memory:indexed",
           missionId,
           userId,
-          {
+          payload: {
+            chunks: indexed,
+            namespace: workspaceId ?? userId,
+            tags: [input.depth, input.topic],
+          },
+        });
+
+        const snap = pool.snapshot();
+        const wallTimeMs = Date.now() - t0;
+        await this.emit({
+          type: "agent-playground.mission:completed",
+          missionId,
+          userId,
+          payload: {
             reviewScore,
             costUsd: snap.poolCostUsd,
+            tokensUsed: snap.poolTokensUsed,
             trajectoryStored: indexed,
+            wallTimeMs,
+            verifierVerdicts,
           },
-        );
+        });
 
-        // 真扣费：用 token-based credit 计费（CreditsService 内部按 modelName 算积分）
         await this.credits
           .consumeCredits({
             userId,
@@ -348,16 +573,22 @@ export class ResearchTeamOrchestrator {
     );
   }
 
-  private async emit(
-    type: string,
-    missionId: string,
-    userId: string,
-    payload: unknown,
-  ): Promise<void> {
+  // ─── private ────────────────────────────────────────────────
+
+  private async emit(args: {
+    type: string;
+    missionId: string;
+    userId: string;
+    agentId?: string;
+    traceId?: string;
+    payload: unknown;
+  }): Promise<void> {
     const event: DomainEvent = {
-      type,
-      scope: { missionId, userId },
-      payload,
+      type: args.type,
+      scope: { missionId: args.missionId, userId: args.userId },
+      payload: args.payload,
+      agentId: args.agentId,
+      traceId: args.traceId,
       timestamp: Date.now(),
     };
     await this.eventBus.emit(event).catch(() => {
@@ -365,11 +596,164 @@ export class ResearchTeamOrchestrator {
     });
   }
 
+  private async lifecycle(
+    missionId: string,
+    userId: string,
+    agentId: string,
+    role: string,
+    phase: "started" | "completed" | "failed",
+    detail?: Record<string, unknown>,
+  ): Promise<void> {
+    await this.emit({
+      type: "agent-playground.agent:lifecycle",
+      missionId,
+      userId,
+      agentId,
+      payload: { agentId, role, phase, ...detail },
+    });
+  }
+
+  private async tickCost(
+    missionId: string,
+    userId: string,
+    stage: string,
+    pool: MissionBudgetPool,
+  ): Promise<void> {
+    const snap = pool.snapshot();
+    await this.emit({
+      type: "agent-playground.cost:tick",
+      missionId,
+      userId,
+      payload: {
+        stage,
+        tokensUsed: snap.poolTokensUsed,
+        costUsd: snap.poolCostUsd,
+      },
+    });
+  }
+
   /**
-   * 必修 #14: 给 MemoryAutoIndexer 构造一个最小 IAgent 代理；
-   * MemoryAutoIndexer 只读 agent.id / agent.identity.role.id / agent.getEnvelope().memory，
-   * 不需要完整 IAgent 行为。
+   * 把 RunResult.events 转成 demo 友好的 thought / action / observation 事件。
+   * 注：post-stage relay，事件按 stage 批量到达，UI 仍按 timestamp 顺序渲染。
    */
+  private relayAgentEvents(
+    events: readonly IAgentEvent[],
+    ctx: RelayCtx,
+  ): void {
+    for (const ev of events) {
+      if (ev.type === "thinking") {
+        const p = ev.payload as { text: string; tokenCount?: number };
+        void this.emit({
+          type: "agent-playground.agent:thought",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            text: p.text,
+            tokenCount: p.tokenCount,
+            originalTs: ev.timestamp,
+          },
+        });
+      } else if (ev.type === "action_planned") {
+        const action = ev.payload as {
+          kind: string;
+          toolId?: string;
+          input?: unknown;
+          calls?: unknown[];
+          skillId?: string;
+          name?: string;
+        };
+        void this.emit({
+          type: "agent-playground.agent:action",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            kind: action.kind,
+            toolId: action.toolId,
+            skillId: action.skillId,
+            subagentName: action.name,
+            input: action.input,
+            calls: action.calls,
+            originalTs: ev.timestamp,
+          },
+        });
+      } else if (ev.type === "action_executed") {
+        const r = ev.payload as {
+          action: { kind: string; toolId?: string };
+          output: unknown;
+          error?: { message: string };
+          latencyMs: number;
+          tokensUsed?: number;
+        };
+        void this.emit({
+          type: "agent-playground.agent:observation",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            kind: r.action?.kind,
+            toolId: r.action?.toolId,
+            output: this.truncatePayload(r.output),
+            error: r.error?.message,
+            latencyMs: r.latencyMs,
+            tokensUsed: r.tokensUsed,
+            originalTs: ev.timestamp,
+          },
+        });
+      } else if (ev.type === "reflection") {
+        const p = ev.payload as { text?: string; verdict?: string };
+        void this.emit({
+          type: "agent-playground.agent:reflection",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            text: p.text,
+            verdict: p.verdict,
+            originalTs: ev.timestamp,
+          },
+        });
+      } else if (ev.type === "error") {
+        const p = ev.payload as { message: string };
+        void this.emit({
+          type: "agent-playground.agent:error",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            message: p.message,
+            originalTs: ev.timestamp,
+          },
+        });
+      }
+    }
+  }
+
+  private truncatePayload(payload: unknown): unknown {
+    if (payload == null) return payload;
+    if (typeof payload === "string") {
+      return payload.length > 1500 ? payload.slice(0, 1500) + "…" : payload;
+    }
+    try {
+      const s = JSON.stringify(payload);
+      if (s.length <= 4000) return payload;
+      return { _truncated: true, preview: s.slice(0, 4000) + "…" };
+    } catch {
+      return String(payload);
+    }
+  }
+
   private makeProxyAgent(missionId: string, roleId: string): IAgent {
     const env: IContextEnvelope = {
       id: missionId,
@@ -407,9 +791,6 @@ export class ResearchTeamOrchestrator {
     };
   }
 
-  /**
-   * 必修 #11: 简化版 pLimit —— 限制并发避免击穿 LLM rate limit
-   */
   private async runWithConcurrency<TIn, TOut>(
     items: readonly TIn[],
     concurrency: number,

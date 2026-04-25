@@ -11,6 +11,7 @@ import {
   Logger,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from "@nestjs/common";
@@ -22,9 +23,8 @@ import {
   RunMissionInputSchema,
   type RunMissionInput,
 } from "./dto/run-mission.dto";
-// 必修 #8: 走 facade 而非穿透 harness/checkpoint
-import { AgentEventStore } from "../../ai-engine/facade";
 import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
+import { MissionEventBuffer } from "./services/mission-event-buffer.service";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
@@ -33,15 +33,15 @@ export class AgentPlaygroundController {
 
   constructor(
     private readonly orchestrator: ResearchTeamOrchestrator,
-    private readonly eventStore: AgentEventStore,
+    private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
   ) {}
 
   /**
    * POST /api/v1/agent-playground/research-team/run
    *
-   * 必修 #1（fire-and-forget）：立刻返回 missionId，
-   * mission 在后台跑，前端通过 socket join 监听事件。
+   * fire-and-forget：立刻返回 missionId，mission 在后台跑，前端通过 socket join 监听事件。
+   * 同时 /replay 端点提供 polling fallback。
    */
   @Post("research-team/run")
   runResearchTeam(
@@ -53,7 +53,6 @@ export class AgentPlaygroundController {
 
     const parsed = RunMissionInputSchema.safeParse(body);
     if (!parsed.success) {
-      // 必修 #5: BadRequestException 而非 Error → 客户端拿到 400 而非 500
       throw new BadRequestException(
         `Invalid input: ${parsed.error.issues
           .map((i) => `${i.path.join(".")}:${i.message}`)
@@ -63,10 +62,8 @@ export class AgentPlaygroundController {
     const input: RunMissionInput = parsed.data;
     const missionId = randomUUID();
 
-    // 必修 #4: 注册 ownership，gateway/replay/cost 用此校验
     this.ownership.assign(missionId, userId);
 
-    // fire-and-forget：mission 在后台跑；前端走 socket 拉事件
     void this.orchestrator
       .runMission(missionId, input, userId)
       .catch((err: unknown) => {
@@ -78,24 +75,26 @@ export class AgentPlaygroundController {
     return { missionId, streamNamespace: "agent-playground" };
   }
 
+  /**
+   * GET /api/v1/agent-playground/replay/:missionId?since=<ts>
+   *
+   * 从 MissionEventBuffer 读取累积事件。前端可：
+   *   - 初次进页面用此端点 hydrate（防 socket 断线/掉包）
+   *   - WS 失败时 polling 兜底
+   */
   @Get("replay/:missionId")
-  async replay(
+  replay(
     @Param("missionId") missionId: string,
+    @Query("since") since: string | undefined,
     @Request() req: RequestWithUser,
-  ): Promise<{ events: readonly unknown[] }> {
+  ): { events: readonly unknown[]; serverNow: number } {
     this.assertOwnership(missionId, req.user?.id);
-    const events = await this.eventStore.readStream(missionId, { limit: 1000 });
-    return { events };
-  }
-
-  @Get("cost/:missionId")
-  async cost(
-    @Param("missionId") missionId: string,
-    @Request() req: RequestWithUser,
-  ): Promise<{ missionId: string; breakdown: unknown }> {
-    this.assertOwnership(missionId, req.user?.id);
-    const events = await this.eventStore.readStream(missionId, { limit: 1000 });
-    return { missionId, breakdown: events.map((e) => e.payload) };
+    const sinceTs = since ? Number(since) : undefined;
+    const events = this.buffer.read(
+      missionId,
+      Number.isFinite(sinceTs as number) ? (sinceTs as number) : undefined,
+    );
+    return { events, serverNow: Date.now() };
   }
 
   private assertOwnership(missionId: string, userId?: string): void {

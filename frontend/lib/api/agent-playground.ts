@@ -20,12 +20,16 @@ export interface RunMissionResponse {
 }
 
 export interface ReplayEvent {
-  id: string;
-  agentId: string;
-  seq: number;
   type: string;
   payload: unknown;
-  emittedAt: string;
+  agentId?: string;
+  traceId?: string;
+  timestamp: number;
+}
+
+export interface ReplayResponse {
+  events: ReplayEvent[];
+  serverNow: number;
 }
 
 export async function runResearchTeam(
@@ -40,31 +44,35 @@ export async function runResearchTeam(
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    throw new Error(
-      `Failed to start mission: ${res.status} ${await res.text()}`
-    );
+    const text = await res.text().catch(() => '');
+    // text 可能是 HTML（404 页）→ 截断防止 UI 爆炸
+    const detail = text.length > 200 ? text.slice(0, 200) + '…' : text;
+    throw new Error(`Failed to start mission: ${res.status} ${detail}`);
   }
-  return (await res.json()) as RunMissionResponse;
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('Failed to start mission: invalid JSON response');
+  }
+  const missionId = (data as { missionId?: unknown }).missionId;
+  if (typeof missionId !== 'string' || missionId.length === 0) {
+    throw new Error('Failed to start mission: missionId missing in response');
+  }
+  return data as RunMissionResponse;
 }
 
 export async function replayMission(
-  missionId: string
-): Promise<{ events: ReplayEvent[] }> {
-  const res = await fetch(`${API_BASE}/replay/${missionId}`, {
+  missionId: string,
+  sinceTs?: number
+): Promise<ReplayResponse> {
+  const url = new URL(`${API_BASE}/replay/${missionId}`);
+  if (sinceTs != null) url.searchParams.set('since', String(sinceTs));
+  const res = await fetch(url.toString(), {
     headers: { ...getAuthHeader() },
   });
   if (!res.ok) {
     throw new Error(`Failed to replay mission: ${res.status}`);
   }
-  return (await res.json()) as { events: ReplayEvent[] };
-}
-
-export async function getMissionCost(
-  missionId: string
-): Promise<{ missionId: string; breakdown: unknown }> {
-  const res = await fetch(`${API_BASE}/cost/${missionId}`, {
-    headers: { ...getAuthHeader() },
-  });
-  if (!res.ok) throw new Error(`Failed to get cost: ${res.status}`);
-  return (await res.json()) as { missionId: string; breakdown: unknown };
+  return (await res.json()) as ReplayResponse;
 }

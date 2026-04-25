@@ -32,6 +32,10 @@ export function DemoLauncher() {
         language,
         maxCredits,
       });
+      // 双重保险：API client 已校验，这里再 guard 一次
+      if (!missionId || missionId === 'undefined') {
+        throw new Error('Server did not return a missionId');
+      }
       router.push(`/agent-playground/research-team/${missionId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -42,7 +46,12 @@ export function DemoLauncher() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form
+      onSubmit={(e) => {
+        void handleSubmit(e);
+      }}
+      className="space-y-5"
+    >
       <div>
         <label className="mb-1.5 block text-sm font-medium text-gray-900">
           {t('playground.researchTeam.topicLabel') || 'Topic'}
