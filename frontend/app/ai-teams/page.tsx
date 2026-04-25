@@ -18,7 +18,13 @@ import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';
-import ClientDate from '@/components/common/ClientDate';
+import {
+  AssetCard,
+  type AssetCardBadge,
+  type AssetVisibility,
+  type AssetVisibilityOption,
+} from '@/components/common/asset-card';
+import { Globe, Lock, Sparkles, Users as UsersIcon } from 'lucide-react';
 
 type TabType = 'my-teams' | 'discover';
 
@@ -782,270 +788,116 @@ function TopicCard({
     }
   };
 
+  const visibilityOptions: Record<AssetVisibility, AssetVisibilityOption> = {
+    PRIVATE: {
+      value: 'PRIVATE',
+      label: t('aiTeams.card.makePrivate'),
+      icon: <Lock className="h-3 w-3" />,
+      className: 'bg-gray-100 text-gray-600',
+    },
+    SHARED: {
+      value: 'SHARED',
+      label: t('aiTeams.card.makePrivate'),
+      icon: <Lock className="h-3 w-3" />,
+      className: 'bg-blue-100 text-blue-600',
+    },
+    PUBLIC: {
+      value: 'PUBLIC',
+      label: t('aiTeams.card.makePublic'),
+      icon: <Globe className="h-3 w-3" />,
+      className: 'bg-green-100 text-green-600',
+    },
+  };
+
+  const tagBadges: AssetCardBadge[] = (() => {
+    const metadata = topic.metadata as { tags?: string[] } | null;
+    const tags = metadata?.tags;
+    if (!tags || !Array.isArray(tags) || tags.length === 0) return [];
+    const visible = tags.slice(0, 3).map((tag, idx) => ({
+      key: `tag-${idx}`,
+      label: tag,
+      className: 'bg-blue-50 text-blue-600',
+    }));
+    if (tags.length > 3) {
+      visible.push({
+        key: 'tag-more',
+        label: `+${tags.length - 3}`,
+        className: 'bg-gray-100 text-gray-500',
+      });
+    }
+    return visible;
+  })();
+
+  const unreadBadge: AssetCardBadge | null =
+    topic.unreadCount && topic.unreadCount > 0
+      ? {
+          key: 'unread',
+          label: topic.unreadCount > 99 ? '99+' : String(topic.unreadCount),
+          className: 'bg-red-500 text-white shadow-sm',
+        }
+      : null;
+
+  const formattedTime = formatTime(topic.updatedAt);
+
   return (
-    <div className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md">
-      {/* Action Buttons - unified style: visibility + share + edit + delete */}
-      {isOwner && (
-        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {/* Visibility Toggle */}
-          <button
-            onClick={handleTogglePublic}
-            disabled={isTogglingPublic}
-            className={`rounded-lg bg-white p-1.5 shadow-sm transition-colors ${
-              isPublic
-                ? 'text-green-500 hover:bg-green-50 hover:text-green-600'
-                : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
-            } ${isTogglingPublic ? 'cursor-wait opacity-70' : ''}`}
-            title={
-              isPublic
-                ? t('aiTeams.card.makePrivate')
-                : t('aiTeams.card.makePublic')
-            }
-          >
-            {isTogglingPublic ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : isPublic ? (
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-            )}
-          </button>
-          {/* Share Button - only show when PUBLIC */}
-          {isPublic && onShare && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onShare(topic);
-              }}
-              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-              title={t('aiTeams.card.share') || '分享'}
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-            </button>
-          )}
-          {/* Edit Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(topic);
-            }}
-            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-gray-50 hover:text-blue-600"
-            title={t('aiTeams.card.editTeam')}
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-          </button>
-          {/* Delete Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(topic.id);
-            }}
-            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
-            title={t('aiTeams.card.deleteTeam')}
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Card Content */}
-      <div onClick={onClick}>
-        {/* Avatar with vibrant gradient */}
-        <div className="flex items-start justify-between">
-          <div
-            className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient.from} ${gradient.to} shadow-lg ${gradient.shadow} transition-transform group-hover:scale-105`}
-          >
-            {topic.avatar ? (
-              <span className="text-3xl drop-shadow-sm">{topic.avatar}</span>
-            ) : (
-              <svg
-                className="h-7 w-7 text-white drop-shadow-sm"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-            )}
-            {/* Decorative ring animation on hover */}
-            <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Public/Private indicator - for non-owners, show badge; for owners, visibility is in action buttons row */}
-            {!isOwner && isPublic && (
-              <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </span>
-            )}
-            {/* Unread count badge */}
-            {topic.unreadCount && topic.unreadCount > 0 && (
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-semibold text-white shadow-sm">
-                {topic.unreadCount > 99 ? '99+' : topic.unreadCount}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Title & Description */}
-        <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-blue-600">
-          {topic.name}
-        </h3>
-        {topic.description && (
-          <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-            {topic.description}
-          </p>
-        )}
-
-        {/* Tags */}
-        {(() => {
-          const metadata = topic.metadata as { tags?: string[] } | null;
-          const tags = metadata?.tags;
-          return tags && Array.isArray(tags) && tags.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {tags.slice(0, 3).map((tag: string, idx: number) => (
-                <span
-                  key={idx}
-                  className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600"
-                >
-                  {tag}
-                </span>
-              ))}
-              {tags.length > 3 && (
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                  +{tags.length - 3}
-                </span>
-              )}
-            </div>
-          ) : null;
-        })()}
-
-        {/* Stats */}
-        <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-            {topic.memberCount}
-          </span>
-          <span className="flex items-center gap-1">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            {topic.aiMemberCount} AI
-          </span>
-          <span className="ml-auto">
-            {(() => {
-              const formattedTime = formatTime(topic.updatedAt);
-              return formattedTime !== null ? (
-                formattedTime
-              ) : (
-                <ClientDate date={topic.updatedAt} format="date" />
-              );
-            })()}
-          </span>
-        </div>
-
-        {/* Member Avatars */}
-        <div className="mt-3 flex items-center">
+    <AssetCard
+      title={topic.name}
+      description={topic.description}
+      icon={
+        topic.avatar ? (
+          <span className="text-2xl drop-shadow-sm">{topic.avatar}</span>
+        ) : (
+          <UsersIcon className="h-6 w-6 text-white" />
+        )
+      }
+      gradient={`${gradient.from} ${gradient.to}`}
+      badges={[...(unreadBadge ? [unreadBadge] : []), ...tagBadges]}
+      visibility={isPublic ? 'PUBLIC' : 'PRIVATE'}
+      visibilityOptions={visibilityOptions}
+      isOwner={isOwner}
+      onVisibilityToggle={(next) => {
+        if (isTogglingPublic) return;
+        if (next === 'PUBLIC' && !isPublic) {
+          void handleTogglePublic({
+            stopPropagation: () => {},
+          } as React.MouseEvent);
+        } else if (next === 'PRIVATE' && isPublic) {
+          void handleTogglePublic({
+            stopPropagation: () => {},
+          } as React.MouseEvent);
+        }
+      }}
+      visibilityToggleCycle={['PRIVATE', 'PUBLIC']}
+      onShareToSocial={onShare ? () => onShare(topic) : undefined}
+      onEdit={() => onEdit(topic)}
+      onDelete={() => onDelete(topic.id)}
+      onClick={onClick}
+      stats={[
+        {
+          key: 'members',
+          icon: <UsersIcon className="h-3.5 w-3.5" />,
+          text: String(topic.memberCount),
+        },
+        {
+          key: 'ai',
+          icon: <Sparkles className="h-3.5 w-3.5" />,
+          text: `${topic.aiMemberCount} AI`,
+        },
+        ...(formattedTime !== null
+          ? [
+              {
+                key: 'time',
+                icon: <span className="text-xs text-gray-400">·</span>,
+                text: formattedTime,
+              },
+            ]
+          : []),
+      ]}
+      timestamp={formattedTime === null ? topic.updatedAt : undefined}
+      customSection={
+        <div className="flex items-center">
           <div className="flex -space-x-2">
-            {(topic.members || []).slice(0, 4).map((member, idx) => (
+            {(topic.members || []).slice(0, 4).map((member) => (
               <div
                 key={member.id}
                 className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-200 text-xs font-medium text-gray-600"
@@ -1070,8 +922,6 @@ function TopicCard({
               </div>
             )}
           </div>
-
-          {/* AI Avatars */}
           {(topic.aiMembers || []).length > 0 && (
             <>
               <div className="mx-2 h-4 w-px bg-gray-200" />
@@ -1112,8 +962,15 @@ function TopicCard({
             </>
           )}
         </div>
-      </div>
-    </div>
+      }
+      labels={{
+        setPrivate: t('aiTeams.card.makePrivate'),
+        setPublic: t('aiTeams.card.makePublic'),
+        shareToSocial: t('aiTeams.card.share') || '分享',
+        edit: t('aiTeams.card.editTeam'),
+        delete: t('aiTeams.card.deleteTeam'),
+      }}
+    />
   );
 }
 
@@ -1581,113 +1438,70 @@ function PublicTopicCard({
     return null;
   };
 
+  const tagBadges: AssetCardBadge[] = (() => {
+    const tags = topic.metadata?.tags;
+    if (!tags || tags.length === 0) return [];
+    const visible: AssetCardBadge[] = tags.slice(0, 3).map((tag, idx) => ({
+      key: `tag-${idx}`,
+      label: tag,
+      className: 'bg-violet-50 text-violet-600',
+    }));
+    if (tags.length > 3) {
+      visible.push({
+        key: 'tag-more',
+        label: `+${tags.length - 3}`,
+        className: 'bg-gray-100 text-gray-500',
+      });
+    }
+    return visible;
+  })();
+
+  const formattedTime = formatTime(topic.createdAt);
+
   return (
-    <div className="group relative rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-violet-300 hover:shadow-md">
-      {/* Card Content */}
-      <div>
-        {/* Avatar and Badge */}
-        <div className="flex items-start justify-between">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-teal-500">
-            {topic.avatar ? (
-              <span className="text-2xl">{topic.avatar}</span>
-            ) : (
-              <svg
-                className="h-6 w-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            )}
-          </div>
-          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
-            {t('aiTeams.publicCard.public')}
-          </span>
-        </div>
-
-        {/* Title & Description */}
-        <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-violet-600">
-          {topic.name}
-        </h3>
-        {topic.description && (
-          <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-            {topic.description}
-          </p>
-        )}
-
-        {/* Tags */}
-        {topic.metadata?.tags && topic.metadata.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {topic.metadata.tags.slice(0, 3).map((tag: string, idx: number) => (
-              <span
-                key={idx}
-                className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600"
-              >
-                {tag}
-              </span>
-            ))}
-            {topic.metadata.tags.length > 3 && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                +{topic.metadata.tags.length - 3}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-            {t('aiTeams.publicCard.members', { count: topic.memberCount })}
-          </span>
-          <span className="flex items-center gap-1">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            {topic.aiMemberCount} AI
-          </span>
-          <span className="ml-auto">
-            {(() => {
-              const formattedTime = formatTime(topic.createdAt);
-              return formattedTime !== null ? (
-                formattedTime
-              ) : (
-                <ClientDate date={topic.createdAt} format="date" />
-              );
-            })()}
-          </span>
-        </div>
-
-        {/* Creator */}
-        <div className="mt-3 flex items-center gap-2">
+    <AssetCard
+      title={topic.name}
+      description={topic.description}
+      icon={
+        topic.avatar ? (
+          <span className="text-2xl">{topic.avatar}</span>
+        ) : (
+          <Globe className="h-6 w-6 text-white" />
+        )
+      }
+      gradient="from-green-500 to-teal-500"
+      badges={[
+        {
+          key: 'public',
+          label: t('aiTeams.publicCard.public'),
+          className: 'bg-green-100 text-green-600',
+        },
+        ...tagBadges,
+      ]}
+      stats={[
+        {
+          key: 'members',
+          icon: <UsersIcon className="h-3.5 w-3.5" />,
+          text: t('aiTeams.publicCard.members', { count: topic.memberCount }),
+        },
+        {
+          key: 'ai',
+          icon: <Sparkles className="h-3.5 w-3.5" />,
+          text: `${topic.aiMemberCount} AI`,
+        },
+        ...(formattedTime !== null
+          ? [
+              {
+                key: 'time',
+                icon: <span className="text-xs text-gray-400">·</span>,
+                text: formattedTime,
+              },
+            ]
+          : []),
+      ]}
+      timestamp={formattedTime === null ? topic.createdAt : undefined}
+      customSection={
+        <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
             {topic.createdBy.avatarUrl ? (
               <img
@@ -1708,18 +1522,18 @@ function PublicTopicCard({
             })}
           </span>
         </div>
-
-        {/* Join Button */}
+      }
+      footerExtra={
         <button
           onClick={onJoinRequest}
           disabled={isJoining}
-          className="mt-4 w-full rounded-lg bg-violet-600 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isJoining
             ? t('aiTeams.publicCard.applying')
             : t('aiTeams.publicCard.applyToJoin')}
         </button>
-      </div>
-    </div>
+      }
+    />
   );
 }

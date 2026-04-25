@@ -23,3 +23,4 @@ export * from './useReportWorkspace';
 export * from './useWorkspaceSync';
 export * from './useYoutubeSubtitleExport';
 export * from './useAutoSave';
+export * from './useAssetForm';

@@ -412,43 +412,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiResearch')}</span>}
           </Link>
 
-          <Link
-            href="/ai-office"
-            onClick={(e) => {
-              if (pathname === '/ai-office') {
-                e.preventDefault();
-                window.location.href = '/ai-office';
-              }
-            }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-1.5 text-sm font-medium ${
-              isActive('/ai-office') || pathname?.startsWith('/ai-office')
-                ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.aiReports')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiReports')}</span>}
-          </Link>
-
           {/* Section: Planning & Decision */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
@@ -587,6 +550,43 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           {!showExpanded && (
             <div className="my-1 border-t border-gray-200/60" />
           )}
+
+          <Link
+            href="/ai-office"
+            onClick={(e) => {
+              if (pathname === '/ai-office') {
+                e.preventDefault();
+                window.location.href = '/ai-office';
+              }
+            }}
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-1.5 text-sm font-medium ${
+              isActive('/ai-office') || pathname?.startsWith('/ai-office')
+                ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.aiReports')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.aiReports')}</span>}
+          </Link>
 
           <Link
             href="/ai-writing"

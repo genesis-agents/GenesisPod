@@ -81,13 +81,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       activeClass: 'bg-indigo-50',
       prefix: true,
     },
-    {
-      href: '/ai-office',
-      label: t('nav.aiReports'),
-      icon: 'pie',
-      activeClass: 'bg-blue-50',
-      prefix: true,
-    },
   ];
 
   // Planning & Decision section
@@ -117,6 +110,13 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
 
   // Creative Writing section
   const creativeItems = [
+    {
+      href: '/ai-office',
+      label: t('nav.aiReports'),
+      icon: 'pie',
+      activeClass: 'bg-blue-50',
+      prefix: true,
+    },
     {
       href: '/ai-writing',
       label: t('nav.aiWriting'),

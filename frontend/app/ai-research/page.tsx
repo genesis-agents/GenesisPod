@@ -19,10 +19,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
-import ClientDate from '@/components/common/ClientDate';
 import { CreateProjectDialog } from '@/components/ai-research/CreateProjectDialog';
 import { RenameProjectDialog } from '@/components/ai-research/RenameProjectDialog';
 import { DeleteProjectDialog } from '@/components/ai-research/DeleteProjectDialog';
+import {
+  AssetCard,
+  type AssetVisibility,
+  type AssetVisibilityOption,
+} from '@/components/common/asset-card';
+import { FileText, Globe, Lock } from 'lucide-react';
 
 interface ResearchProject {
   id: string;
@@ -98,7 +103,6 @@ function ResearchPageContent() {
   } | null>(null);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [renameProject, setRenameProject] = useState<ResearchProject | null>(
     null
   );
@@ -106,7 +110,6 @@ function ResearchPageContent() {
   const [deleteProject, setDeleteProject] = useState<ResearchProject | null>(
     null
   );
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
@@ -269,18 +272,6 @@ function ResearchPageContent() {
     },
     [t]
   );
-
-  // Close menu on click outside
-  useEffect(() => {
-    if (!menuOpenId) return;
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpenId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [menuOpenId]);
 
   useEffect(() => {
     if (user) {
@@ -496,198 +487,88 @@ function ResearchPageContent() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredProjects.map((project) => {
               const gradient = getProjectGradient(project.id);
+              const isOwner = !project.userId || project.userId === user?.id;
+              const visibilityOptions: Record<
+                AssetVisibility,
+                AssetVisibilityOption
+              > = {
+                PRIVATE: {
+                  value: 'PRIVATE',
+                  label: t('aiResearch.visibility.private'),
+                  icon: <Lock className="h-3 w-3" />,
+                  className: 'bg-gray-100 text-gray-600',
+                },
+                SHARED: {
+                  value: 'SHARED',
+                  label: t('aiResearch.visibility.private'),
+                  icon: <Lock className="h-3 w-3" />,
+                  className: 'bg-blue-100 text-blue-600',
+                },
+                PUBLIC: {
+                  value: 'PUBLIC',
+                  label: t('aiResearch.visibility.public'),
+                  icon: <Globe className="h-3 w-3" />,
+                  className: 'bg-green-100 text-green-600',
+                },
+              };
 
               return (
-                <div
+                <AssetCard
                   key={project.id}
-                  onClick={() => router.push(`/ai-research/${project.id}`)}
-                  className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
-                >
-                  {/* Avatar with gradient */}
-                  <div className="flex items-start justify-between">
-                    <div
-                      className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient.from} ${gradient.to} shadow-lg ${gradient.shadow} transition-transform group-hover:scale-105`}
+                  title={project.name}
+                  description={project.description}
+                  icon={
+                    <svg
+                      className="h-6 w-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="h-7 w-7 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {project.visibility === 'PUBLIC' && (
-                        <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                          <svg
-                            className="h-3 w-3"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          {t('aiResearch.visibility.public')}
-                        </span>
-                      )}
-                      {/* More menu — only show for own projects */}
-                      {(!project.userId || project.userId === user?.id) && (
-                        <div
-                          className="relative"
-                          ref={menuOpenId === project.id ? menuRef : undefined}
-                        >
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMenuOpenId(
-                                menuOpenId === project.id ? null : project.id
-                              );
-                            }}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
-                          >
-                            <svg
-                              className="h-4 w-4"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle cx="12" cy="5" r="1.5" />
-                              <circle cx="12" cy="12" r="1.5" />
-                              <circle cx="12" cy="19" r="1.5" />
-                            </svg>
-                          </button>
-                          {menuOpenId === project.id && (
-                            <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMenuOpenId(null);
-                                  setRenameName(project.name);
-                                  setRenameProject(project);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <svg
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                  />
-                                </svg>
-                                {t('aiResearch.project.rename')}
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMenuOpenId(null);
-                                  void handleToggleVisibility(project);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <svg
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                                {project.visibility === 'PUBLIC'
-                                  ? t('aiResearch.visibility.setPrivate')
-                                  : t('aiResearch.visibility.setPublic')}
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMenuOpenId(null);
-                                  setDeleteProject(project);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                              >
-                                <svg
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                  />
-                                </svg>
-                                {t('common.delete')}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Title & Description */}
-                  <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-indigo-600">
-                    {project.name}
-                  </h3>
-                  {project.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-                      {project.description}
-                    </p>
-                  )}
-
-                  {/* Stats */}
-                  <div className="mt-4 flex items-center gap-4 text-xs text-gray-400">
-                    {project.sourcesCount !== undefined && (
-                      <span className="flex items-center gap-1">
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        {t('aiResearch.project.sourcesCount', {
-                          count: project.sourcesCount,
-                        })}
-                      </span>
-                    )}
-                    <span>
-                      <ClientDate
-                        date={project.updatedAt || project.createdAt}
-                        format="relative"
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
                       />
-                    </span>
-                  </div>
-                </div>
+                    </svg>
+                  }
+                  gradient={`${gradient.from} ${gradient.to}`}
+                  visibility={project.visibility as AssetVisibility | undefined}
+                  visibilityOptions={visibilityOptions}
+                  isOwner={isOwner}
+                  onVisibilityToggle={(next) => {
+                    if (next !== 'SHARED') {
+                      void handleToggleVisibility(project);
+                    }
+                  }}
+                  visibilityToggleCycle={['PRIVATE', 'PUBLIC']}
+                  onEdit={() => {
+                    setRenameName(project.name);
+                    setRenameProject(project);
+                  }}
+                  onDelete={() => setDeleteProject(project)}
+                  onClick={() => router.push(`/ai-research/${project.id}`)}
+                  stats={
+                    project.sourcesCount !== undefined
+                      ? [
+                          {
+                            key: 'sources',
+                            icon: <FileText className="h-3.5 w-3.5" />,
+                            text: t('aiResearch.project.sourcesCount', {
+                              count: project.sourcesCount,
+                            }),
+                          },
+                        ]
+                      : []
+                  }
+                  timestamp={project.updatedAt || project.createdAt}
+                  labels={{
+                    setPrivate: t('aiResearch.visibility.setPrivate'),
+                    setPublic: t('aiResearch.visibility.setPublic'),
+                    edit: t('aiResearch.project.rename'),
+                    delete: t('common.delete'),
+                  }}
+                />
               );
             })}
 

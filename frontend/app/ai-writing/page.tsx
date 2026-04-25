@@ -9,9 +9,13 @@ import { useAIWritingStore } from '@/stores';
 import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
 import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
 import ShareModal from '@/components/common/dialogs/ShareModal';
-import ClientDate from '@/components/common/ClientDate';
 import { SkillsModal } from '@/components/common/skills/SkillsModal';
-import { Sparkles } from 'lucide-react';
+import {
+  AssetCard,
+  type AssetVisibility,
+  type AssetVisibilityOption,
+} from '@/components/common/asset-card';
+import { FileText, Globe, Lock, PenLine, Sparkles } from 'lucide-react';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
 const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
@@ -211,16 +215,6 @@ export default function AIWritingPage() {
     if (confirm(t('aiWriting.actions.confirmDelete'))) {
       await deleteProject(projectId);
     }
-  };
-
-  const handleToggleVisibility = async (
-    e: React.MouseEvent,
-    project: (typeof projects)[0]
-  ) => {
-    e.stopPropagation();
-    const newVisibility =
-      project.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
-    await updateProject(project.id, { visibility: newVisibility });
   };
 
   const handleShare = (e: React.MouseEvent, project: (typeof projects)[0]) => {
@@ -473,184 +467,105 @@ export default function AIWritingPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredProjects.map((project) => {
                 const status = getStatusBadge(project.status);
-                const progress =
-                  project.targetWords > 0
-                    ? Math.round(
-                        (project.currentWords / project.targetWords) * 100
-                      )
-                    : 0;
                 const gradient = getProjectGradient(project.id);
+                const visibilityOptions: Record<
+                  AssetVisibility,
+                  AssetVisibilityOption
+                > = {
+                  PRIVATE: {
+                    value: 'PRIVATE',
+                    label: t('aiWriting.visibility.private'),
+                    icon: <Lock className="h-3 w-3" />,
+                    className: 'bg-gray-100 text-gray-600',
+                  },
+                  SHARED: {
+                    value: 'SHARED',
+                    label: t('aiWriting.visibility.private'),
+                    icon: <Lock className="h-3 w-3" />,
+                    className: 'bg-blue-100 text-blue-600',
+                  },
+                  PUBLIC: {
+                    value: 'PUBLIC',
+                    label: t('aiWriting.visibility.public'),
+                    icon: <Globe className="h-3 w-3" />,
+                    className: 'bg-green-100 text-green-600',
+                  },
+                };
 
                 return (
-                  <div
+                  <AssetCard
                     key={project.id}
+                    title={project.name}
+                    description={project.description}
+                    icon={<PenLine className="h-6 w-6 text-white" />}
+                    gradient={`${gradient.from} ${gradient.to}`}
+                    badges={[
+                      {
+                        key: 'genre',
+                        label: getGenreLabel(project.genre || 'NOVEL'),
+                        className: 'bg-gray-100 text-gray-600',
+                      },
+                      {
+                        key: 'status',
+                        label: status.label,
+                        className: status.color,
+                      },
+                    ]}
+                    visibility={
+                      project.visibility as AssetVisibility | undefined
+                    }
+                    visibilityOptions={visibilityOptions}
+                    isOwner
+                    onVisibilityToggle={(next) => {
+                      if (next !== 'SHARED') {
+                        void updateProject(project.id, { visibility: next });
+                      }
+                    }}
+                    visibilityToggleCycle={['PRIVATE', 'PUBLIC']}
+                    onShareToSocial={() => {
+                      handleShare(
+                        { stopPropagation: () => {} } as React.MouseEvent,
+                        project
+                      );
+                    }}
+                    onEdit={() => {
+                      handleEdit(
+                        { stopPropagation: () => {} } as React.MouseEvent,
+                        project
+                      );
+                    }}
+                    onDelete={() => {
+                      void handleDelete(
+                        { stopPropagation: () => {} } as React.MouseEvent,
+                        project.id
+                      );
+                    }}
                     onClick={() => router.push(`/ai-writing/${project.id}`)}
-                    className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
-                  >
-                    {/* Visibility & Edit & Delete Buttons */}
-                    <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        onClick={(e) => handleToggleVisibility(e, project)}
-                        className={`rounded-lg bg-white p-1.5 shadow-sm transition-colors ${
-                          project.visibility === 'PUBLIC'
-                            ? 'text-green-500 hover:bg-green-50 hover:text-green-600'
-                            : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
-                        }`}
-                        title={
-                          project.visibility === 'PUBLIC'
-                            ? t('aiWriting.visibility.public')
-                            : t('aiWriting.visibility.private')
-                        }
-                      >
-                        {project.visibility === 'PUBLIC' ? (
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                        ) : (
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      {project.visibility === 'PUBLIC' && (
-                        <button
-                          onClick={(e) => handleShare(e, project)}
-                          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-blue-50 hover:text-blue-600"
-                          title={t('share.shareWriting')}
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                            />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => handleEdit(e, project)}
-                        className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-blue-50 hover:text-blue-600"
-                        title={t('aiWriting.actions.edit')}
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => handleDelete(e, project.id)}
-                        className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
-                        title={t('aiWriting.actions.delete')}
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Avatar with gradient */}
-                    <div className="flex items-start justify-between">
-                      <div
-                        className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient.from} ${gradient.to} shadow-lg ${gradient.shadow} transition-transform group-hover:scale-105`}
-                      >
-                        <span className="text-2xl drop-shadow-sm">✍️</span>
-                        <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
-                      </div>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}
-                      >
-                        {status.label}
-                      </span>
-                    </div>
-
-                    {/* Title & Description */}
-                    <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-amber-600">
-                      {project.name}
-                    </h3>
-                    {project.description && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-                        {project.description}
-                      </p>
-                    )}
-
-                    {/* Progress */}
-                    <div className="mt-4">
-                      <div className="mb-1.5 flex items-center justify-between text-xs">
-                        <span className="text-gray-500">
-                          {project.currentWords.toLocaleString()} /{' '}
-                          {project.targetWords.toLocaleString()}{' '}
-                          {t('aiWriting.unit.words')}
-                        </span>
-                        <span className="font-medium text-amber-600">
-                          {progress}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all"
-                          style={{ width: `${Math.min(progress, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Footer: Genre + Time */}
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                        {getGenreLabel(project.genre || 'NOVEL')}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        <ClientDate
-                          date={project.updatedAt}
-                          format="relative"
-                        />
-                      </span>
-                    </div>
-                  </div>
+                    stats={[
+                      {
+                        key: 'words',
+                        icon: <FileText className="h-3.5 w-3.5" />,
+                        text: `${project.currentWords} / ${project.targetWords} ${t('aiWriting.unit.words')}`,
+                      },
+                    ]}
+                    progress={
+                      project.targetWords > 0
+                        ? {
+                            current: project.currentWords,
+                            total: project.targetWords,
+                            gradient: 'from-amber-400 to-orange-400',
+                          }
+                        : undefined
+                    }
+                    timestamp={project.updatedAt}
+                    labels={{
+                      setPrivate: t('aiWriting.visibility.private'),
+                      setPublic: t('aiWriting.visibility.public'),
+                      shareToSocial: t('share.shareWriting'),
+                      edit: t('aiWriting.actions.edit'),
+                      delete: t('aiWriting.actions.delete'),
+                    }}
+                  />
                 );
               })}
 
