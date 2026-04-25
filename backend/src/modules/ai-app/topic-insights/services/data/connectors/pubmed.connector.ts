@@ -158,7 +158,7 @@ export class PubMedConnector implements IDataSourceConnector {
     const results: DataSourceResult[] = [];
     for (const pmid of pmids) {
       const article = data.result[pmid];
-      if (!article || !article.title) continue;
+      if (!article?.title) continue;
 
       results.push({
         sourceType: DataSourceType.PUBMED,
