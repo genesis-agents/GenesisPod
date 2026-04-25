@@ -19,6 +19,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { KernelContext } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "@/modules/ai-app/topic-insights/mission/realtime/event-emitter.service";
 import { SpecAgentRegistry } from "@/modules/ai-engine/facade";
@@ -106,6 +107,7 @@ export class PipelineOrchestratorService {
     private readonly researchEventEmitter?: ResearchEventEmitterService,
     @Optional() private readonly agentRegistry?: SpecAgentRegistry,
     @Optional() private readonly checkpoint?: PipelineCheckpointService,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   async run(
@@ -501,26 +503,56 @@ export class PipelineOrchestratorService {
     status: "working" | "completed" | "failed",
     errorMsg?: string,
   ): Promise<void> {
-    if (!this.researchEventEmitter) return;
+    // 2026-04-25 FIX: ResearchEventEmitterService is registered in
+    // topic-insights.module and NOT visible to PipelineModule's DI scope —
+    // @Optional() injection resolved to undefined, silently skipping every
+    // activity write (production showed activities=0 across all missions).
+    // Write directly via PrismaService (PrismaModule is global) so the row
+    // lands regardless of which module registers the emitter.
+    if (!this.prisma) {
+      this.logger.warn(
+        `[${identity.missionId}] emitStageActivity skipped — prisma unavailable`,
+      );
+      return;
+    }
+    const activityType: "RESEARCHING" | "COMPLETED" | "FAILED" =
+      status === "completed"
+        ? "COMPLETED"
+        : status === "failed"
+          ? "FAILED"
+          : "RESEARCHING";
+    const content =
+      status === "failed" && errorMsg
+        ? `${stage.name} 失败: ${errorMsg.slice(0, 200)}`
+        : stage.name;
     try {
-      await this.researchEventEmitter.emitAgentWorking(
-        identity.topicId,
-        {
+      await this.prisma.researchAgentActivity.create({
+        data: {
+          topicId: identity.topicId,
+          missionId: identity.missionId,
           agentId: stage.id.toLowerCase(),
           agentName: stage.name,
           agentRole: this.stageToAgentRole(stage.id),
-          status,
-          taskDescription:
-            status === "failed" && errorMsg
-              ? `${stage.name} 失败: ${errorMsg.slice(0, 200)}`
-              : stage.name,
+          activityType,
+          content,
           progress:
             status === "completed" ? 100 : status === "working" ? 10 : 0,
         },
-        identity.missionId,
-      );
+      });
+      // Best-effort WebSocket broadcast if emitter available; never block on it.
+      if (this.researchEventEmitter) {
+        await this.researchEventEmitter
+          .emitToTopic(identity.topicId, "agent:working", {
+            stageId: stage.id,
+            stageName: stage.name,
+            status,
+            missionId: identity.missionId,
+          })
+          .catch(() => {
+            /* WS failure must not break activity write */
+          });
+      }
     } catch (err) {
-      // emitter failure must not break pipeline — but do log loud so ops catches it
       this.logger.error(
         `[${identity.missionId}] emitStageActivity ${stage.id}/${status} failed: ${err instanceof Error ? err.message : String(err)}`,
       );
