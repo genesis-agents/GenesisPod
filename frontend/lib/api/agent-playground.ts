@@ -5,7 +5,7 @@
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
-const API_BASE = `${config.apiBaseUrl}/api/agent-playground`;
+const API_BASE = `${config.apiBaseUrl}/api/v1/agent-playground`;
 
 export interface RunMissionInput {
   topic: string;

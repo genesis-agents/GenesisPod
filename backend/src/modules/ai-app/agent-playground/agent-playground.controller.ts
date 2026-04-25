@@ -26,7 +26,7 @@ import {
 import { AgentEventStore } from "../../ai-engine/facade";
 import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
 
-@Controller("api/agent-playground")
+@Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
 export class AgentPlaygroundController {
   private readonly log = new Logger(AgentPlaygroundController.name);
@@ -38,7 +38,7 @@ export class AgentPlaygroundController {
   ) {}
 
   /**
-   * POST /api/agent-playground/research-team/run
+   * POST /api/v1/agent-playground/research-team/run
    *
    * 必修 #1（fire-and-forget）：立刻返回 missionId，
    * mission 在后台跑，前端通过 socket join 监听事件。
