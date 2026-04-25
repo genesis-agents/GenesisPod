@@ -363,6 +363,64 @@ export function TeamRosterPanel({
   );
 }
 
+/** 每个角色的能力 profile（来自 backend 各 .agent.ts 的定义） */
+const ROLE_PROFILE: Record<
+  AgentRole,
+  {
+    displayName: string;
+    description: string;
+    loop: string;
+    modelHint: string;
+    skills: string[];
+    tools: string[];
+    verifiers?: string[];
+  }
+> = {
+  leader: {
+    displayName: 'Research Leader',
+    description: '分析 topic 并拆分研究维度，规划 mission 整体执行链路',
+    loop: 'ReAct',
+    modelHint: 'planning · 系统配置 CHAT 模型（BYOK）',
+    skills: ['topic-decomposition', 'planning'],
+    tools: [],
+  },
+  researcher: {
+    displayName: 'Dimension Researcher',
+    description:
+      '并行调研每个维度，搜集证据、提取 findings、产出 dimension summary',
+    loop: 'ReAct',
+    modelHint: 'search · 系统配置 CHAT 模型（BYOK）',
+    skills: ['evidence-gathering'],
+    tools: ['web-search', 'arxiv-search', 'github-search', 'web-scraper'],
+  },
+  analyst: {
+    displayName: 'Research Analyst',
+    description: '整合多维度发现，做交叉验证、矛盾消解、洞察归纳',
+    loop: 'Reflexion',
+    modelHint: 'reasoning · 系统配置 CHAT 模型（BYOK）',
+    skills: ['critical-review'],
+    tools: [],
+    verifiers: ['self', 'critical'],
+  },
+  writer: {
+    displayName: 'Report Writer',
+    description:
+      '把 insights 写成结构化 Markdown 报告，outputSchema 失败自动 retry',
+    loop: 'ReAct',
+    modelHint: 'long-form · 系统配置 CHAT 模型（BYOK）',
+    skills: [],
+    tools: [],
+  },
+  reviewer: {
+    displayName: 'Quality Reviewer',
+    description: '调用多个 Judge 并行评分，达成共识；< 70 分会触发 Writer 重写',
+    loop: 'JudgeConsensus',
+    modelHint: 'judge × 3 · 系统配置 CHAT 模型（BYOK）',
+    skills: [],
+    tools: [],
+  },
+};
+
 function RoleDetailCard({
   role,
   agents,
@@ -377,9 +435,11 @@ function RoleDetailCard({
   onChatWithLeader?: () => void;
 }) {
   const Icon = ROLE_ICON[role];
+  const profile = ROLE_PROFILE[role];
   const running = agents.filter((a) => a.phase === 'running').length;
   const done = agents.filter((a) => a.phase === 'completed').length;
   const failed = agents.filter((a) => a.phase === 'failed').length;
+  const totalIters = agents.reduce((s, a) => s + (a.iterations ?? 0), 0);
   const lastThought = (() => {
     for (let i = agents.length - 1; i >= 0; i--) {
       const trace = agents[i].trace;
@@ -392,19 +452,41 @@ function RoleDetailCard({
     return null;
   })();
 
+  const statusLabel =
+    stage?.status === 'done'
+      ? '已完成'
+      : stage?.status === 'running'
+        ? '进行中'
+        : stage?.status === 'failed'
+          ? '失败'
+          : '待启动';
+  const statusColor =
+    stage?.status === 'done'
+      ? 'text-emerald-600'
+      : stage?.status === 'running'
+        ? 'text-blue-600'
+        : stage?.status === 'failed'
+          ? 'text-red-600'
+          : 'text-gray-500';
+
   return (
-    <div className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+    <div className="absolute left-1/2 top-1/2 z-30 max-h-[85%] w-[320px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-50 text-violet-600">
             <Icon className="h-4 w-4" />
           </span>
-          <div>
-            <div className="font-semibold text-gray-900">
-              {role.charAt(0).toUpperCase() + role.slice(1)}
+          <div className="min-w-0">
+            <div className="truncate font-semibold text-gray-900">
+              {profile.displayName}
             </div>
-            <span className="text-[11px] text-gray-500">
-              {stage?.status ?? 'idle'}
+            <span className={`text-[11px] font-medium ${statusColor}`}>
+              {statusLabel}
+              {agents.length > 0 && (
+                <span className="ml-1 text-gray-400">
+                  · {agents.length} 实例
+                </span>
+              )}
             </span>
           </div>
         </div>
@@ -429,34 +511,109 @@ function RoleDetailCard({
         </button>
       </div>
 
-      <div className="mb-2 flex flex-wrap gap-1 text-[10px] font-medium">
-        {running > 0 && (
-          <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-700">
-            {running} running
-          </span>
+      <p className="mb-3 text-[11px] leading-relaxed text-gray-600">
+        {profile.description}
+      </p>
+
+      {/* 当前实例计数 */}
+      {agents.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1 text-[10px] font-medium">
+          {running > 0 && (
+            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">
+              {running} 进行中
+            </span>
+          )}
+          {done > 0 && (
+            <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+              {done} 完成
+            </span>
+          )}
+          {failed > 0 && (
+            <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
+              {failed} 失败
+            </span>
+          )}
+          {totalIters > 0 && (
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-700">
+              {totalIters} iter
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 能力栏：loop / model / skills / tools */}
+      <dl className="mb-3 space-y-1.5 text-[11px]">
+        <div className="flex items-baseline gap-2">
+          <dt className="w-16 shrink-0 text-gray-500">Loop</dt>
+          <dd className="font-mono font-medium text-gray-800">
+            {profile.loop}
+          </dd>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <dt className="w-16 shrink-0 text-gray-500">模型</dt>
+          <dd className="text-gray-700">{profile.modelHint}</dd>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <dt className="w-16 shrink-0 text-gray-500">技能</dt>
+          <dd className="flex flex-wrap gap-1">
+            {profile.skills.length === 0 ? (
+              <span className="text-gray-400">—</span>
+            ) : (
+              profile.skills.map((s) => (
+                <span
+                  key={s}
+                  className="font-mono rounded bg-violet-50 px-1.5 py-0.5 text-violet-700"
+                >
+                  {s}
+                </span>
+              ))
+            )}
+          </dd>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <dt className="w-16 shrink-0 text-gray-500">工具</dt>
+          <dd className="flex flex-wrap gap-1">
+            {profile.tools.length === 0 ? (
+              <span className="text-gray-400">—</span>
+            ) : (
+              profile.tools.map((t) => (
+                <span
+                  key={t}
+                  className="font-mono rounded bg-sky-50 px-1.5 py-0.5 text-sky-700"
+                >
+                  {t}
+                </span>
+              ))
+            )}
+          </dd>
+        </div>
+        {profile.verifiers && profile.verifiers.length > 0 && (
+          <div className="flex items-baseline gap-2">
+            <dt className="w-16 shrink-0 text-gray-500">Verifier</dt>
+            <dd className="flex flex-wrap gap-1">
+              {profile.verifiers.map((v) => (
+                <span
+                  key={v}
+                  className="font-mono rounded bg-amber-50 px-1.5 py-0.5 text-amber-700"
+                >
+                  {v}
+                </span>
+              ))}
+            </dd>
+          </div>
         )}
-        {done > 0 && (
-          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
-            {done} done
-          </span>
-        )}
-        {failed > 0 && (
-          <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
-            {failed} failed
-          </span>
-        )}
-        {agents.length === 0 && (
-          <span className="rounded bg-gray-50 px-1.5 py-0.5 text-gray-500">
-            no agents yet
-          </span>
-        )}
-      </div>
+      </dl>
 
       {lastThought && (
-        <p className="rounded-lg bg-amber-50/60 px-2.5 py-2 text-[11px] leading-relaxed text-amber-900">
-          <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
-          {lastThought}
-        </p>
+        <div className="rounded-lg bg-amber-50/60 px-2.5 py-2">
+          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+            最近思考
+          </p>
+          <p className="text-[11px] leading-relaxed text-amber-900">
+            <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
+            {lastThought}
+          </p>
+        </div>
       )}
 
       {onChatWithLeader && (

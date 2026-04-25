@@ -5,20 +5,23 @@
  *
  * 触发：在团队拓扑中点击 Leader 节点 → 弹出此 modal
  * 后端：/api/v1/agent-playground/missions/:id/leader-chat
- *   - GET 拉历史
- *   - POST 发送 + LLM 回复（双方都持久化）
  *
- * 视觉参考 TI 的 QuickCommandBar：底部 textarea + 发送按钮，
- * 上方滚动消息列表，user/assistant 气泡分明。
+ * 特性：
+ *   - 宽 560px（默认） / 全屏可用
+ *   - assistant 回复用 ReactMarkdown 渲染（GFM 表格 + 列表 + 粗体 + 链接）
+ *   - 支持最小化为右下角浮球，再次点击 Leader 节点 / 浮球可恢复
  */
 
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   X as XIcon,
   Brain,
   Send,
   Loader2,
   User as UserIcon,
+  Minus,
 } from 'lucide-react';
 import {
   listLeaderChat,
@@ -34,14 +37,95 @@ interface Props {
   onClose: () => void;
 }
 
+const MD_COMPONENTS = {
+  p: ({ children }: { children?: React.ReactNode }) => (
+    <p className="mb-2 leading-relaxed last:mb-0">{children}</p>
+  ),
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul className="mb-2 ml-4 list-disc space-y-0.5 last:mb-0">{children}</ul>
+  ),
+  ol: ({ children }: { children?: React.ReactNode }) => (
+    <ol className="mb-2 ml-4 list-decimal space-y-0.5 last:mb-0">{children}</ol>
+  ),
+  li: ({ children }: { children?: React.ReactNode }) => (
+    <li className="leading-relaxed">{children}</li>
+  ),
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h3 className="mb-1.5 mt-2 text-[14px] font-semibold">{children}</h3>
+  ),
+  h2: ({ children }: { children?: React.ReactNode }) => (
+    <h4 className="mb-1 mt-2 text-[13px] font-semibold">{children}</h4>
+  ),
+  h3: ({ children }: { children?: React.ReactNode }) => (
+    <h5 className="mb-1 mt-2 text-[12px] font-semibold">{children}</h5>
+  ),
+  strong: ({ children }: { children?: React.ReactNode }) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  em: ({ children }: { children?: React.ReactNode }) => (
+    <em className="italic">{children}</em>
+  ),
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+    const safe = href && /^https?:\/\//i.test(href) ? href : undefined;
+    return safe ? (
+      <a
+        href={safe}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-words text-violet-600 underline decoration-violet-300 underline-offset-2 hover:text-violet-700"
+      >
+        {children}
+      </a>
+    ) : (
+      <span>{children}</span>
+    );
+  },
+  code: ({ children }: { children?: React.ReactNode }) => (
+    <code className="font-mono rounded bg-gray-100 px-1 py-0.5 text-[11px]">
+      {children}
+    </code>
+  ),
+  pre: ({ children }: { children?: React.ReactNode }) => (
+    <pre className="font-mono my-2 overflow-x-auto rounded bg-gray-900 p-2 text-[11px] text-gray-100">
+      {children}
+    </pre>
+  ),
+  blockquote: ({ children }: { children?: React.ReactNode }) => (
+    <blockquote className="my-2 border-l-2 border-violet-300 bg-violet-50/40 px-2 py-1 text-gray-700">
+      {children}
+    </blockquote>
+  ),
+  table: ({ children }: { children?: React.ReactNode }) => (
+    <div className="my-2 overflow-x-auto">
+      <table className="min-w-full border-collapse text-[11px]">
+        {children}
+      </table>
+    </div>
+  ),
+  th: ({ children }: { children?: React.ReactNode }) => (
+    <th className="border border-gray-200 bg-gray-50 px-2 py-1 text-left font-semibold">
+      {children}
+    </th>
+  ),
+  td: ({ children }: { children?: React.ReactNode }) => (
+    <td className="border border-gray-200 px-2 py-1 align-top">{children}</td>
+  ),
+};
+
 export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
   const [messages, setMessages] = useState<LeaderChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // open 状态变化时重置 minimized；明确关闭时也清掉 minimize
+  useEffect(() => {
+    if (open) setMinimized(false);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,19 +151,40 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
   }, [open, missionId]);
 
   useEffect(() => {
-    if (open) {
+    if (open && !minimized) {
       requestAnimationFrame(() => textareaRef.current?.focus());
     }
-  }, [open]);
+  }, [open, minimized]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
-    });
-  }, [messages.length]);
+    if (!minimized) {
+      scrollRef.current?.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [messages.length, minimized]);
 
   if (!open) return null;
+
+  // ── 最小化态：右下角浮球 ──
+  if (minimized) {
+    return (
+      <button
+        type="button"
+        onClick={() => setMinimized(false)}
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-2xl transition-transform hover:scale-105"
+        title="恢复 Leader 对话"
+      >
+        <Brain className="h-6 w-6" />
+        {messages.length > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-violet-600 ring-2 ring-violet-500">
+            {messages.length}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   const handleSend = async () => {
     const text = input.trim();
@@ -90,9 +195,7 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
       const { user, assistant } = await sendLeaderChat(missionId, text);
       setMessages((prev) => [...prev, user, assistant]);
       setInput('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -113,36 +216,46 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] w-full flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:h-[640px] sm:w-[440px] sm:rounded-2xl"
+        className="flex h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:h-[80vh] sm:w-[560px] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-3 text-white">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/20">
               <Brain className="h-4 w-4" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold">与 Leader 对话</p>
               <p className="line-clamp-1 text-[11px] text-white/80">
                 {topic ?? 'Research mission'}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-white/90 transition-colors hover:bg-white/20"
-            title="关闭"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setMinimized(true)}
+              className="rounded-full p-1.5 text-white/90 transition-colors hover:bg-white/20"
+              title="最小化"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-1.5 text-white/90 transition-colors hover:bg-white/20"
+              title="关闭"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Messages */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto bg-gray-50/40 px-3 py-3"
+          className="flex-1 overflow-y-auto bg-gray-50/40 px-4 py-4"
         >
           {loading ? (
             <div className="flex items-center justify-center py-12 text-sm text-gray-500">
@@ -165,7 +278,7 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
               </p>
             </div>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-4">
               {messages.map((m) => (
                 <li
                   key={m.id}
@@ -184,19 +297,32 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
                       <Brain className="h-3.5 w-3.5" />
                     )}
                   </span>
-                  <div
-                    className={`max-w-[78%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
-                      m.role === 'user'
-                        ? 'rounded-tr-sm bg-violet-600 text-white'
-                        : 'rounded-tl-sm bg-white text-gray-800 ring-1 ring-gray-100'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap break-words">
-                      {m.content}
-                    </p>
+                  <div className="max-w-[80%]">
+                    <div
+                      className={`rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
+                        m.role === 'user'
+                          ? 'rounded-tr-sm bg-violet-600 text-white'
+                          : 'rounded-tl-sm bg-white text-gray-800 ring-1 ring-gray-100'
+                      }`}
+                    >
+                      {m.role === 'user' ? (
+                        <p className="whitespace-pre-wrap break-words">
+                          {m.content}
+                        </p>
+                      ) : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={MD_COMPONENTS}
+                        >
+                          {m.content}
+                        </ReactMarkdown>
+                      )}
+                    </div>
                     <p
-                      className={`mt-1 text-[10px] ${
-                        m.role === 'user' ? 'text-violet-100' : 'text-gray-400'
+                      className={`mt-1 px-1 text-[10px] ${
+                        m.role === 'user'
+                          ? 'text-right text-gray-400'
+                          : 'text-gray-400'
                       }`}
                     >
                       <ClientDate date={m.createdAt} format="time" />
