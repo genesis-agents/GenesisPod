@@ -60,7 +60,8 @@ describe("InMemoryVectorStore (PR-I)", () => {
   });
 
   it("evicts oldest when over capacity", () => {
-    const store = new InMemoryVectorStore({ capacity: 2 });
+    const store = new InMemoryVectorStore();
+    store.setCapacity(2);
     store.add({
       key: "a",
       value: 1,

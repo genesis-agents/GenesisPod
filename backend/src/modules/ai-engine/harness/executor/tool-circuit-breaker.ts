@@ -31,14 +31,23 @@ interface ToolStat {
 @Injectable()
 export class ToolCircuitBreaker {
   private readonly stats = new Map<string, ToolStat>();
-  private readonly failureThreshold: number;
-  private readonly recoveryWindowMs: number;
+  private failureThreshold = 3;
+  private recoveryWindowMs = 60_000;
 
-  constructor(
-    opts: { failureThreshold?: number; recoveryWindowMs?: number } = {},
-  ) {
-    this.failureThreshold = opts.failureThreshold ?? 3;
-    this.recoveryWindowMs = opts.recoveryWindowMs ?? 60_000;
+  /**
+   * NestJS DI 不支持注入纯 plain-object，因此 constructor 不接收任何参数；
+   * 用 configure() 在 OnModuleInit 等位置覆盖默认值（默认 failure=3 / recovery=60s）。
+   */
+  constructor() {}
+
+  configure(opts: {
+    failureThreshold?: number;
+    recoveryWindowMs?: number;
+  }): void {
+    if (opts.failureThreshold != null)
+      this.failureThreshold = opts.failureThreshold;
+    if (opts.recoveryWindowMs != null)
+      this.recoveryWindowMs = opts.recoveryWindowMs;
   }
 
   /** Returns true if the tool call should be allowed. */

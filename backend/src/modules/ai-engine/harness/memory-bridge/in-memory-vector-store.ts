@@ -44,10 +44,14 @@ function cosine(a: readonly number[], b: readonly number[]): number {
 @Injectable()
 export class InMemoryVectorStore {
   private readonly entries: VectorEntry[] = [];
-  private readonly capacity: number;
+  /**
+   * NestJS DI 不支持 plain-object constructor 参数；
+   * 容量用 setCapacity() 在 OnModuleInit 时覆盖（默认 10K）。
+   */
+  private capacity = 10_000;
 
-  constructor(opts: { capacity?: number } = {}) {
-    this.capacity = opts.capacity ?? 10_000;
+  setCapacity(capacity: number): void {
+    if (capacity > 0) this.capacity = capacity;
   }
 
   add(entry: VectorEntry): void {
