@@ -224,16 +224,14 @@ export default function MissionDetailPage() {
       <div className="h-full overflow-auto bg-gray-50">
         <div className="mx-auto max-w-2xl px-8 py-16 text-center">
           <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-          <h1 className="text-2xl font-bold text-gray-900">
-            Mission not found
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">找不到该 Mission</h1>
           <button
             type="button"
             onClick={() => router.push('/agent-playground')}
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl"
           >
             <RefreshCw className="h-4 w-4" />
-            Back to mission list
+            返回 Mission 列表
           </button>
         </div>
       </div>
@@ -249,7 +247,7 @@ export default function MissionDetailPage() {
             type="button"
             onClick={() => router.push('/agent-playground')}
             className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="Back to mission list"
+            title="返回 Mission 列表"
           >
             <ArrowLeftIcon className="h-5 w-5" />
           </button>
@@ -272,7 +270,7 @@ export default function MissionDetailPage() {
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-bold text-gray-900">
-                {view.mission.topic ?? 'Research Mission'}
+                {view.mission.topic ?? '研究 Mission'}
               </h1>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                 {view.mission.depth && <span>{view.mission.depth}</span>}
@@ -294,19 +292,19 @@ export default function MissionDetailPage() {
             <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
               <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
               <span className="text-sm font-medium text-blue-700">
-                Researching · {Math.floor(wallTimeMs / 1000)}s
+                研究中 · {Math.floor(wallTimeMs / 1000)}s
               </span>
             </div>
           ) : view.mission.failedAt ? (
             <div className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5">
               <span className="h-2 w-2 rounded-full bg-red-500" />
-              <span className="text-sm font-medium text-red-700">Failed</span>
+              <span className="text-sm font-medium text-red-700">已失败</span>
             </div>
           ) : view.mission.completedAt ? (
             <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               <span className="text-sm font-medium text-emerald-700">
-                Completed
+                已完成
               </span>
             </div>
           ) : null}
@@ -397,17 +395,14 @@ export default function MissionDetailPage() {
               {error && connState !== 'live' && (
                 <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <p>
-                    Live stream unavailable · falling back to polling /replay
-                    every 4s
-                  </p>
+                  <p>WebSocket 不可用 · 已退化为 4s 轮询 /replay</p>
                 </div>
               )}
               {view.mission.failedMessage && (
                 <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <p>
-                    <span className="font-medium">Mission failed:</span>{' '}
+                    <span className="font-medium">Mission 失败：</span>{' '}
                     {view.mission.failedMessage}
                   </p>
                 </div>
@@ -489,7 +484,7 @@ export default function MissionDetailPage() {
                   <div className="mb-3 flex items-center gap-2">
                     <Database className="h-4 w-4 text-emerald-500" />
                     <h3 className="text-sm font-semibold text-gray-900">
-                      Trajectory & memory index
+                      Trajectory 与向量记忆
                     </h3>
                   </div>
                   <p className="text-xs text-gray-600">

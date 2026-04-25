@@ -46,7 +46,7 @@ export function CostBreakdownPanel({ cost }: { cost: CostState }) {
         <div className="flex items-center gap-2">
           <Coins className="h-4 w-4 text-amber-500" />
           <h3 className="text-sm font-semibold text-gray-900">
-            Cost · BYOK billing
+            算力消耗 · BYOK 计费
           </h3>
         </div>
         <span className="text-xs text-gray-500">
@@ -79,8 +79,7 @@ export function CostBreakdownPanel({ cost }: { cost: CostState }) {
         ))}
       </div>
       <p className="mt-3 text-[10px] text-gray-400">
-        Cost is rough estimate (~$3 / 1M tokens). Real billing via Credits
-        service.
+        消耗为估算值（约 $3 / 1M tokens）。实际计费通过 Credits 服务结算。
       </p>
     </div>
   );

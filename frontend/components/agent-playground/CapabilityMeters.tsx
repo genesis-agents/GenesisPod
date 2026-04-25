@@ -35,36 +35,36 @@ export function CapabilityMeters({ view, wallTimeMs }: Props) {
   const meters = [
     {
       icon: Coins,
-      label: 'Cost',
+      label: '消耗',
       value: formatUsd(cost.costUsd),
       sub: `${formatTokens(cost.tokensUsed)} tokens`,
       tone: 'amber' as const,
     },
     {
       icon: Trophy,
-      label: 'Quality score',
+      label: '质量评分',
       value: score != null ? String(score) : '—',
       sub:
-        view.verdicts.length > 0 ? `${view.verdicts.length} judges` : 'pending',
+        view.verdicts.length > 0 ? `${view.verdicts.length} 个评审` : '待评审',
       tone: 'violet' as const,
     },
     {
       icon: Timer,
-      label: 'Wall time',
+      label: '总耗时',
       value: formatTime(wallTimeMs),
       sub:
         view.mission.completedAt && view.mission.startedAt
-          ? 'finished'
+          ? '已完成'
           : view.mission.startedAt
-            ? 'running'
-            : 'idle',
+            ? '进行中'
+            : '未启动',
       tone: 'sky' as const,
     },
     {
       icon: Database,
-      label: 'Memory',
+      label: '记忆',
       value: memory != null ? `${memory.chunks}` : '—',
-      sub: memory != null ? 'chunks indexed' : 'pending',
+      sub: memory != null ? 'chunks 已索引' : '待索引',
       tone: 'emerald' as const,
     },
   ];

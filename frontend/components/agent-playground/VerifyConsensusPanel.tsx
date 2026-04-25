@@ -64,21 +64,19 @@ export function VerifyConsensusPanel({
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Gavel className="h-4 w-4 text-violet-500" />
-          <h3 className="text-sm font-semibold text-gray-900">
-            Verify Consensus
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-900">质量评审共识</h3>
         </div>
         {avg != null && (
           <span className={`text-sm font-bold ${scoreColor(avg)}`}>
-            avg {avg}
+            均分 {avg}
           </span>
         )}
       </div>
 
       {current.length === 0 ? (
         <p className="rounded-lg bg-gray-50 px-3 py-3 text-[12px] text-gray-500">
-          Waiting for review · 3-judge consensus (self + external + critical)
-          will appear here
+          等待评审 · 3 个 Judge（self + external +
+          critical）共识结果会显示在这里
         </p>
       ) : (
         <div className="space-y-3">
@@ -129,7 +127,7 @@ export function VerifyConsensusPanel({
       {latestAttempt > 1 && (
         <p className="mt-3 flex items-center gap-1 text-[11px] text-amber-600">
           <ShieldX className="h-3 w-3" />
-          Reflexion triggered · this is attempt #{latestAttempt}
+          已触发 Reflexion · 当前是第 {latestAttempt} 轮
         </p>
       )}
     </div>

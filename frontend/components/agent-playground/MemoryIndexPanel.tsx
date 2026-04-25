@@ -12,14 +12,11 @@ export function MemoryIndexPanel({
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <Database className="h-4 w-4 text-emerald-500" />
-        <h3 className="text-sm font-semibold text-gray-900">
-          Memory Auto-Index
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-900">记忆自动索引</h3>
       </div>
       {memory == null ? (
         <p className="rounded-lg bg-gray-50 px-3 py-3 text-[12px] text-gray-500">
-          Trajectory will be vectorized into the namespace memory once the
-          mission completes
+          Mission 完成后，trajectory 会自动向量化进入用户记忆 namespace
         </p>
       ) : (
         <>
@@ -27,7 +24,7 @@ export function MemoryIndexPanel({
             <span className="text-3xl font-bold text-emerald-600">
               {memory.chunks}
             </span>
-            <span className="text-xs text-gray-500">chunks indexed</span>
+            <span className="text-xs text-gray-500">chunks 已索引</span>
           </div>
           {memory.namespace && (
             <p className="font-mono mt-2 text-[11px] text-gray-500">
