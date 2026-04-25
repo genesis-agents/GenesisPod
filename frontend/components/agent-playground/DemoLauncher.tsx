@@ -54,7 +54,7 @@ export function DemoLauncher() {
     >
       <div>
         <label className="mb-1.5 block text-sm font-medium text-gray-900">
-          {t('playground.researchTeam.topicLabel') || 'Topic'}
+          {t('playground.researchTeam.topicLabel') || '研究 Topic'}
         </label>
         <input
           type="text"
@@ -62,7 +62,7 @@ export function DemoLauncher() {
           onChange={(e) => setTopic(e.target.value)}
           placeholder={
             t('playground.researchTeam.topicPlaceholder') ||
-            'e.g. AI agents market 2026 Q2'
+            '例如：AI agents market 2026 Q2'
           }
           className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           maxLength={200}
@@ -73,7 +73,7 @@ export function DemoLauncher() {
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            {t('playground.researchTeam.depth') || 'Depth'}
+            {t('playground.researchTeam.depth') || '研究深度'}
           </label>
           <select
             value={depth}
@@ -82,15 +82,15 @@ export function DemoLauncher() {
             }
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           >
-            <option value="quick">Quick (2-3 dims)</option>
-            <option value="standard">Standard (3-5)</option>
-            <option value="deep">Deep (5-7)</option>
+            <option value="quick">快速（2-3 维度）</option>
+            <option value="standard">标准（3-5 维度）</option>
+            <option value="deep">深度（5-7 维度）</option>
           </select>
         </div>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            {t('playground.researchTeam.language') || 'Language'}
+            {t('playground.researchTeam.language') || '输出语言'}
           </label>
           <select
             value={language}
@@ -106,7 +106,7 @@ export function DemoLauncher() {
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            {t('playground.researchTeam.maxCredits') || 'Max Credits'}
+            {t('playground.researchTeam.maxCredits') || '积分预算'}
           </label>
           <input
             type="number"
@@ -134,12 +134,12 @@ export function DemoLauncher() {
         {submitting ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            {t('playground.researchTeam.starting') || 'Starting…'}
+            {t('playground.researchTeam.starting') || '启动中…'}
           </>
         ) : (
           <>
             <Sparkles className="h-4 w-4" />
-            {t('playground.researchTeam.start') || 'Run Research Team'}
+            {t('playground.researchTeam.start') || '启动研究团队'}
           </>
         )}
       </button>
