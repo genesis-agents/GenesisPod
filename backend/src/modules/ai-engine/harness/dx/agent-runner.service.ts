@@ -28,6 +28,7 @@ import {
   AgentSpec,
   type DefineAgentOptions,
 } from "./agent-spec.base";
+import { describeOutputSchemaForLlm } from "./zod-schema-prompt";
 
 export interface RunResult<TOutput> {
   readonly output: TOutput;
@@ -178,12 +179,22 @@ export class AgentRunner {
     const identity = this.buildIdentity(meta);
 
     // 3. Compose IAgentSpec for factory
+    // 自动把 outputSchema 形状注入 systemPrompt —— 让 LLM 在 finalize 时
+    // 知道精确字段名，避免"猜字段"导致 Zod 校验失败 → state=failed
+    const schemaBlock = describeOutputSchemaForLlm(meta.outputSchema);
+    const appendSchema = (base: string | undefined): string | undefined => {
+      const b = (base ?? "").trim();
+      if (!schemaBlock) return base;
+      return b ? `${b}\n\n${schemaBlock}` : schemaBlock;
+    };
     const buildSystemPromptFn = instance.buildSystemPrompt
       ? (ctx: { input: unknown; identity: IAgentIdentity }) =>
-          instance.buildSystemPrompt!({
-            input: ctx.input as never,
-            identity: ctx.identity,
-          })
+          appendSchema(
+            instance.buildSystemPrompt!({
+              input: ctx.input as never,
+              identity: ctx.identity,
+            }),
+          ) ?? ""
       : undefined;
     const buildUserPromptFn = instance.buildUserPrompt
       ? (ctx: { input: unknown; identity: IAgentIdentity }) =>
@@ -210,11 +221,12 @@ export class AgentRunner {
     const agentSpec: IAgentSpec = {
       identity,
       loop: meta.loop,
-      systemPrompt:
+      systemPrompt: appendSchema(
         meta.systemPrompt ??
-        (buildSystemPromptFn
-          ? buildSystemPromptFn({ input: parsedInput, identity })
-          : undefined),
+          (buildSystemPromptFn
+            ? buildSystemPromptFn({ input: parsedInput, identity })
+            : undefined),
+      ),
       taskProfile: meta.taskProfile,
       outputSchema: meta.outputSchema,
       validateBusinessRules: validateFn,
