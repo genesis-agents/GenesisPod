@@ -35,6 +35,19 @@ interface Props {
   mission: MissionState;
   stages: StageState[];
   agents: AgentLiveState[];
+  /** 受控选中态：当外层（详情页）需要把任务详情显示在抽屉里时使用 */
+  selectedKey?: string | null;
+  onSelect?: (
+    row: {
+      key: string;
+      title: string;
+      subtitle?: string;
+      rationale?: string;
+      ownerLabel: string;
+      status: 'pending' | 'running' | 'done' | 'failed';
+      modelHint: string;
+    } | null
+  ) => void;
 }
 
 type RowStatus = 'pending' | 'running' | 'done' | 'failed';
@@ -110,8 +123,15 @@ function statusOfStage(s: StageState['status']): RowStatus {
   return 'pending';
 }
 
-export function TaskListPanel({ mission, stages, agents }: Props) {
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+export function TaskListPanel({
+  mission,
+  stages,
+  agents,
+  selectedKey,
+  onSelect,
+}: Props) {
+  const [internalExpanded, setInternalExpanded] = useState<string | null>(null);
+  const expandedKey = onSelect !== undefined ? selectedKey : internalExpanded;
   const dims = mission.dimensions ?? [];
   const stageMap = new Map(stages.map((s) => [s.id, s]));
 
@@ -293,7 +313,26 @@ export function TaskListPanel({ mission, stages, agents }: Props) {
               return (
                 <React.Fragment key={r.key}>
                   <tr
-                    onClick={() => setExpandedKey(isExpanded ? null : r.key)}
+                    onClick={() => {
+                      const next = isExpanded ? null : r.key;
+                      if (onSelect) {
+                        onSelect(
+                          next
+                            ? {
+                                key: r.key,
+                                title: r.title,
+                                subtitle: r.subtitle,
+                                rationale: r.rationale,
+                                ownerLabel: r.ownerLabel,
+                                status: r.status,
+                                modelHint: r.modelHint,
+                              }
+                            : null
+                        );
+                      } else {
+                        setInternalExpanded(next);
+                      }
+                    }}
                     className={`cursor-pointer transition-all duration-150 ${STATUS_ROW_STYLES[r.status]}`}
                   >
                     {/* 序号 + 展开 chevron */}
@@ -302,7 +341,24 @@ export function TaskListPanel({ mission, stages, agents }: Props) {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setExpandedKey(isExpanded ? null : r.key);
+                          const next = isExpanded ? null : r.key;
+                          if (onSelect) {
+                            onSelect(
+                              next
+                                ? {
+                                    key: r.key,
+                                    title: r.title,
+                                    subtitle: r.subtitle,
+                                    rationale: r.rationale,
+                                    ownerLabel: r.ownerLabel,
+                                    status: r.status,
+                                    modelHint: r.modelHint,
+                                  }
+                                : null
+                            );
+                          } else {
+                            setInternalExpanded(next);
+                          }
                         }}
                         className="inline-flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-600"
                         title="查看任务说明"
@@ -377,7 +433,7 @@ export function TaskListPanel({ mission, stages, agents }: Props) {
                   </tr>
 
                   {/* 展开的任务说明行 */}
-                  {isExpanded && r.rationale && (
+                  {!onSelect && isExpanded && r.rationale && (
                     <tr className="bg-amber-50/40">
                       <td colSpan={6} className="px-4 py-3">
                         <div className="flex items-start gap-3 text-sm">

@@ -197,13 +197,13 @@ export default function MissionDetailPage() {
     ? (finishedAt ?? now) - view.mission.startedAt
     : 0;
 
+  // 默认进入卡片始终落到任务列表（不自动跳转 report）
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
-  useEffect(() => {
-    if (view.finalReport) setActiveTab('report');
-  }, [view.finalReport]);
 
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [leaderChatOpen, setLeaderChatOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
 
   const allSources = useMemo(() => {
     const set = new Set<string>();
@@ -317,6 +317,33 @@ export default function MissionDetailPage() {
               className="inline-flex h-2 w-2 rounded-full bg-amber-400"
             />
           )}
+          {/* Mission settings */}
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            title="Mission 设置"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -423,6 +450,8 @@ export default function MissionDetailPage() {
                 mission={view.mission}
                 stages={view.stages}
                 agents={view.agents}
+                selectedKey={selectedTaskKey}
+                onSelect={(row) => setSelectedTaskKey(row?.key ?? null)}
               />
             )}
 
@@ -482,6 +511,309 @@ export default function MissionDetailPage() {
         open={leaderChatOpen}
         onClose={() => setLeaderChatOpen(false)}
       />
+
+      {/* Task detail drawer */}
+      <TaskDetailDrawer
+        agents={view.agents}
+        dimensions={view.mission.dimensions}
+        taskKey={selectedTaskKey}
+        onClose={() => setSelectedTaskKey(null)}
+      />
+
+      {/* Settings modal */}
+      <MissionSettingsModal
+        mission={view.mission}
+        wallTimeMs={wallTimeMs}
+        cost={view.cost}
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+    </div>
+  );
+}
+
+function TaskDetailDrawer({
+  agents,
+  dimensions,
+  taskKey,
+  onClose,
+}: {
+  agents: ReturnType<typeof deriveView>['agents'];
+  dimensions: MissionDetail['dimensions'] | null | undefined;
+  taskKey: string | null;
+  onClose: () => void;
+}) {
+  if (!taskKey) return null;
+
+  // 找到对应任务的执行者（agent）
+  let owner: ReturnType<typeof deriveView>['agents'][number] | undefined;
+  let title = '';
+  let subtitle = '';
+  let rationale = '';
+  if (taskKey === 'leader') {
+    owner = agents.find((a) => a.role === 'leader');
+    title = '拆分研究维度';
+    subtitle = 'Leader 规划';
+  } else if (taskKey.startsWith('researcher-')) {
+    const dimKey = taskKey.replace('researcher-', '');
+    const d = (dimensions ?? []).find((x) => (x.id ?? x.name) === dimKey);
+    owner = agents.find(
+      (a) => a.role === 'researcher' && a.dimension === d?.name
+    );
+    title = `维度研究：${d?.name ?? ''}`;
+    subtitle = owner?.agentId ?? 'Dimension Researcher';
+    rationale = d?.rationale ?? '';
+  } else if (
+    taskKey === 'analyst' ||
+    taskKey === 'writer' ||
+    taskKey === 'reviewer'
+  ) {
+    owner = agents.find((a) => a.role === taskKey);
+    title =
+      taskKey === 'analyst'
+        ? '整合多维度研究'
+        : taskKey === 'writer'
+          ? '撰写研究报告'
+          : '质量评审与共识';
+    subtitle =
+      taskKey === 'analyst'
+        ? 'Analyst 反思校验'
+        : taskKey === 'writer'
+          ? 'Writer 自愈循环'
+          : 'Reviewer 多 Judge 投票';
+  }
+
+  const phase = owner?.phase ?? 'pending';
+  const trace = owner?.trace ?? [];
+  const wallSec =
+    owner?.wallTimeMs != null
+      ? `${(owner.wallTimeMs / 1000).toFixed(1)}s`
+      : owner?.startedAt
+        ? '运行中…'
+        : '—';
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex justify-end bg-black/30 backdrop-blur-[2px]"
+      onClick={onClose}
+    >
+      <div
+        className="flex h-full w-full max-w-md flex-col overflow-hidden border-l border-gray-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-gray-100 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
+              任务详情
+            </p>
+            <h3 className="mt-0.5 truncate text-base font-semibold text-gray-900">
+              {title}
+            </h3>
+            <p className="mt-0.5 truncate text-xs text-gray-500">{subtitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-gray-50 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                状态
+              </p>
+              <p
+                className={`mt-0.5 text-sm font-semibold ${
+                  phase === 'completed'
+                    ? 'text-emerald-600'
+                    : phase === 'failed'
+                      ? 'text-red-600'
+                      : phase === 'running'
+                        ? 'text-blue-600'
+                        : 'text-gray-500'
+                }`}
+              >
+                {phase === 'completed'
+                  ? '已完成'
+                  : phase === 'failed'
+                    ? '失败'
+                    : phase === 'running'
+                      ? '进行中'
+                      : '待生成'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                耗时
+              </p>
+              <p className="font-mono mt-0.5 text-sm text-gray-900">
+                {wallSec}
+              </p>
+            </div>
+          </div>
+
+          {rationale && (
+            <div className="rounded-lg border border-violet-100 bg-violet-50/40 px-3 py-2">
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-600">
+                任务说明
+              </p>
+              <p className="text-[12px] leading-relaxed text-gray-800">
+                {rationale}
+              </p>
+            </div>
+          )}
+
+          {trace.length > 0 ? (
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                执行轨迹 · {trace.length} 条
+              </p>
+              <ul className="space-y-1.5">
+                {trace.slice(-30).map((t, i) => (
+                  <li
+                    key={`${t.ts}-${i}`}
+                    className={`rounded-md px-2 py-1.5 text-[11px] leading-relaxed ${
+                      t.kind === 'thought'
+                        ? 'bg-amber-50 text-amber-900'
+                        : t.kind === 'action'
+                          ? 'bg-violet-50 text-violet-900'
+                          : t.kind === 'observation'
+                            ? 'bg-sky-50 text-sky-900'
+                            : t.kind === 'reflection'
+                              ? 'bg-purple-50 text-purple-900'
+                              : 'bg-red-50 text-red-900'
+                    }`}
+                  >
+                    <span className="font-semibold">{t.kind}</span>
+                    {t.text ? ` · ${t.text.slice(0, 240)}` : ''}
+                    {t.toolId ? ` · ${t.toolId}` : ''}
+                    {t.error ? ` · ${t.error.slice(0, 200)}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="rounded-lg bg-gray-50 px-3 py-3 text-center text-[11px] text-gray-500">
+              暂无执行轨迹（mission 已完成、事件流已从内存释放）
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MissionSettingsModal({
+  mission,
+  wallTimeMs,
+  cost,
+  open,
+  onClose,
+}: {
+  mission: ReturnType<typeof deriveView>['mission'];
+  wallTimeMs: number;
+  cost: ReturnType<typeof deriveView>['cost'];
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-semibold text-gray-900">Mission 设置</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-3 px-4 py-4 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <SettingRow label="深度" value={mission.depth ?? '—'} />
+            <SettingRow label="语言" value={mission.language ?? '—'} />
+            <SettingRow
+              label="耗时"
+              value={`${Math.floor(wallTimeMs / 1000)}s`}
+            />
+            <SettingRow
+              label="累计 token"
+              value={
+                cost.tokensUsed >= 1000
+                  ? `${(cost.tokensUsed / 1000).toFixed(1)}k`
+                  : String(cost.tokensUsed)
+              }
+            />
+          </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+            <p className="font-semibold">配置编辑暂未开放</p>
+            <p className="mt-0.5">
+              当前 mission 的 depth / language
+              等参数在创建时锁定。如需调整，请回到 Playground 列表新建 mission。
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-gray-50 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <p className="font-mono mt-0.5 truncate text-sm text-gray-900">{value}</p>
     </div>
   );
 }

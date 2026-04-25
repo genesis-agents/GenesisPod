@@ -156,10 +156,11 @@ export function TeamRosterPanel({
       void total;
     }
 
+    // 单链流水线：leader → researcher → analyst → writer → reviewer
+    // 不画 analyst↔writer 这种横向连线，避免线条交叉视觉混乱
     const connections: TeamTopologyConnection[] = [
       { from: 'leader', to: 'researcher' },
       { from: 'researcher', to: 'analyst' },
-      { from: 'researcher', to: 'writer' },
       { from: 'analyst', to: 'writer' },
       { from: 'writer', to: 'reviewer' },
     ];
