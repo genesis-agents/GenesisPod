@@ -100,6 +100,60 @@ export default function MissionDetailPage() {
   const view = useMemo(() => {
     const liveView = deriveView(events);
     if (events.length === 0 && persisted) {
+      // Synthesize stages and agents skeleton from persisted snapshot so the
+      // detail page is informative even after Railway recycles the in-memory
+      // event buffer (replay only returns events still in buffer).
+      const isCompleted = persisted.status === 'completed';
+      const isFailed = persisted.status === 'failed';
+      const dims = (persisted.dimensions ?? []) as {
+        id?: string;
+        name: string;
+        rationale?: string;
+      }[];
+
+      const stages: typeof liveView.stages = [
+        { id: 'leader', status: isCompleted || isFailed ? 'done' : 'pending' },
+        {
+          id: 'researchers',
+          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
+        },
+        {
+          id: 'analyst',
+          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
+        },
+        {
+          id: 'writer',
+          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
+        },
+        {
+          id: 'reviewer',
+          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
+        },
+      ];
+
+      const synthAgents: typeof liveView.agents = [];
+      if (isCompleted || isFailed) {
+        const phase = isCompleted ? 'completed' : 'failed';
+        synthAgents.push({
+          agentId: 'leader',
+          role: 'leader',
+          phase,
+          trace: [],
+        });
+        for (let i = 0; i < dims.length; i++) {
+          synthAgents.push({
+            agentId: `researcher#${i + 1}`,
+            role: 'researcher',
+            phase,
+            dimension: dims[i].name,
+            trace: [],
+          });
+        }
+        for (const r of ['analyst', 'writer', 'reviewer'] as const) {
+          synthAgents.push({ agentId: r, role: r, phase, trace: [] });
+        }
+      }
+
       return {
         ...liveView,
         mission: {
@@ -112,7 +166,7 @@ export default function MissionDetailPage() {
             ? new Date(persisted.completedAt).getTime()
             : undefined,
           failedAt:
-            persisted.status === 'failed' && persisted.completedAt
+            isFailed && persisted.completedAt
               ? new Date(persisted.completedAt).getTime()
               : undefined,
           failedMessage: persisted.errorMessage ?? undefined,
@@ -120,6 +174,8 @@ export default function MissionDetailPage() {
           dimensions: persisted.dimensions ?? undefined,
           finalScore: persisted.finalScore ?? undefined,
         },
+        stages: stages.length > 0 ? stages : liveView.stages,
+        agents: synthAgents.length > 0 ? synthAgents : liveView.agents,
         cost: {
           tokensUsed: persisted.tokensUsed ?? 0,
           costUsd: persisted.costUsd ?? 0,
@@ -428,7 +484,7 @@ function CompactMeters({
     ms < 60_000 ? `${Math.floor(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m`;
 
   return (
-    <div className="hidden items-center gap-4 text-xs text-gray-500 lg:flex">
+    <div className="hidden items-center gap-4 whitespace-nowrap text-xs text-gray-500 lg:flex">
       <span className="flex items-center gap-1">
         <Coins className="h-3.5 w-3.5 text-amber-500" />
         {fmtTokens(view.cost.tokensUsed)} tk
@@ -443,12 +499,6 @@ function CompactMeters({
         <Activity className="h-3.5 w-3.5 text-sky-500" />
         {fmtTime(wallTimeMs)}
       </span>
-      {view.memory && (
-        <span className="flex items-center gap-1">
-          <Database className="h-3.5 w-3.5 text-emerald-500" />
-          {view.memory.chunks} chunks
-        </span>
-      )}
     </div>
   );
 }
