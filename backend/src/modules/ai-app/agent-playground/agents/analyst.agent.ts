@@ -17,7 +17,8 @@ const ResearcherFinding = z.object({
     z.object({
       claim: z.string(),
       evidence: z.string(),
-      source: z.string().url(),
+      // 必修 #17: 与 ResearcherAgent 一致放宽 — DOI / arxiv id / 带 query 的 URL 都算
+      source: z.string().min(1),
     }),
   ),
   summary: z.string(),
@@ -74,6 +75,26 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       `- Identify 3-7 top insights with cross-dimension support`,
       `- Surface contradictions between sources; propose resolution`,
       `- Each insight needs confidence score (0..1) + supporting dimensions`,
+      ``,
+      `Final output JSON shape (exact field names required):`,
+      `{`,
+      `  "themeSummary": "<one paragraph theme synthesis>",`,
+      `  "insights": [`,
+      `    {`,
+      `      "headline": "<short insight title>",`,
+      `      "narrative": "<2-4 sentence explanation>",`,
+      `      "supportingDimensions": ["<dimension name>", ...],`,
+      `      "confidence": 0.85`,
+      `    }`,
+      `    // 3-7 insights`,
+      `  ],`,
+      `  "contradictions": [  // optional`,
+      `    { "claim": "<conflicting claim>", "conflictingSources": ["..."], "resolution": "..." }`,
+      `  ]`,
+      `}`,
+      ``,
+      `Use field names exactly as shown.`,
+      `confidence is a number between 0 and 1.`,
     ].join("\n");
   }
 }
