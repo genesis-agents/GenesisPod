@@ -36,7 +36,10 @@ import {
   VerifyConsensusPanel,
 } from '@/components/agent-playground';
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
-import { deriveView } from '@/lib/agent-playground/derive';
+import {
+  deriveView,
+  type DimensionPipelineState,
+} from '@/lib/agent-playground/derive';
 import {
   cancelMission,
   getMissionDetail,
@@ -556,6 +559,7 @@ export default function MissionDetailPage() {
       <TaskDetailDrawer
         agents={view.agents}
         dimensions={view.mission.dimensions}
+        dimensionPipelines={view.dimensionPipelines}
         taskKey={selectedTaskKey}
         onClose={() => setSelectedTaskKey(null)}
       />
@@ -572,24 +576,245 @@ export default function MissionDetailPage() {
   );
 }
 
+/** 渲染 action input：识别 parallel_tool_call 子调用，每条单独显示 tool + 关键参数 */
+function renderActionInputReadable(
+  input: unknown,
+  fallbackJson: string | null
+): React.ReactNode {
+  if (input == null) return null;
+  // parallel_tool_call: input 是 calls 数组（已在 derive 中归并）
+  const calls = Array.isArray(input) ? input : null;
+  if (calls && calls.length > 0 && calls[0] && typeof calls[0] === 'object') {
+    return (
+      <ul className="mt-1.5 space-y-1">
+        {calls.map((c, ci) => {
+          const o = c as Record<string, unknown>;
+          const tool =
+            (typeof o.toolId === 'string' && o.toolId) ||
+            (typeof o.tool === 'string' && o.tool) ||
+            'tool';
+          const inp = (o.input ?? {}) as Record<string, unknown>;
+          const q =
+            (typeof inp.query === 'string' && inp.query) ||
+            (typeof inp.url === 'string' && inp.url) ||
+            (typeof inp.q === 'string' && inp.q) ||
+            JSON.stringify(inp);
+          return (
+            <li
+              key={ci}
+              className="flex items-baseline gap-1.5 rounded bg-white/60 px-2 py-1 text-[11px]"
+            >
+              <span className="font-mono shrink-0 rounded bg-violet-200/60 px-1.5 text-[10px] font-medium text-violet-800">
+                {tool}
+              </span>
+              <span className="break-words text-gray-700">{q}</span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+  // 单个 tool input
+  if (typeof input === 'object') {
+    const o = input as Record<string, unknown>;
+    const q =
+      (typeof o.query === 'string' && o.query) ||
+      (typeof o.url === 'string' && o.url) ||
+      (typeof o.q === 'string' && o.q) ||
+      null;
+    if (q) {
+      return (
+        <p className="mt-1 line-clamp-2 rounded bg-white/60 px-1.5 py-1 text-[10px] text-gray-700">
+          {q}
+        </p>
+      );
+    }
+  }
+  // fall back
+  if (!fallbackJson) return null;
+  return (
+    <details className="mt-1">
+      <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
+        ▸ input (raw)
+      </summary>
+      <pre className="font-mono mt-1 max-h-32 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
+        {fallbackJson.length > 2000
+          ? fallbackJson.slice(0, 2000) + '\n…'
+          : fallbackJson}
+      </pre>
+    </details>
+  );
+}
+
+/** 渲染 observation output：识别 search/scrape 结果数组 → 卡片化 title+url+snippet */
+function renderObservationOutputReadable(
+  output: unknown,
+  fallbackJson: string | null
+): React.ReactNode {
+  if (output == null) return null;
+  // 提取嵌套结果（处理 {preview, _truncated} / {results} / 数组等）—— 不截断
+  const hits: { title?: string; url?: string; snippet?: string }[] = [];
+  const visit = (node: unknown, depth = 0): void => {
+    if (depth > 8 || node == null) return;
+    if (typeof node === 'string') {
+      const trimmed = node
+        .trim()
+        .replace(/…$/, '')
+        .replace(/\.\.\.$/, '');
+      if (
+        (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
+        (trimmed.endsWith('}') || trimmed.endsWith(']'))
+      ) {
+        try {
+          visit(JSON.parse(trimmed), depth + 1);
+          return;
+        } catch {
+          // truncated JSON → 用 regex 抽 title/url 配对
+          const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+          const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+          const titles = [...trimmed.matchAll(titleRe)].map((m) => m[1]);
+          const urls = [...trimmed.matchAll(urlRe)].map((m) => m[1]);
+          const n = Math.max(titles.length, urls.length);
+          for (let i = 0; i < n; i++) {
+            if (titles[i] || urls[i]) {
+              hits.push({ title: titles[i], url: urls[i] });
+            }
+          }
+        }
+      }
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const it of node) visit(it, depth + 1);
+      return;
+    }
+    if (typeof node !== 'object') return;
+    const o = node as Record<string, unknown>;
+    if (typeof o.title === 'string' || typeof o.url === 'string') {
+      hits.push({
+        title: typeof o.title === 'string' ? o.title : undefined,
+        url: typeof o.url === 'string' ? o.url : undefined,
+        snippet:
+          typeof o.snippet === 'string'
+            ? o.snippet
+            : typeof o.description === 'string'
+              ? o.description
+              : typeof o.content === 'string'
+                ? o.content.slice(0, 200)
+                : undefined,
+      });
+    }
+    for (const k of [
+      'preview',
+      'output',
+      'results',
+      'items',
+      'hits',
+      'data',
+      'subResults',
+    ]) {
+      if (o[k] !== undefined) visit(o[k], depth + 1);
+    }
+  };
+  visit(output);
+
+  if (hits.length === 0) {
+    if (!fallbackJson) return null;
+    return (
+      <details className="mt-1">
+        <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
+          ▸ output (raw)
+        </summary>
+        <pre className="font-mono mt-1 max-h-32 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
+          {fallbackJson.length > 2000
+            ? fallbackJson.slice(0, 2000) + '\n…'
+            : fallbackJson}
+        </pre>
+      </details>
+    );
+  }
+
+  // dedupe by url|title
+  const seen = new Set<string>();
+  const unique = hits.filter((h) => {
+    const k = h.url || h.title || '';
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  return (
+    <div className="mt-1.5">
+      <p className="mb-1 text-[10px] font-semibold text-sky-700">
+        🔗 共 {unique.length} 条结果
+      </p>
+      <ul className="space-y-1">
+        {unique.map((h, i) => {
+          const safe = h.url && /^https?:\/\//i.test(h.url) ? h.url : null;
+          let host = '';
+          if (safe) {
+            try {
+              host = new URL(safe).hostname.replace(/^www\./, '');
+            } catch {
+              /* ignore */
+            }
+          }
+          return (
+            <li
+              key={`${h.url ?? h.title}-${i}`}
+              className="rounded bg-white/60 px-2 py-1.5 text-[11px]"
+            >
+              {safe ? (
+                <a
+                  href={safe}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block break-words font-medium text-sky-700 hover:underline"
+                >
+                  {h.title || safe}
+                </a>
+              ) : (
+                <p className="break-words font-medium text-gray-800">
+                  {h.title}
+                </p>
+              )}
+              {host && (
+                <p className="font-mono text-[10px] text-sky-500">{host}</p>
+              )}
+              {h.snippet && (
+                <p className="mt-0.5 text-[10px] leading-relaxed text-gray-600">
+                  {h.snippet}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function TaskDetailDrawer({
   agents,
   dimensions,
+  dimensionPipelines,
   taskKey,
   onClose,
 }: {
   agents: ReturnType<typeof deriveView>['agents'];
   dimensions: MissionDetail['dimensions'] | null | undefined;
+  dimensionPipelines: ReturnType<typeof deriveView>['dimensionPipelines'];
   taskKey: string | null;
   onClose: () => void;
 }) {
   if (!taskKey) return null;
 
-  // 找到对应任务的执行者（agent）
+  // 找到对应任务的执行者（agent）+ TI-style pipeline 状态
   let owner: ReturnType<typeof deriveView>['agents'][number] | undefined;
   let title = '';
   let subtitle = '';
   let rationale = '';
+  let pipeline: DimensionPipelineState | undefined = undefined;
   if (taskKey === 'leader') {
     owner = agents.find((a) => a.role === 'leader');
     title = '拆分研究维度';
@@ -603,6 +828,7 @@ function TaskDetailDrawer({
     title = `维度研究：${d?.name ?? ''}`;
     subtitle = owner?.agentId ?? 'Dimension Researcher';
     rationale = d?.rationale ?? '';
+    if (d?.name) pipeline = dimensionPipelines.get(d.name);
   } else if (
     taskKey === 'analyst' ||
     taskKey === 'writer' ||
@@ -1146,7 +1372,7 @@ function TaskDetailDrawer({
                 原始执行轨迹 · {trace.length} 条 ▾
               </summary>
               <ul className="space-y-1.5 p-2">
-                {trace.slice(-50).map((t, i) => {
+                {trace.map((t, i) => {
                   // 把 action / observation 的 input/output 转成可读 JSON snippet
                   const inputStr = (() => {
                     if (t.input == null) return null;
@@ -1208,30 +1434,28 @@ function TaskDetailDrawer({
                             : t.text}
                         </p>
                       ) : null}
-                      {inputStr && (
-                        <details className="mt-1">
-                          <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
-                            ▸ input
-                          </summary>
-                          <pre className="font-mono mt-1 max-h-48 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
-                            {inputStr.length > 4000
-                              ? inputStr.slice(0, 4000) + '\n…(已截断)'
-                              : inputStr}
-                          </pre>
-                        </details>
-                      )}
-                      {outputStr && !t.error && (
-                        <details className="mt-1">
-                          <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
-                            ▸ output
-                          </summary>
-                          <pre className="font-mono mt-1 max-h-48 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
-                            {outputStr.length > 4000
-                              ? outputStr.slice(0, 4000) + '\n…(已截断)'
-                              : outputStr}
-                          </pre>
-                        </details>
-                      )}
+                      {/* Action input：识别 parallel_tool_call 直接列出每个子调用 */}
+                      {t.kind === 'action' &&
+                        renderActionInputReadable(t.input, inputStr)}
+                      {/* Observation output：识别 search/scrape 结果 → 卡片化 */}
+                      {t.kind === 'observation' &&
+                        !t.error &&
+                        renderObservationOutputReadable(t.output, outputStr)}
+                      {/* 其他 trace 类型 fall back to 原始 JSON */}
+                      {t.kind !== 'action' &&
+                        t.kind !== 'observation' &&
+                        inputStr && (
+                          <details className="mt-1">
+                            <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
+                              ▸ input
+                            </summary>
+                            <pre className="font-mono mt-1 max-h-48 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
+                              {inputStr.length > 4000
+                                ? inputStr.slice(0, 4000) + '\n…(已截断)'
+                                : inputStr}
+                            </pre>
+                          </details>
+                        )}
                       {t.error ? (
                         <p className="mt-1 whitespace-pre-wrap break-words font-medium">
                           ⚠{' '}

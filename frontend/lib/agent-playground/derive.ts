@@ -109,6 +109,38 @@ export interface MissionState {
   finalScore?: number;
 }
 
+export interface ChapterState {
+  index: number;
+  heading: string;
+  thesis?: string;
+  status:
+    | 'pending'
+    | 'writing'
+    | 'reviewing'
+    | 'revising'
+    | 'passed'
+    | 'failed';
+  attempts: number;
+  wordCount?: number;
+  score?: number;
+  critique?: string;
+}
+
+export interface DimensionPipelineState {
+  dimension: string;
+  /** outline 已规划的章节列表 */
+  chapters: ChapterState[];
+  /** Integrator 完成后的 totalWordCount */
+  totalWordCount?: number;
+  /** Quality judge 5-axis 评分 */
+  grade?: {
+    overall: number;
+    grade: string;
+    axes: Record<string, { score: number; comment: string }>;
+    summary: string;
+  };
+}
+
 export interface DerivedView {
   mission: MissionState;
   stages: StageState[];
@@ -118,6 +150,8 @@ export interface DerivedView {
   memory: MemoryIndexState | null;
   reports: ReportDraft[];
   finalReport: ReportDraft['report'] | null;
+  /** TI-style per-dimension pipeline state，按 dimension name 索引 */
+  dimensionPipelines: Map<string, DimensionPipelineState>;
 }
 
 const STAGE_ORDER: StageId[] = [
@@ -136,6 +170,15 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
   const agents: Map<string, AgentLiveState> = new Map();
   const verdicts: VerifierVerdict[] = [];
   const reports: ReportDraft[] = [];
+  const dimensionPipelines = new Map<string, DimensionPipelineState>();
+  const ensurePipeline = (name: string): DimensionPipelineState => {
+    let p = dimensionPipelines.get(name);
+    if (!p) {
+      p = { dimension: name, chapters: [] };
+      dimensionPipelines.set(name, p);
+    }
+    return p;
+  };
   let memory: MemoryIndexState | null = null;
   const costByStage = new Map<
     string,
@@ -315,6 +358,86 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         attempt: (p?.attempt as number) ?? 1,
         report: p?.report as ReportDraft['report'],
       });
+    } else if (t === 'agent-playground.dimension:outline:planned') {
+      const dim = p?.dimension as string | undefined;
+      const chapters =
+        (p?.chapters as
+          | { index: number; heading: string; thesis?: string }[]
+          | undefined) ?? [];
+      if (dim) {
+        const pipeline = ensurePipeline(dim);
+        // 初始化 chapters 为 pending 状态（只在还没建过时）
+        if (pipeline.chapters.length === 0) {
+          pipeline.chapters = chapters.map((c) => ({
+            index: c.index,
+            heading: c.heading,
+            thesis: c.thesis,
+            status: 'pending',
+            attempts: 0,
+          }));
+        }
+      }
+    } else if (t === 'agent-playground.chapter:writing:started') {
+      const dim = p?.dimension as string | undefined;
+      const idx = p?.chapterIndex as number | undefined;
+      const attempt = (p?.attempt as number | undefined) ?? 1;
+      if (dim && idx != null) {
+        const pipeline = ensurePipeline(dim);
+        const ch = pipeline.chapters.find((c) => c.index === idx);
+        if (ch) {
+          ch.status = attempt > 1 ? 'revising' : 'writing';
+          ch.attempts = attempt;
+        }
+      }
+    } else if (t === 'agent-playground.chapter:writing:completed') {
+      const dim = p?.dimension as string | undefined;
+      const idx = p?.chapterIndex as number | undefined;
+      if (dim && idx != null) {
+        const pipeline = ensurePipeline(dim);
+        const ch = pipeline.chapters.find((c) => c.index === idx);
+        if (ch) {
+          ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
+          ch.status = 'reviewing';
+        }
+      }
+    } else if (t === 'agent-playground.chapter:review:completed') {
+      const dim = p?.dimension as string | undefined;
+      const idx = p?.chapterIndex as number | undefined;
+      if (dim && idx != null) {
+        const pipeline = ensurePipeline(dim);
+        const ch = pipeline.chapters.find((c) => c.index === idx);
+        if (ch) {
+          ch.score = p?.score as number | undefined;
+          ch.critique = p?.critique as string | undefined;
+          ch.status =
+            p?.decision === 'pass' ||
+            ((p?.score as number | undefined) ?? 0) >= 75
+              ? 'passed'
+              : 'revising';
+        }
+      }
+    } else if (t === 'agent-playground.chapter:revision') {
+      // 已在 writing:started 重置 attempts，这里仅作为补充信号
+    } else if (t === 'agent-playground.dimension:integrating:completed') {
+      const dim = p?.dimension as string | undefined;
+      if (dim) {
+        const pipeline = ensurePipeline(dim);
+        pipeline.totalWordCount = p?.totalWordCount as number | undefined;
+      }
+    } else if (t === 'agent-playground.dimension:graded') {
+      const dim = p?.dimension as string | undefined;
+      if (dim) {
+        const pipeline = ensurePipeline(dim);
+        pipeline.grade = {
+          overall: (p?.overall as number | undefined) ?? 0,
+          grade: (p?.grade as string | undefined) ?? '',
+          axes:
+            (p?.axes as
+              | Record<string, { score: number; comment: string }>
+              | undefined) ?? {},
+          summary: (p?.summary as string | undefined) ?? '',
+        };
+      }
     }
   }
 
@@ -388,5 +511,6 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
     memory,
     reports,
     finalReport,
+    dimensionPipelines,
   };
 }
