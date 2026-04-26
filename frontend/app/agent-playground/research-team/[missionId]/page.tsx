@@ -678,35 +678,91 @@ function renderObservationOutputReadable(
   fallbackJson: string | null
 ): React.ReactNode {
   if (output == null) return null;
-  // 提取嵌套结果（处理 {preview, _truncated} / {results} / 数组等）—— 不截断
-  const hits: { title?: string; url?: string; snippet?: string }[] = [];
-  const visit = (node: unknown, depth = 0): void => {
-    if (depth > 8 || node == null) return;
-    if (typeof node === 'string') {
-      const trimmed = node
-        .trim()
-        .replace(/…$/, '')
-        .replace(/\.\.\.$/, '');
-      if (
-        (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
-        (trimmed.endsWith('}') || trimmed.endsWith(']'))
-      ) {
-        try {
-          visit(JSON.parse(trimmed), depth + 1);
-          return;
-        } catch {
-          // truncated JSON → 用 regex 抽 title/url 配对
-          const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
-          const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
-          const titles = [...trimmed.matchAll(titleRe)].map((m) => m[1]);
-          const urls = [...trimmed.matchAll(urlRe)].map((m) => m[1]);
-          const n = Math.max(titles.length, urls.length);
-          for (let i = 0; i < n; i++) {
-            if (titles[i] || urls[i]) {
-              hits.push({ title: titles[i], url: urls[i] });
-            }
-          }
+  // ── 提取嵌套结果，处理多层 escape \\\" → \" → " 和截断 fallback ──
+  type Hit = {
+    title?: string;
+    url?: string;
+    host?: string;
+    snippet?: string;
+    content?: string;
+    publishedDate?: string;
+    score?: number;
+    domain?: string;
+  };
+  const hits: Hit[] = [];
+
+  const extractHost = (u: string | undefined): string | undefined => {
+    if (!u || !/^https?:\/\//i.test(u)) return undefined;
+    try {
+      return new URL(u).hostname.replace(/^www\./, '');
+    } catch {
+      return undefined;
+    }
+  };
+
+  const tryParseSafely = (s: string): unknown | null => {
+    let t = s
+      .trim()
+      .replace(/…$/, '')
+      .replace(/\.\.\.$/, '');
+    for (let pass = 0; pass < 4; pass++) {
+      try {
+        return JSON.parse(t);
+      } catch {
+        if (t.includes('\\"')) {
+          t = t.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+          continue;
         }
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const regexExtractFromString = (s: string): void => {
+    let t = s;
+    for (let i = 0; i < 3; i++) {
+      if (!t.includes('\\"')) break;
+      t = t.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    }
+    const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    const dateRe = /"publishedDate"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    const scoreRe = /"score"\s*:\s*([\d.]+)/g;
+    const domainRe = /"domain"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    const titles = [...t.matchAll(titleRe)].map((m) => m[1]);
+    const urls = [...t.matchAll(urlRe)].map((m) => m[1]);
+    const dates = [...t.matchAll(dateRe)].map((m) => m[1]);
+    const scores = [...t.matchAll(scoreRe)].map((m) => Number(m[1]));
+    const domains = [...t.matchAll(domainRe)].map((m) => m[1]);
+    const n = Math.max(titles.length, urls.length);
+    for (let i = 0; i < n; i++) {
+      if (titles[i] || urls[i]) {
+        hits.push({
+          title: titles[i],
+          url: urls[i],
+          host: extractHost(urls[i]),
+          domain: domains[i],
+          publishedDate: dates[i],
+          score: Number.isFinite(scores[i]) ? scores[i] : undefined,
+        });
+      }
+    }
+  };
+
+  const visit = (node: unknown, depth = 0): void => {
+    if (depth > 10 || node == null) return;
+    if (typeof node === 'string') {
+      const parsed = tryParseSafely(node);
+      if (parsed != null) {
+        visit(parsed, depth + 1);
+      } else if (
+        node.includes('"title"') ||
+        node.includes('"url"') ||
+        node.includes('\\"title\\"') ||
+        node.includes('\\"url\\"')
+      ) {
+        regexExtractFromString(node);
       }
       return;
     }
@@ -717,17 +773,29 @@ function renderObservationOutputReadable(
     if (typeof node !== 'object') return;
     const o = node as Record<string, unknown>;
     if (typeof o.title === 'string' || typeof o.url === 'string') {
+      const url = typeof o.url === 'string' ? o.url : undefined;
       hits.push({
         title: typeof o.title === 'string' ? o.title : undefined,
-        url: typeof o.url === 'string' ? o.url : undefined,
+        url,
+        host: extractHost(url),
+        domain: typeof o.domain === 'string' ? o.domain : undefined,
+        publishedDate:
+          typeof o.publishedDate === 'string'
+            ? o.publishedDate
+            : typeof o.date === 'string'
+              ? o.date
+              : undefined,
+        score: typeof o.score === 'number' ? o.score : undefined,
         snippet:
           typeof o.snippet === 'string'
             ? o.snippet
             : typeof o.description === 'string'
               ? o.description
-              : typeof o.content === 'string'
-                ? o.content.slice(0, 200)
-                : undefined,
+              : undefined,
+        content:
+          typeof o.content === 'string' && o.content.length > 0
+            ? o.content
+            : undefined,
       });
     }
     for (const k of [
@@ -769,47 +837,117 @@ function renderObservationOutputReadable(
     return true;
   });
 
+  // 聚合 host 域名 / 日期范围用于摘要 banner
+  const hostCounts = new Map<string, number>();
+  const dates: string[] = [];
+  for (const h of unique) {
+    const host = h.host || h.domain;
+    if (host) hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
+    if (h.publishedDate) dates.push(h.publishedDate);
+  }
+  const topHosts = [...hostCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  // 解析日期，找最新和平均天数
+  const parsedDates = dates
+    .map((d) => {
+      const t = Date.parse(d);
+      return Number.isFinite(t) ? t : null;
+    })
+    .filter((t): t is number => t != null);
+  const latest =
+    parsedDates.length > 0 ? new Date(Math.max(...parsedDates)) : null;
+  const avgDaysAgo =
+    parsedDates.length > 0
+      ? Math.round(
+          parsedDates.reduce((sum, t) => sum + (Date.now() - t) / 86400000, 0) /
+            parsedDates.length
+        )
+      : null;
+
   return (
-    <div className="mt-1.5">
-      <p className="mb-1 text-[10px] font-semibold text-sky-700">
-        🔗 共 {unique.length} 条结果
-      </p>
+    <div className="mt-2 space-y-1.5">
+      {/* 摘要 banner — TI 同款 */}
+      <div className="rounded-md bg-sky-50/80 px-2 py-1.5 ring-1 ring-sky-100">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[10px]">
+          <span className="font-semibold text-sky-800">
+            🔍 找到 {unique.length} 条
+          </span>
+          {topHosts.length > 0 && (
+            <span className="text-gray-500">· {topHosts.length} 个域名</span>
+          )}
+          {avgDaysAgo != null && (
+            <span className="text-gray-500">· 平均 {avgDaysAgo} 天前</span>
+          )}
+          {latest && (
+            <span className="text-gray-500">
+              · 最新 {latest.toISOString().slice(0, 10)}
+            </span>
+          )}
+        </div>
+        {topHosts.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {topHosts.map(([h, n]) => (
+              <span
+                key={h}
+                className="font-mono inline-flex items-center gap-1 rounded bg-white px-1.5 py-0.5 text-[9px] text-sky-700 ring-1 ring-sky-200"
+              >
+                {h}
+                <span className="text-sky-400">{n}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Result cards — TI 风格紧凑卡片，含 host/date/score badge */}
       <ul className="space-y-1">
         {unique.map((h, i) => {
           const safe = h.url && /^https?:\/\//i.test(h.url) ? h.url : null;
-          let host = '';
-          if (safe) {
-            try {
-              host = new URL(safe).hostname.replace(/^www\./, '');
-            } catch {
-              /* ignore */
-            }
-          }
+          const host = h.host || h.domain;
+          const snippet = h.snippet || h.content;
           return (
             <li
               key={`${h.url ?? h.title}-${i}`}
-              className="rounded bg-white/60 px-2 py-1.5 text-[11px]"
+              className="rounded-md bg-white px-2 py-1.5 ring-1 ring-gray-100 hover:ring-sky-200"
             >
-              {safe ? (
-                <a
-                  href={safe}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block break-words font-medium text-sky-700 hover:underline"
-                >
-                  {h.title || safe}
-                </a>
-              ) : (
-                <p className="break-words font-medium text-gray-800">
-                  {h.title}
-                </p>
-              )}
-              {host && (
-                <p className="font-mono text-[10px] text-sky-500">{host}</p>
-              )}
-              {h.snippet && (
-                <p className="mt-0.5 text-[10px] leading-relaxed text-gray-600">
-                  {h.snippet}
+              <div className="flex items-baseline gap-2">
+                {safe ? (
+                  <a
+                    href={safe}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 break-words text-[11px] font-semibold leading-snug text-sky-700 hover:underline"
+                    title={h.title || safe}
+                  >
+                    {h.title || safe}
+                  </a>
+                ) : (
+                  <p className="flex-1 break-words text-[11px] font-semibold text-gray-800">
+                    {h.title}
+                  </p>
+                )}
+                {h.score != null && (
+                  <span className="font-mono shrink-0 rounded bg-emerald-50 px-1 text-[9px] font-medium text-emerald-700">
+                    {h.score.toFixed(0)}
+                  </span>
+                )}
+              </div>
+              <div className="mt-0.5 flex items-center gap-2 text-[9px]">
+                {host && (
+                  <span className="font-mono inline-flex items-center text-sky-500">
+                    🌐 {host}
+                  </span>
+                )}
+                {h.publishedDate && (
+                  <span className="font-mono text-gray-400">
+                    📅 {h.publishedDate}
+                  </span>
+                )}
+              </div>
+              {snippet && (
+                <p className="mt-1 text-[10px] leading-relaxed text-gray-600">
+                  {snippet.length > 280 ? snippet.slice(0, 280) + '…' : snippet}
                 </p>
               )}
             </li>
