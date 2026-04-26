@@ -137,21 +137,38 @@ export function LeaderChatModal({
   };
 
   // —— 槽：assistant header 显示 decisionType chip + understanding ——
+  // 必须用全字面量 className —— Tailwind JIT 不解析模板字符串插值
   const renderHeaderExtra = (msg: LeaderChatMessage) => {
     const d = getDecision(msg);
     if (!d) return null;
     const chipMap = {
-      DIRECT_ANSWER: { color: 'sky', label: '回答', Icon: CheckCircle2 },
-      CREATE_TODO: { color: 'violet', label: '追加任务', Icon: ListTodo },
-      CLARIFY: { color: 'amber', label: '需要澄清', Icon: HelpCircle },
-      ACKNOWLEDGE: { color: 'gray', label: '收到', Icon: CheckCircle2 },
+      DIRECT_ANSWER: {
+        cls: 'bg-sky-50 text-sky-700 ring-sky-200',
+        label: '回答',
+        Icon: CheckCircle2,
+      },
+      CREATE_TODO: {
+        cls: 'bg-violet-50 text-violet-700 ring-violet-200',
+        label: '追加任务',
+        Icon: ListTodo,
+      },
+      CLARIFY: {
+        cls: 'bg-amber-50 text-amber-700 ring-amber-200',
+        label: '需要澄清',
+        Icon: HelpCircle,
+      },
+      ACKNOWLEDGE: {
+        cls: 'bg-gray-50 text-gray-700 ring-gray-200',
+        label: '收到',
+        Icon: CheckCircle2,
+      },
     } as const;
     const cfg = chipMap[d.type];
     if (!cfg) return null;
     const Icon = cfg.Icon;
     return (
       <span
-        className={`inline-flex items-center gap-1 rounded-full bg-${cfg.color}-50 px-2 py-0.5 text-[10px] font-medium text-${cfg.color}-700 ring-1 ring-${cfg.color}-200`}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${cfg.cls}`}
       >
         <Icon className="h-3 w-3" />
         {cfg.label}
