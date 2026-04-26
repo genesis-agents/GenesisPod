@@ -68,6 +68,12 @@ export interface CreateDimensionParams {
   topicId: string;
   name: string;
   description?: string;
+  /**
+   * 可选：当前 mission ID。
+   * dim 表已按 (topicId, missionId) 严格隔离，传入后该 dim 会被绑定到此 mission；
+   * 未传则落 NULL（legacy 行为）。
+   */
+  missionId?: string;
 }
 
 /**
@@ -168,24 +174,28 @@ export class LeaderToolService {
   async createDimension(
     params: CreateDimensionParams,
   ): Promise<LeaderActionResult> {
-    const { topicId, name, description } = params;
+    const { topicId, name, description, missionId } = params;
     this.logger.log(
-      `[createDimension] Creating dimension "${name}" for topic ${topicId}`,
+      `[createDimension] Creating dimension "${name}" for topic ${topicId} (mission=${missionId ?? "none"})`,
     );
 
     try {
-      // 1) 严格匹配：与原行为一致
+      // ★ 在 mission scope 内查重（与新 schema 隔离一致）
+      const scopeFilter = missionId
+        ? { topicId, missionId }
+        : { topicId, missionId: null };
+
+      // 1) 严格匹配
       let existing = await this.prisma.topicDimension.findFirst({
-        where: { topicId, name },
+        where: { ...scopeFilter, name },
       });
 
-      // 2) 归一化兜底（忽略大小写/前后空格）：原严格匹配会被
-      //    大小写/末尾空格差异穿透 → 重复落库
+      // 2) 归一化兜底（忽略大小写/前后空格）
       if (!existing) {
         const normalizedName = name.trim().toLowerCase();
         const candidates =
           (await this.prisma.topicDimension.findMany({
-            where: { topicId },
+            where: scopeFilter,
             select: { id: true, name: true },
           })) ?? [];
         const fuzzy = candidates.find(
@@ -206,9 +216,9 @@ export class LeaderToolService {
         };
       }
 
-      // 获取当前最大排序
+      // 获取当前最大排序（限定 mission scope）
       const maxOrder = await this.prisma.topicDimension.aggregate({
-        where: { topicId },
+        where: scopeFilter,
         _max: { sortOrder: true },
       });
 
@@ -216,6 +226,7 @@ export class LeaderToolService {
       const dimension = await this.prisma.topicDimension.create({
         data: {
           topicId,
+          missionId: missionId ?? null,
           name,
           description: description || `关于${name}的研究维度`,
           sortOrder: (maxOrder._max.sortOrder || 0) + 1,

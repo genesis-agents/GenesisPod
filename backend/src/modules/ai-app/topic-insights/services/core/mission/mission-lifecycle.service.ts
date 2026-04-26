@@ -775,18 +775,21 @@ export class MissionLifecycleService {
     // 创建维度记录并建立映射 (plannedDimensionId -> dbDimensionId)
     const dimensionIdMap = new Map<string, string>();
 
-    // ★ 修复 N+1 查询：批量查询已存在的维度
+    // ★ 修复 N+1 查询：批量查询当前 mission 已存在的维度
+    //   严格按 (topicId, missionId) 隔离，与 topic-team-orchestrator 一致；
+    //   旧 mission 的同名 dim 不会被误复用。
     const plannedDimensionNames = plan.dimensions.map((d) => d.name);
     const existingDimensions = await this.prisma.topicDimension.findMany({
       where: {
         topicId,
+        missionId,
         name: { in: plannedDimensionNames },
       },
     });
     const existingDimMap = new Map(existingDimensions.map((d) => [d.name, d]));
 
     for (const plannedDim of plan.dimensions) {
-      // 检查是否已存在同名维度
+      // 检查当前 mission 内是否已存在同名维度
       const existingDim = existingDimMap.get(plannedDim.name);
 
       if (existingDim) {
@@ -798,6 +801,7 @@ export class MissionLifecycleService {
         const newDim = await this.prisma.topicDimension.create({
           data: {
             topicId,
+            missionId,
             name: plannedDim.name,
             description: plannedDim.description,
             sortOrder: sortOrder++,
@@ -809,7 +813,7 @@ export class MissionLifecycleService {
         });
         dimensionIdMap.set(plannedDim.id, newDim.id);
         this.logger.log(
-          `[createTasksFromPlan] Created dimension: ${plannedDim.name} (${newDim.id}) with sources: ${(plannedDim.dataSources || ["web"]).join(", ")}`,
+          `[createTasksFromPlan] Created dimension: ${plannedDim.name} (${newDim.id}, mission=${missionId}) with sources: ${(plannedDim.dataSources || ["web"]).join(", ")}`,
         );
       }
     }

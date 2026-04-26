@@ -124,6 +124,7 @@ export class DimensionResearchExecutor implements ITaskExecutor {
         task,
         topic,
         reportId,
+        missionId,
       )) as unknown as TaskExecutionResult;
 
       // ★ 发送维度研究完成事件
@@ -149,20 +150,20 @@ export class DimensionResearchExecutor implements ITaskExecutor {
       dimensions: TopicDimension[];
     },
     reportId: string,
+    missionId?: string,
   ): Promise<DimensionAnalysisResult> {
     const dimensionName = task.dimensionName || task.title;
 
     this.logger.log(
-      `[DimensionResearchExecutor] Resolving dimension in DB: ${dimensionName}`,
+      `[DimensionResearchExecutor] Resolving dimension in DB: ${dimensionName} (mission=${missionId ?? "none"})`,
     );
 
-    // ★ 修复重复 dim bug：兜底创建前先用归一化 name 查重
-    //   原代码无条件 create 会让大小写/空格/全角半角差异穿透 →
-    //   同一逻辑维度在 topicDimension 表里堆叠多份，下次"开始"被
-    //   getDimensionsToResearch 一并拉走 → 任务列表翻倍。
+    // ★ 修复重复 dim bug：在当前 mission scope 内归一化查重。
+    //   schema 已让 dim 严格按 (topicId, missionId) 隔离；这里再加命名归一化
+    //   防止同一 mission 内大小写/空格差异导致的 dup。
     const normalizedName = dimensionName.trim().toLowerCase();
     const existingDimensions = await this.prisma.topicDimension.findMany({
-      where: { topicId: topic.id },
+      where: { topicId: topic.id, missionId: missionId ?? null },
       orderBy: { sortOrder: "desc" },
     });
     const reused = existingDimensions.find(
@@ -180,6 +181,7 @@ export class DimensionResearchExecutor implements ITaskExecutor {
       dimension = await this.prisma.topicDimension.create({
         data: {
           topicId: topic.id,
+          missionId: missionId ?? null,
           name: dimensionName,
           description: task.description || `研究维度: ${dimensionName}`,
           sortOrder,
@@ -190,7 +192,7 @@ export class DimensionResearchExecutor implements ITaskExecutor {
         },
       });
       this.logger.log(
-        `[DimensionResearchExecutor] Created dimension: ${dimension.id}`,
+        `[DimensionResearchExecutor] Created dimension: ${dimension.id} (mission=${missionId ?? "none"})`,
       );
     }
 

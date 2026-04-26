@@ -636,11 +636,15 @@ describe("TopicTeamOrchestratorService executeRefresh() — forceRefresh option"
       // expected
     }
 
-    // The findMany should be called WITHOUT the OR incremental filter
+    // forceRefresh=true 应跳过 incremental 过滤（lastResearchedAt 等条件
+    // 不该出现）。但 mission-scope OR（missionId / null）始终存在 ——
+    // 这是根治"重复任务"的核心隔离机制。
     const findManyCall = prisma.topicDimension.findMany.mock.calls[0][0] as {
       where: Record<string, unknown>;
     };
-    expect(findManyCall.where).not.toHaveProperty("OR");
+    expect(findManyCall.where).not.toHaveProperty("AND");
+    const whereJson = JSON.stringify(findManyCall.where);
+    expect(whereJson).not.toContain("lastResearchedAt");
   });
 });
 

@@ -207,52 +207,37 @@ export class TopicTeamOrchestratorService {
         });
       }
 
-      // ★ 修复重复任务 bug：上一次 mission 若不是 COMPLETED，
-      //   遗留的 topicDimension 行（首次规划落库 + 用户对话期间被
-      //   executeGenericDimensionResearch / leader-tool 兜底创建）会被
-      //   getDimensionsToResearch 一次性拉走，给新 mission 创建一整套
-      //   重复的 ResearchTask（参见 Screenshot_48 / 51 的 18 条任务现象）。
-      //   覆盖的卡死状态：FAILED / CANCELLED 显式终止；
-      //   PLANNING / EXECUTING / REVIEWING / PLAN_READY 卡在中间没正常结束
-      //   （进程重启 + activeRefreshes in-memory 丢失时，DB 状态留在执行中）。
-      //   只跳过 COMPLETED（用户 success 后续做"开始"=重新研究是合理的，
-      //   仍清理；保留语义只让 forceRefresh / dimensionIds 走定向刷新）。
-      if (!options.forceRefresh && !options.dimensionIds?.length) {
-        const lastMission = await this.prisma.researchMission.findFirst({
-          where: { topicId },
-          orderBy: { createdAt: "desc" },
-          select: { id: true, status: true },
+      // ★ 把卡在中间状态的旧 mission mark 为 FAILED，并 disable 它自己创建的
+      //   dim（按 missionId 反查），避免下次"开始"读到旧 mission 自创的 dim。
+      //   注意：missionId IS NULL 的"模板 dim"（用户手动 addDimension /
+      //   topic 创建时落库）不动，跨 mission 持久存在。
+      const stuckLast = await this.prisma.researchMission.findFirst({
+        where: {
+          topicId,
+          status: {
+            in: [
+              ResearchMissionStatus.PLANNING,
+              ResearchMissionStatus.PLAN_READY,
+              ResearchMissionStatus.EXECUTING,
+              ResearchMissionStatus.REVIEWING,
+            ],
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, status: true },
+      });
+      if (stuckLast) {
+        await this.prisma.researchMission.update({
+          where: { id: stuckLast.id },
+          data: { status: ResearchMissionStatus.FAILED },
         });
-        if (lastMission) {
-          // 把卡在中间状态的旧 mission mark 为 FAILED，便于后续追溯
-          const stuckStatuses: ResearchMissionStatus[] = [
-            ResearchMissionStatus.PLANNING,
-            ResearchMissionStatus.PLAN_READY,
-            ResearchMissionStatus.EXECUTING,
-            ResearchMissionStatus.REVIEWING,
-          ];
-          if (stuckStatuses.includes(lastMission.status)) {
-            await this.prisma.researchMission.update({
-              where: { id: lastMission.id },
-              data: { status: ResearchMissionStatus.FAILED },
-            });
-            this.logger.log(
-              `[executeRefresh] Last mission ${lastMission.id} was stuck in ${lastMission.status}; marked as FAILED before fresh start`,
-            );
-          }
-
-          // 上一次 mission 不是 COMPLETED 时，清掉残留的 isEnabled=true dim
-          // 强制 getDimensionsToResearch 返回 0 条 → 走 LLM 重新规划路径
-          if (lastMission.status !== ResearchMissionStatus.COMPLETED) {
-            const disabled = await this.prisma.topicDimension.updateMany({
-              where: { topicId, isEnabled: true },
-              data: { isEnabled: false },
-            });
-            this.logger.log(
-              `[executeRefresh] Soft-disabled ${disabled.count} stale dimensions on topic ${topicId} (last mission ${lastMission.id} status=${lastMission.status}); leader will replan from scratch`,
-            );
-          }
-        }
+        const disabled = await this.prisma.topicDimension.updateMany({
+          where: { missionId: stuckLast.id, isEnabled: true },
+          data: { isEnabled: false },
+        });
+        this.logger.log(
+          `[executeRefresh] Marked stuck mission ${stuckLast.id} (was ${stuckLast.status}) as FAILED + disabled ${disabled.count} of its own dims`,
+        );
       }
 
       // 1. 创建草稿报告
@@ -290,8 +275,24 @@ export class TopicTeamOrchestratorService {
         message: "正在初始化研究...",
       });
 
-      // 2. 获取要研究的维度
-      let dimensions = await this.getDimensionsToResearch(topicId, options);
+      // ★ 提前创建 Mission（status=PLANNING）—— dim 严格按 missionId 隔离，
+      //   要先有 mission 才能落 dim。
+      const mission = await this.prisma.researchMission.create({
+        data: {
+          topicId,
+          status: ResearchMissionStatus.PLANNING,
+          researchDepth: options.researchDepth || "standard",
+          totalTasks: 0, // 规划完毕后再回填
+        },
+      });
+      missionId = mission.id;
+
+      // 2. 获取要研究的维度（严格按 missionId 隔离 → 新 mission 必为 0 条）
+      let dimensions = await this.getDimensionsToResearch(
+        topicId,
+        missionId,
+        options,
+      );
       // ★ 保存 Leader 的 Agent 分配信息（包含工具和技能）
       let agentAssignments: AgentAssignment[] = [];
       // ★ 保存执行策略的并行度设置
@@ -379,12 +380,13 @@ export class TopicTeamOrchestratorService {
           );
         }
 
-        // 将规划的维度保存到数据库
+        // 将规划的维度保存到数据库（绑定到当前 mission，保证隔离）
         const createdDimensions = await Promise.all(
           leaderPlan.dimensions.map((dim, index) =>
             this.prisma.topicDimension.create({
               data: {
                 topicId,
+                missionId,
                 name: dim.name,
                 description: dim.description,
                 sortOrder: dim.priority ?? index + 1,
@@ -415,26 +417,28 @@ export class TopicTeamOrchestratorService {
         message: `开始研究 ${dimensions.length} 个维度...`,
       });
 
-      // ★ 创建 Mission 和 TODOs 供前端展示任务列表
+      // ★ Mission 已在前面以 status=PLANNING 创建；此处切到 EXECUTING +
+      //   回填任务总数 + startedAt
       const todoMap: Record<string, string> = {}; // dimensionId -> todoId
       let reportTodoId: string | undefined;
       let reviewTodoId: string | undefined;
       try {
-        const mission = await this.prisma.researchMission.create({
+        // ★ 此时 missionId 已被赋值（mission 已创建），固化非空局部变量
+        const mid: string = missionId;
+        await this.prisma.researchMission.update({
+          where: { id: mid },
           data: {
-            topicId,
             status: ResearchMissionStatus.EXECUTING,
-            researchDepth: options.researchDepth || "standard",
-            totalTasks: dimensions.length + 2, // dimensions + report + review
+            totalTasks: dimensions.length + 2,
+            startedAt: new Date(),
           },
         });
-        missionId = mission.id;
 
         // ★ 创建 ResearchTask 记录（前端 TopicTeamPanel 读取这些来展示 agent 列表）
         // Leader task
         await this.prisma.researchTask.create({
           data: {
-            missionId: mission.id,
+            missionId: mid,
             title: "研究协调与规划",
             description: "协调各维度研究，制定研究策略",
             taskType: "leader_planning",
@@ -448,7 +452,7 @@ export class TopicTeamOrchestratorService {
         try {
           await this.prisma.researchTask.createMany({
             data: dimensions.map((dim) => ({
-              missionId: mission.id,
+              missionId: mid,
               title: `研究：${dim.name}`,
               description: dim.description || `深度研究 ${dim.name}`,
               taskType: "dimension_research",
@@ -468,7 +472,7 @@ export class TopicTeamOrchestratorService {
         // Report synthesis task
         await this.prisma.researchTask.create({
           data: {
-            missionId: mission.id,
+            missionId: mid,
             title: "合成研究报告",
             description: "整合所有维度分析，生成最终研究报告",
             taskType: "report_synthesis",
@@ -480,7 +484,7 @@ export class TopicTeamOrchestratorService {
         // Quality review task
         await this.prisma.researchTask.create({
           data: {
-            missionId: mission.id,
+            missionId: mid,
             title: "质量审核",
             description: "审核研究质量，验证关键发现",
             taskType: "quality_review",
@@ -493,7 +497,7 @@ export class TopicTeamOrchestratorService {
         // Leader 规划 TODO（已完成）
         const leaderTodo = await this.researchTodoService.createTodo({
           topicId,
-          missionId: mission.id,
+          missionId: mid,
           type: ResearchTodoType.LEADER_PLANNING,
           title: "Leader 任务理解与规划",
           description: "Leader 分析研究主题，制定研究策略和任务分配",
@@ -517,7 +521,7 @@ export class TopicTeamOrchestratorService {
 
           const todo = await this.researchTodoService.createTodo({
             topicId,
-            missionId: mission.id,
+            missionId: mid,
             type: ResearchTodoType.DIMENSION_RESEARCH,
             title: `研究维度：${dim.name}`,
             description: dim.description || `深度研究 ${dim.name} 维度`,
@@ -550,7 +554,7 @@ export class TopicTeamOrchestratorService {
         // 报告撰写 TODO
         const rTodo = await this.researchTodoService.createTodo({
           topicId,
-          missionId: mission.id,
+          missionId: mid,
           type: ResearchTodoType.REPORT_WRITING,
           title: "合成研究报告",
           description: "整合所有维度分析，生成最终研究报告",
@@ -577,7 +581,7 @@ export class TopicTeamOrchestratorService {
         // 质量审核 TODO
         const qTodo = await this.researchTodoService.createTodo({
           topicId,
-          missionId: mission.id,
+          missionId: mid,
           type: ResearchTodoType.QUALITY_REVIEW,
           title: "质量审核",
           description: "审核研究质量，验证关键发现的可信度",
@@ -597,7 +601,7 @@ export class TopicTeamOrchestratorService {
         reviewTodoId = qTodo.id;
 
         this.logger.log(
-          `[executeRefresh] Created mission ${mission.id} with ${Object.keys(todoMap).length + 3} todos`,
+          `[executeRefresh] Created mission ${mid} with ${Object.keys(todoMap).length + 3} todos`,
         );
       } catch (todoError) {
         this.logger.warn(
@@ -1361,8 +1365,19 @@ export class TopicTeamOrchestratorService {
    */
   private async getDimensionsToResearch(
     topicId: string,
+    missionId: string,
     options: RefreshOptions,
   ): Promise<TopicDimension[]> {
+    // ★ 拉两类 dim：
+    //   (1) 当前 mission 自己创建的（missionId = current）
+    //   (2) 模板 dim（missionId IS NULL）—— 用户 addDimension /
+    //       topic 创建时配置的"长期维度"，跨 mission 持久存在
+    //   旧 mission 失败/卡死时其 dim 会按 missionId 被入口处清理 disable，
+    //   因此不会污染新 mission（这是根治"重复任务"的关键）。
+    //
+    //   incremental 过滤（status / lastResearchedAt）需要与 mission scope
+    //   过滤合取，用 AND 嵌套，避免后赋值的 OR 覆盖前一个 OR。
+    const scopeOr = [{ missionId }, { missionId: null }];
     const where: Record<string, unknown> = {
       topicId,
       isEnabled: true,
@@ -1373,14 +1388,21 @@ export class TopicTeamOrchestratorService {
       where.id = { in: options.dimensionIds };
     }
 
-    // 如果不是强制刷新，跳过最近已完成的维度
+    // 如果不是强制刷新且 incremental，跳过最近已完成的维度
     if (!options.forceRefresh && options.incremental) {
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      where.OR = [
-        { status: { not: DimensionStatus.COMPLETED } },
-        { lastResearchedAt: { lt: oneDayAgo } },
-        { lastResearchedAt: null },
+      where.AND = [
+        { OR: scopeOr },
+        {
+          OR: [
+            { status: { not: DimensionStatus.COMPLETED } },
+            { lastResearchedAt: { lt: oneDayAgo } },
+            { lastResearchedAt: null },
+          ],
+        },
       ];
+    } else {
+      where.OR = scopeOr;
     }
 
     return this.prisma.topicDimension.findMany({

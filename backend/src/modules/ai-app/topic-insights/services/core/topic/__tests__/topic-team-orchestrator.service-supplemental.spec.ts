@@ -537,13 +537,19 @@ describe("TopicTeamOrchestratorService getDimensionsToResearch()", () => {
       // expected
     }
 
+    // incremental=true → where.AND 嵌套 [mission-scope OR, incremental OR]
+    // 验证 incremental 子句存在（lastResearchedAt 是它的标志）
     expect(prisma.topicDimension.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: expect.any(Array),
+          AND: expect.any(Array),
         }),
       }),
     );
+    const findManyCall = prisma.topicDimension.findMany.mock.calls[0][0] as {
+      where: Record<string, unknown>;
+    };
+    expect(JSON.stringify(findManyCall.where)).toContain("lastResearchedAt");
   });
 });
 

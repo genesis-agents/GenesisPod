@@ -725,8 +725,15 @@ describe("DimensionMissionService", () => {
 
       await service.executeDimensionMission(mockTopic, mockDimension);
 
+      // 现在按 mission scope 过滤（含 NULL 模板维度），不再单纯按 topicId
       expect(mockPrisma.topicDimension.findMany).toHaveBeenCalledWith({
-        where: { topicId: "topic-001" },
+        where: {
+          topicId: "topic-001",
+          OR: [
+            { missionId: mockDimension.missionId ?? undefined },
+            { missionId: null },
+          ],
+        },
         select: { name: true, description: true },
       });
     });

@@ -1343,10 +1343,11 @@ export class ResearchTodoService {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
-    // 创建新维度
+    // 创建新维度（绑定到当前 mission，与 schema 隔离规则一致）
     const dimension = await this.prisma.topicDimension.create({
       data: {
         topicId,
+        missionId: todo.missionId ?? null,
         name: dimensionName,
         description: todo.description || `用户请求新增的维度：${dimensionName}`,
         status: DimensionStatus.PENDING,
@@ -1356,7 +1357,7 @@ export class ResearchTodoService {
     });
 
     this.logger.log(
-      `[executeAddDimension] Created dimension ${dimension.id}: ${dimensionName}`,
+      `[executeAddDimension] Created dimension ${dimension.id}: ${dimensionName} (mission=${todo.missionId ?? "none"})`,
     );
 
     // ★ v7.3: 创建 ResearchTask 并加入调度队列（PENDING 状态）
@@ -1492,11 +1493,12 @@ export class ResearchTodoService {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
-    // 创建专门的深入研究维度
+    // 创建专门的深入研究维度（绑定到当前 mission）
     const dimensionName = `深入分析：${researchTopic}`;
     const dimension = await this.prisma.topicDimension.create({
       data: {
         topicId,
+        missionId: todo.missionId ?? null,
         name: dimensionName,
         description:
           todo.description ||
@@ -1508,7 +1510,7 @@ export class ResearchTodoService {
     });
 
     this.logger.log(
-      `[executeDeepResearch] Created deep research dimension ${dimension.id}: ${dimensionName}`,
+      `[executeDeepResearch] Created deep research dimension ${dimension.id}: ${dimensionName} (mission=${todo.missionId ?? "none"})`,
     );
 
     // ★ v7.3: 创建 ResearchTask 并加入调度队列（PENDING 状态）

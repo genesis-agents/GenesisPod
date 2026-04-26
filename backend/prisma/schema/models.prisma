@@ -6728,6 +6728,12 @@ model TopicCollaborator {
 model TopicDimension {
   id      String @id @default(uuid())
   topicId String @map("topic_id")
+  // ★ 每个 dim 归属到一次 mission（NULL = legacy/topic-template）。
+  //   引入此字段是为了根治"重复任务"bug：原本 dim 只按 topicId 隔离，
+  //   旧 mission 失败/卡死后残留的 dim 会被新 mission 一并拉走，
+  //   产生重复 ResearchTask（参见 Screenshot_48 / 51）。
+  //   现严格按 (topicId, missionId) 隔离，每个 mission 拥有独立 dim 集。
+  missionId String? @map("mission_id")
 
   // ========== 维度信息 ==========
   name        String  @db.VarChar(200) // 维度名称，如"政策法规"
@@ -6746,6 +6752,7 @@ model TopicDimension {
 
   // ========== 关系 ==========
   topic     ResearchTopic       @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  mission   ResearchMission?    @relation(fields: [missionId], references: [id], onDelete: SetNull)
   analyses  DimensionAnalysis[]
   freshness DimensionFreshness? // 新鲜度检测 (Phase 3.1)
 
@@ -6754,6 +6761,8 @@ model TopicDimension {
   @@index([topicId]) // 单独 topicId 查询（高频操作）
   @@index([status]) // 按状态过滤
   @@index([topicId, name]) // 按专题和名称查询
+  @@index([missionId]) // 按 mission 反查 dim 列表
+  @@index([topicId, missionId, isEnabled]) // 主查询路径：当前 mission 启用的 dim
   @@map("topic_dimensions")
 }
 
@@ -7050,9 +7059,10 @@ model ResearchMission {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // ========== 关系 ==========
-  topic     ResearchTopic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  tasks     ResearchTask[]
-  decisions LeaderDecision[]
+  topic      ResearchTopic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  tasks      ResearchTask[]
+  decisions  LeaderDecision[]
+  dimensions TopicDimension[]
 
   // ========== 索引 ==========
   @@index([topicId, status])

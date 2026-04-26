@@ -1,50 +1,53 @@
--- 应急清理：失败/取消 mission 残留的脏 topicDimension 行
+-- 应急清理：失败/卡死 mission 残留的脏 topic_dimensions 行
 --
 -- 背景：
--- topic-team-orchestrator 每次 executeRefresh 在 dimensions 为空时才走 LLM
--- 重新规划，否则复用 topicDimension 表的现有行。失败/取消 mission 不会清理
--- 这些 dim，加上 dimension-research.executor 的兜底 create 路径，会让 dim
--- 表逐次累积脏行。下次"开始"时这些脏行被一并拉出 → ResearchTask 翻倍。
+--   topic_dimensions 在加 mission_id 字段之前，所有 dim 都是 NULL；
+--   旧 mission 失败后留下的"无主 dim"和用户主动配置的"模板维度"无法区分。
+--   2026-04-26 schema 迁移之后，新代码会给每条 dim 绑定 mission_id；
+--   旧的 NULL 行视作"模板维度"保留下来，跨 mission 共享。
 --
--- 修复方案 A 已内置到 executeRefresh 入口（上次 mission FAILED/CANCELLED
--- 时自动软删 dim），但需要先把当前数据库里已经累积的脏 dim 清掉。
+--   但用户已经累积了若干"实际属于失败 mission 但 mission_id IS NULL"
+--   的脏 dim（截图 48/51 的根因）。此脚本提供一次性清理方案，
+--   按 (topicId, name) 把它们关联到失败 mission，并 disable。
 --
 -- 用法（Railway prod）：
---   prisma db execute --schema prisma/schema --file scripts/maintenance/disable-stale-dimensions.sql --url "$DATABASE_URL"
+--   prisma db execute --schema prisma/schema \
+--     --file scripts/maintenance/disable-stale-dimensions.sql \
+--     --url "$DATABASE_URL"
 --
 -- 影响：
---   - 凡是最近一次 mission 不是 COMPLETED 的 topic（FAILED / CANCELLED /
---     卡死的 PLANNING / EXECUTING / REVIEWING / PLAN_READY）：把它的
---     isEnabled=true 的 dim 全部置 isEnabled=false，下次"开始"会走
---     Leader 重新规划路径
---   - 最近一次 mission 为 COMPLETED 的 topic：不动
---   - 同时把卡在中间状态的旧 mission mark 为 FAILED 便于追溯
+--   1) 把卡在 PLANNING/PLAN_READY/EXECUTING/REVIEWING 状态的 mission
+--      mark 为 FAILED（便于追溯）
+--   2) 找出"最近一次 mission 不是 COMPLETED"的 topic
+--   3) 这些 topic 上 mission_id IS NULL 的 dim：把 mission_id 回填为
+--      最近那次失败/卡死 mission 的 id，并 isEnabled=false
+--   4) 模板维度（用户从未跑过 mission 的 topic 上的 NULL dim）保留不动
 
+-- Step 1: 卡死状态 → FAILED
+UPDATE "research_missions"
+SET "status" = 'FAILED',
+    "updated_at" = NOW()
+WHERE "status" IN ('PLANNING', 'PLAN_READY', 'EXECUTING', 'REVIEWING');
+
+-- Step 2: 给"实际属于失败/卡死 mission"的 NULL dim 回填 mission_id 并 disable
 WITH last_mission AS (
-  SELECT DISTINCT ON ("topicId")
+  SELECT DISTINCT ON ("topic_id")
     "id" AS mission_id,
-    "topicId",
+    "topic_id",
     "status"
   FROM "research_missions"
-  ORDER BY "topicId", "createdAt" DESC
+  ORDER BY "topic_id", "created_at" DESC
 ),
-stale AS (
-  SELECT mission_id, "topicId", "status"
+target_topics AS (
+  SELECT mission_id, "topic_id"
   FROM last_mission
   WHERE "status" <> 'COMPLETED'
-),
-fix_stuck AS (
-  UPDATE "research_missions"
-  SET "status" = 'FAILED',
-      "updatedAt" = NOW()
-  WHERE "id" IN (
-    SELECT mission_id FROM stale
-    WHERE "status" IN ('PLANNING', 'PLAN_READY', 'EXECUTING', 'REVIEWING')
-  )
-  RETURNING "id"
 )
-UPDATE "topic_dimensions"
-SET "isEnabled" = false,
-    "updatedAt" = NOW()
-WHERE "topicId" IN (SELECT "topicId" FROM stale)
-  AND "isEnabled" = true;
+UPDATE "topic_dimensions" td
+SET "mission_id" = tt.mission_id,
+    "is_enabled" = false,
+    "updated_at" = NOW()
+FROM target_topics tt
+WHERE td."topic_id" = tt."topic_id"
+  AND td."mission_id" IS NULL
+  AND td."is_enabled" = true;

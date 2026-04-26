@@ -56,6 +56,12 @@ function createMockServices() {
     },
     researchMission: {
       findFirst: fn().mockResolvedValue(null),
+      create: fn().mockResolvedValue({ id: "mission-v5" }),
+      update: fn().mockResolvedValue({}),
+    },
+    researchTask: {
+      create: fn().mockResolvedValue({}),
+      createMany: fn().mockResolvedValue({ count: 0 }),
     },
   };
 

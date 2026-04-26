@@ -1043,9 +1043,13 @@ export class DimensionMissionService {
         thinkingContent: `分析研究主题：${topic.name}\n维度：${dimension.name}\n参考资料数量：${searchPhaseResult.evidenceSummary.split("\n").length} 条`,
       });
 
-      // 查询所有维度，传给 Leader 避免跨维度重复
+      // 查询当前 mission 的所有维度（含 NULL 模板）传给 Leader 避免跨维度重复
+      // 限定 scope 防止读到旧 mission 的 dim 误判"已研究"
       const allDimensions = await this.prisma.topicDimension.findMany({
-        where: { topicId: topic.id },
+        where: {
+          topicId: topic.id,
+          OR: [{ missionId: dimension.missionId }, { missionId: null }],
+        },
         select: { name: true, description: true },
       });
 
