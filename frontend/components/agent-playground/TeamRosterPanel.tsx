@@ -218,38 +218,43 @@ export function TeamRosterPanel({
           rowYPositions={[35, 95, 155, 215, 270]}
           patternId="agent-playground"
           renderDetail={(node, onClose) => (
-            <>
+            // 用 fixed 全屏遮罩，把卡片提到画布外避免被 SVG 容器裁切
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+              onClick={() => {
+                onClose();
+                setSelectedRole(null);
+              }}
+            >
               <div
-                className="absolute inset-0 z-20"
-                onClick={() => {
-                  onClose();
-                  setSelectedRole(null);
-                }}
-              />
-              <RoleDetailCard
-                role={node.role as AgentRole}
-                agents={agents.filter(
-                  (a) => a.role === (node.role as AgentRole)
-                )}
-                stage={stageMap.get(
-                  ROLE_ROW.find((r) => r.role === (node.role as AgentRole))
-                    ?.stage ?? 'leader'
-                )}
-                onChatWithLeader={
-                  node.role === 'leader' && onLeaderClick
-                    ? () => {
-                        onClose();
-                        setSelectedRole(null);
-                        onLeaderClick();
-                      }
-                    : undefined
-                }
-                onClose={() => {
-                  onClose();
-                  setSelectedRole(null);
-                }}
-              />
-            </>
+                className="w-full max-w-md"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <RoleDetailCard
+                  role={node.role as AgentRole}
+                  agents={agents.filter(
+                    (a) => a.role === (node.role as AgentRole)
+                  )}
+                  stage={stageMap.get(
+                    ROLE_ROW.find((r) => r.role === (node.role as AgentRole))
+                      ?.stage ?? 'leader'
+                  )}
+                  onChatWithLeader={
+                    node.role === 'leader' && onLeaderClick
+                      ? () => {
+                          onClose();
+                          setSelectedRole(null);
+                          onLeaderClick();
+                        }
+                      : undefined
+                  }
+                  onClose={() => {
+                    onClose();
+                    setSelectedRole(null);
+                  }}
+                />
+              </div>
+            </div>
           )}
           renderTooltip={(node) => (
             <div className="text-xs">
@@ -483,7 +488,7 @@ function RoleDetailCard({
           : 'text-gray-500';
 
   return (
-    <div className="absolute left-1/2 top-1/2 z-30 max-h-[85%] w-[320px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
+    <div className="max-h-[85vh] w-full overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-50 text-violet-600">
