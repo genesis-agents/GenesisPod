@@ -691,6 +691,46 @@ export class ResearchTeamOrchestrator {
             // 单个 researcher 失败不能拖垮整个 mission：
             // 任何抛错都收敛成 "(failed: ...)" 占位，让 Analyst 拿剩下的维度继续
             try {
+              // ★ 主动接入跨 mission 失败模式记忆 ──
+              // 启动 researcher 之前先查"这个 (researcher, topic+dim+language)
+              // prompt 上历史哪些 model 撞过墙"，把它们喂给 adapter，
+              // react-loop 的 model-availability fallback 链自动绕开。
+              const promptKey = `${input.topic}::${dim.name}::${input.language}`;
+              const knownFailures = await this.failureLearner
+                .lookup({
+                  agentSpecId: "playground.researcher",
+                  systemPrompt: promptKey,
+                })
+                .catch(() => []);
+              const preDisabled: { failed: string; fallback: string }[] = [];
+              for (const rec of knownFailures) {
+                // 触发条件：count >= 2（一次性失败可能是偶发，2+ 才确认是稳定问题）
+                // 且有 lastFallbackModel（确认有可行的备选）
+                if (rec.count >= 2 && rec.lastFallbackModel) {
+                  billing.markModelDisabled(rec.modelId, rec.lastFallbackModel);
+                  preDisabled.push({
+                    failed: rec.modelId,
+                    fallback: rec.lastFallbackModel,
+                  });
+                }
+              }
+              if (preDisabled.length > 0) {
+                this.log.log(
+                  `[researcher#${idx}] pre-disabled ${preDisabled.length} known-failing model(s) on dim "${dim.name}": ${preDisabled.map((d) => `${d.failed}→${d.fallback}`).join(", ")}`,
+                );
+                await this.emit({
+                  type: "agent-playground.failure-pattern:pre-applied",
+                  missionId,
+                  userId,
+                  agentId,
+                  payload: {
+                    dimension: dim.name,
+                    preDisabled,
+                    matchedRecords: knownFailures.length,
+                  },
+                }).catch(() => {});
+              }
+
               await this.lifecycle(
                 missionId,
                 userId,
@@ -715,6 +755,51 @@ export class ResearchTeamOrchestrator {
                   budgetMultiplier,
                 },
               );
+
+              // ★ 成功且确实用了 fallback model → 回写 recordSuccessfulFallback
+              // 让下次同 key 命中时跳过失败 model，直接走 fallback。
+              if (
+                r.state === "completed" &&
+                r.output &&
+                preDisabled.length > 0
+              ) {
+                // 从事件流里抓真实跑通的 modelId（最后一个 thinking event 的 modelId）
+                let actualModelId: string | undefined;
+                for (let i = r.events.length - 1; i >= 0; i--) {
+                  const ev = r.events[i];
+                  if (ev.type === "thinking") {
+                    const p = ev.payload as { modelId?: string } | null;
+                    if (p?.modelId) {
+                      actualModelId = p.modelId;
+                      break;
+                    }
+                  }
+                }
+                if (actualModelId) {
+                  for (const pd of preDisabled) {
+                    // actualModelId 已经是 fallback（不是 failed） → 标记成功
+                    if (actualModelId === pd.fallback) {
+                      // 记录成功 workaround：(spec, failedModel, prompt, *) 都标 resolved
+                      // 不局限于具体 failureCode（这条记录如果有多个 code，全部更新）
+                      for (const rec of knownFailures.filter(
+                        (r0) => r0.modelId === pd.failed,
+                      )) {
+                        await this.failureLearner
+                          .recordSuccessfulFallback({
+                            key: {
+                              agentSpecId: "playground.researcher",
+                              modelId: pd.failed,
+                              systemPrompt: promptKey,
+                              failureCode: rec.failureCode,
+                            },
+                            fallbackModelId: pd.fallback,
+                          })
+                          .catch(() => {});
+                      }
+                    }
+                  }
+                }
+              }
               await this.tickCostDelta(
                 missionId,
                 userId,

@@ -32,12 +32,33 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   /** mission 内 balance 缓存：8+ 次 runner.run 只查 1 次 DB */
   private balanceCache: { acct: BalanceAcct; expiresAt: number } | null = null;
 
+  /**
+   * ★ 跨 mission 失败模式接入点：mission 启动前由 HarnessFailureLearner.lookup
+   * 喂入"已知会撞墙的 (modelId → 备选 modelId)"映射。
+   * getModelAvailability 命中 disabled set 时返回 available=false + fallbackTo，
+   * 现有 react-loop 的 tier-model fallback 链路自动接住。
+   */
+  private readonly disabledModels = new Map<string, string>();
+
   constructor(
     public readonly userId: string,
     public readonly workspaceId: string | undefined,
     private readonly credits: CreditsService,
     private readonly runtimeEnv: RuntimeEnvironmentService,
   ) {}
+
+  /**
+   * 标记某 modelId 在本 mission 内禁用（pattern 已知会失败），并提供 fallback。
+   * 由 orchestrator 调用：lookup 失败模式 → 命中且有 lastFallbackModel → 标记。
+   */
+  markModelDisabled(failedModelId: string, fallbackModelId: string): void {
+    this.disabledModels.set(failedModelId, fallbackModelId);
+  }
+
+  /** 当 mission 内某次调用走了 fallback 并跑通后，外部调用方 query 用 */
+  getDisabledModels(): ReadonlyMap<string, string> {
+    return this.disabledModels;
+  }
 
   /** 带 TTL 的 balance 查询 — DB 调用聚合到一次 */
   private async getCachedBalance(): Promise<BalanceAcct> {
@@ -77,6 +98,17 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   async getModelAvailability(modelId: string): Promise<IModelAvailability> {
+    // ★ 优先级 #1：本 mission 内已标记禁用（来自 HarnessFailureLearner 的
+    // 历史失败模式）—— 直接返回 fallback 候选，绕开浪费 token 重蹈覆辙。
+    const disabledFallback = this.disabledModels.get(modelId);
+    if (disabledFallback) {
+      return {
+        modelId,
+        available: false,
+        unavailableReason: "outage",
+        fallbackTo: [disabledFallback],
+      };
+    }
     const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
     for (const pool of Object.values(snap.models)) {
       const found = pool.find((m) => m.modelId === modelId);

@@ -91,28 +91,36 @@ export class HarnessFailureLearner {
   }
 
   /**
-   * 查询某 (agent, model, prompt 前缀) 是否已有失败记录。
-   * 调用方在调 LLM 前用 systemPrompt + 选定 model 查一次：
-   *   - 命中且 count >= threshold → 直接走 lastFallbackModel（如有）
-   *   - 没命中 → 正常调用
+   * 查询某 (agent, model?, prompt 前缀) 已有的失败记录。
+   *
+   * - modelId 给定 → 只查这个 model 的失败记录（精确）
+   * - modelId 省略 → 查 (agent, prompt) 下**所有 model** 的失败记录
+   *   用于 mission 启动前的预检：拿出"任何曾在此 prompt 上撞墙的 model"
+   *   全部喂给 adapter.markModelDisabled，让 react-loop 自动绕开。
+   *
+   * 返回结果按 lastSeenAt 倒序，调用方按 count + resolved 决策是否生效。
    */
   async lookup(input: {
     agentSpecId: string;
-    modelId: string;
+    modelId?: string;
     systemPrompt: string;
-  }): Promise<FailurePatternHit[]> {
+  }): Promise<
+    (FailurePatternHit & { modelId: string; failureCode: string })[]
+  > {
     const promptHashPrefix = this.hashPrompt(input.systemPrompt);
     try {
       const records = await this.prisma.harnessFailurePattern.findMany({
         where: {
           agentSpecId: input.agentSpecId,
-          modelId: input.modelId,
+          ...(input.modelId ? { modelId: input.modelId } : {}),
           promptHashPrefix,
         },
         orderBy: { lastSeenAt: "desc" },
-        take: 5,
+        take: 20,
       });
       return records.map((r) => ({
+        modelId: r.modelId,
+        failureCode: r.failureCode,
         count: r.count,
         lastFallbackModel: r.lastFallbackModel ?? undefined,
         lastDiagnostic:
