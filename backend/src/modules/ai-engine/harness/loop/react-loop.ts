@@ -161,6 +161,19 @@ export class ReActLoop implements IAgentLoop {
       spawner?: ISubagentSpawner;
       /** Spec 声明的 TaskProfile —— reason() 内 chat() 用 agent 真实意图 */
       taskProfile?: import("../../llm/types/task-profile").TaskProfile;
+      /**
+       * ★ 内容驱动的退出闸：finalize 时框架先用 outputSchema 校验，
+       * 失败则注入 critique reminder 让 LLM 直接补缺（continue loop）。
+       * 通过才真正退出。Spec 通过 agent-runner 透传。
+       */
+      outputSchemaValidator?: (
+        output: unknown,
+      ) => { ok: true } | { ok: false; issues: string };
+      /**
+       * 业务级 sanity check（可选，比 schema 更严的语义校验，如 source 必须含 http、
+       * findings 数量下限等）。返回非空 issues 字符串就 reject。
+       */
+      validateBusinessRules?: (output: unknown) => string | null | undefined;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
@@ -168,9 +181,17 @@ export class ReActLoop implements IAgentLoop {
     const forbiddenTools = options?.forbiddenTools;
     const budget = options?.budget;
     const specTaskProfile = options?.taskProfile;
+    const outputSchemaValidator = options?.outputSchemaValidator;
+    const validateBusinessRules = options?.validateBusinessRules;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
+    /**
+     * ★ 防死循环：LLM 反复 finalize 但 schema 总不通过的次数。
+     * ≥ MAX_FINALIZE_REJECTS 时强制退出，避免 LLM "我又改了" 死循环。
+     */
+    let finalizeRejectCount = 0;
+    const MAX_FINALIZE_REJECTS = 3;
     /**
      * 连续空 LLM 响应计数器 —— 检测 "model 不存在 / API 拒绝 / 输出被过滤" 场景：
      * LLM 每次返回 completion="" + 立即 finalize 空结果。连续 2 次后 abort。
@@ -589,6 +610,61 @@ export class ReActLoop implements IAgentLoop {
           decision.action.kind === "finalize"
             ? decision.action.output
             : actionResult.output;
+
+        // ★ 内容驱动的退出闸：finalize 时框架先校验 outputSchema +
+        //   validateBusinessRules，不达标就注入精准 critique reminder 让 LLM
+        //   "原地补缺"（不重启 ReActLoop，复用已有 envelope 的工具结果）。
+        //   这是替代"机械限轮次"的退出机制：让"内容是否符合要求"成为唯一退出
+        //   标准，避免 LLM 反复瞎搜或瞎 finalize。
+        const issuesParts: string[] = [];
+        if (outputSchemaValidator) {
+          const schemaResult = outputSchemaValidator(output);
+          if (!schemaResult.ok)
+            issuesParts.push(`Schema: ${schemaResult.issues}`);
+        }
+        if (validateBusinessRules) {
+          const businessIssue = validateBusinessRules(output);
+          if (businessIssue) issuesParts.push(`Business: ${businessIssue}`);
+        }
+        if (issuesParts.length > 0) {
+          finalizeRejectCount += 1;
+          // 防死循环：连续 N 次 finalize 不达标 → 强制退出，不再让 LLM 改
+          if (finalizeRejectCount >= MAX_FINALIZE_REJECTS) {
+            this.logger.warn(
+              `[${agentId}] finalize rejected ${finalizeRejectCount} times in a row, ` +
+                `accepting current candidate to avoid infinite loop. issues=${issuesParts.join("; ")}`,
+            );
+            yield this.makeEvent(agentId, "output", { output: output ?? "" });
+            yield this.makeEvent(agentId, "terminated", {
+              reason: "completed",
+            });
+            return;
+          }
+          // 注入精准 critique reminder：告诉 LLM 缺什么，要它**直接补缺**而非重新搜
+          const critique =
+            `[FINALIZE REJECTED ${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}] Your finalize.output failed validation:\n` +
+            issuesParts.map((p) => `  - ${p}`).join("\n") +
+            `\n\nDO NOT rerun tools. Use the tool results already in this conversation to ` +
+            `produce a corrected finalize that addresses the issues above. ` +
+            `If the existing tool results genuinely don't have the needed information, ` +
+            `you may emit ONE focused tool_call to fill the specific gap (do not search broadly).`;
+          this.logger.log(
+            `[${agentId}] finalize rejected (${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}): ${issuesParts.join("; ").slice(0, 200)}`,
+          );
+          if (currentEnvelope instanceof ContextEnvelope) {
+            currentEnvelope = currentEnvelope.append([
+              {
+                role: "user",
+                content: critique,
+                timestamp: Date.now(),
+              },
+            ]).envelope;
+          }
+          // 不退出，继续 loop —— LLM 看到 critique 后下一轮直接补
+          continue;
+        }
+
+        // 通过校验 → 真正退出
         yield this.makeEvent(agentId, "output", { output: output ?? "" });
         yield this.makeEvent(agentId, "terminated", { reason: "completed" });
         return;

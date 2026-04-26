@@ -90,6 +90,11 @@ export class ReflexionLoop implements IAgentLoop {
       reflexion?: ReflexionOptions;
       /** Spec.taskProfile 透传给内层 ReActLoop，让 reason() 用 agent 真实意图 */
       taskProfile?: import("../../llm/types/task-profile").TaskProfile;
+      // ★ 透传给内层 ReActLoop 用作 finalize 时内容校验闸
+      outputSchemaValidator?: (
+        output: unknown,
+      ) => { ok: true } | { ok: false; issues: string };
+      validateBusinessRules?: (output: unknown) => string | null | undefined;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "reflexion-agent";

@@ -170,6 +170,52 @@ export class AgentFactory {
       runtimeEnv: spec.runtimeEnv, // PR-J
     });
 
+    // ★ 包装 spec.outputSchema + validateBusinessRules 成 ReActLoop 期望的
+    // validator 形态（{ok}|{ok:false, issues}），驱动 finalize 时的内容校验闸：
+    // 不达标 → critique reminder → continue loop → LLM 直接补缺。
+    const outputSchemaValidator = spec.outputSchema
+      ? (output: unknown) => {
+          // ReActLoop.finalize 经常把 LLM 输出原样塞进 output；如果是 string
+          // 形式的 JSON，先尝试 parse 再校验
+          let candidate: unknown = output;
+          if (typeof candidate === "string") {
+            const trimmed = candidate.trim();
+            if (
+              (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+              (trimmed.startsWith("[") && trimmed.endsWith("]"))
+            ) {
+              try {
+                candidate = JSON.parse(trimmed);
+              } catch {
+                /* keep string; schema parse will fail */
+              }
+            }
+          }
+          const result = spec.outputSchema!.safeParse(candidate);
+          if (result.success) return { ok: true as const };
+          const issues = result.error.issues
+            .map(
+              (iss) =>
+                `${iss.path.join(".") || "<root>"}: ${iss.message} (code=${iss.code})`,
+            )
+            .join("; ");
+          return { ok: false as const, issues };
+        }
+      : undefined;
+    const validateBusinessRulesWrapper = spec.validateBusinessRules
+      ? (output: unknown) => {
+          try {
+            spec.validateBusinessRules!(output as never, {
+              input: undefined as never,
+              identity,
+            });
+            return null;
+          } catch (err) {
+            return err instanceof Error ? err.message : String(err);
+          }
+        }
+      : undefined;
+
     return new HarnessedAgent({
       identity,
       envelope,
@@ -183,6 +229,9 @@ export class AgentFactory {
       agentRegistry: this.agentRegistry,
       // 透传 spec.taskProfile —— Loop 内 chat() 用 agent 真实意图
       taskProfile: spec.taskProfile,
+      // ★ 内容驱动退出闸 validator
+      outputSchemaValidator,
+      validateBusinessRules: validateBusinessRulesWrapper,
     });
   }
 

@@ -1,18 +1,16 @@
 /**
- * Researcher Agent —— Reflexion + 真实 web/arxiv/github 搜索 tool
+ * Researcher Agent —— 单轮 ReAct + 真实 web 搜索
  *
- * 一个 mission 派 N 个 researcher 并行（spawnMany majority）。
- * 每个 researcher 负责一个研究维度，单维度内执行 mini-pipeline：
+ * 一个 mission 派 N 个 researcher 并行（每维度 1 个）。
+ * 每个 researcher 单 dim 走 react loop：
+ *   1. 一轮 parallel web-search（2-4 query）
+ *   2. 至多一轮 web-scraper 抓 1-2 个高价值 url
+ *   3. finalize 输出 narrow JSON
  *
- *   1. 数据采集（web/arxiv/github 搜索 + 抓取全文）
- *   2. 分析（提取 claims、交叉验证 source、过滤低质来源）
- *   3. 自我评审（self verifier 检查 findings 是否充分）
- *   4. 输出维度初稿（structured findings + summary）
- *   5. 评审不通过 → reflexion 重抓取 / 重写直到通过或达上限
- *
- * 与 ReAct 区别：
- *   - 生成草稿后会被 verifier 自动评分；< passThreshold 自动 critique→revise
- *   - self + dimension-quality 双 verifier 保证维度质量稳定
+ * 历史教训：曾用 reflexion + self/critical verifier + 5-stage workflow，
+ * 单 dim 烧 80-100K tokens，6 dim mission ≈ 600K-1M tokens。完全不可接受。
+ * 现在改 react loop + 限制 budget + 简化 prompt，单 dim 目标 ~25K tokens，
+ * 6 dim ≈ 150K，相比旧方案减少 75-85%。
  */
 
 import { z } from "zod";
@@ -33,8 +31,7 @@ const Output = z.object({
     z.object({
       claim: z.string(),
       evidence: z.string(),
-      // 必修 #17: 放宽 URL 校验。真实搜索结果的 source 经常是带 query 的非规范 URL
-      // 或学术 DOI / arxiv id；严格 .url() 校验失败会让整个 Researcher state=failed
+      // 必修 #17: 放宽 URL 校验
       source: z.string().min(1),
     }),
   ),
@@ -46,17 +43,15 @@ const Output = z.object({
   identity: {
     role: "researcher",
     description:
-      "Domain researcher — runs a per-dimension mini-pipeline: collect → analyze → self-review → draft → re-review",
+      "Domain researcher — single-pass: search → optional scrape → finalize",
   },
-  // Reflexion = ReAct loop + 自我评审 + 反思重写
-  loop: "reflexion",
-  tools: ["web-search", "web-scraper", "arxiv-search", "github-search"],
-  skills: ["critical-review"],
-  // 双 verifier：self（agent 自检）+ critical（独立 LLM 严格审）
-  // 任一不达 70 分就触发 reflexion 重写
-  verifiers: ["self", "critical"],
-  // ★ 显式 reasoningDepth=moderate（对照 TI dimension-research）
-  // 不传时走 default，对 BYOK reasoning 模型（如 gpt-5.4）容易撞墙
+  // ★ react（不再 reflexion）：reflexion 强制 verifier 评分低 revision，
+  // 在 reasoning model + 长 prompt 上单 revision 烧 80K，2 个 revision 240K。
+  // verifier 评分由上层 orchestrator 的 reviewer 阶段做（一次性），不在每 dim 重做。
+  loop: "react",
+  // ★ 只保留 web-search + web-scraper（绝大多数主题不需要 arxiv/github）
+  tools: ["web-search", "web-scraper"],
+  // ★ 去 verifiers + 去 skills（critical-review 本来是 verifier 路径）
   taskProfile: {
     creativity: "low",
     outputLength: "long",
@@ -64,62 +59,83 @@ const Output = z.object({
   },
   inputSchema: Input,
   outputSchema: Output,
-  // Researcher 是最重的 agent —— web search 把 5-10 个长文塞进 envelope，
-  // 单轮 call 经常 8k+ tokens；reflexion 至少 3-4 轮 + verifier 评分。
-  // 45k 老配置会被 3 轮就撑爆 → 调到 120k 给真实研究留空间。
-  // 用户可通过 budgetProfile=high (×2 → 240k) / unlimited (×4 → 480k) 进一步放大。
-  budget: { maxTokens: 120_000, maxIterations: 20 },
+  // ★ budget 大幅收紧：120K → 30K，maxIter 20 → 5
+  // 单 dim 5 iter 足够：1 search + 1 scrape + 1 finalize = 3 iter；5 iter 留 buffer
+  // 6 dim × 30K = 180K（vs 旧 720K），减 75%
+  budget: { maxTokens: 30_000, maxIterations: 5 },
 })
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    // ★ 动态注入当前日期（对照 TI 实践：避免 LLM 拿陈旧时间假设）
     const currentDate = new Date().toISOString().slice(0, 10);
     return [
-      `You are a domain researcher responsible for the dimension "${input.dimension}" of topic "${input.topic}".`,
+      `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
       ``,
-      `## Per-dimension workflow（不只是搜集数据，是完整 mini-pipeline）`,
+      `## Workflow (must follow strictly, do NOT expand)`,
+      `1. **One round of search**: emit ONE parallel_tool_call with 2-4 web-search queries`,
+      `   covering this dimension. Do NOT search again unless results are clearly insufficient.`,
+      `2. **At most one scrape round**: if a high-value URL appeared and snippets miss key`,
+      `   numbers, emit ONE parallel_tool_call with up to 2 web-scraper calls. Otherwise SKIP.`,
+      `3. **Finalize**: emit { kind: "finalize", output: {...} } matching the schema below.`,
       ``,
-      `### Stage 1 · 数据采集 (Collect)`,
-      `- 用 web-search / arxiv-search / github-search 找 5-10 个候选来源`,
-      `- 用 web-scraper 抓取最权威 / 最新 3-5 个的全文`,
-      `- 优先：官方文件、白皮书、学术论文、行业报告；避免：媒体转述、二手博客`,
+      `## Hard constraints to control cost (violation = wasted API calls)`,
+      `- Do NOT repeat similar queries across rounds.`,
+      `- Target 4-5 findings; do NOT iterate to add more.`,
+      `- 1 short evidence quote per finding is enough.`,
+      `- Use search snippets directly when sufficient; scrape ONLY for missing critical numbers.`,
       ``,
-      `### Stage 2 · 分析 (Analyze)`,
-      `- 从原文中提取可独立核验的「claim + 数据点 + 来源」三元组`,
-      `- 跨多个 source 交叉验证：> 1 个独立来源支持的 claim 才纳入`,
-      `- 显式标注矛盾点（如不同机构数据不一致）`,
-      ``,
-      `### Stage 3 · 自我评审 (Self-Review)`,
-      `- 检查：findings 是否 ≥ 5 条？每条是否有具体数字 / 时间 / 实体？`,
-      `- 检查：summary 是否覆盖该维度核心结论而非空泛描述？`,
-      `- 检查：是否引用了 ≥ 3 个不同 domain 的 source？`,
-      `- 不达标 → 回 Stage 1 补抓取，不要硬交付`,
-      ``,
-      `### Stage 4 · 输出维度初稿`,
-      `- finalize 时返回完整 JSON（见下方 schema）`,
-      `- summary 必须基于 findings 提炼，不能凭空写`,
-      ``,
-      `### Stage 5 · 复审循环（自动触发）`,
-      `- 系统会用 self + critical verifier 评分；< 70 分会要求 revise`,
-      `- 收到 critique 时：聚焦缺陷点（缺数据 / 缺源 / claim 模糊）补充，不要原样重发`,
-      ``,
-      `## Final output JSON shape（字段名必须完全匹配）`,
+      `## Output JSON shape (field names must match exactly)`,
       `{`,
       `  "dimension": "${input.dimension}",`,
       `  "findings": [`,
-      `    {`,
-      `      "claim": "<可核验的具体陈述，含数字 / 时间 / 实体>",`,
-      `      "evidence": "<1-2 句原文引用或数据点>",`,
-      `      "source": "<URL or DOI / arxiv id>"`,
-      `    }`,
-      `    // 5-8 findings, 跨 ≥ 3 个 domain`,
+      `    { "claim": "<verifiable specific statement, include numbers/dates/entities>",`,
+      `      "evidence": "<1 sentence quote or data point>",`,
+      `      "source": "<URL or DOI/arxiv id>" }`,
+      `    // 4-5 findings`,
       `  ],`,
-      `  "summary": "<3-4 句维度级综合，引用具体 finding>"`,
+      `  "summary": "<2-3 sentences synthesizing findings>"`,
       `}`,
-      ``,
-      `字段名必须是 dimension / findings[] / summary。`,
-      `每个 finding 必须三元组完整：claim + evidence + source。`,
     ].join("\n");
+  }
+
+  /**
+   * ★ 内容驱动退出闸：finalize 时框架调此校验。issues 非空就 reject + critique
+   * → LLM 直接补缺。这是退出机制的"业务级硬要求"，比 zod schema 更严：
+   *   - findings 数量下限 4
+   *   - 每条 finding 三元组完整 + claim 含具体词
+   *   - source 必须形似 URL（http 或带 .）
+   *   - summary 不能是占位
+   */
+  validateBusinessRules(output: z.infer<typeof Output>): void {
+    const issues: string[] = [];
+    const findings = output?.findings ?? [];
+    if (!Array.isArray(findings) || findings.length < 4) {
+      issues.push(
+        `findings.length=${findings.length} (要求 ≥4，请用已搜到的工具结果补到至少 4 条)`,
+      );
+    }
+    findings.forEach((f, i) => {
+      if (!f?.claim || f.claim.trim().length < 10) {
+        issues.push(
+          `findings[${i}].claim 太短或缺失（要求 ≥10 字符且含具体数字/时间/实体）`,
+        );
+      }
+      if (!f?.evidence || f.evidence.trim().length < 5) {
+        issues.push(`findings[${i}].evidence 缺失或过短`);
+      }
+      if (!f?.source || f.source.trim().length < 4) {
+        issues.push(`findings[${i}].source 缺失`);
+      } else if (!/^https?:|^doi:|^arxiv:|\./i.test(f.source.trim())) {
+        issues.push(
+          `findings[${i}].source="${f.source.slice(0, 30)}" 不像 URL/DOI（必须是 http(s):// 或 doi: 前缀）`,
+        );
+      }
+    });
+    if (!output?.summary || output.summary.trim().length < 20) {
+      issues.push(`summary 缺失或过短（要求 ≥20 字符的真实综合，不接受占位）`);
+    }
+    if (issues.length > 0) {
+      throw new Error(issues.join("; "));
+    }
   }
 }

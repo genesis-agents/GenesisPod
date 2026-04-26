@@ -62,6 +62,19 @@ export interface HarnessedAgentInit {
    * leader 要 medium）。不传则各 loop 走自己的硬编码默认。
    */
   taskProfile?: import("../../llm/types/task-profile").TaskProfile;
+  /**
+   * ★ 内容驱动退出闸 —— 由 agent-runner 根据 spec.outputSchema 包装后注入。
+   * Loop 在 finalize action 时调它校验 LLM 输出，不达标就让 LLM 原地补缺
+   * （而不是机械限轮次或让 LLM 瞎搜瞎退）。
+   */
+  outputSchemaValidator?: (
+    output: unknown,
+  ) => { ok: true } | { ok: false; issues: string };
+  /**
+   * 业务级 sanity check（spec.validateBusinessRules 包装），与 outputSchema
+   * 互补的语义校验。
+   */
+  validateBusinessRules?: (output: unknown) => string | null | undefined;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -80,6 +93,8 @@ export class HarnessedAgent implements IAgent {
   private readonly eventStore?: AgentEventStore;
   private readonly agentRegistry?: AgentRegistry;
   private readonly taskProfile?: import("../../llm/types/task-profile").TaskProfile;
+  private readonly outputSchemaValidator?: HarnessedAgentInit["outputSchemaValidator"];
+  private readonly validateBusinessRules?: HarnessedAgentInit["validateBusinessRules"];
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
 
@@ -100,6 +115,8 @@ export class HarnessedAgent implements IAgent {
     this.eventStore = init.eventStore;
     this.agentRegistry = init.agentRegistry;
     this.taskProfile = init.taskProfile;
+    this.outputSchemaValidator = init.outputSchemaValidator;
+    this.validateBusinessRules = init.validateBusinessRules;
     this.state = "idle";
   }
 
@@ -178,6 +195,12 @@ export class HarnessedAgent implements IAgent {
             parent?: IAgent;
             spawner?: ISubagentSpawner;
             taskProfile?: import("../../llm/types/task-profile").TaskProfile;
+            outputSchemaValidator?: (
+              output: unknown,
+            ) => { ok: true } | { ok: false; issues: string };
+            validateBusinessRules?: (
+              output: unknown,
+            ) => string | null | undefined;
           },
         ) => AsyncIterable<IAgentEvent>;
 
@@ -204,6 +227,10 @@ export class HarnessedAgent implements IAgent {
           // 透传 spec 声明的 TaskProfile —— Loop 内每次 chat() 用 agent 真实意图
           // (researcher='long' / leader='medium')，不再被 Loop 硬编码 'short' 卡死
           taskProfile: this.taskProfile,
+          // ★ 内容驱动退出闸：finalize 时框架用 spec.outputSchema +
+          // validateBusinessRules 校验，不达标就 reject + critique reminder + continue
+          outputSchemaValidator: this.outputSchemaValidator,
+          validateBusinessRules: this.validateBusinessRules,
         })) {
           yield ev;
           eventCount += 1;
