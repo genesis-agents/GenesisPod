@@ -6,10 +6,12 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Logger,
   Param,
+  Patch,
   Post,
   Query,
   Request,
@@ -179,6 +181,48 @@ export class AgentPlaygroundController {
     }
     await this.store.markCancelled(missionId);
     return { ok: true, status: "cancelled" };
+  }
+
+  /**
+   * DELETE /api/v1/agent-playground/missions/:id
+   * 删除当前用户的某个 mission（仅删除 DB 记录，不影响已结束的 in-memory 状态）。
+   */
+  @Delete("missions/:id")
+  async deleteMission(
+    @Param("id") missionId: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{ ok: true }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const persisted = await this.store.getById(missionId, userId);
+    if (!persisted)
+      throw new ForbiddenException(`mission ${missionId} not found`);
+    await this.store.deleteByUser(missionId, userId);
+    this.ownership.release(missionId);
+    return { ok: true };
+  }
+
+  /**
+   * PATCH /api/v1/agent-playground/missions/:id
+   * 修改 mission topic（rename）。
+   */
+  @Patch("missions/:id")
+  async updateMission(
+    @Param("id") missionId: string,
+    @Body() body: { topic?: string },
+    @Request() req: RequestWithUser,
+  ): Promise<{ ok: true }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const topic = (body?.topic ?? "").trim();
+    if (!topic) throw new BadRequestException("topic is required");
+    if (topic.length > 500)
+      throw new BadRequestException("topic exceeds 500 chars");
+    const persisted = await this.store.getById(missionId, userId);
+    if (!persisted)
+      throw new ForbiddenException(`mission ${missionId} not found`);
+    await this.store.updateTopicByUser(missionId, userId, topic);
+    return { ok: true };
   }
 
   /**

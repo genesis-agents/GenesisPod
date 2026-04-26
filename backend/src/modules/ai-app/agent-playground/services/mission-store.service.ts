@@ -145,6 +145,42 @@ export class MissionStore {
       });
   }
 
+  /**
+   * 用户删除自己的 mission（带 userId guard 防越权）。
+   * 关联的 trace events / leader chat 由数据库 onDelete: Cascade 自动清理。
+   */
+  async deleteByUser(id: string, userId: string): Promise<void> {
+    await this.prisma.agentPlaygroundMission
+      .deleteMany({
+        where: { id, userId },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[deleteByUser ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /**
+   * 用户重命名 mission topic（带 userId guard）。
+   */
+  async updateTopicByUser(
+    id: string,
+    userId: string,
+    topic: string,
+  ): Promise<void> {
+    await this.prisma.agentPlaygroundMission
+      .updateMany({
+        where: { id, userId },
+        data: { topic: topic.slice(0, 500) },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[updateTopicByUser ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
   async markCancelled(id: string): Promise<void> {
     await this.prisma.agentPlaygroundMission
       .update({

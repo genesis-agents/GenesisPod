@@ -167,6 +167,45 @@ export async function rerunMission(
   return unwrapStandard<{ missionId: string; streamNamespace: string }>(raw);
 }
 
+export async function deleteMission(missionId: string): Promise<{ ok: true }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}`,
+    {
+      method: 'DELETE',
+      headers: { ...getAuthHeader() },
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Delete failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{ ok: true }>(raw);
+}
+
+export async function updateMission(
+  missionId: string,
+  data: { topic: string }
+): Promise<{ ok: true }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Update failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{ ok: true }>(raw);
+}
+
 export async function cancelMission(
   missionId: string
 ): Promise<{ ok: true; status: string }> {

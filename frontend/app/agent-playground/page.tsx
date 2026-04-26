@@ -24,6 +24,8 @@ import {
   listMissions,
   rerunMission,
   cancelMission,
+  deleteMission,
+  updateMission,
   type MissionListItem,
 } from '@/lib/api/agent-playground';
 import {
@@ -75,11 +77,15 @@ function MissionCard({
   onClick,
   onRerun,
   onCancel,
+  onEdit,
+  onDelete,
 }: {
   mission: MissionListItem;
   onClick: () => void;
   onRerun: (mission: MissionListItem) => void;
   onCancel: (mission: MissionListItem) => void;
+  onEdit: (mission: MissionListItem) => void;
+  onDelete: (mission: MissionListItem) => void;
 }) {
   const status = STATUS_CONFIG[mission.status] ?? STATUS_CONFIG.running;
   const StatusIcon = status.icon;
@@ -183,9 +189,15 @@ function MissionCard({
       badges={badges}
       isOwner
       extraActions={extraActions}
+      onEdit={() => onEdit(mission)}
+      onDelete={() => onDelete(mission)}
       onClick={onClick}
       stats={stats}
       timestamp={mission.startedAt}
+      labels={{
+        edit: '重命名',
+        delete: '删除',
+      }}
     />
   );
 }
@@ -278,11 +290,37 @@ export default function PlaygroundIndexPage() {
     if (!confirm(`取消「${mission.topic}」运行？`)) return;
     try {
       await cancelMission(mission.id);
-      // 刷新列表
       const items = await listMissions();
       setMissions(items);
     } catch (e) {
       alert(`取消失败：${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleEdit = async (mission: MissionListItem) => {
+    // eslint-disable-next-line no-alert
+    const next = window.prompt('重命名 Mission topic：', mission.topic);
+    if (!next || !next.trim() || next === mission.topic) return;
+    try {
+      await updateMission(mission.id, { topic: next.trim() });
+      // 乐观本地更新 + 后台刷新
+      setMissions((prev) =>
+        prev.map((m) =>
+          m.id === mission.id ? { ...m, topic: next.trim() } : m
+        )
+      );
+    } catch (e) {
+      alert(`重命名失败：${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleDelete = async (mission: MissionListItem) => {
+    if (!confirm(`确定删除「${mission.topic}」？此操作不可恢复。`)) return;
+    try {
+      await deleteMission(mission.id);
+      setMissions((prev) => prev.filter((m) => m.id !== mission.id));
+    } catch (e) {
+      alert(`删除失败：${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -387,6 +425,8 @@ export default function PlaygroundIndexPage() {
                   }
                   onRerun={(mission) => void handleRerun(mission)}
                   onCancel={(mission) => void handleCancel(mission)}
+                  onEdit={(mission) => void handleEdit(mission)}
+                  onDelete={(mission) => void handleDelete(mission)}
                 />
               ))}
 

@@ -155,25 +155,61 @@ export function TeamRosterPanel({
       const roleAgents = agents.filter((a) => a.role === r.role);
       const status = stageStatusToNodeStatus(stage?.status ?? 'pending');
 
-      // ── Researcher 特殊处理：每个并行 agent 一个独立节点 ──
-      if (r.role === 'researcher' && roleAgents.length > 0) {
-        roleAgents.forEach((a, idx) => {
-          const aStatus: TeamNodeStatus =
-            a.phase === 'running'
+      // ── Researcher 特殊处理 ──
+      // 优先按 dimensions 数量画节点（包括尚未启动的——idle 占位），
+      // 这样 SVG 节点数 = 表格里 dimension 数，永远一致。
+      // 没有 dimensions（Leader 还没拆完）才退化用 roleAgents。
+      if (r.role === 'researcher') {
+        const targets =
+          dimensions && dimensions.length > 0
+            ? dimensions.map((d, idx) => ({
+                idx,
+                dimensionName: d.name,
+                agent: agents.find(
+                  (a) => a.role === 'researcher' && a.dimension === d.name
+                ),
+              }))
+            : roleAgents.map((a, idx) => ({
+                idx,
+                dimensionName: a.dimension,
+                agent: a,
+              }));
+
+        if (targets.length === 0) {
+          // 完全没启动也没拆完 → 仍画一个 idle 占位节点保留连线
+          nodes.push({
+            id: 'researcher',
+            name: 'Researcher',
+            role: 'researcher',
+            icon: ROLE_ICON.researcher,
+            status: 'idle',
+            colorKey: ROLE_COLOR_KEY.researcher,
+            avatarRole: ROLE_AVATAR.researcher,
+          });
+          researcherIds.push('researcher');
+          rowMap[r.rowIdx].push('researcher');
+          continue;
+        }
+
+        targets.forEach(({ idx, dimensionName, agent }) => {
+          const aStatus: TeamNodeStatus = agent
+            ? agent.phase === 'running'
               ? 'working'
-              : a.phase === 'completed'
+              : agent.phase === 'completed'
                 ? 'completed'
-                : a.phase === 'failed'
+                : agent.phase === 'failed'
                   ? 'failed'
-                  : 'idle';
+                  : 'idle'
+            : 'idle';
           const id = `researcher#${idx + 1}`;
+          const label = dimensionName
+            ? dimensionName.length > 6
+              ? dimensionName.slice(0, 6) + '…'
+              : dimensionName
+            : `R${idx + 1}`;
           nodes.push({
             id,
-            name: a.dimension
-              ? a.dimension.length > 6
-                ? a.dimension.slice(0, 6) + '…'
-                : a.dimension
-              : `R${idx + 1}`,
+            name: label,
             role: 'researcher',
             icon: ROLE_ICON.researcher,
             status: aStatus,
@@ -182,7 +218,9 @@ export function TeamRosterPanel({
                 ? '调研中'
                 : aStatus === 'completed'
                   ? '完成'
-                  : undefined,
+                  : aStatus === 'failed'
+                    ? '失败'
+                    : '待启动',
             colorKey: ROLE_COLOR_KEY.researcher,
             avatarRole: ROLE_AVATAR.researcher,
           });
@@ -217,11 +255,6 @@ export function TeamRosterPanel({
             : undefined,
       });
       rowMap[r.rowIdx].push(r.role);
-
-      // researcher 行没有任何 agent 时也要占位一个节点，避免 connections 找不到 'researcher'
-      if (r.role === 'researcher' && roleAgents.length === 0) {
-        researcherIds.push('researcher');
-      }
     }
 
     // ── Connections: fan-out from leader to all researchers, fan-in to analyst ──
