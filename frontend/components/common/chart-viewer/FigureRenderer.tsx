@@ -13,7 +13,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { ImageOff, ZoomIn, Loader2, AlertTriangle } from 'lucide-react';
-import type { ReportChart } from '@/types/topic-insights';
+import type { RenderableChart } from './types';
 import { ReportChartRenderer } from './ReportChartRenderer';
 import { ChartErrorBoundary } from './ChartErrorBoundary';
 import { CitationBadge } from '../citations/CitationBadge';
@@ -42,7 +42,7 @@ export interface FigureEvidenceInfo {
 
 interface FigureRendererProps {
   /** 图表/图片数据 */
-  chart: ReportChart;
+  chart: RenderableChart;
   /** 额外的 CSS 类名 */
   className?: string;
   /** 是否显示来源信息 */
@@ -60,9 +60,11 @@ interface FigureRendererProps {
 /**
  * 验证图表是否可以作为生成图表渲染
  */
-function isValidGeneratedChart(chart: ReportChart): chart is ReportChart & {
-  type: NonNullable<ReportChart['type']>;
-  data: NonNullable<ReportChart['data']>;
+function isValidGeneratedChart(
+  chart: RenderableChart
+): chart is RenderableChart & {
+  type: NonNullable<RenderableChart['type']>;
+  data: NonNullable<RenderableChart['data']>;
 } {
   return (
     chart.type !== undefined &&
@@ -76,7 +78,7 @@ function isValidGeneratedChart(chart: ReportChart): chart is ReportChart & {
  * 生成描述性的 alt 文本
  */
 function generateAltText(
-  chart: ReportChart,
+  chart: RenderableChart,
   t: (key: string) => string
 ): string {
   const parts: string[] = [];
@@ -271,7 +273,7 @@ function IncompleteChartPlaceholder({
   chart,
   onRetry,
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   onRetry?: () => void;
 }) {
   const { t } = useI18n();
@@ -309,7 +311,7 @@ function IncompleteChartPlaceholder({
 /**
  * 无法识别的图表类型占位符
  */
-function UnknownChartPlaceholder({ chart }: { chart: ReportChart }) {
+function UnknownChartPlaceholder({ chart }: { chart: RenderableChart }) {
   const { t } = useI18n();
 
   return (
@@ -353,7 +355,7 @@ function FigureSourceLine({
   evidenceInfo,
   onCitationClick,
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   evidenceInfo?: FigureEvidenceInfo;
   onCitationClick?: (citationIndex: number) => void;
 }) {
@@ -539,7 +541,7 @@ export function FigureGallery({
   isLoading = false,
   evidenceMap,
 }: {
-  charts: ReportChart[];
+  charts: RenderableChart[];
   className?: string;
   columns?: 1 | 2 | 3;
   onCitationClick?: (citationIndex: number) => void;

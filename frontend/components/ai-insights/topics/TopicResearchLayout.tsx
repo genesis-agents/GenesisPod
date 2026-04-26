@@ -17,8 +17,8 @@ import type {
   TopicReport,
   TopicEvidence,
 } from '@/types/topic-insights';
-import type { MissionStatus, TeamInfo } from '@/lib/api/topic-insights';
-import { checkEditPermission } from '@/lib/api/topic-insights';
+import type { MissionStatus, TeamInfo } from '@/services/topic-insights/api';
+import { checkEditPermission } from '@/services/topic-insights/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useI18n } from '@/lib/i18n';
 import { TopicTeamPanel } from './TopicTeamPanel';

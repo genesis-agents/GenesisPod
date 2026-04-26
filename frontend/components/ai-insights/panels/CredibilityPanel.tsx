@@ -36,7 +36,7 @@ import {
   type EvaluationDimension,
   type ChapterEvaluation,
   type RemediationTrace,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 
 // ==================== Types ====================
 

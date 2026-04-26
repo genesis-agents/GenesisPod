@@ -1,11 +1,12 @@
 /**
  * Topic Insights API Client
  *
- * 专题洞察模块的 API 调用
+ * TI 模块业务 API（按业务/平台分层原则归属业务侧 services 命名空间）。
+ * 平台层（lib/markdown / components/common）禁止直接 import 本文件。
  */
 
-import { getAuthTokens, refreshAccessToken, logout } from '../utils/auth';
-import { config } from '../utils/config';
+import { getAuthTokens, refreshAccessToken, logout } from '@/lib/utils/auth';
+import { config } from '@/lib/utils/config';
 import type {
   ResearchTopic,
   TopicDimension,
@@ -2572,10 +2573,10 @@ export async function getResumableMissions(): Promise<{
  */
 export async function getComputeUsage(
   topicId: string,
-  missionId?: string,
+  missionId?: string
 ): Promise<unknown> {
   const params = missionId ? `?missionId=${missionId}` : '';
   return fetchWithAuth(
-    `${API_PREFIX}/topics/${topicId}/compute-usage${params}`,
+    `${API_PREFIX}/topics/${topicId}/compute-usage${params}`
   );
 }

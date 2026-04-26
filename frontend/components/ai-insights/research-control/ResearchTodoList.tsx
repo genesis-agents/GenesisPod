@@ -39,7 +39,7 @@ import {
   cancelTodo,
   retryTodo,
   executeTodo,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 
 // ==================== Types ====================
 

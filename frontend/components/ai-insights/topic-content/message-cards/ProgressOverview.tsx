@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { UIMessage } from '../shared/types';
-import type { MissionStatus } from '@/lib/api/topic-insights';
+import type { MissionStatus } from '@/services/topic-insights/api';
 import { safeString } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
 

@@ -21,7 +21,7 @@ import {
   type AgentActivity,
   type TeamMessage,
   type DimensionResult,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 import {
   Calendar,
   Clock,

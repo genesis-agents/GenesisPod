@@ -12,7 +12,7 @@ import type {
   TopicDimension,
   TopicEvidence,
 } from '@/types/topic-insights';
-import type { MissionStatus } from '@/lib/api/topic-insights';
+import type { MissionStatus } from '@/services/topic-insights/api';
 
 // Annotation types
 export type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';

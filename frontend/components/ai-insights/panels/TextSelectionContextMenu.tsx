@@ -16,16 +16,10 @@ import type { AIEditOperation } from '../types';
 // Annotation color options
 type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
 
-// Selection info for AI edit
-export interface SelectionInfo {
-  text: string;
-  startOffset: number;
-  endOffset: number;
-  /** Context before the selection for reliable matching */
-  selectorPrefix?: string;
-  /** Context after the selection for reliable matching */
-  selectorSuffix?: string;
-}
+// SelectionInfo 已下沉到 lib/text-selection/types.ts 作为平台能力。
+// 此处 re-export 保留向后兼容。
+export type { SelectionInfo } from '@/lib/text-selection/types';
+import type { SelectionInfo } from '@/lib/text-selection/types';
 
 interface TextSelectionContextMenuProps {
   /** Container element reference */

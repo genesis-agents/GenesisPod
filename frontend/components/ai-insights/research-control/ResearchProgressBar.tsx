@@ -10,7 +10,7 @@
  */
 
 import { useI18n } from '@/lib/i18n';
-import type { MissionStatus } from '@/lib/api/topic-insights';
+import type { MissionStatus } from '@/services/topic-insights/api';
 
 interface ResearchProgressBarProps {
   missionStatus: MissionStatus | null;

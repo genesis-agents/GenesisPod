@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { logger } from '@/lib/utils/logger';
-import { updateTopic } from '@/lib/api/topic-insights';
+import { updateTopic } from '@/services/topic-insights/api';
 import { toast } from '@/stores';
 import { useI18n } from '@/lib/i18n';
 import {

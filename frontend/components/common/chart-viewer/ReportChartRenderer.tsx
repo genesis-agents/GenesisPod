@@ -35,10 +35,10 @@ import {
   ZAxis,
 } from 'recharts';
 import type {
-  ReportChart,
-  ChartDataPoint,
-  TopicEvidence,
-} from '@/types/topic-insights';
+  RenderableChart,
+  RenderableChartDataPoint,
+  RenderableEvidence,
+} from './types';
 import { triggerCitationClick } from '@/components/common/citations/citationNavigation';
 import { useI18n } from '@/lib/i18n';
 
@@ -62,9 +62,9 @@ const RISK_COLORS = {
 };
 
 interface ReportChartRendererProps {
-  chart: ReportChart;
+  chart: RenderableChart;
   className?: string;
-  evidences?: TopicEvidence[];
+  evidences?: RenderableEvidence[];
 }
 
 /**
@@ -75,7 +75,7 @@ function ChartSourceWithCitations({
   evidences,
 }: {
   source: string;
-  evidences?: TopicEvidence[];
+  evidences?: RenderableEvidence[];
 }) {
   const parts: (string | React.ReactElement)[] = [];
   const pattern = /\[(\d+)\]/g;
@@ -119,7 +119,7 @@ function ChartSourceWithCitations({
 /**
  * 从 chart metadata 提取单系列的有意义标签
  */
-function getSingleSeriesLabel(chart: ReportChart): string {
+function getSingleSeriesLabel(chart: RenderableChart): string {
   if (chart.yAxis?.label) return chart.yAxis.label;
   if (chart.title) {
     // 去掉括号及其内容（如 "GDP增长率（%）" → "GDP增长率"）
@@ -132,7 +132,7 @@ function getSingleSeriesLabel(chart: ReportChart): string {
  * 转换数据为 Recharts 格式
  */
 function transformData(
-  data: ChartDataPoint[],
+  data: RenderableChartDataPoint[],
   seriesLabel = 'value'
 ): Record<string, unknown>[] {
   // 检查是否有多系列数据
@@ -164,7 +164,7 @@ function transformData(
 /**
  * 获取系列名称列表
  */
-function getSeriesNames(data: ChartDataPoint[]): string[] {
+function getSeriesNames(data: RenderableChartDataPoint[]): string[] {
   const seriesSet = new Set<string>();
   data.forEach((d) => {
     if (d.series) {
@@ -182,7 +182,7 @@ function LineChartComponent({
   data,
   seriesLabel,
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   data: Record<string, unknown>[];
   seriesLabel: string;
 }) {
@@ -257,7 +257,7 @@ function BarChartComponent({
   data,
   seriesLabel,
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   data: Record<string, unknown>[];
   seriesLabel: string;
 }) {
@@ -326,7 +326,7 @@ function AreaChartComponent({
   data,
   seriesLabel,
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   data: Record<string, unknown>[];
   seriesLabel: string;
 }) {
@@ -392,7 +392,7 @@ function PieChartComponent({
   data,
   seriesLabel,
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   data: Record<string, unknown>[];
   seriesLabel: string;
 }) {
@@ -438,7 +438,7 @@ function RadarChartComponent({
   data,
   seriesLabel,
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   data: Record<string, unknown>[];
   seriesLabel: string;
 }) {
@@ -469,7 +469,7 @@ function RadarChartComponent({
 /**
  * 风险矩阵图（散点图）
  */
-function RiskMatrixComponent({ chart }: { chart: ReportChart }) {
+function RiskMatrixComponent({ chart }: { chart: RenderableChart }) {
   const { t } = useI18n();
   const chartData = chart.data || [];
   const data = chartData.map((d) => ({
@@ -573,8 +573,8 @@ function getChartTypeName(type: string, t: (key: string) => string): string {
  * 为屏幕阅读器生成图表数据摘要
  */
 function generateChartSummary(
-  chart: ReportChart,
-  data: ChartDataPoint[],
+  chart: RenderableChart,
+  data: RenderableChartDataPoint[],
   t: (key: string, params?: Record<string, string | number>) => string
 ): string {
   const typeName = getChartTypeName(chart.type || 'bar', t);
@@ -626,7 +626,7 @@ function ReferenceFigureRenderer({
   chart,
   className = '',
 }: {
-  chart: ReportChart;
+  chart: RenderableChart;
   className?: string;
 }) {
   if (!chart.imageUrl) {

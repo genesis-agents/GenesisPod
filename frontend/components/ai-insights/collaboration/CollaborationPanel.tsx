@@ -38,7 +38,7 @@ import {
   assignReviewTask,
   completeReviewTask,
   type ReviewTask as ApiReviewTask,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 
 // ==================== Types ====================
 

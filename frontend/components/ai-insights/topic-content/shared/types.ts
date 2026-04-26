@@ -2,7 +2,7 @@
  * Shared types for Topic Content Panel components
  */
 
-import type { MissionStatus } from '@/lib/api/topic-insights';
+import type { MissionStatus } from '@/services/topic-insights/api';
 
 // Message detail types
 export interface MessageDetail {

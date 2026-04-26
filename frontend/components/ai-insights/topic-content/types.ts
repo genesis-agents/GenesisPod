@@ -8,7 +8,7 @@ import type {
   TopicDimension,
   TopicEvidence,
 } from '@/types/topic-insights';
-import type { MissionStatus } from '@/lib/api/topic-insights';
+import type { MissionStatus } from '@/services/topic-insights/api';
 
 export type ReportViewMode = 'continuous' | 'chapter';
 

@@ -21,7 +21,7 @@ import type {
   MissionStatus,
   TaskStatus,
   LeaderDecision,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 import ClientDate from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n';
 

@@ -1,38 +1,39 @@
 'use client';
 
 /**
- * useAIEdit Hook
+ * useAIEdit Hook — 通用「选中文本 → AI 改写」工作流
  *
- * A hook that encapsulates all AI editing logic including:
- * - State management for input and preview modals
- * - API calls for AI editing
- * - Selection tracking and context gathering
- * - Error recovery and debounce protection
+ * 平台层 hook，**不直接调任何业务 API**，业务 API 通过 `executeEdit` 回调注入。
+ * 这样 AI Writing / AI Office / Agent Playground 等模块都能复用同一个 modal +
+ * 状态机，每个模块在自己的层注入自己的 endpoint。
  *
  * Usage:
  * ```tsx
  * const aiEdit = useAIEdit({
- *   topicId,
- *   reportId,
+ *   executeEdit: async (req) => {
+ *     // 业务方注入：可以是 aiEditReport(topicId, reportId, ...) /
+ *     // 也可以是 aiOfficeRewrite(slideId, ...) 等任何 endpoint
+ *     const r = await aiEditReport(topicId, reportId, {
+ *       operation: req.operation,
+ *       selectedText: req.selectedText,
+ *       context: req.instruction,
+ *       fullContent: req.fullContent,
+ *       selectorPrefix: req.selectorPrefix,
+ *       selectorSuffix: req.selectorSuffix,
+ *     });
+ *     return { editedContent: r.editedContent };
+ *   },
  *   onSuccess: () => toast.success('编辑已应用'),
- *   onError: (e) => toast.error(e.message),
  * });
  *
- * // Pass to TextSelectionContextMenu
  * <TextSelectionContextMenu onOpenAIEdit={aiEdit.handleOpenEdit} />
- *
- * // Render modals
  * {aiEdit.renderModals()}
  * ```
  */
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { aiEditReport } from '@/lib/api/topic-insights';
-import type {
-  AIEditOperation,
-  AIEditReportDto,
-} from '@/lib/api/topic-insights';
-import type { SelectionInfo } from '@/components/ai-insights/panels/TextSelectionContextMenu';
+import type { SelectionInfo } from '@/lib/text-selection/types';
+import type { AIEditOperation } from './types';
 import type { EditContext } from './AIEditInputModal';
 
 // Constants for validation
@@ -40,11 +41,37 @@ export const MAX_SELECTION_LENGTH = 2000;
 export const MAX_CONTEXT_LENGTH = 3000;
 export const MAX_INSTRUCTION_LENGTH = 500;
 
+/**
+ * 平台层"AI 编辑请求"契约 —— 业务方收到这个，自己决定调哪个后端。
+ */
+export interface AIEditRequest {
+  /** AI 操作类型，如 rewrite / shorten / expand */
+  operation: AIEditOperation;
+  /** 用户选中的原文 */
+  selectedText: string;
+  /** 用户输入的额外指令（自然语言） */
+  instruction: string;
+  /** 选区周围的全文（已截断到 MAX_CONTEXT_LENGTH） */
+  fullContent?: string;
+  /** 选区前的上下文，便于 fuzzy match */
+  selectorPrefix?: string;
+  /** 选区后的上下文 */
+  selectorSuffix?: string;
+  /** 业务方可借助 AbortController 取消请求 */
+  signal?: AbortSignal;
+}
+
+/** 平台层"AI 编辑响应"契约 —— 只关心 editedContent。 */
+export interface AIEditResponse {
+  editedContent: string;
+}
+
 export interface UseAIEditOptions {
-  /** Topic ID for API calls */
-  topicId: string;
-  /** Report ID for API calls */
-  reportId: string;
+  /**
+   * ★ 业务方注入：执行实际 AI 编辑调用。
+   * 平台 hook 不关心是 TI / AI Writing / Office —— 业务侧适配自己的 API。
+   */
+  executeEdit: (req: AIEditRequest) => Promise<AIEditResponse>;
   /** Callback when edit is successfully applied */
   onSuccess?: (editedText: string, originalText: string) => void;
   /** Callback on error */
@@ -127,8 +154,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function useAIEdit({
-  topicId,
-  reportId,
+  executeEdit,
   onSuccess,
   onError,
   context,
@@ -209,13 +235,14 @@ export function useAIEdit({
   const handleSubmitEdit = useCallback(
     async (editInstruction: string, operation?: AIEditOperation) => {
       // Prevent concurrent requests
-      if (isLoading || !topicId || !reportId || !selectedText) {
+      if (isLoading || !selectedText) {
         return;
       }
 
       // Cancel any pending request
       pendingRequestRef.current?.abort();
-      pendingRequestRef.current = new AbortController();
+      const ctrl = new AbortController();
+      pendingRequestRef.current = ctrl;
 
       setInstruction(editInstruction);
       setLastOperation(operation);
@@ -226,18 +253,15 @@ export function useAIEdit({
       setEditedText(''); // Clear previous result
 
       try {
-        // Build the API request with context matching info
-        const dto: AIEditReportDto = {
+        const result = await executeEdit({
           operation: operation || 'rewrite',
           selectedText,
-          context: editInstruction,
+          instruction: editInstruction,
           fullContent: fullContent?.slice(0, MAX_CONTEXT_LENGTH),
-          // Pass selector context for reliable text matching
           selectorPrefix: selectionInfo?.selectorPrefix,
           selectorSuffix: selectionInfo?.selectorSuffix,
-        };
-
-        const result = await aiEditReport(topicId, reportId, dto);
+          signal: ctrl.signal,
+        });
 
         // Only update state if still mounted
         if (isMountedRef.current) {
@@ -261,7 +285,7 @@ export function useAIEdit({
         }
       }
     },
-    [isLoading, topicId, reportId, selectedText, fullContent, onError]
+    [isLoading, selectedText, selectionInfo, fullContent, executeEdit, onError]
   );
 
   // Handle applying the edit
@@ -294,24 +318,23 @@ export function useAIEdit({
 
     // Cancel any pending request
     pendingRequestRef.current?.abort();
-    pendingRequestRef.current = new AbortController();
+    const ctrl = new AbortController();
+    pendingRequestRef.current = ctrl;
 
     setIsLoading(true);
     setError(null);
     setEditedText(''); // Clear previous result
 
     try {
-      const dto: AIEditReportDto = {
+      const result = await executeEdit({
         operation: lastOperation || 'rewrite',
         selectedText,
-        context: instruction,
+        instruction,
         fullContent: fullContent?.slice(0, MAX_CONTEXT_LENGTH),
-        // Pass selector context for reliable text matching
         selectorPrefix: selectionInfo?.selectorPrefix,
         selectorSuffix: selectionInfo?.selectorSuffix,
-      };
-
-      const result = await aiEditReport(topicId, reportId, dto);
+        signal: ctrl.signal,
+      });
 
       if (isMountedRef.current) {
         setEditedText(result.editedContent || '');
@@ -332,13 +355,12 @@ export function useAIEdit({
       }
     }
   }, [
-    topicId,
-    reportId,
     selectedText,
     selectionInfo,
     instruction,
     lastOperation,
     fullContent,
+    executeEdit,
     onError,
     isLoading,
   ]);

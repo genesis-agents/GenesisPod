@@ -40,8 +40,8 @@ import type {
   TaskStatus,
   TeamInfo,
   LeaderDecisionType,
-} from '@/lib/api/topic-insights';
-import { leaderChat, getTeamMessages } from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
+import { leaderChat, getTeamMessages } from '@/services/topic-insights/api';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 // TaskStatus is used in type annotations below
 

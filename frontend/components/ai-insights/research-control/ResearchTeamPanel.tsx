@@ -28,7 +28,7 @@ import type {
   AgentInfo,
   TeamInfo,
   MissionStatus,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 
 /**
  * ★ 类型守卫：验证是否为非空字符串数组

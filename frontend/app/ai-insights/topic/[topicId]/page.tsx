@@ -10,7 +10,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { TopicDetail } from '@/components/ai-insights';
 import type { ResearchTopic } from '@/types/topic-insights';
-import * as api from '@/lib/api/topic-insights';
+import * as api from '@/services/topic-insights/api';
 import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import SignInPrompt from '@/components/common/SignInPrompt';

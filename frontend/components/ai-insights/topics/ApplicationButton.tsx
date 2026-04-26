@@ -12,7 +12,7 @@ import {
   applyToJoin,
   getMyApplicationStatus,
   type CollaboratorStatus,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 import { useTranslation } from '@/lib/i18n';
 
 interface ApplicationButtonProps {

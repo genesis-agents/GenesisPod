@@ -14,7 +14,7 @@ import Link from 'next/link';
 import {
   getSharedTopic,
   getSharedTopicLatestReport,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 import type {
   ResearchTopic,
   TopicReport,

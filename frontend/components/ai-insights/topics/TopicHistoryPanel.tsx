@@ -7,7 +7,7 @@
  */
 
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
-import type { ResearchHistoryItem } from '@/lib/api/topic-insights';
+import type { ResearchHistoryItem } from '@/services/topic-insights/api';
 
 import { logger } from '@/lib/utils/logger';
 

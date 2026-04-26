@@ -28,7 +28,10 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-insights';
+import {
+  getTodoDetails,
+  getTaskActivities,
+} from '@/services/topic-insights/api';
 import { ClientDate } from '@/components/common/ClientDate';
 import { ReviewResultCard } from '../collaboration/ReviewResultCard';
 import { useI18n } from '@/lib/i18n';
@@ -42,7 +45,7 @@ import type {
   ResearchTodoType,
   TodoResult,
 } from '@/types/topic-insights';
-import type { AgentActivity } from '@/lib/api/topic-insights';
+import type { AgentActivity } from '@/services/topic-insights/api';
 import { cn, safeString } from '@/lib/utils/common';
 
 import { logger } from '@/lib/utils/logger';

@@ -21,3 +21,11 @@ export {
   ChartErrorBoundary,
   withChartErrorBoundary,
 } from './ChartErrorBoundary';
+// ★ 平台层结构性类型 — 业务方的 ReportChart / SlidesChart 等只要满足
+//   shape 即可直接传入，不必类型转换。
+export type {
+  RenderableChart,
+  RenderableChartDataPoint,
+  RenderableChartSourceType,
+  RenderableEvidence,
+} from './types';

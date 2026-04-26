@@ -17,7 +17,7 @@ import { ResearchTodoList } from '../research-control/ResearchTodoList';
 import { TodoDetailPanel } from '../panels/TodoDetailPanel';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useI18n } from '@/lib/i18n';
-import type { MissionStatus, TaskStatus } from '@/lib/api/topic-insights';
+import type { MissionStatus, TaskStatus } from '@/services/topic-insights/api';
 import type {
   ResearchTodo,
   ResearchTodoStatus,

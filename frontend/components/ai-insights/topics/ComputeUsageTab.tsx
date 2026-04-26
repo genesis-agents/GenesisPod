@@ -32,7 +32,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { getProviderBrand } from '@/lib/ai-provider-logos';
 import { logger } from '@/lib/utils/logger';
-import { getComputeUsage } from '@/lib/api/topic-insights';
+import { getComputeUsage } from '@/services/topic-insights/api';
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -288,7 +288,9 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
   const totalActions = steps.reduce((s, st) => s + st.actions.length, 0);
 
   // 构建树：顶层 = 没有 parentStepId 的，子 step 按维度名前缀归属
-  const topLevel = steps.filter((s) => !s.parentStepId && !s.name.includes('/'));
+  const topLevel = steps.filter(
+    (s) => !s.parentStepId && !s.name.includes('/')
+  );
   const subSteps = steps.filter((s) => s.parentStepId || s.name.includes('/'));
 
   // 为每个顶层 step 找到子 step（通过名称前缀匹配）
@@ -316,21 +318,37 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
         </thead>
         <tbody>
           {actions.map((action, ai) => (
-            <tr key={`${action.name}-${ai}`} className="border-t border-gray-50 hover:bg-blue-50/30">
+            <tr
+              key={`${action.name}-${ai}`}
+              className="border-t border-gray-50 hover:bg-blue-50/30"
+            >
               <td className="py-1 pr-2 text-gray-600">{action.name || '—'}</td>
-              <td className="max-w-[120px] truncate py-1 pr-2 text-gray-400" title={action.model}>
-                {action.model.length > 18 ? action.model.slice(0, 18) + '…' : action.model}
+              <td
+                className="max-w-[120px] truncate py-1 pr-2 text-gray-400"
+                title={action.model}
+              >
+                {action.model.length > 18
+                  ? action.model.slice(0, 18) + '…'
+                  : action.model}
               </td>
               <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
                 {action.ttftMs != null
-                  ? action.ttftMs < 1000 ? `${Math.round(action.ttftMs)}ms` : `${(action.ttftMs / 1000).toFixed(1)}s`
+                  ? action.ttftMs < 1000
+                    ? `${Math.round(action.ttftMs)}ms`
+                    : `${(action.ttftMs / 1000).toFixed(1)}s`
                   : '—'}
               </td>
               <td className="py-1 pr-2 text-right font-medium tabular-nums text-gray-600">
-                {action.ttltMs < 1000 ? `${Math.round(action.ttltMs)}ms` : `${(action.ttltMs / 1000).toFixed(1)}s`}
+                {action.ttltMs < 1000
+                  ? `${Math.round(action.ttltMs)}ms`
+                  : `${(action.ttltMs / 1000).toFixed(1)}s`}
               </td>
-              <td className="py-1 pr-2 text-right tabular-nums text-gray-400">{formatNumber(action.inputTokens)}</td>
-              <td className="py-1 text-right tabular-nums text-gray-400">{formatNumber(action.outputTokens)}</td>
+              <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
+                {formatNumber(action.inputTokens)}
+              </td>
+              <td className="py-1 text-right tabular-nums text-gray-400">
+                {formatNumber(action.outputTokens)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -364,13 +382,20 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
                 <span className="text-gray-400">
                   {!hasContent ? '·' : isOpen ? '▼' : '▶'}
                 </span>
-                <span className="flex-1 truncate font-medium text-gray-700" title={parent.name}>
+                <span
+                  className="flex-1 truncate font-medium text-gray-700"
+                  title={parent.name}
+                >
                   {parentLabel}
                 </span>
-                <span className="shrink-0 tabular-nums text-gray-500">{formatDuration(parent.durationMs)}</span>
+                <span className="shrink-0 tabular-nums text-gray-500">
+                  {formatDuration(parent.durationMs)}
+                </span>
                 {hasContent && (
                   <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] tabular-nums text-gray-400">
-                    {children.length > 0 ? `${children.length} sub-steps` : `${parent.actions.length} actions`}
+                    {children.length > 0
+                      ? `${children.length} sub-steps`
+                      : `${parent.actions.length} actions`}
                   </span>
                 )}
               </button>
@@ -380,19 +405,34 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
                     children.map((child, ci) => {
                       const childKey = `c-${idx}-${ci}`;
                       const childOpen = expanded[childKey] ?? false;
-                      const childLabel = child.name.includes('/') ? child.name.split('/').pop() || child.name : child.name;
+                      const childLabel = child.name.includes('/')
+                        ? child.name.split('/').pop() || child.name
+                        : child.name;
                       return (
                         <div key={childKey} className="my-0.5">
                           <button
                             type="button"
-                            onClick={() => child.actions.length > 0 && toggle(childKey)}
+                            onClick={() =>
+                              child.actions.length > 0 && toggle(childKey)
+                            }
                             className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-gray-50"
                           >
                             <span className="text-gray-300">
-                              {child.actions.length === 0 ? '·' : childOpen ? '▾' : '▸'}
+                              {child.actions.length === 0
+                                ? '·'
+                                : childOpen
+                                  ? '▾'
+                                  : '▸'}
                             </span>
-                            <span className="flex-1 truncate text-gray-600" title={child.name}>{childLabel}</span>
-                            <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{formatDuration(child.durationMs)}</span>
+                            <span
+                              className="flex-1 truncate text-gray-600"
+                              title={child.name}
+                            >
+                              {childLabel}
+                            </span>
+                            <span className="shrink-0 text-[11px] tabular-nums text-gray-400">
+                              {formatDuration(child.durationMs)}
+                            </span>
                             {child.actions.length > 0 && (
                               <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] tabular-nums text-blue-400">
                                 {child.actions.length} actions
@@ -400,7 +440,9 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
                             )}
                           </button>
                           {childOpen && child.actions.length > 0 && (
-                            <div className="ml-5 pl-2">{renderActions(child.actions)}</div>
+                            <div className="ml-5 pl-2">
+                              {renderActions(child.actions)}
+                            </div>
                           )}
                         </div>
                       );
@@ -439,7 +481,7 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
         setError(null);
         const result = (await getComputeUsage(
           topicId,
-          selectedMissionId,
+          selectedMissionId
         )) as ComputeUsageData;
         if (!cancelled) {
           setData(result);
@@ -642,9 +684,7 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
           </span>
           <select
             value={selectedMissionId ?? data.currentMissionId ?? ''}
-            onChange={(e) =>
-              setSelectedMissionId(e.target.value || undefined)
-            }
+            onChange={(e) => setSelectedMissionId(e.target.value || undefined)}
             className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 shadow-sm focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-200"
           >
             {data.missions.map((m, idx) => (
@@ -662,16 +702,16 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
                       day: '2-digit',
                       hour: '2-digit',
                       minute: '2-digit',
-                    })}
-                {' '}
-                ({m.status === 'COMPLETED'
+                    })}{' '}
+                (
+                {m.status === 'COMPLETED'
                   ? t('topicResearch.computeUsage.statusCompleted')
                   : m.status === 'EXECUTING'
                     ? t('topicResearch.computeUsage.statusExecuting')
                     : m.status === 'FAILED'
                       ? t('topicResearch.computeUsage.statusFailed')
-                      : m.status})
-                {m.researchDepth ? ` · ${m.researchDepth}` : ''}
+                      : m.status}
+                ){m.researchDepth ? ` · ${m.researchDepth}` : ''}
               </option>
             ))}
           </select>

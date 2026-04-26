@@ -44,7 +44,7 @@ import type {
   TopicDimension,
   TopicEvidence,
 } from '@/types/topic-insights';
-import type { MissionStatus } from '@/lib/api/topic-insights';
+import type { MissionStatus } from '@/services/topic-insights/api';
 import {
   getAnnotations,
   createAnnotation,
@@ -57,7 +57,7 @@ import {
   getReport,
   type ReportAnnotation as ApiReportAnnotation,
   type AIEditOperation as AIEditOperationType,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 import { ReportEditPanel } from '../reports/ReportEditPanel';
 import { ChapterizedReportView } from '../reports/ChapterizedReportView';
 import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
@@ -548,11 +548,25 @@ export function TopicContentPanel({
     setShowRegenerateDialog(true);
   }, []);
 
-  // ★ AI Edit Hook - 统一的 AI 编辑逻辑
+  // ★ AI Edit Hook - 业务方注入 TI 的 aiEditReport 调用，hook 本身不耦合 TI
   const aiEdit = useAIEdit({
-    topicId: topicId || '',
-    reportId: report?.id || '',
-    onSuccess: (editedText) => {
+    executeEdit: async (req) => {
+      const tid = topicId || '';
+      const rid = report?.id || '';
+      if (!tid || !rid) {
+        throw new Error('Topic / report not loaded');
+      }
+      const r = await aiEditReport(tid, rid, {
+        operation: req.operation,
+        selectedText: req.selectedText,
+        context: req.instruction,
+        fullContent: req.fullContent,
+        selectorPrefix: req.selectorPrefix,
+        selectorSuffix: req.selectorSuffix,
+      });
+      return { editedContent: r.editedContent || '' };
+    },
+    onSuccess: () => {
       setToast({
         message: t('topicResearch.contentPanel.toast.aiEditApplied'),
         type: 'success',

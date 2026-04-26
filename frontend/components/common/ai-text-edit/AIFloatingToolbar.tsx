@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useI18n } from '@/lib/i18n';
-import type { AIEditOperation } from '@/components/ai-insights/types';
+import type { AIEditOperation } from './types';
 
 // Text selection info with DOMRect for positioning
 export interface TextSelectionWithRect {

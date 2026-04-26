@@ -151,7 +151,7 @@ import {
   getCredibilityReport,
   regenerateCredibilityReport,
   regenerateReportContent,
-} from '../topic-insights';
+} from './api';
 import {
   ResearchTopicType,
   ResearchTopicStatus,
@@ -2406,7 +2406,7 @@ describe('getTeamMessages', () => {
       wrappedResponse([{ id: 'msg-1', content: 'Hello' }])
     );
 
-    await import('../topic-insights').then(({ getTeamMessages }) =>
+    await import('./api').then(({ getTeamMessages }) =>
       getTeamMessages('topic-1')
     );
 
@@ -2421,7 +2421,7 @@ describe('getTeamMessages', () => {
       wrappedResponse([])
     );
 
-    await import('../topic-insights').then(({ getTeamMessages }) =>
+    await import('./api').then(({ getTeamMessages }) =>
       getTeamMessages('topic-1', { limit: 50, missionId: 'mission-abc' })
     );
 
@@ -2442,7 +2442,7 @@ describe('getAgentActivities', () => {
       wrappedResponse([{ id: 'act-1', agentName: 'Researcher' }])
     );
 
-    await import('../topic-insights').then(({ getAgentActivities }) =>
+    await import('./api').then(({ getAgentActivities }) =>
       getAgentActivities('topic-1')
     );
 
@@ -2457,7 +2457,7 @@ describe('getAgentActivities', () => {
       wrappedResponse([])
     );
 
-    await import('../topic-insights').then(({ getAgentActivities }) =>
+    await import('./api').then(({ getAgentActivities }) =>
       getAgentActivities('topic-1', {
         limit: 30,
         missionId: 'mission-1',
@@ -2487,7 +2487,7 @@ describe('leaderChat', () => {
       })
     );
 
-    await import('../topic-insights').then(({ leaderChat }) =>
+    await import('./api').then(({ leaderChat }) =>
       leaderChat('topic-1', 'What is the status?')
     );
 
@@ -2506,7 +2506,7 @@ describe('leaderChat', () => {
       })
     );
 
-    await import('../topic-insights').then(({ leaderChat }) =>
+    await import('./api').then(({ leaderChat }) =>
       leaderChat('topic-1', 'Pause research', 'mission-42')
     );
 
@@ -2532,14 +2532,12 @@ describe('waitForExportCompletion', () => {
       })
     );
 
-    await import('../topic-insights').then(({ waitForExportCompletion }) =>
+    await import('./api').then(({ waitForExportCompletion }) =>
       waitForExportCompletion('topic-1', 'report-1', {
         format: 'pdf',
-      } as Parameters<typeof import('../topic-insights').exportReport>[2]).then(
-        (url) => {
-          expect(url).toBe('https://cdn.example.com/file.pdf');
-        }
-      )
+      } as Parameters<typeof import('./api').exportReport>[2]).then((url) => {
+        expect(url).toBe('https://cdn.example.com/file.pdf');
+      })
     );
   });
 
@@ -2552,10 +2550,10 @@ describe('waitForExportCompletion', () => {
     );
 
     await expect(
-      import('../topic-insights').then(({ waitForExportCompletion }) =>
+      import('./api').then(({ waitForExportCompletion }) =>
         waitForExportCompletion('topic-1', 'report-1', {
           format: 'pdf',
-        } as Parameters<typeof import('../topic-insights').exportReport>[2])
+        } as Parameters<typeof import('./api').exportReport>[2])
       )
     ).rejects.toThrow('Export failed due to timeout');
   });
@@ -2566,10 +2564,10 @@ describe('waitForExportCompletion', () => {
     );
 
     await expect(
-      import('../topic-insights').then(({ waitForExportCompletion }) =>
+      import('./api').then(({ waitForExportCompletion }) =>
         waitForExportCompletion('topic-1', 'report-1', {
           format: 'pdf',
-        } as Parameters<typeof import('../topic-insights').exportReport>[2])
+        } as Parameters<typeof import('./api').exportReport>[2])
       )
     ).rejects.toThrow('导出任务创建失败');
   });
