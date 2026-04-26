@@ -22,9 +22,13 @@ import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
 import { SpecAgentRegistry } from "../../harness/core/spec-agent-registry";
 import { AiChatModelConfigService } from "../../llm/services/ai-chat-model-config.service";
+import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { ToolCircuitBreaker } from "../../harness/executor/tool-circuit-breaker";
 import type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
+  RuntimeCostTier,
   RuntimeModelCapability,
   RuntimeModelType,
   RuntimeToolCapability,
@@ -50,6 +54,9 @@ export class RuntimeEnvironmentService {
     @Optional() private readonly specAgentRegistry?: SpecAgentRegistry,
     @Optional()
     private readonly modelConfigService?: AiChatModelConfigService,
+    @Optional() private readonly keyResolver?: KeyResolverService,
+    @Optional() private readonly secrets?: SecretsService,
+    @Optional() private readonly toolCircuitBreaker?: ToolCircuitBreaker,
   ) {
     // P1-5: registry @Optional 是为了单元测试（没完整 DI 图）简单；
     // 生产环境（AppModule 完整组装）下这些必须到位，否则 snapshot 数据残缺。
@@ -85,13 +92,13 @@ export class RuntimeEnvironmentService {
       if (cached && cached.expiresAt > Date.now()) return cached.snapshot;
     }
 
-    const [models, tools] = await Promise.all([
+    const [models, tools, userKeys] = await Promise.all([
       this.discoverModels(),
       this.discoverTools(),
+      this.discoverUserKeys(params.userId),
     ]);
     const agents = this.discoverAgents();
     const skills = this.discoverSkills();
-    const userKeys = this.discoverUserKeys(params.userId);
     const externalDeps = this.discoverExternalDeps();
 
     const snapshot: EnvironmentSnapshot = {
@@ -175,6 +182,8 @@ export class RuntimeEnvironmentService {
           // supportsVision 是 VISION 桶的唯一权威来源：DB AIModelType enum
           // 不含 VISION，只有通过 supportsVision=true 才能识别多模态模型。
           supportsVision: true,
+          // costTier 从 DB 读，不再用模型名 startsWith 启发式
+          costTier: true,
         },
       });
 
@@ -212,13 +221,27 @@ export class RuntimeEnvironmentService {
       for (const row of rows) {
         const s = errorMap.get(row.modelId);
         const errorRate = s && s.calls > 0 ? s.errors / s.calls : undefined;
+        // ★ healthy 三态：errorRate undefined 不再当 healthy（是 unknown）
+        //   - 已知错误率 < 50% → healthy
+        //   - 已知错误率 >= 50% → unhealthy
+        //   - 无数据（新接 BYOK / 从未调用过）→ unknown，让 caller 显式处理
+        const healthy: RuntimeModelCapability["healthy"] =
+          errorRate === undefined
+            ? "unknown"
+            : errorRate < 0.5
+              ? "healthy"
+              : "unhealthy";
+        // ★ costTier 从 DB 读；DB 没配 → "unknown"（不再字符串启发式）
+        const costTier: RuntimeCostTier = isValidCostTier(row.costTier)
+          ? (row.costTier as RuntimeCostTier)
+          : "unknown";
         const cap: RuntimeModelCapability = {
           modelId: row.modelId,
           provider: row.provider,
           modelType: row.modelType as RuntimeModelType,
           contextWindow: row.maxTokens,
-          costTier: inferCostTier(row.modelId),
-          healthy: errorRate === undefined || errorRate < 0.5,
+          costTier,
+          healthy,
           recentErrorRate: errorRate,
         };
         const bucket = result[row.modelType as RuntimeModelType];
@@ -293,14 +316,36 @@ export class RuntimeEnvironmentService {
     try {
       const tools = this.toolRegistry.getAll();
       return Promise.resolve(
-        tools.map((t) => ({
-          toolId: t.id,
-          name: t.name,
-          category: t.category,
-          enabled: t.enabled !== false,
-          // MVP: 以 enabled 作为 healthy；后续接入各 tool 自己的 health probe
-          healthy: t.enabled !== false,
-        })),
+        tools.map((t) => {
+          // ★ 用既有的 ToolCircuitBreaker 作为真实健康反馈，不再造假绿灯：
+          //   - enabled=false → unhealthy（操作员显式禁用）
+          //   - circuit breaker open → unhealthy（连续失败 3 次自动熔断）
+          //   - circuit breaker half-open → unknown（冷却中允许试探）
+          //   - circuit breaker closed → unknown（从未失败 ≠ 已知 healthy；
+          //     只有真实运行中没出过错可以退而求其次当 unknown 表达"暂无负面信号"）
+          const enabled = t.enabled !== false;
+          const cbState = this.toolCircuitBreaker?.getState(t.id) ?? "closed";
+          const healthy: RuntimeToolCapability["healthy"] = !enabled
+            ? "unhealthy"
+            : cbState === "open"
+              ? "unhealthy"
+              : "unknown";
+          const note = !enabled
+            ? "disabled by operator"
+            : cbState === "open"
+              ? "circuit breaker open (consecutive failures)"
+              : cbState === "half-open"
+                ? "circuit breaker half-open (probing)"
+                : undefined;
+          return {
+            toolId: t.id,
+            name: t.name,
+            category: t.category,
+            enabled,
+            healthy,
+            note,
+          };
+        }),
       );
     } catch (err) {
       this.logger.warn(
@@ -320,38 +365,60 @@ export class RuntimeEnvironmentService {
     }
   }
 
-  private discoverUserKeys(_userId: string): EnvironmentSnapshot["userKeys"] {
-    // KeyResolverService 暂不注入（模块依赖待梳理）；先返回保守值：
-    // - 无 BYOK（避免误判）
-    // - sharedKey 假设可用（AiChatService 自己兜底）
-    // 后续接入：
-    //   - hasByok / byokProviders ← KeyResolverService.resolveForUser
-    //   - sharedKeyAvailable ← SecretsService.probeSystemKey
+  private async discoverUserKeys(
+    userId: string,
+  ): Promise<EnvironmentSnapshot["userKeys"]> {
+    // ★ 接真服务，不再写死 hasByok=false / sharedKeyAvailable=true。
+    // KeyResolverService.getAvailableProviders 已经合并了 personal + assigned key 来源。
+    // SecretsService.listAvailableProviders 给出系统级可用的 provider 列表。
+    let byokProviders: string[] = [];
+    if (this.keyResolver) {
+      try {
+        byokProviders = await this.keyResolver.getAvailableProviders(userId);
+      } catch (err) {
+        this.logger.warn(
+          `discoverUserKeys: KeyResolverService.getAvailableProviders failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    } else {
+      this.logger.warn(
+        "discoverUserKeys: KeyResolverService not injected — userKeys.hasByok will always be false. " +
+          "Wire KeyResolverModule into RuntimeResourceModule to fix.",
+      );
+    }
+
+    let sharedKeyProviders: string[] = [];
+    if (this.secrets) {
+      try {
+        sharedKeyProviders = await this.secrets.listAvailableProviders();
+      } catch (err) {
+        this.logger.warn(
+          `discoverUserKeys: SecretsService.listAvailableProviders failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
     return {
-      hasByok: false,
-      byokProviders: [],
-      sharedKeyAvailable: true,
+      hasByok: byokProviders.length > 0,
+      byokProviders,
+      // sharedKeyAvailable 只有在确实查到至少一个系统 key 时为 true，
+      // 不再"假设可用"。
+      sharedKeyAvailable: sharedKeyProviders.length > 0,
     };
   }
 
   private discoverExternalDeps(): EnvironmentSnapshot["externalDeps"] {
-    // MVP：不主动 probe（避免启动给外部服务打探测请求）。
-    // 后续由 HealthCheckRunner 周期刷新 + 各 service 暴露状态。
-    const now = new Date().toISOString();
-    return {
-      tavily: { healthy: true, checkedAt: now, note: "not probed (MVP)" },
-      duckduckgo: { healthy: true, checkedAt: now, note: "not probed (MVP)" },
-      rag: { healthy: true, checkedAt: now, note: "not probed (MVP)" },
-      redis: { healthy: true, checkedAt: now, note: "not probed (MVP)" },
-    };
+    // ★ 不再写死 healthy=true 假报告。未接 probe 的依赖一律标 unknown。
+    //   要让某个依赖出现在 snapshot 里，应该实现真 probe 后填 healthy/unhealthy。
+    //   返回空对象——caller 看到 deps={} 就知道环境信息不可靠，不会被假绿灯误导。
+    return {};
   }
 }
 
-function inferCostTier(modelId: string): "cheap" | "standard" | "premium" {
-  const m = modelId.toLowerCase();
-  if (m.includes("mini") || m.includes("nano") || m.includes("haiku"))
-    return "cheap";
-  if (m.includes("opus") || m.includes("4.7") || m.includes("4-7"))
-    return "premium";
-  return "standard";
+function isValidCostTier(value: string | null | undefined): boolean {
+  return value === "basic" || value === "standard" || value === "strong";
 }

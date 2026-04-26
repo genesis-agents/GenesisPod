@@ -81,10 +81,13 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     for (const pool of Object.values(snap.models)) {
       const found = pool.find((m) => m.modelId === modelId);
       if (found) {
-        if (!found.healthy) {
+        // ★ 三态语义：unhealthy 才报 outage；unknown 不阻断（避免新接 BYOK
+        //   模型从未调用过被错杀），让 LLM 真去打一次，失败由 ToolCircuitBreaker
+        //   / metrics 表反过来更新 healthy。
+        if (found.healthy === "unhealthy") {
           const fallback = pool.find(
             (m) =>
-              m.healthy &&
+              m.healthy !== "unhealthy" &&
               m.costTier === found.costTier &&
               m.modelId !== modelId,
           );
@@ -110,7 +113,8 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     const all: IModelAvailability[] = [];
     for (const pool of Object.values(snap.models)) {
       for (const m of pool) {
-        all.push({ modelId: m.modelId, available: m.healthy });
+        // available = healthy !== "unhealthy"（unknown 也算可用）
+        all.push({ modelId: m.modelId, available: m.healthy !== "unhealthy" });
       }
     }
     return all;

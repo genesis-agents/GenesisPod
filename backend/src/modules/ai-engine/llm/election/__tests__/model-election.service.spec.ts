@@ -157,7 +157,7 @@ describe("ModelElectionService", () => {
       try {
         await service.elect(
           baseRequest({
-            candidates: [cand({ modelId: "gpt-4o", healthy: false })],
+            candidates: [cand({ modelId: "gpt-4o", healthy: "unhealthy" })],
           }),
         );
         fail("should have thrown");
@@ -287,8 +287,8 @@ describe("ModelElectionService", () => {
       const res = await service.elect(
         baseRequest({
           candidates: [
-            cand({ modelId: "gpt-4o", costTier: "premium" }),
-            cand({ modelId: "gpt-4o-mini", costTier: "cheap" }),
+            cand({ modelId: "gpt-4o", costTier: "strong" }),
+            cand({ modelId: "gpt-4o-mini", costTier: "basic" }),
           ],
           costBias: "cheap",
         }),
@@ -310,11 +310,11 @@ describe("ModelElectionService", () => {
       const res = await service.elect(
         baseRequest({
           candidates: [
-            cand({ modelId: "gpt-4o-mini", costTier: "cheap" }),
+            cand({ modelId: "gpt-4o-mini", costTier: "basic" }),
             cand({
               modelId: "claude-opus-4-0",
               provider: "anthropic",
-              costTier: "premium",
+              costTier: "strong",
             }),
           ],
           costBias: "quality",

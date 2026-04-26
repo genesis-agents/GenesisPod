@@ -2476,8 +2476,14 @@ model AIModel {
   defaultTimeoutMs        Int     @default(120000) @map("default_timeout_ms") // 推理模型需要更长时间
 
   // 价格配置（每百万 token）
-  priceInputPerMillion  Decimal? @map("price_input_per_million") @db.Decimal(10, 4)
-  priceOutputPerMillion Decimal? @map("price_output_per_million") @db.Decimal(10, 4)
+  priceInputPerMillion     Decimal? @map("price_input_per_million") @db.Decimal(10, 4)
+  priceOutputPerMillion    Decimal? @map("price_output_per_million") @db.Decimal(10, 4)
+  priceCacheReadPerMillion Decimal? @map("price_cache_read_per_million") @db.Decimal(10, 4)
+
+  // 成本档位（Harness BudgetAccountant downgrade 路径用）
+  // basic = 便宜（mini/nano/haiku 类）；standard = 主力对话；strong = 旗舰推理（opus/o1/gpt-5）
+  // 由管理员显式配置，不再用模型名 startsWith 启发式
+  costTier String? @map("cost_tier") @db.VarChar(16)
 
   // 模型优先级（用于 fallback 排序，数字越大优先级越高）
   priority Int @default(50)

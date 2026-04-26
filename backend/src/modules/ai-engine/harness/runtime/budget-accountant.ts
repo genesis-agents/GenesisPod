@@ -39,7 +39,13 @@ export class BudgetAccountant {
     return this.currentTier;
   }
 
+  /** 模型未在 ModelPricingRegistry 注册的累计调用次数（debug + warn 用） */
+  protected uncostedLLMCalls = 0;
+
   /**
+   * @param costUsd null = 模型未注册定价（DB 缺 costTier 或 price）。token 仍计入
+   *   tokensUsed（以触发 context window cap），但 cost 不增。uncostedLLMCalls++ 用于
+   *   暴露"假账"风险——caller 可在 snapshot 里看到有多少次 LLM 调用没算钱。
    * @param cacheReadTokens (PR-I 必修 #4) Anthropic prompt-cache 命中的 token 数。
    *   虽然计费按 1/10 价（已在 estimateCost 体现），但仍占用上下文窗口，必须计入 tokensUsed
    *   以防"context 已满但 budget 显未超 → provider 报 context-too-long"。
@@ -47,14 +53,19 @@ export class BudgetAccountant {
   accountLLM(
     promptTokens: number,
     completionTokens: number,
-    costUsd: number,
+    costUsd: number | null,
     cacheReadTokens = 0,
   ): void {
     this.tokensUsed += promptTokens + completionTokens + cacheReadTokens;
-    this.costUsd += costUsd;
+    if (costUsd == null) {
+      this.uncostedLLMCalls += 1;
+    } else {
+      this.costUsd += costUsd;
+    }
   }
 
-  accountTool(costUsd: number): void {
+  accountTool(costUsd: number | null): void {
+    if (costUsd == null) return;
     this.costUsd += costUsd;
   }
 
@@ -71,6 +82,7 @@ export class BudgetAccountant {
       tokensUsed: this.tokensUsed,
       costUsd: this.costUsd,
       currentTier: this.currentTier,
+      uncostedLLMCalls: this.uncostedLLMCalls,
     };
   }
 
@@ -79,5 +91,6 @@ export class BudgetAccountant {
     this.tokensUsed = snap.tokensUsed;
     this.costUsd = snap.costUsd;
     this.currentTier = snap.currentTier;
+    this.uncostedLLMCalls = snap.uncostedLLMCalls ?? 0;
   }
 }

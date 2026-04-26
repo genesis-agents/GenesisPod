@@ -106,6 +106,14 @@ export class ReflexionLoop implements IAgentLoop {
     // 必修 #6: 跟踪历轮最佳 output，超限时 emit 兜底 output（防止调用方拿空结果）
     let bestOutput: unknown = "";
     let bestScore = -Infinity;
+    /**
+     * Reflexion 跨 revision 熔断 —— ReActLoop 内的 consecutiveEmpty 计数在
+     * 每次 reactLoop.run() 重启时清零，碰不到 finalize+empty 模式（每个
+     * revision 只跑 1 次 ReActLoop iteration 就 finalize 了）。
+     * 在 Reflexion 层独立计数：连续 2 个 revision 拿到空 output → 模型废，
+     * 立即 abort，不浪费后续 revision 的 token。
+     */
+    let consecutiveEmptyOutput = 0;
 
     while (revision <= maxRevisions) {
       if (options?.signal?.aborted) {
@@ -140,6 +148,31 @@ export class ReflexionLoop implements IAgentLoop {
         if (ev.type === "output") {
           lastOutput = (ev.payload as { output: unknown }).output;
         }
+      }
+
+      // ★ Reflexion 层熔断：empty output 连续 2 个 revision → abort
+      const isEmptyOutput =
+        lastOutput == null ||
+        lastOutput === "" ||
+        (typeof lastOutput === "string" && lastOutput.trim() === "") ||
+        (typeof lastOutput === "object" &&
+          lastOutput !== null &&
+          Object.keys(lastOutput as Record<string, unknown>).length === 0);
+      if (isEmptyOutput) {
+        consecutiveEmptyOutput += 1;
+        if (consecutiveEmptyOutput >= 2) {
+          yield this.event(agentId, "error", {
+            message: `Reflexion 连续 ${consecutiveEmptyOutput} 个 revision 拿到空 output —— LLM 持续憋出最简空 finalize JSON。根因可能：(a) BYOK model id 在 provider 不存在 (b) reasoning model max_completion_tokens 不足让 CoT + visible output 同时装下 (c) prompt 让 LLM 完全无所适从。请检查 BYOK 模型配置或调高 budget.maxTokens`,
+            recoverable: false,
+          });
+          yield this.event(agentId, "output", { output: bestOutput });
+          yield this.event(agentId, "terminated", {
+            reason: "empty_llm_response",
+          });
+          return;
+        }
+      } else {
+        consecutiveEmptyOutput = 0;
       }
 
       // No verifiers → single-shot, return immediately

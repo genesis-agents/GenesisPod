@@ -170,6 +170,7 @@ export class AiApiCallerService {
     reasoningDepth?: string,
     outputSchema?: { type: string; schema: Record<string, unknown> },
     schemaStrict?: boolean,
+    isReasoning: boolean = false,
   ): Promise<ChatCompletionResult> {
     // ★ 关键修复：确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -178,14 +179,11 @@ export class AiApiCallerService {
     // ★ 数据库驱动：使用配置的 tokenParamName，无需硬编码判断
     const tokenParam = { [tokenParamName]: maxTokens };
 
-    // ★ 自适应：只有 o1/o3/o4 系列需要 reasoning_effort 参数
-    // GPT-5 系列虽然是推理模型，但不需要此参数（默认 none）
+    // ★ 数据库驱动：是否传 reasoning_effort 由 AIModelConfig.isReasoning 决定
+    // 不再用模型名 startsWith 字符串匹配（模型每月新增，硬编码必然过时）
+    // 新接 BYOK 的推理模型（gpt-5/6/o5/...），管理员在 DB 把 isReasoning 设为 true 即可
     const modelLower = modelId.toLowerCase();
-    const isO1O3O4Model =
-      modelLower.startsWith("o1") ||
-      modelLower.startsWith("o3") ||
-      modelLower.startsWith("o4");
-    const reasoningParam = isO1O3O4Model
+    const reasoningParam = isReasoning
       ? {
           reasoning_effort: reasoningDepth
             ? (REASONING_DEPTH_TO_EFFORT[reasoningDepth] ?? "low")
@@ -193,9 +191,9 @@ export class AiApiCallerService {
         }
       : {};
 
-    if (isO1O3O4Model) {
+    if (isReasoning) {
       this.logger.debug(
-        `[callOpenAICompatibleAPI] o1/o3/o4 model detected, adding reasoning_effort=${reasoningParam.reasoning_effort ?? "low"}`,
+        `[callOpenAICompatibleAPI] reasoning model (${modelId}), reasoning_effort=${reasoningParam.reasoning_effort}`,
       );
     }
 
@@ -581,17 +579,16 @@ export class AiApiCallerService {
     _reasoningDepth?: string,
     outputSchema?: { type: string; schema: Record<string, unknown> },
     schemaStrict?: boolean,
+    isReasoning: boolean = false,
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
 
-    // ★ "non-reasoning" contains "reasoning" — must exclude it
-    const lowerModelId = modelId.toLowerCase();
-    const isReasoningModel =
-      lowerModelId.includes("reasoning") &&
-      !lowerModelId.includes("non-reasoning");
+    // ★ 数据库驱动：是否走 reasoning 路径由 AIModelConfig.isReasoning 决定
+    // 不再用模型名 includes("reasoning") 启发式判断
     // xAI reasoning models use max_tokens (not max_completion_tokens like OpenAI o-series)
+    const isReasoningModel = isReasoning;
     const effectiveTokenParam = isReasoningModel
       ? "max_tokens"
       : tokenParamName;

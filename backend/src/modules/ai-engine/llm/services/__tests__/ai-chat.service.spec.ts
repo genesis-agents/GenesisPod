@@ -586,6 +586,7 @@ describe("AiChatService", () => {
         undefined, // reasoningDepth
         undefined, // outputSchema
         false, // useStrictMode
+        expect.any(Boolean), // isReasoning
       );
     });
 
@@ -616,6 +617,7 @@ describe("AiChatService", () => {
         undefined, // reasoningDepth
         undefined, // outputSchema
         false, // useStrictMode
+        expect.any(Boolean), // isReasoning
       );
     });
 
@@ -642,6 +644,7 @@ describe("AiChatService", () => {
         undefined, // reasoningDepth
         undefined, // outputSchema
         false, // useStrictMode
+        expect.any(Boolean), // isReasoning
       );
     });
 
@@ -1665,6 +1668,7 @@ describe("AiChatService", () => {
         undefined, // reasoningDepth
         undefined, // outputSchema
         false, // useStrictMode
+        expect.any(Boolean), // isReasoning
       );
     });
 
@@ -1694,6 +1698,7 @@ describe("AiChatService", () => {
         undefined, // reasoningDepth
         undefined, // outputSchema
         false, // useStrictMode
+        expect.any(Boolean), // isReasoning
       );
     });
 
@@ -1748,6 +1753,7 @@ describe("AiChatService", () => {
         undefined, // reasoningDepth
         undefined, // outputSchema
         false, // useStrictMode
+        expect.any(Boolean), // isReasoning
       );
     });
   });

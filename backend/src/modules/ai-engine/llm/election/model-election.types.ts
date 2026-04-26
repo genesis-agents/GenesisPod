@@ -42,9 +42,20 @@ export interface ElectionCandidate {
   readonly modelId: string;
   readonly provider: string;
   readonly modelType: AIModelType | "REASONING" | "VISION";
-  readonly healthy?: boolean;
+  /**
+   * 健康状态三态（与 RuntimeEnvironmentService 对齐）：
+   *   - "healthy" 已探测且健康
+   *   - "unhealthy" 已探测且不健康（错误率 >= 50%）
+   *   - "unknown" 无数据 / 未探测
+   * 旧 boolean? 形式已废除——unknown 不再被当 healthy 误用。
+   */
+  readonly healthy?: "healthy" | "unhealthy" | "unknown";
   readonly recentErrorRate?: number;
-  readonly costTier?: "cheap" | "standard" | "premium";
+  /**
+   * 与 DB AIModel.costTier 对齐：basic / standard / strong / unknown。
+   * 由管理员显式配置，不再是模型名 startsWith 启发式（cheap/premium 旧词废除）。
+   */
+  readonly costTier?: "basic" | "standard" | "strong" | "unknown";
 }
 
 export interface ElectionRequest {

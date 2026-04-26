@@ -54,7 +54,10 @@ describe("RuntimeEnvironmentService", () => {
       expect(snap.skills).toEqual(["sk-1", "sk-2"]);
     });
 
-    it("tool registry populates tools with healthy flag", async () => {
+    it("tool registry populates tools with three-state healthy", async () => {
+      // ★ 三态语义（PR 修：删假绿灯）：
+      //   - enabled=false → "unhealthy"（操作员显式禁用）
+      //   - enabled=true 但无 ToolCircuitBreaker 注入 → "unknown"（不再造假绿灯）
       const toolRegistry = {
         getAll: () => [
           { id: "t1", name: "Tool 1", category: "search", enabled: true },
@@ -69,8 +72,12 @@ describe("RuntimeEnvironmentService", () => {
       );
       const snap = await svc.snapshot({ userId: "u1" });
       expect(snap.tools).toHaveLength(2);
-      expect(snap.tools.find((t) => t.toolId === "t1")?.healthy).toBe(true);
-      expect(snap.tools.find((t) => t.toolId === "t2")?.healthy).toBe(false);
+      expect(snap.tools.find((t) => t.toolId === "t1")?.healthy).toBe(
+        "unknown",
+      );
+      expect(snap.tools.find((t) => t.toolId === "t2")?.healthy).toBe(
+        "unhealthy",
+      );
     });
   });
 

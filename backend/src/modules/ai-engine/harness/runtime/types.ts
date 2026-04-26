@@ -223,6 +223,11 @@ export interface BudgetSnapshot {
   readonly tokensUsed: number;
   readonly costUsd: number;
   readonly currentTier: "strong" | "standard" | "basic";
+  /**
+   * 模型未在 ModelPricingRegistry 注册的累计调用次数。
+   * > 0 表示 costUsd 是不完整的——caller 应警示用户去 DB 给那些 model 配 costTier+price。
+   */
+  readonly uncostedLLMCalls?: number;
 }
 
 /**

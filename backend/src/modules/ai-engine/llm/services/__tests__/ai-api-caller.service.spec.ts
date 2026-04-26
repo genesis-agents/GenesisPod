@@ -84,7 +84,7 @@ describe("AiApiCallerService", () => {
       expect(callArgs[0]).toContain("openai.com");
     });
 
-    it("should add reasoning_effort for o1 models", async () => {
+    it("should add reasoning_effort when isReasoning=true (DB-driven)", async () => {
       const apiResponse = {
         choices: [{ message: { content: "reasoning" } }],
         usage: { total_tokens: 200 },
@@ -99,13 +99,21 @@ describe("AiApiCallerService", () => {
         "o1-mini",
         messages,
         25000,
+        undefined, // temperature
+        120000, // timeout
+        "max_completion_tokens",
+        undefined, // responseFormat
+        undefined, // reasoningDepth
+        undefined, // outputSchema
+        undefined, // schemaStrict
+        true, // ★ isReasoning
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
     });
 
-    it("should add reasoning_effort for o3 models", async () => {
+    it("should map reasoningDepth=deep → reasoning_effort=high", async () => {
       const apiResponse = {
         choices: [{ message: { content: "reasoning" } }],
         usage: { total_tokens: 200 },
@@ -120,13 +128,51 @@ describe("AiApiCallerService", () => {
         "o3-mini",
         messages,
         25000,
+        undefined,
+        120000,
+        "max_completion_tokens",
+        undefined,
+        "deep", // reasoningDepth
+        undefined,
+        undefined,
+        true, // isReasoning
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "high");
+    });
+
+    it("should send reasoning_effort for ANY DB-flagged reasoning model (gpt-5/o5/etc)", async () => {
+      // ★ 防回归：模型每月新增，绝不依赖模型名 startsWith
+      const apiResponse = {
+        choices: [{ message: { content: "ok" } }],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-5.4", // 名字不是 o1/o3/o4 开头，仍应走 reasoning 路径
+        messages,
+        25000,
+        undefined,
+        120000,
+        "max_completion_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true, // ★ isReasoning from DB config
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
     });
 
-    it("should NOT add reasoning_effort for gpt-4o models", async () => {
+    it("should NOT add reasoning_effort when isReasoning=false (default)", async () => {
       const apiResponse = {
         choices: [{ message: { content: "normal" } }],
         usage: { total_tokens: 100 },
@@ -141,6 +187,29 @@ describe("AiApiCallerService", () => {
         "gpt-4o",
         messages,
         4000,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).not.toHaveProperty("reasoning_effort");
+    });
+
+    it("should NOT add reasoning_effort for o1 model when isReasoning param missing (DB not configured)", async () => {
+      // ★ 用户责任：管理员要在 DB 把推理模型 isReasoning 设为 true，
+      //   不配置就不传 reasoning_effort，模型走默认行为
+      const apiResponse = {
+        choices: [{ message: { content: "x" } }],
+        usage: { total_tokens: 50 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o1-mini",
+        messages,
+        25000,
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
@@ -328,7 +397,7 @@ describe("AiApiCallerService", () => {
 
     // ==================== reasoningDepth tests ====================
 
-    it("should use reasoningDepth='deep' as reasoning_effort='high' for o3 models", async () => {
+    it("should use reasoningDepth='deep' as reasoning_effort='high' (isReasoning=true)", async () => {
       const apiResponse = {
         choices: [{ message: { content: "deep reasoning" } }],
         usage: { total_tokens: 500 },
@@ -348,6 +417,9 @@ describe("AiApiCallerService", () => {
         "max_tokens",
         undefined,
         "deep",
+        undefined,
+        undefined,
+        true, // isReasoning
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
@@ -374,13 +446,16 @@ describe("AiApiCallerService", () => {
         "max_tokens",
         undefined,
         "moderate",
+        undefined,
+        undefined,
+        true, // isReasoning
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "medium");
     });
 
-    it("should fallback to reasoning_effort='low' when no reasoningDepth for o-series", async () => {
+    it("should fallback to reasoning_effort='low' when no reasoningDepth (isReasoning=true)", async () => {
       const apiResponse = {
         choices: [{ message: { content: "low" } }],
         usage: { total_tokens: 200 },
@@ -400,15 +475,18 @@ describe("AiApiCallerService", () => {
         "max_tokens",
         undefined,
         undefined, // no reasoningDepth
+        undefined,
+        undefined,
+        true, // isReasoning
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
     });
 
-    it("should support o4 models for reasoning_effort", async () => {
+    it("should send reasoning_effort for any DB-flagged reasoning model (no model name match)", async () => {
       const apiResponse = {
-        choices: [{ message: { content: "o4" } }],
+        choices: [{ message: { content: "ok" } }],
         usage: { total_tokens: 100 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -426,6 +504,9 @@ describe("AiApiCallerService", () => {
         "max_tokens",
         undefined,
         "deep",
+        undefined,
+        undefined,
+        true, // ★ DB-driven, not model-name pattern
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];

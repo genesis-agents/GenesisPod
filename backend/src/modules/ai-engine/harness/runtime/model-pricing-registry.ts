@@ -6,13 +6,25 @@
  *   2. BudgetAccountant.downgrade() 时按 tier 选下一个 modelId
  *   3. ReActLoop / Reflexion / PlanAct 共用，避免散落硬编码
  *
- * 来源：基于 LiteLLM cost_per_token 表的子集（截至 2026-04，可定期同步）。
- * 价格单位：每 1M token 美元（与 LiteLLM 一致）。最终 cost = (tokens / 1e6) * price。
+ * 数据源：**唯一来源是 DB `AIModel` 表**（priceInputPerMillion / priceOutputPerMillion
+ * / priceCacheReadPerMillion / costTier）。OnApplicationBootstrap 时从 DB hydrate。
+ * 不再持有 DEFAULT_TABLE 硬编码——模型每月新增，硬编码必然过时。BYOK 模型管理员
+ * 在后台填好价格 + tier，注册表自然包含。
  *
- * 为 Engine 内部统一表，不应被 AI App 业务层硬编码。
+ * Fallback 行为：
+ *   - get(unknownModelId) → null（caller 决定怎么办，不假装数据存在）
+ *   - estimateCost(unknownModelId) → null（**不再静默返 0**——0 USD 会让
+ *     BudgetAccountant 永远算 0 成本，downgrade 永不触发，是假账）
+ *   - pickModelForTier(tier) → 该 tier 下注册的第一个 modelId 或 null
  */
 
-import { Injectable } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  Optional,
+} from "@nestjs/common";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import type { ModelTier } from "./budget-accountant";
 
 export interface ModelPricing {
@@ -22,65 +34,102 @@ export interface ModelPricing {
   readonly inputPricePerM: number;
   /** USD per 1M output tokens */
   readonly outputPricePerM: number;
-  /** USD per 1M cache-write tokens (Anthropic). 0 if N/A. */
+  /** USD per 1M cache-write tokens (Anthropic). undefined if N/A. */
   readonly cacheWritePricePerM?: number;
   /** USD per 1M cache-read tokens. */
   readonly cacheReadPricePerM?: number;
 }
 
-const DEFAULT_TABLE: ModelPricing[] = [
-  // ── Anthropic Claude (2026-04 表) ──
-  {
-    modelId: "claude-opus-4-7",
-    tier: "strong",
-    inputPricePerM: 15,
-    outputPricePerM: 75,
-    cacheWritePricePerM: 18.75,
-    cacheReadPricePerM: 1.5,
-  },
-  {
-    modelId: "claude-sonnet-4-6",
-    tier: "standard",
-    inputPricePerM: 3,
-    outputPricePerM: 15,
-    cacheWritePricePerM: 3.75,
-    cacheReadPricePerM: 0.3,
-  },
-  {
-    modelId: "claude-haiku-4-5-20251001",
-    tier: "basic",
-    inputPricePerM: 1,
-    outputPricePerM: 5,
-    cacheWritePricePerM: 1.25,
-    cacheReadPricePerM: 0.1,
-  },
-  // ── OpenAI ──
-  { modelId: "gpt-5", tier: "strong", inputPricePerM: 10, outputPricePerM: 30 },
-  {
-    modelId: "gpt-4o",
-    tier: "standard",
-    inputPricePerM: 2.5,
-    outputPricePerM: 10,
-  },
-  {
-    modelId: "gpt-4o-mini",
-    tier: "basic",
-    inputPricePerM: 0.15,
-    outputPricePerM: 0.6,
-  },
-  // ── Grok ──
-  { modelId: "grok-4", tier: "strong", inputPricePerM: 5, outputPricePerM: 15 },
-  // ── Generic fallback ──
-  { modelId: "stub", tier: "basic", inputPricePerM: 0, outputPricePerM: 0 },
-];
+const VALID_TIERS: ReadonlySet<ModelTier> = new Set([
+  "strong",
+  "standard",
+  "basic",
+]);
 
 @Injectable()
-export class ModelPricingRegistry {
+export class ModelPricingRegistry implements OnApplicationBootstrap {
+  private readonly logger = new Logger(ModelPricingRegistry.name);
   private readonly byId = new Map<string, ModelPricing>();
   private readonly byTier = new Map<ModelTier, string[]>();
+  /** 已警告过的未知 modelId，避免日志洪水 */
+  private readonly warnedUnknown = new Set<string>();
 
-  constructor() {
-    for (const entry of DEFAULT_TABLE) this.register(entry);
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
+  async onApplicationBootstrap(): Promise<void> {
+    if (!this.prisma) {
+      this.logger.warn(
+        "PrismaService missing — pricing table will start empty. " +
+          "Caller must register() entries manually (test mode only).",
+      );
+      return;
+    }
+    await this.hydrateFromDb();
+  }
+
+  /**
+   * 从 AIModel 表加载所有启用的模型 → 注册价格 + tier
+   * 行为：
+   *   - costTier 缺失 → 跳过（warn）。管理员需在后台填好。
+   *   - priceInputPerMillion / priceOutputPerMillion 缺失 → 仍注册（tier 可用），
+   *     但 estimateCost 会返回 null。
+   */
+  async hydrateFromDb(): Promise<void> {
+    if (!this.prisma) return;
+    try {
+      const rows = await this.prisma.aIModel.findMany({
+        where: { isEnabled: true },
+        select: {
+          modelId: true,
+          costTier: true,
+          priceInputPerMillion: true,
+          priceOutputPerMillion: true,
+          priceCacheReadPerMillion: true,
+        },
+      });
+
+      let registered = 0;
+      let skipped = 0;
+      for (const row of rows) {
+        if (!row.costTier) {
+          skipped += 1;
+          continue;
+        }
+        const tier = row.costTier as ModelTier;
+        if (!VALID_TIERS.has(tier)) {
+          this.logger.warn(
+            `[hydrateFromDb] modelId=${row.modelId} has invalid costTier="${row.costTier}" (expected strong/standard/basic). Skipped.`,
+          );
+          skipped += 1;
+          continue;
+        }
+        this.register({
+          modelId: row.modelId,
+          tier,
+          inputPricePerM: row.priceInputPerMillion
+            ? Number(row.priceInputPerMillion)
+            : 0,
+          outputPricePerM: row.priceOutputPerMillion
+            ? Number(row.priceOutputPerMillion)
+            : 0,
+          cacheReadPricePerM: row.priceCacheReadPerMillion
+            ? Number(row.priceCacheReadPerMillion)
+            : undefined,
+        });
+        registered += 1;
+      }
+      this.logger.log(
+        `hydrateFromDb done: registered=${registered}, skipped=${skipped} (missing costTier). ` +
+          `Tiers: strong=${this.byTier.get("strong")?.length ?? 0}, ` +
+          `standard=${this.byTier.get("standard")?.length ?? 0}, ` +
+          `basic=${this.byTier.get("basic")?.length ?? 0}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `hydrateFromDb failed: ${err instanceof Error ? err.message : String(err)}. ` +
+          `Pricing table will be empty.`,
+      );
+    }
   }
 
   register(entry: ModelPricing): void {
@@ -96,17 +145,32 @@ export class ModelPricingRegistry {
   }
 
   /**
-   * 估算一次 LLM 调用的 USD 成本。未注册的 modelId 返回 0（保守，避免误账）。
+   * 估算一次 LLM 调用的 USD 成本。
+   *
+   * **未注册的 modelId 返回 null**（不再返 0）—— caller 必须显式处理"未知模型"语义：
+   *   - BudgetAccountant 应该把 null 当成"无法计算"，不计入 costUsd 但记录 token
+   *   - 用户/管理员看到 budget 没扣到钱时知道去 DB 配 costTier + price
+   *
+   * 如果还想要旧的"静默返 0"行为，请显式 `?? 0` 兜底（建议加 warn）。
    */
   estimateCost(
     modelId: string,
     promptTokens: number,
     completionTokens: number,
     cacheReadTokens = 0,
-  ): number {
+  ): number | null {
     const p = this.byId.get(modelId);
-    if (!p) return 0;
-    // 建议修：clamp net input tokens（防 cacheReadTokens > promptTokens 时 inputCost 为负）
+    if (!p) {
+      if (!this.warnedUnknown.has(modelId)) {
+        this.logger.warn(
+          `[estimateCost] modelId="${modelId}" not in pricing registry. ` +
+            `Cost cannot be calculated. Add this model to AIModel table with ` +
+            `costTier + priceInputPerMillion + priceOutputPerMillion to enable budget tracking.`,
+        );
+        this.warnedUnknown.add(modelId);
+      }
+      return null;
+    }
     const netInputTokens = Math.max(0, promptTokens - cacheReadTokens);
     const inputCost = (netInputTokens / 1e6) * p.inputPricePerM;
     const outputCost =
@@ -119,8 +183,8 @@ export class ModelPricingRegistry {
   }
 
   /**
-   * 选择某 tier 下首选模型（多个时取第一个注册的）。
-   * BudgetAccountant.downgrade 后用此选下一个 modelId。
+   * 选择某 tier 下首选模型（多个时取第一个注册的，对应 DB priority desc）。
+   * 未注册任何模型时返回 null —— caller 应回退到 elected model 而不是硬编码。
    */
   pickModelForTier(tier: ModelTier): string | null {
     const list = this.byTier.get(tier);
@@ -129,9 +193,7 @@ export class ModelPricingRegistry {
 
   /**
    * 把 modelId 提升为某 tier 的首选（pickModelForTier 返回它）。
-   * 用于 AI App 在启动时把"系统当前默认模型"覆盖 Harness 内置 DEFAULT_TABLE
-   * （DEFAULT_TABLE 是基线候选，业务方有 DB 配置时应优先用真实启用的模型）。
-   * 若 modelId 还未通过 register() 登记 pricing，调用方必须先 register 一次再 promote。
+   * 调用方必须先 register() 一次再 promote。
    */
   promoteToPrimary(tier: ModelTier, modelId: string): void {
     if (!this.byId.has(modelId)) {

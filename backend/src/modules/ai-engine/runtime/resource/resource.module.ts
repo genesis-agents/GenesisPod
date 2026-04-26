@@ -22,6 +22,8 @@ import { AiEngineToolsModule } from "../../ai-engine-tools.module";
 import { AiEngineSkillsModule } from "../../ai-engine-skills.module";
 import { AiEngineOrchestrationModule } from "../../ai-engine-orchestration.module";
 import { HarnessModule as L2HarnessModule } from "../../harness/harness.module";
+import { KeyResolverModule } from "../../../ai-infra/key-resolver/key-resolver.module";
+import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
 import { CircuitBreakerService } from "./circuit-breaker.service";
 import { ConstraintEngine } from "./constraint-engine";
@@ -53,6 +55,9 @@ const RUNTIME_RESOURCE_PROVIDERS = [
     forwardRef(() => AiEngineSkillsModule),
     forwardRef(() => AiEngineOrchestrationModule),
     forwardRef(() => L2HarnessModule),
+    // discoverUserKeys 真接 KeyResolver + Secrets（替换原来写死的 hasByok=false）
+    KeyResolverModule,
+    SecretsModule,
   ],
   providers: RUNTIME_RESOURCE_PROVIDERS,
   exports: RUNTIME_RESOURCE_PROVIDERS,

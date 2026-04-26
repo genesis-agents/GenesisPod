@@ -77,8 +77,10 @@ export class ModelElectionService {
     const typeMatched = pool.filter((c) =>
       this.isTypeCompatible(c.modelType, modelType),
     );
+    // ★ healthy 三态语义：unhealthy 一定排除；unknown/undefined 容忍（避免新接 BYOK 模型
+    //   全被淘汰）。仍用 recentErrorRate < 0.5 作为最后一道兜底。
     const healthy = typeMatched.filter(
-      (c) => c.healthy !== false && (c.recentErrorRate ?? 0) < 0.5,
+      (c) => c.healthy !== "unhealthy" && (c.recentErrorRate ?? 0) < 0.5,
     );
     const notBlacklisted = healthy.filter((c) => !excluded.has(c.modelId));
 
@@ -263,15 +265,17 @@ export class ModelElectionService {
   /** 成本策略 */
   private scoreCost(
     bias: "cheap" | "balanced" | "quality",
-    costTier: "cheap" | "standard" | "premium" | undefined,
+    costTier: "basic" | "standard" | "strong" | "unknown" | undefined,
     tier: ModelTier,
   ): number {
-    const effective = costTier ?? this.tierToCost(tier);
+    // unknown / undefined 都退到 tier 派生值
+    const effective =
+      costTier && costTier !== "unknown" ? costTier : this.tierToCost(tier);
     if (bias === "cheap") {
-      return effective === "cheap" ? 15 : effective === "standard" ? 5 : 0;
+      return effective === "basic" ? 15 : effective === "standard" ? 5 : 0;
     }
     if (bias === "quality") {
-      return effective === "premium" ? 15 : effective === "standard" ? 5 : 0;
+      return effective === "strong" ? 15 : effective === "standard" ? 5 : 0;
     }
     return effective === "standard" ? 10 : 5; // balanced
   }
@@ -320,9 +324,9 @@ export class ModelElectionService {
     }
   }
 
-  private tierToCost(tier: ModelTier): "cheap" | "standard" | "premium" {
-    if (tier === ModelTier.STRONG) return "premium";
-    if (tier === ModelTier.BASIC) return "cheap";
+  private tierToCost(tier: ModelTier): "basic" | "standard" | "strong" {
+    if (tier === ModelTier.STRONG) return "strong";
+    if (tier === ModelTier.BASIC) return "basic";
     return "standard";
   }
 
@@ -350,7 +354,8 @@ export class ModelElectionService {
       modelId: c.modelId,
       provider: c.provider,
       modelType,
-      healthy: true,
+      // DB 全表 fallback 场景没有 metrics 输入，标 unknown 让评分逻辑走中位
+      healthy: "unknown" as const,
     }));
   }
 

@@ -118,8 +118,7 @@ export class ReActLoop implements IAgentLoop {
     let budgetWarned = false;
     /**
      * 连续空 LLM 响应计数器 —— 检测 "model 不存在 / API 拒绝 / 输出被过滤" 场景：
-     * LLM 每次返回 completion="" + 立即 finalize 空结果。
-     * 这种状态再多迭代也无意义，2 次后 abort 并明确告知根因。
+     * LLM 每次返回 completion="" + 立即 finalize 空结果。连续 2 次后 abort。
      */
     let consecutiveEmptyLLM = 0;
     let lastModelId: string | undefined;
@@ -185,7 +184,8 @@ export class ReActLoop implements IAgentLoop {
       let usage: {
         promptTokens: number;
         completionTokens: number;
-        costUsd: number;
+        /** null = 模型未在 ModelPricingRegistry 注册（DB 缺 costTier/价格），无法计算 */
+        costUsd: number | null;
         cacheReadTokens: number;
         modelId?: string;
       };
@@ -249,19 +249,26 @@ export class ReActLoop implements IAgentLoop {
         }
         if (isEmptyResponse) {
           consecutiveEmptyLLM += 1;
-          if (consecutiveEmptyLLM >= 2) {
-            yield this.makeEvent(agentId, "error", {
-              message: `LLM "${
-                lastModelId ?? "unknown"
-              }" 连续 ${consecutiveEmptyLLM} 次立即 finalize 空结果（completion=${usage.completionTokens}tk）。根因可能：(a) model id 在 provider 不存在 → API 返错被吞；(b) reasoning model 内部 CoT 吃光 max_completion_tokens；(c) prompt 让 model 完全无所适从。请检查 BYOK 模型配置或调高 budget.maxTokens`,
-              recoverable: false,
-            });
-            yield this.makeEvent(agentId, "terminated", {
-              reason: "empty_llm_response",
-            });
-            return;
-          }
+          // ★ ReActLoop 单次 iter 见到 finalize+empty+thinking="" 就立即 abort：
+          //   后续 termination check (line 350) 反正会因 finalize 退出 loop，
+          //   等到第二次永远不可能。必须在第一次拦下，由 caller (ReflexionLoop)
+          //   再决定是否要重试一个 revision。
+          //   如果 caller 是 ReflexionLoop，它的 consecutiveEmptyOutput 会跨
+          //   revision 累计，2 个 revision 都空才彻底放弃。
+          //   如果 caller 是直接 ReAct (无 Reflexion)，单次失败即 abort。
+          yield this.makeEvent(agentId, "error", {
+            message: `LLM "${
+              lastModelId ?? "unknown"
+            }" 立即 finalize 空结果 (completion=${usage.completionTokens}tk, thinking="")。根因可能：(a) model id 在 provider 不存在 → API 返错被吞；(b) reasoning model 内部 CoT 吃光 max_completion_tokens；(c) prompt 让 model 完全无所适从。请检查 BYOK 模型配置或调高 budget.maxTokens`,
+            recoverable: false,
+          });
+          yield this.makeEvent(agentId, "terminated", {
+            reason: "empty_llm_response",
+          });
+          return;
         } else {
+          // 重置连续空响应计数：跨非连续 empty 不累计（empty / good / empty 应记 1，不是 2）
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           consecutiveEmptyLLM = 0;
         }
       } catch (err) {
@@ -418,7 +425,8 @@ export class ReActLoop implements IAgentLoop {
     usage: {
       promptTokens: number;
       completionTokens: number;
-      costUsd: number;
+      /** null = 模型未在 ModelPricingRegistry 注册（DB 缺 costTier/价格） */
+      costUsd: number | null;
       cacheReadTokens: number;
       modelId?: string;
     };
@@ -468,14 +476,15 @@ export class ReActLoop implements IAgentLoop {
     const completionTokens = response.usage?.outputTokens ?? 0;
     // PR-I 修复 #5: cacheReadTokens 由 LLM 提供商返回（Anthropic / OpenAI 都支持）
     const cacheReadTokens = response.usage?.cacheReadTokens ?? 0;
-    const costUsd = this.pricingRegistry
-      ? this.pricingRegistry.estimateCost(
-          response.model,
-          promptTokens,
-          completionTokens,
-          cacheReadTokens,
-        )
-      : 0;
+    // estimateCost 未注册 modelId 返回 null —— 不假装 0（会让 BudgetAccountant 假账）
+    // null 透给 caller，BudgetAccountant.accountLLM 内部决定如何处理（仍计 token，cost 不增）
+    const costUsd =
+      this.pricingRegistry?.estimateCost(
+        response.model,
+        promptTokens,
+        completionTokens,
+        cacheReadTokens,
+      ) ?? null;
     return {
       decision: this.parseDecision(response.content),
       usage: {

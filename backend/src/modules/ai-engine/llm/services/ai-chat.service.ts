@@ -750,6 +750,7 @@ export class AiChatService {
               reasoningDepth,
               outputSchema,
               useStrictMode,
+              isReasoning,
             );
 
           case "anthropic":
@@ -793,6 +794,7 @@ export class AiChatService {
               reasoningDepth,
               outputSchema,
               useStrictMode,
+              isReasoning,
             );
 
           default:
@@ -809,6 +811,7 @@ export class AiChatService {
               reasoningDepth,
               outputSchema,
               useStrictMode,
+              isReasoning,
             );
         }
       };
