@@ -290,11 +290,36 @@ async function deploy(): Promise<void> {
       await prisma.$executeRaw`
         UPDATE "credit_transactions" SET "module_type" = 'deep-research' WHERE "module_type" = 'ai-studio'
       `;
-      await prisma.$executeRaw`
+      // ★ credit_rules 有 UNIQUE(module_type, operation_type)，直接 UPDATE
+      //   ai-studio→deep-research 会和已经存在的 (deep-research,*) 行撞键。
+      //   先删除会冲突的 ai-studio 重复行，再 UPDATE 剩余的。
+      const deletedDup = await prisma.$executeRaw`
+        DELETE FROM "credit_rules" cr1
+        WHERE cr1."module_type" = 'ai-studio'
+          AND EXISTS (
+            SELECT 1 FROM "credit_rules" cr2
+            WHERE cr2."module_type" = 'deep-research'
+              AND cr2."operation_type" = cr1."operation_type"
+          )
+      `;
+      if (deletedDup > 0) {
+        console.log(
+          `   Deleted ${deletedDup} legacy ai-studio credit_rules already migrated`,
+        );
+      }
+      const renamed = await prisma.$executeRaw`
         UPDATE "credit_rules" SET "module_type" = 'deep-research' WHERE "module_type" = 'ai-studio'
       `;
-    } catch {
+      if (renamed > 0) {
+        console.log(
+          `   Renamed ${renamed} credit_rules ai-studio→deep-research`,
+        );
+      }
+    } catch (err) {
       // AI_STUDIO enum value may not exist or tables may not exist yet
+      console.log(
+        `   Skipped AI_STUDIO migration: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // Fix MCP server package names (from @anthropics to @modelcontextprotocol)

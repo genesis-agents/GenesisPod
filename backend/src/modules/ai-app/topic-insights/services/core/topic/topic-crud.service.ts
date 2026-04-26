@@ -405,6 +405,9 @@ export class TopicCrudService {
             createdAt: true,
             completedAt: true,
             result: true, // ★ 包含研究结果（关键发现、摘要等）
+            // ★ resultUri 必须同时 select，否则 PrismaService hydrate
+            //   拉不回 off-loaded 内容（result 会是空 JSON）并打 warning。
+            resultUri: true,
             resultSummary: true, // ★ 包含结果摘要
           },
         },

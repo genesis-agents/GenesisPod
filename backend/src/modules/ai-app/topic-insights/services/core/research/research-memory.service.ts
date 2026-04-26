@@ -69,6 +69,10 @@ export class ResearchMemoryService implements OnModuleDestroy {
               id: true,
               dimensionName: true,
               result: true,
+              // ★ 必须同时 select resultUri，否则 PrismaService hydrate
+              //   middleware 拉不回 off-loaded 内容（result 会是空 JSON）
+              //   并打 warning。
+              resultUri: true,
               resultSummary: true,
             },
           },

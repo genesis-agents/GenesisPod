@@ -8,6 +8,7 @@ const mockPrisma = {
   $queryRaw: jest.fn(),
   $executeRaw: jest.fn(),
   $executeRawUnsafe: jest.fn(),
+  $queryRawUnsafe: jest.fn(),
   knowledgeBaseDocument: {
     findMany: jest.fn(),
   },
@@ -58,6 +59,9 @@ describe("VectorService", () => {
       service = module.get<VectorService>(VectorService);
 
       // Simulate successful pgvector init
+      // 1) Pre-flight: pg_available_extensions returns vector exists
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([{ exists: true }]);
+      // 2) CREATE EXTENSION succeeds
       mockPrisma.$executeRawUnsafe.mockResolvedValue(undefined);
       await service.onModuleInit();
     });
@@ -275,7 +279,9 @@ describe("VectorService", () => {
 
       service = module.get<VectorService>(VectorService);
 
-      // Simulate pgvector NOT available
+      // Simulate pgvector NOT available — pre-flight returns no extension
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([{ exists: false }]);
+      // CREATE EXTENSION never called in this branch, but mock just in case
       mockPrisma.$executeRawUnsafe.mockRejectedValue(
         new Error("extension not found"),
       );
@@ -397,6 +403,7 @@ describe("VectorService", () => {
 
       service = module.get<VectorService>(VectorService);
 
+      mockPrisma.$queryRawUnsafe.mockResolvedValue([{ exists: true }]);
       mockPrisma.$executeRawUnsafe.mockResolvedValue(undefined);
       await service.onModuleInit();
     });

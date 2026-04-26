@@ -56,15 +56,33 @@ export class VectorService implements OnModuleInit {
 
   async onModuleInit() {
     try {
+      // ★ 先 SELECT 预检：Postgres 是否安装了 pgvector 扩展。
+      //   不预检直接 CREATE EXTENSION 会让 Postgres 留 ERROR 日志（即使
+      //   应用层 catch 住）。预检走 information_schema 不会留错误日志。
+      const available = await this.prisma.$queryRawUnsafe<
+        Array<{ exists: boolean }>
+      >(
+        "SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') AS exists",
+      );
+      const hasVector = available?.[0]?.exists === true;
+      if (!hasVector) {
+        this.pgvectorAvailable = false;
+        this.logger.log(
+          "[onModuleInit] pgvector not installed on this Postgres, using JSONB fallback with app-level cosine similarity",
+        );
+        return;
+      }
+
+      // 预检通过才尝试创建扩展（生产数据库通常需要 superuser 创建）
       await this.prisma.$executeRawUnsafe(
         "CREATE EXTENSION IF NOT EXISTS vector",
       );
       this.pgvectorAvailable = true;
       this.logger.log("[onModuleInit] pgvector extension is ready");
-    } catch {
+    } catch (err) {
       this.pgvectorAvailable = false;
       this.logger.log(
-        "[onModuleInit] pgvector not available, using JSONB fallback with app-level cosine similarity",
+        `[onModuleInit] pgvector unavailable (${err instanceof Error ? err.message : String(err)}), falling back to JSONB + app-level cosine similarity`,
       );
     }
   }
