@@ -37,6 +37,7 @@ import type {
   IToolCallAction,
 } from "../abstractions";
 import { ContextEnvelope } from "../core/context-envelope";
+import { extractJsonFromAIResponse } from "../../../../common/utils/json-extraction.utils";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import type { ChatMessage } from "../../llm/types";
 import { AIModelType } from "@prisma/client";
@@ -736,6 +737,14 @@ export class ReActLoop implements IAgentLoop {
       // raw text → 误导 trace。
       strictMode: true,
       responseFormat: "json",
+      // ★ Harness 内部 agent-to-agent 编排，不是用户原始输入；guardrails
+      // 对内部系统 prompt 进行内容审查会误杀（特别是含 BUILTIN_TOOL 描述、
+      // 评审 prompt 等可能触发敏感词检测的合法系统内容）。
+      // TI 在所有 chatFacade.chat 内部调用都加 skipGuardrails: true，对照实践。
+      skipGuardrails: true,
+      // ★ 让 BillingContext 的 operationName 反映真正业务（不是默认 "llm_call"）
+      // 失败 trace 能直接定位 harness 内部调用，区别于业务侧 chat。
+      operationName: "harness:react-loop:reason",
       // BYOK 环境感知：userId 透给 chat() → 用户的 UserModelConfig 默认值优先
       userId,
       signal,
@@ -781,21 +790,38 @@ export class ReActLoop implements IAgentLoop {
     decision: ParsedDecision;
     parseError?: { name: string; message: string; subCode?: string };
   } {
-    let text = raw.trim();
-    if (text.startsWith("```")) {
-      text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
-    }
-    // LLM 偶尔违规返回多个 top-level JSON 对象（NDJSON-like）：
-    //   {"thinking":"...", "action":{...}}
-    //   {"thinking":"...", "action":{...}}
-    // 普通 JSON.parse 会卡在第二个 { 报错。先尝试提取首个完整对象。
-    text = this.extractFirstJsonObject(text) ?? text;
-    try {
-      const obj = JSON.parse(text) as {
-        thinking?: unknown;
-        action?: unknown;
-        actions?: unknown;
+    // ★ 用 TI 已 battle-tested 的 extractJsonFromAIResponse 替代手写
+    //   JSON.parse + extractFirstJsonObject。该工具支持：
+    //   - markdown 围栏 ```json ... ``` 自动剥离
+    //   - 截断 JSON 修复（reasoning 模型常见）
+    //   - NDJSON-like 多对象只取首个
+    //   - JSON 内嵌闲聊文本时也能找到首个完整对象
+    //   原手写逻辑只覆盖部分场景，导致 reasoning 模型的退化输出常被误判。
+    const extracted = extractJsonFromAIResponse<{
+      thinking?: unknown;
+      action?: unknown;
+      actions?: unknown;
+    }>(raw);
+
+    if (!extracted.success || !extracted.data) {
+      const errName = "JsonExtractFailed";
+      const errMsg = extracted.error ?? "no JSON found in response";
+      this.logger.warn(
+        `Failed to extract JSON from LLM decision (${errName}: ${errMsg}); ` +
+          `falling back to finalize-raw. ` +
+          `text(first 1000)=${JSON.stringify(raw.slice(0, 1000))}`,
+      );
+      return {
+        decision: {
+          thinking: `(unparseable LLM output, finalizing with raw text — ${errName}: ${errMsg})`,
+          action: { kind: "finalize", output: raw },
+        },
+        parseError: { name: errName, message: errMsg },
       };
+    }
+
+    try {
+      const obj = extracted.data;
       const thinking = typeof obj.thinking === "string" ? obj.thinking : "";
 
       // Shorthand: top-level "actions" array → auto-wrap parallel_tool_call
@@ -804,8 +830,6 @@ export class ReActLoop implements IAgentLoop {
           .map((a) => this.normalizeToolCall(a))
           .filter((a): a is IToolCallAction => a !== null);
         if (calls.length === 0) {
-          // ★ 不再硬合成假 finalize —— actions 数组里没合法 tool 调用属于
-          // LLM 输出格式异常，应走 catch 分支让 ReflexionLoop 有机会重试。
           throw new InvalidActionError(
             "LLM returned 'actions' array with no valid tool calls",
             "empty_actions_array",
@@ -824,68 +848,23 @@ export class ReActLoop implements IAgentLoop {
       const action = this.normalizeAction(obj.action);
       return { decision: { thinking, action } };
     } catch (err) {
-      // ★ 诊断：完整记录 raw content（最多 1000 字符）+ 错误类型，
-      // 让 InvalidActionError vs SyntaxError 一目了然。
+      // normalizeAction / normalizeToolCall 抛 InvalidActionError 走这里
       const errName = err instanceof Error ? err.name : "Unknown";
       const errMsg = err instanceof Error ? err.message : String(err);
       const subCode =
         err instanceof InvalidActionError ? err.subCode : undefined;
       this.logger.warn(
-        `Failed to parse LLM decision (${errName}: ${errMsg}); ` +
-          `falling back to finalize-raw. ` +
-          `text(first 1000)=${JSON.stringify(text.slice(0, 1000))}`,
+        `LLM JSON parsed but action invalid (${errName}: ${errMsg}); ` +
+          `via=${extracted.method ?? "?"}; falling back to finalize-raw.`,
       );
       return {
         decision: {
-          thinking: `(unparseable LLM output, finalizing with raw text — ${errName}: ${errMsg})`,
+          thinking: `(unparseable LLM action — ${errName}: ${errMsg})`,
           action: { kind: "finalize", output: raw },
         },
         parseError: { name: errName, message: errMsg, subCode },
       };
     }
-  }
-
-  /**
-   * 扫描 text 找出首个完整的 top-level JSON 对象（平衡 { } 计数，
-   * 跳过字符串字面量内的引号 / 转义）。
-   * 用于 LLM 输出多个 JSON 对象时只取第一个；也兼容首部带闲聊文本的情况。
-   * 返回 null 表示没找到完整对象。
-   */
-  private extractFirstJsonObject(text: string): string | null {
-    let start = text.indexOf("{");
-    if (start === -1) return null;
-    while (start !== -1) {
-      let depth = 0;
-      let inString = false;
-      let escape = false;
-      for (let i = start; i < text.length; i++) {
-        const ch = text[i];
-        if (escape) {
-          escape = false;
-          continue;
-        }
-        if (inString) {
-          if (ch === "\\") {
-            escape = true;
-          } else if (ch === '"') {
-            inString = false;
-          }
-          continue;
-        }
-        if (ch === '"') {
-          inString = true;
-          continue;
-        }
-        if (ch === "{") depth += 1;
-        else if (ch === "}") {
-          depth -= 1;
-          if (depth === 0) return text.slice(start, i + 1);
-        }
-      }
-      // 不平衡 → 从下一个 { 重试
-      start = text.indexOf("{", start + 1);
-    }
-    return null;
   }
 
   private normalizeToolCall(action: unknown): IToolCallAction | null {

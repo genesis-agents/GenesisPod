@@ -55,7 +55,13 @@ const Output = z.object({
   // 双 verifier：self（agent 自检）+ critical（独立 LLM 严格审）
   // 任一不达 70 分就触发 reflexion 重写
   verifiers: ["self", "critical"],
-  taskProfile: { creativity: "low", outputLength: "long" },
+  // ★ 显式 reasoningDepth=moderate（对照 TI dimension-research）
+  // 不传时走 default，对 BYOK reasoning 模型（如 gpt-5.4）容易撞墙
+  taskProfile: {
+    creativity: "low",
+    outputLength: "long",
+    reasoningDepth: "moderate",
+  },
   inputSchema: Input,
   outputSchema: Output,
   // Researcher 是最重的 agent —— web search 把 5-10 个长文塞进 envelope，
@@ -66,9 +72,11 @@ const Output = z.object({
 })
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    // ★ 动态注入当前日期（对照 TI 实践：避免 LLM 拿陈旧时间假设）
+    const currentDate = new Date().toISOString().slice(0, 10);
     return [
       `You are a domain researcher responsible for the dimension "${input.dimension}" of topic "${input.topic}".`,
-      `Language: ${input.language}.`,
+      `Current date: ${currentDate}. Language: ${input.language}.`,
       ``,
       `## Per-dimension workflow（不只是搜集数据，是完整 mini-pipeline）`,
       ``,

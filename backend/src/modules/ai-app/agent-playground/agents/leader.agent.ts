@@ -41,7 +41,13 @@ const Output = z.object({
       "Research lead — understand intent, decompose topic into 2-7 research dimensions",
   },
   loop: "react",
-  taskProfile: { creativity: "low", outputLength: "medium" },
+  // ★ 显式 reasoningDepth=moderate（对照 TI leader-planning：reasoningDepth="deep"）
+  // 缺省路径在 BYOK reasoning 模型上不可控，必须显式声明
+  taskProfile: {
+    creativity: "low",
+    outputLength: "medium",
+    reasoningDepth: "moderate",
+  },
   inputSchema: Input,
   outputSchema: Output,
   // Leader 只拆维度，但 systemPrompt 含 environment + tool catalog block
@@ -52,9 +58,15 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
     const target =
       input.depth === "quick" ? "2-3" : input.depth === "deep" ? "5-7" : "3-5";
+    // ★ 动态注入当前日期（对照 TI leader-planning：避免 LLM 用陈旧时间假设）
+    const currentDate = new Date().toISOString().slice(0, 10);
+    const langInstruction =
+      input.language === "zh-CN"
+        ? "请用中文输出（包括 themeSummary、name、rationale 全部字段）。"
+        : "Please respond in English (themeSummary, name, rationale).";
     return [
       `You are the research lead for the topic: "${input.topic}".`,
-      `Language: ${input.language}.`,
+      `Current date: ${currentDate}. ${langInstruction}`,
       `Depth: ${input.depth} → produce ${target} dimensions.`,
       ``,
       `Each dimension must be:`,
