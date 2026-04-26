@@ -1,48 +1,23 @@
 /**
  * ResearchCollaborationPanel - 研究协作面板
  *
- * 整合 TODO List、QuickCommandBar 和对话消息区的主面板
- * 用户输入后，AI Leader 先解码意图，再决定是否创建 TODO
- * 类似 Claude Code CLI 的交互模式
+ * TODO 列表 + 进度统计。
  *
- * 数据来源优先级：
- * 1. missionStatus.tasks (从父组件传入，与左侧面板同源)
- * 2. fetchTodos API (作为备选)
+ * 历史：原本同时承载「与 Leader 对话」（QuickCommandBar + 对话消息区）。
+ * 2026-04-25 起 Leader 对话改由「点击拓扑图 Leader 节点 → AgentInspector
+ * → LeaderChatDock 浮窗」承载，本面板仅保留 TODO List。
  */
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ListTodo, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils/common';
 import { ResearchTodoList } from '../research-control/ResearchTodoList';
-import { QuickCommandBar } from '../research-control/QuickCommandBar';
 import { TodoDetailPanel } from '../panels/TodoDetailPanel';
-import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
-import { ClientDate } from '@/components/common/ClientDate';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useI18n } from '@/lib/i18n';
-import {
-  Loader2,
-  User,
-  Brain,
-  MessageSquare,
-  CheckCircle2,
-  HelpCircle,
-  MessageCircle,
-  ListTodo,
-  ChevronUp,
-  ChevronDown,
-} from 'lucide-react';
-import { cn, safeString } from '@/lib/utils/common';
-import {
-  leaderChat,
-  getTeamMessages,
-  type LeaderChatResponse,
-  type LeaderDecisionType,
-  type TeamMessage,
-} from '@/lib/api/topic-insights';
 import type { MissionStatus, TaskStatus } from '@/lib/api/topic-insights';
-import { logger } from '@/lib/utils/logger';
-import { toast } from '@/stores';
 import type {
   ResearchTodo,
   ResearchTodoStatus,
@@ -55,19 +30,6 @@ interface WsEvent {
   type: string;
   data: unknown;
   timestamp: string;
-}
-
-// 对话消息类型
-interface ConversationMessage {
-  id: string;
-  type: 'user' | 'leader';
-  content: string;
-  timestamp: Date;
-  // Leader 响应特有字段
-  decisionType?: LeaderDecisionType;
-  understanding?: string;
-  todoCreated?: { id: string; title: string; assignedAgent?: string };
-  clarifyOptions?: string[];
 }
 
 interface ResearchCollaborationPanelProps {
@@ -204,175 +166,6 @@ function calculateSummary(todos: ResearchTodo[]): TodoSummary {
   };
 }
 
-/**
- * 决策类型的显示配置工厂函数
- */
-const getDecisionTypeConfig = (
-  t: (key: string) => string
-): Record<
-  LeaderDecisionType,
-  { label: string; icon: React.ElementType; colorClass: string }
-> => ({
-  DIRECT_ANSWER: {
-    label: t('topicResearch.collaboration.panel.decisionTypes.directAnswer'),
-    icon: MessageCircle,
-    colorClass: 'text-green-600 bg-green-50 border-green-200',
-  },
-  CREATE_TODO: {
-    label: t('topicResearch.collaboration.panel.decisionTypes.createTodo'),
-    icon: CheckCircle2,
-    colorClass: 'text-blue-600 bg-blue-50 border-blue-200',
-  },
-  CLARIFY: {
-    label: t('topicResearch.collaboration.panel.decisionTypes.clarify'),
-    icon: HelpCircle,
-    colorClass: 'text-amber-600 bg-amber-50 border-amber-200',
-  },
-  ACKNOWLEDGE: {
-    label: t('topicResearch.collaboration.panel.decisionTypes.acknowledge'),
-    icon: MessageSquare,
-    colorClass: 'text-gray-600 bg-gray-50 border-gray-200',
-  },
-});
-
-/**
- * 对话消息显示组件
- */
-function ConversationMessageItem({
-  message,
-  onClarifyOptionClick,
-  onTodoClick,
-  t,
-  decisionTypeConfig,
-}: {
-  message: ConversationMessage;
-  onClarifyOptionClick?: (option: string) => void;
-  onTodoClick?: (todoId: string) => void;
-  t: (key: string, params?: Record<string, string | number>) => string;
-  decisionTypeConfig: Record<
-    LeaderDecisionType,
-    { label: string; icon: React.ElementType; colorClass: string }
-  >;
-}) {
-  if (message.type === 'user') {
-    return (
-      <div className="flex gap-3 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100">
-          <User className="h-4 w-4 text-blue-600" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
-              {t('topicResearch.collaboration.panel.you')}
-            </span>
-            <span className="text-xs text-gray-400">
-              <ClientDate
-                date={message.timestamp}
-                format="time"
-                timeOptions={{ hour: '2-digit', minute: '2-digit' }}
-              />
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-gray-900">
-            {safeString(message.content)}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Leader 消息
-  const config = message.decisionType
-    ? decisionTypeConfig[message.decisionType]
-    : null;
-  const DecisionIcon = config?.icon || Brain;
-
-  return (
-    <div className="flex gap-3 py-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-100">
-        <Brain className="h-4 w-4 text-purple-600" />
-      </div>
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">
-            {t('topicResearch.collaboration.panel.leader')}
-          </span>
-          {config && (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
-                config.colorClass
-              )}
-            >
-              <DecisionIcon className="h-3 w-3" />
-              {config.label}
-            </span>
-          )}
-          <span className="text-xs text-gray-400">
-            <ClientDate
-              date={message.timestamp}
-              format="time"
-              timeOptions={{ hour: '2-digit', minute: '2-digit' }}
-            />
-          </span>
-        </div>
-
-        {/* 理解说明 */}
-        {message.understanding && (
-          <p className="mt-1 text-xs italic text-gray-500">
-            💭 {safeString(message.understanding)}
-          </p>
-        )}
-
-        {/* 响应内容 - Markdown渲染 */}
-        <div className="mt-1">
-          <AIMessageRenderer
-            content={safeString(message.content)}
-            className="text-sm"
-          />
-        </div>
-
-        {/* 创建的 TODO - 可点击跳转 */}
-        {message.todoCreated && (
-          <button
-            onClick={() => onTodoClick?.(message.todoCreated!.id)}
-            className="mt-2 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs transition-colors hover:bg-blue-100"
-          >
-            <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
-            <span className="text-blue-700">
-              {t('topicResearch.collaboration.panel.taskCreated')}{' '}
-              {safeString(message.todoCreated.title)}
-              {message.todoCreated.assignedAgent && (
-                <span className="ml-1 text-blue-500">
-                  → {message.todoCreated.assignedAgent}
-                </span>
-              )}
-            </span>
-            <span className="text-blue-500">
-              {t('topicResearch.collaboration.panel.viewTask')}
-            </span>
-          </button>
-        )}
-
-        {/* 澄清选项 - 可点击发送 */}
-        {message.clarifyOptions && message.clarifyOptions.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {message.clarifyOptions.map((option, idx) => (
-              <button
-                key={idx}
-                onClick={() => onClarifyOptionClick?.(option)}
-                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100"
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function ResearchCollaborationPanel({
   topicId,
   missionId,
@@ -382,29 +175,13 @@ export function ResearchCollaborationPanel({
 }: ResearchCollaborationPanelProps) {
   const { t } = useI18n();
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
-  const [conversationMessages, setConversationMessages] = useState<
-    ConversationMessage[]
-  >([]);
-  const [isProcessingInput, setIsProcessingInput] = useState(false);
-  const conversationEndRef = useRef<HTMLDivElement>(null);
-  // 折叠状态（任务区默认展开，对话区默认折叠）
   const [isTasksCollapsed, setIsTasksCollapsed] = useState(false);
-  const [isConversationCollapsed, setIsConversationCollapsed] = useState(true);
 
   const {
     todos: apiTodos,
-    todosSummary: apiSummary,
     isLoadingTodos,
-    currentMission,
     fetchTodos,
   } = useTopicInsightsStore();
-
-  // 自动滚动到最新消息
-  useEffect(() => {
-    if (conversationEndRef.current) {
-      conversationEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [conversationMessages]);
 
   // ★ 从 WebSocket 事件中提取实时进度
   // 同时支持 taskId 和 dimensionName 两种匹配方式
@@ -578,126 +355,6 @@ export function ResearchCollaborationPanel({
     }
   }, [topicId, missionId, fetchTodos]);
 
-  // Get current mission ID
-  const activeMissionId = missionId || missionStatus?.id || currentMission?.id;
-
-  // Load conversation history from API
-  useEffect(() => {
-    const loadConversationHistory = async () => {
-      if (!topicId || !activeMissionId) return;
-
-      try {
-        const messages = await getTeamMessages(topicId, {
-          missionId: activeMissionId,
-          limit: 50,
-        });
-
-        // 只转换用户消息和 Leader 响应
-        const conversationMsgs: ConversationMessage[] = messages
-          .filter(
-            (msg: TeamMessage) =>
-              msg.messageType === 'USER_MESSAGE' ||
-              msg.messageType === 'LEADER_RESPONSE'
-          )
-          .map((msg: TeamMessage) => ({
-            id: msg.id,
-            type: msg.messageType === 'USER_MESSAGE' ? 'user' : 'leader',
-            content: msg.content,
-            timestamp: new Date(msg.createdAt),
-          }));
-
-        if (conversationMsgs.length > 0) {
-          setConversationMessages(conversationMsgs);
-        }
-      } catch (error) {
-        logger.error('[loadConversationHistory] Failed:', error);
-      }
-    };
-
-    void loadConversationHistory();
-  }, [topicId, activeMissionId]);
-
-  // Handle user instruction submission - 使用 AI Leader 解码用户意图
-  const handleInstructionSubmit = useCallback(
-    async (instruction: string) => {
-      logger.debug('[handleInstructionSubmit] Called with:', {
-        instruction,
-        activeMissionId,
-        topicId,
-      });
-
-      if (!activeMissionId) {
-        logger.warn(
-          '[handleInstructionSubmit] No active mission to add instruction to'
-        );
-        toast.warning(
-          t('topicResearch.collaboration.panel.pleaseStartResearch')
-        );
-        return;
-      }
-
-      // 1. 立即显示用户消息
-      const userMessage: ConversationMessage = {
-        id: `user-${Date.now()}`,
-        type: 'user',
-        content: instruction,
-        timestamp: new Date(),
-      };
-      setConversationMessages((prev) => [...prev, userMessage]);
-      setIsProcessingInput(true);
-
-      // ★ 提交后自动展开对话区，让用户看到消息和响应
-      setIsConversationCollapsed(false);
-
-      try {
-        // 2. 调用 Leader 解码 API
-        logger.debug('[handleInstructionSubmit] Calling leaderChat API...');
-        const result = await leaderChat(topicId, instruction, activeMissionId);
-        logger.debug('[handleInstructionSubmit] Leader response:', result);
-
-        // 3. 添加 Leader 响应消息
-        const leaderMessage: ConversationMessage = {
-          id: `leader-${Date.now()}`,
-          type: 'leader',
-          content: result.response,
-          timestamp: new Date(),
-          decisionType: result.decisionType,
-          understanding: result.understanding,
-          todoCreated: result.todo,
-          clarifyOptions: result.clarifyOptions,
-        };
-        setConversationMessages((prev) => [...prev, leaderMessage]);
-
-        // 4. 如果创建了 TODO，刷新列表
-        if (result.decisionType === 'CREATE_TODO' && result.todo) {
-          logger.debug(
-            '[handleInstructionSubmit] TODO created, refreshing list...'
-          );
-          await fetchTodos(topicId, activeMissionId);
-        }
-      } catch (error) {
-        logger.error('[handleInstructionSubmit] Leader chat failed:', error);
-
-        // 添加错误消息
-        const errorMessage: ConversationMessage = {
-          id: `leader-error-${Date.now()}`,
-          type: 'leader',
-          content: t('topicResearch.collaboration.panel.errorProcessing', {
-            error:
-              error instanceof Error
-                ? error.message
-                : t('topicResearch.collaboration.panel.unknownError'),
-          }),
-          timestamp: new Date(),
-        };
-        setConversationMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsProcessingInput(false);
-      }
-    },
-    [topicId, activeMissionId, fetchTodos]
-  );
-
   // Handle TODO selection
   const handleSelectTodo = useCallback((todoId: string) => {
     setSelectedTodoId(todoId);
@@ -707,49 +364,19 @@ export function ResearchCollaborationPanel({
     setSelectedTodoId(null);
   }, []);
 
-  // Handle clarify option click - 发送选中的澄清选项
-  const handleClarifyOptionClick = useCallback(
-    (option: string) => {
-      void handleInstructionSubmit(option);
-    },
-    [handleInstructionSubmit]
-  );
-
-  // Handle TODO click from conversation - 跳转到 TODO 详情
-  const handleTodoClick = useCallback((todoId: string) => {
-    setSelectedTodoId(todoId);
-  }, []);
-
   // 获取当前选中的 TODO 对象（用于传递给 TodoDetailPanel，避免 API 调用）
   const selectedTodo = useMemo(() => {
     if (!selectedTodoId) return undefined;
     return todos.find((t) => t.id === selectedTodoId);
   }, [selectedTodoId, todos]);
 
-  // 获取决策类型配置
-  const decisionTypeConfig = useMemo(() => getDecisionTypeConfig(t), [t]);
-
-  // ★ 根据折叠状态计算任务区的 flex 样式
+  // ★ 任务区 flex 样式
   const getTasksFlexStyle = () => {
     if (isTasksCollapsed) {
-      // 任务区折叠：固定高度 88px (标题栏 48px + 进度条 40px)
+      // 折叠：固定高度 88px (标题栏 48px + 进度条 40px)
       return 'flex-none h-[88px]';
     }
-    if (isConversationCollapsed) {
-      // 对话区折叠：任务区向下扩展填充
-      return 'flex-1 min-h-[200px]';
-    }
-    // 都展开：任务区占 40%
-    return 'flex-none h-[40%] min-h-[200px]';
-  };
-
-  // ★ 根据折叠状态计算对话区的 flex 样式
-  const getConversationFlexStyle = () => {
-    if (isConversationCollapsed) {
-      // 对话区折叠：固定高度 88px (标题栏 48px + 提示文字 40px)
-      return 'flex-none h-[88px]';
-    }
-    // 对话区展开：始终填充剩余空间
+    // 展开：填满整个容器（对话区已迁移到弹窗）
     return 'flex-1 min-h-[200px]';
   };
 
@@ -839,25 +466,6 @@ export function ResearchCollaborationPanel({
             </div>
           )}
         </div>
-
-        {/*
-         * ★ 2026-04-25: 内嵌的「与 Leader 对话」面板 + 输入框已下线。
-         * 入口统一为：点击 Agent 拓扑里的 Leader 节点 → AgentInspector
-         *   → 「与该 Leader 对话」按钮 → LeaderChatDock 浮窗。
-         * 此处保留 conversationMessages / handleInstructionSubmit 等状态以备恢复，
-         * 仅屏蔽 UI。如需恢复，移除下方注释块即可。
-         */}
-        {/*
-        {isTasksCollapsed && isConversationCollapsed && (
-          <div style={{ height: 'calc(50% - 88px - 6px)' }} />
-        )}
-        <div className={cn(
-          'flex flex-col overflow-hidden rounded-lg border bg-white transition-all duration-300',
-          getConversationFlexStyle()
-        )}>
-          ... 对话区 + 输入框 ...
-        </div>
-        */}
       </div>
 
       {/* TODO Detail Panel - Shows when a TODO is selected */}

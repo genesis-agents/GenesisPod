@@ -42,6 +42,7 @@ import type {
   LeaderDecisionType,
 } from '@/lib/api/topic-insights';
 import { leaderChat, getTeamMessages } from '@/lib/api/topic-insights';
+import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 // TaskStatus is used in type annotations below
 
 /** Leader 决策类型 → chip 配色（与右下角 ResearchCollaborationPanel 一致） */
@@ -960,12 +961,13 @@ function TopicTeamCanvasView({
 }) {
   const { t } = useTranslation();
 
-  // ── Leader 对话状态（持久化 + 富富展示，与右下角 ResearchCollaborationPanel 一致） ──
+  // ── Leader 对话状态（持久化 + 富展示，全面替代右下角内嵌面板） ──
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<LeaderChatMessageData[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatSending, setChatSending] = useState(false);
+  const fetchTodos = useTopicInsightsStore((s) => s.fetchTodos);
 
   const activeMissionId = missionStatus?.id;
 
@@ -1049,6 +1051,12 @@ function TopicTeamCanvasView({
             },
           })
       );
+
+      // ★ Leader 创建 TODO 后刷新主面板 TODO 列表
+      // （与原内嵌面板 ResearchCollaborationPanel.handleInstructionSubmit 行为一致）
+      if (resp.decisionType === 'CREATE_TODO' && resp.todo && activeMissionId) {
+        await fetchTodos(topicId, activeMissionId);
+      }
     } catch (e) {
       setChatError(e instanceof Error ? e.message : String(e));
       setChatMessages((prev) => prev.filter((m) => m.id !== thinkingId));
