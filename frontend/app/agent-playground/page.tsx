@@ -21,7 +21,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { listMissions, type MissionListItem } from '@/lib/api/agent-playground';
-import { ClientDate } from '@/components/common/ClientDate';
+import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
 
 // Status visual config — TI style
 const STATUS_CONFIG: Record<
@@ -71,96 +71,86 @@ function MissionCard({
   const StatusIcon = status.icon;
   const gradient = DEPTH_GRADIENT[mission.depth] ?? DEPTH_GRADIENT.standard;
 
-  return (
-    <div
-      onClick={onClick}
-      className="group relative flex min-h-[220px] cursor-pointer flex-col rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
-    >
-      {/* Mission Icon — gradient like TopicCard */}
-      <div
-        className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-md`}
-      >
-        <Sparkles className="h-6 w-6 text-white" />
-      </div>
+  const badges: AssetCardBadge[] = [
+    {
+      key: 'depth',
+      label: mission.depth.toUpperCase(),
+      className: 'bg-gray-100 text-gray-600 uppercase tracking-wide',
+    },
+    {
+      key: 'language',
+      label: mission.language,
+      className: 'bg-gray-100 text-gray-600',
+    },
+    {
+      key: 'status',
+      label: status.label,
+      className: status.color,
+      icon: (
+        <StatusIcon
+          className={`h-3 w-3 ${mission.status === 'running' ? 'animate-spin' : ''}`}
+        />
+      ),
+    },
+  ];
 
-      {/* Type / status badges */}
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-gray-600">
-          {mission.depth}
-        </span>
-        <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-          {mission.language}
-        </span>
+  const description = mission.reportSummary
+    ? mission.reportSummary
+    : mission.errorMessage
+      ? mission.errorMessage
+      : mission.status === 'running'
+        ? 'Mission 进行中…'
+        : '暂无报告';
+
+  const stats = [];
+  if (mission.tokensUsed != null && mission.tokensUsed > 0) {
+    stats.push({
+      key: 'tokens',
+      icon: <Coins className="h-3.5 w-3.5" />,
+      text:
+        mission.tokensUsed >= 1000
+          ? `${(mission.tokensUsed / 1000).toFixed(1)}k tk`
+          : `${mission.tokensUsed} tk`,
+    });
+  }
+  if (mission.finalScore != null) {
+    stats.push({
+      key: 'score',
+      icon: <Trophy className="h-3.5 w-3.5" />,
+      text: (
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}
+          className={
+            mission.finalScore >= 80
+              ? 'text-emerald-600'
+              : mission.finalScore >= 60
+                ? 'text-amber-600'
+                : 'text-red-600'
+          }
         >
-          <StatusIcon
-            className={`h-3 w-3 ${mission.status === 'running' ? 'animate-spin' : ''}`}
-          />
-          {status.label}
+          {mission.finalScore} / 100
         </span>
-      </div>
+      ),
+    });
+  }
+  if (mission.wallTimeMs != null) {
+    stats.push({
+      key: 'time',
+      icon: <Activity className="h-3.5 w-3.5" />,
+      text: `${(mission.wallTimeMs / 1000).toFixed(1)}s`,
+    });
+  }
 
-      {/* Title + summary */}
-      <h3 className="line-clamp-1 font-semibold text-gray-900 group-hover:text-violet-700">
-        {mission.topic}
-      </h3>
-      {mission.reportSummary ? (
-        <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-          {mission.reportSummary}
-        </p>
-      ) : mission.errorMessage ? (
-        <p className="mt-1 line-clamp-2 text-sm text-red-500">
-          {mission.errorMessage}
-        </p>
-      ) : (
-        <p className="mt-1 text-sm italic text-gray-400">
-          {mission.status === 'running' ? 'Mission 进行中…' : '暂无报告'}
-        </p>
-      )}
-
-      {/* Stats — TI TopicCard 同款 */}
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
-        {mission.tokensUsed != null && mission.tokensUsed > 0 && (
-          <div className="flex items-center gap-1">
-            <Coins className="h-3.5 w-3.5" />
-            <span>
-              {mission.tokensUsed >= 1000
-                ? `${(mission.tokensUsed / 1000).toFixed(1)}k tk`
-                : `${mission.tokensUsed} tk`}
-            </span>
-          </div>
-        )}
-        {mission.finalScore != null && (
-          <div className="flex items-center gap-1">
-            <Trophy className="h-3.5 w-3.5" />
-            <span
-              className={
-                mission.finalScore >= 80
-                  ? 'text-emerald-600'
-                  : mission.finalScore >= 60
-                    ? 'text-amber-600'
-                    : 'text-red-600'
-              }
-            >
-              {mission.finalScore} / 100
-            </span>
-          </div>
-        )}
-        {mission.wallTimeMs != null && (
-          <div className="flex items-center gap-1">
-            <Activity className="h-3.5 w-3.5" />
-            <span>{(mission.wallTimeMs / 1000).toFixed(1)}s</span>
-          </div>
-        )}
-      </div>
-
-      {/* Footer date — auto-pushed to bottom via flex-1 spacer */}
-      <div className="flex-1" />
-      <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
-        <ClientDate date={mission.startedAt} format="datetime" />
-      </div>
-    </div>
+  return (
+    <AssetCard
+      title={mission.topic}
+      description={description}
+      icon={<Sparkles className="h-6 w-6 text-white" />}
+      gradient={gradient}
+      badges={badges}
+      onClick={onClick}
+      stats={stats}
+      timestamp={mission.startedAt}
+    />
   );
 }
 
