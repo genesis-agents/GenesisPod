@@ -86,7 +86,14 @@ export type OutputFormat =
  * | moderate | medium | 分析、审核、规划 |
  * | deep | high | 复杂推理、多步骤规划、因果分析 |
  */
-export type ReasoningDepth = "light" | "moderate" | "deep";
+/**
+ * ReasoningDepth — task profile 抽象的"该思考多久"
+ *   - "minimal": 最省 token，gpt-5 系列特有，reasoning < 1k tokens
+ *   - "light":   低 effort，reasoning ~ 1-5k tokens
+ *   - "moderate": 中 effort，reasoning ~ 5-15k tokens
+ *   - "deep":    高 effort，reasoning ~ 15-50k tokens（需要复杂多步推理时用）
+ */
+export type ReasoningDepth = "minimal" | "light" | "moderate" | "deep";
 
 /**
  * ReasoningDepth → OpenAI reasoning_effort 映射（共享常量）
@@ -96,9 +103,15 @@ export type ReasoningDepth = "light" | "moderate" | "deep";
  * - ai-direct-key.generateChatCompletionWithKey (Path B: BYOK)
  * - ai-stream-handler.streamOpenAICompatible (Stream)
  *
- * 缺省值 "low" — 没传 reasoningDepth 的 caller 走最便宜挡，避免 CoT 吃光 token。
+ * 缺省值 "minimal"（gpt-5 系列）— 之前默认 "low"，但 OpenAI gpt-5 reasoning
+ * 模型在 low effort 下对复杂 system prompt 仍可能跑 50k+ reasoning tokens
+ * （reasoning 不严格遵守 max_completion_tokens），导致 visible 输出被挤空。
+ * 改成 minimal 显著降低 reasoning 上限。caller 显式声明 deep 才走高 effort。
+ *
+ * 注意：minimal 仅 gpt-5 系列支持；o1/o3/o4 不支持 minimal，OpenAI 会自动 fallback 到 low。
  */
 export const REASONING_DEPTH_TO_EFFORT: Record<ReasoningDepth, string> = {
+  minimal: "minimal",
   light: "low",
   moderate: "medium",
   deep: "high",
@@ -106,14 +119,12 @@ export const REASONING_DEPTH_TO_EFFORT: Record<ReasoningDepth, string> = {
 
 /**
  * 把 ReasoningDepth 安全映射成 OpenAI reasoning_effort 字符串。
- * undefined / 未知值 → "low"（保守挡，最省 token）。
+ * undefined / 未知值 → "minimal"（最省 token，避免 CoT 吃光 max_completion_tokens
+ * 后 visible 输出空导致 ReActLoop "立即 finalize 空" 熔断）。
  */
 export function reasoningDepthToEffort(depth?: string): string {
-  if (!depth) return "low";
-  return (
-    REASONING_DEPTH_TO_EFFORT[depth as ReasoningDepth] ??
-    "low"
-  );
+  if (!depth) return "minimal";
+  return REASONING_DEPTH_TO_EFFORT[depth as ReasoningDepth] ?? "minimal";
 }
 
 /**

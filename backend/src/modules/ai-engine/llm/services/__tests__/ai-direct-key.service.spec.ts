@@ -43,6 +43,8 @@ describe("AiDirectKeyService", () => {
 
     mockModelConfigService = {
       isReasoningModel: jest.fn().mockReturnValue(false),
+      // ai-direct-key 现在调 getModelConfig 拿真实 modelConfig 给 TaskProfileMapper（修真根因：原传 null 导致 isReasoning 路径丢失）
+      getModelConfig: jest.fn().mockResolvedValue(null),
     };
 
     // retryService wraps calls - just pass through to the underlying fn
@@ -392,7 +394,9 @@ describe("AiDirectKeyService", () => {
       ).rejects.toThrow("token");
     });
 
-    it("should add reasoning_effort for o1/o3 models with OpenAI", async () => {
+    it("should add reasoning_effort=minimal default for any reasoning model with OpenAI", async () => {
+      // 默认 minimal — 防止 OpenAI gpt-5 系列在 low effort 下仍跑 50k+ reasoning tokens
+      // 把 max_completion_tokens 挤光导致 visible 输出空。caller 显式传 deep 才升 high。
       const apiResponse = {
         choices: [
           { message: { content: "reasoning response" }, finish_reason: "stop" },
@@ -411,7 +415,7 @@ describe("AiDirectKeyService", () => {
 
       const callArgs = mockHttpService.post.mock.calls[0];
       const body = callArgs[1];
-      expect(body).toHaveProperty("reasoning_effort", "low");
+      expect(body).toHaveProperty("reasoning_effort", "minimal");
     });
 
     it("should detect image generation request for OpenAI", async () => {

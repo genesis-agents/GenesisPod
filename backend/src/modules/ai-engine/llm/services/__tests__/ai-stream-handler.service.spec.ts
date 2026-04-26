@@ -174,7 +174,8 @@ describe("AiStreamHandlerService", () => {
       }
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
-      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+      // 没传 reasoningDepth → 默认 minimal（gpt-5 系列最省）
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
     });
 
     it("should NOT add reasoning_effort when isReasoning=false (default)", async () => {

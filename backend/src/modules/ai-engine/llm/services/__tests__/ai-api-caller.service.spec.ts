@@ -84,7 +84,9 @@ describe("AiApiCallerService", () => {
       expect(callArgs[0]).toContain("openai.com");
     });
 
-    it("should add reasoning_effort when isReasoning=true (DB-driven)", async () => {
+    it("should add reasoning_effort=minimal when isReasoning=true no depth", async () => {
+      // ★ 默认 minimal 是为了避免 gpt-5 系列 reasoning 吃光 max_completion_tokens
+      //   导致 visible 输出空（OpenAI gpt-5 reasoning_tokens 不严格遵守限制）。
       const apiResponse = {
         choices: [{ message: { content: "reasoning" } }],
         usage: { total_tokens: 200 },
@@ -99,18 +101,18 @@ describe("AiApiCallerService", () => {
         "o1-mini",
         messages,
         25000,
-        undefined, // temperature
-        120000, // timeout
+        undefined,
+        120000,
         "max_completion_tokens",
-        undefined, // responseFormat
-        undefined, // reasoningDepth
-        undefined, // outputSchema
-        undefined, // schemaStrict
-        true, // ★ isReasoning
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true,
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
-      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
     });
 
     it("should map reasoningDepth=deep → reasoning_effort=high", async () => {
@@ -142,7 +144,7 @@ describe("AiApiCallerService", () => {
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "high");
     });
 
-    it("should send reasoning_effort for ANY DB-flagged reasoning model (gpt-5/o5/etc)", async () => {
+    it("should send reasoning_effort for ANY DB-flagged reasoning model regardless of name", async () => {
       // ★ 防回归：模型每月新增，绝不依赖模型名 startsWith
       const apiResponse = {
         choices: [{ message: { content: "ok" } }],
@@ -169,7 +171,8 @@ describe("AiApiCallerService", () => {
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
-      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+      // 没传 reasoningDepth → 默认 minimal（gpt-5 系列最省）
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
     });
 
     it("should NOT add reasoning_effort when isReasoning=false (default)", async () => {
@@ -455,9 +458,9 @@ describe("AiApiCallerService", () => {
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "medium");
     });
 
-    it("should fallback to reasoning_effort='low' when no reasoningDepth (isReasoning=true)", async () => {
+    it("should fallback to reasoning_effort=minimal when no reasoningDepth (isReasoning=true)", async () => {
       const apiResponse = {
-        choices: [{ message: { content: "low" } }],
+        choices: [{ message: { content: "minimal" } }],
         usage: { total_tokens: 200 },
       };
       mockHttpService.post.mockReturnValueOnce(
@@ -474,14 +477,14 @@ describe("AiApiCallerService", () => {
         120000,
         "max_tokens",
         undefined,
-        undefined, // no reasoningDepth
         undefined,
         undefined,
-        true, // isReasoning
+        undefined,
+        true,
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
-      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
     });
 
     it("should send reasoning_effort for any DB-flagged reasoning model (no model name match)", async () => {
