@@ -45,6 +45,7 @@ import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
 import { countWords } from '@/lib/markdown/countWords';
 import { injectChartPlaceholders } from '@/lib/markdown/injectChartPlaceholders';
+import { normalizeReportSection } from '@/lib/markdown/normalizeReportSection';
 import {
   splitFullReportIntoChapters,
   type ChapterType as ParsedChapterType,

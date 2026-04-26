@@ -45,6 +45,7 @@ import {
 import type { AIEditOperation } from '../types';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { injectChartPlaceholdersByChapter } from '@/lib/markdown/injectChartPlaceholders';
+import { normalizeReportSection } from '@/lib/markdown/normalizeReportSection';
 import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
@@ -1061,7 +1062,11 @@ function ReportEditorInner({
     const hasInlinePlaceholders = markdownContent.includes('<!-- chart:');
     const enrichedContent =
       !hasInlinePlaceholders && charts.length > 0
-        ? injectChartPlaceholdersByChapter(markdownContent, charts)
+        ? injectChartPlaceholdersByChapter(markdownContent, charts, {
+            // ★ 与章节视图（ChapterizedReportView.formatContent）同口径，
+            //   保证 chart.position 计的段落与 inject 探测的段落一致。
+            normalize: normalizeReportSection,
+          })
         : markdownContent;
 
     // Split by chart placeholder pattern

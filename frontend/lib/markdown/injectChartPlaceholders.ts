@@ -43,11 +43,25 @@ export interface ChartWithSection extends ChartLike {
   sectionId?: string | null;
 }
 
+export interface InjectByChapterOptions {
+  /**
+   * 章节内容标准化函数。**与章节视图保持同口径**是关键 ——
+   * chart.position="after_paragraph_N" 的 N 是 LLM 在标准化后内容上数的段落，
+   * inject 时探测段落边界用同一份处理才能位置对齐。
+   *
+   * 默认 identity（不处理）。连续视图应传入 normalizeReportSection。
+   */
+  normalize?: (sectionBody: string) => string;
+}
+
 export function injectChartPlaceholdersByChapter<C extends ChartWithSection>(
   fullReport: string,
-  charts: C[]
+  charts: C[],
+  options: InjectByChapterOptions = {}
 ): string {
   if (!charts.length) return fullReport;
+
+  const normalize = options.normalize ?? ((s) => s);
 
   // mid-line H2 修复：上游某些 pipeline step 偶尔会吃掉 ## 前的换行
   const normalized = fullReport.replace(
@@ -94,11 +108,14 @@ export function injectChartPlaceholdersByChapter<C extends ChartWithSection>(
       ? chartsBySectionId.get(sectionNumber) || []
       : [];
 
-    const bodyText = seg.body.join('\n');
+    // ★ 章节内 body 先 normalize 再 inject —— 使 paragraphIdx 与章节视图
+    //   对齐（章节视图是 normalize → inject → render 同一份内容）。
+    const rawBody = seg.body.join('\n');
+    const normalizedBody = normalize(rawBody);
     const injected =
-      sectionCharts.length > 0 && !bodyText.includes('<!-- chart:')
-        ? injectChartPlaceholders(bodyText, sectionCharts)
-        : bodyText;
+      sectionCharts.length > 0 && !normalizedBody.includes('<!-- chart:')
+        ? injectChartPlaceholders(normalizedBody, sectionCharts)
+        : normalizedBody;
     result.push(injected);
   }
 

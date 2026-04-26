@@ -479,6 +479,59 @@ describe('injectChartPlaceholders', () => {
       expect(out).toBe(fullReport);
     });
 
+    it('CRITICAL: normalize hook aligns paragraph indexing with chapter view', () => {
+      // 仿真用户实测 bug（连续视图图片挤章节最前面）：chart.position 用的是
+      // LLM 在 normalize 后内容上数的段落数。如果不传 normalize，inject 探测
+      // 的 paragraphIdx 与 LLM 计的不一致 → 位置错位。
+      //
+      // 这里模拟 normalize 会把 `### 一方面` 这种滥用 H3 → 普通段落，从而
+      // 改变段落计数。
+      const fullReport = [
+        '## 1. 第一章',
+        '### 一方面',
+        '段落 A。',
+        '',
+        '段落 B。',
+        '',
+        '段落 C。',
+        '',
+        '段落 D。',
+        '',
+        '段落 E。',
+        '',
+      ].join('\n');
+
+      const fakeNormalize = (raw: string) =>
+        raw.replace(/^### (一方面|此外)\s*$/gm, '\n$1');
+
+      const out = injectChartPlaceholdersByChapter(
+        fullReport,
+        [{ id: 'fig', sectionId: '1', position: 'after_paragraph_3' }],
+        { normalize: fakeNormalize }
+      );
+
+      // normalize 后 "### 一方面" 不再是 H3 而是普通段落，paragraphEnds 会包含它。
+      // 验证 fig 占位符存在，且不在章节最前面（>= 段落 3 之后）
+      expect(out).toContain('<!-- chart:fig -->');
+      const figIdx = out.indexOf('<!-- chart:fig -->');
+      const paraAIdx = out.indexOf('段落 A');
+      // 占位符应在段落 A 之后（不是章节开头之前）
+      expect(figIdx).toBeGreaterThan(paraAIdx);
+    });
+
+    it('without normalize hook, paragraph indexing falls back to identity (legacy behavior)', () => {
+      // 不传 normalize 时与之前行为一致（identity 函数）
+      const out = injectChartPlaceholdersByChapter(
+        '## 1. A\np1.\n\np2.\n\np3.\n',
+        [{ id: 'fig', sectionId: '1', position: 'after_paragraph_2' }]
+      );
+      expect(out).toContain('<!-- chart:fig -->');
+      // 占位符在 p2 之后
+      const figIdx = out.indexOf('<!-- chart:fig -->');
+      const p2Idx = out.indexOf('p2.');
+      expect(figIdx).toBeGreaterThan(p2Idx);
+    });
+
     it('Unicode chapters and Chinese paragraphs are processed identically', () => {
       const content = [
         '## 1. 中文章节',
