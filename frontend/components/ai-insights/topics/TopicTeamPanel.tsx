@@ -972,6 +972,7 @@ function TopicTeamCanvasView({
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatSending, setChatSending] = useState(false);
   const fetchTodos = useTopicInsightsStore((s) => s.fetchTodos);
+  const fetchMissionStatus = useTopicInsightsStore((s) => s.fetchMissionStatus);
   const selectTodoInStore = useTopicInsightsStore((s) => s.selectTodo);
   const tiDecisionTypeConfig = useMemo(() => getTiDecisionTypeConfig(t), [t]);
 
@@ -1058,11 +1059,13 @@ function TopicTeamCanvasView({
           })
       );
 
-      // ★ Leader 创建 TODO 后刷新主面板 TODO 列表
-      // （与原内嵌面板 ResearchCollaborationPanel.handleInstructionSubmit 行为一致）
+      // ★ Leader 创建 TODO 后刷新：
+      //   - 右侧 TODO 列表（fetchTodos）
+      //   - 左侧拓扑图 / 维度列表（fetchMissionStatus 拉新的 tasks）
       // fire-and-forget：刷新失败不应污染 chatError 让对话本身看起来失败
       if (resp.decisionType === 'CREATE_TODO' && resp.todo && activeMissionId) {
         void fetchTodos(topicId, activeMissionId);
+        void fetchMissionStatus(topicId);
       }
     } catch (e) {
       setChatError(e instanceof Error ? e.message : String(e));
