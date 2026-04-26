@@ -151,6 +151,9 @@ export class AgentRunner {
       meta,
       augmentBlocks,
       opts.budgetMultiplier,
+      opts.userId,
+      opts.workspaceId,
+      opts.environment,
     );
 
     // ── 自动包 BillingContext（如果 userId 已知）──
@@ -245,6 +248,9 @@ export class AgentRunner {
       meta,
       augmentBlocks,
       opts.budgetMultiplier,
+      opts.userId,
+      opts.workspaceId,
+      opts.environment,
     );
 
     const inputForExec: Record<string, unknown> | string = parsedInput as
@@ -477,6 +483,12 @@ export class AgentRunner {
     meta: DefineAgentOptions,
     augmentBlocks: readonly string[],
     budgetMultiplier?: number,
+    /** ★ Critical: 这三个是从 RunOptions 透传到 envelope 的运行时环境信息。
+     *  缺失会导致 envelope.memory.userId=undefined（BYOK 解析断链）+
+     *  envelope.runtimeEnv=undefined（ReActLoop 的 model 可用性环境感知永远跳过）。 */
+    userId?: string,
+    workspaceId?: string,
+    runtimeEnv?: IRuntimeEnvironment,
   ): {
     agent: IAgent;
     instance: AgentSpec<z.ZodType, z.ZodType>;
@@ -559,6 +571,14 @@ export class AgentRunner {
       stubFn,
       buildSystemPrompt: buildSystemPromptFn,
       buildUserPrompt: buildUserPromptFn,
+      // ★ 关键透传 —— factory 用这些 build envelope.memory + envelope.runtimeEnv，
+      //   ReActLoop 才能：
+      //   (a) chat({ userId }) 命中用户 BYOK 默认模型 / API key
+      //   (b) 调 envelope.runtimeEnv.getModelAvailability() 做环境感知 fallback
+      //   (c) 调 envelope.runtimeEnv.suggestFallback() 做 budget 耗尽时的降级建议
+      userId,
+      workspaceId,
+      runtimeEnv,
     };
 
     const agent = this.factory.create(agentSpec);
