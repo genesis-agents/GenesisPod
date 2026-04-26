@@ -44,7 +44,7 @@ import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
 import { countWords } from '@/lib/markdown/countWords';
-import { injectChartPlaceholders as injectChartPlaceholdersShared } from '@/lib/markdown/injectChartPlaceholders';
+import { injectChartPlaceholders } from '@/lib/markdown/injectChartPlaceholders';
 import {
   splitFullReportIntoChapters,
   type ChapterType as ParsedChapterType,
@@ -192,11 +192,6 @@ function stripChartJsonBlock(content: string): string {
   }
   return result;
 }
-
-// ★ injectChartPlaceholders 已抽到 lib/markdown/injectChartPlaceholders.ts
-//   作为公共平台能力，连续视图（ReportEditor）也使用同一份逻辑。
-//   保留同名局部别名以最小化下方调用点改动。
-const injectChartPlaceholders = injectChartPlaceholdersShared;
 
 // View mode type (consistent with continuous view)
 type ViewMode = 'preview' | 'edit';
