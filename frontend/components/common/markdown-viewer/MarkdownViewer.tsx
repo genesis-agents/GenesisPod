@@ -61,6 +61,18 @@ export interface MarkdownViewerProps {
    * 注意：开启 = 信任内容来源；用户输入禁用。
    */
   enableRawHtml?: boolean;
+  /**
+   * 是否对 h1-h4 标题也应用 processText（默认 false）。
+   * 默认标题里的 string 会过 processText，但 array（嵌套元素）不递归。
+   * 设为 true 时，标题里的「`## Hello [1]`」也会渲染成 CitationBadge。
+   */
+  processHeadings?: boolean;
+  /**
+   * 跨实例共享的标题锚点计数 Map。
+   * 默认每个 MarkdownViewer 实例自建，仅当多实例需要共享去重时传入。
+   * 一般用 MarkdownChartSplitViewer 而不是手动管理。
+   */
+  sharedSlugCounts?: Map<string, number>;
 }
 
 const IDENTITY: (text: string) => ReactNode = (t) => t;
@@ -73,6 +85,8 @@ export function MarkdownViewer({
   enableGfm = true,
   enableMath = true,
   enableRawHtml = false,
+  processHeadings = false,
+  sharedSlugCounts,
 }: MarkdownViewerProps) {
   const finalText = useMemo(() => {
     if (!preprocess) return content;
@@ -81,10 +95,15 @@ export function MarkdownViewer({
     return processed;
   }, [content, preprocess, enableMath]);
 
-  // 每次 processText 变化重建 components 工厂（slugCounts / lastH2Text 是闭包态）
+  // 每次 processText / opts 变化重建 components 工厂
+  // (slugCounts / lastH2Text 是闭包态，sharedSlugCounts 由调用方注入支持跨实例去重)
   const components = useMemo(
-    () => createMarkdownComponents(processText ?? IDENTITY),
-    [processText]
+    () =>
+      createMarkdownComponents(processText ?? IDENTITY, {
+        applyTextProcessingToHeadings: processHeadings,
+        sharedSlugCounts,
+      }),
+    [processText, processHeadings, sharedSlugCounts]
   );
 
   const remarkPlugins = useMemo(

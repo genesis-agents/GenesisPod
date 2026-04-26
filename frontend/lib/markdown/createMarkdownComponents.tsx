@@ -106,11 +106,38 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
   );
 }
 
-export function createMarkdownComponents(processText: ProcessTextFn) {
-  // Track heading slug counts for dedup (reset per render)
-  const slugCounts = new Map<string, number>();
+export interface CreateMarkdownComponentsOptions {
+  /**
+   * 是否对标题（h1-h4）也应用 processText，默认 false。
+   * 默认 simple 模式：标题 children 是数组（嵌入 inline 元素如 `## Hello *world*`）时
+   * 原样 passthrough，避免对已 parse 的 inline 元素做二次干预。
+   *
+   * 设为 true 时切换为 full 模式：标题 children 是数组的情况下，
+   * 也会递归处理其中的 string 段落。适用于「标题里也含 [1] 引用徽章」等场景。
+   */
+  applyTextProcessingToHeadings?: boolean;
+
+  /**
+   * 跨实例共享的标题锚点计数 Map。
+   * 默认每次调用 createMarkdownComponents 内建一个新 Map（per-render 重置）。
+   * 当一段逻辑文本被切分成多个 ReactMarkdown 实例渲染（如章节里穿插图表），
+   * 必须传入同一个外部 Map 才能保证锚点去重正确。
+   */
+  sharedSlugCounts?: Map<string, number>;
+}
+
+export function createMarkdownComponents(
+  processText: ProcessTextFn,
+  opts: CreateMarkdownComponentsOptions = {}
+) {
+  // Track heading slug counts for dedup (reset per render unless caller injects a shared Map)
+  const slugCounts = opts.sharedSlugCounts ?? new Map<string, number>();
   // Track the last seen h2 heading text for context-aware rendering
   let lastH2Text = '';
+  // Headings children 处理器：默认 simple，opts 切到 full（递归 array）
+  const processHeading = opts.applyTextProcessingToHeadings
+    ? processChildren
+    : processChildrenSimple;
 
   return {
     img: ({ src, alt }: { src?: string; alt?: string }) => (
@@ -342,7 +369,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       node?: unknown;
     }) => (
       <h1 id={headingSlug(children, slugCounts)} {...props}>
-        {processChildrenSimple(children, processText)}
+        {processHeading(children, processText)}
       </h1>
     ),
     h2: ({
@@ -356,7 +383,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       lastH2Text = extractText(children);
       return (
         <h2 id={headingSlug(children, slugCounts)} {...props}>
-          {processChildrenSimple(children, processText)}
+          {processHeading(children, processText)}
         </h2>
       );
     },
@@ -369,7 +396,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       node?: unknown;
     }) => (
       <h3 id={headingSlug(children, slugCounts)} {...props}>
-        {processChildrenSimple(children, processText)}
+        {processHeading(children, processText)}
       </h3>
     ),
     h4: ({
@@ -381,7 +408,7 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       node?: unknown;
     }) => (
       <h4 id={headingSlug(children, slugCounts)} {...props}>
-        {processChildrenSimple(children, processText)}
+        {processHeading(children, processText)}
       </h4>
     ),
     blockquote: ({

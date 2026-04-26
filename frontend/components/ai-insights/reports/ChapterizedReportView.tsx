@@ -12,12 +12,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
-import rehypeRaw from 'rehype-raw';
+import { MarkdownChartSplitViewer } from '@/components/common/markdown-viewer';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -31,7 +26,7 @@ import {
 import {
   AnnotatedText,
   useScrollToAnnotation,
-} from '../annotations/AnnotatedText';
+} from '@/components/common/annotations/AnnotatedText';
 import type { AIEditOperation } from '../types';
 import type {
   TopicReport,
@@ -46,7 +41,6 @@ import {
 } from '@/components/common/chart-viewer';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
-import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
 import { countWords } from '@/lib/markdown/countWords';
@@ -970,95 +964,35 @@ function ChapterizedReportViewInner({
             </div>
           ) : (
             // ★ Preview mode - 与连续视图（ReportEditor）完全一致的渲染管线
+            //   现走平台 MarkdownChartSplitViewer：
+            //   - 跨段共享 slugCounts + lastH2Text（mdComponents 内部维护）
+            //   - chart 占位符自动 split + renderChart 回调
+            //   - preprocess=false 保留旧行为（外部已 processText 不再二次预处理）
             <div ref={previewRef} className="p-6">
               <article className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 max-w-none">
-                {(() => {
-                  const rawContent =
+                <MarkdownChartSplitViewer
+                  content={
                     selectedChapter.content ||
-                    t('topicResearch.reportEditor.noContent');
-                  const charts = selectedChapter.charts || [];
-
-                  // Create markdown components once so slugCounts is shared
-                  // across all ReactMarkdown instances in this chapter render.
-                  const mdComponents = createMarkdownComponents(processText);
-
-                  // If no charts, strip any orphaned chart markers and render as-is
-                  if (
-                    charts.length === 0 ||
-                    !rawContent.includes('<!-- chart:')
-                  ) {
-                    const cleanContent = rawContent.replace(
-                      /<!--\s*chart:[^\s]+?\s*-->/g,
-                      ''
-                    );
-                    return (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[
-                          rehypeRaw,
-                          [rehypeKatex, KATEX_OPTIONS],
-                        ]}
-                        components={mdComponents}
-                      >
-                        {cleanContent}
-                      </ReactMarkdown>
-                    );
+                    t('topicResearch.reportEditor.noContent')
                   }
-
-                  // Split content at chart placeholder markers
-                  // Pattern: <!-- chart:chartId -->
-                  const segments = rawContent.split(
-                    /<!--\s*chart:([^\s]+?)\s*-->/
-                  );
-                  // segments alternates: [text, chartId, text, chartId, text, ...]
-
-                  const chartMap = new Map(charts.map((c) => [c.id, c]));
-
-                  const elements: React.ReactNode[] = [];
-                  for (let i = 0; i < segments.length; i++) {
-                    if (i % 2 === 0) {
-                      // Text segment
-                      const text = segments[i].trim();
-                      if (text) {
-                        elements.push(
-                          <ReactMarkdown
-                            key={`md-${i}`}
-                            remarkPlugins={[remarkGfm, remarkMath]}
-                            rehypePlugins={[
-                              rehypeRaw,
-                              [rehypeKatex, KATEX_OPTIONS],
-                            ]}
-                            components={mdComponents}
-                          >
-                            {text}
-                          </ReactMarkdown>
-                        );
-                      }
-                    } else {
-                      // Chart ID segment
-                      const chartId = segments[i];
-                      const chart = chartMap.get(chartId);
-                      if (chart) {
-                        elements.push(
-                          <div key={`chart-${chartId}`} className="my-4">
-                            <FigureRenderer
-                              chart={chart}
-                              evidenceInfo={
-                                chart.evidenceCitationIndex
-                                  ? figureEvidenceMap.get(
-                                      chart.evidenceCitationIndex
-                                    )
-                                  : undefined
-                              }
-                            />
-                          </div>
-                        );
-                      }
-                    }
-                  }
-
-                  return <>{elements}</>;
-                })()}
+                  charts={selectedChapter.charts || []}
+                  getChartId={(c) => c.id}
+                  processText={processText}
+                  preprocess={false}
+                  enableRawHtml
+                  renderChart={(chart, key) => (
+                    <div key={key} className="my-4">
+                      <FigureRenderer
+                        chart={chart}
+                        evidenceInfo={
+                          chart.evidenceCitationIndex
+                            ? figureEvidenceMap.get(chart.evidenceCitationIndex)
+                            : undefined
+                        }
+                      />
+                    </div>
+                  )}
+                />
               </article>
 
               {/* References for this chapter */}

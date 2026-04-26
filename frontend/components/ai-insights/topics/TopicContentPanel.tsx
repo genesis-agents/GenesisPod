@@ -2496,48 +2496,23 @@ function ReportTabContent({
         <div ref={contentRef} className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-6 py-6">
             <article className="prose prose-sm prose-blue max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
-                components={{
-                  // 自定义段落渲染，支持内联引用
-                  p: ({ children }) => (
-                    <p>{processChildrenWithCitations(children, evidence)}</p>
-                  ),
-                  // 自定义列表项渲染
-                  li: ({ children }) => (
-                    <li>{processChildrenWithCitations(children, evidence)}</li>
-                  ),
-                  // ★ 表格单元格引用处理
-                  td: ({ children }) => (
-                    <td>{processChildrenWithCitations(children, evidence)}</td>
-                  ),
-                  th: ({ children }) => (
-                    <th>{processChildrenWithCitations(children, evidence)}</th>
-                  ),
-                  // ★ 标题引用处理
-                  h1: ({ children }) => (
-                    <h1>{processChildrenWithCitations(children, evidence)}</h1>
-                  ),
-                  h2: ({ children }) => (
-                    <h2>{processChildrenWithCitations(children, evidence)}</h2>
-                  ),
-                  h3: ({ children }) => (
-                    <h3>{processChildrenWithCitations(children, evidence)}</h3>
-                  ),
-                  h4: ({ children }) => (
-                    <h4>{processChildrenWithCitations(children, evidence)}</h4>
-                  ),
-                  // ★ 引用块引用处理
-                  blockquote: ({ children }) => (
-                    <blockquote>
-                      {processChildrenWithCitations(children, evidence)}
-                    </blockquote>
-                  ),
-                }}
-              >
-                {preprocessLatex(selectedContent.content || '')}
-              </ReactMarkdown>
+              {/*
+               * 平台 MarkdownViewer：
+               * - processText 槽承担引用徽章注入（renderTextWithCitations 是
+               *   纯文本→ReactNode 的函数，与 createMarkdownComponents.processText
+               *   契约一致）
+               * - processHeadings=true 让标题里的 [1] 也渲染成 CitationBadge，
+               *   行为等价于原代码自定义 h1-h4 调 processChildrenWithCitations
+               * - preprocess=true 内置 preprocessLatex，无需手动调
+               */}
+              <MarkdownViewer
+                content={selectedContent.content || ''}
+                processText={(text) => (
+                  <>{renderTextWithCitations(text, evidence)}</>
+                )}
+                processHeadings
+                preprocess
+              />
             </article>
           </div>
         </div>

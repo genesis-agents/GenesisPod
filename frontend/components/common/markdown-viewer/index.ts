@@ -1,5 +1,7 @@
 export { MarkdownViewer } from './MarkdownViewer';
 export type { MarkdownViewerProps } from './MarkdownViewer';
+export { MarkdownChartSplitViewer } from './MarkdownChartSplitViewer';
+export type { MarkdownChartSplitViewerProps } from './MarkdownChartSplitViewer';
 
 // Re-export low-level utilities for advanced consumers that need
 // to compose their own ReactMarkdown pipeline (e.g. ReportEditor TipTap).
