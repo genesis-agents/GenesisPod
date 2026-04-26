@@ -88,6 +88,8 @@ export class ReflexionLoop implements IAgentLoop {
       forbiddenTools?: readonly string[];
       budget?: BudgetAccountant;
       reflexion?: ReflexionOptions;
+      /** Spec.taskProfile 透传给内层 ReActLoop，让 reason() 用 agent 真实意图 */
+      taskProfile?: import("../../llm/types/task-profile").TaskProfile;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "reflexion-agent";

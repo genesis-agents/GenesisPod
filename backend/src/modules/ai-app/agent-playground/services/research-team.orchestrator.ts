@@ -288,6 +288,11 @@ function explainTerminatedReason(
       }
       // 优先级 3: 真 token 触顶
       return `Agent 预算耗尽${ctxStr} —— maxTokens 触顶。可在 @DefineAgent.budget.maxTokens 调高，或缩短输入 / 减少迭代`;
+    case "empty_llm_response":
+      // ReActLoop circuit breaker emit 的新 reason —— LLM 连续返空被熔断
+      return `LLM 立即 finalize 空结果（${detail?.emptyFinalizeCount ?? "?"} 次）—— Harness 已熔断防止浪费 token。${
+        detail?.usedModelId ? `当前 model: "${detail.usedModelId}"。` : ""
+      }常见根因：(1) BYOK model id 在 provider 不存在 (2) reasoning model max_completion_tokens 不足让 CoT + visible output 同时装下 (3) prompt 让 LLM 完全无所适从。建议先在「设置→模型」确认 model id 真实可用`;
     case "iteration_limit":
     case "max_iterations":
       return `Agent 达到最大迭代次数${ctxStr} —— 通常是 LLM 反复尝试未收敛。可调高 maxIterations，或检查 prompt 是否引导歧义`;

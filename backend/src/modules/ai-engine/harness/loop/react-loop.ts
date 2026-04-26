@@ -229,21 +229,31 @@ export class ReActLoop implements IAgentLoop {
         usage = reasoned.usage;
         if (usage.modelId) lastModelId = usage.modelId;
 
-        // 熔断：检测「LLM 持续返空」(model 不存在 / API 拒绝 / 输出过滤)
-        // 触发条件：completionTokens<=2 + finalize+空 output
-        const isEmptyResponse =
-          usage.completionTokens <= 2 &&
+        // 熔断：检测「LLM 立即 finalize 空结果 + thinking 也空」——
+        //   (a) BYOK model id 不存在 / API 拒绝 → 返回最简 fallback JSON
+        //   (b) reasoning model 内部 CoT 吃光 max_completion_tokens
+        //   (c) response_format=json_object 强制下，model 憋出最简空 JSON 假装完成
+        //
+        // 防 false-positive：thinking 非空说明 LLM 在思考，可能合理 finalize；
+        // 只有 thinking="" + output 空 + 连续 2 次 才 abort。
+        let isEmptyResponse = false;
+        if (
           decision.action.kind === "finalize" &&
-          (!decision.action.output ||
-            (typeof decision.action.output === "string" &&
-              decision.action.output.trim() === ""));
+          decision.thinking.trim() === ""
+        ) {
+          const out = decision.action.output;
+          isEmptyResponse =
+            !out ||
+            (typeof out === "string" && out.trim() === "") ||
+            (typeof out === "object" && Object.keys(out).length === 0);
+        }
         if (isEmptyResponse) {
           consecutiveEmptyLLM += 1;
           if (consecutiveEmptyLLM >= 2) {
             yield this.makeEvent(agentId, "error", {
               message: `LLM "${
                 lastModelId ?? "unknown"
-              }" 连续 ${consecutiveEmptyLLM} 次返回空响应 (completion=0 tokens)。根因极可能是 model id 不存在 / API 拒绝 / 输出被过滤。请检查 BYOK 模型配置`,
+              }" 连续 ${consecutiveEmptyLLM} 次立即 finalize 空结果（completion=${usage.completionTokens}tk）。根因可能：(a) model id 在 provider 不存在 → API 返错被吞；(b) reasoning model 内部 CoT 吃光 max_completion_tokens；(c) prompt 让 model 完全无所适从。请检查 BYOK 模型配置或调高 budget.maxTokens`,
               recoverable: false,
             });
             yield this.makeEvent(agentId, "terminated", {
@@ -440,6 +450,12 @@ export class ReActLoop implements IAgentLoop {
         creativity: "low",
         outputLength: "medium",
       },
+      // ★ Harness 调用必须 strict —— LLM 出错就抛 exception，让 ReActLoop catch
+      // 后明确发 error 事件 + terminated reason="error"。
+      // 否则 AiChatService 会把 throw 转成 "**API 调用失败**..." fake content，
+      // ReActLoop 收到非空 content 误以为成功，进 parseDecision 失败 → finalize
+      // raw text → 误导 trace。
+      strictMode: true,
       responseFormat: "json",
       // BYOK 环境感知：userId 透给 chat() → 用户的 UserModelConfig 默认值优先
       userId,

@@ -88,14 +88,21 @@ export class PlanActLoop implements IAgentLoop {
       allowedTools?: readonly string[];
       forbiddenTools?: readonly string[];
       budget?: BudgetAccountant;
+      /** Spec.taskProfile —— plan/synthesize 用 agent 真实意图，不再硬编码 */
+      taskProfile?: import("../../llm/types/task-profile").TaskProfile;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "plan-act-agent";
+    const specTaskProfile = options?.taskProfile;
 
     // === Phase 1: PLAN ===
     let plan: Plan;
     try {
-      plan = await this.generatePlan(envelope, options?.signal);
+      plan = await this.generatePlan(
+        envelope,
+        options?.signal,
+        specTaskProfile,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       yield this.event(agentId, "error", { message, recoverable: false });
@@ -173,7 +180,12 @@ export class PlanActLoop implements IAgentLoop {
     }
 
     // === Phase 3: SYNTHESIZE ===
-    const final = await this.synthesize(envelope, plan, stepResults);
+    const final = await this.synthesize(
+      envelope,
+      plan,
+      stepResults,
+      specTaskProfile,
+    );
     yield this.event(agentId, "output", { output: final });
     yield this.event(agentId, "terminated", { reason: "completed" });
   }
@@ -181,6 +193,7 @@ export class PlanActLoop implements IAgentLoop {
   private async generatePlan(
     envelope: IContextEnvelope,
     signal?: AbortSignal,
+    specTaskProfile?: import("../../llm/types/task-profile").TaskProfile,
   ): Promise<Plan> {
     const messages: ChatMessage[] = envelope.messages.map((m) => ({
       role: m.role === "tool" ? "user" : m.role,
@@ -189,8 +202,14 @@ export class PlanActLoop implements IAgentLoop {
     const res = await this.chatService.chat({
       messages,
       systemPrompt: envelope.system + PLAN_PROMPT_SUFFIX,
-      taskProfile: { creativity: "low", outputLength: "medium" },
+      // 优先 spec.taskProfile —— agent 真实意图；缺省给 medium 防 reasoning 卡死
+      taskProfile: specTaskProfile ?? {
+        creativity: "low",
+        outputLength: "medium",
+      },
       responseFormat: "json",
+      // Harness 调用必须 strict —— LLM 出错就抛，让上游 catch 后发 error 事件
+      strictMode: true,
       // 系统配置感知 + BYOK：modelType 走 DB 默认，userId 命中用户偏好
       modelType: AIModelType.CHAT,
       userId: envelope.memory.userId,
@@ -291,6 +310,7 @@ export class PlanActLoop implements IAgentLoop {
     envelope: IContextEnvelope,
     plan: Plan,
     results: ReadonlyMap<string, string>,
+    specTaskProfile?: import("../../llm/types/task-profile").TaskProfile,
   ): Promise<string> {
     const summaryBlock = plan.steps
       .map(
@@ -312,7 +332,11 @@ export class PlanActLoop implements IAgentLoop {
         })),
         { role: "user", content: `# Plan results\n\n${summaryBlock}` },
       ],
-      taskProfile: { creativity: "low", outputLength: "long" },
+      // 优先 spec.taskProfile —— synthesize 阶段需要长输出整合多步骤结果
+      taskProfile: specTaskProfile ?? {
+        creativity: "low",
+        outputLength: "long",
+      },
       // 系统配置感知 + BYOK
       modelType: AIModelType.CHAT,
       userId: envelope.memory.userId,
