@@ -81,6 +81,8 @@ interface RelayCtx {
   /** demo agentId — 稳定且对人友好（如 "researcher#0"），不是 runtime UUID */
   agentId: string;
   role: string;
+  /** 每 mission 独享的 RuntimeEnvironment 适配器（含 BYOK / 余额 / 模型池） */
+  envAdapter?: BillingRuntimeEnvAdapter;
 }
 
 function extractTokenSpend(events: readonly IAgentEvent[]): number {
@@ -185,6 +187,7 @@ export class ResearchTeamOrchestrator {
             workspaceId,
             pool,
             t0,
+            billing,
           );
           // 持久化 completed 状态 + 完整结果（含 dimensions / themeSummary / verdicts）
           const snap = pool.snapshot();
@@ -237,6 +240,7 @@ export class ResearchTeamOrchestrator {
     workspaceId: string | undefined,
     pool: MissionBudgetPool,
     t0: number,
+    billing: BillingRuntimeEnvAdapter,
   ): Promise<MissionResult> {
     {
       {
@@ -262,7 +266,13 @@ export class ResearchTeamOrchestrator {
             depth: input.depth,
             language: input.language,
           },
-          { missionId, userId, agentId: "leader", role: "leader" },
+          {
+            missionId,
+            userId,
+            agentId: "leader",
+            role: "leader",
+            envAdapter: billing,
+          },
         );
         await this.tickCostDelta(
           missionId,
@@ -334,7 +344,13 @@ export class ResearchTeamOrchestrator {
                   dimension: dim.name,
                   language: input.language,
                 },
-                { missionId, userId, agentId, role: "researcher" },
+                {
+                  missionId,
+                  userId,
+                  agentId,
+                  role: "researcher",
+                  envAdapter: billing,
+                },
               );
               await this.tickCostDelta(
                 missionId,
@@ -401,6 +417,7 @@ export class ResearchTeamOrchestrator {
                   depth: input.depth,
                   pool,
                   researcherOut,
+                  billing,
                 });
                 return enriched;
               } catch (err) {
@@ -477,7 +494,13 @@ export class ResearchTeamOrchestrator {
             language: input.language,
             researcherResults,
           },
-          { missionId, userId, agentId: "analyst", role: "analyst" },
+          {
+            missionId,
+            userId,
+            agentId: "analyst",
+            role: "analyst",
+            envAdapter: billing,
+          },
         );
         await this.tickCostDelta(
           missionId,
@@ -562,6 +585,7 @@ export class ResearchTeamOrchestrator {
               userId,
               agentId: writerAgentId,
               role: "writer",
+              envAdapter: billing,
             },
           );
           await this.tickCostDelta(
@@ -822,17 +846,31 @@ export class ResearchTeamOrchestrator {
 
   /**
    * 一次性运行 Agent + 实时 relay 每个事件 → WebSocket。
-   * 这是 "为什么要用它而不是 runner.run + relayAgentEvents 两步":
-   *   - runner.run 第三个参数是 onEvent 回调，每产生一个事件立刻 await relay
-   *   - 不再等 agent 跑完 batch relay，UI 能看到实时 thought/action/observation 流
+   *
+   * 第三参数走 RunOptions，让 Harness 自闭包：
+   *   - userId         → 自动包 BillingContext（下游 LLM 自动走该用户 BYOK）
+   *   - environment    → 自动注入 <environment> block（BYOK / 余额 / 模型池）
+   *   - exposeCatalog  → 默认 true，自动注入 <available_tools> + <available_skills>
+   *   - onEvent        → per-iteration 实时 relay
+   *
+   * Agent 类完全不感知环境/账单/能力 catalog —— 这是 Harness 该做的事。
    */
   private async runAndRelay<TSpec extends Parameters<AgentRunner["run"]>[0]>(
     Spec: TSpec,
     input: Parameters<AgentRunner["run"]>[1],
     ctx: RelayCtx,
   ): Promise<Awaited<ReturnType<AgentRunner["run"]>>> {
-    return this.runner.run(Spec, input, async (ev) => {
-      await this.relayAgentEvents([ev], ctx);
+    return this.runner.run(Spec, input, {
+      userId: ctx.userId,
+      environment: ctx.envAdapter,
+      billingMeta: {
+        moduleType: "agent-playground",
+        operationType: ctx.role,
+        referenceId: ctx.missionId,
+      },
+      onEvent: async (ev) => {
+        await this.relayAgentEvents([ev], ctx);
+      },
     });
   }
 
@@ -1042,6 +1080,7 @@ export class ResearchTeamOrchestrator {
       findings: { claim: string; evidence: string; source: string }[];
       summary: string;
     };
+    billing: BillingRuntimeEnvAdapter;
   }): Promise<{
     dimension: string;
     findings: { claim: string; evidence: string; source: string }[];
@@ -1073,6 +1112,7 @@ export class ResearchTeamOrchestrator {
       depth,
       pool,
       researcherOut,
+      billing,
     } = args;
 
     const targetChapterCount = depth === "quick" ? 3 : depth === "deep" ? 7 : 5;
@@ -1112,6 +1152,7 @@ export class ResearchTeamOrchestrator {
         userId,
         agentId: outlineAgentId,
         role: "outline",
+        envAdapter: billing,
       },
     );
     await this.tickCostDelta(
@@ -1217,6 +1258,7 @@ export class ResearchTeamOrchestrator {
             userId,
             agentId: writerAgentId,
             role: "chapter-writer",
+            envAdapter: billing,
           },
         );
         await this.tickCostDelta(
@@ -1295,6 +1337,7 @@ export class ResearchTeamOrchestrator {
             userId,
             agentId: reviewerAgentId,
             role: "chapter-reviewer",
+            envAdapter: billing,
           },
         );
         await this.tickCostDelta(
@@ -1393,6 +1436,7 @@ export class ResearchTeamOrchestrator {
         userId,
         agentId: integratorAgentId,
         role: "integrator",
+        envAdapter: billing,
       },
     );
     await this.tickCostDelta(
@@ -1459,6 +1503,7 @@ export class ResearchTeamOrchestrator {
           userId,
           agentId: gradeAgentId,
           role: "quality-judge",
+          envAdapter: billing,
         },
       );
       await this.tickCostDelta(
