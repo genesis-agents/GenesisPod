@@ -1332,18 +1332,16 @@ function buildTopicAgentInspectorPayload(
     });
   }
 
-  // 避免标题与状态行重复显示 role 名（TI 中 agent.name === display.name 常见）
-  const finalStatusLabel =
-    agent.name === display.name
-      ? statusLabel
-      : `${display.name} · ${statusLabel}`;
-
+  // 副标题只显示纯状态。
+  // role 名在 zh.json 有两套键（如 reportWriter vs synthesizer），
+  // 拼接成 "{role} · {status}" 易出现 "报告撰写者 · 撰写者 · 已完成" 这类
+  // 视觉冗余 —— icon 本身已表达角色，title 是 agent 名称，副标题保持简洁。
   return {
     name: agent.name,
     description: roleInfo.description,
     icon: display.icon,
     iconClassName: 'bg-blue-50 text-blue-600',
-    statusLabel: finalStatusLabel,
+    statusLabel,
     statusColorClass,
     config,
   };
