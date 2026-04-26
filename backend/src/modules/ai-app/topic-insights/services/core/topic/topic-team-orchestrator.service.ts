@@ -207,6 +207,35 @@ export class TopicTeamOrchestratorService {
         });
       }
 
+      // ★ 修复重复任务 bug：上一次 mission 若为 FAILED/CANCELLED，
+      //   遗留的 topicDimension 行（首次规划落库 + 用户对话期间被
+      //   executeGenericDimensionResearch 兜底创建）会被
+      //   getDimensionsToResearch 一次性拉走，给新 mission 创建一整套
+      //   重复的 ResearchTask（参见 Screenshot_48 的 18 条任务现象）。
+      //   重启时把此 topic 上 isEnabled=true 的 dim 软删除，
+      //   强制 getDimensionsToResearch 返回 0 条 → 走 LLM 重新规划路径。
+      //   forceRefresh / dimensionIds 显式指定时不清理（语义上是定向刷新）。
+      if (!options.forceRefresh && !options.dimensionIds?.length) {
+        const lastMission = await this.prisma.researchMission.findFirst({
+          where: { topicId },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, status: true },
+        });
+        if (
+          lastMission &&
+          (lastMission.status === ResearchMissionStatus.FAILED ||
+            lastMission.status === ResearchMissionStatus.CANCELLED)
+        ) {
+          const disabled = await this.prisma.topicDimension.updateMany({
+            where: { topicId, isEnabled: true },
+            data: { isEnabled: false },
+          });
+          this.logger.log(
+            `[executeRefresh] Last mission ${lastMission.id} ended in ${lastMission.status}; soft-disabled ${disabled.count} stale dimensions on topic ${topicId} to force fresh leader replanning`,
+          );
+        }
+      }
+
       // 1. 创建草稿报告
       const report =
         await this.reportSynthesisService.createDraftReport(topicId);

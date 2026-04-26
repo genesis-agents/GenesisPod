@@ -153,6 +153,7 @@ function makePrisma() {
       create: jest.fn().mockResolvedValue({ id: "mission-1" }),
       update: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     researchTask: {
       create: jest.fn().mockResolvedValue({ id: "task-1" }),

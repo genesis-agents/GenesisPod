@@ -174,10 +174,29 @@ export class LeaderToolService {
     );
 
     try {
-      // 检查是否已存在同名维度
-      const existing = await this.prisma.topicDimension.findFirst({
+      // 1) 严格匹配：与原行为一致
+      let existing = await this.prisma.topicDimension.findFirst({
         where: { topicId, name },
       });
+
+      // 2) 归一化兜底（忽略大小写/前后空格）：原严格匹配会被
+      //    大小写/末尾空格差异穿透 → 重复落库
+      if (!existing) {
+        const normalizedName = name.trim().toLowerCase();
+        const candidates =
+          (await this.prisma.topicDimension.findMany({
+            where: { topicId },
+            select: { id: true, name: true },
+          })) ?? [];
+        const fuzzy = candidates.find(
+          (d) => d.name.trim().toLowerCase() === normalizedName,
+        );
+        if (fuzzy) {
+          existing = await this.prisma.topicDimension.findUnique({
+            where: { id: fuzzy.id },
+          });
+        }
+      }
 
       if (existing) {
         return {

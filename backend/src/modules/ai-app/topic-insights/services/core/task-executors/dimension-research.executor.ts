@@ -153,34 +153,46 @@ export class DimensionResearchExecutor implements ITaskExecutor {
     const dimensionName = task.dimensionName || task.title;
 
     this.logger.log(
-      `[DimensionResearchExecutor] Creating dimension in DB: ${dimensionName}`,
+      `[DimensionResearchExecutor] Resolving dimension in DB: ${dimensionName}`,
     );
 
-    // 计算 sortOrder（获取当前最大值 + 1）
-    const maxDimension = await this.prisma.topicDimension.findFirst({
+    // ★ 修复重复 dim bug：兜底创建前先用归一化 name 查重
+    //   原代码无条件 create 会让大小写/空格/全角半角差异穿透 →
+    //   同一逻辑维度在 topicDimension 表里堆叠多份，下次"开始"被
+    //   getDimensionsToResearch 一并拉走 → 任务列表翻倍。
+    const normalizedName = dimensionName.trim().toLowerCase();
+    const existingDimensions = await this.prisma.topicDimension.findMany({
       where: { topicId: topic.id },
       orderBy: { sortOrder: "desc" },
-      select: { sortOrder: true },
     });
-    const sortOrder = (maxDimension?.sortOrder || 0) + 1;
-
-    // 在数据库中创建真实的维度记录
-    const dimension = await this.prisma.topicDimension.create({
-      data: {
-        topicId: topic.id,
-        name: dimensionName,
-        description: task.description || `研究维度: ${dimensionName}`,
-        sortOrder,
-        status: "PENDING",
-        // ★ 设置默认搜索配置
-        searchQueries: [dimensionName],
-        searchSources: ["web"],
-      },
-    });
-
-    this.logger.log(
-      `[DimensionResearchExecutor] Created dimension: ${dimension.id}`,
+    const reused = existingDimensions.find(
+      (d) => d.name.trim().toLowerCase() === normalizedName,
     );
+
+    let dimension;
+    if (reused) {
+      this.logger.log(
+        `[DimensionResearchExecutor] Reusing existing dimension ${reused.id} for "${dimensionName}" (normalized match)`,
+      );
+      dimension = reused;
+    } else {
+      const sortOrder = (existingDimensions[0]?.sortOrder ?? 0) + 1;
+      dimension = await this.prisma.topicDimension.create({
+        data: {
+          topicId: topic.id,
+          name: dimensionName,
+          description: task.description || `研究维度: ${dimensionName}`,
+          sortOrder,
+          status: "PENDING",
+          // ★ 设置默认搜索配置
+          searchQueries: [dimensionName],
+          searchSources: ["web"],
+        },
+      });
+      this.logger.log(
+        `[DimensionResearchExecutor] Created dimension: ${dimension.id}`,
+      );
+    }
 
     // 使用新的 Leader-Agent 协作机制
     const missionResult =

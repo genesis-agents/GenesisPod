@@ -34,6 +34,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
   },
   researchTask: {
     createMany: jest.fn(),
@@ -178,6 +179,8 @@ describe("TopicTeamOrchestratorService", () => {
       mockPrisma.researchTopic.update.mockResolvedValue({});
       mockPrisma.topicDimension.findMany.mockResolvedValue([mockDimension]);
       mockPrisma.topicDimension.updateMany.mockResolvedValue({});
+      // 默认无前次 mission（不触发清理 dim 的修复路径）
+      mockPrisma.researchMission.findFirst.mockResolvedValue(null);
       mockReportSynthesisService.createDraftReport.mockResolvedValue(mockDraft);
       mockReportSynthesisService.synthesizeReport.mockResolvedValue({
         ...mockDraft,
@@ -326,6 +329,44 @@ describe("TopicTeamOrchestratorService", () => {
       await service.executeRefresh(mockTopic as never, options);
 
       expect(mockPrisma.topicDimension.findMany).toHaveBeenCalled();
+    });
+
+    it("should soft-disable stale dimensions when previous mission failed", async () => {
+      // 上一次 mission FAILED → 应清空 isEnabled=true 的 dim，强制重新规划
+      mockPrisma.researchMission.findFirst.mockResolvedValue({
+        id: "mission-prev",
+        status: "FAILED",
+      });
+
+      await service.executeRefresh(mockTopic as never);
+
+      expect(mockPrisma.topicDimension.updateMany).toHaveBeenCalledWith({
+        where: { topicId: "topic-1", isEnabled: true },
+        data: { isEnabled: false },
+      });
+    });
+
+    it("should NOT touch dimensions when previous mission completed", async () => {
+      mockPrisma.researchMission.findFirst.mockResolvedValue({
+        id: "mission-prev",
+        status: "COMPLETED",
+      });
+
+      await service.executeRefresh(mockTopic as never);
+
+      expect(mockPrisma.topicDimension.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("should NOT clean up dimensions when forceRefresh is set", async () => {
+      // forceRefresh 是定向刷新，调用方明确知道自己要做什么
+      mockPrisma.researchMission.findFirst.mockResolvedValue({
+        id: "mission-prev",
+        status: "FAILED",
+      });
+
+      await service.executeRefresh(mockTopic as never, { forceRefresh: true });
+
+      expect(mockPrisma.topicDimension.updateMany).not.toHaveBeenCalled();
     });
   });
 
