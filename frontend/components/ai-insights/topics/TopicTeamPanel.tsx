@@ -45,28 +45,32 @@ import { leaderChat, getTeamMessages } from '@/lib/api/topic-insights';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 // TaskStatus is used in type annotations below
 
-/** Leader 决策类型 → chip 配色（与右下角 ResearchCollaborationPanel 一致） */
-const TI_DECISION_TYPE_CONFIG: Record<
-  LeaderDecisionType,
-  { label: string; colorClass: string }
-> = {
-  DIRECT_ANSWER: {
-    label: '直接回答',
-    colorClass: 'border-blue-200 bg-blue-50 text-blue-700',
-  },
-  CREATE_TODO: {
-    label: '创建任务',
-    colorClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  },
-  CLARIFY: {
-    label: '需要澄清',
-    colorClass: 'border-amber-200 bg-amber-50 text-amber-700',
-  },
-  ACKNOWLEDGE: {
-    label: '已确认',
-    colorClass: 'border-gray-200 bg-gray-50 text-gray-700',
-  },
-};
+/**
+ * Leader 决策类型 → chip 配色 + 国际化标签。
+ * 走 i18n 工厂模式（与原 ResearchCollaborationPanel.getDecisionTypeConfig 一致）。
+ */
+function getTiDecisionTypeConfig(
+  t: (key: string) => string
+): Record<LeaderDecisionType, { label: string; colorClass: string }> {
+  return {
+    DIRECT_ANSWER: {
+      label: t('topicResearch.collaboration.panel.decisionTypes.directAnswer'),
+      colorClass: 'border-blue-200 bg-blue-50 text-blue-700',
+    },
+    CREATE_TODO: {
+      label: t('topicResearch.collaboration.panel.decisionTypes.createTodo'),
+      colorClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    CLARIFY: {
+      label: t('topicResearch.collaboration.panel.decisionTypes.clarify'),
+      colorClass: 'border-amber-200 bg-amber-50 text-amber-700',
+    },
+    ACKNOWLEDGE: {
+      label: t('topicResearch.collaboration.panel.decisionTypes.acknowledge'),
+      colorClass: 'border-gray-200 bg-gray-50 text-gray-700',
+    },
+  };
+}
 
 /**
  * ★ 类型守卫：验证是否为非空字符串数组
@@ -968,6 +972,8 @@ function TopicTeamCanvasView({
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatSending, setChatSending] = useState(false);
   const fetchTodos = useTopicInsightsStore((s) => s.fetchTodos);
+  const selectTodoInStore = useTopicInsightsStore((s) => s.selectTodo);
+  const tiDecisionTypeConfig = useMemo(() => getTiDecisionTypeConfig(t), [t]);
 
   const activeMissionId = missionStatus?.id;
 
@@ -1223,7 +1229,7 @@ function TopicTeamCanvasView({
         renderAssistantHeaderExtra={(m) => {
           const dt = m.meta?.decisionType as LeaderDecisionType | undefined;
           if (!dt) return null;
-          const cfg = TI_DECISION_TYPE_CONFIG[dt];
+          const cfg = tiDecisionTypeConfig[dt];
           if (!cfg) return null;
           return (
             <span
@@ -1251,8 +1257,17 @@ function TopicTeamCanvasView({
           return (
             <>
               {todo && (
-                <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs">
-                  <span className="text-blue-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 关弹窗 + 选中 TODO（store 触发，listening 的 TopicContentPanel
+                    // 会自动切到 research_collab tab 并打开 TodoDetailPanel）
+                    setChatOpen(false);
+                    selectTodoInStore(todo.id);
+                  }}
+                  className="mt-2 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-100"
+                >
+                  <span>
                     ✓ 已创建任务 {todo.title}
                     {todo.assignedAgent && (
                       <span className="ml-1 text-blue-500">
@@ -1260,7 +1275,8 @@ function TopicTeamCanvasView({
                       </span>
                     )}
                   </span>
-                </div>
+                  <span className="text-blue-500">查看</span>
+                </button>
               )}
               {clarifyOptions && clarifyOptions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">

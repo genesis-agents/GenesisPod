@@ -174,13 +174,14 @@ export function ResearchCollaborationPanel({
   className,
 }: ResearchCollaborationPanelProps) {
   const { t } = useI18n();
-  const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
   const [isTasksCollapsed, setIsTasksCollapsed] = useState(false);
 
   const {
     todos: apiTodos,
     isLoadingTodos,
     fetchTodos,
+    selectedTodoId,
+    selectTodo: setSelectedTodoId,
   } = useTopicInsightsStore();
 
   // ★ 从 WebSocket 事件中提取实时进度

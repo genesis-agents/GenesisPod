@@ -441,6 +441,7 @@ export function TopicContentPanel({
     teamMessages: persistedMessages,
     agentActivities: persistedActivities,
     resetTopicData,
+    selectedTodoId,
   } = useTopicInsightsStore();
 
   // 组合清除函数：同时清除 WebSocket 消息和持久化消息
@@ -458,6 +459,15 @@ export function TopicContentPanel({
       setActiveTab('report');
     }
   }, [initialView]);
+
+  // ★ 当 store 中 selectedTodoId 被设置（如从 Leader 对话弹窗里点击 TODO 徽章），
+  // 自动切到 research_collab tab 让 TodoDetailPanel 显示出来
+  useEffect(() => {
+    if (selectedTodoId && activeTab !== 'research_collab') {
+      setActiveTab('research_collab');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTodoId]);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   // Toast 提示状态
   const [toast, setToast] = useState<{
