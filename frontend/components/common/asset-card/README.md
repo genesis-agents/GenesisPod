@@ -113,24 +113,47 @@ const form = useAssetForm({
 
 ### 已接入 AssetCard 的模块
 
-| 模块           | 文件                                                | 状态                                                  |
-| -------------- | --------------------------------------------------- | ----------------------------------------------------- |
-| Topic Insights | `components/ai-insights/topics/TopicCard.tsx`       | ✅                                                    |
-| AI Writing     | `app/ai-writing/page.tsx`                           | ✅                                                    |
-| AI Research    | `app/ai-research/page.tsx`                          | ✅（同步移除 3-dot menu，统一为 hover 按钮）          |
-| AI Planning    | `app/ai-planning/page.tsx` PlanCard                 | ✅（多阶段进度走 `customSection`）                    |
-| AI Teams       | `app/ai-teams/page.tsx` TopicCard + PublicTopicCard | ✅（成员头像走 `customSection`，未读徽章走 `badges`） |
-| AI Simulation  | `app/ai-simulation/components/ScenarioCardItem.tsx` | ✅                                                    |
+| 模块                        | 文件                                                | 状态                                                  |
+| --------------------------- | --------------------------------------------------- | ----------------------------------------------------- |
+| Topic Insights              | `components/ai-insights/topics/TopicCard.tsx`       | ✅                                                    |
+| AI Writing                  | `app/ai-writing/page.tsx`                           | ✅                                                    |
+| AI Research                 | `app/ai-research/page.tsx`                          | ✅（同步移除 3-dot menu，统一为 hover 按钮）          |
+| AI Planning（AI 策划）      | `app/ai-planning/page.tsx` PlanCard                 | ✅（多阶段进度走 `customSection`，hash-gradient）     |
+| AI Teams                    | `app/ai-teams/page.tsx` TopicCard + PublicTopicCard | ✅（成员头像走 `customSection`，未读徽章走 `badges`） |
+| AI Simulation（AI 决策）    | `app/ai-simulation/components/ScenarioCardItem.tsx` | ✅（hash-gradient + timestamp）                       |
+| AI Office Slides（AI 报告） | `components/ai-office/slides/SlidesGallery.tsx`     | ✅（aspect-video 缩略图走 `media` slot）              |
 
-### 不接入 AssetCard 的模块（设计差异，强行归一会扭曲 UX）
+### media slot 用法（缩略图优先卡片）
 
-| 模块              | 原因                                                              |
-| ----------------- | ----------------------------------------------------------------- |
-| AI Image          | 图片缩略图优先（aspect-square + 全图覆盖），不是 icon+text 资产卡 |
-| AI Social         | Tab 化后台页（Connections / Contents），无列表卡片场景            |
-| AI Ask            | 会话界面，无资产列表                                              |
-| AI Office         | 直接进入工作区，无列表卡片                                        |
-| Library / Explore | 专项浏览结构                                                      |
+`AssetCard` 提供 `media` 槽，传入时会**取代**默认的 icon+padding 模式，
+变成「顶部 aspect-video 缩略图 + 下方信息区」的布局。
+适用于 Slides / Image 等以视觉预览为核心的资产。
+
+```tsx
+<AssetCard
+  title={session.title}
+  media={
+    <div className="aspect-video" style={{ background: themeBg }}>
+      {/* 缩略图内容 */}
+    </div>
+  }
+  badges={[statusBadge]}
+  isOwner
+  onEdit={handleRename}
+  onDelete={handleDelete}
+  onClick={handleOpen}
+  timestamp={session.updatedAt}
+/>
+```
+
+### 不接入 AssetCard 的模块（设计差异）
+
+| 模块              | 原因                                                   |
+| ----------------- | ------------------------------------------------------ |
+| AI Image          | 图片缩略图优先 + overlay actions，独立交互模式         |
+| AI Social         | Tab 化后台页（Connections / Contents），无列表卡片场景 |
+| AI Ask            | 会话界面，无资产列表                                   |
+| Library / Explore | 专项浏览结构                                           |
 
 ### 待迭代
 

@@ -26,6 +26,7 @@ import type { SlidesHistoryItem } from '@/stores';
 import { formatRelativeTime } from '@/stores';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { SourceUpdateBadge } from './SourceUpdateBadge';
+import { AssetCard } from '@/components/common/asset-card';
 
 // ============================================================================
 // 主题渐变映射（内部常量，不 export）
@@ -250,33 +251,22 @@ function BackendSessionCard({
   onDelete,
 }: BackendSessionCardProps) {
   const { t } = useI18n();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(session.title);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const { bg, accent } =
     THEME_GRADIENTS[hashIndex(session.id, THEME_GRADIENTS.length)];
 
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleSaveEdit = async () => {
-    if (onUpdate && editTitle.trim() && editTitle !== session.title) {
-      await onUpdate(session.id, editTitle.trim());
-    }
-    setIsEditing(false);
+  const handleRename = () => {
+    if (!onUpdate) return;
+    // eslint-disable-next-line no-alert -- TODO: replace with proper rename dialog
+    const next = window.prompt(t('office.slides.rename'), session.title);
+    if (!next || next.trim() === '' || next === session.title) return;
+    void onUpdate(session.id, next.trim());
   };
 
   const handleDelete = async () => {
     if (!onDelete) return;
     setIsDeleting(true);
-    setShowMenu(false);
     try {
       await onDelete(session.id);
     } finally {
@@ -284,159 +274,94 @@ function BackendSessionCard({
     }
   };
 
-  const handleCardClick = () => {
-    if (!isEditing && !isDeleting) {
-      onClick();
-    }
-  };
+  const statusBadgeData = getStatusBadgeData(t, session.status, {
+    hasCheckpoint:
+      !!session.latestCheckpoint?.pagesCount &&
+      session.latestCheckpoint.pagesCount > 0,
+  });
 
   return (
-    <div
-      onClick={handleCardClick}
-      className={cn(
-        'group relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all',
-        !isEditing && !isDeleting && 'cursor-pointer hover:shadow-md',
-        isDeleting && 'opacity-50'
-      )}
-    >
-      {/* 缩略图 - 主题渐变 + 模拟幻灯片内容 */}
-      <div
-        className="relative aspect-video overflow-hidden"
-        style={{ background: bg }}
-      >
-        {/* 模拟幻灯片内容线条 */}
-        <div className="absolute inset-4 flex flex-col gap-2">
-          <div className="h-2 w-3/4 rounded-full bg-white/30" />
-          <div className="h-1.5 w-1/2 rounded-full bg-white/20" />
-          <div className="mt-2 flex gap-2">
-            <div className="h-8 flex-1 rounded bg-white/15" />
-            <div className="h-8 flex-1 rounded bg-white/15" />
-            <div className="h-8 flex-1 rounded bg-white/15" />
-          </div>
-        </div>
-        {/* 页数角标（右下） */}
-        <div
-          className="absolute bottom-2 right-2 rounded-md px-2 py-0.5 text-xs font-medium text-white"
-          style={{ background: accent }}
-        >
-          {session.latestCheckpoint?.pagesCount || 0} 页
-        </div>
-      </div>
-
-      {/* 信息区 */}
-      <div className="p-3">
-        {isEditing ? (
-          <div className="mb-2 flex items-center gap-1">
-            <input
-              ref={inputRef}
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSaveEdit();
-                } else if (e.key === 'Escape') {
-                  setEditTitle(session.title);
-                  setIsEditing(false);
-                }
-              }}
-              className="flex-1 rounded border border-orange-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSaveEdit();
-              }}
-              className="rounded p-1 text-green-600 hover:bg-green-50"
+    <div className={cn(isDeleting && 'pointer-events-none opacity-50')}>
+      <AssetCard
+        title={session.title || t('office.slides.unnamed')}
+        media={
+          <div
+            className="relative aspect-video overflow-hidden"
+            style={{ background: bg }}
+          >
+            <div className="absolute inset-4 flex flex-col gap-2">
+              <div className="h-2 w-3/4 rounded-full bg-white/30" />
+              <div className="h-1.5 w-1/2 rounded-full bg-white/20" />
+              <div className="mt-2 flex gap-2">
+                <div className="h-8 flex-1 rounded bg-white/15" />
+                <div className="h-8 flex-1 rounded bg-white/15" />
+                <div className="h-8 flex-1 rounded bg-white/15" />
+              </div>
+            </div>
+            <div
+              className="absolute bottom-2 right-2 rounded-md px-2 py-0.5 text-xs font-medium text-white"
+              style={{ background: accent }}
             >
-              <Check className="h-4 w-4" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditTitle(session.title);
-                setIsEditing(false);
-              }}
-              className="rounded p-1 text-gray-600 hover:bg-gray-100"
-            >
-              <X className="h-4 w-4" />
-            </button>
+              {session.latestCheckpoint?.pagesCount || 0} 页
+            </div>
+            {isDeleting && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+              </div>
+            )}
           </div>
-        ) : (
-          <h3 className="mb-2 truncate text-sm font-medium text-gray-900">
-            {session.title || t('office.slides.unnamed')}
-          </h3>
-        )}
-
-        <div className="flex items-center justify-between gap-1">
-          <StatusBadge
-            status={session.status}
-            hasCheckpoint={
-              !!session.latestCheckpoint?.pagesCount &&
-              session.latestCheckpoint.pagesCount > 0
-            }
-          />
-          <span className="text-xs text-gray-400">
-            {formatRelativeTime(new Date(session.updatedAt))}
-          </span>
-        </div>
-        {session.sourceSubscription?.isStale && (
-          <div className="mt-1.5">
+        }
+        badges={[statusBadgeData]}
+        isOwner
+        onEdit={onUpdate ? handleRename : undefined}
+        onDelete={onDelete ? () => void handleDelete() : undefined}
+        onClick={isDeleting ? undefined : onClick}
+        timestamp={session.updatedAt}
+        footerExtra={
+          session.sourceSubscription?.isStale ? (
             <SourceUpdateBadge
               sourceName={session.sourceSubscription.sourceName}
             />
-          </div>
-        )}
-      </div>
-
-      {/* 操作菜单 */}
-      {!isEditing && (
-        <div className="absolute right-2 top-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
-            className="rounded-lg bg-white/80 p-1.5 opacity-0 backdrop-blur-sm transition-opacity hover:bg-white group-hover:opacity-100"
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </button>
-          {showMenu && (
-            <div className="absolute right-0 top-full z-10 mt-1 w-32 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-                  setIsEditing(true);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                {t('office.slides.rename')}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {t('common.delete')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {isDeleting && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
-          <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
-        </div>
-      )}
+          ) : null
+        }
+        labels={{
+          edit: t('office.slides.rename'),
+          delete: t('common.delete'),
+        }}
+      />
     </div>
   );
+}
+
+// 把 StatusBadge 业务转成 AssetCardBadge
+// 复用原 StatusBadge 的判断：有 checkpoint 数据视为「已完成」
+function getStatusBadgeData(
+  _t: (key: string) => string,
+  status: string,
+  opts: { hasCheckpoint: boolean }
+) {
+  const isCompleted = status === 'completed' || opts.hasCheckpoint;
+  if (isCompleted) {
+    return {
+      key: 'status',
+      label: '已完成',
+      className: 'bg-green-100 text-green-700',
+      icon: <CheckCircle2 className="h-3 w-3" />,
+    };
+  }
+  if (status === 'active') {
+    return {
+      key: 'status',
+      label: '进行中',
+      className: 'bg-orange-100 text-orange-700',
+      icon: <Loader2 className="h-3 w-3 animate-spin" />,
+    };
+  }
+  return {
+    key: 'status',
+    label: status,
+    className: 'bg-gray-100 text-gray-600',
+  };
 }
 
 // ============================================================================

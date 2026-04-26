@@ -9,13 +9,17 @@
  * - 操作按钮通过 props 暴露（onEdit/onDelete/onVisibilityToggle 等），允许 extraActions 扩展
  * - 时间格式化通过 ClientDate 处理 hydration
  *
+ * 两种模式：
+ * - 默认：icon-first（h-12 w-12 渐变方块在顶部）
+ * - media: 缩略图优先（aspect-video / aspect-square 大图覆盖顶部），用于 Slides / Image
+ *
  * 不在平台层做的：
  * - 申请加入按钮（业务逻辑差异大，由 footerExtra slot 注入）
  * - 协作者列表（属于详情页/分享弹窗的职责）
  * - 翻译（labels prop 由调用方传入，避免与具体 i18n 命名空间耦合）
  */
 
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { ClientDate } from '@/components/common/ClientDate';
 import { cn } from '@/lib/utils/common';
 import {
@@ -25,7 +29,13 @@ import {
   AssetLockIcon,
   AssetShareIcon,
 } from './icons';
-import type { AssetCardAction, AssetCardProps, AssetVisibility } from './types';
+import type {
+  AssetCardAction,
+  AssetCardBadge,
+  AssetCardProps,
+  AssetVisibility,
+  AssetVisibilityOption,
+} from './types';
 
 const TONE_CLASSNAME: Record<NonNullable<AssetCardAction['tone']>, string> = {
   default: 'text-gray-400 hover:bg-gray-50 hover:text-gray-600',
@@ -41,13 +51,7 @@ const VISIBILITY_RING_CLASS: Record<AssetVisibility, string> = {
   PUBLIC: 'hover:ring-green-300',
 };
 
-function ActionButton({
-  action,
-  className,
-}: {
-  action: AssetCardAction;
-  className?: string;
-}) {
+function ActionButton({ action }: { action: AssetCardAction }) {
   const tone = action.tone ?? 'default';
   if (action.visible === false) return null;
   return (
@@ -59,8 +63,7 @@ function ActionButton({
       }}
       className={cn(
         'rounded-lg bg-white p-1.5 shadow-sm transition-colors',
-        TONE_CLASSNAME[tone],
-        className
+        TONE_CLASSNAME[tone]
       )}
       title={action.title}
       aria-label={action.title}
@@ -70,12 +73,82 @@ function ActionButton({
   );
 }
 
+function BadgesRow({
+  badges,
+  visibility,
+  visibilityOption,
+  isOwner,
+  onVisibilityClick,
+  clickVisibilityLabel,
+}: {
+  badges: AssetCardBadge[];
+  visibility?: AssetVisibility;
+  visibilityOption?: AssetVisibilityOption;
+  isOwner: boolean;
+  onVisibilityClick?: () => void;
+  clickVisibilityLabel?: string;
+}) {
+  const hasContent = badges.length > 0 || visibilityOption;
+  if (!hasContent) return null;
+
+  const handleVisibilityBadgeClick = (e: MouseEvent) => {
+    e.stopPropagation();
+    if (!isOwner || !onVisibilityClick) return;
+    onVisibilityClick();
+  };
+
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2">
+      {badges.map((badge) => (
+        <span
+          key={badge.key}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+            badge.className ?? 'bg-gray-100 text-gray-600'
+          )}
+        >
+          {badge.icon}
+          {badge.label}
+        </span>
+      ))}
+      {visibilityOption &&
+        visibility &&
+        (isOwner && onVisibilityClick ? (
+          <button
+            type="button"
+            onClick={handleVisibilityBadgeClick}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-all hover:ring-2 hover:ring-offset-1',
+              visibilityOption.className,
+              VISIBILITY_RING_CLASS[visibility]
+            )}
+            title={clickVisibilityLabel ?? visibilityOption.label}
+          >
+            {visibilityOption.icon}
+            {visibilityOption.label}
+          </button>
+        ) : (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+              visibilityOption.className
+            )}
+          >
+            {visibilityOption.icon}
+            {visibilityOption.label}
+          </span>
+        ))}
+    </div>
+  );
+}
+
 export function AssetCard(props: AssetCardProps) {
   const {
     title,
     description,
     icon,
     gradient = 'from-violet-500 to-fuchsia-600',
+    media,
     badges = [],
     visibility,
     visibilityOptions,
@@ -100,12 +173,6 @@ export function AssetCard(props: AssetCardProps) {
 
   const visibilityOption =
     visibility && visibilityOptions ? visibilityOptions[visibility] : undefined;
-
-  const handleVisibilityBadgeClick = (e: MouseEvent) => {
-    e.stopPropagation();
-    if (!isOwner || !onVisibilityClick) return;
-    onVisibilityClick();
-  };
 
   const handleVisibilityQuickToggle = () => {
     if (!onVisibilityToggle || !visibility) return;
@@ -173,76 +240,18 @@ export function AssetCard(props: AssetCardProps) {
       ? Math.min(100, (progress.current / progress.total) * 100)
       : 0;
 
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        'group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg',
-        className
-      )}
-    >
-      {hoverActions.length > 0 && (
-        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {hoverActions.map((action) => (
-            <ActionButton key={action.key} action={action} />
-          ))}
-        </div>
-      )}
+  const hasMedia = Boolean(media);
 
-      {icon && (
-        <div
-          className={cn(
-            'mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-md',
-            gradient
-          )}
-        >
-          {icon}
-        </div>
-      )}
-
-      {(badges.length > 0 || visibilityOption) && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          {badges.map((badge) => (
-            <span
-              key={badge.key}
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                badge.className ?? 'bg-gray-100 text-gray-600'
-              )}
-            >
-              {badge.icon}
-              {badge.label}
-            </span>
-          ))}
-          {visibilityOption &&
-            visibility &&
-            (isOwner && onVisibilityClick ? (
-              <button
-                type="button"
-                onClick={handleVisibilityBadgeClick}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-all hover:ring-2 hover:ring-offset-1',
-                  visibilityOption.className,
-                  VISIBILITY_RING_CLASS[visibility]
-                )}
-                title={labels?.clickVisibility ?? visibilityOption.label}
-              >
-                {visibilityOption.icon}
-                {visibilityOption.label}
-              </button>
-            ) : (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                  visibilityOption.className
-                )}
-              >
-                {visibilityOption.icon}
-                {visibilityOption.label}
-              </span>
-            ))}
-        </div>
-      )}
+  const body: ReactNode = (
+    <>
+      <BadgesRow
+        badges={badges}
+        visibility={visibility}
+        visibilityOption={visibilityOption}
+        isOwner={isOwner}
+        onVisibilityClick={onVisibilityClick}
+        clickVisibilityLabel={labels?.clickVisibility}
+      />
 
       <h3 className="line-clamp-1 font-semibold text-gray-900">{title}</h3>
       {description && (
@@ -293,6 +302,41 @@ export function AssetCard(props: AssetCardProps) {
           {footerExtra && <div>{footerExtra}</div>}
         </div>
       )}
+    </>
+  );
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        'group relative rounded-xl border border-gray-200 bg-white transition-all hover:border-violet-300 hover:shadow-lg',
+        onClick && 'cursor-pointer',
+        hasMedia ? 'overflow-hidden' : 'p-5',
+        className
+      )}
+    >
+      {hoverActions.length > 0 && (
+        <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {hoverActions.map((action) => (
+            <ActionButton key={action.key} action={action} />
+          ))}
+        </div>
+      )}
+
+      {hasMedia && <div className="relative">{media}</div>}
+
+      {!hasMedia && icon && (
+        <div
+          className={cn(
+            'mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-md',
+            gradient
+          )}
+        >
+          {icon}
+        </div>
+      )}
+
+      {hasMedia ? <div className="p-4">{body}</div> : body}
     </div>
   );
 }

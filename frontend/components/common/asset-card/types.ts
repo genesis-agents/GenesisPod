@@ -71,6 +71,11 @@ export interface AssetCardProps {
   icon?: ReactNode;
   /** 图标背景渐变 Tailwind 类，如 "from-blue-500 to-cyan-600" */
   gradient?: string;
+  /**
+   * 顶部宽幅媒体区（aspect-video / 缩略图）。
+   * 提供时会**取代** icon 区，撑满卡片宽度（用于 Slides / Image 等缩略图优先场景）。
+   */
+  media?: ReactNode;
 
   /** 顶部徽章数组（类型 / 状态 等） */
   badges?: AssetCardBadge[];

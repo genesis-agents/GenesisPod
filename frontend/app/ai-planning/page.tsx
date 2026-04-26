@@ -10,8 +10,28 @@ import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';
 import type { PlanSummary } from '@/lib/api/ai-planning';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
-import { AssetCard } from '@/components/common/asset-card';
+import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
 import { Users } from 'lucide-react';
+
+const PLAN_GRADIENTS = [
+  'from-amber-500 to-orange-600',
+  'from-violet-500 to-purple-600',
+  'from-blue-500 to-cyan-600',
+  'from-emerald-500 to-teal-600',
+  'from-rose-500 to-pink-600',
+  'from-indigo-500 to-blue-600',
+  'from-fuchsia-500 to-pink-600',
+  'from-cyan-500 to-blue-600',
+];
+
+function getPlanGradient(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return PLAN_GRADIENTS[Math.abs(hash) % PLAN_GRADIENTS.length];
+}
 
 export default function AiPlanningPage() {
   const { t } = useTranslation();
@@ -328,6 +348,15 @@ function PlanCard({
   const activePhase = Object.entries(plan.phaseStatus).find(
     ([, s]) => s.status === 'active'
   );
+  const gradient = getPlanGradient(plan.id);
+
+  const phaseBadge: AssetCardBadge = {
+    key: 'phase',
+    label: `${t('aiPlanning.card.phase')} ${plan.currentPhase}${t('aiPlanning.card.of')}${plan.totalPhases}`,
+    className: activePhase
+      ? 'bg-amber-100 text-amber-700'
+      : 'bg-gray-100 text-gray-600',
+  };
 
   return (
     <AssetCard
@@ -348,7 +377,8 @@ function PlanCard({
           />
         </svg>
       }
-      gradient="from-amber-500 to-orange-600"
+      gradient={gradient}
+      badges={[phaseBadge]}
       isOwner
       onEdit={onEditClick}
       onDelete={onDelete}
@@ -372,16 +402,11 @@ function PlanCard({
               );
             })}
           </div>
-          <p className="mt-1.5 text-xs text-gray-500">
-            {t('aiPlanning.card.phase')} {plan.currentPhase}
-            {t('aiPlanning.card.of')}
-            {plan.totalPhases}
-            {activePhase && currentPhaseKey && (
-              <span className="ml-1 text-amber-600">
-                · {t(`aiPlanning.phases.${currentPhaseKey}`)}
-              </span>
-            )}
-          </p>
+          {activePhase && currentPhaseKey && (
+            <p className="mt-1.5 text-xs text-amber-600">
+              · {t(`aiPlanning.phases.${currentPhaseKey}`)}
+            </p>
+          )}
         </div>
       }
       stats={[
