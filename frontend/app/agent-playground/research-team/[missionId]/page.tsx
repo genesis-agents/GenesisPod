@@ -587,35 +587,137 @@ function TaskDetailDrawer({
         ? '运行中…'
         : '—';
 
-  // ── 衍生：tools 使用统计、source URL、search results 提取、thoughts 列表 ──
+  // ── 衍生：解包 parallel_tool_call，提取真实子工具 + 查询参数 + 结果 ──
+  type ToolCall = {
+    toolId: string;
+    query?: string;
+    url?: string;
+    rawInput?: unknown;
+  };
+  type SubResult = {
+    toolId?: string;
+    title?: string;
+    url?: string;
+    snippet?: string;
+    content?: string;
+    error?: string;
+  };
+
+  const toolCalls: ToolCall[] = [];
+  const subResults: SubResult[] = [];
+
+  for (const t of trace) {
+    // ── action ──
+    if (t.kind === 'action' && t.toolId) {
+      if (t.toolId === 'parallel_tool_call' && Array.isArray(t.input)) {
+        for (const sub of t.input as unknown[]) {
+          if (sub && typeof sub === 'object') {
+            const o = sub as Record<string, unknown>;
+            const subTool =
+              typeof o.toolId === 'string'
+                ? o.toolId
+                : typeof o.tool === 'string'
+                  ? o.tool
+                  : 'unknown';
+            const inp = (o.input ?? {}) as Record<string, unknown>;
+            toolCalls.push({
+              toolId: subTool,
+              query: typeof inp.query === 'string' ? inp.query : undefined,
+              url: typeof inp.url === 'string' ? inp.url : undefined,
+              rawInput: inp,
+            });
+          }
+        }
+      } else {
+        const inp = (t.input ?? {}) as Record<string, unknown>;
+        toolCalls.push({
+          toolId: t.toolId,
+          query: typeof inp.query === 'string' ? inp.query : undefined,
+          url: typeof inp.url === 'string' ? inp.url : undefined,
+          rawInput: inp,
+        });
+      }
+    }
+
+    // ── observation ── 解包 preview 数组提取所有子结果
+    if (t.kind === 'observation' && !t.error) {
+      const out = t.output;
+      // 直接 string 含 JSON
+      let parsed: unknown = out;
+      if (typeof out === 'string') {
+        try {
+          parsed = JSON.parse(out.trim().replace(/…$/, ''));
+        } catch {
+          // 解析失败 → 退化用 regex
+          const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+          const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+          const titles = [...out.matchAll(titleRe)].map((m) => m[1]);
+          const urls = [...out.matchAll(urlRe)].map((m) => m[1]);
+          const n = Math.max(titles.length, urls.length);
+          for (let i = 0; i < n; i++) {
+            if (titles[i] || urls[i]) {
+              subResults.push({ title: titles[i], url: urls[i] });
+            }
+          }
+          continue;
+        }
+      }
+      // parsed 形态:
+      //   1) { _truncated, preview: [{ output: { results: [{...}] } }, ...] }
+      //   2) { results: [...] } / { items: [...] } / { hits: [...] } / { output: [...] }
+      //   3) array of {title,url}
+      const flatten = (node: unknown): void => {
+        if (!node) return;
+        if (Array.isArray(node)) {
+          for (const item of node) flatten(item);
+          return;
+        }
+        if (typeof node !== 'object') return;
+        const o = node as Record<string, unknown>;
+        // 找 search-result 形 { title, url, snippet }
+        if (typeof o.title === 'string' || typeof o.url === 'string') {
+          subResults.push({
+            title: typeof o.title === 'string' ? o.title : undefined,
+            url: typeof o.url === 'string' ? o.url : undefined,
+            snippet:
+              typeof o.snippet === 'string'
+                ? o.snippet
+                : typeof o.description === 'string'
+                  ? o.description
+                  : undefined,
+            content:
+              typeof o.content === 'string' && o.content.length > 0
+                ? o.content.slice(0, 600)
+                : undefined,
+          });
+        }
+        // 递归子集合
+        for (const k of [
+          'preview',
+          'output',
+          'results',
+          'items',
+          'hits',
+          'data',
+        ]) {
+          if (o[k] !== undefined) flatten(o[k]);
+        }
+      };
+      flatten(parsed);
+    }
+  }
+
+  // 工具使用统计：按 toolId 聚合 calls + 每个调用的 query/url（前 3 个示例）
   const toolsUsed = (() => {
-    const map = new Map<
-      string,
-      { calls: number; tokens: number; latencyMs: number; errors: number }
-    >();
-    for (const t of trace) {
-      if (t.kind === 'action' && t.toolId) {
-        const cur = map.get(t.toolId) ?? {
-          calls: 0,
-          tokens: 0,
-          latencyMs: 0,
-          errors: 0,
-        };
-        cur.calls += 1;
-        map.set(t.toolId, cur);
+    const map = new Map<string, { calls: number; samples: string[] }>();
+    for (const c of toolCalls) {
+      const cur = map.get(c.toolId) ?? { calls: 0, samples: [] };
+      cur.calls += 1;
+      const sample = c.query ?? c.url;
+      if (sample && cur.samples.length < 3 && !cur.samples.includes(sample)) {
+        cur.samples.push(sample);
       }
-      if (t.kind === 'observation' && t.toolId) {
-        const cur = map.get(t.toolId) ?? {
-          calls: 0,
-          tokens: 0,
-          latencyMs: 0,
-          errors: 0,
-        };
-        cur.tokens += t.tokensUsed ?? 0;
-        cur.latencyMs += t.latencyMs ?? 0;
-        if (t.error) cur.errors += 1;
-        map.set(t.toolId, cur);
-      }
+      map.set(c.toolId, cur);
     }
     return [...map.entries()].sort((a, b) => b[1].calls - a[1].calls);
   })();
@@ -625,33 +727,12 @@ function TaskDetailDrawer({
     0
   );
 
-  // 从 observation outputs 提取所有 search 结果（title/url/snippet）
+  // 去重 search results（按 url）
   const searchHits = (() => {
-    const all: { title: string; url?: string; snippet?: string }[] = [];
-    const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
-    const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
-    for (const t of trace) {
-      if (t.kind !== 'observation' || t.error) continue;
-      const raw =
-        typeof t.output === 'string'
-          ? t.output
-          : t.output != null
-            ? JSON.stringify(t.output)
-            : '';
-      if (!raw) continue;
-      const titles = [...raw.matchAll(titleRe)].map((m) => m[1]);
-      const urls = [...raw.matchAll(urlRe)].map((m) => m[1]);
-      const n = Math.max(titles.length, urls.length);
-      for (let i = 0; i < n; i++) {
-        if (titles[i] || urls[i]) {
-          all.push({ title: titles[i] || urls[i] || '', url: urls[i] });
-        }
-      }
-    }
-    // dedupe by url
     const seen = new Set<string>();
-    return all.filter((h) => {
-      const k = h.url || h.title;
+    return subResults.filter((h) => {
+      const k = h.url || h.title || '';
+      if (!k) return false;
       if (seen.has(k)) return false;
       seen.add(k);
       return true;
@@ -782,36 +863,39 @@ function TaskDetailDrawer({
                   使用工具 · {toolsUsed.length} 个
                 </p>
               </div>
-              <div className="space-y-1.5 p-2">
+              <ul className="space-y-1.5 p-2">
                 {toolsUsed.map(([tool, v]) => (
-                  <div
+                  <li
                     key={tool}
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50"
+                    className="space-y-1 rounded-md px-2 py-1.5 hover:bg-gray-50"
                   >
-                    <span className="font-mono inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-800">
-                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">
-                        {tool}
-                      </span>
-                      <span className="text-gray-500">×{v.calls}</span>
-                    </span>
-                    <span className="font-mono flex items-center gap-2 text-[10px] text-gray-500">
-                      {v.tokens > 0 && (
-                        <span>
-                          +
-                          {v.tokens >= 1000
-                            ? `${(v.tokens / 1000).toFixed(1)}k`
-                            : v.tokens}
-                          tk
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-800">
+                        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">
+                          {tool}
                         </span>
-                      )}
-                      {v.latencyMs > 0 && <span>{v.latencyMs}ms</span>}
-                      {v.errors > 0 && (
-                        <span className="text-red-600">{v.errors} err</span>
-                      )}
-                    </span>
-                  </div>
+                        <span className="text-gray-500">调用 ×{v.calls}</span>
+                      </span>
+                    </div>
+                    {v.samples.length > 0 && (
+                      <ul className="ml-2 space-y-0.5">
+                        {v.samples.map((s, i) => (
+                          <li
+                            key={`${tool}-${i}`}
+                            className="line-clamp-1 text-[10px] text-gray-500"
+                            title={s}
+                          >
+                            <span className="text-gray-400">›</span>{' '}
+                            <span className="font-mono">
+                              {s.length > 64 ? s.slice(0, 64) + '…' : s}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
 
