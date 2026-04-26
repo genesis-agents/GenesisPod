@@ -103,15 +103,17 @@ export type ReasoningDepth = "minimal" | "light" | "moderate" | "deep";
  * - ai-direct-key.generateChatCompletionWithKey (Path B: BYOK)
  * - ai-stream-handler.streamOpenAICompatible (Stream)
  *
- * 缺省值 "minimal"（gpt-5 系列）— 之前默认 "low"，但 OpenAI gpt-5 reasoning
- * 模型在 low effort 下对复杂 system prompt 仍可能跑 50k+ reasoning tokens
- * （reasoning 不严格遵守 max_completion_tokens），导致 visible 输出被挤空。
- * 改成 minimal 显著降低 reasoning 上限。caller 显式声明 deep 才走高 effort。
+ * 缺省值 "low" —— 这是所有 reasoning 模型（OpenAI o1/o3/o4 + gpt-5/4.x BYOK
+ * 变体 + DeepSeek / Grok-reasoning）都接受的**最低公分母**值。
  *
- * 注意：minimal 仅 gpt-5 系列支持；o1/o3/o4 不支持 minimal，OpenAI 会自动 fallback 到 low。
+ * 历史教训：曾把 default 改成 "minimal" 想限制 CoT 用量，但 BYOK 上的
+ * gpt-5.x 模型实际只接受 'none / low / medium / high / xhigh'，会直接报
+ * INVALID_REQUEST: "Unsupported value: 'reasoning_effort' does not support
+ * 'minimal' with this model"，让整个 mission 一启动就挂（PROVIDER_API_ERROR）。
+ * minimal 只能在 caller 显式声明且**确认 model 支持**时使用。
  */
 export const REASONING_DEPTH_TO_EFFORT: Record<ReasoningDepth, string> = {
-  minimal: "minimal",
+  minimal: "minimal", // 仅 caller 显式 + 已知 model 支持时用，default 不要走这里
   light: "low",
   moderate: "medium",
   deep: "high",
@@ -119,12 +121,14 @@ export const REASONING_DEPTH_TO_EFFORT: Record<ReasoningDepth, string> = {
 
 /**
  * 把 ReasoningDepth 安全映射成 OpenAI reasoning_effort 字符串。
- * undefined / 未知值 → "minimal"（最省 token，避免 CoT 吃光 max_completion_tokens
- * 后 visible 输出空导致 ReActLoop "立即 finalize 空" 熔断）。
+ * undefined / 未知值 → "low"（最普适的低挡，所有 reasoning 模型都接受）。
+ *
+ * 不再 default 到 "minimal" —— 见 REASONING_DEPTH_TO_EFFORT 注释，会让某些
+ * BYOK reasoning 模型（如 gpt-5.4）直接报 INVALID_REQUEST 拒绝整次调用。
  */
 export function reasoningDepthToEffort(depth?: string): string {
-  if (!depth) return "minimal";
-  return REASONING_DEPTH_TO_EFFORT[depth as ReasoningDepth] ?? "minimal";
+  if (!depth) return "low";
+  return REASONING_DEPTH_TO_EFFORT[depth as ReasoningDepth] ?? "low";
 }
 
 /**
