@@ -120,6 +120,11 @@ export class ToolInvoker {
         error: new Error(
           `Tool ${action.toolId} is open-circuited (too many recent failures); will retry after cool-down`,
         ),
+        failureCode: "TOOL_RUNTIME_ERROR",
+        diagnostic: {
+          toolId: action.toolId,
+          reason: "circuit_breaker_open",
+        },
         latencyMs: Date.now() - startMs,
       };
     }
@@ -135,6 +140,11 @@ export class ToolInvoker {
         action,
         output: undefined,
         error: err,
+        failureCode: "TOOL_INPUT_VALIDATION_FAILED",
+        diagnostic: {
+          toolId: action.toolId,
+          reason: "forbidden_by_access_matrix",
+        },
         latencyMs: Date.now() - startMs,
       };
     }
@@ -152,6 +162,11 @@ export class ToolInvoker {
         action,
         output: undefined,
         error: err,
+        failureCode: "TOOL_INPUT_VALIDATION_FAILED",
+        diagnostic: {
+          toolId: action.toolId,
+          reason: "not_in_whitelist",
+        },
         latencyMs: Date.now() - startMs,
       };
     }
@@ -162,6 +177,8 @@ export class ToolInvoker {
         action,
         output: undefined,
         error: err,
+        failureCode: "TOOL_NOT_FOUND",
+        diagnostic: { toolId: action.toolId },
         latencyMs: Date.now() - startMs,
       };
     }
@@ -197,18 +214,26 @@ export class ToolInvoker {
       if (!result.success) {
         // PR-I: 失败上报到 circuit breaker
         this.circuitBreaker?.recordFailure(action.toolId);
-        const err = new Error(
-          result.error?.message ?? `Tool ${action.toolId} failed`,
-        );
-        this.logger.warn(
-          `Tool ${action.toolId} failed: ${result.error?.message ?? "unknown"}`,
-        );
+        const errMsg = result.error?.message ?? `Tool ${action.toolId} failed`;
+        const err = new Error(errMsg);
+        this.logger.warn(`Tool ${action.toolId} failed: ${errMsg}`);
+        // ★ failureCode 推断
+        let failureCode = "TOOL_RUNTIME_ERROR";
+        if (/timeout|timed out/i.test(errMsg)) failureCode = "TOOL_TIMEOUT";
+        else if (/invalid input|validation/i.test(errMsg))
+          failureCode = "TOOL_INPUT_VALIDATION_FAILED";
         span?.recordException(err);
         span?.end({ success: false });
         return {
           action,
           output: result.data,
           error: err,
+          failureCode,
+          diagnostic: {
+            toolId: action.toolId,
+            toolError: errMsg,
+            input: action.input,
+          },
           latencyMs: Date.now() - startMs,
         };
       }
@@ -237,12 +262,22 @@ export class ToolInvoker {
       this.circuitBreaker?.recordFailure(action.toolId);
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(`Tool ${action.toolId} threw: ${err.message}`);
+      // ★ failureCode 推断 (timeout / abort / 默认 runtime)
+      let failureCode = "TOOL_RUNTIME_ERROR";
+      if (/timeout|timed out/i.test(err.message)) failureCode = "TOOL_TIMEOUT";
       span?.recordException(err);
       span?.end({ success: false });
       return {
         action,
         output: undefined,
         error: err,
+        failureCode,
+        diagnostic: {
+          toolId: action.toolId,
+          toolError: err.message,
+          input: action.input,
+          stack: err.stack,
+        },
         latencyMs: Date.now() - startMs,
       };
     }

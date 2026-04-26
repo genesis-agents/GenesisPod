@@ -71,6 +71,9 @@ export type {
   IFallbackHint,
   IQuotaSnapshot,
   ByokStatus,
+  // 全链路诊断：失败码 + 标准化 error event payload
+  HarnessFailureCode,
+  IHarnessErrorPayload,
 } from "../harness/abstractions";
 
 // 必修 #8: Harness DX + verify + events + memory + checkpoint + runtime —— 全部 re-export，

@@ -528,14 +528,17 @@ export class ReActLoop implements IAgentLoop {
       }
 
       if (actionResult.error && !this.isRecoverable(actionResult.error)) {
-        // ★ 失败码：tool 错误归类
         const errMsg = actionResult.error.message;
-        let failureCode: HarnessFailureCode = "TOOL_RUNTIME_ERROR";
-        if (/timeout|timed out/i.test(errMsg)) failureCode = "TOOL_TIMEOUT";
-        else if (/not found|unknown tool/i.test(errMsg))
-          failureCode = "TOOL_NOT_FOUND";
-        else if (/invalid input|validation/i.test(errMsg))
-          failureCode = "TOOL_INPUT_VALIDATION_FAILED";
+        // ★ 优先用 ToolInvoker 在 IActionResult 上贴的 failureCode；缺省再做文本推断
+        const failureCode: HarnessFailureCode =
+          (actionResult.failureCode as HarnessFailureCode | undefined) ??
+          (/timeout|timed out/i.test(errMsg)
+            ? "TOOL_TIMEOUT"
+            : /not found|unknown tool/i.test(errMsg)
+              ? "TOOL_NOT_FOUND"
+              : /invalid input|validation/i.test(errMsg)
+                ? "TOOL_INPUT_VALIDATION_FAILED"
+                : "TOOL_RUNTIME_ERROR");
 
         const toolId =
           decision.action.kind === "tool_call"
@@ -547,15 +550,35 @@ export class ReActLoop implements IAgentLoop {
             `tool=${toolId ?? "?"} err=${errMsg}`,
         );
 
+        // ★ 接通 fallback：tool 失败可由 runtimeEnv 给恢复建议
+        const recoveryHint = await currentEnvelope.runtimeEnv
+          ?.suggestFallback({ reason: "tool_failure" })
+          .catch(() => null);
+
         yield this.makeEvent(agentId, "error", {
           message: errMsg,
-          recoverable: false,
+          recoverable: recoveryHint?.action === "retry",
           failureCode,
           diagnostic: {
             toolId,
             toolError: errMsg,
             iteration,
+            // ★ 把 ToolInvoker 在 IActionResult.diagnostic 上贴的字段冒泡
+            ...(actionResult.diagnostic ?? {}),
           },
+          recoveryHint: recoveryHint
+            ? {
+                action:
+                  recoveryHint.action === "downgrade"
+                    ? "switch_model"
+                    : recoveryHint.action === "notify_user"
+                      ? "abort"
+                      : recoveryHint.action,
+                reason: recoveryHint.reason,
+                fallbackModelId: recoveryHint.fallbackModelId,
+                retryAfterMs: recoveryHint.retryAfterMs,
+              }
+            : undefined,
         });
         yield this.makeEvent(agentId, "terminated", { reason: "error" });
         return;

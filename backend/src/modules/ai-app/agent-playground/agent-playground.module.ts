@@ -23,6 +23,7 @@ import { MissionOwnershipRegistry } from "./services/mission-ownership.registry"
 import { MissionEventBuffer } from "./services/mission-event-buffer.service";
 import { MissionStore } from "./services/mission-store.service";
 import { LeaderChatService } from "./services/leader-chat.service";
+import { HarnessFailureLearner } from "./services/harness-failure-learner.service";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { DomainEventBus, DomainEventRegistry } from "../../ai-engine/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
@@ -47,6 +48,7 @@ import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
     MissionEventBuffer,
     MissionStore,
     LeaderChatService,
+    HarnessFailureLearner,
   ],
   exports: [MissionEventBuffer],
 })

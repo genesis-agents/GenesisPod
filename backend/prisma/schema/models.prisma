@@ -9283,3 +9283,40 @@ model AgentPlaygroundLeaderChat {
   @@index([missionId, createdAt])
   @@map("agent_playground_leader_chats")
 }
+
+/// 跨 mission 失败模式记忆 —— 让 Harness 在新 mission 启动时
+/// 检索"已知会撞墙的 (agent, model, prompt前缀, failureCode) 组合"，
+/// 直接走 fallback 而不是浪费 token 重蹈覆辙。
+///
+/// key 设计：(agentSpecId, modelId, promptHashPrefix, failureCode) 复合唯一
+/// promptHashPrefix = first 16 hex chars of sha256(systemPrompt) —— 同 agent 同
+/// prompt 才算同模式。dimension/topic 不同会产生不同 hash，避免误伤。
+model HarnessFailurePattern {
+  id                String   @id @default(uuid())
+  /// AgentSpec.id（如 'playground.researcher'）
+  agentSpecId       String   @map("agent_spec_id") @db.VarChar(120)
+  /// 失败时实际用的 LLM model id
+  modelId           String   @map("model_id") @db.VarChar(120)
+  /// systemPrompt sha256 前 16 字符（同 prompt 才算同模式）
+  promptHashPrefix  String   @map("prompt_hash_prefix") @db.VarChar(16)
+  /// HarnessFailureCode 字符串
+  failureCode       String   @map("failure_code") @db.VarChar(64)
+  /// 历史出现次数
+  count             Int      @default(1)
+  /// 最后一次失败的 missionId / userId，便于 root-cause 取证
+  lastMissionId     String?  @map("last_mission_id")
+  lastUserId        String?  @map("last_user_id")
+  /// 最后一次的 diagnostic 快照（rawContent/parseError 等）
+  lastDiagnostic    Json?    @map("last_diagnostic") @db.JsonB
+  /// 上次成功 fallback 的 model id（如果有）—— 下次直接用
+  lastFallbackModel String?  @map("last_fallback_model") @db.VarChar(120)
+  /// 是否已在此 (agent, prompt, code) 上学到稳定 workaround（人工/自动标记）
+  resolved          Boolean  @default(false)
+  firstSeenAt       DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt        DateTime @default(now()) @updatedAt @map("last_seen_at")
+
+  @@unique([agentSpecId, modelId, promptHashPrefix, failureCode], map: "harness_failure_pattern_uniq")
+  @@index([agentSpecId, failureCode])
+  @@index([lastSeenAt])
+  @@map("harness_failure_patterns")
+}

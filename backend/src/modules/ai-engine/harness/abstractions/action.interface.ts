@@ -67,6 +67,16 @@ export interface IActionResult {
   readonly action: IAction;
   readonly output: unknown;
   readonly error?: Error;
+  /**
+   * ★ 全链路诊断：失败码（HarnessFailureCode 子集）。
+   * Tool 调用 / parallel batch / circuit-breaker / access-matrix 失败时由
+   * ToolInvoker 直接填，避免上层用消息文本反推。
+   * 类型保持 string 是为了避免 abstractions 内部循环依赖；调用方自行 narrow 到
+   * HarnessFailureCode。
+   */
+  readonly failureCode?: string;
+  /** 失败诊断附属字段：toolId / input / stderr 等，存进 trace event */
+  readonly diagnostic?: Readonly<Record<string, unknown>>;
   readonly latencyMs: number;
   readonly tokensUsed?: number;
   /**

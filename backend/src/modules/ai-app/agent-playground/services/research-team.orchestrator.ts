@@ -60,6 +60,7 @@ import {
 } from "../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "../adapters/billing-runtime-env.adapter";
 import { MissionStore } from "./mission-store.service";
+import { HarnessFailureLearner } from "./harness-failure-learner.service";
 
 interface MissionResult {
   readonly missionId: string;
@@ -98,6 +99,63 @@ interface RelayCtx {
  *   4. 否则 outputSchema 校验失败 fallback 文字
  *   5. 仍没有 → 给一个 hint，让 UI 不再显示"未捕获明确的错误信息"
  */
+/**
+ * 抽取 RunResult.events 里最具体的 failure 快照，给 orchestrator 层做
+ * 维度降级 / mission 失败决策时用。
+ *
+ * 策略：倒序扫描 error 事件，第一个带 failureCode 的就是 root cause。
+ * 没有 failureCode 时回落到 terminated.reason / 最后 error.message。
+ */
+function extractAgentFailureDiagnostic(events: readonly IAgentEvent[]):
+  | {
+      failureCode?: string;
+      message?: string;
+      diagnostic?: Record<string, unknown>;
+      recoveryHint?: Record<string, unknown>;
+    }
+  | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.type === "error") {
+      const p = ev.payload as {
+        message?: string;
+        failureCode?: string;
+        diagnostic?: Record<string, unknown>;
+        recoveryHint?: Record<string, unknown>;
+      } | null;
+      if (p?.failureCode) {
+        return {
+          failureCode: p.failureCode,
+          message: p.message,
+          diagnostic: p.diagnostic,
+          recoveryHint: p.recoveryHint,
+        };
+      }
+    }
+  }
+  // 没有结构化 failureCode：从 terminated.reason 推一个粗略码
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.type === "terminated") {
+      const p = ev.payload as { reason?: string } | null;
+      if (p?.reason && p.reason !== "completed") {
+        const code =
+          p.reason === "budget"
+            ? "LOOP_BUDGET_EXHAUSTED"
+            : p.reason === "cancelled"
+              ? "UNKNOWN"
+              : p.reason === "empty_llm_response"
+                ? "LOOP_EMPTY_RESPONSE_IMMEDIATE"
+                : p.reason === "error"
+                  ? "PROVIDER_API_ERROR"
+                  : "UNKNOWN";
+        return { failureCode: code };
+      }
+    }
+  }
+  return undefined;
+}
+
 function extractFailureMessage(
   events: readonly IAgentEvent[],
   state: string,
@@ -187,7 +245,33 @@ function extractFailureMessage(
   for (let i = events.length - 1; i >= 0; i--) {
     const ev = events[i];
     if (ev.type === "error") {
-      const p = ev.payload as { message?: string } | null;
+      // ★ 优先读结构化 failureCode + diagnostic（新格式）；fallback 旧 message 字段
+      const p = ev.payload as {
+        message?: string;
+        failureCode?: string;
+        diagnostic?: Record<string, unknown>;
+      } | null;
+      if (p?.failureCode) {
+        const diagSnippet = p.diagnostic
+          ? ` [${Object.entries(p.diagnostic)
+              .filter(
+                ([k, v]) =>
+                  v != null &&
+                  [
+                    "modelId",
+                    "completionTokens",
+                    "toolId",
+                    "schemaError",
+                  ].includes(k),
+              )
+              .map(
+                ([k, v]) =>
+                  `${k}=${typeof v === "string" ? v.slice(0, 80) : v}`,
+              )
+              .join(" ")}]`
+          : "";
+        return `[${p.failureCode}]${diagSnippet} ${p.message ?? ""}`.trim();
+      }
       if (p?.message) return p.message;
     }
     if (ev.type === "action_executed") {
@@ -348,6 +432,7 @@ export class ResearchTeamOrchestrator {
     private readonly credits: CreditsService,
     private readonly runtimeEnv: RuntimeEnvironmentService,
     private readonly store: MissionStore,
+    private readonly failureLearner: HarnessFailureLearner,
   ) {}
 
   async runMission(
@@ -675,10 +760,54 @@ export class ResearchTeamOrchestrator {
                 },
               });
               if (r.state !== "completed" || !r.output) {
+                // ★ orchestrator 级降级：emit ORCH_DIMENSION_DEGRADED 事件
+                // 把内层 agent 的 failureCode/diagnostic 一并冒泡到 mission_events
+                const innerFailure = extractAgentFailureDiagnostic(r.events);
+                await this.emit({
+                  type: "agent-playground.dimension:degraded",
+                  missionId,
+                  userId,
+                  agentId,
+                  payload: {
+                    dimension: dim.name,
+                    state: r.state,
+                    failureCode: "ORCH_DIMENSION_DEGRADED",
+                    innerFailureCode: innerFailure?.failureCode,
+                    innerMessage: innerFailure?.message,
+                    diagnostic: {
+                      ...(innerFailure?.diagnostic ?? {}),
+                      stage: "researcher",
+                      iterations: r.iterations,
+                      wallTimeMs: r.wallTimeMs,
+                    },
+                    recoveryHint: innerFailure?.recoveryHint,
+                  },
+                }).catch(() => {});
+                // ★ 跨 mission 失败模式记忆：把这次失败模式入库，下次同 (agent,
+                // model, prompt 前缀, code) 命中时直接走 fallback。
+                if (innerFailure?.failureCode) {
+                  const innerModelId = (innerFailure.diagnostic?.modelId ??
+                    "unknown") as string;
+                  // systemPrompt 用 dimension 名字 + topic 拼起来当稳定 hash 输入
+                  // （ResearcherAgent.buildSystemPrompt 也只依赖这两个字段）
+                  await this.failureLearner
+                    .recordFailure({
+                      key: {
+                        agentSpecId: "playground.researcher",
+                        modelId: innerModelId,
+                        systemPrompt: `${input.topic}::${dim.name}::${input.language}`,
+                        failureCode: innerFailure.failureCode,
+                      },
+                      missionId,
+                      userId,
+                      diagnostic: innerFailure.diagnostic,
+                    })
+                    .catch(() => {});
+                }
                 return {
                   dimension: dim.name,
                   findings: [],
-                  summary: `(failed: ${r.state})`,
+                  summary: `(failed: ${r.state}${innerFailure?.failureCode ? `, code=${innerFailure.failureCode}` : ""})`,
                 };
               }
               const researcherOut = r.output as {
@@ -725,6 +854,25 @@ export class ResearchTeamOrchestrator {
                 "failed",
                 { dimension: dim.name, error: message },
               ).catch(() => {});
+              // ★ orchestrator 级降级：threw exception 路径
+              await this.emit({
+                type: "agent-playground.dimension:degraded",
+                missionId,
+                userId,
+                agentId,
+                payload: {
+                  dimension: dim.name,
+                  state: "exception",
+                  failureCode: "ORCH_DIMENSION_DEGRADED",
+                  innerFailureCode: "UNKNOWN",
+                  innerMessage: message,
+                  diagnostic: {
+                    stage: "researcher",
+                    errorMessage: message,
+                    errorStack: err instanceof Error ? err.stack : undefined,
+                  },
+                },
+              }).catch(() => {});
               return {
                 dimension: dim.name,
                 findings: [],
