@@ -205,6 +205,34 @@ export class AgentRunner {
       if (!parsed.success) {
         // Don't throw — preserve partial output for diagnosis; mark failed
         finalState = "failed";
+        // ★ 全链路诊断：把 zod schema diff 注入 events 流，让 trace 可见
+        // outputSchema 期望 vs 实际 output 的差异（之前只默默 mark failed）。
+        const schemaError = parsed.error.issues
+          .map(
+            (iss) =>
+              `${iss.path.join(".") || "<root>"}: ${iss.message} (code=${iss.code})`,
+          )
+          .join("; ");
+        const candidateSnippet =
+          typeof candidate === "string"
+            ? candidate.slice(0, 500)
+            : JSON.stringify(candidate).slice(0, 500);
+        events.push({
+          type: "error",
+          agentId: agent.id,
+          timestamp: Date.now(),
+          payload: {
+            message: `Output schema validation failed: ${schemaError}`,
+            recoverable: false,
+            failureCode: "RUNNER_OUTPUT_SCHEMA_MISMATCH",
+            diagnostic: {
+              schemaError,
+              actualOutputSnippet: candidateSnippet,
+              actualOutputType: typeof candidate,
+              specId: meta.id,
+            },
+          },
+        });
       } else {
         finalOutput = parsed.data;
       }

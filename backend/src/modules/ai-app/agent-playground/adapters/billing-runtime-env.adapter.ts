@@ -137,6 +137,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     failedModelId?: string;
     reason: string;
   }): Promise<IFallbackHint> {
+    // ── 基础设施级（老）──
     if (input.reason === "no_credit") {
       const acct = await this.getCachedBalance();
       if (acct.balance <= CRITICAL_BALANCE_THRESHOLD) {
@@ -155,16 +156,143 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       return { action: "retry", reason: "rate-limit", retryAfterMs: 2000 };
     }
     if (input.reason === "outage" && input.failedModelId) {
-      const avail = await this.getModelAvailability(input.failedModelId);
-      if (avail.fallbackTo?.[0]) {
+      const fb = await this.findSiblingModel(input.failedModelId);
+      if (fb) {
         return {
           action: "downgrade",
-          reason: `${input.failedModelId} 不可用，切到 ${avail.fallbackTo[0]}`,
-          fallbackModelId: avail.fallbackTo[0],
+          reason: `${input.failedModelId} 不可用，切到 ${fb}`,
+          fallbackModelId: fb,
         };
       }
     }
+    if (input.reason === "context_too_long" || input.reason === "no_quota") {
+      return { action: "abort", reason: input.reason };
+    }
+
+    // ── LLM 协议级（新增）──
+    // safety_refusal / reasoning_exhaustion / empty_response：
+    // 切到一个非 reasoning model（绕开 reasoning CoT 撞墙 + safety filter
+    // 在 reasoning 模型上更激进的双重问题）。找不到非 reasoning 的就 abort。
+    if (
+      input.reason === "safety_refusal" ||
+      input.reason === "reasoning_exhaustion" ||
+      input.reason === "empty_response"
+    ) {
+      const nonReasoning = await this.findNonReasoningModel(
+        input.failedModelId,
+      );
+      if (nonReasoning) {
+        return {
+          action: "downgrade",
+          reason: `${input.reason} on ${input.failedModelId ?? "?"}，切到非 reasoning 模型 ${nonReasoning}`,
+          fallbackModelId: nonReasoning,
+        };
+      }
+      return {
+        action: "abort",
+        reason: `${input.reason}：无非 reasoning 候选模型可切换`,
+      };
+    }
+    // truncated：调用方应调高 maxTokens 重试 1 次；这里只给 retry 信号
+    if (input.reason === "truncated") {
+      return {
+        action: "retry",
+        reason: "增大 maxTokens 重试",
+        retryAfterMs: 0,
+      };
+    }
+    // parse_failure：让 Reflexion 自己 critique-revise，retry 信号
+    if (input.reason === "parse_failure") {
+      return {
+        action: "retry",
+        reason: "parse 失败由 Reflexion 重试",
+        retryAfterMs: 0,
+      };
+    }
+    // model_not_found：走候选池
+    if (input.reason === "model_not_found" && input.failedModelId) {
+      const fb = await this.findSiblingModel(input.failedModelId);
+      if (fb) {
+        return {
+          action: "downgrade",
+          reason: `${input.failedModelId} 不存在，切到 ${fb}`,
+          fallbackModelId: fb,
+        };
+      }
+      return { action: "abort", reason: "model_not_found 无候选" };
+    }
+
+    // ── 执行级（新增）──
+    if (input.reason === "tool_failure") {
+      return {
+        action: "retry",
+        reason: "tool 失败，调用方决定换工具或绕开",
+        retryAfterMs: 0,
+      };
+    }
+    if (
+      input.reason === "verifier_low_score" ||
+      input.reason === "schema_mismatch"
+    ) {
+      return {
+        action: "retry",
+        reason: "由 Reflexion critique-revise 处理",
+        retryAfterMs: 0,
+      };
+    }
+
     return { action: "abort", reason: `no fallback for ${input.reason}` };
+  }
+
+  /**
+   * 在同 costTier 的 BYOK 候选池里找一个 healthy 且非 input modelId 的备选。
+   */
+  private async findSiblingModel(
+    failedModelId: string,
+  ): Promise<string | undefined> {
+    const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
+    for (const pool of Object.values(snap.models)) {
+      const found = pool.find((m) => m.modelId === failedModelId);
+      if (!found) continue;
+      const sibling = pool.find(
+        (m) =>
+          m.modelId !== failedModelId &&
+          m.healthy !== "unhealthy" &&
+          m.costTier === found.costTier,
+      );
+      if (sibling) return sibling.modelId;
+      // 没同 tier 备选 → 同池任一健康模型
+      const anyHealthy = pool.find(
+        (m) => m.modelId !== failedModelId && m.healthy !== "unhealthy",
+      );
+      if (anyHealthy) return anyHealthy.modelId;
+    }
+    return undefined;
+  }
+
+  /**
+   * 在所有 BYOK 池里找一个非 reasoning 的 healthy 模型。
+   * 用于 reasoning model 撞 safety filter / CoT exhaustion 时绕开。
+   *
+   * 注：snapshot 里的 model 描述未必有 isReasoning 字段，这里按命名约定
+   * 兜底（o1/o3/o4/deepseek-reasoner/gpt-5 系列认为是 reasoning）。
+   */
+  private async findNonReasoningModel(
+    excludeModelId?: string,
+  ): Promise<string | undefined> {
+    const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
+    const reasoningPattern =
+      /^(o[1-9]|o\d+|deepseek-reasoner|gpt-5|grok-.*reason)/i;
+    for (const pool of Object.values(snap.models)) {
+      const candidate = pool.find(
+        (m) =>
+          m.modelId !== excludeModelId &&
+          m.healthy !== "unhealthy" &&
+          !reasoningPattern.test(m.modelId),
+      );
+      if (candidate) return candidate.modelId;
+    }
+    return undefined;
   }
 
   private tomorrowMidnight(): number {

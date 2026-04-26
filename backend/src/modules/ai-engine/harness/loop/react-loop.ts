@@ -25,6 +25,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type {
   AgentLoopKind,
+  HarnessFailureCode,
   IAgentEvent,
   IAgentLoop,
   IAction,
@@ -285,27 +286,64 @@ export class ReActLoop implements IAgentLoop {
           // ★ 诊断关键：把 LLM 实际吐回的 raw content 写到日志和 error payload，
           // 让上层 / DB / 前端都能看到根因证据，不再靠"应该是 (a)/(b)/(c)"猜。
           const rawSnippet = reasoned.rawContent.slice(0, 1000);
+
+          // ★ 失败码分类（按 completion tokens + parseError 区分子类）
+          const TINY_COMPLETION_THRESHOLD = 100;
+          let failureCode: HarnessFailureCode;
+          let fallbackReason:
+            | "empty_response"
+            | "reasoning_exhaustion"
+            | "safety_refusal"
+            | "parse_failure";
+          if (usage.completionTokens < TINY_COMPLETION_THRESHOLD) {
+            // completion≈0 → API 拒绝/model 死了
+            failureCode = "LOOP_EMPTY_RESPONSE_IMMEDIATE";
+            fallbackReason = "empty_response";
+          } else if (reasoned.parseError) {
+            // completion≫0 + parser 抛错 → 解析失败（含 InvalidActionError）
+            failureCode =
+              reasoned.parseError.name === "InvalidActionError"
+                ? "PARSE_MISSING_ACTION"
+                : "PARSE_MALFORMED_JSON";
+            fallbackReason = "parse_failure";
+          } else {
+            // completion≫0 且 parse 成功但 visible 空 → reasoning CoT 撞墙 / safety
+            // 优先按 reasoning_exhaustion 处理，让 adapter 切到非 reasoning 模型
+            failureCode = "LOOP_REASONING_COT_EXHAUSTION";
+            fallbackReason = "reasoning_exhaustion";
+          }
+
           this.logger.error(
-            `[${agentId}] iter=${iteration} EMPTY_LLM_RESPONSE — ` +
+            `[${agentId}] iter=${iteration} ${failureCode} — ` +
               `model=${lastModelId ?? "unknown"} ` +
               `completion=${usage.completionTokens}tk prompt=${usage.promptTokens}tk ` +
               `parseErr=${reasoned.parseError ? `${reasoned.parseError.name}:${reasoned.parseError.message}` : "none"} ` +
               `rawContent=${JSON.stringify(rawSnippet)}`,
           );
 
+          // ★ 接通 model fallback：问 runtimeEnv 拿恢复建议
+          const recoveryHint = await currentEnvelope.runtimeEnv
+            ?.suggestFallback({
+              failedModelId: lastModelId,
+              reason: fallbackReason,
+            })
+            .catch(() => null);
+
           yield this.makeEvent(agentId, "error", {
             message:
-              `LLM "${lastModelId ?? "unknown"}" finalize 空结果 ` +
+              `LLM "${lastModelId ?? "unknown"}" finalize 空结果 [${failureCode}] ` +
               `(completion=${usage.completionTokens}tk, thinking="")。` +
-              `根因证据：rawContent=${JSON.stringify(rawSnippet)}` +
+              `证据：rawContent=${JSON.stringify(rawSnippet)}` +
               (reasoned.parseError
                 ? ` parseError=${reasoned.parseError.name}:${reasoned.parseError.message}`
                 : "") +
-              `。常见模式：(a) completion≈0 → model id 不存在/API 返错被吞；` +
-              `(b) completion≫0 但 visible 空 → reasoning CoT 撞 max_completion_tokens；` +
-              `(c) safety filter 拦截 → 退化 JSON {} 假装合规。`,
-            recoverable: false,
-            // 诊断字段：上游 trace event 持久化后可在 DB 直接查到
+              (recoveryHint
+                ? `。恢复建议：${recoveryHint.action} (${recoveryHint.reason})`
+                : ""),
+            recoverable:
+              recoveryHint?.action === "retry" ||
+              recoveryHint?.action === "downgrade",
+            failureCode,
             diagnostic: {
               modelId: lastModelId,
               completionTokens: usage.completionTokens,
@@ -315,6 +353,19 @@ export class ReActLoop implements IAgentLoop {
               consecutiveEmptyLLM,
               iteration,
             },
+            recoveryHint: recoveryHint
+              ? {
+                  action:
+                    recoveryHint.action === "downgrade"
+                      ? "switch_model"
+                      : recoveryHint.action === "notify_user"
+                        ? "abort"
+                        : recoveryHint.action,
+                  reason: recoveryHint.reason,
+                  fallbackModelId: recoveryHint.fallbackModelId,
+                  retryAfterMs: recoveryHint.retryAfterMs,
+                }
+              : undefined,
           });
           yield this.makeEvent(agentId, "terminated", {
             reason: "empty_llm_response",
@@ -327,9 +378,65 @@ export class ReActLoop implements IAgentLoop {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const aborted = /aborted/i.test(message);
+
+        // ★ 失败码归类：从异常消息推断 provider 错误类型
+        let failureCode: HarnessFailureCode = "PROVIDER_API_ERROR";
+        let fallbackReason:
+          | "rate_limit"
+          | "model_not_found"
+          | "context_too_long"
+          | "outage" = "outage";
+        if (/rate.?limit|429|too many requests/i.test(message)) {
+          failureCode = "PROVIDER_RATE_LIMIT";
+          fallbackReason = "rate_limit";
+        } else if (/model.*not.*found|invalid model|404/i.test(message)) {
+          failureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
+          fallbackReason = "model_not_found";
+        } else if (/context.*length|too long|maximum context/i.test(message)) {
+          failureCode = "PROVIDER_TRUNCATED";
+          fallbackReason = "context_too_long";
+        }
+
+        const recoveryHint =
+          !aborted && currentEnvelope.runtimeEnv
+            ? await currentEnvelope.runtimeEnv
+                .suggestFallback({
+                  failedModelId: lastModelId,
+                  reason: fallbackReason,
+                })
+                .catch(() => null)
+            : null;
+
+        this.logger.error(
+          `[${agentId}] iter=${iteration} ${failureCode} — ${message}`,
+        );
+
         yield this.makeEvent(agentId, "error", {
           message,
-          recoverable: false,
+          recoverable:
+            !aborted &&
+            (recoveryHint?.action === "retry" ||
+              recoveryHint?.action === "downgrade"),
+          failureCode: aborted ? "UNKNOWN" : failureCode,
+          diagnostic: {
+            modelId: lastModelId,
+            iteration,
+            errorMessage: message,
+            errorStack: err instanceof Error ? err.stack : undefined,
+          },
+          recoveryHint: recoveryHint
+            ? {
+                action:
+                  recoveryHint.action === "downgrade"
+                    ? "switch_model"
+                    : recoveryHint.action === "notify_user"
+                      ? "abort"
+                      : recoveryHint.action,
+                reason: recoveryHint.reason,
+                fallbackModelId: recoveryHint.fallbackModelId,
+                retryAfterMs: recoveryHint.retryAfterMs,
+              }
+            : undefined,
         });
         yield this.makeEvent(agentId, "terminated", {
           reason: aborted ? "cancelled" : "error",
@@ -421,15 +528,54 @@ export class ReActLoop implements IAgentLoop {
       }
 
       if (actionResult.error && !this.isRecoverable(actionResult.error)) {
+        // ★ 失败码：tool 错误归类
+        const errMsg = actionResult.error.message;
+        let failureCode: HarnessFailureCode = "TOOL_RUNTIME_ERROR";
+        if (/timeout|timed out/i.test(errMsg)) failureCode = "TOOL_TIMEOUT";
+        else if (/not found|unknown tool/i.test(errMsg))
+          failureCode = "TOOL_NOT_FOUND";
+        else if (/invalid input|validation/i.test(errMsg))
+          failureCode = "TOOL_INPUT_VALIDATION_FAILED";
+
+        const toolId =
+          decision.action.kind === "tool_call"
+            ? decision.action.toolId
+            : undefined;
+
+        this.logger.error(
+          `[${agentId}] iter=${iteration} ${failureCode} ` +
+            `tool=${toolId ?? "?"} err=${errMsg}`,
+        );
+
         yield this.makeEvent(agentId, "error", {
-          message: actionResult.error.message,
+          message: errMsg,
           recoverable: false,
+          failureCode,
+          diagnostic: {
+            toolId,
+            toolError: errMsg,
+            iteration,
+          },
         });
         yield this.makeEvent(agentId, "terminated", { reason: "error" });
         return;
       }
     }
 
+    // 走到这里 = 跑完 maxIterations 没 finalize；保险起见 emit 一个 LOOP_MAX_ITERATIONS
+    // 错误事件，让上层 trace 能看到为什么以 "budget" reason 退出。
+    this.logger.warn(
+      `[${agentId}] reached maxIterations=${criteria.maxIterations} without finalize`,
+    );
+    yield this.makeEvent(agentId, "error", {
+      message: `reached maxIterations=${criteria.maxIterations} without finalize`,
+      recoverable: false,
+      failureCode: "LOOP_MAX_ITERATIONS",
+      diagnostic: {
+        modelId: lastModelId,
+        iteration,
+      },
+    });
     yield this.makeEvent(agentId, "output", {
       output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
     });

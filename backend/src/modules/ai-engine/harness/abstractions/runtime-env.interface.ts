@@ -99,16 +99,34 @@ export interface IRuntimeEnvironment {
 
   /**
    * 关键：请求降级建议。
-   * Loop 在 budget warning / model failure 时调，业务方按当前 BYOK / credit /
-   * quota 综合判断给出 IFallbackHint。
+   *
+   * Loop / Runner / Tool 在所有失败路径都应调用此方法（不只是 budget）。
+   * 业务方按当前 BYOK / credit / quota / 模型可用性 综合判断给出 IFallbackHint。
+   *
+   * reason 与 HarnessFailureCode 对齐：
+   *   - 老的基础设施级原因：rate_limit / no_credit / outage / no_quota / context_too_long
+   *   - 新的 LLM 协议级原因：safety_refusal / truncated / parse_failure /
+   *                          reasoning_exhaustion / model_not_found / empty_response
+   *   - 新的执行级原因：tool_failure / verifier_low_score / schema_mismatch
    */
   suggestFallback(input: {
     failedModelId?: string;
-    reason:
+    reason: // —— 基础设施级（老）——
       | "rate_limit"
       | "no_credit"
       | "outage"
       | "no_quota"
-      | "context_too_long";
+      | "context_too_long"
+      // —— LLM 协议级（新增）——
+      | "safety_refusal"
+      | "truncated"
+      | "parse_failure"
+      | "reasoning_exhaustion"
+      | "model_not_found"
+      | "empty_response"
+      // —— 执行级（新增）——
+      | "tool_failure"
+      | "verifier_low_score"
+      | "schema_mismatch";
   }): Promise<IFallbackHint>;
 }

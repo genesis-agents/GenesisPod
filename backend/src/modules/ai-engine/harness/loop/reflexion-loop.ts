@@ -161,9 +161,38 @@ export class ReflexionLoop implements IAgentLoop {
       if (isEmptyOutput) {
         consecutiveEmptyOutput += 1;
         if (consecutiveEmptyOutput >= 2) {
+          // ★ 接通 fallback：问 runtimeEnv 拿恢复建议（reflexion 层连续空 = empty_response）
+          const recoveryHint = await currentEnvelope.runtimeEnv
+            ?.suggestFallback({ reason: "empty_response" })
+            .catch(() => null);
           yield this.event(agentId, "error", {
-            message: `Reflexion 连续 ${consecutiveEmptyOutput} 个 revision 拿到空 output —— LLM 持续憋出最简空 finalize JSON。根因可能：(a) BYOK model id 在 provider 不存在 (b) reasoning model max_completion_tokens 不足让 CoT + visible output 同时装下 (c) prompt 让 LLM 完全无所适从。请检查 BYOK 模型配置或调高 budget.maxTokens`,
-            recoverable: false,
+            message:
+              `Reflexion 连续 ${consecutiveEmptyOutput} 个 revision 拿到空 output —— ` +
+              `内层 ReActLoop 已发出更精确的 failureCode（PARSE_* / LOOP_REASONING_COT_EXHAUSTION 等），` +
+              `查 trace 可见根因证据。` +
+              (recoveryHint
+                ? ` 恢复建议：${recoveryHint.action} (${recoveryHint.reason})`
+                : ""),
+            recoverable: recoveryHint?.action === "downgrade",
+            failureCode: "REFLEXION_CONSECUTIVE_EMPTY",
+            diagnostic: {
+              consecutiveEmptyOutput,
+              revision,
+              bestScore: bestScore === -Infinity ? null : bestScore,
+            },
+            recoveryHint: recoveryHint
+              ? {
+                  action:
+                    recoveryHint.action === "downgrade"
+                      ? "switch_model"
+                      : recoveryHint.action === "notify_user"
+                        ? "abort"
+                        : recoveryHint.action,
+                  reason: recoveryHint.reason,
+                  fallbackModelId: recoveryHint.fallbackModelId,
+                  retryAfterMs: recoveryHint.retryAfterMs,
+                }
+              : undefined,
           });
           yield this.event(agentId, "output", { output: bestOutput });
           yield this.event(agentId, "terminated", {
