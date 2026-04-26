@@ -840,94 +840,24 @@ export function ResearchCollaborationPanel({
           )}
         </div>
 
-        {/* ★ 弹性间隔：两者都折叠时，将对话区的顶部推到容器中间 */}
+        {/*
+         * ★ 2026-04-25: 内嵌的「与 Leader 对话」面板 + 输入框已下线。
+         * 入口统一为：点击 Agent 拓扑里的 Leader 节点 → AgentInspector
+         *   → 「与该 Leader 对话」按钮 → LeaderChatDock 浮窗。
+         * 此处保留 conversationMessages / handleInstructionSubmit 等状态以备恢复，
+         * 仅屏蔽 UI。如需恢复，移除下方注释块即可。
+         */}
+        {/*
         {isTasksCollapsed && isConversationCollapsed && (
           <div style={{ height: 'calc(50% - 88px - 6px)' }} />
         )}
-
-        {/* ★ 对话区 - 下半部分（可折叠） */}
-        <div
-          className={cn(
-            'flex flex-col overflow-hidden rounded-lg border bg-white transition-all duration-300',
-            getConversationFlexStyle()
-          )}
-        >
-          {/* 标题栏 - 固定高度 48px */}
-          <div
-            className="flex h-12 shrink-0 cursor-pointer items-center gap-2 border-b px-4 hover:bg-gray-50"
-            onClick={() => setIsConversationCollapsed(!isConversationCollapsed)}
-          >
-            <MessageSquare className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-medium">
-              {t('topicResearch.collaboration.panel.conversation')}
-            </span>
-            {conversationMessages.length > 0 && (
-              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
-                {conversationMessages.length}
-              </span>
-            )}
-            <div className="ml-auto">
-              {isConversationCollapsed ? (
-                <ChevronUp className="h-4 w-4 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              )}
-            </div>
-          </div>
-          {/* 折叠时：提示文字 - 固定高度 40px */}
-          {isConversationCollapsed ? (
-            <div className="flex h-10 shrink-0 items-center gap-2 px-4 text-sm text-gray-500">
-              <Brain className="h-4 w-4 text-purple-400" />
-              <span>{t('topicResearch.collaboration.panel.inputPrompt')}</span>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-4">
-              {conversationMessages.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  {t('topicResearch.collaboration.panel.noConversation')}
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {conversationMessages.map((msg) => (
-                    <ConversationMessageItem
-                      key={msg.id}
-                      message={msg}
-                      onClarifyOptionClick={handleClarifyOptionClick}
-                      onTodoClick={handleTodoClick}
-                      t={t}
-                      decisionTypeConfig={decisionTypeConfig}
-                    />
-                  ))}
-                  {/* 正在处理指示器 */}
-                  {isProcessingInput && (
-                    <div className="flex items-center gap-2 py-3 text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">
-                        {t('topicResearch.collaboration.panel.thinking')}
-                      </span>
-                    </div>
-                  )}
-                  <div ref={conversationEndRef} />
-                </div>
-              )}
-            </div>
-          )}
+        <div className={cn(
+          'flex flex-col overflow-hidden rounded-lg border bg-white transition-all duration-300',
+          getConversationFlexStyle()
+        )}>
+          ... 对话区 + 输入框 ...
         </div>
-
-        {/* 输入框 - 固定在底部 */}
-        <div className="shrink-0">
-          <QuickCommandBar
-            topicId={topicId}
-            missionId={activeMissionId}
-            onSubmit={handleInstructionSubmit}
-            disabled={!activeMissionId || isProcessingInput}
-            placeholder={
-              activeMissionId
-                ? t('topicResearch.collaboration.panel.inputPlaceholder')
-                : t('topicResearch.collaboration.panel.pleaseStartResearch')
-            }
-          />
-        </div>
+        */}
       </div>
 
       {/* TODO Detail Panel - Shows when a TODO is selected */}
