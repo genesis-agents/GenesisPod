@@ -68,6 +68,8 @@ export interface AgentLiveState {
   dimension?: string;
   /** 该 agent 实际使用的 LLM 模型 id（来自 thought 事件的 payload.modelId） */
   modelId?: string;
+  /** lifecycle:failed 携带的失败消息（orchestrator 已用 extractFailureMessage 提取） */
+  failureMessage?: string;
   trace: AgentTraceItem[];
 }
 
@@ -267,6 +269,13 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
             (cur.startedAt ? ev.timestamp - cur.startedAt : undefined);
           cur.iterations =
             (p?.iterations as number | undefined) ?? cur.iterations;
+          // 失败消息：lifecycle.payload.error（由 orchestrator extractFailureMessage 写入）
+          const failMsg =
+            (p?.error as string | undefined) ??
+            (p?.message as string | undefined);
+          if (failMsg && phase === 'failed') {
+            cur.failureMessage = failMsg;
+          }
         }
         agents.set(agentId, cur);
       }
@@ -327,10 +336,13 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           error: p?.error as string | undefined,
         };
       } else if (t === 'agent-playground.agent:reflection') {
+        // 优先 text；如果只有 verdict（pass/needs-revision/...）也展示出来
+        const text = p?.text as string | undefined;
+        const verdict = p?.verdict as string | undefined;
         item = {
           kind: 'reflection',
           ts,
-          text: p?.text as string | undefined,
+          text: text ?? (verdict ? `[verdict: ${verdict}]` : undefined),
         };
       } else {
         item = { kind: 'error', ts, error: p?.message as string | undefined };

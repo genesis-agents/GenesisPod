@@ -1030,6 +1030,418 @@ function renderObservationOutputReadable(
   );
 }
 
+/**
+ * 最终产出格式化 — 按 owner.role 检测 output shape 渲染卡片。
+ * 替代 raw JSON dump，给人看的展示。
+ */
+function renderFinalOutput(
+  role: string | null,
+  output: Record<string, unknown>
+): React.ReactNode {
+  // ── Leader: { themeSummary, dimensions[] } ──
+  if (
+    role === 'leader' ||
+    (Array.isArray(output.dimensions) &&
+      typeof output.themeSummary === 'string')
+  ) {
+    const themeSummary = output.themeSummary as string | undefined;
+    const dimensions =
+      (output.dimensions as
+        | { id?: string; name?: string; rationale?: string }[]
+        | undefined) ?? [];
+    return (
+      <section className="rounded-lg border border-violet-100 bg-violet-50/30">
+        <div className="border-b border-violet-100 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
+            最终产出 · 研究规划
+          </p>
+        </div>
+        <div className="space-y-2 p-3">
+          {themeSummary && (
+            <div className="rounded-md bg-white px-3 py-2 ring-1 ring-violet-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600">
+                主题概要
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-gray-800">
+                {themeSummary}
+              </p>
+            </div>
+          )}
+          {dimensions.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-violet-600">
+                研究维度 · {dimensions.length} 个
+              </p>
+              <ul className="space-y-1.5">
+                {dimensions.map((d, i) => (
+                  <li
+                    key={d.id ?? i}
+                    className="rounded-md bg-white px-3 py-2 ring-1 ring-violet-100"
+                  >
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-mono text-[10px] text-violet-500">
+                        {d.id ?? `dim-${i + 1}`}
+                      </span>
+                      <span className="text-[12px] font-semibold text-gray-900">
+                        {d.name ?? '(unnamed)'}
+                      </span>
+                    </div>
+                    {d.rationale && (
+                      <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+                        {d.rationale}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // ── Researcher: { dimension, findings[], summary } ──
+  if (
+    role === 'researcher' ||
+    (Array.isArray(output.findings) && typeof output.summary === 'string')
+  ) {
+    const findings =
+      (output.findings as
+        | { claim?: string; evidence?: string; source?: string }[]
+        | undefined) ?? [];
+    const summary = output.summary as string | undefined;
+    return (
+      <section className="rounded-lg border border-sky-100 bg-sky-50/30">
+        <div className="border-b border-sky-100 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+            最终产出 · 维度研究
+          </p>
+        </div>
+        <div className="space-y-2 p-3">
+          {summary && (
+            <div className="rounded-md bg-white px-3 py-2 ring-1 ring-sky-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-600">
+                综合摘要
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-gray-800">
+                {summary}
+              </p>
+            </div>
+          )}
+          {findings.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-600">
+                关键发现 · {findings.length} 条
+              </p>
+              <ul className="space-y-1.5">
+                {findings.map((f, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md bg-white px-3 py-2 ring-1 ring-sky-100"
+                  >
+                    <p className="text-[12px] font-medium leading-relaxed text-gray-900">
+                      {f.claim ?? '(no claim)'}
+                    </p>
+                    {f.evidence && (
+                      <p className="mt-1 text-[11px] italic text-gray-600">
+                        ▸ {f.evidence}
+                      </p>
+                    )}
+                    {f.source && (
+                      <p className="font-mono mt-1 text-[10px] text-sky-500">
+                        {/^https?:\/\//i.test(f.source) ? (
+                          <a
+                            href={f.source}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            {(() => {
+                              try {
+                                return new URL(f.source).hostname.replace(
+                                  /^www\./,
+                                  ''
+                                );
+                              } catch {
+                                return f.source;
+                              }
+                            })()}
+                          </a>
+                        ) : (
+                          f.source
+                        )}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // ── Analyst: { themeSummary, insights[], contradictions[] } ──
+  if (
+    role === 'analyst' ||
+    (Array.isArray(output.insights) && typeof output.themeSummary === 'string')
+  ) {
+    const insights =
+      (output.insights as
+        | {
+            headline?: string;
+            narrative?: string;
+            supportingDimensions?: string[];
+            confidence?: number;
+          }[]
+        | undefined) ?? [];
+    const contradictions =
+      (output.contradictions as
+        | { claim?: string; resolution?: string }[]
+        | undefined) ?? [];
+    return (
+      <section className="rounded-lg border border-amber-100 bg-amber-50/30">
+        <div className="border-b border-amber-100 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+            最终产出 · 整合分析
+          </p>
+        </div>
+        <div className="space-y-2 p-3">
+          {typeof output.themeSummary === 'string' && (
+            <div className="rounded-md bg-white px-3 py-2 ring-1 ring-amber-100">
+              <p className="text-[12px] leading-relaxed text-gray-800">
+                {output.themeSummary}
+              </p>
+            </div>
+          )}
+          {insights.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+                核心洞察 · {insights.length} 条
+              </p>
+              <ul className="space-y-1.5">
+                {insights.map((ins, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md bg-white px-3 py-2 ring-1 ring-amber-100"
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="flex-1 text-[12px] font-semibold text-gray-900">
+                        {ins.headline ?? '(no headline)'}
+                      </p>
+                      {ins.confidence != null && (
+                        <span className="font-mono shrink-0 rounded bg-amber-100 px-1.5 text-[10px] text-amber-700">
+                          {Math.round((ins.confidence ?? 0) * 100)}% 置信
+                        </span>
+                      )}
+                    </div>
+                    {ins.narrative && (
+                      <p className="mt-1 text-[11px] leading-relaxed text-gray-700">
+                        {ins.narrative}
+                      </p>
+                    )}
+                    {ins.supportingDimensions &&
+                      ins.supportingDimensions.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {ins.supportingDimensions.map((d) => (
+                            <span
+                              key={d}
+                              className="font-mono inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-[9px] text-amber-700 ring-1 ring-amber-200"
+                            >
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {contradictions.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-600">
+                ⚠ 矛盾点 · {contradictions.length} 条
+              </p>
+              <ul className="space-y-1.5">
+                {contradictions.map((c, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md bg-white px-3 py-2 ring-1 ring-red-100"
+                  >
+                    <p className="text-[11px] font-medium text-gray-900">
+                      {c.claim}
+                    </p>
+                    {c.resolution && (
+                      <p className="mt-1 text-[10px] italic text-gray-600">
+                        → {c.resolution}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // ── Writer: ResearchReport { title, summary, sections[], conclusion } ──
+  if (
+    role === 'writer' ||
+    (typeof output.title === 'string' && Array.isArray(output.sections))
+  ) {
+    const sections =
+      (output.sections as
+        | { heading?: string; markdown?: string; body?: string }[]
+        | undefined) ?? [];
+    return (
+      <section className="rounded-lg border border-rose-100 bg-rose-50/30">
+        <div className="border-b border-rose-100 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">
+            最终产出 · 研究报告
+          </p>
+        </div>
+        <div className="space-y-2 p-3">
+          {typeof output.title === 'string' && (
+            <h4 className="text-base font-bold text-gray-900">
+              {output.title}
+            </h4>
+          )}
+          {typeof output.summary === 'string' && (
+            <div className="rounded-md bg-white px-3 py-2 ring-1 ring-rose-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-600">
+                摘要
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-gray-800">
+                {output.summary}
+              </p>
+            </div>
+          )}
+          {sections.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-rose-600">
+                章节 · {sections.length}
+              </p>
+              <ul className="space-y-1.5">
+                {sections.map((s, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md bg-white px-3 py-2 ring-1 ring-rose-100"
+                  >
+                    <p className="text-[12px] font-semibold text-gray-900">
+                      {s.heading ?? `#${i + 1}`}
+                    </p>
+                    {(s.markdown || s.body) && (
+                      <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-gray-600">
+                        {(s.markdown ?? s.body ?? '').slice(0, 280)}
+                        {(s.markdown ?? s.body ?? '').length > 280 ? '…' : ''}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {typeof output.conclusion === 'string' && (
+            <div className="rounded-md bg-white px-3 py-2 ring-1 ring-rose-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-600">
+                结论
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-gray-800">
+                {output.conclusion}
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // ── Reviewer: { score, decision, verdicts[] } ──
+  if (
+    role === 'reviewer' ||
+    (Array.isArray(output.verdicts) && typeof output.score === 'number')
+  ) {
+    const verdicts =
+      (output.verdicts as
+        | {
+            verifierId?: string;
+            score?: number;
+            critique?: string;
+          }[]
+        | undefined) ?? [];
+    return (
+      <section className="rounded-lg border border-emerald-100 bg-emerald-50/30">
+        <div className="border-b border-emerald-100 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+            最终产出 · Judge 共识
+          </p>
+        </div>
+        <div className="space-y-2 p-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-emerald-700">
+              {output.score as number}
+            </span>
+            <span className="text-[11px] text-gray-500">/ 100</span>
+            {typeof output.decision === 'string' && (
+              <span
+                className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  output.decision === 'pass'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                {output.decision}
+              </span>
+            )}
+          </div>
+          {verdicts.length > 0 && (
+            <ul className="space-y-1.5">
+              {verdicts.map((v, i) => (
+                <li
+                  key={i}
+                  className="rounded-md bg-white px-3 py-2 ring-1 ring-emerald-100"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-mono text-[11px] font-semibold text-gray-800">
+                      {v.verifierId ?? `judge-${i + 1}`}
+                    </span>
+                    {v.score != null && (
+                      <span
+                        className={`font-mono text-[11px] font-semibold ${
+                          v.score >= 80
+                            ? 'text-emerald-600'
+                            : v.score >= 60
+                              ? 'text-amber-600'
+                              : 'text-red-600'
+                        }`}
+                      >
+                        {v.score}
+                      </span>
+                    )}
+                  </div>
+                  {v.critique && (
+                    <p className="mt-1 text-[11px] italic text-gray-600">
+                      {v.critique}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // 未识别 shape → 不渲染（避免重复显示 raw JSON）
+  return null;
+}
+
 function TaskDetailDrawer({
   agents,
   dimensions,
@@ -1281,6 +1693,28 @@ function TaskDetailDrawer({
       }
     }
     return m;
+  })();
+
+  // 最终产出：扫描末尾的 finalize observation 找结构化 output
+  const finalOutput = (() => {
+    for (let i = trace.length - 1; i >= 0; i--) {
+      const t = trace[i];
+      if (
+        t.kind === 'observation' &&
+        !t.error &&
+        t.toolId === 'finalize' &&
+        t.output != null &&
+        typeof t.output === 'object'
+      ) {
+        // ReAct loop 的 finalize 通常包一层 { output: ... }
+        const o = t.output as Record<string, unknown>;
+        if ('output' in o && o.output != null && typeof o.output === 'object') {
+          return o.output as Record<string, unknown>;
+        }
+        return o;
+      }
+    }
+    return null;
   })();
 
   return (
@@ -1710,6 +2144,9 @@ function TaskDetailDrawer({
             </section>
           )}
 
+          {/* 最终产出 — 按 owner.role 检测 output shape 卡片化 */}
+          {finalOutput && renderFinalOutput(owner?.role ?? null, finalOutput)}
+
           {/* TOOLS USED — 按工具聚合调用次数 / 累计 token / 错误数 */}
           {toolsUsed.length > 0 && (
             <section className="rounded-lg border border-gray-100 bg-white">
@@ -1825,11 +2262,26 @@ function TaskDetailDrawer({
                           )}
                         {/* 调用工具：URL/query 列表 + 可点击 */}
                         {t.kind === 'action' &&
-                          renderActionInputReadable(t.input, null, urlTitleMap)}
-                        {/* 结果：search/scrape 卡片化 */}
+                          renderActionInputReadable(
+                            t.input,
+                            t.input != null
+                              ? typeof t.input === 'string'
+                                ? t.input
+                                : JSON.stringify(t.input, null, 2)
+                              : null,
+                            urlTitleMap
+                          )}
+                        {/* 结果：search/scrape 卡片化，否则 fallback 紧凑 JSON 预览 */}
                         {t.kind === 'observation' &&
                           !t.error &&
-                          renderObservationOutputReadable(t.output, null)}
+                          renderObservationOutputReadable(
+                            t.output,
+                            t.output != null
+                              ? typeof t.output === 'string'
+                                ? t.output
+                                : JSON.stringify(t.output, null, 2)
+                              : null
+                          )}
                         {t.kind === 'observation' && t.error && (
                           <p className="text-[12px] text-red-700">
                             ⚠ {t.error}
@@ -1843,16 +2295,19 @@ function TaskDetailDrawer({
             );
           })()}
 
-          {/* 失败时优先抓出失败原因（最后一个 error trace 或最后一个带 error 的 observation） */}
+          {/* 失败时优先抓出失败原因 */}
           {phase === 'failed' &&
             (() => {
               const failureMsg = (() => {
+                // 1) 优先：orchestrator 写入的 lifecycle.error（已用 extractFailureMessage 提取）
+                if (owner?.failureMessage) return owner.failureMessage;
+                // 2) trace 里的 error 事件
                 for (let i = trace.length - 1; i >= 0; i--) {
                   const t = trace[i];
                   if (t.kind === 'error' && t.error) return t.error;
                   if (t.kind === 'observation' && t.error) return t.error;
                 }
-                // 兜底：最后一条 observation 的输出截断
+                // 3) 兜底：最后一条 observation 的输出截断
                 for (let i = trace.length - 1; i >= 0; i--) {
                   const t = trace[i];
                   if (t.kind === 'observation' && t.output) {

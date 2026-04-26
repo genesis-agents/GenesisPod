@@ -85,6 +85,54 @@ interface RelayCtx {
   envAdapter?: BillingRuntimeEnvAdapter;
 }
 
+/**
+ * 从 RunResult.events + state 抽出"为什么失败"的可读消息。
+ *
+ *   1. 优先用最后一个 error 事件的 payload.message
+ *   2. 否则用 terminated 事件的 reason / detail
+ *   3. 否则用最后一个 observation.error
+ *   4. 否则 outputSchema 校验失败 fallback 文字
+ *   5. 仍没有 → 给一个 hint，让 UI 不再显示"未捕获明确的错误信息"
+ */
+function extractFailureMessage(
+  events: readonly IAgentEvent[],
+  state: string,
+  hasOutput: boolean,
+): string | undefined {
+  if (state === "completed") return undefined;
+  // 倒序扫，错误信息通常在末尾
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.type === "error") {
+      const p = ev.payload as { message?: string } | null;
+      if (p?.message) return p.message;
+    }
+    if (ev.type === "action_executed") {
+      const p = ev.payload as { error?: { message?: string } } | null;
+      if (p?.error?.message) return `工具调用失败：${p.error.message}`;
+    }
+    if (ev.type === "terminated") {
+      const p = ev.payload as {
+        reason?: string;
+        message?: string;
+        detail?: string;
+      } | null;
+      if (p?.message) return p.message;
+      if (p?.detail) return p.detail;
+      if (p?.reason && p.reason !== "completed") {
+        return `Agent 终止：${p.reason}`;
+      }
+    }
+  }
+  if (state === "failed") {
+    if (!hasOutput)
+      return "Agent 未产出有效输出（可能是 LLM 返回空 / 超时 / 网络中断）";
+    return "outputSchema 校验失败 —— Agent 产出格式不符合预期 schema（详见原始执行轨迹中最后一个 finalize 事件的 input/output）";
+  }
+  if (state === "cancelled") return "Agent 被取消";
+  return undefined;
+}
+
 function extractTokenSpend(events: readonly IAgentEvent[]): number {
   let total = 0;
   let lastBudgetTokens = 0;
@@ -290,10 +338,21 @@ export class ResearchTeamOrchestrator {
           {
             wallTimeMs: leaderRes.wallTimeMs,
             iterations: leaderRes.iterations,
+            error: extractFailureMessage(
+              leaderRes.events,
+              leaderRes.state,
+              !!leaderRes.output,
+            ),
           },
         );
         if (leaderRes.state !== "completed") {
-          throw new Error("Leader stage failed");
+          throw new Error(
+            extractFailureMessage(
+              leaderRes.events,
+              leaderRes.state,
+              !!leaderRes.output,
+            ) ?? "Leader stage failed",
+          );
         }
         const plan = leaderRes.output as {
           themeSummary: string;
@@ -369,6 +428,7 @@ export class ResearchTeamOrchestrator {
                   wallTimeMs: r.wallTimeMs,
                   iterations: r.iterations,
                   dimension: dim.name,
+                  error: extractFailureMessage(r.events, r.state, !!r.output),
                 },
               );
               await this.emit({
@@ -509,6 +569,11 @@ export class ResearchTeamOrchestrator {
           pool,
           extractTokenSpend(analystRes.events),
         );
+        const analystFailMsg = extractFailureMessage(
+          analystRes.events,
+          analystRes.state,
+          !!analystRes.output,
+        );
         await this.lifecycle(
           missionId,
           userId,
@@ -518,10 +583,13 @@ export class ResearchTeamOrchestrator {
           {
             wallTimeMs: analystRes.wallTimeMs,
             iterations: analystRes.iterations,
+            error: analystFailMsg,
           },
         );
         if (analystRes.state !== "completed" || !analystRes.output) {
-          throw new Error(`Analyst stage failed: ${analystRes.state}`);
+          throw new Error(
+            analystFailMsg ?? `Analyst stage failed: ${analystRes.state}`,
+          );
         }
         const analyst = analystRes.output as {
           insights: {
@@ -605,6 +673,11 @@ export class ResearchTeamOrchestrator {
               wallTimeMs: writerRes.wallTimeMs,
               iterations: writerRes.iterations,
               attempt: attempts,
+              error: extractFailureMessage(
+                writerRes.events,
+                writerRes.state,
+                !!writerRes.output,
+              ),
             },
           );
           if (writerRes.state !== "completed" || !writerRes.output) {
@@ -1168,7 +1241,15 @@ export class ResearchTeamOrchestrator {
       outlineAgentId,
       "outline",
       outlineRes.state === "completed" ? "completed" : "failed",
-      { dimension: dimensionName, wallTimeMs: outlineRes.wallTimeMs },
+      {
+        dimension: dimensionName,
+        wallTimeMs: outlineRes.wallTimeMs,
+        error: extractFailureMessage(
+          outlineRes.events,
+          outlineRes.state,
+          !!outlineRes.output,
+        ),
+      },
     );
     if (outlineRes.state !== "completed" || !outlineRes.output) {
       return researcherOut;
