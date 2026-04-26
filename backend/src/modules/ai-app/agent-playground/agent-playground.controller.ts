@@ -110,6 +110,78 @@ export class AgentPlaygroundController {
   }
 
   /**
+   * POST /api/v1/agent-playground/missions/:id/rerun
+   * 用相同配置（topic / depth / language / maxCredits）启动一个新 mission，
+   * 返回新 missionId 给前端跳转。
+   */
+  @Post("missions/:id/rerun")
+  async rerunMission(
+    @Param("id") missionId: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{ missionId: string; streamNamespace: string }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    await this.assertOwnership(missionId, userId);
+
+    const original = await this.store.getById(missionId, userId);
+    if (!original)
+      throw new ForbiddenException(`mission ${missionId} not found`);
+
+    const input: RunMissionInput = {
+      topic: original.topic,
+      depth: (["quick", "standard", "deep"].includes(original.depth)
+        ? original.depth
+        : "standard") as RunMissionInput["depth"],
+      language: (original.language === "en-US"
+        ? "en-US"
+        : "zh-CN") as RunMissionInput["language"],
+      maxCredits: 300,
+    };
+
+    const newMissionId = randomUUID();
+    this.ownership.assign(newMissionId, userId);
+
+    void this.orchestrator
+      .runMission(newMissionId, input, userId)
+      .catch((err: unknown) => {
+        this.log.error(
+          `mission ${newMissionId} (rerun of ${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+
+    return { missionId: newMissionId, streamNamespace: "agent-playground" };
+  }
+
+  /**
+   * POST /api/v1/agent-playground/missions/:id/cancel
+   * 取消运行中的 mission：DB 状态置为 cancelled，前端停止 polling。
+   *
+   * 限制：不会 abort 后台正在跑的 orchestrator（in-memory），但其后续写入
+   * 会被 markFailed 兜底（写入 cancelled 状态会被 markCompleted 覆盖时
+   * 我们在 markCompleted 里加了 guard——见 mission-store.service.ts）。
+   */
+  @Post("missions/:id/cancel")
+  async cancelMission(
+    @Param("id") missionId: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{ ok: true; status: string }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    await this.assertOwnership(missionId, userId);
+
+    const persisted = await this.store.getById(missionId, userId);
+    if (!persisted)
+      throw new ForbiddenException(`mission ${missionId} not found`);
+    if (persisted.status !== "running") {
+      throw new BadRequestException(
+        `mission ${missionId} status is ${persisted.status}, not running`,
+      );
+    }
+    await this.store.markCancelled(missionId);
+    return { ok: true, status: "cancelled" };
+  }
+
+  /**
    * GET /api/v1/agent-playground/replay/:missionId?since=<ts>
    *
    * 从 MissionEventBuffer 读取累积事件。前端可：

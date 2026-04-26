@@ -160,7 +160,7 @@ function previewSearchResults(output: unknown):
       snippet?: string;
     }[]
   | null {
-  // 接受三种 shape: array, {results:[]}, {items:[]}
+  // 接受多种 shape: array, {results:[]}, {items:[]}, {hits:[]}, {output:[]}
   let arr: unknown[] | null = null;
   if (Array.isArray(output)) arr = output;
   else if (output && typeof output === 'object') {
@@ -168,12 +168,27 @@ function previewSearchResults(output: unknown):
     if (Array.isArray(o.results)) arr = o.results;
     else if (Array.isArray(o.items)) arr = o.items;
     else if (Array.isArray(o.hits)) arr = o.hits;
+    else if (Array.isArray(o.output)) arr = o.output;
+    else if (Array.isArray(o.data)) arr = o.data;
   } else if (typeof output === 'string') {
+    const trimmed = output.trim().replace(/…$/, '');
     try {
-      const parsed: unknown = JSON.parse(output.trim().replace(/…$/, ''));
+      const parsed: unknown = JSON.parse(trimmed);
       return previewSearchResults(parsed);
     } catch {
-      return null;
+      // JSON 截断时 parse 失败 → 退化为正则抓 title/url 对
+      const matches: { title: string; url?: string; snippet?: string }[] = [];
+      const titleRe = /"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+      const urlRe = /"url"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+      const titles = [...trimmed.matchAll(titleRe)].map((m) => m[1]);
+      const urls = [...trimmed.matchAll(urlRe)].map((m) => m[1]);
+      const n = Math.max(titles.length, urls.length);
+      for (let i = 0; i < Math.min(n, 5); i++) {
+        if (titles[i] || urls[i]) {
+          matches.push({ title: titles[i] || urls[i] || '', url: urls[i] });
+        }
+      }
+      return matches.length > 0 ? matches : null;
     }
   }
   if (!arr) return null;
@@ -184,6 +199,7 @@ function previewSearchResults(output: unknown):
       title:
         (typeof o.title === 'string' && o.title) ||
         (typeof o.name === 'string' && o.name) ||
+        (typeof o.headline === 'string' && o.headline) ||
         (typeof o.url === 'string' && o.url) ||
         'untitled',
       url:
@@ -194,6 +210,7 @@ function previewSearchResults(output: unknown):
         (typeof o.snippet === 'string' && o.snippet) ||
         (typeof o.description === 'string' && o.description) ||
         (typeof o.summary === 'string' && o.summary) ||
+        (typeof o.content === 'string' && o.content) ||
         undefined,
     };
   });

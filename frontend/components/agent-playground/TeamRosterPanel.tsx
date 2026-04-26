@@ -100,17 +100,32 @@ interface Props {
   stages: StageState[];
   finalScore?: number;
   topic?: string;
+  /** mission 维度（从 leader stage 输出，用于左下任务列表） */
+  dimensions?: { id?: string; name: string; rationale?: string }[];
+  /** mission 当前状态 — 决定按钮显示 */
+  missionStatus?: 'running' | 'completed' | 'failed' | 'idle';
   onCollapse?: () => void;
   /** 点击 Leader 节点时触发（详情页用来打开 LeaderChatModal） */
   onLeaderClick?: () => void;
+  /** 重新运行（用相同配置开新 mission） */
+  onRerun?: () => void;
+  /** 用相同 topic 进入新建表单（编辑配置后再跑） */
+  onUpdate?: () => void;
+  /** 取消运行中的 mission（暂未实现 → undefined） */
+  onCancel?: () => void;
 }
 
 export function TeamRosterPanel({
   agents,
   stages,
   finalScore,
+  dimensions,
+  missionStatus = 'idle',
   onCollapse,
   onLeaderClick,
+  onRerun,
+  onUpdate,
+  onCancel,
 }: Props) {
   const stageMap = useMemo(
     () => new Map(stages.map((s) => [s.id, s])),
@@ -128,16 +143,56 @@ export function TeamRosterPanel({
       4: [],
     };
 
+    // researcher 的并行实例 ids（用于 fan-out / fan-in 连线）
+    const researcherIds: string[] = [];
+
     for (const r of ROLE_ROW) {
       const stage = stageMap.get(r.stage);
       const roleAgents = agents.filter((a) => a.role === r.role);
-      const total = Math.max(roleAgents.length, 1);
+      const status = stageStatusToNodeStatus(stage?.status ?? 'pending');
+
+      // ── Researcher 特殊处理：每个并行 agent 一个独立节点 ──
+      if (r.role === 'researcher' && roleAgents.length > 0) {
+        roleAgents.forEach((a, idx) => {
+          const aStatus: TeamNodeStatus =
+            a.phase === 'running'
+              ? 'working'
+              : a.phase === 'completed'
+                ? 'completed'
+                : a.phase === 'failed'
+                  ? 'failed'
+                  : 'idle';
+          const id = `researcher#${idx + 1}`;
+          nodes.push({
+            id,
+            name: a.dimension
+              ? a.dimension.length > 6
+                ? a.dimension.slice(0, 6) + '…'
+                : a.dimension
+              : `R${idx + 1}`,
+            role: 'researcher',
+            icon: ROLE_ICON.researcher,
+            status: aStatus,
+            statusLabel:
+              aStatus === 'working'
+                ? '调研中'
+                : aStatus === 'completed'
+                  ? '完成'
+                  : undefined,
+            colorKey: ROLE_COLOR_KEY.researcher,
+            avatarRole: ROLE_AVATAR.researcher,
+          });
+          researcherIds.push(id);
+          rowMap[r.rowIdx].push(id);
+        });
+        continue;
+      }
+
+      // ── 其他角色：单节点 ──
       const completed = roleAgents.filter(
         (a) => a.phase === 'completed'
       ).length;
-      const status = stageStatusToNodeStatus(stage?.status ?? 'pending');
-
-      const node: TeamTopologyNode = {
+      nodes.push({
         id: r.role,
         name: r.label,
         role: r.role,
@@ -145,9 +200,9 @@ export function TeamRosterPanel({
         status,
         statusLabel:
           status === 'working'
-            ? 'working'
+            ? '运行中'
             : status === 'completed'
-              ? 'done'
+              ? '完成'
               : undefined,
         colorKey: ROLE_COLOR_KEY[r.role],
         isLeader: r.role === 'leader',
@@ -156,18 +211,20 @@ export function TeamRosterPanel({
           roleAgents.length > 0
             ? { completed, total: roleAgents.length }
             : undefined,
-      };
-      nodes.push(node);
+      });
       rowMap[r.rowIdx].push(r.role);
-      // Suppress unused-var lint
-      void total;
+
+      // researcher 行没有任何 agent 时也要占位一个节点，避免 connections 找不到 'researcher'
+      if (r.role === 'researcher' && roleAgents.length === 0) {
+        researcherIds.push('researcher');
+      }
     }
 
-    // 单链流水线：leader → researcher → analyst → writer → reviewer
-    // 不画 analyst↔writer 这种横向连线，避免线条交叉视觉混乱
+    // ── Connections: fan-out from leader to all researchers, fan-in to analyst ──
+    const ids = researcherIds.length > 0 ? researcherIds : ['researcher'];
     const connections: TeamTopologyConnection[] = [
-      { from: 'leader', to: 'researcher' },
-      { from: 'researcher', to: 'analyst' },
+      ...ids.map((rid) => ({ from: 'leader', to: rid })),
+      ...ids.map((rid) => ({ from: rid, to: 'analyst' })),
       { from: 'analyst', to: 'writer' },
       { from: 'writer', to: 'reviewer' },
     ];

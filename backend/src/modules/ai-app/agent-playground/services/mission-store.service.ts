@@ -131,11 +131,33 @@ export class MissionStore {
       reportTitle: data.report?.title?.slice(0, 500) ?? null,
       reportSummary: data.report?.summary ?? null,
     };
+    // 防止覆盖用户已取消的 mission（updateMany 带 status='running' guard，
+    // 已 cancelled / failed 的不会被改写为 completed）
     await this.prisma.agentPlaygroundMission
-      .update({ where: { id }, data: update })
+      .updateMany({
+        where: { id, status: "running" },
+        data: update,
+      })
       .catch((err: unknown) => {
         this.log.warn(
-          `[markCompleted ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          `[markCompleted ${id}] guarded update failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  async markCancelled(id: string): Promise<void> {
+    await this.prisma.agentPlaygroundMission
+      .update({
+        where: { id },
+        data: {
+          status: "cancelled",
+          completedAt: new Date(),
+          errorMessage: "Mission cancelled by user.",
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[markCancelled ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
   }

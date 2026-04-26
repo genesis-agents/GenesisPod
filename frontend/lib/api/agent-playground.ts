@@ -149,6 +149,42 @@ export interface LeaderChatMessage {
   createdAt: string;
 }
 
+export async function rerunMission(
+  missionId: string
+): Promise<{ missionId: string; streamNamespace: string }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/rerun`,
+    {
+      method: 'POST',
+      headers: { ...getAuthHeader() },
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Rerun failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{ missionId: string; streamNamespace: string }>(raw);
+}
+
+export async function cancelMission(
+  missionId: string
+): Promise<{ ok: true; status: string }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/cancel`,
+    {
+      method: 'POST',
+      headers: { ...getAuthHeader() },
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Cancel failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{ ok: true; status: string }>(raw);
+}
+
 export async function listLeaderChat(
   missionId: string
 ): Promise<LeaderChatMessage[]> {

@@ -674,6 +674,54 @@ function TaskDetailDrawer({
             </div>
           )}
 
+          {/* 失败时优先抓出失败原因（最后一个 error trace 或最后一个带 error 的 observation） */}
+          {phase === 'failed' &&
+            (() => {
+              const failureMsg = (() => {
+                for (let i = trace.length - 1; i >= 0; i--) {
+                  const t = trace[i];
+                  if (t.kind === 'error' && t.error) return t.error;
+                  if (t.kind === 'observation' && t.error) return t.error;
+                }
+                // 兜底：最后一条 observation 的输出截断
+                for (let i = trace.length - 1; i >= 0; i--) {
+                  const t = trace[i];
+                  if (t.kind === 'observation' && t.output) {
+                    const s =
+                      typeof t.output === 'string'
+                        ? t.output
+                        : JSON.stringify(t.output);
+                    return s.length > 400 ? s.slice(0, 400) + '…' : s;
+                  }
+                }
+                return null;
+              })();
+              return (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+                  <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-red-700">
+                    <svg
+                      className="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v3m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    失败原因
+                  </p>
+                  <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-red-800">
+                    {failureMsg ??
+                      '该 Agent 失败，但未捕获明确的错误信息。请在协作动态 / 事件时间线 tab 查看完整事件流。'}
+                  </p>
+                </div>
+              );
+            })()}
+
           {trace.length > 0 ? (
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -689,16 +737,35 @@ function TaskDetailDrawer({
                         : t.kind === 'action'
                           ? 'bg-violet-50 text-violet-900'
                           : t.kind === 'observation'
-                            ? 'bg-sky-50 text-sky-900'
+                            ? t.error
+                              ? 'bg-red-50 text-red-900'
+                              : 'bg-sky-50 text-sky-900'
                             : t.kind === 'reflection'
                               ? 'bg-purple-50 text-purple-900'
                               : 'bg-red-50 text-red-900'
                     }`}
                   >
                     <span className="font-semibold">{t.kind}</span>
-                    {t.text ? ` · ${t.text.slice(0, 240)}` : ''}
-                    {t.toolId ? ` · ${t.toolId}` : ''}
-                    {t.error ? ` · ${t.error.slice(0, 200)}` : ''}
+                    {t.toolId ? (
+                      <span className="font-mono ml-1 text-[10px] opacity-75">
+                        · {t.toolId}
+                      </span>
+                    ) : null}
+                    {t.text ? (
+                      <p className="mt-0.5 whitespace-pre-wrap break-words">
+                        {t.text.length > 400
+                          ? t.text.slice(0, 400) + '…'
+                          : t.text}
+                      </p>
+                    ) : null}
+                    {t.error ? (
+                      <p className="mt-0.5 whitespace-pre-wrap break-words font-medium">
+                        ⚠{' '}
+                        {t.error.length > 400
+                          ? t.error.slice(0, 400) + '…'
+                          : t.error}
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>
