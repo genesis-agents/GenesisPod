@@ -53,12 +53,13 @@ function getEncoder(name: EncoderName): Encoder | null {
 function pickEncoderName(modelId?: string): EncoderName {
   if (!modelId) return "cl100k_base";
   const m = modelId.toLowerCase();
+  // o200k_base 适用于：gpt-4o / gpt-5+ / o-series（OpenAI 公开映射）。
+  // o-series 用 /^o\d/ 覆盖未来型号 (o4/o5/o6...)，避免每次新模型改代码。
+  // gpt 主版本号 >= 4 也算 o200k_base（gpt-4 老版用 cl100k 已罕见）。
   if (
     m.startsWith("gpt-4o") ||
-    m.startsWith("gpt-5") ||
-    m.startsWith("o1") ||
-    m.startsWith("o3") ||
-    m.startsWith("o4")
+    /^gpt-[5-9]/.test(m) ||
+    /^o\d/.test(m)
   ) {
     return "o200k_base";
   }

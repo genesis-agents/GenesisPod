@@ -301,9 +301,8 @@ export class AiModelDiscoveryService {
     } else {
       filteredModels = allModels.filter(
         (m: { id: string }) =>
-          m.id.startsWith("gpt-") ||
-          m.id.startsWith("o1") ||
-          m.id.startsWith("o3"),
+          // o-series 用 /^o\d/ 覆盖未来型号 (o4/o5/...)
+          m.id.startsWith("gpt-") || /^o\d/.test(m.id),
       );
     }
 

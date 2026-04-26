@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { ChatMessage } from "../types";
+import { ChatMessage, reasoningDepthToEffort } from "../types";
 
 export interface StreamChunk {
   content: string;
@@ -62,13 +62,17 @@ export class AiStreamHandlerService {
     temperature?: number,
     tokenParamName: string = "max_tokens",
     isReasoning: boolean = false,
+    reasoningDepth?: string,
   ): AsyncGenerator<StreamChunk, void> {
     // ★ 数据库驱动：使用配置的 tokenParamName，无需硬编码判断
     const tokenParam = { [tokenParamName]: maxTokens };
 
-    // ★ DB 驱动：reasoning_effort 由 AIModelConfig.isReasoning 决定（不再 startsWith 死代码）
-    //   漏掉的话 OpenAI gpt-5 系列默认走 medium effort，CoT 吃光 max_completion_tokens
-    const reasoningParam = isReasoning ? { reasoning_effort: "low" } : {};
+    // ★ DB 驱动 isReasoning + task profile reasoningDepth → reasoning_effort
+    //   不再 hardcode "low"。caller 传 deep → high effort（多步推理任务）；
+    //   不传 → 缺省 low（最省 token，避免 CoT 吃光 max_completion_tokens）。
+    const reasoningParam = isReasoning
+      ? { reasoning_effort: reasoningDepthToEffort(reasoningDepth) }
+      : {};
 
     try {
       // ★ TTFT: 在发出请求前记录时间，以准确测量从请求发起到首个 token 的延迟

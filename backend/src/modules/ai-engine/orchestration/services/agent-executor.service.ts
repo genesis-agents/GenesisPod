@@ -371,13 +371,15 @@ export class AgentExecutorService implements IAgentExecutorService {
     },
     _modelConfig?: Awaited<ReturnType<typeof this.getModelConfig>>,
   ): Promise<{ content: string; tokensUsed: number }> {
+    // ★ "isLargeModel" 启发式 → defaultMaxTokens 高/低；DB 驱动是更好的方向
+    //   （AIModel.maxTokens / costTier 已经能精确表达），但这条路径还在用 aiModel
+    //   字符串。先把模型名启发式收敛：o-series 一律 /^o\d/，gpt 系列 /^gpt-/。
+    const lowerModel = aiModel.toLowerCase();
     const isLargeModel =
-      aiModel.includes("gpt-4") ||
-      aiModel.includes("claude") ||
-      aiModel.includes("gemini") ||
-      aiModel.includes("gpt-5") ||
-      aiModel.startsWith("o1") ||
-      aiModel.startsWith("o3");
+      /^gpt-/.test(lowerModel) || // gpt-4 / gpt-5 / gpt-6...
+      /^o\d/.test(lowerModel) || // o1 / o3 / o4 / o5...
+      lowerModel.includes("claude") ||
+      lowerModel.includes("gemini");
     const defaultMaxTokens = isLargeModel ? 6000 : 4000;
 
     // 统一走 generateChatCompletion，由下游通过 Secret Manager 解析 API Key

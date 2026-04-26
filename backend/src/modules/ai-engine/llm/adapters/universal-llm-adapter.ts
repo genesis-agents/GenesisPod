@@ -240,21 +240,15 @@ export class UniversalLLMAdapter implements ILLMAdapter {
    */
   supportsModel(model: string): boolean {
     const lower = model.toLowerCase();
-    // 支持所有主流 provider 的模型
+    // ★ 启发式覆盖主流 provider；o-series（o1/o3/o4/o5...）一律 /^o\d/，
+    //   不再每次出新型号就改代码。
     return (
-      // OpenAI
       lower.includes("gpt") ||
-      lower.startsWith("o1") ||
-      lower.startsWith("o3") ||
-      // Google Gemini
+      /^o\d/.test(lower) || // OpenAI o-series (o1/o3/o4/...)
       lower.includes("gemini") ||
-      // Anthropic Claude
       lower.includes("claude") ||
-      // xAI Grok
       lower.includes("grok") ||
-      // DeepSeek
       lower.includes("deepseek") ||
-      // 显式列表中的模型
       this.supportedModels.includes(model)
     );
   }

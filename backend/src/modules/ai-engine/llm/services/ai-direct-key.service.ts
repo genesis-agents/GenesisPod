@@ -4,6 +4,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { ChatMessage, ChatCompletionResult } from "./ai-chat.service";
 import type { TaskProfile } from "../types";
+import { reasoningDepthToEffort } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService } from "./ai-model-config.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
@@ -217,16 +218,20 @@ export class AiDirectKeyService {
             : "max_tokens";
           const tokenParam = { [tokenParamName]: maxTokens };
 
-          // ★ 关键修复：reasoning_effort 同样由 isReasoning 决定，不再用模型名 startsWith 死代码
-          //   旧代码漏 o4 / gpt-5 系列 → BYOK 用户跑 gpt-5.4 时不发 reasoning_effort
-          //   → OpenAI 默认 medium effort → CoT 吃光 max_completion_tokens
-          //   → visible 输出空 → ReActLoop 熔断 "立即 finalize 空"
-          const reasoningParam = isReasoning ? { reasoning_effort: "low" } : {};
+          // ★ reasoning_effort 由 task profile reasoningDepth 决定（共享映射），
+          //   不再 hardcode "low"。caller 传 deep → high effort（多步推理任务）；
+          //   不传 → 缺省 low（最省 token，避免 CoT 吃光 max_completion_tokens）。
+          const reasoningEffort = reasoningDepthToEffort(
+            taskProfile?.reasoningDepth,
+          );
+          const reasoningParam = isReasoning
+            ? { reasoning_effort: reasoningEffort }
+            : {};
 
           this.logger.debug(
             `[OpenAI BYOK] model=${effectiveModelId}, ` +
               `${tokenParamName}=${maxTokens}, isReasoning=${isReasoning}` +
-              `${isReasoning ? " (reasoning_effort=low)" : ""}`,
+              `${isReasoning ? ` (reasoning_effort=${reasoningEffort})` : ""}`,
           );
 
           return await this.callApiWithKey(

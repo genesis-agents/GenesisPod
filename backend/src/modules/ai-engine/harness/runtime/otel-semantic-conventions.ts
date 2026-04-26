@@ -51,14 +51,8 @@ function detectSystem(modelId?: string): string {
   if (!modelId) return "unknown";
   const m = modelId.toLowerCase();
   if (m.startsWith("claude")) return "anthropic";
-  if (
-    m.startsWith("gpt") ||
-    m.startsWith("o1") ||
-    m.startsWith("o3") ||
-    m.startsWith("o4")
-  ) {
-    return "openai";
-  }
+  // o-series 用正则覆盖未来型号 (o4/o5/o6...)，不用每次新模型改代码
+  if (m.startsWith("gpt") || /^o\d/.test(m)) return "openai";
   if (m.startsWith("gemini") || m.startsWith("text-bison")) return "google";
   if (m.startsWith("grok")) return "xai";
   if (m.startsWith("mistral") || m.startsWith("mixtral")) return "mistral";

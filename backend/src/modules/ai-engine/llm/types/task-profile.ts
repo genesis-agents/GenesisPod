@@ -89,6 +89,34 @@ export type OutputFormat =
 export type ReasoningDepth = "light" | "moderate" | "deep";
 
 /**
+ * ReasoningDepth → OpenAI reasoning_effort 映射（共享常量）
+ *
+ * 所有发送 reasoning_effort 的 path 都必须用这张表，不得在调用点 hardcode "low"。
+ * - ai-api-caller.callOpenAICompatibleAPI (Path A: 系统配置)
+ * - ai-direct-key.generateChatCompletionWithKey (Path B: BYOK)
+ * - ai-stream-handler.streamOpenAICompatible (Stream)
+ *
+ * 缺省值 "low" — 没传 reasoningDepth 的 caller 走最便宜挡，避免 CoT 吃光 token。
+ */
+export const REASONING_DEPTH_TO_EFFORT: Record<ReasoningDepth, string> = {
+  light: "low",
+  moderate: "medium",
+  deep: "high",
+};
+
+/**
+ * 把 ReasoningDepth 安全映射成 OpenAI reasoning_effort 字符串。
+ * undefined / 未知值 → "low"（保守挡，最省 token）。
+ */
+export function reasoningDepthToEffort(depth?: string): string {
+  if (!depth) return "low";
+  return (
+    REASONING_DEPTH_TO_EFFORT[depth as ReasoningDepth] ??
+    "low"
+  );
+}
+
+/**
  * 多模态内容部分 — 用于 Vision 场景（图片审查、多模态分析）
  *
  * 兼容 OpenAI / Anthropic / Google / xAI 的多模态消息格式：

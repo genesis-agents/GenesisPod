@@ -175,13 +175,9 @@ export class TokenBudgetService {
     const maxOutputTokens =
       MODEL_MAX_OUTPUT[modelId] || MODEL_MAX_OUTPUT["default"];
 
-    // 推断 provider
+    // 推断 provider — o-series 用正则覆盖未来型号 (o4/o5/...)
     let provider = "unknown";
-    if (
-      modelId.startsWith("gpt") ||
-      modelId.startsWith("o1") ||
-      modelId.startsWith("o3")
-    ) {
+    if (modelId.startsWith("gpt") || /^o\d/.test(modelId)) {
       provider = "openai";
     } else if (modelId.startsWith("claude")) {
       provider = "anthropic";

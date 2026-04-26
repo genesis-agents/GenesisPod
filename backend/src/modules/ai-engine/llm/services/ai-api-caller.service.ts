@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { ChatMessage } from "../types/task-profile";
+import { reasoningDepthToEffort } from "../types/task-profile";
 
 /**
  * 解析 ChatMessage 的有效内容：优先使用 contentParts（多模态），回退到 content（纯文本）
@@ -111,12 +112,8 @@ const OVERSIZED_REQUEST_TOKEN_THRESHOLD = 100_000;
 const CHARS_TO_TOKENS_RATIO = 4;
 /** 错误诊断日志中堆栈帧数量 */
 const STACK_CONTEXT_LINES = 5;
-/** reasoningDepth → OpenAI reasoning_effort 映射 */
-const REASONING_DEPTH_TO_EFFORT: Record<string, string> = {
-  light: "low",
-  moderate: "medium",
-  deep: "high",
-};
+// reasoningDepth → reasoning_effort 映射统一在 types/task-profile.ts，
+// 所有 path（Path A / Path B / Stream）共享，不得在 callsite hardcode。
 
 @Injectable()
 export class AiApiCallerService {
@@ -184,11 +181,7 @@ export class AiApiCallerService {
     // 新接 BYOK 的推理模型（gpt-5/6/o5/...），管理员在 DB 把 isReasoning 设为 true 即可
     const modelLower = modelId.toLowerCase();
     const reasoningParam = isReasoning
-      ? {
-          reasoning_effort: reasoningDepth
-            ? (REASONING_DEPTH_TO_EFFORT[reasoningDepth] ?? "low")
-            : "low",
-        }
+      ? { reasoning_effort: reasoningDepthToEffort(reasoningDepth) }
       : {};
 
     if (isReasoning) {

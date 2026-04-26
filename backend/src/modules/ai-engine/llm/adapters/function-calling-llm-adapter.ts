@@ -515,18 +515,15 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
    * 从模型名称推断 Provider
    */
   private inferProvider(modelName: string): string {
+    // ★ 模型名 → provider 的启发式：管理员把 modelId 起得有 provider 前缀就能识别。
+    //   o-series / gpt-5+ 都属于 openai，无须再列具体型号（o4/o5/gpt-6 自动覆盖）。
     const lower = modelName.toLowerCase();
 
     if (lower.includes("grok")) return "xai";
-    if (
-      lower.includes("gpt") ||
-      lower.startsWith("o1") ||
-      lower.startsWith("o3")
-    )
-      return "openai";
     if (lower.includes("claude")) return "anthropic";
     if (lower.includes("gemini")) return "google";
     if (lower.includes("deepseek")) return "deepseek";
+    if (lower.includes("gpt") || /^o\d/.test(lower)) return "openai";
 
     return "openai"; // 默认
   }
