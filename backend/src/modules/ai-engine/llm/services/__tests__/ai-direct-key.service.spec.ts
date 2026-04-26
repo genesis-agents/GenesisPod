@@ -415,7 +415,7 @@ describe("AiDirectKeyService", () => {
 
       const callArgs = mockHttpService.post.mock.calls[0];
       const body = callArgs[1];
-      expect(body).toHaveProperty("reasoning_effort", "minimal");
+      expect(body).toHaveProperty("reasoning_effort", "low");
     });
 
     it("should detect image generation request for OpenAI", async () => {

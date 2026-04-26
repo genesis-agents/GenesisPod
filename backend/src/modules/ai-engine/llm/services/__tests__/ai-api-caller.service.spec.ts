@@ -112,7 +112,7 @@ describe("AiApiCallerService", () => {
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
-      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
     });
 
     it("should map reasoningDepth=deep → reasoning_effort=high", async () => {
@@ -171,8 +171,8 @@ describe("AiApiCallerService", () => {
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
-      // 没传 reasoningDepth → 默认 minimal（gpt-5 系列最省）
-      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
+      // 没传 reasoningDepth → 默认 low（所有 reasoning 模型都接受的最低公分母）
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
     });
 
     it("should NOT add reasoning_effort when isReasoning=false (default)", async () => {
@@ -484,7 +484,7 @@ describe("AiApiCallerService", () => {
       );
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
-      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
     });
 
     it("should send reasoning_effort for any DB-flagged reasoning model (no model name match)", async () => {
