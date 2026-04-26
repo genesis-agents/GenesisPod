@@ -105,7 +105,16 @@ export class PlanActLoop implements IAgentLoop {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      yield this.event(agentId, "error", { message, recoverable: false });
+      yield this.event(agentId, "error", {
+        message,
+        recoverable: false,
+        failureCode: "PROVIDER_API_ERROR",
+        diagnostic: {
+          stage: "plan_generation",
+          errorMessage: message,
+          errorStack: err instanceof Error ? err.stack : undefined,
+        },
+      });
       yield this.event(agentId, "terminated", { reason: "error" });
       return;
     }
@@ -143,6 +152,15 @@ export class PlanActLoop implements IAgentLoop {
         yield this.event(agentId, "error", {
           message: "Plan has unsatisfiable dependencies",
           recoverable: false,
+          failureCode: "RUNNER_INPUT_SCHEMA_MISMATCH",
+          diagnostic: {
+            stage: "plan_execution",
+            remainingSteps: remaining.map((s) => ({
+              id: s.id,
+              dependsOn: s.dependsOn,
+            })),
+            completedSteps: Array.from(completed),
+          },
         });
         yield this.event(agentId, "terminated", { reason: "error" });
         return;

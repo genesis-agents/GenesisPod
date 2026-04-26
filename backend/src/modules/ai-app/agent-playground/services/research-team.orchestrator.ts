@@ -549,7 +549,29 @@ export class ResearchTeamOrchestrator {
           return result;
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
+          const errName = err instanceof Error ? err.name : "Unknown";
           const snap = pool.snapshot();
+          // ★ mission 级失败码归类
+          let missionFailureCode: string = "UNKNOWN";
+          if (
+            errName === "InsufficientCreditsException" ||
+            /credit|余额不足|insufficient/i.test(message)
+          ) {
+            missionFailureCode = "ORCH_CREDIT_INSUFFICIENT";
+          } else if (errName === "ByokRequiredError") {
+            missionFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
+          } else if (
+            errName === "InputValidationError" ||
+            errName === "DefineAgentMissingError"
+          ) {
+            missionFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
+          } else if (/timeout|timed out/i.test(message)) {
+            missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
+          } else if (/rate.?limit|429/i.test(message)) {
+            missionFailureCode = "PROVIDER_RATE_LIMIT";
+          } else if (!/aborted|cancelled/i.test(message)) {
+            missionFailureCode = "PROVIDER_API_ERROR";
+          }
           // 任何 uncaught 错误都要让 UI 知道 —— 否则 status 永远停在 "running"
           await this.emit({
             type: "agent-playground.mission:failed",
@@ -557,9 +579,14 @@ export class ResearchTeamOrchestrator {
             userId,
             payload: {
               message,
+              failureCode: missionFailureCode,
+              errorName: errName,
               wallTimeMs: Date.now() - t0,
               tokensUsed: snap.poolTokensUsed,
               costUsd: snap.poolCostUsd,
+              diagnostic: {
+                errorStack: err instanceof Error ? err.stack : undefined,
+              },
             },
           }).catch(() => {});
           await this.store.markFailed(missionId, {
@@ -928,8 +955,9 @@ export class ResearchTeamOrchestrator {
               }
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
+              const errName = err instanceof Error ? err.name : "Unknown";
               this.log.warn(
-                `[researcher#${idx}] threw on dim "${dim.name}": ${message}`,
+                `[researcher#${idx}] threw on dim "${dim.name}" (${errName}): ${message}`,
               );
               await this.lifecycle(
                 missionId,
@@ -939,6 +967,22 @@ export class ResearchTeamOrchestrator {
                 "failed",
                 { dimension: dim.name, error: message },
               ).catch(() => {});
+              // ★ 区分 throw 类型：哪一层挂了一目了然
+              let innerFailureCode = "UNKNOWN";
+              if (errName === "ByokRequiredError") {
+                innerFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
+              } else if (
+                errName === "InputValidationError" ||
+                errName === "DefineAgentMissingError"
+              ) {
+                innerFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
+              } else if (/timeout|timed out/i.test(message)) {
+                innerFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
+              } else if (/rate.?limit|429/i.test(message)) {
+                innerFailureCode = "PROVIDER_RATE_LIMIT";
+              } else if (!/aborted|cancelled/i.test(message)) {
+                innerFailureCode = "PROVIDER_API_ERROR";
+              }
               // ★ orchestrator 级降级：threw exception 路径
               await this.emit({
                 type: "agent-playground.dimension:degraded",
@@ -949,10 +993,11 @@ export class ResearchTeamOrchestrator {
                   dimension: dim.name,
                   state: "exception",
                   failureCode: "ORCH_DIMENSION_DEGRADED",
-                  innerFailureCode: "UNKNOWN",
+                  innerFailureCode,
                   innerMessage: message,
                   diagnostic: {
                     stage: "researcher",
+                    errorName: errName,
                     errorMessage: message,
                     errorStack: err instanceof Error ? err.stack : undefined,
                   },

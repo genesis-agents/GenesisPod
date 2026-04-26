@@ -265,6 +265,22 @@ export class ReflexionLoop implements IAgentLoop {
     }
 
     // 必修 #6: 超限时返回历轮最佳 output + budget reason
+    // ★ 区分语义：terminated reason="budget" 在 reflexion 上下文里不是 token 耗尽，
+    // 是 verifier 反复评分未达门槛 + maxRevisions 用尽。emit 显式 error event 带
+    // REFLEXION_VERIFIER_LOW_SCORE，让 orchestrator/UI 看到真根因。
+    yield this.event(agentId, "error", {
+      message:
+        `Reflexion 用尽 ${maxRevisions} 个 revision，verifier 评分始终未达 ${passThreshold} 门槛。` +
+        `历轮最高分 ${bestScore === -Infinity ? "N/A" : bestScore.toFixed(1)}/100。`,
+      recoverable: false,
+      failureCode: "REFLEXION_VERIFIER_LOW_SCORE",
+      diagnostic: {
+        maxRevisions,
+        passThreshold,
+        bestScore: bestScore === -Infinity ? null : bestScore,
+        revisionsUsed: revision,
+      },
+    });
     yield this.event(agentId, "output", { output: bestOutput });
     yield this.event(agentId, "terminated", { reason: "budget" });
   }

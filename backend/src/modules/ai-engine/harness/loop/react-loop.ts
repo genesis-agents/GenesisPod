@@ -54,8 +54,13 @@ interface ParsedDecision {
 }
 
 /**
- * 标记 LLM JSON 响应里的 action 字段无法规范化成合法 IAction
- * （缺字段 / kind 不识别 / parallel_tool_call 无 calls 等）。
+ * 标记 LLM JSON 响应里的 action 字段无法规范化成合法 IAction。
+ *
+ * subCode 细分：
+ *   - missing_action       缺 action 字段或非对象
+ *   - unknown_kind         kind 不在合法集合里
+ *   - empty_parallel_calls parallel_tool_call.calls 没合法 tool
+ *   - empty_actions_array  shorthand actions[] 没合法 tool
  *
  * 由 parseDecision 的 catch 分支接住，转成
  * `thinking="(unparseable LLM output, finalizing with raw text)"` + 把 raw
@@ -63,15 +68,20 @@ interface ParsedDecision {
  *   - thinking 非空 → 不会触发 react-loop 的 empty-finalize 熔断
  *   - loop 走正常 finalize 终止 → ReflexionLoop 看到空/退化 output 后
  *     按"空 output → critique → revise"链路重试，而不是被立即 abort。
- *
- * 历史 bug：normalizeAction 把这些退化情况硬合成 `{kind:"finalize", output:""}`，
- * 让 LLM 一次 safety-filter refusal / 输出截断 / 字段缺失都被熔断秒杀，
- * 失去 ReflexionLoop 重试和上层 model fallback 的机会。
  */
 class InvalidActionError extends Error {
-  constructor(message: string) {
+  readonly subCode:
+    | "missing_action"
+    | "unknown_kind"
+    | "empty_parallel_calls"
+    | "empty_actions_array";
+  constructor(
+    message: string,
+    subCode: InvalidActionError["subCode"] = "missing_action",
+  ) {
     super(message);
     this.name = "InvalidActionError";
+    this.subCode = subCode;
   }
 }
 
@@ -183,6 +193,32 @@ export class ReActLoop implements IAgentLoop {
         //   1) 用 hint.fallbackModelId 强制覆盖下一轮 reason() 的 modelOverride
         //   2) BudgetAccountant 提供 reset 或 extend 接口
         // 当前简单策略：downgrade 等同 abort（保守，不假装能恢复）
+        // ★ emit 结构化 error event：trace 看到 LOOP_BUDGET_EXHAUSTED 而不是
+        // 只有终态 reason="budget"，便于跨层因果链统计。
+        yield this.makeEvent(agentId, "error", {
+          message: `ReActLoop budget exhausted (${budget.snapshot().tokensUsed} tokens used)`,
+          recoverable: hint?.action === "retry" || hint?.action === "downgrade",
+          failureCode: "LOOP_BUDGET_EXHAUSTED",
+          diagnostic: {
+            tokensUsed: budget.snapshot().tokensUsed,
+            costUsd: budget.snapshot().costUsd,
+            currentTier: budget.snapshot().currentTier,
+            iteration,
+          },
+          recoveryHint: hint
+            ? {
+                action:
+                  hint.action === "downgrade"
+                    ? "switch_model"
+                    : hint.action === "notify_user"
+                      ? "abort"
+                      : hint.action,
+                reason: hint.reason,
+                fallbackModelId: hint.fallbackModelId,
+                retryAfterMs: hint.retryAfterMs,
+              }
+            : undefined,
+        });
         yield this.makeEvent(agentId, "output", {
           output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
         });
@@ -300,11 +336,20 @@ export class ReActLoop implements IAgentLoop {
             failureCode = "LOOP_EMPTY_RESPONSE_IMMEDIATE";
             fallbackReason = "empty_response";
           } else if (reasoned.parseError) {
-            // completion≫0 + parser 抛错 → 解析失败（含 InvalidActionError）
-            failureCode =
-              reasoned.parseError.name === "InvalidActionError"
-                ? "PARSE_MISSING_ACTION"
-                : "PARSE_MALFORMED_JSON";
+            // completion≫0 + parser 抛错 → 解析失败
+            // InvalidActionError 自带 subCode 4 类细分，对齐 4 个 PARSE_* 码
+            if (reasoned.parseError.name === "InvalidActionError") {
+              const sub = (reasoned.parseError as { subCode?: string }).subCode;
+              failureCode =
+                sub === "unknown_kind"
+                  ? "PARSE_UNKNOWN_ACTION_KIND"
+                  : sub === "empty_parallel_calls" ||
+                      sub === "empty_actions_array"
+                    ? "PARSE_EMPTY_ACTIONS_ARRAY"
+                    : "PARSE_MISSING_ACTION";
+            } else {
+              failureCode = "PARSE_MALFORMED_JSON";
+            }
             fallbackReason = "parse_failure";
           } else {
             // completion≫0 且 parse 成功但 visible 空 → reasoning CoT 撞墙 / safety
@@ -714,21 +759,10 @@ export class ReActLoop implements IAgentLoop {
     // ★ 诊断关键：把 LLM 原始 content 一并返回，让上层在所有 error / empty 路径
     // 都能把 "LLM 实际吐了啥" 带进 event payload 和日志，避免再靠代码反推。
     const rawContent = response.content ?? "";
-    let parseError: { name: string; message: string } | undefined;
-    let decision: ParsedDecision;
-    try {
-      decision = this.parseDecision(rawContent);
-    } catch (err) {
-      // parseDecision 自身不抛，但保险兜底
-      parseError = {
-        name: err instanceof Error ? err.name : "Unknown",
-        message: err instanceof Error ? err.message : String(err),
-      };
-      decision = {
-        thinking: "(parser threw — see parseError)",
-        action: { kind: "finalize", output: rawContent },
-      };
-    }
+    // parseDecision 内部 try/catch 自己处理不抛；返回 decision + 可选 parseError
+    const parsed = this.parseDecision(rawContent);
+    const decision = parsed.decision;
+    const parseError = parsed.parseError;
     return {
       decision,
       rawContent,
@@ -743,7 +777,10 @@ export class ReActLoop implements IAgentLoop {
     };
   }
 
-  private parseDecision(raw: string): ParsedDecision {
+  private parseDecision(raw: string): {
+    decision: ParsedDecision;
+    parseError?: { name: string; message: string; subCode?: string };
+  } {
     let text = raw.trim();
     if (text.startsWith("```")) {
       text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
@@ -771,33 +808,39 @@ export class ReActLoop implements IAgentLoop {
           // LLM 输出格式异常，应走 catch 分支让 ReflexionLoop 有机会重试。
           throw new InvalidActionError(
             "LLM returned 'actions' array with no valid tool calls",
+            "empty_actions_array",
           );
         }
         if (calls.length === 1) {
-          return { thinking, action: calls[0] };
+          return { decision: { thinking, action: calls[0] } };
         }
         const action: IParallelToolCallAction = {
           kind: "parallel_tool_call",
           calls,
         };
-        return { thinking, action };
+        return { decision: { thinking, action } };
       }
 
       const action = this.normalizeAction(obj.action);
-      return { thinking, action };
+      return { decision: { thinking, action } };
     } catch (err) {
       // ★ 诊断：完整记录 raw content（最多 1000 字符）+ 错误类型，
       // 让 InvalidActionError vs SyntaxError 一目了然。
       const errName = err instanceof Error ? err.name : "Unknown";
       const errMsg = err instanceof Error ? err.message : String(err);
+      const subCode =
+        err instanceof InvalidActionError ? err.subCode : undefined;
       this.logger.warn(
         `Failed to parse LLM decision (${errName}: ${errMsg}); ` +
           `falling back to finalize-raw. ` +
           `text(first 1000)=${JSON.stringify(text.slice(0, 1000))}`,
       );
       return {
-        thinking: `(unparseable LLM output, finalizing with raw text — ${errName}: ${errMsg})`,
-        action: { kind: "finalize", output: raw },
+        decision: {
+          thinking: `(unparseable LLM output, finalizing with raw text — ${errName}: ${errMsg})`,
+          action: { kind: "finalize", output: raw },
+        },
+        parseError: { name: errName, message: errMsg, subCode },
       };
     }
   }
@@ -873,6 +916,7 @@ export class ReActLoop implements IAgentLoop {
     if (!action || typeof action !== "object") {
       throw new InvalidActionError(
         `LLM response missing valid 'action' field (got ${typeof action})`,
+        "missing_action",
       );
     }
     const a = action as Record<string, unknown>;
@@ -890,6 +934,7 @@ export class ReActLoop implements IAgentLoop {
       if (calls.length === 0) {
         throw new InvalidActionError(
           "LLM returned parallel_tool_call with no valid tool calls",
+          "empty_parallel_calls",
         );
       }
       const max =
@@ -906,6 +951,7 @@ export class ReActLoop implements IAgentLoop {
     }
     throw new InvalidActionError(
       `LLM returned unknown action kind: ${JSON.stringify(a.kind)}`,
+      "unknown_kind",
     );
   }
 

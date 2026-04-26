@@ -147,6 +147,11 @@ export class LeaderWorkerLoop implements IAgentLoop {
         message:
           "LeaderWorkerLoop requires options.leaderWorker.leader (ILeaderBrain)",
         recoverable: false,
+        failureCode: "RUNNER_INPUT_SCHEMA_MISMATCH",
+        diagnostic: {
+          stage: "init",
+          missing: "options.leaderWorker.leader",
+        },
       });
       yield this.event(agentId, "terminated", { reason: "error" });
       return;
@@ -187,9 +192,16 @@ export class LeaderWorkerLoop implements IAgentLoop {
       goal = intentRes.goal;
       constraints = intentRes.constraints;
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       yield this.event(agentId, "error", {
-        message: `intent: ${err instanceof Error ? err.message : String(err)}`,
+        message: `intent: ${message}`,
         recoverable: false,
+        failureCode: "PROVIDER_API_ERROR",
+        diagnostic: {
+          stage: "intent",
+          errorMessage: message,
+          errorStack: err instanceof Error ? err.stack : undefined,
+        },
       });
       yield this.event(agentId, "terminated", { reason: "error" });
       return;
@@ -222,9 +234,18 @@ export class LeaderWorkerLoop implements IAgentLoop {
           });
           queue = [...queue, ...newPlan];
         } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
           yield this.event(agentId, "error", {
-            message: `plan: ${err instanceof Error ? err.message : String(err)}`,
+            message: `plan: ${message}`,
             recoverable: false,
+            failureCode: "PROVIDER_API_ERROR",
+            diagnostic: {
+              stage: "plan",
+              phase,
+              reviewRound,
+              errorMessage: message,
+              errorStack: err instanceof Error ? err.stack : undefined,
+            },
           });
           yield this.event(agentId, "terminated", { reason: "error" });
           return;
@@ -326,6 +347,15 @@ export class LeaderWorkerLoop implements IAgentLoop {
           yield this.event(agentId, "error", {
             message: decision.note ?? "Leader decided to abort",
             recoverable: false,
+            failureCode: "REFLEXION_VERIFIER_LOW_SCORE",
+            diagnostic: {
+              stage: "review",
+              reviewRound,
+              decision: decision.decision,
+              score: decision.score,
+              note: decision.note,
+              completedTaskCount: completed.length,
+            },
           });
           yield this.event(agentId, "terminated", { reason: "error" });
           return;
