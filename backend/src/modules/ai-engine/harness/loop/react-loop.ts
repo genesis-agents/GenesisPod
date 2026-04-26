@@ -92,22 +92,39 @@ const DECISION_SYSTEM_SUFFIX = `
 
 You MUST reply with a single JSON object with exactly two top-level keys:
 - "thinking": a short string explaining your current reasoning.
-- "action": one of:
-    { "kind": "tool_call", "toolId": "...", "input": { ... } }
-    { "kind": "parallel_tool_call", "calls": [
-        { "toolId": "a", "input": {...} },
-        { "toolId": "b", "input": {...} }
-      ] }
-    { "kind": "finalize", "output": "<final answer or object>" }
+- "action": one of the following 6 kinds (use exact field names):
+
+  1. Single tool call (refer to <available_tools> for real toolId + input shape):
+     { "kind": "tool_call", "toolId": "<exact toolId from available_tools>", "input": { ... } }
+
+  2. Multiple tools in one turn (independent, no result feeds another — much faster):
+     { "kind": "parallel_tool_call", "calls": [
+         { "toolId": "<id-from-available_tools>", "input": { ... } },
+         { "toolId": "<another-id>", "input": { ... } }
+       ] }
+
+  3. Skill invocation (refer to <available_skills>):
+     { "kind": "skill_invoke", "skillId": "<exact skillId>", "input": { ... } }
+
+  4. Spawn a sub-agent for a delegated subtask:
+     { "kind": "subagent_spawn", "name": "<short-task-name>", "prompt": "<self-contained task description>" }
+
+  5. Direct LLM generation (no tool, just produce text):
+     { "kind": "llm_generate", "prompt": "<what to generate>" }
+
+  6. Finalize with final answer:
+     { "kind": "finalize", "output": "<final answer or structured object>" }
 
 Shorthand: you may also send "actions": [<tool_call>, <tool_call>, ...] at the
 top level — it will be auto-wrapped to parallel_tool_call. Use parallel calls
-when actions are independent (no result feeds another) — this is much faster.
+when actions are independent — much faster.
 
 Rules:
 - Respond with raw JSON only, no markdown fences, no prose outside the JSON.
 - If all information is sufficient, use "finalize".
-- Do not invent tool ids; only use tools listed in the available tools.
+- Do not invent tool / skill ids; only use ones listed in <available_tools> /
+  <available_skills>. Each catalog entry has an "example:" line — copy that
+  shape literally and replace placeholders with real values.
 - If a tool failed previously, choose a different tool or finalize gracefully.
 `;
 

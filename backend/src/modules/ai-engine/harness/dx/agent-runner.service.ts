@@ -552,6 +552,13 @@ export class AgentRunner {
         const def = this.skillRegistry.get(id);
         const desc = def?.frontmatter?.description?.trim();
         lines.push(`- ${id}${desc ? `: ${desc}` : ""}`);
+        // ★ 同 tool catalog 的修复：给完整 invocation example，让 LLM 看到
+        // skill_invoke action 协议长啥样，不再误以为只能写 finalize。
+        // skill 没有强类型 inputSchema（markdown 模板，input 是自由 K-V），
+        // example 用 task-specific 占位，让 LLM 按业务情境填。
+        lines.push(
+          `  example: {"kind":"skill_invoke","skillId":"${id}","input":{"task":"<task-specific data>"}}`,
+        );
       }
       lines.push("</available_skills>");
       blocks.push(lines.join("\n"));
