@@ -52,6 +52,28 @@ interface ParsedDecision {
   action: IAction;
 }
 
+/**
+ * 标记 LLM JSON 响应里的 action 字段无法规范化成合法 IAction
+ * （缺字段 / kind 不识别 / parallel_tool_call 无 calls 等）。
+ *
+ * 由 parseDecision 的 catch 分支接住，转成
+ * `thinking="(unparseable LLM output, finalizing with raw text)"` + 把 raw
+ * 当 finalize.output。这样：
+ *   - thinking 非空 → 不会触发 react-loop 的 empty-finalize 熔断
+ *   - loop 走正常 finalize 终止 → ReflexionLoop 看到空/退化 output 后
+ *     按"空 output → critique → revise"链路重试，而不是被立即 abort。
+ *
+ * 历史 bug：normalizeAction 把这些退化情况硬合成 `{kind:"finalize", output:""}`，
+ * 让 LLM 一次 safety-filter refusal / 输出截断 / 字段缺失都被熔断秒杀，
+ * 失去 ReflexionLoop 重试和上层 model fallback 的机会。
+ */
+class InvalidActionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidActionError";
+  }
+}
+
 const DECISION_SYSTEM_SUFFIX = `
 
 ## Decision Protocol
@@ -229,6 +251,16 @@ export class ReActLoop implements IAgentLoop {
         usage = reasoned.usage;
         if (usage.modelId) lastModelId = usage.modelId;
 
+        // ★ 诊断：解析层兜底抛错（正常情况 parseDecision 会 catch JSON.parse /
+        // InvalidActionError 自己包装。如果走到这条说明 catch 之外的异常）
+        if (reasoned.parseError) {
+          this.logger.error(
+            `[${agentId}] iter=${iteration} parseDecision threw: ` +
+              `${reasoned.parseError.name}: ${reasoned.parseError.message}; ` +
+              `rawContent=${reasoned.rawContent.slice(0, 500)}`,
+          );
+        }
+
         // 熔断：检测「LLM 立即 finalize 空结果 + thinking 也空」——
         //   (a) BYOK model id 不存在 / API 拒绝 → 返回最简 fallback JSON
         //   (b) reasoning model 内部 CoT 吃光 max_completion_tokens
@@ -249,18 +281,40 @@ export class ReActLoop implements IAgentLoop {
         }
         if (isEmptyResponse) {
           consecutiveEmptyLLM += 1;
-          // ★ ReActLoop 单次 iter 见到 finalize+empty+thinking="" 就立即 abort：
-          //   后续 termination check (line 350) 反正会因 finalize 退出 loop，
-          //   等到第二次永远不可能。必须在第一次拦下，由 caller (ReflexionLoop)
-          //   再决定是否要重试一个 revision。
-          //   如果 caller 是 ReflexionLoop，它的 consecutiveEmptyOutput 会跨
-          //   revision 累计，2 个 revision 都空才彻底放弃。
-          //   如果 caller 是直接 ReAct (无 Reflexion)，单次失败即 abort。
+
+          // ★ 诊断关键：把 LLM 实际吐回的 raw content 写到日志和 error payload，
+          // 让上层 / DB / 前端都能看到根因证据，不再靠"应该是 (a)/(b)/(c)"猜。
+          const rawSnippet = reasoned.rawContent.slice(0, 1000);
+          this.logger.error(
+            `[${agentId}] iter=${iteration} EMPTY_LLM_RESPONSE — ` +
+              `model=${lastModelId ?? "unknown"} ` +
+              `completion=${usage.completionTokens}tk prompt=${usage.promptTokens}tk ` +
+              `parseErr=${reasoned.parseError ? `${reasoned.parseError.name}:${reasoned.parseError.message}` : "none"} ` +
+              `rawContent=${JSON.stringify(rawSnippet)}`,
+          );
+
           yield this.makeEvent(agentId, "error", {
-            message: `LLM "${
-              lastModelId ?? "unknown"
-            }" 立即 finalize 空结果 (completion=${usage.completionTokens}tk, thinking="")。根因可能：(a) model id 在 provider 不存在 → API 返错被吞；(b) reasoning model 内部 CoT 吃光 max_completion_tokens；(c) prompt 让 model 完全无所适从。请检查 BYOK 模型配置或调高 budget.maxTokens`,
+            message:
+              `LLM "${lastModelId ?? "unknown"}" finalize 空结果 ` +
+              `(completion=${usage.completionTokens}tk, thinking="")。` +
+              `根因证据：rawContent=${JSON.stringify(rawSnippet)}` +
+              (reasoned.parseError
+                ? ` parseError=${reasoned.parseError.name}:${reasoned.parseError.message}`
+                : "") +
+              `。常见模式：(a) completion≈0 → model id 不存在/API 返错被吞；` +
+              `(b) completion≫0 但 visible 空 → reasoning CoT 撞 max_completion_tokens；` +
+              `(c) safety filter 拦截 → 退化 JSON {} 假装合规。`,
             recoverable: false,
+            // 诊断字段：上游 trace event 持久化后可在 DB 直接查到
+            diagnostic: {
+              modelId: lastModelId,
+              completionTokens: usage.completionTokens,
+              promptTokens: usage.promptTokens,
+              rawContent: rawSnippet,
+              parseError: reasoned.parseError,
+              consecutiveEmptyLLM,
+              iteration,
+            },
           });
           yield this.makeEvent(agentId, "terminated", {
             reason: "empty_llm_response",
@@ -268,7 +322,6 @@ export class ReActLoop implements IAgentLoop {
           return;
         } else {
           // 重置连续空响应计数：跨非连续 empty 不累计（empty / good / empty 应记 1，不是 2）
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           consecutiveEmptyLLM = 0;
         }
       } catch (err) {
@@ -422,6 +475,10 @@ export class ReActLoop implements IAgentLoop {
     specTaskProfile?: import("../../llm/types/task-profile").TaskProfile,
   ): Promise<{
     decision: ParsedDecision;
+    /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
+    rawContent: string;
+    /** parseDecision 兜底层抛错时的诊断信息（正常 catch 转 finalize 时为 undefined） */
+    parseError?: { name: string; message: string };
     usage: {
       promptTokens: number;
       completionTokens: number;
@@ -485,8 +542,28 @@ export class ReActLoop implements IAgentLoop {
         completionTokens,
         cacheReadTokens,
       ) ?? null;
+    // ★ 诊断关键：把 LLM 原始 content 一并返回，让上层在所有 error / empty 路径
+    // 都能把 "LLM 实际吐了啥" 带进 event payload 和日志，避免再靠代码反推。
+    const rawContent = response.content ?? "";
+    let parseError: { name: string; message: string } | undefined;
+    let decision: ParsedDecision;
+    try {
+      decision = this.parseDecision(rawContent);
+    } catch (err) {
+      // parseDecision 自身不抛，但保险兜底
+      parseError = {
+        name: err instanceof Error ? err.name : "Unknown",
+        message: err instanceof Error ? err.message : String(err),
+      };
+      decision = {
+        thinking: "(parser threw — see parseError)",
+        action: { kind: "finalize", output: rawContent },
+      };
+    }
     return {
-      decision: this.parseDecision(response.content),
+      decision,
+      rawContent,
+      parseError,
       usage: {
         promptTokens,
         completionTokens,
@@ -521,10 +598,11 @@ export class ReActLoop implements IAgentLoop {
           .map((a) => this.normalizeToolCall(a))
           .filter((a): a is IToolCallAction => a !== null);
         if (calls.length === 0) {
-          return {
-            thinking,
-            action: { kind: "finalize", output: "" },
-          };
+          // ★ 不再硬合成假 finalize —— actions 数组里没合法 tool 调用属于
+          // LLM 输出格式异常，应走 catch 分支让 ReflexionLoop 有机会重试。
+          throw new InvalidActionError(
+            "LLM returned 'actions' array with no valid tool calls",
+          );
         }
         if (calls.length === 1) {
           return { thinking, action: calls[0] };
@@ -539,11 +617,17 @@ export class ReActLoop implements IAgentLoop {
       const action = this.normalizeAction(obj.action);
       return { thinking, action };
     } catch (err) {
+      // ★ 诊断：完整记录 raw content（最多 1000 字符）+ 错误类型，
+      // 让 InvalidActionError vs SyntaxError 一目了然。
+      const errName = err instanceof Error ? err.name : "Unknown";
+      const errMsg = err instanceof Error ? err.message : String(err);
       this.logger.warn(
-        `Failed to parse LLM decision as JSON; finalizing with raw. raw=${text.slice(0, 120)}...`,
+        `Failed to parse LLM decision (${errName}: ${errMsg}); ` +
+          `falling back to finalize-raw. ` +
+          `text(first 1000)=${JSON.stringify(text.slice(0, 1000))}`,
       );
       return {
-        thinking: "(unparseable LLM output, finalizing with raw text)",
+        thinking: `(unparseable LLM output, finalizing with raw text — ${errName}: ${errMsg})`,
         action: { kind: "finalize", output: raw },
       };
     }
@@ -605,9 +689,22 @@ export class ReActLoop implements IAgentLoop {
     return null;
   }
 
+  /**
+   * 把 LLM JSON 里的 action 字段规范化为 IAction。
+   *
+   * ★ 设计原则：**只接受 LLM 主动声明的合法 action**（kind = tool_call /
+   * parallel_tool_call / finalize）。所有"格式不对 / 缺字段 / kind 不识别"
+   * 的退化情况一律抛 InvalidActionError，由 parseDecision 的 catch 分支接住。
+   *
+   * 不再把退化情况偷偷合成 `{kind:"finalize", output:""}` —— 那样会让
+   * react-loop 的 empty-finalize 熔断把"LLM 一次 safety refusal / 截断"
+   * 误判成"LLM 主动选 finalize 空"，立即 abort，绕过 ReflexionLoop 重试链。
+   */
   private normalizeAction(action: unknown): IAction {
     if (!action || typeof action !== "object") {
-      return { kind: "finalize", output: "" };
+      throw new InvalidActionError(
+        `LLM response missing valid 'action' field (got ${typeof action})`,
+      );
     }
     const a = action as Record<string, unknown>;
     if (a.kind === "tool_call" && typeof a.toolId === "string") {
@@ -622,19 +719,25 @@ export class ReActLoop implements IAgentLoop {
         .map((c) => this.normalizeToolCall(c))
         .filter((c): c is IToolCallAction => c !== null);
       if (calls.length === 0) {
-        return { kind: "finalize", output: "" };
+        throw new InvalidActionError(
+          "LLM returned parallel_tool_call with no valid tool calls",
+        );
       }
       const max =
         typeof a.maxConcurrency === "number" ? a.maxConcurrency : undefined;
       return { kind: "parallel_tool_call", calls, maxConcurrency: max };
     }
     if (a.kind === "finalize") {
+      // 仅当 LLM 显式声明 kind="finalize" 时才认为是主动 finalize；
+      // 此时 output="" 是 LLM 自己的合法决定（少见但允许）。
       return {
         kind: "finalize",
         output: (a.output as string | Record<string, unknown>) ?? "",
       };
     }
-    return { kind: "finalize", output: JSON.stringify(action) };
+    throw new InvalidActionError(
+      `LLM returned unknown action kind: ${JSON.stringify(a.kind)}`,
+    );
   }
 
   private async executeAction(
