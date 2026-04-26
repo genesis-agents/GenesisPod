@@ -515,6 +515,21 @@ export class AgentRunner {
         const def = this.toolRegistry.tryGet(id);
         const desc = def?.description?.trim();
         lines.push(`- ${id}${desc ? `: ${desc}` : ""}`);
+        // ★ 关键：把 tool 的 inputSchema 也吐给 LLM。
+        //
+        // 历史 bug：之前 catalog 只输出 id + description，LLM 知道工具能做什么
+        // 但**不知道 input 字段名/类型**，所以即使业务 prompt 让它"用 web-search"，
+        // 它也无从生成 {"toolId":"web-search","input":{...}}（input 该填啥？）。
+        // reasoning model 在 json_object 强制下 → 倾向于直接 finalize 跳过工具。
+        //
+        // 现在为每个 tool 输出**精简 input schema 摘要**（必填字段名+类型+说明），
+        // 让 LLM 真正能构造合法 tool_call action。
+        if (def?.inputSchema) {
+          const summary = this.summarizeJsonSchemaForLlm(def.inputSchema);
+          if (summary) {
+            lines.push(`  input: ${summary}`);
+          }
+        }
       }
       lines.push("</available_tools>");
       blocks.push(lines.join("\n"));
@@ -530,6 +545,37 @@ export class AgentRunner {
       blocks.push(lines.join("\n"));
     }
     return blocks.length > 0 ? blocks.join("\n\n") : null;
+  }
+
+  /**
+   * 把 tool 的 JSONSchema 浓缩成 LLM 可读的一行摘要：
+   *
+   * 输入 schema: { type:"object", properties: {query: {type:"string", description:"搜索查询词"}, maxResults: {type:"number", description:"返回数量，默认 5"}}, required:["query"] }
+   * 输出: '{"query": "string (搜索查询词)", "maxResults?": "number (返回数量，默认 5)"}'
+   *
+   * 设计原则：
+   * - 只输出 top-level properties（嵌套 schema 太大会撑爆 system prompt）
+   * - 必填字段不带 ?，可选字段 key 后加 ?
+   * - 类型 + description 拼在一起，让 LLM 一眼能填
+   */
+  private summarizeJsonSchemaForLlm(
+    schema: import("../../tools/abstractions/tool.interface").JSONSchema,
+  ): string | null {
+    if (!schema || schema.type !== "object" || !schema.properties) return null;
+    const required = new Set(schema.required ?? []);
+    const parts: string[] = [];
+    for (const [key, sub] of Object.entries(schema.properties)) {
+      if (!sub || typeof sub !== "object") continue;
+      const isRequired = required.has(key);
+      const keyLabel = isRequired ? key : `${key}?`;
+      const subType = sub.type ?? "any";
+      const desc = (sub.description ?? "").trim();
+      const typeStr = Array.isArray(subType) ? subType.join("|") : subType;
+      const valueStr = desc ? `${typeStr} (${desc})` : typeStr;
+      parts.push(`"${keyLabel}": "${valueStr}"`);
+    }
+    if (parts.length === 0) return null;
+    return `{${parts.join(", ")}}`;
   }
 
   private materialize<T extends new () => AgentSpec<z.ZodType, z.ZodType>>(
