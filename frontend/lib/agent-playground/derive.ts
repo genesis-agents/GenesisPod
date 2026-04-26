@@ -240,6 +240,20 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           mission.dimensions = p?.dimensions as MissionState['dimensions'];
         }
       }
+    } else if (t === 'agent-playground.dimensions:appended') {
+      // Leader chat 触发的动态追加：把新 dim 拼到 mission.dimensions 末尾
+      const items =
+        (p?.items as
+          | { id: string; name: string; rationale: string }[]
+          | undefined) ?? [];
+      if (items.length > 0) {
+        const existing = mission.dimensions ?? [];
+        const existingIds = new Set(existing.map((d) => d.id));
+        const fresh = items.filter((it) => !existingIds.has(it.id));
+        if (fresh.length > 0) {
+          mission.dimensions = [...existing, ...fresh];
+        }
+      }
     } else if (t === 'agent-playground.agent:lifecycle') {
       const agentId = (p?.agentId as string) ?? ev.agentId;
       const role = p?.role as AgentRole | undefined;

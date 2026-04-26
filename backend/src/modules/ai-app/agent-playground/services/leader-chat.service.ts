@@ -11,9 +11,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../ai-engine/facade";
+import {
+  AiChatService,
+  DomainEventBus,
+  type DomainEvent,
+} from "../../../ai-engine/facade";
 import { MissionStore } from "./mission-store.service";
-import { MissionEventBuffer } from "./mission-event-buffer.service";
 
 export type LeaderDecisionType =
   | "DIRECT_ANSWER" // 直接回答（讨论 / 解释）
@@ -56,7 +59,7 @@ export class LeaderChatService {
     private readonly prisma: PrismaService,
     private readonly chat: AiChatService,
     private readonly store: MissionStore,
-    private readonly events: MissionEventBuffer,
+    private readonly eventBus: DomainEventBus,
   ) {}
 
   async list(missionId: string): Promise<LeaderChatMessage[]> {
@@ -170,7 +173,8 @@ export class LeaderChatService {
       assistantText = `Leader 暂时无法回复（${err instanceof Error ? err.message : "unknown error"}）。请稍后重试。`;
     }
 
-    // 4) 持久化 assistant 回复（含 decision JSON）
+    // 4) 持久化 assistant 回复（含 decision JSON）—— Prisma JSON 字段
+    //    上游 prisma generate 后 decision 字段类型可知；保持显式 unknown→Prisma cast
     const assistantMsg = await this.prisma.agentPlaygroundLeaderChat.create({
       data: {
         missionId,
@@ -178,8 +182,8 @@ export class LeaderChatService {
         role: "assistant",
         content: assistantText.slice(0, 8000),
         tokensUsed: usedTokens ?? null,
-        decision: decision as never,
-      } as never,
+        decision: (decision ?? null) as unknown as never,
+      },
     });
 
     // 5) CREATE_TODO 动作：mission 仍 running 时追加 dimensions
@@ -200,27 +204,25 @@ export class LeaderChatService {
         );
         // 广播追加事件给前端 → TaskListPanel + SVG 自动 refresh dimensions
         if (appendedIds.length > 0) {
-          await this.events
-            .broadcast({
-              type: "agent-playground.dimensions:appended",
-              missionId,
-              userId,
-              timestamp: Date.now(),
-              payload: {
-                appendedIds,
-                source: "user-chat",
-                items: decision.todo.map((t, i) => ({
-                  id: appendedIds![i],
-                  name: t.name,
-                  rationale: t.rationale,
-                })),
-              },
-            } as never)
-            .catch((e) => {
-              this.log.warn(
-                `[send ${missionId}] broadcast dimensions:appended failed: ${e instanceof Error ? e.message : String(e)}`,
-              );
-            });
+          const event: DomainEvent = {
+            type: "agent-playground.dimensions:appended",
+            scope: { missionId, userId },
+            payload: {
+              appendedIds,
+              source: "user-chat",
+              items: decision.todo.map((t, i) => ({
+                id: appendedIds![i],
+                name: t.name,
+                rationale: t.rationale,
+              })),
+            },
+            timestamp: Date.now(),
+          };
+          await this.eventBus.emit(event).catch((e: unknown) => {
+            this.log.warn(
+              `[send ${missionId}] broadcast dimensions:appended failed: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          });
         }
       } catch (err) {
         this.log.warn(

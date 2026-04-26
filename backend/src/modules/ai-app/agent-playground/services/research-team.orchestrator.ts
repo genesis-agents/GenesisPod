@@ -620,6 +620,8 @@ export class ResearchTeamOrchestrator {
         // 指针指向最后一次成功的 writer agent + 它的事件流，用于 memory auto-index
         let lastWriterAgent: IAgent | null = null;
         let lastWriterEvents: readonly IAgentEvent[] = [];
+        // 失败时记录最后一次 writer 的失败原因（给 Writer-failed throw 用）
+        let lastWriterFailMsg: string | undefined;
         const MAX_WRITER_ATTEMPTS = 2;
         do {
           attempts += 1;
@@ -681,6 +683,11 @@ export class ResearchTeamOrchestrator {
             },
           );
           if (writerRes.state !== "completed" || !writerRes.output) {
+            lastWriterFailMsg = extractFailureMessage(
+              writerRes.events,
+              writerRes.state,
+              !!writerRes.output,
+            );
             continue;
           }
           report = writerRes.output as ResearchReport;
@@ -762,7 +769,9 @@ export class ResearchTeamOrchestrator {
 
         if (!report) {
           throw new Error(
-            `Writer failed after ${MAX_WRITER_ATTEMPTS} attempts`,
+            lastWriterFailMsg
+              ? `Writer 失败 (尝试 ${MAX_WRITER_ATTEMPTS} 次)：${lastWriterFailMsg}`
+              : `Writer failed after ${MAX_WRITER_ATTEMPTS} attempts`,
           );
         }
 
