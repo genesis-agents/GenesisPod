@@ -1,250 +1,399 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { useAdminModels, AIModel } from './useAdminModels';
+import * as useApiCore from '../core';
 
-vi.mock('@/hooks/core', () => ({
+// Mock the core API hooks
+vi.mock('../core', () => ({
   useApiGet: vi.fn(),
   useApiPost: vi.fn(),
   useApiPut: vi.fn(),
   useApiDelete: vi.fn(),
-  useApiMutation: vi.fn(),
 }));
 
-import { useApiGet, useApiPost, useApiPut, useApiDelete } from '@/hooks/core';
-import { useAdminModels } from '../useAdminModels';
-import type { AIModel } from '../useAdminModels';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const makeHookDefault = (overrides = {}) => ({
-  data: null,
-  loading: false,
-  error: null,
-  execute: vi.fn().mockResolvedValue(undefined),
-  refresh: vi.fn(),
-  reset: vi.fn(),
-  setData: vi.fn(),
-  ...overrides,
-});
-
-const makeModel = (id = 'model-1'): AIModel => ({
-  id,
-  name: `GPT Model ${id}`,
-  provider: 'openai',
-  modelId: 'gpt-4o',
-  type: 'CHAT',
-  enabled: true,
-  config: { maxTokens: 4096 },
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-});
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('useAdminModels', () => {
+  const mockModels: AIModel[] = [
+    {
+      id: 'model-1',
+      name: 'GPT-4',
+      provider: 'openai',
+      modelId: 'gpt-4',
+      type: 'CHAT',
+      enabled: true,
+      config: { temperature: 0.7 },
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+    },
+    {
+      id: 'model-2',
+      name: 'Claude 3',
+      provider: 'anthropic',
+      modelId: 'claude-3-opus',
+      type: 'CHAT',
+      enabled: false,
+      createdAt: '2024-01-02T00:00:00Z',
+      updatedAt: '2024-01-02T00:00:00Z',
+    },
+  ];
+
+  const mockApiGetReturn = {
+    data: mockModels,
+    loading: false,
+    error: null,
+    execute: vi.fn(),
+    refresh: vi.fn(),
+    reset: vi.fn(),
+    setData: vi.fn(),
+  };
+
+  const mockApiPostReturn = {
+    data: undefined,
+    loading: false,
+    error: null,
+    execute: vi.fn(),
+    refresh: vi.fn(),
+    reset: vi.fn(),
+    setData: vi.fn(),
+  };
+
+  const mockApiPutReturn = {
+    data: undefined,
+    loading: false,
+    error: null,
+    execute: vi.fn(),
+    refresh: vi.fn(),
+    reset: vi.fn(),
+    setData: vi.fn(),
+  };
+
+  const mockApiDeleteReturn = {
+    data: undefined,
+    loading: false,
+    error: null,
+    execute: vi.fn(),
+    refresh: vi.fn(),
+    reset: vi.fn(),
+    setData: vi.fn(),
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useApiGet).mockReturnValue(makeHookDefault());
-    vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
-    vi.mocked(useApiPut).mockReturnValue(makeHookDefault());
-    vi.mocked(useApiDelete).mockReturnValue(makeHookDefault());
+    vi.mocked(useApiCore.useApiGet).mockReturnValue(mockApiGetReturn);
+    vi.mocked(useApiCore.useApiPost).mockReturnValue(mockApiPostReturn);
+    vi.mocked(useApiCore.useApiPut).mockReturnValue(mockApiPutReturn);
+    vi.mocked(useApiCore.useApiDelete).mockReturnValue(mockApiDeleteReturn);
   });
 
-  it('returns empty models array when data is null', () => {
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.models).toEqual([]);
-  });
+  describe('initial state', () => {
+    it('should initialize with models data from API', () => {
+      const { result } = renderHook(() => useAdminModels());
 
-  it('returns models list when data is available', () => {
-    const models = [makeModel('m1'), makeModel('m2')];
-    vi.mocked(useApiGet).mockReturnValue(makeHookDefault({ data: models }));
+      expect(result.current.models).toEqual(mockModels);
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toBeNull();
+    });
 
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.models).toEqual(models);
-    expect(result.current.models).toHaveLength(2);
-  });
+    it('should return empty array when models data is undefined', () => {
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        data: undefined,
+      });
 
-  it('isRefreshing matches list loading state', () => {
-    vi.mocked(useApiGet).mockReturnValue(makeHookDefault({ loading: true }));
+      const { result } = renderHook(() => useAdminModels());
 
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.isRefreshing).toBe(true);
-  });
+      expect(result.current.models).toEqual([]);
+    });
 
-  it('loading is true when any sub-query is loading', () => {
-    vi.mocked(useApiPut).mockReturnValue(makeHookDefault({ loading: true }));
+    it('should show loading state when list is loading', () => {
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        loading: true,
+      });
 
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.loading).toBe(true);
-    expect(result.current.isUpdating).toBe(true);
-  });
+      const { result } = renderHook(() => useAdminModels());
 
-  it('isCreating reflects post loading state', () => {
-    vi.mocked(useApiPost).mockReturnValue(makeHookDefault({ loading: true }));
+      expect(result.current.loading).toBe(true);
+      expect(result.current.isRefreshing).toBe(true);
+    });
 
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.isCreating).toBe(true);
-  });
+    it('should show error when list fetch fails', () => {
+      const mockError = { message: 'Failed to fetch', status: 500 };
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        error: mockError,
+      });
 
-  it('isDeleting reflects delete loading state', () => {
-    vi.mocked(useApiDelete).mockReturnValue(makeHookDefault({ loading: true }));
+      const { result } = renderHook(() => useAdminModels());
 
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.isDeleting).toBe(true);
-  });
-
-  it('isTesting reflects test connection loading state', () => {
-    // The test connection hook is the second useApiPost call
-    vi.mocked(useApiPost)
-      .mockReturnValueOnce(makeHookDefault()) // create
-      .mockReturnValueOnce(makeHookDefault({ loading: true })); // test
-
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.isTesting).toBe(true);
-  });
-
-  it('error reflects listError first', () => {
-    vi.mocked(useApiGet).mockReturnValue(
-      makeHookDefault({ error: 'List error' })
-    );
-
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.error).toBe('List error');
-  });
-
-  it('error reflects createError when no listError', () => {
-    vi.mocked(useApiPost)
-      .mockReturnValueOnce(makeHookDefault({ error: 'Create error' }))
-      .mockReturnValueOnce(makeHookDefault());
-
-    const { result } = renderHook(() => useAdminModels());
-    expect(result.current.error).toBe('Create error');
+      expect(result.current.error).toEqual(mockError);
+    });
   });
 
   describe('createModel', () => {
-    it('calls createModelApi and refreshes on success', async () => {
-      const newModel = makeModel('new-1');
-      const createApiMock = vi.fn().mockResolvedValue(newModel);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
+    it('should create model successfully and refresh list', async () => {
+      const newModel: Partial<AIModel> = {
+        name: 'New Model',
+        provider: 'google',
+        modelId: 'gemini-pro',
+        type: 'CHAT',
+        enabled: true,
+      };
 
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(
-        makeHookDefault({ execute: createApiMock })
-      );
+      const createdModel: AIModel = {
+        id: 'model-3',
+        ...newModel,
+        createdAt: '2024-01-03T00:00:00Z',
+        updatedAt: '2024-01-03T00:00:00Z',
+      } as AIModel;
+
+      mockApiPostReturn.execute.mockResolvedValue(createdModel);
 
       const { result } = renderHook(() => useAdminModels());
 
+      let returnedModel: AIModel | undefined;
       await act(async () => {
-        await result.current.createModel({
-          name: 'New Model',
-          provider: 'openai',
-        });
+        returnedModel = await result.current.createModel(newModel);
       });
 
-      expect(createApiMock).toHaveBeenCalledTimes(1);
-      expect(refreshMock).toHaveBeenCalledTimes(1);
+      expect(mockApiPostReturn.execute).toHaveBeenCalledWith(newModel);
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
+      expect(returnedModel).toEqual(createdModel);
     });
 
-    it('does not refresh when createModelApi returns null', async () => {
-      const createApiMock = vi.fn().mockResolvedValue(null);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
-
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(
-        makeHookDefault({ execute: createApiMock })
-      );
+    it('should handle create error', async () => {
+      mockApiPostReturn.execute.mockResolvedValue(null);
 
       const { result } = renderHook(() => useAdminModels());
 
       await act(async () => {
-        await result.current.createModel({ name: 'New Model' });
+        await result.current.createModel({ name: 'Test' });
       });
 
-      expect(refreshMock).not.toHaveBeenCalled();
+      expect(mockApiGetReturn.execute).not.toHaveBeenCalled();
+    });
+
+    it('should show creating state', () => {
+      vi.mocked(useApiCore.useApiPost).mockReturnValue({
+        ...mockApiPostReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.isCreating).toBe(true);
+      expect(result.current.loading).toBe(true);
     });
   });
 
   describe('updateModel', () => {
-    it('calls updateModelApi with id merged into data and refreshes', async () => {
-      const updatedModel = makeModel('m1');
-      const updateApiMock = vi.fn().mockResolvedValue(updatedModel);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
+    it('should update model successfully and refresh list', async () => {
+      const updatedData: Partial<AIModel> = {
+        name: 'Updated Model',
+        enabled: false,
+      };
 
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
-      vi.mocked(useApiPut).mockReturnValue(
-        makeHookDefault({ execute: updateApiMock })
-      );
+      const updatedModel: AIModel = {
+        ...mockModels[0],
+        ...updatedData,
+      };
+
+      mockApiPutReturn.execute.mockResolvedValue(updatedModel);
+
+      const { result } = renderHook(() => useAdminModels());
+
+      let returnedModel: AIModel | undefined;
+      await act(async () => {
+        returnedModel = await result.current.updateModel(
+          'model-1',
+          updatedData
+        );
+      });
+
+      expect(mockApiPutReturn.execute).toHaveBeenCalledWith({
+        ...updatedData,
+        id: 'model-1',
+      });
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
+      expect(returnedModel).toEqual(updatedModel);
+    });
+
+    it('should not refresh list when update fails', async () => {
+      mockApiPutReturn.execute.mockResolvedValue(null);
 
       const { result } = renderHook(() => useAdminModels());
 
       await act(async () => {
-        await result.current.updateModel('m1', { name: 'Updated Name' });
+        await result.current.updateModel('model-1', { name: 'Test' });
       });
 
-      expect(updateApiMock).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'm1', name: 'Updated Name' })
-      );
-      expect(refreshMock).toHaveBeenCalledTimes(1);
+      expect(mockApiGetReturn.execute).not.toHaveBeenCalled();
+    });
+
+    it('should show updating state', () => {
+      vi.mocked(useApiCore.useApiPut).mockReturnValue({
+        ...mockApiPutReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.isUpdating).toBe(true);
+      expect(result.current.loading).toBe(true);
     });
   });
 
   describe('deleteModel', () => {
-    it('calls deleteModelApi with id and refreshes', async () => {
-      const deleteApiMock = vi.fn().mockResolvedValue(undefined);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
-
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
-      vi.mocked(useApiPut).mockReturnValue(makeHookDefault());
-      vi.mocked(useApiDelete).mockReturnValue(
-        makeHookDefault({ execute: deleteApiMock })
-      );
+    it('should delete model and refresh list', async () => {
+      mockApiDeleteReturn.execute.mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useAdminModels());
 
       await act(async () => {
-        await result.current.deleteModel('m1');
+        await result.current.deleteModel('model-1');
       });
 
-      expect(deleteApiMock).toHaveBeenCalledWith({ id: 'm1' });
-      expect(refreshMock).toHaveBeenCalledTimes(1);
+      expect(mockApiDeleteReturn.execute).toHaveBeenCalledWith({
+        id: 'model-1',
+      });
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
+    });
+
+    it('should show deleting state', () => {
+      vi.mocked(useApiCore.useApiDelete).mockReturnValue({
+        ...mockApiDeleteReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.isDeleting).toBe(true);
+      expect(result.current.loading).toBe(true);
     });
   });
 
   describe('testConnection', () => {
-    it('calls testConnectionApi with modelId', async () => {
-      const testApiMock = vi
-        .fn()
-        .mockResolvedValue({ success: true, message: 'Connected' });
+    it('should test model connection', async () => {
+      const mockResponse = { success: true, message: 'Connection successful' };
+      const mockTestReturn = {
+        ...mockApiPostReturn,
+        execute: vi.fn().mockResolvedValue(mockResponse),
+      };
 
-      vi.mocked(useApiPost)
-        .mockReturnValueOnce(makeHookDefault()) // createModel
-        .mockReturnValueOnce(makeHookDefault({ execute: testApiMock })); // testConnection
+      // Mock useApiPost to return different values for create and test
+      vi.mocked(useApiCore.useApiPost)
+        .mockReturnValueOnce(mockApiPostReturn) // For createModel
+        .mockReturnValueOnce(mockTestReturn); // For testConnection
 
       const { result } = renderHook(() => useAdminModels());
 
+      let response: { success: boolean; message: string } | undefined;
       await act(async () => {
-        await result.current.testConnection('gpt-4o');
+        response = await result.current.testConnection('model-1');
       });
 
-      expect(testApiMock).toHaveBeenCalledWith({ modelId: 'gpt-4o' });
+      expect(mockTestReturn.execute).toHaveBeenCalledWith({
+        modelId: 'model-1',
+      });
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('should show testing state', () => {
+      const mockTestReturn = {
+        ...mockApiPostReturn,
+        loading: true,
+      };
+
+      // Mock useApiPost to return different values for create and test
+      vi.mocked(useApiCore.useApiPost)
+        .mockReturnValueOnce(mockApiPostReturn) // For createModel
+        .mockReturnValueOnce(mockTestReturn); // For testConnection
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.isTesting).toBe(true);
     });
   });
 
-  it('exposes refreshModels action', () => {
-    const { result } = renderHook(() => useAdminModels());
-    expect(typeof result.current.refreshModels).toBe('function');
+  describe('refreshModels', () => {
+    it('should call execute function to refresh models', async () => {
+      const { result } = renderHook(() => useAdminModels());
+
+      await act(async () => {
+        await result.current.refreshModels();
+      });
+
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
+    });
+  });
+
+  describe('error handling', () => {
+    it('should aggregate errors from all operations', () => {
+      const listError = { message: 'List error', status: 500 };
+      const createError = { message: 'Create error', status: 400 };
+
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        error: listError,
+      });
+
+      vi.mocked(useApiCore.useApiPost).mockReturnValueOnce({
+        ...mockApiPostReturn,
+        error: createError,
+      });
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.error).toBeTruthy();
+    });
+
+    it('should prioritize list error over operation errors', () => {
+      const listError = { message: 'List error', status: 500 };
+      const createError = { message: 'Create error', status: 400 };
+
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        error: listError,
+      });
+
+      vi.mocked(useApiCore.useApiPost).mockReturnValue({
+        ...mockApiPostReturn,
+        error: createError,
+      });
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.error).toEqual(listError);
+    });
+  });
+
+  describe('loading states', () => {
+    it('should aggregate loading from all operations', () => {
+      vi.mocked(useApiCore.useApiPost).mockReturnValue({
+        ...mockApiPostReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.loading).toBe(true);
+    });
+
+    it('should show loading when multiple operations are in progress', () => {
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        loading: true,
+      });
+
+      vi.mocked(useApiCore.useApiPut).mockReturnValue({
+        ...mockApiPutReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminModels());
+
+      expect(result.current.loading).toBe(true);
+      expect(result.current.isRefreshing).toBe(true);
+      expect(result.current.isUpdating).toBe(true);
+    });
   });
 });

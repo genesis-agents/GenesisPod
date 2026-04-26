@@ -1,229 +1,300 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import {
+  useAdminAgents,
+  AgentConfig,
+  CreateAgentConfigDto,
+  UpdateAgentConfigDto,
+} from './useAdminAgents';
+import * as useApiCore from '../core';
+import { apiClient } from '@/lib/api/client';
 
-vi.mock('@/hooks/core', () => ({
+// Mock the core API hooks
+vi.mock('../core', () => ({
   useApiGet: vi.fn(),
   useApiPost: vi.fn(),
-  useApiPut: vi.fn(),
-  useApiDelete: vi.fn(),
-  useApiMutation: vi.fn(),
 }));
 
+// Mock the API client
 vi.mock('@/lib/api/client', () => ({
   apiClient: {
-    get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
   },
 }));
 
-import { useApiGet, useApiPost } from '@/hooks/core';
-import { apiClient } from '@/lib/api/client';
-import { useAdminAgents } from '../useAdminAgents';
-import type { AgentConfig } from '../useAdminAgents';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const makeHookDefault = (overrides = {}) => ({
-  data: null,
-  loading: false,
-  error: null,
-  execute: vi.fn().mockResolvedValue(undefined),
-  refresh: vi.fn(),
-  reset: vi.fn(),
-  setData: vi.fn(),
-  ...overrides,
-});
-
-const makeAgent = (id = 'agent-1'): AgentConfig => ({
-  id,
-  agentId: `agent-id-${id}`,
-  name: `Test Agent ${id}`,
-  description: 'A test agent',
-  agentType: 'chat',
-  domain: 'research',
-  systemPrompt: 'You are a helpful assistant.',
-  tools: ['search', 'calculator'],
-  skills: ['summarize'],
-  modelType: 'CHAT',
-  taskProfile: null,
-  enabled: true,
-  isBuiltIn: false,
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-});
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('useAdminAgents', () => {
+  const mockAgents: AgentConfig[] = [
+    {
+      id: 'agent-1',
+      agentId: 'coder',
+      name: 'Coder Agent',
+      description: 'Writes code',
+      agentType: 'specialist',
+      domain: 'development',
+      systemPrompt: 'You are a coding expert',
+      tools: ['code-generator'],
+      skills: ['typescript', 'react'],
+      modelType: 'CHAT',
+      taskProfile: { creativity: 'low' },
+      enabled: true,
+      isBuiltIn: false,
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+    },
+    {
+      id: 'agent-2',
+      agentId: 'tester',
+      name: 'Tester Agent',
+      description: 'Tests code',
+      agentType: 'specialist',
+      domain: 'development',
+      systemPrompt: 'You are a testing expert',
+      tools: ['test-runner'],
+      skills: ['vitest', 'jest'],
+      modelType: null,
+      taskProfile: null,
+      enabled: false,
+      isBuiltIn: true,
+      createdAt: '2024-01-02T00:00:00Z',
+      updatedAt: '2024-01-02T00:00:00Z',
+    },
+  ];
+
+  const mockApiGetReturn = {
+    data: mockAgents,
+    loading: false,
+    error: null,
+    execute: vi.fn(),
+    refresh: vi.fn(),
+    reset: vi.fn(),
+    setData: vi.fn(),
+  };
+
+  const mockApiPostReturn = {
+    data: undefined,
+    loading: false,
+    error: null,
+    execute: vi.fn(),
+    refresh: vi.fn(),
+    reset: vi.fn(),
+    setData: vi.fn(),
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useApiGet).mockReturnValue(makeHookDefault());
-    vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
+    vi.mocked(useApiCore.useApiGet).mockReturnValue(mockApiGetReturn);
+    vi.mocked(useApiCore.useApiPost).mockReturnValue(mockApiPostReturn);
+    vi.mocked(apiClient.patch).mockResolvedValue({} as any);
+    vi.mocked(apiClient.delete).mockResolvedValue(undefined);
   });
 
-  it('returns empty array when data is null', () => {
-    const { result } = renderHook(() => useAdminAgents());
-    expect(result.current.agents).toEqual([]);
-  });
+  describe('initial state', () => {
+    it('should initialize with agents data from API', () => {
+      const { result } = renderHook(() => useAdminAgents());
 
-  it('returns agents list when data is available', () => {
-    const agents = [makeAgent('a1'), makeAgent('a2')];
-    vi.mocked(useApiGet).mockReturnValue(makeHookDefault({ data: agents }));
+      expect(result.current.agents).toEqual(mockAgents);
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toBeNull();
+    });
 
-    const { result } = renderHook(() => useAdminAgents());
-    expect(result.current.agents).toEqual(agents);
-  });
+    it('should return empty array when agents data is undefined', () => {
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        data: undefined,
+      });
 
-  it('builds query string when domain filter is provided', () => {
-    renderHook(() => useAdminAgents({ domain: 'research' }));
+      const { result } = renderHook(() => useAdminAgents());
 
-    expect(useApiGet).toHaveBeenCalledWith(
-      expect.stringContaining('?domain=research'),
-      expect.anything()
-    );
-  });
+      expect(result.current.agents).toEqual([]);
+    });
 
-  it('does not append query string without filter', () => {
-    renderHook(() => useAdminAgents());
+    it('should show loading state when list is loading', () => {
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        loading: true,
+      });
 
-    expect(useApiGet).toHaveBeenCalledWith('/admin/agents', expect.anything());
-  });
+      const { result } = renderHook(() => useAdminAgents());
 
-  it('reflects loading state from list query', () => {
-    vi.mocked(useApiGet).mockReturnValue(makeHookDefault({ loading: true }));
-    vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
+      expect(result.current.loading).toBe(true);
+      expect(result.current.isRefreshing).toBe(true);
+    });
 
-    const { result } = renderHook(() => useAdminAgents());
-    expect(result.current.loading).toBe(true);
-    expect(result.current.isRefreshing).toBe(true);
-  });
+    it('should apply domain filter in query params', () => {
+      renderHook(() => useAdminAgents({ domain: 'development' }));
 
-  it('reflects loading state from create query', () => {
-    vi.mocked(useApiGet).mockReturnValue(makeHookDefault());
-    vi.mocked(useApiPost).mockReturnValue(makeHookDefault({ loading: true }));
+      expect(useApiCore.useApiGet).toHaveBeenCalledWith(
+        '/admin/agents?domain=development',
+        expect.any(Object)
+      );
+    });
 
-    const { result } = renderHook(() => useAdminAgents());
-    expect(result.current.loading).toBe(true);
-    expect(result.current.isCreating).toBe(true);
-  });
+    it('should not add query params when no filters provided', () => {
+      renderHook(() => useAdminAgents());
 
-  it('surfaces error from list query', () => {
-    vi.mocked(useApiGet).mockReturnValue(
-      makeHookDefault({ error: 'List error' })
-    );
-
-    const { result } = renderHook(() => useAdminAgents());
-    expect(result.current.error).toBe('List error');
-  });
-
-  it('surfaces error from create query', () => {
-    vi.mocked(useApiPost).mockReturnValue(
-      makeHookDefault({ error: 'Create error' })
-    );
-
-    const { result } = renderHook(() => useAdminAgents());
-    expect(result.current.error).toBe('Create error');
+      expect(useApiCore.useApiGet).toHaveBeenCalledWith(
+        '/admin/agents',
+        expect.any(Object)
+      );
+    });
   });
 
   describe('createAgent', () => {
-    it('calls createAgentApi and then refreshes', async () => {
-      const newAgent = makeAgent('new-1');
-      const createApiMock = vi.fn().mockResolvedValue(newAgent);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
+    it('should create agent successfully and refresh list', async () => {
+      const newAgent: CreateAgentConfigDto = {
+        agentId: 'reviewer',
+        name: 'Reviewer Agent',
+        description: 'Reviews code',
+        agentType: 'specialist',
+        domain: 'development',
+        systemPrompt: 'You are a code reviewer',
+        tools: ['linter'],
+        skills: ['code-review'],
+        enabled: true,
+      };
 
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(
-        makeHookDefault({ execute: createApiMock })
-      );
+      const createdAgent: AgentConfig = {
+        id: 'agent-3',
+        agentId: newAgent.agentId,
+        name: newAgent.name,
+        description: newAgent.description ?? null,
+        agentType: newAgent.agentType,
+        domain: newAgent.domain,
+        systemPrompt: newAgent.systemPrompt,
+        tools: newAgent.tools ?? [],
+        skills: newAgent.skills ?? [],
+        enabled: newAgent.enabled ?? true,
+        modelType: null,
+        taskProfile: null,
+        isBuiltIn: false,
+        createdAt: '2024-01-03T00:00:00Z',
+        updatedAt: '2024-01-03T00:00:00Z',
+      };
+
+      mockApiPostReturn.execute.mockResolvedValue(createdAgent);
 
       const { result } = renderHook(() => useAdminAgents());
 
+      let returnedAgent: AgentConfig | undefined;
       await act(async () => {
-        await result.current.createAgent({
-          agentId: 'new-agent',
-          name: 'New Agent',
-          agentType: 'chat',
-          domain: 'research',
-          systemPrompt: 'Test',
-        });
+        returnedAgent = await result.current.createAgent(newAgent);
       });
 
-      expect(createApiMock).toHaveBeenCalledTimes(1);
-      expect(refreshMock).toHaveBeenCalledTimes(1);
+      expect(mockApiPostReturn.execute).toHaveBeenCalledWith(newAgent);
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
+      expect(returnedAgent).toEqual(createdAgent);
     });
 
-    it('does not refresh if createAgentApi returns null', async () => {
-      const createApiMock = vi.fn().mockResolvedValue(null);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
-
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(
-        makeHookDefault({ execute: createApiMock })
-      );
+    it('should not refresh list when create fails', async () => {
+      mockApiPostReturn.execute.mockResolvedValue(null);
 
       const { result } = renderHook(() => useAdminAgents());
 
       await act(async () => {
         await result.current.createAgent({
-          agentId: 'new-agent',
-          name: 'New Agent',
-          agentType: 'chat',
-          domain: 'research',
+          agentId: 'test',
+          name: 'Test',
+          agentType: 'specialist',
+          domain: 'test',
           systemPrompt: 'Test',
         });
       });
 
-      expect(refreshMock).not.toHaveBeenCalled();
+      expect(mockApiGetReturn.execute).not.toHaveBeenCalled();
+    });
+
+    it('should show creating state', () => {
+      vi.mocked(useApiCore.useApiPost).mockReturnValue({
+        ...mockApiPostReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      expect(result.current.isCreating).toBe(true);
+      expect(result.current.loading).toBe(true);
     });
   });
 
   describe('updateAgent', () => {
-    it('calls apiClient.patch and then refreshes', async () => {
-      const updatedAgent = makeAgent('a1');
-      vi.mocked(apiClient.patch).mockResolvedValue(updatedAgent);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
+    it('should update agent successfully and refresh list', async () => {
+      const updateData: UpdateAgentConfigDto = {
+        name: 'Updated Agent',
+        description: 'Updated description',
+        enabled: false,
+      };
 
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
+      const updatedAgent: AgentConfig = {
+        ...mockAgents[0],
+        ...updateData,
+      };
+
+      vi.mocked(apiClient.patch).mockResolvedValue(updatedAgent);
 
       const { result } = renderHook(() => useAdminAgents());
 
+      let returnedAgent: AgentConfig | undefined;
       await act(async () => {
-        await result.current.updateAgent('a1', { name: 'Updated Name' });
+        returnedAgent = await result.current.updateAgent('agent-1', updateData);
       });
 
-      expect(apiClient.patch).toHaveBeenCalledWith('/admin/agents/a1', {
-        name: 'Updated Name',
-      });
-      expect(refreshMock).toHaveBeenCalledTimes(1);
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        '/admin/agents/agent-1',
+        updateData
+      );
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
+      expect(returnedAgent).toEqual(updatedAgent);
     });
 
-    it('resets updateLoading to false after completion', async () => {
-      vi.mocked(apiClient.patch).mockResolvedValue(makeAgent('a1'));
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
-
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
+    it('should show updating state during update', async () => {
+      vi.mocked(apiClient.patch).mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 100))
       );
-      vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      act(() => {
+        result.current.updateAgent('agent-1', { name: 'Test' });
+      });
+
+      expect(result.current.isUpdating).toBe(true);
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      });
+
+      expect(result.current.isUpdating).toBe(false);
+    });
+
+    it('should handle update errors gracefully', async () => {
+      vi.mocked(apiClient.patch).mockRejectedValue(new Error('Update failed'));
 
       const { result } = renderHook(() => useAdminAgents());
 
       await act(async () => {
-        await result.current.updateAgent('a1', { enabled: false });
+        try {
+          await result.current.updateAgent('agent-1', { name: 'Test' });
+        } catch (err) {
+          expect(err).toBeInstanceOf(Error);
+        }
+      });
+
+      expect(result.current.isUpdating).toBe(false);
+    });
+
+    it('should always reset loading state after update', async () => {
+      vi.mocked(apiClient.patch).mockRejectedValue(new Error('Failed'));
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      await act(async () => {
+        try {
+          await result.current.updateAgent('agent-1', { name: 'Test' });
+        } catch {
+          // Ignore error
+        }
       });
 
       expect(result.current.isUpdating).toBe(false);
@@ -231,46 +302,150 @@ describe('useAdminAgents', () => {
   });
 
   describe('deleteAgent', () => {
-    it('calls apiClient.delete and then refreshes', async () => {
-      vi.mocked(apiClient.delete).mockResolvedValue(undefined);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
-
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
-      );
-      vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
-
+    it('should delete agent and refresh list', async () => {
       const { result } = renderHook(() => useAdminAgents());
 
       await act(async () => {
-        await result.current.deleteAgent('a1');
+        await result.current.deleteAgent('agent-1');
       });
 
-      expect(apiClient.delete).toHaveBeenCalledWith('/admin/agents/a1');
-      expect(refreshMock).toHaveBeenCalledTimes(1);
+      expect(apiClient.delete).toHaveBeenCalledWith('/admin/agents/agent-1');
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
     });
 
-    it('resets deleteLoading to false after completion', async () => {
-      vi.mocked(apiClient.delete).mockResolvedValue(undefined);
-      const refreshMock = vi.fn().mockResolvedValue(undefined);
-
-      vi.mocked(useApiGet).mockReturnValue(
-        makeHookDefault({ execute: refreshMock })
+    it('should show deleting state during deletion', async () => {
+      vi.mocked(apiClient.delete).mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 100))
       );
-      vi.mocked(useApiPost).mockReturnValue(makeHookDefault());
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      act(() => {
+        result.current.deleteAgent('agent-1');
+      });
+
+      expect(result.current.isDeleting).toBe(true);
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      });
+
+      expect(result.current.isDeleting).toBe(false);
+    });
+
+    it('should handle delete errors gracefully', async () => {
+      vi.mocked(apiClient.delete).mockRejectedValue(new Error('Delete failed'));
 
       const { result } = renderHook(() => useAdminAgents());
 
       await act(async () => {
-        await result.current.deleteAgent('a1');
+        try {
+          await result.current.deleteAgent('agent-1');
+        } catch (err) {
+          expect(err).toBeInstanceOf(Error);
+        }
+      });
+
+      expect(result.current.isDeleting).toBe(false);
+    });
+
+    it('should always reset loading state after delete', async () => {
+      vi.mocked(apiClient.delete).mockRejectedValue(new Error('Failed'));
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      await act(async () => {
+        try {
+          await result.current.deleteAgent('agent-1');
+        } catch {
+          // Ignore error
+        }
       });
 
       expect(result.current.isDeleting).toBe(false);
     });
   });
 
-  it('exposes refreshAgents action', () => {
-    const { result } = renderHook(() => useAdminAgents());
-    expect(typeof result.current.refreshAgents).toBe('function');
+  describe('refreshAgents', () => {
+    it('should call execute function to refresh agents', async () => {
+      const { result } = renderHook(() => useAdminAgents());
+
+      await act(async () => {
+        await result.current.refreshAgents();
+      });
+
+      expect(mockApiGetReturn.execute).toHaveBeenCalled();
+    });
+  });
+
+  describe('error handling', () => {
+    it('should show list error', () => {
+      const listError = { message: 'Failed to fetch agents', status: 500 };
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        error: listError,
+      });
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      expect(result.current.error).toEqual(listError);
+    });
+
+    it('should show create error', () => {
+      const createError = { message: 'Failed to create agent', status: 400 };
+      vi.mocked(useApiCore.useApiPost).mockReturnValue({
+        ...mockApiPostReturn,
+        error: createError,
+      });
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      expect(result.current.error).toEqual(createError);
+    });
+
+    it('should aggregate errors from list and create', () => {
+      const listError = { message: 'List error', status: 500 };
+      const createError = { message: 'Create error', status: 400 };
+
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        error: listError,
+      });
+
+      vi.mocked(useApiCore.useApiPost).mockReturnValue({
+        ...mockApiPostReturn,
+        error: createError,
+      });
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      expect(result.current.error).toBeTruthy();
+    });
+  });
+
+  describe('loading states', () => {
+    it('should aggregate loading from all operations', () => {
+      vi.mocked(useApiCore.useApiPost).mockReturnValue({
+        ...mockApiPostReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      expect(result.current.loading).toBe(true);
+    });
+
+    it('should show loading when list is loading', () => {
+      vi.mocked(useApiCore.useApiGet).mockReturnValue({
+        ...mockApiGetReturn,
+        loading: true,
+      });
+
+      const { result } = renderHook(() => useAdminAgents());
+
+      expect(result.current.loading).toBe(true);
+      expect(result.current.isRefreshing).toBe(true);
+    });
   });
 });

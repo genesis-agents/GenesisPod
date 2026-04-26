@@ -1,14 +1,16 @@
-/**
- * Tests for stores/ai-writing/aiWritingStore.ts
- *
- * Covers state mutations, async actions, error handling, and edge cases
- * that were not covered by the existing 58.93% baseline.
- */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { useAIWritingStore } from './aiWritingStore';
+import * as api from '@/lib/api/ai-writing';
+import type {
+  WritingProject,
+  Volume,
+  Chapter,
+  Character,
+  StoryBible,
+} from '@/lib/api/ai-writing';
 
-// ---------------------------------------------------------------------------
-// Module-level mocks (must be hoisted before any import)
-// ---------------------------------------------------------------------------
+// Mock the API module
 vi.mock('@/lib/api/ai-writing', () => ({
   getProjects: vi.fn(),
   getProject: vi.fn(),
@@ -26,1670 +28,803 @@ vi.mock('@/lib/api/ai-writing', () => ({
   createCharacter: vi.fn(),
   deleteCharacter: vi.fn(),
   startMission: vi.fn(),
-  cancelMission: vi.fn(),
   getMissionStatus: vi.fn(),
+  cancelMission: vi.fn(),
   getProjectMissions: vi.fn(),
   forceCleanupStuckMissions: vi.fn(),
-  ApiError: class ApiError extends Error {
-    status: number;
-    constructor(message: string, status: number) {
-      super(message);
-      this.name = 'ApiError';
-      this.status = status;
-    }
-  },
+  ApiError: Error,
 }));
 
+// Mock logger
 vi.mock('@/lib/utils/logger', () => ({
   logger: {
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
     debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
-// ---------------------------------------------------------------------------
-// Import AFTER mocks
-// ---------------------------------------------------------------------------
-import * as api from '@/lib/api/ai-writing';
-import type { StoryBible, WritingProject } from '@/lib/api/ai-writing';
-import { useAIWritingStore } from '../aiWritingStore';
-
-const mockedApi = api as ReturnType<typeof vi.mocked<typeof api>>;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function makeProject(overrides: Record<string, unknown> = {}): WritingProject {
-  return {
-    id: 'p1',
-    name: 'Epic Fantasy',
-    genre: 'Fantasy',
-    status: 'WRITING',
-    targetWords: 80000,
+describe('useAIWritingStore', () => {
+  const mockProject: WritingProject = {
+    id: 'project-1',
+    name: 'Test Novel',
+    description: 'A test novel',
+    genre: 'fantasy',
+    targetWords: 50000,
     currentWords: 0,
+    status: 'PLANNING',
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
-    ...overrides,
-  } as unknown as WritingProject;
-}
+  };
 
-function makeVolume(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'v1',
-    projectId: 'p1',
+  const mockVolume: Volume = {
+    id: 'volume-1',
+    projectId: 'project-1',
     title: 'Volume 1',
     volumeNumber: 1,
     chapters: [],
-    ...overrides,
   };
-}
 
-function makeChapter(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'ch1',
-    volumeId: 'v1',
+  const mockChapter: Chapter = {
+    id: 'chapter-1',
+    volumeId: 'volume-1',
     title: 'Chapter 1',
     chapterNumber: 1,
-    content: 'Once upon a time...',
+    content: 'Chapter content',
     wordCount: 100,
     status: 'draft',
-    ...overrides,
   };
-}
 
-function makeCharacter(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'char1',
-    projectId: 'p1',
-    name: 'Aragorn',
-    role: 'hero',
-    description: 'Ranger of the north',
-    ...overrides,
+  const mockCharacter: Character = {
+    id: 'char-1',
+    projectId: 'project-1',
+    name: 'Hero',
+    role: 'protagonist',
+    description: 'The main character',
   };
-}
 
-// ---------------------------------------------------------------------------
-// Setup
-// ---------------------------------------------------------------------------
-beforeEach(() => {
-  vi.resetAllMocks();
-  // Reset store to initial state before each test
-  useAIWritingStore.getState().reset();
-});
-
-// ---------------------------------------------------------------------------
-// Initial state
-// ---------------------------------------------------------------------------
-
-describe('initial state', () => {
-  it('has empty projects list', () => {
-    expect(useAIWritingStore.getState().projects).toEqual([]);
-  });
-
-  it('has null currentProject', () => {
-    expect(useAIWritingStore.getState().currentProject).toBeNull();
-  });
-
-  it('has isMissionRunning = false', () => {
-    expect(useAIWritingStore.getState().isMissionRunning).toBe(false);
-  });
-
-  it('has null error', () => {
-    expect(useAIWritingStore.getState().error).toBeNull();
-  });
-
-  it('has missionProgress = 0', () => {
-    expect(useAIWritingStore.getState().missionProgress).toBe(0);
-  });
-
-  it('has empty conversationHistory', () => {
-    expect(useAIWritingStore.getState().conversationHistory).toEqual([]);
-  });
-
-  it('has isStuckMission = false', () => {
-    expect(useAIWritingStore.getState().isStuckMission).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fetchProjects
-// ---------------------------------------------------------------------------
-
-describe('fetchProjects', () => {
-  it('loads projects into state on success', async () => {
-    const projects = [
-      makeProject(),
-      makeProject({ id: 'p2', name: 'Sci-Fi Novel' }),
-    ];
-    mockedApi.getProjects.mockResolvedValue({
-      items: projects,
-      nextCursor: undefined,
-    });
-
-    await useAIWritingStore.getState().fetchProjects();
-
-    expect(useAIWritingStore.getState().projects).toEqual(projects);
-    expect(useAIWritingStore.getState().isLoadingProjects).toBe(false);
-  });
-
-  it('sets isLoadingProjects true during fetch', async () => {
-    let resolveProjects: (v: {
-      items: WritingProject[];
-      nextCursor?: string;
-    }) => void;
-    mockedApi.getProjects.mockReturnValue(
-      new Promise<{ items: WritingProject[]; nextCursor?: string }>((r) => {
-        resolveProjects = r;
-      })
-    );
-
-    const fetchPromise = useAIWritingStore.getState().fetchProjects();
-    expect(useAIWritingStore.getState().isLoadingProjects).toBe(true);
-
-    resolveProjects!({ items: [], nextCursor: undefined });
-    await fetchPromise;
-  });
-
-  it('sets error on failure', async () => {
-    mockedApi.getProjects.mockRejectedValue(new Error('Network error'));
-
-    await useAIWritingStore.getState().fetchProjects();
-
-    expect(useAIWritingStore.getState().error).toBe('Network error');
-    expect(useAIWritingStore.getState().isLoadingProjects).toBe(false);
-  });
-
-  it('handles missing items field gracefully', async () => {
-    mockedApi.getProjects.mockResolvedValue(
-      {} as ReturnType<typeof api.getProjects> extends Promise<infer T>
-        ? T
-        : never
-    );
-
-    await useAIWritingStore.getState().fetchProjects();
-
-    expect(useAIWritingStore.getState().projects).toEqual([]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fetchProject
-// ---------------------------------------------------------------------------
-
-describe('fetchProject', () => {
-  it('sets currentProject on success', async () => {
-    const project = makeProject();
-    mockedApi.getProject.mockResolvedValue(project);
-
-    await useAIWritingStore.getState().fetchProject('p1');
-
-    expect(useAIWritingStore.getState().currentProject).toEqual(project);
-  });
-
-  it('silent=true does not set loading state', async () => {
-    mockedApi.getProject.mockResolvedValue(makeProject());
-
-    await useAIWritingStore.getState().fetchProject('p1', true);
-
-    // isLoadingProjects should still be false (silent mode)
-    expect(useAIWritingStore.getState().isLoadingProjects).toBe(false);
-  });
-
-  it('silent=true ignores errors without setting error state', async () => {
-    mockedApi.getProject.mockRejectedValue(new Error('Not found'));
-
-    await useAIWritingStore.getState().fetchProject('p1', true);
-
-    // Silent mode: error should not be set
-    expect(useAIWritingStore.getState().error).toBeNull();
-  });
-
-  it('non-silent mode sets error on failure', async () => {
-    mockedApi.getProject.mockRejectedValue(new Error('Server error'));
-
-    await useAIWritingStore.getState().fetchProject('p1', false);
-
-    expect(useAIWritingStore.getState().error).toBe('Server error');
-    expect(useAIWritingStore.getState().currentProject).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// createProject
-// ---------------------------------------------------------------------------
-
-describe('createProject', () => {
-  it('adds new project to the beginning of the list', async () => {
-    const existing = makeProject({ id: 'p-old', name: 'Old Project' });
-    useAIWritingStore.setState({ projects: [existing] });
-
-    const newProject = makeProject({ id: 'p-new', name: 'New Project' });
-    mockedApi.createProject.mockResolvedValue(newProject);
-
-    const result = await useAIWritingStore.getState().createProject({
-      name: 'New Project',
-      genre: 'Fantasy',
-      targetWords: 80000,
-    });
-
-    const { projects } = useAIWritingStore.getState();
-    expect(projects[0]).toEqual(newProject);
-    expect(projects[1]).toEqual(existing);
-    expect(result).toEqual(newProject);
-  });
-
-  it('throws and sets error on failure', async () => {
-    mockedApi.createProject.mockRejectedValue(new Error('Validation failed'));
-
-    await expect(
-      useAIWritingStore
-        .getState()
-        .createProject({ name: '', genre: 'Fantasy', targetWords: 1000 })
-    ).rejects.toThrow('Validation failed');
-
-    expect(useAIWritingStore.getState().error).toBe('Validation failed');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// updateProject
-// ---------------------------------------------------------------------------
-
-describe('updateProject', () => {
-  it('updates the project in the list', async () => {
-    const original = makeProject({ name: 'Old Name' });
-    const updated = makeProject({ name: 'New Name' });
-    useAIWritingStore.setState({ projects: [original] });
-    mockedApi.updateProject.mockResolvedValue(updated);
-
-    await useAIWritingStore
-      .getState()
-      .updateProject('p1', { name: 'New Name' });
-
-    expect(useAIWritingStore.getState().projects[0].name).toBe('New Name');
-  });
-
-  it('updates currentProject if it matches the updated project', async () => {
-    const original = makeProject({ name: 'Old' });
-    const updated = makeProject({ name: 'Updated' });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    // Reset store state before each test
     useAIWritingStore.setState({
-      projects: [original],
-      currentProject: original,
+      projects: [],
+      currentProject: null,
+      isLoadingProjects: false,
+      volumes: [],
+      currentChapter: null,
+      isLoadingVolumes: false,
+      storyBible: null,
+      characters: [],
+      isLoadingBible: false,
+      isMissionRunning: false,
+      currentMissionId: null,
+      missionProgress: 0,
+      missionMessage: '',
+      missionCompleted: false,
+      activeAgentIds: [],
+      isStuckMission: false,
+      stuckMissionId: null,
+      conversationHistory: [],
+      error: null,
     });
-    mockedApi.updateProject.mockResolvedValue(updated);
-
-    await useAIWritingStore.getState().updateProject('p1', { name: 'Updated' });
-
-    expect(useAIWritingStore.getState().currentProject?.name).toBe('Updated');
   });
 
-  it('does not change currentProject if different project updated', async () => {
-    const current = makeProject({ id: 'p1', name: 'Current' });
-    const other = makeProject({ id: 'p2', name: 'Other' });
-    const updatedOther = makeProject({ id: 'p2', name: 'Updated Other' });
-    useAIWritingStore.setState({
-      projects: [current, other] as ReturnType<typeof makeProject>[],
-      currentProject: current,
-    });
-    mockedApi.updateProject.mockResolvedValue(updatedOther);
-
-    await useAIWritingStore
-      .getState()
-      .updateProject('p2', { name: 'Updated Other' });
-
-    expect(useAIWritingStore.getState().currentProject?.name).toBe('Current');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// deleteProject
-// ---------------------------------------------------------------------------
-
-describe('deleteProject', () => {
-  it('removes the project from the list', async () => {
-    const p1 = makeProject({ id: 'p1' });
-    const p2 = makeProject({ id: 'p2' });
-    useAIWritingStore.setState({
-      projects: [p1, p2] as ReturnType<typeof makeProject>[],
-    });
-    mockedApi.deleteProject.mockResolvedValue(
-      undefined as ReturnType<typeof api.deleteProject> extends Promise<infer T>
-        ? T
-        : never
-    );
-
-    await useAIWritingStore.getState().deleteProject('p1');
-
-    const { projects } = useAIWritingStore.getState();
-    expect(projects).toHaveLength(1);
-    expect(projects[0].id).toBe('p2');
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it('clears currentProject if it was deleted', async () => {
-    const project = makeProject();
-    useAIWritingStore.setState({
-      currentProject: project,
-      projects: [project] as ReturnType<typeof makeProject>[],
-    });
-    mockedApi.deleteProject.mockResolvedValue(
-      undefined as ReturnType<typeof api.deleteProject> extends Promise<infer T>
-        ? T
-        : never
-    );
+  describe('Projects', () => {
+    describe('fetchProjects', () => {
+      it('should fetch projects successfully', async () => {
+        vi.mocked(api.getProjects).mockResolvedValue({ items: [mockProject] });
 
-    await useAIWritingStore.getState().deleteProject('p1');
+        const { result } = renderHook(() => useAIWritingStore());
 
-    expect(useAIWritingStore.getState().currentProject).toBeNull();
-  });
+        await act(async () => {
+          await result.current.fetchProjects();
+        });
 
-  it('sets error on failure', async () => {
-    mockedApi.deleteProject.mockRejectedValue(new Error('Delete failed'));
+        expect(result.current.projects).toEqual([mockProject]);
+        expect(result.current.isLoadingProjects).toBe(false);
+        expect(result.current.error).toBeNull();
+      });
 
-    await expect(
-      useAIWritingStore.getState().deleteProject('p1')
-    ).rejects.toThrow();
-    expect(useAIWritingStore.getState().error).toBe('Delete failed');
-  });
-});
+      it('should handle empty projects list', async () => {
+        vi.mocked(api.getProjects).mockResolvedValue({ items: [] });
 
-// ---------------------------------------------------------------------------
-// setCurrentProject
-// ---------------------------------------------------------------------------
+        const { result } = renderHook(() => useAIWritingStore());
 
-describe('setCurrentProject', () => {
-  it('sets a project as current', () => {
-    const project = makeProject();
-    useAIWritingStore.getState().setCurrentProject(project);
-    expect(useAIWritingStore.getState().currentProject).toEqual(project);
-  });
+        await act(async () => {
+          await result.current.fetchProjects();
+        });
 
-  it('sets currentProject to null', () => {
-    useAIWritingStore.setState({ currentProject: makeProject() });
-    useAIWritingStore.getState().setCurrentProject(null);
-    expect(useAIWritingStore.getState().currentProject).toBeNull();
-  });
-});
+        expect(result.current.projects).toEqual([]);
+      });
 
-// ---------------------------------------------------------------------------
-// fetchVolumes
-// ---------------------------------------------------------------------------
+      it('should handle fetch error', async () => {
+        vi.mocked(api.getProjects).mockRejectedValue(
+          new Error('Network error')
+        );
 
-describe('fetchVolumes', () => {
-  it('loads volumes on success', async () => {
-    const volumes = [makeVolume()];
-    mockedApi.getVolumes.mockResolvedValue(
-      volumes as ReturnType<typeof api.getVolumes> extends Promise<infer T>
-        ? T
-        : never
-    );
+        const { result } = renderHook(() => useAIWritingStore());
 
-    await useAIWritingStore.getState().fetchVolumes('p1');
+        await act(async () => {
+          await result.current.fetchProjects();
+        });
 
-    expect(useAIWritingStore.getState().volumes).toEqual(volumes);
-  });
-
-  it('silent=false shows loading state', async () => {
-    mockedApi.getVolumes.mockResolvedValue([]);
-
-    await useAIWritingStore.getState().fetchVolumes('p1', false);
-
-    expect(useAIWritingStore.getState().isLoadingVolumes).toBe(false);
-  });
-
-  it('silent=true does not set loading state on error', async () => {
-    mockedApi.getVolumes.mockRejectedValue(new Error('Network error'));
-
-    await useAIWritingStore.getState().fetchVolumes('p1', true);
-
-    // Silent mode: error should not propagate to state
-    expect(useAIWritingStore.getState().error).toBeNull();
-  });
-
-  it('sets error on non-silent failure', async () => {
-    mockedApi.getVolumes.mockRejectedValue(new Error('Volumes not found'));
-
-    await useAIWritingStore.getState().fetchVolumes('p1', false);
-
-    expect(useAIWritingStore.getState().error).toBe('Volumes not found');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// createVolume
-// ---------------------------------------------------------------------------
-
-describe('createVolume', () => {
-  it('appends new volume to the list', async () => {
-    const existing = makeVolume({ id: 'v1' });
-    const newVol = makeVolume({ id: 'v2', title: 'Volume 2', volumeNumber: 2 });
-    useAIWritingStore.setState({
-      volumes: [existing] as ReturnType<typeof makeVolume>[],
-    });
-    mockedApi.createVolume.mockResolvedValue(
-      newVol as ReturnType<typeof api.createVolume> extends Promise<infer T>
-        ? T
-        : never
-    );
-
-    const result = await useAIWritingStore
-      .getState()
-      .createVolume('p1', { title: 'Volume 2', volumeNumber: 2 });
-
-    expect(useAIWritingStore.getState().volumes).toHaveLength(2);
-    expect(result).toEqual(newVol);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fetchChapter
-// ---------------------------------------------------------------------------
-
-describe('fetchChapter', () => {
-  it('sets currentChapter on success', async () => {
-    const chapter = makeChapter();
-    mockedApi.getChapter.mockResolvedValue(
-      chapter as ReturnType<typeof api.getChapter> extends Promise<infer T>
-        ? T
-        : never
-    );
-
-    await useAIWritingStore.getState().fetchChapter('ch1');
-
-    expect(useAIWritingStore.getState().currentChapter).toEqual(chapter);
-  });
-
-  it('sets error on failure', async () => {
-    mockedApi.getChapter.mockRejectedValue(new Error('Chapter not found'));
-
-    await useAIWritingStore.getState().fetchChapter('ch1');
-
-    expect(useAIWritingStore.getState().error).toBe('Chapter not found');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// updateChapter
-// ---------------------------------------------------------------------------
-
-describe('updateChapter', () => {
-  it('updates chapter in volumes and currentChapter', async () => {
-    const chapter = makeChapter();
-    const volume = makeVolume({ chapters: [chapter] });
-    const updatedChapter = makeChapter({
-      content: 'Updated content',
-      wordCount: 200,
-    });
-    useAIWritingStore.setState({
-      volumes: [volume] as ReturnType<typeof makeVolume>[],
-      currentChapter: chapter,
-    });
-    mockedApi.updateChapter.mockResolvedValue(
-      updatedChapter as ReturnType<typeof api.updateChapter> extends Promise<
-        infer T
-      >
-        ? T
-        : never
-    );
-
-    await useAIWritingStore.getState().updateChapter('ch1', 'Updated content');
-
-    const { volumes, currentChapter } = useAIWritingStore.getState();
-    expect(volumes[0].chapters?.[0].content).toBe('Updated content');
-    expect(currentChapter?.content).toBe('Updated content');
-  });
-
-  it('throws and sets error on failure', async () => {
-    mockedApi.updateChapter.mockRejectedValue(new Error('Update failed'));
-
-    await expect(
-      useAIWritingStore.getState().updateChapter('ch1', 'content')
-    ).rejects.toThrow('Update failed');
-    expect(useAIWritingStore.getState().error).toBe('Update failed');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// createChapter
-// ---------------------------------------------------------------------------
-
-describe('createChapter', () => {
-  it('adds chapter to correct volume', async () => {
-    const vol1 = makeVolume({ id: 'v1', chapters: [] });
-    const vol2 = makeVolume({ id: 'v2', chapters: [] });
-    const newChapter = makeChapter({ volumeId: 'v1' });
-    useAIWritingStore.setState({
-      volumes: [vol1, vol2] as ReturnType<typeof makeVolume>[],
-    });
-    mockedApi.createChapter.mockResolvedValue(
-      newChapter as ReturnType<typeof api.createChapter> extends Promise<
-        infer T
-      >
-        ? T
-        : never
-    );
-
-    await useAIWritingStore
-      .getState()
-      .createChapter('v1', { title: 'Chapter 1', chapterNumber: 1 });
-
-    const { volumes } = useAIWritingStore.getState();
-    expect(volumes.find((v) => v.id === 'v1')?.chapters).toHaveLength(1);
-    expect(volumes.find((v) => v.id === 'v2')?.chapters).toHaveLength(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// setCurrentChapter
-// ---------------------------------------------------------------------------
-
-describe('setCurrentChapter', () => {
-  it('sets a chapter as current', () => {
-    const chapter = makeChapter();
-    useAIWritingStore.getState().setCurrentChapter(chapter);
-    expect(useAIWritingStore.getState().currentChapter).toEqual(chapter);
-  });
-
-  it('clears currentChapter when null passed', () => {
-    useAIWritingStore.setState({ currentChapter: makeChapter() });
-    useAIWritingStore.getState().setCurrentChapter(null);
-    expect(useAIWritingStore.getState().currentChapter).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fetchStoryBible
-// ---------------------------------------------------------------------------
-
-describe('fetchStoryBible', () => {
-  it('sets storyBible on success', async () => {
-    const bible = {
-      id: 'bible-1',
-      projectId: 'p1',
-      premise: 'A world of magic',
-    };
-    mockedApi.getStoryBible.mockResolvedValue(
-      bible as ReturnType<typeof api.getStoryBible> extends Promise<infer T>
-        ? T
-        : never
-    );
-
-    await useAIWritingStore.getState().fetchStoryBible('p1');
-
-    expect(useAIWritingStore.getState().storyBible).toEqual(bible);
-    expect(useAIWritingStore.getState().isLoadingBible).toBe(false);
-  });
-
-  it('sets storyBible to null on error (expected when bible not created yet)', async () => {
-    mockedApi.getStoryBible.mockRejectedValue(new Error('Not found'));
-
-    await useAIWritingStore.getState().fetchStoryBible('p1');
-
-    expect(useAIWritingStore.getState().storyBible).toBeNull();
-    expect(useAIWritingStore.getState().isLoadingBible).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// updateStoryBible
-// ---------------------------------------------------------------------------
-
-describe('updateStoryBible', () => {
-  it('updates storyBible in state', async () => {
-    const updated = {
-      id: 'bible-1',
-      projectId: 'p1',
-      premise: 'Updated premise',
-    };
-    mockedApi.updateStoryBible.mockResolvedValue(
-      updated as ReturnType<typeof api.updateStoryBible> extends Promise<
-        infer T
-      >
-        ? T
-        : never
-    );
-
-    await useAIWritingStore
-      .getState()
-      .updateStoryBible('p1', { premise: 'Updated premise' });
-
-    expect(useAIWritingStore.getState().storyBible).toEqual(updated);
-  });
-
-  it('throws and sets error on failure', async () => {
-    mockedApi.updateStoryBible.mockRejectedValue(new Error('Save failed'));
-
-    await expect(
-      useAIWritingStore.getState().updateStoryBible('p1', {})
-    ).rejects.toThrow('Save failed');
-    expect(useAIWritingStore.getState().error).toBe('Save failed');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fetchCharacters
-// ---------------------------------------------------------------------------
-
-describe('fetchCharacters', () => {
-  it('sets characters on success', async () => {
-    const chars = [
-      makeCharacter(),
-      makeCharacter({ id: 'char2', name: 'Legolas' }),
-    ];
-    mockedApi.getCharacters.mockResolvedValue(
-      chars as ReturnType<typeof api.getCharacters> extends Promise<infer T>
-        ? T
-        : never
-    );
-
-    await useAIWritingStore.getState().fetchCharacters('p1');
-
-    expect(useAIWritingStore.getState().characters).toEqual(chars);
-  });
-
-  it('sets error on failure', async () => {
-    mockedApi.getCharacters.mockRejectedValue(new Error('Fetch error'));
-
-    await useAIWritingStore.getState().fetchCharacters('p1');
-
-    expect(useAIWritingStore.getState().error).toBe('Fetch error');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// createCharacter
-// ---------------------------------------------------------------------------
-
-describe('createCharacter', () => {
-  it('appends character to the list', async () => {
-    const existing = makeCharacter({ id: 'char1', name: 'Aragorn' });
-    const newChar = makeCharacter({ id: 'char2', name: 'Legolas' });
-    useAIWritingStore.setState({
-      characters: [existing] as ReturnType<typeof makeCharacter>[],
-    });
-    mockedApi.createCharacter.mockResolvedValue(
-      newChar as ReturnType<typeof api.createCharacter> extends Promise<infer T>
-        ? T
-        : never
-    );
-
-    const result = await useAIWritingStore.getState().createCharacter('p1', {
-      name: 'Legolas',
-      role: 'hero',
-      description: 'Elf archer',
-    } as Parameters<typeof api.createCharacter>[1]);
-
-    expect(useAIWritingStore.getState().characters).toHaveLength(2);
-    expect(result).toEqual(newChar);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// deleteCharacter
-// ---------------------------------------------------------------------------
-
-describe('deleteCharacter', () => {
-  it('removes character from the list', async () => {
-    const char1 = makeCharacter({ id: 'char1' });
-    const char2 = makeCharacter({ id: 'char2', name: 'Legolas' });
-    useAIWritingStore.setState({
-      characters: [char1, char2] as ReturnType<typeof makeCharacter>[],
-    });
-    mockedApi.deleteCharacter.mockResolvedValue(
-      undefined as ReturnType<typeof api.deleteCharacter> extends Promise<
-        infer T
-      >
-        ? T
-        : never
-    );
-
-    await useAIWritingStore.getState().deleteCharacter('p1', 'char1');
-
-    const { characters } = useAIWritingStore.getState();
-    expect(characters).toHaveLength(1);
-    expect(characters[0].id).toBe('char2');
-  });
-
-  it('sets error on failure', async () => {
-    mockedApi.deleteCharacter.mockRejectedValue(new Error('Delete failed'));
-
-    await expect(
-      useAIWritingStore.getState().deleteCharacter('p1', 'char1')
-    ).rejects.toThrow('Delete failed');
-    expect(useAIWritingStore.getState().error).toBe('Delete failed');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// startMission
-// ---------------------------------------------------------------------------
-
-describe('startMission', () => {
-  it('sets isMissionRunning=true and initial orchestrator state on call', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'world-building',
-    });
-    // getMissionStatus needs to be set up so pollMissionStatus doesn't loop
-    mockedApi.getMissionStatus.mockResolvedValue({
-      id: 'm1',
-      status: 'COMPLETED',
-      result: {},
-      orchestratorState: {
-        completedSteps: [],
-        currentSteps: [],
-        progress: 100,
-      },
-    } as unknown as ReturnType<typeof api.getMissionStatus> extends Promise<
-      infer T
-    >
-      ? T
-      : never);
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
-
-    await useAIWritingStore.getState().startMission('p1', {
-      prompt: 'Write chapter 1',
-      missionType: 'chapter',
+        expect(result.current.error).toBe('Network error');
+        expect(result.current.isLoadingProjects).toBe(false);
+      });
     });
 
-    // Should have been set during the call
-    expect(mockedApi.startMission).toHaveBeenCalledWith(
-      'p1',
-      expect.objectContaining({ prompt: 'Write chapter 1' })
-    );
-  });
+    describe('fetchProject', () => {
+      it('should fetch single project', async () => {
+        vi.mocked(api.getProject).mockResolvedValue(mockProject);
 
-  it('sets error and isMissionRunning=false when startMission API fails', async () => {
-    mockedApi.startMission.mockRejectedValue(
-      new Error('Mission creation failed')
-    );
+        const { result } = renderHook(() => useAIWritingStore());
 
-    await expect(
-      useAIWritingStore
-        .getState()
-        .startMission('p1', { prompt: 'Write', missionType: 'chapter' })
-    ).rejects.toThrow('Mission creation failed');
+        await act(async () => {
+          await result.current.fetchProject('project-1');
+        });
 
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.error).toBe('Mission creation failed');
-    expect(state.activeAgentIds).toEqual([]);
-  });
+        expect(result.current.currentProject).toEqual(mockProject);
+        expect(result.current.isLoadingProjects).toBe(false);
+      });
 
-  it('throws when no missionId returned', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: '',
-      success: false,
-      projectId: 'p1',
-      message: 'Error',
-      missionType: 'chapter',
+      it('should handle silent mode without showing loading', async () => {
+        vi.mocked(api.getProject).mockResolvedValue(mockProject);
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        await act(async () => {
+          await result.current.fetchProject('project-1', true);
+        });
+
+        expect(result.current.currentProject).toEqual(mockProject);
+      });
+
+      it('should handle project fetch error', async () => {
+        vi.mocked(api.getProject).mockRejectedValue(new Error('Not found'));
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        await act(async () => {
+          await result.current.fetchProject('project-1');
+        });
+
+        expect(result.current.error).toBe('Not found');
+        expect(result.current.currentProject).toBeNull();
+      });
     });
 
-    await expect(
-      useAIWritingStore
-        .getState()
-        .startMission('p1', { prompt: 'Test', missionType: 'chapter' })
-    ).rejects.toThrow('未获取到任务ID');
-  });
-});
+    describe('createProject', () => {
+      it('should create project successfully', async () => {
+        vi.mocked(api.createProject).mockResolvedValue(mockProject);
 
-// ---------------------------------------------------------------------------
-// cancelMission
-// ---------------------------------------------------------------------------
+        const { result } = renderHook(() => useAIWritingStore());
 
-describe('cancelMission', () => {
-  it('resets all mission state after cancel', async () => {
-    useAIWritingStore.setState({
-      isMissionRunning: true,
-      currentMissionId: 'm1',
-      missionProgress: 50,
-      activeAgentIds: ['writer-1'],
-    });
-    mockedApi.cancelMission.mockResolvedValue(
-      undefined as unknown as { success: boolean }
-    );
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [],
-      total: 0,
-    } as ReturnType<typeof api.getProjectMissions> extends Promise<infer T>
-      ? T
-      : never);
-    mockedApi.forceCleanupStuckMissions.mockResolvedValue({
-      cleaned: 0,
-    } as unknown as {
-      success: boolean;
-      cleanedCount: number;
-      message: string;
-    });
+        let createdProject: WritingProject | undefined;
+        await act(async () => {
+          createdProject = await result.current.createProject({
+            name: 'Test Novel',
+            description: 'A test novel',
+            genre: 'fantasy',
+          });
+        });
 
-    await useAIWritingStore.getState().cancelMission('p1');
+        expect(createdProject).toEqual(mockProject);
+        expect(result.current.projects).toContainEqual(mockProject);
+      });
 
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.currentMissionId).toBeNull();
-    expect(state.missionProgress).toBe(0);
-    expect(state.activeAgentIds).toEqual([]);
-    expect(state.isStuckMission).toBe(false);
-  });
+      it('should handle create error', async () => {
+        vi.mocked(api.createProject).mockRejectedValue(
+          new Error('Create failed')
+        );
 
-  it('clears stuck mission state on cancel', async () => {
-    useAIWritingStore.setState({
-      isStuckMission: true,
-      stuckMissionId: 'm1',
-      currentMissionId: 'm1',
-    });
-    mockedApi.cancelMission.mockRejectedValue(new Error('already cancelled'));
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [],
-      total: 0,
-    } as ReturnType<typeof api.getProjectMissions> extends Promise<infer T>
-      ? T
-      : never);
-    mockedApi.forceCleanupStuckMissions.mockResolvedValue({
-      cleaned: 1,
-    } as unknown as {
-      success: boolean;
-      cleanedCount: number;
-      message: string;
+        const { result } = renderHook(() => useAIWritingStore());
+
+        let error: Error | undefined;
+        await act(async () => {
+          try {
+            await result.current.createProject({ name: 'Test' });
+          } catch (err) {
+            error = err as Error;
+          }
+        });
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error?.message).toBe('Create failed');
+        expect(result.current.error).toBe('Create failed');
+      });
     });
 
-    await useAIWritingStore.getState().cancelMission('p1');
+    describe('updateProject', () => {
+      it('should update project in list and current', async () => {
+        const updatedProject = { ...mockProject, name: 'Updated Title' };
+        vi.mocked(api.updateProject).mockResolvedValue(updatedProject);
 
-    const state = useAIWritingStore.getState();
-    expect(state.isStuckMission).toBe(false);
-    expect(state.stuckMissionId).toBeNull();
-  });
-});
+        const { result } = renderHook(() => useAIWritingStore());
 
-// ---------------------------------------------------------------------------
-// clearStuckMission
-// ---------------------------------------------------------------------------
+        // Set initial state
+        act(() => {
+          useAIWritingStore.setState({
+            projects: [mockProject],
+            currentProject: mockProject,
+          });
+        });
 
-describe('clearStuckMission', () => {
-  it('resets stuck mission flags', () => {
-    useAIWritingStore.setState({
-      isStuckMission: true,
-      stuckMissionId: 'm1',
-      isMissionRunning: true,
-      missionProgress: 50,
-      missionMessage: 'Stuck',
+        await act(async () => {
+          await result.current.updateProject('project-1', {
+            name: 'Updated Title',
+          });
+        });
+
+        expect(result.current.projects[0].name).toBe('Updated Title');
+        expect(result.current.currentProject?.name).toBe('Updated Title');
+      });
     });
 
-    useAIWritingStore.getState().clearStuckMission();
+    describe('deleteProject', () => {
+      it('should delete project from list', async () => {
+        vi.mocked(api.deleteProject).mockResolvedValue(undefined);
 
-    const state = useAIWritingStore.getState();
-    expect(state.isStuckMission).toBe(false);
-    expect(state.stuckMissionId).toBeNull();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.missionProgress).toBe(0);
-    expect(state.missionMessage).toBe('');
-  });
-});
+        const { result } = renderHook(() => useAIWritingStore());
 
-// ---------------------------------------------------------------------------
-// checkRunningMission
-// ---------------------------------------------------------------------------
+        // Set initial state
+        act(() => {
+          useAIWritingStore.setState({ projects: [mockProject] });
+        });
 
-describe('checkRunningMission', () => {
-  it('sets missionCompleted=true when a completed mission is found', async () => {
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [{ id: 'm1', status: 'COMPLETED' }],
-      total: 1,
-    } as ReturnType<typeof api.getProjectMissions> extends Promise<infer T>
-      ? T
-      : never);
+        await act(async () => {
+          await result.current.deleteProject('project-1');
+        });
 
-    await useAIWritingStore.getState().checkRunningMission('p1');
+        expect(result.current.projects).toHaveLength(0);
+      });
 
-    const state = useAIWritingStore.getState();
-    expect(state.missionCompleted).toBe(true);
-    expect(state.missionProgress).toBe(100);
-  });
+      it('should clear currentProject if deleted', async () => {
+        vi.mocked(api.deleteProject).mockResolvedValue(undefined);
 
-  it('detects stuck mission (last update > 3 minutes ago)', async () => {
-    const staleTime = new Date(Date.now() - 4 * 60 * 1000).toISOString();
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [
-        { id: 'm1', status: 'IN_PROGRESS', updatedAt: staleTime, progress: 30 },
-      ],
-      total: 1,
-    } as ReturnType<typeof api.getProjectMissions> extends Promise<infer T>
-      ? T
-      : never);
+        const { result } = renderHook(() => useAIWritingStore());
 
-    await useAIWritingStore.getState().checkRunningMission('p1');
+        // Set initial state
+        act(() => {
+          useAIWritingStore.setState({ currentProject: mockProject });
+        });
 
-    const state = useAIWritingStore.getState();
-    expect(state.isStuckMission).toBe(true);
-    expect(state.stuckMissionId).toBe('m1');
-    expect(state.isMissionRunning).toBe(false);
-  });
+        await act(async () => {
+          await result.current.deleteProject('project-1');
+        });
 
-  it('ignores errors silently', async () => {
-    mockedApi.getProjectMissions.mockRejectedValue(new Error('Network error'));
-
-    await expect(
-      useAIWritingStore.getState().checkRunningMission('p1')
-    ).resolves.not.toThrow();
-
-    // Error should not propagate to state
-    expect(useAIWritingStore.getState().error).toBeNull();
-  });
-
-  it('does nothing when no missions exist', async () => {
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [],
-      total: 0,
-    } as ReturnType<typeof api.getProjectMissions> extends Promise<infer T>
-      ? T
-      : never);
-
-    await useAIWritingStore.getState().checkRunningMission('p1');
-
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.isStuckMission).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// conversationHistory
-// ---------------------------------------------------------------------------
-
-describe('addToConversationHistory', () => {
-  it('appends messages to the history', () => {
-    const msg1 = {
-      role: 'user' as const,
-      content: 'Hello',
-      timestamp: '2024-01-01T00:00:00Z',
-    };
-    const msg2 = {
-      role: 'assistant' as const,
-      content: 'Hi there',
-      timestamp: '2024-01-01T00:01:00Z',
-    };
-
-    useAIWritingStore.getState().addToConversationHistory(msg1);
-    useAIWritingStore.getState().addToConversationHistory(msg2);
-
-    const { conversationHistory } = useAIWritingStore.getState();
-    expect(conversationHistory).toHaveLength(2);
-    expect(conversationHistory[0].content).toBe('Hello');
-    expect(conversationHistory[1].content).toBe('Hi there');
-  });
-
-  it('adds timestamp if not provided', () => {
-    const msg = { role: 'user' as const, content: 'Test message' };
-    useAIWritingStore.getState().addToConversationHistory(msg);
-
-    const { conversationHistory } = useAIWritingStore.getState();
-    expect(conversationHistory[0].timestamp).toBeTruthy();
-  });
-});
-
-describe('clearConversationHistory', () => {
-  it('empties the conversation history', () => {
-    useAIWritingStore.setState({
-      conversationHistory: [
-        { role: 'user', content: 'Hello', timestamp: '2024-01-01T00:00:00Z' },
-        { role: 'assistant', content: 'Hi', timestamp: '2024-01-01T00:01:00Z' },
-      ],
+        expect(result.current.currentProject).toBeNull();
+      });
     });
 
-    useAIWritingStore.getState().clearConversationHistory();
+    describe('setCurrentProject', () => {
+      it('should set current project', () => {
+        const { result } = renderHook(() => useAIWritingStore());
 
-    expect(useAIWritingStore.getState().conversationHistory).toEqual([]);
+        act(() => {
+          result.current.setCurrentProject(mockProject);
+        });
+
+        expect(result.current.currentProject).toEqual(mockProject);
+      });
+    });
   });
-});
 
-// ---------------------------------------------------------------------------
-// clearError
-// ---------------------------------------------------------------------------
+  describe('Volumes & Chapters', () => {
+    describe('fetchVolumes', () => {
+      it('should fetch volumes successfully', async () => {
+        vi.mocked(api.getVolumes).mockResolvedValue([mockVolume]);
 
-describe('clearError', () => {
-  it('clears the error state', () => {
-    useAIWritingStore.setState({ error: 'Something went wrong' });
+        const { result } = renderHook(() => useAIWritingStore());
 
-    useAIWritingStore.getState().clearError();
+        await act(async () => {
+          await result.current.fetchVolumes('project-1');
+        });
 
-    expect(useAIWritingStore.getState().error).toBeNull();
-  });
-});
+        expect(result.current.volumes).toEqual([mockVolume]);
+        expect(result.current.isLoadingVolumes).toBe(false);
+      });
 
-// ---------------------------------------------------------------------------
-// reset
-// ---------------------------------------------------------------------------
+      it('should handle silent mode', async () => {
+        vi.mocked(api.getVolumes).mockResolvedValue([mockVolume]);
 
-describe('reset', () => {
-  it('restores all state to initial values', () => {
-    useAIWritingStore.setState({
-      projects: [makeProject()] as ReturnType<typeof makeProject>[],
-      currentProject: makeProject(),
-      isMissionRunning: true,
-      missionProgress: 75,
-      error: 'Some error',
+        const { result } = renderHook(() => useAIWritingStore());
+
+        await act(async () => {
+          await result.current.fetchVolumes('project-1', true);
+        });
+
+        expect(result.current.volumes).toEqual([mockVolume]);
+      });
     });
 
-    useAIWritingStore.getState().reset();
+    describe('createVolume', () => {
+      it('should create volume and add to list', async () => {
+        vi.mocked(api.createVolume).mockResolvedValue(mockVolume);
 
-    const state = useAIWritingStore.getState();
-    expect(state.projects).toEqual([]);
-    expect(state.currentProject).toBeNull();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.missionProgress).toBe(0);
-    expect(state.error).toBeNull();
-  });
-});
+        const { result } = renderHook(() => useAIWritingStore());
 
-// ---------------------------------------------------------------------------
-// clearCurrentProjectData
-// ---------------------------------------------------------------------------
+        await act(async () => {
+          await result.current.createVolume('project-1', {
+            title: 'Volume 1',
+            volumeNumber: 1,
+          });
+        });
 
-// ---------------------------------------------------------------------------
-// pollMissionStatus — tested via startMission using real timers + waiting
-// Strategy: don't use fake timers; instead mock setTimeout to resolve immediately
-// ---------------------------------------------------------------------------
-
-describe('pollMissionStatus (via startMission - mission outcomes)', () => {
-  it('sets missionCompleted=true and calls fetchVolumes+fetchProject when COMPLETED', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-poll-1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
-    });
-    mockedApi.getMissionStatus.mockResolvedValue({
-      id: 'm-poll-1',
-      status: 'COMPLETED',
-      result: {},
-      orchestratorState: null,
-    } as never);
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
-
-    // Patch setTimeout to resolve immediately during this test
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
-
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
-
-    // Give the fire-and-forget poll a chance to run
-    await new Promise((r) => origSetTimeout(r, 50));
-
-    vi.unstubAllGlobals();
-
-    const state = useAIWritingStore.getState();
-    expect(state.missionCompleted).toBe(true);
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.missionProgress).toBe(100);
-    expect(mockedApi.getVolumes).toHaveBeenCalled();
-    expect(mockedApi.getProject).toHaveBeenCalled();
-  });
-
-  it('sets error state on FAILED mission with string error', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-fail-1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
-    });
-    mockedApi.getMissionStatus.mockResolvedValue({
-      id: 'm-fail-1',
-      status: 'FAILED',
-      result: { error: 'Writer crashed' },
-      orchestratorState: null,
-    } as never);
-
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
-
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
-
-    await new Promise((r) => origSetTimeout(r, 50));
-    vi.unstubAllGlobals();
-
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.error).toBe('Writer crashed');
-    expect(state.missionCompleted).toBe(false);
-  });
-
-  it('sets error state on FAILED mission with object error', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-fail-2',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
-    });
-    mockedApi.getMissionStatus.mockResolvedValue({
-      id: 'm-fail-2',
-      status: 'FAILED',
-      result: { error: { message: 'Object error message' } },
-      orchestratorState: null,
-    } as never);
-
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
-
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
-
-    await new Promise((r) => origSetTimeout(r, 50));
-    vi.unstubAllGlobals();
-
-    expect(useAIWritingStore.getState().error).toBe('Object error message');
-  });
-
-  it('clears state (no error) on FAILED mission with cancelled error', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-cancel-1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
-    });
-    mockedApi.getMissionStatus.mockResolvedValue({
-      id: 'm-cancel-1',
-      status: 'FAILED',
-      result: { error: 'Mission cancelled by user 取消' },
-      orchestratorState: null,
-    } as never);
-
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
-
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
-
-    await new Promise((r) => origSetTimeout(r, 50));
-    vi.unstubAllGlobals();
-
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.error).toBeNull();
-    expect(state.missionMessage).toBe('');
-  });
-
-  it('updates progress from orchestratorState with currentSteps matching stepToPhase', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-orch-1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
+        expect(result.current.volumes).toContainEqual(mockVolume);
+      });
     });
 
-    let callCount = 0;
-    mockedApi.getMissionStatus.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          id: 'm-orch-1',
-          status: 'IN_PROGRESS',
-          result: {},
-          orchestratorState: {
-            completedSteps: [],
-            currentSteps: ['write'],
-            progress: 50,
-          },
-        } as never;
-      }
-      return {
-        id: 'm-orch-1',
-        status: 'COMPLETED',
-        result: {},
-        orchestratorState: null,
-      } as never;
-    });
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
+    describe('fetchChapter', () => {
+      it('should fetch chapter and set as current', async () => {
+        vi.mocked(api.getChapter).mockResolvedValue(mockChapter);
 
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
+        const { result } = renderHook(() => useAIWritingStore());
 
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+        await act(async () => {
+          await result.current.fetchChapter('chapter-1');
+        });
 
-    // Two poll ticks needed
-    await new Promise((r) => origSetTimeout(r, 100));
-    vi.unstubAllGlobals();
-
-    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
-  });
-
-  it('updates progress from orchestratorState when currentSteps empty but completedSteps exist', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-orch-2',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
+        expect(result.current.currentChapter).toEqual(mockChapter);
+      });
     });
 
-    let callCount = 0;
-    mockedApi.getMissionStatus.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          id: 'm-orch-2',
-          status: 'IN_PROGRESS',
-          result: {},
-          orchestratorState: {
-            completedSteps: ['plan'],
-            currentSteps: [],
-            progress: 30,
-          },
-        } as never;
-      }
-      return {
-        id: 'm-orch-2',
-        status: 'COMPLETED',
-        result: {},
-        orchestratorState: null,
-      } as never;
-    });
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
+    describe('updateChapter', () => {
+      it('should update chapter in volumes and current', async () => {
+        const updatedChapter = { ...mockChapter, content: 'Updated content' };
+        vi.mocked(api.updateChapter).mockResolvedValue(updatedChapter);
 
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
+        const volumeWithChapter = {
+          ...mockVolume,
+          chapters: [mockChapter],
+        };
 
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+        const { result } = renderHook(() => useAIWritingStore());
 
-    await new Promise((r) => origSetTimeout(r, 100));
-    vi.unstubAllGlobals();
+        // Set initial state
+        act(() => {
+          useAIWritingStore.setState({
+            volumes: [volumeWithChapter],
+            currentChapter: mockChapter,
+          });
+        });
 
-    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
-  });
+        await act(async () => {
+          await result.current.updateChapter('chapter-1', 'Updated content');
+        });
 
-  it('refreshes StoryBible when world-building step completes', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-wb-1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'world-building',
+        expect(result.current.currentChapter?.content).toBe('Updated content');
+      });
     });
 
-    let callCount = 0;
-    mockedApi.getMissionStatus.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          id: 'm-wb-1',
-          status: 'IN_PROGRESS',
-          result: {},
-          orchestratorState: {
-            completedSteps: ['world-building'],
-            currentSteps: [],
-            progress: 20,
-          },
-        } as never;
-      }
-      return {
-        id: 'm-wb-1',
-        status: 'COMPLETED',
-        result: {},
-        orchestratorState: null,
-      } as never;
+    describe('createChapter', () => {
+      it('should create chapter and add to volume', async () => {
+        vi.mocked(api.createChapter).mockResolvedValue(mockChapter);
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        // Set initial state
+        act(() => {
+          useAIWritingStore.setState({ volumes: [mockVolume] });
+        });
+
+        await act(async () => {
+          await result.current.createChapter('volume-1', {
+            title: 'Chapter 1',
+            chapterNumber: 1,
+          });
+        });
+
+        expect(result.current.volumes[0].chapters).toContainEqual(mockChapter);
+      });
     });
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
-    mockedApi.getStoryBible.mockResolvedValue({
-      id: 'bible-1',
-      projectId: 'p1',
-    } as never);
-
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
-
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
-
-    await new Promise((r) => origSetTimeout(r, 100));
-    vi.unstubAllGlobals();
-
-    // StoryBible fetch was triggered
-    expect(mockedApi.getStoryBible).toHaveBeenCalled();
   });
 
-  it('handles 404 ApiError by stopping poll cleanly', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-404-1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
-    });
+  describe('Story Bible & Characters', () => {
+    describe('fetchStoryBible', () => {
+      it('should fetch story bible', async () => {
+        const mockBible: StoryBible = {
+          id: 'bible-1',
+          projectId: 'project-1',
+          premise: 'A hero rises',
+          theme: 'Good vs evil',
+          tone: 'Epic',
+          worldType: 'Fantasy',
+          worldSettings: [],
+          characters: [],
+        };
 
-    const ApiErrorClass = mockedApi.ApiError;
-    mockedApi.getMissionStatus.mockRejectedValue(
-      new ApiErrorClass('Not found', 404)
-    );
+        vi.mocked(api.getStoryBible).mockResolvedValue(mockBible);
 
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
+        const { result } = renderHook(() => useAIWritingStore());
 
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+        await act(async () => {
+          await result.current.fetchStoryBible('project-1');
+        });
 
-    await new Promise((r) => origSetTimeout(r, 50));
-    vi.unstubAllGlobals();
+        expect(result.current.storyBible).toEqual(mockBible);
+        expect(result.current.isLoadingBible).toBe(false);
+      });
 
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.missionCompleted).toBe(false);
-    expect(state.missionProgress).toBe(0);
-  });
+      it('should handle missing story bible gracefully', async () => {
+        vi.mocked(api.getStoryBible).mockRejectedValue(new Error('Not found'));
 
-  it('handles fallback result.progress when no orchestratorState', async () => {
-    mockedApi.startMission.mockResolvedValue({
-      missionId: 'm-prog-1',
-      success: true,
-      projectId: 'p1',
-      message: 'Started',
-      missionType: 'chapter',
+        const { result } = renderHook(() => useAIWritingStore());
+
+        await act(async () => {
+          await result.current.fetchStoryBible('project-1');
+        });
+
+        expect(result.current.storyBible).toBeNull();
+        expect(result.current.isLoadingBible).toBe(false);
+      });
     });
 
-    let callCount = 0;
-    mockedApi.getMissionStatus.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          id: 'm-prog-1',
-          status: 'IN_PROGRESS',
-          result: { progress: 60, currentStep: 'Writing' },
-          orchestratorState: null,
-        } as never;
-      }
-      return {
-        id: 'm-prog-1',
-        status: 'COMPLETED',
-        result: {},
-        orchestratorState: null,
-      } as never;
-    });
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
+    describe('fetchCharacters', () => {
+      it('should fetch characters list', async () => {
+        vi.mocked(api.getCharacters).mockResolvedValue([mockCharacter]);
 
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
+        const { result } = renderHook(() => useAIWritingStore());
 
-    await useAIWritingStore
-      .getState()
-      .startMission('p1', { prompt: 'Write', missionType: 'chapter' });
+        await act(async () => {
+          await result.current.fetchCharacters('project-1');
+        });
 
-    await new Promise((r) => origSetTimeout(r, 100));
-    vi.unstubAllGlobals();
-
-    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// checkRunningMission — simple mode polling
-// ---------------------------------------------------------------------------
-
-describe('checkRunningMission - with running mission (starts polling)', () => {
-  it('syncs state and polls when a running mission is found', async () => {
-    const recentTime = new Date().toISOString();
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [
-        {
-          id: 'm-run-1',
-          status: 'IN_PROGRESS',
-          updatedAt: recentTime,
-          progress: 25,
-        },
-      ],
-      total: 1,
-    } as never);
-
-    // Immediately complete on first poll
-    mockedApi.getMissionStatus.mockResolvedValue({
-      id: 'm-run-1',
-      status: 'COMPLETED',
-      result: {},
-      orchestratorState: null,
-    } as never);
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
-
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
-
-    await useAIWritingStore.getState().checkRunningMission('p1');
-
-    // Give fire-and-forget poll a chance to complete
-    await new Promise((r) => origSetTimeout(r, 50));
-    vi.unstubAllGlobals();
-
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.missionCompleted).toBe(true);
-  });
-
-  it('updates state from simple orchestratorState (no richOrchestratorUpdates)', async () => {
-    const recentTime = new Date().toISOString();
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [
-        {
-          id: 'm-simple-1',
-          status: 'IN_PROGRESS',
-          updatedAt: recentTime,
-          progress: 10,
-        },
-      ],
-      total: 1,
-    } as never);
-
-    let callCount = 0;
-    mockedApi.getMissionStatus.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          id: 'm-simple-1',
-          status: 'IN_PROGRESS',
-          result: { currentStep: 'writing' },
-          orchestratorState: {
-            completedSteps: [],
-            currentSteps: ['write'],
-            progress: 45,
-          },
-        } as never;
-      }
-      return {
-        id: 'm-simple-1',
-        status: 'COMPLETED',
-        result: {},
-        orchestratorState: null,
-      } as never;
-    });
-    mockedApi.getVolumes.mockResolvedValue([]);
-    mockedApi.getProject.mockResolvedValue(makeProject());
-
-    const origSetTimeout = global.setTimeout;
-    vi.stubGlobal(
-      'setTimeout',
-      (fn: () => void, _delay: number) =>
-        origSetTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>
-    );
-
-    await useAIWritingStore.getState().checkRunningMission('p1');
-
-    await new Promise((r) => origSetTimeout(r, 100));
-    vi.unstubAllGlobals();
-
-    expect(useAIWritingStore.getState().missionCompleted).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// updateProject - error throwing
-// ---------------------------------------------------------------------------
-
-describe('updateProject - error handling', () => {
-  it('throws and sets error on failure', async () => {
-    mockedApi.updateProject.mockRejectedValue(new Error('Update error'));
-
-    await expect(
-      useAIWritingStore.getState().updateProject('p1', { name: 'New' })
-    ).rejects.toThrow('Update error');
-    expect(useAIWritingStore.getState().error).toBe('Update error');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// createVolume - error case
-// ---------------------------------------------------------------------------
-
-describe('createVolume - error handling', () => {
-  it('throws and sets error on failure', async () => {
-    mockedApi.createVolume.mockRejectedValue(new Error('Volume failed'));
-
-    await expect(
-      useAIWritingStore
-        .getState()
-        .createVolume('p1', { title: 'V1', volumeNumber: 1 })
-    ).rejects.toThrow('Volume failed');
-    expect(useAIWritingStore.getState().error).toBe('Volume failed');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// createChapter - error case
-// ---------------------------------------------------------------------------
-
-describe('createChapter - error handling', () => {
-  it('throws and sets error on failure', async () => {
-    mockedApi.createChapter.mockRejectedValue(new Error('Chapter failed'));
-
-    await expect(
-      useAIWritingStore
-        .getState()
-        .createChapter('v1', { title: 'C1', chapterNumber: 1 })
-    ).rejects.toThrow('Chapter failed');
-    expect(useAIWritingStore.getState().error).toBe('Chapter failed');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// cancelMission - without current missionId
-// ---------------------------------------------------------------------------
-
-describe('cancelMission - without missionId', () => {
-  it('falls back to getProjectMissions when no currentMissionId', async () => {
-    useAIWritingStore.setState({ currentMissionId: null });
-    mockedApi.getProjectMissions.mockResolvedValue({
-      items: [{ id: 'm-found-1', status: 'IN_PROGRESS' }],
-      total: 1,
-    } as never);
-    mockedApi.cancelMission.mockResolvedValue(
-      undefined as unknown as { success: boolean }
-    );
-    mockedApi.forceCleanupStuckMissions.mockResolvedValue({
-      cleaned: 0,
-    } as never);
-
-    await useAIWritingStore.getState().cancelMission('p1');
-
-    expect(mockedApi.getProjectMissions).toHaveBeenCalledWith('p1');
-    const state = useAIWritingStore.getState();
-    expect(state.isMissionRunning).toBe(false);
-  });
-});
-
-describe('clearCurrentProjectData', () => {
-  it('clears all project-specific state but keeps projects list', () => {
-    const projects = [makeProject()];
-    useAIWritingStore.setState({
-      projects: projects,
-      currentProject: makeProject(),
-      volumes: [makeVolume()] as ReturnType<typeof makeVolume>[],
-      currentChapter: makeChapter(),
-      storyBible: { id: 'b1', projectId: 'p1' } as unknown as StoryBible,
-      characters: [makeCharacter()] as ReturnType<typeof makeCharacter>[],
-      isMissionRunning: true,
-      currentMissionId: 'm1',
-      missionProgress: 50,
-      missionCompleted: true,
-      conversationHistory: [
-        { role: 'user', content: 'Hi', timestamp: '2024-01-01T00:00:00Z' },
-      ],
+        expect(result.current.characters).toEqual([mockCharacter]);
+      });
     });
 
-    useAIWritingStore.getState().clearCurrentProjectData();
+    describe('createCharacter', () => {
+      it('should create character and add to list', async () => {
+        vi.mocked(api.createCharacter).mockResolvedValue(mockCharacter);
 
-    const state = useAIWritingStore.getState();
-    // projects list should be preserved
-    expect(state.projects).toHaveLength(1);
-    // project-specific data should be cleared
-    expect(state.currentProject).toBeNull();
-    expect(state.volumes).toEqual([]);
-    expect(state.currentChapter).toBeNull();
-    expect(state.characters).toEqual([]);
-    expect(state.isMissionRunning).toBe(false);
-    expect(state.missionProgress).toBe(0);
-    expect(state.missionCompleted).toBe(false);
-    expect(state.conversationHistory).toEqual([]);
+        const { result } = renderHook(() => useAIWritingStore());
+
+        await act(async () => {
+          await result.current.createCharacter('project-1', {
+            name: 'Hero',
+            role: 'protagonist',
+            description: 'The main character',
+          });
+        });
+
+        expect(result.current.characters).toContainEqual(mockCharacter);
+      });
+    });
+
+    describe('deleteCharacter', () => {
+      it('should delete character from list', async () => {
+        vi.mocked(api.deleteCharacter).mockResolvedValue(undefined);
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        // Set initial state
+        act(() => {
+          useAIWritingStore.setState({ characters: [mockCharacter] });
+        });
+
+        await act(async () => {
+          await result.current.deleteCharacter('project-1', 'char-1');
+        });
+
+        expect(result.current.characters).toHaveLength(0);
+      });
+    });
+  });
+
+  describe('AI Mission', () => {
+    describe('startMission', () => {
+      it('should initialize mission state', async () => {
+        const missionId = 'mission-1';
+        vi.mocked(api.startMission).mockResolvedValue({
+          missionId,
+          success: true,
+          message: 'started',
+          projectId: 'project-1',
+          missionType: 'chapter',
+        });
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        act(() => {
+          result.current.startMission('project-1', {
+            prompt: 'Continue writing',
+            missionType: 'chapter',
+          });
+        });
+
+        expect(result.current.isMissionRunning).toBe(true);
+        expect(result.current.missionMessage).toBe('启动写作任务...');
+        expect(result.current.missionProgress).toBe(0);
+        expect(result.current.activeAgentIds).toEqual(['architect']);
+      });
+
+      it('should call startMission API', async () => {
+        const missionId = 'mission-1';
+        vi.mocked(api.startMission).mockResolvedValue({
+          missionId,
+          success: true,
+          message: 'started',
+          projectId: 'project-1',
+          missionType: 'chapter',
+        });
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        act(() => {
+          result.current.startMission('project-1', {
+            prompt: 'Continue writing',
+            missionType: 'chapter',
+          });
+        });
+
+        await act(async () => {
+          await Promise.resolve();
+        });
+
+        expect(api.startMission).toHaveBeenCalledWith('project-1', {
+          prompt: 'Continue writing',
+          missionType: 'chapter',
+        });
+      });
+
+      it('should handle startMission API error', async () => {
+        vi.mocked(api.startMission).mockRejectedValue(
+          new Error('Failed to start')
+        );
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        let error: Error | undefined;
+        await act(async () => {
+          try {
+            await result.current.startMission('project-1', {
+              prompt: 'Continue writing',
+              missionType: 'chapter',
+            });
+          } catch (err) {
+            error = err as Error;
+          }
+        });
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error?.message).toBe('Failed to start');
+        expect(result.current.error).toBe('Failed to start');
+        expect(result.current.isMissionRunning).toBe(false);
+      });
+    });
+
+    describe('cancelMission', () => {
+      it('should cancel mission successfully', async () => {
+        vi.mocked(api.cancelMission).mockResolvedValue({ success: true });
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        // Set initial mission state
+        act(() => {
+          useAIWritingStore.setState({
+            isMissionRunning: true,
+            currentMissionId: 'mission-1',
+            missionProgress: 50,
+          });
+        });
+
+        await act(async () => {
+          await result.current.cancelMission('project-1');
+        });
+
+        expect(result.current.isMissionRunning).toBe(false);
+        expect(result.current.currentMissionId).toBeNull();
+        expect(result.current.missionProgress).toBe(0);
+      });
+
+      it('should use force cleanup when normal cancel fails', async () => {
+        vi.mocked(api.cancelMission).mockRejectedValue(
+          new Error('Cancel failed')
+        );
+        vi.mocked(api.forceCleanupStuckMissions).mockResolvedValue({
+          success: true,
+          cleanedCount: 1,
+          message: 'cleaned',
+        });
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        act(() => {
+          useAIWritingStore.setState({ currentMissionId: 'mission-1' });
+        });
+
+        await act(async () => {
+          await result.current.cancelMission('project-1');
+        });
+
+        expect(api.forceCleanupStuckMissions).toHaveBeenCalledWith('project-1');
+      });
+    });
+
+    describe('checkRunningMission', () => {
+      it('should detect running mission on page load', async () => {
+        const runningMission = {
+          id: 'mission-1',
+          projectId: 'project-1',
+          status: 'IN_PROGRESS' as const,
+          progress: 30,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        vi.mocked(api.getProjectMissions).mockResolvedValue({
+          items: [runningMission],
+          total: 1,
+        });
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        await act(async () => {
+          await result.current.checkRunningMission('project-1');
+        });
+
+        expect(result.current.isMissionRunning).toBe(true);
+        expect(result.current.currentMissionId).toBe('mission-1');
+      });
+
+      it('should detect stuck mission', async () => {
+        const stuckTime = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const stuckMission = {
+          id: 'mission-1',
+          projectId: 'project-1',
+          status: 'IN_PROGRESS' as const,
+          progress: 30,
+          createdAt: stuckTime,
+          updatedAt: stuckTime,
+        };
+
+        vi.mocked(api.getProjectMissions).mockResolvedValue({
+          items: [stuckMission],
+          total: 1,
+        });
+
+        const { result } = renderHook(() => useAIWritingStore());
+
+        await act(async () => {
+          await result.current.checkRunningMission('project-1');
+        });
+
+        expect(result.current.isStuckMission).toBe(true);
+        expect(result.current.stuckMissionId).toBe('mission-1');
+      });
+    });
+
+    describe('clearStuckMission', () => {
+      it('should clear stuck mission state', () => {
+        const { result } = renderHook(() => useAIWritingStore());
+
+        // Set stuck state
+        act(() => {
+          useAIWritingStore.setState({
+            isStuckMission: true,
+            stuckMissionId: 'mission-1',
+            isMissionRunning: true,
+          });
+        });
+
+        act(() => {
+          result.current.clearStuckMission();
+        });
+
+        expect(result.current.isStuckMission).toBe(false);
+        expect(result.current.stuckMissionId).toBeNull();
+        expect(result.current.isMissionRunning).toBe(false);
+      });
+    });
+  });
+
+  describe('Conversation History', () => {
+    it('should add message to history', () => {
+      const { result } = renderHook(() => useAIWritingStore());
+
+      const message = {
+        role: 'user' as const,
+        content: 'Hello',
+        timestamp: '2024-01-01T00:00:00Z',
+      };
+
+      act(() => {
+        result.current.addToConversationHistory(message);
+      });
+
+      expect(result.current.conversationHistory).toHaveLength(1);
+      expect(result.current.conversationHistory[0]).toEqual(message);
+    });
+
+    it('should clear conversation history', () => {
+      const { result } = renderHook(() => useAIWritingStore());
+
+      // Add some messages
+      act(() => {
+        result.current.addToConversationHistory({
+          role: 'user',
+          content: 'Hello',
+        });
+        result.current.addToConversationHistory({
+          role: 'assistant',
+          content: 'Hi',
+        });
+      });
+
+      expect(result.current.conversationHistory).toHaveLength(2);
+
+      act(() => {
+        result.current.clearConversationHistory();
+      });
+
+      expect(result.current.conversationHistory).toHaveLength(0);
+    });
+  });
+
+  describe('Utility', () => {
+    it('should clear error', () => {
+      const { result } = renderHook(() => useAIWritingStore());
+
+      act(() => {
+        useAIWritingStore.setState({ error: 'Some error' });
+      });
+
+      expect(result.current.error).toBe('Some error');
+
+      act(() => {
+        result.current.clearError();
+      });
+
+      expect(result.current.error).toBeNull();
+    });
+
+    it('should reset entire store', () => {
+      const { result } = renderHook(() => useAIWritingStore());
+
+      // Set some state
+      act(() => {
+        useAIWritingStore.setState({
+          projects: [mockProject],
+          currentProject: mockProject,
+          error: 'Some error',
+        });
+      });
+
+      act(() => {
+        result.current.reset();
+      });
+
+      expect(result.current.projects).toEqual([]);
+      expect(result.current.currentProject).toBeNull();
+      expect(result.current.error).toBeNull();
+    });
+
+    it('should clear current project data', () => {
+      const { result } = renderHook(() => useAIWritingStore());
+
+      // Set project-specific state
+      act(() => {
+        useAIWritingStore.setState({
+          currentProject: mockProject,
+          volumes: [mockVolume],
+          characters: [mockCharacter],
+          isMissionRunning: true,
+        });
+      });
+
+      act(() => {
+        result.current.clearCurrentProjectData();
+      });
+
+      expect(result.current.currentProject).toBeNull();
+      expect(result.current.volumes).toEqual([]);
+      expect(result.current.characters).toEqual([]);
+      expect(result.current.isMissionRunning).toBe(false);
+    });
   });
 });

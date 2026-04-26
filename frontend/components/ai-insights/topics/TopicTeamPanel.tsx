@@ -1264,19 +1264,15 @@ function buildTopicAgentInspectorPayload(
   })();
 
   // 任务进度（X / Y + 进度条）—— 作为 config 一行的 value
+  // dl 左边已经有 "任务进度" label，value 内部不再重复 label，只显示数值 + 进度条
   const progressValue: React.ReactNode | undefined =
     agent.taskCount > 0 ? (
       <span className="block w-full">
-        <span className="flex items-center justify-between text-[11px]">
-          <span className="text-gray-500">
-            {t('topicResearch.common.taskProgressLabel')}
-          </span>
-          <span className="font-medium text-gray-700">
-            {t('topicResearch.common.taskProgressValue', {
-              completed: agent.completedCount,
-              total: agent.taskCount,
-            })}
-          </span>
+        <span className="text-[11px] font-medium text-gray-700">
+          {t('topicResearch.common.taskProgressValue', {
+            completed: agent.completedCount,
+            total: agent.taskCount,
+          })}
         </span>
         <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-gray-200">
           <span

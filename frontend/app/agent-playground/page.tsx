@@ -20,8 +20,18 @@ import {
   Coins,
   Trophy,
 } from 'lucide-react';
-import { listMissions, type MissionListItem } from '@/lib/api/agent-playground';
-import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
+import {
+  listMissions,
+  rerunMission,
+  cancelMission,
+  type MissionListItem,
+} from '@/lib/api/agent-playground';
+import {
+  AssetCard,
+  type AssetCardAction,
+  type AssetCardBadge,
+} from '@/components/common/asset-card';
+import { RefreshCw, StopCircle } from 'lucide-react';
 
 // Status visual config — TI style
 const STATUS_CONFIG: Record<
@@ -63,9 +73,13 @@ const DEPTH_GRADIENT: Record<string, string> = {
 function MissionCard({
   mission,
   onClick,
+  onRerun,
+  onCancel,
 }: {
   mission: MissionListItem;
   onClick: () => void;
+  onRerun: (mission: MissionListItem) => void;
+  onCancel: (mission: MissionListItem) => void;
 }) {
   const status = STATUS_CONFIG[mission.status] ?? STATUS_CONFIG.running;
   const StatusIcon = status.icon;
@@ -140,6 +154,26 @@ function MissionCard({
     });
   }
 
+  // Hover 操作按钮：rerun（所有状态可用）+ cancel（仅 running）
+  const extraActions: AssetCardAction[] = [
+    {
+      key: 'rerun',
+      title: '重新运行',
+      tone: 'info',
+      icon: <RefreshCw className="h-4 w-4" />,
+      onClick: () => onRerun(mission),
+    },
+  ];
+  if (mission.status === 'running') {
+    extraActions.unshift({
+      key: 'cancel',
+      title: '取消运行',
+      tone: 'warning',
+      icon: <StopCircle className="h-4 w-4" />,
+      onClick: () => onCancel(mission),
+    });
+  }
+
   return (
     <AssetCard
       title={mission.topic}
@@ -147,6 +181,8 @@ function MissionCard({
       icon={<Sparkles className="h-6 w-6 text-white" />}
       gradient={gradient}
       badges={badges}
+      isOwner
+      extraActions={extraActions}
       onClick={onClick}
       stats={stats}
       timestamp={mission.startedAt}
@@ -225,6 +261,30 @@ export default function PlaygroundIndexPage() {
         m.reportTitle?.toLowerCase().includes(q)
     );
   }, [missions, searchQuery]);
+
+  const handleRerun = async (mission: MissionListItem) => {
+    if (!confirm(`重新运行「${mission.topic}」？将创建一个新的 Mission。`)) {
+      return;
+    }
+    try {
+      const result = await rerunMission(mission.id);
+      router.push(`/agent-playground/research-team/${result.missionId}`);
+    } catch (e) {
+      alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleCancel = async (mission: MissionListItem) => {
+    if (!confirm(`取消「${mission.topic}」运行？`)) return;
+    try {
+      await cancelMission(mission.id);
+      // 刷新列表
+      const items = await listMissions();
+      setMissions(items);
+    } catch (e) {
+      alert(`取消失败：${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
@@ -325,6 +385,8 @@ export default function PlaygroundIndexPage() {
                   onClick={() =>
                     router.push(`/agent-playground/research-team/${m.id}`)
                   }
+                  onRerun={(mission) => void handleRerun(mission)}
+                  onCancel={(mission) => void handleCancel(mission)}
                 />
               ))}
 

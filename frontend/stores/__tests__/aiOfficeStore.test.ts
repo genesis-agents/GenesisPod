@@ -1,11 +1,35 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  useResourceStore,
+  useDocumentStore,
+  useChatStore,
+  useUIStore,
+  useTaskStore,
+  type Task,
+  type GenerationStep,
+} from './aiOfficeStore';
+import type { Resource, Document, ChatMessage } from '@/types/ai-office';
+
+// ── Mocks ─────────────────────────────────────────────────────────────────────
 
 vi.mock('@/lib/utils/logger', () => ({
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 
-// Mock zustand persist middleware localStorage
+vi.mock('@/lib/ai-office/ppt-utils', () => ({
+  calculateSlideCount: vi.fn((markdown: string) => {
+    // Simple mock: count '---' separators + 1
+    return (markdown.match(/^---$/gm) || []).length + 1;
+  }),
+}));
+
+// Suppress localStorage warnings in tests
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -21,64 +45,34 @@ const localStorageMock = (() => {
     },
   };
 })();
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
 
-vi.mock('@/lib/ai-office/ppt-utils', () => ({
-  calculateSlideCount: vi.fn((markdown: string) => {
-    return (markdown.match(/^## /gm) || []).length;
-  }),
-}));
+// ── Fixtures ──────────────────────────────────────────────────────────────────
 
-import {
-  useResourceStore,
-  useDocumentStore,
-  useChatStore,
-  useTaskStore,
-  useUIStore,
-  useSelectedResources,
-  useCurrentDocument,
-  useCurrentChatMessages,
-  useCurrentTask,
-} from '../aiOfficeStore';
-import type { Task } from '../aiOfficeStore';
-import type { Resource, Document } from '@/types/ai-office';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const makeResource = (id: string, overrides = {}): Resource =>
-  ({
-    _id: id,
-    title: `Resource ${id}`,
-    type: 'web' as const,
-    url: `https://example.com/${id}`,
-    content: 'Some content',
-    createdAt: new Date(),
+function makeResource(overrides: Partial<Resource> = {}): Resource {
+  return {
+    _id: 'res-1',
+    title: 'Test Resource',
+    type: 'file',
+    url: 'https://example.com/file.pdf',
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     ...overrides,
-  }) as unknown as Resource;
+  } as unknown as Resource;
+}
 
-const makeDocument = (
-  id: string,
-  type: 'article' | 'ppt' = 'article'
-): Document =>
-  ({
-    _id: id,
+function makeDocument(overrides: Partial<Document> = {}): Document {
+  return {
+    _id: 'doc-1',
     userId: 'user-1',
-    title: `Document ${id}`,
-    type,
-    content:
-      type === 'ppt'
-        ? { markdown: '## Slide 1\nContent\n## Slide 2\nContent' }
-        : { text: 'Article text' },
-    metadata: { wordCount: 100, slideCount: 2 },
-    status: 'completed' as const,
+    title: 'Test Document',
+    type: 'article' as Document['type'],
+    content: { text: 'Hello world' },
+    metadata: { wordCount: 2, slideCount: 0 },
+    status: 'completed',
     resources: [],
     aiConfig: {
-      model: 'grok',
+      model: 'gpt-4',
       temperature: 0.7,
       maxTokens: 4000,
       language: 'zh-CN',
@@ -86,1283 +80,1160 @@ const makeDocument = (
       professionalLevel: 3,
     },
     generationHistory: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
     versions: [],
-  }) as unknown as Document;
+    ...overrides,
+  } as unknown as Document;
+}
 
-const makeTask = (id: string): Task => ({
-  _id: id,
-  title: `Task ${id}`,
-  type: 'article',
-  createdAt: new Date(),
-  refreshedAt: new Date(),
-  context: {
-    resourceIds: [],
-    chatMessages: [],
-  },
-  metadata: {},
-});
+function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id: 'msg-1',
+    role: 'user' as ChatMessage['role'],
+    content: 'Hello',
+    timestamp: new Date('2024-01-01'),
+    ...overrides,
+  } as ChatMessage;
+}
 
-// ---------------------------------------------------------------------------
-// ResourceStore tests
-// ---------------------------------------------------------------------------
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    _id: 'task-1',
+    title: 'Test Task',
+    type: 'article',
+    createdAt: new Date('2024-01-01'),
+    refreshedAt: new Date('2024-01-01'),
+    context: {
+      resourceIds: [],
+      chatMessages: [],
+    },
+    metadata: {},
+    ...overrides,
+  } as Task;
+}
+
+// ── Reset helpers ─────────────────────────────────────────────────────────────
+
+function resetResourceStore() {
+  useResourceStore.setState({
+    resources: [],
+    selectedResourceIds: [],
+    isLoading: false,
+    error: null,
+  });
+}
+
+function resetDocumentStore() {
+  useDocumentStore.setState({
+    documents: [],
+    currentDocumentId: null,
+    selectedSlideIndex: null,
+    isGenerating: false,
+    generationProgress: 0,
+    generationSteps: [],
+    currentStep: '',
+    resourcesFound: 0,
+    estimatedTime: null,
+    error: null,
+  });
+}
+
+function resetChatStore() {
+  useChatStore.setState({
+    sessions: {},
+    isStreaming: false,
+    streamingMessage: '',
+    shouldStopGeneration: false,
+    error: null,
+    agentMode: 'basic',
+    agentStatus: null,
+  });
+}
+
+function resetUIStore() {
+  useUIStore.setState({
+    middlePanelWidth: 650,
+    resourceListCollapsed: false,
+    isLoading: false,
+  });
+}
+
+function resetTaskStore() {
+  useTaskStore.setState({
+    tasks: [],
+    currentTaskId: null,
+    isTaskListOpen: false,
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// useResourceStore
+// ═════════════════════════════════════════════════════════════════════════════
 
 describe('useResourceStore', () => {
   beforeEach(() => {
-    act(() => {
-      useResourceStore.setState({ resources: [], selectedResourceIds: [] });
+    resetResourceStore();
+    localStorageMock.clear();
+  });
+
+  describe('initial state', () => {
+    it('should have empty resources and selectedResourceIds', () => {
+      const { result } = renderHook(() => useResourceStore());
+      expect(result.current.resources).toEqual([]);
+      expect(result.current.selectedResourceIds).toEqual([]);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBeNull();
     });
   });
 
-  it('starts with empty resources and selection', () => {
-    const state = useResourceStore.getState();
-    expect(state.resources).toEqual([]);
-    expect(state.selectedResourceIds).toEqual([]);
+  describe('addResource', () => {
+    it('should add a resource to the list', () => {
+      const { result } = renderHook(() => useResourceStore());
+      const res = makeResource();
+
+      act(() => {
+        result.current.addResource(res);
+      });
+
+      expect(result.current.resources).toHaveLength(1);
+      expect(result.current.resources[0]).toEqual(res);
+    });
+
+    it('should NOT add duplicate resource (same _id)', () => {
+      const { result } = renderHook(() => useResourceStore());
+      const res = makeResource({ _id: 'res-dup' });
+
+      act(() => {
+        result.current.addResource(res);
+      });
+      act(() => {
+        result.current.addResource(res);
+      });
+
+      expect(result.current.resources).toHaveLength(1);
+    });
+
+    it('should add multiple resources with different _ids', () => {
+      const { result } = renderHook(() => useResourceStore());
+
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-1' }));
+      });
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-2' }));
+      });
+
+      expect(result.current.resources).toHaveLength(2);
+    });
   });
 
-  it('addResource adds a new resource', () => {
-    act(() => {
-      useResourceStore.getState().addResource(makeResource('r1'));
+  describe('removeResource', () => {
+    it('should remove resource by id', () => {
+      const { result } = renderHook(() => useResourceStore());
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-1' }));
+      });
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-2' }));
+      });
+
+      act(() => {
+        result.current.removeResource('res-1');
+      });
+
+      expect(result.current.resources).toHaveLength(1);
+      expect(result.current.resources[0]._id).toBe('res-2');
     });
-    expect(useResourceStore.getState().resources).toHaveLength(1);
+
+    it('should also remove from selectedResourceIds', () => {
+      const { result } = renderHook(() => useResourceStore());
+      act(() => {
+        result.current.addResource(makeResource({ _id: 'res-1' }));
+      });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+
+      expect(result.current.selectedResourceIds).toContain('res-1');
+
+      act(() => {
+        result.current.removeResource('res-1');
+      });
+
+      expect(result.current.selectedResourceIds).not.toContain('res-1');
+    });
   });
 
-  it('addResource skips duplicate resources', () => {
-    act(() => {
-      useResourceStore.getState().addResource(makeResource('r1'));
-      useResourceStore.getState().addResource(makeResource('r1'));
+  describe('updateResource', () => {
+    it('should update resource fields by id', () => {
+      const { result } = renderHook(() => useResourceStore());
+      act(() => {
+        result.current.addResource(
+          makeResource({
+            _id: 'res-1',
+            title: 'Old',
+          } as unknown as Partial<Resource>)
+        );
+      });
+
+      act(() => {
+        result.current.updateResource('res-1', {
+          title: 'New',
+        } as unknown as Partial<Resource>);
+      });
+
+      expect(
+        (result.current.resources[0] as unknown as { title: string }).title
+      ).toBe('New');
     });
-    expect(useResourceStore.getState().resources).toHaveLength(1);
   });
 
-  it('removeResource removes the resource and deselects it', () => {
-    act(() => {
-      useResourceStore.getState().addResource(makeResource('r1'));
-      useResourceStore.getState().selectResource('r1');
+  describe('selectResource / deselectResource', () => {
+    it('should add resource id to selectedResourceIds', () => {
+      const { result } = renderHook(() => useResourceStore());
+
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+
+      expect(result.current.selectedResourceIds).toContain('res-1');
     });
 
-    act(() => {
-      useResourceStore.getState().removeResource('r1');
+    it('should NOT duplicate already-selected id', () => {
+      const { result } = renderHook(() => useResourceStore());
+
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+
+      expect(result.current.selectedResourceIds).toHaveLength(1);
     });
 
-    const state = useResourceStore.getState();
-    expect(state.resources).toHaveLength(0);
-    expect(state.selectedResourceIds).not.toContain('r1');
+    it('should remove resource id from selectedResourceIds', () => {
+      const { result } = renderHook(() => useResourceStore());
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+
+      act(() => {
+        result.current.deselectResource('res-1');
+      });
+
+      expect(result.current.selectedResourceIds).not.toContain('res-1');
+    });
   });
 
-  it('updateResource updates fields on matching resource', () => {
-    act(() => {
-      useResourceStore.getState().addResource(makeResource('r1'));
-    });
+  describe('clearSelection', () => {
+    it('should clear all selected resource ids', () => {
+      const { result } = renderHook(() => useResourceStore());
+      act(() => {
+        result.current.selectResource('res-1');
+      });
+      act(() => {
+        result.current.selectResource('res-2');
+      });
 
-    act(() => {
-      useResourceStore.getState().updateResource('r1', {
-        title: 'Updated Title',
-      } as unknown as Partial<Resource>);
-    });
+      act(() => {
+        result.current.clearSelection();
+      });
 
-    expect(
-      (useResourceStore.getState().resources[0] as unknown as { title: string })
-        .title
-    ).toBe('Updated Title');
+      expect(result.current.selectedResourceIds).toEqual([]);
+    });
   });
 
-  it('selectResource adds to selectedIds only once', () => {
-    act(() => {
-      useResourceStore.getState().selectResource('r1');
-      useResourceStore.getState().selectResource('r1');
-    });
-    expect(useResourceStore.getState().selectedResourceIds).toHaveLength(1);
-  });
+  describe('setLoading / setError', () => {
+    it('should set isLoading', () => {
+      const { result } = renderHook(() => useResourceStore());
 
-  it('deselectResource removes from selectedIds', () => {
-    act(() => {
-      useResourceStore.getState().selectResource('r1');
-      useResourceStore.getState().selectResource('r2');
-    });
+      act(() => {
+        result.current.setLoading(true);
+      });
+      expect(result.current.isLoading).toBe(true);
 
-    act(() => {
-      useResourceStore.getState().deselectResource('r1');
+      act(() => {
+        result.current.setLoading(false);
+      });
+      expect(result.current.isLoading).toBe(false);
     });
 
-    expect(useResourceStore.getState().selectedResourceIds).toEqual(['r2']);
-  });
+    it('should set and clear error', () => {
+      const { result } = renderHook(() => useResourceStore());
 
-  it('clearSelection empties selectedIds', () => {
-    act(() => {
-      useResourceStore.getState().selectResource('r1');
-      useResourceStore.getState().selectResource('r2');
+      act(() => {
+        result.current.setError('Something went wrong');
+      });
+      expect(result.current.error).toBe('Something went wrong');
+
+      act(() => {
+        result.current.setError(null);
+      });
+      expect(result.current.error).toBeNull();
     });
-
-    act(() => {
-      useResourceStore.getState().clearSelection();
-    });
-
-    expect(useResourceStore.getState().selectedResourceIds).toEqual([]);
-  });
-
-  it('setLoading and setError update state', () => {
-    act(() => {
-      useResourceStore.getState().setLoading(true);
-      useResourceStore.getState().setError('Some error');
-    });
-
-    const state = useResourceStore.getState();
-    expect(state.isLoading).toBe(true);
-    expect(state.error).toBe('Some error');
   });
 });
 
-// ---------------------------------------------------------------------------
-// DocumentStore tests
-// ---------------------------------------------------------------------------
+// ═════════════════════════════════════════════════════════════════════════════
+// useDocumentStore
+// ═════════════════════════════════════════════════════════════════════════════
 
 describe('useDocumentStore', () => {
   beforeEach(() => {
-    act(() => {
-      useDocumentStore.setState({
-        documents: [],
-        currentDocumentId: null,
-        isGenerating: false,
-        generationProgress: 0,
-        generationSteps: [],
-        currentStep: '',
-        resourcesFound: 0,
-        estimatedTime: null,
-        error: null,
+    resetDocumentStore();
+    localStorageMock.clear();
+  });
+
+  describe('initial state', () => {
+    it('should have empty documents and null currentDocumentId', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      expect(result.current.documents).toEqual([]);
+      expect(result.current.currentDocumentId).toBeNull();
+      expect(result.current.isGenerating).toBe(false);
+      expect(result.current.generationProgress).toBe(0);
+    });
+  });
+
+  describe('addDocument', () => {
+    it('should add document to list', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      const doc = makeDocument();
+
+      act(() => {
+        result.current.addDocument(doc);
       });
+
+      expect(result.current.documents).toHaveLength(1);
+      expect(result.current.documents[0]._id).toBe('doc-1');
     });
   });
 
-  it('addDocument appends to documents list', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
+  describe('updateDocument', () => {
+    it('should update document fields by id', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(
+          makeDocument({ _id: 'doc-1', title: 'Old Title' })
+        );
+      });
+
+      act(() => {
+        result.current.updateDocument('doc-1', { title: 'New Title' });
+      });
+
+      expect(result.current.documents[0].title).toBe('New Title');
     });
-    expect(useDocumentStore.getState().documents).toHaveLength(1);
+
+    it('should not affect other documents', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+        result.current.addDocument(
+          makeDocument({ _id: 'doc-2', title: 'Keep Me' })
+        );
+      });
+
+      act(() => {
+        result.current.updateDocument('doc-1', { title: 'Changed' });
+      });
+
+      expect(
+        result.current.documents.find((d) => d._id === 'doc-2')?.title
+      ).toBe('Keep Me');
+    });
   });
 
-  it('updateDocument updates matching document', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
+  describe('deleteDocument', () => {
+    it('should remove document from list', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-2' }));
+      });
+
+      act(() => {
+        result.current.deleteDocument('doc-1');
+      });
+
+      expect(result.current.documents).toHaveLength(1);
+      expect(result.current.documents[0]._id).toBe('doc-2');
     });
 
-    act(() => {
-      useDocumentStore
-        .getState()
-        .updateDocument('doc-1', { title: 'Updated Doc' });
+    it('should clear currentDocumentId if that document is deleted', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+      act(() => {
+        result.current.setCurrentDocument('doc-1');
+      });
+
+      act(() => {
+        result.current.deleteDocument('doc-1');
+      });
+
+      expect(result.current.currentDocumentId).toBeNull();
     });
 
-    expect(useDocumentStore.getState().documents[0].title).toBe('Updated Doc');
+    it('should NOT clear currentDocumentId if a different document is deleted', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+        result.current.addDocument(makeDocument({ _id: 'doc-2' }));
+        result.current.setCurrentDocument('doc-2');
+      });
+
+      act(() => {
+        result.current.deleteDocument('doc-1');
+      });
+
+      expect(result.current.currentDocumentId).toBe('doc-2');
+    });
   });
 
-  it('deleteDocument removes document and clears currentDocumentId', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
-      useDocumentStore.getState().setCurrentDocument('doc-1');
+  describe('setCurrentDocument', () => {
+    it('should set currentDocumentId', () => {
+      const { result } = renderHook(() => useDocumentStore());
+
+      act(() => {
+        result.current.setCurrentDocument('doc-1');
+      });
+
+      expect(result.current.currentDocumentId).toBe('doc-1');
     });
 
-    act(() => {
-      useDocumentStore.getState().deleteDocument('doc-1');
-    });
+    it('should clear selectedSlideIndex when switching documents', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.setSelectedSlideIndex(3);
+      });
 
-    const state = useDocumentStore.getState();
-    expect(state.documents).toHaveLength(0);
-    expect(state.currentDocumentId).toBeNull();
+      act(() => {
+        result.current.setCurrentDocument('doc-2');
+      });
+
+      expect(result.current.selectedSlideIndex).toBeNull();
+    });
   });
 
-  it('setCurrentDocument clears selectedSlideIndex', () => {
-    act(() => {
-      useDocumentStore.getState().setSelectedSlideIndex(3);
-    });
-    expect(useDocumentStore.getState().selectedSlideIndex).toBe(3);
+  describe('setGenerating', () => {
+    it('should set isGenerating to true', () => {
+      const { result } = renderHook(() => useDocumentStore());
 
-    act(() => {
-      useDocumentStore.getState().setCurrentDocument('doc-1');
-    });
-    expect(useDocumentStore.getState().selectedSlideIndex).toBeNull();
-  });
+      act(() => {
+        result.current.setGenerating(true);
+      });
 
-  it('setGenerating false resets generation state', () => {
-    act(() => {
-      useDocumentStore.getState().setGenerating(true);
-      useDocumentStore
-        .getState()
-        .setGenerationSteps([
-          { id: 's1', name: 'Step 1', status: 'processing' },
+      expect(result.current.isGenerating).toBe(true);
+    });
+
+    it('should reset generationSteps, currentStep when set to false', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.setGenerating(true);
+        result.current.setGenerationSteps([
+          { id: 's1', name: 'Step 1', status: 'completed' },
         ]);
-    });
+        result.current.setCurrentStep('s1');
+        result.current.setResourcesFound(5);
+      });
 
-    act(() => {
-      useDocumentStore.getState().setGenerating(false);
-    });
+      act(() => {
+        result.current.setGenerating(false);
+      });
 
-    const state = useDocumentStore.getState();
-    expect(state.isGenerating).toBe(false);
-    expect(state.generationSteps).toEqual([]);
-    expect(state.currentStep).toBe('');
+      expect(result.current.isGenerating).toBe(false);
+      expect(result.current.generationSteps).toEqual([]);
+      expect(result.current.currentStep).toBe('');
+      expect(result.current.resourcesFound).toBe(0);
+      expect(result.current.estimatedTime).toBeNull();
+    });
   });
 
-  it('setGenerationProgress sets the progress value', () => {
-    act(() => {
-      useDocumentStore.getState().setGenerationProgress(75);
-    });
-    expect(useDocumentStore.getState().generationProgress).toBe(75);
-  });
-
-  it('updateGenerationStep updates matching step', () => {
-    act(() => {
-      useDocumentStore.getState().setGenerationSteps([
+  describe('updateGenerationStep', () => {
+    it('should update a specific step by id', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      const steps: GenerationStep[] = [
         { id: 's1', name: 'Step 1', status: 'pending' },
         { id: 's2', name: 'Step 2', status: 'pending' },
-      ]);
-    });
+      ];
+      act(() => {
+        result.current.setGenerationSteps(steps);
+      });
 
-    act(() => {
-      useDocumentStore
-        .getState()
-        .updateGenerationStep('s1', { status: 'completed' });
-    });
+      act(() => {
+        result.current.updateGenerationStep('s1', {
+          status: 'completed',
+          message: 'Done',
+        });
+      });
 
-    const steps = useDocumentStore.getState().generationSteps;
-    expect(steps[0].status).toBe('completed');
-    expect(steps[1].status).toBe('pending');
+      expect(result.current.generationSteps[0].status).toBe('completed');
+      expect(result.current.generationSteps[0].message).toBe('Done');
+      expect(result.current.generationSteps[1].status).toBe('pending');
+    });
   });
 
-  it('saveVersion creates a version and returns versionId', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
+  describe('saveVersion', () => {
+    it('should create a version and return its id', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      const doc = makeDocument({ _id: 'doc-1' });
+      act(() => {
+        result.current.addDocument(doc);
+      });
+
+      let versionId = '';
+      act(() => {
+        versionId = result.current.saveVersion(
+          'doc-1',
+          'manual',
+          'user_edit',
+          'First save'
+        );
+      });
+
+      expect(versionId).toMatch(/^v_\d+_/);
+      expect(result.current.documents[0].versions).toHaveLength(1);
+      expect(result.current.documents[0].versions[0].type).toBe('manual');
     });
 
-    let versionId = '';
-    act(() => {
-      versionId = useDocumentStore
-        .getState()
-        .saveVersion('doc-1', 'manual', 'user_edit', 'Initial save');
+    it('should return empty string when document not found', () => {
+      const { result } = renderHook(() => useDocumentStore());
+
+      let versionId = '';
+      act(() => {
+        versionId = result.current.saveVersion(
+          'nonexistent',
+          'auto',
+          'ai_generation'
+        );
+      });
+
+      expect(versionId).toBe('');
     });
 
-    expect(versionId).toMatch(/^v_/);
-    const doc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-1');
-    expect(doc?.versions).toHaveLength(1);
-    expect(doc?.versions[0].id).toBe(versionId);
+    it('should set currentVersionId to the new version id', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+
+      let versionId = '';
+      act(() => {
+        versionId = result.current.saveVersion(
+          'doc-1',
+          'auto',
+          'ai_generation'
+        );
+      });
+
+      expect(result.current.documents[0].currentVersionId).toBe(versionId);
+    });
   });
 
-  it('saveVersion returns empty string for non-existent document', () => {
-    let versionId = '';
-    act(() => {
-      versionId = useDocumentStore
-        .getState()
-        .saveVersion('nonexistent', 'auto', 'ai_generation');
+  describe('getVersions', () => {
+    it('should return versions for a document', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+      act(() => {
+        result.current.saveVersion('doc-1', 'manual', 'user_edit');
+      });
+
+      const versions = result.current.getVersions('doc-1');
+
+      expect(versions).toHaveLength(1);
     });
-    expect(versionId).toBe('');
+
+    it('should return empty array for nonexistent document', () => {
+      const { result } = renderHook(() => useDocumentStore());
+
+      const versions = result.current.getVersions('nonexistent');
+
+      expect(versions).toEqual([]);
+    });
   });
 
-  it('getVersions returns versions for a document', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
-      useDocumentStore.getState().saveVersion('doc-1', 'auto', 'ai_generation');
-      useDocumentStore.getState().saveVersion('doc-1', 'manual', 'user_edit');
-    });
+  describe('restoreVersion', () => {
+    it('should restore document content from a saved version', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      const doc = makeDocument({
+        _id: 'doc-1',
+        content: { text: 'Original' },
+      } as unknown as Partial<Document>);
+      act(() => {
+        result.current.addDocument(doc);
+      });
 
-    const versions = useDocumentStore.getState().getVersions('doc-1');
-    expect(versions).toHaveLength(2);
+      let versionId = '';
+      act(() => {
+        versionId = result.current.saveVersion('doc-1', 'manual', 'user_edit');
+      });
+
+      // Modify content
+      act(() => {
+        result.current.updateDocument('doc-1', {
+          content: { text: 'Modified' },
+        } as unknown as Partial<Document>);
+      });
+
+      // Restore
+      act(() => {
+        result.current.restoreVersion('doc-1', versionId);
+      });
+
+      const restoredContent = result.current.documents[0]
+        .content as unknown as { text: string };
+      expect(restoredContent.text).toBe('Original');
+    });
   });
 
-  it('restoreVersion restores document content from a version', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
+  describe('deleteVersion', () => {
+    it('should remove a version from document', () => {
+      const { result } = renderHook(() => useDocumentStore());
+      act(() => {
+        result.current.addDocument(makeDocument({ _id: 'doc-1' }));
+      });
+
+      let versionId = '';
+      act(() => {
+        versionId = result.current.saveVersion(
+          'doc-1',
+          'auto',
+          'ai_generation'
+        );
+      });
+
+      act(() => {
+        result.current.deleteVersion('doc-1', versionId);
+      });
+
+      expect(result.current.documents[0].versions).toHaveLength(0);
     });
-
-    let versionId = '';
-    act(() => {
-      versionId = useDocumentStore
-        .getState()
-        .saveVersion('doc-1', 'auto', 'ai_generation');
-    });
-
-    // Change document content
-    act(() => {
-      useDocumentStore
-        .getState()
-        .updateDocument('doc-1', { title: 'Modified' });
-    });
-
-    // Restore
-    act(() => {
-      useDocumentStore.getState().restoreVersion('doc-1', versionId);
-    });
-
-    const doc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-1');
-    expect(doc?.currentVersionId).toBe(versionId);
-  });
-
-  it('deleteVersion removes version from document', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
-    });
-
-    let versionId = '';
-    act(() => {
-      versionId = useDocumentStore
-        .getState()
-        .saveVersion('doc-1', 'auto', 'ai_generation');
-    });
-
-    act(() => {
-      useDocumentStore.getState().deleteVersion('doc-1', versionId);
-    });
-
-    const doc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-1');
-    expect(doc?.versions).toHaveLength(0);
   });
 });
 
-// ---------------------------------------------------------------------------
-// ChatStore tests
-// ---------------------------------------------------------------------------
+// ═════════════════════════════════════════════════════════════════════════════
+// useChatStore
+// ═════════════════════════════════════════════════════════════════════════════
 
 describe('useChatStore', () => {
   beforeEach(() => {
-    act(() => {
-      useChatStore.setState({
-        sessions: {},
-        isStreaming: false,
-        streamingMessage: '',
-        shouldStopGeneration: false,
-        error: null,
-        agentMode: 'basic',
-        agentStatus: null,
+    resetChatStore();
+  });
+
+  describe('initial state', () => {
+    it('should have empty sessions and correct defaults', () => {
+      const { result } = renderHook(() => useChatStore());
+      expect(result.current.sessions).toEqual({});
+      expect(result.current.isStreaming).toBe(false);
+      expect(result.current.agentMode).toBe('basic');
+      expect(result.current.agentStatus).toBeNull();
+    });
+  });
+
+  describe('addMessage', () => {
+    it('should add message to session', () => {
+      const { result } = renderHook(() => useChatStore());
+      const msg = makeMessage();
+
+      act(() => {
+        result.current.addMessage('doc-1', msg);
       });
+
+      expect(result.current.sessions['doc-1']).toHaveLength(1);
+      expect(result.current.sessions['doc-1'][0]).toEqual(msg);
+    });
+
+    it('should create new session if it does not exist', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.addMessage('new-doc', makeMessage());
+      });
+
+      expect(result.current.sessions['new-doc']).toBeDefined();
+      expect(result.current.sessions['new-doc']).toHaveLength(1);
+    });
+
+    it('should append messages in order', () => {
+      const { result } = renderHook(() => useChatStore());
+      const m1 = makeMessage({ id: 'msg-1', content: 'First' });
+      const m2 = makeMessage({ id: 'msg-2', content: 'Second' });
+
+      act(() => {
+        result.current.addMessage('doc-1', m1);
+      });
+      act(() => {
+        result.current.addMessage('doc-1', m2);
+      });
+
+      expect(result.current.sessions['doc-1'][0].content).toBe('First');
+      expect(result.current.sessions['doc-1'][1].content).toBe('Second');
     });
   });
 
-  it('addMessage creates a session and appends message', () => {
-    const msg = {
-      id: 'msg-1',
-      role: 'user' as const,
-      content: 'Hello',
-      timestamp: new Date(),
-    };
+  describe('updateMessage', () => {
+    it('should update message fields by id', () => {
+      const { result } = renderHook(() => useChatStore());
+      act(() => {
+        result.current.addMessage(
+          'doc-1',
+          makeMessage({ id: 'msg-1', content: 'Old' })
+        );
+      });
 
-    act(() => {
-      useChatStore.getState().addMessage('doc-1', msg);
+      act(() => {
+        result.current.updateMessage('doc-1', 'msg-1', { content: 'Updated' });
+      });
+
+      expect(result.current.sessions['doc-1'][0].content).toBe('Updated');
     });
-
-    expect(useChatStore.getState().sessions['doc-1']).toHaveLength(1);
   });
 
-  it('updateMessage modifies message in session', () => {
-    const msg = {
-      id: 'msg-1',
-      role: 'user' as const,
-      content: 'Hello',
-      timestamp: new Date(),
-    };
+  describe('setStreaming', () => {
+    it('should set isStreaming=true and reset shouldStopGeneration', () => {
+      const { result } = renderHook(() => useChatStore());
+      act(() => {
+        result.current.stopGeneration();
+      }); // set shouldStop=true first
 
-    act(() => {
-      useChatStore.getState().addMessage('doc-1', msg);
-      useChatStore
-        .getState()
-        .updateMessage('doc-1', 'msg-1', { content: 'Updated' });
+      act(() => {
+        result.current.setStreaming(true);
+      });
+
+      expect(result.current.isStreaming).toBe(true);
+      expect(result.current.shouldStopGeneration).toBe(false);
     });
 
-    expect(useChatStore.getState().sessions['doc-1'][0].content).toBe(
-      'Updated'
-    );
+    it('should set isStreaming=false', () => {
+      const { result } = renderHook(() => useChatStore());
+      act(() => {
+        result.current.setStreaming(true);
+      });
+
+      act(() => {
+        result.current.setStreaming(false);
+      });
+
+      expect(result.current.isStreaming).toBe(false);
+    });
   });
 
-  it('setStreaming true resets stop flag', () => {
-    act(() => {
-      useChatStore.getState().stopGeneration();
-    });
-    expect(useChatStore.getState().shouldStopGeneration).toBe(true);
+  describe('stopGeneration', () => {
+    it('should set shouldStopGeneration=true', () => {
+      const { result } = renderHook(() => useChatStore());
 
-    act(() => {
-      useChatStore.getState().setStreaming(true);
+      act(() => {
+        result.current.stopGeneration();
+      });
+
+      expect(result.current.shouldStopGeneration).toBe(true);
     });
-    expect(useChatStore.getState().shouldStopGeneration).toBe(false);
-    expect(useChatStore.getState().isStreaming).toBe(true);
   });
 
-  it('stopGeneration sets shouldStopGeneration', () => {
-    act(() => {
-      useChatStore.getState().stopGeneration();
+  describe('clearSession', () => {
+    it('should empty messages for a specific document session', () => {
+      const { result } = renderHook(() => useChatStore());
+      act(() => {
+        result.current.addMessage('doc-1', makeMessage());
+      });
+
+      act(() => {
+        result.current.clearSession('doc-1');
+      });
+
+      expect(result.current.sessions['doc-1']).toEqual([]);
     });
-    expect(useChatStore.getState().shouldStopGeneration).toBe(true);
   });
 
-  it('clearSession empties session messages', () => {
-    const msg = {
-      id: 'msg-1',
-      role: 'user' as const,
-      content: 'Hello',
-      timestamp: new Date(),
-    };
-    act(() => {
-      useChatStore.getState().addMessage('doc-1', msg);
-    });
-    act(() => {
-      useChatStore.getState().clearSession('doc-1');
-    });
-    expect(useChatStore.getState().sessions['doc-1']).toEqual([]);
-  });
+  describe('setAgentMode / setAgentStatus', () => {
+    it('should toggle agent mode', () => {
+      const { result } = renderHook(() => useChatStore());
 
-  it('setAgentMode sets mode', () => {
-    act(() => {
-      useChatStore.getState().setAgentMode('enhanced');
-    });
-    expect(useChatStore.getState().agentMode).toBe('enhanced');
-  });
+      act(() => {
+        result.current.setAgentMode('enhanced');
+      });
+      expect(result.current.agentMode).toBe('enhanced');
 
-  it('setAgentStatus sets status', () => {
-    act(() => {
-      useChatStore.getState().setAgentStatus('Analyzing resources...');
+      act(() => {
+        result.current.setAgentMode('basic');
+      });
+      expect(result.current.agentMode).toBe('basic');
     });
-    expect(useChatStore.getState().agentStatus).toBe('Analyzing resources...');
+
+    it('should set and clear agentStatus', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.setAgentStatus('Analyzing resources...');
+      });
+      expect(result.current.agentStatus).toBe('Analyzing resources...');
+
+      act(() => {
+        result.current.setAgentStatus(null);
+      });
+      expect(result.current.agentStatus).toBeNull();
+    });
   });
 });
 
-// ---------------------------------------------------------------------------
-// TaskStore tests
-// ---------------------------------------------------------------------------
-
-describe('useTaskStore', () => {
-  beforeEach(() => {
-    act(() => {
-      useTaskStore.setState({
-        tasks: [],
-        currentTaskId: null,
-        isTaskListOpen: false,
-      });
-    });
-  });
-
-  it('addTask prepends task to list', () => {
-    const task1 = makeTask('task-1');
-    const task2 = makeTask('task-2');
-
-    act(() => {
-      useTaskStore.getState().addTask(task1);
-      useTaskStore.getState().addTask(task2);
-    });
-
-    const tasks = useTaskStore.getState().tasks;
-    expect(tasks[0]._id).toBe('task-2');
-  });
-
-  it('updateTask deep-merges context', () => {
-    const task = makeTask('task-1');
-    task.context.resourceIds = ['r1'];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().updateTask('task-1', {
-        context: { resourceIds: ['r1', 'r2'], chatMessages: [] },
-      });
-    });
-
-    const updated = useTaskStore.getState().tasks[0];
-    expect(updated.context.resourceIds).toEqual(['r1', 'r2']);
-  });
-
-  it('deleteTask removes task and clears currentTaskId', () => {
-    const task = makeTask('task-1');
-    act(() => {
-      useTaskStore.getState().addTask(task);
-      useTaskStore.getState().setCurrentTask('task-1');
-    });
-
-    act(() => {
-      useTaskStore.getState().deleteTask('task-1');
-    });
-
-    const state = useTaskStore.getState();
-    expect(state.tasks).toHaveLength(0);
-    expect(state.currentTaskId).toBeNull();
-  });
-
-  it('toggleTaskList toggles isTaskListOpen', () => {
-    expect(useTaskStore.getState().isTaskListOpen).toBe(false);
-
-    act(() => {
-      useTaskStore.getState().toggleTaskList();
-    });
-    expect(useTaskStore.getState().isTaskListOpen).toBe(true);
-
-    act(() => {
-      useTaskStore.getState().toggleTaskList();
-    });
-    expect(useTaskStore.getState().isTaskListOpen).toBe(false);
-  });
-
-  it('saveTaskContext merges context into task', () => {
-    const task = makeTask('task-1');
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore
-        .getState()
-        .saveTaskContext('task-1', { resourceIds: ['r1'] });
-    });
-
-    expect(useTaskStore.getState().tasks[0].context.resourceIds).toEqual([
-      'r1',
-    ]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// UIStore tests
-// ---------------------------------------------------------------------------
+// ═════════════════════════════════════════════════════════════════════════════
+// useUIStore
+// ═════════════════════════════════════════════════════════════════════════════
 
 describe('useUIStore', () => {
   beforeEach(() => {
-    act(() => {
-      useUIStore.setState({
-        middlePanelWidth: 650,
-        resourceListCollapsed: false,
-        selectedResourceIds: [],
-        isLoading: false,
+    resetUIStore();
+    localStorageMock.clear();
+  });
+
+  describe('setMiddlePanelWidth', () => {
+    it('should set panel width within valid range', () => {
+      const { result } = renderHook(() => useUIStore());
+
+      act(() => {
+        result.current.setMiddlePanelWidth(600);
+      });
+
+      expect(result.current.middlePanelWidth).toBe(600);
+    });
+
+    it('should clamp to minimum 400', () => {
+      const { result } = renderHook(() => useUIStore());
+
+      act(() => {
+        result.current.setMiddlePanelWidth(100);
+      });
+
+      expect(result.current.middlePanelWidth).toBe(400);
+    });
+
+    it('should clamp to maximum 800', () => {
+      const { result } = renderHook(() => useUIStore());
+
+      act(() => {
+        result.current.setMiddlePanelWidth(9999);
+      });
+
+      expect(result.current.middlePanelWidth).toBe(800);
+    });
+  });
+
+  describe('toggleResourceList', () => {
+    it('should toggle resourceListCollapsed', () => {
+      const { result } = renderHook(() => useUIStore());
+
+      act(() => {
+        result.current.toggleResourceList();
+      });
+      expect(result.current.resourceListCollapsed).toBe(true);
+
+      act(() => {
+        result.current.toggleResourceList();
+      });
+      expect(result.current.resourceListCollapsed).toBe(false);
+    });
+  });
+
+  describe('setResourceListCollapsed', () => {
+    it('should set resourceListCollapsed directly', () => {
+      const { result } = renderHook(() => useUIStore());
+
+      act(() => {
+        result.current.setResourceListCollapsed(true);
+      });
+      expect(result.current.resourceListCollapsed).toBe(true);
+
+      act(() => {
+        result.current.setResourceListCollapsed(false);
+      });
+      expect(result.current.resourceListCollapsed).toBe(false);
+    });
+  });
+
+  describe('setLoading', () => {
+    it('should set isLoading and optional message', () => {
+      const { result } = renderHook(() => useUIStore());
+
+      act(() => {
+        result.current.setLoading(true, 'Processing...');
+      });
+
+      expect(result.current.isLoading).toBe(true);
+      expect(
+        (result.current as { loadingMessage?: string }).loadingMessage
+      ).toBe('Processing...');
+    });
+  });
+
+  describe('setError / clearError', () => {
+    it('should set an error object', () => {
+      const { result } = renderHook(() => useUIStore());
+
+      act(() => {
+        result.current.setError('Something broke', 'ERR_500');
+      });
+
+      expect(result.current.error).toEqual({
+        message: 'Something broke',
+        code: 'ERR_500',
       });
     });
-  });
 
-  it('setMiddlePanelWidth clamps to [400, 800]', () => {
-    act(() => {
-      useUIStore.getState().setMiddlePanelWidth(200);
-    });
-    expect(useUIStore.getState().middlePanelWidth).toBe(400);
+    it('should clear error', () => {
+      const { result } = renderHook(() => useUIStore());
+      act(() => {
+        result.current.setError('error');
+      });
 
-    act(() => {
-      useUIStore.getState().setMiddlePanelWidth(1000);
-    });
-    expect(useUIStore.getState().middlePanelWidth).toBe(800);
+      act(() => {
+        result.current.clearError();
+      });
 
-    act(() => {
-      useUIStore.getState().setMiddlePanelWidth(600);
+      expect(result.current.error).toBeUndefined();
     });
-    expect(useUIStore.getState().middlePanelWidth).toBe(600);
-  });
 
-  it('toggleResourceList toggles collapse state', () => {
-    act(() => {
-      useUIStore.getState().toggleResourceList();
-    });
-    expect(useUIStore.getState().resourceListCollapsed).toBe(true);
+    it('should set null to clear error via setError', () => {
+      const { result } = renderHook(() => useUIStore());
+      act(() => {
+        result.current.setError('error');
+      });
 
-    act(() => {
-      useUIStore.getState().toggleResourceList();
-    });
-    expect(useUIStore.getState().resourceListCollapsed).toBe(false);
-  });
+      act(() => {
+        result.current.setError(null);
+      });
 
-  it('setResourceListCollapsed sets value directly', () => {
-    act(() => {
-      useUIStore.getState().setResourceListCollapsed(true);
+      expect(result.current.error).toBeUndefined();
     });
-    expect(useUIStore.getState().resourceListCollapsed).toBe(true);
-  });
-
-  it('setError sets error object with message and code', () => {
-    act(() => {
-      useUIStore.getState().setError('Something went wrong', 'ERR_500');
-    });
-    const state = useUIStore.getState();
-    expect(state.error?.message).toBe('Something went wrong');
-    expect(state.error?.code).toBe('ERR_500');
-  });
-
-  it('clearError clears error', () => {
-    act(() => {
-      useUIStore.getState().setError('Error');
-    });
-    act(() => {
-      useUIStore.getState().clearError();
-    });
-    expect(useUIStore.getState().error).toBeUndefined();
   });
 });
 
-// ---------------------------------------------------------------------------
-// Selectors
-// ---------------------------------------------------------------------------
+// ═════════════════════════════════════════════════════════════════════════════
+// useTaskStore
+// ═════════════════════════════════════════════════════════════════════════════
 
-describe('useSelectedResources selector', () => {
+describe('useTaskStore', () => {
   beforeEach(() => {
-    act(() => {
-      useResourceStore.setState({
-        resources: [makeResource('r1'), makeResource('r2'), makeResource('r3')],
-        selectedResourceIds: ['r1', 'r3'],
-        isLoading: false,
-        error: null,
+    resetTaskStore();
+    localStorageMock.clear();
+  });
+
+  describe('initial state', () => {
+    it('should have empty tasks and null currentTaskId', () => {
+      const { result } = renderHook(() => useTaskStore());
+      expect(result.current.tasks).toEqual([]);
+      expect(result.current.currentTaskId).toBeNull();
+      expect(result.current.isTaskListOpen).toBe(false);
+    });
+  });
+
+  describe('addTask', () => {
+    it('should prepend new task to list (newest first)', () => {
+      const { result } = renderHook(() => useTaskStore());
+      const t1 = makeTask({ _id: 'task-1' });
+      const t2 = makeTask({ _id: 'task-2' });
+
+      act(() => {
+        result.current.addTask(t1);
       });
-    });
-  });
-
-  it('returns only selected resources', () => {
-    const { result } = renderHook(() => useSelectedResources());
-    expect(result.current).toHaveLength(2);
-    expect(result.current.map((r) => r._id)).toEqual(['r1', 'r3']);
-  });
-
-  it('returns empty array when no resources selected', () => {
-    act(() => {
-      useResourceStore.setState({ selectedResourceIds: [] });
-    });
-    const { result } = renderHook(() => useSelectedResources());
-    expect(result.current).toHaveLength(0);
-  });
-});
-
-describe('useCurrentDocument selector', () => {
-  const doc1 = makeDocument('doc1');
-  const doc2 = makeDocument('doc2', 'ppt');
-
-  beforeEach(() => {
-    act(() => {
-      useDocumentStore.setState({
-        documents: [doc1, doc2],
-        currentDocumentId: 'doc1',
-        error: null,
+      act(() => {
+        result.current.addTask(t2);
       });
+
+      expect(result.current.tasks[0]._id).toBe('task-2');
+      expect(result.current.tasks[1]._id).toBe('task-1');
     });
   });
 
-  it('returns the current document', () => {
-    const { result } = renderHook(() => useCurrentDocument());
-    expect(result.current?._id).toBe('doc1');
-  });
-
-  it('returns undefined when no current document id', () => {
-    act(() => {
-      useDocumentStore.setState({ currentDocumentId: null });
-    });
-    const { result } = renderHook(() => useCurrentDocument());
-    expect(result.current).toBeUndefined();
-  });
-});
-
-describe('useCurrentChatMessages selector', () => {
-  const msg1 = {
-    id: 'msg-1',
-    role: 'user' as const,
-    content: 'Hello',
-    timestamp: new Date(),
-  };
-
-  beforeEach(() => {
-    act(() => {
-      useDocumentStore.setState({ currentDocumentId: 'doc1' });
-      useChatStore.setState({
-        sessions: { doc1: [msg1] },
-        isStreaming: false,
-        streamingMessage: '',
-        error: null,
+  describe('updateTask', () => {
+    it('should update task fields', () => {
+      const { result } = renderHook(() => useTaskStore());
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-1', title: 'Old' }));
       });
-    });
-  });
 
-  it('returns messages for current document', () => {
-    const { result } = renderHook(() => useCurrentChatMessages());
-    expect(result.current).toHaveLength(1);
-    expect(result.current[0].content).toBe('Hello');
-  });
-
-  it('returns empty array when no current document', () => {
-    act(() => {
-      useDocumentStore.setState({ currentDocumentId: null });
-    });
-    const { result } = renderHook(() => useCurrentChatMessages());
-    expect(result.current).toHaveLength(0);
-  });
-
-  it('returns empty array when document has no session', () => {
-    act(() => {
-      useDocumentStore.setState({ currentDocumentId: 'doc-no-session' });
-    });
-    const { result } = renderHook(() => useCurrentChatMessages());
-    expect(result.current).toHaveLength(0);
-  });
-});
-
-describe('useCurrentTask selector', () => {
-  const task1 = makeTask('task1');
-  const task2 = makeTask('task2');
-
-  beforeEach(() => {
-    act(() => {
-      useTaskStore.setState({
-        tasks: [task1, task2],
-        currentTaskId: 'task1',
+      act(() => {
+        result.current.updateTask('task-1', { title: 'New' });
       });
+
+      expect(result.current.tasks[0].title).toBe('New');
     });
-  });
 
-  it('returns the current task', () => {
-    const { result } = renderHook(() => useCurrentTask());
-    expect(result.current?._id).toBe('task1');
-  });
-
-  it('returns undefined when no current task id', () => {
-    act(() => {
-      useTaskStore.setState({ currentTaskId: null });
-    });
-    const { result } = renderHook(() => useCurrentTask());
-    expect(result.current).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DocumentStore - additional branches
-// ---------------------------------------------------------------------------
-
-describe('useDocumentStore - additional', () => {
-  beforeEach(() => {
-    act(() => {
-      useDocumentStore.setState({
-        documents: [],
-        currentDocumentId: null,
-        isGenerating: false,
-        generationProgress: 0,
-        generationSteps: [],
-        currentStep: '',
-        resourcesFound: 0,
-        estimatedTime: null,
-        error: null,
+    it('should deep merge context instead of replacing it', () => {
+      const { result } = renderHook(() => useTaskStore());
+      act(() => {
+        result.current.addTask(
+          makeTask({
+            _id: 'task-1',
+            context: {
+              resourceIds: ['res-1'],
+              chatMessages: [],
+              prompt: 'Original',
+            },
+          })
+        );
       });
-    });
-  });
 
-  it('setGenerating true sets isGenerating without resetting steps', () => {
-    act(() => {
-      useDocumentStore
-        .getState()
-        .setGenerationSteps([
-          { id: 's1', name: 'Step 1', status: 'processing' },
-        ]);
-      useDocumentStore.getState().setGenerating(true);
-    });
-
-    const state = useDocumentStore.getState();
-    expect(state.isGenerating).toBe(true);
-    // Steps are NOT reset when setting generating to true
-    expect(state.generationSteps).toHaveLength(1);
-  });
-
-  it('setCurrentStep updates currentStep', () => {
-    act(() => {
-      useDocumentStore.getState().setCurrentStep('step-3');
-    });
-    expect(useDocumentStore.getState().currentStep).toBe('step-3');
-  });
-
-  it('setResourcesFound updates resourcesFound', () => {
-    act(() => {
-      useDocumentStore.getState().setResourcesFound(42);
-    });
-    expect(useDocumentStore.getState().resourcesFound).toBe(42);
-  });
-
-  it('setEstimatedTime updates estimatedTime', () => {
-    act(() => {
-      useDocumentStore.getState().setEstimatedTime(120);
-    });
-    expect(useDocumentStore.getState().estimatedTime).toBe(120);
-
-    act(() => {
-      useDocumentStore.getState().setEstimatedTime(null);
-    });
-    expect(useDocumentStore.getState().estimatedTime).toBeNull();
-  });
-
-  it('deleteDocument preserves currentDocumentId when different doc is deleted', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
-      useDocumentStore.getState().addDocument(makeDocument('doc-2'));
-      useDocumentStore.getState().setCurrentDocument('doc-1');
-    });
-
-    act(() => {
-      useDocumentStore.getState().deleteDocument('doc-2');
-    });
-
-    expect(useDocumentStore.getState().currentDocumentId).toBe('doc-1');
-    expect(useDocumentStore.getState().documents).toHaveLength(1);
-  });
-
-  it('saveVersion for PPT document calculates slideCount from markdown', () => {
-    const pptDoc = makeDocument('doc-ppt', 'ppt');
-    act(() => {
-      useDocumentStore.getState().addDocument(pptDoc);
-    });
-
-    let versionId = '';
-    act(() => {
-      versionId = useDocumentStore
-        .getState()
-        .saveVersion('doc-ppt', 'auto', 'ai_generation');
-    });
-
-    expect(versionId).toMatch(/^v_/);
-    const doc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-ppt');
-    expect(doc?.versions).toHaveLength(1);
-    // The calculateSlideCount mock counts ## headers
-    expect(doc?.versions[0].metadata.slideCount).toBe(2);
-  });
-
-  it('saveVersion records aiModel from document aiConfig', () => {
-    const doc = makeDocument('doc-with-ai');
-    act(() => {
-      useDocumentStore.getState().addDocument(doc);
-    });
-
-    let versionId = '';
-    act(() => {
-      versionId = useDocumentStore
-        .getState()
-        .saveVersion('doc-with-ai', 'manual', 'user_edit', 'With AI config');
-    });
-
-    const savedDoc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-with-ai');
-    expect(savedDoc?.versions[0].aiModel).toBe('grok');
-  });
-
-  it('restoreVersion does nothing when document not found', () => {
-    act(() => {
-      useDocumentStore.getState().restoreVersion('nonexistent-doc', 'v_1');
-    });
-    // No error, state unchanged
-    expect(useDocumentStore.getState().documents).toHaveLength(0);
-  });
-
-  it('restoreVersion does nothing when version not found', () => {
-    act(() => {
-      useDocumentStore.getState().addDocument(makeDocument('doc-1'));
-    });
-
-    act(() => {
-      useDocumentStore
-        .getState()
-        .restoreVersion('doc-1', 'v_nonexistent_version');
-    });
-
-    const doc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-1');
-    // Document unchanged
-    expect(doc?.versions).toHaveLength(0);
-  });
-
-  it('getVersions returns empty array for nonexistent document', () => {
-    const versions = useDocumentStore.getState().getVersions('no-such-doc');
-    expect(versions).toEqual([]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// ChatStore - additional branches
-// ---------------------------------------------------------------------------
-
-describe('useChatStore - additional', () => {
-  beforeEach(() => {
-    act(() => {
-      useChatStore.setState({
-        sessions: {},
-        isStreaming: false,
-        streamingMessage: '',
-        shouldStopGeneration: false,
-        error: null,
-        agentMode: 'basic',
-        agentStatus: null,
+      act(() => {
+        result.current.updateTask('task-1', {
+          context: { resourceIds: ['res-2'] } as Task['context'],
+        });
       });
+
+      // Original prompt preserved, resourceIds updated
+      expect(result.current.tasks[0].context.resourceIds).toEqual(['res-2']);
+      expect(result.current.tasks[0].context.prompt).toBe('Original');
     });
-  });
 
-  it('updateStreamingMessage updates streamingMessage', () => {
-    act(() => {
-      useChatStore.getState().updateStreamingMessage('Partial response...');
-    });
-    expect(useChatStore.getState().streamingMessage).toBe(
-      'Partial response...'
-    );
-  });
-
-  it('setStreaming false keeps shouldStopGeneration as false', () => {
-    act(() => {
-      useChatStore.getState().setStreaming(true);
-      useChatStore.getState().setStreaming(false);
-    });
-    expect(useChatStore.getState().isStreaming).toBe(false);
-    expect(useChatStore.getState().shouldStopGeneration).toBe(false);
-  });
-
-  it('setAgentStatus can be set to null', () => {
-    act(() => {
-      useChatStore.getState().setAgentStatus('Working...');
-      useChatStore.getState().setAgentStatus(null);
-    });
-    expect(useChatStore.getState().agentStatus).toBeNull();
-  });
-
-  it('setError sets error message', () => {
-    act(() => {
-      useChatStore.getState().setError('Chat error');
-    });
-    expect(useChatStore.getState().error).toBe('Chat error');
-
-    act(() => {
-      useChatStore.getState().setError(null);
-    });
-    expect(useChatStore.getState().error).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// TaskStore - additional branches
-// ---------------------------------------------------------------------------
-
-describe('useTaskStore - additional', () => {
-  beforeEach(() => {
-    act(() => {
-      useTaskStore.setState({
-        tasks: [],
-        currentTaskId: null,
-        isTaskListOpen: false,
+    it('should update refreshedAt on each update', async () => {
+      const { result } = renderHook(() => useTaskStore());
+      const original = makeTask({
+        _id: 'task-1',
+        refreshedAt: new Date('2020-01-01'),
       });
-      useDocumentStore.setState({
-        documents: [],
-        currentDocumentId: null,
-        isGenerating: false,
-        generationProgress: 0,
-        generationSteps: [],
-        currentStep: '',
-        resourcesFound: 0,
-        estimatedTime: null,
-        error: null,
+      act(() => {
+        result.current.addTask(original);
       });
-      useResourceStore.setState({ resources: [], selectedResourceIds: [] });
-      useChatStore.setState({
-        sessions: {},
-        isStreaming: false,
-        streamingMessage: '',
-        shouldStopGeneration: false,
-        error: null,
-        agentMode: 'basic',
-        agentStatus: null,
+
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        result.current.updateTask('task-1', { title: 'Updated' });
       });
+
+      expect(result.current.tasks[0].refreshedAt.getTime()).toBeGreaterThan(
+        new Date('2020-01-01').getTime()
+      );
     });
   });
 
-  it('setTaskListOpen sets isTaskListOpen directly', () => {
-    act(() => {
-      useTaskStore.getState().setTaskListOpen(true);
-    });
-    expect(useTaskStore.getState().isTaskListOpen).toBe(true);
-
-    act(() => {
-      useTaskStore.getState().setTaskListOpen(false);
-    });
-    expect(useTaskStore.getState().isTaskListOpen).toBe(false);
-  });
-
-  it('deleteTask preserves currentTaskId when different task is deleted', () => {
-    const task1 = makeTask('task-1');
-    const task2 = makeTask('task-2');
-    act(() => {
-      useTaskStore.getState().addTask(task1);
-      useTaskStore.getState().addTask(task2);
-      useTaskStore.getState().setCurrentTask('task-1');
-    });
-
-    act(() => {
-      useTaskStore.getState().deleteTask('task-2');
-    });
-
-    expect(useTaskStore.getState().currentTaskId).toBe('task-1');
-    expect(useTaskStore.getState().tasks).toHaveLength(1);
-  });
-
-  it('updateTask without context updates fields but keeps existing context', () => {
-    const task = makeTask('task-1');
-    task.context.resourceIds = ['r1', 'r2'];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().updateTask('task-1', {
-        title: 'Updated Title',
+  describe('deleteTask', () => {
+    it('should remove task from list', () => {
+      const { result } = renderHook(() => useTaskStore());
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-1' }));
       });
-    });
-
-    const updated = useTaskStore
-      .getState()
-      .tasks.find((t) => t._id === 'task-1');
-    expect(updated?.title).toBe('Updated Title');
-    expect(updated?.context.resourceIds).toEqual(['r1', 'r2']);
-  });
-
-  it('restoreTaskContext does nothing when task not found', () => {
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('nonexistent-task');
-    });
-    // No error thrown
-    expect(useTaskStore.getState().currentTaskId).toBeNull();
-  });
-
-  it('restoreTaskContext restores resource selection', () => {
-    const resource1 = makeResource('r1');
-    const resource2 = makeResource('r2');
-
-    act(() => {
-      useResourceStore.getState().addResource(resource1);
-      useResourceStore.getState().addResource(resource2);
-      useResourceStore.getState().selectResource('r1');
-    });
-
-    const task = makeTask('task-restore');
-    task.context.resourceIds = ['r2'];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('task-restore');
-    });
-
-    expect(useResourceStore.getState().selectedResourceIds).toEqual(['r2']);
-    expect(useTaskStore.getState().currentTaskId).toBe('task-restore');
-  });
-
-  it('restoreTaskContext with documentId and existing document updates content', () => {
-    const doc = makeDocument('doc-restore');
-    const newContent = { text: 'Restored content from task context' };
-    const newMetadata = { wordCount: 200, slideCount: 0 };
-
-    act(() => {
-      useDocumentStore.getState().addDocument(doc);
-    });
-
-    const task = makeTask('task-with-doc');
-    task.context.documentId = 'doc-restore';
-    task.context.documentContent = newContent as unknown as Document['content'];
-    task.context.documentMetadata = newMetadata as Document['metadata'];
-    task.context.chatMessages = [];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('task-with-doc');
-    });
-
-    const restoredDoc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-restore');
-    expect(restoredDoc?.content).toEqual(newContent);
-    expect(useDocumentStore.getState().currentDocumentId).toBe('doc-restore');
-  });
-
-  it('restoreTaskContext recreates document from snapshot when doc not in store', () => {
-    const content = { text: 'Snapshot content' };
-    const metadata = { wordCount: 150, slideCount: 0 };
-
-    const task = makeTask('task-recreate');
-    task.context.documentId = 'doc-snapshot';
-    task.context.documentContent = content as unknown as Document['content'];
-    task.context.documentMetadata = metadata as Document['metadata'];
-    task.context.chatMessages = [];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('task-recreate');
-    });
-
-    const recreatedDoc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-snapshot');
-    expect(recreatedDoc).toBeDefined();
-    expect(recreatedDoc?._id).toBe('doc-snapshot');
-    expect(useDocumentStore.getState().currentDocumentId).toBe('doc-snapshot');
-  });
-
-  it('restoreTaskContext maps summary/analysis task type to article document type', () => {
-    const content = { text: 'Summary text' };
-    const metadata = { wordCount: 100, slideCount: 0 };
-
-    const task = makeTask('task-summary');
-    task.type = 'summary';
-    task.context.documentId = 'doc-summary';
-    task.context.documentContent = content as unknown as Document['content'];
-    task.context.documentMetadata = metadata as Document['metadata'];
-    task.context.chatMessages = [];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('task-summary');
-    });
-
-    const recreatedDoc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-summary');
-    expect(recreatedDoc?.type).toBe('article');
-  });
-
-  it('restoreTaskContext restores chat messages for existing documentId', () => {
-    const doc = makeDocument('doc-chat');
-    const msg1 = {
-      id: 'msg-1',
-      role: 'user' as const,
-      content: 'Hello from task',
-      timestamp: new Date(),
-    };
-
-    act(() => {
-      useDocumentStore.getState().addDocument(doc);
-    });
-
-    const task = makeTask('task-chat');
-    task.context.documentId = 'doc-chat';
-    task.context.chatMessages = [msg1];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('task-chat');
-    });
-
-    const chatSessions = useChatStore.getState().sessions;
-    expect(chatSessions['doc-chat']).toHaveLength(1);
-    expect(chatSessions['doc-chat'][0].content).toBe('Hello from task');
-  });
-
-  it('restoreTaskContext with PPT document calculates slideCount', () => {
-    const pptContent = {
-      markdown:
-        '## Slide 1\nContent\n## Slide 2\nMore content\n## Slide 3\nEnd',
-    };
-    const metadata = { wordCount: 50, slideCount: 1 };
-
-    const task = makeTask('task-ppt');
-    task.type = 'ppt';
-    task.context.documentId = 'doc-ppt-restore';
-    task.context.documentContent = pptContent as unknown as Document['content'];
-    task.context.documentMetadata = metadata as Document['metadata'];
-    task.context.chatMessages = [];
-
-    const pptDoc = makeDocument('doc-ppt-restore', 'ppt');
-    act(() => {
-      useDocumentStore.getState().addDocument(pptDoc);
-    });
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('task-ppt');
-    });
-
-    const updatedDoc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-ppt-restore');
-    // calculateSlideCount mock counts ## headers: 3 slides
-    expect(updatedDoc?.metadata?.slideCount).toBe(3);
-  });
-
-  it('restoreTaskContext with documentVersions restores version history', () => {
-    const content = { text: 'Versioned content' };
-    const metadata = { wordCount: 100, slideCount: 0 };
-    const versions = [
-      {
-        id: 'v_old_1',
-        timestamp: new Date(),
-        type: 'auto' as const,
-        trigger: 'ai_generation' as const,
-        content,
-        metadata: { title: 'Old', wordCount: 80, slideCount: 0 },
-      },
-    ];
-
-    const task = makeTask('task-versions');
-    task.context.documentId = 'doc-versioned';
-    task.context.documentContent = content as unknown as Document['content'];
-    task.context.documentMetadata = metadata as Document['metadata'];
-    task.context.documentVersions = versions as unknown as Document['versions'];
-    task.context.chatMessages = [];
-
-    act(() => {
-      useTaskStore.getState().addTask(task);
-    });
-
-    act(() => {
-      useTaskStore.getState().restoreTaskContext('task-versions');
-    });
-
-    const recreatedDoc = useDocumentStore
-      .getState()
-      .documents.find((d) => d._id === 'doc-versioned');
-    expect(recreatedDoc?.versions).toHaveLength(1);
-    expect(recreatedDoc?.currentVersionId).toBe('v_old_1');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// UIStore - additional branches
-// ---------------------------------------------------------------------------
-
-describe('useUIStore - additional', () => {
-  beforeEach(() => {
-    act(() => {
-      useUIStore.setState({
-        middlePanelWidth: 650,
-        resourceListCollapsed: false,
-        selectedResourceIds: [],
-        isLoading: false,
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-2' }));
       });
+
+      act(() => {
+        result.current.deleteTask('task-1');
+      });
+
+      expect(result.current.tasks).toHaveLength(1);
+      expect(result.current.tasks[0]._id).toBe('task-2');
+    });
+
+    it('should clear currentTaskId if deleted task was current', () => {
+      const { result } = renderHook(() => useTaskStore());
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-1' }));
+      });
+      act(() => {
+        result.current.setCurrentTask('task-1');
+      });
+
+      act(() => {
+        result.current.deleteTask('task-1');
+      });
+
+      expect(result.current.currentTaskId).toBeNull();
+    });
+
+    it('should NOT clear currentTaskId if a different task is deleted', () => {
+      const { result } = renderHook(() => useTaskStore());
+      act(() => {
+        result.current.addTask(makeTask({ _id: 'task-1' }));
+        result.current.addTask(makeTask({ _id: 'task-2' }));
+        result.current.setCurrentTask('task-2');
+      });
+
+      act(() => {
+        result.current.deleteTask('task-1');
+      });
+
+      expect(result.current.currentTaskId).toBe('task-2');
     });
   });
 
-  it('setLoading with message sets loadingMessage', () => {
-    act(() => {
-      useUIStore.getState().setLoading(true, 'Uploading files...');
+  describe('setCurrentTask', () => {
+    it('should set currentTaskId', () => {
+      const { result } = renderHook(() => useTaskStore());
+
+      act(() => {
+        result.current.setCurrentTask('task-abc');
+      });
+
+      expect(result.current.currentTaskId).toBe('task-abc');
     });
-    const state = useUIStore.getState();
-    expect(state.isLoading).toBe(true);
-    expect(state.loadingMessage).toBe('Uploading files...');
+
+    it('should clear currentTaskId when null is passed', () => {
+      const { result } = renderHook(() => useTaskStore());
+      act(() => {
+        result.current.setCurrentTask('task-1');
+      });
+
+      act(() => {
+        result.current.setCurrentTask(null);
+      });
+
+      expect(result.current.currentTaskId).toBeNull();
+    });
   });
 
-  it('setError with null message clears error', () => {
-    act(() => {
-      useUIStore.getState().setError('Some error', 'ERR_400');
-      useUIStore.getState().setError(null);
+  describe('toggleTaskList / setTaskListOpen', () => {
+    it('should toggle isTaskListOpen', () => {
+      const { result } = renderHook(() => useTaskStore());
+
+      act(() => {
+        result.current.toggleTaskList();
+      });
+      expect(result.current.isTaskListOpen).toBe(true);
+
+      act(() => {
+        result.current.toggleTaskList();
+      });
+      expect(result.current.isTaskListOpen).toBe(false);
     });
-    expect(useUIStore.getState().error).toBeUndefined();
+
+    it('should set isTaskListOpen directly', () => {
+      const { result } = renderHook(() => useTaskStore());
+
+      act(() => {
+        result.current.setTaskListOpen(true);
+      });
+      expect(result.current.isTaskListOpen).toBe(true);
+    });
+  });
+
+  describe('saveTaskContext', () => {
+    it('should merge context into existing task context', () => {
+      const { result } = renderHook(() => useTaskStore());
+      act(() => {
+        result.current.addTask(
+          makeTask({
+            _id: 'task-1',
+            context: {
+              resourceIds: ['res-1'],
+              chatMessages: [],
+              prompt: 'Hello',
+            },
+          })
+        );
+      });
+
+      act(() => {
+        result.current.saveTaskContext('task-1', { prompt: 'Updated' });
+      });
+
+      expect(result.current.tasks[0].context.prompt).toBe('Updated');
+      expect(result.current.tasks[0].context.resourceIds).toEqual(['res-1']);
+    });
   });
 });
