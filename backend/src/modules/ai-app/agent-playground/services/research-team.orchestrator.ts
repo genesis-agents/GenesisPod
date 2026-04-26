@@ -116,10 +116,35 @@ function extractFailureMessage(
       }
       return sum;
     }, 0);
+  // 扫 reflection 事件 —— Reflexion loop 会留下 score / critique，
+  // 用来区分 reason="budget" 是「token 真耗尽」还是「verifier 反复未达门槛」
+  const reflectionVerdicts: { score: number; critique?: string }[] = [];
+  for (const ev of events) {
+    if (ev.type === "reflection") {
+      const p = ev.payload as {
+        score?: number;
+        verdicts?: { score?: number; critique?: string }[];
+      } | null;
+      if (typeof p?.score === "number") {
+        reflectionVerdicts.push({ score: p.score });
+      }
+      if (Array.isArray(p?.verdicts)) {
+        for (const v of p.verdicts) {
+          if (typeof v.score === "number") {
+            reflectionVerdicts.push({
+              score: v.score,
+              critique: v.critique,
+            });
+          }
+        }
+      }
+    }
+  }
   const ctx = {
     iterations: runStats?.iterations,
     wallTimeMs: runStats?.wallTimeMs,
     tokensUsed: tokensUsed > 0 ? tokensUsed : undefined,
+    reflectionVerdicts,
   };
   // 倒序扫，错误信息通常在末尾
   for (let i = events.length - 1; i >= 0; i--) {
@@ -146,21 +171,44 @@ function extractFailureMessage(
     }
   }
   if (state === "failed") {
-    if (!hasOutput)
+    if (!hasOutput) {
+      // 检查是否所有 observation 都是空 → LLM 持续返空，多半是 BYOK 模型配置问题
+      const observations = events.filter((ev) => ev.type === "action_executed");
+      const emptyObs = observations.filter((ev) => {
+        const p = ev.payload as { output?: unknown } | null;
+        const out = p?.output;
+        return (
+          out == null ||
+          out === "" ||
+          (typeof out === "object" &&
+            Object.keys(out as Record<string, unknown>).length === 0)
+        );
+      });
+      if (observations.length > 0 && emptyObs.length === observations.length) {
+        return `LLM 持续返回空内容 (${observations.length} 次调用全部空响应) —— 多半是 BYOK 模型配置异常 (model id 不存在 / API 拒绝 / 输出被过滤)。请前往 设置 → 模型 检查当前选用的模型是否真实可用`;
+      }
       return "Agent 未产出有效输出（可能是 LLM 返回空 / 超时 / 网络中断）";
+    }
     return "outputSchema 校验失败 —— Agent 产出格式不符合预期 schema（详见原始执行轨迹中最后一个 finalize 事件的 input/output）";
   }
   if (state === "cancelled") return "Agent 被取消";
   return undefined;
 }
 
-/** 把 Harness 干巴巴的终止 reason 转成给人看的失败原因（含上下文） */
+/**
+ * 把 Harness 干巴巴的终止 reason 转成给人看的失败原因（含上下文）。
+ *
+ * 关键判别：reason="budget" 在 Reflexion loop 里有歧义 ——
+ *   - 如果 reflectionVerdicts 有低分记录 → 是 verifier 反复未达门槛（不是 token 问题）
+ *   - 否则才是真的 maxTokens 触顶
+ */
 function explainTerminatedReason(
   reason: string,
   detail?: {
     tokensUsed?: number;
     iterations?: number;
     wallTimeMs?: number;
+    reflectionVerdicts?: { score: number; critique?: string }[];
   } | null,
 ): string {
   const ctx: string[] = [];
@@ -169,10 +217,28 @@ function explainTerminatedReason(
   if (detail?.wallTimeMs != null)
     ctx.push(`耗时 ${(detail.wallTimeMs / 1000).toFixed(1)}s`);
   const ctxStr = ctx.length > 0 ? ` (${ctx.join(", ")})` : "";
+
+  // Reflexion verdict 分析：判断 budget reason 是 verifier 还是 token
+  const verdicts = detail?.reflectionVerdicts ?? [];
+  const lastVerdict =
+    verdicts.length > 0 ? verdicts[verdicts.length - 1] : null;
+  const isVerifierExhaustion =
+    verdicts.length > 0 && verdicts.every((v) => v.score < 70); // 默认 passThreshold=70
+
   switch (reason) {
     case "budget":
     case "budget_exhausted":
     case "token_limit":
+      if (isVerifierExhaustion) {
+        const lastCritique = lastVerdict?.critique
+          ? ` 最后一次评分批注：「${lastVerdict.critique.slice(0, 200)}${
+              lastVerdict.critique.length > 200 ? "…" : ""
+            }」`
+          : "";
+        return `Reflexion 反复未通过质量门槛${ctxStr} —— ${verdicts.length} 轮评分均 <70 分（最后 ${lastVerdict?.score.toFixed(
+          1,
+        )} 分）。${lastCritique} 可调高 budget.maxIterations 给更多重写机会，或降低 passThreshold，或检查 verifier prompt 是否过严`;
+      }
       return `Agent 预算耗尽${ctxStr} —— maxTokens 触顶。可在 @DefineAgent.budget.maxTokens 调高，或缩短输入 / 减少迭代`;
     case "iteration_limit":
     case "max_iterations":

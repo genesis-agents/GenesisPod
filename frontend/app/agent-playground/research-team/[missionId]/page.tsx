@@ -754,6 +754,55 @@ function renderActionInputReadable(
 }
 
 /** 渲染 observation output：识别 search/scrape 结果数组 → 卡片化 title+url+snippet */
+/** 剥层助手：从可能多层包裹的 output 拿到结构化对象（dimensions/findings/...） */
+function unwrapStructuredOutput(
+  v: unknown,
+  depth = 0
+): Record<string, unknown> | null {
+  if (depth > 8 || v == null) return null;
+  if (typeof v === 'string') {
+    const trimmed = v
+      .trim()
+      .replace(/…$/, '')
+      .replace(/\.\.\.$/, '');
+    if (
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    ) {
+      try {
+        return unwrapStructuredOutput(JSON.parse(trimmed), depth + 1);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  if (typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  // 常见包裹层：{output: ...} / {_truncated, preview: "..."}
+  if ('output' in o) {
+    const inner = unwrapStructuredOutput(o.output, depth + 1);
+    if (inner) return inner;
+  }
+  if (typeof o.preview === 'string') {
+    const inner = unwrapStructuredOutput(o.preview, depth + 1);
+    if (inner) return inner;
+  }
+  // 至少含一个我们认识的结构化字段才算 hit
+  const knownFields = [
+    'dimensions',
+    'findings',
+    'insights',
+    'sections',
+    'verdicts',
+    'themeSummary',
+    'summary',
+    'title',
+  ];
+  if (knownFields.some((f) => f in o)) return o;
+  return null;
+}
+
 function renderObservationOutputReadable(
   output: unknown,
   fallbackJson: string | null
@@ -900,18 +949,22 @@ function renderObservationOutputReadable(
   visit(output);
 
   if (hits.length === 0) {
+    // 不是 search/scrape 结果 —— 试试结构化 output（dimensions/findings/insights/...）
+    // 用 unwrap 剥层 + renderFinalOutput 同款卡片化渲染
+    const unwrapped = unwrapStructuredOutput(output);
+    if (unwrapped) {
+      return <div className="mt-1">{renderFinalOutput(null, unwrapped)}</div>;
+    }
+    // 仍识别不出 → 紧凑文本预览（不再用 raw JSON details，给人看不给机器看）
     if (!fallbackJson) return null;
+    const preview =
+      fallbackJson.length > 400
+        ? fallbackJson.slice(0, 400) + '…'
+        : fallbackJson;
     return (
-      <details className="mt-1">
-        <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
-          ▸ output (raw)
-        </summary>
-        <pre className="font-mono mt-1 max-h-32 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
-          {fallbackJson.length > 2000
-            ? fallbackJson.slice(0, 2000) + '\n…'
-            : fallbackJson}
-        </pre>
-      </details>
+      <p className="font-mono mt-1 break-words rounded bg-gray-50 px-2 py-1 text-[10px] text-gray-600">
+        {preview}
+      </p>
     );
   }
 
@@ -1710,55 +1763,20 @@ function TaskDetailDrawer({
     return m;
   })();
 
-  // 最终产出：扫描末尾的 finalize observation 找结构化 output
+  // 最终产出：倒序扫 trace 找 finalize 的 input/output —— 都可能含结构化产出
+  // 使用模块级 unwrapStructuredOutput（同时被 renderObservationOutputReadable 复用）
   const finalOutput = (() => {
-    // 工具：剥层 + 把 string 当 JSON 解析
-    const unwrap = (v: unknown): Record<string, unknown> | null => {
-      if (v == null) return null;
-      if (typeof v === 'string') {
-        const trimmed = v
-          .trim()
-          .replace(/…$/, '')
-          .replace(/\.\.\.$/, '');
-        if (
-          (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-          (trimmed.startsWith('[') && trimmed.endsWith(']'))
-        ) {
-          try {
-            return unwrap(JSON.parse(trimmed));
-          } catch {
-            return null;
-          }
-        }
-        return null;
-      }
-      if (typeof v !== 'object') return null;
-      const o = v as Record<string, unknown>;
-      // ReAct loop 经常包一层 { output: ... } / { _truncated, preview: "..." }
-      if ('output' in o) {
-        const inner = unwrap(o.output);
-        if (inner) return inner;
-      }
-      if (typeof o.preview === 'string') {
-        const inner = unwrap(o.preview);
-        if (inner) return inner;
-      }
-      return o;
-    };
-
-    // 倒序扫 trace，找最后一个 finalize 的 input/output —— 都可能含结构化产出
     for (let i = trace.length - 1; i >= 0; i--) {
       const t = trace[i];
       const isFinalize =
         t.toolId === 'finalize' || t.toolId === 'reasoning' || t.toolId == null;
       if (!isFinalize) continue;
       if (t.kind === 'observation' && !t.error) {
-        const o = unwrap(t.output);
+        const o = unwrapStructuredOutput(t.output);
         if (o) return o;
       }
       if (t.kind === 'action') {
-        // ReAct finalize 经常把结构化结果塞 action.input
-        const o = unwrap(t.input);
+        const o = unwrapStructuredOutput(t.input);
         if (o) return o;
       }
     }
