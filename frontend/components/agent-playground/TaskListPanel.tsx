@@ -61,7 +61,10 @@ type TaskRow = {
   rationale?: string;
   ownerLabel: string;
   status: RowStatus;
+  /** 执行模式（loop 标签）作为静态描述 */
   modelHint: string;
+  /** 实际使用的 LLM 模型 id（运行时由 BYOK / 系统配置解析） */
+  modelId?: string;
   Icon: typeof Brain;
 };
 
@@ -139,6 +142,7 @@ export function TaskListPanel({
   let idx = 1;
 
   // Leader row
+  const leaderAgent = agents.find((a) => a.role === 'leader');
   rows.push({
     key: 'leader',
     index: idx++,
@@ -150,7 +154,8 @@ export function TaskListPanel({
       'Leader 分析 topic 后产出主题摘要并拆分多个研究维度。',
     ownerLabel: 'Research Leader',
     status: statusOfStage(stageMap.get('leader')?.status ?? 'pending'),
-    modelHint: 'planning',
+    modelHint: 'ReAct',
+    modelId: leaderAgent?.modelId,
     Icon: ROLE_ICON.leader,
   });
 
@@ -182,7 +187,8 @@ export function TaskListPanel({
       rationale: d.rationale,
       ownerLabel: matched?.agentId ?? `Researcher #${idx - 1}`,
       status: st,
-      modelHint: 'search',
+      modelHint: 'ReAct + Tools',
+      modelId: matched?.modelId,
       Icon: ROLE_ICON.researcher,
     });
   }
@@ -220,10 +226,11 @@ export function TaskListPanel({
       status: statusOfStage(stage?.status ?? 'pending'),
       modelHint:
         role === 'analyst'
-          ? 'reasoning'
+          ? 'Reflexion'
           : role === 'writer'
-            ? 'long-form'
-            : 'judge',
+            ? 'ReAct (自愈)'
+            : 'Judge × 3',
+      modelId: agents.find((a) => a.role === role)?.modelId,
       Icon: ROLE_ICON[role],
     });
   }
@@ -290,10 +297,19 @@ export function TaskListPanel({
               <th className="w-[36%] whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
                 任务
               </th>
-              <th className="w-[20%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
+              <th className="w-[18%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
                 负责人
               </th>
-              <th className="w-[16%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
+              <th
+                className="w-[12%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-semibold text-gray-600"
+                title="Harness 执行模式（loop 类型）"
+              >
+                执行模式
+              </th>
+              <th
+                className="w-[14%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-semibold text-gray-600"
+                title="实际 LLM 模型（运行时由 BYOK / 系统配置解析）"
+              >
                 模型
               </th>
               <th className="w-[14%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
@@ -408,12 +424,33 @@ export function TaskListPanel({
                       </span>
                     </td>
 
-                    {/* 模型 */}
+                    {/* 执行模式 */}
                     <td className="px-2 py-2">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
-                        <Cpu className="h-2.5 w-2.5" />
+                      <span className="font-mono inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
                         {r.modelHint}
                       </span>
+                    </td>
+
+                    {/* 模型 */}
+                    <td className="px-2 py-2">
+                      {r.modelId ? (
+                        <span
+                          className="font-mono inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+                          title={`实际 LLM: ${r.modelId}`}
+                        >
+                          <Cpu className="h-2.5 w-2.5" />
+                          {r.modelId.length > 16
+                            ? r.modelId.slice(0, 16) + '…'
+                            : r.modelId}
+                        </span>
+                      ) : (
+                        <span
+                          className="text-[10px] text-gray-400"
+                          title="尚未捕获到模型 id（agent 未启动 / Railway recycle 后历史 mission 不持久化）"
+                        >
+                          —
+                        </span>
+                      )}
                     </td>
 
                     {/* 状态 */}
@@ -435,7 +472,7 @@ export function TaskListPanel({
                   {/* 展开的任务说明行 */}
                   {!onSelect && isExpanded && r.rationale && (
                     <tr className="bg-amber-50/40">
-                      <td colSpan={6} className="px-4 py-3">
+                      <td colSpan={7} className="px-4 py-3">
                         <div className="flex items-start gap-3 text-sm">
                           <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
                           <div className="flex-1">

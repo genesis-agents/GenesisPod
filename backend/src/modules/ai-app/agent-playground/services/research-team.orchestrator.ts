@@ -804,7 +804,11 @@ export class ResearchTeamOrchestrator {
   ): Promise<void> {
     for (const ev of events) {
       if (ev.type === "thinking") {
-        const p = ev.payload as { text: string; tokenCount?: number };
+        const p = ev.payload as {
+          text: string;
+          tokenCount?: number;
+          modelId?: string;
+        };
         await this.emit({
           type: "agent-playground.agent:thought",
           missionId: ctx.missionId,
@@ -815,6 +819,7 @@ export class ResearchTeamOrchestrator {
             role: ctx.role,
             text: p.text,
             tokenCount: p.tokenCount,
+            modelId: p.modelId,
             originalTs: ev.timestamp,
           },
         });

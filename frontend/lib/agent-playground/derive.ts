@@ -56,6 +56,8 @@ export interface AgentLiveState {
   iterations?: number;
   attempt?: number;
   dimension?: string;
+  /** 该 agent 实际使用的 LLM 模型 id（来自 thought 事件的 payload.modelId） */
+  modelId?: string;
   trace: AgentTraceItem[];
 }
 
@@ -234,6 +236,9 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       let item: AgentTraceItem;
       if (t === 'agent-playground.agent:thought') {
         item = { kind: 'thought', ts, text: p?.text as string | undefined };
+        // 捕获该 agent 当前使用的真实 LLM 模型
+        const modelId = p?.modelId as string | undefined;
+        if (modelId) cur.modelId = modelId;
       } else if (t === 'agent-playground.agent:action') {
         item = {
           kind: 'action',

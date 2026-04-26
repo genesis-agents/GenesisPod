@@ -177,6 +177,7 @@ export class ReActLoop implements IAgentLoop {
         completionTokens: number;
         costUsd: number;
         cacheReadTokens: number;
+        modelId?: string;
       };
       try {
         let tierModelId =
@@ -262,6 +263,8 @@ export class ReActLoop implements IAgentLoop {
         completionTokens: usage.completionTokens,
         cacheReadTokens: usage.cacheReadTokens,
         costUsd: usage.costUsd,
+        // 真实模型 id（供 UI 展示「这个 agent 在用什么模型」）
+        modelId: usage.modelId,
       });
       yield this.makeEvent(agentId, "action_planned", decision.action);
 
@@ -366,6 +369,7 @@ export class ReActLoop implements IAgentLoop {
       completionTokens: number;
       costUsd: number;
       cacheReadTokens: number;
+      modelId?: string;
     };
   }> {
     if (signal?.aborted) {
@@ -411,7 +415,13 @@ export class ReActLoop implements IAgentLoop {
       : 0;
     return {
       decision: this.parseDecision(response.content),
-      usage: { promptTokens, completionTokens, costUsd, cacheReadTokens },
+      usage: {
+        promptTokens,
+        completionTokens,
+        costUsd,
+        cacheReadTokens,
+        modelId: response.model,
+      },
     };
   }
 

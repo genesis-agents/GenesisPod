@@ -1138,7 +1138,11 @@ function TaskDetailDrawer({
             </details>
           ) : (
             <p className="rounded-lg bg-gray-50 px-3 py-3 text-center text-[11px] text-gray-500">
-              暂无执行轨迹（mission 已完成、事件流已从内存释放）
+              {phase === 'running'
+                ? 'Mission 正在后台执行 · 等待该 Agent 的 trace 事件流入…'
+                : phase === 'pending'
+                  ? '该 Agent 尚未启动'
+                  : 'trace 事件流已从内存释放（Railway recycle 后历史 mission 仅保留持久化字段）'}
             </p>
           )}
         </div>
