@@ -68,7 +68,8 @@ const DEPTH_SECTION_PLAN: Record<
   taskProfile: { creativity: "medium", outputLength: "extended" },
   inputSchema: Input,
   outputSchema: ResearchReportSchema,
-  budget: { maxTokens: 32_000, maxIterations: 5 },
+  // 长报告 + outputSchema retry，给足空间。budgetProfile 倍率会在上面再 scale
+  budget: { maxTokens: 80_000, maxIterations: 8 },
 })
 export class WriterAgent extends AgentSpec<
   typeof Input,

@@ -27,7 +27,9 @@ export function DemoLauncher() {
   const [language, setLanguage] = useState<RunMissionInput['language']>(
     initLang === 'en-US' ? 'en-US' : 'zh-CN'
   );
-  const [maxCredits, setMaxCredits] = useState(300);
+  const [budgetProfile, setBudgetProfile] = useState<
+    'low' | 'medium' | 'high' | 'unlimited'
+  >('medium');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +43,7 @@ export function DemoLauncher() {
         topic: topic.trim(),
         depth,
         language,
-        maxCredits,
+        budgetProfile,
       });
       // 双重保险：API client 已校验，这里再 guard 一次
       if (!missionId || missionId === 'undefined') {
@@ -117,17 +119,23 @@ export function DemoLauncher() {
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            {t('playground.researchTeam.maxCredits') || '积分预算'}
+            预算档位
           </label>
-          <input
-            type="number"
-            value={maxCredits}
-            onChange={(e) => setMaxCredits(Number(e.target.value))}
-            min={50}
-            max={5000}
-            step={50}
+          <select
+            value={budgetProfile}
+            onChange={(e) =>
+              setBudgetProfile(
+                e.target.value as 'low' | 'medium' | 'high' | 'unlimited'
+              )
+            }
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-          />
+            title="低/中/高 决定 token 上限；不限 几乎不设上限（按用户 BYOK 余额限制）"
+          >
+            <option value="low">低（约 $0.1）</option>
+            <option value="medium">中（约 $0.5，默认）</option>
+            <option value="high">高（约 $2，深度研究）</option>
+            <option value="unlimited">不限（仅受 BYOK 余额限制）</option>
+          </select>
         </div>
       </div>
 

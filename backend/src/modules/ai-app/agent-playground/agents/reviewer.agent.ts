@@ -34,7 +34,7 @@ const Output = z.object({
   taskProfile: { creativity: "deterministic", outputLength: "short" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 8_000, maxIterations: 3 },
+  budget: { maxTokens: 16_000, maxIterations: 4 },
 })
 export class ReviewerAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {

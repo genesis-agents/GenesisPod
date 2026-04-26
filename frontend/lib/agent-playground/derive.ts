@@ -343,7 +343,11 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         item = {
           kind: 'observation',
           ts,
-          toolId: p?.toolId as string | undefined,
+          // toolId 后端只在用 tool 时设；对 finalize/reasoning 等内置动作回退到 kind
+          // 不然 finalOutput 提取失败 — observation.toolId === 'finalize' 永远不成立
+          toolId:
+            (p?.toolId as string | undefined) ??
+            (p?.kind as string | undefined),
           output: p?.output,
           latencyMs: p?.latencyMs as number | undefined,
           tokensUsed: p?.tokensUsed as number | undefined,

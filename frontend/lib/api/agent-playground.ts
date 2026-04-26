@@ -11,10 +11,15 @@ import { getAuthHeader } from '@/lib/utils/auth';
 
 const API_BASE = `${config.apiBaseUrl}/api/v1/agent-playground`;
 
+export type BudgetProfile = 'low' | 'medium' | 'high' | 'unlimited';
+
 export interface RunMissionInput {
   topic: string;
   depth: 'quick' | 'standard' | 'deep';
   language: 'zh-CN' | 'en-US';
+  /** 推荐使用 budgetProfile（4 档），maxCredits 为 deprecated 兼容字段 */
+  budgetProfile?: BudgetProfile;
+  /** @deprecated 直接数字上限；新代码用 budgetProfile */
   maxCredits?: number;
 }
 

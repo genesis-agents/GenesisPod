@@ -54,6 +54,8 @@ import { AnalystAgent } from "../agents/analyst.agent";
 import { WriterAgent } from "../agents/writer.agent";
 import {
   type ResearchReport,
+  resolveBudgetMultiplier,
+  resolveMissionCredits,
   type RunMissionInput,
 } from "../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "../adapters/billing-runtime-env.adapter";
@@ -83,6 +85,8 @@ interface RelayCtx {
   role: string;
   /** 每 mission 独享的 RuntimeEnvironment 适配器（含 BYOK / 余额 / 模型池） */
   envAdapter?: BillingRuntimeEnvAdapter;
+  /** budgetProfile 转出的倍率，scale 每个 agent 的 maxTokens / maxIterations */
+  budgetMultiplier?: number;
 }
 
 /**
@@ -116,11 +120,14 @@ function extractFailureMessage(
         reason?: string;
         message?: string;
         detail?: string;
+        tokensUsed?: number;
+        iterations?: number;
+        wallTimeMs?: number;
       } | null;
       if (p?.message) return p.message;
       if (p?.detail) return p.detail;
       if (p?.reason && p.reason !== "completed") {
-        return `Agent 终止：${p.reason}`;
+        return explainTerminatedReason(p.reason, p);
       }
     }
   }
@@ -131,6 +138,43 @@ function extractFailureMessage(
   }
   if (state === "cancelled") return "Agent 被取消";
   return undefined;
+}
+
+/** 把 Harness 干巴巴的终止 reason 转成给人看的失败原因（含上下文） */
+function explainTerminatedReason(
+  reason: string,
+  detail?: {
+    tokensUsed?: number;
+    iterations?: number;
+    wallTimeMs?: number;
+  } | null,
+): string {
+  const ctx: string[] = [];
+  if (detail?.tokensUsed != null) ctx.push(`已用 ${detail.tokensUsed} tokens`);
+  if (detail?.iterations != null) ctx.push(`已迭代 ${detail.iterations} 轮`);
+  if (detail?.wallTimeMs != null)
+    ctx.push(`耗时 ${(detail.wallTimeMs / 1000).toFixed(1)}s`);
+  const ctxStr = ctx.length > 0 ? ` (${ctx.join(", ")})` : "";
+  switch (reason) {
+    case "budget":
+    case "budget_exhausted":
+    case "token_limit":
+      return `Agent 预算耗尽${ctxStr} —— maxTokens 触顶。可在 @DefineAgent.budget.maxTokens 调高，或缩短输入 / 减少迭代`;
+    case "iteration_limit":
+    case "max_iterations":
+      return `Agent 达到最大迭代次数${ctxStr} —— 通常是 LLM 反复尝试未收敛。可调高 maxIterations，或检查 prompt 是否引导歧义`;
+    case "wall_time":
+    case "wall_time_limit":
+      return `Agent 超时${ctxStr} —— maxWallTimeMs 触顶。可调高 budget.maxWallTimeMs 或检查工具调用是否卡住`;
+    case "cancelled":
+      return `Agent 被取消${ctxStr}`;
+    case "error":
+      return `Agent 内部错误${ctxStr} —— 详见 trace 末尾的 error / observation.error 字段`;
+    case "context_too_long":
+      return `Agent 上下文超长${ctxStr} —— 已触发 ContextCompactor 但仍溢出。可缩短 systemPrompt 或减少历史轮数`;
+    default:
+      return `Agent 异常终止：${reason}${ctxStr}`;
+  }
 }
 
 function extractTokenSpend(events: readonly IAgentEvent[]): number {
@@ -186,9 +230,12 @@ export class ResearchTeamOrchestrator {
       this.runtimeEnv,
     );
 
+    const effectiveMaxCredits = resolveMissionCredits(input);
+    // 1 credit ≈ 1k tokens；max 10k credits = 10M tokens 上限保护，足够任何
+    // 实际研究任务。配合 budgetProfile=unlimited 时基本不触发上限。
     const pool = new MissionBudgetPool({
-      maxTokens: input.maxCredits * 100,
-      maxCostUsd: input.maxCredits * 0.0002,
+      maxTokens: effectiveMaxCredits * 1000,
+      maxCostUsd: effectiveMaxCredits * 0.002,
     });
 
     const credit = await billing.getCreditState();
@@ -215,7 +262,7 @@ export class ResearchTeamOrchestrator {
       topic: input.topic,
       depth: input.depth,
       language: input.language,
-      maxCredits: input.maxCredits,
+      maxCredits: effectiveMaxCredits,
     });
 
     return BillingContext.run(
@@ -236,6 +283,8 @@ export class ResearchTeamOrchestrator {
             pool,
             t0,
             billing,
+            // depth × budgetProfile 组合倍率：让两个 lever 协同 scale agent budget
+            resolveBudgetMultiplier(input),
           );
           // 持久化 completed 状态 + 完整结果（含 dimensions / themeSummary / verdicts）
           const snap = pool.snapshot();
@@ -289,6 +338,7 @@ export class ResearchTeamOrchestrator {
     pool: MissionBudgetPool,
     t0: number,
     billing: BillingRuntimeEnvAdapter,
+    budgetMultiplier: number,
   ): Promise<MissionResult> {
     {
       {
@@ -320,6 +370,7 @@ export class ResearchTeamOrchestrator {
             agentId: "leader",
             role: "leader",
             envAdapter: billing,
+            budgetMultiplier,
           },
         );
         await this.tickCostDelta(
@@ -409,6 +460,7 @@ export class ResearchTeamOrchestrator {
                   agentId,
                   role: "researcher",
                   envAdapter: billing,
+                  budgetMultiplier,
                 },
               );
               await this.tickCostDelta(
@@ -478,6 +530,7 @@ export class ResearchTeamOrchestrator {
                   pool,
                   researcherOut,
                   billing,
+                  budgetMultiplier,
                 });
                 return enriched;
               } catch (err) {
@@ -560,6 +613,7 @@ export class ResearchTeamOrchestrator {
             agentId: "analyst",
             role: "analyst",
             envAdapter: billing,
+            budgetMultiplier,
           },
         );
         await this.tickCostDelta(
@@ -945,6 +999,7 @@ export class ResearchTeamOrchestrator {
     return this.runner.run(Spec, input, {
       userId: ctx.userId,
       environment: ctx.envAdapter,
+      budgetMultiplier: ctx.budgetMultiplier,
       billingMeta: {
         moduleType: "agent-playground",
         operationType: ctx.role,
@@ -1163,6 +1218,7 @@ export class ResearchTeamOrchestrator {
       summary: string;
     };
     billing: BillingRuntimeEnvAdapter;
+    budgetMultiplier: number;
   }): Promise<{
     dimension: string;
     findings: { claim: string; evidence: string; source: string }[];
@@ -1195,6 +1251,7 @@ export class ResearchTeamOrchestrator {
       pool,
       researcherOut,
       billing,
+      budgetMultiplier,
     } = args;
 
     const targetChapterCount = depth === "quick" ? 3 : depth === "deep" ? 7 : 5;
@@ -1349,6 +1406,7 @@ export class ResearchTeamOrchestrator {
             agentId: writerAgentId,
             role: "chapter-writer",
             envAdapter: billing,
+            budgetMultiplier,
           },
         );
         await this.tickCostDelta(
@@ -1428,6 +1486,7 @@ export class ResearchTeamOrchestrator {
             agentId: reviewerAgentId,
             role: "chapter-reviewer",
             envAdapter: billing,
+            budgetMultiplier,
           },
         );
         await this.tickCostDelta(

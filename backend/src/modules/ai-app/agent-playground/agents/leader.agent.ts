@@ -44,7 +44,9 @@ const Output = z.object({
   taskProfile: { creativity: "low", outputLength: "medium" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 6_000, maxIterations: 3 },
+  // Leader 只拆维度，但 systemPrompt 含 environment + tool catalog block
+  // 6k 太紧，bump 到 12k 留余量
+  budget: { maxTokens: 12_000, maxIterations: 4 },
 })
 export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {

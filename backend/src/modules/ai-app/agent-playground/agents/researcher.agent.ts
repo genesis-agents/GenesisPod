@@ -58,8 +58,11 @@ const Output = z.object({
   taskProfile: { creativity: "low", outputLength: "long" },
   inputSchema: Input,
   outputSchema: Output,
-  // 提高预算因为有 reflexion 重试 + verifier 评分轮
-  budget: { maxTokens: 45_000, maxIterations: 15 },
+  // Researcher 是最重的 agent —— web search 把 5-10 个长文塞进 envelope，
+  // 单轮 call 经常 8k+ tokens；reflexion 至少 3-4 轮 + verifier 评分。
+  // 45k 老配置会被 3 轮就撑爆 → 调到 120k 给真实研究留空间。
+  // 用户可通过 budgetProfile=high (×2 → 240k) / unlimited (×4 → 480k) 进一步放大。
+  budget: { maxTokens: 120_000, maxIterations: 20 },
 })
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {

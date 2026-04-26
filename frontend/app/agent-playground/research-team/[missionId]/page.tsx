@@ -615,7 +615,9 @@ function renderActionInputReadable(
   fallbackJson: string | null,
   urlTitleMap?: Map<string, string>
 ): React.ReactNode {
-  if (input == null) return null;
+  if (input == null) {
+    return <p className="mt-1 text-[10px] italic text-gray-400">（无参数）</p>;
+  }
 
   const safeHost = (u: string): string | null => {
     if (!/^https?:\/\//i.test(u)) return null;
@@ -756,7 +758,13 @@ function renderObservationOutputReadable(
   output: unknown,
   fallbackJson: string | null
 ): React.ReactNode {
-  if (output == null) return null;
+  if (output == null || output === '') {
+    return (
+      <p className="mt-1 text-[10px] italic text-gray-400">
+        （无输出 — LLM 返回空字符串，可能是上下文过长 / 模型限流 / 网络中断）
+      </p>
+    );
+  }
   // ── 提取嵌套结果，处理多层 escape \\\" → \" → " 和截断 fallback ──
   type Hit = {
     title?: string;
@@ -1704,21 +1712,54 @@ function TaskDetailDrawer({
 
   // 最终产出：扫描末尾的 finalize observation 找结构化 output
   const finalOutput = (() => {
+    // 工具：剥层 + 把 string 当 JSON 解析
+    const unwrap = (v: unknown): Record<string, unknown> | null => {
+      if (v == null) return null;
+      if (typeof v === 'string') {
+        const trimmed = v
+          .trim()
+          .replace(/…$/, '')
+          .replace(/\.\.\.$/, '');
+        if (
+          (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+          (trimmed.startsWith('[') && trimmed.endsWith(']'))
+        ) {
+          try {
+            return unwrap(JSON.parse(trimmed));
+          } catch {
+            return null;
+          }
+        }
+        return null;
+      }
+      if (typeof v !== 'object') return null;
+      const o = v as Record<string, unknown>;
+      // ReAct loop 经常包一层 { output: ... } / { _truncated, preview: "..." }
+      if ('output' in o) {
+        const inner = unwrap(o.output);
+        if (inner) return inner;
+      }
+      if (typeof o.preview === 'string') {
+        const inner = unwrap(o.preview);
+        if (inner) return inner;
+      }
+      return o;
+    };
+
+    // 倒序扫 trace，找最后一个 finalize 的 input/output —— 都可能含结构化产出
     for (let i = trace.length - 1; i >= 0; i--) {
       const t = trace[i];
-      if (
-        t.kind === 'observation' &&
-        !t.error &&
-        t.toolId === 'finalize' &&
-        t.output != null &&
-        typeof t.output === 'object'
-      ) {
-        // ReAct loop 的 finalize 通常包一层 { output: ... }
-        const o = t.output as Record<string, unknown>;
-        if ('output' in o && o.output != null && typeof o.output === 'object') {
-          return o.output as Record<string, unknown>;
-        }
-        return o;
+      const isFinalize =
+        t.toolId === 'finalize' || t.toolId === 'reasoning' || t.toolId == null;
+      if (!isFinalize) continue;
+      if (t.kind === 'observation' && !t.error) {
+        const o = unwrap(t.output);
+        if (o) return o;
+      }
+      if (t.kind === 'action') {
+        // ReAct finalize 经常把结构化结果塞 action.input
+        const o = unwrap(t.input);
+        if (o) return o;
       }
     }
     return null;

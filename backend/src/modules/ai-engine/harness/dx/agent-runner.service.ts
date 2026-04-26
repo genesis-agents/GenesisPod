@@ -68,6 +68,12 @@ export interface RunOptions {
     operationType?: string;
     referenceId?: string;
   };
+  /**
+   * 缩放 @DefineAgent.budget.maxTokens / maxIterations 的倍率（默认 1.0）。
+   * 业务方传入即可让 mission 级 "low/medium/high/unlimited" 档位生效，
+   * 不需要改 spec class。Harness 在 buildIdentity 时套用倍率。
+   */
+  readonly budgetMultiplier?: number;
 }
 
 export class DefineAgentMissingError extends Error {
@@ -144,6 +150,7 @@ export class AgentRunner {
       input,
       meta,
       augmentBlocks,
+      opts.budgetMultiplier,
     );
 
     // ── 自动包 BillingContext（如果 userId 已知）──
@@ -237,6 +244,7 @@ export class AgentRunner {
       input,
       meta,
       augmentBlocks,
+      opts.budgetMultiplier,
     );
 
     const inputForExec: Record<string, unknown> | string = parsedInput as
@@ -468,6 +476,7 @@ export class AgentRunner {
     input: unknown,
     meta: DefineAgentOptions,
     augmentBlocks: readonly string[],
+    budgetMultiplier?: number,
   ): {
     agent: IAgent;
     instance: AgentSpec<z.ZodType, z.ZodType>;
@@ -488,8 +497,8 @@ export class AgentRunner {
       parsedInput = parsed.data;
     }
 
-    // 2. Build identity
-    const identity = this.buildIdentity(meta);
+    // 2. Build identity（按 budgetMultiplier 缩放 budget.maxTokens / maxIterations）
+    const identity = this.buildIdentity(meta, budgetMultiplier);
 
     // 3. Compose IAgentSpec for factory
     // 自动把 outputSchema 形状 + Harness 自动注入的环境/能力 block 拼到 systemPrompt
@@ -556,7 +565,13 @@ export class AgentRunner {
     return { agent, instance, parsedInput };
   }
 
-  private buildIdentity(meta: DefineAgentOptions): IAgentIdentity {
+  private buildIdentity(
+    meta: DefineAgentOptions,
+    budgetMultiplier = 1.0,
+  ): IAgentIdentity {
+    const mult = Math.max(0.1, budgetMultiplier);
+    const scale = (n: number | undefined): number | undefined =>
+      n == null ? undefined : Math.round(n * mult);
     const id = meta.identity;
     // Detect already-complete IAgentIdentity (has .role.id with name)
     const isFull =
@@ -572,11 +587,14 @@ export class AgentRunner {
         skills: meta.skills ?? full.skills,
         constraints: {
           ...full.constraints,
-          maxTokens: meta.budget?.maxTokens ?? full.constraints?.maxTokens,
+          maxTokens:
+            scale(meta.budget?.maxTokens) ?? full.constraints?.maxTokens,
           maxIterations:
-            meta.budget?.maxIterations ?? full.constraints?.maxIterations,
+            scale(meta.budget?.maxIterations) ??
+            full.constraints?.maxIterations,
           maxWallTimeMs:
-            meta.budget?.maxWallTimeMs ?? full.constraints?.maxWallTimeMs,
+            scale(meta.budget?.maxWallTimeMs) ??
+            full.constraints?.maxWallTimeMs,
         },
       });
     }
@@ -601,9 +619,9 @@ export class AgentRunner {
       forbiddenTools: meta.forbiddenTools,
       skills: meta.skills,
       constraints: {
-        maxTokens: meta.budget?.maxTokens,
-        maxIterations: meta.budget?.maxIterations,
-        maxWallTimeMs: meta.budget?.maxWallTimeMs,
+        maxTokens: scale(meta.budget?.maxTokens),
+        maxIterations: scale(meta.budget?.maxIterations),
+        maxWallTimeMs: scale(meta.budget?.maxWallTimeMs),
       },
     });
   }

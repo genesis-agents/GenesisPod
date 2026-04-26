@@ -63,7 +63,8 @@ const Output = z.object({
   taskProfile: { creativity: "low", outputLength: "long" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 25_000, maxIterations: 8 },
+  // 整合 N 个 researcher 输出 + reflexion 至少 2-3 轮 critique→revise
+  budget: { maxTokens: 60_000, maxIterations: 10 },
 })
 export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
