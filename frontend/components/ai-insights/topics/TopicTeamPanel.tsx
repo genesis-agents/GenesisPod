@@ -1332,12 +1332,18 @@ function buildTopicAgentInspectorPayload(
     });
   }
 
+  // 避免标题与状态行重复显示 role 名（TI 中 agent.name === display.name 常见）
+  const finalStatusLabel =
+    agent.name === display.name
+      ? statusLabel
+      : `${display.name} · ${statusLabel}`;
+
   return {
     name: agent.name,
     description: roleInfo.description,
     icon: display.icon,
     iconClassName: 'bg-blue-50 text-blue-600',
-    statusLabel: `${display.name} · ${statusLabel}`,
+    statusLabel: finalStatusLabel,
     statusColorClass,
     config,
   };
