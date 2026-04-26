@@ -47,11 +47,15 @@ function createMockServices() {
     topicDimension: {
       findMany: fn().mockResolvedValue([mockDimension]),
       update: fn().mockResolvedValue({}),
+      updateMany: fn().mockResolvedValue({ count: 0 }),
     },
     topicEvidence: {
       findMany: fn().mockResolvedValue([
         { id: "e1", title: "Evidence 1", snippet: "data" },
       ]),
+    },
+    researchMission: {
+      findFirst: fn().mockResolvedValue(null),
     },
   };
 

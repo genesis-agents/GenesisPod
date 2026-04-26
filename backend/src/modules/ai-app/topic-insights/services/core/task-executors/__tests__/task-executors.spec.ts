@@ -301,7 +301,11 @@ describe("DimensionResearchExecutor", () => {
 
       // Not found in context, not found in DB
       mockPrisma.topicDimension.findUnique.mockResolvedValue(null);
-      // For sortOrder calculation
+      // For sortOrder calculation + normalized-name dedup probe
+      mockPrisma.topicDimension.findMany.mockResolvedValueOnce([
+        // 不同名（不会被归一化匹配 reuse），但提供最大 sortOrder
+        { id: "dim-other", name: "Unrelated", sortOrder: 3 },
+      ]);
       mockPrisma.topicDimension.findFirst.mockResolvedValue({ sortOrder: 3 });
 
       const createdDimension = {
