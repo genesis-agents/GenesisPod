@@ -357,13 +357,16 @@ export function ResearchCollaborationPanel({
   }, [topicId, missionId, fetchTodos]);
 
   // Handle TODO selection
-  const handleSelectTodo = useCallback((todoId: string) => {
-    setSelectedTodoId(todoId);
-  }, []);
+  const handleSelectTodo = useCallback(
+    (todoId: string) => {
+      setSelectedTodoId(todoId);
+    },
+    [setSelectedTodoId]
+  );
 
   const handleCloseDetail = useCallback(() => {
     setSelectedTodoId(null);
-  }, []);
+  }, [setSelectedTodoId]);
 
   // 获取当前选中的 TODO 对象（用于传递给 TodoDetailPanel，避免 API 调用）
   const selectedTodo = useMemo(() => {

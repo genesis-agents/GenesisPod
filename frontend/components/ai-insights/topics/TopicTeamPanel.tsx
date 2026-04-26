@@ -1060,8 +1060,9 @@ function TopicTeamCanvasView({
 
       // ★ Leader 创建 TODO 后刷新主面板 TODO 列表
       // （与原内嵌面板 ResearchCollaborationPanel.handleInstructionSubmit 行为一致）
+      // fire-and-forget：刷新失败不应污染 chatError 让对话本身看起来失败
       if (resp.decisionType === 'CREATE_TODO' && resp.todo && activeMissionId) {
-        await fetchTodos(topicId, activeMissionId);
+        void fetchTodos(topicId, activeMissionId);
       }
     } catch (e) {
       setChatError(e instanceof Error ? e.message : String(e));
