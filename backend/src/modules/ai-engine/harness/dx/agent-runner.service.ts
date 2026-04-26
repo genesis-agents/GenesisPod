@@ -179,8 +179,15 @@ export class AgentRunner {
     const work = async () =>
       this.drainEvents(agent, instance, parsedInput, meta, opts.onEvent);
 
+    // BillingContext 嵌套规则：
+    //   - 外层（业务方 controller / interceptor / orchestrator）已包了 → 不动，沿用
+    //   - 没有外层 → 用 RunOptions 给的 billingMeta 自行包一层
+    // 否则内层会覆盖外层的 moduleType/operationType, credits.consumeCredits()
+    // 找不到对应 CreditRule，导致计费走 ADJUSTMENT fallback。
+    const existingBilling = BillingContext.get();
     const billingMeta = opts.billingMeta ?? {};
-    const { events, state, lastOutput, iterations } = opts.userId
+    const needsWrap = opts.userId && !existingBilling;
+    const { events, state, lastOutput, iterations } = needsWrap
       ? await BillingContext.run(
           {
             userId: opts.userId,
