@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useAIWritingStore } from './aiWritingStore';
+import { useAIWritingStore } from '../aiWritingStore';
 import * as api from '@/lib/api/ai-writing';
 import type {
   WritingProject,

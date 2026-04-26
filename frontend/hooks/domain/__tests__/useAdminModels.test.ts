@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useAdminModels, AIModel } from './useAdminModels';
-import * as useApiCore from '../core';
+import { useAdminModels, AIModel } from '../useAdminModels';
+import * as useApiCore from '../../core';
 
 // Mock the core API hooks
 vi.mock('../core', () => ({

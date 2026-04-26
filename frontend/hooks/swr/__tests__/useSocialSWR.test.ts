@@ -17,11 +17,11 @@ import {
   mutateContents,
   invalidateConnectionsCaches,
   invalidateContentsCaches,
-} from './useSocialSWR';
+} from '../useSocialSWR';
 import type {
   UseSocialConnectionsResult,
   UseSocialContentsResult,
-} from './useSocialSWR';
+} from '../useSocialSWR';
 import * as api from '@/lib/api/ai-social';
 
 // Mock the API

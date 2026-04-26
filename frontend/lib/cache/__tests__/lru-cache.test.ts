@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LRUCache, apiCache } from './lru-cache';
+import { LRUCache, apiCache } from '../lru-cache';
 
 describe('LRUCache', () => {
   let cache: LRUCache<string, unknown>;

@@ -4,7 +4,7 @@ import {
   useAsyncOperation,
   useAsyncOperationWithCancel,
   useAsyncOperationWithRetry,
-} from './useAsyncOperation';
+} from '../useAsyncOperation';
 
 describe('useAsyncOperation', () => {
   beforeEach(() => {

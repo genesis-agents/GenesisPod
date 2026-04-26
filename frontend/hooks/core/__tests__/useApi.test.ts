@@ -9,7 +9,7 @@ import {
   invalidateCache,
   invalidateCacheByPattern,
   clearApiCache,
-} from './useApi';
+} from '../useApi';
 import { apiClient, ApiError } from '@/lib/api/client';
 import { apiCache } from '@/lib/cache';
 

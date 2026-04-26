@@ -8,7 +8,7 @@ import {
   useTaskStore,
   type Task,
   type GenerationStep,
-} from './aiOfficeStore';
+} from '../aiOfficeStore';
 import type { Resource, Document, ChatMessage } from '@/types/ai-office';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────

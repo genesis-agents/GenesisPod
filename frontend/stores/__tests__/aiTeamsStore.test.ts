@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { useAiGroupStore } from './ai-teams';
+import { useAiGroupStore } from '../ai-teams';
 import * as api from '@/lib/api/ai-teams';
 import {
   TopicResourceType,

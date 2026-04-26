@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { useTopicInsightsStore } from './topicInsightsStore';
+import { useTopicInsightsStore } from '../topicInsightsStore';
 import * as api from '@/lib/api/topic-insights';
 import type {
   ResearchTopic,

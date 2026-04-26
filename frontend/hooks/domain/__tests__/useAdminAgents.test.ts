@@ -5,8 +5,8 @@ import {
   AgentConfig,
   CreateAgentConfigDto,
   UpdateAgentConfigDto,
-} from './useAdminAgents';
-import * as useApiCore from '../core';
+} from '../useAdminAgents';
+import * as useApiCore from '../../core';
 import { apiClient } from '@/lib/api/client';
 
 // Mock the core API hooks
