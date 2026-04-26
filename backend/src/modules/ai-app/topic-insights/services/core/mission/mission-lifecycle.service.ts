@@ -1008,6 +1008,7 @@ export class MissionLifecycleService {
         where: { id: task.mission.id },
         data: {
           status: ResearchMissionStatus.EXECUTING,
+          startedAt: new Date(),
           completedAt: null,
         },
       });
@@ -1058,6 +1059,7 @@ export class MissionLifecycleService {
       },
       data: {
         status: ResearchMissionStatus.EXECUTING,
+        startedAt: new Date(),
         completedAt: null,
       },
     });
