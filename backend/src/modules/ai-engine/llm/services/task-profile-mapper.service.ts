@@ -91,8 +91,11 @@ export class TaskProfileMapperService {
         profile.outputLength === "minimal" ||
         profile.outputLength === "short"
       ) {
-        // minimal/short: 推理开销较小，使用 reasoningMin 的 30%（上限 8000）
-        const scaledMin = Math.min(Math.ceil(reasoningMin * 0.3), 8000);
+        // ★ 关键修复：原 0.3 倍率 + 8000 上限 → 7500 tokens 给 reasoning 模型
+        //   不够。gpt-5.4 / o1 这类 CoT 吃 6-8k 后只剩 <1k visible，
+        //   在 response_format=json_object 强制下憋出最简空 JSON 假装 finalize。
+        //   提到 0.5 倍率 + 16000 上限 → 12500 tokens（CoT 6.5k + visible 6k）
+        const scaledMin = Math.min(Math.ceil(reasoningMin * 0.5), 16000);
         effectiveMaxTokens = Math.max(baseMaxTokens, scaledMin);
       } else {
         effectiveMaxTokens = Math.max(baseMaxTokens, reasoningMin);
