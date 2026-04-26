@@ -44,6 +44,7 @@ import {
 } from '@/components/common/chart-viewer';
 import type { AIEditOperation } from '../types';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
+import { injectChartPlaceholders } from '@/lib/markdown/injectChartPlaceholders';
 import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
@@ -1053,6 +1054,17 @@ function ReportEditorInner({
   const contentSegments = useMemo(() => {
     if (!markdownContent) return [];
 
+    // ★ 自救：如果后端未在 markdown 中 embed `<!-- chart:ID -->` 占位符
+    //   （mission 失败 / 老报告 / 中断态 fullReport），主动按 chart.position
+    //   或等距策略注入。和章节视图（ChapterizedReportView）共用同一份
+    //   平台逻辑（lib/markdown/injectChartPlaceholders）。
+    const charts = report?.charts ?? [];
+    const hasInlinePlaceholders = markdownContent.includes('<!-- chart:');
+    const enrichedContent =
+      !hasInlinePlaceholders && charts.length > 0
+        ? injectChartPlaceholders(markdownContent, charts)
+        : markdownContent;
+
     // Split by chart placeholder pattern
     const chartPattern = /<!--\s*chart:([a-zA-Z0-9_-]+)\s*-->/g;
     const segments: Array<{ type: 'markdown' | 'chart'; content: string }> = [];
@@ -1062,12 +1074,12 @@ function ReportEditorInner({
     // ★ 防止同一 chart ID 被多次渲染
     const seenChartIds = new Set<string>();
 
-    while ((match = chartPattern.exec(markdownContent)) !== null) {
+    while ((match = chartPattern.exec(enrichedContent)) !== null) {
       // Add markdown segment before the chart
       if (match.index > lastIndex) {
         segments.push({
           type: 'markdown',
-          content: markdownContent.slice(lastIndex, match.index),
+          content: enrichedContent.slice(lastIndex, match.index),
         });
       }
 
@@ -1085,15 +1097,15 @@ function ReportEditorInner({
     }
 
     // Add remaining markdown content
-    if (lastIndex < markdownContent.length) {
+    if (lastIndex < enrichedContent.length) {
       segments.push({
         type: 'markdown',
-        content: markdownContent.slice(lastIndex),
+        content: enrichedContent.slice(lastIndex),
       });
     }
 
     return segments;
-  }, [markdownContent]);
+  }, [markdownContent, report?.charts]);
 
   // ★ Create charts map for quick lookup
   const chartsMap = useMemo(() => {

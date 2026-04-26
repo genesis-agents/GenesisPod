@@ -23,6 +23,7 @@ import type {
 import { ResearchTopicType } from '@/types/topic-insights';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { injectChartPlaceholders } from '@/lib/markdown/injectChartPlaceholders';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -362,33 +363,28 @@ export default function SharedTopicPage() {
                 const charts = selectedChapter.charts;
                 const chartMap = new Map(charts.map((c) => [c.id, c]));
 
-                // If no chart placeholders, render as single block
-                if (!rawContent.includes('<!-- chart:')) {
+                // ★ 自救：未 embed 占位符时按 chart.position / 等距策略注入，
+                //   与 ChapterizedReportView / ReportEditor 共用同一份平台逻辑。
+                //   避免老报告或 mission 失败态 fullReport 把图全堆在末尾。
+                const enriched =
+                  !rawContent.includes('<!-- chart:') && charts.length > 0
+                    ? injectChartPlaceholders(rawContent, charts)
+                    : rawContent;
+
+                // 仍无占位符（charts 为空）→ 单块渲染
+                if (!enriched.includes('<!-- chart:')) {
                   return (
-                    <>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[
-                          rehypeRaw,
-                          [rehypeKatex, KATEX_OPTIONS],
-                        ]}
-                      >
-                        {rawContent}
-                      </ReactMarkdown>
-                      {/* Append charts at end if any */}
-                      {charts.map((chart) => (
-                        <div key={chart.id} className="my-6">
-                          <ReportChartRenderer chart={chart} />
-                        </div>
-                      ))}
-                    </>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeRaw, [rehypeKatex, KATEX_OPTIONS]]}
+                    >
+                      {enriched}
+                    </ReactMarkdown>
                   );
                 }
 
                 // Split at chart placeholders: <!-- chart:chartId -->
-                const segments = rawContent.split(
-                  /<!--\s*chart:([^\s]+?)\s*-->/
-                );
+                const segments = enriched.split(/<!--\s*chart:([^\s]+?)\s*-->/);
                 const elements: React.ReactNode[] = [];
 
                 for (let si = 0; si < segments.length; si++) {

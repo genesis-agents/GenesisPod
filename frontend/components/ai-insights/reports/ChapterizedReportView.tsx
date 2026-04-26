@@ -44,6 +44,7 @@ import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
 import { countWords } from '@/lib/markdown/countWords';
+import { injectChartPlaceholders as injectChartPlaceholdersShared } from '@/lib/markdown/injectChartPlaceholders';
 import {
   splitFullReportIntoChapters,
   type ChapterType as ParsedChapterType,
@@ -192,114 +193,10 @@ function stripChartJsonBlock(content: string): string {
   return result;
 }
 
-/**
- * Inject <!-- chart:ID --> placeholders into content for old reports
- * that don't have backend-embedded chart markers.
- */
-function injectChartPlaceholders(
-  content: string,
-  charts: ReportChart[]
-): string {
-  if (!charts.length) return content;
-
-  const lines = content.split('\n');
-
-  // Parse position hints from charts
-  const placements: Array<{ chartId: string; paragraphIdx: number }> = [];
-  for (const chart of charts) {
-    const match = chart.position?.match(/after_paragraph_(\d+)/);
-    if (match) {
-      placements.push({
-        chartId: chart.id,
-        paragraphIdx: parseInt(match[1], 10),
-      });
-    }
-  }
-
-  // Find paragraph boundaries (blank line after non-blank line)
-  const paragraphEnds: number[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() === '' && i > 0 && lines[i - 1].trim() !== '') {
-      const prevLine = lines[i - 1].trim();
-      const nextLine =
-        lines
-          .slice(i + 1)
-          .find((l) => l.trim() !== '')
-          ?.trim() || '';
-      if (
-        prevLine.includes('$$') ||
-        nextLine.startsWith('$$') ||
-        prevLine.startsWith('\\[') ||
-        nextLine.startsWith('\\[')
-      ) {
-        continue;
-      }
-      paragraphEnds.push(i);
-    }
-  }
-
-  if (placements.length === 0) {
-    // No position hints — distribute evenly
-    if (paragraphEnds.length === 0) {
-      return content + charts.map((c) => `\n<!-- chart:${c.id} -->\n`).join('');
-    }
-    const interval = Math.max(
-      1,
-      Math.floor(paragraphEnds.length / (charts.length + 1))
-    );
-    let paraCount = 0;
-    let chartIdx = 0;
-    const result: string[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      result.push(lines[i]);
-      if (
-        lines[i].trim() === '' &&
-        i > 0 &&
-        lines[i - 1].trim() !== '' &&
-        !lines[i - 1].trim().includes('$$')
-      ) {
-        paraCount++;
-        if (paraCount % interval === 0 && chartIdx < charts.length) {
-          result.push(`<!-- chart:${charts[chartIdx].id} -->`);
-          result.push('');
-          chartIdx++;
-        }
-      }
-    }
-    while (chartIdx < charts.length) {
-      result.push('', `<!-- chart:${charts[chartIdx].id} -->`);
-      chartIdx++;
-    }
-    return result.join('\n');
-  }
-
-  // Insert at position hints (bottom-up to avoid index shifting)
-  placements.sort((a, b) => b.paragraphIdx - a.paragraphIdx);
-  const usedChartIds = new Set<string>();
-  for (const { chartId, paragraphIdx } of placements) {
-    if (usedChartIds.has(chartId)) continue;
-    usedChartIds.add(chartId);
-    const targetEnd = paragraphEnds[paragraphIdx - 1];
-    if (targetEnd !== undefined) {
-      lines.splice(targetEnd + 1, 0, `<!-- chart:${chartId} -->`, '');
-      for (let j = 0; j < paragraphEnds.length; j++) {
-        if (paragraphEnds[j] > targetEnd) paragraphEnds[j] += 2;
-      }
-    } else {
-      lines.push('', `<!-- chart:${chartId} -->`);
-    }
-  }
-
-  // Append charts without position hints
-  const placedIds = new Set(placements.map((p) => p.chartId));
-  for (const chart of charts) {
-    if (!placedIds.has(chart.id)) {
-      lines.push('', `<!-- chart:${chart.id} -->`);
-    }
-  }
-
-  return lines.join('\n');
-}
+// ★ injectChartPlaceholders 已抽到 lib/markdown/injectChartPlaceholders.ts
+//   作为公共平台能力，连续视图（ReportEditor）也使用同一份逻辑。
+//   保留同名局部别名以最小化下方调用点改动。
+const injectChartPlaceholders = injectChartPlaceholdersShared;
 
 // View mode type (consistent with continuous view)
 type ViewMode = 'preview' | 'edit';
