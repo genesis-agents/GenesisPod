@@ -226,6 +226,47 @@ export class MissionStore {
       });
   }
 
+  /**
+   * 追加 dimension（leader chat CREATE_TODO 触发）。
+   * 仅 mission running 时合法 — 其他状态返回 [] 不抛错。
+   * 返回新追加的 dimension ids（用于 orchestrator 派 researcher）。
+   */
+  async appendDimensions(
+    missionId: string,
+    items: { name: string; rationale: string }[],
+  ): Promise<string[]> {
+    if (items.length === 0) return [];
+    const row = await this.prisma.agentPlaygroundMission.findUnique({
+      where: { id: missionId },
+      select: { status: true, dimensions: true },
+    });
+    if (!row || row.status !== "running") {
+      this.log.warn(
+        `[appendDimensions ${missionId}] mission status=${row?.status ?? "missing"} — refusing append`,
+      );
+      return [];
+    }
+    const existing = (row.dimensions ?? []) as {
+      id: string;
+      name: string;
+      rationale: string;
+      source?: string;
+    }[];
+    const baseIdx = existing.length;
+    const newDims = items.map((it, i) => ({
+      id: `dim-user-${baseIdx + i + 1}`,
+      name: it.name.slice(0, 80),
+      rationale: it.rationale.slice(0, 500),
+      source: "user-chat" as const,
+    }));
+    const merged = [...existing, ...newDims];
+    await this.prisma.agentPlaygroundMission.update({
+      where: { id: missionId },
+      data: { dimensions: merged as never },
+    });
+    return newDims.map((d) => d.id);
+  }
+
   async listByUser(userId: string, limit = 50): Promise<MissionListItem[]> {
     const rows = await this.prisma.agentPlaygroundMission.findMany({
       where: { userId },

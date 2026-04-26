@@ -566,6 +566,13 @@ export default function MissionDetailPage() {
         topic={view.mission.topic}
         open={leaderChatOpen}
         onClose={() => setLeaderChatOpen(false)}
+        onDimensionsAppended={() => {
+          // CREATE_TODO 成功 → 刷新 mission detail 把新 dimensions 拉进来
+          // （SVG / TaskListPanel 自动重新渲染）
+          getMissionDetail(missionId)
+            .then((d) => setPersisted(d))
+            .catch(() => {});
+        }}
       />
 
       {/* Research Team micro-pipeline modal — triggered by clicking Research Team group node */}

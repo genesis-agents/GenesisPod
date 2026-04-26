@@ -9258,6 +9258,10 @@ model AgentPlaygroundLeaderChat {
   role       String                 @db.VarChar(20) // user / assistant
   content    String                 @db.Text
   tokensUsed Int?                   @map("tokens_used")
+  /// assistant-only：LLM JSON 决策
+  /// { type: 'DIRECT_ANSWER'|'CREATE_TODO'|'CLARIFY'|'ACKNOWLEDGE',
+  ///   understanding?, todo?: [{name, rationale}], clarifyOptions?: string[] }
+  decision   Json?                  @db.JsonB
   createdAt  DateTime               @default(now()) @map("created_at")
 
   @@index([missionId, createdAt])

@@ -141,12 +141,32 @@ export async function getMissionDetail(id: string): Promise<MissionDetail> {
   return data.mission;
 }
 
+export type LeaderDecisionType =
+  | 'DIRECT_ANSWER'
+  | 'CREATE_TODO'
+  | 'CLARIFY'
+  | 'ACKNOWLEDGE';
+
+export interface LeaderDecision {
+  type: LeaderDecisionType;
+  understanding?: string;
+  todo?: { name: string; rationale: string }[];
+  clarifyOptions?: string[];
+}
+
 export interface LeaderChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   tokensUsed: number | null;
   createdAt: string;
+  decision?: LeaderDecision | null;
+}
+
+export interface LeaderChatSendResponse {
+  user: LeaderChatMessage;
+  assistant: LeaderChatMessage;
+  appendedDimensionIds?: string[];
 }
 
 export async function rerunMission(
@@ -240,7 +260,7 @@ export async function listLeaderChat(
 export async function sendLeaderChat(
   missionId: string,
   content: string
-): Promise<{ user: LeaderChatMessage; assistant: LeaderChatMessage }> {
+): Promise<LeaderChatSendResponse> {
   const res = await fetch(
     `${API_BASE}/missions/${encodeURIComponent(missionId)}/leader-chat`,
     {
@@ -259,10 +279,7 @@ export async function sendLeaderChat(
     );
   }
   const raw: unknown = await res.json();
-  return unwrapStandard<{
-    user: LeaderChatMessage;
-    assistant: LeaderChatMessage;
-  }>(raw);
+  return unwrapStandard<LeaderChatSendResponse>(raw);
 }
 
 export async function replayMission(
