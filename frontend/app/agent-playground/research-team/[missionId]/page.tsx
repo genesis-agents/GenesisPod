@@ -602,12 +602,107 @@ export default function MissionDetailPage() {
   );
 }
 
-/** 渲染 action input：识别 parallel_tool_call 子调用，每条单独显示 tool + 关键参数 */
+/** 渲染 action input：识别 parallel_tool_call 子调用，URL 显示为可点击标题 + host badge */
 function renderActionInputReadable(
   input: unknown,
-  fallbackJson: string | null
+  fallbackJson: string | null,
+  urlTitleMap?: Map<string, string>
 ): React.ReactNode {
   if (input == null) return null;
+
+  const safeHost = (u: string): string | null => {
+    if (!/^https?:\/\//i.test(u)) return null;
+    try {
+      return new URL(u).hostname.replace(/^www\./, '');
+    } catch {
+      return null;
+    }
+  };
+
+  const renderOneCall = (
+    tool: string,
+    inp: Record<string, unknown>,
+    key: string | number
+  ): React.ReactNode => {
+    const url =
+      typeof inp.url === 'string' && /^https?:\/\//i.test(inp.url)
+        ? inp.url
+        : null;
+    const query =
+      (typeof inp.query === 'string' && inp.query) ||
+      (typeof inp.q === 'string' && inp.q) ||
+      null;
+
+    if (url) {
+      const host = safeHost(url);
+      const title = urlTitleMap?.get(url);
+      return (
+        <li
+          key={key}
+          className="rounded-md bg-white/70 px-2 py-1.5 ring-1 ring-violet-100"
+        >
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono shrink-0 rounded bg-violet-200/60 px-1.5 text-[10px] font-medium text-violet-800">
+              {tool}
+            </span>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 break-words text-[11px] font-medium leading-snug text-sky-700 hover:underline"
+              title={title || url}
+            >
+              {title || url}
+            </a>
+          </div>
+          {(host || (title && title !== url)) && (
+            <div className="mt-0.5 flex items-center gap-2 pl-[3.25rem] text-[9px] text-gray-500">
+              {host && (
+                <span className="font-mono inline-flex items-center text-sky-500">
+                  🌐 {host}
+                </span>
+              )}
+              {title && title !== url && (
+                <span className="font-mono break-all text-gray-400">
+                  {url.length > 80 ? url.slice(0, 80) + '…' : url}
+                </span>
+              )}
+            </div>
+          )}
+        </li>
+      );
+    }
+
+    if (query) {
+      return (
+        <li
+          key={key}
+          className="flex items-baseline gap-1.5 rounded bg-white/70 px-2 py-1 text-[11px] ring-1 ring-violet-100"
+        >
+          <span className="font-mono shrink-0 rounded bg-violet-200/60 px-1.5 text-[10px] font-medium text-violet-800">
+            {tool}
+          </span>
+          <span className="break-words text-gray-700">"{query}"</span>
+        </li>
+      );
+    }
+
+    // 其他参数 → JSON 紧凑展示
+    return (
+      <li
+        key={key}
+        className="flex items-baseline gap-1.5 rounded bg-white/70 px-2 py-1 text-[11px] ring-1 ring-violet-100"
+      >
+        <span className="font-mono shrink-0 rounded bg-violet-200/60 px-1.5 text-[10px] font-medium text-violet-800">
+          {tool}
+        </span>
+        <span className="font-mono break-words text-[10px] text-gray-600">
+          {JSON.stringify(inp)}
+        </span>
+      </li>
+    );
+  };
+
   // parallel_tool_call: input 是 calls 数组（已在 derive 中归并）
   const calls = Array.isArray(input) ? input : null;
   if (calls && calls.length > 0 && calls[0] && typeof calls[0] === 'object') {
@@ -620,41 +715,18 @@ function renderActionInputReadable(
             (typeof o.tool === 'string' && o.tool) ||
             'tool';
           const inp = (o.input ?? {}) as Record<string, unknown>;
-          const q =
-            (typeof inp.query === 'string' && inp.query) ||
-            (typeof inp.url === 'string' && inp.url) ||
-            (typeof inp.q === 'string' && inp.q) ||
-            JSON.stringify(inp);
-          return (
-            <li
-              key={ci}
-              className="flex items-baseline gap-1.5 rounded bg-white/60 px-2 py-1 text-[11px]"
-            >
-              <span className="font-mono shrink-0 rounded bg-violet-200/60 px-1.5 text-[10px] font-medium text-violet-800">
-                {tool}
-              </span>
-              <span className="break-words text-gray-700">{q}</span>
-            </li>
-          );
+          return renderOneCall(tool, inp, ci);
         })}
       </ul>
     );
   }
   // 单个 tool input
   if (typeof input === 'object') {
-    const o = input as Record<string, unknown>;
-    const q =
-      (typeof o.query === 'string' && o.query) ||
-      (typeof o.url === 'string' && o.url) ||
-      (typeof o.q === 'string' && o.q) ||
-      null;
-    if (q) {
-      return (
-        <p className="mt-1 line-clamp-2 rounded bg-white/60 px-1.5 py-1 text-[10px] text-gray-700">
-          {q}
-        </p>
-      );
-    }
+    return (
+      <ul className="mt-1.5 space-y-1">
+        {renderOneCall('input', input as Record<string, unknown>, 0)}
+      </ul>
+    );
   }
   // fall back
   if (!fallbackJson) return null;
@@ -1200,27 +1272,16 @@ function TaskDetailDrawer({
     0
   );
 
-  // 去重 search results（按 url）
-  const searchHits = (() => {
-    const seen = new Set<string>();
-    return subResults.filter((h) => {
-      const k = h.url || h.title || '';
-      if (!k) return false;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
+  // url → title 映射，给 action input 渲染用（让 web-scraper URL 显示真实标题）
+  const urlTitleMap = (() => {
+    const m = new Map<string, string>();
+    for (const r of subResults) {
+      if (r.url && r.title && !m.has(r.url)) {
+        m.set(r.url, r.title);
+      }
+    }
+    return m;
   })();
-
-  // 取所有 thoughts（按时间）
-  const thoughts = trace
-    .filter((t) => t.kind === 'thought' && t.text)
-    .map((t) => t.text as string);
-
-  // 取所有 reflections
-  const reflections = trace
-    .filter((t) => t.kind === 'reflection' && t.text)
-    .map((t) => t.text as string);
 
   return (
     <div
@@ -1327,6 +1388,134 @@ function TaskDetailDrawer({
               </p>
             </div>
           )}
+
+          {/* 6-STAGE MICRO PIPELINE 顶栏 — 仅 researcher 任务 */}
+          {taskKey?.startsWith('researcher-') &&
+            (() => {
+              const stagesDef: {
+                key:
+                  | 'researcher'
+                  | 'outline'
+                  | 'chapter-write'
+                  | 'chapter-review'
+                  | 'integrator'
+                  | 'judge';
+                label: string;
+              }[] = [
+                { key: 'researcher', label: '采集' },
+                { key: 'outline', label: '大纲' },
+                { key: 'chapter-write', label: '撰写' },
+                { key: 'chapter-review', label: '审核' },
+                { key: 'integrator', label: '整合' },
+                { key: 'judge', label: '评分' },
+              ];
+              const status = (
+                k: (typeof stagesDef)[number]['key']
+              ): 'idle' | 'running' | 'done' | 'failed' => {
+                if (k === 'researcher') {
+                  if (!owner) return 'idle';
+                  if (owner.phase === 'completed') return 'done';
+                  if (owner.phase === 'failed') return 'failed';
+                  if (owner.phase === 'running') return 'running';
+                  return 'idle';
+                }
+                if (!pipeline) return 'idle';
+                if (k === 'outline') {
+                  return pipeline.chapters.length > 0 ? 'done' : 'idle';
+                }
+                if (k === 'chapter-write') {
+                  if (pipeline.chapters.length === 0) return 'idle';
+                  if (pipeline.chapters.every((c) => c.status === 'passed'))
+                    return 'done';
+                  if (pipeline.chapters.some((c) => c.status === 'failed'))
+                    return 'failed';
+                  if (
+                    pipeline.chapters.some(
+                      (c) =>
+                        c.status === 'writing' ||
+                        c.status === 'reviewing' ||
+                        c.status === 'revising'
+                    )
+                  )
+                    return 'running';
+                  return 'idle';
+                }
+                if (k === 'chapter-review') {
+                  if (pipeline.chapters.length === 0) return 'idle';
+                  if (pipeline.chapters.every((c) => c.status === 'passed'))
+                    return 'done';
+                  if (
+                    pipeline.chapters.some(
+                      (c) => c.status === 'reviewing' || c.status === 'revising'
+                    )
+                  )
+                    return 'running';
+                  return 'idle';
+                }
+                if (k === 'integrator') {
+                  if (pipeline.totalWordCount != null) return 'done';
+                  if (pipeline.chapters.every((c) => c.status === 'passed'))
+                    return 'running';
+                  return 'idle';
+                }
+                if (k === 'judge') {
+                  if (pipeline.grade) return 'done';
+                  if (pipeline.totalWordCount != null) return 'running';
+                  return 'idle';
+                }
+                return 'idle';
+              };
+              return (
+                <section className="rounded-lg border border-sky-100 bg-gradient-to-br from-sky-50/50 to-blue-50/30">
+                  <div className="border-b border-sky-100 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                      Micro Pipeline
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 overflow-x-auto px-3 py-3">
+                    {stagesDef.map((s, si) => {
+                      const st = status(s.key);
+                      return (
+                        <div
+                          key={s.key}
+                          className="flex shrink-0 items-center gap-1"
+                        >
+                          <div
+                            className={`flex flex-col items-center gap-1 rounded-lg px-2.5 py-1.5 ring-1 ${
+                              st === 'idle'
+                                ? 'bg-gray-50 text-gray-400 ring-gray-200'
+                                : st === 'running'
+                                  ? 'bg-blue-100 text-blue-700 ring-blue-300'
+                                  : st === 'done'
+                                    ? 'bg-emerald-100 text-emerald-700 ring-emerald-300'
+                                    : 'bg-red-100 text-red-700 ring-red-300'
+                            }`}
+                          >
+                            <span className="text-[11px] font-medium">
+                              {s.label}
+                            </span>
+                            <span className="text-[9px]">
+                              {st === 'done'
+                                ? '✓ 已完成'
+                                : st === 'running'
+                                  ? '⟳ 进行中'
+                                  : st === 'failed'
+                                    ? '✗ 失败'
+                                    : '○ 待启动'}
+                            </span>
+                          </div>
+                          {si < stagesDef.length - 1 && (
+                            <span className="font-mono text-[12px] text-gray-300">
+                              →
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })()}
 
           {/* TI-style PER-DIMENSION CHAPTER PIPELINE 状态 */}
           {pipeline && pipeline.chapters.length > 0 && (
@@ -1529,151 +1718,130 @@ function TaskDetailDrawer({
                   使用工具 · {toolsUsed.length} 个
                 </p>
               </div>
-              <ul className="space-y-1.5 p-2">
+              <div className="flex flex-wrap gap-1.5 p-2">
                 {toolsUsed.map(([tool, v]) => (
-                  <li
+                  <span
                     key={tool}
-                    className="space-y-1 rounded-md px-2 py-1.5 hover:bg-gray-50"
+                    className="font-mono inline-flex items-center gap-1.5 rounded-md bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-200"
+                    title={`${tool} · 调用 ${v.calls} 次`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-800">
-                        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">
-                          {tool}
-                        </span>
-                        <span className="text-gray-500">调用 ×{v.calls}</span>
-                      </span>
-                    </div>
-                    {v.samples.length > 0 && (
-                      <ul className="ml-2 space-y-0.5">
-                        {v.samples.map((s, i) => (
-                          <li
-                            key={`${tool}-${i}`}
-                            className="line-clamp-1 text-[10px] text-gray-500"
-                            title={s}
+                    {tool}
+                    <span className="rounded-full bg-violet-200/70 px-1.5 text-[9px] text-violet-800">
+                      ×{v.calls}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 执行过程 — 业务流时间线：思考 → 工具调用 → 结果 → 反思 → … */}
+          {(() => {
+            const flowItems = trace.filter(
+              (t) =>
+                t.kind === 'thought' ||
+                t.kind === 'action' ||
+                t.kind === 'observation' ||
+                t.kind === 'reflection'
+            );
+            if (flowItems.length === 0) return null;
+            return (
+              <section className="rounded-lg border border-gray-100 bg-white">
+                <div className="border-b border-gray-100 px-3 py-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                    执行过程 · 思考 → 调用工具 → 结果 → 反思
+                  </p>
+                </div>
+                <ol className="relative space-y-2 p-3">
+                  {flowItems.map((t, i) => {
+                    const tone =
+                      t.kind === 'thought'
+                        ? {
+                            ring: 'ring-amber-200',
+                            bg: 'bg-amber-50/60',
+                            label: '思考',
+                            chip: 'bg-amber-100 text-amber-700',
+                          }
+                        : t.kind === 'action'
+                          ? {
+                              ring: 'ring-violet-200',
+                              bg: 'bg-violet-50/60',
+                              label: '调用工具',
+                              chip: 'bg-violet-100 text-violet-700',
+                            }
+                          : t.kind === 'observation'
+                            ? t.error
+                              ? {
+                                  ring: 'ring-red-200',
+                                  bg: 'bg-red-50/60',
+                                  label: '结果(失败)',
+                                  chip: 'bg-red-100 text-red-700',
+                                }
+                              : {
+                                  ring: 'ring-sky-200',
+                                  bg: 'bg-sky-50/60',
+                                  label: '结果',
+                                  chip: 'bg-sky-100 text-sky-700',
+                                }
+                            : {
+                                ring: 'ring-purple-200',
+                                bg: 'bg-purple-50/60',
+                                label: '反思',
+                                chip: 'bg-purple-100 text-purple-700',
+                              };
+                    return (
+                      <li
+                        key={`${t.ts}-${i}`}
+                        className={`rounded-lg px-3 py-2 ring-1 ${tone.ring} ${tone.bg}`}
+                      >
+                        <div className="mb-1 flex items-center gap-2">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${tone.chip}`}
                           >
-                            <span className="text-gray-400">›</span>{' '}
-                            <span className="font-mono">
-                              {s.length > 64 ? s.slice(0, 64) + '…' : s}
+                            {tone.label}
+                          </span>
+                          {t.toolId && (
+                            <span className="font-mono rounded bg-white/60 px-1.5 py-0.5 text-[10px] text-gray-700">
+                              {t.toolId}
                             </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {/* SEARCH HITS — 从所有 observation 抽出的 title/url 列表 */}
-          {searchHits.length > 0 && (
-            <section className="rounded-lg border border-gray-100 bg-white">
-              <div className="border-b border-gray-100 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
-                  搜索/抓取结果 · {searchHits.length} 条
-                </p>
-              </div>
-              <ul className="max-h-[480px] space-y-1.5 overflow-y-auto p-2">
-                {searchHits.slice(0, 50).map((h, i) => {
-                  const safe =
-                    h.url && /^https?:\/\//i.test(h.url) ? h.url : null;
-                  let host = '';
-                  if (safe) {
-                    try {
-                      host = new URL(safe).hostname.replace(/^www\./, '');
-                    } catch {
-                      // ignore
-                    }
-                  }
-                  return (
-                    <li
-                      key={`${h.url ?? h.title}-${i}`}
-                      className="rounded-md border border-sky-100 bg-sky-50/40 px-2.5 py-2"
-                    >
-                      {safe ? (
-                        <a
-                          href={safe}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="line-clamp-2 text-[12px] font-semibold leading-snug text-sky-700 hover:underline"
-                          title={h.title || safe}
-                        >
-                          {h.title || safe}
-                        </a>
-                      ) : (
-                        <p className="line-clamp-2 text-[12px] font-semibold text-gray-800">
-                          {h.title}
-                        </p>
-                      )}
-                      {host && (
-                        <p className="font-mono mt-0.5 text-[10px] text-sky-500">
-                          {host}
-                        </p>
-                      )}
-                      {(h.snippet || h.content) && (
-                        <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-gray-700">
-                          {h.snippet || h.content}
-                        </p>
-                      )}
-                    </li>
-                  );
-                })}
-                {searchHits.length > 50 && (
-                  <li className="px-2 py-1 text-center text-[10px] text-gray-400">
-                    还有 {searchHits.length - 50} 条已截断
-                  </li>
-                )}
-              </ul>
-            </section>
-          )}
-
-          {/* THOUGHTS — Agent 的全部思考 */}
-          {thoughts.length > 0 && (
-            <section className="rounded-lg border border-amber-100 bg-amber-50/30">
-              <div className="border-b border-amber-100 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                  Agent 思考 · {thoughts.length} 条
-                </p>
-              </div>
-              <ol className="space-y-1.5 p-2">
-                {thoughts.map((t, i) => (
-                  <li
-                    key={i}
-                    className="rounded-md bg-white px-2 py-1.5 text-[11px] leading-relaxed text-gray-800 ring-1 ring-amber-100"
-                  >
-                    <span className="font-mono mr-1 text-[10px] text-amber-600">
-                      #{i + 1}
-                    </span>
-                    {t.length > 500 ? t.slice(0, 500) + '…' : t}
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-
-          {/* REFLECTIONS — Reflexion loop 的反思 */}
-          {reflections.length > 0 && (
-            <section className="rounded-lg border border-purple-100 bg-purple-50/30">
-              <div className="border-b border-purple-100 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700">
-                  反思 · {reflections.length} 轮
-                </p>
-              </div>
-              <ol className="space-y-1.5 p-2">
-                {reflections.map((t, i) => (
-                  <li
-                    key={i}
-                    className="rounded-md bg-white px-2 py-1.5 text-[11px] leading-relaxed text-gray-800 ring-1 ring-purple-100"
-                  >
-                    <span className="font-mono mr-1 text-[10px] text-purple-600">
-                      第 {i + 1} 轮
-                    </span>
-                    {t.length > 500 ? t.slice(0, 500) + '…' : t}
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
+                          )}
+                          {t.latencyMs != null && (
+                            <span className="font-mono text-[10px] text-gray-500">
+                              {t.latencyMs}ms
+                            </span>
+                          )}
+                          {t.tokensUsed != null && t.tokensUsed > 0 && (
+                            <span className="font-mono text-[10px] text-gray-500">
+                              +{t.tokensUsed}tk
+                            </span>
+                          )}
+                        </div>
+                        {/* 思考 / 反思：直接展示文本 */}
+                        {(t.kind === 'thought' || t.kind === 'reflection') &&
+                          t.text && (
+                            <p className="text-[12px] leading-relaxed text-gray-800">
+                              {t.text}
+                            </p>
+                          )}
+                        {/* 调用工具：URL/query 列表 + 可点击 */}
+                        {t.kind === 'action' &&
+                          renderActionInputReadable(t.input, null, urlTitleMap)}
+                        {/* 结果：search/scrape 卡片化 */}
+                        {t.kind === 'observation' &&
+                          !t.error &&
+                          renderObservationOutputReadable(t.output, null)}
+                        {t.kind === 'observation' && t.error && (
+                          <p className="text-[12px] text-red-700">
+                            ⚠ {t.error}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+            );
+          })()}
 
           {/* 失败时优先抓出失败原因（最后一个 error trace 或最后一个带 error 的 observation） */}
           {phase === 'failed' &&
@@ -1730,25 +1898,18 @@ function TaskDetailDrawer({
               </summary>
               <ul className="space-y-1.5 p-2">
                 {trace.map((t, i) => {
-                  // 把 action / observation 的 input/output 转成可读 JSON snippet
-                  const inputStr = (() => {
-                    if (t.input == null) return null;
-                    if (typeof t.input === 'string') return t.input;
+                  // 把 action / observation 的 input/output 转成 raw JSON 字符串
+                  const dump = (v: unknown): string | null => {
+                    if (v == null) return null;
+                    if (typeof v === 'string') return v;
                     try {
-                      return JSON.stringify(t.input, null, 2);
+                      return JSON.stringify(v, null, 2);
                     } catch {
-                      return String(t.input);
+                      return String(v);
                     }
-                  })();
-                  const outputStr = (() => {
-                    if (t.output == null) return null;
-                    if (typeof t.output === 'string') return t.output;
-                    try {
-                      return JSON.stringify(t.output, null, 2);
-                    } catch {
-                      return String(t.output);
-                    }
-                  })();
+                  };
+                  const inputStr = dump(t.input);
+                  const outputStr = dump(t.output);
                   return (
                     <li
                       key={`${t.ts}-${i}`}
@@ -1786,33 +1947,34 @@ function TaskDetailDrawer({
                       </div>
                       {t.text ? (
                         <p className="mt-1 whitespace-pre-wrap break-words">
-                          {t.text.length > 600
-                            ? t.text.slice(0, 600) + '…'
-                            : t.text}
+                          {t.text}
                         </p>
                       ) : null}
-                      {/* Action input：识别 parallel_tool_call 直接列出每个子调用 */}
-                      {t.kind === 'action' &&
-                        renderActionInputReadable(t.input, inputStr)}
-                      {/* Observation output：识别 search/scrape 结果 → 卡片化 */}
-                      {t.kind === 'observation' &&
-                        !t.error &&
-                        renderObservationOutputReadable(t.output, outputStr)}
-                      {/* 其他 trace 类型 fall back to 原始 JSON */}
-                      {t.kind !== 'action' &&
-                        t.kind !== 'observation' &&
-                        inputStr && (
-                          <details className="mt-1">
-                            <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
-                              ▸ input
-                            </summary>
-                            <pre className="font-mono mt-1 max-h-48 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
-                              {inputStr.length > 4000
-                                ? inputStr.slice(0, 4000) + '\n…(已截断)'
-                                : inputStr}
-                            </pre>
-                          </details>
-                        )}
+                      {/* 原始 input/output JSON dump — friendly 视图已在执行过程 timeline */}
+                      {inputStr && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
+                            ▸ input
+                          </summary>
+                          <pre className="font-mono mt-1 max-h-64 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
+                            {inputStr.length > 6000
+                              ? inputStr.slice(0, 6000) + '\n…(已截断)'
+                              : inputStr}
+                          </pre>
+                        </details>
+                      )}
+                      {outputStr && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
+                            ▸ output
+                          </summary>
+                          <pre className="font-mono mt-1 max-h-64 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
+                            {outputStr.length > 6000
+                              ? outputStr.slice(0, 6000) + '\n…(已截断)'
+                              : outputStr}
+                          </pre>
+                        </details>
+                      )}
                       {t.error ? (
                         <p className="mt-1 whitespace-pre-wrap break-words font-medium">
                           ⚠{' '}

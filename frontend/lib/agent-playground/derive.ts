@@ -32,6 +32,16 @@ export type AgentRole =
   | 'writer'
   | 'reviewer';
 
+/** 顶层 Agent 卡片可见的角色集合 —— sub-agent (chapter-writer / outline / integrator /
+ *  quality-judge) 不在此列：它们的轨迹只进入 dimensionPipelines，不进入 agents grid */
+const KNOWN_AGENT_ROLES = new Set<AgentRole>([
+  'leader',
+  'researcher',
+  'analyst',
+  'writer',
+  'reviewer',
+]);
+
 export type AgentPhase = 'pending' | 'running' | 'completed' | 'failed';
 
 export interface AgentTraceItem {
@@ -232,6 +242,9 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       const agentId = (p?.agentId as string) ?? ev.agentId;
       const role = p?.role as AgentRole | undefined;
       const phase = p?.phase as 'started' | 'completed' | 'failed' | undefined;
+      // 跳过 sub-agent role（chapter-writer/outline/integrator/quality-judge 等）—
+      // 这些只属于 dimensionPipelines，不应进 agents grid（否则 ROLE_META[role] = undefined 崩溃）
+      if (role && !KNOWN_AGENT_ROLES.has(role)) continue;
       if (agentId && role && phase) {
         const cur =
           agents.get(agentId) ??
@@ -267,6 +280,8 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       const agentId = (p?.agentId as string) ?? ev.agentId;
       const role = p?.role as AgentRole | undefined;
       if (!agentId || !role) continue;
+      // 跳过 sub-agent role —— 同 lifecycle 处理理由
+      if (!KNOWN_AGENT_ROLES.has(role)) continue;
       const cur =
         agents.get(agentId) ??
         ({

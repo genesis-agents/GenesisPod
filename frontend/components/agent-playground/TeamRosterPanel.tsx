@@ -144,124 +144,189 @@ export function TeamRosterPanel({
     [stages]
   );
   const [selectedRole, setSelectedRole] = useState<AgentRole | null>(null);
+  // 默认展开 Research Team group → 让用户能看到每个 Researcher#N 节点
+  const [groupExpanded, setGroupExpanded] = useState(true);
 
-  const { nodes, connections, rows } = useMemo(() => {
-    const nodes: TeamTopologyNode[] = [];
-    const rowMap: Record<number, string[]> = {
-      0: [], // Leader
-      1: [], // Research Team (group)
-      2: [], // Analyst / Writer / Reviewer 横排
-    };
+  const { nodes, connections, rows, viewBoxHeight, rowYPositions } =
+    useMemo(() => {
+      const nodes: TeamTopologyNode[] = [];
+      const rowMap: Record<number, string[]> = {
+        0: [], // Leader
+        1: [], // Research Team (group OR expanded researchers)
+        2: [], // Analyst / Writer / Reviewer 横排
+      };
+      // researcher 实例节点 ids（展开时 fan-out / fan-in 用）
+      const researcherInstanceIds: string[] = [];
+      const researcherAgentsAll = agents.filter((a) => a.role === 'researcher');
+      const dimCount =
+        dimensions && dimensions.length > 0
+          ? dimensions.length
+          : researcherAgentsAll.length;
 
-    // researcher 的并行实例 ids（用于 fan-out / fan-in 连线）
-    const researcherIds: string[] = [];
+      for (const r of ROLE_ROW) {
+        const stage = stageMap.get(r.stage);
+        const roleAgents = agents.filter((a) => a.role === r.role);
+        const status = stageStatusToNodeStatus(stage?.status ?? 'pending');
 
-    for (const r of ROLE_ROW) {
-      const stage = stageMap.get(r.stage);
-      const roleAgents = agents.filter((a) => a.role === r.role);
-      const status = stageStatusToNodeStatus(stage?.status ?? 'pending');
+        // ── Researcher：展开为 N 个独立节点 OR 折叠为 group ──
+        if (r.role === 'researcher') {
+          const completedAgents = roleAgents.filter(
+            (a) => a.phase === 'completed'
+          ).length;
+          const failedAgents = roleAgents.filter(
+            (a) => a.phase === 'failed'
+          ).length;
+          const runningAgents = roleAgents.filter(
+            (a) => a.phase === 'running'
+          ).length;
+          const groupStatus: TeamNodeStatus =
+            failedAgents > 0
+              ? 'failed'
+              : runningAgents > 0
+                ? 'working'
+                : roleAgents.length > 0 && completedAgents === roleAgents.length
+                  ? 'completed'
+                  : stageStatusToNodeStatus(stage?.status ?? 'pending');
 
-      // ── Researcher 折叠为单一 "Research Team" group 节点 ──
-      // 默认折叠（点击展开 modal 看微团队 + 章节流水线）
-      if (r.role === 'researcher') {
-        const dimCount =
-          dimensions && dimensions.length > 0
-            ? dimensions.length
-            : roleAgents.length;
-        const totalAgents = roleAgents.length;
-        const completedAgents = roleAgents.filter(
+          if (groupExpanded && (dimCount > 0 || roleAgents.length > 0)) {
+            // 展开：每个维度 / 实例一个节点
+            // 优先按 dimensions 顺序生成，没有 dimensions 时用 agents
+            const list =
+              dimensions && dimensions.length > 0
+                ? dimensions.map((d, idx) => ({
+                    id: `researcher#${idx}`,
+                    name: d.name,
+                    agent: roleAgents.find(
+                      (a) =>
+                        a.dimension === d.name ||
+                        a.agentId === `researcher#${idx}`
+                    ),
+                  }))
+                : roleAgents.map((a, idx) => ({
+                    id: a.agentId ?? `researcher#${idx}`,
+                    name: a.dimension ?? `维度 ${idx + 1}`,
+                    agent: a,
+                  }));
+            for (const item of list) {
+              const phase = item.agent?.phase ?? 'pending';
+              const itemStatus: TeamNodeStatus =
+                phase === 'completed'
+                  ? 'completed'
+                  : phase === 'failed'
+                    ? 'failed'
+                    : phase === 'running'
+                      ? 'working'
+                      : 'idle';
+              const shortName =
+                item.name.length > 8 ? item.name.slice(0, 7) + '…' : item.name;
+              nodes.push({
+                id: item.id,
+                name: shortName,
+                role: 'researcher',
+                icon: ROLE_ICON.researcher,
+                status: itemStatus,
+                statusLabel:
+                  itemStatus === 'working'
+                    ? '调研中'
+                    : itemStatus === 'completed'
+                      ? '完成'
+                      : itemStatus === 'failed'
+                        ? '失败'
+                        : '待启动',
+                colorKey: ROLE_COLOR_KEY.researcher,
+                avatarRole: ROLE_AVATAR.researcher,
+              });
+              researcherInstanceIds.push(item.id);
+              rowMap[r.rowIdx].push(item.id);
+            }
+          } else {
+            // 折叠：单一 group 节点
+            nodes.push({
+              id: 'research-team',
+              name: '研究团队',
+              role: 'researcher',
+              icon: ROLE_ICON.researcher,
+              status: groupStatus,
+              statusLabel:
+                groupStatus === 'working'
+                  ? `${runningAgents} 调研中`
+                  : groupStatus === 'completed'
+                    ? `${completedAgents}/${dimCount} 完成`
+                    : groupStatus === 'failed'
+                      ? `${failedAgents} 失败`
+                      : dimCount > 0
+                        ? `${dimCount} 维度`
+                        : '待启动',
+              colorKey: ROLE_COLOR_KEY.researcher,
+              avatarRole: ROLE_AVATAR.researcher,
+              taskProgress:
+                dimCount > 0
+                  ? { completed: completedAgents, total: dimCount }
+                  : undefined,
+            });
+            researcherInstanceIds.push('research-team');
+            rowMap[r.rowIdx].push('research-team');
+          }
+          continue;
+        }
+
+        // ── 其他角色：单节点 ──
+        const completed = roleAgents.filter(
           (a) => a.phase === 'completed'
         ).length;
-        const failedAgents = roleAgents.filter(
-          (a) => a.phase === 'failed'
-        ).length;
-        const runningAgents = roleAgents.filter(
-          (a) => a.phase === 'running'
-        ).length;
-        // group 状态聚合：有失败先标失败；有运行中标 working；全完成标 completed；全无开始标 idle
-        const groupStatus: TeamNodeStatus =
-          failedAgents > 0
-            ? 'failed'
-            : runningAgents > 0
-              ? 'working'
-              : totalAgents > 0 && completedAgents === totalAgents
-                ? 'completed'
-                : stageStatusToNodeStatus(stage?.status ?? 'pending');
-
         nodes.push({
-          id: 'research-team',
-          name: '研究团队',
-          role: 'researcher',
-          icon: ROLE_ICON.researcher,
-          status: groupStatus,
+          id: r.role,
+          name: r.label,
+          role: r.role,
+          icon: ROLE_ICON[r.role],
+          status,
           statusLabel:
-            groupStatus === 'working'
-              ? `${runningAgents} 调研中`
-              : groupStatus === 'completed'
-                ? `${completedAgents}/${dimCount} 完成`
-                : groupStatus === 'failed'
-                  ? `${failedAgents} 失败`
-                  : dimCount > 0
-                    ? `${dimCount} 维度`
-                    : '待启动',
-          colorKey: ROLE_COLOR_KEY.researcher,
-          avatarRole: ROLE_AVATAR.researcher,
+            status === 'working'
+              ? '运行中'
+              : status === 'completed'
+                ? '完成'
+                : undefined,
+          colorKey: ROLE_COLOR_KEY[r.role],
+          isLeader: r.role === 'leader',
+          avatarRole: ROLE_AVATAR[r.role],
           taskProgress:
-            dimCount > 0
-              ? { completed: completedAgents, total: dimCount }
+            roleAgents.length > 0
+              ? { completed, total: roleAgents.length }
               : undefined,
         });
-        researcherIds.push('research-team');
-        rowMap[r.rowIdx].push('research-team');
-        continue;
+        rowMap[r.rowIdx].push(r.role);
       }
 
-      // ── 其他角色：单节点 ──
-      const completed = roleAgents.filter(
-        (a) => a.phase === 'completed'
-      ).length;
-      nodes.push({
-        id: r.role,
-        name: r.label,
-        role: r.role,
-        icon: ROLE_ICON[r.role],
-        status,
-        statusLabel:
-          status === 'working'
-            ? '运行中'
-            : status === 'completed'
-              ? '完成'
-              : undefined,
-        colorKey: ROLE_COLOR_KEY[r.role],
-        isLeader: r.role === 'leader',
-        avatarRole: ROLE_AVATAR[r.role],
-        taskProgress:
-          roleAgents.length > 0
-            ? { completed, total: roleAgents.length }
-            : undefined,
-      });
-      rowMap[r.rowIdx].push(r.role);
-    }
+      // Connections — 折叠 vs 展开 走两条路径，避免乱线
+      const connections: TeamTopologyConnection[] = [];
+      if (groupExpanded && researcherInstanceIds.length > 1) {
+        // Leader → 每个 researcher (fan-out)
+        // 每个 researcher → analyst (fan-in)
+        for (const rid of researcherInstanceIds) {
+          connections.push({ from: 'leader', to: rid });
+          connections.push({ from: rid, to: 'analyst' });
+        }
+      } else {
+        const groupId = researcherInstanceIds[0] ?? 'research-team';
+        connections.push({ from: 'leader', to: groupId });
+        connections.push({ from: groupId, to: 'analyst' });
+      }
+      connections.push({ from: 'analyst', to: 'writer' });
+      connections.push({ from: 'writer', to: 'reviewer' });
 
-    // Connections (3-row TI-style):
-    //   Leader → Research Team (group node, row 1)
-    //   Research Team → Analyst → Writer → Reviewer (row 2 横排串联)
-    const groupId =
-      researcherIds[0] ??
-      (rowMap[1].length > 0 ? rowMap[1][0] : 'research-team');
-    const connections: TeamTopologyConnection[] = [
-      { from: 'leader', to: groupId },
-      { from: groupId, to: 'analyst' },
-      { from: 'analyst', to: 'writer' },
-      { from: 'writer', to: 'reviewer' },
-    ];
+      // 展开时拉高画布让 fan-out/fan-in 不挤
+      const expanded = groupExpanded && researcherInstanceIds.length > 1;
+      const vbh = expanded ? 240 : 200;
+      const ryp = expanded ? [40, 130, 215] : [40, 110, 175];
 
-    return {
-      nodes,
-      connections,
-      rows: [rowMap[0], rowMap[1], rowMap[2]],
-    };
-  }, [agents, stageMap, dimensions]);
+      return {
+        nodes,
+        connections,
+        rows: [rowMap[0], rowMap[1], rowMap[2]],
+        viewBoxHeight: vbh,
+        rowYPositions: ryp,
+      };
+    }, [agents, stageMap, dimensions, groupExpanded]);
 
   const completedStages = stages.filter((s) => s.status === 'done').length;
   const totalStages = stages.length;
@@ -293,26 +358,75 @@ export function TeamRosterPanel({
 
       {/* SVG team topology canvas */}
       <div className="border-b border-gray-100 px-3 py-3">
+        {/* 展开 / 折叠 切换 + Micro-pipeline 入口 */}
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setGroupExpanded((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+            title={
+              groupExpanded
+                ? '折叠为单一 Research Team Group 节点'
+                : '展开 Research Team，查看每个 Researcher 实例'
+            }
+          >
+            {groupExpanded ? '⊟ 折叠' : '⊞ 展开'} Research
+          </button>
+          {onResearchTeamClick && (
+            <button
+              type="button"
+              onClick={onResearchTeamClick}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+              title="打开 Micro Pipeline（章节流水线 + 5-axis 评分）"
+            >
+              Micro Pipeline →
+            </button>
+          )}
+        </div>
         <TeamTopologyCanvas
           nodes={nodes}
           rows={rows}
           connections={connections}
-          heightClass="h-[200px]"
-          viewBoxHeight={200}
-          rowYPositions={[40, 110, 175]}
+          heightClass={viewBoxHeight === 240 ? 'h-[240px]' : 'h-[200px]'}
+          viewBoxHeight={viewBoxHeight}
+          rowYPositions={rowYPositions}
           patternId="agent-playground"
           renderDetail={(node, onClose) => {
-            const role = node.role as AgentRole;
             const close = () => {
               onClose();
               setSelectedRole(null);
             };
-            // 点击「研究团队」聚合节点 → 直接展开 micro-pipeline modal
+            // 折叠态：点 group → 打开 micro-pipeline modal
             if (node.id === 'research-team' && onResearchTeamClick) {
               close();
               onResearchTeamClick();
               return null;
             }
+            // 展开态：点单个 researcher#N 节点 → 打开该实例的 inspector
+            if (node.id.startsWith('researcher#')) {
+              const researcher = agents.find((a) => a.agentId === node.id);
+              if (researcher) {
+                const agentData = buildAgentInspectorPayload(
+                  'researcher',
+                  [researcher],
+                  stageMap.get('researchers')
+                );
+                // 覆盖 displayName 显示具体维度
+                const enriched = {
+                  ...agentData,
+                  name: `${agentData.name} · ${researcher.dimension ?? node.name}`,
+                };
+                return (
+                  <AgentInspector
+                    open
+                    onClose={close}
+                    mode="modal"
+                    agent={enriched}
+                  />
+                );
+              }
+            }
+            const role = node.role as AgentRole;
             const agentData = buildAgentInspectorPayload(
               role,
               agents.filter((a) => a.role === role),
@@ -338,16 +452,29 @@ export function TeamRosterPanel({
               />
             );
           }}
-          renderTooltip={(node) => (
-            <div className="text-xs">
-              <div className="font-semibold text-gray-800">{node.name}</div>
-              <div className="mt-0.5 text-gray-500">
-                {node.taskProgress
-                  ? `${node.taskProgress.completed} / ${node.taskProgress.total} done`
-                  : (node.statusLabel ?? 'Idle')}
+          renderTooltip={(node) => {
+            const isResearcherInst = node.id.startsWith('researcher#');
+            const inst = isResearcherInst
+              ? agents.find((a) => a.agentId === node.id)
+              : undefined;
+            return (
+              <div className="text-xs">
+                <div className="font-semibold text-gray-800">{node.name}</div>
+                <div className="mt-0.5 text-gray-500">
+                  {inst?.dimension
+                    ? inst.dimension
+                    : node.taskProgress
+                      ? `${node.taskProgress.completed} / ${node.taskProgress.total} done`
+                      : (node.statusLabel ?? 'Idle')}
+                </div>
+                {inst?.modelId && (
+                  <div className="font-mono mt-0.5 text-[10px] text-gray-400">
+                    {inst.modelId}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          }}
         />
       </div>
 

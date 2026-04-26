@@ -64,10 +64,15 @@ export class AgentRunner {
 
   /**
    * 一次性执行：drain 事件流并返回最后输出（强类型）。
+   *
+   * @param onEvent 可选回调 — 每个 agent 事件产生时立即同步调用（在 events.push 后）。
+   *   业务方传入即可实现 per-iteration 实时 relay（例如 WebSocket 推送）。
+   *   失败 swallow 不影响主流程。
    */
   async run<T extends new () => AgentSpec<z.ZodType, z.ZodType>>(
     Spec: T,
     input: z.input<NonNullable<DefineAgentOptions["inputSchema"]>>,
+    onEvent?: (ev: IAgentEvent) => void | Promise<void>,
   ): Promise<RunResult<unknown>> {
     const startMs = Date.now();
     const { agent, meta, instance, parsedInput } = this.materialize(
@@ -100,6 +105,13 @@ export class AgentRunner {
         const reason = (ev.payload as { reason?: string }).reason;
         if (reason === "error") state = "failed";
         else if (reason === "cancelled") state = "cancelled";
+      }
+      if (onEvent) {
+        try {
+          await onEvent(ev);
+        } catch {
+          // swallow — relay 失败不能拖死主流程
+        }
       }
     }
 

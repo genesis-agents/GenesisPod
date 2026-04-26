@@ -327,8 +327,13 @@ function TraceItem({ item }: { item: AgentTraceItem }) {
 }
 
 function AgentCard({ agent }: { agent: AgentLiveState }) {
-  const meta = ROLE_META[agent.role];
-  const tone = TONE_CLASS[meta.tone];
+  // 防御：未知 role（如 sub-agent 漏到这里）走 fallback 而不是直接 ROLE_META[role].Icon 崩溃
+  const meta = ROLE_META[agent.role] ?? {
+    Icon: Brain,
+    label: agent.role,
+    tone: 'violet',
+  };
+  const tone = TONE_CLASS[meta.tone] ?? TONE_CLASS.violet;
   const Icon = meta.Icon;
   const [expanded, setExpanded] = useState(false);
   const trace = expanded ? agent.trace : agent.trace.slice(-4);

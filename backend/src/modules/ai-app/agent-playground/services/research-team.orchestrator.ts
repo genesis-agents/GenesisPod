@@ -255,17 +255,15 @@ export class ResearchTeamOrchestrator {
           payload: { stage: "leader" },
         });
         await this.lifecycle(missionId, userId, "leader", "leader", "started");
-        const leaderRes = await this.runner.run(LeaderAgent, {
-          topic: input.topic,
-          depth: input.depth,
-          language: input.language,
-        });
-        await this.relayAgentEvents(leaderRes.events, {
-          missionId,
-          userId,
-          agentId: "leader",
-          role: "leader",
-        });
+        const leaderRes = await this.runAndRelay(
+          LeaderAgent,
+          {
+            topic: input.topic,
+            depth: input.depth,
+            language: input.language,
+          },
+          { missionId, userId, agentId: "leader", role: "leader" },
+        );
         await this.tickCostDelta(
           missionId,
           userId,
@@ -329,17 +327,15 @@ export class ResearchTeamOrchestrator {
                 "started",
                 { dimension: dim.name },
               );
-              const r = await this.runner.run(ResearcherAgent, {
-                topic: input.topic,
-                dimension: dim.name,
-                language: input.language,
-              });
-              await this.relayAgentEvents(r.events, {
-                missionId,
-                userId,
-                agentId,
-                role: "researcher",
-              });
+              const r = await this.runAndRelay(
+                ResearcherAgent,
+                {
+                  topic: input.topic,
+                  dimension: dim.name,
+                  language: input.language,
+                },
+                { missionId, userId, agentId, role: "researcher" },
+              );
               await this.tickCostDelta(
                 missionId,
                 userId,
@@ -474,17 +470,15 @@ export class ResearchTeamOrchestrator {
           "analyst",
           "started",
         );
-        const analystRes = await this.runner.run(AnalystAgent, {
-          topic: input.topic,
-          language: input.language,
-          researcherResults,
-        });
-        await this.relayAgentEvents(analystRes.events, {
-          missionId,
-          userId,
-          agentId: "analyst",
-          role: "analyst",
-        });
+        const analystRes = await this.runAndRelay(
+          AnalystAgent,
+          {
+            topic: input.topic,
+            language: input.language,
+            researcherResults,
+          },
+          { missionId, userId, agentId: "analyst", role: "analyst" },
+        );
         await this.tickCostDelta(
           missionId,
           userId,
@@ -553,20 +547,23 @@ export class ResearchTeamOrchestrator {
             "started",
             { attempt: attempts },
           );
-          const writerRes = await this.runner.run(WriterAgent, {
-            topic: input.topic,
-            depth: input.depth,
-            language: input.language,
-            insights: analyst.insights,
-            themeSummary: analyst.themeSummary,
-            contradictions: analyst.contradictions,
-          });
-          await this.relayAgentEvents(writerRes.events, {
-            missionId,
-            userId,
-            agentId: writerAgentId,
-            role: "writer",
-          });
+          const writerRes = await this.runAndRelay(
+            WriterAgent,
+            {
+              topic: input.topic,
+              depth: input.depth,
+              language: input.language,
+              insights: analyst.insights,
+              themeSummary: analyst.themeSummary,
+              contradictions: analyst.contradictions,
+            },
+            {
+              missionId,
+              userId,
+              agentId: writerAgentId,
+              role: "writer",
+            },
+          );
           await this.tickCostDelta(
             missionId,
             userId,
@@ -824,8 +821,27 @@ export class ResearchTeamOrchestrator {
   }
 
   /**
+   * 一次性运行 Agent + 实时 relay 每个事件 → WebSocket。
+   * 这是 "为什么要用它而不是 runner.run + relayAgentEvents 两步":
+   *   - runner.run 第三个参数是 onEvent 回调，每产生一个事件立刻 await relay
+   *   - 不再等 agent 跑完 batch relay，UI 能看到实时 thought/action/observation 流
+   */
+  private async runAndRelay<TSpec extends Parameters<AgentRunner["run"]>[0]>(
+    Spec: TSpec,
+    input: Parameters<AgentRunner["run"]>[1],
+    ctx: RelayCtx,
+  ): Promise<Awaited<ReturnType<AgentRunner["run"]>>> {
+    return this.runner.run(Spec, input, async (ev) => {
+      await this.relayAgentEvents([ev], ctx);
+    });
+  }
+
+  /**
    * 把 RunResult.events 转成 demo 友好的 thought / action / observation 事件。
    * 必须 await 每条 emit —— 否则 caller 紧接的 lifecycle:completed 会赶在 trace 之前到达 UI。
+   *
+   * 注意：当配合 runAndRelay 使用时，事件是 per-iteration relay 进来的（数组长度=1）；
+   *      当被旧调用方式 batch 调用时，则一次处理多个。两种用法都安全。
    */
   private async relayAgentEvents(
     events: readonly IAgentEvent[],
@@ -1081,20 +1097,23 @@ export class ResearchTeamOrchestrator {
         dimension: dimensionName,
       },
     );
-    const outlineRes = await this.runner.run(DimensionOutlineAgent, {
-      topic,
-      dimension: dimensionName,
-      language,
-      dimensionSummary: researcherOut.summary,
-      findings: researcherOut.findings,
-      targetChapterCount,
-    });
-    await this.relayAgentEvents(outlineRes.events, {
-      missionId,
-      userId,
-      agentId: outlineAgentId,
-      role: "outline",
-    });
+    const outlineRes = await this.runAndRelay(
+      DimensionOutlineAgent,
+      {
+        topic,
+        dimension: dimensionName,
+        language,
+        dimensionSummary: researcherOut.summary,
+        findings: researcherOut.findings,
+        targetChapterCount,
+      },
+      {
+        missionId,
+        userId,
+        agentId: outlineAgentId,
+        role: "outline",
+      },
+    );
     await this.tickCostDelta(
       missionId,
       userId,
@@ -1175,28 +1194,31 @@ export class ResearchTeamOrchestrator {
             attempt,
           },
         });
-        const writerRes = await this.runner.run(ChapterWriterAgent, {
-          topic,
-          dimension: dimensionName,
-          language,
-          chapter: {
-            index: chapter.index,
-            heading: chapter.heading,
-            thesis: chapter.thesis,
-            keyPoints: chapter.keyPoints,
+        const writerRes = await this.runAndRelay(
+          ChapterWriterAgent,
+          {
+            topic,
+            dimension: dimensionName,
+            language,
+            chapter: {
+              index: chapter.index,
+              heading: chapter.heading,
+              thesis: chapter.thesis,
+              keyPoints: chapter.keyPoints,
+            },
+            sources: chapterSources,
+            targetWords: targetWordsPerChapter,
+            previousChapterHeadings: previousHeadings,
+            previousCritique: lastCritique,
+            previousDraft: lastDraft?.body,
           },
-          sources: chapterSources,
-          targetWords: targetWordsPerChapter,
-          previousChapterHeadings: previousHeadings,
-          previousCritique: lastCritique,
-          previousDraft: lastDraft?.body,
-        });
-        await this.relayAgentEvents(writerRes.events, {
-          missionId,
-          userId,
-          agentId: writerAgentId,
-          role: "chapter-writer",
-        });
+          {
+            missionId,
+            userId,
+            agentId: writerAgentId,
+            role: "chapter-writer",
+          },
+        );
         await this.tickCostDelta(
           missionId,
           userId,
@@ -1253,25 +1275,28 @@ export class ResearchTeamOrchestrator {
             attempt,
           },
         });
-        const reviewerRes = await this.runner.run(ChapterReviewerAgent, {
-          topic,
-          dimension: dimensionName,
-          language,
-          chapter: {
-            index: chapter.index,
-            heading: chapter.heading,
-            thesis: chapter.thesis,
-            body: draft.body,
-            wordCount: draft.wordCount,
-            targetWords: targetWordsPerChapter,
+        const reviewerRes = await this.runAndRelay(
+          ChapterReviewerAgent,
+          {
+            topic,
+            dimension: dimensionName,
+            language,
+            chapter: {
+              index: chapter.index,
+              heading: chapter.heading,
+              thesis: chapter.thesis,
+              body: draft.body,
+              wordCount: draft.wordCount,
+              targetWords: targetWordsPerChapter,
+            },
           },
-        });
-        await this.relayAgentEvents(reviewerRes.events, {
-          missionId,
-          userId,
-          agentId: reviewerAgentId,
-          role: "chapter-reviewer",
-        });
+          {
+            missionId,
+            userId,
+            agentId: reviewerAgentId,
+            role: "chapter-reviewer",
+          },
+        );
         await this.tickCostDelta(
           missionId,
           userId,
@@ -1354,19 +1379,22 @@ export class ResearchTeamOrchestrator {
         chapterCount: writtenChapters.length,
       },
     });
-    const integrateRes = await this.runner.run(DimensionIntegratorAgent, {
-      topic,
-      dimension: dimensionName,
-      language,
-      chapters: writtenChapters,
-      dimensionSummary: researcherOut.summary,
-    });
-    await this.relayAgentEvents(integrateRes.events, {
-      missionId,
-      userId,
-      agentId: integratorAgentId,
-      role: "integrator",
-    });
+    const integrateRes = await this.runAndRelay(
+      DimensionIntegratorAgent,
+      {
+        topic,
+        dimension: dimensionName,
+        language,
+        chapters: writtenChapters,
+        dimensionSummary: researcherOut.summary,
+      },
+      {
+        missionId,
+        userId,
+        agentId: integratorAgentId,
+        role: "integrator",
+      },
+    );
     await this.tickCostDelta(
       missionId,
       userId,
@@ -1415,21 +1443,24 @@ export class ResearchTeamOrchestrator {
       const sources = researcherOut.findings.map((f) => ({
         url: f.source,
       }));
-      const gradeRes = await this.runner.run(DimensionQualityJudgeAgent, {
-        topic,
-        dimension: dimensionName,
-        language,
-        abstract,
-        fullMarkdown,
-        totalWordCount: writtenChapters.reduce((s, c) => s + c.wordCount, 0),
-        sources,
-      });
-      await this.relayAgentEvents(gradeRes.events, {
-        missionId,
-        userId,
-        agentId: gradeAgentId,
-        role: "quality-judge",
-      });
+      const gradeRes = await this.runAndRelay(
+        DimensionQualityJudgeAgent,
+        {
+          topic,
+          dimension: dimensionName,
+          language,
+          abstract,
+          fullMarkdown,
+          totalWordCount: writtenChapters.reduce((s, c) => s + c.wordCount, 0),
+          sources,
+        },
+        {
+          missionId,
+          userId,
+          agentId: gradeAgentId,
+          role: "quality-judge",
+        },
+      );
       await this.tickCostDelta(
         missionId,
         userId,
