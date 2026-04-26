@@ -103,9 +103,10 @@ RIGHT:
   {"thinking":"I will search","action":{"kind":"tool_call","toolId":"...","input":{...}}}
   {"thinking":"I will run two searches","action":{"kind":"parallel_tool_call","calls":[...]}}
 
-The "action" field must be one of the following 6 kinds (use exact field names):
+The "action" field must be EXACTLY one of these 3 kinds:
 
-  1. Single tool call (refer to <available_tools> for real toolId + input shape):
+  1. Single tool call (refer to <available_tools> for real toolId + input shape;
+     each tool entry shows an "example:" line — copy that wrapping verbatim):
      { "kind": "tool_call", "toolId": "<exact toolId from available_tools>", "input": { ... } }
 
   2. Multiple tools in one turn (independent, no result feeds another — much faster):
@@ -114,34 +115,21 @@ The "action" field must be one of the following 6 kinds (use exact field names):
          { "toolId": "<another-id>", "input": { ... } }
        ] }
 
-  3. Skill invocation (refer to <available_skills>):
-     { "kind": "skill_invoke", "skillId": "<exact skillId>", "input": { ... } }
-
-  4. Spawn a sub-agent for a delegated subtask:
-     { "kind": "subagent_spawn", "name": "<short-task-name>", "prompt": "<self-contained task description>" }
-
-  5. Direct LLM generation (no tool, just produce text):
-     { "kind": "llm_generate", "prompt": "<what to generate>" }
-
-  6. Finalize with final answer:
-     { "kind": "finalize", "output": "<final answer or structured object>" }
+  3. Finalize with the final answer (use this when no more tool calls are needed):
+     { "kind": "finalize", "output": <final answer matching the required output schema> }
 
 Shorthand: you may also send "actions": [<tool_call>, <tool_call>, ...] at the
-top level — it will be auto-wrapped to parallel_tool_call. Use parallel calls
-when actions are independent — much faster.
+top level — it will be auto-wrapped to parallel_tool_call.
 
 Rules:
 - Respond with raw JSON only, no markdown fences, no prose outside the JSON.
 - If all information is sufficient, use "finalize".
-- Do not invent tool / skill ids; only use ones listed in <available_tools> /
-  <available_skills>. Each catalog entry has an "example:" line — copy that
-  shape literally and replace placeholders with real values.
-- "skill_invoke" requires a skillId from <available_skills>; if no skills
-  are listed, do not use this action.
-- "subagent_spawn" / "llm_generate" are advanced and should be avoided unless
-  the user prompt explicitly directs you to delegate to a sub-agent or
-  generate freeform text. Default to "tool_call" or "finalize".
+- Do not invent tool ids; only use ones listed in <available_tools>. Each
+  catalog entry has an "example:" line — copy that shape literally and replace
+  placeholders with real values.
 - If a tool failed previously, choose a different tool or finalize gracefully.
+- Only the 3 action kinds above are supported. Do NOT emit "skill_invoke",
+  "subagent_spawn", or "llm_generate" — these are reserved internals.
 `;
 
 @Injectable()
@@ -960,14 +948,31 @@ export class ReActLoop implements IAgentLoop {
       );
     }
     const a = action as Record<string, unknown>;
-    if (a.kind === "tool_call" && typeof a.toolId === "string") {
+
+    // ── tool_call ──────────────────────────────────────
+    if (a.kind === "tool_call") {
+      if (typeof a.toolId !== "string" || !a.toolId.trim()) {
+        // ★ 精准错误：kind 对但 toolId 缺/非 string，之前掉到 unknown_kind 误导
+        throw new InvalidActionError(
+          `tool_call action requires "toolId" (string), got ${typeof a.toolId}`,
+          "missing_action",
+        );
+      }
       return {
         kind: "tool_call",
         toolId: a.toolId,
         input: (a.input as Record<string, unknown>) ?? {},
       };
     }
-    if (a.kind === "parallel_tool_call" && Array.isArray(a.calls)) {
+
+    // ── parallel_tool_call ────────────────────────────
+    if (a.kind === "parallel_tool_call") {
+      if (!Array.isArray(a.calls)) {
+        throw new InvalidActionError(
+          `parallel_tool_call action requires "calls" (array), got ${typeof a.calls}`,
+          "empty_parallel_calls",
+        );
+      }
       const calls = a.calls
         .map((c) => this.normalizeToolCall(c))
         .filter((c): c is IToolCallAction => c !== null);
@@ -981,6 +986,8 @@ export class ReActLoop implements IAgentLoop {
         typeof a.maxConcurrency === "number" ? a.maxConcurrency : undefined;
       return { kind: "parallel_tool_call", calls, maxConcurrency: max };
     }
+
+    // ── finalize ──────────────────────────────────────
     if (a.kind === "finalize") {
       // 仅当 LLM 显式声明 kind="finalize" 时才认为是主动 finalize；
       // 此时 output="" 是 LLM 自己的合法决定（少见但允许）。
@@ -989,8 +996,14 @@ export class ReActLoop implements IAgentLoop {
         output: (a.output as string | Record<string, unknown>) ?? "",
       };
     }
+
+    // ── 协议外 kind（subagent_spawn / skill_invoke / llm_generate）─────
+    // 这些 kind 不在 DECISION_SYSTEM_SUFFIX 协议里，理论上 LLM 不该吐。
+    // 真要支持得在 executeAction 里完整实现 + 在协议里宣传。当前抛错让
+    // ReflexionLoop 走 critique 重试，不要让 LLM 用未支持的 action。
     throw new InvalidActionError(
-      `LLM returned unknown action kind: ${JSON.stringify(a.kind)}`,
+      `LLM returned unsupported action kind: ${JSON.stringify(a.kind)}. ` +
+        `Only "tool_call", "parallel_tool_call", "finalize" are accepted.`,
       "unknown_kind",
     );
   }
