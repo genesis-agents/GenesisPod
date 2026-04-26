@@ -125,6 +125,11 @@ Rules:
 - Do not invent tool / skill ids; only use ones listed in <available_tools> /
   <available_skills>. Each catalog entry has an "example:" line — copy that
   shape literally and replace placeholders with real values.
+- "skill_invoke" requires a skillId from <available_skills>; if no skills
+  are listed, do not use this action.
+- "subagent_spawn" / "llm_generate" are advanced and should be avoided unless
+  the user prompt explicitly directs you to delegate to a sub-agent or
+  generate freeform text. Default to "tool_call" or "finalize".
 - If a tool failed previously, choose a different tool or finalize gracefully.
 `;
 
@@ -684,12 +689,11 @@ export class ReActLoop implements IAgentLoop {
         content: m.content,
       });
     }
-    if (envelope.tools.length) {
-      msgs.push({
-        role: "system",
-        content: `## Available tools\n${envelope.tools.map((t) => `- ${t}`).join("\n")}`,
-      });
-    }
+    // ★ 删除 envelope.tools 追加的降级版工具列表。
+    // catalog block（在 envelope.system 里）已经有完整 <available_tools> 含
+    // description + input schema + invocation example。这里再追加只有 id 的
+    // 第二份会让 LLM 看到工具列表 2 遍 → 困惑"哪份准？"，可能引用降级版的
+    // 不完整信息生成错误 action。
     return msgs;
   }
 

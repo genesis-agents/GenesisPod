@@ -382,16 +382,25 @@ export class AgentRunner {
     let lastOutput: unknown = null;
     let iterations = 0;
 
+    // ★ 修复 input 序列化双重追加：
+    // HarnessedAgent.execute 内部对 task.input 还会做 `${goal}\n\n${stringify(input)}` 拼接。
+    // 如果没有 buildUserPrompt，goal 已经是 JSON.stringify(parsedInput)，再传 input 就
+    // 会让 LLM 看到同一个 JSON 重复两遍。这里只在有 buildUserPrompt 时才传 input
+    // （让 LLM 同时看到业务渲染文本 + 原始结构化数据，有意义）。
+    const hasUserPromptBuilder = !!instance.buildUserPrompt;
+    const goalText =
+      instance.buildUserPrompt?.({
+        input: parsedInput,
+        identity: agent.identity,
+      }) ??
+      (typeof parsedInput === "string"
+        ? parsedInput
+        : JSON.stringify(parsedInput));
     for await (const ev of agent.execute({
-      goal:
-        instance.buildUserPrompt?.({
-          input: parsedInput,
-          identity: agent.identity,
-        }) ??
-        (typeof parsedInput === "string"
-          ? parsedInput
-          : JSON.stringify(parsedInput)),
-      input: parsedInput as Record<string, unknown> | string,
+      goal: goalText,
+      input: hasUserPromptBuilder
+        ? (parsedInput as Record<string, unknown> | string)
+        : undefined,
     })) {
       events.push(ev);
       if (ev.type === "action_executed") iterations += 1;
@@ -687,14 +696,16 @@ export class AgentRunner {
       if (augmentTail) parts.push(augmentTail);
       return parts.length > 0 ? parts.join("\n\n") : base;
     };
+    // ★ double-append fix: buildSystemPromptFn 只返回业务 prompt 原文，不在内部
+    // append schema/augmentTail。agentSpec.systemPrompt 那一处统一 append 一次。
+    // 之前两处都调 appendBlocks 导致 schemaBlock + augmentTail 在 envelope.system
+    // 里出现 2 遍 → LLM 看到协议/catalog 重复，reasoning model 易 confused。
     const buildSystemPromptFn = instance.buildSystemPrompt
       ? (ctx: { input: unknown; identity: IAgentIdentity }) =>
-          appendBlocks(
-            instance.buildSystemPrompt!({
-              input: ctx.input as never,
-              identity: ctx.identity,
-            }),
-          ) ?? ""
+          instance.buildSystemPrompt!({
+            input: ctx.input as never,
+            identity: ctx.identity,
+          })
       : undefined;
     const buildUserPromptFn = instance.buildUserPrompt
       ? (ctx: { input: unknown; identity: IAgentIdentity }) =>
