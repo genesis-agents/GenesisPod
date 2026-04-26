@@ -17,6 +17,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
+import { useReportRevisions } from '@/hooks/report';
 import { countWords } from '@/lib/markdown/countWords';
 import {
   Shield,
@@ -60,12 +62,12 @@ import { ReportEditPanel } from '../reports/ReportEditPanel';
 import { ChapterizedReportView } from '../reports/ChapterizedReportView';
 import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
 import { GenerateSlidesButton } from './GenerateSlidesButton';
-import { ReportAnnotations } from '../annotations/ReportAnnotations';
+import { ReportAnnotations } from '@/components/common/annotations/ReportAnnotations';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 // AI Edit 优化组件
-import { useAIEdit } from '../ai-edit/useAIEdit';
-import { AIEditInputModal } from '../ai-edit/AIEditInputModal';
-import { AIEditPreviewModal } from '../ai-edit/AIEditPreviewModal';
+import { useAIEdit } from '@/components/common/ai-text-edit/useAIEdit';
+import { AIEditInputModal } from '@/components/common/ai-text-edit/AIEditInputModal';
+import { AIEditPreviewModal } from '@/components/common/ai-text-edit/AIEditPreviewModal';
 // Phase 1-3 优化组件
 import { CredibilityPanel } from '../panels/CredibilityPanel';
 // Phase TODO UX 优化组件 - 新的研究协作面板（合并原 thinking/history/collaboration）
@@ -626,71 +628,22 @@ export function TopicContentPanel({
     null | 'history' | 'annotations'
   >(null);
 
-  // ★ 计算版本列表（使用 useMemo 避免 hydration 错误）
-  // 注意：不在 useMemo 中使用 t() 函数，避免 SSR/客户端不一致
-  const allRevisions = useMemo(() => {
-    const result: {
-      id: string;
-      version: number;
-      title: string;
-      summary: string;
-      changeType: 'create' | 'edit' | 'ai_edit' | 'rollback';
-      changeDescription: string;
-      author: string;
-      createdAt: string;
-      wordCount: number;
-      wordCountDelta: number;
-    }[] = [];
-
-    // ★ 使用 ID 检查是否已存在（比 version 更可靠）
-    const existingIds = new Set(revisions.map((rev) => rev.id));
-
-    // ★ 始终添加当前版本（如果 report 存在且 ID 不在 revisions 中）
-    if (report && !existingIds.has(report.id)) {
-      const sources = report.totalSources || 0;
-      const chars = report.fullReport?.length || 0;
-      result.push({
-        id: report.id,
-        version: report.version,
-        title: `v${report.version}`,
-        summary: '',
-        changeType: 'edit',
-        // 使用简单字符串格式，避免 i18n hydration 问题
-        changeDescription: `${sources} sources · ${chars} chars`,
-        author: '',
-        createdAt: report.updatedAt || report.createdAt || '',
-        wordCount: chars,
-        wordCountDelta: 0,
-      });
-    }
-
-    // 添加历史版本
-    revisions.forEach((rev, idx) => {
-      const sources = rev.totalSources || 0;
-      const chars = rev.wordCount || 0;
-      result.push({
-        id: rev.id,
-        version: rev.version,
-        title: `v${rev.version}`,
-        summary: rev.summary || '',
-        changeType: idx === revisions.length - 1 ? 'create' : 'edit',
-        changeDescription:
-          sources > 0
-            ? `${sources} sources · ${chars} chars`
-            : rev.summary || '',
-        author: rev.author || '',
-        createdAt:
-          typeof rev.createdAt === 'string'
-            ? rev.createdAt
-            : rev.createdAt.toISOString(),
-        wordCount: chars,
-        wordCountDelta: 0,
-      });
-    });
-
-    // 按版本号降序排列
-    return result.sort((a, b) => b.version - a.version);
-  }, [report, revisions]);
+  // ★ 计算版本列表 —— 走平台 useReportRevisions Hook
+  // 幂等点：computeDelta=false 保留 TI 原行为（所有条目 wordCountDelta=0）
+  // 旧 TI 用 fullReport.length 作 wordCount，hook 接 wordCount 字段，故映射时传入
+  const allRevisions = useReportRevisions({
+    current: report
+      ? {
+          id: report.id,
+          version: report.version,
+          totalSources: report.totalSources,
+          wordCount: report.fullReport?.length ?? 0,
+          createdAt: report.createdAt,
+          updatedAt: report.updatedAt,
+        }
+      : null,
+    revisions,
+  });
 
   // ★ 最大化模式状态
   const [isMaximized, setIsMaximized] = useState(false);
@@ -2047,12 +2000,9 @@ export function TopicContentPanel({
         {activeTab !== 'report' && report?.fullReport && (
           <div className="hidden">
             <div data-export-content="insights">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
-              >
-                {preprocessLatex(report.fullReport)}
-              </ReactMarkdown>
+              {/* 平台 MarkdownViewer 内置 preprocessLatex + GFM + KaTeX，
+                  preprocess=true 默认，无需手动 preprocessLatex */}
+              <MarkdownViewer content={report.fullReport} preprocess />
             </div>
           </div>
         )}

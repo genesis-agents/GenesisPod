@@ -28,6 +28,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
@@ -54,6 +55,12 @@ export interface MarkdownViewerProps {
   enableGfm?: boolean;
   /** 是否启用 LaTeX 数学公式，默认 true */
   enableMath?: boolean;
+  /**
+   * 是否启用 rehype-raw 允许内联 HTML（默认 false）。
+   * 报告含 `<sup>` / `<details>` 等手写 HTML 时需要开启。
+   * 注意：开启 = 信任内容来源；用户输入禁用。
+   */
+  enableRawHtml?: boolean;
 }
 
 const IDENTITY: (text: string) => ReactNode = (t) => t;
@@ -65,6 +72,7 @@ export function MarkdownViewer({
   className,
   enableGfm = true,
   enableMath = true,
+  enableRawHtml = false,
 }: MarkdownViewerProps) {
   const finalText = useMemo(() => {
     if (!preprocess) return content;
@@ -87,11 +95,13 @@ export function MarkdownViewer({
     [enableGfm, enableMath]
   );
 
-  const rehypePlugins = useMemo(
-    () =>
-      enableMath ? ([[rehypeKatex, KATEX_OPTIONS]] as const) : ([] as const),
-    [enableMath]
-  );
+  const rehypePlugins = useMemo(() => {
+    // 顺序很关键：rehype-raw 必须在 rehype-katex 之前，否则 raw HTML 会吞掉数学块
+    const plugins: unknown[] = [];
+    if (enableRawHtml) plugins.push(rehypeRaw);
+    if (enableMath) plugins.push([rehypeKatex, KATEX_OPTIONS]);
+    return plugins;
+  }, [enableMath, enableRawHtml]);
 
   return (
     <div className={cn('markdown-viewer', className)}>

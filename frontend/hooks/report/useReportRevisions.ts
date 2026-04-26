@@ -79,15 +79,23 @@ export interface UseReportRevisionsOptions {
    * 调用方可替换为 i18n 版本。
    */
   formatDescription?: (entry: { sources: number; chars: number }) => string;
+  /**
+   * 是否计算与上一版本的 wordCountDelta。
+   * 默认 false（保持与原 TI TopicContentPanel.allRevisions 行为一致：所有条目 delta=0）。
+   * 设为 true 时按 version 降序计算实际差值，新模块按需开启。
+   */
+  computeDelta?: boolean;
 }
 
+// 默认格式与 TI 原 TopicContentPanel.allRevisions 完全一致，
+// 包括 sources=0 时也输出 "0 sources · X chars"，确保幂等替换零回归。
 const DEFAULT_FORMAT = ({
   sources,
   chars,
 }: {
   sources: number;
   chars: number;
-}) => (sources > 0 ? `${sources} sources · ${chars} chars` : `${chars} chars`);
+}) => `${sources} sources · ${chars} chars`;
 
 function toIsoString(value: string | Date | null | undefined): string {
   if (!value) return '';
@@ -99,6 +107,7 @@ export function useReportRevisions({
   current,
   revisions,
   formatDescription = DEFAULT_FORMAT,
+  computeDelta = false,
 }: UseReportRevisionsOptions): ReportRevisionEntry[] {
   return useMemo(() => {
     const result: ReportRevisionEntry[] = [];
@@ -147,11 +156,14 @@ export function useReportRevisions({
     // 按 version 降序排序
     result.sort((a, b) => b.version - a.version);
 
-    // 计算 wordCountDelta（与下一版本即更早一版相比）
-    for (let i = 0; i < result.length - 1; i++) {
-      result[i].wordCountDelta = result[i].wordCount - result[i + 1].wordCount;
+    // 计算 wordCountDelta（默认关闭以保持与 TI 原行为幂等）
+    if (computeDelta) {
+      for (let i = 0; i < result.length - 1; i++) {
+        result[i].wordCountDelta =
+          result[i].wordCount - result[i + 1].wordCount;
+      }
     }
 
     return result;
-  }, [current, revisions, formatDescription]);
+  }, [current, revisions, formatDescription, computeDelta]);
 }
