@@ -15,9 +15,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
-import { preprocessLatex } from '@/lib/report/preprocessLatex';
-import { countWords } from '@/lib/report/countWords';
+import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
+import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
+import { countWords } from '@/lib/markdown/countWords';
 import {
   Shield,
   Maximize2,

@@ -38,7 +38,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
+import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
 import { CollapsibleRagSources } from '@/components/ui/CollapsibleRagSources';

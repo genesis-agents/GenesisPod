@@ -14,7 +14,7 @@ import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useResearchWebSocket } from '@/hooks/useResearchWebSocket';
 import { TopicResearchLayout } from './TopicResearchLayout';
 import { ExportDialog } from '@/components/common/ExportDialog';
-import { countWords } from '@/lib/report/countWords';
+import { countWords } from '@/lib/markdown/countWords';
 
 interface TopicDetailProps {
   topic: ResearchTopic;

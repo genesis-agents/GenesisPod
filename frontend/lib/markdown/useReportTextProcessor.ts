@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { CitationBadge } from '@/components/ai-insights/citations/CitationBadge';
-import { CitationGroup } from '@/components/ai-insights/citations/CitationGroup';
+import { CitationBadge } from '@/components/common/citations/CitationBadge';
+import { CitationGroup } from '@/components/common/citations/CitationGroup';
 import {
   splitTextIntoSegments,
   type Annotation as PreprocessorAnnotation,

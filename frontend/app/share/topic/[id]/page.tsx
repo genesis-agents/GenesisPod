@@ -26,13 +26,13 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
-import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
-import { preprocessLatex } from '@/lib/report/preprocessLatex';
-import { stripProseBullets } from '@/lib/report/stripProseBullets';
+import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
+import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
+import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
 import {
   ReportChartRenderer,
   RiskMatrixRenderer,
-} from '@/components/ai-insights/charts/ReportChartRenderer';
+} from '@/components/common/chart-viewer/ReportChartRenderer';
 import ClientDate from '@/components/common/ClientDate';
 
 // ============================================================================

@@ -16,7 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
+import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
 import rehypeRaw from 'rehype-raw';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -43,17 +43,17 @@ import {
   FigureRenderer,
   FigureGallery,
   type FigureEvidenceInfo,
-} from '../charts';
+} from '@/components/common/chart-viewer';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
-import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
-import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
-import { preprocessLatex } from '@/lib/report/preprocessLatex';
-import { stripProseBullets } from '@/lib/report/stripProseBullets';
-import { countWords } from '@/lib/report/countWords';
+import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
+import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
+import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
+import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
+import { countWords } from '@/lib/markdown/countWords';
 import {
   splitFullReportIntoChapters,
   type ChapterType as ParsedChapterType,
-} from '@/lib/report/splitFullReportIntoChapters';
+} from '@/lib/markdown/splitFullReportIntoChapters';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
 import { useI18n } from '@/lib/i18n';

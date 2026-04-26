@@ -25,7 +25,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { KATEX_OPTIONS } from '@/lib/report/katexOptions';
+import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
 import rehypeRaw from 'rehype-raw';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -38,13 +38,16 @@ import type {
   ReportChart,
 } from '@/types/topic-insights';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
-import { FigureRenderer, type FigureEvidenceInfo } from '../charts';
+import {
+  FigureRenderer,
+  type FigureEvidenceInfo,
+} from '@/components/common/chart-viewer';
 import type { AIEditOperation } from '../types';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
-import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
-import { preprocessLatex } from '@/lib/report/preprocessLatex';
-import { stripProseBullets } from '@/lib/report/stripProseBullets';
-import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
+import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
+import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
+import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
+import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
 import {
