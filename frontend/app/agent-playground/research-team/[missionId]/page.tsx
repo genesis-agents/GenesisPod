@@ -31,6 +31,7 @@ import {
   PipelineTimeline,
   RawEventLog,
   ReportPanel,
+  ResearchTeamModal,
   TaskListPanel,
   TeamRosterPanel,
   VerifyConsensusPanel,
@@ -207,6 +208,7 @@ export default function MissionDetailPage() {
 
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [leaderChatOpen, setLeaderChatOpen] = useState(false);
+  const [researchTeamOpen, setResearchTeamOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
 
@@ -398,6 +400,7 @@ export default function MissionDetailPage() {
               }
               onCollapse={() => setLeftCollapsed(true)}
               onLeaderClick={() => setLeaderChatOpen(true)}
+              onResearchTeamClick={() => setResearchTeamOpen(true)}
               onRerun={() => {
                 void (async () => {
                   try {
@@ -425,9 +428,19 @@ export default function MissionDetailPage() {
                     await cancelMission(missionId);
                     window.location.reload();
                   } catch (e) {
-                    window.alert(
-                      `取消失败：${e instanceof Error ? e.message : String(e)}`
-                    );
+                    const msg = e instanceof Error ? e.message : String(e);
+                    // 通用 race：mission 已经在请求送达前完成 / 失败
+                    if (
+                      /not running|status is/i.test(msg) ||
+                      /400/i.test(msg)
+                    ) {
+                      window.alert(
+                        'Mission 已经结束（或刚刚完成 / 失败），无需取消。页面将刷新展示最新状态。'
+                      );
+                      window.location.reload();
+                    } else {
+                      window.alert(`取消失败：${msg}`);
+                    }
                   }
                 })();
               }}
@@ -553,6 +566,19 @@ export default function MissionDetailPage() {
         topic={view.mission.topic}
         open={leaderChatOpen}
         onClose={() => setLeaderChatOpen(false)}
+      />
+
+      {/* Research Team micro-pipeline modal — triggered by clicking Research Team group node */}
+      <ResearchTeamModal
+        open={researchTeamOpen}
+        onClose={() => setResearchTeamOpen(false)}
+        dimensions={view.mission.dimensions ?? []}
+        agents={view.agents}
+        pipelines={view.dimensionPipelines}
+        onAgentClick={(taskKey) => {
+          setResearchTeamOpen(false);
+          setSelectedTaskKey(taskKey);
+        }}
       />
 
       {/* Task detail drawer */}
