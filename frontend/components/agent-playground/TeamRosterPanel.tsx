@@ -40,11 +40,12 @@ const ROLE_ROW: {
   label: string;
   rowIdx: number;
 }[] = [
+  // 纯垂直流水线：每个角色独占一行，避免横向连线交叉
   { role: 'leader', stage: 'leader', label: 'Leader', rowIdx: 0 },
   { role: 'researcher', stage: 'researchers', label: 'Researcher', rowIdx: 1 },
   { role: 'analyst', stage: 'analyst', label: 'Analyst', rowIdx: 2 },
-  { role: 'writer', stage: 'writer', label: 'Writer', rowIdx: 2 },
-  { role: 'reviewer', stage: 'reviewer', label: 'Reviewer', rowIdx: 2 },
+  { role: 'writer', stage: 'writer', label: 'Writer', rowIdx: 3 },
+  { role: 'reviewer', stage: 'reviewer', label: 'Reviewer', rowIdx: 4 },
 ];
 
 const ROLE_COLOR_KEY: Record<AgentRole, string> = {
@@ -119,7 +120,13 @@ export function TeamRosterPanel({
 
   const { nodes, connections, rows } = useMemo(() => {
     const nodes: TeamTopologyNode[] = [];
-    const rowMap: Record<number, string[]> = { 0: [], 1: [], 2: [] };
+    const rowMap: Record<number, string[]> = {
+      0: [],
+      1: [],
+      2: [],
+      3: [],
+      4: [],
+    };
 
     for (const r of ROLE_ROW) {
       const stage = stageMap.get(r.stage);
@@ -165,7 +172,11 @@ export function TeamRosterPanel({
       { from: 'writer', to: 'reviewer' },
     ];
 
-    return { nodes, connections, rows: [rowMap[0], rowMap[1], rowMap[2]] };
+    return {
+      nodes,
+      connections,
+      rows: [rowMap[0], rowMap[1], rowMap[2], rowMap[3], rowMap[4]],
+    };
   }, [agents, stageMap]);
 
   const completedStages = stages.filter((s) => s.status === 'done').length;
@@ -202,7 +213,9 @@ export function TeamRosterPanel({
           nodes={nodes}
           rows={rows}
           connections={connections}
-          heightClass="h-[240px]"
+          heightClass="h-[300px]"
+          viewBoxHeight={280}
+          rowYPositions={[35, 95, 155, 215, 270]}
           patternId="agent-playground"
           renderDetail={(node, onClose) => (
             <>
