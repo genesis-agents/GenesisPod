@@ -26,6 +26,11 @@ import {
   type TeamTopologyConnection,
   type TeamTopologyLegendItem,
 } from '@/components/common/team-topology';
+import {
+  AgentInspector,
+  type AgentInspectorAgent,
+  type AgentConfigEntry,
+} from '@/components/common/agent-inspector';
 import type {
   MissionStatus,
   TaskStatus,
@@ -1032,276 +1037,219 @@ function TopicTeamCanvasView({
       renderDetail={(node, onClose) => {
         const agent = agents.find((a) => a.id === node.id);
         if (!agent) return null;
-
-        const display = getAgentDisplay(agent.role);
-        const roleInfo = getAgentRoleInfo(agent.role);
-
+        const payload = buildTopicAgentInspectorPayload(
+          agent,
+          teamInfo,
+          missionStatus,
+          getAgentDisplay,
+          getAgentRoleInfo,
+          t
+        );
         return (
-          <>
-            {/* 点击外部关闭 - 透明遮罩 */}
-            <div className="absolute inset-0 z-20" onClick={onClose} />
-            {/* 详情卡片 */}
-            <div className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
-              {/* 头部 - 名称 */}
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
-                    <span className="text-xl">{display.icon}</span>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-800">
-                      {agent.name}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        {display.name}
-                      </span>
-                      <span
-                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                          agent.status === 'working'
-                            ? 'bg-blue-100 text-blue-700'
-                            : agent.status === 'completed'
-                              ? 'bg-green-100 text-green-700'
-                              : agent.status === 'error'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {agent.status === 'working'
-                          ? t('topicResearch.common.working')
-                          : agent.status === 'completed'
-                            ? t('topicResearch.status.completed')
-                            : agent.status === 'error'
-                              ? t('common.error')
-                              : t('topicResearch.status.idle')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Task Progress */}
-              {agent.taskCount > 0 && (
-                <div className="mb-3 rounded-lg bg-gray-50 px-3 py-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">
-                      {t('topicResearch.common.taskProgressLabel')}
-                    </span>
-                    <span className="font-medium text-gray-700">
-                      {t('topicResearch.common.taskProgressValue', {
-                        completed: agent.completedCount,
-                        total: agent.taskCount,
-                      })}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                    <div
-                      className={`h-full transition-all ${
-                        agent.completedCount === agent.taskCount
-                          ? 'bg-green-500'
-                          : 'bg-blue-500'
-                      }`}
-                      style={{
-                        width: `${(agent.completedCount / agent.taskCount) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* 职责描述 */}
-              <div className="mb-3">
-                <div className="mb-1 text-xs font-medium text-gray-500">
-                  {'\u{1F4CB}'} {t('topicResearch.common.responsibilities')}
-                </div>
-                <p className="text-sm text-gray-700">{roleInfo.description}</p>
-              </div>
-
-              {/* ★ v8.0: 技能 - 优先显示 Leader 分配的真实技能 */}
-              {(() => {
-                const teamAgent = teamInfo?.agents?.find(
-                  (ta) => ta.id === agent.id || ta.id.includes(agent.id)
-                );
-                const realSkills = isValidStringArray(teamAgent?.skills)
-                  ? teamAgent.skills
-                  : undefined;
-                const realTools = isValidStringArray(teamAgent?.tools)
-                  ? teamAgent.tools
-                  : undefined;
-                const hasRealData = !!realSkills || !!realTools;
-
-                return (
-                  <>
-                    <div className="mb-3">
-                      <div className="mb-1.5 text-xs font-medium text-gray-500">
-                        {'\u{1F3AF}'}{' '}
-                        {hasRealData
-                          ? t('topicResearch.common.assignedSkills')
-                          : t('topicResearch.common.capabilityRange')}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {realSkills ? (
-                          realSkills.map((skill: string, i: number) => (
-                            <span
-                              key={i}
-                              className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
-                            >
-                              {skill}
-                            </span>
-                          ))
-                        ) : roleInfo.capabilities &&
-                          roleInfo.capabilities.length > 0 ? (
-                          roleInfo.capabilities.map(
-                            (cap: string, i: number) => (
-                              <span
-                                key={i}
-                                className="rounded-full bg-gray-50 px-2.5 py-1 text-xs text-gray-600"
-                              >
-                                {cap}
-                              </span>
-                            )
-                          )
-                        ) : (
-                          <span className="italic text-gray-400">
-                            {t('topicResearch.common.pendingAssignment')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {hasRealData && realTools && realTools.length > 0 && (
-                      <div className="mb-3">
-                        <div className="mb-1.5 text-xs font-medium text-gray-500">
-                          {'\u{1F527}'}{' '}
-                          {t('topicResearch.common.assignedTools')}
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {realTools.map((tool: string, i: number) => (
-                            <span
-                              key={i}
-                              className="rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700"
-                            >
-                              {tool}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {!hasRealData && (
-                      <div className="mb-3">
-                        <div className="mb-1.5 text-xs font-medium text-gray-500">
-                          {'\u2699\uFE0F'}{' '}
-                          {t('topicResearch.common.configMethod')}
-                        </div>
-                        <p className="text-xs italic text-gray-600">
-                          {roleInfo.note}
-                        </p>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-
-              {/* ★ AI 模型 */}
-              <div>
-                <div className="mb-1.5 text-xs font-medium text-gray-500">
-                  {'\u{1F916}'} {t('topicResearch.common.aiModel')}
-                </div>
-                <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-2">
-                  {agent.role === 'leader' ? (
-                    <span className="font-mono text-sm font-medium text-indigo-700">
-                      {teamInfo?.leaderModel ||
-                        missionStatus?.leaderModelId ||
-                        missionStatus?.leaderModelName ||
-                        t('topicResearch.common.notSpecified')}
-                    </span>
-                  ) : (
-                    (() => {
-                      const tasks = missionStatus?.tasks || [];
-                      let assignedTasks: TaskStatus[];
-                      if (agent.role === 'researcher') {
-                        assignedTasks = tasks.filter(
-                          (tk: TaskStatus) =>
-                            tk.assignedAgent === agent.id &&
-                            tk.taskType === 'dimension_research'
-                        );
-                      } else if (agent.role === 'reviewer') {
-                        assignedTasks = tasks.filter(
-                          (tk: TaskStatus) => tk.taskType === 'quality_review'
-                        );
-                      } else if (agent.role === 'synthesizer') {
-                        assignedTasks = tasks.filter(
-                          (tk: TaskStatus) => tk.taskType === 'report_synthesis'
-                        );
-                      } else {
-                        assignedTasks = [];
-                      }
-
-                      const modelEntries = new Map<
-                        string,
-                        { id: string; displayName?: string }
-                      >();
-                      for (const task of assignedTasks) {
-                        if (task.modelId && !modelEntries.has(task.modelId)) {
-                          modelEntries.set(task.modelId, {
-                            id: task.modelId,
-                            displayName: task.modelDisplayName,
-                          });
-                        }
-                      }
-                      const models = [...modelEntries.values()];
-
-                      if (models.length === 0) {
-                        return (
-                          <span className="font-mono text-sm text-gray-400">
-                            {t('topicResearch.common.notSpecified')}
-                          </span>
-                        );
-                      }
-
-                      return (
-                        <div className="flex flex-wrap gap-1">
-                          {models.map((model, idx: number) => (
-                            <span key={model.id}>
-                              <ModelBadge
-                                modelId={model.id}
-                                displayName={model.displayName}
-                                variant="compact"
-                              />
-                              {idx < models.length - 1 && ', '}
-                            </span>
-                          ))}
-                        </div>
-                      );
-                    })()
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
+          <AgentInspector open onClose={onClose} mode="modal" agent={payload} />
         );
       }}
     />
   );
+}
+
+// ============================================
+// Build AgentInspector payload from TI domain data
+// ============================================
+function buildTopicAgentInspectorPayload(
+  agent: ResearchAgent,
+  teamInfo: TeamInfo | null | undefined,
+  missionStatus: MissionStatus | null | undefined,
+  getAgentDisplay: (role: string) => {
+    name: string;
+    icon: string;
+    color: string;
+  },
+  getAgentRoleInfo: (role: string) => {
+    description: string;
+    capabilities: string[];
+    note: string;
+  },
+  t: (key: string, params?: Record<string, string | number>) => string
+): AgentInspectorAgent {
+  const display = getAgentDisplay(agent.role);
+  const roleInfo = getAgentRoleInfo(agent.role);
+
+  // 状态徽章
+  const statusLabel =
+    agent.status === 'working'
+      ? t('topicResearch.common.working')
+      : agent.status === 'completed'
+        ? t('topicResearch.status.completed')
+        : agent.status === 'error'
+          ? t('common.error')
+          : t('topicResearch.status.idle');
+  const statusColorClass =
+    agent.status === 'working'
+      ? 'text-blue-600'
+      : agent.status === 'completed'
+        ? 'text-emerald-600'
+        : agent.status === 'error'
+          ? 'text-red-600'
+          : 'text-gray-500';
+
+  // 技能 / 工具 —— 优先 Leader 分配的真实数据
+  const teamAgent = teamInfo?.agents?.find(
+    (ta) => ta.id === agent.id || ta.id.includes(agent.id)
+  );
+  const realSkills = isValidStringArray(teamAgent?.skills)
+    ? teamAgent.skills
+    : undefined;
+  const realTools = isValidStringArray(teamAgent?.tools)
+    ? teamAgent.tools
+    : undefined;
+  const hasRealData = !!realSkills || !!realTools;
+
+  // AI 模型
+  const modelValue: React.ReactNode = (() => {
+    if (agent.role === 'leader') {
+      const leaderModel =
+        teamInfo?.leaderModel ||
+        missionStatus?.leaderModelId ||
+        missionStatus?.leaderModelName;
+      return leaderModel ? (
+        <span className="font-mono text-sm font-medium text-indigo-700">
+          {leaderModel}
+        </span>
+      ) : (
+        <span className="font-mono text-sm text-gray-400">
+          {t('topicResearch.common.notSpecified')}
+        </span>
+      );
+    }
+    const tasks = missionStatus?.tasks || [];
+    let assignedTasks: TaskStatus[];
+    if (agent.role === 'researcher') {
+      assignedTasks = tasks.filter(
+        (tk) =>
+          tk.assignedAgent === agent.id && tk.taskType === 'dimension_research'
+      );
+    } else if (agent.role === 'reviewer') {
+      assignedTasks = tasks.filter((tk) => tk.taskType === 'quality_review');
+    } else if (agent.role === 'synthesizer') {
+      assignedTasks = tasks.filter((tk) => tk.taskType === 'report_synthesis');
+    } else {
+      assignedTasks = [];
+    }
+    const modelEntries = new Map<
+      string,
+      { id: string; displayName?: string }
+    >();
+    for (const task of assignedTasks) {
+      if (task.modelId && !modelEntries.has(task.modelId)) {
+        modelEntries.set(task.modelId, {
+          id: task.modelId,
+          displayName: task.modelDisplayName,
+        });
+      }
+    }
+    const models = [...modelEntries.values()];
+    if (models.length === 0) {
+      return (
+        <span className="font-mono text-sm text-gray-400">
+          {t('topicResearch.common.notSpecified')}
+        </span>
+      );
+    }
+    return (
+      <span className="flex flex-wrap gap-1">
+        {models.map((model, idx: number) => (
+          <span key={model.id}>
+            <ModelBadge
+              modelId={model.id}
+              displayName={model.displayName}
+              variant="compact"
+            />
+            {idx < models.length - 1 && ', '}
+          </span>
+        ))}
+      </span>
+    );
+  })();
+
+  // 任务进度（X / Y + 进度条）—— 作为 config 一行的 value
+  const progressValue: React.ReactNode | undefined =
+    agent.taskCount > 0 ? (
+      <span className="block w-full">
+        <span className="flex items-center justify-between text-[11px]">
+          <span className="text-gray-500">
+            {t('topicResearch.common.taskProgressLabel')}
+          </span>
+          <span className="font-medium text-gray-700">
+            {t('topicResearch.common.taskProgressValue', {
+              completed: agent.completedCount,
+              total: agent.taskCount,
+            })}
+          </span>
+        </span>
+        <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-gray-200">
+          <span
+            className={`block h-full ${
+              agent.completedCount === agent.taskCount
+                ? 'bg-green-500'
+                : 'bg-blue-500'
+            }`}
+            style={{
+              width: `${(agent.completedCount / agent.taskCount) * 100}%`,
+            }}
+          />
+        </span>
+      </span>
+    ) : undefined;
+
+  // 装配 config 顺序：进度 → 模型 → 技能 → 工具 → 配置说明（无真实数据时）
+  const config: AgentConfigEntry[] = [];
+  if (progressValue) {
+    config.push({
+      label: t('topicResearch.common.taskProgressLabel'),
+      value: progressValue,
+    });
+  }
+  config.push({ label: t('topicResearch.common.aiModel'), value: modelValue });
+
+  if (realSkills && realSkills.length > 0) {
+    config.push({
+      label: t('topicResearch.common.assignedSkills'),
+      chips: realSkills,
+      chipsClassName: 'bg-blue-50 text-blue-700',
+    });
+  } else if (roleInfo.capabilities && roleInfo.capabilities.length > 0) {
+    config.push({
+      label: t('topicResearch.common.capabilityRange'),
+      chips: roleInfo.capabilities,
+      chipsClassName: 'bg-gray-50 text-gray-600',
+    });
+  }
+
+  if (realTools && realTools.length > 0) {
+    config.push({
+      label: t('topicResearch.common.assignedTools'),
+      chips: realTools,
+      chipsClassName: 'bg-green-50 text-green-700',
+    });
+  }
+
+  if (!hasRealData && roleInfo.note) {
+    config.push({
+      label: t('topicResearch.common.configMethod'),
+      value: <span className="italic text-gray-600">{roleInfo.note}</span>,
+    });
+  }
+
+  return {
+    name: agent.name,
+    description: roleInfo.description,
+    icon: display.icon,
+    iconClassName: 'bg-blue-50 text-blue-600',
+    statusLabel: `${display.name} · ${statusLabel}`,
+    statusColorClass,
+    config,
+  };
 }
 
 // ============================================
