@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { injectChartPlaceholders } from '../injectChartPlaceholders';
+import {
+  injectChartPlaceholders,
+  injectChartPlaceholdersByChapter,
+} from '../injectChartPlaceholders';
 
 describe('injectChartPlaceholders', () => {
   describe('edge cases', () => {
@@ -297,17 +300,196 @@ describe('injectChartPlaceholders', () => {
       // sec2 图在第二章 H2 之后
       expect(sec2FigIdx).toBeGreaterThan(ch2HeadingIdx);
     });
+  });
 
-    it('UNICODE scenario: Chinese paragraphs work the same', () => {
+  // ============== injectChartPlaceholdersByChapter（连续视图整篇路径）==============
+  describe('injectChartPlaceholdersByChapter — full report level', () => {
+    it('isolates per-chapter inject — sec1 image stays in chapter 1, sec2 image in chapter 2', () => {
+      // 这是 ReportEditor 真实调用路径。chart.position=3 在 ch1/ch2 各自独立解析。
+      const fullReport = [
+        '# 报告标题',
+        '',
+        '> 生成时间: 2026-04-26',
+        '',
+        '## 1. 第一章',
+        'P1。',
+        '',
+        'P2。',
+        '',
+        'P3。',
+        '',
+        'P4。',
+        '',
+        'P5。',
+        '',
+        '## 2. 第二章',
+        'Q1。',
+        '',
+        'Q2。',
+        '',
+        'Q3。',
+        '',
+        'Q4。',
+        '',
+        'Q5。',
+        '',
+      ].join('\n');
+
+      const out = injectChartPlaceholdersByChapter(fullReport, [
+        { id: 'sec1-fig', sectionId: '1', position: 'after_paragraph_3' },
+        { id: 'sec2-fig', sectionId: '2', position: 'after_paragraph_3' },
+      ]);
+
+      const ch2Idx = out.indexOf('## 2. 第二章');
+      const sec1Idx = out.indexOf('<!-- chart:sec1-fig -->');
+      const sec2Idx = out.indexOf('<!-- chart:sec2-fig -->');
+      expect(sec1Idx).toBeGreaterThan(0);
+      expect(sec2Idx).toBeGreaterThan(0);
+      expect(sec1Idx).toBeLessThan(ch2Idx);
+      expect(sec2Idx).toBeGreaterThan(ch2Idx);
+    });
+
+    it('preserves lead-in (# Title + > blockquote) before first H2', () => {
+      const fullReport = [
+        '# 大标题',
+        '',
+        '> 生成时间',
+        '',
+        '## 1. 章节',
+        'Body.',
+      ].join('\n');
+      const out = injectChartPlaceholdersByChapter(fullReport, []);
+      expect(out).toContain('# 大标题');
+      expect(out).toContain('> 生成时间');
+      expect(out).toContain('## 1. 章节');
+    });
+
+    it('returns content untouched when there are no H2 headings', () => {
+      const fullReport = '# Just a top-level title\n\nNo chapters here.';
+      const out = injectChartPlaceholdersByChapter(fullReport, [
+        { id: 'a', sectionId: '1' },
+      ]);
+      expect(out).toBe(fullReport);
+    });
+
+    it('returns content untouched when charts list is empty', () => {
+      const fullReport = '## 1. A\nbody\n\n## 2. B\nbody';
+      expect(injectChartPlaceholdersByChapter(fullReport, [])).toBe(fullReport);
+    });
+
+    it('skips charts whose sectionId does not match any numbered chapter', () => {
+      // sectionId="99" 没有对应 H2 → chart 不被 inject（与章节视图同口径）
+      const fullReport = '## 1. A\np1.\n\np2.\n';
+      const out = injectChartPlaceholdersByChapter(fullReport, [
+        { id: 'orphan', sectionId: '99', position: 'after_paragraph_1' },
+      ]);
+      expect(out).not.toContain('<!-- chart:orphan -->');
+    });
+
+    it('does not inject in non-numbered chapters (跨维度 / 风险评估)', () => {
+      const fullReport = [
+        '## 1. 第一章',
+        'p1.',
+        '',
+        'p2.',
+        '',
+        '## 跨维度关联分析',
+        'cross1.',
+        '',
+        'cross2.',
+      ].join('\n');
+      const out = injectChartPlaceholdersByChapter(fullReport, [
+        { id: 'in-1', sectionId: '1', position: 'after_paragraph_1' },
+        { id: 'in-cross', sectionId: '', position: 'after_paragraph_1' }, // 无对应 number
+      ]);
+      expect(out).toContain('<!-- chart:in-1 -->');
+      expect(out).not.toContain('<!-- chart:in-cross -->');
+    });
+
+    it('handles 18+ charts across 3 chapters without piling at start', () => {
+      // 模拟 Screenshot_56 真实数据规模
+      const ch = (n: number) =>
+        `## ${n}. 章节${n}\n` +
+        Array.from({ length: 8 }, (_, i) => `Para${i + 1}。`).join('\n\n');
+      const fullReport = `# Title\n\n${ch(1)}\n\n${ch(2)}\n\n${ch(3)}\n`;
+
+      const charts = [
+        { id: 'c1-a', sectionId: '1', position: 'after_paragraph_2' },
+        { id: 'c1-b', sectionId: '1', position: 'after_paragraph_5' },
+        { id: 'c2-a', sectionId: '2', position: 'after_paragraph_3' },
+        { id: 'c2-b', sectionId: '2', position: 'after_paragraph_6' },
+        { id: 'c3-a', sectionId: '3', position: 'after_paragraph_4' },
+        { id: 'c3-b', sectionId: '3', position: 'after_paragraph_7' },
+      ];
+      const out = injectChartPlaceholdersByChapter(fullReport, charts);
+
+      const idxCh2 = out.indexOf('## 2.');
+      const idxCh3 = out.indexOf('## 3.');
+      // ch1 的图都在 ch2 之前
+      expect(out.indexOf('<!-- chart:c1-a -->')).toBeLessThan(idxCh2);
+      expect(out.indexOf('<!-- chart:c1-b -->')).toBeLessThan(idxCh2);
+      // ch2 的图在 ch2 和 ch3 之间
+      expect(out.indexOf('<!-- chart:c2-a -->')).toBeGreaterThan(idxCh2);
+      expect(out.indexOf('<!-- chart:c2-a -->')).toBeLessThan(idxCh3);
+      expect(out.indexOf('<!-- chart:c2-b -->')).toBeGreaterThan(idxCh2);
+      expect(out.indexOf('<!-- chart:c2-b -->')).toBeLessThan(idxCh3);
+      // ch3 的图在 ch3 之后
+      expect(out.indexOf('<!-- chart:c3-a -->')).toBeGreaterThan(idxCh3);
+      expect(out.indexOf('<!-- chart:c3-b -->')).toBeGreaterThan(idxCh3);
+    });
+
+    it('repairs mid-line glued H2 ("xxx## 3. ...")', () => {
+      const fullReport = [
+        '## 1. A',
+        'a body.',
+        '',
+        '前一段被吃了换行的内容## 2. B',
+        'b body.',
+      ].join('\n');
+      const out = injectChartPlaceholdersByChapter(fullReport, [
+        { id: 'b-fig', sectionId: '2', position: 'after_paragraph_1' },
+      ]);
+      // mid-line H2 应该被识别为 chapter 2，b-fig 落入 chapter 2
+      expect(out).toContain('<!-- chart:b-fig -->');
+      // b-fig 在 ch2 之后
+      const ch2Idx = out.indexOf('## 2. B');
+      const figIdx = out.indexOf('<!-- chart:b-fig -->');
+      expect(figIdx).toBeGreaterThan(ch2Idx);
+    });
+
+    it('round-trip: split + join byte-equivalent when no charts to inject', () => {
+      // 验证切片+拼回不损失信息（防止误吞行/换行）
+      const fullReport = [
+        '# Title',
+        '',
+        '> 生成时间',
+        '',
+        '## 1. A',
+        'aaa',
+        '',
+        'bbb',
+        '',
+        '## 2. B',
+        'ccc',
+      ].join('\n');
+      // charts 全部 sectionId 不匹配 → 不 inject 任何东西
+      const out = injectChartPlaceholdersByChapter(fullReport, [
+        { id: 'orphan', sectionId: '99' },
+      ]);
+      expect(out).toBe(fullReport);
+    });
+
+    it('Unicode chapters and Chinese paragraphs are processed identically', () => {
       const content = [
+        '## 1. 中文章节',
         '中文段落一。',
         '',
         '中文段落二。',
         '',
         '中文段落三。',
       ].join('\n');
-      const out = injectChartPlaceholders(content, [
-        { id: 'fig', position: 'after_paragraph_2' },
+      const out = injectChartPlaceholdersByChapter(content, [
+        { id: 'fig', sectionId: '1', position: 'after_paragraph_2' },
       ]);
       expect(out).toContain('<!-- chart:fig -->');
       expect(out).toContain('中文段落一');

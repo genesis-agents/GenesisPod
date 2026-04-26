@@ -22,6 +22,89 @@ export interface ChartLike {
   position?: string | null;
 }
 
+/**
+ * 整篇报告级 inject：对含 H2 的 fullReport 按章节切片后逐章 inject。
+ *
+ * 必须用这个版本而不是直接 injectChartPlaceholders(整篇, 全部 charts)，因为
+ * chart.position="after_paragraph_N" 的 N 是**章节内**段落计数，不是全文档
+ * 段落计数。整篇直接 inject 会让所有 N 都解析到文档第一段范围 → 图全挤开头。
+ *
+ * 流程：
+ *   1) 修复 mid-line H2 连体行（"xxx## 3. ..." → 强制断行）
+ *   2) 按 ^## 切片，保留 heading 行；首个 H2 之前的 lead-in 一并保留
+ *   3) 从每个 H2 提取 sectionNumber（"## 3. 标题" / "## 3.1 标题" → "3"）
+ *   4) 按 chart.sectionId 分组，每个章节内只 inject 它自己的 charts
+ *   5) 拼回单个 markdown 字符串
+ *
+ * 调用方（ReportEditor 连续视图）只需在"无 inline 占位符 + charts 不空"时调本函数。
+ * 已含 inline 占位符（mission 成功态）应直接走原路径不进 inject。
+ */
+export interface ChartWithSection extends ChartLike {
+  sectionId?: string | null;
+}
+
+export function injectChartPlaceholdersByChapter<C extends ChartWithSection>(
+  fullReport: string,
+  charts: C[]
+): string {
+  if (!charts.length) return fullReport;
+
+  // mid-line H2 修复：上游某些 pipeline step 偶尔会吃掉 ## 前的换行
+  const normalized = fullReport.replace(
+    /([^\n])(##\s+\d+(?:\.\d+)*\.?\s)/g,
+    '$1\n\n$2'
+  );
+
+  // 按 sectionId 分组（"1" / "2" / ...）
+  const chartsBySectionId = new Map<string, C[]>();
+  for (const c of charts) {
+    const sid = c.sectionId || '';
+    const arr = chartsBySectionId.get(sid);
+    if (arr) arr.push(c);
+    else chartsBySectionId.set(sid, [c]);
+  }
+
+  // 按 ## 行切片，保留 heading 行；首个 segment.heading=null 容纳 lead-in
+  const lines = normalized.split('\n');
+  type Seg = { heading: string | null; body: string[] };
+  const segments: Seg[] = [{ heading: null, body: [] }];
+  for (const line of lines) {
+    if (/^##\s+/.test(line)) {
+      segments.push({ heading: line, body: [] });
+    } else {
+      segments[segments.length - 1].body.push(line);
+    }
+  }
+
+  // 没任何 H2 → 切不动，回退原内容（避免 paragraphIdx 错位）
+  const hasH2 = segments.some((s) => s.heading !== null);
+  if (!hasH2) return fullReport;
+
+  const result: string[] = [];
+  for (const seg of segments) {
+    if (seg.heading) result.push(seg.heading);
+
+    // 提取 sectionNumber："## 3. 标题" / "## 3.1 标题" → "3"
+    let sectionNumber: string | null = null;
+    if (seg.heading) {
+      const m = seg.heading.match(/^##\s+(\d+)(?:\.\d+)*\.?\s+/);
+      if (m) sectionNumber = m[1];
+    }
+    const sectionCharts = sectionNumber
+      ? chartsBySectionId.get(sectionNumber) || []
+      : [];
+
+    const bodyText = seg.body.join('\n');
+    const injected =
+      sectionCharts.length > 0 && !bodyText.includes('<!-- chart:')
+        ? injectChartPlaceholders(bodyText, sectionCharts)
+        : bodyText;
+    result.push(injected);
+  }
+
+  return result.join('\n');
+}
+
 export function injectChartPlaceholders<C extends ChartLike>(
   content: string,
   charts: C[]

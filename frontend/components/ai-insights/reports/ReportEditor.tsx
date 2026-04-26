@@ -44,7 +44,7 @@ import {
 } from '@/components/common/chart-viewer';
 import type { AIEditOperation } from '../types';
 import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
-import { injectChartPlaceholders } from '@/lib/markdown/injectChartPlaceholders';
+import { injectChartPlaceholdersByChapter } from '@/lib/markdown/injectChartPlaceholders';
 import { useReportTextProcessor } from '@/lib/markdown/useReportTextProcessor';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { stripProseBullets } from '@/lib/markdown/stripProseBullets';
@@ -1054,65 +1054,15 @@ function ReportEditorInner({
   const contentSegments = useMemo(() => {
     if (!markdownContent) return [];
 
-    // ★ 自救：后端未 embed `<!-- chart:ID -->` 占位符时，按 H2 边界切片，
-    //   按 chart.sectionId 分组分配到各章节，每章节内独立 inject。
-    //
-    //   关键：chart.position="after_paragraph_N" 的 N 是**章节内**段落计数，
-    //   不是全文档段落计数。整篇 fullReport 直接 inject 会让所有 N 都解析到
-    //   文档最前面那一段范围 → 图全挤开头（已实测出 bug）。
+    // ★ 自救：后端未 embed `<!-- chart:ID -->` 占位符时（mission 失败 /
+    //   老报告 / 中断态 fullReport），调用平台公共函数按章节切片后逐章 inject。
+    //   保留 inline 占位符路径（mission 成功态）走原渲染链，零侵入。
     const charts = report?.charts ?? [];
     const hasInlinePlaceholders = markdownContent.includes('<!-- chart:');
-    const enrichedContent = (() => {
-      if (hasInlinePlaceholders || charts.length === 0) return markdownContent;
-
-      // 按 sectionId 分组 charts（"1" / "2" / ...）
-      const chartsBySectionId = new Map<string, typeof charts>();
-      for (const c of charts) {
-        const sid = c.sectionId || '';
-        const arr = chartsBySectionId.get(sid);
-        if (arr) arr.push(c);
-        else chartsBySectionId.set(sid, [c]);
-      }
-
-      // 按 ## 行手工切片，保留 heading 行；每段一个 { heading, body }
-      const lines = markdownContent.split('\n');
-      type Seg = { heading: string | null; body: string[] };
-      const segments: Seg[] = [{ heading: null, body: [] }];
-      for (const line of lines) {
-        if (/^##\s+/.test(line)) {
-          segments.push({ heading: line, body: [] });
-        } else {
-          segments[segments.length - 1].body.push(line);
-        }
-      }
-
-      const hasH2 = segments.some((s) => s.heading !== null);
-      if (!hasH2) return markdownContent;
-
-      const result: string[] = [];
-      for (const seg of segments) {
-        if (seg.heading) result.push(seg.heading);
-
-        // 提取 sectionNumber："## 3. 标题" / "## 3.1 标题" → "3"
-        let sectionNumber: string | null = null;
-        if (seg.heading) {
-          const m = seg.heading.match(/^##\s+(\d+)(?:\.\d+)*\.?\s+/);
-          if (m) sectionNumber = m[1];
-        }
-        const sectionCharts = sectionNumber
-          ? chartsBySectionId.get(sectionNumber) || []
-          : [];
-
-        const bodyText = seg.body.join('\n');
-        const injected =
-          sectionCharts.length > 0 && !bodyText.includes('<!-- chart:')
-            ? injectChartPlaceholders(bodyText, sectionCharts)
-            : bodyText;
-        result.push(injected);
-      }
-
-      return result.join('\n');
-    })();
+    const enrichedContent =
+      !hasInlinePlaceholders && charts.length > 0
+        ? injectChartPlaceholdersByChapter(markdownContent, charts)
+        : markdownContent;
 
     // Split by chart placeholder pattern
     const chartPattern = /<!--\s*chart:([a-zA-Z0-9_-]+)\s*-->/g;
