@@ -31,11 +31,16 @@ import {
   type AgentInspectorAgent,
   type AgentConfigEntry,
 } from '@/components/common/agent-inspector';
+import {
+  LeaderChatDock,
+  type LeaderChatMessage as LeaderChatMessageData,
+} from '@/components/common/leader-chat';
 import type {
   MissionStatus,
   TaskStatus,
   TeamInfo,
 } from '@/lib/api/topic-insights';
+import { leaderChat } from '@/lib/api/topic-insights';
 // TaskStatus is used in type annotations below
 
 /**
@@ -59,6 +64,7 @@ interface SimpleRefreshProgress {
 }
 
 interface TopicTeamPanelProps {
+  topicId: string;
   topicName: string;
   missionStatus?: MissionStatus | null;
   isRefreshing: boolean;
@@ -210,6 +216,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function TopicTeamPanel({
+  topicId,
   topicName,
   missionStatus,
   isRefreshing,
@@ -607,6 +614,8 @@ export function TopicTeamPanel({
       {/* SVG Team Visualization */}
       <div className="relative border-b border-gray-100">
         <TopicTeamCanvasView
+          topicId={topicId}
+          topicName={topicName}
           agents={agents}
           teamInfo={teamInfo}
           missionStatus={missionStatus}
@@ -901,12 +910,16 @@ export function TopicTeamPanel({
 // SVG Team Canvas View - Uses shared TeamTopologyCanvas
 // ============================================
 function TopicTeamCanvasView({
+  topicId,
+  topicName,
   agents,
   teamInfo,
   missionStatus,
   getAgentDisplay,
   getAgentRoleInfo,
 }: {
+  topicId: string;
+  topicName: string;
   agents: ResearchAgent[];
   teamInfo?: TeamInfo | null;
   missionStatus?: MissionStatus | null;
@@ -922,6 +935,57 @@ function TopicTeamCanvasView({
   };
 }) {
   const { t } = useTranslation();
+
+  // ── Leader 对话状态（client-side 累积） ──
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<LeaderChatMessageData[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatSending, setChatSending] = useState(false);
+
+  const handleLeaderSend = async (text: string) => {
+    setChatSending(true);
+    setChatError(null);
+
+    const userMsgId = `user-${Date.now()}`;
+    const thinkingId = `thinking-${Date.now()}`;
+    const now = new Date().toISOString();
+    setChatMessages((prev) => [
+      ...prev,
+      { id: userMsgId, role: 'user', content: text, createdAt: now },
+      {
+        id: thinkingId,
+        role: 'assistant',
+        content: '__THINKING__',
+        createdAt: now,
+      },
+    ]);
+
+    try {
+      const resp = await leaderChat(
+        topicId,
+        text,
+        missionStatus?.id ?? undefined
+      );
+      const body = resp.understanding
+        ? `**${t('topicResearch.leaderChat.understanding')}：** ${resp.understanding}\n\n${resp.response}`
+        : resp.response;
+      setChatMessages((prev) =>
+        prev
+          .filter((m) => m.id !== thinkingId)
+          .concat({
+            id: `asst-${Date.now()}`,
+            role: 'assistant',
+            content: body,
+            createdAt: new Date().toISOString(),
+          })
+      );
+    } catch (e) {
+      setChatError(e instanceof Error ? e.message : String(e));
+      setChatMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+    } finally {
+      setChatSending(false);
+    }
+  };
 
   // Map ResearchAgent[] → TeamTopologyNode[]
   const { nodes, rows, connections, legendItems } = useMemo(() => {
@@ -1000,56 +1064,83 @@ function TopicTeamCanvasView({
   }, [agents, getAgentDisplay, t]);
 
   return (
-    <TeamTopologyCanvas
-      nodes={nodes}
-      rows={rows}
-      connections={connections}
-      heightClass="h-[280px]"
-      viewBoxHeight={280}
-      rowYPositions={[...AVATAR_ROW_Y]}
-      patternId="topic-research"
-      legendItems={legendItems}
-      renderTooltip={(node) => {
-        const agent = agents.find((a) => a.id === node.id);
-        if (!agent) return null;
-        const display = getAgentDisplay(agent.role);
-        return (
-          <div className="text-xs">
-            <div className="font-semibold text-gray-800">
-              {display.icon} {agent.name}
-            </div>
-            <div className="mt-0.5 text-gray-500">
-              {agent.taskCount > 0
-                ? t('topicResearch.common.taskProgress', {
-                    completed: agent.completedCount,
-                    total: agent.taskCount,
-                  })
-                : t('topicResearch.common.noTasks')}
-            </div>
-            {agent.status === 'working' && (
-              <div className="mt-0.5 text-blue-600">
-                {t('topicResearch.common.executing')}
+    <>
+      <TeamTopologyCanvas
+        nodes={nodes}
+        rows={rows}
+        connections={connections}
+        heightClass="h-[280px]"
+        viewBoxHeight={280}
+        rowYPositions={[...AVATAR_ROW_Y]}
+        patternId="topic-research"
+        legendItems={legendItems}
+        renderTooltip={(node) => {
+          const agent = agents.find((a) => a.id === node.id);
+          if (!agent) return null;
+          const display = getAgentDisplay(agent.role);
+          return (
+            <div className="text-xs">
+              <div className="font-semibold text-gray-800">
+                {display.icon} {agent.name}
               </div>
-            )}
-          </div>
-        );
-      }}
-      renderDetail={(node, onClose) => {
-        const agent = agents.find((a) => a.id === node.id);
-        if (!agent) return null;
-        const payload = buildTopicAgentInspectorPayload(
-          agent,
-          teamInfo,
-          missionStatus,
-          getAgentDisplay,
-          getAgentRoleInfo,
-          t
-        );
-        return (
-          <AgentInspector open onClose={onClose} mode="modal" agent={payload} />
-        );
-      }}
-    />
+              <div className="mt-0.5 text-gray-500">
+                {agent.taskCount > 0
+                  ? t('topicResearch.common.taskProgress', {
+                      completed: agent.completedCount,
+                      total: agent.taskCount,
+                    })
+                  : t('topicResearch.common.noTasks')}
+              </div>
+              {agent.status === 'working' && (
+                <div className="mt-0.5 text-blue-600">
+                  {t('topicResearch.common.executing')}
+                </div>
+              )}
+            </div>
+          );
+        }}
+        renderDetail={(node, onClose) => {
+          const agent = agents.find((a) => a.id === node.id);
+          if (!agent) return null;
+          const payload = buildTopicAgentInspectorPayload(
+            agent,
+            teamInfo,
+            missionStatus,
+            getAgentDisplay,
+            getAgentRoleInfo,
+            t
+          );
+          return (
+            <AgentInspector
+              open
+              onClose={onClose}
+              mode="modal"
+              agent={payload}
+              onChat={
+                agent.role === 'leader'
+                  ? () => {
+                      onClose();
+                      setChatOpen(true);
+                    }
+                  : undefined
+              }
+              chatLabel="与该 Leader 对话"
+            />
+          );
+        }}
+      />
+      <LeaderChatDock
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        messages={chatMessages}
+        sending={chatSending}
+        error={chatError}
+        onSend={handleLeaderSend}
+        title="与 Leader 对话"
+        subtitle={topicName}
+        accentColor="violet"
+      />
+    </>
   );
 }
 

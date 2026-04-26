@@ -369,6 +369,7 @@ export function TopicResearchLayout({
               {/* 团队面板内容 */}
               <div className="flex-1 overflow-hidden">
                 <TopicTeamPanel
+                  topicId={topic.id}
                   topicName={topic.name}
                   missionStatus={missionStatus}
                   isRefreshing={isRefreshing}
