@@ -56,6 +56,15 @@ export class AppController {
       timestamp: new Date().toISOString(),
       service: `${APP_CONFIG.brand.fullName} Backend`,
       version: "1.0.0",
+      // Build marker — Railway 部署完成后这两个值会变，用来快速验证生产线是否拉到了某个 commit
+      buildSha:
+        process.env.RAILWAY_GIT_COMMIT_SHA ??
+        process.env.GIT_COMMIT_SHA ??
+        process.env.SOURCE_COMMIT ??
+        "unknown",
+      buildTime: process.env.RAILWAY_DEPLOYMENT_ID ?? "unknown",
+      // Marker tag — 改这个值就能在生产侧确认"这一份代码到了"
+      buildMarker: "20260426-byok-modelconfig-fix",
       checks,
     };
   }
