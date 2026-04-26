@@ -27,6 +27,10 @@ import {
   type TeamTopologyConnection,
   type TeamNodeStatus,
 } from '@/components/common/team-topology';
+import {
+  AgentInspector,
+  type AgentInspectorAgent,
+} from '@/components/common/agent-inspector';
 import type {
   AgentLiveState,
   AgentRole,
@@ -274,45 +278,37 @@ export function TeamRosterPanel({
           viewBoxHeight={280}
           rowYPositions={[35, 95, 155, 215, 270]}
           patternId="agent-playground"
-          renderDetail={(node, onClose) => (
-            // 用 fixed 全屏遮罩，把卡片提到画布外避免被 SVG 容器裁切
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
-              onClick={() => {
-                onClose();
-                setSelectedRole(null);
-              }}
-            >
-              <div
-                className="w-full max-w-md"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <RoleDetailCard
-                  role={node.role as AgentRole}
-                  agents={agents.filter(
-                    (a) => a.role === (node.role as AgentRole)
-                  )}
-                  stage={stageMap.get(
-                    ROLE_ROW.find((r) => r.role === (node.role as AgentRole))
-                      ?.stage ?? 'leader'
-                  )}
-                  onChatWithLeader={
-                    node.role === 'leader' && onLeaderClick
-                      ? () => {
-                          onClose();
-                          setSelectedRole(null);
-                          onLeaderClick();
-                        }
-                      : undefined
-                  }
-                  onClose={() => {
-                    onClose();
-                    setSelectedRole(null);
-                  }}
-                />
-              </div>
-            </div>
-          )}
+          renderDetail={(node, onClose) => {
+            const role = node.role as AgentRole;
+            const close = () => {
+              onClose();
+              setSelectedRole(null);
+            };
+            const agentData = buildAgentInspectorPayload(
+              role,
+              agents.filter((a) => a.role === role),
+              stageMap.get(
+                ROLE_ROW.find((r) => r.role === role)?.stage ?? 'leader'
+              )
+            );
+            return (
+              <AgentInspector
+                open
+                onClose={close}
+                mode="modal"
+                agent={agentData}
+                onChat={
+                  role === 'leader' && onLeaderClick
+                    ? () => {
+                        close();
+                        onLeaderClick();
+                      }
+                    : undefined
+                }
+                chatLabel="与 Leader 对话"
+              />
+            );
+          }}
           renderTooltip={(node) => (
             <div className="text-xs">
               <div className="font-semibold text-gray-800">{node.name}</div>
@@ -496,36 +492,28 @@ const ROLE_PROFILE: Record<
   },
 };
 
-function RoleDetailCard({
-  role,
-  agents,
-  stage,
-  onClose,
-  onChatWithLeader,
-}: {
-  role: AgentRole;
-  agents: AgentLiveState[];
-  stage?: StageState;
-  onClose: () => void;
-  onChatWithLeader?: () => void;
-}) {
+function buildAgentInspectorPayload(
+  role: AgentRole,
+  agents: AgentLiveState[],
+  stage?: StageState
+): AgentInspectorAgent {
   const Icon = ROLE_ICON[role];
   const profile = ROLE_PROFILE[role];
   const running = agents.filter((a) => a.phase === 'running').length;
   const done = agents.filter((a) => a.phase === 'completed').length;
   const failed = agents.filter((a) => a.phase === 'failed').length;
   const totalIters = agents.reduce((s, a) => s + (a.iterations ?? 0), 0);
-  const lastThought = (() => {
-    for (let i = agents.length - 1; i >= 0; i--) {
-      const trace = agents[i].trace;
-      for (let j = trace.length - 1; j >= 0; j--) {
-        if (trace[j].kind === 'thought' && trace[j].text) {
-          return trace[j].text;
-        }
+
+  let recentThought: string | undefined;
+  for (let i = agents.length - 1; i >= 0 && !recentThought; i--) {
+    const trace = agents[i].trace;
+    for (let j = trace.length - 1; j >= 0; j--) {
+      if (trace[j].kind === 'thought' && trace[j].text) {
+        recentThought = trace[j].text;
+        break;
       }
     }
-    return null;
-  })();
+  }
 
   const statusLabel =
     stage?.status === 'done'
@@ -535,7 +523,7 @@ function RoleDetailCard({
         : stage?.status === 'failed'
           ? '失败'
           : '待启动';
-  const statusColor =
+  const statusColorClass =
     stage?.status === 'done'
       ? 'text-emerald-600'
       : stage?.status === 'running'
@@ -544,162 +532,29 @@ function RoleDetailCard({
           ? 'text-red-600'
           : 'text-gray-500';
 
-  return (
-    <div className="max-h-[85vh] w-full overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-50 text-violet-600">
-            <Icon className="h-4 w-4" />
-          </span>
-          <div className="min-w-0">
-            <div className="truncate font-semibold text-gray-900">
-              {profile.displayName}
-            </div>
-            <span className={`text-[11px] font-medium ${statusColor}`}>
-              {statusLabel}
-              {agents.length > 0 && (
-                <span className="ml-1 text-gray-400">
-                  · {agents.length} 实例
-                </span>
-              )}
-            </span>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <p className="mb-3 text-[11px] leading-relaxed text-gray-600">
-        {profile.description}
-      </p>
-
-      {/* 当前实例计数 */}
-      {agents.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1 text-[10px] font-medium">
-          {running > 0 && (
-            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">
-              {running} 进行中
-            </span>
-          )}
-          {done > 0 && (
-            <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
-              {done} 完成
-            </span>
-          )}
-          {failed > 0 && (
-            <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
-              {failed} 失败
-            </span>
-          )}
-          {totalIters > 0 && (
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-700">
-              {totalIters} iter
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* 能力栏：loop / model / skills / tools */}
-      <dl className="mb-3 space-y-1.5 text-[11px]">
-        <div className="flex items-baseline gap-2">
-          <dt className="w-16 shrink-0 text-gray-500">Loop</dt>
-          <dd className="font-mono font-medium text-gray-800">
-            {profile.loop}
-          </dd>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <dt className="w-16 shrink-0 text-gray-500">模型</dt>
-          <dd className="text-gray-700">{profile.modelHint}</dd>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <dt className="w-16 shrink-0 text-gray-500">技能</dt>
-          <dd className="flex flex-wrap gap-1">
-            {profile.skills.length === 0 ? (
-              <span className="text-gray-400">—</span>
-            ) : (
-              profile.skills.map((s) => (
-                <span
-                  key={s}
-                  className="font-mono rounded bg-violet-50 px-1.5 py-0.5 text-violet-700"
-                >
-                  {s}
-                </span>
-              ))
-            )}
-          </dd>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <dt className="w-16 shrink-0 text-gray-500">工具</dt>
-          <dd className="flex flex-wrap gap-1">
-            {profile.tools.length === 0 ? (
-              <span className="text-gray-400">—</span>
-            ) : (
-              profile.tools.map((t) => (
-                <span
-                  key={t}
-                  className="font-mono rounded bg-sky-50 px-1.5 py-0.5 text-sky-700"
-                >
-                  {t}
-                </span>
-              ))
-            )}
-          </dd>
-        </div>
-        {profile.verifiers && profile.verifiers.length > 0 && (
-          <div className="flex items-baseline gap-2">
-            <dt className="w-16 shrink-0 text-gray-500">Verifier</dt>
-            <dd className="flex flex-wrap gap-1">
-              {profile.verifiers.map((v) => (
-                <span
-                  key={v}
-                  className="font-mono rounded bg-amber-50 px-1.5 py-0.5 text-amber-700"
-                >
-                  {v}
-                </span>
-              ))}
-            </dd>
-          </div>
-        )}
-      </dl>
-
-      {lastThought && (
-        <div className="rounded-lg bg-amber-50/60 px-2.5 py-2">
-          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-            最近思考
-          </p>
-          <p className="text-[11px] leading-relaxed text-amber-900">
-            <Lightbulb className="mr-1 inline h-3 w-3 text-amber-500" />
-            {lastThought}
-          </p>
-        </div>
-      )}
-
-      {onChatWithLeader && (
-        <button
-          type="button"
-          onClick={onChatWithLeader}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-2 text-[12px] font-medium text-white shadow-sm transition-all hover:shadow-md"
-        >
-          <Lightbulb className="h-3.5 w-3.5" />与 Leader 对话
-        </button>
-      )}
-    </div>
-  );
+  return {
+    name: profile.displayName,
+    description: profile.description,
+    icon: Icon,
+    iconClassName: 'bg-violet-50 text-violet-600',
+    statusLabel,
+    statusColorClass,
+    totalInstances: agents.length,
+    instanceCounts: {
+      running,
+      completed: done,
+      failed,
+      iterations: totalIters,
+    },
+    config: [
+      { label: 'Loop', value: profile.loop },
+      { label: '模型', value: profile.modelHint },
+      { label: '技能', chips: profile.skills },
+      { label: '工具', chips: profile.tools },
+      ...(profile.verifiers && profile.verifiers.length > 0
+        ? [{ label: 'Verifier', chips: profile.verifiers }]
+        : []),
+    ],
+    recentThought,
+  };
 }
