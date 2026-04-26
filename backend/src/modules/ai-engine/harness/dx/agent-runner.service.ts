@@ -515,22 +515,34 @@ export class AgentRunner {
         const def = this.toolRegistry.tryGet(id);
         const desc = def?.description?.trim();
         lines.push(`- ${id}${desc ? `: ${desc}` : ""}`);
-        // ★ 关键：把 tool 的 inputSchema 也吐给 LLM。
-        //
-        // 历史 bug：之前 catalog 只输出 id + description，LLM 知道工具能做什么
-        // 但**不知道 input 字段名/类型**，所以即使业务 prompt 让它"用 web-search"，
-        // 它也无从生成 {"toolId":"web-search","input":{...}}（input 该填啥？）。
-        // reasoning model 在 json_object 强制下 → 倾向于直接 finalize 跳过工具。
-        //
-        // 现在为每个 tool 输出**精简 input schema 摘要**（必填字段名+类型+说明），
-        // 让 LLM 真正能构造合法 tool_call action。
         if (def?.inputSchema) {
           const summary = this.summarizeJsonSchemaForLlm(def.inputSchema);
           if (summary) {
             lines.push(`  input: ${summary}`);
+            // ★ 关键：给一个**完整 action 包装**示例。
+            //
+            // 历史 bug：之前只暴露 input shape，LLM 知道字段名/类型，但**不知道
+            // 怎么把 input 包装到 ReAct action 协议里**。生产 trace 显示 LLM
+            // 把多个 tool input **裸列**为 NDJSON 输出（没 toolId / 没 kind 包装）：
+            //   {"query":"...","numResults":10}
+            //   {"url":"...","extractMainContent":true}
+            // 上层 parseDecision 拿到首个对象 → 没 action 字段 →
+            // InvalidActionError → schema mismatch → mission 失败。
+            //
+            // 现在给一个具象的 invocation example，让 LLM 一眼看出 action 协议：
+            //   {"kind":"tool_call","toolId":"web-search","input":{...}}
+            const exampleInput = this.buildExampleInputForSchema(
+              def.inputSchema,
+            );
+            lines.push(
+              `  example: {"kind":"tool_call","toolId":"${id}","input":${exampleInput}}`,
+            );
           }
         }
       }
+      lines.push(
+        '  // To call multiple tools in one turn, wrap them: {"kind":"parallel_tool_call","calls":[{"toolId":"...","input":{...}},...]}',
+      );
       lines.push("</available_tools>");
       blocks.push(lines.join("\n"));
     }
@@ -545,6 +557,48 @@ export class AgentRunner {
       blocks.push(lines.join("\n"));
     }
     return blocks.length > 0 ? blocks.join("\n\n") : null;
+  }
+
+  /**
+   * 为 tool inputSchema 生成一个 LLM 可直接照搬的具象 example input。
+   *
+   * 仅生成必填字段，每个字段填一个**类型相符的占位值**：
+   *   { "query": "<your search query>", "numResults": 5 }
+   *
+   * 让 LLM 看到完整 action 包装："{"kind":"tool_call","toolId":"web-search","input":{...}}"
+   * 后能直接照样替换占位值，不再裸列 input。
+   */
+  private buildExampleInputForSchema(
+    schema: import("../../tools/abstractions/tool.interface").JSONSchema,
+  ): string {
+    if (!schema || schema.type !== "object" || !schema.properties) return "{}";
+    const required = new Set(schema.required ?? []);
+    const parts: string[] = [];
+    for (const [key, sub] of Object.entries(schema.properties)) {
+      if (!sub || typeof sub !== "object") continue;
+      if (!required.has(key)) continue; // example 只填必填
+      const subType = sub.type ?? "string";
+      let placeholder: string;
+      if (
+        Array.isArray(subType)
+          ? subType.includes("string")
+          : subType === "string"
+      ) {
+        placeholder = `"<${key}>"`;
+      } else if (subType === "number" || subType === "integer") {
+        placeholder = "0";
+      } else if (subType === "boolean") {
+        placeholder = "false";
+      } else if (subType === "array") {
+        placeholder = "[]";
+      } else if (subType === "object") {
+        placeholder = "{}";
+      } else {
+        placeholder = "null";
+      }
+      parts.push(`"${key}":${placeholder}`);
+    }
+    return parts.length === 0 ? "{}" : `{${parts.join(",")}}`;
   }
 
   /**
