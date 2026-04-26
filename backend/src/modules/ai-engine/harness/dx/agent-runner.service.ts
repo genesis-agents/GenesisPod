@@ -205,34 +205,61 @@ export class AgentRunner {
       if (!parsed.success) {
         // Don't throw — preserve partial output for diagnosis; mark failed
         finalState = "failed";
-        // ★ 全链路诊断：把 zod schema diff 注入 events 流，让 trace 可见
-        // outputSchema 期望 vs 实际 output 的差异（之前只默默 mark failed）。
-        const schemaError = parsed.error.issues
-          .map(
-            (iss) =>
-              `${iss.path.join(".") || "<root>"}: ${iss.message} (code=${iss.code})`,
-          )
-          .join("; ");
-        const candidateSnippet =
-          typeof candidate === "string"
-            ? candidate.slice(0, 500)
-            : JSON.stringify(candidate).slice(0, 500);
-        events.push({
-          type: "error",
-          agentId: agent.id,
-          timestamp: Date.now(),
-          payload: {
-            message: `Output schema validation failed: ${schemaError}`,
-            recoverable: false,
-            failureCode: "RUNNER_OUTPUT_SCHEMA_MISMATCH",
-            diagnostic: {
-              schemaError,
-              actualOutputSnippet: candidateSnippet,
-              actualOutputType: typeof candidate,
-              specId: meta.id,
+        // ★ 关键：检查是否已有更内层的结构化 error event。
+        // 内层 ReActLoop / ReflexionLoop 已 emit 真根因（PARSE_* /
+        // LOOP_REASONING_COT_EXHAUSTION / LOOP_BUDGET_EXHAUSTED 等），那里才是
+        // 真因 —— output 是 null/undefined/"" 是它的**症状**，不是另一个独立故障。
+        // 倒序扫到 origin error 就跳过 RUNNER_OUTPUT_SCHEMA_MISMATCH 的 push，
+        // 否则 orchestrator.extractAgentFailureDiagnostic 倒序取的是 schema diff
+        // 这条**派生错误**，把真因（empty LLM / parse / budget）淹没掉。
+        const hasUpstreamFailure = events.some(
+          (ev) =>
+            ev.type === "error" &&
+            !!(ev.payload as { failureCode?: string } | null)?.failureCode,
+        );
+        // 只有 candidate 是真值（非 null/undefined/空字符串）时，schema mismatch
+        // 才是独立失败；null/undefined/"" 一定是上层 loop 没产 output 引起的派生。
+        const candidateIsMeaningful =
+          candidate != null &&
+          !(typeof candidate === "string" && candidate.trim() === "");
+
+        if (hasUpstreamFailure && !candidateIsMeaningful) {
+          this.logger.debug(
+            `[${meta.id}] suppressing RUNNER_OUTPUT_SCHEMA_MISMATCH ` +
+              `(candidate=${candidate === null ? "null" : typeof candidate}, ` +
+              `upstream error already emitted)`,
+          );
+        } else {
+          // ★ 全链路诊断：把 zod schema diff 注入 events 流，让 trace 可见
+          // outputSchema 期望 vs 实际 output 的差异。
+          const schemaError = parsed.error.issues
+            .map(
+              (iss) =>
+                `${iss.path.join(".") || "<root>"}: ${iss.message} (code=${iss.code})`,
+            )
+            .join("; ");
+          const candidateSnippet =
+            typeof candidate === "string"
+              ? candidate.slice(0, 500)
+              : JSON.stringify(candidate).slice(0, 500);
+          events.push({
+            type: "error",
+            agentId: agent.id,
+            timestamp: Date.now(),
+            payload: {
+              message: `Output schema validation failed: ${schemaError}`,
+              recoverable: false,
+              failureCode: "RUNNER_OUTPUT_SCHEMA_MISMATCH",
+              diagnostic: {
+                schemaError,
+                actualOutputSnippet: candidateSnippet,
+                actualOutputType: typeof candidate,
+                specId: meta.id,
+                hasUpstreamFailure,
+              },
             },
-          },
-        });
+          });
+        }
       } else {
         finalOutput = parsed.data;
       }
