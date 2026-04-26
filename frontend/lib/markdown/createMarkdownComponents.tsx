@@ -118,6 +118,24 @@ export interface CreateMarkdownComponentsOptions {
   applyTextProcessingToHeadings?: boolean;
 
   /**
+   * 是否对 blockquote 应用完整的 processChildren（递归 array），默认 false。
+   * 默认 simple 模式：只处理 string children，array passthrough。
+   * 设为 true 时与标题/段落同口径，块级 quote 内的 inline 元素也会被处理。
+   */
+  applyTextProcessingToBlockquote?: boolean;
+
+  /**
+   * 是否在 inline 元素（strong / em）里调用 processText，默认 true。
+   *
+   * 默认 true 是历史 TI 行为：`*hello [1]*` 会渲染 [1] 为 CitationBadge。
+   *
+   * 在 TopicContentPanel L2502 的特定场景里需要 false，因为原 ReactMarkdown
+   * 自定义只覆盖了 p/li/td/th/h1-h4/blockquote，emphasis/bold 走默认渲染，
+   * 不会处理 citations。设为 false 可严格幂等。
+   */
+  applyTextProcessingToInlineElements?: boolean;
+
+  /**
    * 跨实例共享的标题锚点计数 Map。
    * 默认每次调用 createMarkdownComponents 内建一个新 Map（per-render 重置）。
    * 当一段逻辑文本被切分成多个 ReactMarkdown 实例渲染（如章节里穿插图表），
@@ -138,6 +156,19 @@ export function createMarkdownComponents(
   const processHeading = opts.applyTextProcessingToHeadings
     ? processChildren
     : processChildrenSimple;
+  // blockquote children 处理器：默认 simple，opts 切到 full
+  const processBlockquote = opts.applyTextProcessingToBlockquote
+    ? processChildren
+    : processChildrenSimple;
+  // inline 元素 (strong / em) 处理器：默认 simple（历史 TI 行为，处理 string）；
+  // 显式 opts.applyTextProcessingToInlineElements=false 时返回 children 不动
+  const processInline = (
+    children: React.ReactNode,
+    fn: ProcessTextFn
+  ): React.ReactNode => {
+    if (opts.applyTextProcessingToInlineElements === false) return children;
+    return processChildrenSimple(children, fn);
+  };
 
   return {
     img: ({ src, alt }: { src?: string; alt?: string }) => (
@@ -253,15 +284,11 @@ export function createMarkdownComponents(
       if (isConclusionSection) {
         return (
           <strong className="text-purple-700" {...props}>
-            {processChildrenSimple(children, processText)}
+            {processInline(children, processText)}
           </strong>
         );
       }
-      return (
-        <strong {...props}>
-          {processChildrenSimple(children, processText)}
-        </strong>
-      );
+      return <strong {...props}>{processInline(children, processText)}</strong>;
     },
     em: ({
       children,
@@ -270,7 +297,7 @@ export function createMarkdownComponents(
     }: React.HTMLAttributes<HTMLElement> & {
       children?: React.ReactNode;
       node?: unknown;
-    }) => <em {...props}>{processChildrenSimple(children, processText)}</em>,
+    }) => <em {...props}>{processInline(children, processText)}</em>,
     table: ({
       children,
       node: _node,
@@ -421,7 +448,7 @@ export function createMarkdownComponents(
     }) => {
       return (
         <blockquote {...props}>
-          {processChildrenSimple(children, processText)}
+          {processBlockquote(children, processText)}
         </blockquote>
       );
     },

@@ -20,8 +20,9 @@
  * - 任何「LLM 输出含图表占位符」的渲染需求
  */
 
-import { useMemo, type ReactNode } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { Fragment, useMemo, type ReactNode } from 'react';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import type { PluggableList } from 'unified';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -86,9 +87,12 @@ export function MarkdownChartSplitViewer<TChart>({
     [processText, processHeadings, sharedSlugCounts]
   );
 
-  const remarkPlugins = useMemo(() => [remarkGfm, remarkMath], []);
-  const rehypePlugins = useMemo(() => {
-    const plugins: unknown[] = [];
+  const remarkPlugins = useMemo<PluggableList>(
+    () => [remarkGfm, remarkMath],
+    []
+  );
+  const rehypePlugins = useMemo<PluggableList>(() => {
+    const plugins: PluggableList = [];
     if (enableRawHtml) plugins.push(rehypeRaw);
     plugins.push([rehypeKatex, KATEX_OPTIONS]);
     return plugins;
@@ -101,24 +105,23 @@ export function MarkdownChartSplitViewer<TChart>({
   }, [content, preprocess]);
 
   // 没有 charts 或没有占位符 → 走单实例 fast path
+  // 输出 Fragment（无 wrapper div），保留与原 TI 代码一致的 DOM 结构（让 prose CSS 能正确 target 直接子元素）
+  // 仅当传 className 时才包 div
   if (charts.length === 0 || !processedContent.includes('<!-- chart:')) {
     const cleanContent = processedContent.replace(
       CHART_PLACEHOLDER_PATTERN,
       ''
     );
-    return (
-      <div className={cn('markdown-viewer markdown-chart-split', className)}>
-        <ReactMarkdown
-          remarkPlugins={remarkPlugins}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rehypePlugins={rehypePlugins as any}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          components={mdComponents as any}
-        >
-          {cleanContent}
-        </ReactMarkdown>
-      </div>
+    const node = (
+      <ReactMarkdown
+        remarkPlugins={remarkPlugins}
+        rehypePlugins={rehypePlugins}
+        components={mdComponents as Components}
+      >
+        {cleanContent}
+      </ReactMarkdown>
     );
+    return className ? <div className={cn(className)}>{node}</div> : node;
   }
 
   // 切分：segments alternates [text, chartId, text, chartId, ...]
@@ -135,10 +138,8 @@ export function MarkdownChartSplitViewer<TChart>({
           <ReactMarkdown
             key={`md-${i}`}
             remarkPlugins={remarkPlugins}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            rehypePlugins={rehypePlugins as any}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            components={mdComponents as any}
+            rehypePlugins={rehypePlugins}
+            components={mdComponents as Components}
           >
             {text}
           </ReactMarkdown>
@@ -154,9 +155,11 @@ export function MarkdownChartSplitViewer<TChart>({
     }
   }
 
-  return (
-    <div className={cn('markdown-viewer markdown-chart-split', className)}>
-      {elements}
-    </div>
+  // 与原 TI 代码相同：包成 Fragment 直接挂在父容器（如 <article className="prose">）下
+  // 当调用方需要包装节点时显式传 className
+  return className ? (
+    <div className={cn(className)}>{elements}</div>
+  ) : (
+    <Fragment>{elements}</Fragment>
   );
 }

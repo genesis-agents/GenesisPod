@@ -24,7 +24,8 @@
  */
 
 import { useMemo, type ReactNode } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import type { PluggableList } from 'unified';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -39,10 +40,22 @@ export interface MarkdownViewerProps {
   /** Markdown 源文本 */
   content: string;
   /**
-   * 是否运行 LaTeX 预处理（preprocessLatex）+ 列表清理（stripProseBullets）。
-   * 默认 true。仅当调用方已自行预处理时关闭。
+   * @deprecated 用 enableLatexPreprocess + enableBulletStrip 单独控制。
+   * 旧聚合开关：true = 同时 enable 两项；false = 都 disable。
+   * 新代码请使用细分 flag。
    */
   preprocess?: boolean;
+  /**
+   * 是否运行 LaTeX 预处理（preprocessLatex）。默认 true。
+   * 处理 LLM 输出的 LaTeX 边界（双美元 / 单美元 / 反斜杠转义等）。
+   */
+  enableLatexPreprocess?: boolean;
+  /**
+   * 是否运行 bullet 清理（stripProseBullets）。默认 true。
+   * 把行首误用为列表的「• / · / *」prose 段去掉，避免双重列表。
+   * 仅当原内容确实需要保留行首符号时关闭。
+   */
+  enableBulletStrip?: boolean;
   /**
    * 内联文本处理槽。每段文本 / 列表项会经过这个函数。
    * 用于注入引用徽章 `[1][2]`、注解高亮、关键词链接等。
@@ -68,6 +81,17 @@ export interface MarkdownViewerProps {
    */
   processHeadings?: boolean;
   /**
+   * 是否对 blockquote 也应用完整 processChildren（递归 array），默认 false。
+   * 与 processHeadings 同口径，启用后块级引用文本也会处理 inline 元素。
+   */
+  processBlockquote?: boolean;
+  /**
+   * 是否在 strong / em 等 inline 元素里调用 processText，默认 true。
+   * 设为 false 可严格匹配「只在 p/li/td/th/h1-h4/blockquote 处理 citations」
+   * 的旧 ReactMarkdown 用法（避免在 *emphasis* / **bold** 里误生成 badge）。
+   */
+  processInlineElements?: boolean;
+  /**
    * 跨实例共享的标题锚点计数 Map。
    * 默认每个 MarkdownViewer 实例自建，仅当多实例需要共享去重时传入。
    * 一般用 MarkdownChartSplitViewer 而不是手动管理。
@@ -85,15 +109,23 @@ export function MarkdownViewer({
   enableGfm = true,
   enableMath = true,
   enableRawHtml = false,
+  enableLatexPreprocess,
+  enableBulletStrip,
   processHeadings = false,
+  processBlockquote = false,
+  processInlineElements = true,
   sharedSlugCounts,
 }: MarkdownViewerProps) {
+  // 兼容 deprecated `preprocess`：未显式传细分 flag 时按旧聚合规则
+  const doLatex = enableLatexPreprocess ?? preprocess ?? true;
+  const doBullets = enableBulletStrip ?? preprocess ?? true;
+
   const finalText = useMemo(() => {
-    if (!preprocess) return content;
-    let processed = enableMath ? preprocessLatex(content) : content;
-    processed = stripProseBullets(processed);
+    let processed = content;
+    if (doLatex && enableMath) processed = preprocessLatex(processed);
+    if (doBullets) processed = stripProseBullets(processed);
     return processed;
-  }, [content, preprocess, enableMath]);
+  }, [content, doLatex, doBullets, enableMath]);
 
   // 每次 processText / opts 变化重建 components 工厂
   // (slugCounts / lastH2Text 是闭包态，sharedSlugCounts 由调用方注入支持跨实例去重)
@@ -101,12 +133,20 @@ export function MarkdownViewer({
     () =>
       createMarkdownComponents(processText ?? IDENTITY, {
         applyTextProcessingToHeadings: processHeadings,
+        applyTextProcessingToBlockquote: processBlockquote,
+        applyTextProcessingToInlineElements: processInlineElements,
         sharedSlugCounts,
       }),
-    [processText, processHeadings, sharedSlugCounts]
+    [
+      processText,
+      processHeadings,
+      processBlockquote,
+      processInlineElements,
+      sharedSlugCounts,
+    ]
   );
 
-  const remarkPlugins = useMemo(
+  const remarkPlugins = useMemo<PluggableList>(
     () => [
       ...(enableGfm ? [remarkGfm] : []),
       ...(enableMath ? [remarkMath] : []),
@@ -114,9 +154,9 @@ export function MarkdownViewer({
     [enableGfm, enableMath]
   );
 
-  const rehypePlugins = useMemo(() => {
-    // 顺序很关键：rehype-raw 必须在 rehype-katex 之前，否则 raw HTML 会吞掉数学块
-    const plugins: unknown[] = [];
+  const rehypePlugins = useMemo<PluggableList>(() => {
+    // 顺序关键：rehype-raw 必须在 rehype-katex 之前，否则 raw HTML 会吞掉数学块
+    const plugins: PluggableList = [];
     if (enableRawHtml) plugins.push(rehypeRaw);
     if (enableMath) plugins.push([rehypeKatex, KATEX_OPTIONS]);
     return plugins;
@@ -126,10 +166,8 @@ export function MarkdownViewer({
     <div className={cn('markdown-viewer', className)}>
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        rehypePlugins={rehypePlugins as any}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        components={components as any}
+        rehypePlugins={rehypePlugins}
+        components={components as Components}
       >
         {finalText}
       </ReactMarkdown>

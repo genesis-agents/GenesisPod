@@ -2000,9 +2000,13 @@ export function TopicContentPanel({
         {activeTab !== 'report' && report?.fullReport && (
           <div className="hidden">
             <div data-export-content="insights">
-              {/* 平台 MarkdownViewer 内置 preprocessLatex + GFM + KaTeX，
-                  preprocess=true 默认，无需手动 preprocessLatex */}
-              <MarkdownViewer content={report.fullReport} preprocess />
+              {/* 隐藏导出：原代码只做 preprocessLatex，不做 stripProseBullets。
+                  细分 flag 显式控制，保证导出 HTML 字节级幂等 */}
+              <MarkdownViewer
+                content={report.fullReport}
+                enableLatexPreprocess
+                enableBulletStrip={false}
+              />
             </div>
           </div>
         )}
@@ -2497,13 +2501,14 @@ function ReportTabContent({
           <div className="mx-auto max-w-3xl px-6 py-6">
             <article className="prose prose-sm prose-blue max-w-none">
               {/*
-               * 平台 MarkdownViewer：
-               * - processText 槽承担引用徽章注入（renderTextWithCitations 是
-               *   纯文本→ReactNode 的函数，与 createMarkdownComponents.processText
-               *   契约一致）
-               * - processHeadings=true 让标题里的 [1] 也渲染成 CitationBadge，
-               *   行为等价于原代码自定义 h1-h4 调 processChildrenWithCitations
-               * - preprocess=true 内置 preprocessLatex，无需手动调
+               * 严格幂等迁移自原 ReactMarkdown + processChildrenWithCitations 自定义：
+               * - processText 槽 = renderTextWithCitations（旧函数）
+               * - processHeadings + processBlockquote 让 h1-h4 / blockquote 也走
+               *   完整递归（覆盖原代码自定义这 5 类元素的行为）
+               * - processInlineElements={false} 关闭 strong/em 字符串处理，避免
+               *   在原本不会渲染 CitationBadge 的 *emphasis* / **bold** 中误注入
+               * - enableLatexPreprocess + enableBulletStrip=false 仅做 preprocessLatex
+               *   （原代码语义），不做 stripProseBullets
                */}
               <MarkdownViewer
                 content={selectedContent.content || ''}
@@ -2511,7 +2516,10 @@ function ReportTabContent({
                   <>{renderTextWithCitations(text, evidence)}</>
                 )}
                 processHeadings
-                preprocess
+                processBlockquote
+                processInlineElements={false}
+                enableLatexPreprocess
+                enableBulletStrip={false}
               />
             </article>
           </div>

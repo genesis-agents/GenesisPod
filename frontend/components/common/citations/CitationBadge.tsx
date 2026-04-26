@@ -19,7 +19,6 @@ export interface CitationBadgeProps {
 export function CitationBadge({ index, evidence }: CitationBadgeProps) {
   const { t } = useI18n();
   const [isHovered, setIsHovered] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{
     top: number;
     left: number;
