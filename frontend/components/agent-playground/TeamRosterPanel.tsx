@@ -271,7 +271,7 @@ export function TeamRosterPanel({
       connections,
       rows: [rowMap[0], rowMap[1], rowMap[2], rowMap[3], rowMap[4]],
     };
-  }, [agents, stageMap]);
+  }, [agents, stageMap, dimensions]);
 
   const completedStages = stages.filter((s) => s.status === 'done').length;
   const totalStages = stages.length;

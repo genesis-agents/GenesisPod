@@ -1146,46 +1146,103 @@ function TaskDetailDrawer({
                 原始执行轨迹 · {trace.length} 条 ▾
               </summary>
               <ul className="space-y-1.5 p-2">
-                {trace.slice(-30).map((t, i) => (
-                  <li
-                    key={`${t.ts}-${i}`}
-                    className={`rounded-md px-2 py-1.5 text-[11px] leading-relaxed ${
-                      t.kind === 'thought'
-                        ? 'bg-amber-50 text-amber-900'
-                        : t.kind === 'action'
-                          ? 'bg-violet-50 text-violet-900'
-                          : t.kind === 'observation'
-                            ? t.error
-                              ? 'bg-red-50 text-red-900'
-                              : 'bg-sky-50 text-sky-900'
-                            : t.kind === 'reflection'
-                              ? 'bg-purple-50 text-purple-900'
-                              : 'bg-red-50 text-red-900'
-                    }`}
-                  >
-                    <span className="font-semibold">{t.kind}</span>
-                    {t.toolId ? (
-                      <span className="font-mono ml-1 text-[10px] opacity-75">
-                        · {t.toolId}
-                      </span>
-                    ) : null}
-                    {t.text ? (
-                      <p className="mt-0.5 whitespace-pre-wrap break-words">
-                        {t.text.length > 400
-                          ? t.text.slice(0, 400) + '…'
-                          : t.text}
-                      </p>
-                    ) : null}
-                    {t.error ? (
-                      <p className="mt-0.5 whitespace-pre-wrap break-words font-medium">
-                        ⚠{' '}
-                        {t.error.length > 400
-                          ? t.error.slice(0, 400) + '…'
-                          : t.error}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
+                {trace.slice(-50).map((t, i) => {
+                  // 把 action / observation 的 input/output 转成可读 JSON snippet
+                  const inputStr = (() => {
+                    if (t.input == null) return null;
+                    if (typeof t.input === 'string') return t.input;
+                    try {
+                      return JSON.stringify(t.input, null, 2);
+                    } catch {
+                      return String(t.input);
+                    }
+                  })();
+                  const outputStr = (() => {
+                    if (t.output == null) return null;
+                    if (typeof t.output === 'string') return t.output;
+                    try {
+                      return JSON.stringify(t.output, null, 2);
+                    } catch {
+                      return String(t.output);
+                    }
+                  })();
+                  return (
+                    <li
+                      key={`${t.ts}-${i}`}
+                      className={`rounded-md px-2 py-1.5 text-[11px] leading-relaxed ${
+                        t.kind === 'thought'
+                          ? 'bg-amber-50 text-amber-900'
+                          : t.kind === 'action'
+                            ? 'bg-violet-50 text-violet-900'
+                            : t.kind === 'observation'
+                              ? t.error
+                                ? 'bg-red-50 text-red-900'
+                                : 'bg-sky-50 text-sky-900'
+                              : t.kind === 'reflection'
+                                ? 'bg-purple-50 text-purple-900'
+                                : 'bg-red-50 text-red-900'
+                      }`}
+                    >
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-semibold">{t.kind}</span>
+                        {t.toolId ? (
+                          <span className="font-mono rounded bg-white/60 px-1.5 text-[10px]">
+                            {t.toolId}
+                          </span>
+                        ) : null}
+                        {t.latencyMs != null && (
+                          <span className="font-mono text-[10px] opacity-60">
+                            {t.latencyMs}ms
+                          </span>
+                        )}
+                        {t.tokensUsed != null && t.tokensUsed > 0 && (
+                          <span className="font-mono text-[10px] opacity-60">
+                            +{t.tokensUsed}tk
+                          </span>
+                        )}
+                      </div>
+                      {t.text ? (
+                        <p className="mt-1 whitespace-pre-wrap break-words">
+                          {t.text.length > 600
+                            ? t.text.slice(0, 600) + '…'
+                            : t.text}
+                        </p>
+                      ) : null}
+                      {inputStr && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
+                            ▸ input
+                          </summary>
+                          <pre className="font-mono mt-1 max-h-48 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
+                            {inputStr.length > 4000
+                              ? inputStr.slice(0, 4000) + '\n…(已截断)'
+                              : inputStr}
+                          </pre>
+                        </details>
+                      )}
+                      {outputStr && !t.error && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-[10px] opacity-70 hover:opacity-100">
+                            ▸ output
+                          </summary>
+                          <pre className="font-mono mt-1 max-h-48 overflow-auto rounded bg-white/60 p-1.5 text-[10px] text-gray-700">
+                            {outputStr.length > 4000
+                              ? outputStr.slice(0, 4000) + '\n…(已截断)'
+                              : outputStr}
+                          </pre>
+                        </details>
+                      )}
+                      {t.error ? (
+                        <p className="mt-1 whitespace-pre-wrap break-words font-medium">
+                          ⚠{' '}
+                          {t.error.length > 400
+                            ? t.error.slice(0, 400) + '…'
+                            : t.error}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             </details>
           ) : (
