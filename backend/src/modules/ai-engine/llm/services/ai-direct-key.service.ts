@@ -210,21 +210,23 @@ export class AiDirectKeyService {
           }
 
           const effectiveModelId = modelId || "";
+          // ★ DB 驱动（isReasoningModel 优先读 AIModelConfig.isReasoning，缓存未命中再启发式）
           const isReasoning = this.inferIsReasoning(effectiveModelId);
           const tokenParamName = isReasoning
             ? "max_completion_tokens"
             : "max_tokens";
           const tokenParam = { [tokenParamName]: maxTokens };
 
-          const isO1O3Model =
-            effectiveModelId.toLowerCase().startsWith("o1") ||
-            effectiveModelId.toLowerCase().startsWith("o3");
-          const reasoningParam = isO1O3Model ? { reasoning_effort: "low" } : {};
+          // ★ 关键修复：reasoning_effort 同样由 isReasoning 决定，不再用模型名 startsWith 死代码
+          //   旧代码漏 o4 / gpt-5 系列 → BYOK 用户跑 gpt-5.4 时不发 reasoning_effort
+          //   → OpenAI 默认 medium effort → CoT 吃光 max_completion_tokens
+          //   → visible 输出空 → ReActLoop 熔断 "立即 finalize 空"
+          const reasoningParam = isReasoning ? { reasoning_effort: "low" } : {};
 
           this.logger.debug(
-            `[OpenAI] Calling API with model=${effectiveModelId}, ` +
-              `${tokenParamName}=${maxTokens}` +
-              `${isO1O3Model ? ", reasoning_effort=low" : ""}`,
+            `[OpenAI BYOK] model=${effectiveModelId}, ` +
+              `${tokenParamName}=${maxTokens}, isReasoning=${isReasoning}` +
+              `${isReasoning ? " (reasoning_effort=low)" : ""}`,
           );
 
           return await this.callApiWithKey(
@@ -237,8 +239,8 @@ export class AiDirectKeyService {
               })),
               ...tokenParam,
               ...reasoningParam,
-              // o1/o3 模型不支持 temperature 参数
-              ...(!isO1O3Model ? { temperature } : {}),
+              // 推理模型不支持 temperature 参数
+              ...(!isReasoning ? { temperature } : {}),
               ...(responseFormat === "json"
                 ? { response_format: { type: "json_object" } }
                 : {}),

@@ -151,7 +151,9 @@ describe("AiStreamHandlerService", () => {
       expect(errorChunk.done).toBe(true);
     });
 
-    it("should add reasoning_effort for o1 models", async () => {
+    it("should add reasoning_effort when isReasoning=true (DB-driven, not model name)", async () => {
+      // ★ 防回归：reasoning_effort 由 isReasoning 参数（DB 驱动）决定，
+      //   不再依赖模型名 startsWith。BYOK 接的 gpt-5/o4 等只要 DB 标 isReasoning=true 就传。
       const mockStream = createMockStream(["data: [DONE]"]);
 
       mockHttpService.post.mockReturnValueOnce(
@@ -164,12 +166,36 @@ describe("AiStreamHandlerService", () => {
         "o1-mini",
         messages,
         25000,
+        undefined, // temperature
+        "max_completion_tokens",
+        true, // ★ isReasoning
       )) {
-        break; // just trigger the request
+        break;
       }
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+    });
+
+    it("should NOT add reasoning_effort when isReasoning=false (default)", async () => {
+      const mockStream = createMockStream(["data: [DONE]"]);
+
+      mockHttpService.post.mockReturnValueOnce(
+        of({ data: mockStream } as any) as any,
+      );
+
+      for await (const _ of service.streamOpenAICompatible(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "o1-mini", // 名字像 reasoning，但 isReasoning 默认 false
+        messages,
+        25000,
+      )) {
+        break;
+      }
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).not.toHaveProperty("reasoning_effort");
     });
 
     it("should use custom tokenParamName", async () => {

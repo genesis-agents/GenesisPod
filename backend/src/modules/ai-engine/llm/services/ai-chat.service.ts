@@ -1952,6 +1952,7 @@ export class AiChatService {
           effectiveMaxTokens,
           effectiveTemperature,
           tokenParamName,
+          modelConfig.isReasoning ?? false,
         );
       } else if (apiFormat === "anthropic") {
         streamGenerator = this.streamHandlerService.streamAnthropic(

@@ -61,14 +61,14 @@ export class AiStreamHandlerService {
     maxTokens: number,
     temperature?: number,
     tokenParamName: string = "max_tokens",
+    isReasoning: boolean = false,
   ): AsyncGenerator<StreamChunk, void> {
     // ★ 数据库驱动：使用配置的 tokenParamName，无需硬编码判断
     const tokenParam = { [tokenParamName]: maxTokens };
 
-    const modelLower = modelId.toLowerCase();
-    const isO1O3Model =
-      modelLower.startsWith("o1") || modelLower.startsWith("o3");
-    const reasoningParam = isO1O3Model ? { reasoning_effort: "low" } : {};
+    // ★ DB 驱动：reasoning_effort 由 AIModelConfig.isReasoning 决定（不再 startsWith 死代码）
+    //   漏掉的话 OpenAI gpt-5 系列默认走 medium effort，CoT 吃光 max_completion_tokens
+    const reasoningParam = isReasoning ? { reasoning_effort: "low" } : {};
 
     try {
       // ★ TTFT: 在发出请求前记录时间，以准确测量从请求发起到首个 token 的延迟
