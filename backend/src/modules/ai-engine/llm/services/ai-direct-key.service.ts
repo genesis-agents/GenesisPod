@@ -80,6 +80,15 @@ export class AiDirectKeyService {
       responseFormat,
     } = options;
 
+    // ★ 关键修复 (2026-04-26): mapToParameters 必须接到真实 modelConfig，
+    //   否则 isReasoning=false 默认走非推理路径，推理模型 token boost 完全失效。
+    //   先查 DB 拿到 gpt-5.4 等模型的 isReasoning / maxTokens / costTier 等字段，
+    //   再算 effective maxTokens / temperature。
+    //   旧代码传 null → BYOK 推理模型 max_completion_tokens 算成 4000（medium 默认），
+    //   OpenAI reasoning_tokens 不计入此限制，CoT 可吃 50k+ token，visible 输出空。
+    const modelConfigForMapping =
+      await this.modelConfigService.getModelConfig(modelId);
+
     // Map taskProfile to parameters if provided
     let maxTokens: number;
     let temperature: number;
@@ -90,7 +99,7 @@ export class AiDirectKeyService {
     } else if (taskProfile) {
       const profileParams = this.taskProfileMapper.mapToParameters(
         taskProfile,
-        null,
+        modelConfigForMapping,
       );
       maxTokens = profileParams.maxTokens;
       temperature = profileParams.temperature;
