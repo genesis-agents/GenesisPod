@@ -104,12 +104,15 @@ export class ReActLoop implements IAgentLoop {
       /** PR-D: 父 Agent + Spawner，启用 subagent_spawn action */
       parent?: IAgent;
       spawner?: ISubagentSpawner;
+      /** Spec 声明的 TaskProfile —— reason() 内 chat() 用 agent 真实意图 */
+      taskProfile?: import("../../llm/types/task-profile").TaskProfile;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
     const allowedTools = options?.allowedTools;
     const forbiddenTools = options?.forbiddenTools;
     const budget = options?.budget;
+    const specTaskProfile = options?.taskProfile;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
@@ -219,6 +222,8 @@ export class ReActLoop implements IAgentLoop {
           // BYOK 关键：把 envelope.memory.userId 透给 chat()，让
           // findUserDefaultByType(userId, "chat") 命中用户自己的 BYOK 默认模型
           currentEnvelope.memory.userId,
+          // Spec 声明的 TaskProfile（如 researcher='long' / leader='medium'）
+          specTaskProfile,
         );
         decision = reasoned.decision;
         usage = reasoned.usage;
@@ -396,6 +401,8 @@ export class ReActLoop implements IAgentLoop {
       | null,
     /** BYOK：从 envelope.memory.userId 透传，让 chat() 走 user-default 查找链 */
     userId?: string,
+    /** Spec 声明的 TaskProfile —— 优先用 agent 真实意图，缺省走 medium */
+    specTaskProfile?: import("../../llm/types/task-profile").TaskProfile,
   ): Promise<{
     decision: ParsedDecision;
     usage: {
@@ -426,7 +433,13 @@ export class ReActLoop implements IAgentLoop {
             toolDefinitions: cachePrefix.toolDefinitions,
           }
         : undefined,
-      taskProfile: { creativity: "low", outputLength: "short" },
+      // 优先用 agent spec 声明的 TaskProfile —— researcher="long" / leader="medium"
+      // 等都按业务方意图走，不再被 Loop 硬编码覆盖。
+      // 缺省走 medium（≥16k tokens），避免 reasoning 模型 CoT 撑爆 visible output。
+      taskProfile: specTaskProfile ?? {
+        creativity: "low",
+        outputLength: "medium",
+      },
       responseFormat: "json",
       // BYOK 环境感知：userId 透给 chat() → 用户的 UserModelConfig 默认值优先
       userId,

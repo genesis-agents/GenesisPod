@@ -181,6 +181,8 @@ export class AgentFactory {
       checkpointEveryNActions: this.checkpointService ? 3 : 0,
       eventStore: this.eventStore,
       agentRegistry: this.agentRegistry,
+      // 透传 spec.taskProfile —— Loop 内 chat() 用 agent 真实意图
+      taskProfile: spec.taskProfile,
     });
   }
 

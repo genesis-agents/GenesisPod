@@ -56,6 +56,12 @@ export interface HarnessedAgentInit {
    * 不提供时 handoff 系统看不见此 agent，但本 agent 仍可作为 handoff 源。
    */
   agentRegistry?: AgentRegistry;
+  /**
+   * Spec 声明的 TaskProfile —— 让 ReActLoop / ReflexionLoop / PlanActLoop
+   * 内部每次 chat() 都用 agent 的真实意图（researcher 要 long output，
+   * leader 要 medium）。不传则各 loop 走自己的硬编码默认。
+   */
+  taskProfile?: import("../../llm/types/task-profile").TaskProfile;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -73,6 +79,7 @@ export class HarnessedAgent implements IAgent {
   private readonly budget?: BudgetAccountant;
   private readonly eventStore?: AgentEventStore;
   private readonly agentRegistry?: AgentRegistry;
+  private readonly taskProfile?: import("../../llm/types/task-profile").TaskProfile;
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
 
@@ -92,6 +99,7 @@ export class HarnessedAgent implements IAgent {
     this.budget = init.budget;
     this.eventStore = init.eventStore;
     this.agentRegistry = init.agentRegistry;
+    this.taskProfile = init.taskProfile;
     this.state = "idle";
   }
 
@@ -169,6 +177,7 @@ export class HarnessedAgent implements IAgent {
             budget?: BudgetAccountant;
             parent?: IAgent;
             spawner?: ISubagentSpawner;
+            taskProfile?: import("../../llm/types/task-profile").TaskProfile;
           },
         ) => AsyncIterable<IAgentEvent>;
 
@@ -192,6 +201,9 @@ export class HarnessedAgent implements IAgent {
           // PR-D: 让 ReActLoop 能调度 subagent_spawn action
           parent: this,
           spawner: this.subagentSpawner,
+          // 透传 spec 声明的 TaskProfile —— Loop 内每次 chat() 用 agent 真实意图
+          // (researcher='long' / leader='medium')，不再被 Loop 硬编码 'short' 卡死
+          taskProfile: this.taskProfile,
         })) {
           yield ev;
           eventCount += 1;
