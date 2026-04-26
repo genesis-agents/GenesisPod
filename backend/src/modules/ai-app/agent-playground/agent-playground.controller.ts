@@ -137,6 +137,7 @@ export class AgentPlaygroundController {
       language: (original.language === "en-US"
         ? "en-US"
         : "zh-CN") as RunMissionInput["language"],
+      budgetProfile: "medium",
       maxCredits: 300,
     };
 
