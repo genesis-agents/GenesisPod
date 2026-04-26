@@ -587,13 +587,94 @@ function TaskDetailDrawer({
         ? '运行中…'
         : '—';
 
+  // ── 衍生：tools 使用统计、source URL、search results 提取、thoughts 列表 ──
+  const toolsUsed = (() => {
+    const map = new Map<
+      string,
+      { calls: number; tokens: number; latencyMs: number; errors: number }
+    >();
+    for (const t of trace) {
+      if (t.kind === 'action' && t.toolId) {
+        const cur = map.get(t.toolId) ?? {
+          calls: 0,
+          tokens: 0,
+          latencyMs: 0,
+          errors: 0,
+        };
+        cur.calls += 1;
+        map.set(t.toolId, cur);
+      }
+      if (t.kind === 'observation' && t.toolId) {
+        const cur = map.get(t.toolId) ?? {
+          calls: 0,
+          tokens: 0,
+          latencyMs: 0,
+          errors: 0,
+        };
+        cur.tokens += t.tokensUsed ?? 0;
+        cur.latencyMs += t.latencyMs ?? 0;
+        if (t.error) cur.errors += 1;
+        map.set(t.toolId, cur);
+      }
+    }
+    return [...map.entries()].sort((a, b) => b[1].calls - a[1].calls);
+  })();
+
+  const totalTokens = trace.reduce(
+    (s, t) => s + (t.kind === 'observation' ? (t.tokensUsed ?? 0) : 0),
+    0
+  );
+
+  // 从 observation outputs 提取所有 search 结果（title/url/snippet）
+  const searchHits = (() => {
+    const all: { title: string; url?: string; snippet?: string }[] = [];
+    const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    for (const t of trace) {
+      if (t.kind !== 'observation' || t.error) continue;
+      const raw =
+        typeof t.output === 'string'
+          ? t.output
+          : t.output != null
+            ? JSON.stringify(t.output)
+            : '';
+      if (!raw) continue;
+      const titles = [...raw.matchAll(titleRe)].map((m) => m[1]);
+      const urls = [...raw.matchAll(urlRe)].map((m) => m[1]);
+      const n = Math.max(titles.length, urls.length);
+      for (let i = 0; i < n; i++) {
+        if (titles[i] || urls[i]) {
+          all.push({ title: titles[i] || urls[i] || '', url: urls[i] });
+        }
+      }
+    }
+    // dedupe by url
+    const seen = new Set<string>();
+    return all.filter((h) => {
+      const k = h.url || h.title;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  })();
+
+  // 取所有 thoughts（按时间）
+  const thoughts = trace
+    .filter((t) => t.kind === 'thought' && t.text)
+    .map((t) => t.text as string);
+
+  // 取所有 reflections
+  const reflections = trace
+    .filter((t) => t.kind === 'reflection' && t.text)
+    .map((t) => t.text as string);
+
   return (
     <div
       className="fixed inset-0 z-40 flex justify-end bg-black/30 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
-        className="flex h-full w-full max-w-md flex-col overflow-hidden border-l border-gray-200 bg-white shadow-2xl"
+        className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-gray-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-gray-100 px-4 py-3">
@@ -627,14 +708,15 @@ function TaskDetailDrawer({
           </button>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto p-4">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-gray-50 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-gray-500">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {/* 4 个统计指标 */}
+          <div className="grid grid-cols-4 gap-2">
+            <div className="rounded-lg bg-gray-50 px-2 py-2">
+              <p className="text-[9px] uppercase tracking-wide text-gray-500">
                 状态
               </p>
               <p
-                className={`mt-0.5 text-sm font-semibold ${
+                className={`mt-0.5 text-xs font-semibold ${
                   phase === 'completed'
                     ? 'text-emerald-600'
                     : phase === 'failed'
@@ -653,12 +735,30 @@ function TaskDetailDrawer({
                       : '待生成'}
               </p>
             </div>
-            <div className="rounded-lg bg-gray-50 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-gray-500">
+            <div className="rounded-lg bg-gray-50 px-2 py-2">
+              <p className="text-[9px] uppercase tracking-wide text-gray-500">
                 耗时
               </p>
-              <p className="font-mono mt-0.5 text-sm text-gray-900">
+              <p className="font-mono mt-0.5 text-xs font-semibold text-gray-900">
                 {wallSec}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-2 py-2">
+              <p className="text-[9px] uppercase tracking-wide text-gray-500">
+                Token
+              </p>
+              <p className="font-mono mt-0.5 text-xs font-semibold text-gray-900">
+                {totalTokens >= 1000
+                  ? `${(totalTokens / 1000).toFixed(1)}k`
+                  : totalTokens || '—'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-2 py-2">
+              <p className="text-[9px] uppercase tracking-wide text-gray-500">
+                工具调用
+              </p>
+              <p className="font-mono mt-0.5 text-xs font-semibold text-gray-900">
+                {toolsUsed.reduce((s, [, v]) => s + v.calls, 0) || '—'}
               </p>
             </div>
           </div>
@@ -672,6 +772,143 @@ function TaskDetailDrawer({
                 {rationale}
               </p>
             </div>
+          )}
+
+          {/* TOOLS USED — 按工具聚合调用次数 / 累计 token / 错误数 */}
+          {toolsUsed.length > 0 && (
+            <section className="rounded-lg border border-gray-100 bg-white">
+              <div className="border-b border-gray-100 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                  使用工具 · {toolsUsed.length} 个
+                </p>
+              </div>
+              <div className="space-y-1.5 p-2">
+                {toolsUsed.map(([tool, v]) => (
+                  <div
+                    key={tool}
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50"
+                  >
+                    <span className="font-mono inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-800">
+                      <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">
+                        {tool}
+                      </span>
+                      <span className="text-gray-500">×{v.calls}</span>
+                    </span>
+                    <span className="font-mono flex items-center gap-2 text-[10px] text-gray-500">
+                      {v.tokens > 0 && (
+                        <span>
+                          +
+                          {v.tokens >= 1000
+                            ? `${(v.tokens / 1000).toFixed(1)}k`
+                            : v.tokens}
+                          tk
+                        </span>
+                      )}
+                      {v.latencyMs > 0 && <span>{v.latencyMs}ms</span>}
+                      {v.errors > 0 && (
+                        <span className="text-red-600">{v.errors} err</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* SEARCH HITS — 从所有 observation 抽出的 title/url 列表 */}
+          {searchHits.length > 0 && (
+            <section className="rounded-lg border border-gray-100 bg-white">
+              <div className="border-b border-gray-100 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                  搜索/抓取结果 · {searchHits.length} 条
+                </p>
+              </div>
+              <ul className="max-h-72 space-y-1 overflow-y-auto p-2">
+                {searchHits.slice(0, 30).map((h, i) => {
+                  const safe =
+                    h.url && /^https?:\/\//i.test(h.url) ? h.url : null;
+                  return (
+                    <li
+                      key={`${h.url ?? h.title}-${i}`}
+                      className="rounded-md border border-gray-100 bg-sky-50/30 px-2 py-1.5"
+                    >
+                      {safe ? (
+                        <a
+                          href={safe}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="line-clamp-1 text-[11px] font-medium text-sky-700 hover:underline"
+                        >
+                          {h.title || safe}
+                        </a>
+                      ) : (
+                        <p className="line-clamp-1 text-[11px] font-medium text-gray-800">
+                          {h.title}
+                        </p>
+                      )}
+                      {h.snippet && (
+                        <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-500">
+                          {h.snippet}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+                {searchHits.length > 30 && (
+                  <li className="px-2 py-1 text-center text-[10px] text-gray-400">
+                    还有 {searchHits.length - 30} 条已截断
+                  </li>
+                )}
+              </ul>
+            </section>
+          )}
+
+          {/* THOUGHTS — Agent 的全部思考 */}
+          {thoughts.length > 0 && (
+            <section className="rounded-lg border border-amber-100 bg-amber-50/30">
+              <div className="border-b border-amber-100 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                  Agent 思考 · {thoughts.length} 条
+                </p>
+              </div>
+              <ol className="space-y-1.5 p-2">
+                {thoughts.map((t, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md bg-white px-2 py-1.5 text-[11px] leading-relaxed text-gray-800 ring-1 ring-amber-100"
+                  >
+                    <span className="font-mono mr-1 text-[10px] text-amber-600">
+                      #{i + 1}
+                    </span>
+                    {t.length > 500 ? t.slice(0, 500) + '…' : t}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          {/* REFLECTIONS — Reflexion loop 的反思 */}
+          {reflections.length > 0 && (
+            <section className="rounded-lg border border-purple-100 bg-purple-50/30">
+              <div className="border-b border-purple-100 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700">
+                  反思 · {reflections.length} 轮
+                </p>
+              </div>
+              <ol className="space-y-1.5 p-2">
+                {reflections.map((t, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md bg-white px-2 py-1.5 text-[11px] leading-relaxed text-gray-800 ring-1 ring-purple-100"
+                  >
+                    <span className="font-mono mr-1 text-[10px] text-purple-600">
+                      第 {i + 1} 轮
+                    </span>
+                    {t.length > 500 ? t.slice(0, 500) + '…' : t}
+                  </li>
+                ))}
+              </ol>
+            </section>
           )}
 
           {/* 失败时优先抓出失败原因（最后一个 error trace 或最后一个带 error 的 observation） */}
@@ -723,11 +960,11 @@ function TaskDetailDrawer({
             })()}
 
           {trace.length > 0 ? (
-            <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                执行轨迹 · {trace.length} 条
-              </p>
-              <ul className="space-y-1.5">
+            <details className="group rounded-lg border border-gray-100 bg-gray-50/30">
+              <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 hover:bg-gray-100">
+                原始执行轨迹 · {trace.length} 条 ▾
+              </summary>
+              <ul className="space-y-1.5 p-2">
                 {trace.slice(-30).map((t, i) => (
                   <li
                     key={`${t.ts}-${i}`}
@@ -769,7 +1006,7 @@ function TaskDetailDrawer({
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           ) : (
             <p className="rounded-lg bg-gray-50 px-3 py-3 text-center text-[11px] text-gray-500">
               暂无执行轨迹（mission 已完成、事件流已从内存释放）
