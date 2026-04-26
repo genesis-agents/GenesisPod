@@ -17,6 +17,8 @@
  *     : injectChartPlaceholders(content, charts);
  */
 
+import { splitFullReportIntoChapters } from './splitFullReportIntoChapters';
+
 export interface ChartLike {
   id: string;
   position?: string | null;
@@ -63,11 +65,11 @@ export function injectChartPlaceholdersByChapter<C extends ChartWithSection>(
 
   const normalize = options.normalize ?? ((s) => s);
 
-  // mid-line H2 修复：上游某些 pipeline step 偶尔会吃掉 ## 前的换行
-  const normalized = fullReport.replace(
-    /([^\n])(##\s+\d+(?:\.\d+)*\.?\s)/g,
-    '$1\n\n$2'
-  );
+  // ★ 与章节视图严格同源：用 splitFullReportIntoChapters 切片（剥
+  //   References / TOC / lead-in，修复 mid-line H2，提取 sectionNumber），
+  //   每章节内做与章节视图同款 normalize + inject。
+  const parsed = splitFullReportIntoChapters(fullReport);
+  if (parsed.length === 0) return fullReport;
 
   // 按 sectionId 分组（"1" / "2" / ...）
   const chartsBySectionId = new Map<string, C[]>();
@@ -78,48 +80,43 @@ export function injectChartPlaceholdersByChapter<C extends ChartWithSection>(
     else chartsBySectionId.set(sid, [c]);
   }
 
-  // 按 ## 行切片，保留 heading 行；首个 segment.heading=null 容纳 lead-in
-  const lines = normalized.split('\n');
-  type Seg = { heading: string | null; body: string[] };
-  const segments: Seg[] = [{ heading: null, body: [] }];
-  for (const line of lines) {
-    if (/^##\s+/.test(line)) {
-      segments.push({ heading: line, body: [] });
-    } else {
-      segments[segments.length - 1].body.push(line);
-    }
-  }
+  // ★ 早退：没有任何章节命中 charts → 不重组（避免 split+rejoin 改变
+  //   字节内容如剥 References / TOC / 多余空行）。保持原文不变。
+  const anyChapterHasCharts = parsed.some(
+    (ch) =>
+      ch.sectionNumber &&
+      (chartsBySectionId.get(ch.sectionNumber) || []).length > 0
+  );
+  if (!anyChapterHasCharts) return fullReport;
 
-  // 没任何 H2 → 切不动，回退原内容（避免 paragraphIdx 错位）
-  const hasH2 = segments.some((s) => s.heading !== null);
-  if (!hasH2) return fullReport;
+  // 保留 lead-in（首个 H2 之前的 # Title / 引用块）
+  const firstH2Idx = fullReport.search(/^##\s+/m);
+  const leadIn = firstH2Idx > 0 ? fullReport.slice(0, firstH2Idx) : '';
 
-  const result: string[] = [];
-  for (const seg of segments) {
-    if (seg.heading) result.push(seg.heading);
+  // 重组：lead-in + 每章 (heading + normalize+inject 后的 content)
+  const pieces: string[] = [];
+  if (leadIn) pieces.push(leadIn);
 
-    // 提取 sectionNumber："## 3. 标题" / "## 3.1 标题" → "3"
-    let sectionNumber: string | null = null;
-    if (seg.heading) {
-      const m = seg.heading.match(/^##\s+(\d+)(?:\.\d+)*\.?\s+/);
-      if (m) sectionNumber = m[1];
-    }
-    const sectionCharts = sectionNumber
-      ? chartsBySectionId.get(sectionNumber) || []
+  for (const ch of parsed) {
+    // 重建 H2 heading 行（splitFullReportIntoChapters 把它剥离了）
+    const headingPrefix = ch.sectionNumber ? `${ch.sectionNumber}. ` : '';
+    pieces.push(`## ${headingPrefix}${ch.title}\n`);
+
+    const sectionCharts = ch.sectionNumber
+      ? chartsBySectionId.get(ch.sectionNumber) || []
       : [];
-
-    // ★ 章节内 body 先 normalize 再 inject —— 使 paragraphIdx 与章节视图
-    //   对齐（章节视图是 normalize → inject → render 同一份内容）。
-    const rawBody = seg.body.join('\n');
-    const normalizedBody = normalize(rawBody);
+    // ★ 关键：normalize 与 inject 链与章节视图（ChapterizedReportView 内
+    //   `formatContent + injectChartPlaceholders`）字面一致 → 段落边界
+    //   完全相同，图位置必然一致。
+    const normalizedContent = normalize(ch.content);
     const injected =
-      sectionCharts.length > 0 && !normalizedBody.includes('<!-- chart:')
-        ? injectChartPlaceholders(normalizedBody, sectionCharts)
-        : normalizedBody;
-    result.push(injected);
+      sectionCharts.length > 0 && !normalizedContent.includes('<!-- chart:')
+        ? injectChartPlaceholders(normalizedContent, sectionCharts)
+        : normalizedContent;
+    pieces.push(injected + '\n');
   }
 
-  return result.join('\n');
+  return pieces.join('\n');
 }
 
 export function injectChartPlaceholders<C extends ChartLike>(
