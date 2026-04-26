@@ -32,7 +32,7 @@ import type {
   AIEditOperation,
   AIEditReportDto,
 } from '@/lib/api/topic-insights';
-import type { SelectionInfo } from '../panels/TextSelectionContextMenu';
+import type { SelectionInfo } from '@/components/ai-insights/panels/TextSelectionContextMenu';
 import type { EditContext } from './AIEditInputModal';
 
 // Constants for validation

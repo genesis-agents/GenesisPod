@@ -23,7 +23,7 @@ import { useI18n } from '@/lib/i18n';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/common';
-import type { AIEditOperation } from '../types';
+import type { AIEditOperation } from '@/components/ai-insights/types';
 
 // Validation constants
 const MAX_SELECTION_LENGTH = 2000;

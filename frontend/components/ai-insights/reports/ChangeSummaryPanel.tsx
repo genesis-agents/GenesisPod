@@ -14,7 +14,7 @@
 
 import { useMemo } from 'react';
 import { useI18n } from '@/lib/i18n';
-import type { ReportChange } from '../annotations/ChangeHighlighter';
+import type { ReportChange } from '@/components/common/annotations/ChangeHighlighter';
 
 interface ChangeSummaryPanelProps {
   changes: ReportChange[];

@@ -5,7 +5,7 @@ import {
   splitTextIntoSegments,
   type Annotation as PreprocessorAnnotation,
 } from '@/lib/annotation';
-import { AnnotatedText } from '@/components/ai-insights/annotations/AnnotatedText';
+import { AnnotatedText } from '@/components/common/annotations/AnnotatedText';
 
 interface EvidenceItem {
   id: string;

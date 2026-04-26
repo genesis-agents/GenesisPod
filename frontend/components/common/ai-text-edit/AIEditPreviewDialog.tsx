@@ -13,7 +13,7 @@
 
 import { useMemo } from 'react';
 import { useI18n } from '@/lib/i18n';
-import type { AIEditOperation } from '../types';
+import type { AIEditOperation } from '@/components/ai-insights/types';
 
 interface AIEditPreviewDialogProps {
   isOpen: boolean;

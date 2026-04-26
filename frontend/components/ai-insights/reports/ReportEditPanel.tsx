@@ -17,7 +17,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { ReportEditor } from './ReportEditor';
 import { ReportRevisionHistory } from './ReportRevisionHistory';
-import { ReportAnnotations } from '../annotations/ReportAnnotations';
+import { ReportAnnotations } from '@/components/common/annotations/ReportAnnotations';
 import { ReportChartRenderer } from '@/components/common/chart-viewer/ReportChartRenderer';
 import type { TopicReport, TopicEvidence } from '@/types/topic-insights';
 import type { AIEditOperation, TextSelection } from '../types';

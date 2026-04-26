@@ -60,7 +60,7 @@ import {
 import {
   AnnotatedText,
   useScrollToAnnotation,
-} from '../annotations/AnnotatedText';
+} from '@/components/common/annotations/AnnotatedText';
 import { formatDateSafe } from '@/lib/utils/date';
 import {
   Eye,

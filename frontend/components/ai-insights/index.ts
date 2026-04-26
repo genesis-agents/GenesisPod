@@ -59,10 +59,10 @@ export { ResearchCollaborationPanel } from './collaboration/ResearchCollaboratio
 export { AgentThinkingGraph } from './collaboration/AgentThinkingGraph';
 
 // Annotation Components
-export { ReportAnnotations } from './annotations/ReportAnnotations';
+export { ReportAnnotations } from '@/components/common/annotations/ReportAnnotations';
 
 // AI Edit Components
-export * from './ai-edit';
+export * from '@/components/common/ai-text-edit';
 
 // Topic Content Components
 export * from './topic-content';
