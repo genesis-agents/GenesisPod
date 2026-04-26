@@ -23,8 +23,15 @@ import type { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resou
 
 const LOW_BALANCE_THRESHOLD = 500;
 const CRITICAL_BALANCE_THRESHOLD = 100;
+/** balance 缓存 TTL —— 30s 内 getCreditState/getQuotaSnapshot/suggestFallback 共享一次 DB 查询 */
+const BALANCE_CACHE_TTL_MS = 30_000;
+
+type BalanceAcct = Awaited<ReturnType<CreditsService["getBalance"]>>;
 
 export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
+  /** mission 内 balance 缓存：8+ 次 runner.run 只查 1 次 DB */
+  private balanceCache: { acct: BalanceAcct; expiresAt: number } | null = null;
+
   constructor(
     public readonly userId: string,
     public readonly workspaceId: string | undefined,
@@ -32,7 +39,27 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     private readonly runtimeEnv: RuntimeEnvironmentService,
   ) {}
 
+  /** 带 TTL 的 balance 查询 — DB 调用聚合到一次 */
+  private async getCachedBalance(): Promise<BalanceAcct> {
+    const now = Date.now();
+    if (this.balanceCache && this.balanceCache.expiresAt > now) {
+      return this.balanceCache.acct;
+    }
+    const acct = await this.credits.getBalance(this.userId);
+    this.balanceCache = {
+      acct,
+      expiresAt: now + BALANCE_CACHE_TTL_MS,
+    };
+    return acct;
+  }
+
+  /** 显式失效（如刚扣了费想立刻查最新） */
+  invalidateBalanceCache(): void {
+    this.balanceCache = null;
+  }
+
   async getByokStatus(): Promise<ByokStatus> {
+    // RuntimeEnvironmentService.snapshot 已自带 30s cache
     const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
     if (snap.userKeys.hasByok) return "personal";
     if (snap.userKeys.sharedKeyAvailable) return "donated";
@@ -40,7 +67,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   async getCreditState(): Promise<ICreditState> {
-    const acct = await this.credits.getBalance(this.userId);
+    const acct = await this.getCachedBalance();
     return {
       balance: acct.balance,
       softLimit: LOW_BALANCE_THRESHOLD,
@@ -90,7 +117,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   async getQuotaSnapshot(): Promise<IQuotaSnapshot> {
-    const acct = await this.credits.getBalance(this.userId);
+    const acct = await this.getCachedBalance();
     // CreditsService.getBalance 只暴露 balance / todaySpent
     return {
       balance: { used: 0, limit: acct.balance },
@@ -107,7 +134,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     reason: string;
   }): Promise<IFallbackHint> {
     if (input.reason === "no_credit") {
-      const acct = await this.credits.getBalance(this.userId);
+      const acct = await this.getCachedBalance();
       if (acct.balance <= CRITICAL_BALANCE_THRESHOLD) {
         return {
           action: "notify_user",

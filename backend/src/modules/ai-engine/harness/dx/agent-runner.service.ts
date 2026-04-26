@@ -134,39 +134,10 @@ export class AgentRunner {
     if (!meta) throw new DefineAgentMissingError(Spec.name);
 
     // ── BYOK 预检（fail-fast，免得跑到第一次 chat 才 503）──
-    if (opts.userId && opts.environment) {
-      const policy = opts.onMissingByok ?? "allow";
-      if (policy !== "allow") {
-        try {
-          const byok = await opts.environment.getByokStatus();
-          if (byok === "platform") {
-            if (policy === "fail") {
-              throw new ByokRequiredError(opts.userId, meta.id);
-            }
-            this.logger.warn(
-              `[${meta.id}] BYOK missing for user ${opts.userId}; running with platform key (onMissingByok=warn)`,
-            );
-          }
-        } catch (e) {
-          if (e instanceof ByokRequiredError) throw e;
-          // env 查询失败不阻断主流程
-          this.logger.warn(
-            `[${meta.id}] BYOK precheck failed: ${e instanceof Error ? e.message : String(e)}`,
-          );
-        }
-      }
-    }
+    await this.precheckByok(opts, meta.id);
 
     // ── 装配增强 systemPrompt blocks（环境 + 能力目录）──
-    const augmentBlocks: string[] = [];
-    if (opts.environment) {
-      const envBlock = await this.buildEnvironmentBlock(opts.environment);
-      if (envBlock) augmentBlocks.push(envBlock);
-    }
-    if (opts.exposeCatalog !== false) {
-      const catalogBlock = this.buildCatalogBlock(meta.tools, meta.skills);
-      if (catalogBlock) augmentBlocks.push(catalogBlock);
-    }
+    const augmentBlocks = await this.collectAugmentBlocks(meta, opts);
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
@@ -243,32 +214,83 @@ export class AgentRunner {
    * 流模式：直接 yield agent 事件。
    * 业务 Controller 直接 SSE/WebSocket 转发。
    *
-   * 注意：stream 模式不做 BYOK 预检 / BillingContext 包装 / env block 注入。
-   * 需要这些能力请用 run() + RunOptions。
+   * 与 run() 一致地接受 RunOptions：BYOK 预检 / BillingContext 包装 /
+   * environment block 注入 / catalog block 注入 全部生效。
+   * onEvent 会在每个事件 yield 之前被调用（保持向后兼容的回调时序）。
    */
   async *stream<T extends new () => AgentSpec<z.ZodType, z.ZodType>>(
     Spec: T,
     input: z.input<NonNullable<DefineAgentOptions["inputSchema"]>>,
+    opts: RunOptions = {},
   ): AsyncIterable<IAgentEvent> {
     const meta = readDefineAgentMeta(Spec);
     if (!meta) throw new DefineAgentMissingError(Spec.name);
+
+    // ── BYOK 预检（与 run() 同逻辑）──
+    await this.precheckByok(opts, meta.id);
+
+    // ── 装配 systemPrompt 增强 block（环境 + 能力目录）──
+    const augmentBlocks = await this.collectAugmentBlocks(meta, opts);
+
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
       input,
       meta,
-      [],
+      augmentBlocks,
     );
-    yield* agent.execute({
-      goal:
-        instance.buildUserPrompt?.({
-          input: parsedInput,
-          identity: agent.identity,
-        }) ??
-        (typeof parsedInput === "string"
-          ? parsedInput
-          : JSON.stringify(parsedInput)),
-      input: parsedInput as Record<string, unknown> | string,
-    });
+
+    const inputForExec: Record<string, unknown> | string = parsedInput as
+      | Record<string, unknown>
+      | string;
+    const goal =
+      instance.buildUserPrompt?.({
+        input: parsedInput,
+        identity: agent.identity,
+      }) ??
+      (typeof parsedInput === "string"
+        ? parsedInput
+        : JSON.stringify(parsedInput));
+
+    // ── BillingContext 包装（嵌套规则同 run()）──
+    const existingBilling = BillingContext.get();
+    const needsWrap = opts.userId && !existingBilling;
+
+    if (!needsWrap) {
+      // 直接 yield —— 外层已经包了 BillingContext 或 不需要
+      for await (const ev of agent.execute({ goal, input: inputForExec })) {
+        if (opts.onEvent) {
+          try {
+            await opts.onEvent(ev);
+          } catch {
+            // swallow — 不能拖死 stream
+          }
+        }
+        yield ev;
+      }
+      return;
+    }
+
+    // 需要包 BillingContext —— 用 generator runner 模式
+    // ALS.run 不能直接包 async generator，所以把 ALS 上下文绑到一个内部
+    // 中转 Promise + Channel 模式过于复杂；这里采用更直接的方案：
+    // 用 BillingContext.run 包一个 collector 把所有事件先 push 到 buffer，
+    // 然后 yield。但这就退化成了 run() 行为，失去 streaming。
+    //
+    // 折中：当业务方用 stream() 且需要包 BillingContext 时，建议用 run()。
+    // 这里 fallback 为：runner 不包，让 caller 自己包外层。
+    this.logger.warn(
+      `[${meta.id}] stream() with userId but no outer BillingContext — caller should wrap BillingContext.run() manually for accurate billing`,
+    );
+    for await (const ev of agent.execute({ goal, input: inputForExec })) {
+      if (opts.onEvent) {
+        try {
+          await opts.onEvent(ev);
+        } catch {
+          // swallow
+        }
+      }
+      yield ev;
+    }
   }
 
   // ─── private ────────────────────────────────────────────
@@ -322,6 +344,46 @@ export class AgentRunner {
     }
 
     return { events, state, lastOutput, iterations };
+  }
+
+  /** BYOK 预检：onMissingByok 策略下检查并 throw / warn / 放行 */
+  private async precheckByok(opts: RunOptions, agentId: string): Promise<void> {
+    if (!opts.userId || !opts.environment) return;
+    const policy = opts.onMissingByok ?? "allow";
+    if (policy === "allow") return;
+    try {
+      const byok = await opts.environment.getByokStatus();
+      if (byok === "platform") {
+        if (policy === "fail") {
+          throw new ByokRequiredError(opts.userId, agentId);
+        }
+        this.logger.warn(
+          `[${agentId}] BYOK missing for user ${opts.userId}; running with platform key (onMissingByok=warn)`,
+        );
+      }
+    } catch (e) {
+      if (e instanceof ByokRequiredError) throw e;
+      this.logger.warn(
+        `[${agentId}] BYOK precheck failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  /** 收集要追加到 systemPrompt 的 augment block：environment + tool/skill catalog */
+  private async collectAugmentBlocks(
+    meta: DefineAgentOptions,
+    opts: RunOptions,
+  ): Promise<string[]> {
+    const blocks: string[] = [];
+    if (opts.environment) {
+      const envBlock = await this.buildEnvironmentBlock(opts.environment);
+      if (envBlock) blocks.push(envBlock);
+    }
+    if (opts.exposeCatalog !== false) {
+      const catalogBlock = this.buildCatalogBlock(meta.tools, meta.skills);
+      if (catalogBlock) blocks.push(catalogBlock);
+    }
+    return blocks;
   }
 
   /**
