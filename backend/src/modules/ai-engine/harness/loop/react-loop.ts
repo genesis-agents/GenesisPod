@@ -90,9 +90,20 @@ const DECISION_SYSTEM_SUFFIX = `
 
 ## Decision Protocol
 
-You MUST reply with a single JSON object with exactly two top-level keys:
-- "thinking": a short string explaining your current reasoning.
-- "action": one of the following 6 kinds (use exact field names):
+You MUST reply with a single JSON object that has EXACTLY this two-level wrapper:
+{
+  "thinking": "<short reasoning string>",
+  "action": { "kind": "...", ... }
+}
+
+DO NOT put the action content at the top level. WRONG:
+  {"kind":"tool_call","toolId":"...","input":{...}}     ← missing wrapper
+  {"kind":"parallel_tool_call","calls":[...]}           ← missing wrapper
+RIGHT:
+  {"thinking":"I will search","action":{"kind":"tool_call","toolId":"...","input":{...}}}
+  {"thinking":"I will run two searches","action":{"kind":"parallel_tool_call","calls":[...]}}
+
+The "action" field must be one of the following 6 kinds (use exact field names):
 
   1. Single tool call (refer to <available_tools> for real toolId + input shape):
      { "kind": "tool_call", "toolId": "<exact toolId from available_tools>", "input": { ... } }
@@ -822,6 +833,18 @@ export class ReActLoop implements IAgentLoop {
       thinking?: unknown;
       action?: unknown;
       actions?: unknown;
+      // ★ LLM 常见协议偏差：把 action 内容直接放顶层（漏掉 thinking+action 双层包装）
+      // e.g. LLM 吐 {"kind":"parallel_tool_call","calls":[...]}
+      //      而不是 {"thinking":"...","action":{"kind":"parallel_tool_call","calls":[...]}}
+      // 我们容错识别这种情况
+      kind?: unknown;
+      calls?: unknown;
+      toolId?: unknown;
+      input?: unknown;
+      output?: unknown;
+      skillId?: unknown;
+      name?: unknown;
+      prompt?: unknown;
     }>(raw);
 
     if (!extracted.success || !extracted.data) {
@@ -844,6 +867,23 @@ export class ReActLoop implements IAgentLoop {
     try {
       const obj = extracted.data;
       const thinking = typeof obj.thinking === "string" ? obj.thinking : "";
+
+      // ★ LLM 协议容错：检测 action 内容裸放顶层（缺 {thinking, action} 包装）。
+      // 生产 trace 显示 reasoning model 经常吐：
+      //   {"kind":"parallel_tool_call","calls":[...]}
+      //   {"kind":"tool_call","toolId":"web-search","input":{...}}
+      //   {"kind":"finalize","output":{...}}
+      // 而不是 {"thinking":"...","action":{...}}。这是 LLM 行为偏差，
+      // 不是我们 prompt 错了 —— 容错认它。
+      if (
+        typeof obj.kind === "string" &&
+        obj.action === undefined &&
+        obj.actions === undefined
+      ) {
+        // 把整个 obj 当 action（剥掉非 action 字段不需要，normalizeAction 自己挑）
+        const action = this.normalizeAction(obj);
+        return { decision: { thinking, action } };
+      }
 
       // Shorthand: top-level "actions" array → auto-wrap parallel_tool_call
       if (Array.isArray(obj.actions) && obj.actions.length > 0) {
