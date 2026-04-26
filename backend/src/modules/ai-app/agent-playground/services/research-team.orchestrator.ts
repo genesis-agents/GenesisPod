@@ -102,8 +102,25 @@ function extractFailureMessage(
   events: readonly IAgentEvent[],
   state: string,
   hasOutput: boolean,
+  /** 实际从 RunResult 拿到的运行统计，给 explainTerminatedReason 拼上下文 */
+  runStats?: { iterations?: number; wallTimeMs?: number; tokensUsed?: number },
 ): string | undefined {
   if (state === "completed") return undefined;
+  // 从事件流统计 token（terminated 事件本身不带 tokensUsed）
+  const tokensUsed =
+    runStats?.tokensUsed ??
+    events.reduce((sum, ev) => {
+      if (ev.type === "action_executed") {
+        const p = ev.payload as { tokensUsed?: number } | null;
+        if (p && typeof p.tokensUsed === "number") return sum + p.tokensUsed;
+      }
+      return sum;
+    }, 0);
+  const ctx = {
+    iterations: runStats?.iterations,
+    wallTimeMs: runStats?.wallTimeMs,
+    tokensUsed: tokensUsed > 0 ? tokensUsed : undefined,
+  };
   // 倒序扫，错误信息通常在末尾
   for (let i = events.length - 1; i >= 0; i--) {
     const ev = events[i];
@@ -120,14 +137,11 @@ function extractFailureMessage(
         reason?: string;
         message?: string;
         detail?: string;
-        tokensUsed?: number;
-        iterations?: number;
-        wallTimeMs?: number;
       } | null;
       if (p?.message) return p.message;
       if (p?.detail) return p.detail;
       if (p?.reason && p.reason !== "completed") {
-        return explainTerminatedReason(p.reason, p);
+        return explainTerminatedReason(p.reason, ctx);
       }
     }
   }
@@ -393,6 +407,10 @@ export class ResearchTeamOrchestrator {
               leaderRes.events,
               leaderRes.state,
               !!leaderRes.output,
+              {
+                iterations: leaderRes.iterations,
+                wallTimeMs: leaderRes.wallTimeMs,
+              },
             ),
           },
         );
@@ -402,6 +420,10 @@ export class ResearchTeamOrchestrator {
               leaderRes.events,
               leaderRes.state,
               !!leaderRes.output,
+              {
+                iterations: leaderRes.iterations,
+                wallTimeMs: leaderRes.wallTimeMs,
+              },
             ) ?? "Leader stage failed",
           );
         }
@@ -480,7 +502,10 @@ export class ResearchTeamOrchestrator {
                   wallTimeMs: r.wallTimeMs,
                   iterations: r.iterations,
                   dimension: dim.name,
-                  error: extractFailureMessage(r.events, r.state, !!r.output),
+                  error: extractFailureMessage(r.events, r.state, !!r.output, {
+                    iterations: r.iterations,
+                    wallTimeMs: r.wallTimeMs,
+                  }),
                 },
               );
               await this.emit({
@@ -627,6 +652,10 @@ export class ResearchTeamOrchestrator {
           analystRes.events,
           analystRes.state,
           !!analystRes.output,
+          {
+            iterations: analystRes.iterations,
+            wallTimeMs: analystRes.wallTimeMs,
+          },
         );
         await this.lifecycle(
           missionId,
@@ -733,6 +762,10 @@ export class ResearchTeamOrchestrator {
                 writerRes.events,
                 writerRes.state,
                 !!writerRes.output,
+                {
+                  iterations: writerRes.iterations,
+                  wallTimeMs: writerRes.wallTimeMs,
+                },
               ),
             },
           );
@@ -741,6 +774,10 @@ export class ResearchTeamOrchestrator {
               writerRes.events,
               writerRes.state,
               !!writerRes.output,
+              {
+                iterations: writerRes.iterations,
+                wallTimeMs: writerRes.wallTimeMs,
+              },
             );
             continue;
           }
@@ -1314,6 +1351,10 @@ export class ResearchTeamOrchestrator {
           outlineRes.events,
           outlineRes.state,
           !!outlineRes.output,
+          {
+            iterations: outlineRes.iterations,
+            wallTimeMs: outlineRes.wallTimeMs,
+          },
         ),
       },
     );
@@ -1653,6 +1694,7 @@ export class ResearchTeamOrchestrator {
           agentId: gradeAgentId,
           role: "quality-judge",
           envAdapter: billing,
+          budgetMultiplier,
         },
       );
       await this.tickCostDelta(

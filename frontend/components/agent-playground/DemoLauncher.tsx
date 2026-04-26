@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   runResearchTeam,
+  type BudgetProfile,
   type RunMissionInput,
 } from '@/lib/api/agent-playground';
 import { Loader2, Sparkles } from 'lucide-react';
@@ -27,9 +28,7 @@ export function DemoLauncher() {
   const [language, setLanguage] = useState<RunMissionInput['language']>(
     initLang === 'en-US' ? 'en-US' : 'zh-CN'
   );
-  const [budgetProfile, setBudgetProfile] = useState<
-    'low' | 'medium' | 'high' | 'unlimited'
-  >('medium');
+  const [budgetProfile, setBudgetProfile] = useState<BudgetProfile>('medium');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,11 +122,7 @@ export function DemoLauncher() {
           </label>
           <select
             value={budgetProfile}
-            onChange={(e) =>
-              setBudgetProfile(
-                e.target.value as 'low' | 'medium' | 'high' | 'unlimited'
-              )
-            }
+            onChange={(e) => setBudgetProfile(e.target.value as BudgetProfile)}
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             title="低/中/高 决定 token 上限；不限 几乎不设上限（按用户 BYOK 余额限制）"
           >
