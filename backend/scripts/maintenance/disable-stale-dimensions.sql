@@ -13,24 +13,38 @@
 --   prisma db execute --schema prisma/schema --file scripts/maintenance/disable-stale-dimensions.sql --url "$DATABASE_URL"
 --
 -- 影响：
---   - 凡是最近一次 mission 为 FAILED/CANCELLED 的 topic：把它的 isEnabled=true
---     的 dim 全部置 isEnabled=false，下次"开始"会走 Leader 重新规划
---   - 最近一次 mission 为 COMPLETED/EXECUTING 的 topic：不动
+--   - 凡是最近一次 mission 不是 COMPLETED 的 topic（FAILED / CANCELLED /
+--     卡死的 PLANNING / EXECUTING / REVIEWING / PLAN_READY）：把它的
+--     isEnabled=true 的 dim 全部置 isEnabled=false，下次"开始"会走
+--     Leader 重新规划路径
+--   - 最近一次 mission 为 COMPLETED 的 topic：不动
+--   - 同时把卡在中间状态的旧 mission mark 为 FAILED 便于追溯
 
 WITH last_mission AS (
   SELECT DISTINCT ON ("topicId")
+    "id" AS mission_id,
     "topicId",
     "status"
   FROM "research_missions"
   ORDER BY "topicId", "createdAt" DESC
 ),
-topics_to_clean AS (
-  SELECT "topicId"
+stale AS (
+  SELECT mission_id, "topicId", "status"
   FROM last_mission
-  WHERE "status" IN ('FAILED', 'CANCELLED')
+  WHERE "status" <> 'COMPLETED'
+),
+fix_stuck AS (
+  UPDATE "research_missions"
+  SET "status" = 'FAILED',
+      "updatedAt" = NOW()
+  WHERE "id" IN (
+    SELECT mission_id FROM stale
+    WHERE "status" IN ('PLANNING', 'PLAN_READY', 'EXECUTING', 'REVIEWING')
+  )
+  RETURNING "id"
 )
 UPDATE "topic_dimensions"
 SET "isEnabled" = false,
     "updatedAt" = NOW()
-WHERE "topicId" IN (SELECT "topicId" FROM topics_to_clean)
+WHERE "topicId" IN (SELECT "topicId" FROM stale)
   AND "isEnabled" = true;

@@ -207,32 +207,51 @@ export class TopicTeamOrchestratorService {
         });
       }
 
-      // ★ 修复重复任务 bug：上一次 mission 若为 FAILED/CANCELLED，
+      // ★ 修复重复任务 bug：上一次 mission 若不是 COMPLETED，
       //   遗留的 topicDimension 行（首次规划落库 + 用户对话期间被
-      //   executeGenericDimensionResearch 兜底创建）会被
+      //   executeGenericDimensionResearch / leader-tool 兜底创建）会被
       //   getDimensionsToResearch 一次性拉走，给新 mission 创建一整套
-      //   重复的 ResearchTask（参见 Screenshot_48 的 18 条任务现象）。
-      //   重启时把此 topic 上 isEnabled=true 的 dim 软删除，
-      //   强制 getDimensionsToResearch 返回 0 条 → 走 LLM 重新规划路径。
-      //   forceRefresh / dimensionIds 显式指定时不清理（语义上是定向刷新）。
+      //   重复的 ResearchTask（参见 Screenshot_48 / 51 的 18 条任务现象）。
+      //   覆盖的卡死状态：FAILED / CANCELLED 显式终止；
+      //   PLANNING / EXECUTING / REVIEWING / PLAN_READY 卡在中间没正常结束
+      //   （进程重启 + activeRefreshes in-memory 丢失时，DB 状态留在执行中）。
+      //   只跳过 COMPLETED（用户 success 后续做"开始"=重新研究是合理的，
+      //   仍清理；保留语义只让 forceRefresh / dimensionIds 走定向刷新）。
       if (!options.forceRefresh && !options.dimensionIds?.length) {
         const lastMission = await this.prisma.researchMission.findFirst({
           where: { topicId },
           orderBy: { createdAt: "desc" },
           select: { id: true, status: true },
         });
-        if (
-          lastMission &&
-          (lastMission.status === ResearchMissionStatus.FAILED ||
-            lastMission.status === ResearchMissionStatus.CANCELLED)
-        ) {
-          const disabled = await this.prisma.topicDimension.updateMany({
-            where: { topicId, isEnabled: true },
-            data: { isEnabled: false },
-          });
-          this.logger.log(
-            `[executeRefresh] Last mission ${lastMission.id} ended in ${lastMission.status}; soft-disabled ${disabled.count} stale dimensions on topic ${topicId} to force fresh leader replanning`,
-          );
+        if (lastMission) {
+          // 把卡在中间状态的旧 mission mark 为 FAILED，便于后续追溯
+          const stuckStatuses: ResearchMissionStatus[] = [
+            ResearchMissionStatus.PLANNING,
+            ResearchMissionStatus.PLAN_READY,
+            ResearchMissionStatus.EXECUTING,
+            ResearchMissionStatus.REVIEWING,
+          ];
+          if (stuckStatuses.includes(lastMission.status)) {
+            await this.prisma.researchMission.update({
+              where: { id: lastMission.id },
+              data: { status: ResearchMissionStatus.FAILED },
+            });
+            this.logger.log(
+              `[executeRefresh] Last mission ${lastMission.id} was stuck in ${lastMission.status}; marked as FAILED before fresh start`,
+            );
+          }
+
+          // 上一次 mission 不是 COMPLETED 时，清掉残留的 isEnabled=true dim
+          // 强制 getDimensionsToResearch 返回 0 条 → 走 LLM 重新规划路径
+          if (lastMission.status !== ResearchMissionStatus.COMPLETED) {
+            const disabled = await this.prisma.topicDimension.updateMany({
+              where: { topicId, isEnabled: true },
+              data: { isEnabled: false },
+            });
+            this.logger.log(
+              `[executeRefresh] Soft-disabled ${disabled.count} stale dimensions on topic ${topicId} (last mission ${lastMission.id} status=${lastMission.status}); leader will replan from scratch`,
+            );
+          }
         }
       }
 

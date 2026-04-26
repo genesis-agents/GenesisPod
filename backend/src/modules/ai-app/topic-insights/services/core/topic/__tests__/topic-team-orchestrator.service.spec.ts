@@ -332,7 +332,6 @@ describe("TopicTeamOrchestratorService", () => {
     });
 
     it("should soft-disable stale dimensions when previous mission failed", async () => {
-      // 上一次 mission FAILED → 应清空 isEnabled=true 的 dim，强制重新规划
       mockPrisma.researchMission.findFirst.mockResolvedValue({
         id: "mission-prev",
         status: "FAILED",
@@ -345,6 +344,43 @@ describe("TopicTeamOrchestratorService", () => {
         data: { isEnabled: false },
       });
     });
+
+    it("should mark stuck EXECUTING mission as FAILED then clean dimensions", async () => {
+      // 进程重启 / 客户端中断后，上一次 mission DB 状态仍是 EXECUTING
+      // 此时点"开始"应清掉脏 dim 并把卡死 mission 标记为 FAILED
+      mockPrisma.researchMission.findFirst.mockResolvedValue({
+        id: "mission-stuck",
+        status: "EXECUTING",
+      });
+
+      await service.executeRefresh(mockTopic as never);
+
+      expect(mockPrisma.researchMission.update).toHaveBeenCalledWith({
+        where: { id: "mission-stuck" },
+        data: { status: "FAILED" },
+      });
+      expect(mockPrisma.topicDimension.updateMany).toHaveBeenCalledWith({
+        where: { topicId: "topic-1", isEnabled: true },
+        data: { isEnabled: false },
+      });
+    });
+
+    it.each(["PLANNING", "PLAN_READY", "REVIEWING"])(
+      "should clean dimensions when previous mission stuck in %s",
+      async (status) => {
+        mockPrisma.researchMission.findFirst.mockResolvedValue({
+          id: "mission-stuck",
+          status,
+        });
+
+        await service.executeRefresh(mockTopic as never);
+
+        expect(mockPrisma.topicDimension.updateMany).toHaveBeenCalledWith({
+          where: { topicId: "topic-1", isEnabled: true },
+          data: { isEnabled: false },
+        });
+      },
+    );
 
     it("should NOT touch dimensions when previous mission completed", async () => {
       mockPrisma.researchMission.findFirst.mockResolvedValue({
