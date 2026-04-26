@@ -140,11 +140,48 @@ function extractFailureMessage(
       }
     }
   }
+  // 关键根因检测：所有 finalize observation 输出都为空 → LLM 持续返回空内容
+  // （比 budget / verifier 误报更准确，需要先于 terminated reason 判定）
+  const finalizeObs = events.filter((ev) => {
+    if (ev.type !== "action_executed") return false;
+    const p = ev.payload as {
+      action?: { kind?: string };
+      output?: unknown;
+    } | null;
+    return p?.action?.kind === "finalize";
+  });
+  const emptyFinalize = finalizeObs.filter((ev) => {
+    const p = ev.payload as { output?: unknown } | null;
+    const out = p?.output;
+    return (
+      out == null ||
+      out === "" ||
+      (typeof out === "string" && out.trim() === "")
+    );
+  });
+  const llmReturnedEmpty =
+    finalizeObs.length >= 2 && emptyFinalize.length === finalizeObs.length;
+  // 抓 thought 事件的真实 modelId —— 让错误信息直接告诉用户问题模型
+  let usedModelId: string | undefined;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.type === "thinking") {
+      const p = ev.payload as { modelId?: string } | null;
+      if (p?.modelId) {
+        usedModelId = p.modelId;
+        break;
+      }
+    }
+  }
+
   const ctx = {
     iterations: runStats?.iterations,
     wallTimeMs: runStats?.wallTimeMs,
     tokensUsed: tokensUsed > 0 ? tokensUsed : undefined,
     reflectionVerdicts,
+    llmReturnedEmpty,
+    emptyFinalizeCount: emptyFinalize.length,
+    usedModelId,
   };
   // 倒序扫，错误信息通常在末尾
   for (let i = events.length - 1; i >= 0; i--) {
@@ -209,6 +246,11 @@ function explainTerminatedReason(
     iterations?: number;
     wallTimeMs?: number;
     reflectionVerdicts?: { score: number; critique?: string }[];
+    /** 所有 finalize observation 都是空 → LLM 没在产出，不是 budget */
+    llmReturnedEmpty?: boolean;
+    emptyFinalizeCount?: number;
+    /** 最近一次 LLM 真实使用的 model id（让用户立刻看到具体哪个模型出问题） */
+    usedModelId?: string;
   } | null,
 ): string {
   const ctx: string[] = [];
@@ -229,6 +271,11 @@ function explainTerminatedReason(
     case "budget":
     case "budget_exhausted":
     case "token_limit":
+      // 优先级 1: LLM 持续返空（最具体）
+      if (detail?.llmReturnedEmpty) {
+        return `LLM 持续返回空 finalize${ctxStr} —— ${detail.emptyFinalizeCount ?? "?"} 次调用全部 output="" 且立即 finalize。**根因极可能是 BYOK 模型配置错误**：当前使用的 model id 可能不存在 / API 拒绝 / 输出被过滤 / 模型不支持 ReAct JSON 协议。请前往 设置 → 模型 验证模型可用性，或换用主流模型 (gpt-4o / claude-3.5)`;
+      }
+      // 优先级 2: verifier 反复未通过门槛
       if (isVerifierExhaustion) {
         const lastCritique = lastVerdict?.critique
           ? ` 最后一次评分批注：「${lastVerdict.critique.slice(0, 200)}${
@@ -239,6 +286,7 @@ function explainTerminatedReason(
           1,
         )} 分）。${lastCritique} 可调高 budget.maxIterations 给更多重写机会，或降低 passThreshold，或检查 verifier prompt 是否过严`;
       }
+      // 优先级 3: 真 token 触顶
       return `Agent 预算耗尽${ctxStr} —— maxTokens 触顶。可在 @DefineAgent.budget.maxTokens 调高，或缩短输入 / 减少迭代`;
     case "iteration_limit":
     case "max_iterations":
@@ -317,6 +365,32 @@ export class ResearchTeamOrchestrator {
       maxTokens: effectiveMaxCredits * 1000,
       maxCostUsd: effectiveMaxCredits * 0.002,
     });
+
+    // 预检 1：模型可用性 —— 用户 BYOK 默认模型必须真实可用。
+    // 否则 mission 会跑到第一次 LLM 调用才空响应，浪费 1-2 分钟才报错。
+    try {
+      const allModels = await billing.listAvailableModels();
+      const healthy = allModels.filter((m) => m.available);
+      if (allModels.length > 0 && healthy.length === 0) {
+        const ids = allModels.map((m) => m.modelId).join(", ");
+        const msg = `用户 BYOK 配置的所有模型均不可用：${ids}。请前往 设置 → 模型 检查 model id 是否真实存在 / API key 是否有效`;
+        await this.emit({
+          type: "agent-playground.mission:rejected",
+          missionId,
+          userId,
+          payload: {
+            reason: "no_healthy_model",
+            availableCount: 0,
+            totalCount: allModels.length,
+            userMessage: msg,
+          },
+        });
+        throw new Error(msg);
+      }
+    } catch (err) {
+      // 仅 reject-throw 抛出；env 查询失败不阻断（partial info ok）
+      if (err instanceof Error && err.message.includes("BYOK 配置")) throw err;
+    }
 
     const credit = await billing.getCreditState();
     if (credit.balance <= (credit.hardLimit ?? 0)) {

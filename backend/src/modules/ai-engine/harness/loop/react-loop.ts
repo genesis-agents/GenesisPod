@@ -113,6 +113,13 @@ export class ReActLoop implements IAgentLoop {
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
+    /**
+     * 连续空 LLM 响应计数器 —— 检测 "model 不存在 / API 拒绝 / 输出被过滤" 场景：
+     * LLM 每次返回 completion="" + 立即 finalize 空结果。
+     * 这种状态再多迭代也无意义，2 次后 abort 并明确告知根因。
+     */
+    let consecutiveEmptyLLM = 0;
+    let lastModelId: string | undefined;
 
     while (iteration < criteria.maxIterations) {
       iteration += 1;
@@ -215,6 +222,33 @@ export class ReActLoop implements IAgentLoop {
         );
         decision = reasoned.decision;
         usage = reasoned.usage;
+        if (usage.modelId) lastModelId = usage.modelId;
+
+        // 熔断：检测「LLM 持续返空」(model 不存在 / API 拒绝 / 输出过滤)
+        // 触发条件：completionTokens<=2 + finalize+空 output
+        const isEmptyResponse =
+          usage.completionTokens <= 2 &&
+          decision.action.kind === "finalize" &&
+          (!decision.action.output ||
+            (typeof decision.action.output === "string" &&
+              decision.action.output.trim() === ""));
+        if (isEmptyResponse) {
+          consecutiveEmptyLLM += 1;
+          if (consecutiveEmptyLLM >= 2) {
+            yield this.makeEvent(agentId, "error", {
+              message: `LLM "${
+                lastModelId ?? "unknown"
+              }" 连续 ${consecutiveEmptyLLM} 次返回空响应 (completion=0 tokens)。根因极可能是 model id 不存在 / API 拒绝 / 输出被过滤。请检查 BYOK 模型配置`,
+              recoverable: false,
+            });
+            yield this.makeEvent(agentId, "terminated", {
+              reason: "empty_llm_response",
+            });
+            return;
+          }
+        } else {
+          consecutiveEmptyLLM = 0;
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const aborted = /aborted/i.test(message);
