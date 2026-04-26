@@ -45,6 +45,11 @@ import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
 import { LeaderAgent } from "../agents/leader.agent";
 import { ResearcherAgent } from "../agents/researcher.agent";
+import { DimensionOutlineAgent } from "../agents/dimension-outline.agent";
+import { ChapterWriterAgent } from "../agents/chapter-writer.agent";
+import { ChapterReviewerAgent } from "../agents/chapter-reviewer.agent";
+import { DimensionIntegratorAgent } from "../agents/dimension-integrator.agent";
+import { DimensionQualityJudgeAgent } from "../agents/dimension-quality-judge.agent";
 import { AnalystAgent } from "../agents/analyst.agent";
 import { WriterAgent } from "../agents/writer.agent";
 import {
@@ -382,11 +387,35 @@ export class ResearchTeamOrchestrator {
                   summary: `(failed: ${r.state})`,
                 };
               }
-              return r.output as {
+              const researcherOut = r.output as {
                 dimension: string;
                 findings: { claim: string; evidence: string; source: string }[];
                 summary: string;
               };
+
+              // ── TI-style per-dimension chapter pipeline ──
+              try {
+                const enriched = await this.runPerDimensionPipeline({
+                  missionId,
+                  userId,
+                  dimensionIdx: idx,
+                  dimensionName: dim.name,
+                  topic: input.topic,
+                  language: input.language,
+                  depth: input.depth,
+                  pool,
+                  researcherOut,
+                });
+                return enriched;
+              } catch (err) {
+                const message =
+                  err instanceof Error ? err.message : String(err);
+                this.log.warn(
+                  `[per-dim pipeline ${idx}] threw on "${dim.name}": ${message}`,
+                );
+                // 退化到原始 researcher 输出
+                return researcherOut;
+              }
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               this.log.warn(
@@ -976,5 +1005,469 @@ export class ResearchTeamOrchestrator {
     );
     await Promise.all(workers);
     return results;
+  }
+
+  /**
+   * TI-style per-dimension chapter pipeline.
+   * 接收 Researcher 收集的素材，跑 outline → chapters [write+review loop] →
+   * integrate → 5-axis grade，然后返回带 fullMarkdown + grade 的 enriched result。
+   */
+  private async runPerDimensionPipeline(args: {
+    missionId: string;
+    userId: string;
+    dimensionIdx: number;
+    dimensionName: string;
+    topic: string;
+    language: "zh-CN" | "en-US";
+    depth: "quick" | "standard" | "deep";
+    pool: MissionBudgetPool;
+    researcherOut: {
+      dimension: string;
+      findings: { claim: string; evidence: string; source: string }[];
+      summary: string;
+    };
+  }): Promise<{
+    dimension: string;
+    findings: { claim: string; evidence: string; source: string }[];
+    summary: string;
+    /** Per-dim 增强字段 */
+    chapters?: {
+      index: number;
+      heading: string;
+      body: string;
+      wordCount: number;
+    }[];
+    abstract?: string;
+    keyFindings?: string[];
+    fullMarkdown?: string;
+    grade?: {
+      overall: number;
+      grade: string;
+      axes: Record<string, { score: number; comment: string }>;
+      summary: string;
+    };
+  }> {
+    const {
+      missionId,
+      userId,
+      dimensionIdx,
+      dimensionName,
+      topic,
+      language,
+      depth,
+      pool,
+      researcherOut,
+    } = args;
+
+    const targetChapterCount = depth === "quick" ? 3 : depth === "deep" ? 7 : 5;
+    const targetWordsPerChapter =
+      depth === "quick" ? 600 : depth === "deep" ? 2500 : 1500;
+    const dimAgentTag = `researcher#${dimensionIdx}`;
+
+    // findings 不足时直接退化，跳过 chapter pipeline
+    if (researcherOut.findings.length === 0) {
+      return researcherOut;
+    }
+
+    // ── 1. Outline ──
+    const outlineAgentId = `outline#${dimensionIdx}`;
+    await this.lifecycle(
+      missionId,
+      userId,
+      outlineAgentId,
+      "outline",
+      "started",
+      {
+        dimension: dimensionName,
+      },
+    );
+    const outlineRes = await this.runner.run(DimensionOutlineAgent, {
+      topic,
+      dimension: dimensionName,
+      language,
+      dimensionSummary: researcherOut.summary,
+      findings: researcherOut.findings,
+      targetChapterCount,
+    });
+    await this.relayAgentEvents(outlineRes.events, {
+      missionId,
+      userId,
+      agentId: outlineAgentId,
+      role: "outline",
+    });
+    await this.tickCostDelta(
+      missionId,
+      userId,
+      "researchers",
+      pool,
+      extractTokenSpend(outlineRes.events),
+    );
+    await this.lifecycle(
+      missionId,
+      userId,
+      outlineAgentId,
+      "outline",
+      outlineRes.state === "completed" ? "completed" : "failed",
+      { dimension: dimensionName, wallTimeMs: outlineRes.wallTimeMs },
+    );
+    if (outlineRes.state !== "completed" || !outlineRes.output) {
+      return researcherOut;
+    }
+    const outline = outlineRes.output as {
+      chapters: {
+        index: number;
+        heading: string;
+        thesis: string;
+        keyPoints: string[];
+        sourceIndices: number[];
+      }[];
+    };
+    await this.emit({
+      type: "agent-playground.dimension:outline:planned",
+      missionId,
+      userId,
+      agentId: dimAgentTag,
+      payload: {
+        dimension: dimensionName,
+        chapterCount: outline.chapters.length,
+        chapters: outline.chapters.map((c) => ({
+          index: c.index,
+          heading: c.heading,
+          thesis: c.thesis,
+        })),
+      },
+    });
+
+    // ── 2. 逐章节 write + review loop ──
+    const writtenChapters: {
+      index: number;
+      heading: string;
+      body: string;
+      wordCount: number;
+    }[] = [];
+    const previousHeadings: string[] = [];
+    const MAX_REVISION_ATTEMPTS = 2;
+    const PASS_THRESHOLD = 75;
+
+    for (const chapter of outline.chapters) {
+      const chapterSources = chapter.sourceIndices
+        .map((i) => researcherOut.findings[i])
+        .filter((s): s is NonNullable<typeof s> => s != null);
+
+      let attempt = 0;
+      let lastDraft:
+        | { body: string; wordCount: number; citationsUsed: string[] }
+        | undefined;
+      let lastCritique: string | undefined;
+
+      while (attempt < MAX_REVISION_ATTEMPTS + 1) {
+        attempt += 1;
+        const writerAgentId = `chapter-writer#${dimensionIdx}.${chapter.index}.${attempt}`;
+        await this.emit({
+          type: "agent-playground.chapter:writing:started",
+          missionId,
+          userId,
+          agentId: writerAgentId,
+          payload: {
+            dimension: dimensionName,
+            chapterIndex: chapter.index,
+            heading: chapter.heading,
+            attempt,
+          },
+        });
+        const writerRes = await this.runner.run(ChapterWriterAgent, {
+          topic,
+          dimension: dimensionName,
+          language,
+          chapter: {
+            index: chapter.index,
+            heading: chapter.heading,
+            thesis: chapter.thesis,
+            keyPoints: chapter.keyPoints,
+          },
+          sources: chapterSources,
+          targetWords: targetWordsPerChapter,
+          previousChapterHeadings: previousHeadings,
+          previousCritique: lastCritique,
+          previousDraft: lastDraft?.body,
+        });
+        await this.relayAgentEvents(writerRes.events, {
+          missionId,
+          userId,
+          agentId: writerAgentId,
+          role: "chapter-writer",
+        });
+        await this.tickCostDelta(
+          missionId,
+          userId,
+          "researchers",
+          pool,
+          extractTokenSpend(writerRes.events),
+        );
+        if (writerRes.state !== "completed" || !writerRes.output) {
+          await this.emit({
+            type: "agent-playground.chapter:writing:completed",
+            missionId,
+            userId,
+            agentId: writerAgentId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: chapter.index,
+              attempt,
+              state: "failed",
+            },
+          });
+          break;
+        }
+        const draft = writerRes.output as {
+          body: string;
+          wordCount: number;
+          citationsUsed: string[];
+        };
+        lastDraft = draft;
+        await this.emit({
+          type: "agent-playground.chapter:writing:completed",
+          missionId,
+          userId,
+          agentId: writerAgentId,
+          payload: {
+            dimension: dimensionName,
+            chapterIndex: chapter.index,
+            heading: chapter.heading,
+            wordCount: draft.wordCount,
+            attempt,
+            state: "completed",
+          },
+        });
+
+        // ── review ──
+        const reviewerAgentId = `chapter-reviewer#${dimensionIdx}.${chapter.index}.${attempt}`;
+        await this.emit({
+          type: "agent-playground.chapter:review:started",
+          missionId,
+          userId,
+          agentId: reviewerAgentId,
+          payload: {
+            dimension: dimensionName,
+            chapterIndex: chapter.index,
+            attempt,
+          },
+        });
+        const reviewerRes = await this.runner.run(ChapterReviewerAgent, {
+          topic,
+          dimension: dimensionName,
+          language,
+          chapter: {
+            index: chapter.index,
+            heading: chapter.heading,
+            thesis: chapter.thesis,
+            body: draft.body,
+            wordCount: draft.wordCount,
+            targetWords: targetWordsPerChapter,
+          },
+        });
+        await this.relayAgentEvents(reviewerRes.events, {
+          missionId,
+          userId,
+          agentId: reviewerAgentId,
+          role: "chapter-reviewer",
+        });
+        await this.tickCostDelta(
+          missionId,
+          userId,
+          "researchers",
+          pool,
+          extractTokenSpend(reviewerRes.events),
+        );
+        const verdict =
+          reviewerRes.state === "completed" && reviewerRes.output
+            ? (reviewerRes.output as {
+                decision: "pass" | "revise";
+                score: number;
+                critique: string;
+              })
+            : {
+                decision: "pass" as const,
+                score: 60,
+                critique: "(reviewer failed)",
+              };
+        await this.emit({
+          type: "agent-playground.chapter:review:completed",
+          missionId,
+          userId,
+          agentId: reviewerAgentId,
+          payload: {
+            dimension: dimensionName,
+            chapterIndex: chapter.index,
+            attempt,
+            decision: verdict.decision,
+            score: verdict.score,
+            critique: verdict.critique,
+          },
+        });
+
+        if (
+          verdict.decision === "pass" ||
+          verdict.score >= PASS_THRESHOLD ||
+          attempt >= MAX_REVISION_ATTEMPTS + 1
+        ) {
+          writtenChapters.push({
+            index: chapter.index,
+            heading: chapter.heading,
+            body: draft.body,
+            wordCount: draft.wordCount,
+          });
+          previousHeadings.push(chapter.heading);
+          break;
+        }
+
+        // revise → 下一轮
+        lastCritique = verdict.critique;
+        await this.emit({
+          type: "agent-playground.chapter:revision",
+          missionId,
+          userId,
+          agentId: reviewerAgentId,
+          payload: {
+            dimension: dimensionName,
+            chapterIndex: chapter.index,
+            nextAttempt: attempt + 1,
+            critique: verdict.critique,
+          },
+        });
+      }
+    }
+
+    if (writtenChapters.length === 0) {
+      return researcherOut;
+    }
+
+    // ── 3. Integrate ──
+    const integratorAgentId = `integrator#${dimensionIdx}`;
+    await this.emit({
+      type: "agent-playground.dimension:integrating:started",
+      missionId,
+      userId,
+      agentId: integratorAgentId,
+      payload: {
+        dimension: dimensionName,
+        chapterCount: writtenChapters.length,
+      },
+    });
+    const integrateRes = await this.runner.run(DimensionIntegratorAgent, {
+      topic,
+      dimension: dimensionName,
+      language,
+      chapters: writtenChapters,
+      dimensionSummary: researcherOut.summary,
+    });
+    await this.relayAgentEvents(integrateRes.events, {
+      missionId,
+      userId,
+      agentId: integratorAgentId,
+      role: "integrator",
+    });
+    await this.tickCostDelta(
+      missionId,
+      userId,
+      "researchers",
+      pool,
+      extractTokenSpend(integrateRes.events),
+    );
+
+    let abstract: string | undefined;
+    let keyFindings: string[] | undefined;
+    let fullMarkdown: string | undefined;
+    if (integrateRes.state === "completed" && integrateRes.output) {
+      const integrated = integrateRes.output as {
+        abstract: string;
+        keyFindings: string[];
+        fullMarkdown: string;
+        totalWordCount: number;
+      };
+      abstract = integrated.abstract;
+      keyFindings = integrated.keyFindings;
+      fullMarkdown = integrated.fullMarkdown;
+      await this.emit({
+        type: "agent-playground.dimension:integrating:completed",
+        missionId,
+        userId,
+        agentId: integratorAgentId,
+        payload: {
+          dimension: dimensionName,
+          totalWordCount: integrated.totalWordCount,
+          chapterCount: writtenChapters.length,
+        },
+      });
+    }
+
+    // ── 4. 5-axis grade ──
+    const gradeAgentId = `quality-judge#${dimensionIdx}`;
+    let grade:
+      | {
+          overall: number;
+          grade: string;
+          axes: Record<string, { score: number; comment: string }>;
+          summary: string;
+        }
+      | undefined;
+    if (fullMarkdown && abstract) {
+      const sources = researcherOut.findings.map((f) => ({
+        url: f.source,
+      }));
+      const gradeRes = await this.runner.run(DimensionQualityJudgeAgent, {
+        topic,
+        dimension: dimensionName,
+        language,
+        abstract,
+        fullMarkdown,
+        totalWordCount: writtenChapters.reduce((s, c) => s + c.wordCount, 0),
+        sources,
+      });
+      await this.relayAgentEvents(gradeRes.events, {
+        missionId,
+        userId,
+        agentId: gradeAgentId,
+        role: "quality-judge",
+      });
+      await this.tickCostDelta(
+        missionId,
+        userId,
+        "researchers",
+        pool,
+        extractTokenSpend(gradeRes.events),
+      );
+      if (gradeRes.state === "completed" && gradeRes.output) {
+        const g = gradeRes.output as {
+          overall: number;
+          grade: string;
+          axes: Record<string, { score: number; comment: string }>;
+          summary: string;
+        };
+        grade = g;
+        await this.emit({
+          type: "agent-playground.dimension:graded",
+          missionId,
+          userId,
+          agentId: gradeAgentId,
+          payload: {
+            dimension: dimensionName,
+            overall: g.overall,
+            grade: g.grade,
+            axes: g.axes,
+            summary: g.summary,
+          },
+        });
+      }
+    }
+
+    return {
+      ...researcherOut,
+      chapters: writtenChapters,
+      abstract,
+      keyFindings,
+      fullMarkdown,
+      grade,
+    };
   }
 }

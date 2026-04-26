@@ -30,4 +30,14 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("budget:exhausted"),
   T("report:draft"),
   T("memory:indexed"),
+  // ── TI-style per-dimension 子流程事件 ──
+  T("dimension:outline:planned"), // outline agent 产出 N 章节规划
+  T("chapter:writing:started"), // chapter writer 开始写第 i 章
+  T("chapter:writing:completed"), // chapter writer 出 draft
+  T("chapter:review:started"), // chapter reviewer 开始评
+  T("chapter:review:completed"), // chapter reviewer 出 decision
+  T("chapter:revision"), // 触发重写（critique 反馈）
+  T("dimension:integrating:started"),
+  T("dimension:integrating:completed"),
+  T("dimension:graded"), // 5-axis 评分结果
 ];
