@@ -24,6 +24,11 @@ export interface LeaderChatMessage {
   content: string;
   tokensUsed?: number | null;
   createdAt: string | Date;
+  /**
+   * 调用方业务字段（如 TI 的 decisionType / understanding / todoCreated / clarifyOptions）。
+   * 由 renderAssistantHeaderExtra / renderAssistantBodyExtra 槽消费。
+   */
+  meta?: Record<string, unknown>;
 }
 
 /** Dock 三态 */
@@ -63,6 +68,17 @@ export interface LeaderChatProps {
 
   /** 是否启用 Markdown 渲染（默认 true） */
   enableMarkdown?: boolean;
+
+  /** assistant 消息名字旁边的额外节点（如 decisionType chip） */
+  renderAssistantHeaderExtra?: (msg: LeaderChatMessage) => ReactNode;
+  /** assistant 消息正文之后的额外节点（如 TODO 按钮 / clarify 选项） */
+  renderAssistantBodyExtra?: (msg: LeaderChatMessage) => ReactNode;
+  /** assistant 消息正文之前的额外节点（如 💭 understanding） */
+  renderAssistantBodyPrefix?: (msg: LeaderChatMessage) => ReactNode;
+
+  /** 自定义角色名称（默认 "Leader" / "User"） */
+  assistantName?: string;
+  userName?: string;
 }
 
 /** LeaderChatDock props（包含 LeaderChatProps + 容器配置） */

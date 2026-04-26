@@ -39,9 +39,33 @@ import type {
   MissionStatus,
   TaskStatus,
   TeamInfo,
+  LeaderDecisionType,
 } from '@/lib/api/topic-insights';
-import { leaderChat } from '@/lib/api/topic-insights';
+import { leaderChat, getTeamMessages } from '@/lib/api/topic-insights';
 // TaskStatus is used in type annotations below
+
+/** Leader 决策类型 → chip 配色（与右下角 ResearchCollaborationPanel 一致） */
+const TI_DECISION_TYPE_CONFIG: Record<
+  LeaderDecisionType,
+  { label: string; colorClass: string }
+> = {
+  DIRECT_ANSWER: {
+    label: '直接回答',
+    colorClass: 'border-blue-200 bg-blue-50 text-blue-700',
+  },
+  CREATE_TODO: {
+    label: '创建任务',
+    colorClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  },
+  CLARIFY: {
+    label: '需要澄清',
+    colorClass: 'border-amber-200 bg-amber-50 text-amber-700',
+  },
+  ACKNOWLEDGE: {
+    label: '已确认',
+    colorClass: 'border-gray-200 bg-gray-50 text-gray-700',
+  },
+};
 
 /**
  * ★ 类型守卫：验证是否为非空字符串数组
@@ -936,11 +960,51 @@ function TopicTeamCanvasView({
 }) {
   const { t } = useTranslation();
 
-  // ── Leader 对话状态（client-side 累积） ──
+  // ── Leader 对话状态（持久化 + 富富展示，与右下角 ResearchCollaborationPanel 一致） ──
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<LeaderChatMessageData[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatSending, setChatSending] = useState(false);
+
+  const activeMissionId = missionStatus?.id;
+
+  // 打开对话框时拉取持久化历史（来自 team-messages，与右下角 panel 同源）
+  useEffect(() => {
+    if (!chatOpen || !topicId || !activeMissionId) return;
+    let cancelled = false;
+    setChatLoading(true);
+    setChatError(null);
+    getTeamMessages(topicId, { missionId: activeMissionId, limit: 50 })
+      .then((msgs) => {
+        if (cancelled) return;
+        const filtered: LeaderChatMessageData[] = msgs
+          .filter(
+            (m) =>
+              m.messageType === 'USER_MESSAGE' ||
+              m.messageType === 'LEADER_RESPONSE'
+          )
+          .map((m) => ({
+            id: m.id,
+            role: m.messageType === 'USER_MESSAGE' ? 'user' : 'assistant',
+            content: m.content,
+            createdAt: m.createdAt,
+            meta: m.metadata,
+          }));
+        setChatMessages(filtered);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setChatError(e instanceof Error ? e.message : String(e));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setChatLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatOpen, topicId, activeMissionId]);
 
   const handleLeaderSend = async (text: string) => {
     setChatSending(true);
@@ -964,19 +1028,25 @@ function TopicTeamCanvasView({
       const resp = await leaderChat(
         topicId,
         text,
-        missionStatus?.id ?? undefined
+        activeMissionId ?? undefined
       );
-      const body = resp.understanding
-        ? `**${t('topicResearch.leaderChat.understanding')}：** ${resp.understanding}\n\n${resp.response}`
-        : resp.response;
+      // 把 decisionType / understanding / todo / clarifyOptions 放进 meta，
+      // 由 renderAssistantHeaderExtra / renderAssistantBodyPrefix /
+      // renderAssistantBodyExtra 槽消费
       setChatMessages((prev) =>
         prev
           .filter((m) => m.id !== thinkingId)
           .concat({
             id: `asst-${Date.now()}`,
             role: 'assistant',
-            content: body,
+            content: resp.response,
             createdAt: new Date().toISOString(),
+            meta: {
+              decisionType: resp.decisionType,
+              understanding: resp.understanding,
+              todoCreated: resp.todo,
+              clarifyOptions: resp.clarifyOptions,
+            },
           })
       );
     } catch (e) {
@@ -1133,12 +1203,74 @@ function TopicTeamCanvasView({
         open={chatOpen}
         onClose={() => setChatOpen(false)}
         messages={chatMessages}
+        loading={chatLoading}
         sending={chatSending}
         error={chatError}
         onSend={handleLeaderSend}
         title="与 Leader 对话"
         subtitle={topicName}
         accentColor="violet"
+        assistantName="Leader"
+        userName="You"
+        renderAssistantHeaderExtra={(m) => {
+          const dt = m.meta?.decisionType as LeaderDecisionType | undefined;
+          if (!dt) return null;
+          const cfg = TI_DECISION_TYPE_CONFIG[dt];
+          if (!cfg) return null;
+          return (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${cfg.colorClass}`}
+            >
+              {cfg.label}
+            </span>
+          );
+        }}
+        renderAssistantBodyPrefix={(m) => {
+          const understanding = m.meta?.understanding as string | undefined;
+          if (!understanding) return null;
+          return (
+            <p className="mt-1 text-[11px] italic text-gray-500">
+              💭 {understanding}
+            </p>
+          );
+        }}
+        renderAssistantBodyExtra={(m) => {
+          const todo = m.meta?.todoCreated as
+            | { id: string; title: string; assignedAgent?: string }
+            | undefined;
+          const clarifyOptions = m.meta?.clarifyOptions as string[] | undefined;
+          if (!todo && !clarifyOptions?.length) return null;
+          return (
+            <>
+              {todo && (
+                <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs">
+                  <span className="text-blue-700">
+                    ✓ 已创建任务 {todo.title}
+                    {todo.assignedAgent && (
+                      <span className="ml-1 text-blue-500">
+                        → {todo.assignedAgent}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+              {clarifyOptions && clarifyOptions.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {clarifyOptions.map((option, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => void handleLeaderSend(option)}
+                      className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100"
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          );
+        }}
       />
     </>
   );
@@ -1185,8 +1317,12 @@ function buildTopicAgentInspectorPayload(
           : 'text-gray-500';
 
   // 技能 / 工具 —— 优先 Leader 分配的真实数据
+  // 匹配顺序：精确 id → id 包含 → role 兜底
+  // role 兜底必要：reviewer/synthesizer 的 agent.id 是硬编码 'reviewer'/'synthesizer'，
+  // 但 teamInfo.agents 里通常是 UUID + role 字段，需 role 字段才能匹配上
   const teamAgent = teamInfo?.agents?.find(
-    (ta) => ta.id === agent.id || ta.id.includes(agent.id)
+    (ta) =>
+      ta.id === agent.id || ta.id.includes(agent.id) || ta.role === agent.role
   );
   const realSkills = isValidStringArray(teamAgent?.skills)
     ? teamAgent.skills

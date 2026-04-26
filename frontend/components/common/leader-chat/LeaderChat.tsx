@@ -88,6 +88,11 @@ export function LeaderChat({
   emptyIcon,
   accentColor = 'violet',
   enableMarkdown = true,
+  renderAssistantHeaderExtra,
+  renderAssistantBodyPrefix,
+  renderAssistantBodyExtra,
+  assistantName = 'Leader',
+  userName = 'User',
 }: LeaderChatProps) {
   const labels = { ...DEFAULT_LABELS, ...labelOverrides };
   const accent = ACCENT_PRESET[accentColor];
@@ -171,16 +176,19 @@ export function LeaderChat({
                       : (assistantIcon ?? <Brain className="h-3.5 w-3.5" />)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    {/* Name + timestamp 行 */}
-                    <div className="flex items-center gap-2">
+                    {/* Name + (assistant chip) + timestamp 行 */}
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={cn(
                           'text-[12px] font-semibold',
                           isUser ? accent.userName : accent.assistantName
                         )}
                       >
-                        {isUser ? 'User' : 'Leader'}
+                        {isUser ? userName : assistantName}
                       </span>
+                      {!isUser &&
+                        renderAssistantHeaderExtra &&
+                        renderAssistantHeaderExtra(m)}
                       {m.content !== '__THINKING__' && (
                         <span className="text-[10px] text-gray-400">
                           <ClientDate date={m.createdAt} format="time" />
@@ -190,6 +198,11 @@ export function LeaderChat({
                         </span>
                       )}
                     </div>
+                    {/* Body prefix (e.g. understanding) */}
+                    {!isUser &&
+                      m.content !== '__THINKING__' &&
+                      renderAssistantBodyPrefix &&
+                      renderAssistantBodyPrefix(m)}
                     {/* Body 正文 */}
                     <div className="mt-1 text-[13px] leading-relaxed text-gray-800">
                       {m.content === '__THINKING__' ? (
@@ -223,6 +236,11 @@ export function LeaderChat({
                         </ReactMarkdown>
                       )}
                     </div>
+                    {/* Body extra (e.g. TODO button / clarify options) */}
+                    {!isUser &&
+                      m.content !== '__THINKING__' &&
+                      renderAssistantBodyExtra &&
+                      renderAssistantBodyExtra(m)}
                   </div>
                 </li>
               );
