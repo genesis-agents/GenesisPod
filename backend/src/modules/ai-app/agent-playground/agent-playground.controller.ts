@@ -196,10 +196,15 @@ export class AgentPlaygroundController {
   ): Promise<{ events: readonly unknown[]; serverNow: number }> {
     await this.assertOwnership(missionId, req.user?.id);
     const sinceTs = since ? Number(since) : undefined;
-    const events = this.buffer.read(
-      missionId,
-      Number.isFinite(sinceTs as number) ? (sinceTs as number) : undefined,
-    );
+    const ts = Number.isFinite(sinceTs as number)
+      ? (sinceTs as number)
+      : undefined;
+    // Fast path: in-memory buffer
+    let events: readonly unknown[] = this.buffer.read(missionId, ts);
+    // 兜底：内存空（Railway recycle 后），从 DB 持久化层读
+    if (events.length === 0) {
+      events = await this.buffer.readPersisted(missionId, ts);
+    }
     return { events, serverNow: Date.now() };
   }
 

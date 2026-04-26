@@ -9233,6 +9233,22 @@ model AgentPlaygroundMission {
   @@map("agent_playground_missions")
 }
 
+/// agent-playground mission 的事件流持久化
+/// 用于 Railway recycle 后能完整回放（in-memory MissionEventBuffer 兜底用）
+model AgentPlaygroundMissionEvent {
+  id        String   @id @default(uuid())
+  missionId String   @map("mission_id")
+  type      String   @db.VarChar(120) // agent-playground.agent:thought 等
+  agentId   String?  @map("agent_id") @db.VarChar(120)
+  traceId   String?  @map("trace_id") @db.VarChar(120)
+  payload   Json
+  ts        BigInt // event.timestamp (ms epoch)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([missionId, ts])
+  @@map("agent_playground_mission_events")
+}
+
 /// agent-playground 中用户与 mission Leader 的对话记录
 model AgentPlaygroundLeaderChat {
   id         String                 @id @default(uuid())
