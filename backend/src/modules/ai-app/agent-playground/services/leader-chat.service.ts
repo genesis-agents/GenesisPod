@@ -240,17 +240,25 @@ export class LeaderChatService {
 
   /**
    * 解析 LLM 输出 —— 期望 JSON {response, decisionType, understanding, todo, clarifyOptions}
-   * 容错：如果不是合法 JSON 或缺字段，降级为 DIRECT_ANSWER + 原文展示。
+   * 容错：
+   *   - 没找到 fence 也试试整段当 JSON
+   *   - JSON 格式不全 → 降级为 DIRECT_ANSWER + 原文（剥离 fence）
+   *   - response 字段缺失 → 回退到 understanding / fence-外的文字 / 原文
    */
   private parseDecisionResponse(raw: string): {
     response: string;
     decision: LeaderDecision | null;
   } {
     const trimmed = raw.trim();
-    // 找 JSON 块（```json fence 或纯 JSON）
+    // 找 JSON 块（```json fence 或裸 JSON）
     let jsonStr = trimmed;
     const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (fenceMatch) jsonStr = fenceMatch[1].trim();
+    // 取 fence 外的纯文字作为 fallback（如果 LLM 在 JSON 之外还写了开场白）
+    const outsideFenceText = fenceMatch
+      ? trimmed.replace(fenceMatch[0], "").trim()
+      : "";
+
     if (!jsonStr.startsWith("{") && !jsonStr.startsWith("[")) {
       // 不是 JSON → 整段当 DIRECT_ANSWER
       return {
@@ -263,12 +271,14 @@ export class LeaderChatService {
       const decisionType = (parsed.decisionType ?? parsed.type) as
         | string
         | undefined;
+      // response 优先级：parsed.response > parsed.message > understanding > fence外文字 > raw
       const response =
-        typeof parsed.response === "string"
-          ? parsed.response
-          : typeof parsed.message === "string"
-            ? parsed.message
-            : raw;
+        (typeof parsed.response === "string" && parsed.response.trim()) ||
+        (typeof parsed.message === "string" && parsed.message.trim()) ||
+        (typeof parsed.understanding === "string" &&
+          parsed.understanding.trim()) ||
+        (outsideFenceText.length > 0 ? outsideFenceText : null) ||
+        raw;
       const validTypes: LeaderDecisionType[] = [
         "DIRECT_ANSWER",
         "CREATE_TODO",
