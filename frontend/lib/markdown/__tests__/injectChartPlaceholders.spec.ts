@@ -216,6 +216,88 @@ describe('injectChartPlaceholders', () => {
       expect((out.match(/<!-- chart:/g) || []).length).toBe(3);
     });
 
+    it('CRITICAL: continuous-view per-chapter inject must NOT pile images at start', () => {
+      // 仿真用户实测 bug：fullReport 含多个 H2 章节，每章节有自己的 charts
+      // 错误做法（pre-fix）：整篇直接 inject → chart.position=4 都解析到第 4 段
+      //   → 全部图挤在文档开头
+      // 正确做法（post-fix）：按 H2 切片，每章节内单独 inject
+      const fullReport = [
+        '# 报告标题',
+        '',
+        '## 1. 第一章',
+        'P1。',
+        '',
+        'P2。',
+        '',
+        'P3。',
+        '',
+        'P4。',
+        '',
+        'P5。',
+        '',
+        '## 2. 第二章',
+        'Q1。',
+        '',
+        'Q2。',
+        '',
+        'Q3。',
+        '',
+        'Q4。',
+        '',
+        'Q5。',
+        '',
+      ].join('\n');
+
+      // 模拟章节切片 + 逐章 inject 的结果（与 ReportEditor 内联逻辑一致）
+      const allCharts = [
+        { id: 'sec1-fig', sectionId: '1', position: 'after_paragraph_3' },
+        { id: 'sec2-fig', sectionId: '2', position: 'after_paragraph_3' },
+      ];
+      const chartsBySection = new Map<string, typeof allCharts>();
+      for (const c of allCharts) {
+        const sid = c.sectionId || '';
+        const arr = chartsBySection.get(sid);
+        if (arr) arr.push(c);
+        else chartsBySection.set(sid, [c]);
+      }
+
+      const lines = fullReport.split('\n');
+      const segs: Array<{ heading: string | null; body: string[] }> = [
+        { heading: null, body: [] },
+      ];
+      for (const line of lines) {
+        if (/^##\s+/.test(line)) segs.push({ heading: line, body: [] });
+        else segs[segs.length - 1].body.push(line);
+      }
+
+      const out: string[] = [];
+      for (const seg of segs) {
+        if (seg.heading) out.push(seg.heading);
+        const m = seg.heading?.match(/^##\s+(\d+)(?:\.\d+)*\.?\s+/);
+        const sn = m?.[1] ?? null;
+        const sc = sn ? chartsBySection.get(sn) || [] : [];
+        const body = seg.body.join('\n');
+        out.push(
+          sc.length > 0 && !body.includes('<!-- chart:')
+            ? injectChartPlaceholders(body, sc)
+            : body
+        );
+      }
+      const enriched = out.join('\n');
+
+      // 验证：sec1 的图在第一章范围内，sec2 的图在第二章范围内
+      const ch2HeadingIdx = enriched.indexOf('## 2. 第二章');
+      const sec1FigIdx = enriched.indexOf('<!-- chart:sec1-fig -->');
+      const sec2FigIdx = enriched.indexOf('<!-- chart:sec2-fig -->');
+
+      expect(sec1FigIdx).toBeGreaterThan(0);
+      expect(sec2FigIdx).toBeGreaterThan(0);
+      // sec1 图在第二章 H2 之前
+      expect(sec1FigIdx).toBeLessThan(ch2HeadingIdx);
+      // sec2 图在第二章 H2 之后
+      expect(sec2FigIdx).toBeGreaterThan(ch2HeadingIdx);
+    });
+
     it('UNICODE scenario: Chinese paragraphs work the same', () => {
       const content = [
         '中文段落一。',
