@@ -380,9 +380,33 @@ export class TopicTeamOrchestratorService {
           );
         }
 
+        // ★ 应用层去重：LLM 规划时偶尔会吐出同名维度（深度 thorough 时
+        //   18+ 维度尤其容易出现"通用版 + 特化版"重名）。落库前按
+        //   归一化 name 去重，保留首次出现，丢弃后续重名。
+        const seenNames = new Set<string>();
+        const dedupedDims: typeof leaderPlan.dimensions = [];
+        const droppedNames: string[] = [];
+        for (const dim of leaderPlan.dimensions) {
+          const key = (dim.name ?? "").trim().toLowerCase();
+          if (!key) {
+            continue;
+          }
+          if (seenNames.has(key)) {
+            droppedNames.push(dim.name);
+            continue;
+          }
+          seenNames.add(key);
+          dedupedDims.push(dim);
+        }
+        if (droppedNames.length > 0) {
+          this.logger.warn(
+            `[executeRefresh] Leader plan contained ${droppedNames.length} duplicate dim name(s), dropped: ${droppedNames.join(" / ")}`,
+          );
+        }
+
         // 将规划的维度保存到数据库（绑定到当前 mission，保证隔离）
         const createdDimensions = await Promise.all(
-          leaderPlan.dimensions.map((dim, index) =>
+          dedupedDims.map((dim, index) =>
             this.prisma.topicDimension.create({
               data: {
                 topicId,
@@ -402,7 +426,7 @@ export class TopicTeamOrchestratorService {
 
         dimensions = createdDimensions;
         this.logger.log(
-          `[executeRefresh] Created ${dimensions.length} dimensions from Leader plan`,
+          `[executeRefresh] Created ${dimensions.length} dimensions from Leader plan (after dedup: ${droppedNames.length} dropped)`,
         );
       }
 

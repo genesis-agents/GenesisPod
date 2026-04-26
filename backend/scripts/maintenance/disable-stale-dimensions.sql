@@ -23,13 +23,14 @@
 --      最近那次失败/卡死 mission 的 id，并 isEnabled=false
 --   4) 模板维度（用户从未跑过 mission 的 topic 上的 NULL dim）保留不动
 
--- Step 1: 卡死状态 → FAILED
+-- Step 1: 卡死状态 → FAILED （research_missions 有 updated_at）
 UPDATE "research_missions"
 SET "status" = 'FAILED',
     "updated_at" = NOW()
 WHERE "status" IN ('PLANNING', 'PLAN_READY', 'EXECUTING', 'REVIEWING');
 
 -- Step 2: 给"实际属于失败/卡死 mission"的 NULL dim 回填 mission_id 并 disable
+-- topic_dimensions 表没有 updated_at 列，只更新业务字段
 WITH last_mission AS (
   SELECT DISTINCT ON ("topic_id")
     "id" AS mission_id,
@@ -45,8 +46,7 @@ target_topics AS (
 )
 UPDATE "topic_dimensions" td
 SET "mission_id" = tt.mission_id,
-    "is_enabled" = false,
-    "updated_at" = NOW()
+    "is_enabled" = false
 FROM target_topics tt
 WHERE td."topic_id" = tt."topic_id"
   AND td."mission_id" IS NULL
