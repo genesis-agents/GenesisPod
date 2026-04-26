@@ -49,8 +49,19 @@ const Output = z.object({
   // 在 reasoning model + 长 prompt 上单 revision 烧 80K，2 个 revision 240K。
   // verifier 评分由上层 orchestrator 的 reviewer 阶段做（一次性），不在每 dim 重做。
   loop: "react",
-  // ★ 只保留 web-search + web-scraper（绝大多数主题不需要 arxiv/github）
-  tools: ["web-search", "web-scraper"],
+  // ★ 完整研究工具集 —— Harness 系统注册 50+ 工具，agent 必须显式声明才能给 LLM 看到。
+  // 之前只声明 web-search/web-scraper 等于"屏蔽"了 LLM 对系统能力的认知。
+  // 现在覆盖所有 dim 研究可能用到的 information-gathering / parsing 工具。
+  tools: [
+    "web-search", // 公网搜索
+    "web-scraper", // 抓 URL 全文
+    "rag-search", // 内部 RAG / 已索引内容（复用历史研究）
+    "knowledge-graph", // 实体关系图（已建表）
+    "data-fetch", // 通用 HTTP（拿 JSON API / 数据集）
+    "file-parser", // 解析 PDF/DOC/CSV（scrape 拿到非 HTML 资源时用）
+    "arxiv-search", // 学术论文
+    "github-search", // 代码 / 开源项目
+  ],
   // ★ 去 verifiers + 去 skills（critical-review 本来是 verifier 路径）
   taskProfile: {
     creativity: "low",
@@ -71,14 +82,27 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
       ``,
-      `## Workflow (must follow strictly, do NOT expand)`,
-      `1. **One round of search**: emit ONE parallel_tool_call with 2-4 web-search queries`,
-      `   covering this dimension. Do NOT search again unless results are clearly insufficient.`,
-      `2. **At most one scrape round**: if a high-value URL appeared and snippets miss key`,
-      `   numbers, emit ONE parallel_tool_call with up to 2 web-scraper calls. Otherwise SKIP.`,
-      `3. **Finalize**: emit { kind: "finalize", output: {...} } matching the schema below.`,
+      `## Tool selection (refer to <available_tools> for full list & invocation examples)`,
+      `Pick the right tool for the right job; you have 8+ tools, not just web-search:`,
+      `- **rag-search**: ALWAYS try first — checks internal knowledge base for already-indexed`,
+      `  content on this topic (free, instant, often sufficient).`,
+      `- **knowledge-graph**: query entity relationships if the dimension involves people/orgs/products.`,
+      `- **web-search**: public web search (general fallback).`,
+      `- **arxiv-search**: when dimension is technical/academic (LLM/AI/science).`,
+      `- **github-search**: when dimension involves code/projects/open-source.`,
+      `- **data-fetch**: hit a known JSON API or dataset URL directly.`,
+      `- **web-scraper**: extract full content from a specific URL (use AFTER search returns it).`,
+      `- **file-parser**: parse PDF/DOC content if scrape returns binary resource.`,
       ``,
-      `## Hard constraints to control cost (violation = wasted API calls)`,
+      `## Workflow (efficient, do NOT iterate beyond what's needed)`,
+      `1. **rag-search first**: 1 query checking internal knowledge. If results are good, may suffice.`,
+      `2. **One web/specialized search round**: emit ONE parallel_tool_call with 2-4 queries`,
+      `   choosing the right tools (web-search / arxiv-search / github-search / data-fetch).`,
+      `3. **At most one scrape/parse round**: if a high-value URL needs full content, emit ONE`,
+      `   parallel_tool_call with web-scraper / file-parser. Skip if snippets are sufficient.`,
+      `4. **Finalize**: emit { kind: "finalize", output: {...} } matching the schema below.`,
+      ``,
+      `## Hard constraints to control cost`,
       `- Do NOT repeat similar queries across rounds.`,
       `- Target 4-5 findings; do NOT iterate to add more.`,
       `- 1 short evidence quote per finding is enough.`,
