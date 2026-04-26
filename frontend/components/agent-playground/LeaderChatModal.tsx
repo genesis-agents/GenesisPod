@@ -191,13 +191,43 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
     if (!text || sending) return;
     setSending(true);
     setError(null);
+
+    // 1) 乐观插入用户消息 + thinking 占位
+    const tempUserId = `tmp-user-${Date.now()}`;
+    const tempThinkingId = `tmp-thinking-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempUserId,
+        role: 'user',
+        content: text,
+        tokensUsed: null,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: tempThinkingId,
+        role: 'assistant',
+        content: '__THINKING__', // 渲染时识别为 typing indicator
+        tokensUsed: null,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    setInput('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
+    // 2) 调用 API
     try {
       const { user, assistant } = await sendLeaderChat(missionId, text);
-      setMessages((prev) => [...prev, user, assistant]);
-      setInput('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      // 3) 用真实记录替换占位
+      setMessages((prev) =>
+        prev
+          .filter((m) => m.id !== tempUserId && m.id !== tempThinkingId)
+          .concat(user, assistant)
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      // 失败时移除 thinking 占位（保留用户消息让用户能复制 / 重发）
+      setMessages((prev) => prev.filter((m) => m.id !== tempThinkingId));
     } finally {
       setSending(false);
     }
@@ -309,6 +339,26 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
                         <p className="whitespace-pre-wrap break-words">
                           {m.content}
                         </p>
+                      ) : m.content === '__THINKING__' ? (
+                        <div className="flex items-center gap-1.5 py-1">
+                          <span className="inline-flex gap-1">
+                            <span
+                              className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400"
+                              style={{ animationDelay: '0ms' }}
+                            />
+                            <span
+                              className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400"
+                              style={{ animationDelay: '150ms' }}
+                            />
+                            <span
+                              className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400"
+                              style={{ animationDelay: '300ms' }}
+                            />
+                          </span>
+                          <span className="text-[12px] text-gray-500">
+                            Leader 思考中…
+                          </span>
+                        </div>
                       ) : (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
@@ -318,18 +368,20 @@ export function LeaderChatModal({ missionId, topic, open, onClose }: Props) {
                         </ReactMarkdown>
                       )}
                     </div>
-                    <p
-                      className={`mt-1 px-1 text-[10px] ${
-                        m.role === 'user'
-                          ? 'text-right text-gray-400'
-                          : 'text-gray-400'
-                      }`}
-                    >
-                      <ClientDate date={m.createdAt} format="time" />
-                      {m.tokensUsed && m.tokensUsed > 0 ? (
-                        <span> · {m.tokensUsed} tk</span>
-                      ) : null}
-                    </p>
+                    {m.content !== '__THINKING__' && (
+                      <p
+                        className={`mt-1 px-1 text-[10px] ${
+                          m.role === 'user'
+                            ? 'text-right text-gray-400'
+                            : 'text-gray-400'
+                        }`}
+                      >
+                        <ClientDate date={m.createdAt} format="time" />
+                        {m.tokensUsed && m.tokensUsed > 0 ? (
+                          <span> · {m.tokensUsed} tk</span>
+                        ) : null}
+                      </p>
+                    )}
                   </div>
                 </li>
               ))}

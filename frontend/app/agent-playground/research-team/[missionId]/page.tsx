@@ -38,7 +38,9 @@ import {
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
 import { deriveView } from '@/lib/agent-playground/derive';
 import {
+  cancelMission,
   getMissionDetail,
+  rerunMission,
   type MissionDetail,
 } from '@/lib/api/agent-playground';
 
@@ -381,8 +383,51 @@ export default function MissionDetailPage() {
               stages={view.stages}
               finalScore={view.mission.finalScore}
               topic={view.mission.topic}
+              dimensions={view.mission.dimensions}
+              missionStatus={
+                view.mission.failedAt
+                  ? 'failed'
+                  : view.mission.completedAt
+                    ? 'completed'
+                    : view.mission.startedAt
+                      ? 'running'
+                      : 'idle'
+              }
               onCollapse={() => setLeftCollapsed(true)}
               onLeaderClick={() => setLeaderChatOpen(true)}
+              onRerun={() => {
+                void (async () => {
+                  try {
+                    const { missionId: newId } = await rerunMission(missionId);
+                    router.push(`/agent-playground/research-team/${newId}`);
+                  } catch (e) {
+                    window.alert(
+                      `启动失败：${e instanceof Error ? e.message : String(e)}`
+                    );
+                  }
+                })();
+              }}
+              onUpdate={() => {
+                const qs = new URLSearchParams({
+                  topic: view.mission.topic ?? '',
+                  depth: view.mission.depth ?? 'standard',
+                  language: view.mission.language ?? 'zh-CN',
+                }).toString();
+                router.push(`/agent-playground/research-team?${qs}`);
+              }}
+              onCancel={() => {
+                if (!window.confirm('确认取消该 mission？')) return;
+                void (async () => {
+                  try {
+                    await cancelMission(missionId);
+                    window.location.reload();
+                  } catch (e) {
+                    window.alert(
+                      `取消失败：${e instanceof Error ? e.message : String(e)}`
+                    );
+                  }
+                })();
+              }}
             />
           )}
         </div>

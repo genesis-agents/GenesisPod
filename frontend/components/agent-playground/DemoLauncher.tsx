@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   runResearchTeam,
@@ -12,10 +12,21 @@ import { Loader2, Sparkles } from 'lucide-react';
 export function DemoLauncher() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [topic, setTopic] = useState('');
-  const [depth, setDepth] = useState<RunMissionInput['depth']>('standard');
-  const [language, setLanguage] =
-    useState<RunMissionInput['language']>('zh-CN');
+  const searchParams = useSearchParams();
+  // 从 query 预填（"更新"按钮跳转过来时带 topic/depth/language）
+  const initTopic = searchParams?.get('topic') ?? '';
+  const initDepth = (searchParams?.get('depth') ??
+    'standard') as RunMissionInput['depth'];
+  const initLang = (searchParams?.get('language') ??
+    'zh-CN') as RunMissionInput['language'];
+
+  const [topic, setTopic] = useState(initTopic);
+  const [depth, setDepth] = useState<RunMissionInput['depth']>(
+    ['quick', 'standard', 'deep'].includes(initDepth) ? initDepth : 'standard'
+  );
+  const [language, setLanguage] = useState<RunMissionInput['language']>(
+    initLang === 'en-US' ? 'en-US' : 'zh-CN'
+  );
   const [maxCredits, setMaxCredits] = useState(300);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

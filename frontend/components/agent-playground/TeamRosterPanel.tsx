@@ -429,6 +429,58 @@ export function TeamRosterPanel({
             </span>
           </div>
         )}
+
+        {/* 显示当前 mission 关联的 dimensions 数 */}
+        {dimensions && dimensions.length > 0 && (
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="font-medium text-gray-700">研究维度</span>
+            <span className="font-mono text-gray-500">
+              {dimensions.length} 个
+            </span>
+          </div>
+        )}
+
+        {/* 操作按钮：开始 / 更新 / 取消 */}
+        {(onRerun || onUpdate || onCancel) && (
+          <div className="mt-3 grid grid-cols-3 gap-1.5">
+            {onRerun && (
+              <button
+                type="button"
+                onClick={onRerun}
+                disabled={missionStatus === 'running'}
+                className="rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+                title="用相同配置启动一个新 mission"
+              >
+                {missionStatus === 'running' ? '运行中' : '开始'}
+              </button>
+            )}
+            {onUpdate && (
+              <button
+                type="button"
+                onClick={onUpdate}
+                className="rounded-lg bg-gradient-to-r from-blue-500 to-violet-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm transition-all hover:shadow-md"
+                title="编辑 topic / depth / language 后重新启动"
+              >
+                更新
+              </button>
+            )}
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={missionStatus !== 'running'}
+                className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                title={
+                  missionStatus === 'running'
+                    ? '取消运行中的 mission'
+                    : '只有运行中的 mission 可以取消'
+                }
+              >
+                取消
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
