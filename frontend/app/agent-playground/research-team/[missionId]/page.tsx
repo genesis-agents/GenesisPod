@@ -1164,6 +1164,199 @@ function TaskDetailDrawer({
             </div>
           )}
 
+          {/* TI-style PER-DIMENSION CHAPTER PIPELINE 状态 */}
+          {pipeline && pipeline.chapters.length > 0 && (
+            <section className="rounded-lg border border-emerald-100 bg-emerald-50/30">
+              <div className="border-b border-emerald-100 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                  章节进度 · {pipeline.chapters.length} 章
+                  {pipeline.totalWordCount
+                    ? ` · 共 ${pipeline.totalWordCount} 字`
+                    : ''}
+                </p>
+              </div>
+              <ul className="space-y-1.5 p-2">
+                {pipeline.chapters.map((c) => (
+                  <li
+                    key={c.index}
+                    className="rounded-md bg-white px-2.5 py-2 text-[11px] ring-1 ring-emerald-100"
+                  >
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-mono text-[10px] text-emerald-600">
+                        #{c.index}
+                      </span>
+                      <span className="flex-1 font-medium text-gray-800">
+                        {c.heading}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                          c.status === 'passed'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : c.status === 'writing'
+                              ? 'bg-blue-100 text-blue-700'
+                              : c.status === 'reviewing'
+                                ? 'bg-amber-100 text-amber-700'
+                                : c.status === 'revising'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : c.status === 'failed'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {c.status === 'passed'
+                          ? '已通过'
+                          : c.status === 'writing'
+                            ? '撰写中'
+                            : c.status === 'reviewing'
+                              ? '评审中'
+                              : c.status === 'revising'
+                                ? `重写第 ${c.attempts} 轮`
+                                : c.status === 'failed'
+                                  ? '失败'
+                                  : '待启动'}
+                      </span>
+                    </div>
+                    {c.thesis && (
+                      <p className="mt-0.5 text-[10px] leading-relaxed text-gray-600">
+                        {c.thesis}
+                      </p>
+                    )}
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-500">
+                      {c.wordCount != null && c.wordCount > 0 && (
+                        <span>{c.wordCount} 字</span>
+                      )}
+                      {c.score != null && (
+                        <span
+                          className={`font-mono font-semibold ${
+                            c.score >= 80
+                              ? 'text-emerald-600'
+                              : c.score >= 60
+                                ? 'text-amber-600'
+                                : 'text-red-600'
+                          }`}
+                        >
+                          {c.score}/100
+                        </span>
+                      )}
+                      {c.attempts > 1 && (
+                        <span className="text-orange-600">
+                          已重写 {c.attempts - 1} 次
+                        </span>
+                      )}
+                    </div>
+                    {c.critique && (
+                      <p className="mt-1 line-clamp-2 text-[10px] italic text-gray-500">
+                        ▸ {c.critique}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* 5-AXIS QUALITY GRADE — TI 同款 */}
+          {pipeline?.grade && (
+            <section className="rounded-lg border border-violet-100 bg-gradient-to-br from-violet-50/40 to-purple-50/30">
+              <div className="flex items-center justify-between border-b border-violet-100 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
+                  维度质量评分
+                </p>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                    pipeline.grade.grade === 'excellent'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : pipeline.grade.grade === 'good'
+                        ? 'bg-blue-100 text-blue-700'
+                        : pipeline.grade.grade === 'fair'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {pipeline.grade.grade === 'excellent'
+                    ? '优秀'
+                    : pipeline.grade.grade === 'good'
+                      ? '良好'
+                      : pipeline.grade.grade === 'fair'
+                        ? '一般'
+                        : '不及格'}
+                </span>
+              </div>
+              <div className="px-3 py-3">
+                <div className="mb-3 flex items-baseline gap-2">
+                  <span
+                    className={`text-3xl font-bold ${
+                      pipeline.grade.overall >= 85
+                        ? 'text-emerald-600'
+                        : pipeline.grade.overall >= 70
+                          ? 'text-blue-600'
+                          : pipeline.grade.overall >= 55
+                            ? 'text-amber-600'
+                            : 'text-red-600'
+                    }`}
+                  >
+                    {pipeline.grade.overall}
+                  </span>
+                  <span className="text-[11px] text-gray-500">/100</span>
+                </div>
+                <ul className="space-y-1.5">
+                  {(
+                    [
+                      ['breadth', '广度'],
+                      ['depth', '深度'],
+                      ['evidence', '证据'],
+                      ['coherence', '连贯性'],
+                      ['freshness', '时效性'],
+                    ] as const
+                  ).map(([k, label]) => {
+                    const a = pipeline.grade!.axes[k];
+                    if (!a) return null;
+                    return (
+                      <li key={k}>
+                        <div className="flex items-baseline justify-between text-[11px]">
+                          <span className="text-gray-700">{label}</span>
+                          <span
+                            className={`font-mono font-semibold ${
+                              a.score >= 80
+                                ? 'text-emerald-600'
+                                : a.score >= 60
+                                  ? 'text-amber-600'
+                                  : 'text-red-600'
+                            }`}
+                          >
+                            {a.score}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className={`h-full rounded-full ${
+                              a.score >= 80
+                                ? 'bg-emerald-400'
+                                : a.score >= 60
+                                  ? 'bg-amber-400'
+                                  : 'bg-red-400'
+                            }`}
+                            style={{ width: `${a.score}%` }}
+                          />
+                        </div>
+                        {a.comment && (
+                          <p className="mt-0.5 text-[10px] leading-relaxed text-gray-500">
+                            {a.comment}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {pipeline.grade.summary && (
+                  <p className="mt-3 rounded bg-white/70 px-2 py-1.5 text-[11px] leading-relaxed text-gray-700 ring-1 ring-violet-100">
+                    {pipeline.grade.summary}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* TOOLS USED — 按工具聚合调用次数 / 累计 token / 错误数 */}
           {toolsUsed.length > 0 && (
             <section className="rounded-lg border border-gray-100 bg-white">
