@@ -240,6 +240,14 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         const modelId = p?.modelId as string | undefined;
         if (modelId) cur.modelId = modelId;
       } else if (t === 'agent-playground.agent:action') {
+        // 关键：parallel_tool_call 的子工具数组在 p.calls，而非 p.input
+        // 把 calls 当作 input 传给消费者，让上层能统一解包
+        const inputOrCalls =
+          p?.input !== undefined
+            ? p.input
+            : Array.isArray(p?.calls)
+              ? p.calls
+              : undefined;
         item = {
           kind: 'action',
           ts,
@@ -248,7 +256,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
             (p?.skillId as string | undefined) ??
             (p?.subagentName as string | undefined) ??
             (p?.kind as string | undefined),
-          input: p?.input,
+          input: inputOrCalls,
         };
       } else if (t === 'agent-playground.agent:observation') {
         item = {

@@ -713,13 +713,50 @@ function TaskDetailDrawer({
       //   3) array of {title,url}
       const flatten = (node: unknown): void => {
         if (!node) return;
+        // 字符串：尝试 JSON.parse 后递归（preview 字段常是 stringified JSON）
+        if (typeof node === 'string') {
+          const trimmed = node
+            .trim()
+            .replace(/…$/, '')
+            .replace(/\.\.\.$/, '');
+          if (
+            (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
+            (trimmed.endsWith('}') || trimmed.endsWith(']'))
+          ) {
+            try {
+              flatten(JSON.parse(trimmed));
+              return;
+            } catch {
+              // truncated JSON → regex fallback
+              const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+              const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+              const contentRe = /"content"\s*:\s*"((?:[^"\\]|\\.){0,400})"/g;
+              const titles = [...trimmed.matchAll(titleRe)].map((m) => m[1]);
+              const urls = [...trimmed.matchAll(urlRe)].map((m) => m[1]);
+              const contents = [...trimmed.matchAll(contentRe)].map(
+                (m) => m[1]
+              );
+              const n = Math.max(titles.length, urls.length);
+              for (let i = 0; i < n; i++) {
+                if (titles[i] || urls[i]) {
+                  subResults.push({
+                    title: titles[i],
+                    url: urls[i],
+                    snippet: contents[i],
+                  });
+                }
+              }
+            }
+          }
+          return;
+        }
         if (Array.isArray(node)) {
           for (const item of node) flatten(item);
           return;
         }
         if (typeof node !== 'object') return;
         const o = node as Record<string, unknown>;
-        // 找 search-result 形 { title, url, snippet }
+        // 找 search-result 形 { title, url, snippet|content }
         if (typeof o.title === 'string' || typeof o.url === 'string') {
           subResults.push({
             title: typeof o.title === 'string' ? o.title : undefined,
@@ -736,7 +773,7 @@ function TaskDetailDrawer({
                 : undefined,
           });
         }
-        // 递归子集合
+        // 递归子集合（含 string 形 preview）
         for (const k of [
           'preview',
           'output',
@@ -744,6 +781,7 @@ function TaskDetailDrawer({
           'items',
           'hits',
           'data',
+          'subResults',
         ]) {
           if (o[k] !== undefined) flatten(o[k]);
         }
@@ -952,40 +990,54 @@ function TaskDetailDrawer({
                   搜索/抓取结果 · {searchHits.length} 条
                 </p>
               </div>
-              <ul className="max-h-72 space-y-1 overflow-y-auto p-2">
-                {searchHits.slice(0, 30).map((h, i) => {
+              <ul className="max-h-[480px] space-y-1.5 overflow-y-auto p-2">
+                {searchHits.slice(0, 50).map((h, i) => {
                   const safe =
                     h.url && /^https?:\/\//i.test(h.url) ? h.url : null;
+                  let host = '';
+                  if (safe) {
+                    try {
+                      host = new URL(safe).hostname.replace(/^www\./, '');
+                    } catch {
+                      // ignore
+                    }
+                  }
                   return (
                     <li
                       key={`${h.url ?? h.title}-${i}`}
-                      className="rounded-md border border-gray-100 bg-sky-50/30 px-2 py-1.5"
+                      className="rounded-md border border-sky-100 bg-sky-50/40 px-2.5 py-2"
                     >
                       {safe ? (
                         <a
                           href={safe}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="line-clamp-1 text-[11px] font-medium text-sky-700 hover:underline"
+                          className="line-clamp-2 text-[12px] font-semibold leading-snug text-sky-700 hover:underline"
+                          title={h.title || safe}
                         >
                           {h.title || safe}
                         </a>
                       ) : (
-                        <p className="line-clamp-1 text-[11px] font-medium text-gray-800">
+                        <p className="line-clamp-2 text-[12px] font-semibold text-gray-800">
                           {h.title}
                         </p>
                       )}
-                      {h.snippet && (
-                        <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-500">
-                          {h.snippet}
+                      {host && (
+                        <p className="font-mono mt-0.5 text-[10px] text-sky-500">
+                          {host}
+                        </p>
+                      )}
+                      {(h.snippet || h.content) && (
+                        <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-gray-700">
+                          {h.snippet || h.content}
                         </p>
                       )}
                     </li>
                   );
                 })}
-                {searchHits.length > 30 && (
+                {searchHits.length > 50 && (
                   <li className="px-2 py-1 text-center text-[10px] text-gray-400">
-                    还有 {searchHits.length - 30} 条已截断
+                    还有 {searchHits.length - 50} 条已截断
                   </li>
                 )}
               </ul>
