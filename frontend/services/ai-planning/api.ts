@@ -1,4 +1,4 @@
-import { getAuthTokens } from '../utils/auth';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 

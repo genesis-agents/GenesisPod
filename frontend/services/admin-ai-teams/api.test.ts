@@ -48,7 +48,7 @@ import {
   generateTeamConfig,
   getActiveTemplates,
   getTemplateById,
-} from '../admin-ai-teams';
+} from './api';
 
 // ---------------------------------------------------------------------------
 // Fixtures

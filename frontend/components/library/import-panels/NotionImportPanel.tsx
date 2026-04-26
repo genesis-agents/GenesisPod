@@ -14,7 +14,11 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import { getPages, getConnections, type NotionPage } from '@/lib/api/notion';
+import {
+  getPages,
+  getConnections,
+  type NotionPage,
+} from '@/services/notion/api';
 import { formatDateSafe } from '@/lib/utils/date';
 
 interface NotionImportPanelProps {

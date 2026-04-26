@@ -38,7 +38,7 @@ import {
   fixRssUrls,
   DataSource,
   CollectionTask,
-} from '@/lib/api/data-collection';
+} from '@/services/data-collection/api';
 import BatchCollectionDrawer from '@/components/admin/data-collection/BatchCollectionDrawer';
 import SchedulerPanel from '@/components/admin/data-collection/SchedulerPanel';
 import { Modal } from '@/components/ui';

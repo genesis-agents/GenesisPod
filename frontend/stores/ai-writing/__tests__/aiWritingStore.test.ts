@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAIWritingStore } from '../aiWritingStore';
-import * as api from '@/lib/api/ai-writing';
+import * as api from '@/services/ai-writing/api';
 import type {
   WritingProject,
   Volume,
   Chapter,
   Character,
   StoryBible,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 
 // Mock the API module
-vi.mock('@/lib/api/ai-writing', () => ({
+vi.mock('@/services/ai-writing/api', () => ({
   getProjects: vi.fn(),
   getProject: vi.fn(),
   createProject: vi.fn(),

@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { detectAndParseUrls, ParsedUrl, DetectedUrl } from '@/lib/api/ai-teams';
+import {
+  detectAndParseUrls,
+  ParsedUrl,
+  DetectedUrl,
+} from '@/services/ai-teams/api';
 
 import { logger } from '@/lib/utils/logger';
 // URL 检测正则表达式（与后端保持一致）

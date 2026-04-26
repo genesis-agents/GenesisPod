@@ -37,14 +37,14 @@ import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
-import type { PlanDetail, PlanReference } from '@/lib/api/ai-planning';
+import type { PlanDetail, PlanReference } from '@/services/ai-planning/api';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import {
   PLANNING_ROLES_CONFIG,
   PLANNING_WORKFLOW_CONFIG,
   AGENT_KEY_TO_INDEX,
 } from '@/lib/constants/planning-roles';
-import { getMessages, sendMessage } from '@/lib/api/ai-teams';
+import { getMessages, sendMessage } from '@/services/ai-teams/api';
 import type { TopicMessage } from '@/types/ai-teams';
 
 export type PlanContentTabType =

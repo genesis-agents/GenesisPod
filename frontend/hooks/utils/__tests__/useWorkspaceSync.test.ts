@@ -15,7 +15,7 @@ vi.mock('@/lib/utils/auth', () => ({
   getAuthHeader: vi.fn().mockReturnValue({ Authorization: 'Bearer test' }),
 }));
 
-vi.mock('@/lib/api/workspace', () => ({
+vi.mock('@/services/workspace/api', () => ({
   createWorkspace: vi.fn(),
   getWorkspace: vi.fn(),
   updateWorkspaceResources: vi.fn(),
@@ -48,9 +48,9 @@ import {
   createWorkspace,
   getWorkspace,
   updateWorkspaceResources,
-} from '@/lib/api/workspace';
+} from '@/services/workspace/api';
 import { useWorkspaceSync } from '../useWorkspaceSync';
-import type { WorkspaceResponse } from '@/lib/api/workspace';
+import type { WorkspaceResponse } from '@/services/workspace/api';
 
 // ---------------------------------------------------------------------------
 // Helpers

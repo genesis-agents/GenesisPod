@@ -18,7 +18,7 @@ import {
   type ExportParams,
   type ExportResult,
   type ExportProgress,
-} from '@/lib/api/google-drive';
+} from '@/services/google-drive/api';
 
 // ==================== 类型定义 ====================
 

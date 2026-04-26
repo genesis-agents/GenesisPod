@@ -26,7 +26,7 @@ import {
   type TimelineConflict,
   type CompletionSignal,
   type ScratchpadEntry,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 
 interface StoryAnalysisDashboardProps {
   projectId: string;

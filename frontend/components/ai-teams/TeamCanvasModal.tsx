@@ -16,7 +16,7 @@ import {
   previewMissionReport,
   MissionReportData,
 } from '@/lib/utils/mission-report-pdf';
-import * as api from '@/lib/api/ai-teams';
+import * as api from '@/services/ai-teams/api';
 import { useExport } from '@/hooks/features/useExport';
 
 import { logger } from '@/lib/utils/logger';

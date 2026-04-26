@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-vi.mock('@/lib/api/google-drive', () => ({
+vi.mock('@/services/google-drive/api', () => ({
   getConnections: vi.fn(),
   disconnectGoogleDrive: vi.fn().mockResolvedValue({ success: true }),
   getConnectUrl: vi
@@ -60,7 +60,7 @@ import {
   getConnectUrl,
   disconnectGoogleDrive,
   triggerSync,
-} from '@/lib/api/google-drive';
+} from '@/services/google-drive/api';
 
 const mockUseApiGet = vi.mocked(useApiGet);
 const mockUseApiPost = vi.mocked(useApiPost);

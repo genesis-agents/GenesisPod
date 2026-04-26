@@ -5,7 +5,7 @@ import { Loader2, Info, Zap, Wrench } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
-import type { PlanDetail } from '@/lib/api/ai-planning';
+import type { PlanDetail } from '@/services/ai-planning/api';
 import {
   PLANNING_ROLES_CONFIG,
   PLANNING_WORKFLOW_CONFIG,

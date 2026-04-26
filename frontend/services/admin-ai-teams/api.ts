@@ -4,7 +4,7 @@
  * API functions for managing AI team templates in the admin panel
  */
 
-import { apiClient } from './client';
+import { apiClient } from '@/lib/api/client';
 
 // ==================== Types ====================
 

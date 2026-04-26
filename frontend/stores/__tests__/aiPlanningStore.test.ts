@@ -6,7 +6,7 @@ vi.mock('@/lib/utils/logger', () => ({
 }));
 
 // Mock the ai-planning API module using auto-mock (vi.mock hoisted before imports)
-vi.mock('@/lib/api/ai-planning', () => ({
+vi.mock('@/services/ai-planning/api', () => ({
   getPlans: vi.fn(),
   getPlanDetail: vi.fn(),
   getTemplates: vi.fn(),
@@ -20,12 +20,12 @@ vi.mock('@/lib/api/ai-planning', () => ({
 }));
 
 import { useAiPlanningStore } from '../aiPlanningStore';
-import * as api from '@/lib/api/ai-planning';
+import * as api from '@/services/ai-planning/api';
 import type {
   PlanSummary,
   PlanDetail,
   PlanTemplate,
-} from '@/lib/api/ai-planning';
+} from '@/services/ai-planning/api';
 
 const mockApi = vi.mocked(api);
 

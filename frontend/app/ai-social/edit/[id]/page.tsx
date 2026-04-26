@@ -25,7 +25,7 @@ import {
   Download,
 } from 'lucide-react';
 import { VersionTabs } from '@/components/ai-social/create/VersionTabs';
-import { SocialPlatformType } from '@/lib/api/ai-social';
+import { SocialPlatformType } from '@/services/ai-social/api';
 import { ExportDialog } from '@/components/common/ExportDialog';
 
 export default function EditSocialContentPage() {

@@ -8,7 +8,7 @@ import type {
   AgentWorkStyle,
   CreateTeamMemberDto,
   UpdateTeamMemberDto,
-} from '@/lib/api/admin-ai-teams';
+} from '@/services/admin-ai-teams/api';
 
 interface AITeamMemberEditorProps {
   member?: AITeamMemberTemplate | null;

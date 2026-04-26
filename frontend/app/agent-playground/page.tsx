@@ -27,7 +27,7 @@ import {
   deleteMission,
   updateMission,
   type MissionListItem,
-} from '@/lib/api/agent-playground';
+} from '@/services/agent-playground/api';
 import {
   AssetCard,
   type AssetCardAction,

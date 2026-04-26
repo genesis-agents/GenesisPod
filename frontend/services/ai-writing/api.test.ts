@@ -100,8 +100,8 @@ import {
   generateSummaries,
   getScratchpad,
   getAnalysisDashboard,
-} from '../ai-writing';
-import type { AnnotationStatus, AnnotationType } from '../ai-writing';
+} from './api';
+import type { AnnotationStatus, AnnotationType } from './api';
 
 // ---------------------------------------------------------------------------
 // Setup

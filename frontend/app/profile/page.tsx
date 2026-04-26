@@ -17,7 +17,7 @@ import {
   getConnectUrl,
   disconnectNotion,
   NotionConnection,
-} from '@/lib/api/notion';
+} from '@/services/notion/api';
 import { GoogleDriveConnectionCard } from '@/components/library/integrations/google-drive/GoogleDriveConnectionCard';
 import { FeishuBindingCard } from '@/components/library/integrations/feishu/FeishuBindingCard';
 import ClientDate from '@/components/common/ClientDate';

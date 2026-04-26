@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ParsedUrl } from '@/lib/api/ai-teams';
+import type { ParsedUrl } from '@/services/ai-teams/api';
 
 interface LinkPreviewCardProps {
   preview: ParsedUrl;

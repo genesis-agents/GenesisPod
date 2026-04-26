@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, ExternalLink } from 'lucide-react';
-import type { NotionPage } from '@/lib/api/notion';
+import type { NotionPage } from '@/services/notion/api';
 import { formatDateSafe } from '@/lib/utils/date';
 
 interface NotionPageRowProps {

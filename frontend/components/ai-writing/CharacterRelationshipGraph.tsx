@@ -14,7 +14,7 @@ import {
   getRelationshipGraph,
   addCharacterRelationship,
   deleteCharacterRelationship,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 
 interface Props {
   projectId: string;

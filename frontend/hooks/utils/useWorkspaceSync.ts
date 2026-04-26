@@ -7,7 +7,7 @@ import {
   getWorkspace,
   updateWorkspaceResources,
   WorkspaceResponse,
-} from '@/lib/api/workspace';
+} from '@/services/workspace/api';
 import { useReportWorkspace } from './useReportWorkspace';
 
 interface UseWorkspaceSyncOptions {

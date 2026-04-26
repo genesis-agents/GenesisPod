@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '@/lib/i18n';
-import type { PlanPhaseStatus } from '@/lib/api/ai-planning';
+import type { PlanPhaseStatus } from '@/services/ai-planning/api';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 
 interface PlanPhaseBarProps {

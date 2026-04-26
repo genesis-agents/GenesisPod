@@ -7,7 +7,7 @@ import {
   runResearchTeam,
   type BudgetProfile,
   type RunMissionInput,
-} from '@/lib/api/agent-playground';
+} from '@/services/agent-playground/api';
 import { Loader2, Sparkles } from 'lucide-react';
 
 export function DemoLauncher() {

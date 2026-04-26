@@ -13,8 +13,8 @@ import {
 import { useAIModels, AIModel } from '@/hooks';
 import AppShell from '@/components/layout/AppShell';
 import ShareModal from '@/components/common/dialogs/ShareModal';
-import * as api from '@/lib/api/ai-teams';
-import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
+import * as api from '@/services/ai-teams/api';
+import { PublicTopic, JoinRequest } from '@/services/ai-teams/api';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';

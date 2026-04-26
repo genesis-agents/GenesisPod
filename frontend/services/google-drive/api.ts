@@ -2,8 +2,8 @@
  * Google Drive 集成 API 客户端
  */
 
-import { apiClient } from './client';
-import { getAuthHeader } from '../utils/auth';
+import { apiClient } from '@/lib/api/client';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 // ==================== 类型定义 ====================
 

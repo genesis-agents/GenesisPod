@@ -7,7 +7,7 @@
  * - Relative URLs for Next.js proxy
  */
 
-import { getAuthTokens } from '../utils/auth';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
 // ==================== Types ====================

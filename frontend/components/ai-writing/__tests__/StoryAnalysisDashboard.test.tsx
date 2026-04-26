@@ -13,10 +13,10 @@ import {
   act,
 } from '@testing-library/react';
 import { StoryAnalysisDashboard } from '../StoryAnalysisDashboard';
-import * as api from '@/lib/api/ai-writing';
+import * as api from '@/services/ai-writing/api';
 
 // Mock the API module
-vi.mock('@/lib/api/ai-writing', () => ({
+vi.mock('@/services/ai-writing/api', () => ({
   getAnalysisDashboard: vi.fn(),
 }));
 

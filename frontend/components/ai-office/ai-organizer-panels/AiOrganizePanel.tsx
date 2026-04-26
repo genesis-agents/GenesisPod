@@ -17,7 +17,7 @@ import {
   type FileInfo,
   type OrganizationSuggestion,
   type BatchOrganizationResult,
-} from '@/lib/api/ai-organizer';
+} from '@/services/ai-organizer/api';
 
 interface AiOrganizePanelProps {
   files: FileInfo[];

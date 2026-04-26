@@ -6,8 +6,8 @@
  */
 
 import { create } from 'zustand';
-import * as api from '@/lib/api/ai-writing';
-import { ApiError } from '@/lib/api/ai-writing';
+import * as api from '@/services/ai-writing/api';
+import { ApiError } from '@/services/ai-writing/api';
 import { logger } from '@/lib/utils/logger';
 import type {
   WritingProject,
@@ -19,7 +19,7 @@ import type {
   UpdateProjectDto,
   StartMissionDto,
   ConversationMessage,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 
 interface AIWritingState {
   // Projects
@@ -701,7 +701,7 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
     const { currentMissionId, isStuckMission } = get();
 
     // 方式1: 如果有记录 missionId，先尝试正常取消
-    let missionId = currentMissionId;
+    const missionId = currentMissionId;
     let cancelSuccess = false;
 
     if (missionId) {

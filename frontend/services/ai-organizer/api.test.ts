@@ -43,8 +43,8 @@ import {
   getCategories,
   getTags,
   findRelatedFiles,
-} from '../ai-organizer';
-import type { FileInfo } from '../ai-organizer';
+} from './api';
+import type { FileInfo } from './api';
 
 // ---------------------------------------------------------------------------
 // Fixtures

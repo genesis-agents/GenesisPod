@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useTopicInsightsStore } from '../topicInsightsStore';
-import * as api from '@/lib/api/topic-insights';
+import * as api from '@/services/topic-insights/api';
 import type {
   ResearchTopic,
   TopicDimension,
@@ -9,9 +9,9 @@ import type {
 } from '@/types/topic-insights';
 
 // Mock the API module — use importOriginal to include all exports
-vi.mock('@/lib/api/topic-insights', async (importOriginal) => {
+vi.mock('@/services/topic-insights/api', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@/lib/api/topic-insights')>();
+    await importOriginal<typeof import('@/services/topic-insights/api')>();
   const mocked: Record<string, unknown> = {};
   for (const key of Object.keys(actual)) {
     mocked[key] =

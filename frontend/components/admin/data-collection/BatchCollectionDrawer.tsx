@@ -22,7 +22,7 @@ import {
   cancelTask,
   getCollectionTask,
   CollectionTask,
-} from '@/lib/api/data-collection';
+} from '@/services/data-collection/api';
 
 interface DataSource {
   id: string;

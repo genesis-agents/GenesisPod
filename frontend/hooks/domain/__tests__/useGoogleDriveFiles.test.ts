@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
 // Mock dependencies before importing the hook
-vi.mock('@/lib/api/google-drive', () => ({
+vi.mock('@/services/google-drive/api', () => ({
   listFiles: vi.fn(),
 }));
 
@@ -54,7 +54,7 @@ vi.mock('../../core', () => ({
 
 import { useGoogleDriveFiles } from '../useGoogleDriveFiles';
 import { useApiGet } from '../../core';
-import type { ListFilesResponse } from '@/lib/api/google-drive';
+import type { ListFilesResponse } from '@/services/google-drive/api';
 
 const mockUseApiGet = vi.mocked(useApiGet);
 

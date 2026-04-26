@@ -39,7 +39,7 @@ vi.mock('socket.io-client', () => ({
   }),
 }));
 
-vi.mock('@/lib/api/ai-teams', () => ({
+vi.mock('@/services/ai-teams/api', () => ({
   getMissions: vi.fn(),
   getMissionById: vi.fn(),
   createMission: vi.fn(),

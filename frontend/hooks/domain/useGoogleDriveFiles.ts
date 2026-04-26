@@ -17,7 +17,7 @@ import {
   type ListFilesParams,
   type ListFilesResponse,
   type FolderPathItem,
-} from '@/lib/api/google-drive';
+} from '@/services/google-drive/api';
 
 // ==================== 类型定义 ====================
 

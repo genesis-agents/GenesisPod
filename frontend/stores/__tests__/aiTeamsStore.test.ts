@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { useAiGroupStore } from '../ai-teams';
-import * as api from '@/lib/api/ai-teams';
+import * as api from '@/services/ai-teams/api';
 import {
   TopicResourceType,
   TopicType,
@@ -10,7 +10,7 @@ import {
 } from '@/types/ai-teams';
 
 // Mock the API module
-vi.mock('@/lib/api/ai-teams');
+vi.mock('@/services/ai-teams/api');
 vi.mock('@/lib/utils/auth', () => ({
   getAuthTokens: vi.fn(() => ({ accessToken: 'test-token' })),
 }));

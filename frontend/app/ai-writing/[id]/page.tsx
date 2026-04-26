@@ -12,8 +12,8 @@ import {
   type AgentWorkingData,
   type MissionProgressData,
 } from '@/hooks/useWritingWebSocket';
-import type { Chapter, MissionLogItem } from '@/lib/api/ai-writing';
-import { getMissionLogs, getProjectMissions } from '@/lib/api/ai-writing';
+import type { Chapter, MissionLogItem } from '@/services/ai-writing/api';
+import { getMissionLogs, getProjectMissions } from '@/services/ai-writing/api';
 import { matchAgentByName } from '@/lib/ai-writing/agent-config';
 import { WritingTeamPanel } from '@/components/ai-writing/WritingTeamPanel';
 import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelationshipGraph';

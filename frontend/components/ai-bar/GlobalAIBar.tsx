@@ -29,7 +29,7 @@ import {
   GlobalAIBarState,
   GlobalAIBarActions,
 } from './useGlobalAIBar';
-import { sendQuickAsk } from '@/lib/api/global-ai-bar';
+import { sendQuickAsk } from '@/services/global-ai-bar/api';
 import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 
 // ─────────────────────────────────────────────────────────

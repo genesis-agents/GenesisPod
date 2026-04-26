@@ -20,9 +20,9 @@ import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
 import { ViewToggle, type ViewMode } from '@/components/common/ViewToggle';
-import { AiOrganizeButton } from '@/components/common/ai/AiOrganizeButton';
-import { AiOrganizePanel } from '@/components/common/ai/AiOrganizePanel';
-import type { FileInfo } from '@/lib/api/ai-organizer';
+import { AiOrganizeButton } from '@/components/ai-office/ai-organizer-panels/AiOrganizeButton';
+import { AiOrganizePanel } from '@/components/ai-office/ai-organizer-panels/AiOrganizePanel';
+import type { FileInfo } from '@/services/ai-organizer/api';
 
 interface GoogleDriveFileBrowserProps {
   connectionId: string;

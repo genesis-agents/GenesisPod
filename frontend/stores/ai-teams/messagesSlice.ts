@@ -5,7 +5,7 @@ import {
   SendMessageDto,
   AddResourceDto,
 } from '@/types/ai-teams';
-import * as api from '@/lib/api/ai-teams';
+import * as api from '@/services/ai-teams/api';
 
 import { logger } from '@/lib/utils/logger';
 // Performance: Maximum messages to keep in memory to prevent browser memory overflow

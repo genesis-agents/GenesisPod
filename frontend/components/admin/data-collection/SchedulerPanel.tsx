@@ -19,7 +19,7 @@ import {
   triggerCollection,
   SchedulerStatus,
   SchedulerInfo,
-} from '@/lib/api/data-collection';
+} from '@/services/data-collection/api';
 
 const logger = createLogger('SchedulerPanel');
 

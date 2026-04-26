@@ -46,7 +46,7 @@ import {
   getMissionDetail,
   rerunMission,
   type MissionDetail,
-} from '@/lib/api/agent-playground';
+} from '@/services/agent-playground/api';
 
 type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost';
 

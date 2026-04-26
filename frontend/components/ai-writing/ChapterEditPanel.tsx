@@ -17,7 +17,7 @@ import {
   aiEditChapter,
   type Chapter,
   type AiEditOperation,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 import ChapterRevisionHistory from './ChapterRevisionHistory';
 import ChapterAnnotations from './ChapterAnnotations';
 

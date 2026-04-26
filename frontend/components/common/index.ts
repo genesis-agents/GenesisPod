@@ -1,6 +1,3 @@
-// AI 相关组件
-export * from './ai';
-
 // 评论相关组件
 export * from './comments';
 

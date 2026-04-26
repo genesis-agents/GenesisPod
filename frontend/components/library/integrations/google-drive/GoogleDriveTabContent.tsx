@@ -13,7 +13,10 @@ import {
   ConflictResolver,
   type SyncConflict,
 } from '@/components/common/sync/ConflictResolver';
-import { syncBidirectional, resolveConflict } from '@/lib/api/google-drive';
+import {
+  syncBidirectional,
+  resolveConflict,
+} from '@/services/google-drive/api';
 import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';

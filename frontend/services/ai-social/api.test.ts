@@ -93,7 +93,7 @@ import {
   generateAllVersions,
   updateVersion,
   deleteVersion,
-} from '../ai-social';
+} from './api';
 
 // ---------------------------------------------------------------------------
 // Setup

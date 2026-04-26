@@ -41,7 +41,7 @@ import {
   updatePlan,
   replanFromPhase,
   deletePlan,
-} from '../ai-planning';
+} from './api';
 
 // ---------------------------------------------------------------------------
 // Helpers

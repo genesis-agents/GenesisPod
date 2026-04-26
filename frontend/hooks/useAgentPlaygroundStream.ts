@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import { replayMission } from '@/lib/api/agent-playground';
+import { replayMission } from '@/services/agent-playground/api';
 
 const MAX_EVENTS = 5000;
 const POLL_INTERVAL_MS = 4000;

@@ -12,8 +12,8 @@ import { useAiGroupStore } from '@/stores/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import * as aiGroupApi from '@/lib/api/ai-teams';
-import { JoinRequest } from '@/lib/api/ai-teams';
+import * as aiGroupApi from '@/services/ai-teams/api';
+import { JoinRequest } from '@/services/ai-teams/api';
 
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';

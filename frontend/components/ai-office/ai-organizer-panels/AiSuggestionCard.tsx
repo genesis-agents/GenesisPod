@@ -16,7 +16,7 @@ import type {
   OrganizationSuggestion,
   CategorySuggestion,
   TagSuggestion,
-} from '@/lib/api/ai-organizer';
+} from '@/services/ai-organizer/api';
 
 interface AiSuggestionCardProps {
   suggestion: OrganizationSuggestion;

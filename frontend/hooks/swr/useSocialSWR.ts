@@ -13,7 +13,7 @@ import {
   getContents,
   getContent,
   getPublishLogs,
-} from '@/lib/api/ai-social';
+} from '@/services/ai-social/api';
 import type {
   SocialPlatformConnection,
   SocialContent,
@@ -23,7 +23,7 @@ import type {
   SocialContentType,
   SocialContentSourceType,
   SocialReviewStatus,
-} from '@/lib/api/ai-social';
+} from '@/services/ai-social/api';
 import {
   connectionsSWROptions,
   contentsSWROptions,

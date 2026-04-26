@@ -9,7 +9,7 @@ import {
   getContentVersions,
   generateVersion,
   generateAllVersions,
-} from '@/lib/api/ai-social';
+} from '@/services/ai-social/api';
 import { ClientDate } from '@/components/common/ClientDate';
 
 interface PlatformConfig {

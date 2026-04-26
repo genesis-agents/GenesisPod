@@ -20,7 +20,7 @@ import {
   getSyncStatus as getSyncStatusApi,
   type GoogleDriveConnection,
   type SyncStatus,
-} from '@/lib/api/google-drive';
+} from '@/services/google-drive/api';
 
 // ==================== 类型定义 ====================
 

@@ -18,7 +18,7 @@ import {
   type ImportFilesParams,
   type ImportResult,
   type ImportProgress,
-} from '@/lib/api/google-drive';
+} from '@/services/google-drive/api';
 
 // ==================== 类型定义 ====================
 

@@ -39,7 +39,7 @@ import {
   SocialContentVersion,
   SocialPlatformType,
   updateVersion,
-} from '@/lib/api/ai-social';
+} from '@/services/ai-social/api';
 
 import { logger } from '@/lib/utils/logger';
 import { Tooltip } from '@/components/ui/Tooltip';

@@ -93,7 +93,7 @@ import {
   deleteMission,
   getMissionLogs,
   getFullReport,
-} from '../ai-teams';
+} from './api';
 
 // ---------------------------------------------------------------------------
 // Setup

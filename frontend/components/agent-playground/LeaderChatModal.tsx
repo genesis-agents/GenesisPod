@@ -21,7 +21,7 @@ import {
   sendLeaderChat,
   type LeaderChatMessage as ApiLeaderChatMessage,
   type LeaderDecision,
-} from '@/lib/api/agent-playground';
+} from '@/services/agent-playground/api';
 import {
   LeaderChatDock,
   type LeaderChatMessage,

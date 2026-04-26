@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import * as api from '@/lib/api/ai-planning';
+import * as api from '@/services/ai-planning/api';
 import { logger } from '@/lib/utils/logger';
 import type {
   PlanSummary,
   PlanDetail,
   PlanTemplate,
   CreatePlanPayload,
-} from '@/lib/api/ai-planning';
+} from '@/services/ai-planning/api';
 
 interface AiPlanningState {
   plans: PlanSummary[];

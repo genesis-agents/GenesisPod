@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-vi.mock('@/lib/api/google-drive', () => ({
+vi.mock('@/services/google-drive/api', () => ({
   importFiles: vi.fn(),
   getImportProgress: vi.fn(),
 }));

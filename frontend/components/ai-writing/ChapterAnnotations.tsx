@@ -20,7 +20,7 @@ import {
   type ChapterAnnotation,
   type AnnotationType,
   type AnnotationStatus,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
 
 interface ChapterAnnotationsProps {

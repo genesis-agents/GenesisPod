@@ -1,4 +1,4 @@
-import { getAuthTokens } from '../utils/auth';
+import { getAuthTokens } from '@/lib/utils/auth';
 import {
   Topic,
   TopicMember,

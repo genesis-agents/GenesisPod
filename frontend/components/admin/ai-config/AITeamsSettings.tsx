@@ -15,13 +15,13 @@ import {
   ArrowLeft,
   Settings,
 } from 'lucide-react';
-import * as api from '@/lib/api/admin-ai-teams';
+import * as api from '@/services/admin-ai-teams/api';
 import type {
   AITeamTemplate,
   AITeamMemberTemplate,
   CreateTeamDto,
   UpdateTeamDto,
-} from '@/lib/api/admin-ai-teams';
+} from '@/services/admin-ai-teams/api';
 import AITeamMemberEditor from './AITeamMemberEditor';
 import { toast } from '@/stores';
 

@@ -67,7 +67,7 @@ import {
   xhsGetFeedDetail,
   xhsPostComment,
   xhsGetUserProfile,
-} from '@/lib/api/ai-social';
+} from '@/services/ai-social/api';
 
 // Re-export types for convenience
 export type {

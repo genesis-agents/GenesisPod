@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import type { PlanTemplate, CreatePlanPayload } from '@/lib/api/ai-planning';
+import type {
+  PlanTemplate,
+  CreatePlanPayload,
+} from '@/services/ai-planning/api';
 
 interface CreatePlanDialogProps {
   templates: PlanTemplate[];

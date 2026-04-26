@@ -23,7 +23,7 @@ import {
   type ChapterPreview,
   type ImportStatusResponse,
   type ImportHistoryItem,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
 
 interface ChapterImportModalProps {

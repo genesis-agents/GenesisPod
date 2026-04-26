@@ -40,7 +40,7 @@ This directory contains SWR (Stale-While-Revalidate) hooks for optimized data fe
                  ▼
 ┌─────────────────────────────────────────────────────────┐
 │  API Layer                                              │
-│  - @/lib/api/ai-social                                  │
+│  - @/services/ai-social/api                                  │
 └─────────────────────────────────────────────────────────┘
 ```
 

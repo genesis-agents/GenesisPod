@@ -7,7 +7,7 @@
  * - 简单直接的 fetch 请求
  */
 
-import { getAuthTokens } from '../utils/auth';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 // ==================== Types ====================
 

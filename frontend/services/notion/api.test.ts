@@ -59,7 +59,7 @@ import {
   getDatabases,
   getDatabase,
   getConfig,
-} from '../notion';
+} from './api';
 
 // ---------------------------------------------------------------------------
 // Setup

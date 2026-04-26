@@ -22,10 +22,10 @@ import type {
   UseSocialConnectionsResult,
   UseSocialContentsResult,
 } from '../useSocialSWR';
-import * as api from '@/lib/api/ai-social';
+import * as api from '@/services/ai-social/api';
 
 // Mock the API
-vi.mock('@/lib/api/ai-social', () => ({
+vi.mock('@/services/ai-social/api', () => ({
   getConnections: vi.fn(),
   getConnection: vi.fn(),
   getConnectionByPlatform: vi.fn(),

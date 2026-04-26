@@ -17,7 +17,7 @@ import {
 import {
   getChapterTimelineConflicts,
   type TimelineConflict,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 
 interface TimelineConflictPanelProps {
   chapterId: string;

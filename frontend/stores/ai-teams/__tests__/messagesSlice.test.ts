@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@/lib/api/ai-teams', () => ({
+vi.mock('@/services/ai-teams/api', () => ({
   getMessages: vi.fn(),
   sendMessage: vi.fn(),
   deleteMessage: vi.fn(),
@@ -57,7 +57,7 @@ vi.mock('socket.io-client', () => ({
   }),
 }));
 
-import * as apiModule from '@/lib/api/ai-teams';
+import * as apiModule from '@/services/ai-teams/api';
 import { useAiGroupStore } from '../index';
 
 const api = apiModule as ReturnType<typeof vi.mocked<typeof apiModule>>;

@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell';
 import CreatePlanDialog from '@/components/ai-planning/CreatePlanDialog';
 import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';
-import type { PlanSummary } from '@/lib/api/ai-planning';
+import type { PlanSummary } from '@/services/ai-planning/api';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
 import { Users } from 'lucide-react';

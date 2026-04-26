@@ -86,7 +86,7 @@ import {
   getSchedulerStatus,
   updateSchedulerConfig,
   triggerCollection,
-} from '../data-collection';
+} from './api';
 
 // ---------------------------------------------------------------------------
 // Setup

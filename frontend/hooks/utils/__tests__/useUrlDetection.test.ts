@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 
 const mockDetectAndParseUrls = vi.fn();
 
-vi.mock('@/lib/api/ai-teams', () => ({
+vi.mock('@/services/ai-teams/api', () => ({
   detectAndParseUrls: (...args: unknown[]) => mockDetectAndParseUrls(...args),
 }));
 
@@ -17,7 +17,7 @@ vi.mock('@/lib/utils/logger', () => ({
 }));
 
 import { useUrlDetection } from '../useUrlDetection';
-import type { ParsedUrl, DetectedUrl } from '@/lib/api/ai-teams';
+import type { ParsedUrl, DetectedUrl } from '@/services/ai-teams/api';
 
 function makeParsedUrl(
   url: string,

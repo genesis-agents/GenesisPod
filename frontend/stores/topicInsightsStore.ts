@@ -33,7 +33,7 @@ import type {
   TodoSummary,
   ResearchTodoStatus,
 } from '@/types/topic-insights';
-import * as api from '@/lib/api/topic-insights';
+import * as api from '@/services/topic-insights/api';
 import { logger } from '@/lib/utils/logger';
 import type {
   MissionStatus,
@@ -41,7 +41,7 @@ import type {
   ResearchMission,
   TeamMessage,
   AgentActivity,
-} from '@/lib/api/topic-insights';
+} from '@/services/topic-insights/api';
 
 interface TopicInsightsState {
   // Topics

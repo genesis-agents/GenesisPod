@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-teams';
 import type { WebResource } from '@/types/ai-office';
 import { useAIModels } from '@/hooks';
-import * as api from '@/lib/api/ai-teams';
+import * as api from '@/services/ai-teams/api';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';
 

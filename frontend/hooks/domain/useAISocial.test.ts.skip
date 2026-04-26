@@ -21,10 +21,10 @@ import {
   useSocialSources,
   useAISocial,
 } from './useAISocial';
-import * as apiSocial from '@/lib/api/ai-social';
+import * as apiSocial from '@/services/ai-social/api';
 
 // Mock the entire API module
-vi.mock('@/lib/api/ai-social', () => ({
+vi.mock('@/services/ai-social/api', () => ({
   // Connection APIs
   getConnections: vi.fn(),
   getConnection: vi.fn(),

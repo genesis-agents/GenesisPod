@@ -11,7 +11,7 @@ import {
   ExternalLink,
   ChevronRight,
 } from 'lucide-react';
-import type { GoogleDriveFile } from '@/lib/api/google-drive';
+import type { GoogleDriveFile } from '@/services/google-drive/api';
 import { formatDateSafe } from '@/lib/utils/date';
 
 interface GoogleDriveFileRowProps {

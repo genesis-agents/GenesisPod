@@ -61,7 +61,7 @@ import {
   getSyncStatus,
   getSyncHistory,
   getConfig,
-} from '../google-drive';
+} from './api';
 
 // ---------------------------------------------------------------------------
 // Setup

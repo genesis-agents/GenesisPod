@@ -9,7 +9,7 @@ import {
   updatePage,
   pushToNotion,
   NotionPage,
-} from '@/lib/api/notion';
+} from '@/services/notion/api';
 import AppShell from '@/components/layout/AppShell';
 
 import { logger } from '@/lib/utils/logger';

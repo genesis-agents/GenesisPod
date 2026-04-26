@@ -23,7 +23,7 @@ import {
   type TeamTopologyConnection,
   type TeamTopologyLegendItem,
 } from '@/components/common/team-topology';
-import type { PlanDetail } from '@/lib/api/ai-planning';
+import type { PlanDetail } from '@/services/ai-planning/api';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import {
   PLANNING_ROLES_CONFIG,

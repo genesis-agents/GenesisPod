@@ -17,7 +17,7 @@ import {
   type ChapterRevision,
   type RevisionDiff,
   type RevisionChangeType,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
 
 interface ChapterRevisionHistoryProps {

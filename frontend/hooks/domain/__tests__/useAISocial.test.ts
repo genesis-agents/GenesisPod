@@ -2,7 +2,7 @@
  * Tests for hooks/domain/useAISocial.ts
  *
  * Covers all six sub-hooks exported from the file plus the combined useAISocial
- * hook. Every API call is mocked at the @/lib/api/ai-social module boundary.
+ * hook. Every API call is mocked at the @/services/ai-social/api module boundary.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
@@ -86,7 +86,7 @@ const {
   mockXhsGetUserProfile: vi.fn(),
 }));
 
-vi.mock('@/lib/api/ai-social', () => ({
+vi.mock('@/services/ai-social/api', () => ({
   getConnections: mockGetConnections,
   getConnection: mockGetConnection,
   getConnectionByPlatform: mockGetConnectionByPlatform,

@@ -26,7 +26,7 @@ import {
   type HierarchicalSummariesResponse,
   type ChapterSummary,
   type SceneSummary,
-} from '@/lib/api/ai-writing';
+} from '@/services/ai-writing/api';
 
 // ==================== Constants ====================
 

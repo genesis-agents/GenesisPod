@@ -17,7 +17,7 @@ import {
 } from '@/types/ai-teams';
 import { useUrlDetection } from '@/hooks';
 import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
-import type { ParsedUrl } from '@/lib/api/ai-teams';
+import type { ParsedUrl } from '@/services/ai-teams/api';
 import { getProviderBrand } from '@/lib/ai-provider-logos';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import { toast } from '@/stores';

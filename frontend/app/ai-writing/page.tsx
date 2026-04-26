@@ -6,7 +6,10 @@ import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { useAIWritingStore } from '@/stores';
-import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
+import {
+  getStylePresets,
+  type WritingStylePreset,
+} from '@/services/ai-writing/api';
 import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 import { SkillsModal } from '@/components/common/skills/SkillsModal';

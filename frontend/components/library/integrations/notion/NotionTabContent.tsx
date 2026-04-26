@@ -25,7 +25,7 @@ import {
   NotionPage,
   SyncStatus,
   NotionSyncConflict,
-} from '@/lib/api/notion';
+} from '@/services/notion/api';
 import { formatDateSafe } from '@/lib/utils/date';
 import {
   SyncControls,
@@ -40,9 +40,9 @@ import AddToKnowledgeBaseDialog, {
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
 import { ViewToggle, type ViewMode } from '@/components/common/ViewToggle';
 import { NotionPageRow } from './NotionPageRow';
-import { AiOrganizeButton } from '@/components/common/ai/AiOrganizeButton';
-import { AiOrganizePanel } from '@/components/common/ai/AiOrganizePanel';
-import type { FileInfo } from '@/lib/api/ai-organizer';
+import { AiOrganizeButton } from '@/components/ai-office/ai-organizer-panels/AiOrganizeButton';
+import { AiOrganizePanel } from '@/components/ai-office/ai-organizer-panels/AiOrganizePanel';
+import type { FileInfo } from '@/services/ai-organizer/api';
 
 export default function NotionTabContent() {
   const router = useRouter();

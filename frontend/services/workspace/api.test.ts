@@ -21,7 +21,7 @@ import {
   getWorkspaceTask,
   listWorkspaceTemplates,
   generateWorkspaceReport,
-} from '@/lib/api/workspace';
+} from '@/services/workspace/api';
 
 // ---------------------------------------------------------------------------
 // Helpers

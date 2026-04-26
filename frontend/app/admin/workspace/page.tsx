@@ -11,7 +11,7 @@ import {
   generateWorkspaceReport,
   getWorkspaceTask,
   listWorkspaceTemplates,
-} from '@/lib/api/workspace';
+} from '@/services/workspace/api';
 import { useReportWorkspace, useWorkspaceSync, useAIModels } from '@/hooks';
 import ClientDate from '@/components/common/ClientDate';
 
