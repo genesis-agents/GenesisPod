@@ -148,7 +148,13 @@ export class ReportAssemblerService {
     );
 
     // 8) quality 真实评分（10 维启发式）
-    const quality = this.buildQualityStub(sections, citations, figures, input);
+    const quality = this.buildQualityStub(
+      sections,
+      citations,
+      figures,
+      input,
+      fullMarkdown,
+    );
 
     return {
       content: {
@@ -908,6 +914,7 @@ export class ReportAssemblerService {
     _citations: ArtifactCitation[],
     _figures: ArtifactFigure[],
     input?: AssembleInput,
+    fullMarkdown?: string,
   ): ArtifactQualityVerdicts {
     const violations: ArtifactQualityVerdicts["hardGateViolations"] = [];
     const warnings: ArtifactQualityVerdicts["warnings"] = [];
@@ -1032,8 +1039,8 @@ export class ReportAssemblerService {
     const domains = new Set(_citations.map((c) => c.domain));
     if (domains.size >= 6) noveltyScore += 15;
     else if (domains.size >= 3) noveltyScore += 8;
-    // 套话扣分：每出现一次扣 5
-    const fullText = sections.map((s) => s.title).join(" ");
+    // 套话扣分：每出现一次扣 5（用 fullMarkdown 覆盖 body 内容，title 太短）
+    const fullText = fullMarkdown ?? sections.map((s) => s.title).join(" ");
     const clichePatterns = [
       /随着.{0,4}的发展/g,
       /在当今/g,
@@ -1053,12 +1060,9 @@ export class ReportAssemblerService {
     noveltyScore = Math.min(100, noveltyScore);
 
     // ─── styleConformance：profile 匹配启发式 ───
-    //   各 profile 期望的关键词频率
+    //   各 profile 期望的关键词频率（基于 fullMarkdown 全文，不只是 title）
     let styleScore = 60;
-    const allBody = sections
-      .filter((s) => s.type !== "executive_summary")
-      .map((s) => s.title)
-      .join(" ");
+    const allBody = fullMarkdown ?? sections.map((s) => s.title).join(" ");
     const styleProfile = input?.styleProfile;
     if (styleProfile === "executive") {
       // 期望：Implications / 战略 / 决策 / 风险 / 建议
