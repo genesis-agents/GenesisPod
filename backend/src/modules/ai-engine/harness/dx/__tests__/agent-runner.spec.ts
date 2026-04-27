@@ -205,6 +205,8 @@ describe("AgentRunner + @DefineAgent (PR-H)", () => {
         name: id,
         description: `desc-${id}`,
       })),
+      isAvailable: jest.fn(() => true),
+      listByCategory: jest.fn(() => []),
     };
     const fakeSkillReg = {
       get: jest.fn((id: string) => ({
