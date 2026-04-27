@@ -1013,7 +1013,10 @@ export class ReActLoop implements IAgentLoop {
       );
       return {
         decision: {
-          thinking: `(unparseable LLM output, finalizing with raw text — ${errName}: ${errMsg})`,
+          // ★ 友好化：JSON 抽取彻底失败（例如纯文本输出）— parser 已经把 raw text
+          //   当作 finalize.output，trace 不应暴露解析器异常类名。
+          thinking:
+            "（模型未输出有效 JSON，已把原始文本作为 finalize 结果归一化保存）",
           action: { kind: "finalize", output: raw },
         },
         parseError: { name: errName, message: errMsg },
@@ -1076,7 +1079,10 @@ export class ReActLoop implements IAgentLoop {
       );
       return {
         decision: {
-          thinking: `(unparseable LLM action — ${errName}: ${errMsg})`,
+          // ★ 友好化：LLM 把结果直接当顶级返回（漏写 envelope）很常见，
+          //   parser 已自动 fallback，不应在 trace 里暴露 InvalidActionError。
+          thinking:
+            "（模型直接返回了 finalize 结果，已自动归一化包装为标准 envelope）",
           action: { kind: "finalize", output: raw },
         },
         parseError: { name: errName, message: errMsg, subCode },
