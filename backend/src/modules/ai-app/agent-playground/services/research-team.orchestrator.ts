@@ -544,6 +544,7 @@ export class ResearchTeamOrchestrator {
     }
 
     // 先持久化 mission record (status=running)
+    // 同时把 userProfile 快照写进去，cancelled/failed 时也能看到配置
     await this.store.create({
       id: missionId,
       userId,
@@ -552,6 +553,18 @@ export class ResearchTeamOrchestrator {
       depth: input.depth,
       language: input.language,
       maxCredits: effectiveMaxCredits,
+      userProfile: {
+        depth: input.depth,
+        language: input.language,
+        budgetProfile: input.budgetProfile,
+        styleProfile: input.styleProfile,
+        lengthProfile: input.lengthProfile,
+        audienceProfile: input.audienceProfile,
+        withFigures: input.withFigures,
+        auditLayers: input.auditLayers,
+        concurrency: input.concurrency,
+        viewMode: input.viewMode,
+      } as Record<string, unknown>,
     });
 
     return BillingContext.run(

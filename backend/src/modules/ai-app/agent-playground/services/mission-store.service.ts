@@ -52,6 +52,8 @@ export class MissionStore {
     depth: string;
     language: string;
     maxCredits: number;
+    /** 用户档位快照 —— 在创建时就写入，避免 cancelled/failed 时丢失配置可见性 */
+    userProfile?: Record<string, unknown>;
   }): Promise<void> {
     await this.prisma.agentPlaygroundMission
       .create({
@@ -64,6 +66,7 @@ export class MissionStore {
           language: input.language,
           maxCredits: input.maxCredits,
           status: "running",
+          userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
         },
       })
       .catch((err: unknown) => {
