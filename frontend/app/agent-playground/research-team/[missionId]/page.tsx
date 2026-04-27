@@ -708,9 +708,18 @@ export default function MissionDetailPage() {
 function renderActionInputReadable(
   input: unknown,
   fallbackJson: string | null,
-  urlTitleMap?: Map<string, string>
+  urlTitleMap?: Map<string, string>,
+  toolId?: string
 ): React.ReactNode {
   if (input == null) {
+    // finalize 没有 input —— 提示用户产出在下方的"结果"行
+    if (toolId === 'finalize') {
+      return (
+        <p className="mt-1 text-[10px] italic text-gray-500">
+          ↓ 产出 JSON 见下方"结果"行（包含完整的 finalize.output 结构）
+        </p>
+      );
+    }
     return <p className="mt-1 text-[10px] italic text-gray-400">（无参数）</p>;
   }
 
@@ -2430,7 +2439,8 @@ function TaskDetailDrawer({
                                 ? t.input
                                 : JSON.stringify(t.input, null, 2)
                               : null,
-                            urlTitleMap
+                            urlTitleMap,
+                            t.toolId
                           )}
                         {/* 结果：search/scrape 卡片化，否则 fallback 紧凑 JSON 预览 */}
                         {t.kind === 'observation' &&
