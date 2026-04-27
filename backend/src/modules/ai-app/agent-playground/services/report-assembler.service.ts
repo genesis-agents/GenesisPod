@@ -232,6 +232,9 @@ export class ReportAssemblerService {
     fullMarkdown: string,
   ): void {
     for (const c of citations) c.occurrences.length = 0;
+    // sections 是 buildSectionTree 重建出来的（figure inject 后），需要把 sec.citations
+    // 也一并重算 —— 否则 quality scorer 读到 sec.citations=[] → citationDensity=0。
+    for (const s of sections) s.citations = [];
     const re = /\[(\d+)\]/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(fullMarkdown)) !== null) {
@@ -251,6 +254,7 @@ export class ReportAssemblerService {
         paragraphIndex,
         characterOffset: localOffset,
       });
+      if (!sec.citations.includes(num)) sec.citations.push(num);
     }
   }
 
