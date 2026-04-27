@@ -21,12 +21,34 @@ services/
 │   ├── verifier.service.ts             ← 客观事实核验（4 mode，未接入）
 │   └── steward.service.ts              ← 资源 / 合规守门（4 scope，未接入）
 │
-├── mission/                            ← Mission 生命周期 / 状态 / 持久化
-│   ├── mission-store.service.ts        ← Prisma 持久化（mission row + leader_journal jsonb）
-│   ├── mission-state.service.ts        ← Mission 状态机
-│   ├── mission-abort.registry.ts       ← AbortController 注册表（per-mission cancel）
-│   ├── mission-ownership.registry.ts   ← Mission ↔ owner socket 映射
-│   └── mission-event-buffer.service.ts ← In-memory 事件缓冲（给 /replay 用）
+├── mission/                            ← Mission 总目录（workflow + lifecycle）
+│   ├── workflow/                        ← Mission 业务剧本（"剧本/编排"）
+│   │   ├── research-team.mission.ts    ← Trunk（约 2570 行，剩 researcher dispatch + writer 主流程内联）
+│   │   ├── mission-context.ts          ← 跨 stage 状态包
+│   │   ├── mission-deps.ts             ← stage 函数依赖包
+│   │   ├── helpers/                     ← 纯函数工具
+│   │   │   ├── failure-extraction.util.ts
+│   │   │   └── token-spend.util.ts
+│   │   └── stages/                      ← 已抽 9 个 stage 函数
+│   │       ├── 00-budget-estimate.stage.ts
+│   │       ├── 10-leader-plan.stage.ts        ← M0
+│   │       ├── 30-leader-assess-m1.stage.ts   ← M1（含 dispatch）
+│   │       ├── 40-reconciler.stage.ts
+│   │       ├── 50-analyst.stage.ts
+│   │       ├── 55-writer-outline.stage.ts     ← W1 outline
+│   │       ├── 70-critic.stage.ts             ← L4
+│   │       ├── 80-leader-handoff.stage.ts     ← M6 + M7
+│   │       └── 99-persist.stage.ts
+│   │       —— 待抽 (留作 PR-S8/S9，需要文件夹级子拆分):
+│   │           20-researcher-dispatch/  ← researchers + per-dim chapter pipeline
+│   │           60-writer/               ← writer do-while + judgeConsensus + reportAssemble
+│   │
+│   └── lifecycle/                       ← Mission 生命周期 / 状态 / 持久化
+│       ├── mission-store.service.ts    ← Prisma 持久化（mission row + leader_journal jsonb）
+│       ├── mission-state.service.ts    ← Mission 状态机
+│       ├── mission-abort.registry.ts   ← AbortController 注册表
+│       ├── mission-ownership.registry.ts ← Mission ↔ socket 映射
+│       └── mission-event-buffer.service.ts ← /replay 内存事件缓冲
 │
 ├── chat/                               ← 用户与 Agent 的对话
 │   └── leader-chat.service.ts          ← 用户 ↔ Leader 多轮聊天（M0 前的 clarify / append dim）
