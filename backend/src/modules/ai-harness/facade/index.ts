@@ -111,8 +111,8 @@ export type {
 } from "../governance/observability/session-latency.types";
 
 // ── Security ──
-export { CapabilityGuardService } from "../governance/security/capability-guard.service";
-export type { CapabilityCheckResult } from "../governance/security/capability.types";
+export { CapabilityGuardService } from "../../ai-engine/safety/security/capability-guard.service";
+export type { CapabilityCheckResult } from "../../ai-engine/safety/security/capability.types";
 
 // ════════════════════════════════════════════════════════════════════
 // Protocol: events + ipc + journal + realtime

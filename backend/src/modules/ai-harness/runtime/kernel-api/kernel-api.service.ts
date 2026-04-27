@@ -15,7 +15,7 @@ import { MessageBusService } from "../../../ai-harness/protocol/ipc/message-bus.
 import { ProgressTrackerService } from "../../../ai-harness/protocol/ipc/progress-tracker.service";
 import { AiObservabilityService } from "../../../ai-harness/governance/observability/ai-observability.service";
 import { CostAttributionService } from "../../../ai-harness/governance/observability/cost-attribution.service";
-import { CapabilityGuardService } from "../../governance/security/capability-guard.service";
+import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
 import { KernelSchedulerService } from "../../../ai-harness/process/scheduler/kernel-scheduler.service";
 import type {
   ProcessId,

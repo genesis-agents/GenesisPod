@@ -71,6 +71,24 @@ export class LlmEventsListener {
     eventType: string;
     payload: Record<string, unknown>;
   }): void {
+    this.forwardJournal(payload);
+  }
+
+  // ★ agent-orchestrator 通过同一桥接发 journal（PR-X3）
+  @OnEvent("agent.journal.record")
+  onAgentJournalRecord(payload: {
+    processId: string;
+    eventType: string;
+    payload: Record<string, unknown>;
+  }): void {
+    this.forwardJournal(payload);
+  }
+
+  private forwardJournal(payload: {
+    processId: string;
+    eventType: string;
+    payload: Record<string, unknown>;
+  }): void {
     if (!this.eventJournal) return;
     void this.eventJournal
       .record(payload.processId, payload.eventType, payload.payload)

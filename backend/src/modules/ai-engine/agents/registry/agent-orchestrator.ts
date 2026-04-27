@@ -5,14 +5,14 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AgentId, AgentInput, AgentEvent } from "../../core/types/agent.types";
 import { AgentRegistry } from "./agent-registry";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
-// ★ L2 internal — 直接相对路径（不走 facade barrel，见 ai-chat.service.ts 说明）
-import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
-import { CapabilityGuardService } from "../../../ai-harness/governance/security/capability-guard.service";
+// PR-X3: EventJournal → 通过 EventEmitter 事件解耦；CapabilityGuard 已搬到 engine
+import { CapabilityGuardService } from "../../safety/security/capability-guard.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 
 /**
@@ -41,7 +41,7 @@ export class AgentOrchestrator {
     @Optional() private readonly agentConfigService?: AgentConfigService,
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
     private readonly configService?: ConfigService,
-    @Optional() private readonly eventJournal?: EventJournalService,
+    @Optional() private readonly events?: EventEmitter2,
     @Optional() private readonly capabilityGuard?: CapabilityGuardService,
   ) {
     this.guardrailsEnabled =
@@ -130,15 +130,15 @@ export class AgentOrchestrator {
       // 生成执行计划
       const plan = await agent.plan(input);
 
-      if (resolvedProcessId && this.eventJournal) {
-        void this.eventJournal
-          .record(resolvedProcessId, "AGENT_PLAN", {
+      if (resolvedProcessId) {
+        this.events?.emit("agent.journal.record", {
+          processId: resolvedProcessId,
+          eventType: "AGENT_PLAN",
+          payload: {
             agentId: selectedAgentId,
             stepCount: plan?.steps?.length ?? 0,
-          })
-          .catch((err) =>
-            this.logger.debug("Process event emission failed", err),
-          );
+          },
+        });
       }
 
       // ★ CapabilityGuard: Check tool access before execution
@@ -210,15 +210,15 @@ export class AgentOrchestrator {
         // 记录完成或错误
         if (event.type === "complete") {
           this.registry.recordExecution(selectedAgentId, event.result.success);
-          if (resolvedProcessId && this.eventJournal) {
-            void this.eventJournal
-              .record(resolvedProcessId, "AGENT_COMPLETE", {
+          if (resolvedProcessId) {
+            this.events?.emit("agent.journal.record", {
+              processId: resolvedProcessId,
+              eventType: "AGENT_COMPLETE",
+              payload: {
                 agentId: selectedAgentId,
                 success: event.result?.success ?? false,
-              })
-              .catch((err) =>
-                this.logger.debug("Process event emission failed", err),
-              );
+              },
+            });
           }
         } else if (event.type === "error") {
           this.registry.recordExecution(selectedAgentId, false);
@@ -229,15 +229,15 @@ export class AgentOrchestrator {
         `[execute] Agent execution failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       this.registry.recordExecution(selectedAgentId, false);
-      if (resolvedProcessId && this.eventJournal) {
-        void this.eventJournal
-          .record(resolvedProcessId, "AGENT_ERROR", {
+      if (resolvedProcessId) {
+        this.events?.emit("agent.journal.record", {
+          processId: resolvedProcessId,
+          eventType: "AGENT_ERROR",
+          payload: {
             agentId: selectedAgentId,
             error: error instanceof Error ? error.message : String(error),
-          })
-          .catch((err) =>
-            this.logger.debug("Process event emission failed", err),
-          );
+          },
+        });
       }
 
       yield {

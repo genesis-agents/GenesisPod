@@ -19,6 +19,9 @@ import { SchemaValidator } from "./safety/constraint/validators/schema-validator
 // Resilience（PR-X3：通用熔断器从 harness 搬到 engine）
 import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
 
+// Security（PR-X3：CapabilityGuard 从 harness 搬到 engine）
+import { CapabilityGuardService } from "./safety/security/capability-guard.service";
+
 // Guardrails (Legacy)
 import { ContentFilter } from "./safety/constraint/guardrails/content-filter";
 // CostController / RateLimiter 由 ai-harness/RuntimeResourceModule (@Global) 提供，
@@ -57,6 +60,9 @@ const contentFilterFactory = {
     // Resilience
     CircuitBreakerService,
 
+    // Security
+    CapabilityGuardService,
+
     // Guardrails (Legacy)
     contentFilterFactory,
 
@@ -75,6 +81,7 @@ const contentFilterFactory = {
     SchemaValidator,
     ContentFilter,
     CircuitBreakerService,
+    CapabilityGuardService,
     GuardrailsPipelineService,
   ],
 })

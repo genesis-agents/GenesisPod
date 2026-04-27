@@ -22,7 +22,8 @@ import { ObservabilityModule } from "../governance/observability/observability.m
 import { ProcessManagerService } from "../process/manager/process-manager.service";
 import { ProcessSupervisorService } from "../process/supervisor/process-supervisor.service";
 import { MissionExecutorService } from "./mission/mission-executor.service";
-import { CapabilityGuardService } from "../governance/security/capability-guard.service";
+// CapabilityGuardService 已搬到 ai-engine/safety/security/（PR-X3）
+// 由 ai-engine-constraint.module 提供，@Global 全局可注入
 import { KernelSchedulerService } from "../process/scheduler/kernel-scheduler.service";
 import { KernelApiService } from "./kernel-api/kernel-api.service";
 
@@ -30,7 +31,6 @@ const RUNTIME_LIFECYCLE_PROVIDERS = [
   ProcessManagerService,
   ProcessSupervisorService,
   MissionExecutorService,
-  CapabilityGuardService,
   KernelSchedulerService,
   KernelApiService,
 ];

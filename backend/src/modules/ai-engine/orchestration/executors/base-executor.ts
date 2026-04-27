@@ -21,7 +21,8 @@ import type { WorkflowHandlerRegistry } from "../handlers/handler-registry";
 import type { MapStepConfig } from "../handlers/workflow-node-handler.interface";
 import { RetryStrategy } from "./retry-strategy";
 import type { CircuitBreakerService } from "../../safety/resilience/circuit-breaker.service";
-import type { IProgressTracker } from "../../../ai-harness/protocol/realtime/abstractions/progress-tracker.interface";
+// PR-X3: engine 端运行时依赖契约（无反向 import）
+import type { IProgressTracker } from "./runtime-deps";
 
 /**
  * 执行器接口
