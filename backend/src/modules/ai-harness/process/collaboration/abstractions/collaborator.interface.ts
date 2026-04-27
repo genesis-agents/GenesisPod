@@ -3,7 +3,7 @@
  * 协作者接口定义
  */
 
-import { JsonObject } from "../../../core";
+import { JsonObject } from "../../../../ai-engine/core";
 
 /**
  * 协作消息

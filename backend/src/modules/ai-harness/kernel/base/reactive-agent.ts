@@ -1,10 +1,12 @@
 /**
- * AI Engine - Reactive Agent
- * ReAct 模式 Agent 实现
+ * Legacy Reactive Agent (migrated from ai-engine/agents/base)
+ *
+ * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
+ * Migrated: PR-X5 (ai-engine/agents/base → ai-harness/kernel/base)
  */
 
-import { ExecutionMode } from "../../core";
-import { AgentError } from "../../core/errors";
+import { ExecutionMode } from "../../../ai-engine/core";
+import { AgentError } from "../../../ai-engine/core/errors";
 import {
   AgentContext,
   AgentInput,
@@ -12,13 +14,13 @@ import {
   AgentEvent,
   AgentResult,
   ToolCallRecord,
-} from "../abstractions/agent.interface";
+} from "../abstractions/legacy-agent.interface";
 import { BaseAgent } from "./base-agent";
 import {
   LLMMessage,
   LLMToolCall,
   LLMToolDefinition,
-} from "../../llm/abstractions";
+} from "../../../ai-engine/llm/abstractions";
 
 /**
  * ReAct Agent 配置

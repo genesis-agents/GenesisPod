@@ -10,14 +10,14 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 // All types via facade
 import type {
-  IAgent,
+  LegacyIAgent as IAgent,
   AgentContext,
   AgentResult,
   AgentCapability,
   ExecutionPlan,
-  AgentIfaceOutput as AgentOutput,
-  AgentIfaceEvent as AgentEvent,
-} from "../../../ai-engine/facade";
+  AgentOutput,
+  LegacyAgentEvent as AgentEvent,
+} from "../../../ai-harness/facade";
 
 // ==================== Writing Agent 接口 ====================
 

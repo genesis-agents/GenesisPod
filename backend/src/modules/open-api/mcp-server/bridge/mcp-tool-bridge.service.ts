@@ -21,11 +21,11 @@ import {
 import {
   ToolRegistry,
   SkillRegistry,
-  AgentRegistry,
   ChatFacade,
   ToolFacade,
   AgentFacade,
 } from "../../../ai-engine/facade";
+import { AgentRegistry } from "../../../ai-harness/facade";
 
 interface BridgedToolMeta {
   source: MCPToolSource;

@@ -28,7 +28,6 @@ export type { TeamInfo } from "../../ai-harness/runtime/teams/services/teams.ser
 
 // ★ Registry classes — AI App 模块可直接注入，但 import 路径必须来自此文件
 export { ToolRegistry } from "../tools/registry/tool-registry";
-export { AgentRegistry } from "../agents/registry";
 export { TeamRegistry } from "../../ai-harness/runtime/teams/registry/team-registry";
 export { RoleRegistry } from "../../ai-harness/runtime/teams/registry/role-registry";
 export { SkillRegistry } from "../skills/registry/skill-registry";
@@ -217,28 +216,6 @@ export {
   parseErrorType,
 } from "../orchestration/utils/error-detection.utils";
 
-// Agent interface types
-// AgentOutput/AgentEvent are aliased to avoid collision with facade.types.ts AgentOutput
-// and function-calling-executor.ts AgentEvent
-export type {
-  IAgent,
-  AgentContext,
-  AgentResult,
-  AgentCapability,
-  ExecutionPlan,
-  AgentMessage,
-  AgentMemory,
-  AgentArtifact,
-  ToolCallRecord,
-  SkillCallRecord,
-  AgentResultError,
-  AgentResultMetadata,
-  AgentDefinition,
-  ReActPlanStep,
-  AgentEventType,
-  AgentOutput as AgentIfaceOutput,
-  AgentEvent as AgentIfaceEvent,
-} from "../agents/abstractions/agent.interface";
 
 // Skills interfaces（for office slides module）
 export type { ISkillOutputManager } from "../skills/output-manager/skill-output-manager.interface";
@@ -310,10 +287,8 @@ export {
 // All re-exports removed (barrel triggers circular dep at runtime).
 // Consumers should import directly from ai-app/writing/content-engine/.
 
-// ★ Agent/Tool base classes live in facade/base-classes.ts (轻量子模块，零循环依赖)
-// 用法: import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
-// 原因: 本文件(index.ts) 加载 70+ 模块会形成循环链，base-classes.ts 不拉入服务层
-export type { IPlanBasedAgent } from "../agents/base/plan-based-agent";
+// ★ Agent/Tool base classes live in ai-harness/facade (PR-X5 cleanup)
+// 用法: import { PlanBasedAgent, IPlanBasedAgent } from "@/modules/ai-harness/facade"
 
 // ★ BaseTool moved to facade/base-classes.ts（与 BaseAgent/PlanBasedAgent 同理）
 
@@ -348,7 +323,6 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { AgentConfigService } from "../agents/config/agent-config.service";
 export { MCPExternalAdminController } from "../mcp/admin/mcp-external-admin.controller";
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";

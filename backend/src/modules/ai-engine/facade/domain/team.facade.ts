@@ -63,11 +63,11 @@ import type {
   CompressionResult,
 } from "../../orchestration/services/interfaces";
 import type { SaveEvidenceRequest } from "../../knowledge/evidence/abstractions/evidence.interface";
-import type { VotingSession } from "../../agents/collaboration/patterns/voting-pattern";
+import type { VotingSession } from "../../../ai-harness/process/collaboration/patterns/voting-pattern";
 import type {
   VoteRequest,
   VoteResult,
-} from "../../agents/collaboration/abstractions/collaborator.interface";
+} from "../../../ai-harness/process/collaboration/abstractions/collaborator.interface";
 import type { SkillMdDefinition } from "../../skills/types/skill-md.types";
 import { TeamsService } from "../../../ai-harness/runtime/teams/services/teams.service";
 import { TeamFactory } from "../../../ai-harness/runtime/teams/factory/team-factory";

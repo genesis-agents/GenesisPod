@@ -28,7 +28,7 @@ import { ForeshadowingService } from "../../services/quality/foreshadowing.servi
 import { PacingControlService } from "../../services/quality/pacing-control.service";
 import { DialogueConstraintsService } from "../../services/quality/dialogue-constraints.service";
 import { CharacterConsistencyService } from "../../services/quality/character-consistency.service";
-import type { AgentContext } from "../../../../ai-engine/facade";
+import type { AgentContext } from "../../../../ai-harness/facade";
 import type {
   WritingContextPackage,
   ChapterWritingContext,

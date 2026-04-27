@@ -1,18 +1,21 @@
 /**
- * AI Engine - Agent Orchestrator
- * Agent 编排器 - 协调 Agent 执行
+ * Legacy Agent Orchestrator (migrated from ai-engine/agents/registry)
+ *
+ * Selects and schedules IPlanBasedAgent instances for execution.
+ * @deprecated For new agents use MissionOrchestrator / HarnessedAgent.
+ * Migrated: PR-X5 (ai-engine/agents/registry → ai-harness/kernel/registry)
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { AgentId, AgentInput, AgentEvent } from "../../core/types/agent.types";
-import { AgentRegistry } from "./agent-registry";
-import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
+import { AgentId, AgentInput, AgentEvent } from "../../../ai-engine/core/types/agent.types";
+import { AgentRegistry } from "./legacy-agent-registry";
+import { GuardrailsPipelineService } from "../../../ai-engine/safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 // PR-X3: EventJournal → 通过 EventEmitter 事件解耦；CapabilityGuard 已搬到 engine
-import { CapabilityGuardService } from "../../safety/security/capability-guard.service";
+import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 
 /**

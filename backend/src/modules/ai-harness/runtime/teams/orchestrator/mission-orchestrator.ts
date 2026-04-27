@@ -61,8 +61,8 @@ import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/sto
 import {
   HandoffCoordinator,
   HandoffContextBuilder,
-} from "../../../../ai-engine/agents/collaboration/patterns/handoff-pattern";
-import { CollaborationMessage } from "../../../../ai-engine/agents/collaboration/abstractions/collaborator.interface";
+} from "../../../process/collaboration/patterns/handoff-pattern";
+import { CollaborationMessage } from "../../../process/collaboration/abstractions/collaborator.interface";
 import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
 import {
   AiChatLLMAdapter,

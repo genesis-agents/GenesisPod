@@ -1,7 +1,11 @@
 /**
- * AI Engine - Plan Based Agent
- * 基于计划的 Agent 基类
- * 用于需要先规划再执行的复杂 Agent（如 Slides, Docs 等）
+ * Legacy Plan-Based Agent (migrated from ai-engine/agents/base)
+ *
+ * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
+ * This base class supports the IPlanBasedAgent (plan → execute) paradigm.
+ * New agents should implement IAgent via HarnessedAgent.
+ *
+ * Migrated: PR-X5 (ai-engine/agents/base → ai-harness/kernel/base)
  */
 
 import {
@@ -15,7 +19,7 @@ import {
   AgentEvent,
   AgentTemplate,
   AgentConfig,
-} from "../../core/types/agent.types";
+} from "../../../ai-engine/core/types/agent.types";
 
 /**
  * Plan-Based Agent 接口

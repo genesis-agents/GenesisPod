@@ -155,11 +155,11 @@ import type {
   CompressionResult,
 } from "../orchestration/services/interfaces";
 import type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
-import type { VotingSession } from "../agents/collaboration/patterns/voting-pattern";
+import type { VotingSession } from "../../ai-harness/process/collaboration/patterns/voting-pattern";
 import type {
   VoteRequest,
   VoteResult,
-} from "../agents/collaboration/abstractions/collaborator.interface";
+} from "../../ai-harness/process/collaboration/abstractions/collaborator.interface";
 import { EmbeddingService } from "../knowledge/rag/embedding";
 import type { EmbeddingResult } from "../knowledge/rag/embedding";
 import { VectorService } from "../knowledge/rag/vector";
@@ -186,7 +186,7 @@ import { MissionOrchestrator } from "../../ai-harness/runtime/teams/orchestrator
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 import { ContentFetchService } from "../content/fetch/content-fetch.service";
-import { AgentRegistry } from "../agents/registry";
+import { AgentRegistry } from "../../ai-harness/kernel/registry/legacy-agent-registry";
 import { TeamRegistry } from "../../ai-harness/runtime/teams/registry/team-registry";
 import { RoleRegistry } from "../../ai-harness/runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";

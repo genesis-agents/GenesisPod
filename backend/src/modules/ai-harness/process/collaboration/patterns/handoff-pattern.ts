@@ -5,7 +5,7 @@
 
 import { v4 as uuid } from "uuid";
 import { Logger } from "@nestjs/common";
-import { JsonObject } from "../../../core";
+import { JsonObject } from "../../../../ai-engine/core";
 import {
   HandoffRequest,
   HandoffResponse,

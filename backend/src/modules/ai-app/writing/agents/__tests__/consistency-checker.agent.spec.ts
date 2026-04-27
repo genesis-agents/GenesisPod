@@ -20,7 +20,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConsistencyCheckerAgent } from "../consistency-checker.agent";
 import { SemanticConsistencyService } from "../../services/quality/semantic-consistency.service";
-import type { AgentContext } from "../../../../ai-engine/facade";
+import type { AgentContext } from "../../../../ai-harness/facade";
 import type { WritingContextPackage } from "../../interfaces/writing-context.interface";
 import type { ConsistencyCheckerInput } from "../consistency-checker.agent";
 

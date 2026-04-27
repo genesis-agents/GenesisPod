@@ -11,12 +11,11 @@
 import { Injectable } from "@nestjs/common";
 import { BaseAgent } from "../../../ai-engine/facade/base-classes";
 import {
-  type AgentContext,
-  type AgentCapability,
   type ExecutionMode,
   BUILTIN_TOOLS,
   type TaskProfile,
 } from "../../../ai-engine/facade";
+import type { AgentContext, AgentCapability } from "../../../ai-harness/facade";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 // 增强：注入质量门禁服务用于审核
 import { QualityGateService } from "../services/quality/quality-gate.service";

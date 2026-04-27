@@ -290,3 +290,32 @@ export {
   KernelContext,
   type KernelContextData,
 } from "../../../common/context/kernel-context";
+
+// ════════════════════════════════════════════════════════════════════
+// Kernel (Legacy) — migrated from ai-engine/agents (PR-X5)
+// ════════════════════════════════════════════════════════════════════
+
+// Legacy registry (IPlanBasedAgent plan→execute model)
+// Note: Different from process/handoff/agent-registry (IAgent runtime model)
+export { AgentRegistry, type AgentRegistryStats } from "../kernel/registry/legacy-agent-registry";
+export { AgentOrchestrator, type AgentStatusReport } from "../kernel/registry/agent-orchestrator";
+
+// Agent config (DB-stored runtime overrides)
+export { AgentConfigService } from "../kernel/config/agent-config.service";
+
+// Legacy base classes
+// @deprecated — use HarnessedAgent / SpecBasedAgent for new agents
+export { BaseAgent, createAgent } from "../kernel/base/base-agent";
+export { ReactiveAgent } from "../kernel/base/reactive-agent";
+export { PlanAgent } from "../kernel/base/plan-agent";
+export { PlanBasedAgent, type IPlanBasedAgent } from "../kernel/base/plan-based-agent";
+
+// ════════════════════════════════════════════════════════════════════
+// Process (Collaboration) — migrated from ai-engine/agents/collaboration (PR-X5)
+// ════════════════════════════════════════════════════════════════════
+export { CollaborationModule } from "../process/collaboration/collaboration.module";
+export { ReviewWorkflowService } from "../process/collaboration/review/review-workflow.service";
+export { TodoService } from "../process/collaboration/todo/todo.service";
+export { VotingManager } from "../process/collaboration/patterns/voting-pattern";
+export { HandoffCoordinator, HandoffContextBuilder } from "../process/collaboration/patterns/handoff-pattern";
+export type { CollaborationMessage, ICollaborator } from "../process/collaboration/abstractions/collaborator.interface";

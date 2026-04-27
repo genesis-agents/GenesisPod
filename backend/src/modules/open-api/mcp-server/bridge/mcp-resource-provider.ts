@@ -22,10 +22,11 @@ import {
 import {
   ToolRegistry,
   SkillRegistry,
-  AgentRegistry,
   TeamRegistry,
   ChatFacade,
 } from "../../../ai-engine/facade";
+import { AgentRegistry } from "../../../ai-harness/facade";
+import type { IPlanBasedAgent } from "../../../ai-harness/facade";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import { ResearchToolHandler } from "../tools/research-tool-handler";
 
@@ -226,7 +227,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
   }
 
   private readAgents(): MCPResourceContent {
-    const agents = this.agentRegistry?.getAll() || [];
+    const agents: IPlanBasedAgent[] = this.agentRegistry?.getAll() || [];
     const data = agents.map((agent) => ({
       id: agent.id,
       name: agent.name,

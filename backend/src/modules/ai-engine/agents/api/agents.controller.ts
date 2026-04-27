@@ -18,7 +18,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { Observable, map, catchError, of } from "rxjs";
-import { AgentOrchestrator, AgentRegistry } from "../registry";
+import { AgentOrchestrator, AgentRegistry } from "../../facade/exports/registries";
 import {
   AgentId,
   BUILTIN_AGENTS,
@@ -87,7 +87,7 @@ export class AgentsController {
     const report = this.orchestrator.getStatusReport();
     const agentStats = this.agentRegistry.getStats();
     const totalTasks = Object.values(agentStats.byId).reduce(
-      (sum, s) => sum + s.executions,
+      (sum, s: { executions: number; errors: number }) => sum + s.executions,
       0,
     );
     return {

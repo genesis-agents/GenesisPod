@@ -12,7 +12,8 @@
  *   import { BUILTIN_AGENTS, ... } from "@/modules/ai-engine/facade";
  */
 
-export { BaseAgent } from "../agents/base/base-agent";
-export { PlanBasedAgent } from "../agents/base/plan-based-agent";
-export type { IPlanBasedAgent } from "../agents/base/plan-based-agent";
+// PR-X5: BaseAgent / PlanBasedAgent moved to ai-harness/kernel/base
+export { BaseAgent } from "../../ai-harness/kernel/base/base-agent";
+export { PlanBasedAgent } from "../../ai-harness/kernel/base/plan-based-agent";
+export type { IPlanBasedAgent } from "../../ai-harness/kernel/base/plan-based-agent";
 export { BaseTool } from "../tools/base/base-tool";

@@ -1,16 +1,20 @@
 /**
- * AI Engine - Base Agent
- * Agent 基类实现
+ * Legacy Base Agent (migrated from ai-engine/agents/base)
+ *
+ * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
+ * This class is kept for backwards-compat with existing ai-app agents (e.g. research).
+ *
+ * Migrated: PR-X5 (ai-engine/agents/base → ai-harness/kernel/base)
  */
 
 import { v4 as uuid } from "uuid";
 import { Logger } from "@nestjs/common";
-import { ExecutionMode, JsonObject } from "../../core";
-import { AgentError } from "../../core/errors";
-import { ToolRegistry } from "../../tools/registry";
-import { ToolContext, ToolResult } from "../../tools/abstractions";
-import { SkillRegistry } from "../../skills/registry";
-import { SkillContext, SkillResult } from "../../skills/abstractions";
+import { ExecutionMode, JsonObject } from "../../../ai-engine/core";
+import { AgentError } from "../../../ai-engine/core/errors";
+import { ToolRegistry } from "../../../ai-engine/tools/registry";
+import { ToolContext, ToolResult } from "../../../ai-engine/tools/abstractions";
+import { SkillRegistry } from "../../../ai-engine/skills/registry";
+import { SkillContext, SkillResult } from "../../../ai-engine/skills/abstractions";
 import {
   IAgent,
   AgentContext,
@@ -20,13 +24,13 @@ import {
   AgentEvent,
   AgentCapability,
   ExecutionPlan,
-} from "../abstractions/agent.interface";
+} from "../abstractions/legacy-agent.interface";
 import {
   ILLMAdapter,
   LLMMessage,
   LLMResponse,
   LLMToolDefinition,
-} from "../../llm/abstractions";
+} from "../../../ai-engine/llm/abstractions";
 
 /**
  * 基础 Agent 抽象类
@@ -378,7 +382,7 @@ export abstract class BaseAgent<
       temperature?: number;
       maxTokens?: number;
       tools?: LLMToolDefinition[];
-      taskProfile?: import("../../llm/types").TaskProfile;
+      taskProfile?: import("../../../ai-engine/llm/types").TaskProfile;
     },
   ): Promise<LLMResponse> {
     if (!this.llmAdapter) {

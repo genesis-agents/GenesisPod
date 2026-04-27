@@ -17,7 +17,7 @@ import { AiEngineSkillsModule } from "./ai-engine-skills.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
-import { AgentRegistry } from "./agents/registry";
+import { AgentRegistry } from "../ai-harness/kernel/registry/legacy-agent-registry";
 
 // Executors
 import { SequentialExecutor } from "./orchestration/executors/sequential-executor";
@@ -69,9 +69,9 @@ import { ProcessSupervisorService as ExecutionStateManager } from "../ai-harness
 import { WorkflowHandlerRegistry } from "./orchestration/handlers/handler-registry";
 
 // Agents (needed for executors)
-import { AgentOrchestrator } from "./agents/registry";
+import { AgentOrchestrator } from "../ai-harness/kernel/registry/agent-orchestrator";
 import { AgentsController, AgentsService } from "./agents/api";
-import { AgentConfigService } from "./agents/config/agent-config.service";
+import { AgentConfigService } from "../ai-harness/kernel/config/agent-config.service";
 
 /**
  * Sequential Executor Factory

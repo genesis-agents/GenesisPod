@@ -59,13 +59,13 @@ import { ContextCompressionService } from "../orchestration/services/context-com
 import type { IReportSynthesisEngine } from "../content/abstractions/content-engine.interfaces";
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../knowledge/evidence/services/evidence-manager.service";
-import { VotingManager } from "../agents/collaboration/patterns/voting-pattern";
+import { VotingManager } from "../../ai-harness/process/collaboration/patterns/voting-pattern";
 import { MessageBusService as A2AMessageBusService } from "../../ai-harness/protocol/ipc/message-bus.service";
 // ★ Observability Feature 依赖
 import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
 import { MemoryCoordinatorService } from "../knowledge/memory/memory-coordinator.service";
 // ★ Registry Feature 依赖
-import { AgentRegistry } from "../agents/registry";
+import { AgentRegistry } from "../../ai-harness/kernel/registry/legacy-agent-registry";
 import { TeamRegistry } from "../../ai-harness/runtime/teams/registry/team-registry";
 import { RoleRegistry } from "../../ai-harness/runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";

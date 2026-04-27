@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AgentAdminController } from "../agent-admin.controller";
-import { AgentConfigService } from "../../../ai-engine/facade";
+import { AgentConfigService } from "../../../ai-harness/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import {

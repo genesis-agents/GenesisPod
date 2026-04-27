@@ -39,7 +39,7 @@ import { AiEngineKnowledgeModule } from "./ai-engine-knowledge.module";
 // ★ P2 能力下沉：新增子模块导入
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
-import { CollaborationModule } from "./agents/collaboration/collaboration.module";
+import { CollaborationModule } from "./facade/exports/registries";
 // ★ HarnessModule / RuntimeModule / RealtimeModule 由 app.module.ts 直接装配
 // （它们都是 @Global() — providers 自动跨模块可注入）。
 // AI Engine 不再反向依赖 ai-harness。
@@ -47,7 +47,7 @@ import { CollaborationModule } from "./agents/collaboration/collaboration.module
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
-import { AgentRegistry } from "./agents/registry";
+import { AgentRegistry } from "./facade/exports/registries";
 
 // LLM Factory & Adapter (用于初始化)
 import { LLMFactory } from "./llm/factory/llm-factory";

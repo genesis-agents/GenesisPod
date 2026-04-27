@@ -54,7 +54,7 @@ import { IntentDetectionService } from "../../orchestration/services/intent-dete
 import { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-harness/process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../../orchestration/services/context-evolution.service";
-import { AgentRegistry } from "../../agents/registry";
+import { AgentRegistry } from "../../../ai-harness/kernel/registry/legacy-agent-registry";
 
 @Injectable()
 export class AgentFacade {

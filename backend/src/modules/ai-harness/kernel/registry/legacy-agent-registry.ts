@@ -1,10 +1,16 @@
 /**
- * AI Engine - Agent Registry
- * Agent 注册中心
+ * Legacy Agent Registry (migrated from ai-engine/agents/registry)
+ *
+ * Manages IPlanBasedAgent instances (the old plan→execute model).
+ * Note: This is DIFFERENT from ai-harness/process/handoff/agent-registry.ts
+ * which manages IAgent runtime instances.
+ *
+ * @deprecated For new agents use SpecAgentRegistry / HarnessedAgent.
+ * Migrated: PR-X5 (ai-engine/agents/registry → ai-harness/kernel/registry)
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AgentId, AgentConfig } from "../../core/types/agent.types";
+import { AgentId, AgentConfig } from "../../../ai-engine/core/types/agent.types";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 
 /**

@@ -8,7 +8,7 @@ import { AiSimulationController } from "./ai-simulation.controller";
 import { AiSimulationEngineService } from "./ai-simulation.engine";
 import { ExternalDataService } from "./external-data.service";
 import { AIAssistService } from "./ai-assist.service";
-import { AgentRegistry } from "../../ai-engine/facade";
+import { AgentRegistry } from "../../ai-harness/facade";
 import { SimulatorAgent } from "./agents";
 
 @Module({

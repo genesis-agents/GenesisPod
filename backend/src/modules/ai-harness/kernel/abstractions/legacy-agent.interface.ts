@@ -1,11 +1,14 @@
 /**
- * AI Engine - Agent Interface
- * Agent 接口定义
+ * Legacy ReAct-mode Agent abstractions (migrated from ai-engine/agents/abstractions)
  *
- * 统一的 Agent 抽象层，支持 Plan-Based 和 ReAct 两种模式
+ * @deprecated Use IAgent / IAgentTask from agent.interface.ts (harness runtime model).
+ * These types support the legacy BaseAgent / ReactiveAgent / PlanAgent hierarchy.
+ * New agents should implement IAgent via HarnessedAgent / SpecBasedAgent.
+ *
+ * Migrated: PR-X5 (ai-engine/agents/abstractions → ai-harness/kernel/abstractions)
  */
 
-import { JsonObject, ExecutionMode } from "../../core";
+import { JsonObject, ExecutionMode } from "../../../ai-engine/core";
 import {
   BUILTIN_AGENTS,
   BuiltinAgentId,
@@ -15,7 +18,7 @@ import {
   AgentInput,
   UploadedFile,
   Artifact,
-} from "../../core/types/agent.types";
+} from "../../../ai-engine/core/types/agent.types";
 
 // ==================== 重导出核心类型 ====================
 export {

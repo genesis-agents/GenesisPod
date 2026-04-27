@@ -1,10 +1,12 @@
 /**
- * AI Engine - Plan Agent
- * Plan-Based 模式 Agent 实现
+ * Legacy Plan Agent (migrated from ai-engine/agents/base)
+ *
+ * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
+ * Migrated: PR-X5 (ai-engine/agents/base → ai-harness/kernel/base)
  */
 
-import { ExecutionMode } from "../../core";
-import { AgentError } from "../../core/errors";
+import { ExecutionMode } from "../../../ai-engine/core";
+import { AgentError } from "../../../ai-engine/core/errors";
 import {
   AgentContext,
   AgentInput,
@@ -13,7 +15,7 @@ import {
   AgentResult,
   ExecutionPlan,
   ReActPlanStep,
-} from "../abstractions/agent.interface";
+} from "../abstractions/legacy-agent.interface";
 import { BaseAgent } from "./base-agent";
 
 /**

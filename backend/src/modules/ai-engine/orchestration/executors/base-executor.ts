@@ -16,7 +16,7 @@ import {
 } from "../abstractions/orchestrator.interface";
 import { ToolRegistry } from "../../tools/registry";
 import { SkillRegistry } from "../../skills/registry";
-import { AgentRegistry } from "../../agents/registry";
+import { AgentRegistry } from "../../facade/exports/registries";
 import type { WorkflowHandlerRegistry } from "../handlers/handler-registry";
 import type { MapStepConfig } from "../handlers/workflow-node-handler.interface";
 import { RetryStrategy } from "./retry-strategy";

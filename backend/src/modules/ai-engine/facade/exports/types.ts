@@ -58,7 +58,7 @@ export type {
   IConstraintEnforcementService,
 } from "../../orchestration/services/interfaces";
 
-// Agent interface types
+// Agent interface types (PR-X5: moved to ai-harness/kernel/abstractions)
 export type {
   IAgent,
   AgentContext,
@@ -77,8 +77,8 @@ export type {
   AgentEventType,
   AgentOutput as AgentIfaceOutput,
   AgentEvent as AgentIfaceEvent,
-} from "../../agents/abstractions/agent.interface";
-export type { IPlanBasedAgent } from "../../agents/base/plan-based-agent";
+} from "../../../ai-harness/kernel/abstractions/legacy-agent.interface";
+export type { IPlanBasedAgent } from "../../../ai-harness/kernel/base/plan-based-agent";
 
 // Skills interfaces
 export type { ISkillOutputManager } from "../../skills/output-manager/skill-output-manager.interface";

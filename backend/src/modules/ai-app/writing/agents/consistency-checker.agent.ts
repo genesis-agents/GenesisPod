@@ -14,12 +14,11 @@
 import { Injectable } from "@nestjs/common";
 import { BaseAgent } from "../../../ai-engine/facade/base-classes";
 import {
-  type AgentContext,
-  type AgentCapability,
   type ExecutionMode,
   BUILTIN_TOOLS,
   type TaskProfile,
 } from "../../../ai-engine/facade";
+import type { AgentContext, AgentCapability } from "../../../ai-harness/facade";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 // 增强：集成语义一致性服务
 import {
