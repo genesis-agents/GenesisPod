@@ -1368,10 +1368,15 @@ export class AgentRunner {
     const mult = Math.max(0.1, budgetMultiplier);
     const scale = (n: number | undefined): number | undefined =>
       n == null ? undefined : Math.round(n * mult);
-    // ReAct loop 至少需要 3 次迭代才能 thought→tool→observation→finalize；
-    // 缩放后若小于 3 会导致 RUNNER_LOOP_LIMIT，永远走不到 finalize 输出。
-    const scaleIters = (n: number | undefined): number | undefined =>
-      n == null ? undefined : Math.max(3, Math.round(n * mult));
+    // ReAct loop 实践中 prompt 通常有 search → scrape → finalize 多步工作流，
+    // 仅 3 次迭代时 LLM 还在 gather 阶段就 RUNNER_LOOP_LIMIT。所以下限是
+    // 结构最小 (3)，但不要超过 spec 声明的 base —— 即低成本档 ≈ base，
+    // 高成本档不再额外加（已经满足）。
+    const scaleIters = (n: number | undefined): number | undefined => {
+      if (n == null) return undefined;
+      const structuralMin = Math.min(n, 5);
+      return Math.max(structuralMin, Math.round(n * mult));
+    };
     const id = meta.identity;
     // Detect already-complete IAgentIdentity (has .role.id with name)
     const isFull =
