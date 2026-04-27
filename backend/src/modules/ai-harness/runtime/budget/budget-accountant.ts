@@ -5,7 +5,7 @@
  * 再超就 abort。防止 ReAct loop 无限烧 token。
  */
 
-import type { TokenBudget, BudgetSnapshot } from "./types";
+import type { TokenBudget, BudgetSnapshot } from "../env/types";
 
 export type ModelTier = "strong" | "standard" | "basic";
 

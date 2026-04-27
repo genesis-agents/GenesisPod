@@ -24,8 +24,8 @@ import {
   OnApplicationBootstrap,
   Optional,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import type { ModelTier } from "./budget-accountant";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import type { ModelTier } from "../budget/budget-accountant";
 
 export interface ModelPricing {
   readonly modelId: string;

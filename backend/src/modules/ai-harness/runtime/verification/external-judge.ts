@@ -7,12 +7,12 @@
  * 交叉评估能发现 self-judge 找不到的盲点。
  */
 
-import type { AgentTask, Message, Verdict } from "../types";
+import type { AgentTask, Message, Verdict } from "../env/types";
 import type {
   JudgeSpec,
   LLMCaller,
   ReActExecutionContext,
-} from "../react-runner";
+} from "../env/react-runner";
 import { callJudgeLLM } from "./self-judge";
 
 const EXTERNAL_JUDGE_SYSTEM_PROMPT = `你是一位独立的高级评审员，来自与产出者不同的模型家族。

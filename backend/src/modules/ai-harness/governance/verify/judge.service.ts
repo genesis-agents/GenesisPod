@@ -23,7 +23,7 @@ import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { IVerifier } from "../../execution/loop/reflexion-loop";
 import type { IContextEnvelope } from "../../kernel/abstractions";
 import { createConsensusResolver } from "../../runtime/verification/consensus";
-import type { Verdict, ConsensusDecision } from "../../runtime/types";
+import type { Verdict, ConsensusDecision } from "../../runtime/env/types";
 import { AIModelType } from "@prisma/client";
 import { KernelContext } from "../../../../common/context/kernel-context";
 

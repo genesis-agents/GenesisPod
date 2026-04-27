@@ -20,10 +20,10 @@ import {
   type ConsensusResolver,
   type LLMCaller,
   type ReActStores,
-} from "./react-runner";
-import type { TaskQueue, QueueStats } from "./task-queue-interface";
-import type { ProtocolRegistry } from "./protocol-registry-interface";
-import { HumanInLoopPause, type AgentTask } from "./types";
+} from "../env/react-runner";
+import type { TaskQueue, QueueStats } from "../env/task-queue-interface";
+import type { ProtocolRegistry } from "../env/protocol-registry-interface";
+import { HumanInLoopPause, type AgentTask } from "../env/types";
 
 export interface FinalizerCallback<TMetadata extends Record<string, unknown>> {
   (scope: string, stats: QueueStats, metadata: TMetadata): Promise<void>;

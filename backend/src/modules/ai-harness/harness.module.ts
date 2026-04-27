@@ -67,8 +67,8 @@ import {
   ToolRegistry,
   MissionOrchestrator,
 } from "./runtime";
-import { ModelPricingRegistry } from "./runtime/model-pricing-registry";
-import { SpanExporter } from "./runtime/span-exporter";
+import { ModelPricingRegistry } from "./runtime/budget/model-pricing-registry";
+import { SpanExporter } from "./runtime/tracer/span-exporter";
 import { JudgeService } from "./governance/verify/judge.service";
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
 import { AgentRunner, FixtureStore, HarnessInspectorController } from "./kernel/dx";

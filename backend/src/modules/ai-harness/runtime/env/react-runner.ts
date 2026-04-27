@@ -13,15 +13,15 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BudgetAccountant } from "./budget-accountant";
-import { ToolRegistry, type ToolExecContext } from "./tool-registry";
-import { AgentTracer, type Span } from "./otel-tracer";
+import { BudgetAccountant } from "../budget/budget-accountant";
+import { ToolRegistry, type ToolExecContext } from "../env/tool-registry";
+import { AgentTracer, type Span } from "../tracer/otel-tracer";
 import type {
   StepStore,
   CheckpointStore,
   VerificationStore,
   TaskStore,
-} from "./stores";
+} from "../env/stores";
 import {
   HumanInLoopPause,
   type AgentAction,
@@ -36,7 +36,7 @@ import {
   type ToolInvocation,
   type ToolResult,
   type Verdict,
-} from "./types";
+} from "../env/types";
 
 /**
  * LLM 调用抽象（具体实现由 App 层 protocol 注入）

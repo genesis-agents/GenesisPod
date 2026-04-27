@@ -13,7 +13,7 @@ import type {
   CheckpointData,
   TaskStatus,
   VerificationResult,
-} from "./types";
+} from "../env/types";
 
 /**
  * StepStore — AgentStep 持久化抽象

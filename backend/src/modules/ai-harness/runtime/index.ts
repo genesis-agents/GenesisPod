@@ -16,16 +16,16 @@ export {
   type ReActHistory,
   type ReActExecutionContext,
   type ReActStores,
-} from "./react-runner";
+} from "./env/react-runner";
 
-export { BudgetAccountant, type ModelTier } from "./budget-accountant";
-export { MissionBudgetPool } from "./mission-budget-pool";
+export { BudgetAccountant, type ModelTier } from "./budget/budget-accountant";
+export { MissionBudgetPool } from "./mission/mission-budget-pool";
 export {
   AgentExecutionContext,
   classifyError,
   shouldRetry,
-} from "./agent-execution-context";
-export { NoopRuntimeEnvironment } from "./noop-runtime-environment";
+} from "./mission/agent-execution-context";
+export { NoopRuntimeEnvironment } from "./env/noop-runtime-environment";
 
 export {
   ToolRegistry,
@@ -35,14 +35,14 @@ export {
   type JsonSchemaProp,
   type RateLimitPolicy,
   type RetryPolicy,
-} from "./tool-registry";
+} from "./env/tool-registry";
 
-export { AgentTracer, type Span, type StartSpanOptions } from "./otel-tracer";
-export { SpanExporter, type SpanRecord, type SpanSink } from "./span-exporter";
+export { AgentTracer, type Span, type StartSpanOptions } from "./tracer/otel-tracer";
+export { SpanExporter, type SpanRecord, type SpanSink } from "./tracer/span-exporter";
 export {
   ModelPricingRegistry,
   type ModelPricing,
-} from "./model-pricing-registry";
+} from "./budget/model-pricing-registry";
 
 // 持久化抽象接口（App 层实现）
 export type {
@@ -50,14 +50,14 @@ export type {
   CheckpointStore,
   VerificationStore,
   TaskStore,
-} from "./stores";
+} from "./env/stores";
 
 // TaskQueue 接口（App 层实现）
 export type {
   TaskQueue,
   QueueStats,
   EnqueueOptions,
-} from "./task-queue-interface";
+} from "./env/task-queue-interface";
 
 // Verification (self / external / meta judge + consensus resolver)
 export * from "./verification";
@@ -68,16 +68,16 @@ export {
   type OrchestrateOptions,
   type FinalizerCallback,
   type TaskCompletedHook,
-} from "./mission-orchestrator";
+} from "./mission/mission-orchestrator";
 
-export type { ProtocolRegistry } from "./protocol-registry-interface";
+export type { ProtocolRegistry } from "./env/protocol-registry-interface";
 
 export type {
   DynamicReplanner,
   ReplanOperation,
   ReplanObservations,
   ReplanDecision,
-} from "./dynamic-replanner-interface";
+} from "./env/dynamic-replanner-interface";
 
 // 通用 types / DSL
-export * from "./types";
+export * from "./env/types";

@@ -41,5 +41,5 @@ export { AgentEventStore, CheckpointService } from "../memory/checkpoint";
 export type { ICheckpoint, AgentEventRecord } from "../memory/checkpoint";
 
 // ── Runtime：mission pool / billing adapter ──
-export { MissionBudgetPool } from "../runtime/mission-budget-pool";
-export { BillingRuntimeEnvAdapter } from "../runtime/billing-runtime-env.adapter";
+export { MissionBudgetPool } from "../runtime/mission/mission-budget-pool";
+export { BillingRuntimeEnvAdapter } from "../runtime/billing/billing-runtime-env.adapter";

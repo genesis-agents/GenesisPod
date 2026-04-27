@@ -24,7 +24,7 @@ import type {
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
 import { ToolCircuitBreaker } from "./tool-circuit-breaker";
-import { AgentTracer } from "../../runtime/otel-tracer";
+import { AgentTracer } from "../../runtime/tracer/otel-tracer";
 
 /**
  * PR-I 修复 #6：tool result 默认截断阈值（约 4K tokens for cl100k）

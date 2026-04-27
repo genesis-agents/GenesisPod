@@ -7,7 +7,7 @@
  * 动作枚举：harness 定义通用的 ReplanOperation，Leader 根据观察执行态产出操作序列。
  */
 
-import type { AgentTask } from "./types";
+import type { AgentTask } from "../env/types";
 
 export type ReplanOperation<TMetadata extends Record<string, unknown>> =
   | {

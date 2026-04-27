@@ -14,8 +14,8 @@
  * 若池子超额，所有挂载的 BudgetAccountant.exhausted() 都返回 true。
  */
 
-import { BudgetAccountant } from "./budget-accountant";
-import type { TokenBudget } from "./types";
+import { BudgetAccountant } from "../budget/budget-accountant";
+import type { TokenBudget } from "../env/types";
 
 export class MissionBudgetPool {
   private poolTokensUsed = 0;

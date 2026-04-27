@@ -61,10 +61,13 @@ ai-harness/
 │   └── verify/                JudgeService + 内置 verifiers
 │
 ├── runtime/                   ★ Mission runtime —— "整个 mission 怎么活"
-│   ├── (mission-budget-pool / billing-runtime-env-adapter / budget-accountant /
-│   │    otel-tracer / span-exporter / mission-orchestrator / model-pricing /
-│   │    react-runner / tool-registry / verification / 等)
-│   └── ...
+│   ├── mission/               MissionOrchestrator / MissionBudgetPool / AgentExecutionContext
+│   ├── budget/                BudgetAccountant / ModelPricingRegistry
+│   ├── billing/               BillingRuntimeEnvAdapter
+│   ├── tracer/                OtelTracer / SpanExporter / OtelSemanticConventions
+│   ├── env/                   NoopRuntimeEnvironment / ReactRunner / ToolRegistry / Stores /
+│   │                          DynamicReplanner / ProtocolRegistry / TaskQueue / Types
+│   └── verification/          Consensus / SelfJudge / ExternalJudge / MetaJudge
 │
 └── __tests__/                 ← harness-level integration tests
     ├── identity.interface.ts

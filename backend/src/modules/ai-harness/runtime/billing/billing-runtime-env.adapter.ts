@@ -17,9 +17,9 @@ import type {
   IModelAvailability,
   IQuotaSnapshot,
   IRuntimeEnvironment,
-} from "../kernel/abstractions";
-import type { CreditsService } from "../../ai-infra/credits/credits.service";
-import type { RuntimeEnvironmentService } from "../../ai-engine/runtime/resource/runtime-environment.service";
+} from "../../kernel/abstractions";
+import type { CreditsService } from "../../../ai-infra/credits/credits.service";
+import type { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
 
 const LOW_BALANCE_THRESHOLD = 500;
 const CRITICAL_BALANCE_THRESHOLD = 100;

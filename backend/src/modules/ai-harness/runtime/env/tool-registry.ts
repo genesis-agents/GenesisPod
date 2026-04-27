@@ -7,7 +7,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import type { ToolResult } from "./types";
+import type { ToolResult } from "../env/types";
 
 /** OpenAI-compatible function schema */
 export interface ToolSchema {
