@@ -18,15 +18,15 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
-import { ResearchTeamMission } from "./services/research-team.mission";
-import { MissionOwnershipRegistry } from "./services/mission/mission-ownership.registry";
-import { MissionEventBuffer } from "./services/mission/mission-event-buffer.service";
-import { MissionStore } from "./services/mission/mission-store.service";
+import { ResearchTeamMission } from "./services/mission/workflow/research-team.mission";
+import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
+import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
+import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { HarnessFailureLearner } from "./services/failure-learning/harness-failure-learner.service";
 import { ReportAssemblerService } from "./services/artifact/report-assembler.service";
-import { MissionStateService } from "./services/mission/mission-state.service";
-import { MissionAbortRegistry } from "./services/mission/mission-abort.registry";
+import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
+import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
 import {
   AgentInvoker,
   LeaderService,

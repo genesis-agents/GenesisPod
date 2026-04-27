@@ -15,8 +15,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import type {
   DomainEvent,
   IBroadcastAdapter,
-} from "../../../../ai-engine/facade";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+} from "../../../../../ai-engine/facade";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
 const MAX_PER_MISSION = 5000;
 const TTL_MS = 60 * 60 * 1000; // 1h

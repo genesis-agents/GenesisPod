@@ -39,11 +39,11 @@ import {
   type HarnessIAgent as IAgent,
   type HarnessIAgentEvent as IAgentEvent,
   type IContextEnvelope,
-} from "../../../ai-engine/facade";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
-import { CreditsService } from "../../../ai-infra/credits/credits.service";
-import { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
-import { LeaderAgent } from "../agents/leader/leader.agent";
+} from "../../../../../ai-engine/facade";
+import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
+import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
+import { RuntimeEnvironmentService } from "../../../../../ai-engine/runtime/resource/runtime-environment.service";
+import { LeaderAgent } from "../../../agents/leader/leader.agent";
 import {
   LeaderService,
   SupervisedMission,
@@ -51,15 +51,15 @@ import {
   AnalystService,
   WriterService,
   ReviewerService,
-} from "./roles";
-import { ResearcherAgent } from "../agents/researcher/researcher.agent";
-import { ReportAssemblerService } from "./artifact/report-assembler.service";
-import { MissionStateService } from "./mission/mission-state.service";
-import { MissionAbortRegistry } from "./mission/mission-abort.registry";
-import { ChapterWriterAgent } from "../agents/writer/chapter-writer.agent";
-import { ChapterReviewerAgent } from "../agents/writer/chapter-reviewer.agent";
-import { DimensionIntegratorAgent } from "../agents/writer/dimension-integrator.agent";
-import { SingleShotWriterAgent } from "../agents/writer/single-shot-writer.agent";
+} from "../../roles";
+import { ResearcherAgent } from "../../../agents/researcher/researcher.agent";
+import { ReportAssemblerService } from "../../artifact/report-assembler.service";
+import { MissionStateService } from "../lifecycle/mission-state.service";
+import { MissionAbortRegistry } from "../lifecycle/mission-abort.registry";
+import { ChapterWriterAgent } from "../../../agents/writer/chapter-writer.agent";
+import { ChapterReviewerAgent } from "../../../agents/writer/chapter-reviewer.agent";
+import { DimensionIntegratorAgent } from "../../../agents/writer/dimension-integrator.agent";
+import { SingleShotWriterAgent } from "../../../agents/writer/single-shot-writer.agent";
 // MissionReviewerAgent: 当前 mission 评审走 VerifierService（多 judge 投票），
 // MissionReviewerAgent class 已声明但 orchestrator 暂未直接调用，保留为后续替换 path。
 import {
@@ -67,10 +67,18 @@ import {
   resolveBudgetMultiplier,
   resolveMissionCredits,
   type RunMissionInput,
-} from "../dto/run-mission.dto";
-import { BillingRuntimeEnvAdapter } from "../adapters/billing-runtime-env.adapter";
-import { MissionStore } from "./mission/mission-store.service";
-import { HarnessFailureLearner } from "./failure-learning/harness-failure-learner.service";
+} from "../../../dto/run-mission.dto";
+import { BillingRuntimeEnvAdapter } from "../../../adapters/billing-runtime-env.adapter";
+import { MissionStore } from "../lifecycle/mission-store.service";
+import { HarnessFailureLearner } from "../../failure-learning/harness-failure-learner.service";
+import {
+  extractAgentFailureDiagnostic,
+  extractFailureMessage,
+} from "./helpers/failure-extraction.util";
+import {
+  estimateUsdFromTokens,
+  extractTokenSpend,
+} from "./helpers/token-spend.util";
 
 /**
  * 维度元数据（Lead M0 plan 产出 / M1 redirect 追加都用这个 shape）。
@@ -102,7 +110,7 @@ interface MissionResult {
     attempt?: number;
   }[];
   // ★ Phase P0-5: ReportArtifact v2（结构化输出，三视图共享）
-  readonly reportArtifact?: import("../dto/report-artifact.dto").ReportArtifact;
+  readonly reportArtifact?: import("../../../dto/report-artifact.dto").ReportArtifact;
   // ★ Phase P0-4: Reconciler [3.5] 产物
   readonly reconciliationReport?: unknown;
   // ★ Phase P0-8: 用户档位 merged 后快照
@@ -139,336 +147,6 @@ interface RelayCtx {
   };
   /** ★ Phase P1-3: loop 覆盖（thorough/paranoid 档位切 reflexion） */
   loopOverride?: "react" | "reflexion";
-}
-
-/**
- * 从 RunResult.events + state 抽出"为什么失败"的可读消息。
- *
- *   1. 优先用最后一个 error 事件的 payload.message
- *   2. 否则用 terminated 事件的 reason / detail
- *   3. 否则用最后一个 observation.error
- *   4. 否则 outputSchema 校验失败 fallback 文字
- *   5. 仍没有 → 给一个 hint，让 UI 不再显示"未捕获明确的错误信息"
- */
-/**
- * 抽取 RunResult.events 里最具体的 failure 快照，给 orchestrator 层做
- * 维度降级 / mission 失败决策时用。
- *
- * 策略：倒序扫描 error 事件，第一个带 failureCode 的就是 root cause。
- * 没有 failureCode 时回落到 terminated.reason / 最后 error.message。
- */
-function extractAgentFailureDiagnostic(events: readonly IAgentEvent[]):
-  | {
-      failureCode?: string;
-      message?: string;
-      diagnostic?: Record<string, unknown>;
-      recoveryHint?: Record<string, unknown>;
-    }
-  | undefined {
-  for (let i = events.length - 1; i >= 0; i--) {
-    const ev = events[i];
-    if (ev.type === "error") {
-      const p = ev.payload as {
-        message?: string;
-        failureCode?: string;
-        diagnostic?: Record<string, unknown>;
-        recoveryHint?: Record<string, unknown>;
-      } | null;
-      if (p?.failureCode) {
-        return {
-          failureCode: p.failureCode,
-          message: p.message,
-          diagnostic: p.diagnostic,
-          recoveryHint: p.recoveryHint,
-        };
-      }
-    }
-  }
-  // 没有结构化 failureCode：从 terminated.reason 推一个粗略码
-  for (let i = events.length - 1; i >= 0; i--) {
-    const ev = events[i];
-    if (ev.type === "terminated") {
-      const p = ev.payload as { reason?: string } | null;
-      if (p?.reason && p.reason !== "completed") {
-        const code =
-          p.reason === "budget"
-            ? "LOOP_BUDGET_EXHAUSTED"
-            : p.reason === "cancelled"
-              ? "UNKNOWN"
-              : p.reason === "empty_llm_response"
-                ? "LOOP_EMPTY_RESPONSE_IMMEDIATE"
-                : p.reason === "error"
-                  ? "PROVIDER_API_ERROR"
-                  : "UNKNOWN";
-        return { failureCode: code };
-      }
-    }
-  }
-  return undefined;
-}
-
-function extractFailureMessage(
-  events: readonly IAgentEvent[],
-  state: string,
-  hasOutput: boolean,
-  /** 实际从 RunResult 拿到的运行统计，给 explainTerminatedReason 拼上下文 */
-  runStats?: { iterations?: number; wallTimeMs?: number; tokensUsed?: number },
-): string | undefined {
-  if (state === "completed") return undefined;
-  // 从事件流统计 token（terminated 事件本身不带 tokensUsed）
-  const tokensUsed =
-    runStats?.tokensUsed ??
-    events.reduce((sum, ev) => {
-      if (ev.type === "action_executed") {
-        const p = ev.payload as { tokensUsed?: number } | null;
-        if (p && typeof p.tokensUsed === "number") return sum + p.tokensUsed;
-      }
-      return sum;
-    }, 0);
-  // 扫 reflection 事件 —— Reflexion loop 会留下 score / critique，
-  // 用来区分 reason="budget" 是「token 真耗尽」还是「verifier 反复未达门槛」
-  const reflectionVerdicts: { score: number; critique?: string }[] = [];
-  for (const ev of events) {
-    if (ev.type === "reflection") {
-      const p = ev.payload as {
-        score?: number;
-        verdicts?: { score?: number; critique?: string }[];
-      } | null;
-      if (typeof p?.score === "number") {
-        reflectionVerdicts.push({ score: p.score });
-      }
-      if (Array.isArray(p?.verdicts)) {
-        for (const v of p.verdicts) {
-          if (typeof v.score === "number") {
-            reflectionVerdicts.push({
-              score: v.score,
-              critique: v.critique,
-            });
-          }
-        }
-      }
-    }
-  }
-  // 关键根因检测：所有 finalize observation 输出都为空 → LLM 持续返回空内容
-  // （比 budget / verifier 误报更准确，需要先于 terminated reason 判定）
-  const finalizeObs = events.filter((ev) => {
-    if (ev.type !== "action_executed") return false;
-    const p = ev.payload as {
-      action?: { kind?: string };
-      output?: unknown;
-    } | null;
-    return p?.action?.kind === "finalize";
-  });
-  const emptyFinalize = finalizeObs.filter((ev) => {
-    const p = ev.payload as { output?: unknown } | null;
-    const out = p?.output;
-    return (
-      out == null ||
-      out === "" ||
-      (typeof out === "string" && out.trim() === "")
-    );
-  });
-  const llmReturnedEmpty =
-    finalizeObs.length >= 2 && emptyFinalize.length === finalizeObs.length;
-  // 抓 thought 事件的真实 modelId —— 让错误信息直接告诉用户问题模型
-  let usedModelId: string | undefined;
-  for (let i = events.length - 1; i >= 0; i--) {
-    const ev = events[i];
-    if (ev.type === "thinking") {
-      const p = ev.payload as { modelId?: string } | null;
-      if (p?.modelId) {
-        usedModelId = p.modelId;
-        break;
-      }
-    }
-  }
-
-  const ctx = {
-    iterations: runStats?.iterations,
-    wallTimeMs: runStats?.wallTimeMs,
-    tokensUsed: tokensUsed > 0 ? tokensUsed : undefined,
-    reflectionVerdicts,
-    llmReturnedEmpty,
-    emptyFinalizeCount: emptyFinalize.length,
-    usedModelId,
-  };
-  // 倒序扫，错误信息通常在末尾
-  for (let i = events.length - 1; i >= 0; i--) {
-    const ev = events[i];
-    if (ev.type === "error") {
-      // ★ 优先读结构化 failureCode + diagnostic（新格式）；fallback 旧 message 字段
-      const p = ev.payload as {
-        message?: string;
-        failureCode?: string;
-        diagnostic?: Record<string, unknown>;
-      } | null;
-      if (p?.failureCode) {
-        const diagSnippet = p.diagnostic
-          ? ` [${Object.entries(p.diagnostic)
-              .filter(
-                ([k, v]) =>
-                  v != null &&
-                  [
-                    "modelId",
-                    "completionTokens",
-                    "toolId",
-                    "schemaError",
-                  ].includes(k),
-              )
-              .map(
-                ([k, v]) =>
-                  `${k}=${typeof v === "string" ? v.slice(0, 80) : v}`,
-              )
-              .join(" ")}]`
-          : "";
-        return `[${p.failureCode}]${diagSnippet} ${p.message ?? ""}`.trim();
-      }
-      if (p?.message) return p.message;
-    }
-    if (ev.type === "action_executed") {
-      const p = ev.payload as { error?: { message?: string } } | null;
-      if (p?.error?.message) return `工具调用失败：${p.error.message}`;
-    }
-    if (ev.type === "terminated") {
-      const p = ev.payload as {
-        reason?: string;
-        message?: string;
-        detail?: string;
-      } | null;
-      if (p?.message) return p.message;
-      if (p?.detail) return p.detail;
-      if (p?.reason && p.reason !== "completed") {
-        return explainTerminatedReason(p.reason, ctx);
-      }
-    }
-  }
-  if (state === "failed") {
-    if (!hasOutput) {
-      // 检查是否所有 observation 都是空 → LLM 持续返空，多半是 BYOK 模型配置问题
-      const observations = events.filter((ev) => ev.type === "action_executed");
-      const emptyObs = observations.filter((ev) => {
-        const p = ev.payload as { output?: unknown } | null;
-        const out = p?.output;
-        return (
-          out == null ||
-          out === "" ||
-          (typeof out === "object" &&
-            Object.keys(out as Record<string, unknown>).length === 0)
-        );
-      });
-      if (observations.length > 0 && emptyObs.length === observations.length) {
-        return `LLM 持续返回空内容 (${observations.length} 次调用全部空响应) —— 多半是 BYOK 模型配置异常 (model id 不存在 / API 拒绝 / 输出被过滤)。请前往 设置 → 模型 检查当前选用的模型是否真实可用`;
-      }
-      return "Agent 未产出有效输出（可能是 LLM 返回空 / 超时 / 网络中断）";
-    }
-    return "outputSchema 校验失败 —— Agent 产出格式不符合预期 schema（详见原始执行轨迹中最后一个 finalize 事件的 input/output）";
-  }
-  if (state === "cancelled") return "Agent 被取消";
-  return undefined;
-}
-
-/**
- * 把 Harness 干巴巴的终止 reason 转成给人看的失败原因（含上下文）。
- *
- * 关键判别：reason="budget" 在 Reflexion loop 里有歧义 ——
- *   - 如果 reflectionVerdicts 有低分记录 → 是 verifier 反复未达门槛（不是 token 问题）
- *   - 否则才是真的 maxTokens 触顶
- */
-function explainTerminatedReason(
-  reason: string,
-  detail?: {
-    tokensUsed?: number;
-    iterations?: number;
-    wallTimeMs?: number;
-    reflectionVerdicts?: { score: number; critique?: string }[];
-    /** 所有 finalize observation 都是空 → LLM 没在产出，不是 budget */
-    llmReturnedEmpty?: boolean;
-    emptyFinalizeCount?: number;
-    /** 最近一次 LLM 真实使用的 model id（让用户立刻看到具体哪个模型出问题） */
-    usedModelId?: string;
-  } | null,
-): string {
-  const ctx: string[] = [];
-  if (detail?.tokensUsed != null) ctx.push(`已用 ${detail.tokensUsed} tokens`);
-  if (detail?.iterations != null) ctx.push(`已迭代 ${detail.iterations} 轮`);
-  if (detail?.wallTimeMs != null)
-    ctx.push(`耗时 ${(detail.wallTimeMs / 1000).toFixed(1)}s`);
-  const ctxStr = ctx.length > 0 ? ` (${ctx.join(", ")})` : "";
-
-  // Reflexion verdict 分析：判断 budget reason 是 verifier 还是 token
-  const verdicts = detail?.reflectionVerdicts ?? [];
-  const lastVerdict =
-    verdicts.length > 0 ? verdicts[verdicts.length - 1] : null;
-  const isVerifierExhaustion =
-    verdicts.length > 0 && verdicts.every((v) => v.score < 70); // 默认 passThreshold=70
-
-  switch (reason) {
-    case "budget":
-    case "budget_exhausted":
-    case "token_limit":
-      // 优先级 1: LLM 持续返空（最具体）
-      if (detail?.llmReturnedEmpty) {
-        return `LLM 持续返回空 finalize${ctxStr} —— ${detail.emptyFinalizeCount ?? "?"} 次调用全部 output="" 且立即 finalize。**根因极可能是 BYOK 模型配置错误**：当前使用的 model id 可能不存在 / API 拒绝 / 输出被过滤 / 模型不支持 ReAct JSON 协议。请前往 设置 → 模型 验证模型可用性，或换用主流模型 (gpt-4o / claude-3.5)`;
-      }
-      // 优先级 2: verifier 反复未通过门槛
-      if (isVerifierExhaustion) {
-        const lastCritique = lastVerdict?.critique
-          ? ` 最后一次评分批注：「${lastVerdict.critique.slice(0, 200)}${
-              lastVerdict.critique.length > 200 ? "…" : ""
-            }」`
-          : "";
-        return `Reflexion 反复未通过质量门槛${ctxStr} —— ${verdicts.length} 轮评分均 <70 分（最后 ${lastVerdict?.score.toFixed(
-          1,
-        )} 分）。${lastCritique} 可调高 budget.maxIterations 给更多重写机会，或降低 passThreshold，或检查 verifier prompt 是否过严`;
-      }
-      // 优先级 3: 真 token 触顶
-      return `Agent 预算耗尽${ctxStr} —— maxTokens 触顶。可在 @DefineAgent.budget.maxTokens 调高，或缩短输入 / 减少迭代`;
-    case "empty_llm_response":
-      // ReActLoop circuit breaker emit 的新 reason —— LLM 连续返空被熔断
-      return `LLM 立即 finalize 空结果（${detail?.emptyFinalizeCount ?? "?"} 次）—— Harness 已熔断防止浪费 token。${
-        detail?.usedModelId ? `当前 model: "${detail.usedModelId}"。` : ""
-      }常见根因：(1) BYOK model id 在 provider 不存在 (2) reasoning model max_completion_tokens 不足让 CoT + visible output 同时装下 (3) prompt 让 LLM 完全无所适从。建议先在「设置→模型」确认 model id 真实可用`;
-    case "iteration_limit":
-    case "max_iterations":
-      return `Agent 达到最大迭代次数${ctxStr} —— 通常是 LLM 反复尝试未收敛。可调高 maxIterations，或检查 prompt 是否引导歧义`;
-    case "wall_time":
-    case "wall_time_limit":
-      return `Agent 超时${ctxStr} —— maxWallTimeMs 触顶。可调高 budget.maxWallTimeMs 或检查工具调用是否卡住`;
-    case "cancelled":
-      return `Agent 被取消${ctxStr}`;
-    case "error":
-      return `Agent 内部错误${ctxStr} —— 详见 trace 末尾的 error / observation.error 字段`;
-    case "context_too_long":
-      return `Agent 上下文超长${ctxStr} —— 已触发 ContextCompactor 但仍溢出。可缩短 systemPrompt 或减少历史轮数`;
-    default:
-      return `Agent 异常终止：${reason}${ctxStr}`;
-  }
-}
-
-function extractTokenSpend(events: readonly IAgentEvent[]): number {
-  let total = 0;
-  let lastBudgetTokens = 0;
-  for (const ev of events) {
-    if (ev.type === "action_executed") {
-      const p = ev.payload as { tokensUsed?: number } | null;
-      if (p && typeof p.tokensUsed === "number") total += p.tokensUsed;
-    } else if (ev.type === "budget_warning") {
-      const p = ev.payload as { tokensUsed?: number } | null;
-      if (p && typeof p.tokensUsed === "number") {
-        lastBudgetTokens = Math.max(lastBudgetTokens, p.tokensUsed);
-      }
-    }
-  }
-  return Math.max(total, lastBudgetTokens);
-}
-
-/**
- * 粗略 USD 估算 —— demo 用，避免 Cost meter 永远 $0。
- * 真实账单走 CreditsService.consumeCredits（按模型分级算积分）。
- * Sonnet/4o 量级混合估算：~$3 / 1M tokens。
- */
-function estimateUsdFromTokens(tokens: number): number {
-  return tokens * 0.000003;
 }
 
 @Injectable()
@@ -508,7 +186,7 @@ export class ResearchTeamMission {
     missionId: string,
     userId: string,
     billing: unknown,
-  ): import("./roles/leader.service").LeaderRunFn {
+  ): import("../../roles/leader.service").LeaderRunFn {
     const fn = async <TIn, TOut>({
       spec,
       input,
@@ -2312,7 +1990,7 @@ export class ResearchTeamMission {
         //   用 reviewScore 增强 traceability/styleConformance/factualConsistency dim
         // ── Phase P0-5: 装配 ReportArtifact v2（结构化输出）──
         let reportArtifact:
-          | import("../dto/report-artifact.dto").ReportArtifact
+          | import("../../../dto/report-artifact.dto").ReportArtifact
           | undefined;
         try {
           // ★ Phase P2-10: 从 lastWriterEvents 抽真实 modelTrail + 计算 generationTimeMs

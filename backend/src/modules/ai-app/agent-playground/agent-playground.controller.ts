@@ -20,16 +20,16 @@ import {
 import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
-import { ResearchTeamMission } from "./services/research-team.mission";
+import { ResearchTeamMission } from "./services/mission/workflow/research-team.mission";
 import {
   RunMissionInputSchema,
   type RunMissionInput,
 } from "./dto/run-mission.dto";
-import { MissionOwnershipRegistry } from "./services/mission/mission-ownership.registry";
-import { MissionEventBuffer } from "./services/mission/mission-event-buffer.service";
-import { MissionStore } from "./services/mission/mission-store.service";
+import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
+import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
+import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
-import { MissionAbortRegistry } from "./services/mission/mission-abort.registry";
+import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)

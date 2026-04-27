@@ -16,7 +16,7 @@ import {
   DomainEventBus,
   type DomainEvent,
 } from "../../../../ai-engine/facade";
-import { MissionStore } from "../mission/mission-store.service";
+import { MissionStore } from "../mission/lifecycle/mission-store.service";
 
 export type LeaderDecisionType =
   | "DIRECT_ANSWER" // 直接回答（讨论 / 解释）

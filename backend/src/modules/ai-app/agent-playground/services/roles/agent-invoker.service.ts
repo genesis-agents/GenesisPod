@@ -24,7 +24,7 @@ import {
   type HarnessIAgentEvent as IAgentEvent,
 } from "../../../../ai-engine/facade";
 import { BillingRuntimeEnvAdapter } from "../../adapters/billing-runtime-env.adapter";
-import { MissionAbortRegistry } from "../mission/mission-abort.registry";
+import { MissionAbortRegistry } from "../mission/lifecycle/mission-abort.registry";
 import { HarnessFailureLearner } from "../failure-learning/harness-failure-learner.service";
 
 /** 每次 invoke 时给到 invoker 的 context，统一所有 role service 入参 shape */

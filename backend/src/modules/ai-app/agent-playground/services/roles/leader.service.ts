@@ -27,7 +27,7 @@ import {
   type LeaderPlanOutput,
   type LeaderSignoffOutput,
 } from "../../agents/leader/leader.agent";
-import { MissionStore } from "../mission/mission-store.service";
+import { MissionStore } from "../mission/lifecycle/mission-store.service";
 
 // ── Public types ──
 

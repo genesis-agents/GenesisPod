@@ -19,7 +19,7 @@ import { JwtService } from "@nestjs/jwt";
 // 必修 #8: 走 facade
 import { DomainEventBus } from "../../ai-engine/facade";
 import { SocketBroadcastAdapter } from "./adapters/socket-broadcast.adapter";
-import { MissionOwnershipRegistry } from "./services/mission/mission-ownership.registry";
+import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
 
 interface JwtPayload {
   sub?: string;
