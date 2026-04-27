@@ -12,6 +12,15 @@ import { getAuthHeader } from '@/lib/utils/auth';
 const API_BASE = `${config.apiBaseUrl}/api/v1/agent-playground`;
 
 export type BudgetProfile = 'low' | 'medium' | 'high' | 'unlimited';
+export type StyleProfile =
+  | 'academic'
+  | 'executive'
+  | 'journalistic'
+  | 'technical';
+export type LengthProfile = 'brief' | 'standard' | 'deep' | 'extended';
+export type AudienceProfile = 'executive' | 'domain-expert' | 'general-public';
+export type AuditLayers = 'minimal' | 'default' | 'thorough' | 'paranoid';
+export type ViewMode = 'continuous' | 'chapter' | 'quick';
 
 export interface RunMissionInput {
   topic: string;
@@ -19,6 +28,20 @@ export interface RunMissionInput {
   language: 'zh-CN' | 'en-US';
   /** 推荐使用 budgetProfile（4 档），maxCredits 为 deprecated 兼容字段 */
   budgetProfile?: BudgetProfile;
+  /** 文风（默认 executive） */
+  styleProfile?: StyleProfile;
+  /** 长度（默认 standard ≈ 8K 字） */
+  lengthProfile?: LengthProfile;
+  /** 受众（默认 domain-expert） */
+  audienceProfile?: AudienceProfile;
+  /** 图文并茂（默认 true） */
+  withFigures?: boolean;
+  /** 审核层级（默认 default = L0+L3） */
+  auditLayers?: AuditLayers;
+  /** Researcher 并行度（默认 3） */
+  concurrency?: number;
+  /** 默认进入哪个视图 */
+  viewMode?: ViewMode;
   /** @deprecated 直接数字上限；新代码用 budgetProfile */
   maxCredits?: number;
 }

@@ -1,0 +1,206 @@
+/**
+ * ReportArtifact 前端类型镜像
+ *
+ * 与 backend/src/modules/ai-app/agent-playground/dto/report-artifact.dto.ts 保持同步。
+ */
+
+export interface ArtifactSection {
+  id: string;
+  type:
+    | 'executive_summary'
+    | 'preface'
+    | 'dimension'
+    | 'cross_dimension'
+    | 'risk_assessment'
+    | 'recommendations'
+    | 'conclusion'
+    | 'appendix';
+  level: 2 | 3;
+  title: string;
+  anchor: string;
+  startOffset: number;
+  endOffset: number;
+  wordCount: number;
+  readingTimeMinutes: number;
+  parentId?: string;
+  children?: ArtifactSection[];
+  citations: number[];
+  figureIds: string[];
+  factIds: string[];
+  noveltyScore?: number;
+  sourceDimensionId?: string;
+}
+
+export interface ArtifactCitation {
+  index: number;
+  uuid: string;
+  title: string;
+  url: string;
+  domain: string;
+  snippet?: string;
+  publishedAt?: string;
+  accessedAt: string;
+  sourceType:
+    | 'gov'
+    | 'academic'
+    | 'industry'
+    | 'news'
+    | 'blog'
+    | 'community'
+    | 'other';
+  credibilityScore: number;
+  occurrences: ArtifactCitationOccurrence[];
+}
+
+export interface ArtifactCitationOccurrence {
+  sectionId: string;
+  paragraphIndex: number;
+  characterOffset: number;
+}
+
+export interface ArtifactFigure {
+  id: string;
+  type: 'reference' | 'extracted_chart';
+  evidenceCitationIndex: number;
+  sourceUrl: string;
+  sourcePageOrSection?: string;
+  imageUrl?: string;
+  imageDataUri?: string;
+  data?: unknown;
+  chartType?: 'line' | 'bar' | 'pie' | 'scatter' | 'flow' | 'table';
+  title: string;
+  caption: string;
+  altText: string;
+  accessibilityDesc?: string;
+  sectionId: string;
+  paragraphIndex: number;
+  anchorMode: 'after_paragraph' | 'inline' | 'sidebar';
+  referencedBy: { sectionId: string; phrase: string }[];
+  width?: 'full' | 'half' | 'quarter';
+  position?: 'left' | 'center' | 'right';
+}
+
+export interface ArtifactQuickView {
+  executiveSummary: { markdown: string; wordCount: number };
+  topHighlights: ArtifactHighlight[];
+  topTrends: {
+    title: string;
+    description: string;
+    sourceDimensionId?: string;
+  }[];
+  keyRisks: { title: string; description: string }[];
+  topRecommendations: { title: string; description: string }[];
+  keyCitations: number[];
+  keyFigures: string[];
+  estimatedReadingTime: number;
+  whatYouWillLearn: string[];
+}
+
+export interface ArtifactHighlight {
+  type: 'finding' | 'trend' | 'risk' | 'opportunity' | 'recommendation';
+  title: string;
+  oneLineSummary: string;
+  sourceDimensionId: string;
+  citations: number[];
+  figureIds?: string[];
+}
+
+export interface ArtifactFactTriple {
+  id: string;
+  entity: string;
+  attribute: string;
+  value: string;
+  sources: number[];
+  conflict?: ArtifactConflictResolution;
+}
+
+export interface ArtifactConflictResolution {
+  factIds: string[];
+  resolutionType: 'kept-both' | 'preferred-one' | 'flagged-unresolved';
+  rationale: string;
+}
+
+export interface ArtifactMetadata {
+  topic: string;
+  generatedAt: string;
+  generationTimeMs: number;
+  version: number;
+  versionLabel?: string;
+  isIncremental: boolean;
+  changesFromPrev?: {
+    sectionId: string;
+    type: 'added' | 'modified' | 'deleted';
+  }[];
+  dimensionCount: number;
+  sourceCount: number;
+  factCount: number;
+  figureCount: number;
+  wordCount: number;
+  readingTimeMinutes: number;
+  styleProfile: 'academic' | 'executive' | 'journalistic' | 'technical';
+  lengthProfile: 'brief' | 'standard' | 'deep' | 'extended';
+  audienceProfile: 'executive' | 'domain-expert' | 'general-public';
+  language: 'zh-CN' | 'en-US';
+  totalTokens: { prompt: number; completion: number; total: number };
+  costCents: number;
+  modelTrail: string[];
+}
+
+export interface ArtifactQualityVerdicts {
+  overall: number;
+  dimensions: {
+    traceability: number;
+    factualConsistency: number;
+    novelty: number;
+    coverage: number;
+    redundancy: number;
+    formatCorrectness: number;
+    citationDensity: number;
+    styleConformance: number;
+    lengthAccuracy: number;
+    chapterBalance: number;
+  };
+  hardGateViolations: {
+    dimension: string;
+    severity: 'error' | 'warning';
+    message: string;
+  }[];
+  warnings: { dimension: string; message: string }[];
+  qualityTrace: {
+    stage: string;
+    check: string;
+    passed: boolean;
+    timestamp: number;
+  }[];
+  finalVerdict?: 'excellent' | 'good' | 'acceptable' | 'poor';
+}
+
+export interface ReportArtifact {
+  content: {
+    fullMarkdown: string;
+    fullReportUri?: string;
+    fullReportSize: number;
+  };
+  sections: ArtifactSection[];
+  citations: ArtifactCitation[];
+  figures: ArtifactFigure[];
+  quickView: ArtifactQuickView;
+  factTable: ArtifactFactTriple[];
+  metadata: ArtifactMetadata;
+  quality: ArtifactQualityVerdicts;
+}
+
+/** 检测一个 reportFull blob 是否 v2 ReportArtifact */
+export function isReportArtifact(report: unknown): report is ReportArtifact {
+  if (!report || typeof report !== 'object') return false;
+  const r = report as Record<string, unknown>;
+  return (
+    !!r.content &&
+    !!r.sections &&
+    !!r.citations &&
+    !!r.figures &&
+    !!r.quickView &&
+    !!r.metadata &&
+    !!r.quality
+  );
+}
