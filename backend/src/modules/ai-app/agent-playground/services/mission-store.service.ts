@@ -36,6 +36,11 @@ export interface MissionDetail extends MissionListItem {
   reportArtifactVersion: number | null;
   userProfile: unknown;
   reconciliationReport: unknown;
+  // ★ Phase Lead-1+: Leader-Replanner-Lite 字段
+  leaderJournal: unknown;
+  leaderOverallScore: number | null;
+  leaderSigned: boolean | null;
+  leaderVerdict: string | null;
 }
 
 @Injectable()
@@ -125,6 +130,11 @@ export class MissionStore {
       reportArtifactVersion?: number;
       userProfile?: unknown;
       reconciliationReport?: unknown;
+      // ★ Phase Lead-1+: Leader-Replanner-Lite
+      leaderJournal?: unknown;
+      leaderOverallScore?: number;
+      leaderSigned?: boolean;
+      leaderVerdict?: string;
     },
   ): Promise<void> {
     // Phase P17-2: report JSONB 大小 guard（PostgreSQL JSONB 默认 max ~1GB，
@@ -167,6 +177,14 @@ export class MissionStore {
       userProfile: (data.userProfile ?? null) as Prisma.InputJsonValue,
       reconciliationReport: (data.reconciliationReport ??
         null) as Prisma.InputJsonValue,
+      // Leader-Replanner-Lite 字段（仅在新方案启用时写入）
+      leaderJournal:
+        data.leaderJournal !== undefined
+          ? ((data.leaderJournal ?? null) as Prisma.InputJsonValue)
+          : undefined,
+      leaderOverallScore: data.leaderOverallScore ?? null,
+      leaderSigned: data.leaderSigned ?? null,
+      leaderVerdict: data.leaderVerdict ?? null,
     };
     // 防止覆盖用户已取消的 mission（updateMany 带 status='running' guard，
     // 已 cancelled / failed 的不会被改写为 completed）
@@ -180,6 +198,48 @@ export class MissionStore {
           `[markCompleted ${id}] guarded update failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
+  }
+
+  /**
+   * ★ Phase Lead-1+: Leader-Replanner-Lite —— 增量写 leader_journal
+   *
+   * 每个 milestone（M0 plan / M1 research-fail / M4 weak-report / M6 foreword）
+   * 完成后调用，把当前 milestone 的产物 merge 进 leader_journal jsonb。
+   *
+   * 不依赖 status='running' guard —— 即使 mission 已 cancelled 也允许写入决策记录，
+   * 方便事后审计 / 复盘 Leader 在 mission 失败前的判断。
+   */
+  async appendLeaderJournal(
+    id: string,
+    patch: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const row = await this.prisma.agentPlaygroundMission.findUnique({
+        where: { id },
+        select: { leaderJournal: true },
+      });
+      const current =
+        (row?.leaderJournal as Record<string, unknown> | null) ?? {};
+      const merged = { ...current, ...patch };
+      // decisions 是数组，要 concat 而不是 replace
+      if (
+        Array.isArray(current.decisions) &&
+        Array.isArray((patch as { decisions?: unknown[] }).decisions)
+      ) {
+        merged.decisions = [
+          ...(current.decisions as unknown[]),
+          ...((patch as { decisions: unknown[] }).decisions ?? []),
+        ];
+      }
+      await this.prisma.agentPlaygroundMission.update({
+        where: { id },
+        data: { leaderJournal: merged as Prisma.InputJsonValue },
+      });
+    } catch (err) {
+      this.log.warn(
+        `[appendLeaderJournal ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   /**
@@ -242,20 +302,61 @@ export class MissionStore {
       tokensUsed?: number;
       costUsd?: number;
       wallTimeMs?: number;
+      // ★ Phase Lead-3: Lead 拒签时同时持久化部分产物 + 标 quality-failed 状态
+      trajectoryStored?: number;
+      themeSummary?: string;
+      dimensions?: unknown;
+      report?: { title?: string; summary?: string; [k: string]: unknown };
+      verdicts?: unknown;
+      reportArtifactVersion?: number;
+      userProfile?: unknown;
+      reconciliationReport?: unknown;
+      leaderJournal?: unknown;
+      leaderOverallScore?: number;
+      leaderSigned?: boolean;
+      leaderVerdict?: string;
     },
   ): Promise<void> {
+    // 仅当带 Lead 数据时才区分 quality-failed；老调用路径行为不变（status=failed）
+    const isLeadRefusal =
+      data.leaderSigned === false || data.leaderOverallScore != null;
+    const update: Prisma.AgentPlaygroundMissionUpdateInput = {
+      status: isLeadRefusal ? "quality-failed" : "failed",
+      completedAt: new Date(),
+      errorMessage: data.errorMessage?.slice(0, 2000) ?? null,
+      tokensUsed: data.tokensUsed ?? null,
+      costUsd: data.costUsd ?? null,
+      wallTimeMs: data.wallTimeMs ?? null,
+    };
+    if (isLeadRefusal) {
+      // Lead 拒签时连同最终产物一起存（前端能展示，便于用户复盘）
+      if (data.trajectoryStored != null)
+        update.trajectoryStored = data.trajectoryStored;
+      if (data.themeSummary != null) update.themeSummary = data.themeSummary;
+      if (data.dimensions !== undefined)
+        update.dimensions = (data.dimensions ?? null) as Prisma.InputJsonValue;
+      if (data.report !== undefined) {
+        update.reportFull = (data.report ?? null) as Prisma.InputJsonValue;
+        update.reportTitle = data.report?.title?.slice(0, 500) ?? null;
+        update.reportSummary = data.report?.summary ?? null;
+      }
+      if (data.verdicts !== undefined)
+        update.verdicts = (data.verdicts ?? null) as Prisma.InputJsonValue;
+      if (data.reportArtifactVersion != null)
+        update.reportArtifactVersion = data.reportArtifactVersion;
+      if (data.userProfile !== undefined)
+        update.userProfile = (data.userProfile ??
+          null) as Prisma.InputJsonValue;
+      if (data.reconciliationReport !== undefined)
+        update.reconciliationReport = (data.reconciliationReport ??
+          null) as Prisma.InputJsonValue;
+      if (data.leaderOverallScore != null)
+        update.leaderOverallScore = data.leaderOverallScore;
+      if (data.leaderSigned != null) update.leaderSigned = data.leaderSigned;
+      if (data.leaderVerdict != null) update.leaderVerdict = data.leaderVerdict;
+    }
     await this.prisma.agentPlaygroundMission
-      .update({
-        where: { id },
-        data: {
-          status: "failed",
-          completedAt: new Date(),
-          errorMessage: data.errorMessage?.slice(0, 2000) ?? null,
-          tokensUsed: data.tokensUsed ?? null,
-          costUsd: data.costUsd ?? null,
-          wallTimeMs: data.wallTimeMs ?? null,
-        },
-      })
+      .update({ where: { id }, data: update })
       .catch((err: unknown) => {
         this.log.warn(
           `[markFailed ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -358,6 +459,11 @@ export class MissionStore {
       reportArtifactVersion: row.reportArtifactVersion,
       userProfile: row.userProfile,
       reconciliationReport: row.reconciliationReport,
+      // ★ Phase Lead-1+
+      leaderJournal: row.leaderJournal,
+      leaderOverallScore: row.leaderOverallScore,
+      leaderSigned: row.leaderSigned,
+      leaderVerdict: row.leaderVerdict,
     };
   }
 }

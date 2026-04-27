@@ -1,5 +1,5 @@
 /**
- * OutlinePlannerAgent —— Writer W1：写作大纲规划
+ * MissionOutlinePlannerAgent —— Writer W1：写作大纲规划
  *
  * 上游：mission-pipeline-baseline.md §3.7 W1 / mission-pipeline-writer-artifact.md §3.1
  *
@@ -16,7 +16,7 @@ import { z } from "zod";
 import {
   HarnessAgentSpec as AgentSpec,
   DefineAgent,
-} from "../../../ai-engine/facade";
+} from "../../../../ai-engine/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -90,7 +90,7 @@ const Output = z.object({
   outputSchema: Output,
   budget: { maxTokens: 8_000, maxIterations: 2, maxWallTimeMs: 60_000 },
 })
-export class OutlinePlannerAgent extends AgentSpec<
+export class MissionOutlinePlannerAgent extends AgentSpec<
   typeof Input,
   typeof Output
 > {

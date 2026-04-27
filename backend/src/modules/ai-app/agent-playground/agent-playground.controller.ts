@@ -192,6 +192,59 @@ export class AgentPlaygroundController {
           md += `audienceProfile: ${meta.audienceProfile}\n`;
         md += "---\n\n";
       }
+      // ★ Phase Lead-2: Lead Foreword 放在 fullMarkdown 之前
+      const leaderForeword = (
+        meta as
+          | {
+              leaderForeword?: {
+                whatWeAnswered?: {
+                  criterion: string;
+                  addressed: string;
+                  evidence: string;
+                }[];
+                whatRemainsUnclear?: string[];
+                howToRead?: string;
+                recommendedFollowUp?: string[];
+              };
+            }
+          | undefined
+      )?.leaderForeword;
+      if (leaderForeword) {
+        md += "## Foreword by Lead\n\n";
+        if ((leaderForeword.whatWeAnswered ?? []).length > 0) {
+          md += "### 我们回答了什么\n\n";
+          for (const a of leaderForeword.whatWeAnswered ?? []) {
+            const icon =
+              a.addressed === "yes"
+                ? "✓"
+                : a.addressed === "partial"
+                  ? "⚠️"
+                  : "✗";
+            md += `- ${icon} **${a.criterion}** — ${a.evidence}\n`;
+          }
+          md += "\n";
+        }
+        if ((leaderForeword.whatRemainsUnclear ?? []).length > 0) {
+          md += "### 没回答 / 证据不足\n\n";
+          for (const u of leaderForeword.whatRemainsUnclear ?? []) {
+            md += `- ${u}\n`;
+          }
+          md += "\n";
+        }
+        if (leaderForeword.howToRead) {
+          md += "### 如何阅读本报告\n\n";
+          md += leaderForeword.howToRead + "\n\n";
+        }
+        if ((leaderForeword.recommendedFollowUp ?? []).length > 0) {
+          md += "### 建议的后续研究方向\n\n";
+          for (const r of leaderForeword.recommendedFollowUp ?? []) {
+            md += `- ${r}\n`;
+          }
+          md += "\n";
+        }
+        md += "---\n\n";
+      }
+
       md += reportFull.content?.fullMarkdown ?? "";
       // Phase P2-8: 末尾追加 references 附录（让导出 .md 自含引用）
       const cites = reportFull.citations ?? [];

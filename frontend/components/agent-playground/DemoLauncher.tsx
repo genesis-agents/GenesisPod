@@ -26,9 +26,20 @@ export function DemoLauncher() {
     'zh-CN') as RunMissionInput['language'];
 
   const [topic, setTopic] = useState(initTopic);
-  const [depth, setDepth] = useState<RunMissionInput['depth']>(
-    ['quick', 'standard', 'deep'].includes(initDepth) ? initDepth : 'deep'
-  );
+  const [depth, setDepth] = useState<RunMissionInput['depth']>(() => {
+    // 优先级：URL 参数 > localStorage > 默认 deep
+    if (typeof window !== 'undefined') {
+      const urlVal = searchParams?.get('depth');
+      if (urlVal && ['quick', 'standard', 'deep'].includes(urlVal)) {
+        return urlVal as RunMissionInput['depth'];
+      }
+      const stored = localStorage.getItem('playground:depth');
+      if (stored && ['quick', 'standard', 'deep'].includes(stored)) {
+        return stored as RunMissionInput['depth'];
+      }
+    }
+    return 'deep';
+  });
   const [language, setLanguage] = useState<RunMissionInput['language']>(
     initLang === 'en-US' ? 'en-US' : 'zh-CN'
   );
@@ -213,9 +224,11 @@ export function DemoLauncher() {
           </label>
           <select
             value={depth}
-            onChange={(e) =>
-              setDepth(e.target.value as RunMissionInput['depth'])
-            }
+            onChange={(e) => {
+              const v = e.target.value as RunMissionInput['depth'];
+              setDepth(v);
+              persist('depth', v);
+            }}
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           >
             <option value="quick">快速（2-3 维度）</option>

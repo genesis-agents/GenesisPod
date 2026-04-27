@@ -43,21 +43,27 @@ import {
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
-import { LeaderAgent } from "../agents/leader.agent";
-import { ResearcherAgent } from "../agents/researcher.agent";
-import { ReconcilerAgent } from "../agents/reconciler.agent";
-import { CriticAgent } from "../agents/critic.agent";
-import { OutlinePlannerAgent } from "../agents/outline-planner.agent";
+import { LeaderAgent } from "../agents/leader/leader.agent";
+import {
+  LeaderSupervisor,
+  type SupervisedMission,
+} from "./leader-supervisor.service";
+import { ResearcherAgent } from "../agents/researcher/researcher.agent";
+import { ReconcilerAgent } from "../agents/reconciler/reconciler.agent";
 import { ReportAssemblerService } from "./report-assembler.service";
 import { MissionStateService } from "./mission-state.service";
 import { MissionAbortRegistry } from "./mission-abort.registry";
-import { DimensionOutlineAgent } from "../agents/dimension-outline.agent";
-import { ChapterWriterAgent } from "../agents/chapter-writer.agent";
-import { ChapterReviewerAgent } from "../agents/chapter-reviewer.agent";
-import { DimensionIntegratorAgent } from "../agents/dimension-integrator.agent";
-import { DimensionQualityJudgeAgent } from "../agents/dimension-quality-judge.agent";
-import { AnalystAgent } from "../agents/analyst.agent";
-import { WriterAgent } from "../agents/writer.agent";
+import { AnalystAgent } from "../agents/analyst/analyst.agent";
+import { SingleShotWriterAgent } from "../agents/writer/single-shot-writer.agent";
+import { MissionOutlinePlannerAgent } from "../agents/writer/mission-outline-planner.agent";
+import { DimensionOutlinePlannerAgent } from "../agents/writer/dimension-outline-planner.agent";
+import { ChapterWriterAgent } from "../agents/writer/chapter-writer.agent";
+import { ChapterReviewerAgent } from "../agents/writer/chapter-reviewer.agent";
+import { DimensionIntegratorAgent } from "../agents/writer/dimension-integrator.agent";
+// MissionReviewerAgent: 当前 mission 评审走 VerifierService（多 judge 投票），
+// MissionReviewerAgent class 已声明但 orchestrator 暂未直接调用，保留为后续替换 path。
+import { MissionCriticAgent } from "../agents/reviewer/mission-critic.agent";
+import { DimensionQualityJudgeAgent } from "../agents/reviewer/dimension-quality-judge.agent";
 import {
   type ResearchReport,
   resolveBudgetMultiplier,
@@ -88,6 +94,14 @@ interface MissionResult {
   readonly reconciliationReport?: unknown;
   // ★ Phase P0-8: 用户档位 merged 后快照
   readonly userProfile?: unknown;
+  // ★ Phase Lead-3: M7 sign-off 产物
+  readonly leaderSignOff?: {
+    leaderOverallScore: number;
+    leaderVerdict: "excellent" | "good" | "acceptable" | "failed";
+    accountabilityNote: string;
+    signed: boolean;
+    refusalReason?: string;
+  };
 }
 
 interface RelayCtx {
@@ -460,7 +474,55 @@ export class ResearchTeamOrchestrator {
     private readonly reportAssembler: ReportAssemblerService,
     private readonly missionState: MissionStateService,
     private readonly abortRegistry: MissionAbortRegistry,
+    private readonly leaderSupervisor: LeaderSupervisor,
   ) {}
+
+  /**
+   * 给 LeaderSupervisor 用的 runFn —— 复用 orchestrator 的 runner +
+   * 让 leader 调用同样走 BillingContext / event relay。
+   */
+  private buildLeaderRunFn(
+    missionId: string,
+    userId: string,
+    billing: unknown,
+  ): import("./leader-supervisor.service").LeaderRunFn {
+    const fn = async <TIn, TOut>({
+      spec,
+      input,
+      agentId,
+    }: {
+      spec: typeof LeaderAgent;
+      input: TIn;
+      agentId: string;
+    }): Promise<{
+      state: "completed" | "failed" | "cancelled";
+      output?: TOut;
+      events?: readonly unknown[];
+    }> => {
+      const result = await this.runAndRelay(
+        spec as unknown as typeof LeaderAgent,
+        input as unknown as Record<string, unknown>,
+        {
+          missionId,
+          userId,
+          agentId,
+          role: "leader",
+          envAdapter: billing as never,
+        },
+      );
+      return {
+        state:
+          result.state === "completed"
+            ? "completed"
+            : result.state === "cancelled"
+              ? "cancelled"
+              : "failed",
+        output: result.output as TOut | undefined,
+        events: result.events,
+      };
+    };
+    return fn;
+  }
 
   async runMission(
     missionId: string,
@@ -604,23 +666,53 @@ export class ResearchTeamOrchestrator {
                 title?: string;
                 summary?: string;
               });
-          await this.store.markCompleted(missionId, {
-            finalScore: result.reviewScore,
-            tokensUsed: snap.poolTokensUsed,
-            costUsd: snap.poolCostUsd,
-            trajectoryStored: result.trajectoryStored,
-            wallTimeMs: Date.now() - t0,
-            themeSummary: result.themeSummary,
-            dimensions: result.dimensions,
-            report: reportPayload as unknown as {
-              title?: string;
-              summary?: string;
-            },
-            reportArtifactVersion: result.reportArtifact ? 2 : 1,
-            userProfile: result.userProfile ?? null,
-            reconciliationReport: result.reconciliationReport ?? null,
-            verdicts: result.verdicts,
-          });
+          // ★ Phase Lead-3: Leader 签字结果同时写入 mission 顶层列
+          //   - signed=false → markFailed 而不是 markCompleted（mission 标 quality-failed）
+          //   - signed=true  → markCompleted + 持久化 leaderOverallScore/Verdict
+          if (result.leaderSignOff && !result.leaderSignOff.signed) {
+            await this.store.markFailed(missionId, {
+              wallTimeMs: Date.now() - t0,
+              errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
+              trajectoryStored: result.trajectoryStored,
+              themeSummary: result.themeSummary,
+              dimensions: result.dimensions,
+              report: reportPayload as unknown as {
+                title?: string;
+                summary?: string;
+              },
+              reportArtifactVersion: result.reportArtifact ? 2 : 1,
+              userProfile: result.userProfile ?? null,
+              reconciliationReport: result.reconciliationReport ?? null,
+              verdicts: result.verdicts,
+              leaderJournal: undefined, // 已通过 appendLeaderJournal 增量写入
+              leaderOverallScore: result.leaderSignOff.leaderOverallScore,
+              leaderSigned: false,
+              leaderVerdict: result.leaderSignOff.leaderVerdict,
+            });
+          } else {
+            await this.store.markCompleted(missionId, {
+              finalScore: result.reviewScore,
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
+              trajectoryStored: result.trajectoryStored,
+              wallTimeMs: Date.now() - t0,
+              themeSummary: result.themeSummary,
+              dimensions: result.dimensions,
+              report: reportPayload as unknown as {
+                title?: string;
+                summary?: string;
+              },
+              reportArtifactVersion: result.reportArtifact ? 2 : 1,
+              userProfile: result.userProfile ?? null,
+              reconciliationReport: result.reconciliationReport ?? null,
+              verdicts: result.verdicts,
+              leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
+              leaderSigned: result.leaderSignOff?.signed,
+              leaderVerdict: result.leaderSignOff?.leaderVerdict,
+            });
+          }
           clearTimeout(wallTimer);
           this.abortRegistry.unregister(missionId);
           return result;
@@ -736,7 +828,7 @@ export class ResearchTeamOrchestrator {
           );
         }
 
-        // ── Stage 1: Leader 拆维度 ──
+        // ── Stage 1: Leader 拆维度（M0 plan via LeaderSupervisor）──
         await this.emit({
           type: "agent-playground.stage:started",
           missionId,
@@ -744,75 +836,61 @@ export class ResearchTeamOrchestrator {
           payload: { stage: "leader" },
         });
         await this.lifecycle(missionId, userId, "leader", "leader", "started");
-        const leaderRes = await this.runAndRelay(
-          LeaderAgent,
+
+        // ★ Phase Lead-Final: Lead 全程在场 —— 创建 SupervisedMission，整 mission 复用
+        const leader: SupervisedMission = this.leaderSupervisor.create(
+          missionId,
+          userId,
           {
             topic: input.topic,
             depth: input.depth,
             language: input.language,
+            userProfile: input,
           },
-          {
+          this.buildLeaderRunFn(missionId, userId, billing),
+        );
+
+        // M0: plan() 内部自动 emit lifecycle / appendLeaderJournal
+        let planResult;
+        try {
+          planResult = await leader.plan();
+        } catch (err) {
+          await this.lifecycle(
             missionId,
             userId,
-            agentId: "leader",
-            role: "leader",
-            envAdapter: billing,
-            budgetMultiplier,
-            loopOverride: this.resolveLoopOverride(input.auditLayers, "leader"),
-          },
-        );
-        await this.tickCostDelta(
-          missionId,
-          userId,
-          "leader",
-          pool,
-          extractTokenSpend(leaderRes.events),
-        );
+            "leader",
+            "leader",
+            "failed",
+            { error: err instanceof Error ? err.message : String(err) },
+          );
+          throw err;
+        }
         await this.lifecycle(
           missionId,
           userId,
           "leader",
           "leader",
-          leaderRes.state === "completed" ? "completed" : "failed",
-          {
-            wallTimeMs: leaderRes.wallTimeMs,
-            iterations: leaderRes.iterations,
-            error: extractFailureMessage(
-              leaderRes.events,
-              leaderRes.state,
-              !!leaderRes.output,
-              {
-                iterations: leaderRes.iterations,
-                wallTimeMs: leaderRes.wallTimeMs,
-              },
-            ),
-          },
+          "completed",
+          {},
         );
-        if (leaderRes.state !== "completed") {
-          throw new Error(
-            extractFailureMessage(
-              leaderRes.events,
-              leaderRes.state,
-              !!leaderRes.output,
-              {
-                iterations: leaderRes.iterations,
-                wallTimeMs: leaderRes.wallTimeMs,
-              },
-            ) ?? "Leader stage failed",
-          );
-        }
-        const plan = leaderRes.output as {
-          themeSummary: string;
-          dimensions: {
-            id: string;
-            name: string;
-            rationale: string;
-            toolHint?: {
-              categories?: string[];
-              preferIds?: string[];
-            };
-          }[];
+        const plan = {
+          themeSummary: planResult.themeSummary,
+          dimensions: planResult.dimensions,
+          goals: planResult.goals,
+          initialRisks: planResult.initialRisks ?? [],
         };
+        // 兼容老下游：plan.goals / plan.initialRisks 都存在
+        {
+          await this.emit({
+            type: "agent-playground.leader:goals-set",
+            missionId,
+            userId,
+            payload: {
+              goals: plan.goals,
+              initialRisks: plan.initialRisks ?? [],
+            },
+          }).catch(() => {});
+        }
         await this.emit({
           type: "agent-playground.stage:completed",
           missionId,
@@ -1245,6 +1323,79 @@ export class ResearchTeamOrchestrator {
           },
         });
 
+        // ── ★ M1 ASSESS-RESEARCH (Lead-Replanner-Lite 必做 milestone) ──
+        // Lead 全程在场最后一块拼图：researchers 完成后 Lead 评估每个 dim 产出，
+        // 决定 accept-all / patch / redirect / abort。这次决策会被持久化到
+        // leader_journal.decisions[]，M7 sign-off 时强制引用作为问责依据。
+        try {
+          const researcherOutcomes = plan.dimensions.map((d) => {
+            const r = researcherResults.find((x) => x.dimension === d.name);
+            const findings = r?.findings ?? [];
+            const summary = r?.summary ?? "";
+            const state: "completed" | "degraded" | "failed" =
+              findings.length === 0
+                ? "failed"
+                : summary.startsWith("(failed") || summary.startsWith("(error")
+                  ? "degraded"
+                  : "completed";
+            // 抽前 5 条 source URL 给 Lead 看，避免 prompt 爆炸
+            const sources = findings
+              .map((f) => f.source)
+              .filter((s): s is string => typeof s === "string")
+              .slice(0, 5);
+            const failureCodeMatch = summary.match(/code=([A-Z_]+)/);
+            return {
+              dimensionId: d.id,
+              dimensionName: d.name,
+              state,
+              findingsCount: findings.length,
+              sources,
+              summary: summary.slice(0, 300),
+              failureCode: failureCodeMatch ? failureCodeMatch[1] : undefined,
+            };
+          });
+          const m1 = await leader.assessResearchers(researcherOutcomes);
+          await this.emit({
+            type: "agent-playground.leader:decision",
+            missionId,
+            userId,
+            payload: {
+              phase: "assess-research",
+              decision: m1.decision,
+              rationale: m1.rationale,
+              perDimension: m1.perDimension,
+              newDimensionsCount: m1.newDimensions.length,
+            },
+          }).catch(() => {});
+
+          if (m1.decision === "abort") {
+            // Lead 主动叫停整 mission（多个 critical 失败无法挽救）
+            throw new Error(
+              `Lead aborted mission after assess-research: ${m1.rationale.slice(0, 200)}`,
+            );
+          }
+          // patch / redirect 的 retry / replace / abort-dim / extend 处理
+          // —— 当前最小实现：只 emit 决策事件 + 日志记录，不立即触发重派。
+          // 因为 self-heal 已在 researcher loop 内做过，重复 retry 收益有限。
+          // 后续 PR (PR-Lead-M1-Actions) 在此处接入：
+          //   - retry-with-critique → 再派一次 ResearcherAgent 带 critique
+          //   - replace-spec → 用 newAgentSpecId 派不同 spec
+          //   - abort（per-dim）→ 该 dim mark degraded，下游 Reconciler 跳过
+          //   - redirect with newDimensions[] → 追加新 dim 走完整 researcher path
+          if (m1.decision === "patch" || m1.decision === "redirect") {
+            this.log.warn(
+              `[${missionId}] Leader M1 decision=${m1.decision} but per-dim retry/replace/extend dispatch not yet wired. perDimension actions logged in leader_journal for trace.`,
+            );
+          }
+        } catch (err) {
+          if (err instanceof Error && err.message.startsWith("Lead aborted")) {
+            throw err; // abort 是 Lead 主动叫停，必须传播
+          }
+          this.log.warn(
+            `[${missionId}] M1 assess-research failed (non-fatal, mission proceeds): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
         // ── Stage B' (3.5): Reconciler 对账 ──
         // mission-pipeline-baseline.md §3.5 / mission-pipeline-reconciler.md
         // Researcher 并行产出后强制对账：事实表 / 冲突 / 重叠 / 空白 / 图候选池
@@ -1479,7 +1630,7 @@ export class ResearchTeamOrchestrator {
         ) {
           try {
             const outlineRes = await this.runAndRelay(
-              OutlinePlannerAgent,
+              MissionOutlinePlannerAgent,
               {
                 topic: input.topic,
                 language: input.language,
@@ -1611,7 +1762,7 @@ export class ResearchTeamOrchestrator {
             }
           }
           const writerRes = await this.runAndRelay(
-            WriterAgent,
+            SingleShotWriterAgent,
             {
               topic: input.topic,
               depth: input.depth,
@@ -2065,7 +2216,7 @@ export class ResearchTeamOrchestrator {
               `${input.topic}::critic::${input.language}`,
             );
             const criticRes = await this.runAndRelay(
-              CriticAgent,
+              MissionCriticAgent,
               {
                 topic: input.topic,
                 language: input.language,
@@ -2201,6 +2352,148 @@ export class ResearchTeamOrchestrator {
           }
         }
 
+        // ★ Phase Lead-Final: M6 SYNTHESIS + M7 SIGN-OFF（统一通过 LeaderSupervisor）
+        //
+        // LeaderAgent 在这两个 milestone 看到自己 M0 的 goals 和 M1 的过程决策，
+        // 最后在 M7 写 accountabilityNote 时被业务规则强制引用历史决策做问责。
+        let leaderForeword:
+          | NonNullable<typeof reportArtifact>["metadata"]["leaderForeword"]
+          | undefined;
+        let leaderSignOff:
+          | {
+              leaderOverallScore: number;
+              leaderVerdict: "excellent" | "good" | "acceptable" | "failed";
+              accountabilityNote: string;
+              signed: boolean;
+              refusalReason?: string;
+            }
+          | undefined;
+        if (reportArtifact) {
+          // ── 准备 stage outcome 摘要 ──
+          const dimStateOf = (d: {
+            name: string;
+          }): "completed" | "degraded" | "failed" => {
+            const r = researcherResults.find((x) => x.dimension === d.name);
+            const findings = (r as { findings?: unknown[] })?.findings ?? [];
+            if (findings.length === 0) return "failed";
+            const summary = (r as { summary?: string })?.summary ?? "";
+            return summary.startsWith("(failed") ? "degraded" : "completed";
+          };
+          const dimensionStates = plan.dimensions.map((d) => ({
+            name: d.name,
+            state: dimStateOf(d),
+          }));
+          const reconStats = reconciliationReport
+            ? {
+                factCount:
+                  (reconciliationReport as { factTable?: unknown[] }).factTable
+                    ?.length ?? 0,
+                conflictCount:
+                  (reconciliationReport as { conflicts?: unknown[] }).conflicts
+                    ?.length ?? 0,
+                criticalGaps: (
+                  (
+                    reconciliationReport as {
+                      gaps?: {
+                        severity?: string;
+                        expectedAspects?: string[];
+                      }[];
+                    }
+                  ).gaps ?? []
+                )
+                  .filter((g) => g.severity === "critical")
+                  .map((g) => (g.expectedAspects ?? []).join(", "))
+                  .filter(Boolean),
+              }
+            : undefined;
+          const reviewerAvg =
+            verifierVerdicts.length > 0
+              ? Math.round(
+                  (verifierVerdicts as { score?: number }[]).reduce(
+                    (sum: number, v) => sum + (v.score ?? 0),
+                    0,
+                  ) / verifierVerdicts.length,
+                )
+              : undefined;
+          const criticWarnings = reportArtifact.quality.warnings.filter((w) =>
+            w.dimension?.startsWith("l4-"),
+          );
+          const criticBlindspots = criticWarnings
+            .filter((w) => w.dimension === "l4-blindspot")
+            .map((w) => w.message);
+          const criticBiases = criticWarnings
+            .filter((w) => w.dimension === "l4-bias")
+            .map((w) => w.message);
+          const criticVerdictRaw = criticWarnings.find(
+            (w) => w.dimension === "l4-critic",
+          )?.message;
+          const criticVerdict = criticVerdictRaw?.startsWith("[fail]")
+            ? "fail"
+            : criticVerdictRaw?.startsWith("[concerns]")
+              ? "concerns"
+              : criticVerdictRaw?.startsWith("[pass]")
+                ? "pass"
+                : undefined;
+
+          // ── M6: leader.writeForeword() ──
+          try {
+            leaderForeword = await leader.writeForeword({
+              researcherStates: dimensionStates,
+              reconciliation: reconStats,
+              writerSections: reportArtifact.sections.map((s) => s.title),
+              qualitySnapshot: {
+                sourceCount: reportArtifact.citations.length,
+                coverageScore: reportArtifact.quality.dimensions.coverage,
+                overall: reportArtifact.quality.overall,
+                finalVerdict: reportArtifact.quality.finalVerdict ?? "?",
+                reviewerAvgScore: reviewerAvg,
+                criticVerdict,
+                criticBlindspots,
+                criticBiases,
+              },
+            });
+            reportArtifact.metadata.leaderForeword = leaderForeword;
+            await this.emit({
+              type: "agent-playground.leader:foreword",
+              missionId,
+              userId,
+              payload: leaderForeword,
+            }).catch(() => {});
+          } catch (err) {
+            this.log.warn(
+              `[${missionId}] M6 foreword failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+
+          // ── M7: leader.signOff() —— 仅在 M6 成功时跑 ──
+          if (leaderForeword) {
+            try {
+              leaderSignOff = await leader.signOff(
+                {
+                  sourceCount: reportArtifact.citations.length,
+                  coverageScore: reportArtifact.quality.dimensions.coverage,
+                  overall: reportArtifact.quality.overall,
+                  finalVerdict: reportArtifact.quality.finalVerdict ?? "?",
+                  wordCount: reportArtifact.metadata.wordCount,
+                  reviewerAvgScore: reviewerAvg,
+                  criticVerdict,
+                },
+                dimensionStates,
+              );
+              await this.emit({
+                type: "agent-playground.leader:signed",
+                missionId,
+                userId,
+                payload: leaderSignOff,
+              }).catch(() => {});
+            } catch (err) {
+              this.log.warn(
+                `[${missionId}] M7 sign-off failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
+          }
+        }
+
         return {
           missionId,
           report,
@@ -2224,6 +2517,7 @@ export class ResearchTeamOrchestrator {
             viewMode: input.viewMode,
             language: input.language,
           },
+          leaderSignOff,
         };
       }
     }
@@ -2766,7 +3060,7 @@ export class ResearchTeamOrchestrator {
       },
     );
     const outlineRes = await this.runAndRelay(
-      DimensionOutlineAgent,
+      DimensionOutlinePlannerAgent,
       {
         topic,
         dimension: dimensionName,

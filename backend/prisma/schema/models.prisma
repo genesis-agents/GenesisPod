@@ -9250,6 +9250,17 @@ model AgentPlaygroundMission {
   /// ★ Reconciler [3.5] 节点产物（factTable / conflicts / overlaps / gaps / figureCandidates）
   reconciliationReport Json? @map("reconciliation_report")
 
+  /// ★ Leader-Replanner-Lite 务实 leader 方案（Phase Lead-1+）
+  /// leader_journal: { plan: M0 输出含 goals/qualityBar/successCriteria/initialRisks,
+  ///                   decisions[]: M1/M4 决策记录, foreword: M6 输出 }
+  leaderJournal      Json?    @map("leader_journal")
+  /// Leader 在 M7 sign-off 给整 mission 的总分（不同于 reviewer / critic 评分）
+  leaderOverallScore Int?     @map("leader_overall_score")
+  /// Leader 在 M7 是否签字接受交付；false → mission status = quality-failed
+  leaderSigned       Boolean? @map("leader_signed")
+  /// Leader 自评的 verdict，与 quality.finalVerdict 独立（前者由 Lead 决定，后者由 Writer 评分器算）
+  leaderVerdict      String?  @map("leader_verdict") @db.VarChar(20)
+
   /// Leader 对话历史（点击 Leader 节点弹出聊天框）
   leaderChats AgentPlaygroundLeaderChat[]
 

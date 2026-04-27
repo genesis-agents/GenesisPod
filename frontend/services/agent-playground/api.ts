@@ -146,6 +146,48 @@ export interface MissionDetail extends MissionListItem {
       }[]
     | null;
   trajectoryStored: number | null;
+  /** ★ Phase Lead-1+: Leader-Replanner-Lite 字段 */
+  leaderJournal?: {
+    plan?: {
+      themeSummary?: string;
+      dimensionsCount?: number;
+      goals?: {
+        successCriteria: string[];
+        qualityBar: {
+          minSources: number;
+          minCoverage: number;
+          hardConstraints: string[];
+        };
+        deliverables: string[];
+      };
+      initialRisks?: {
+        type: string;
+        severity: 'low' | 'medium' | 'high';
+        mitigation: string;
+      }[];
+    };
+    foreword?: {
+      whatWeAnswered: {
+        criterion: string;
+        addressed: 'yes' | 'partial' | 'no';
+        evidence: string;
+      }[];
+      whatRemainsUnclear: string[];
+      howToRead: string;
+      recommendedFollowUp: string[];
+      generatedAt?: string;
+    };
+    /** Leader 跨 milestone 决策记录（M0/M1/M6 累积） */
+    decisions?: {
+      phase: 'plan' | 'assess-research' | 'foreword';
+      at: string;
+      decision: string;
+      rationale: string;
+    }[];
+  } | null;
+  leaderOverallScore?: number | null;
+  leaderSigned?: boolean | null;
+  leaderVerdict?: 'excellent' | 'good' | 'acceptable' | 'failed' | null;
 }
 
 export async function listMissions(): Promise<MissionListItem[]> {

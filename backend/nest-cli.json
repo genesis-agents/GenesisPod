@@ -12,7 +12,8 @@
       { "include": "**/*.skill.md", "watchAssets": true },
       { "include": "**/SKILL.md", "watchAssets": true },
       { "include": "**/strategies/*.md", "watchAssets": true },
-      { "include": "**/presets/*.json", "watchAssets": true }
+      { "include": "**/presets/*.json", "watchAssets": true },
+      { "include": "**/duties/*.md", "watchAssets": true }
     ]
   },
   "monorepo": false,

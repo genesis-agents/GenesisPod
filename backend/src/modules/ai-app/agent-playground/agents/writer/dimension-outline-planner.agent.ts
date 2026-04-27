@@ -1,5 +1,5 @@
 /**
- * DimensionOutlineAgent —— 拆维度为 N 个章节的 outline
+ * DimensionOutlinePlannerAgent —— 拆维度为 N 个章节的 outline
  *
  * 接收 Researcher 收集的 sourceManifest（findings + summary）+ 维度名，
  * 产出 N 个章节标题 + 简短主旨 + 写作要点。
@@ -10,7 +10,7 @@ import { z } from "zod";
 import {
   HarnessAgentSpec as AgentSpec,
   DefineAgent,
-} from "../../../ai-engine/facade";
+} from "../../../../ai-engine/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -59,7 +59,7 @@ const Output = z.object({
   outputSchema: Output,
   budget: { maxTokens: 12_000, maxIterations: 4 },
 })
-export class DimensionOutlineAgent extends AgentSpec<
+export class DimensionOutlinePlannerAgent extends AgentSpec<
   typeof Input,
   typeof Output
 > {

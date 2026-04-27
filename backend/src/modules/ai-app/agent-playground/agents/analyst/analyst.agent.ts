@@ -9,7 +9,7 @@ import { z } from "zod";
 import {
   HarnessAgentSpec as AgentSpec,
   DefineAgent,
-} from "../../../ai-engine/facade";
+} from "../../../../ai-engine/facade";
 
 const ResearcherFinding = z.object({
   dimension: z.string(),

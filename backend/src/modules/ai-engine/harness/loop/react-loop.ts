@@ -1013,10 +1013,9 @@ export class ReActLoop implements IAgentLoop {
       );
       return {
         decision: {
-          // ★ 友好化：JSON 抽取彻底失败（例如纯文本输出）— parser 已经把 raw text
-          //   当作 finalize.output，trace 不应暴露解析器异常类名。
-          thinking:
-            "（模型未输出有效 JSON，已把原始文本作为 finalize 结果归一化保存）",
+          // ★ JSON 抽取失败 — parser 已把 raw text 当作 finalize.output，
+          //   不在 trace 里展示解析器异常 / 中文系统提示。
+          thinking: "",
           action: { kind: "finalize", output: raw },
         },
         parseError: { name: errName, message: errMsg },
@@ -1079,10 +1078,10 @@ export class ReActLoop implements IAgentLoop {
       );
       return {
         decision: {
-          // ★ 友好化：LLM 把结果直接当顶级返回（漏写 envelope）很常见，
-          //   parser 已自动 fallback，不应在 trace 里暴露 InvalidActionError。
-          thinking:
-            "（模型直接返回了 finalize 结果，已自动归一化包装为标准 envelope）",
+          // ★ 这是 parser fallback 情况：LLM 把结果直接当顶级返回（漏写 envelope）。
+          //   parser 已自动 fallback，不显示给用户「驳回 / 异常」字样，让 trace
+          //   保持干净 —— action 直接显示 finalize、result 显示结构化产出。
+          thinking: "",
           action: { kind: "finalize", output: raw },
         },
         parseError: { name: errName, message: errMsg, subCode },
@@ -1254,7 +1253,24 @@ export class ReActLoop implements IAgentLoop {
     }
 
     if (action.kind === "finalize") {
-      return { action, output: action.output, latencyMs: 0 };
+      // ★ 把 finalize.output 归一化为结构化对象（如果是 JSON 字符串就 parse）。
+      //   force-finalize fallback 给的是 raw text；不解析的话下游 trace 会拿到一个
+      //   超长字符串而非对象，前端结构化卡片渲染就走不进去（fallback 到 raw JSON）。
+      let normalizedOutput: unknown = action.output;
+      if (typeof normalizedOutput === "string") {
+        const trimmed = normalizedOutput.trim();
+        if (
+          (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+          (trimmed.startsWith("[") && trimmed.endsWith("]"))
+        ) {
+          try {
+            normalizedOutput = JSON.parse(trimmed);
+          } catch {
+            /* parse 失败保持 string，后续 schema gate 会处理 */
+          }
+        }
+      }
+      return { action, output: normalizedOutput, latencyMs: 0 };
     }
 
     if (action.kind === "subagent_spawn") {

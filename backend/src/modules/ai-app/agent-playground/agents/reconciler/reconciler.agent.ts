@@ -21,7 +21,7 @@ import { z } from "zod";
 import {
   HarnessAgentSpec as AgentSpec,
   DefineAgent,
-} from "../../../ai-engine/facade";
+} from "../../../../ai-engine/facade";
 
 const FactTriple = z.object({
   id: z.string(),

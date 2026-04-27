@@ -20,7 +20,7 @@ import { z } from "zod";
 import {
   HarnessAgentSpec as AgentSpec,
   DefineAgent,
-} from "../../../ai-engine/facade";
+} from "../../../../ai-engine/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -76,7 +76,7 @@ const Output = z.object({
   outputSchema: Output,
   budget: { maxTokens: 12_000, maxIterations: 2, maxWallTimeMs: 90_000 },
 })
-export class CriticAgent extends AgentSpec<typeof Input, typeof Output> {
+export class MissionCriticAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
     const lang =
       input.language === "zh-CN" ? "用中文输出。" : "Respond in English.";

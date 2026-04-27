@@ -159,6 +159,26 @@ export interface ArtifactMetadata {
   totalTokens: { prompt: number; completion: number; total: number };
   costCents: number;
   modelTrail: string[];
+  /**
+   * ★ Phase Lead-2: M6 SYNTHESIS Lead Foreword
+   * Lead 在 mission 末尾写的 meta-level 执行摘要（不同于 Writer.summary）：
+   *   - whatWeAnswered[] vs M0 successCriteria 逐条评估
+   *   - whatRemainsUnclear[] 诚实承认局限
+   *   - howToRead 引导用户阅读
+   *   - recommendedFollowUp[] 下一步研究方向
+   * 渲染时放在 ExecutiveSummary 之前，作为整份报告"老板视角"。
+   */
+  leaderForeword?: {
+    whatWeAnswered: {
+      criterion: string;
+      addressed: "yes" | "partial" | "no";
+      evidence: string;
+    }[];
+    whatRemainsUnclear: string[];
+    howToRead: string;
+    recommendedFollowUp: string[];
+    generatedAt: string;
+  };
 }
 
 /** 10 维质量评分 */

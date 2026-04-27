@@ -9,8 +9,8 @@ import { z } from "zod";
 import {
   HarnessAgentSpec as AgentSpec,
   DefineAgent,
-} from "../../../ai-engine/facade";
-import { ResearchReportSchema } from "../dto/run-mission.dto";
+} from "../../../../ai-engine/facade";
+import { ResearchReportSchema } from "../../dto/run-mission.dto";
 
 const Input = z.object({
   topic: z.string(),
@@ -83,7 +83,7 @@ const DEPTH_SECTION_PLAN: Record<
   // 长报告 + outputSchema retry，给足空间。budgetProfile 倍率会在上面再 scale
   budget: { maxTokens: 80_000, maxIterations: 8 },
 })
-export class WriterAgent extends AgentSpec<
+export class SingleShotWriterAgent extends AgentSpec<
   typeof Input,
   typeof ResearchReportSchema
 > {

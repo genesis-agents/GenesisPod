@@ -37,6 +37,7 @@ import {
   VerifyConsensusPanel,
 } from '@/components/agent-playground';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
+import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
 import {
@@ -523,6 +524,8 @@ export default function MissionDetailPage() {
 
             {activeTab === 'report' && (
               <div className="space-y-4">
+                {/* ★ Phase Lead-1+: Leader-Replanner-Lite 全程产物展示 */}
+                {persisted && <LeadJournalPanel mission={persisted} />}
                 {/* ★ Phase P0-6: ReportArtifact v2 三视图渲染（fallback 老 ReportPanel） */}
                 {(() => {
                   const reportFull = persisted?.reportFull ?? view.finalReport;
@@ -2000,13 +2003,13 @@ function TaskDetailDrawer({
                 ⟳ 自愈重试 · {owner.retryCount} 次
               </p>
               {owner.lastRetryReason && (
-                <p className="mt-0.5 font-mono text-[10px] text-amber-700">
+                <p className="font-mono mt-0.5 text-[10px] text-amber-700">
                   上次失败码: {owner.lastRetryReason}
                 </p>
               )}
               <p className="mt-1 text-[10px] leading-relaxed text-amber-700/80">
-                第一次跑挂在可恢复的失败码（schema 不达标 / wall-time / 解析失败），
-                Orchestrator 把预算 +50% 自动重试了一次。
+                第一次跑挂在可恢复的失败码（schema 不达标 / wall-time /
+                解析失败）， Orchestrator 把预算 +50% 自动重试了一次。
               </p>
             </div>
           )}
@@ -2378,7 +2381,9 @@ function TaskDetailDrawer({
           {(() => {
             const flowItems = trace.filter(
               (t) =>
-                t.kind === 'thought' ||
+                // ★ 过滤空 thought —— parser fallback 时 thought 为空字符串，
+                //   不应在 trace 里出现一个空的"思考"格子让用户困惑。
+                (t.kind === 'thought' && t.text && t.text.trim() !== '') ||
                 t.kind === 'action' ||
                 t.kind === 'observation' ||
                 t.kind === 'reflection'

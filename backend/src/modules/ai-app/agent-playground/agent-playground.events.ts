@@ -57,4 +57,10 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   // ── Phase P0-10: 预算两档闸 ──
   T("mission:budget-warning-soft"),
   T("mission:budget-warning-hard"),
+  // ── Phase Lead-1+: Leader-Replanner-Lite ──
+  T("leader:goals-set"), // M0 Leader 声明 successCriteria/qualityBar/deliverables
+  T("leader:decision"), // M1/M4 Leader 决策（accept/patch/abort 等）
+  T("leader:foreword"), // M6 Leader 写完 meta-level Foreword
+  T("leader:signed"), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
+  T("dimension:retrying"), // researcher self-heal 重试触发
 ];

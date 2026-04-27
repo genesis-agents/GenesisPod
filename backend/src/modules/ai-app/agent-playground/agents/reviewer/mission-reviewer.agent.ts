@@ -9,8 +9,8 @@ import { z } from "zod";
 import {
   HarnessAgentSpec as AgentSpec,
   DefineAgent,
-} from "../../../ai-engine/facade";
-import { ResearchReportSchema } from "../dto/run-mission.dto";
+} from "../../../../ai-engine/facade";
+import { ResearchReportSchema } from "../../dto/run-mission.dto";
 
 const Input = z.object({
   topic: z.string(),
@@ -36,7 +36,10 @@ const Output = z.object({
   outputSchema: Output,
   budget: { maxTokens: 16_000, maxIterations: 4 },
 })
-export class ReviewerAgent extends AgentSpec<typeof Input, typeof Output> {
+export class MissionReviewerAgent extends AgentSpec<
+  typeof Input,
+  typeof Output
+> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
     return [
       `You are the final reviewer for the research report on "${input.topic}".`,
