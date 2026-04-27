@@ -1015,15 +1015,91 @@ export class ReportAssemblerService {
       }
     }
 
+    // ─── novelty：内容驱动启发式 ───
+    //   1. factTable 实体多样性（独立 entity 数量）
+    //   2. 引用源域名多样性（独立 domain 数量）
+    //   3. 套话扣分（"在当今"/"随着...的发展"/"根据 XX 报告"）
+    let noveltyScore = 50;
+    const factEntities = new Set<string>();
+    if (input?.reconciliationReport?.factTable) {
+      for (const f of input.reconciliationReport.factTable)
+        factEntities.add(f.entity);
+    }
+    // 实体≥6 给 +20，≥3 给 +10
+    if (factEntities.size >= 6) noveltyScore += 20;
+    else if (factEntities.size >= 3) noveltyScore += 10;
+    // 域名多样性
+    const domains = new Set(_citations.map((c) => c.domain));
+    if (domains.size >= 6) noveltyScore += 15;
+    else if (domains.size >= 3) noveltyScore += 8;
+    // 套话扣分：每出现一次扣 5
+    const fullText = sections.map((s) => s.title).join(" ");
+    const clichePatterns = [
+      /随着.{0,4}的发展/g,
+      /在当今/g,
+      /众所周知/g,
+      /不可忽视/g,
+      /显而易见/g,
+    ];
+    let clicheCount = 0;
+    for (const re of clichePatterns) {
+      const matches = fullText.match(re);
+      if (matches) clicheCount += matches.length;
+    }
+    noveltyScore = Math.max(20, noveltyScore - clicheCount * 5);
+    // 至少有 highlights/keyInsights 给 +5
+    const highlightCount = (input?.analyst?.keyInsights ?? []).length;
+    if (highlightCount >= 3) noveltyScore += 5;
+    noveltyScore = Math.min(100, noveltyScore);
+
+    // ─── styleConformance：profile 匹配启发式 ───
+    //   各 profile 期望的关键词频率
+    let styleScore = 60;
+    const allBody = sections
+      .filter((s) => s.type !== "executive_summary")
+      .map((s) => s.title)
+      .join(" ");
+    const styleProfile = input?.styleProfile;
+    if (styleProfile === "executive") {
+      // 期望：Implications / 战略 / 决策 / 风险 / 建议
+      const execKw = [/Implications?/gi, /战略|决策|风险|建议|要点|核心/g];
+      let execHits = 0;
+      for (const re of execKw) {
+        const m = allBody.match(re);
+        if (m) execHits += m.length;
+      }
+      styleScore = Math.min(100, 60 + execHits * 6);
+    } else if (styleProfile === "academic") {
+      // 期望：方法/结果/讨论/局限/参考文献 + 高 citation density
+      const academicKw =
+        /方法|结果|讨论|局限|参考文献|methodology|conclusion/gi;
+      const m = allBody.match(academicKw);
+      const acaHits = m ? m.length : 0;
+      styleScore = Math.min(
+        100,
+        50 + acaHits * 5 + Math.round(citationDensityScore * 0.3),
+      );
+    } else if (styleProfile === "journalistic") {
+      // 期望：故事/现场/案例/亲历
+      const jKw = /案例|现场|访谈|实地|实例|事件/g;
+      const m = allBody.match(jKw);
+      styleScore = Math.min(100, 60 + (m ? m.length : 0) * 6);
+    } else if (styleProfile === "technical") {
+      // 期望：代码/接口/参数/配置/性能 数字密度
+      const techKw = /代码|接口|参数|配置|性能|架构|实现|算法/g;
+      const m = allBody.match(techKw);
+      styleScore = Math.min(100, 55 + (m ? m.length : 0) * 5);
+    }
+
     const dimensionScores = {
       traceability: traceabilityScore,
       factualConsistency: factualConsistencyScore,
-      novelty: 70, // 由 critic agent 在 orchestrator 里调整
+      novelty: noveltyScore,
       coverage: coverageScore,
       redundancy: redundancyScore,
       formatCorrectness: 80,
       citationDensity: citationDensityScore,
-      styleConformance: 75, // 由 critic agent 在 orchestrator 里调整
+      styleConformance: styleScore,
       lengthAccuracy: lengthAccuracyScore,
       chapterBalance: balanceScore,
     };
