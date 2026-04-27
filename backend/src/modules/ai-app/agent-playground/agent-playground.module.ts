@@ -18,7 +18,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
-import { ResearchTeamOrchestrator } from "./services/research-team.orchestrator";
+import { ResearchTeamMission } from "./services/research-team.mission";
 import { MissionOwnershipRegistry } from "./services/mission/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/mission-store.service";
@@ -57,7 +57,7 @@ import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
   controllers: [AgentPlaygroundController],
   providers: [
     AgentPlaygroundGateway,
-    ResearchTeamOrchestrator,
+    ResearchTeamMission,
     MissionOwnershipRegistry,
     MissionEventBuffer,
     MissionStore,

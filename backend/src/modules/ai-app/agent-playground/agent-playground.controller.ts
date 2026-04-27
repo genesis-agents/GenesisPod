@@ -20,7 +20,7 @@ import {
 import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
-import { ResearchTeamOrchestrator } from "./services/research-team.orchestrator";
+import { ResearchTeamMission } from "./services/research-team.mission";
 import {
   RunMissionInputSchema,
   type RunMissionInput,
@@ -37,7 +37,7 @@ export class AgentPlaygroundController {
   private readonly log = new Logger(AgentPlaygroundController.name);
 
   constructor(
-    private readonly orchestrator: ResearchTeamOrchestrator,
+    private readonly orchestrator: ResearchTeamMission,
     private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly store: MissionStore,

@@ -1,5 +1,5 @@
 /**
- * ResearchTeamOrchestrator
+ * ResearchTeamMission
  *
  * 串完整 5-stage 流程，所有调用都走真实系统：
  *   - LLM: AiChatService → ModelElectionService → 真 provider
@@ -472,8 +472,8 @@ function estimateUsdFromTokens(tokens: number): number {
 }
 
 @Injectable()
-export class ResearchTeamOrchestrator {
-  private readonly log = new Logger(ResearchTeamOrchestrator.name);
+export class ResearchTeamMission {
+  private readonly log = new Logger(ResearchTeamMission.name);
 
   constructor(
     private readonly runner: AgentRunner,
@@ -504,7 +504,7 @@ export class ResearchTeamOrchestrator {
    * 给 LeaderService 用的 runFn —— 复用 orchestrator 的 runner +
    * 让 leader 调用同样走 BillingContext / event relay。
    */
-  private buildLeaderRunFn(
+  private buildLeaderInvocation(
     missionId: string,
     userId: string,
     billing: unknown,
@@ -562,7 +562,7 @@ export class ResearchTeamOrchestrator {
    *   - 失败的 retry 不再二次自愈（self-heal 已在 researcher loop 内做过）
    *   - mutate researcherResults / plan.dimensions 而不是返回新数组（下游已持有引用）
    */
-  private async dispatchLeadM1Actions(args: {
+  private async dispatchM1Actions(args: {
     missionId: string;
     userId: string;
     input: RunMissionInput;
@@ -670,7 +670,7 @@ export class ResearchTeamOrchestrator {
         },
       }).catch(() => {});
 
-      const newOut = await this.runResearcherForLeadDispatch({
+      const newOut = await this.runResearcherWithCritique({
         missionId,
         userId,
         input,
@@ -713,7 +713,7 @@ export class ResearchTeamOrchestrator {
           rationale: newDim.rationale,
         },
       }).catch(() => {});
-      const out = await this.runResearcherForLeadDispatch({
+      const out = await this.runResearcherWithCritique({
         missionId,
         userId,
         input,
@@ -748,7 +748,7 @@ export class ResearchTeamOrchestrator {
    *   - 不再 lookup 跨 mission failure pattern（原 dispatch 已查过）
    *   - 失败时返回 null，由调用方决定占位
    */
-  private async runResearcherForLeadDispatch(args: {
+  private async runResearcherWithCritique(args: {
     missionId: string;
     userId: string;
     input: RunMissionInput;
@@ -1160,7 +1160,7 @@ export class ResearchTeamOrchestrator {
             language: input.language,
             userProfile: input,
           },
-          this.buildLeaderRunFn(missionId, userId, billing),
+          this.buildLeaderInvocation(missionId, userId, billing),
         );
 
         // M0: plan() 内部自动 emit lifecycle / appendLeaderJournal
@@ -1689,7 +1689,7 @@ export class ResearchTeamOrchestrator {
           }
           // ★ Phase Lead-E: M1 patch/redirect dispatch —— Lead 决策真正落到调度
           if (m1.decision === "patch" || m1.decision === "redirect") {
-            const stats = await this.dispatchLeadM1Actions({
+            const stats = await this.dispatchM1Actions({
               missionId,
               userId,
               input,
