@@ -28,6 +28,39 @@ const Input = z.object({
   topic: z.string(),
   language: z.enum(["zh-CN", "en-US"]),
   researcherResults: z.array(ResearcherFinding).min(1),
+  // ★ Phase P1-5: Reconciler [3.5] 产物（mission-pipeline-baseline.md §3.5 / Q6）
+  // Analyst 必须显式消费这些字段（contradictions / gaps），不允许"假装看不见"
+  reconciliationReport: z
+    .object({
+      factTable: z.array(z.unknown()).optional(),
+      conflicts: z
+        .array(
+          z.object({
+            factIds: z.array(z.string()),
+            resolutionType: z.enum([
+              "kept-both",
+              "preferred-one",
+              "flagged-unresolved",
+            ]),
+            preferredFactId: z.string().optional(),
+            rationale: z.string(),
+          }),
+        )
+        .optional(),
+      overlaps: z.array(z.unknown()).optional(),
+      gaps: z.array(z.unknown()).optional(),
+      reconciliationReport: z.string().optional(),
+      // P86-1: Analyst 应使用 canonical term 表达
+      termGlossary: z
+        .array(
+          z.object({
+            canonical: z.string(),
+            variants: z.array(z.string()),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
 });
 
 const Output = z.object({
@@ -68,6 +101,37 @@ const Output = z.object({
 })
 export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    const recon = input.reconciliationReport;
+    const conflictBlock = recon?.conflicts?.length
+      ? [
+          ``,
+          `## ★ Reconciler 已识别冲突（必须在 contradictions 字段显式列出）`,
+          ...recon.conflicts.map(
+            (c, i) =>
+              `${i + 1}. [${c.resolutionType}] factIds=${c.factIds.join(",")} → ${c.rationale.slice(0, 120)}`,
+          ),
+          ``,
+        ]
+      : [];
+    const reportBlock = recon?.reconciliationReport
+      ? [
+          ``,
+          `## Reconciler 总览`,
+          recon.reconciliationReport.slice(0, 1500),
+          ``,
+        ]
+      : [];
+    const termBlock =
+      recon?.termGlossary && recon.termGlossary.length > 0
+        ? [
+            ``,
+            `## ★ 术语统一（必须采用 canonical term）`,
+            ...recon.termGlossary.map(
+              (g) => `- "${g.canonical}" 取代变体: ${g.variants.join(" / ")}`,
+            ),
+            ``,
+          ]
+        : [];
     return [
       `You synthesize research on "${input.topic}" from ${input.researcherResults.length} dimensions.`,
       `Language: ${input.language}.`,
@@ -76,6 +140,12 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       `- Identify 3-7 top insights with cross-dimension support`,
       `- Surface contradictions between sources; propose resolution`,
       `- Each insight needs confidence score (0..1) + supporting dimensions`,
+      `- ★ MANDATORY: 必须在 contradictions 字段中列出 Reconciler 识别的所有 conflicts，`,
+      `  并对每个冲突写出最终采用的立场（preferred-one / kept-both 双方并列）。`,
+      `  不能假装没看到冲突。`,
+      ...conflictBlock,
+      ...reportBlock,
+      ...termBlock,
       ``,
       `Final output JSON shape (exact field names required):`,
       `{`,

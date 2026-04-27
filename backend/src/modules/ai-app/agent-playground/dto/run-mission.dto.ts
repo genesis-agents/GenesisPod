@@ -28,13 +28,26 @@ export const BUDGET_PROFILE_MULTIPLIER: Record<BudgetProfile, number> = {
 
 export const RunMissionInputSchema = z.object({
   topic: z.string().min(2).max(200),
-  depth: z.enum(["quick", "standard", "deep"]).default("standard"),
+  // ★ Phase P0-8 用户档位（mission-pipeline-user-profiles.md / D20）
+  // 默认值：深度 + 图文 + 中等其他
+  depth: z.enum(["quick", "standard", "deep"]).default("deep"),
   language: z.enum(["zh-CN", "en-US"]).default("zh-CN"),
-  /**
-   * 预算档位（取代 maxCredits 数值输入 — 用户选 4 档更直观）。
-   * 老接口兼容：如果传 maxCredits 则按数字走，否则用 budgetProfile。
-   */
   budgetProfile: z.enum(BUDGET_PROFILE).default("medium"),
+  styleProfile: z
+    .enum(["academic", "executive", "journalistic", "technical"])
+    .default("executive"),
+  lengthProfile: z
+    .enum(["brief", "standard", "deep", "extended"])
+    .default("standard"),
+  audienceProfile: z
+    .enum(["executive", "domain-expert", "general-public"])
+    .default("domain-expert"),
+  withFigures: z.boolean().default(true),
+  auditLayers: z
+    .enum(["minimal", "default", "thorough", "paranoid"])
+    .default("default"),
+  concurrency: z.number().int().min(1).max(5).default(3),
+  viewMode: z.enum(["continuous", "chapter", "quick"]).default("continuous"),
   /** @deprecated 保留兼容老前端；新前端用 budgetProfile */
   maxCredits: z.number().int().positive().max(10_000).optional(),
 });
