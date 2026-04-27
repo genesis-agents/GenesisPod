@@ -347,15 +347,14 @@ module.exports = {
       // （依赖方向必须单向：ai-app → ai-harness → ai-engine）
       //
       // 例外：迁移过渡期间允许的反向引用：
-      //   - ai-engine/harness/**         abstractions shim（PR-H6 清理）
-      //   - ai-engine/facade/**          back-compat 出口（旧 ai-app 通过此拿 harness 类型）
-      //   - ai-engine/runtime/resource/  runtime-environment 引用 SpecAgentRegistry（PR-H4 隔离）
+      //   - ai-engine/harness/**  abstractions shim（PR-H6 清理）
+      //   - ai-engine/facade/**   back-compat 出口（旧 ai-app 通过此拿 harness 类型）
+      // ✅ PR-H4: ai-engine/runtime/resource/** 已通过 DI token 解耦，移出例外
       // PR-H6 清理 shim 后移除全部例外
       files: ["**/modules/ai-engine/**/*.ts"],
       excludedFiles: [
         "**/modules/ai-engine/harness/**/*.ts",
         "**/modules/ai-engine/facade/**/*.ts",
-        "**/modules/ai-engine/runtime/resource/**/*.ts",
       ],
       rules: {
         "no-restricted-imports": [

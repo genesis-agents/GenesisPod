@@ -15,16 +15,20 @@
  * 所有外部依赖 @Optional：单组件失败降级不抛错，partial snapshot 胜于 no snapshot。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AgentRegistry } from "../../agents/registry/agent-registry";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
-import { SpecAgentRegistry } from "../../../ai-harness/core/spec-agent-registry";
 import { AiChatModelConfigService } from "../../llm/services/ai-chat-model-config.service";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
-import { ToolCircuitBreaker } from "../../../ai-harness/executor/tool-circuit-breaker";
+import {
+  SPEC_AGENT_REGISTRY_PROBE,
+  TOOL_CIRCUIT_BREAKER_PROBE,
+  type ISpecAgentRegistryProbe,
+  type IToolCircuitBreakerProbe,
+} from "./runtime-resource.abstractions";
 import type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -51,12 +55,16 @@ export class RuntimeEnvironmentService {
     @Optional() private readonly agentRegistry?: AgentRegistry,
     @Optional() private readonly toolRegistry?: ToolRegistry,
     @Optional() private readonly skillRegistry?: SkillRegistry,
-    @Optional() private readonly specAgentRegistry?: SpecAgentRegistry,
+    @Optional()
+    @Inject(SPEC_AGENT_REGISTRY_PROBE)
+    private readonly specAgentRegistry?: ISpecAgentRegistryProbe,
     @Optional()
     private readonly modelConfigService?: AiChatModelConfigService,
     @Optional() private readonly keyResolver?: KeyResolverService,
     @Optional() private readonly secrets?: SecretsService,
-    @Optional() private readonly toolCircuitBreaker?: ToolCircuitBreaker,
+    @Optional()
+    @Inject(TOOL_CIRCUIT_BREAKER_PROBE)
+    private readonly toolCircuitBreaker?: IToolCircuitBreakerProbe,
   ) {
     // P1-5: registry @Optional 是为了单元测试（没完整 DI 图）简单；
     // 生产环境（AppModule 完整组装）下这些必须到位，否则 snapshot 数据残缺。

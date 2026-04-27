@@ -29,6 +29,10 @@ import { HarnessFacade } from "./facade/harness.facade";
 import { AgentFactory } from "./core/agent-factory";
 import { ModelElectionService } from "../ai-engine/llm/election";
 import { SpecAgentRegistry } from "./core/spec-agent-registry";
+import {
+  SPEC_AGENT_REGISTRY_PROBE,
+  TOOL_CIRCUIT_BREAKER_PROBE,
+} from "../ai-engine/runtime/resource/runtime-resource.abstractions";
 import { HookRegistry } from "./core/hook-registry";
 import { ReActLoop } from "./loop/react-loop";
 import { PlanActLoop } from "./loop/plan-act-loop";
@@ -92,6 +96,16 @@ import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
   providers: [
     // Cross-cutting
     HookRegistry,
+
+    // ai-engine/runtime/resource 通过 DI token 拿 harness 能力探针，避免反向 import
+    {
+      provide: SPEC_AGENT_REGISTRY_PROBE,
+      useExisting: SpecAgentRegistry,
+    },
+    {
+      provide: TOOL_CIRCUIT_BREAKER_PROBE,
+      useExisting: ToolCircuitBreaker,
+    },
 
     // Executor / Loop / Memory (Phase 2)
     ToolInvoker,
@@ -215,6 +229,10 @@ import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
     FixtureStore,
     ToolCircuitBreaker,
     InMemoryVectorStore,
+
+    // ai-engine/runtime/resource 探针 token（实际指向上面 useExisting）
+    SPEC_AGENT_REGISTRY_PROBE,
+    TOOL_CIRCUIT_BREAKER_PROBE,
 
     // PR-S: Vector memory + auto-index
     PrismaVectorStore,

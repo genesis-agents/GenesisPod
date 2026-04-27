@@ -70,7 +70,7 @@ core/loop/executor 也搬过来后整体删除。
 | --------- | -------------------------------------------------------- | ------- |
 | **H1+H2** | scaffold + abstractions 搬迁                             | ✅ 完成 |
 | **H3**    | 整个 harness/ 子树搬入 ai-harness（18 个子目录）         | ✅ 完成 |
-| H4        | runtime/resource 与 ai-harness 解耦                      | 待做    |
+| **H4**    | runtime/resource 通过 DI token 与 ai-harness 解耦        | ✅ 完成 |
 | H5        | billing 上下文从 ai-infra 抽到 ai-harness                | 待做    |
 | H6        | 删 ai-engine 兼容 shim + 严格化 eslint（移除 excludedFiles） | 待做    |
 

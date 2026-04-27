@@ -21,7 +21,6 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineToolsModule } from "../../ai-engine-tools.module";
 import { AiEngineSkillsModule } from "../../ai-engine-skills.module";
 import { AiEngineOrchestrationModule } from "../../ai-engine-orchestration.module";
-import { HarnessModule as L2HarnessModule } from "../../../ai-harness/harness.module";
 import { KeyResolverModule } from "../../../ai-infra/key-resolver/key-resolver.module";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
@@ -48,13 +47,13 @@ const RUNTIME_RESOURCE_PROVIDERS = [
 @Module({
   imports: [
     PrismaModule,
-    // v2（P1-5 / P2-2）引入四个 registry 模块，让 RuntimeEnvironmentService 能看到
-    // 全部 L2 能力：legacy AgentRegistry + ToolRegistry + SkillRegistry +
-    // 新的 SpecAgentRegistry（spec-driven agents）。
+    // 引入三个 L2 registry 模块（legacy AgentRegistry + ToolRegistry + SkillRegistry）。
+    // SpecAgentRegistry / ToolCircuitBreaker 走 DI token 模式（见
+    // runtime-resource.abstractions.ts），由 ai-harness 模块在自己的 providers 里
+    // 用 useExisting 绑到 token 上，因此本模块**不**直接 import ai-harness。
     forwardRef(() => AiEngineToolsModule),
     forwardRef(() => AiEngineSkillsModule),
     forwardRef(() => AiEngineOrchestrationModule),
-    forwardRef(() => L2HarnessModule),
     // discoverUserKeys 真接 KeyResolver + Secrets（替换原来写死的 hasByok=false）
     KeyResolverModule,
     SecretsModule,
