@@ -51,6 +51,9 @@ import {
   AnalystService,
   WriterService,
   ReviewerService,
+  VerifierService,
+  StewardService,
+  AgentInvoker,
 } from "../../roles";
 import { ResearcherAgent } from "../../../agents/researcher/researcher.agent";
 import { ReportAssemblerService } from "../../artifact/report-assembler.service";
@@ -79,6 +82,10 @@ import {
   estimateUsdFromTokens,
   extractTokenSpend,
 } from "./helpers/token-spend.util";
+import type { MissionContext } from "./mission-context";
+import type { MissionDeps } from "./mission-deps";
+import { runCriticStage } from "./stages/70-critic.stage";
+import { runLeaderHandoffStage } from "./stages/80-leader-handoff.stage";
 
 /**
  * 维度元数据（Lead M0 plan 产出 / M1 redirect 追加都用这个 shape）。
@@ -174,8 +181,9 @@ export class ResearchTeamMission {
     // 留用于后续小步迁移。下划线前缀显式表达"已知不使用"。
     private readonly writerService: WriterService,
     private readonly reviewerService: ReviewerService,
-    // verifier/steward 服务已注册 + skeleton 完成；wire 进 orchestrator 留 PR-S5
-    // 不在此注入避免 noUnusedLocals 警告（services/roles/index.ts barrel 仍 export）
+    private readonly verifierService: VerifierService,
+    private readonly stewardService: StewardService,
+    private readonly invoker: AgentInvoker,
   ) {}
 
   /**
@@ -2207,299 +2215,50 @@ export class ResearchTeamMission {
           }
         }
 
-        // ── Phase P1-4 / P37-1: L4 Critic
-        // 启用条件：thorough+ OR (audience=executive AND auditLayers≠minimal)
-        const enableCritic =
-          input.auditLayers === "thorough" ||
-          input.auditLayers === "paranoid" ||
-          (input.audienceProfile === "executive" &&
-            input.auditLayers !== "minimal");
-        if (enableCritic && reportArtifact) {
-          try {
-            // Phase P16-5: Critic 也接 FailureLearner
-            await this.preDisableKnownFailingModels(
-              billing,
-              "playground.critic",
-              `${input.topic}::critic::${input.language}`,
-            );
-            // ★ Phase Lead-Services: 通过 ReviewerService.criticL4()
-            const criticRes = await this.reviewerService.criticL4(
-              {
-                topic: input.topic,
-                language: input.language,
-                audienceProfile: input.audienceProfile,
-                styleProfile: input.styleProfile,
-                lengthProfile: input.lengthProfile,
-                artifactSummary: {
-                  title: reportArtifact.metadata.topic,
-                  // Phase P32-1: executiveSummary 太长时截断（1500 chars 够 critic 评估）
-                  executiveSummary:
-                    reportArtifact.quickView.executiveSummary.markdown.slice(
-                      0,
-                      1500,
-                    ),
-                  sectionCount: reportArtifact.sections.length,
-                  sectionTitles: reportArtifact.sections.map((s) => s.title),
-                  citationCount: reportArtifact.citations.length,
-                  factCount: reportArtifact.factTable.length,
-                  figureCount: reportArtifact.figures.length,
-                  overallQuality: reportArtifact.quality.overall,
-                  qualityDimensions: reportArtifact.quality.dimensions,
-                },
-                upstreamReviewerVerdict:
-                  verifierVerdicts.length > 0
-                    ? {
-                        score: reviewScore,
-                        critique: (verifierVerdicts[0] as { critique?: string })
-                          ?.critique,
-                      }
-                    : undefined,
-              },
-              {
-                missionId,
-                userId,
-                agentId: "critic",
-                role: "critic",
-                envAdapter: billing,
-                budgetMultiplier,
-              },
-            );
-            await this.tickCostDelta(
-              missionId,
-              userId,
-              "reviewer",
-              pool,
-              extractTokenSpend(criticRes.events),
-            );
-            if (criticRes.state === "completed" && criticRes.output) {
-              const criticOut = criticRes.output as {
-                overallVerdict: "pass" | "concerns" | "fail";
-                blindspots: string[];
-                biasFlags: string[];
-                suggestions: string[];
-                rationale: string;
-              };
-              // ★ Phase P21-2: emit 独立 critic:verdict 事件给前端 trace
-              await this.emit({
-                type: "agent-playground.critic:verdict",
-                missionId,
-                userId,
-                payload: {
-                  verdict: criticOut.overallVerdict,
-                  blindspotCount: criticOut.blindspots.length,
-                  biasCount: criticOut.biasFlags.length,
-                  suggestionCount: criticOut.suggestions.length,
-                  rationale: criticOut.rationale,
-                },
-              }).catch(() => {});
-              // 把 critic 输出写到 quality.warnings（不阻塞 mission）
-              const criticMessages: { dimension: string; message: string }[] = [
-                {
-                  dimension: "l4-critic",
-                  message: `[${criticOut.overallVerdict}] ${criticOut.rationale}`,
-                },
-                ...criticOut.blindspots.map((b) => ({
-                  dimension: "l4-blindspot",
-                  message: b,
-                })),
-                ...criticOut.biasFlags.map((b) => ({
-                  dimension: "l4-bias",
-                  message: b,
-                })),
-                ...criticOut.suggestions.map((s) => ({
-                  dimension: "l4-suggestion",
-                  message: s,
-                })),
-              ];
-              reportArtifact.quality.warnings.push(...criticMessages);
-              reportArtifact.quality.qualityTrace.push({
-                stage: "critic",
-                check: "l4-meta-review",
-                passed: criticOut.overallVerdict === "pass",
-                timestamp: Date.now(),
-              });
-              // fail verdict → 降低 overall + novelty + factualConsistency
-              if (criticOut.overallVerdict === "fail") {
-                reportArtifact.quality.hardGateViolations.push({
-                  dimension: "l4-critic",
-                  severity: "warning",
-                  message: `L4 critic 给出 fail 判定（${criticOut.rationale.slice(0, 100)}）`,
-                });
-                reportArtifact.quality.overall = Math.max(
-                  0,
-                  Math.round(reportArtifact.quality.overall * 0.7),
-                );
-                reportArtifact.quality.dimensions.novelty = Math.max(
-                  0,
-                  Math.round(reportArtifact.quality.dimensions.novelty * 0.6),
-                );
-                if (criticOut.biasFlags.length > 0) {
-                  reportArtifact.quality.dimensions.styleConformance = Math.max(
-                    0,
-                    Math.round(
-                      reportArtifact.quality.dimensions.styleConformance * 0.7,
-                    ),
-                  );
-                }
-              } else if (criticOut.overallVerdict === "concerns") {
-                reportArtifact.quality.overall = Math.max(
-                  0,
-                  Math.round(reportArtifact.quality.overall * 0.9),
-                );
-                reportArtifact.quality.dimensions.novelty = Math.max(
-                  0,
-                  Math.round(reportArtifact.quality.dimensions.novelty * 0.85),
-                );
-              }
-            }
-          } catch (err) {
-            this.log.warn(
-              `[${missionId}] L4 critic failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-        }
+        // ── Phase P1-4 / P37-1: L4 Critic（已抽到 stages/70-critic.stage.ts）
+        await runCriticStage(
+          this.buildStageCtx({
+            missionId,
+            userId,
+            input,
+            t0,
+            billing,
+            pool,
+            leader,
+            budgetMultiplier,
+            plan,
+            researcherResults,
+            reconciliationReport,
+            reportArtifact,
+            report,
+            reviewScore,
+            verifierVerdicts,
+          }),
+          this.buildStageDeps(),
+        );
 
-        // ★ Phase Lead-Final: M6 SYNTHESIS + M7 SIGN-OFF（统一通过 LeaderService）
-        //
-        // LeaderAgent 在这两个 milestone 看到自己 M0 的 goals 和 M1 的过程决策，
-        // 最后在 M7 写 accountabilityNote 时被业务规则强制引用历史决策做问责。
-        let leaderForeword:
-          | NonNullable<typeof reportArtifact>["metadata"]["leaderForeword"]
-          | undefined;
-        let leaderSignOff:
-          | {
-              leaderOverallScore: number;
-              leaderVerdict: "excellent" | "good" | "acceptable" | "failed";
-              accountabilityNote: string;
-              signed: boolean;
-              refusalReason?: string;
-            }
-          | undefined;
-        if (reportArtifact) {
-          // ── 准备 stage outcome 摘要 ──
-          const dimStateOf = (d: {
-            name: string;
-          }): "completed" | "degraded" | "failed" => {
-            const r = researcherResults.find((x) => x.dimension === d.name);
-            const findings = (r as { findings?: unknown[] })?.findings ?? [];
-            if (findings.length === 0) return "failed";
-            const summary = (r as { summary?: string })?.summary ?? "";
-            return summary.startsWith("(failed") ? "degraded" : "completed";
-          };
-          const dimensionStates = plan.dimensions.map((d) => ({
-            name: d.name,
-            state: dimStateOf(d),
-          }));
-          const reconStats = reconciliationReport
-            ? {
-                factCount:
-                  (reconciliationReport as { factTable?: unknown[] }).factTable
-                    ?.length ?? 0,
-                conflictCount:
-                  (reconciliationReport as { conflicts?: unknown[] }).conflicts
-                    ?.length ?? 0,
-                criticalGaps: (
-                  (
-                    reconciliationReport as {
-                      gaps?: {
-                        severity?: string;
-                        expectedAspects?: string[];
-                      }[];
-                    }
-                  ).gaps ?? []
-                )
-                  .filter((g) => g.severity === "critical")
-                  .map((g) => (g.expectedAspects ?? []).join(", "))
-                  .filter(Boolean),
-              }
-            : undefined;
-          const reviewerAvg =
-            verifierVerdicts.length > 0
-              ? Math.round(
-                  (verifierVerdicts as { score?: number }[]).reduce(
-                    (sum: number, v) => sum + (v.score ?? 0),
-                    0,
-                  ) / verifierVerdicts.length,
-                )
-              : undefined;
-          const criticWarnings = reportArtifact.quality.warnings.filter((w) =>
-            w.dimension?.startsWith("l4-"),
-          );
-          const criticBlindspots = criticWarnings
-            .filter((w) => w.dimension === "l4-blindspot")
-            .map((w) => w.message);
-          const criticBiases = criticWarnings
-            .filter((w) => w.dimension === "l4-bias")
-            .map((w) => w.message);
-          const criticVerdictRaw = criticWarnings.find(
-            (w) => w.dimension === "l4-critic",
-          )?.message;
-          const criticVerdict = criticVerdictRaw?.startsWith("[fail]")
-            ? "fail"
-            : criticVerdictRaw?.startsWith("[concerns]")
-              ? "concerns"
-              : criticVerdictRaw?.startsWith("[pass]")
-                ? "pass"
-                : undefined;
-
-          // ── M6: leader.writeForeword() ──
-          try {
-            leaderForeword = await leader.writeForeword({
-              researcherStates: dimensionStates,
-              reconciliation: reconStats,
-              writerSections: reportArtifact.sections.map((s) => s.title),
-              qualitySnapshot: {
-                sourceCount: reportArtifact.citations.length,
-                coverageScore: reportArtifact.quality.dimensions.coverage,
-                overall: reportArtifact.quality.overall,
-                finalVerdict: reportArtifact.quality.finalVerdict ?? "?",
-                reviewerAvgScore: reviewerAvg,
-                criticVerdict,
-                criticBlindspots,
-                criticBiases,
-              },
-            });
-            reportArtifact.metadata.leaderForeword = leaderForeword;
-            await this.emit({
-              type: "agent-playground.leader:foreword",
-              missionId,
-              userId,
-              payload: leaderForeword,
-            }).catch(() => {});
-          } catch (err) {
-            this.log.warn(
-              `[${missionId}] M6 foreword failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-
-          // ── M7: leader.signOff() —— 仅在 M6 成功时跑 ──
-          if (leaderForeword) {
-            try {
-              leaderSignOff = await leader.signOff(
-                {
-                  sourceCount: reportArtifact.citations.length,
-                  coverageScore: reportArtifact.quality.dimensions.coverage,
-                  overall: reportArtifact.quality.overall,
-                  finalVerdict: reportArtifact.quality.finalVerdict ?? "?",
-                  wordCount: reportArtifact.metadata.wordCount,
-                  reviewerAvgScore: reviewerAvg,
-                  criticVerdict,
-                },
-                dimensionStates,
-              );
-              await this.emit({
-                type: "agent-playground.leader:signed",
-                missionId,
-                userId,
-                payload: leaderSignOff,
-              }).catch(() => {});
-            } catch (err) {
-              this.log.warn(
-                `[${missionId}] M7 sign-off failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
-          }
-        }
+        // ★ Phase Lead-Stages: M6 + M7 全部走 stage 文件
+        // services/mission/workflow/stages/80-leader-handoff.stage.ts
+        const stageCtx = this.buildStageCtx({
+          missionId,
+          userId,
+          input,
+          t0,
+          billing,
+          pool,
+          leader,
+          budgetMultiplier,
+          plan,
+          researcherResults,
+          reconciliationReport,
+          reportArtifact,
+          report,
+          reviewScore,
+          verifierVerdicts,
+        });
+        const stageDeps = this.buildStageDeps();
+        await runLeaderHandoffStage(stageCtx, stageDeps);
+        const leaderSignOff = stageCtx.leaderSignOff;
 
         return {
           missionId,
@@ -2528,6 +2287,71 @@ export class ResearchTeamMission {
         };
       }
     }
+  }
+
+  // ─── stage extraction helpers ──────────────────────────────────
+
+  private buildStageCtx(args: {
+    missionId: string;
+    userId: string;
+    input: RunMissionInput;
+    t0: number;
+    billing: BillingRuntimeEnvAdapter;
+    pool: MissionBudgetPool;
+    leader: SupervisedMission;
+    budgetMultiplier: number;
+    plan?: MissionContext["plan"];
+    researcherResults?: MissionContext["researcherResults"];
+    reconciliationReport?: MissionContext["reconciliationReport"];
+    reportArtifact?: MissionContext["reportArtifact"];
+    report?: MissionContext["report"];
+    reviewScore?: number;
+    verifierVerdicts?: unknown[];
+  }): MissionContext {
+    return {
+      missionId: args.missionId,
+      userId: args.userId,
+      input: args.input,
+      t0: args.t0,
+      billing: args.billing,
+      pool: args.pool,
+      leader: args.leader,
+      budgetMultiplier: args.budgetMultiplier,
+      plan: args.plan,
+      researcherResults: args.researcherResults,
+      reconciliationReport: args.reconciliationReport,
+      reportArtifact: args.reportArtifact,
+      report: args.report,
+      reviewScore: args.reviewScore,
+      verifierVerdicts: args.verifierVerdicts,
+    };
+  }
+
+  private buildStageDeps(): MissionDeps {
+    return {
+      leader: this.leaderService,
+      reconciler: this.reconcilerService,
+      analyst: this.analystService,
+      writer: this.writerService,
+      reviewer: this.reviewerService,
+      verifier: this.verifierService,
+      steward: this.stewardService,
+      invoker: this.invoker,
+      store: this.store,
+      missionState: this.missionState,
+      abortRegistry: this.abortRegistry,
+      runner: this.runner,
+      judge: this.judge,
+      indexer: this.indexer,
+      eventBus: this.eventBus,
+      credits: this.credits,
+      runtimeEnv: this.runtimeEnv,
+      failureLearner: this.failureLearner,
+      reportAssembler: this.reportAssembler,
+      log: this.log,
+      emit: this.emit.bind(this),
+      lifecycle: this.lifecycle.bind(this),
+    };
   }
 
   // ─── private ────────────────────────────────────────────────
