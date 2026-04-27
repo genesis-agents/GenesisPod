@@ -205,7 +205,35 @@ export class AgentFactory {
     const validateBusinessRulesWrapper = spec.validateBusinessRules
       ? (output: unknown) => {
           try {
-            spec.validateBusinessRules!(output as never, {
+            // ★ outputSchema 存在时，先 schema-parse 出结构化值再校验业务规则。
+            //   ReActLoop.finalize 可能直接塞进 LLM 的字符串/部分对象，没有这一步
+            //   validateBusinessRules 会拿到 raw 值（如 string），常见报错
+            //   "X is not iterable"。
+            let typed: unknown = output;
+            if (spec.outputSchema) {
+              let candidate: unknown = output;
+              if (typeof candidate === "string") {
+                const trimmed = candidate.trim();
+                if (
+                  (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+                  (trimmed.startsWith("[") && trimmed.endsWith("]"))
+                ) {
+                  try {
+                    candidate = JSON.parse(trimmed);
+                  } catch {
+                    /* schema 校验闸会先拦下，这里直接返回 null */
+                    return null;
+                  }
+                }
+              }
+              const parsed = spec.outputSchema.safeParse(candidate);
+              if (!parsed.success) {
+                // schema 闸已经拒绝了，business 闸不再重复报错
+                return null;
+              }
+              typed = parsed.data;
+            }
+            spec.validateBusinessRules!(typed as never, {
               input: undefined as never,
               identity,
             });

@@ -1368,6 +1368,10 @@ export class AgentRunner {
     const mult = Math.max(0.1, budgetMultiplier);
     const scale = (n: number | undefined): number | undefined =>
       n == null ? undefined : Math.round(n * mult);
+    // ReAct loop 至少需要 3 次迭代才能 thought→tool→observation→finalize；
+    // 缩放后若小于 3 会导致 RUNNER_LOOP_LIMIT，永远走不到 finalize 输出。
+    const scaleIters = (n: number | undefined): number | undefined =>
+      n == null ? undefined : Math.max(3, Math.round(n * mult));
     const id = meta.identity;
     // Detect already-complete IAgentIdentity (has .role.id with name)
     const isFull =
@@ -1389,7 +1393,7 @@ export class AgentRunner {
           maxTokens:
             scale(meta.budget?.maxTokens) ?? full.constraints?.maxTokens,
           maxIterations:
-            scale(meta.budget?.maxIterations) ??
+            scaleIters(meta.budget?.maxIterations) ??
             full.constraints?.maxIterations,
           maxWallTimeMs:
             scale(meta.budget?.maxWallTimeMs) ??
@@ -1419,7 +1423,7 @@ export class AgentRunner {
       skills: meta.skills,
       constraints: {
         maxTokens: scale(meta.budget?.maxTokens),
-        maxIterations: scale(meta.budget?.maxIterations),
+        maxIterations: scaleIters(meta.budget?.maxIterations),
         maxWallTimeMs: scale(meta.budget?.maxWallTimeMs),
       },
     });
