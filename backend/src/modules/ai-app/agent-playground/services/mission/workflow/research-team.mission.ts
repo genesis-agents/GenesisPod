@@ -89,6 +89,7 @@ import { runLeaderPlanStage } from "./stages/10-leader-plan.stage";
 import { runLeaderAssessM1Stage } from "./stages/30-leader-assess-m1.stage";
 import { runReconcilerStage } from "./stages/40-reconciler.stage";
 import { runAnalystStage } from "./stages/50-analyst.stage";
+import { runWriterOutlineStage } from "./stages/55-writer-outline.stage";
 import { runCriticStage } from "./stages/70-critic.stage";
 import { runLeaderHandoffStage } from "./stages/80-leader-handoff.stage";
 import { runPersistStage } from "./stages/99-persist.stage";
@@ -943,91 +944,23 @@ export class ResearchTeamMission {
           this.buildStageDeps(),
         );
 
-        // ★ Phase P4-1: 在 thorough+ 档位下，先跑 OutlinePlanner W1 给 Writer 提示
-        let outlinePlanResult: {
-          chapterOutlines: {
-            sectionId: string;
-            heading: string;
-            thesis: string;
-          }[];
-          targetWordsPerChapter: Record<string, number>;
-          factAllocation: Record<string, string[]>;
-          figurePlan: Record<string, string[]>;
-        } | null = null;
-        if (
-          input.auditLayers === "thorough" ||
-          input.auditLayers === "paranoid"
-        ) {
-          try {
-            // ★ Phase Lead-Services: 通过 WriterService.planMissionOutline()
-            const outlineRes = await this.writerService.planMissionOutline(
-              {
-                topic: input.topic,
-                language: input.language,
-                audienceProfile: input.audienceProfile,
-                styleProfile: input.styleProfile,
-                lengthProfile: input.lengthProfile,
-                withFigures: input.withFigures,
-                plan: {
-                  themeSummary: plan.themeSummary,
-                  dimensions: plan.dimensions.map((d) => ({
-                    id: d.id,
-                    name: d.name,
-                    rationale: d.rationale,
-                  })),
-                },
-                factTable:
-                  (
-                    reconciliationReport as unknown as {
-                      factTable?: {
-                        id: string;
-                        entity: string;
-                        attribute: string;
-                        value: string;
-                      }[];
-                    } | null
-                  )?.factTable ?? [],
-                figureCandidates: [],
-              },
-              {
-                missionId,
-                userId,
-                agentId: "outline-planner",
-                role: "outline-planner",
-                envAdapter: billing,
-                budgetMultiplier,
-              },
-            );
-            await this.tickCostDelta(
-              missionId,
-              userId,
-              "writer",
-              pool,
-              extractTokenSpend(outlineRes.events),
-            );
-            if (outlineRes.state === "completed" && outlineRes.output) {
-              outlinePlanResult =
-                outlineRes.output as unknown as typeof outlinePlanResult;
-              const chapterOutlines =
-                (outlinePlanResult as { chapterOutlines?: unknown[] } | null)
-                  ?.chapterOutlines ?? [];
-              await this.emit({
-                type: "agent-playground.dimension:outline:planned",
-                missionId,
-                userId,
-                payload: {
-                  chapterCount: chapterOutlines.length,
-                },
-              });
-            }
-          } catch (err) {
-            this.log.warn(
-              `[${missionId}] outline-planner failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-        }
-        // 标记使用避免 unused warning（Writer 当前不消费此 plan，未来 W2 会接入）
-        void outlinePlanResult;
+        // ★ Phase P4-1: OutlinePlanner W1（已抽到 stages/55-writer-outline.stage.ts）
+        await runWriterOutlineStage(
+          this.buildStageCtx({
+            missionId,
+            userId,
+            input,
+            t0,
+            billing,
+            pool,
+            leader,
+            budgetMultiplier,
+            plan,
+            researcherResults,
+            reconciliationReport,
+          }),
+          this.buildStageDeps(),
+        );
 
         // ── Stage 4: Writer 起草 + 必要时 retry ──
         let attempts = 0;
