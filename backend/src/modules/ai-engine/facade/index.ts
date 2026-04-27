@@ -131,11 +131,11 @@ export { CircuitBreakerService } from "../runtime/resource/circuit-breaker.servi
 export { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
-export { ProcessSupervisorService as ExecutionStateManager } from "../runtime/supervisor/process-supervisor.service";
+export { ProcessSupervisorService as ExecutionStateManager } from "../../ai-harness/process/supervisor/process-supervisor.service";
 
 // State-machine types（for teams/mission-state.manager.ts）
-export { StateCategory } from "../runtime/supervisor/process-supervisor.service";
-export type { ExecutionStateStats } from "../runtime/supervisor/process-supervisor.service";
+export { StateCategory } from "../../ai-harness/process/supervisor/process-supervisor.service";
+export type { ExecutionStateStats } from "../../ai-harness/process/supervisor/process-supervisor.service";
 
 // MCP abstraction types（for social/mcp-client.service.ts）
 export type {

@@ -9,7 +9,7 @@ import type {
   ProcessId,
   MemoryEntry,
   MemoryQuery as KernelMemoryQuery,
-} from "../process/process.types";
+} from "../../../ai-harness/process/manager/process.types";
 
 @Injectable()
 export class ProcessMemoryManagerService implements OnModuleInit {

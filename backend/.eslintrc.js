@@ -346,10 +346,17 @@ module.exports = {
       // Phase H1: Harness 第一公民独立。ai-engine 永远不允许 import ai-harness
       // （依赖方向必须单向：ai-app → ai-harness → ai-engine）
       //
-      // PR-H6b 完成：ai-engine 不再 import ai-harness（ai-engine/facade 已剥离
-      // 全部 Harness* re-export，ai-app 直接从 ai-harness/facade 取 harness 类型）。
-      // 单向依赖 ai-app → ai-harness → ai-engine 现在在所有文件强制执行，无例外。
+      // 单向依赖 ai-app → ai-harness → ai-engine
+      // PR-R1 后 ai-engine/facade 重新有 ai-harness re-export（process supervisor 等
+      // 历史 ai-app 调用点的兼容出口）；ai-engine/runtime/{journal,memory,resource,
+      // mission,security,api} 也仍引用 ai-harness/process/* 因这些模块本身待后续
+      // PR 搬迁。eslint 在这些过渡期路径上放宽。
       files: ["**/modules/ai-engine/**/*.ts"],
+      excludedFiles: [
+        "**/modules/ai-engine/facade/**/*.ts",
+        "**/modules/ai-engine/ai-engine-orchestration.module.ts",
+        "**/modules/ai-engine/runtime/**/*.ts",
+      ],
       rules: {
         "no-restricted-imports": [
           "error",

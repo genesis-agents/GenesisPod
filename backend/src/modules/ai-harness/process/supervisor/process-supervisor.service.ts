@@ -25,7 +25,7 @@ import {
 import { CacheService } from "@/common/cache/cache.service";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ProcessManagerService } from "../process/process-manager.service";
+import { ProcessManagerService } from "../manager/process-manager.service";
 
 // ==================== 类型定义 ====================
 

@@ -24,7 +24,7 @@ import { CostController } from "../runtime/resource/cost-controller";
 // ★ Orchestration 扩展依赖
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
-import { ProcessSupervisorService as ExecutionStateManager } from "../runtime/supervisor/process-supervisor.service";
+import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-harness/process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 import { QueryLoopService } from "../orchestration/services/query-loop.service";

@@ -19,11 +19,11 @@ import { RuntimeMemoryModule } from "./memory/memory.module";
 import { ObservabilityModule } from "./observability/observability.module";
 
 // Runtime lifecycle services
-import { ProcessManagerService } from "./process/process-manager.service";
-import { ProcessSupervisorService } from "./supervisor/process-supervisor.service";
+import { ProcessManagerService } from "../../ai-harness/process/manager/process-manager.service";
+import { ProcessSupervisorService } from "../../ai-harness/process/supervisor/process-supervisor.service";
 import { MissionExecutorService } from "./mission/mission-executor.service";
 import { CapabilityGuardService } from "./security/capability-guard.service";
-import { KernelSchedulerService } from "./scheduler/kernel-scheduler.service";
+import { KernelSchedulerService } from "../../ai-harness/process/scheduler/kernel-scheduler.service";
 import { KernelApiService } from "./api/kernel-api.service";
 
 const RUNTIME_LIFECYCLE_PROVIDERS = [

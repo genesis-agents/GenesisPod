@@ -5,9 +5,9 @@
  * process tracking, event journaling, and resource management.
  */
 import { Injectable, Logger } from "@nestjs/common";
-import { ProcessManagerService } from "../process/process-manager.service";
+import { ProcessManagerService } from "../../../ai-harness/process/manager/process-manager.service";
 import { EventJournalService } from "../journal/event-journal.service";
-import type { ProcessId } from "../process/process.types";
+import type { ProcessId } from "../../../ai-harness/process/manager/process.types";
 import type {
   IMissionExecutor,
   MissionExecuteOptions,

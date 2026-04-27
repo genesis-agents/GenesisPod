@@ -1,4 +1,4 @@
-import type { ProcessId, ProcessSnapshot } from "../process/process.types";
+import type { ProcessId, ProcessSnapshot } from "../../../ai-harness/process/manager/process.types";
 
 /**
  * Mission Executor Interface

@@ -45,6 +45,9 @@ ai-harness/
 │   └── tools-selector/        ToolSelectorRegistry / ResultFusion
 │
 ├── process/                   ★ Agent process management
+│   ├── manager/               ProcessManagerService（agent_processes 表）+ ProcessTree
+│   ├── scheduler/             KernelSchedulerService（PG FOR UPDATE SKIP LOCKED priority queue）
+│   ├── supervisor/            ProcessSupervisorService（mission/agent task 生命周期 supervisor）
 │   ├── subagent/              SubagentSpawner + isolation strategies
 │   └── handoff/               AgentRegistry / HandoffService
 │

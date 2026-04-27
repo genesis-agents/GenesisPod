@@ -4,7 +4,7 @@
  * Aggregates process management, memory, resources, and event journal.
  */
 import { Injectable } from "@nestjs/common";
-import { ProcessManagerService } from "../process/process-manager.service";
+import { ProcessManagerService } from "../../../ai-harness/process/manager/process-manager.service";
 import { EventJournalService } from "../journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../memory/process-memory-manager.service";
 import { ResourceManagerService } from "../resource/resource-manager.service";
@@ -16,18 +16,18 @@ import { ProgressTrackerService } from "../ipc/progress-tracker.service";
 import { AiObservabilityService } from "../observability/ai-observability.service";
 import { CostAttributionService } from "../observability/cost-attribution.service";
 import { CapabilityGuardService } from "../security/capability-guard.service";
-import { KernelSchedulerService } from "../scheduler/kernel-scheduler.service";
+import { KernelSchedulerService } from "../../../ai-harness/process/scheduler/kernel-scheduler.service";
 import type {
   ProcessId,
   SpawnOptions,
   ProcessSnapshot,
   ResourceConsumption,
-} from "../process/process.types";
+} from "../../../ai-harness/process/manager/process.types";
 import type {
   MemoryEntry,
   MemoryQuery as KernelMemoryQuery,
-} from "../process/process.types";
-import type { JournalEntry } from "../process/process.types";
+} from "../../../ai-harness/process/manager/process.types";
+import type { JournalEntry } from "../../../ai-harness/process/manager/process.types";
 import type {
   MissionExecuteOptions,
   MissionExecuteResult,

@@ -177,7 +177,7 @@ import { CircuitBreakerService } from "../runtime/resource/circuit-breaker.servi
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
-import { ProcessSupervisorService as ExecutionStateManager } from "../runtime/supervisor/process-supervisor.service";
+import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-harness/process/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";

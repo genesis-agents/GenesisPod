@@ -16,18 +16,18 @@ export type {
 export { SCOPE_PRIORITY } from "../../runtime/memory/hierarchical-memory-cascade.service";
 
 // Process
-export { ProcessManagerService } from "../../runtime/process/process-manager.service";
+export { ProcessManagerService } from "../../../ai-harness/process/manager/process-manager.service";
 export type {
   ProcessId,
   SpawnOptions,
   ProcessSnapshot,
   ProcessTree,
   ProcessCapabilities,
-} from "../../runtime/process/process.types";
+} from "../../../ai-harness/process/manager/process.types";
 export {
   VALID_TRANSITIONS,
   TERMINAL_STATES,
-} from "../../runtime/process/process.types";
+} from "../../../ai-harness/process/manager/process.types";
 
 // Context
 export {
@@ -109,22 +109,22 @@ export { CapabilityGuardService } from "../../runtime/security/capability-guard.
 export type { CapabilityCheckResult } from "../../runtime/security/capability.types";
 
 // Scheduler
-export { KernelSchedulerService } from "../../runtime/scheduler/kernel-scheduler.service";
+export { KernelSchedulerService } from "../../../ai-harness/process/scheduler/kernel-scheduler.service";
 
 // Supervisor (ProcessSupervisorService 在 ai-engine/facade/index.ts 以别名导出；此处提供原名)
-export { ProcessSupervisorService } from "../../runtime/supervisor/process-supervisor.service";
+export { ProcessSupervisorService } from "../../../ai-harness/process/supervisor/process-supervisor.service";
 export type {
   StateEntry,
   ExecutionStateStats,
   ExecutionStateConfig,
-} from "../../runtime/supervisor/process-supervisor.service";
+} from "../../../ai-harness/process/supervisor/process-supervisor.service";
 
 // Process — State Transition
 export {
   StateTransitionValidator,
   InvalidTransitionError,
-} from "../../runtime/process/state-transition-validator";
-export type { StateTransitionMap } from "../../runtime/process/state-transition-validator";
+} from "../../../ai-harness/process/manager/state-transition-validator";
+export type { StateTransitionMap } from "../../../ai-harness/process/manager/state-transition-validator";
 
 // Resource — additional (CircuitBreakerService 已在 ai-engine/facade/index.ts 导出)
 export {

@@ -4,7 +4,7 @@
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import type { ProcessId } from "../process/process.types";
+import type { ProcessId } from "../../../ai-harness/process/manager/process.types";
 import type { CapabilityCheckResult } from "./capability.types";
 
 @Injectable()

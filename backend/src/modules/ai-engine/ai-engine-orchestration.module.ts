@@ -63,7 +63,7 @@ import { AutoDreamService } from "./orchestration/services/auto-dream.service";
 import { AutoDreamSchedulerService } from "./orchestration/services/auto-dream-scheduler.service";
 
 // State Machine
-import { ProcessSupervisorService as ExecutionStateManager } from "./runtime/supervisor/process-supervisor.service";
+import { ProcessSupervisorService as ExecutionStateManager } from "../ai-harness/process/supervisor/process-supervisor.service";
 
 // Handlers
 import { WorkflowHandlerRegistry } from "./orchestration/handlers/handler-registry";

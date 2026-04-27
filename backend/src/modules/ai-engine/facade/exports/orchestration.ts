@@ -40,9 +40,9 @@ export {
 } from "../../runtime/resource/circuit-breaker.service";
 export { ContextInitializationService } from "../../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
-export { ProcessSupervisorService as ExecutionStateManager } from "../../runtime/supervisor/process-supervisor.service";
-export { StateCategory } from "../../runtime/supervisor/process-supervisor.service";
-export type { ExecutionStateStats } from "../../runtime/supervisor/process-supervisor.service";
+export { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-harness/process/supervisor/process-supervisor.service";
+export { StateCategory } from "../../../ai-harness/process/supervisor/process-supervisor.service";
+export type { ExecutionStateStats } from "../../../ai-harness/process/supervisor/process-supervisor.service";
 export { AICapabilityResolver } from "../../orchestration/capabilities/ai-capability-resolver.service";
 export { IntentRouterService } from "../../orchestration/services/intent-router.service";
 export type {
