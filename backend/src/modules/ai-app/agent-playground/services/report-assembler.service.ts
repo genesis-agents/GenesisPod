@@ -288,14 +288,22 @@ export class ReportAssemblerService {
       urlIdx.set(url, n);
       return n;
     };
-    // [anchor](http(s)://...) — anchor 内部不含 ]
+    // 两种 LLM 常见的"非 [N]"引用形式：
+    //   A. markdown 链接：[anchor text](https://...)
+    //   B. 裸 URL 装括号：[https://...]
     const linkRe = /\[([^\]\n]+?)\]\((https?:\/\/[^\s)]+)\)/g;
+    const bareUrlRe = /\[(https?:\/\/[^\]\s]+)\]/g;
     const transform = (body: string | undefined): string => {
       if (!body) return body ?? "";
-      return body.replace(linkRe, (_m, _anchor: string, url: string) => {
+      let out = body.replace(linkRe, (_m, _anchor: string, url: string) => {
         const n = assignIdx(url);
         return `[${n}]`;
       });
+      out = out.replace(bareUrlRe, (_m, url: string) => {
+        const n = assignIdx(url);
+        return `[${n}]`;
+      });
+      return out;
     };
     const summaryT = transform(input.writerReport.summary);
     for (const sec of sectionsCopy) {
