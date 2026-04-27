@@ -21,6 +21,7 @@ import { SessionLatencyTrackerService } from "./session-latency-tracker.service"
 import { AiEngineTracingService } from "./ai-engine-tracing.service";
 import { EvalPipelineService } from "./eval-pipeline.service";
 import { ObservabilityController } from "./observability.controller";
+import { LlmEventsListener } from "./llm-events.listener";
 
 const OBSERVABILITY_PROVIDERS = [
   TraceCollectorService,
@@ -35,7 +36,7 @@ const OBSERVABILITY_PROVIDERS = [
 @Module({
   imports: [PrismaModule],
   controllers: [ObservabilityController],
-  providers: OBSERVABILITY_PROVIDERS,
+  providers: [...OBSERVABILITY_PROVIDERS, LlmEventsListener],
   exports: OBSERVABILITY_PROVIDERS,
 })
 export class ObservabilityModule {}

@@ -1,4 +1,4 @@
-export { CircuitBreakerService } from "./circuit-breaker.service";
+// CircuitBreakerService 已搬到 ai-engine/safety/resilience/（PR-X3）
 export { TokenBudgetService } from "./token-budget.service";
 export { ResourceManagerService } from "./resource-manager.service";
 export { ConstraintEngine } from "./constraint-engine";

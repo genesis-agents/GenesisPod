@@ -22,19 +22,17 @@ import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pi
 import {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../../ai-harness/governance/resource/circuit-breaker.service";
-import { TraceCollectorService } from "../../../ai-harness/governance/observability/trace-collector.service";
+} from "../../safety/resilience/circuit-breaker.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { randomUUID } from "crypto";
 // ★ 拆分后的子服务
 import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
-import { CostAttributionService } from "../../../ai-harness/governance/observability/cost-attribution.service";
-import { AiObservabilityService } from "../../../ai-harness/governance/observability/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
-import { SessionLatencyTrackerService } from "../../../ai-harness/governance/observability/session-latency-tracker.service";
+import { estimateCost } from "../budget/cost-calculator";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import {
   BYOKError,
@@ -224,12 +222,7 @@ export class AiChatService {
     @Optional() private readonly directKeyService?: AiDirectKeyService,
     @Optional()
     private readonly imageGenerationService?: AiImageGenerationService,
-    @Optional() private readonly traceCollector?: TraceCollectorService,
-    @Optional() private readonly eventJournal?: EventJournalService,
-    @Optional() private readonly costAttribution?: CostAttributionService,
-    @Optional() private readonly kernelMetrics?: AiObservabilityService,
-    @Optional()
-    private readonly latencyTracker?: SessionLatencyTrackerService,
+    private readonly events?: EventEmitter2,
     @Optional() private readonly keyResolver?: KeyResolverService,
   ) {}
 
@@ -291,6 +284,7 @@ export class AiChatService {
 
   /**
    * 自动将 LLM 调用记录到 KernelContext 中活跃的 LatencySession（如有）
+   * 通过 EventEmitter2 发出事件，由 LlmEventsListener 转发到 SessionLatencyTrackerService
    */
   private recordToLatencySession(
     model: string,
@@ -303,12 +297,11 @@ export class AiChatService {
     outputTokens?: number,
     operationName?: string,
   ): void {
-    if (!this.latencyTracker) return;
     const ctx = KernelContext.get();
     if (!ctx?.latencySessionId) return;
 
-    this.latencyTracker.recordAction(ctx.latencySessionId, {
-      stepId: ctx.latencyPhaseId, // 显式传 stepId，避免 getActiveStepId 的并发竞争
+    this.emitLatencyAction(ctx.latencySessionId, {
+      stepId: ctx.latencyPhaseId,
       name: operationName || "llm_call",
       type: "llm_call",
       model,
@@ -320,6 +313,47 @@ export class AiChatService {
       inputTokens: inputTokens ?? 0,
       outputTokens: outputTokens ?? (totalTokens || 0),
     });
+  }
+
+  // ==================== EventEmitter2 辅助方法 ====================
+
+  private emitSpanStart(
+    traceId: string,
+    input: { spanType?: string; name: string; type?: string; metadata?: Record<string, unknown> },
+  ): string {
+    const correlationId = randomUUID();
+    this.events?.emit("llm.span.start", { correlationId, traceId, ...input });
+    return correlationId;
+  }
+
+  private emitSpanEnd(
+    correlationId: string,
+    input: { status: string; error?: string; output?: Record<string, unknown>; metadata?: Record<string, unknown> },
+  ): void {
+    this.events?.emit("llm.span.end", { correlationId, ...input });
+  }
+
+  private emitJournalRecord(
+    processId: string,
+    eventType: string,
+    payload: Record<string, unknown>,
+  ): void {
+    this.events?.emit("llm.journal.record", { processId, eventType, payload });
+  }
+
+  private emitCostRecord(input: Record<string, unknown>): void {
+    this.events?.emit("llm.cost.record", input);
+  }
+
+  private emitMetrics(input: Record<string, unknown>): void {
+    this.events?.emit("llm.metrics.record", input);
+  }
+
+  private emitLatencyAction(
+    sessionId: string,
+    action: Record<string, unknown>,
+  ): void {
+    this.events?.emit("llm.latency.action", { sessionId, ...action });
   }
 
   /**
@@ -1148,8 +1182,8 @@ export class AiChatService {
 
     // ★ Observability: Start trace span
     let spanId: string | undefined;
-    if (this.traceCollector && traceId) {
-      spanId = this.traceCollector.addSpan(traceId, {
+    if (traceId) {
+      spanId = this.emitSpanStart(traceId, {
         name: "ai-chat",
         type: "llm_call",
         metadata: {
@@ -1237,8 +1271,8 @@ export class AiChatService {
         }
 
         // ★ Observability: End trace span
-        if (this.traceCollector && spanId) {
-          this.traceCollector.endSpan(spanId, {
+        if (spanId) {
+          this.emitSpanEnd(spanId, {
             status: result.isError ? "error" : "success",
             output: {
               model: result.model,
@@ -1262,8 +1296,8 @@ export class AiChatService {
         };
       } catch (error) {
         // ★ Observability: End trace span on error
-        if (this.traceCollector && spanId) {
-          this.traceCollector.endSpan(spanId, {
+        if (spanId) {
+          this.emitSpanEnd(spanId, {
             status: "error",
             error: error instanceof Error ? error.message : String(error),
           });
@@ -1543,54 +1577,40 @@ export class AiChatService {
         }
 
         // ★ Kernel: Record LLM call event, cost, and metrics
-        if (processId && this.eventJournal) {
-          void this.eventJournal
-            .record(processId, "LLM_CALL", {
-              model: currentModel,
-              tokens: result.tokensUsed,
-              latencyMs: duration,
-            })
-            .catch((err) =>
-              this.logger.debug("Process event emission failed", err),
-            );
+        if (processId) {
+          this.emitJournalRecord(processId, "LLM_CALL", {
+            model: currentModel,
+            tokens: result.tokensUsed,
+            latencyMs: duration,
+          });
         }
-        if (processId && this.costAttribution) {
-          this.costAttribution.recordCost({
+        if (processId) {
+          this.emitCostRecord({
             userId: userId ?? "",
             moduleType: "ai-engine",
             model: currentModel,
             provider: currentModelConfig?.provider ?? "",
             inputTokens: 0,
             outputTokens: result.tokensUsed,
-            estimatedCost: AiObservabilityService.estimateCost(
-              currentModel,
-              0,
-              result.tokensUsed,
-            ),
+            estimatedCost: estimateCost(currentModel, 0, result.tokensUsed),
           });
         }
-        if (this.kernelMetrics) {
-          this.kernelMetrics.recordLLMCall({
-            model: currentModel,
-            provider: currentModelConfig?.provider ?? "",
-            modelType: modelType ?? "CHAT",
-            module: "ai-engine",
-            operation: "chat",
-            userId,
-            inputTokens: 0,
-            outputTokens: result.tokensUsed,
-            totalTokens: result.tokensUsed,
-            latencyMs: duration,
-            estimatedCost: AiObservabilityService.estimateCost(
-              currentModel,
-              0,
-              result.tokensUsed,
-            ),
-            success: true,
-            fallbackUsed: attempt > 0,
-            retryCount: attempt,
-          });
-        }
+        this.emitMetrics({
+          model: currentModel,
+          provider: currentModelConfig?.provider ?? "",
+          modelType: modelType ?? "CHAT",
+          module: "ai-engine",
+          operation: "chat",
+          userId,
+          inputTokens: 0,
+          outputTokens: result.tokensUsed,
+          totalTokens: result.tokensUsed,
+          latencyMs: duration,
+          estimatedCost: estimateCost(currentModel, 0, result.tokensUsed),
+          success: true,
+          fallbackUsed: attempt > 0,
+          retryCount: attempt,
+        });
 
         // ★ Session Latency Tracker: 自动记录 LLM 调用到活跃会话
         this.recordToLatencySession(
@@ -1633,8 +1653,8 @@ export class AiChatService {
         }
 
         // ★ Observability: End trace span on success
-        if (this.traceCollector && spanId) {
-          this.traceCollector.endSpan(spanId, {
+        if (spanId) {
+          this.emitSpanEnd(spanId, {
             status: "success",
             output: {
               model: result.model,
@@ -1679,35 +1699,29 @@ export class AiChatService {
       }
 
       // ★ Kernel: Record LLM error event and metrics
-      if (processId && this.eventJournal) {
-        void this.eventJournal
-          .record(processId, "LLM_ERROR", {
-            model: currentModel,
-            error: result.content.substring(0, 200),
-          })
-          .catch((err) =>
-            this.logger.debug("Process event emission failed", err),
-          );
-      }
-      if (this.kernelMetrics) {
-        this.kernelMetrics.recordLLMCall({
+      if (processId) {
+        this.emitJournalRecord(processId, "LLM_ERROR", {
           model: currentModel,
-          provider: currentModelConfig?.provider ?? "",
-          modelType: modelType ?? "CHAT",
-          module: "ai-engine",
-          operation: "chat",
-          userId,
-          inputTokens: 0,
-          outputTokens: 0,
-          totalTokens: 0,
-          latencyMs: duration,
-          estimatedCost: 0,
-          success: false,
           error: result.content.substring(0, 200),
-          fallbackUsed: attempt > 0,
-          retryCount: attempt,
         });
       }
+      this.emitMetrics({
+        model: currentModel,
+        provider: currentModelConfig?.provider ?? "",
+        modelType: modelType ?? "CHAT",
+        module: "ai-engine",
+        operation: "chat",
+        userId,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        latencyMs: duration,
+        estimatedCost: 0,
+        success: false,
+        error: result.content.substring(0, 200),
+        fallbackUsed: attempt > 0,
+        retryCount: attempt,
+      });
 
       // 获取其他可用的同类型模型
       if (modelType) {
@@ -1780,8 +1794,8 @@ export class AiChatService {
     );
 
     // ★ Observability: End trace span on all models failed
-    if (this.traceCollector && spanId) {
-      this.traceCollector.endSpan(spanId, {
+    if (spanId) {
+      this.emitSpanEnd(spanId, {
         status: "error",
         error: `All ${triedModelIds.length} models failed: ${lastError?.slice(0, 200)}`,
         output: { triedModels: triedModelIds },
@@ -2056,30 +2070,28 @@ export class AiChatService {
       }
 
       // ★ Kernel Metrics: Record stream TTFT/TTLT
-      if (this.kernelMetrics) {
-        this.kernelMetrics.recordLLMCall({
+      this.emitMetrics({
+        model,
+        provider: modelConfig.provider ?? "",
+        modelType: modelType ?? "CHAT",
+        module: "ai-engine",
+        operation: "chatStream",
+        userId: options.userId,
+        inputTokens: streamUsage?.promptTokens ?? 0,
+        outputTokens: streamUsage?.completionTokens ?? 0,
+        totalTokens: streamUsage?.totalTokens ?? 0,
+        latencyMs: streamDuration,
+        ttftMs: streamTiming?.ttftMs,
+        ttltMs: streamTiming?.ttltMs,
+        estimatedCost: estimateCost(
           model,
-          provider: modelConfig.provider ?? "",
-          modelType: modelType ?? "CHAT",
-          module: "ai-engine",
-          operation: "chatStream",
-          userId: options.userId,
-          inputTokens: streamUsage?.promptTokens ?? 0,
-          outputTokens: streamUsage?.completionTokens ?? 0,
-          totalTokens: streamUsage?.totalTokens ?? 0,
-          latencyMs: streamDuration,
-          ttftMs: streamTiming?.ttftMs,
-          ttltMs: streamTiming?.ttltMs,
-          estimatedCost: AiObservabilityService.estimateCost(
-            model,
-            streamUsage?.promptTokens ?? 0,
-            streamUsage?.completionTokens ?? 0,
-          ),
-          success: true,
-          fallbackUsed: false,
-          retryCount: 0,
-        });
-      }
+          streamUsage?.promptTokens ?? 0,
+          streamUsage?.completionTokens ?? 0,
+        ),
+        success: true,
+        fallbackUsed: false,
+        retryCount: 0,
+      });
 
       // ★ Session Latency Tracker: 自动记录流式 LLM 调用到活跃会话
       this.recordToLatencySession(
@@ -2174,8 +2186,8 @@ export class AiChatService {
         );
 
         // ★ Observability: End trace span on guardrail block
-        if (this.traceCollector && context?.spanId) {
-          this.traceCollector.endSpan(context.spanId, {
+        if (context?.spanId) {
+          this.emitSpanEnd(context.spanId, {
             status: "error",
             error: `Blocked by guardrail: ${inputResult.blockedBy}`,
           });
@@ -2239,8 +2251,8 @@ export class AiChatService {
         );
 
         // ★ Observability: End trace span on guardrail block
-        if (this.traceCollector && context?.spanId) {
-          this.traceCollector.endSpan(context.spanId, {
+        if (context?.spanId) {
+          this.emitSpanEnd(context.spanId, {
             status: "error",
             error: `Output blocked by guardrail: ${outputResult.blockedBy}`,
             output: {

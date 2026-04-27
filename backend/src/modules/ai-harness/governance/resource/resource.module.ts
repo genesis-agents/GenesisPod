@@ -24,7 +24,7 @@ import { AiEngineOrchestrationModule } from "../../../ai-engine/ai-engine-orches
 import { KeyResolverModule } from "../../../ai-infra/key-resolver/key-resolver.module";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
-import { CircuitBreakerService } from "./circuit-breaker.service";
+// CircuitBreakerService 已搬到 ai-engine/safety/resilience/（PR-X3）
 import { ConstraintEngine } from "./constraint-engine";
 import { ConstraintEnforcementService } from "./constraint-enforcement.service";
 import { CostController } from "./cost-controller";
@@ -34,7 +34,6 @@ import { RuntimeEnvironmentService } from "./runtime-environment.service";
 
 const RUNTIME_RESOURCE_PROVIDERS = [
   ResourceManagerService,
-  CircuitBreakerService,
   ConstraintEngine,
   ConstraintEnforcementService,
   CostController,

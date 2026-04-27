@@ -32,13 +32,13 @@ export type { BuiltInVerifierId } from "../governance/verify";
 
 // ── Resource ──
 export { ResourceManagerService } from "../governance/resource/resource-manager.service";
-export { CircuitBreakerService } from "../governance/resource/circuit-breaker.service";
+export { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 export {
   TaskCompletionType,
   type CircuitState,
   type CircuitBreakerConfig,
   type HealthMetrics,
-} from "../governance/resource/circuit-breaker.service";
+} from "../../ai-engine/safety/resilience/circuit-breaker.service";
 export { ConstraintEngine } from "../governance/resource/constraint-engine";
 export { ConstraintEnforcementService } from "../governance/resource/constraint-enforcement.service";
 export { CostController } from "../governance/resource/cost-controller";

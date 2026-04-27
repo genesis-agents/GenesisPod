@@ -47,7 +47,7 @@ import type {
   RoomConfig,
   ProgressEvent,
 } from "../../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
-import { CircuitBreakerService } from "../../../ai-harness/governance/resource/circuit-breaker.service";
+import { CircuitBreakerService } from "../../safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../../orchestration/services/intent-detection.service";

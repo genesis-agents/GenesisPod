@@ -11,7 +11,7 @@ import { LongTermMemoryService } from "../knowledge/memory/stores/long-term-memo
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
-import { CircuitBreakerService } from "../../ai-harness/governance/resource/circuit-breaker.service";
+import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";

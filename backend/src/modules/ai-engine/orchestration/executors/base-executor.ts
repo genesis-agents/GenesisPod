@@ -20,7 +20,7 @@ import { AgentRegistry } from "../../agents/registry";
 import type { WorkflowHandlerRegistry } from "../handlers/handler-registry";
 import type { MapStepConfig } from "../handlers/workflow-node-handler.interface";
 import { RetryStrategy } from "./retry-strategy";
-import type { CircuitBreakerService } from "../../../ai-harness/governance/resource/circuit-breaker.service";
+import type { CircuitBreakerService } from "../../safety/resilience/circuit-breaker.service";
 import type { IProgressTracker } from "../../../ai-harness/protocol/realtime/abstractions/progress-tracker.interface";
 
 /**

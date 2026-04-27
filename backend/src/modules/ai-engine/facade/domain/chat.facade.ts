@@ -22,7 +22,7 @@ import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
 import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.service";
-import { TaskCompletionType } from "../../../ai-harness/governance/resource/circuit-breaker.service";
+import { TaskCompletionType } from "../../safety/resilience/circuit-breaker.service";
 import {
   CreditsService,
   BillingContext,

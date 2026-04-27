@@ -38,7 +38,7 @@ import {
   CreateMissionDto,
 } from "../teams/services/teams.service";
 import type { MissionEvent } from "../teams/abstractions/mission.interface";
-import { TaskCompletionType } from "../../ai-harness/governance/resource/circuit-breaker.service";
+import { TaskCompletionType } from "../safety/resilience/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 import {
@@ -173,7 +173,7 @@ import type {
   SkillPromptOptions,
 } from "../orchestration/capabilities/types";
 import type { SkillMdDefinition } from "../skills/types/skill-md.types";
-import { CircuitBreakerService } from "../../ai-harness/governance/resource/circuit-breaker.service";
+import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";

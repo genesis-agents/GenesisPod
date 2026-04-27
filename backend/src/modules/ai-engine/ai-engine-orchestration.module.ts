@@ -37,7 +37,7 @@ import { TaskDecomposerService } from "./orchestration/services/task-decomposer.
 import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
 import { OutputReviewerService } from "./orchestration/services/output-reviewer.service";
 import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
-import { CircuitBreakerService } from "../ai-harness/governance/resource/circuit-breaker.service";
+import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
 import { TokenBudgetService } from "./orchestration/services/token-budget.service";
 import { ContextEvolutionService } from "./orchestration/services/context-evolution.service";
 import { ContextInitializationService } from "./orchestration/services/context-initialization.service";

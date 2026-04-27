@@ -16,7 +16,7 @@ import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";
 import { AiImageGenerationService } from "../ai-image-generation.service";
 import { AiChatRetryService } from "../ai-chat-retry.service";
-import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AIModelType } from "@prisma/client";
 import { AiServiceUnavailableError } from "../../../core/exceptions";
 import { RequestContext } from "../../../../../common/context/request-context";
@@ -61,7 +61,7 @@ describe("AiChatService", () => {
   let mockDirectKeyService: any;
   let mockImageGenerationService: any;
   let mockRetryService: any;
-  let mockTraceCollectorService: any;
+  let mockEventEmitter: any;
 
   beforeEach(async () => {
     // Required services
@@ -175,9 +175,8 @@ describe("AiChatService", () => {
       withExponentialBackoff: jest.fn((op: () => Promise<unknown>) => op()),
     };
 
-    mockTraceCollectorService = {
-      addSpan: jest.fn().mockReturnValue("test-span-id"),
-      endSpan: jest.fn(),
+    mockEventEmitter = {
+      emit: jest.fn().mockReturnValue(true),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -209,8 +208,8 @@ describe("AiChatService", () => {
           useValue: mockImageGenerationService,
         },
         {
-          provide: TraceCollectorService,
-          useValue: mockTraceCollectorService,
+          provide: EventEmitter2,
+          useValue: mockEventEmitter,
         },
       ],
     }).compile();
@@ -1344,7 +1343,7 @@ describe("AiChatService", () => {
   // ==================== Observability / Trace Tests ====================
 
   describe("Trace Integration", () => {
-    it("should record trace span when traceId is provided", async () => {
+    it("should emit llm.span.start event when traceId is provided", async () => {
       const mockConfig = createMockModelConfig();
       mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
 
@@ -1354,9 +1353,10 @@ describe("AiChatService", () => {
         traceId: "test-trace-id",
       });
 
-      expect(mockTraceCollectorService.addSpan).toHaveBeenCalledWith(
-        "test-trace-id",
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        "llm.span.start",
         expect.objectContaining({
+          traceId: "test-trace-id",
           name: "ai-chat",
           type: "llm_call",
           metadata: expect.objectContaining({
@@ -1364,15 +1364,15 @@ describe("AiChatService", () => {
           }),
         }),
       );
-      expect(mockTraceCollectorService.endSpan).toHaveBeenCalledWith(
-        "test-span-id",
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        "llm.span.end",
         expect.objectContaining({
           status: "success",
         }),
       );
     });
 
-    it("should not record trace span when traceId is not provided", async () => {
+    it("should not emit span events when traceId is not provided", async () => {
       const mockConfig = createMockModelConfig();
       mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
 
@@ -1381,11 +1381,14 @@ describe("AiChatService", () => {
         model: "gpt-4o",
       });
 
-      expect(mockTraceCollectorService.addSpan).not.toHaveBeenCalled();
-      expect(mockTraceCollectorService.endSpan).not.toHaveBeenCalled();
+      const emitCalls: string[] = mockEventEmitter.emit.mock.calls.map(
+        (c: unknown[]) => c[0] as string,
+      );
+      expect(emitCalls).not.toContain("llm.span.start");
+      expect(emitCalls).not.toContain("llm.span.end");
     });
 
-    it("should end trace span with error status on failure", async () => {
+    it("should emit llm.span.end with error status on failure", async () => {
       const mockConfig = createMockModelConfig();
       mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
       mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue([]);
@@ -1404,15 +1407,15 @@ describe("AiChatService", () => {
         traceId: "test-trace-id",
       });
 
-      expect(mockTraceCollectorService.endSpan).toHaveBeenCalledWith(
-        "test-span-id",
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        "llm.span.end",
         expect.objectContaining({
           status: "error",
         }),
       );
     });
 
-    it("should work when trace collector not available", async () => {
+    it("should work when EventEmitter2 not available", async () => {
       service = new AiChatService(
         mockConfigService,
         mockTaskProfileMapper,

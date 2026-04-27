@@ -10,10 +10,14 @@
  * - Guardrails Pipeline (New Framework)
  */
 
-import { Module, OnModuleInit, Logger } from "@nestjs/common";
+import { Global, Module, OnModuleInit, Logger } from "@nestjs/common";
+import { CacheModule } from "@/common/cache/cache.module";
 
 // Validators
 import { SchemaValidator } from "./safety/constraint/validators/schema-validator";
+
+// Resilience（PR-X3：通用熔断器从 harness 搬到 engine）
+import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
 
 // Guardrails (Legacy)
 import { ContentFilter } from "./safety/constraint/guardrails/content-filter";
@@ -43,10 +47,15 @@ const contentFilterFactory = {
   },
 };
 
+@Global()
 @Module({
+  imports: [CacheModule],
   providers: [
     // Validators
     SchemaValidator,
+
+    // Resilience
+    CircuitBreakerService,
 
     // Guardrails (Legacy)
     contentFilterFactory,
@@ -65,6 +74,7 @@ const contentFilterFactory = {
   exports: [
     SchemaValidator,
     ContentFilter,
+    CircuitBreakerService,
     GuardrailsPipelineService,
   ],
 })

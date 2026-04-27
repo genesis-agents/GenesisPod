@@ -37,7 +37,7 @@ export { AgentExecutorService } from "../../orchestration/services/agent-executo
 export {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../../ai-harness/governance/resource/circuit-breaker.service";
+} from "../../safety/resilience/circuit-breaker.service";
 export { ContextInitializationService } from "../../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
 export { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-harness/process/supervisor/process-supervisor.service";
