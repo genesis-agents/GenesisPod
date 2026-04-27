@@ -1,14 +1,21 @@
 /**
- * 99-persist.stage.ts —— mission 成功路径的最终持久化
+ * Stage S11 — Persist (final)
  *
- * 上游：runMissionBody 返回的 MissionResult
- * 行为：
- *   - signed=false → markFailed（"Lead 拒签"分支）
- *   - signed=true 或无 signOff → markCompleted
- *   - 都把 leaderOverallScore / leaderSigned / leaderVerdict 写到 mission 顶层列
+ * Mission 成功路径的终态写库：把 reportArtifact + leaderSignOff + verdicts +
+ * userProfile + reconciliationReport 等一次性落到 agent_playground_missions 行，
+ * 并按签字结果分流到 markCompleted / markFailed。
  *
- * 注意：异常路径（catch handler 里的 markFailed）保持在 runMission 入口内，
- *       因为它需要 errorMessage / failureCode 这些异常元数据，与本 stage 无关。
+ *   reads  ctx: missionId, t0, pool, runMissionBody 全部 result 字段
+ *   writes ctx: (none — 终态)
+ *   deps:       store.markCompleted / store.markFailed
+ *
+ * 分流逻辑：
+ *   leaderSignOff.signed === false  → markFailed（Lead 拒签 → "quality-failed"）
+ *   leaderSignOff.signed === true   → markCompleted + 写 leaderVerdict/Score
+ *   未跑到 M7（reportArtifact 为空等）→ markCompleted（leaderSigned=undefined）
+ *
+ * 注：异常路径（catch handler 里的 markFailed）不在本 stage —— 它需要 errorMessage /
+ *     failureCode 等异常元数据，归 runMission 入口的 try/catch 处理。
  */
 
 import type { MissionDeps } from "../mission-deps";

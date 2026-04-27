@@ -1,11 +1,18 @@
 /**
- * 70-critic.stage.ts —— L4 Critic（Phase P1-4 / P37-1）
+ * Stage S9 — L4 Critic (meta-review)
  *
- * 上游：reportArtifact 已成稿 + verifierVerdicts 已就绪
- * 下游：把 critic 输出写到 reportArtifact.quality.warnings + qualityTrace +
- *       hardGateViolations；fail verdict 降 overall / novelty / styleConformance
+ * Writer + L3 reviewer 全部完成后，跑一轮独立的 meta-level 审查：识别报告里的
+ * blindspots（漏掉的视角）/ biasFlags（写作倾向）/ suggestions（改进建议），
+ * 给出 pass / concerns / fail 总判定。fail/concerns 会触发对 reportArtifact.quality
+ * 各 dim 的降权。
  *
- * 启用条件：thorough+ OR (audience=executive AND auditLayers≠minimal)
+ *   reads  ctx: reportArtifact, verifierVerdicts, reviewScore, input
+ *   mutate ctx.reportArtifact: quality.warnings / qualityTrace / hardGateViolations,
+ *                              quality.overall / dimensions.novelty/styleConformance
+ *   deps:       reviewer.criticL4, invoker (preDisable + tickCost), emit, log
+ *
+ * Skip 条件: !enableCritic 时直接 return（minimal 档位 + 非 executive 受众）
+ * Failure modes: 任何抛错 → log warn + 继续（不阻塞，下游 Lead M6 仍可工作）
  */
 
 import type { MissionContext } from "../mission-context";

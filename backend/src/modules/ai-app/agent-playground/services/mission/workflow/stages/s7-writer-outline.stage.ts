@@ -1,12 +1,17 @@
 /**
- * 55-writer-outline.stage.ts —— Phase P4-1: thorough+ 档位下跑 OutlinePlanner W1
+ * Stage S7 — Writer outline: Mission-level chapter planner
  *
- * 上游：ctx.plan + ctx.reconciliationReport
- * 下游：ctx.outlinePlan（暂未被 Writer 消费，留给 W2 接入）+ emit
- *      dimension:outline:planned 给前端 trace
+ * thorough+ 档位下跑 MissionOutlinePlannerAgent，先列出 mission 级 chapter 大纲
+ * （sectionId/heading/thesis + targetWordsPerChapter + factAllocation），让下游
+ * Writer 起草时按 outline 走，不必边写边规划。
  *
- * 启用条件：auditLayers ∈ {thorough, paranoid}
- * 失败不阻塞 mission（emit warning）
+ *   reads  ctx: plan, reconciliationReport, input.auditLayers
+ *   writes ctx: (none —— 当前 Writer 不消费此 outline，只 emit dimension:outline:planned
+ *                给前端 trace。后续 W2 接入时这里会改为写 ctx.outlinePlan)
+ *   deps:       writer.planMissionOutline, invoker (tickCost), emit, log
+ *
+ * Skip 条件: auditLayers ∉ {thorough, paranoid} → 直接 return
+ * Failure modes: 任何抛错 → log warn + 继续（不阻塞，Writer 走无 outline 路径）
  */
 
 import type { MissionContext } from "../mission-context";

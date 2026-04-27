@@ -1,11 +1,16 @@
 /**
- * 40-reconciler.stage.ts —— 跨 dim 对账（[3.5] 节点）
+ * Stage S5 — Reconciler: cross-dim 对账
  *
- * 上游：ctx.researcherResults + ctx.plan
- * 下游：ctx.reconciliationReport（失败时保持 null，不阻塞 mission）
+ * Researcher 并行产出后强制对账：把每个 dim 的 findings 收齐，做 entity 抽取 +
+ * conflict 检测 + gap 识别 + figure 候选汇总，输出统一的 factTable / conflicts /
+ * overlaps / gaps / figureCandidates，供下游 Analyst/Writer 消费。
  *
- * Researcher 并行产出后强制对账：事实表 / 冲突 / 重叠 / 空白 / 图候选池。
- * 失败不阻塞 mission（degraded：reconciliationReport=null，下游 Analyst 退化路径）。
+ *   reads  ctx: plan, researcherResults
+ *   writes ctx: reconciliationReport（失败时显式置 null，下游 Analyst 走退化路径）
+ *   deps:       reconciler.reconcile, invoker (preDisable + tickCost), emit, lifecycle, log
+ *
+ * Failure modes: 任何抛错 → log warn + emit dimension:degraded，
+ *                ctx.reconciliationReport 保持 null，mission 继续（不阻塞）。
  */
 
 import type { MissionContext } from "../mission-context";

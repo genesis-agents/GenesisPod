@@ -1,12 +1,24 @@
 /**
- * 80-leader-handoff.stage.ts —— M6 foreword + M7 signoff
+ * Stage S10 — Leader M6 foreword + M7 signoff (handoff)
  *
- * 上游：reportArtifact / researcherResults / plan / reconciliationReport /
- *       verifierVerdicts 都已就绪
- * 下游：填 ctx.leaderForeword + ctx.leaderSignOff，供 99-persist.stage 使用
+ * Mission 末段 Lead 总收尾：
+ *   M6 foreword  Lead 看完整报告 + 全部 verdicts 后写综合摘要（whatWeAnswered /
+ *                whatRemainsUnclear / howToRead / recommendedFollowUp）
+ *   M7 signoff   Lead 签字 + accountabilityNote（强制引用历史决策的问责文）
  *
- * M6: leader.writeForeword() —— 综合摘要（whatWeAnswered 等）
- * M7: leader.signOff()      —— 签字 + accountabilityNote（仅 M6 成功才跑）
+ *   reads  ctx: reportArtifact, plan, researcherResults, reconciliationReport,
+ *               verifierVerdicts, leader
+ *   mutate ctx.reportArtifact.metadata.leaderForeword = M6 输出
+ *   writes ctx: leaderForeword (M6), leaderSignOff (M7)
+ *   deps:       leader.writeForeword, leader.signOff, emit, log
+ *
+ * Skip 条件: !ctx.reportArtifact || !ctx.plan || !ctx.researcherResults → return
+ * 顺序约束: M7 仅在 M6 成功时跑（leaderForeword 为依据）
+ * Failure modes: M6 失败 → log warn，跳过 M7（mission 仍 markCompleted）
+ *                M7 失败 → log warn，下游 persist 走"无签字"分支（markCompleted）
+ *
+ * 注：M7 拒签（signed=false）不算"失败"——是 Lead 主动行使否决权，
+ *     persist stage 会据此 markFailed("Lead 拒绝签字")。
  */
 
 import type { MissionContext } from "../mission-context";

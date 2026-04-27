@@ -1,18 +1,25 @@
 /**
- * 30-leader-assess-m1.stage.ts —— M1: Leader 评估 researchers 产出 + 调度
+ * Stage S4 — Leader M1: Assess research + dispatch
  *
- * 上游：ctx.researcherResults + ctx.plan
- * 下游：mutate ctx.plan.dimensions (追加 newDimensions) + mutate ctx.researcherResults
- *       (retry / abort / extend 后的新结果)
+ * researcher×N 跑完之后，Lead 看到每个 dim 的 findings/sources/state，给出过程
+ * 管理决策：accept-all / patch / redirect / abort，并把决策真正落到调度上。
  *
- * Lead 决策处理范围:
- *   accept / accept-degraded → no-op
- *   retry-with-critique      → 重派 ResearcherAgent，input 带 critique，覆盖原结果
- *   replace-spec             → 当前只注册了 ResearcherAgent，降级为带提示的 retry
- *   abort                    → 该 dim 标记空 findings + summary "(aborted by Lead)"
- *   newDimensions[]          → 追加 dim 到 plan + 跑 ResearcherAgent，append 到结果
+ *   reads  ctx: plan, researcherResults, leader
+ *   mutate ctx: plan.dimensions (redirect 追加新 dim) +
+ *               researcherResults (retry/abort/extend 后的结果)
+ *   deps:       invoker (重派 researcher), emit, lifecycle, log
  *
- * decision="abort" → 抛错（Lead 主动叫停整 mission）
+ * Per-dim action 处理矩阵：
+ *   accept / accept-degraded   → no-op，保留原 researcher 产出
+ *   retry-with-critique        → 带 critique 重派 ResearcherAgent，覆盖原 result
+ *   replace-spec               → 当前只注册 ResearcherAgent，降级为带换 spec 提示的 retry
+ *   abort                      → 该 dim 标记 findings=[] + summary="(aborted by Lead M1)"
+ * Mission-level decision:
+ *   abort                      → throw "Lead aborted mission..."（mission 终止）
+ *   redirect.newDimensions[]   → 追加 dim 到 plan + 跑 ResearcherAgent
+ *
+ * Failure modes: leader.assessResearchers 抛错（非 Lead 主动 abort）→ log warn + 继续
+ *                Lead 主动 abort → rethrow（mission 终止）
  */
 
 import { ResearcherAgent } from "../../../../agents/researcher/researcher.agent";

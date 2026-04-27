@@ -1,10 +1,17 @@
 /**
- * 50-analyst.stage.ts —— 跨 dim 综合分析
+ * Stage S6 — Analyst: 跨 dim 综合分析
  *
- * 上游：ctx.researcherResults + ctx.reconciliationReport（reconciler 已对账）
- * 下游：ctx.analystOutput = { insights, themeSummary, contradictions? }
+ * 把 reconciler 对完账的 factTable + 各 dim 的 findings 综合成 mission-level 视角：
+ * insights（跨 dim 综合判断 ≥ 2 dim 支持）/ contradictions（处理跨源冲突的判断）/
+ * themeSummary（贯穿主题的总论点）。Writer 起草时直接消费这些 insights，不再读 raw findings。
  *
- * 失败时直接 throw —— Analyst 是关键路径，没有 analyst output 后续 Writer 无法工作。
+ *   reads  ctx: plan, researcherResults, reconciliationReport
+ *   writes ctx: analystOutput = { insights[], themeSummary, contradictions? }
+ *   deps:       analyst.analyze, invoker (preDisable + tickCost),
+ *               missionState (compressIfNeeded), emit, lifecycle
+ *
+ * Failure modes: analystRes.state !== completed → throw（关键路径，无 analyst output
+ *                Writer 无法工作）
  */
 
 import type { MissionContext } from "../mission-context";

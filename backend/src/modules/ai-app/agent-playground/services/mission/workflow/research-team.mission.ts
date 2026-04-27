@@ -84,15 +84,15 @@ import {
 } from "./helpers/token-spend.util";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
-import { runBudgetEstimateStage } from "./stages/00-budget-estimate.stage";
-import { runLeaderPlanStage } from "./stages/10-leader-plan.stage";
-import { runLeaderAssessM1Stage } from "./stages/30-leader-assess-m1.stage";
-import { runReconcilerStage } from "./stages/40-reconciler.stage";
-import { runAnalystStage } from "./stages/50-analyst.stage";
-import { runWriterOutlineStage } from "./stages/55-writer-outline.stage";
-import { runCriticStage } from "./stages/70-critic.stage";
-import { runLeaderHandoffStage } from "./stages/80-leader-handoff.stage";
-import { runPersistStage } from "./stages/99-persist.stage";
+import { runBudgetEstimateStage } from "./stages/s1-budget-estimate.stage";
+import { runLeaderPlanStage } from "./stages/s2-leader-plan.stage";
+import { runLeaderAssessM1Stage } from "./stages/s4-leader-assess-m1.stage";
+import { runReconcilerStage } from "./stages/s5-reconciler.stage";
+import { runAnalystStage } from "./stages/s6-analyst.stage";
+import { runWriterOutlineStage } from "./stages/s7-writer-outline.stage";
+import { runCriticStage } from "./stages/s9-critic.stage";
+import { runLeaderHandoffStage } from "./stages/s10-leader-handoff.stage";
+import { runPersistStage } from "./stages/s11-persist.stage";
 
 interface MissionResult {
   readonly missionId: string;
@@ -351,7 +351,7 @@ export class ResearchTeamMission {
             // depth × budgetProfile 组合倍率：让两个 lever 协同 scale agent budget
             resolveBudgetMultiplier(input),
           );
-          // ── Stage 99: 持久化（已抽到 stages/99-persist.stage.ts）──
+          // ── Stage 99: 持久化（已抽到 stages/s11-persist.stage.ts）──
           await runPersistStage(
             { missionId, t0, result, pool },
             this.buildStageDeps(),
@@ -427,7 +427,7 @@ export class ResearchTeamMission {
   ): Promise<MissionResult> {
     {
       {
-        // ── Stage 0: 预算预估 + mission:started（已抽到 stages/00-budget-estimate.stage.ts）──
+        // ── Stage 0: 预算预估 + mission:started（已抽到 stages/s1-budget-estimate.stage.ts）──
         const startCtx = this.buildStageCtx({
           missionId,
           userId,
@@ -458,7 +458,7 @@ export class ResearchTeamMission {
           this.buildLeaderInvocation(missionId, userId, billing),
         );
 
-        // M0 stage: 已抽到 stages/10-leader-plan.stage.ts
+        // M0 stage: 已抽到 stages/s2-leader-plan.stage.ts
         const m0Ctx = this.buildStageCtx({
           missionId,
           userId,
@@ -893,7 +893,7 @@ export class ResearchTeamMission {
           },
         });
 
-        // ── ★ M1 ASSESS-RESEARCH（已抽到 stages/30-leader-assess-m1.stage.ts）──
+        // ── ★ M1 ASSESS-RESEARCH（已抽到 stages/s4-leader-assess-m1.stage.ts）──
         await runLeaderAssessM1Stage(
           this.buildStageCtx({
             missionId,
@@ -910,7 +910,7 @@ export class ResearchTeamMission {
           this.buildStageDeps(),
         );
 
-        // ── Stage B' (3.5): Reconciler 对账（已抽到 stages/40-reconciler.stage.ts）──
+        // ── Stage B' (3.5): Reconciler 对账（已抽到 stages/s5-reconciler.stage.ts）──
         const reconCtx = this.buildStageCtx({
           missionId,
           userId,
@@ -926,7 +926,7 @@ export class ResearchTeamMission {
         await runReconcilerStage(reconCtx, this.buildStageDeps());
         const reconciliationReport = reconCtx.reconciliationReport;
 
-        // ── Stage 3: Analyst 反思整合（已抽到 stages/50-analyst.stage.ts）──
+        // ── Stage 3: Analyst 反思整合（已抽到 stages/s6-analyst.stage.ts）──
         const analyst = await runAnalystStage(
           this.buildStageCtx({
             missionId,
@@ -944,7 +944,7 @@ export class ResearchTeamMission {
           this.buildStageDeps(),
         );
 
-        // ★ Phase P4-1: OutlinePlanner W1（已抽到 stages/55-writer-outline.stage.ts）
+        // ★ Phase P4-1: OutlinePlanner W1（已抽到 stages/s7-writer-outline.stage.ts）
         await runWriterOutlineStage(
           this.buildStageCtx({
             missionId,
@@ -1468,7 +1468,7 @@ export class ResearchTeamMission {
           }
         }
 
-        // ── Phase P1-4 / P37-1: L4 Critic（已抽到 stages/70-critic.stage.ts）
+        // ── Phase P1-4 / P37-1: L4 Critic（已抽到 stages/s9-critic.stage.ts）
         await runCriticStage(
           this.buildStageCtx({
             missionId,
@@ -1491,7 +1491,7 @@ export class ResearchTeamMission {
         );
 
         // ★ Phase Lead-Stages: M6 + M7 全部走 stage 文件
-        // services/mission/workflow/stages/80-leader-handoff.stage.ts
+        // services/mission/workflow/stages/s10-leader-handoff.stage.ts
         const stageCtx = this.buildStageCtx({
           missionId,
           userId,
