@@ -202,7 +202,9 @@ export class ReActLoop implements IAgentLoop {
     // ─── Phase P0-2: 多重出口闸 ─────────────────────────────────
     /** Wall-time 监控（mission-pipeline-exit-policy.md D9）—— 默认 180s/stage */
     const wallTimeStart = Date.now();
-    const wallTimeLimitMs = criteria.maxWallTimeMs ?? 180_000;
+    // ★ 默认 300s（5 min）—— 研究类 agent 需多次 tool_call（每次 web-search/scrape 5-30s），
+    //   180s 在 quick+low 档下经常擦边。spec 可显式覆盖 maxWallTimeMs。
+    const wallTimeLimitMs = criteria.maxWallTimeMs ?? 300_000;
     /** 同 toolId 连续失败计数（mission-pipeline-tool-failure-circuit.md D7=3）*/
     const TOOL_CIRCUIT_THRESHOLD = 3;
     const toolFailureCounters = new Map<string, number>();
