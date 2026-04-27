@@ -969,18 +969,39 @@ export class AgentRunner {
       if (this.toolRegistry.isAvailable(id)) baseSet.add(id);
     }
 
-    // Step 2. hint.categories 收窄（仅保留 ∈ spec 声明 categories 的工具）
+    // Step 2. hint.categories 收窄
+    //   实践中 spec.toolCategories 通常是粗粒度（如 ['information']），
+    //   而 Leader 的 hint.categories 倾向用细粒度（如 ['academic', 'community']）。
+    //   先按 ToolCategory 匹配；匹配不上时回退用 tool.tags 来匹配，让 Leader 提示
+    //   能真正起到收窄作用而不是静默失效。
     let pool = Array.from(baseSet);
     if (hint?.categories && hint.categories.length > 0) {
       const allowedCats = new Set<string>(declaredCategories);
       const hintCatsValid = hint.categories.filter((c) => allowedCats.has(c));
       if (hintCatsValid.length > 0) {
+        // ─ 路径 A：hint.categories 命中 spec.toolCategories ─
         const hintRecall = this.toolRegistry.listByCategory(hintCatsValid);
         const hintIds = new Set(hintRecall.map((t) => t.id));
-        // 收窄到 baseSet ∩ hintIds（保留 declaredIds 的精确 id 即使 cat 不在 hint）
         pool = pool.filter((id) => hintIds.has(id) || declaredIds.includes(id));
+      } else {
+        // ─ 路径 B：fallback 用 tool.tags 做 sub-category 匹配 ─
+        const hintTagSet = new Set(
+          hint.categories.map((c) => c.toLowerCase()),
+        );
+        const tagMatched: string[] = [];
+        for (const id of pool) {
+          const t = this.toolRegistry.tryGet(id);
+          const tags = (t?.tags ?? []).map((x) => x.toLowerCase());
+          if (tags.some((tg) => hintTagSet.has(tg))) tagMatched.push(id);
+        }
+        if (tagMatched.length > 0) {
+          // 匹配上了 → 用标签匹配的子集 + declaredIds 兜底
+          pool = tagMatched.concat(
+            declaredIds.filter((id) => !tagMatched.includes(id)),
+          );
+        }
+        // 标签也匹配不上 → 静默放弃 hint 收窄（保持基础池，不冒险删掉所有工具）
       }
-      // hintCatsValid 全部越界 → 静默放弃 hint 收窄（pool 保持基础召回）
     }
 
     // Step 3. excludeIds
