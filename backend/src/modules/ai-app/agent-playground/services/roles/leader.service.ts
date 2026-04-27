@@ -1,14 +1,15 @@
 /**
- * LeaderSupervisor —— Mission "领导"在工程层的承载体
+ * LeaderService —— Mission "领导"在工程层的承载体
  *
  * 设计决策 (mission-pipeline-baseline.md §Leader-as-Single-Responsibility):
  *   • 业务概念"领导（Leader）"在工程上是 SupervisedMission 实例
- *   • 它本身不是 LLM agent，是一个 TypeScript 类，承载跨 milestone 的 missionContext
- *   • 它**全程委托同一个 LeaderAgent LLM spec** 完成 4 个 milestone 的认知决策
+ *   • LeaderService 是 NestJS provider 工厂：每个 mission create() 一个 SupervisedMission
+ *   • SupervisedMission 是 TypeScript 类，承载跨 milestone 的 missionContext
+ *   • 全程委托同一个 LeaderAgent LLM spec 完成 4 个 milestone 的认知决策
  *   • 让 LeaderAgent 在 M7 签字时能引用自己 M0/M1/M6 的历史决策做真正的问责
  *
  * 用法:
- *   const leader = leaderSupervisor.create(missionId, userId, task);
+ *   const leader = leaderService.create(missionId, userId, task, runFn);
  *   const plan = await leader.plan();
  *   // ...researchers 跑完...
  *   const m1 = await leader.assessResearchers(researcherOutcomes);
@@ -25,8 +26,8 @@ import {
   type LeaderForewordOutput,
   type LeaderPlanOutput,
   type LeaderSignoffOutput,
-} from "../agents/leader/leader.agent";
-import { MissionStore } from "./mission-store.service";
+} from "../../agents/leader/leader.agent";
+import { MissionStore } from "../mission-store.service";
 
 // ── Public types ──
 
@@ -341,8 +342,8 @@ export class SupervisedMission {
 // ── Factory service (Nest provider) ──
 
 @Injectable()
-export class LeaderSupervisor {
-  private readonly log = new Logger(LeaderSupervisor.name);
+export class LeaderService {
+  private readonly log = new Logger(LeaderService.name);
 
   constructor(private readonly store: MissionStore) {}
 

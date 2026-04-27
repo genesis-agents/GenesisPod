@@ -27,7 +27,17 @@ import { HarnessFailureLearner } from "./services/harness-failure-learner.servic
 import { ReportAssemblerService } from "./services/report-assembler.service";
 import { MissionStateService } from "./services/mission-state.service";
 import { MissionAbortRegistry } from "./services/mission-abort.registry";
-import { LeaderSupervisor } from "./services/leader-supervisor.service";
+import {
+  AgentInvoker,
+  LeaderService,
+  ResearcherService,
+  ReconcilerService,
+  AnalystService,
+  WriterService,
+  ReviewerService,
+  VerifierService,
+  StewardService,
+} from "./services/roles";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { DomainEventBus, DomainEventRegistry } from "../../ai-engine/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
@@ -56,7 +66,16 @@ import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
     ReportAssemblerService,
     MissionStateService,
     MissionAbortRegistry,
-    LeaderSupervisor,
+    // ── Per-role services（Phase Lead-Services）──
+    AgentInvoker,
+    LeaderService,
+    ResearcherService,
+    ReconcilerService,
+    AnalystService,
+    WriterService,
+    ReviewerService,
+    VerifierService,
+    StewardService,
   ],
   exports: [MissionEventBuffer],
 })

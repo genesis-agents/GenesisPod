@@ -16,7 +16,8 @@
  *
  * 生命周期:
  *   AgentRunner.run(LeaderAgent, { phase: ..., ... })
- *   ↑ 由 LeaderSupervisor 在每个 milestone 调用，传入累积的 missionContext
+ *   ↑ 由 LeaderService.create() → SupervisedMission 在每个 milestone 调用，
+ *     传入累积的 missionContext
  */
 
 import { z } from "zod";
@@ -215,7 +216,7 @@ const Output = z.discriminatedUnion("phase", [
   }),
 ]);
 
-// 公开类型方便 LeaderSupervisor / orchestrator 使用
+// 公开类型方便 LeaderService / orchestrator 使用
 export type LeaderInput = z.infer<typeof Input>;
 export type LeaderOutput = z.infer<typeof Output>;
 export type LeaderPlanOutput = Extract<LeaderOutput, { phase: "plan" }>;

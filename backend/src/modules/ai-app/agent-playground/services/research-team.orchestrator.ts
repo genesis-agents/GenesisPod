@@ -44,10 +44,7 @@ import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
 import { LeaderAgent } from "../agents/leader/leader.agent";
-import {
-  LeaderSupervisor,
-  type SupervisedMission,
-} from "./leader-supervisor.service";
+import { LeaderService, SupervisedMission } from "./roles";
 import { ResearcherAgent } from "../agents/researcher/researcher.agent";
 import { ReconcilerAgent } from "../agents/reconciler/reconciler.agent";
 import { ReportAssemblerService } from "./report-assembler.service";
@@ -489,18 +486,18 @@ export class ResearchTeamOrchestrator {
     private readonly reportAssembler: ReportAssemblerService,
     private readonly missionState: MissionStateService,
     private readonly abortRegistry: MissionAbortRegistry,
-    private readonly leaderSupervisor: LeaderSupervisor,
+    private readonly leaderService: LeaderService,
   ) {}
 
   /**
-   * 给 LeaderSupervisor 用的 runFn —— 复用 orchestrator 的 runner +
+   * 给 LeaderService 用的 runFn —— 复用 orchestrator 的 runner +
    * 让 leader 调用同样走 BillingContext / event relay。
    */
   private buildLeaderRunFn(
     missionId: string,
     userId: string,
     billing: unknown,
-  ): import("./leader-supervisor.service").LeaderRunFn {
+  ): import("./roles/leader.service").LeaderRunFn {
     const fn = async <TIn, TOut>({
       spec,
       input,
@@ -1133,7 +1130,7 @@ export class ResearchTeamOrchestrator {
           );
         }
 
-        // ── Stage 1: Leader 拆维度（M0 plan via LeaderSupervisor）──
+        // ── Stage 1: Leader 拆维度（M0 plan via LeaderService）──
         await this.emit({
           type: "agent-playground.stage:started",
           missionId,
@@ -1143,7 +1140,7 @@ export class ResearchTeamOrchestrator {
         await this.lifecycle(missionId, userId, "leader", "leader", "started");
 
         // ★ Phase Lead-Final: Lead 全程在场 —— 创建 SupervisedMission，整 mission 复用
-        const leader: SupervisedMission = this.leaderSupervisor.create(
+        const leader: SupervisedMission = this.leaderService.create(
           missionId,
           userId,
           {
@@ -2671,7 +2668,7 @@ export class ResearchTeamOrchestrator {
           }
         }
 
-        // ★ Phase Lead-Final: M6 SYNTHESIS + M7 SIGN-OFF（统一通过 LeaderSupervisor）
+        // ★ Phase Lead-Final: M6 SYNTHESIS + M7 SIGN-OFF（统一通过 LeaderService）
         //
         // LeaderAgent 在这两个 milestone 看到自己 M0 的 goals 和 M1 的过程决策，
         // 最后在 M7 写 accountabilityNote 时被业务规则强制引用历史决策做问责。

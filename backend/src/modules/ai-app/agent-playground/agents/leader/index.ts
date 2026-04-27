@@ -9,7 +9,7 @@
  *
  * 每个 phase 的具体职责说明书见 duties/<phase>.md（duty-loader 加载）。
  *
- * 工程层封装见 services/leader-supervisor.service.ts (SupervisedMission)，
+ * 工程层封装见 services/leader.service.ts (SupervisedMission)，
  * 它持有 missionContext 跨 milestone 复用，让 LeaderAgent 在 M7 看到自己历史决策。
  */
 
