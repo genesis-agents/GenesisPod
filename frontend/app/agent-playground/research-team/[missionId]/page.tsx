@@ -1993,6 +1993,24 @@ function TaskDetailDrawer({
             </div>
           )}
 
+          {/* 自愈重试提示：dimension:retrying 累计 */}
+          {owner?.retryCount && owner.retryCount > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <p className="text-[11px] font-semibold text-amber-800">
+                ⟳ 自愈重试 · {owner.retryCount} 次
+              </p>
+              {owner.lastRetryReason && (
+                <p className="mt-0.5 font-mono text-[10px] text-amber-700">
+                  上次失败码: {owner.lastRetryReason}
+                </p>
+              )}
+              <p className="mt-1 text-[10px] leading-relaxed text-amber-700/80">
+                第一次跑挂在可恢复的失败码（schema 不达标 / wall-time / 解析失败），
+                Orchestrator 把预算 +50% 自动重试了一次。
+              </p>
+            </div>
+          )}
+
           {/* 6-STAGE MICRO PIPELINE 顶栏 — 仅 researcher 任务 */}
           {/* Quick depth 只跑 "采集"；standard/deep 才会启用大纲→撰写→审核章节流水线 */}
           {taskKey?.startsWith('researcher-') &&

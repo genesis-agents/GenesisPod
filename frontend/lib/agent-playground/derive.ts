@@ -70,6 +70,10 @@ export interface AgentLiveState {
   modelId?: string;
   /** lifecycle:failed 携带的失败消息（orchestrator 已用 extractFailureMessage 提取） */
   failureMessage?: string;
+  /** 自愈重试次数（dimension:retrying 事件累加） */
+  retryCount?: number;
+  /** 最近一次重试的原因 code（如 RUNNER_OUTPUT_SCHEMA_MISMATCH） */
+  lastRetryReason?: string;
   trace: AgentTraceItem[];
 }
 
@@ -239,6 +243,22 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           mission.themeSummary = p?.themeSummary as string | undefined;
           mission.dimensions = p?.dimensions as MissionState['dimensions'];
         }
+      }
+    } else if (t === 'agent-playground.dimension:retrying') {
+      // Researcher self-heal 重试：标记当前 agent retryCount 自增 + 记录 reason
+      const agentId = (p?.agentId as string | undefined) ?? ev.agentId;
+      if (agentId) {
+        const cur =
+          agents.get(agentId) ??
+          ({
+            agentId,
+            role: 'researcher' as AgentRole,
+            phase: 'pending' as AgentPhase,
+            trace: [],
+          } as AgentLiveState);
+        cur.retryCount = (cur.retryCount ?? 0) + 1;
+        cur.lastRetryReason = p?.reason as string | undefined;
+        agents.set(agentId, cur);
       }
     } else if (t === 'agent-playground.dimensions:appended') {
       // Leader chat 触发的动态追加：把新 dim 拼到 mission.dimensions 末尾
