@@ -985,22 +985,36 @@ export class AgentRunner {
         pool = pool.filter((id) => hintIds.has(id) || declaredIds.includes(id));
       } else {
         // ─ 路径 B：fallback 用 tool.tags 做 sub-category 匹配 ─
+        // 规则：
+        //   ① tool 声明了 tags 且与 hint 相交 → 入选（明确匹配）
+        //   ② tool 没声明 tags → 入选（视为 "通用工具"，如 web-search 类不应因
+        //      Leader 给了 academic hint 就被踢出）
+        //   ③ tool 声明了 tags 但与 hint 不相交 → 排除（明确不匹配）
         const hintTagSet = new Set(
           hint.categories.map((c) => c.toLowerCase()),
         );
-        const tagMatched: string[] = [];
+        const refinedPool: string[] = [];
         for (const id of pool) {
           const t = this.toolRegistry.tryGet(id);
-          const tags = (t?.tags ?? []).map((x) => x.toLowerCase());
-          if (tags.some((tg) => hintTagSet.has(tg))) tagMatched.push(id);
+          const tags = t?.tags;
+          if (!tags || tags.length === 0) {
+            refinedPool.push(id); // 通用工具兜底
+          } else if (
+            tags.some((tg) => hintTagSet.has(tg.toLowerCase()))
+          ) {
+            refinedPool.push(id); // 明确匹配
+          }
+          // 否则：明确不匹配，排除
         }
-        if (tagMatched.length > 0) {
-          // 匹配上了 → 用标签匹配的子集 + declaredIds 兜底
-          pool = tagMatched.concat(
-            declaredIds.filter((id) => !tagMatched.includes(id)),
-          );
+        // 不要让收窄后比 declaredIds 还少 —— 至少保 declaredIds 兜底
+        const refined = new Set(refinedPool);
+        for (const id of declaredIds) refined.add(id);
+        const refinedArr = Array.from(refined);
+        // 至少保留 1 个工具，避免误删整池
+        if (refinedArr.length > 0) {
+          pool = refinedArr;
         }
-        // 标签也匹配不上 → 静默放弃 hint 收窄（保持基础池，不冒险删掉所有工具）
+        // 标签也匹配不上 → 静默放弃 hint 收窄（保持基础池）
       }
     }
 
