@@ -32,6 +32,10 @@ export interface MissionDetail extends MissionListItem {
   reportFull: unknown;
   verdicts: unknown;
   trajectoryStored: number | null;
+  // Phase P3-19: v2 字段
+  reportArtifactVersion: number | null;
+  userProfile: unknown;
+  reconciliationReport: unknown;
 }
 
 @Injectable()
@@ -114,8 +118,34 @@ export class MissionStore {
       dimensions?: unknown;
       report?: { title?: string; summary?: string; [k: string]: unknown };
       verdicts?: unknown;
+      // ★ Phase P0-3 / P0-4：v2 持久化字段
+      reportArtifactVersion?: number;
+      userProfile?: unknown;
+      reconciliationReport?: unknown;
     },
   ): Promise<void> {
+    // Phase P17-2: report JSONB 大小 guard（PostgreSQL JSONB 默认 max ~1GB，
+    // 但 Prisma 序列化中间步会爆内存；超 5MB 时记 warning 并截断 fullMarkdown）
+    const MAX_REPORT_BYTES = 5 * 1024 * 1024;
+    if (data.report && typeof data.report === "object") {
+      const size = Buffer.byteLength(JSON.stringify(data.report), "utf8");
+      if (size > MAX_REPORT_BYTES) {
+        this.log.warn(
+          `[markCompleted ${id}] report size ${size} > ${MAX_REPORT_BYTES} bytes — truncating`,
+        );
+        const r = data.report as {
+          content?: { fullMarkdown?: string; fullReportSize?: number };
+        };
+        if (
+          r.content?.fullMarkdown &&
+          r.content.fullMarkdown.length > 100_000
+        ) {
+          r.content.fullMarkdown =
+            r.content.fullMarkdown.slice(0, 100_000) +
+            `\n\n... (truncated, ${size} bytes total)`;
+        }
+      }
+    }
     const update: Prisma.AgentPlaygroundMissionUpdateInput = {
       status: "completed",
       completedAt: new Date(),
@@ -130,6 +160,10 @@ export class MissionStore {
       verdicts: (data.verdicts ?? null) as Prisma.InputJsonValue,
       reportTitle: data.report?.title?.slice(0, 500) ?? null,
       reportSummary: data.report?.summary ?? null,
+      reportArtifactVersion: data.reportArtifactVersion ?? null,
+      userProfile: (data.userProfile ?? null) as Prisma.InputJsonValue,
+      reconciliationReport: (data.reconciliationReport ??
+        null) as Prisma.InputJsonValue,
     };
     // 防止覆盖用户已取消的 mission（updateMany 带 status='running' guard，
     // 已 cancelled / failed 的不会被改写为 completed）
@@ -317,6 +351,10 @@ export class MissionStore {
       reportFull: row.reportFull,
       verdicts: row.verdicts,
       trajectoryStored: row.trajectoryStored,
+      // ★ Phase P3-19: v2 字段
+      reportArtifactVersion: row.reportArtifactVersion,
+      userProfile: row.userProfile,
+      reconciliationReport: row.reconciliationReport,
     };
   }
 }
