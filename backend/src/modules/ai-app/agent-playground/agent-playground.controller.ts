@@ -20,7 +20,7 @@ import {
 import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
-import { ResearchTeamMission } from "./services/mission/workflow/research-team.mission";
+import { TeamMission } from "./services/mission/workflow/team.mission";
 import {
   RunMissionInputSchema,
   type RunMissionInput,
@@ -37,7 +37,7 @@ export class AgentPlaygroundController {
   private readonly log = new Logger(AgentPlaygroundController.name);
 
   constructor(
-    private readonly orchestrator: ResearchTeamMission,
+    private readonly orchestrator: TeamMission,
     private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly store: MissionStore,
@@ -347,13 +347,13 @@ export class AgentPlaygroundController {
   }
 
   /**
-   * POST /api/v1/agent-playground/research-team/run
+   * POST /api/v1/agent-playground/team/run
    *
    * fire-and-forget：立刻返回 missionId，mission 在后台跑，前端通过 socket join 监听事件。
    * 同时 /replay 端点提供 polling fallback。
    */
-  @Post("research-team/run")
-  runResearchTeam(
+  @Post("team/run")
+  runTeam(
     @Body() body: unknown,
     @Request() req: RequestWithUser,
   ): { missionId: string; streamNamespace: string } {

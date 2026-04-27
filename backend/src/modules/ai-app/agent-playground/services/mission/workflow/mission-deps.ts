@@ -1,7 +1,7 @@
 /**
  * MissionDeps —— stage 函数所需的依赖包
  *
- * 由 trunk research-team.mission.ts 在 runMission 入口装配一次，
+ * 由 trunk team.mission.ts 在 runMission 入口装配一次，
  * 然后传给每个 stage 函数。包括：
  *   - role services（per-role 路径）
  *   - lifecycle services（持久化 / 状态机 / abort）

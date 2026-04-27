@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
-  runResearchTeam,
+  runTeam,
   type AudienceProfile,
   type AuditLayers,
   type BudgetProfile,
@@ -137,7 +137,7 @@ export function DemoLauncher() {
     setError(null);
     setSubmitting(true);
     try {
-      const { missionId } = await runResearchTeam({
+      const { missionId } = await runTeam({
         topic: topic.trim(),
         depth,
         language,
@@ -154,7 +154,7 @@ export function DemoLauncher() {
       }
       // P42-2: 跳转后清 topic 字段（避免回退页面看到旧值困惑）
       setTopic('');
-      router.push(`/agent-playground/research-team/${missionId}`);
+      router.push(`/agent-playground/team/${missionId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

@@ -280,7 +280,7 @@ export default function PlaygroundIndexPage() {
     }
     try {
       const result = await rerunMission(mission.id);
-      router.push(`/agent-playground/research-team/${result.missionId}`);
+      router.push(`/agent-playground/team/${result.missionId}`);
     } catch (e) {
       alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
     }
@@ -347,7 +347,7 @@ export default function PlaygroundIndexPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => router.push('/agent-playground/research-team')}
+                onClick={() => router.push('/agent-playground/team')}
                 className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
               >
                 <PlusIcon className="h-5 w-5" />
@@ -397,7 +397,7 @@ export default function PlaygroundIndexPage() {
             {missions.length === 0 && (
               <button
                 type="button"
-                onClick={() => router.push('/agent-playground/research-team')}
+                onClick={() => router.push('/agent-playground/team')}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25"
               >
                 <PlusIcon className="h-5 w-5" />
@@ -420,9 +420,7 @@ export default function PlaygroundIndexPage() {
                 <MissionCard
                   key={m.id}
                   mission={m}
-                  onClick={() =>
-                    router.push(`/agent-playground/research-team/${m.id}`)
-                  }
+                  onClick={() => router.push(`/agent-playground/team/${m.id}`)}
                   onRerun={(mission) => void handleRerun(mission)}
                   onCancel={(mission) => void handleCancel(mission)}
                   onEdit={(mission) => void handleEdit(mission)}
@@ -433,7 +431,7 @@ export default function PlaygroundIndexPage() {
               {/* Create New Card — TI 风格末尾 dashed 占位 */}
               <button
                 type="button"
-                onClick={() => router.push('/agent-playground/research-team')}
+                onClick={() => router.push('/agent-playground/team')}
                 className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
               >
                 <PlusIcon className="h-10 w-10 text-gray-400" />

@@ -31,7 +31,7 @@ import {
   PipelineTimeline,
   RawEventLog,
   ReportPanel,
-  ResearchTeamModal,
+  TeamMissionModal,
   TaskListPanel,
   TeamRosterPanel,
   VerifyConsensusPanel,
@@ -408,7 +408,7 @@ export default function MissionDetailPage() {
                 void (async () => {
                   try {
                     const { missionId: newId } = await rerunMission(missionId);
-                    router.push(`/agent-playground/research-team/${newId}`);
+                    router.push(`/agent-playground/team/${newId}`);
                   } catch (e) {
                     window.alert(
                       `启动失败：${e instanceof Error ? e.message : String(e)}`
@@ -422,7 +422,7 @@ export default function MissionDetailPage() {
                   depth: view.mission.depth ?? 'standard',
                   language: view.mission.language ?? 'zh-CN',
                 }).toString();
-                router.push(`/agent-playground/research-team?${qs}`);
+                router.push(`/agent-playground/team?${qs}`);
               }}
               onCancel={() => {
                 if (!window.confirm('确认取消该 mission？')) return;
@@ -674,7 +674,7 @@ export default function MissionDetailPage() {
       />
 
       {/* Research Team micro-pipeline modal — triggered by clicking Research Team group node */}
-      <ResearchTeamModal
+      <TeamMissionModal
         open={researchTeamOpen}
         onClose={() => setResearchTeamOpen(false)}
         dimensions={view.mission.dimensions ?? []}

@@ -1,5 +1,5 @@
 /**
- * ResearchTeamMission —— mission 主剧本（trunk）
+ * TeamMission —— mission 主剧本（trunk）
  *
  * 11 个 stage 顺序串起 mission 全流程，每个 stage 是一个独立 .stage.ts 文件，
  * 命名规则：s{序号}-{agent}-{职责}.stage.ts
@@ -112,8 +112,8 @@ interface MissionResult {
 }
 
 @Injectable()
-export class ResearchTeamMission {
-  private readonly log = new Logger(ResearchTeamMission.name);
+export class TeamMission {
+  private readonly log = new Logger(TeamMission.name);
 
   constructor(
     private readonly runner: AgentRunner,
@@ -296,7 +296,7 @@ export class ResearchTeamMission {
       {
         userId,
         moduleType: "agent-playground",
-        operationType: "research-team",
+        operationType: "team",
         referenceId: missionId,
       },
       async () => {

@@ -78,10 +78,10 @@ function unwrapStandard<T>(raw: unknown): T {
   return raw as T;
 }
 
-export async function runResearchTeam(
+export async function runTeam(
   input: RunMissionInput
 ): Promise<RunMissionResponse> {
-  const res = await fetch(`${API_BASE}/research-team/run`, {
+  const res = await fetch(`${API_BASE}/team/run`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

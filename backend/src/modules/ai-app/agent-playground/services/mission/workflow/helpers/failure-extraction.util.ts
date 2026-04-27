@@ -2,7 +2,7 @@
  * Failure-extraction utilities — read agent event streams to derive
  * structured failure diagnostic + human-friendly message.
  *
- * 纯函数，无副作用，无依赖。从 mission/workflow/research-team.mission.ts 抽出。
+ * 纯函数，无副作用，无依赖。从 mission/workflow/team.mission.ts 抽出。
  */
 
 import type { HarnessIAgentEvent as IAgentEvent } from "../../../../../../ai-engine/facade";

@@ -11,4 +11,4 @@ export { RawEventLog } from './RawEventLog';
 export { TeamRosterPanel } from './TeamRosterPanel';
 export { TaskListPanel } from './TaskListPanel';
 export { LeaderChatModal } from './LeaderChatModal';
-export { ResearchTeamModal } from './ResearchTeamModal';
+export { TeamMissionModal } from './TeamMissionModal';

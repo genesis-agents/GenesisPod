@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ResearchTeamModal —— "研究团队" Group 节点展开后的 micro-pipeline 视图
+ * TeamMissionModal —— "研究团队" Group 节点展开后的 micro-pipeline 视图
  *
  * 每个维度一个独立 column / row 显示：
  *   Researcher → Outline → ChapterWriter → ChapterReviewer → Integrator → Judge
@@ -147,7 +147,7 @@ function StatusDot({
   return <Circle className="h-3 w-3 text-gray-300" />;
 }
 
-export function ResearchTeamModal({
+export function TeamMissionModal({
   open,
   onClose,
   dimensions,

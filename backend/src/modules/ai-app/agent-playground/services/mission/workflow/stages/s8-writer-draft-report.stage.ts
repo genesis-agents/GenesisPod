@@ -317,12 +317,11 @@ export async function runWriterStage(
   });
 
   // ── 2. Memory auto-index ──
-  const indexAgent =
-    lastWriterAgent ?? makeProxyAgent(missionId, "research-team");
+  const indexAgent = lastWriterAgent ?? makeProxyAgent(missionId, "team");
   const indexed = await deps.indexer
     .indexAgentTrajectory(indexAgent, lastWriterEvents, {
       namespace: workspaceId ?? userId,
-      source: "agent-playground.research-team",
+      source: "agent-playground.team",
       tags: [input.depth, input.topic],
       confidence: reviewScore / 100,
       metadata: { topic: input.topic, missionId },
@@ -365,7 +364,7 @@ export async function runWriterStage(
     .consumeCredits({
       userId,
       moduleType: "agent-playground",
-      operationType: "research-team",
+      operationType: "team",
       tokenCount: snap.poolTokensUsed,
       referenceId: missionId,
       description: `Research mission: ${input.topic}`,
