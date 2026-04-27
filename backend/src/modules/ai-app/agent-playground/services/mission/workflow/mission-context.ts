@@ -30,7 +30,7 @@ import type {
   RunMissionInput,
   ResearchReport,
 } from "../../../dto/run-mission.dto";
-import type { BillingRuntimeEnvAdapter } from "../../../adapters/billing-runtime-env.adapter";
+import type { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
 
 export interface MissionContext {
   // ── 不变量（装配时确定）──

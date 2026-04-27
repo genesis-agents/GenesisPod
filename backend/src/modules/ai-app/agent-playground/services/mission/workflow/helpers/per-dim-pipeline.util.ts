@@ -25,7 +25,7 @@ import { ChapterWriterAgent } from "../../../../agents/writer/chapter-writer.age
 import { ChapterReviewerAgent } from "../../../../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../../../../agents/writer/dimension-integrator.agent";
 import type { MissionDeps } from "../mission-deps";
-import type { BillingRuntimeEnvAdapter } from "../../../../adapters/billing-runtime-env.adapter";
+import type { BillingRuntimeEnvAdapter } from "../../../../../../ai-harness/facade";
 import type { MissionBudgetPool } from "../../../../../../ai-engine/facade";
 import { extractTokenSpend } from "./token-spend.util";
 import { extractFailureMessage } from "./failure-extraction.util";

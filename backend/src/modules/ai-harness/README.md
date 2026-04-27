@@ -71,8 +71,9 @@ core/loop/executor 也搬过来后整体删除。
 | **H1+H2** | scaffold + abstractions 搬迁                             | ✅ 完成 |
 | **H3**    | 整个 harness/ 子树搬入 ai-harness（18 个子目录）         | ✅ 完成 |
 | **H4**    | runtime/resource 通过 DI token 与 ai-harness 解耦        | ✅ 完成 |
-| H5        | billing 上下文从 ai-infra 抽到 ai-harness                | 待做    |
-| H6        | 删 ai-engine 兼容 shim + 严格化 eslint（移除 excludedFiles） | 待做    |
+| **H5**    | BillingRuntimeEnvAdapter 从 ai-app 抽到 ai-harness/runtime | ✅ 完成 |
+| **H6a**   | 删除 ai-engine/harness/ shim 目录（无 external 引用）     | ✅ 完成 |
+| H6b       | ai-app 全部从 ai-harness/facade 直接导入，删除 ai-engine/facade 的 Harness* re-export | 待做    |
 
 每个 PR 单独 mergeable + tsc EXIT=0。
 

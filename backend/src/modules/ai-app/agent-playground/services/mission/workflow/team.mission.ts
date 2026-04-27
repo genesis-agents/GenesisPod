@@ -64,7 +64,7 @@ import {
   resolveMissionCredits,
   type RunMissionInput,
 } from "../../../dto/run-mission.dto";
-import { BillingRuntimeEnvAdapter } from "../../../adapters/billing-runtime-env.adapter";
+import { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { HarnessFailureLearner } from "../../failure-learning/harness-failure-learner.service";
 import type { MissionContext } from "./mission-context";

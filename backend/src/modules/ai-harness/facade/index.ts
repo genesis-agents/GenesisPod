@@ -19,3 +19,4 @@
 
 export * from "../abstractions";
 export { HarnessFacade } from "./harness.facade";
+export { BillingRuntimeEnvAdapter } from "../runtime/billing-runtime-env.adapter";

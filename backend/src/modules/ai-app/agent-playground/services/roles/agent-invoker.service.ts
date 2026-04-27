@@ -23,7 +23,7 @@ import {
   type DomainEvent,
   type HarnessIAgentEvent as IAgentEvent,
 } from "../../../../ai-engine/facade";
-import { BillingRuntimeEnvAdapter } from "../../adapters/billing-runtime-env.adapter";
+import { BillingRuntimeEnvAdapter } from "../../../../ai-harness/facade";
 import { MissionAbortRegistry } from "../mission/lifecycle/mission-abort.registry";
 import { HarnessFailureLearner } from "../failure-learning/harness-failure-learner.service";
 
