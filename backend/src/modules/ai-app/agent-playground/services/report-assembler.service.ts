@@ -288,22 +288,24 @@ export class ReportAssemblerService {
       urlIdx.set(url, n);
       return n;
     };
-    // 两种 LLM 常见的"非 [N]"引用形式：
+    // 三种 LLM 常见的引用形式 —— 用一个跨形式正则扫"document 顺序"统一映射：
     //   A. markdown 链接：[anchor text](https://...)
     //   B. 裸 URL 装括号：[https://...]
-    const linkRe = /\[([^\]\n]+?)\]\((https?:\/\/[^\s)]+)\)/g;
-    const bareUrlRe = /\[(https?:\/\/[^\]\s]+)\]/g;
+    //   C. 已经是 [N] 数字编号 —— 保留不动（Writer 自己就用对了）
+    // 顺序统一编号：document 中第一个出现的 URL 就是 [1]，第二个是 [2]，依此类推。
+    const unifiedRe =
+      /(\[\d+\])|\[([^\]\n]+?)\]\((https?:\/\/[^\s)]+)\)|\[(https?:\/\/[^\]\s]+)\]/g;
     const transform = (body: string | undefined): string => {
       if (!body) return body ?? "";
-      let out = body.replace(linkRe, (_m, _anchor: string, url: string) => {
-        const n = assignIdx(url);
-        return `[${n}]`;
-      });
-      out = out.replace(bareUrlRe, (_m, url: string) => {
-        const n = assignIdx(url);
-        return `[${n}]`;
-      });
-      return out;
+      return body.replace(
+        unifiedRe,
+        (_m, alreadyN, _anchor, mdUrl, bareUrl) => {
+          if (alreadyN) return alreadyN as string; // [N] 已是数字编号，原样保留
+          const url: string = mdUrl ?? bareUrl;
+          const n = assignIdx(url);
+          return `[${n}]`;
+        },
+      );
     };
     const summaryT = transform(input.writerReport.summary);
     for (const sec of sectionsCopy) {
