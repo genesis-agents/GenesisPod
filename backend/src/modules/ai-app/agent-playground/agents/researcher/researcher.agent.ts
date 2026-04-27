@@ -23,6 +23,12 @@ const Input = z.object({
   topic: z.string(),
   dimension: z.string(),
   language: z.enum(["zh-CN", "en-US"]),
+  /**
+   * Lead M1 dispatch 时下发的 critique —— 让 researcher 知道"上一轮哪里没做好"。
+   * 自愈 retry 也通过 topicSuffix 走，但 Lead 给的 critique 含具体维度反馈，
+   * 走单独字段表达"这是 Lead 让你回炉重做"，不混进 topic。
+   */
+  critique: z.string().optional(),
 });
 
 const Output = z.object({
@@ -101,9 +107,21 @@ const Output = z.object({
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
     const currentDate = new Date().toISOString().slice(0, 10);
+    const critiqueBlock = input.critique
+      ? [
+          ``,
+          `## ★ Lead M1 critique（你必须回应这个）`,
+          `Lead 在 M1 评估了你上一轮的产出，指出以下问题：`,
+          `> ${input.critique}`,
+          `这次重做必须直接回应这些问题（覆盖率 / 来源质量 / 证据具体度）。`,
+          `不要原样重复上一轮的 query 和 finding。`,
+        ].join("\n")
+      : "";
+
     return [
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
+      critiqueBlock,
       ``,
       `## Tool selection`,
       `查看 <available_tools> block —— 那是 runtime 从 ToolRegistry 实时召回的工具集，`,

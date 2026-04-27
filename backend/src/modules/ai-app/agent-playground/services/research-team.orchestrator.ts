@@ -74,6 +74,21 @@ import { BillingRuntimeEnvAdapter } from "../adapters/billing-runtime-env.adapte
 import { MissionStore } from "./mission-store.service";
 import { HarnessFailureLearner } from "./harness-failure-learner.service";
 
+/**
+ * 维度元数据（Lead M0 plan 产出 / M1 redirect 追加都用这个 shape）。
+ * 与 LeaderAgent 的 Dimension schema 同构，dispatch 重派 researcher 时传给 toolRecallHint。
+ */
+interface PlanDimensionLite {
+  id: string;
+  name: string;
+  rationale: string;
+  toolHint?: {
+    categories: readonly string[];
+    preferIds?: readonly string[];
+  };
+  dependsOn?: readonly string[];
+}
+
 interface MissionResult {
   readonly missionId: string;
   readonly report: ResearchReport;
@@ -522,6 +537,296 @@ export class ResearchTeamOrchestrator {
       };
     };
     return fn;
+  }
+
+  /**
+   * Lead M1 dispatch：把 leader.assessResearchers() 的决策落到实际调度上。
+   *
+   * 处理范围（每条 perDimension action）:
+   *   accept / accept-degraded → no-op，保留原 researcher 产出
+   *   retry-with-critique      → 重派 ResearcherAgent，input 带 critique，覆盖原结果
+   *   replace-spec             → 当前只注册了 ResearcherAgent，降级为带提示的 retry
+   *   abort                    → 该 dim 标记空 findings + summary "(aborted by Lead)"
+   * newDimensions[]            → 追加 dim 到 plan + 跑 ResearcherAgent，append 到结果
+   *
+   * 设计取舍：
+   *   - retry/extend 不再走 per-dim chapter pipeline（避免 M1 后耗时翻倍）
+   *   - 失败的 retry 不再二次自愈（self-heal 已在 researcher loop 内做过）
+   *   - mutate researcherResults / plan.dimensions 而不是返回新数组（下游已持有引用）
+   */
+  private async dispatchLeadM1Actions(args: {
+    missionId: string;
+    userId: string;
+    input: RunMissionInput;
+    plan: { dimensions: PlanDimensionLite[] };
+    researcherResults: {
+      dimension: string;
+      findings: unknown[];
+      summary: string;
+    }[];
+    m1: {
+      decision: "accept-all" | "patch" | "redirect" | "abort";
+      perDimension: {
+        dimensionId: string;
+        action:
+          | "accept"
+          | "accept-degraded"
+          | "retry-with-critique"
+          | "replace-spec"
+          | "abort";
+        critique?: string;
+        newAgentSpecId?: string;
+      }[];
+      newDimensions: PlanDimensionLite[];
+    };
+    billing: BillingRuntimeEnvAdapter;
+    budgetMultiplier: number;
+    pool: MissionBudgetPool;
+  }): Promise<{
+    retried: number;
+    aborted: number;
+    appended: number;
+    skipped: number;
+  }> {
+    const {
+      missionId,
+      userId,
+      input,
+      plan,
+      researcherResults,
+      m1,
+      billing,
+      budgetMultiplier,
+      pool,
+    } = args;
+
+    let retried = 0;
+    let aborted = 0;
+    let appended = 0;
+    let skipped = 0;
+
+    // ── per-dim actions ──
+    for (const action of m1.perDimension) {
+      const idx = plan.dimensions.findIndex((d) => d.id === action.dimensionId);
+      if (idx < 0) {
+        this.log.warn(
+          `[${missionId}] M1 dispatch: dim id "${action.dimensionId}" not in plan, skipped`,
+        );
+        skipped++;
+        continue;
+      }
+      const dim = plan.dimensions[idx];
+      if (action.action === "accept" || action.action === "accept-degraded") {
+        continue;
+      }
+      if (action.action === "abort") {
+        researcherResults[idx] = {
+          dimension: dim.name,
+          findings: [],
+          summary: `(aborted by Lead M1: ${action.critique?.slice(0, 200) ?? "abandoned"})`,
+        };
+        aborted++;
+        await this.emit({
+          type: "agent-playground.dimension:retrying",
+          missionId,
+          userId,
+          agentId: `researcher#${idx}`,
+          payload: {
+            dimension: dim.name,
+            reason: "leader-m1-abort",
+            critique: action.critique,
+          },
+        }).catch(() => {});
+        continue;
+      }
+      // retry-with-critique / replace-spec → 都走带 critique 的 researcher 重派
+      const critique =
+        action.action === "replace-spec"
+          ? `[Lead M1 要求换 spec → 当前只注册了 ResearcherAgent，请用更激进的搜索策略] ${action.critique ?? ""} ${action.newAgentSpecId ? `(原意换为 ${action.newAgentSpecId})` : ""}`.trim()
+          : (action.critique ??
+            "Lead 在 M1 要求重做该维度，请提升覆盖率与来源质量");
+
+      await this.emit({
+        type: "agent-playground.dimension:retrying",
+        missionId,
+        userId,
+        agentId: `researcher#${idx}`,
+        payload: {
+          dimension: dim.name,
+          reason:
+            action.action === "replace-spec"
+              ? "leader-m1-replace"
+              : "leader-m1-retry",
+          critique,
+          bumpedBudgetMultiplier: budgetMultiplier * 1.3,
+        },
+      }).catch(() => {});
+
+      const newOut = await this.runResearcherForLeadDispatch({
+        missionId,
+        userId,
+        input,
+        dim,
+        idx,
+        billing,
+        budgetMultiplier: budgetMultiplier * 1.3,
+        pool,
+        critique,
+        retryLabel: `lead-m1-${action.action === "replace-spec" ? "replace" : "retry"}`,
+      });
+      if (newOut) {
+        researcherResults[idx] = newOut;
+        retried++;
+      } else {
+        skipped++;
+      }
+    }
+
+    // ── newDimensions[] (redirect) ──
+    for (const newDim of m1.newDimensions) {
+      // 确保 id 不冲突
+      if (plan.dimensions.some((d) => d.id === newDim.id)) {
+        this.log.warn(
+          `[${missionId}] M1 dispatch: newDimension id "${newDim.id}" conflicts with existing dim, skipped`,
+        );
+        skipped++;
+        continue;
+      }
+      plan.dimensions.push(newDim);
+      const idx = plan.dimensions.length - 1;
+      await this.emit({
+        type: "agent-playground.dimension:retrying",
+        missionId,
+        userId,
+        agentId: `researcher#${idx}`,
+        payload: {
+          dimension: newDim.name,
+          reason: "leader-m1-extend",
+          rationale: newDim.rationale,
+        },
+      }).catch(() => {});
+      const out = await this.runResearcherForLeadDispatch({
+        missionId,
+        userId,
+        input,
+        dim: newDim,
+        idx,
+        billing,
+        budgetMultiplier,
+        pool,
+        critique: `Lead 在 M1 追加了这个维度（rationale: ${newDim.rationale.slice(0, 150)}）`,
+        retryLabel: "lead-m1-extend",
+      });
+      researcherResults.push(
+        out ?? {
+          dimension: newDim.name,
+          findings: [],
+          summary: "(failed: lead-m1-extend dispatch produced no output)",
+        },
+      );
+      if (out) appended++;
+      else skipped++;
+    }
+
+    return { retried, aborted, appended, skipped };
+  }
+
+  /**
+   * 单 dim 的 ResearcherAgent 重派（M1 dispatch 用）。
+   *
+   * 与主 dispatch 路径的区别：
+   *   - 不跑 per-dim chapter pipeline（M1 已经在 reconciler 之前，时间敏感）
+   *   - 不做二次 self-heal（researcher 内层失败就接受 degraded）
+   *   - 不再 lookup 跨 mission failure pattern（原 dispatch 已查过）
+   *   - 失败时返回 null，由调用方决定占位
+   */
+  private async runResearcherForLeadDispatch(args: {
+    missionId: string;
+    userId: string;
+    input: RunMissionInput;
+    dim: PlanDimensionLite;
+    idx: number;
+    billing: BillingRuntimeEnvAdapter;
+    budgetMultiplier: number;
+    pool: MissionBudgetPool;
+    critique: string;
+    retryLabel: string;
+  }): Promise<{
+    dimension: string;
+    findings: { claim: string; evidence: string; source: string }[];
+    summary: string;
+  } | null> {
+    const {
+      missionId,
+      userId,
+      input,
+      dim,
+      idx,
+      billing,
+      budgetMultiplier,
+      pool,
+      critique,
+      retryLabel,
+    } = args;
+    const agentId = `researcher#${idx}.${retryLabel}`;
+    await this.lifecycle(missionId, userId, agentId, "researcher", "started", {
+      dimension: dim.name,
+      retryLabel,
+    });
+    const r = await this.runAndRelay(
+      ResearcherAgent,
+      {
+        topic: input.topic,
+        dimension: dim.name,
+        language: input.language,
+        critique,
+      },
+      {
+        missionId,
+        userId,
+        agentId,
+        role: "researcher",
+        envAdapter: billing,
+        budgetMultiplier,
+        toolRecallHint: dim.toolHint
+          ? {
+              categories: dim.toolHint.categories,
+              preferIds: dim.toolHint.preferIds,
+            }
+          : undefined,
+      },
+    );
+    await this.tickCostDelta(
+      missionId,
+      userId,
+      "researchers",
+      pool,
+      extractTokenSpend(r.events),
+    );
+    await this.lifecycle(
+      missionId,
+      userId,
+      agentId,
+      "researcher",
+      r.state === "completed" ? "completed" : "failed",
+      {
+        wallTimeMs: r.wallTimeMs,
+        iterations: r.iterations,
+        dimension: dim.name,
+        retryLabel,
+        error: extractFailureMessage(r.events, r.state, !!r.output, {
+          iterations: r.iterations,
+          wallTimeMs: r.wallTimeMs,
+        }),
+      },
+    );
+    if (r.state !== "completed" || !r.output) return null;
+    const out = r.output as {
+      dimension: string;
+      findings: { claim: string; evidence: string; source: string }[];
+      summary: string;
+    };
+    return out;
   }
 
   async runMission(
@@ -1374,18 +1679,32 @@ export class ResearchTeamOrchestrator {
               `Lead aborted mission after assess-research: ${m1.rationale.slice(0, 200)}`,
             );
           }
-          // patch / redirect 的 retry / replace / abort-dim / extend 处理
-          // —— 当前最小实现：只 emit 决策事件 + 日志记录，不立即触发重派。
-          // 因为 self-heal 已在 researcher loop 内做过，重复 retry 收益有限。
-          // 后续 PR (PR-Lead-M1-Actions) 在此处接入：
-          //   - retry-with-critique → 再派一次 ResearcherAgent 带 critique
-          //   - replace-spec → 用 newAgentSpecId 派不同 spec
-          //   - abort（per-dim）→ 该 dim mark degraded，下游 Reconciler 跳过
-          //   - redirect with newDimensions[] → 追加新 dim 走完整 researcher path
+          // ★ Phase Lead-E: M1 patch/redirect dispatch —— Lead 决策真正落到调度
           if (m1.decision === "patch" || m1.decision === "redirect") {
-            this.log.warn(
-              `[${missionId}] Leader M1 decision=${m1.decision} but per-dim retry/replace/extend dispatch not yet wired. perDimension actions logged in leader_journal for trace.`,
+            const stats = await this.dispatchLeadM1Actions({
+              missionId,
+              userId,
+              input,
+              plan,
+              researcherResults,
+              m1,
+              billing,
+              budgetMultiplier,
+              pool,
+            });
+            this.log.log(
+              `[${missionId}] Leader M1 dispatch=${m1.decision}: retried=${stats.retried} aborted=${stats.aborted} appended=${stats.appended} skipped=${stats.skipped}`,
             );
+            await this.emit({
+              type: "agent-playground.leader:decision",
+              missionId,
+              userId,
+              payload: {
+                phase: "assess-research-dispatched",
+                decision: m1.decision,
+                stats,
+              },
+            }).catch(() => {});
           }
         } catch (err) {
           if (err instanceof Error && err.message.startsWith("Lead aborted")) {
