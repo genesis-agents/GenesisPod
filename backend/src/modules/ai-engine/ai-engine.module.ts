@@ -40,9 +40,9 @@ import { AiEngineKnowledgeModule } from "./ai-engine-knowledge.module";
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
 import { CollaborationModule } from "./agents/collaboration/collaboration.module";
-import { RealtimeModule } from "./runtime/realtime/realtime.module";
-import { RuntimeModule } from "./runtime/runtime.module";
-import { HarnessModule } from "../ai-harness/harness.module";
+// ★ HarnessModule / RuntimeModule / RealtimeModule 由 app.module.ts 直接装配
+// （它们都是 @Global() — providers 自动跨模块可注入）。
+// AI Engine 不再反向依赖 ai-harness。
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -77,10 +77,8 @@ import { MCPClientRegistryService } from "./mcp/registry/mcp-client-registry.ser
 // Capabilities
 import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
 
-// Observability: core services provided by ObservabilityModule (@Global);
-// only AiEngineTracingService and EvalPipelineService are engine-local extensions.
-import { AiEngineTracingService } from "./runtime/observability/ai-engine-tracing.service";
-import { EvalPipelineService } from "./runtime/observability/eval-pipeline.service";
+// Observability core 全部由 ai-harness/ObservabilityModule (@Global) 提供，
+// 包括 AiEngineTracingService / EvalPipelineService — engine 不再注册它们。
 
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
@@ -129,9 +127,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     EvidenceModule,
     QualityModule,
     CollaborationModule,
-    RealtimeModule,
-    RuntimeModule,
-    HarnessModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -159,9 +154,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Capabilities ===
     AICapabilityResolver,
 
-    // === Observability (core services come from ObservabilityModule @Global) ===
-    AiEngineTracingService,
-    EvalPipelineService,
+    // === Observability (全部由 ai-harness/ObservabilityModule @Global 提供) ===
 
     // === Prompt Registry ===
     PromptRegistryService,
@@ -193,9 +186,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     EvidenceModule,
     QualityModule,
     CollaborationModule,
-    RealtimeModule,
-    RuntimeModule,
-    HarnessModule,
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -214,9 +204,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Capabilities ===
     AICapabilityResolver,
 
-    // === Observability (core services from ObservabilityModule @Global) ===
-    AiEngineTracingService,
-    EvalPipelineService,
+    // === Observability (全部由 ai-harness/ObservabilityModule @Global 提供) ===
 
     // === Prompt Registry ===
     PromptRegistryService,

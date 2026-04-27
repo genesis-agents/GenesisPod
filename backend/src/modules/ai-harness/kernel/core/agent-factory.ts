@@ -13,7 +13,7 @@ import { randomUUID } from "crypto";
 // timing issues on sibling providers (LlmExecutor was losing AiChatService
 // resolution in prod when this was a constructor @Optional inject).
 import type { ModelElectionService } from "../../../ai-engine/llm/election";
-import type { EnvironmentSnapshot } from "../../../ai-engine/runtime/resource/runtime-environment.types";
+import type { EnvironmentSnapshot } from "../../../ai-harness/governance/resource/runtime-environment.types";
 import type {
   IAgent,
   IAgentLoop,

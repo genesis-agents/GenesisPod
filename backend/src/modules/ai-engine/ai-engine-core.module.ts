@@ -31,15 +31,16 @@ import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
-// Observability
-import { AiEngineTracingService } from "./runtime/observability/ai-engine-tracing.service";
-import { ObservabilityModule } from "./runtime/observability/observability.module";
-
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
 // Capabilities
 import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
+
+// Observability core 由 ai-harness/ObservabilityModule (@Global) 提供 —
+// 由 app.module.ts 统一装配，本轻量模块不直接依赖 ai-harness，
+// 但消费者仍可注入 AiEngineTracingService / SessionLatencyTrackerService 等
+// （得益于 @Global 提供器的全局可见性）。
 
 @Module({
   imports: [
@@ -47,22 +48,18 @@ import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability
     SecretsModule,
     AiEngineLLMModule,
     AiEngineConstraintModule,
-    ObservabilityModule,
   ],
   providers: [
     ...FACADE_FEATURE_PROVIDERS,
     AIEngineFacade,
     AICapabilityResolver,
-    AiEngineTracingService,
     PromptRegistryService,
   ],
   exports: [
     AiEngineLLMModule,
     AiEngineConstraintModule,
-    ObservabilityModule,
     AIEngineFacade,
     AICapabilityResolver,
-    AiEngineTracingService,
     PromptRegistryService,
   ],
 })

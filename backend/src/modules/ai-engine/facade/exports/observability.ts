@@ -1,12 +1,12 @@
 /**
  * Observability exports
  */
-export { TraceCollectorService } from "../../runtime/observability/trace-collector.service";
-export { AiObservabilityService } from "../../runtime/observability/ai-observability.service";
-export { CostAttributionService } from "../../runtime/observability/cost-attribution.service";
-export { SessionLatencyTrackerService } from "../../runtime/observability/session-latency-tracker.service";
-export { EvalPipelineService } from "../../runtime/observability/eval-pipeline.service";
-export type { TraceType } from "../../runtime/observability/trace.interface";
+export { TraceCollectorService } from "../../../ai-harness/governance/observability/trace-collector.service";
+export { AiObservabilityService } from "../../../ai-harness/governance/observability/ai-observability.service";
+export { CostAttributionService } from "../../../ai-harness/governance/observability/cost-attribution.service";
+export { SessionLatencyTrackerService } from "../../../ai-harness/governance/observability/session-latency-tracker.service";
+export { EvalPipelineService } from "../../../ai-harness/governance/observability/eval-pipeline.service";
+export type { TraceType } from "../../../ai-harness/governance/observability/trace.interface";
 export type {
   SpanType,
   ExecutionStatus,
@@ -18,4 +18,4 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../../runtime/observability/trace.interface";
+} from "../../../ai-harness/governance/observability/trace.interface";

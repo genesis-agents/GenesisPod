@@ -5,12 +5,12 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../../ai-engine/runtime/abstractions";
+} from "../../../ai-harness/runtime/abstractions";
 
 export type {
   A2AMessage,
   A2AMessageType,
-} from "../../../ai-engine/runtime/abstractions";
+} from "../../../ai-harness/runtime/abstractions";
 
 /**
  * Message Bus Service

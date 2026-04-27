@@ -17,10 +17,10 @@
 
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AgentRegistry } from "../../agents/registry/agent-registry";
-import { ToolRegistry } from "../../tools/registry/tool-registry";
-import { SkillRegistry } from "../../skills/registry/skill-registry";
-import { AiChatModelConfigService } from "../../llm/services/ai-chat-model-config.service";
+import { AgentRegistry } from "../../../ai-engine/agents/registry/agent-registry";
+import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
+import { AiChatModelConfigService } from "../../../ai-engine/llm/services/ai-chat-model-config.service";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import {

@@ -12,7 +12,7 @@ export { PromptSkillBridge } from "../skills/runtime";
 export type {
   RoomConfig,
   EngineEvent,
-} from "../runtime/realtime/abstractions/event-emitter.interface";
+} from "../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
 export type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
 export type { AICapabilityContext } from "../orchestration/capabilities/ai-capability-resolver.service";
 export type {
@@ -25,7 +25,7 @@ export type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
-export { TaskCompletionType } from "../runtime/resource/circuit-breaker.service";
+export { TaskCompletionType } from "../../ai-harness/governance/resource/circuit-breaker.service";
 export { UserIntent } from "../orchestration/services/interfaces";
 export type { TeamInfo } from "../teams/services/teams.service";
 
@@ -100,7 +100,7 @@ export type {
   CompressionOptions,
 } from "../orchestration/services/interfaces";
 export { ContextStrategy } from "../orchestration/services/interfaces";
-export { ConstraintEnforcementService } from "../runtime/resource/constraint-enforcement.service";
+export { ConstraintEnforcementService } from "../../ai-harness/governance/resource/constraint-enforcement.service";
 export type {
   ConstraintSeverity,
   ExtractedConstraint,
@@ -127,7 +127,7 @@ export type {
   ContextEvolutionConfig,
 } from "../orchestration/services/interfaces";
 export { AgentExecutorService } from "../orchestration/services/agent-executor.service";
-export { CircuitBreakerService } from "../runtime/resource/circuit-breaker.service";
+export { CircuitBreakerService } from "../../ai-harness/governance/resource/circuit-breaker.service";
 export { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
@@ -375,17 +375,17 @@ export type {
 } from "../safety/guardrails/guardrails.interface";
 
 // ★ Batch 2 — Observability（for admin monitoring and health checks）
-export { TraceCollectorService } from "../runtime/observability/trace-collector.service";
-export { AiObservabilityService } from "../runtime/observability/ai-observability.service";
-export { CostAttributionService } from "../runtime/observability/cost-attribution.service";
-export { EvalPipelineService } from "../runtime/observability/eval-pipeline.service";
+export { TraceCollectorService } from "../../ai-harness/governance/observability/trace-collector.service";
+export { AiObservabilityService } from "../../ai-harness/governance/observability/ai-observability.service";
+export { CostAttributionService } from "../../ai-harness/governance/observability/cost-attribution.service";
+export { EvalPipelineService } from "../../ai-harness/governance/observability/eval-pipeline.service";
 // ★ Batch 2 Topic Insights — Eval types
-export type { EvalResult } from "../runtime/observability/eval-pipeline.service";
-export type { TraceType } from "../runtime/observability/trace.interface";
+export type { EvalResult } from "../../ai-harness/governance/observability/eval-pipeline.service";
+export type { TraceType } from "../../ai-harness/governance/observability/trace.interface";
 
 // ★ Batch 2 — Realtime（for mcp-server streaming bridge）
-export { EventBusService as EngineEventEmitterService } from "../runtime/ipc/event-bus.service";
-export { ProgressTrackerService } from "../runtime/ipc/progress-tracker.service";
+export { EventBusService as EngineEventEmitterService } from "../../ai-harness/protocol/ipc/event-bus.service";
+export { ProgressTrackerService } from "../../ai-harness/protocol/ipc/progress-tracker.service";
 
 // ★ Batch 2 — Content services（for office re-exports）
 export { ImageMatchingService } from "../content/image/matching/image-matching.service";
@@ -443,7 +443,7 @@ export type {
   IEngineEventEmitter,
   ProgressEvent,
   RoomType,
-} from "../runtime/realtime/abstractions/event-emitter.interface";
+} from "../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
 
 // Progress tracker
 export type {
@@ -451,8 +451,8 @@ export type {
   TrackedTask,
   CreateTrackedTaskRequest,
   TaskPhase,
-} from "../runtime/realtime/abstractions/progress-tracker.interface";
-export { calculateOverallProgress } from "../runtime/realtime/abstractions/progress-tracker.interface";
+} from "../../ai-harness/protocol/realtime/abstractions/progress-tracker.interface";
+export { calculateOverallProgress } from "../../ai-harness/protocol/realtime/abstractions/progress-tracker.interface";
 
 // Trace / Observability (expand existing TraceType re-export)
 export type {
@@ -466,7 +466,7 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../runtime/observability/trace.interface";
+} from "../../ai-harness/governance/observability/trace.interface";
 
 // A2A messaging
 export type {
@@ -655,7 +655,7 @@ export {
 } from "../orchestration/services";
 
 // ★ Session Latency Tracking (re-export for AI App convenience)
-export { SessionLatencyTrackerService } from "../runtime/observability/session-latency-tracker.service";
+export { SessionLatencyTrackerService } from "../../ai-harness/governance/observability/session-latency-tracker.service";
 export type {
   LatencySession,
   LatencyPhase,
@@ -671,7 +671,7 @@ export type {
   StartPhaseInput,
   RecordLLMLatencyInput,
   ListSessionsFilter,
-} from "../runtime/observability/session-latency.types";
+} from "../../ai-harness/governance/observability/session-latency.types";
 
 // ★ Runtime exports (formerly ai-engine/facade, PR 7)
 export * from "./exports/runtime";

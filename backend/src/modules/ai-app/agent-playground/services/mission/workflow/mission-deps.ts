@@ -33,7 +33,7 @@ import type {
   DomainEventBus,
 } from "../../../../../ai-harness/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
-import type { RuntimeEnvironmentService } from "../../../../../ai-engine/runtime/resource/runtime-environment.service";
+import type { RuntimeEnvironmentService } from "../../../../../ai-harness/governance/resource/runtime-environment.service";
 
 /** 通用 emit 签名（来自 mission class） */
 export type EmitFn = (args: {

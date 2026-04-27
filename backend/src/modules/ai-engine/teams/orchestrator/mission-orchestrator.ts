@@ -35,7 +35,7 @@ import {
   ResourceUsage,
   mergeConstraintProfiles,
 } from "../constraints";
-import { ConstraintEngine } from "../../runtime/resource/constraint-engine";
+import { ConstraintEngine } from "../../../ai-harness/governance/resource/constraint-engine";
 import {
   IMissionOrchestrator,
   MissionExecutionPlan,
@@ -70,20 +70,20 @@ import {
 } from "../../llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
+import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
 import { CheckpointManager } from "../../../ai-harness/protocol/journal/checkpoint-manager";
-import { MessageBusService as A2AMessageBusService } from "../../runtime/ipc/message-bus.service";
+import { MessageBusService as A2AMessageBusService } from "../../../ai-harness/protocol/ipc/message-bus.service";
 import {
   ExecutionContext,
   StepResult,
 } from "../../orchestration/abstractions/orchestrator.interface";
-import { MissionExecutorService } from "../../runtime/mission/mission-executor.service";
+import { MissionExecutorService } from "../../../ai-harness/runtime/mission/mission-executor.service";
 import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
 import { HierarchicalMemoryCascadeService } from "../../../ai-harness/memory/working/hierarchical-memory-cascade.service";
 import {
   AgentLifecycleProtocolService,
   type TaskNotificationPayload,
-} from "../../runtime/ipc/agent-lifecycle-protocol.service";
+} from "../../../ai-harness/protocol/ipc/agent-lifecycle-protocol.service";
 import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,

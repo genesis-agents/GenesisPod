@@ -347,15 +347,21 @@ module.exports = {
       // （依赖方向必须单向：ai-app → ai-harness → ai-engine）
       //
       // 单向依赖 ai-app → ai-harness → ai-engine
-      // PR-R1 后 ai-engine/facade 重新有 ai-harness re-export（process supervisor 等
-      // 历史 ai-app 调用点的兼容出口）；ai-engine/runtime/{journal,memory,resource,
-      // mission,security,api} 也仍引用 ai-harness/process/* 因这些模块本身待后续
-      // PR 搬迁。eslint 在这些过渡期路径上放宽。
+      //
+      // 当前唯二例外：
+      //   1. ai-engine/facade/** — 历史 ai-app 调用点的兼容 re-export 层
+      //      （PR-X2..X4 完成后所有 ai-app 直接 import @/modules/ai-harness/facade，
+      //      届时这层兼容出口可整体删除）
+      //   2. ai-engine-orchestration.module.ts — orchestration/services 拆分迁移
+      //      过程中暂用，PR-X4 拆完后移除该行
+      //
+      // PR-X1 已完成：ai-engine.module.ts / ai-engine-core.module.ts /
+      // ai-engine-constraint.module.ts / ai-engine/index.ts 全部消除反向 import；
+      // ai-engine/runtime/ 子树已整体搬入 ai-harness（目录已删）。
       files: ["**/modules/ai-engine/**/*.ts"],
       excludedFiles: [
         "**/modules/ai-engine/facade/**/*.ts",
         "**/modules/ai-engine/ai-engine-orchestration.module.ts",
-        "**/modules/ai-engine/runtime/**/*.ts",
       ],
       rules: {
         "no-restricted-imports": [

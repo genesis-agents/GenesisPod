@@ -20,7 +20,7 @@ import {
 } from "../abstractions/orchestrator.interface";
 import { BaseExecutor } from "./base-executor";
 import type { CheckpointManager } from "../../../ai-harness/protocol/journal/checkpoint-manager";
-import type { TraceCollectorService } from "../../../ai-engine/runtime/observability/trace-collector.service";
+import type { TraceCollectorService } from "../../../ai-harness/governance/observability/trace-collector.service";
 
 /** 默认看门狗超时（5 分钟） */
 const DEFAULT_WATCHDOG_TIMEOUT = 5 * 60 * 1000;

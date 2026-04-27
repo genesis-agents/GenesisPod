@@ -42,6 +42,11 @@ import { KeyResolverModule } from "./modules/ai-infra/key-resolver";
 import { UserModelConfigsModule } from "./modules/ai-infra/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
+// AI Harness — Agent kernel / execution / memory / process / protocol / governance / runtime
+// 整体由 app.module.ts 装配（@Global，提供器全局可注入），ai-engine 不再反向依赖
+import { HarnessModule } from "./modules/ai-harness/harness.module";
+import { RuntimeModule } from "./modules/ai-harness/runtime/runtime-aggregate.module";
+import { RealtimeModule } from "./modules/ai-harness/protocol/realtime/realtime.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
@@ -88,7 +93,7 @@ import { WebhooksModule } from "./modules/open-api/webhooks";
 import { MCPServerModule } from "./modules/open-api/mcp-server";
 import { PublicApiModule } from "./modules/open-api/public-api/public-api.module";
 // A2A Server module
-import { A2AModule } from "./modules/ai-engine/runtime/a2a";
+import { A2AModule } from "./modules/ai-harness/protocol/a2a";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 // L1→L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
@@ -167,6 +172,11 @@ import { AiObservabilityService } from "./modules/ai-engine/facade";
     UserModelConfigsModule,
 
     // AI modules (ai-* prefix)
+    // ★ Harness 必须先于 AiEngineModule 装配 — engine 子模块（如 RuntimeResourceModule）
+    // 依赖 harness 注册的 DI token（SPEC_AGENT_REGISTRY_PROBE / TOOL_CIRCUIT_BREAKER_PROBE）
+    HarnessModule,
+    RuntimeModule,
+    RealtimeModule,
     AiEngineModule,
     AiAskModule,
     AiImageModule,

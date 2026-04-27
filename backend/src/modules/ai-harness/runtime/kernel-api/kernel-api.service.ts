@@ -7,14 +7,14 @@ import { Injectable } from "@nestjs/common";
 import { ProcessManagerService } from "../../../ai-harness/process/manager/process-manager.service";
 import { EventJournalService } from "../../protocol/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
-import { ResourceManagerService } from "../../../ai-engine/runtime/resource/resource-manager.service";
-import { MissionExecutorService } from "../../../ai-engine/runtime/mission/mission-executor.service";
-import { CircuitBreakerService } from "../../../ai-engine/runtime/resource/circuit-breaker.service";
-import { EventBusService } from "../../../ai-engine/runtime/ipc/event-bus.service";
-import { MessageBusService } from "../../../ai-engine/runtime/ipc/message-bus.service";
-import { ProgressTrackerService } from "../../../ai-engine/runtime/ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../../ai-engine/runtime/observability/ai-observability.service";
-import { CostAttributionService } from "../../../ai-engine/runtime/observability/cost-attribution.service";
+import { ResourceManagerService } from "../../../ai-harness/governance/resource/resource-manager.service";
+import { MissionExecutorService } from "../../../ai-harness/runtime/mission/mission-executor.service";
+import { CircuitBreakerService } from "../../../ai-harness/governance/resource/circuit-breaker.service";
+import { EventBusService } from "../../../ai-harness/protocol/ipc/event-bus.service";
+import { MessageBusService } from "../../../ai-harness/protocol/ipc/message-bus.service";
+import { ProgressTrackerService } from "../../../ai-harness/protocol/ipc/progress-tracker.service";
+import { AiObservabilityService } from "../../../ai-harness/governance/observability/ai-observability.service";
+import { CostAttributionService } from "../../../ai-harness/governance/observability/cost-attribution.service";
 import { CapabilityGuardService } from "../../governance/security/capability-guard.service";
 import { KernelSchedulerService } from "../../../ai-harness/process/scheduler/kernel-scheduler.service";
 import type {
@@ -31,7 +31,7 @@ import type { JournalEntry } from "../../../ai-harness/process/manager/process.t
 import type {
   MissionExecuteOptions,
   MissionExecuteResult,
-} from "../../../ai-engine/runtime/mission/mission-executor.interface";
+} from "../../../ai-harness/runtime/mission/mission-executor.interface";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 
 @Injectable()

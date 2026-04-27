@@ -33,7 +33,7 @@ import type {
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../../runtime/observability/trace.interface";
+} from "../../../ai-harness/governance/observability/trace.interface";
 import type {
   MemoryEvent,
   MemoryQuery,
@@ -46,8 +46,8 @@ import type {
 import type {
   RoomConfig,
   ProgressEvent,
-} from "../../runtime/realtime/abstractions/event-emitter.interface";
-import { CircuitBreakerService } from "../../runtime/resource/circuit-breaker.service";
+} from "../../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
+import { CircuitBreakerService } from "../../../ai-harness/governance/resource/circuit-breaker.service";
 import { AgentExecutorService } from "../../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../../orchestration/services/intent-detection.service";

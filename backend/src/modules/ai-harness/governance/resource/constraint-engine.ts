@@ -30,7 +30,7 @@ import type {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../../../ai-engine/runtime/abstractions";
+} from "../../../ai-harness/runtime/abstractions";
 import { CostController } from "./cost-controller";
 
 /**

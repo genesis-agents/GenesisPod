@@ -13,7 +13,7 @@ import type {
   WorkStyle,
   SkillId,
   ToolId,
-} from "../../../facade";
+} from "../../../../ai-engine/facade";
 import { A2AAgentCard, A2ATaskStatus } from "../a2a.types";
 
 /**

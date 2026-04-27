@@ -31,7 +31,7 @@ import {
   type ElectionCandidate,
   type ElectionRoleHint,
 } from "../../../ai-engine/llm/election";
-import type { EnvironmentSnapshot } from "../../../ai-engine/runtime/resource/runtime-environment.types";
+import type { EnvironmentSnapshot } from "../../../ai-harness/governance/resource/runtime-environment.types";
 import type {
   IAgent,
   IAgentEvent,

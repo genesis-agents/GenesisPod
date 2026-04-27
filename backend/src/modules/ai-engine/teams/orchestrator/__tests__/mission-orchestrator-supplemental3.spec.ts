@@ -22,7 +22,7 @@ import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
 import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
-import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
+import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
 import { CheckpointManager } from "../../../../ai-engine/facade";
 import { MissionExecutorService } from "../../../ai-engine/facade";
 import { EventJournalService } from "../../../ai-engine/facade";

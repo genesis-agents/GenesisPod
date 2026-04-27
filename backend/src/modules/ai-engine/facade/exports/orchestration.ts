@@ -23,7 +23,7 @@ export type {
   ReviewCriteria,
   TeamMemberInfo,
 } from "../../orchestration/services/interfaces";
-export { ConstraintEnforcementService } from "../../runtime/resource/constraint-enforcement.service";
+export { ConstraintEnforcementService } from "../../../ai-harness/governance/resource/constraint-enforcement.service";
 export { TokenBudgetService } from "../../orchestration/services";
 export type {
   ModelConfig as TokenBudgetModelConfig,
@@ -37,7 +37,7 @@ export { AgentExecutorService } from "../../orchestration/services/agent-executo
 export {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../runtime/resource/circuit-breaker.service";
+} from "../../../ai-harness/governance/resource/circuit-breaker.service";
 export { ContextInitializationService } from "../../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
 export { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-harness/process/supervisor/process-supervisor.service";

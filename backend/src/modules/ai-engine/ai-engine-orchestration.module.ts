@@ -29,19 +29,19 @@ import { FunctionCallingExecutor } from "./orchestration/executors/function-call
 import { CheckpointManager } from "../ai-harness/protocol/journal/checkpoint-manager";
 
 // ★ Kernel services for executor integration
-import { ProgressTrackerService } from "./runtime/ipc/progress-tracker.service";
-import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
+import { ProgressTrackerService } from "../ai-harness/protocol/ipc/progress-tracker.service";
+import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
 
 // Orchestration Services
 import { TaskDecomposerService } from "./orchestration/services/task-decomposer.service";
 import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
 import { OutputReviewerService } from "./orchestration/services/output-reviewer.service";
 import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
-import { CircuitBreakerService } from "./runtime/resource/circuit-breaker.service";
+import { CircuitBreakerService } from "../ai-harness/governance/resource/circuit-breaker.service";
 import { TokenBudgetService } from "./orchestration/services/token-budget.service";
 import { ContextEvolutionService } from "./orchestration/services/context-evolution.service";
 import { ContextInitializationService } from "./orchestration/services/context-initialization.service";
-import { ConstraintEnforcementService } from "./runtime/resource/constraint-enforcement.service";
+import { ConstraintEnforcementService } from "../ai-harness/governance/resource/constraint-enforcement.service";
 import { ContextCompressionService } from "./orchestration/services/context-compression.service";
 import { IntentDetectionService } from "./orchestration/services/intent-detection.service";
 import { ReflectionService } from "./orchestration/services/reflection.service";

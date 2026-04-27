@@ -17,9 +17,8 @@ import { SchemaValidator } from "./safety/constraint/validators/schema-validator
 
 // Guardrails (Legacy)
 import { ContentFilter } from "./safety/constraint/guardrails/content-filter";
-// ★ L2 internal — direct relative paths (no facade barrel)
-import { CostController } from "./runtime/resource/cost-controller";
-import { RateLimiter } from "./runtime/resource/rate-limiter";
+// CostController / RateLimiter 由 ai-harness/RuntimeResourceModule (@Global) 提供，
+// 任何模块都能直接注入 — engine 不再反向 import。
 
 // Guardrails Pipeline (New Framework)
 import { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
@@ -51,8 +50,6 @@ const contentFilterFactory = {
 
     // Guardrails (Legacy)
     contentFilterFactory,
-    CostController,
-    RateLimiter,
 
     // Guardrails Pipeline (New Framework)
     GuardrailsPipelineService,
@@ -68,8 +65,6 @@ const contentFilterFactory = {
   exports: [
     SchemaValidator,
     ContentFilter,
-    CostController,
-    RateLimiter,
     GuardrailsPipelineService,
   ],
 })

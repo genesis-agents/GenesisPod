@@ -16,25 +16,25 @@ import { ConfigService } from "@nestjs/config";
 import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
 // ★ L2 internal — direct relative paths (禁 facade barrel)
-import { ConstraintEngine } from "../runtime/resource/constraint-engine";
+import { ConstraintEngine } from "../../ai-harness/governance/resource/constraint-engine";
 import { MissionOrchestrator } from "./orchestrator/mission-orchestrator";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
-import { MessageBusService as A2AMessageBusService } from "../runtime/ipc/message-bus.service";
+import { MessageBusService as A2AMessageBusService } from "../../ai-harness/protocol/ipc/message-bus.service";
 import { TeamsController } from "./controllers/teams.controller";
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 import { LLMFactory } from "../llm/factory/llm-factory";
-import { CostController } from "../runtime/resource/cost-controller";
+import { CostController } from "../../ai-harness/governance/resource/cost-controller";
 import { ShortTermMemoryService } from "../knowledge/memory/stores/short-term-memory.service";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { TraceCollectorService } from "../runtime/observability/trace-collector.service";
+import { TraceCollectorService } from "../../ai-harness/governance/observability/trace-collector.service";
 import { CheckpointManager } from "../../ai-harness/protocol/journal/checkpoint-manager";
-import { MissionExecutorService } from "../runtime/mission/mission-executor.service";
+import { MissionExecutorService } from "../../ai-harness/runtime/mission/mission-executor.service";
 import { EventJournalService } from "../../ai-harness/protocol/journal/event-journal.service";
 
 /**

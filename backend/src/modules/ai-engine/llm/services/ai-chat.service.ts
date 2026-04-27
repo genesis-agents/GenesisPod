@@ -22,8 +22,8 @@ import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pi
 import {
   CircuitBreakerService,
   TaskCompletionType,
-} from "../../runtime/resource/circuit-breaker.service";
-import { TraceCollectorService } from "../../runtime/observability/trace-collector.service";
+} from "../../../ai-harness/governance/resource/circuit-breaker.service";
+import { TraceCollectorService } from "../../../ai-harness/governance/observability/trace-collector.service";
 // ★ 拆分后的子服务
 import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
@@ -31,10 +31,10 @@ import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
-import { CostAttributionService } from "../../runtime/observability/cost-attribution.service";
-import { AiObservabilityService } from "../../runtime/observability/ai-observability.service";
+import { CostAttributionService } from "../../../ai-harness/governance/observability/cost-attribution.service";
+import { AiObservabilityService } from "../../../ai-harness/governance/observability/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
-import { SessionLatencyTrackerService } from "../../runtime/observability/session-latency-tracker.service";
+import { SessionLatencyTrackerService } from "../../../ai-harness/governance/observability/session-latency-tracker.service";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import {
   BYOKError,

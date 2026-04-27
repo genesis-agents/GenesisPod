@@ -47,34 +47,34 @@ export type {
 } from "../../../ai-harness/protocol/journal/checkpoint-manager";
 
 // IPC (EventBusService / ProgressTrackerService 在 ai-engine/facade/index.ts 以别名导出；此处提供原名)
-export { EventBusService } from "../../runtime/ipc/event-bus.service";
-export { ProgressTrackerService } from "../../runtime/ipc/progress-tracker.service";
-export { MessageBusService } from "../../runtime/ipc/message-bus.service";
+export { EventBusService } from "../../../ai-harness/protocol/ipc/event-bus.service";
+export { ProgressTrackerService } from "../../../ai-harness/protocol/ipc/progress-tracker.service";
+export { MessageBusService } from "../../../ai-harness/protocol/ipc/message-bus.service";
 export type {
   A2AMessage,
   A2AMessageType,
-} from "../../runtime/ipc/message-bus.service";
-export { MessagePersistenceService } from "../../runtime/ipc/message-persistence.service";
-export type { PersistedMessage } from "../../runtime/ipc/message-persistence.service";
-export { AgentLifecycleProtocolService } from "../../runtime/ipc/agent-lifecycle-protocol.service";
+} from "../../../ai-harness/protocol/ipc/message-bus.service";
+export { MessagePersistenceService } from "../../../ai-harness/protocol/ipc/message-persistence.service";
+export type { PersistedMessage } from "../../../ai-harness/protocol/ipc/message-persistence.service";
+export { AgentLifecycleProtocolService } from "../../../ai-harness/protocol/ipc/agent-lifecycle-protocol.service";
 export type {
   LifecycleMessageType,
   ShutdownRequestPayload,
   PlanApprovalPayload,
   TaskNotificationPayload,
-} from "../../runtime/ipc/agent-lifecycle-protocol.service";
+} from "../../../ai-harness/protocol/ipc/agent-lifecycle-protocol.service";
 
 // Resource (CircuitBreakerService / ConstraintEnforcementService 已在 ai-engine/facade/index.ts 导出)
-export { ResourceManagerService } from "../../runtime/resource/resource-manager.service";
-export { HealthCheckRunner } from "../../runtime/resource/health-check-runner";
-export type { HealthCheckRunnerConfig } from "../../runtime/resource/health-check-runner";
-export { ConstraintEngine } from "../../runtime/resource/constraint-engine";
-export { RateLimiter, TokenBucket } from "../../runtime/resource/rate-limiter";
+export { ResourceManagerService } from "../../../ai-harness/governance/resource/resource-manager.service";
+export { HealthCheckRunner } from "../../../ai-harness/governance/resource/health-check-runner";
+export type { HealthCheckRunnerConfig } from "../../../ai-harness/governance/resource/health-check-runner";
+export { ConstraintEngine } from "../../../ai-harness/governance/resource/constraint-engine";
+export { RateLimiter, TokenBucket } from "../../../ai-harness/governance/resource/rate-limiter";
 export type {
   RateLimitResult,
   RateLimitConfig,
-} from "../../runtime/resource/rate-limiter";
-export { CostController } from "../../runtime/resource/cost-controller";
+} from "../../../ai-harness/governance/resource/rate-limiter";
+export { CostController } from "../../../ai-harness/governance/resource/cost-controller";
 export type {
   CostRecord,
   CostCategory,
@@ -82,10 +82,10 @@ export type {
   CostCheckResult,
   BudgetPeriod,
   ModelPricing,
-} from "../../runtime/resource/cost-controller";
+} from "../../../ai-harness/governance/resource/cost-controller";
 
 // Environment Discovery（L2 通用·2026-04-23）
-export { RuntimeEnvironmentService } from "../../runtime/resource/runtime-environment.service";
+export { RuntimeEnvironmentService } from "../../../ai-harness/governance/resource/runtime-environment.service";
 export type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -94,15 +94,15 @@ export type {
   RuntimeToolCapability,
   RuntimeDepHealth,
   RuntimeUserKeyState,
-} from "../../runtime/resource/runtime-environment.types";
+} from "../../../ai-harness/governance/resource/runtime-environment.types";
 
 // Mission
-export { MissionExecutorService } from "../../runtime/mission/mission-executor.service";
+export { MissionExecutorService } from "../../../ai-harness/runtime/mission/mission-executor.service";
 export type {
   IMissionExecutor,
   MissionExecuteOptions,
   MissionExecuteResult,
-} from "../../runtime/mission/mission-executor.interface";
+} from "../../../ai-harness/runtime/mission/mission-executor.interface";
 
 // Security
 export { CapabilityGuardService } from "../../../ai-harness/governance/security/capability-guard.service";
@@ -130,11 +130,11 @@ export type { StateTransitionMap } from "../../../ai-harness/process/manager/sta
 export {
   TaskCompletionType,
   type CircuitState,
-} from "../../runtime/resource/circuit-breaker.service";
+} from "../../../ai-harness/governance/resource/circuit-breaker.service";
 export type {
   CircuitBreakerConfig,
   HealthMetrics,
-} from "../../runtime/resource/circuit-breaker.service";
+} from "../../../ai-harness/governance/resource/circuit-breaker.service";
 
 // API
 export { KernelApiService } from "../../../ai-harness/runtime/kernel-api/kernel-api.service";

@@ -11,9 +11,9 @@ import { AgentCardRegistry } from "./agent-card.registry";
 import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
-import { TeamsModule } from "../../teams/teams.module";
-import { TeamsService } from "../../teams/services/teams.service";
-import { TraceCollectorService } from "../observability/trace-collector.service";
+import { TeamsModule } from "../../../ai-engine/teams/teams.module";
+import { TeamsService } from "../../../ai-engine/teams/services/teams.service";
+import { TraceCollectorService } from "../../../ai-harness/governance/observability/trace-collector.service";
 
 @Module({
   imports: [SecretsModule, TeamsModule],

@@ -118,13 +118,13 @@ export { ToolRegistry } from "./tools/registry";
 export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
 export { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
 export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
-export { HierarchicalMemoryCascadeService } from "../ai-harness/memory/working/hierarchical-memory-cascade.service";
-export { ProcessMemoryManagerService } from "../ai-harness/memory/working/process-memory-manager.service";
+// HierarchicalMemoryCascadeService / ProcessMemoryManagerService / ConstraintEngine
+// 居住在 ai-harness — 消费方应从 "@/modules/ai-harness/facade" 导入。
+// engine 主 barrel 不再做反向 re-export。
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
 // Teams 模块核心服务
 export { RoleRegistry, TeamRegistry, MissionOrchestrator } from "./teams";
-export { ConstraintEngine } from "./runtime/resource/constraint-engine";
 export {
   // Team types
   TeamId,
@@ -191,11 +191,9 @@ export type {
   JsonSchemaProperty,
 } from "./facade/types";
 
-// Observability 导出
-export { AiObservabilityService } from "./runtime/observability/ai-observability.service";
-export { CostAttributionService } from "./runtime/observability/cost-attribution.service";
-export { TraceCollectorService } from "./runtime/observability/trace-collector.service";
-export { SessionLatencyTrackerService } from "./runtime/observability/session-latency-tracker.service";
+// Observability 服务 (AiObservability / CostAttribution / TraceCollector /
+// SessionLatencyTracker) 居住在 ai-harness — 消费方应从
+// "@/modules/ai-harness/facade" 导入。engine 主 barrel 不再做反向 re-export。
 
 // Prompt Registry 导出
 export { PromptRegistryService } from "./llm/prompts/prompt-registry.service";

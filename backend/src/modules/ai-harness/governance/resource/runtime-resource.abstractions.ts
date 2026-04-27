@@ -9,7 +9,7 @@
  * 改为：ai-engine 在这里定义接口 + DI token，ai-harness 实现并通过 provider 绑到 token 上。
  *
  * 这样：
- *   - ai-engine/runtime/resource/* 只 import 本文件接口（不感知 ai-harness 存在）
+ *   - ai-harness/governance/resource/* 只 import 本文件接口（不感知 ai-harness 存在）
  *   - ai-harness/harness.module 把 SpecAgentRegistry/ToolCircuitBreaker 作为 token 提供
  *   - 单向依赖恢复（ai-harness → ai-engine 仅通过接口契约）
  */

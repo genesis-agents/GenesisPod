@@ -32,7 +32,7 @@ import { SpecAgentRegistry } from "./kernel/core/spec-agent-registry";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
   TOOL_CIRCUIT_BREAKER_PROBE,
-} from "../ai-engine/runtime/resource/runtime-resource.abstractions";
+} from "../ai-harness/governance/resource/runtime-resource.abstractions";
 import { HookRegistry } from "./kernel/core/hook-registry";
 import { ReActLoop } from "./execution/loop/react-loop";
 import { PlanActLoop } from "./execution/loop/plan-act-loop";

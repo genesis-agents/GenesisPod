@@ -38,7 +38,7 @@ import {
   CreateMissionDto,
 } from "../teams/services/teams.service";
 import type { MissionEvent } from "../teams/abstractions/mission.interface";
-import { TaskCompletionType } from "../runtime/resource/circuit-breaker.service";
+import { TaskCompletionType } from "../../ai-harness/governance/resource/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 import {
@@ -89,7 +89,7 @@ import {
 import type {
   RoomConfig,
   ProgressEvent,
-} from "../runtime/realtime/abstractions/event-emitter.interface";
+} from "../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
 import { CapabilitySummary } from "../orchestration/capabilities/types";
 import type {
   ChatWithSkillsRequest,
@@ -139,7 +139,7 @@ import type {
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../runtime/observability/trace.interface";
+} from "../../ai-harness/governance/observability/trace.interface";
 import type {
   MemoryEvent,
   MemoryQuery,
@@ -173,7 +173,7 @@ import type {
   SkillPromptOptions,
 } from "../orchestration/capabilities/types";
 import type { SkillMdDefinition } from "../skills/types/skill-md.types";
-import { CircuitBreakerService } from "../runtime/resource/circuit-breaker.service";
+import { CircuitBreakerService } from "../../ai-harness/governance/resource/circuit-breaker.service";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";

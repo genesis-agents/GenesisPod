@@ -11,16 +11,16 @@ import { LongTermMemoryService } from "../knowledge/memory/stores/long-term-memo
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
-import { CircuitBreakerService } from "../runtime/resource/circuit-breaker.service";
+import { CircuitBreakerService } from "../../ai-harness/governance/resource/circuit-breaker.service";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖
-import { EventBusService as EngineEventEmitterService } from "../runtime/ipc/event-bus.service";
-import { ProgressTrackerService } from "../runtime/ipc/progress-tracker.service";
+import { EventBusService as EngineEventEmitterService } from "../../ai-harness/protocol/ipc/event-bus.service";
+import { ProgressTrackerService } from "../../ai-harness/protocol/ipc/progress-tracker.service";
 // ★ Constraint Feature 依赖
-import { RateLimiter } from "../runtime/resource/rate-limiter";
-import { CostController } from "../runtime/resource/cost-controller";
+import { RateLimiter } from "../../ai-harness/governance/resource/rate-limiter";
+import { CostController } from "../../ai-harness/governance/resource/cost-controller";
 // ★ Orchestration 扩展依赖
 import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
@@ -60,9 +60,9 @@ import type { IReportSynthesisEngine } from "../content/abstractions/content-eng
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../knowledge/evidence/services/evidence-manager.service";
 import { VotingManager } from "../agents/collaboration/patterns/voting-pattern";
-import { MessageBusService as A2AMessageBusService } from "../runtime/ipc/message-bus.service";
+import { MessageBusService as A2AMessageBusService } from "../../ai-harness/protocol/ipc/message-bus.service";
 // ★ Observability Feature 依赖
-import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
+import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
 import { MemoryCoordinatorService } from "../knowledge/memory/memory-coordinator.service";
 // ★ Registry Feature 依赖
 import { AgentRegistry } from "../agents/registry";

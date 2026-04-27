@@ -10,7 +10,7 @@ import { Logger } from "@nestjs/common";
 import type {
   Checkpoint,
   ExecutionContext,
-} from "../../../ai-engine/runtime/abstractions";
+} from "../../../ai-harness/runtime/abstractions";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**
