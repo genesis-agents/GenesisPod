@@ -55,10 +55,10 @@ export interface MissionContext {
       name: string;
       rationale: string;
       toolHint?: {
-        categories: readonly string[];
-        preferIds?: readonly string[];
+        categories: string[];
+        preferIds?: string[];
       };
-      dependsOn?: readonly string[];
+      dependsOn?: string[];
     }[];
     goals: LeaderPlanOutput["goals"];
     initialRisks: LeaderPlanOutput["initialRisks"];
