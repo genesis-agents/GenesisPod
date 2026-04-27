@@ -1,7 +1,2 @@
-export { AgentRegistry } from "./agent-registry";
-export { HandoffService } from "./handoff.service";
-export type {
-  HandoffContext,
-  HandoffResult,
-  IHandoffPolicy,
-} from "./handoff.types";
+// Back-compat shim — moved to modules/ai-harness/handoff/
+export * from "../../../ai-harness/handoff";

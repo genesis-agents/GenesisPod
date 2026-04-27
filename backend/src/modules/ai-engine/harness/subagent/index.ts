@@ -1,3 +1,2 @@
-export { SubagentSpawner, SubagentSpawnBlockedError } from "./subagent-spawner";
-export { SubagentHandle } from "./subagent-handle";
-export * from "./isolation";
+// Back-compat shim — moved to modules/ai-harness/subagent/
+export * from "../../../ai-harness/subagent";

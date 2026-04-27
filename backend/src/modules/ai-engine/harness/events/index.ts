@@ -1,7 +1,2 @@
-export { DomainEventRegistry } from "./domain-event-registry";
-export { DomainEventBus } from "./domain-event-bus";
-export {
-  type IBroadcastAdapter,
-  LoggerBroadcastAdapter,
-} from "./broadcast-adapter";
-export type { DomainEvent, DomainEventTypeSpec } from "./domain-event.types";
+// Back-compat shim — moved to modules/ai-harness/events/
+export * from "../../../ai-harness/events";

@@ -18,3 +18,4 @@
  */
 
 export * from "../abstractions";
+export { HarnessFacade } from "./harness.facade";

@@ -20,14 +20,34 @@ ai-infra/    ← 平台基础设施（auth / credits / storage）
 **依赖方向强制单向**：ai-engine 永远不能 import ai-harness（已加 eslint 规则，
 `backend/.eslintrc.js` 内 `Phase H1` 区块）。
 
-## 当前已搬迁（PR-H1+H2）
+## 当前已搬迁（PR-H1 → H3）
 
 ```
 ai-harness/
 ├── README.md
-├── facade/                 ← 外部消费者唯一入口
-│   └── index.ts
-└── abstractions/           ← agent 执行模型核心接口（纯 TypeScript 类型）
+├── harness.module.ts                  ← NestJS module 定义
+├── index.ts                           ← top-level barrel
+├── facade/                            ← 外部消费者唯一入口（含 HarnessFacade）
+├── abstractions/                      ← agent 执行模型核心接口（PR-H2）
+├── core/                              ← AgentFactory + Registry + HarnessedAgent + ContextEnvelope
+├── loop/                              ← react / reflexion / plan-act / leader-worker loops
+├── executor/                          ← LlmExecutor + ToolInvoker + circuit-breaker
+├── dx/                                ← AgentRunner + AgentSpec.base + DefineAgent 装饰器
+├── events/                            ← DomainEventBus + adapters
+├── verify/                            ← JudgeService + 内置 verifiers
+├── runtime/                           ← BudgetAccountant + MissionBudgetPool + AgentExecutionContext
+├── checkpoint/                        ← AgentEventStore + CheckpointService
+├── context/                           ← ContextManager + Compactor + Pruner
+├── domain/                            ← Concept registry + DomainAdapter
+├── prompt/                            ← Prompt registry + templates
+├── skills/                            ← SkillRegistry + Loader + Activator
+├── subagent/                          ← Subagent spawner + isolation
+├── tools-selector/                    ← Tool selector + result fusion
+├── handoff/                           ← AgentRegistry + HandoffService
+├── learning/                          ← SkillLearner + sandbox replayer
+├── memory-bridge/                     ← MemoryAutoIndexer + InMemoryVectorStore + PrismaVectorStore
+├── mcp/                               ← MCP relay + adapter
+└── __tests__/                         ← harness-level integration tests
     ├── identity.interface.ts
     ├── agent.interface.ts             IAgent / IAgentTask / IAgentResult
     ├── agent-event.interface.ts       IAgentEvent（thinking/action/observation/...）
@@ -49,10 +69,10 @@ core/loop/executor 也搬过来后整体删除。
 | PR        | 内容                                                     | 状态    |
 | --------- | -------------------------------------------------------- | ------- |
 | **H1+H2** | scaffold + abstractions 搬迁                             | ✅ 完成 |
-| H3        | core / loop / executor / schema / budget / tool-dispatch | 待做    |
-| H4        | registry / agent-registry / judge / failure-learner      | 待做    |
-| H5        | billing 上下文（BillingContext + Adapter）               | 待做    |
-| H6        | 删 ai-engine 内的兼容 shim + 严格化 eslint               | 待做    |
+| **H3**    | 整个 harness/ 子树搬入 ai-harness（18 个子目录）         | ✅ 完成 |
+| H4        | runtime/resource 与 ai-harness 解耦                      | 待做    |
+| H5        | billing 上下文从 ai-infra 抽到 ai-harness                | 待做    |
+| H6        | 删 ai-engine 兼容 shim + 严格化 eslint（移除 excludedFiles） | 待做    |
 
 每个 PR 单独 mergeable + tsc EXIT=0。
 

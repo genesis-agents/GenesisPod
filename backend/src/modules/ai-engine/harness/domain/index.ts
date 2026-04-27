@@ -1,8 +1,2 @@
-export { DomainConceptRegistry } from "./concept-registry";
-export { DomainAdapterRegistry, type IDomainAdapter } from "./domain-adapter";
-export type {
-  DomainConceptSpec,
-  ConceptField,
-  ConceptRelation,
-  DomainEntity,
-} from "./concept.types";
+// Back-compat shim — moved to modules/ai-harness/domain/
+export * from "../../../ai-harness/domain";

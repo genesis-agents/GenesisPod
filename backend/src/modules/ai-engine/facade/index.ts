@@ -38,11 +38,11 @@ export { SkillRegistry } from "../skills/registry/skill-registry";
 // Spec-based agent registry (harness core) — re-exported so AI App modules
 // don't need to reach into `ai-engine/harness/*`. Direct harness imports are
 // an architecture violation; route through this barrel instead.
-export { SpecAgentRegistry } from "../harness/core/spec-agent-registry";
+export { SpecAgentRegistry } from "../../ai-harness/core/spec-agent-registry";
 // Harness AgentFactory — used by AI App modules to build spec agents.
 // Re-exported to satisfy the facade-only rule; previously 22+ AI App files
 // had to reach into `@/modules/ai-engine/harness`.
-export { AgentFactory as HarnessAgentFactory } from "../harness/core/agent-factory";
+export { AgentFactory as HarnessAgentFactory } from "../../ai-harness/core/agent-factory";
 // Harness core types — IAgentSpec et al. Before this, the 21 spec files
 // under ai-app/topic-insights/agents/specs/ all imported from
 // `@/modules/ai-engine/harness/abstractions`, perforating the facade boundary.
@@ -74,7 +74,7 @@ export type {
   // 全链路诊断：失败码 + 标准化 error event payload
   HarnessFailureCode,
   IHarnessErrorPayload,
-} from "../harness/abstractions";
+} from "../../ai-harness/abstractions";
 
 // 必修 #8: Harness DX + verify + events + memory + checkpoint + runtime —— 全部 re-export，
 // ai-app 不再需要穿透 `harness/*` 子路径
@@ -83,24 +83,24 @@ export {
   AgentSpec as HarnessAgentSpec,
   DefineAgent,
   FixtureStore,
-} from "../harness/dx";
-export type { RunResult as HarnessRunResult } from "../harness/dx";
-export { JudgeService } from "../harness/verify";
-export type { BuiltInVerifierId } from "../harness/verify";
+} from "../../ai-harness/dx";
+export type { RunResult as HarnessRunResult } from "../../ai-harness/dx";
+export { JudgeService } from "../../ai-harness/verify";
+export type { BuiltInVerifierId } from "../../ai-harness/verify";
 export {
   DomainEventBus,
   DomainEventRegistry,
   LoggerBroadcastAdapter,
-} from "../harness/events";
+} from "../../ai-harness/events";
 export type {
   DomainEvent,
   IBroadcastAdapter,
   DomainEventTypeSpec,
-} from "../harness/events";
-export { MemoryAutoIndexer } from "../harness/memory-bridge/memory-auto-indexer";
-export { MissionBudgetPool } from "../harness/runtime/mission-budget-pool";
-export { AgentEventStore, CheckpointService } from "../harness/checkpoint";
-export type { ICheckpoint, AgentEventRecord } from "../harness/checkpoint";
+} from "../../ai-harness/events";
+export { MemoryAutoIndexer } from "../../ai-harness/memory-bridge/memory-auto-indexer";
+export { MissionBudgetPool } from "../../ai-harness/runtime/mission-budget-pool";
+export { AgentEventStore, CheckpointService } from "../../ai-harness/checkpoint";
+export type { ICheckpoint, AgentEventRecord } from "../../ai-harness/checkpoint";
 
 // ★ High-frequency types used across AI App modules
 export type {

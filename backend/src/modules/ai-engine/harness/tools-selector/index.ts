@@ -1,13 +1,2 @@
-export {
-  type IToolSelector,
-  type ToolSelectionContext,
-  type ToolSelectionResult,
-  SimpleAllowlistSelector,
-} from "./tool-selector";
-export { ToolSelectorRegistry } from "./tool-selector-registry";
-export {
-  type IResultFusion,
-  type FusionInput,
-  type FusionOutput,
-  SimpleConcatFusion,
-} from "./result-fusion";
+// Back-compat shim — moved to modules/ai-harness/tools-selector/
+export * from "../../../ai-harness/tools-selector";

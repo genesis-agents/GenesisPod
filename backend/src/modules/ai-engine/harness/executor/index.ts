@@ -1,13 +1,2 @@
-export {
-  ToolInvoker,
-  ToolNotFoundError,
-  AgentAccessDeniedError,
-} from "./tool-invoker";
-export {
-  LlmExecutor,
-  SchemaRetryExhaustedError,
-  StubNotConfiguredError,
-  isStubModeEnabled,
-  extractJsonFromLlmContent,
-} from "./llm-executor";
-export type { LlmExecutorInput, LlmExecutorResult } from "./llm-executor";
+// Back-compat shim — moved to modules/ai-harness/executor/
+export * from "../../../ai-harness/executor";

@@ -20,11 +20,11 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AgentRegistry } from "../../agents/registry/agent-registry";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
-import { SpecAgentRegistry } from "../../harness/core/spec-agent-registry";
+import { SpecAgentRegistry } from "../../../ai-harness/core/spec-agent-registry";
 import { AiChatModelConfigService } from "../../llm/services/ai-chat-model-config.service";
 import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
-import { ToolCircuitBreaker } from "../../harness/executor/tool-circuit-breaker";
+import { ToolCircuitBreaker } from "../../../ai-harness/executor/tool-circuit-breaker";
 import type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,

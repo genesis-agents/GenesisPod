@@ -42,7 +42,7 @@ import { QualityModule } from "./safety/quality/quality.module";
 import { CollaborationModule } from "./agents/collaboration/collaboration.module";
 import { RealtimeModule } from "./runtime/realtime/realtime.module";
 import { RuntimeModule } from "./runtime/runtime.module";
-import { HarnessModule } from "./harness/harness.module";
+import { HarnessModule } from "../ai-harness/harness.module";
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";

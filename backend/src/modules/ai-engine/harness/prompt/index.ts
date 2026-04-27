@@ -1,3 +1,2 @@
-export { PromptTemplate } from "./prompt-template";
-export type { PromptVariableSpec, PromptTemplateInit } from "./prompt-template";
-export { PromptRegistry } from "./prompt-registry";
+// Back-compat shim — moved to modules/ai-harness/prompt/
+export * from "../../../ai-harness/prompt";

@@ -21,7 +21,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineToolsModule } from "../../ai-engine-tools.module";
 import { AiEngineSkillsModule } from "../../ai-engine-skills.module";
 import { AiEngineOrchestrationModule } from "../../ai-engine-orchestration.module";
-import { HarnessModule as L2HarnessModule } from "../../harness/harness.module";
+import { HarnessModule as L2HarnessModule } from "../../../ai-harness/harness.module";
 import { KeyResolverModule } from "../../../ai-infra/key-resolver/key-resolver.module";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
