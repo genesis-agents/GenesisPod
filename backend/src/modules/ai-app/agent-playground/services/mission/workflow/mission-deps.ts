@@ -31,7 +31,7 @@ import type {
   JudgeService,
   MemoryAutoIndexer,
   DomainEventBus,
-} from "../../../../../ai-engine/facade";
+} from "../../../../../ai-harness/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "../../../../../ai-engine/runtime/resource/runtime-environment.service";
 

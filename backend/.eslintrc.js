@@ -346,16 +346,10 @@ module.exports = {
       // Phase H1: Harness 第一公民独立。ai-engine 永远不允许 import ai-harness
       // （依赖方向必须单向：ai-app → ai-harness → ai-engine）
       //
-      // 例外：迁移过渡期间允许的反向引用：
-      //   - ai-engine/harness/**  abstractions shim（PR-H6 清理）
-      //   - ai-engine/facade/**   back-compat 出口（旧 ai-app 通过此拿 harness 类型）
-      // ✅ PR-H4: ai-engine/runtime/resource/** 已通过 DI token 解耦，移出例外
-      // PR-H6 清理 shim 后移除全部例外
+      // PR-H6b 完成：ai-engine 不再 import ai-harness（ai-engine/facade 已剥离
+      // 全部 Harness* re-export，ai-app 直接从 ai-harness/facade 取 harness 类型）。
+      // 单向依赖 ai-app → ai-harness → ai-engine 现在在所有文件强制执行，无例外。
       files: ["**/modules/ai-engine/**/*.ts"],
-      excludedFiles: [
-        "**/modules/ai-engine/harness/**/*.ts",
-        "**/modules/ai-engine/facade/**/*.ts",
-      ],
       rules: {
         "no-restricted-imports": [
           "error",

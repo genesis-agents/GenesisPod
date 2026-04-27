@@ -7,9 +7,9 @@
 
 import { z } from "zod";
 import {
-  HarnessAgentSpec as AgentSpec,
+  AgentSpec,
   DefineAgent,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 import { ResearchReportSchema } from "../../dto/run-mission.dto";
 
 const Input = z.object({

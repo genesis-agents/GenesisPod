@@ -17,8 +17,8 @@ import { ResearcherAgent } from "../../agents/researcher/researcher.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import {
   MissionBudgetPool,
-  type HarnessIAgentEvent as IAgentEvent,
-} from "../../../../ai-engine/facade";
+  type IAgentEvent,
+} from "../../../../ai-harness/facade";
 
 export interface ResearcherDimSpec {
   id: string;

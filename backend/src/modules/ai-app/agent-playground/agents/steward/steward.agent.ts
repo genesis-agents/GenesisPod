@@ -17,9 +17,9 @@
 
 import { z } from "zod";
 import {
-  HarnessAgentSpec as AgentSpec,
+  AgentSpec,
   DefineAgent,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
 
 const Input = z.discriminatedUnion("scope", [

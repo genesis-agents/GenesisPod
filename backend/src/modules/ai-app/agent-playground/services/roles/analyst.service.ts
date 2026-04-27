@@ -10,7 +10,7 @@
 import { Injectable } from "@nestjs/common";
 import { AnalystAgent } from "../../agents/analyst/analyst.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
-import type { HarnessIAgentEvent as IAgentEvent } from "../../../../ai-engine/facade";
+import type { IAgentEvent } from "../../../../ai-harness/facade";
 
 @Injectable()
 export class AnalystService {

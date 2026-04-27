@@ -2,7 +2,7 @@
  * Token / cost 抽取与估算 —— 纯函数。
  */
 
-import type { HarnessIAgentEvent as IAgentEvent } from "../../../../../../ai-engine/facade";
+import type { IAgentEvent } from "../../../../../../ai-harness/facade";
 
 export function extractTokenSpend(events: readonly IAgentEvent[]): number {
   let total = 0;

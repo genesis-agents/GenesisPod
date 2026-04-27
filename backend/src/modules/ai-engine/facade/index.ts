@@ -35,72 +35,9 @@ export { AgentRegistry } from "../agents/registry";
 export { TeamRegistry } from "../teams/registry/team-registry";
 export { RoleRegistry } from "../teams/registry/role-registry";
 export { SkillRegistry } from "../skills/registry/skill-registry";
-// Spec-based agent registry (harness core) — re-exported so AI App modules
-// don't need to reach into `ai-engine/harness/*`. Direct harness imports are
-// an architecture violation; route through this barrel instead.
-export { SpecAgentRegistry } from "../../ai-harness/core/spec-agent-registry";
-// Harness AgentFactory — used by AI App modules to build spec agents.
-// Re-exported to satisfy the facade-only rule; previously 22+ AI App files
-// had to reach into `@/modules/ai-engine/harness`.
-export { AgentFactory as HarnessAgentFactory } from "../../ai-harness/core/agent-factory";
-// Harness core types — IAgentSpec et al. Before this, the 21 spec files
-// under ai-app/topic-insights/agents/specs/ all imported from
-// `@/modules/ai-engine/harness/abstractions`, perforating the facade boundary.
-//
-// Note: harness `IAgent` / `IAgentEvent` differ from `agents/abstractions`
-// versions (harness = event-stream protocol, agents = legacy plan/result).
-// Aliased with `Harness*` prefix to prevent duplicate-identifier collisions.
-export type {
-  IAgent as HarnessIAgent,
-  IAgentEvent as HarnessIAgentEvent,
-  IAgentSpec,
-  IAgentLoop,
-  IAction,
-  IActionResult,
-  IContextEnvelope,
-  IContextMessage,
-  ILoopTerminationCriteria,
-  AgentLoopKind,
-  ISubagentHandle,
-  ISubagentSpec,
-  ISubagentSpawner,
-  // 必修 #8: Runtime-env 接口 + verifier hint —— ai-app 通过 facade 引用
-  IRuntimeEnvironment,
-  ICreditState,
-  IModelAvailability,
-  IFallbackHint,
-  IQuotaSnapshot,
-  ByokStatus,
-  // 全链路诊断：失败码 + 标准化 error event payload
-  HarnessFailureCode,
-  IHarnessErrorPayload,
-} from "../../ai-harness/abstractions";
-
-// 必修 #8: Harness DX + verify + events + memory + checkpoint + runtime —— 全部 re-export，
-// ai-app 不再需要穿透 `harness/*` 子路径
-export {
-  AgentRunner,
-  AgentSpec as HarnessAgentSpec,
-  DefineAgent,
-  FixtureStore,
-} from "../../ai-harness/dx";
-export type { RunResult as HarnessRunResult } from "../../ai-harness/dx";
-export { JudgeService } from "../../ai-harness/verify";
-export type { BuiltInVerifierId } from "../../ai-harness/verify";
-export {
-  DomainEventBus,
-  DomainEventRegistry,
-  LoggerBroadcastAdapter,
-} from "../../ai-harness/events";
-export type {
-  DomainEvent,
-  IBroadcastAdapter,
-  DomainEventTypeSpec,
-} from "../../ai-harness/events";
-export { MemoryAutoIndexer } from "../../ai-harness/memory-bridge/memory-auto-indexer";
-export { MissionBudgetPool } from "../../ai-harness/runtime/mission-budget-pool";
-export { AgentEventStore, CheckpointService } from "../../ai-harness/checkpoint";
-export type { ICheckpoint, AgentEventRecord } from "../../ai-harness/checkpoint";
+// ── Harness symbols 已不再从 ai-engine/facade 导出 ──
+// PR-H6b 后所有 ai-app 直接 import from "@/modules/ai-harness/facade"。
+// ai-engine/facade 严格只暴露 ai-engine 自身能力（LLM / tools / RAG / knowledge / mcp / safety）。
 
 // ★ High-frequency types used across AI App modules
 export type {

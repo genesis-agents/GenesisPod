@@ -11,11 +11,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { AiChatService } from "../../../../ai-engine/facade";
 import {
-  AiChatService,
   DomainEventBus,
   type DomainEvent,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
 
 export type LeaderDecisionType =

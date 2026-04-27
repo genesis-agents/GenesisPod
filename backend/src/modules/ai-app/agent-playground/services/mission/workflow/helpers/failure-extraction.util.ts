@@ -5,7 +5,7 @@
  * 纯函数，无副作用，无依赖。从 mission/workflow/team.mission.ts 抽出。
  */
 
-import type { HarnessIAgentEvent as IAgentEvent } from "../../../../../../ai-engine/facade";
+import type { IAgentEvent } from "../../../../../../ai-harness/facade";
 
 /**
  * 抽取 RunResult.events 里最具体的 failure 快照。

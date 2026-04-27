@@ -39,7 +39,7 @@ import {
   StewardService,
 } from "./services/roles";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
-import { DomainEventBus, DomainEventRegistry } from "../../ai-engine/facade";
+import { DomainEventBus, DomainEventRegistry } from "../../ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 
 @Module({

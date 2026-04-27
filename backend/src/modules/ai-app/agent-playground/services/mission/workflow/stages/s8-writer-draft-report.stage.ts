@@ -33,10 +33,10 @@ import { SingleShotWriterAgent } from "../../../../agents/writer/single-shot-wri
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import type {
-  HarnessIAgent,
-  HarnessIAgentEvent as IAgentEvent,
+  IAgent,
+  IAgentEvent,
   IContextEnvelope,
-} from "../../../../../../ai-engine/facade";
+} from "../../../../../../ai-harness/facade";
 import type { ResearchReport } from "../../../../dto/run-mission.dto";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { extractFailureMessage } from "../helpers/failure-extraction.util";
@@ -44,7 +44,7 @@ import { extractFailureMessage } from "../helpers/failure-extraction.util";
 const MAX_WRITER_ATTEMPTS = 2;
 
 /** 给 memory indexer 用的 fallback proxy agent（writer 失败时用）。 */
-function makeProxyAgent(missionId: string, roleId: string): HarnessIAgent {
+function makeProxyAgent(missionId: string, roleId: string): IAgent {
   const env: IContextEnvelope = {
     id: missionId,
     system: "",
@@ -111,7 +111,7 @@ export async function runWriterStage(
   let report: ResearchReport | null = null;
   let reviewScore = 0;
   let verifierVerdicts: unknown[] = [];
-  let lastWriterAgent: HarnessIAgent | null = null;
+  let lastWriterAgent: IAgent | null = null;
   let lastWriterEvents: readonly IAgentEvent[] = [];
   let lastWriterFailMsg: string | undefined;
 

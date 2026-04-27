@@ -13,9 +13,9 @@
 
 import { z } from "zod";
 import {
-  HarnessAgentSpec as AgentSpec,
+  AgentSpec,
   DefineAgent,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),

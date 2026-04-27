@@ -21,8 +21,8 @@ import {
   DomainEventBus,
   MissionBudgetPool,
   type DomainEvent,
-  type HarnessIAgentEvent as IAgentEvent,
-} from "../../../../ai-engine/facade";
+  type IAgentEvent,
+} from "../../../../ai-harness/facade";
 import { BillingRuntimeEnvAdapter } from "../../../../ai-harness/facade";
 import { MissionAbortRegistry } from "../mission/lifecycle/mission-abort.registry";
 import { HarnessFailureLearner } from "../failure-learning/harness-failure-learner.service";

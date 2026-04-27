@@ -24,7 +24,7 @@ import type {
   LeaderPlanOutput,
   LeaderSignoffOutput,
 } from "../../../agents/leader/leader.agent";
-import type { MissionBudgetPool } from "../../../../../ai-engine/facade";
+import type { MissionBudgetPool } from "../../../../../ai-harness/facade";
 import type { ReportArtifact } from "../../../dto/report-artifact.dto";
 import type {
   RunMissionInput,

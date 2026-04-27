@@ -12,7 +12,7 @@
 import { Injectable } from "@nestjs/common";
 import { VerifierAgent } from "../../agents/verifier/verifier.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
-import type { HarnessIAgentEvent as IAgentEvent } from "../../../../ai-engine/facade";
+import type { IAgentEvent } from "../../../../ai-harness/facade";
 
 interface InvokeResult<TOut> {
   state: "completed" | "failed" | "cancelled";

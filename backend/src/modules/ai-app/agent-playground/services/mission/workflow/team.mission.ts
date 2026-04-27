@@ -37,7 +37,7 @@ import {
   JudgeService,
   MemoryAutoIndexer,
   MissionBudgetPool,
-} from "../../../../../ai-engine/facade";
+} from "../../../../../ai-harness/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "../../../../../ai-engine/runtime/resource/runtime-environment.service";
