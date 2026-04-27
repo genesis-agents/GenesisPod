@@ -12,11 +12,12 @@ import { MissionReviewerAgent } from "../../agents/reviewer/mission-reviewer.age
 import { MissionCriticAgent } from "../../agents/reviewer/mission-critic.agent";
 import { DimensionQualityJudgeAgent } from "../../agents/reviewer/dimension-quality-judge.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
+import type { HarnessIAgentEvent as IAgentEvent } from "../../../../ai-engine/facade";
 
 interface InvokeResult<TOut> {
   state: "completed" | "failed" | "cancelled";
   output?: TOut;
-  events: unknown[];
+  events: readonly IAgentEvent[];
   iterations: number;
   wallTimeMs: number;
 }
@@ -64,7 +65,7 @@ export class ReviewerService {
             ? "cancelled"
             : "failed",
       output: r.output as TOut | undefined,
-      events: r.events as unknown[],
+      events: r.events,
       iterations: r.iterations,
       wallTimeMs: r.wallTimeMs,
     };

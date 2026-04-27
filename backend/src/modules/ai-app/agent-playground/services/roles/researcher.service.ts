@@ -15,7 +15,10 @@
 import { Injectable } from "@nestjs/common";
 import { ResearcherAgent } from "../../agents/researcher/researcher.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
-import { MissionBudgetPool } from "../../../../ai-engine/facade";
+import {
+  MissionBudgetPool,
+  type HarnessIAgentEvent as IAgentEvent,
+} from "../../../../ai-engine/facade";
 
 export interface ResearcherDimSpec {
   id: string;
@@ -61,11 +64,7 @@ export class ResearcherService {
   }): Promise<{
     state: "completed" | "failed" | "cancelled";
     output?: ResearcherOutput;
-    events: ReturnType<AgentInvoker["invoke"]> extends Promise<infer R>
-      ? R extends { events: infer E }
-        ? E
-        : never
-      : never;
+    events: readonly IAgentEvent[];
     iterations: number;
     wallTimeMs: number;
   }> {
@@ -96,7 +95,7 @@ export class ResearcherService {
             ? "cancelled"
             : "failed",
       output: r.output as ResearcherOutput | undefined,
-      events: r.events as never,
+      events: r.events,
       iterations: r.iterations,
       wallTimeMs: r.wallTimeMs,
     };

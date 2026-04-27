@@ -44,23 +44,24 @@ import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
 import { LeaderAgent } from "../agents/leader/leader.agent";
-import { LeaderService, SupervisedMission } from "./roles";
+import {
+  LeaderService,
+  SupervisedMission,
+  ReconcilerService,
+  AnalystService,
+  WriterService,
+  ReviewerService,
+} from "./roles";
 import { ResearcherAgent } from "../agents/researcher/researcher.agent";
-import { ReconcilerAgent } from "../agents/reconciler/reconciler.agent";
 import { ReportAssemblerService } from "./artifact/report-assembler.service";
 import { MissionStateService } from "./mission/mission-state.service";
 import { MissionAbortRegistry } from "./mission/mission-abort.registry";
-import { AnalystAgent } from "../agents/analyst/analyst.agent";
-import { SingleShotWriterAgent } from "../agents/writer/single-shot-writer.agent";
-import { MissionOutlinePlannerAgent } from "../agents/writer/mission-outline-planner.agent";
-import { DimensionOutlinePlannerAgent } from "../agents/writer/dimension-outline-planner.agent";
 import { ChapterWriterAgent } from "../agents/writer/chapter-writer.agent";
 import { ChapterReviewerAgent } from "../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../agents/writer/dimension-integrator.agent";
+import { SingleShotWriterAgent } from "../agents/writer/single-shot-writer.agent";
 // MissionReviewerAgent: 当前 mission 评审走 VerifierService（多 judge 投票），
 // MissionReviewerAgent class 已声明但 orchestrator 暂未直接调用，保留为后续替换 path。
-import { MissionCriticAgent } from "../agents/reviewer/mission-critic.agent";
-import { DimensionQualityJudgeAgent } from "../agents/reviewer/dimension-quality-judge.agent";
 import {
   type ResearchReport,
   resolveBudgetMultiplier,
@@ -487,6 +488,16 @@ export class ResearchTeamOrchestrator {
     private readonly missionState: MissionStateService,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly leaderService: LeaderService,
+    // ★ Phase Lead-Services: per-role services
+    private readonly reconcilerService: ReconcilerService,
+    private readonly analystService: AnalystService,
+    // writer/verifier/steward 服务已注册但 orchestrator 调用点切换留 PR-S6b/S5
+    // 暂用 // @ts-expect-error 抑制 unused 警告？不 —— eslint/tsc 用 readonly 不构成 unused，
+    // 留用于后续小步迁移。下划线前缀显式表达"已知不使用"。
+    private readonly writerService: WriterService,
+    private readonly reviewerService: ReviewerService,
+    // verifier/steward 服务已注册 + skeleton 完成；wire 进 orchestrator 留 PR-S5
+    // 不在此注入避免 noUnusedLocals 警告（services/roles/index.ts barrel 仍 export）
   ) {}
 
   /**
@@ -1744,8 +1755,8 @@ export class ResearchTeamOrchestrator {
             "playground.reconciler",
             `${input.topic}::reconciler::${input.language}`,
           );
-          const reconRes = await this.runAndRelay(
-            ReconcilerAgent,
+          // ★ Phase Lead-Services: 通过 ReconcilerService.reconcile() 替代直接 runAndRelay
+          const reconRes = await this.reconcilerService.reconcile(
             {
               topic: input.topic,
               language: input.language,
@@ -1853,8 +1864,8 @@ export class ResearchTeamOrchestrator {
           "playground.analyst",
           `${input.topic}::analyst::${input.language}`,
         );
-        const analystRes = await this.runAndRelay(
-          AnalystAgent,
+        // ★ Phase Lead-Services: 通过 AnalystService.analyze() 替代直接 runAndRelay
+        const analystRes = await this.analystService.analyze(
           {
             topic: input.topic,
             language: input.language,
@@ -1945,8 +1956,8 @@ export class ResearchTeamOrchestrator {
           input.auditLayers === "paranoid"
         ) {
           try {
-            const outlineRes = await this.runAndRelay(
-              MissionOutlinePlannerAgent,
+            // ★ Phase Lead-Services: 通过 WriterService.planMissionOutline()
+            const outlineRes = await this.writerService.planMissionOutline(
               {
                 topic: input.topic,
                 language: input.language,
@@ -2077,6 +2088,8 @@ export class ResearchTeamOrchestrator {
               });
             }
           }
+          // 单 shot writer 路径 + judgeWithConsensus 需要直接访问 agent.getEnvelope()，
+          // 暂保留 runAndRelay 直调（service 抽象不暴露 .agent，留 PR-S6b 解决）
           const writerRes = await this.runAndRelay(
             SingleShotWriterAgent,
             {
@@ -2531,8 +2544,8 @@ export class ResearchTeamOrchestrator {
               "playground.critic",
               `${input.topic}::critic::${input.language}`,
             );
-            const criticRes = await this.runAndRelay(
-              MissionCriticAgent,
+            // ★ Phase Lead-Services: 通过 ReviewerService.criticL4()
+            const criticRes = await this.reviewerService.criticL4(
               {
                 topic: input.topic,
                 language: input.language,
@@ -2563,7 +2576,7 @@ export class ResearchTeamOrchestrator {
                           ?.critique,
                       }
                     : undefined,
-              } as Parameters<typeof this.runner.run>[1],
+              },
               {
                 missionId,
                 userId,
@@ -3375,8 +3388,8 @@ export class ResearchTeamOrchestrator {
         dimension: dimensionName,
       },
     );
-    const outlineRes = await this.runAndRelay(
-      DimensionOutlinePlannerAgent,
+    // ★ Phase Lead-Services: 通过 WriterService.planDimensionOutline()
+    const outlineRes = await this.writerService.planDimensionOutline(
       {
         topic,
         dimension: dimensionName,
@@ -3739,8 +3752,8 @@ export class ResearchTeamOrchestrator {
       const sources = researcherOut.findings.map((f) => ({
         url: f.source,
       }));
-      const gradeRes = await this.runAndRelay(
-        DimensionQualityJudgeAgent,
+      // ★ Phase Lead-Services: 通过 ReviewerService.judgeDimension()
+      const gradeRes = await this.reviewerService.judgeDimension(
         {
           topic,
           dimension: dimensionName,

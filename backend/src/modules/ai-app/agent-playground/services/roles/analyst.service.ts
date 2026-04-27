@@ -10,6 +10,7 @@
 import { Injectable } from "@nestjs/common";
 import { AnalystAgent } from "../../agents/analyst/analyst.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
+import type { HarnessIAgentEvent as IAgentEvent } from "../../../../ai-engine/facade";
 
 @Injectable()
 export class AnalystService {
@@ -21,7 +22,7 @@ export class AnalystService {
   ): Promise<{
     state: "completed" | "failed" | "cancelled";
     output?: TOut;
-    events: unknown[];
+    events: readonly IAgentEvent[];
     iterations: number;
     wallTimeMs: number;
   }> {
@@ -38,7 +39,7 @@ export class AnalystService {
             ? "cancelled"
             : "failed",
       output: r.output as TOut | undefined,
-      events: r.events as unknown[],
+      events: r.events,
       iterations: r.iterations,
       wallTimeMs: r.wallTimeMs,
     };

@@ -23,11 +23,12 @@ import { ChapterWriterAgent } from "../../agents/writer/chapter-writer.agent";
 import { ChapterReviewerAgent } from "../../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../../agents/writer/dimension-integrator.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
+import type { HarnessIAgentEvent as IAgentEvent } from "../../../../ai-engine/facade";
 
 interface InvokeResult<TOut> {
   state: "completed" | "failed" | "cancelled";
   output?: TOut;
-  events: unknown[];
+  events: readonly IAgentEvent[];
   iterations: number;
   wallTimeMs: number;
 }
@@ -98,7 +99,7 @@ export class WriterService {
             ? "cancelled"
             : "failed",
       output: r.output as TOut | undefined,
-      events: r.events as unknown[],
+      events: r.events,
       iterations: r.iterations,
       wallTimeMs: r.wallTimeMs,
     };
