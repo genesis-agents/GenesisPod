@@ -224,6 +224,47 @@ export class AgentPlaygroundController {
           md += recon.reconciliationReport;
         }
       }
+      // ★ Critic L4 元审查附录（auditLayers >= thorough 时生成）
+      // 让导出 .md 包含独立审查发现，便于复盘 / 二次撰稿。
+      const quality = (
+        reportFull as {
+          quality?: { warnings?: { dimension: string; message: string }[] };
+        }
+      ).quality;
+      const l4Warnings = (quality?.warnings ?? []).filter((w) =>
+        w.dimension?.startsWith("l4-"),
+      );
+      if (l4Warnings.length > 0) {
+        const blindspots = l4Warnings.filter(
+          (w) => w.dimension === "l4-blindspot",
+        );
+        const biases = l4Warnings.filter((w) => w.dimension === "l4-bias");
+        const suggestions = l4Warnings.filter(
+          (w) => w.dimension === "l4-suggestion",
+        );
+        const critics = l4Warnings.filter((w) => w.dimension === "l4-critic");
+        md += "\n\n---\n\n## 附录：独立审查（Critic L4）\n\n";
+        if (critics.length > 0) {
+          md += "### 整体判定\n";
+          for (const w of critics) md += `- ${w.message}\n`;
+          md += "\n";
+        }
+        if (blindspots.length > 0) {
+          md += "### 盲点（Blind Spots）\n";
+          for (const w of blindspots) md += `- ${w.message}\n`;
+          md += "\n";
+        }
+        if (biases.length > 0) {
+          md += "### 潜在偏见（Biases）\n";
+          for (const w of biases) md += `- ${w.message}\n`;
+          md += "\n";
+        }
+        if (suggestions.length > 0) {
+          md += "### 改进建议（Suggestions）\n";
+          for (const w of suggestions) md += `- ${w.message}\n`;
+          md += "\n";
+        }
+      }
       return {
         filename: `${slug}.md`,
         mimeType: "text/markdown; charset=utf-8",
