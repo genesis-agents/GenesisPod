@@ -343,6 +343,31 @@ module.exports = {
       },
     },
     {
+      // Phase H1: Harness 第一公民独立。ai-engine 永远不允许 import ai-harness
+      // （依赖方向必须单向：ai-app → ai-harness → ai-engine）
+      //
+      // 例外：ai-engine/harness/** 自身正在向 ai-harness 搬迁，迁移期间允许
+      // 通过 shim 引用（PR-H3+ 完成后此例外移除）
+      files: ["**/modules/ai-engine/**/*.ts"],
+      excludedFiles: ["**/modules/ai-engine/harness/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["**/ai-harness/**", "**/modules/ai-harness/**"],
+                message:
+                  "ai-engine 不允许 import ai-harness（依赖方向必须单向）。" +
+                  "如果是 harness 抽象类型，应该 ai-harness 主动暴露给 ai-engine 使用，" +
+                  "而不是 ai-engine 反向引用。",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       // LLM hardcoding guard: ai-app and core modules must use TaskProfile, not raw params.
       // See CLAUDE.md: "禁止硬编码 model: 'gpt-4o' 或 temperature: 0.7"
       // Legitimate exceptions (ai-engine LLM internals, common direct API calls) are outside this scope.
