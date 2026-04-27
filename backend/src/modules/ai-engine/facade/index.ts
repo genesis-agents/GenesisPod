@@ -24,13 +24,13 @@ export type {
 } from "../knowledge/rag/vector/vector.service";
 // TaskCompletionType — 迁移至 ai-harness/facade
 export { UserIntent } from "../orchestration/services/interfaces";
-export type { TeamInfo } from "../teams/services/teams.service";
+export type { TeamInfo } from "../../ai-harness/runtime/teams/services/teams.service";
 
 // ★ Registry classes — AI App 模块可直接注入，但 import 路径必须来自此文件
 export { ToolRegistry } from "../tools/registry/tool-registry";
 export { AgentRegistry } from "../agents/registry";
-export { TeamRegistry } from "../teams/registry/team-registry";
-export { RoleRegistry } from "../teams/registry/role-registry";
+export { TeamRegistry } from "../../ai-harness/runtime/teams/registry/team-registry";
+export { RoleRegistry } from "../../ai-harness/runtime/teams/registry/role-registry";
 export { SkillRegistry } from "../skills/registry/skill-registry";
 // ── Harness symbols 已不再从 ai-engine/facade 导出 ──
 // PR-H6b 后所有 ai-app 直接 import from "@/modules/ai-harness/facade"。
@@ -55,11 +55,11 @@ export type {
   StreamTiming,
   StreamChunk,
 } from "../llm/services/ai-stream-handler.service";
-export type { TeamConfig, ITeam } from "../teams/abstractions/team.interface";
-export { BUILTIN_TEAMS } from "../teams/abstractions/team.interface";
-export type { WorkflowConfig } from "../teams/abstractions/workflow.interface";
-export type { ConstraintProfile } from "../teams/constraints/constraint-profile";
-export { BUILTIN_ROLES } from "../teams/abstractions/role.interface";
+export type { TeamConfig, ITeam } from "../../ai-harness/runtime/teams/abstractions/team.interface";
+export { BUILTIN_TEAMS } from "../../ai-harness/runtime/teams/abstractions/team.interface";
+export type { WorkflowConfig } from "../../ai-harness/runtime/teams/abstractions/workflow.interface";
+export type { ConstraintProfile } from "../../ai-harness/runtime/teams/constraints/constraint-profile";
+export { BUILTIN_ROLES } from "../../ai-harness/runtime/teams/abstractions/role.interface";
 export { BUILTIN_TOOLS } from "../core/types/agent.types";
 export type {
   BuiltinToolId,
@@ -74,12 +74,12 @@ export type {
 export { BUILTIN_AGENTS } from "../core/types/agent.types";
 export type { ExecutionMode } from "../core/types/context.types";
 export type { TaskPlan } from "../orchestration/services/task-planner.service";
-export { createConstraintProfile } from "../teams/constraints/constraint-profile";
+export { createConstraintProfile } from "../../ai-harness/runtime/teams/constraints/constraint-profile";
 export type {
   MissionEvent,
   MissionInput,
   MissionResult,
-} from "../teams/abstractions/mission.interface";
+} from "../../ai-harness/runtime/teams/abstractions/mission.interface";
 export type {
   ToolContext,
   ITool,
@@ -196,12 +196,12 @@ export type {
   QualityStandard,
   EstablishedFact,
   TaskUnderstanding,
-} from "../teams/abstractions/mission-context.interface";
+} from "../../ai-harness/runtime/teams/abstractions/mission-context.interface";
 export {
   createEmptyContextPackage,
   validateContextPackage,
   mergeContextPackages,
-} from "../teams/abstractions/mission-context.interface";
+} from "../../ai-harness/runtime/teams/abstractions/mission-context.interface";
 
 // Error detection utilities（for teams/retry.utils.ts）
 export type { ErrorDetectionRetryConfig } from "../orchestration/utils/error-detection.utils";
@@ -434,20 +434,20 @@ export type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../teams/abstractions/a2a-message.interface";
+} from "../../ai-harness/runtime/teams/abstractions/a2a-message.interface";
 
 // Team member
 export type {
   ITeamMember,
   TeamMemberId,
   MemberStatus,
-} from "../teams/abstractions/member.interface";
+} from "../../ai-harness/runtime/teams/abstractions/member.interface";
 
 // Role (expand existing BUILTIN_ROLES re-export)
-export type { IRole, WorkStyle } from "../teams/abstractions/role.interface";
+export type { IRole, WorkStyle } from "../../ai-harness/runtime/teams/abstractions/role.interface";
 
 // Team (expand existing ITeam/TeamConfig re-export)
-export type { TeamId } from "../teams/abstractions/team.interface";
+export type { TeamId } from "../../ai-harness/runtime/teams/abstractions/team.interface";
 
 // Agent types (expand existing ToolId re-export)
 export type { SkillId } from "../core/types/agent.types";
@@ -501,7 +501,7 @@ export type {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../teams/constraints/constraint-engine.interface";
+} from "../../ai-harness/runtime/teams/constraints/constraint-engine.interface";
 
 // Orchestration interfaces (expand existing — add IConstraintEnforcementService)
 export type { IConstraintEnforcementService } from "../orchestration/services/interfaces";

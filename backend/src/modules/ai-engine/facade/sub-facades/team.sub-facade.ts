@@ -9,9 +9,9 @@ import type {
   TeamsService,
   CreateMissionDto,
   MissionStatus,
-} from "../../teams/services/teams.service";
-import type { TeamId } from "../../teams/abstractions/team.interface";
-import type { MissionEvent } from "../../teams/abstractions/mission.interface";
+} from "../../../ai-harness/runtime/teams/services/teams.service";
+import type { TeamId } from "../../../ai-harness/runtime/teams/abstractions/team.interface";
+import type { MissionEvent } from "../../../ai-harness/runtime/teams/abstractions/mission.interface";
 import type {
   MissionInput,
   MissionResult,

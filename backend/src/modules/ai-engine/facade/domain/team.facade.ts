@@ -38,8 +38,8 @@ import type {
 import type {
   CreateMissionDto,
   MissionStatus,
-} from "../../teams/services/teams.service";
-import type { MissionEvent } from "../../teams/abstractions/mission.interface";
+} from "../../../ai-harness/runtime/teams/services/teams.service";
+import type { MissionEvent } from "../../../ai-harness/runtime/teams/abstractions/mission.interface";
 import type {
   ISkill,
   SkillContext,
@@ -52,7 +52,7 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessage,
-} from "../../teams/abstractions/a2a-message.interface";
+} from "../../../ai-harness/runtime/teams/abstractions/a2a-message.interface";
 import type {
   ReflectionInput,
   ReflectionResult,
@@ -69,12 +69,12 @@ import type {
   VoteResult,
 } from "../../agents/collaboration/abstractions/collaborator.interface";
 import type { SkillMdDefinition } from "../../skills/types/skill-md.types";
-import { TeamsService } from "../../teams/services/teams.service";
-import { TeamFactory } from "../../teams/factory/team-factory";
+import { TeamsService } from "../../../ai-harness/runtime/teams/services/teams.service";
+import { TeamFactory } from "../../../ai-harness/runtime/teams/factory/team-factory";
 import { ContextInitializationService } from "../../orchestration/services/context-initialization.service";
-import { MissionOrchestrator } from "../../teams/orchestrator/mission-orchestrator";
-import { TeamRegistry } from "../../teams/registry/team-registry";
-import { RoleRegistry } from "../../teams/registry/role-registry";
+import { MissionOrchestrator } from "../../../ai-harness/runtime/teams/orchestrator/mission-orchestrator";
+import { TeamRegistry } from "../../../ai-harness/runtime/teams/registry/team-registry";
+import { RoleRegistry } from "../../../ai-harness/runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
 
 @Injectable()

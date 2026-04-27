@@ -110,7 +110,8 @@ export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
 export * as Memory from "./knowledge/memory";
 export * as MCP from "./mcp";
-export * as Teams from "./teams";
+// Teams barrel 已迁移到 ai-harness/runtime/teams（PR-X4）
+// 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/runtime/teams"
 export * as Image from "./content/image";
 
 // 常用服务导出（便于直接导入）
@@ -123,29 +124,8 @@ export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memor
 // engine 主 barrel 不再做反向 re-export。
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
-// Teams 模块核心服务
-export { RoleRegistry, TeamRegistry, MissionOrchestrator } from "./teams";
-export {
-  // Team types
-  TeamId,
-  TeamConfig,
-  ITeam,
-  BUILTIN_TEAMS,
-  // Role types
-  RoleId,
-  IRole,
-  BUILTIN_ROLES,
-  // Member types
-  ITeamMember,
-  ILeader,
-  // Mission types
-  MissionInput,
-  MissionResult,
-  MissionEvent,
-  // Constraint types
-  ConstraintProfile,
-  createConstraintProfile,
-} from "./teams";
+// Teams 模块核心服务（PR-X4: 已迁移到 ai-harness/runtime/teams，不再从 ai-engine barrel 导出）
+// 消费方请使用 "@/modules/ai-harness/facade" 或直接 "@/modules/ai-harness/runtime/teams"
 
 // NestJS 模块导出
 export { AiEngineModule } from "./ai-engine.module";
@@ -157,7 +137,7 @@ export { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
 export { AiEngineMemoryModule } from "./ai-engine-memory.module";
 export { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 
-export { TeamsModule } from "./teams";
+// TeamsModule（PR-X4: 已迁移，从 ai-harness/runtime/teams 导入）
 
 // Facade (统一入口)
 export { AIEngineFacade } from "./facade";

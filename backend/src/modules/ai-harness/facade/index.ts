@@ -223,6 +223,54 @@ export {
 export { KernelSchedulerService } from "../process/scheduler/kernel-scheduler.service";
 
 // ════════════════════════════════════════════════════════════════════
+// Teams: registry + factory + orchestrator + service (PR-X4 migrated from ai-engine/teams)
+// ════════════════════════════════════════════════════════════════════
+export { TeamRegistry } from "../runtime/teams/registry/team-registry";
+export { RoleRegistry } from "../runtime/teams/registry/role-registry";
+export { TeamFactory } from "../runtime/teams/factory/team-factory";
+export { MissionOrchestrator } from "../runtime/teams/orchestrator/mission-orchestrator";
+export { TeamsService } from "../runtime/teams/services/teams.service";
+export type { TeamInfo, CreateMissionDto, MissionStatus } from "../runtime/teams/services/teams.service";
+export type { ITeam, TeamConfig, TeamId, TeamType } from "../runtime/teams/abstractions/team.interface";
+export { BUILTIN_TEAMS } from "../runtime/teams/abstractions/team.interface";
+export type { IRole, RoleId, WorkStyle } from "../runtime/teams/abstractions/role.interface";
+export { BUILTIN_ROLES } from "../runtime/teams/abstractions/role.interface";
+export type { ITeamMember, TeamMemberId, MemberStatus } from "../runtime/teams/abstractions/member.interface";
+export type { WorkflowConfig } from "../runtime/teams/abstractions/workflow.interface";
+export type {
+  MissionInput,
+  MissionResult,
+  MissionEvent,
+} from "../runtime/teams/abstractions/mission.interface";
+export type {
+  MissionContextPackage,
+  HardConstraint,
+  CoreEntity,
+  Prohibition,
+  QualityStandard,
+  EstablishedFact,
+  TaskUnderstanding,
+} from "../runtime/teams/abstractions/mission-context.interface";
+export {
+  createEmptyContextPackage,
+  validateContextPackage,
+  mergeContextPackages,
+} from "../runtime/teams/abstractions/mission-context.interface";
+export type {
+  A2AMessage as TeamA2AMessage,
+  A2AMessageType as TeamA2AMessageType,
+  A2APriority,
+  A2AMessageHandler,
+} from "../runtime/teams/abstractions/a2a-message.interface";
+export type { ConstraintProfile } from "../runtime/teams/constraints/constraint-profile";
+export { createConstraintProfile } from "../runtime/teams/constraints/constraint-profile";
+export type {
+  IConstraintEngine,
+  ConstraintEvaluation,
+  ConstraintViolation as ConstraintEngineViolation,
+} from "../runtime/teams/constraints/constraint-engine.interface";
+
+// ════════════════════════════════════════════════════════════════════
 // Runtime: mission + budget + billing + kernel-api
 // ════════════════════════════════════════════════════════════════════
 export { MissionBudgetPool } from "../runtime/mission/mission-budget-pool";

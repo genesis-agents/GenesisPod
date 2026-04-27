@@ -11,6 +11,9 @@
 import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 
+// Teams module (migrated from ai-engine/teams — PR-X4)
+import { TeamsModule } from "./teams/teams.module";
+
 // Cross-cutting runtime services
 import { RuntimeJournalModule } from "../protocol/journal/journal.module";
 import { RuntimeIpcModule } from "../protocol/ipc/ipc.module";
@@ -44,6 +47,8 @@ const RUNTIME_LIFECYCLE_PROVIDERS = [
     RuntimeResourceModule,
     RuntimeMemoryModule,
     ObservabilityModule,
+    // ★ PR-X4: TeamsModule 从 ai-engine 迁移至此
+    TeamsModule,
   ],
   providers: RUNTIME_LIFECYCLE_PROVIDERS,
   exports: [
@@ -53,6 +58,8 @@ const RUNTIME_LIFECYCLE_PROVIDERS = [
     RuntimeMemoryModule,
     ObservabilityModule,
     ...RUNTIME_LIFECYCLE_PROVIDERS,
+    // ★ PR-X4: TeamsModule 导出，使 TeamsService/TeamRegistry/RoleRegistry 等全局可注入
+    TeamsModule,
   ],
 })
 export class RuntimeModule {}

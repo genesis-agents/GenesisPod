@@ -65,7 +65,7 @@ import { ContentFetchModule } from "./content/fetch/content-fetch.module";
 
 // Other Modules
 import { ImageModule } from "./content/image/image.module";
-import { TeamsModule } from "./teams/teams.module";
+// ★ TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），由 RuntimeModule 统一装配
 // ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
 import { CreditsModule } from "../ai-infra/credits/credits.module";
@@ -133,7 +133,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // Other Modules
     ImageModule,
-    TeamsModule,
+    // TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），由 RuntimeModule 统一装配
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
@@ -192,7 +192,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // Other Modules
     ImageModule,
-    TeamsModule,
+    // TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），不再由 ai-engine 导出
     PromptsModule,
 
     // ★ VotingManager 和 HandoffCoordinator 通过 CollaborationModule 导出

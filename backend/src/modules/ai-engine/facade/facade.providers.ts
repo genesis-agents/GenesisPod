@@ -37,10 +37,10 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖
 import { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";
 // ★ Teams Feature 依赖
-import { TeamsService } from "../teams/services/teams.service";
-import { TeamFactory } from "../teams/factory/team-factory";
+import { TeamsService } from "../../ai-harness/runtime/teams/services/teams.service";
+import { TeamFactory } from "../../ai-harness/runtime/teams/factory/team-factory";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
-import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
+import { MissionOrchestrator } from "../../ai-harness/runtime/teams/orchestrator/mission-orchestrator";
 // ★ Content Feature 依赖
 // ★ Phase 3→Phase 7: replaced L4 type imports with L2 abstractions (audit E-1)
 import type {
@@ -66,8 +66,8 @@ import { TraceCollectorService } from "@/modules/ai-harness/governance/observabi
 import { MemoryCoordinatorService } from "../knowledge/memory/memory-coordinator.service";
 // ★ Registry Feature 依赖
 import { AgentRegistry } from "../agents/registry";
-import { TeamRegistry } from "../teams/registry/team-registry";
-import { RoleRegistry } from "../teams/registry/role-registry";
+import { TeamRegistry } from "../../ai-harness/runtime/teams/registry/team-registry";
+import { RoleRegistry } from "../../ai-harness/runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 
 // ============================================================================

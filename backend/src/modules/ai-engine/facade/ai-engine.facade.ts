@@ -29,15 +29,15 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessage,
-} from "../teams/abstractions/a2a-message.interface";
+} from "../../ai-harness/runtime/teams/abstractions/a2a-message.interface";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../tools/abstractions/tool.interface";
 import {
   TeamsService,
   MissionStatus,
   CreateMissionDto,
-} from "../teams/services/teams.service";
-import type { MissionEvent } from "../teams/abstractions/mission.interface";
+} from "../../ai-harness/runtime/teams/services/teams.service";
+import type { MissionEvent } from "../../ai-harness/runtime/teams/abstractions/mission.interface";
 import { TaskCompletionType } from "../safety/resilience/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
@@ -181,14 +181,14 @@ import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-harn
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
-import { TeamFactory } from "../teams/factory/team-factory";
-import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
+import { TeamFactory } from "../../ai-harness/runtime/teams/factory/team-factory";
+import { MissionOrchestrator } from "../../ai-harness/runtime/teams/orchestrator/mission-orchestrator";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 import { ContentFetchService } from "../content/fetch/content-fetch.service";
 import { AgentRegistry } from "../agents/registry";
-import { TeamRegistry } from "../teams/registry/team-registry";
-import { RoleRegistry } from "../teams/registry/role-registry";
+import { TeamRegistry } from "../../ai-harness/runtime/teams/registry/team-registry";
+import { RoleRegistry } from "../../ai-harness/runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)

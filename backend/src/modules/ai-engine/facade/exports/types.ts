@@ -6,11 +6,11 @@ export type { CreativityLevel, OutputLengthLevel } from "../../llm/types";
 // Note: TeamConfig is also defined in facade.types.ts (facade-level interface).
 // Engine-internal TeamConfig override is done via explicit named export in facade/index.ts
 // if needed — here we export only ITeam which has no conflict.
-export type { ITeam } from "../../teams/abstractions/team.interface";
-export { BUILTIN_TEAMS } from "../../teams/abstractions/team.interface";
-export type { WorkflowConfig } from "../../teams/abstractions/workflow.interface";
-export type { ConstraintProfile } from "../../teams/constraints/constraint-profile";
-export { BUILTIN_ROLES } from "../../teams/abstractions/role.interface";
+export type { ITeam } from "../../../ai-harness/runtime/teams/abstractions/team.interface";
+export { BUILTIN_TEAMS } from "../../../ai-harness/runtime/teams/abstractions/team.interface";
+export type { WorkflowConfig } from "../../../ai-harness/runtime/teams/abstractions/workflow.interface";
+export type { ConstraintProfile } from "../../../ai-harness/runtime/teams/constraints/constraint-profile";
+export { BUILTIN_ROLES } from "../../../ai-harness/runtime/teams/abstractions/role.interface";
 // Note: BUILTIN_TOOLS and BuiltinToolId are already in facade.types.ts bottom section.
 export type {
   PlanStep,
@@ -23,18 +23,18 @@ export type {
 export { BUILTIN_AGENTS } from "../../core/types/agent.types";
 export type { ExecutionMode } from "../../core/types/context.types";
 export type { TaskPlan } from "../../orchestration/services/task-planner.service";
-export { createConstraintProfile } from "../../teams/constraints/constraint-profile";
+export { createConstraintProfile } from "../../../ai-harness/runtime/teams/constraints/constraint-profile";
 // Note: MissionInput and MissionResult are defined in facade.types.ts (facade-level interfaces).
 // Engine-internal overrides were previously done via explicit named exports in facade/index.ts.
-export type { MissionEvent } from "../../teams/abstractions/mission.interface";
+export type { MissionEvent } from "../../../ai-harness/runtime/teams/abstractions/mission.interface";
 export type {
   ToolContext,
   ITool,
   JSONSchema,
 } from "../../tools/abstractions/tool.interface";
-export type { TeamInfo } from "../../teams/services/teams.service";
+export type { TeamInfo } from "../../../ai-harness/runtime/teams/services/teams.service";
 export type { SkillId } from "../../core/types/agent.types";
-export type { TeamId } from "../../teams/abstractions/team.interface";
+export type { TeamId } from "../../../ai-harness/runtime/teams/abstractions/team.interface";
 
 // Mission context types
 export type {
@@ -45,12 +45,12 @@ export type {
   QualityStandard,
   EstablishedFact,
   TaskUnderstanding,
-} from "../../teams/abstractions/mission-context.interface";
+} from "../../../ai-harness/runtime/teams/abstractions/mission-context.interface";
 export {
   createEmptyContextPackage,
   validateContextPackage,
   mergeContextPackages,
-} from "../../teams/abstractions/mission-context.interface";
+} from "../../../ai-harness/runtime/teams/abstractions/mission-context.interface";
 
 // Orchestration interfaces
 export type {
@@ -102,17 +102,17 @@ export type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../teams/abstractions/a2a-message.interface";
+} from "../../../ai-harness/runtime/teams/abstractions/a2a-message.interface";
 
 // Team member
 export type {
   ITeamMember,
   TeamMemberId,
   MemberStatus,
-} from "../../teams/abstractions/member.interface";
+} from "../../../ai-harness/runtime/teams/abstractions/member.interface";
 
 // Role
-export type { IRole, WorkStyle } from "../../teams/abstractions/role.interface";
+export type { IRole, WorkStyle } from "../../../ai-harness/runtime/teams/abstractions/role.interface";
 
 // Constraint engine interface types
 export type {
@@ -130,7 +130,7 @@ export type {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../../teams/constraints/constraint-engine.interface";
+} from "../../../ai-harness/runtime/teams/constraints/constraint-engine.interface";
 
 // Memory abstractions
 // Note: MemoryType is also defined in facade.types.ts — engine-internal override was previously
