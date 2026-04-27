@@ -30,13 +30,13 @@ import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import {
   AiChatService,
   SearchService,
-  CircuitBreakerService,
   ContextInitializationService,
   ToolRegistry,
   AIEngineFacade,
   AgentFacade,
   TeamFacade,
 } from "../../../../../ai-engine/facade";
+import { CircuitBreakerService } from "../../../../../ai-harness/facade";
 import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";
 import { TaskGranularityService } from "../../../../writing/content-engine/services/task-granularity.service";

@@ -9,8 +9,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { StateCategory } from "@/modules/ai-engine/facade";
-import type { ExecutionStateStats } from "@/modules/ai-engine/facade";
+import { StateCategory } from "@/modules/ai-harness/facade";
+import type { ExecutionStateStats } from "@/modules/ai-harness/facade";
 import { AgentFacade } from "../../../../../ai-engine/facade";
 
 /**

@@ -37,8 +37,8 @@ import {
   ContextCompressionService,
   ContextEvolutionService,
   ChatFacade,
-  TokenBudgetService,
 } from "@/modules/ai-engine/facade";
+import { TokenBudgetService } from "@/modules/ai-engine/facade";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 

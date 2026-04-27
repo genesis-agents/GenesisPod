@@ -14,7 +14,7 @@ import { MCPStreamEvent } from "../abstractions/mcp-server.interface";
 import {
   EngineEventEmitterService,
   ProgressTrackerService,
-} from "../../../ai-engine/facade";
+} from "../../../ai-harness/facade";
 
 interface SSEConnection {
   sessionId: string;

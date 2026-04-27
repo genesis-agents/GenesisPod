@@ -27,7 +27,7 @@ import { ChatFacade } from "../../../ai-engine/facade";
 import {
   MissionExecutorService,
   KernelContext,
-} from "../../../ai-engine/facade";
+} from "../../../ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 import {
   ProcessingStep,

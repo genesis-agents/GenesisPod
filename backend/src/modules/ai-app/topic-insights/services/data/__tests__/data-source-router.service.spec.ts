@@ -27,7 +27,7 @@ import { DataSourceType } from "../../../types/data-source.types";
 import {
   CircuitBreakerService,
   CapabilityGuardService,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { RAGFusionService } from "../rag-fusion.service";
 
 // ============================================================

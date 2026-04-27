@@ -1,13 +1,12 @@
 /**
  * Runtime Abstractions Barrel (type-only re-exports)
  *
- * 所有运行时层需要的抽象类型从 ai-engine/facade 重新导出，便于 runtime/ 内部文件
- * 使用统一的类型入口；运行时值的解析路径仍然走各自服务的直接路径。
- *
- * @see ai-engine/facade/index.ts
+ * 运行时层需要的抽象类型——按归属拆分：
+ *   - Harness 自有类型（realtime / observability）→ 直接走 harness 内部相对路径
+ *   - Engine 自有类型（teams / agent / memory / orchestration）→ 走 ai-engine/facade
  */
 
-// ==================== Realtime / Event Emitter ====================
+// ==================== Realtime / Event Emitter (harness-owned) ====================
 
 export type {
   IEngineEventEmitter,
@@ -15,22 +14,18 @@ export type {
   ProgressEvent,
   RoomConfig,
   RoomType,
-} from "../../../ai-engine/facade";
+} from "../../protocol/realtime/abstractions/event-emitter.interface";
 
-// ==================== Realtime / Progress Tracker ====================
+// ==================== Realtime / Progress Tracker (harness-owned) ====================
 
 export type {
   IProgressTracker,
   TrackedTask,
   CreateTrackedTaskRequest,
   TaskPhase,
-} from "../../../ai-engine/facade";
+} from "../../protocol/realtime/abstractions/progress-tracker.interface";
 
-// ★ Inlined from ai-engine to avoid circular dependency at runtime:
-// facade barrel → AIEngineFacade → AiChatService → CircuitBreakerService(shim)
-// → ai-engine/facade → ProgressTrackerService → abstractions → facade (cycle!)
-// All `export type` are erased at runtime (safe). Only runtime values trigger the cycle.
-import type { TaskPhase as _TaskPhase } from "../../../ai-engine/facade";
+import type { TaskPhase as _TaskPhase } from "../../protocol/realtime/abstractions/progress-tracker.interface";
 
 export function calculateOverallProgress(phases: _TaskPhase[]): number {
   const totalWeight = phases.reduce((sum, p) => sum + p.weight, 0);
@@ -46,7 +41,7 @@ export function calculateOverallProgress(phases: _TaskPhase[]): number {
   return Math.round((completedWeight / totalWeight) * 100);
 }
 
-// ==================== Observability / Trace ====================
+// ==================== Observability / Trace (harness-owned) ====================
 
 export type {
   TraceType,
@@ -60,9 +55,9 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../../../ai-engine/facade";
+} from "../../governance/observability/trace.interface";
 
-// ==================== Teams / A2A Message ====================
+// ==================== Teams / A2A Message (engine-owned) ====================
 
 export type {
   A2AMessage,
@@ -71,27 +66,27 @@ export type {
   A2AMessageHandler,
 } from "../../../ai-engine/facade";
 
-// ==================== Teams / Member ====================
+// ==================== Teams / Member (engine-owned) ====================
 
 export type { ITeamMember, TeamMemberId, MemberStatus } from "../../../ai-engine/facade";
 
-// ==================== Teams / Role ====================
+// ==================== Teams / Role (engine-owned) ====================
 
 export type { IRole, WorkStyle } from "../../../ai-engine/facade";
 
-// ==================== Teams / Team ====================
+// ==================== Teams / Team (engine-owned) ====================
 
 export type { TeamId } from "../../../ai-engine/facade";
 
-// ==================== Core / Agent Types ====================
+// ==================== Core / Agent Types (engine-owned) ====================
 
 export type { SkillId, ToolId } from "../../../ai-engine/facade";
 
-// ==================== Orchestration / Abstractions ====================
+// ==================== Orchestration / Abstractions (engine-owned) ====================
 
 export type { Checkpoint, ExecutionContext } from "../../../ai-engine/facade";
 
-// ==================== Teams / Constraint Engine ====================
+// ==================== Teams / Constraint Engine (engine-owned) ====================
 
 export type {
   IConstraintEngine,
@@ -114,7 +109,7 @@ export type {
 // (the facade exports this as ConstraintEngineViolation to avoid collision)
 export type { ConstraintEngineViolation as ConstraintViolation } from "../../../ai-engine/facade";
 
-// ==================== Orchestration / Services / Interfaces ====================
+// ==================== Orchestration / Services / Interfaces (engine-owned) ====================
 
 export type {
   ConstraintSeverity,
@@ -125,11 +120,11 @@ export type {
   IConstraintEnforcementService,
 } from "../../../ai-engine/facade";
 
-// ==================== Teams / Constraints / Constraint Profile ====================
+// ==================== Teams / Constraints / Constraint Profile (engine-owned) ====================
 
 export type { ConstraintProfile } from "../../../ai-engine/facade";
 
-// ==================== Memory / Abstractions ====================
+// ==================== Memory / Abstractions (engine-owned) ====================
 
 export type {
   IMemoryStore,
@@ -141,7 +136,3 @@ export type {
   MemorySearchResult,
   ConversationMessage,
 } from "../../../ai-engine/facade";
-
-// ==================== DI Tokens ====================
-// A2A DI tokens (TEAMS_SERVICE_TOKEN / TRACE_COLLECTOR_TOKEN) moved to
-// @/modules/ai-harness/protocol/a2a/a2a.tokens (PR 1 of kernel-merge refactor)

@@ -26,7 +26,7 @@ import {
   CircuitBreakerService,
   TaskCompletionType,
   CapabilityGuardService,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import {
   DataSourceType,
   DataSourceResult,

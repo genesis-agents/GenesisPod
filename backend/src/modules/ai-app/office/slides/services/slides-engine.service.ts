@@ -42,7 +42,7 @@ import { ChatFacade } from "../../../../ai-engine/facade";
 import {
   MissionExecutorService,
   EventBusService,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import { LruMap } from "@/common/utils/lru-map";
 /**

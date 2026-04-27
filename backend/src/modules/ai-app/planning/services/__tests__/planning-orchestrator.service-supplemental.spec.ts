@@ -88,7 +88,7 @@ import {
 import {
   MissionExecutorService,
   EventJournalService,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 import { CreatePlanDto, PlanningDepth } from "../../dto/create-plan.dto";
 
 // ======================================================

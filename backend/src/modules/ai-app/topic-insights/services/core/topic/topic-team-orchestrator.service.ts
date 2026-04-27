@@ -7,13 +7,13 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { AgentFacade } from "@/modules/ai-engine/facade";
 import {
-  AgentFacade,
   EvalPipelineService,
   SessionLatencyTrackerService,
   type LatencySessionSummary,
-} from "@/modules/ai-engine/facade";
-import { KernelContext } from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import { KernelContext } from "@/modules/ai-harness/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "../research/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {

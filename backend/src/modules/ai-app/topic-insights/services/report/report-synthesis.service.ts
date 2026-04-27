@@ -12,11 +12,11 @@ import {
   TeamFacade,
   OutputReviewerService,
   ContextEvolutionService,
-  TokenBudgetService,
   CrossCuttingSynthesisService,
   type SynthesisResult,
   type EstablishedFact,
 } from "@/modules/ai-engine/facade";
+import { TokenBudgetService } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";

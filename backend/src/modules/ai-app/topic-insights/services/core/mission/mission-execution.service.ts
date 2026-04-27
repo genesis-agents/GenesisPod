@@ -32,11 +32,9 @@ import {
 } from "../research/research-event-emitter.service";
 import { MissionQueryService } from "./mission-query.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
-import {
-  ChatFacade,
-  SessionLatencyTrackerService,
-} from "@/modules/ai-engine/facade";
-import { KernelContext } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-engine/facade";
+import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
+import { KernelContext } from "@/modules/ai-harness/facade";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type { ResearchDepth } from "../../../types/research-depth.types";
 import { resolveResearchDepthConfig } from "../../../types/research-depth.types";

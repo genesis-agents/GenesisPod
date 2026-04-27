@@ -10,11 +10,11 @@ import {
   ErrorTrackingService,
   AIMetricsService,
 } from "@/modules/ai-infra/facade";
-import { EventBusService } from "@/modules/ai-engine/facade";
-import { CostAttributionService } from "@/modules/ai-engine/facade";
-import type { EngineEvent } from "@/modules/ai-engine/facade";
-import { TraceCollectorService } from "@/modules/ai-engine/facade";
-import type { SpanType } from "@/modules/ai-engine/facade";
+import { EventBusService } from "@/modules/ai-harness/facade";
+import { CostAttributionService } from "@/modules/ai-harness/facade";
+import type { EngineEvent } from "@/modules/ai-harness/facade";
+import { TraceCollectorService } from "@/modules/ai-harness/facade";
+import type { SpanType } from "@/modules/ai-harness/facade";
 
 @Injectable()
 export class MissionObservabilityService {

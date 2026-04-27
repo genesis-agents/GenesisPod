@@ -7,7 +7,10 @@
 
 import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
 import { AgentFacade } from "@/modules/ai-engine/facade";
-import type { RoomConfig, EngineEvent } from "@/modules/ai-engine/facade";
+import type {
+  RoomConfig,
+  EngineEvent,
+} from "@/modules/ai-harness/facade";
 import { WritingEventType } from "./writing-event-emitter.service";
 
 /**

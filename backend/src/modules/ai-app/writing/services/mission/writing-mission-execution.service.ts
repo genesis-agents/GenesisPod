@@ -16,8 +16,8 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   ChatFacade,
   AgentFacade,
-  ProgressTrackerService,
 } from "../../../../ai-engine/facade";
+import { ProgressTrackerService } from "../../../../ai-harness/facade";
 
 import type { WritingMissionInput } from "./writing-mission.types";
 import type {

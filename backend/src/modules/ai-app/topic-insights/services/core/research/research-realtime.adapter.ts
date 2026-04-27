@@ -15,7 +15,10 @@ import {
   Optional,
 } from "@nestjs/common";
 import { AgentFacade } from "@/modules/ai-engine/facade";
-import type { RoomConfig, EngineEvent } from "@/modules/ai-engine/facade";
+import type {
+  RoomConfig,
+  EngineEvent,
+} from "@/modules/ai-harness/facade";
 import { ResearchEventType } from "./research-event-emitter.service";
 
 /**

@@ -102,7 +102,7 @@ import {
   AI_OBSERVABILITY_TOKEN,
 } from "./modules/ai-infra/abstractions/ai-services.interfaces";
 import { ChatFacade } from "./modules/ai-engine/facade";
-import { AiObservabilityService } from "./modules/ai-engine/facade";
+import { AiObservabilityService } from "./modules/ai-harness/facade";
 
 @Module({
   imports: [

@@ -14,7 +14,7 @@ import { AgentFacade, TeamFacade } from "../../../ai-engine/facade";
 import {
   MissionExecutorService,
   KernelContext,
-} from "../../../ai-engine/facade";
+} from "../../../ai-harness/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
 import { ResearchToolRouterService } from "../search/research-tool-router.service";
 import type { ResearchToolStrategy } from "../search/research-tool-router.types";

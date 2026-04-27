@@ -21,7 +21,7 @@ import {
   TraceCollectorService,
   TraceType,
   EvalPipelineService,
-} from "../../ai-engine/facade";
+} from "../../ai-harness/facade";
 import { NotFoundException } from "@nestjs/common";
 import {
   RateLimitGuard,

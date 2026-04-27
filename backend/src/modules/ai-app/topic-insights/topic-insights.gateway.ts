@@ -31,7 +31,7 @@ import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
 import { ResearchEventEmitterService } from "./services";
 import { RESEARCH_INTERNAL_EVENTS } from "./services/core/research/research-event-emitter.service";
-import type { LatencySessionSummary } from "@/modules/ai-engine/facade";
+import type { LatencySessionSummary } from "@/modules/ai-harness/facade";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   createSecurityLogger,

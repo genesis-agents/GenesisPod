@@ -4,7 +4,8 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionStateManager } from "../mission-state.manager";
-import { AgentFacade, StateCategory } from "../../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../../ai-engine/facade";
+import { StateCategory } from "../../../../../../ai-harness/facade";
 
 const mockStats = {
   activeCounts: {

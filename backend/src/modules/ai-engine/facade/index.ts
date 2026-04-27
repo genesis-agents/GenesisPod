@@ -9,10 +9,7 @@ export { AIEngineFacade } from "./ai-engine.facade";
 export * from "./types";
 export { PromptSkillBridge } from "../skills/runtime";
 // ★ Re-export Engine types so AI App modules can import from facade instead of engine internals
-export type {
-  RoomConfig,
-  EngineEvent,
-} from "../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
+// RoomConfig / EngineEvent — 迁移至 ai-harness/facade
 export type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
 export type { AICapabilityContext } from "../orchestration/capabilities/ai-capability-resolver.service";
 export type {
@@ -25,7 +22,7 @@ export type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
-export { TaskCompletionType } from "../../ai-harness/governance/resource/circuit-breaker.service";
+// TaskCompletionType — 迁移至 ai-harness/facade
 export { UserIntent } from "../orchestration/services/interfaces";
 export type { TeamInfo } from "../teams/services/teams.service";
 
@@ -100,7 +97,7 @@ export type {
   CompressionOptions,
 } from "../orchestration/services/interfaces";
 export { ContextStrategy } from "../orchestration/services/interfaces";
-export { ConstraintEnforcementService } from "../../ai-harness/governance/resource/constraint-enforcement.service";
+// ConstraintEnforcementService — 迁移至 ai-harness/facade
 export type {
   ConstraintSeverity,
   ExtractedConstraint,
@@ -127,15 +124,12 @@ export type {
   ContextEvolutionConfig,
 } from "../orchestration/services/interfaces";
 export { AgentExecutorService } from "../orchestration/services/agent-executor.service";
-export { CircuitBreakerService } from "../../ai-harness/governance/resource/circuit-breaker.service";
+// CircuitBreakerService — 迁移至 ai-harness/facade
 export { ContextInitializationService } from "../orchestration/services/context-initialization.service";
 export { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
-export { ProcessSupervisorService as ExecutionStateManager } from "../../ai-harness/process/supervisor/process-supervisor.service";
-
-// State-machine types（for teams/mission-state.manager.ts）
-export { StateCategory } from "../../ai-harness/process/supervisor/process-supervisor.service";
-export type { ExecutionStateStats } from "../../ai-harness/process/supervisor/process-supervisor.service";
+// ProcessSupervisorService / ExecutionStateManager / StateCategory /
+// ExecutionStateStats — 迁移至 ai-harness/facade
 
 // MCP abstraction types（for social/mcp-client.service.ts）
 export type {
@@ -374,18 +368,10 @@ export type {
   GuardrailsPipelineResult,
 } from "../safety/guardrails/guardrails.interface";
 
-// ★ Batch 2 — Observability（for admin monitoring and health checks）
-export { TraceCollectorService } from "../../ai-harness/governance/observability/trace-collector.service";
-export { AiObservabilityService } from "../../ai-harness/governance/observability/ai-observability.service";
-export { CostAttributionService } from "../../ai-harness/governance/observability/cost-attribution.service";
-export { EvalPipelineService } from "../../ai-harness/governance/observability/eval-pipeline.service";
-// ★ Batch 2 Topic Insights — Eval types
-export type { EvalResult } from "../../ai-harness/governance/observability/eval-pipeline.service";
-export type { TraceType } from "../../ai-harness/governance/observability/trace.interface";
-
-// ★ Batch 2 — Realtime（for mcp-server streaming bridge）
-export { EventBusService as EngineEventEmitterService } from "../../ai-harness/protocol/ipc/event-bus.service";
-export { ProgressTrackerService } from "../../ai-harness/protocol/ipc/progress-tracker.service";
+// Observability + Realtime 相关符号全部迁移至 ai-harness/facade
+// (TraceCollectorService / AiObservabilityService / CostAttributionService /
+//  EvalPipelineService / EvalResult / TraceType /
+//  EngineEventEmitterService / ProgressTrackerService)
 
 // ★ Batch 2 — Content services（for office re-exports）
 export { ImageMatchingService } from "../content/image/matching/image-matching.service";
@@ -437,36 +423,10 @@ export type {
   IReportSynthesisEngine,
 } from "../content/abstractions/content-engine.interfaces";
 
-// ★ Phase 8: Kernel integration types — L3 imports L2 types only through this facade (audit K-1)
-// Event emitter (expand existing re-exports)
-export type {
-  IEngineEventEmitter,
-  ProgressEvent,
-  RoomType,
-} from "../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
-
-// Progress tracker
-export type {
-  IProgressTracker,
-  TrackedTask,
-  CreateTrackedTaskRequest,
-  TaskPhase,
-} from "../../ai-harness/protocol/realtime/abstractions/progress-tracker.interface";
-export { calculateOverallProgress } from "../../ai-harness/protocol/realtime/abstractions/progress-tracker.interface";
-
-// Trace / Observability (expand existing TraceType re-export)
-export type {
-  SpanType,
-  ExecutionStatus,
-  SpanData,
-  TraceData,
-  TraceSummary,
-  CreateTraceInput,
-  CreateSpanInput,
-  EndSpanInput,
-  EndTraceInput,
-  ListTracesOptions,
-} from "../../ai-harness/governance/observability/trace.interface";
+// Phase 8 / Kernel integration types — 迁移至 ai-harness/facade
+// (IEngineEventEmitter / ProgressEvent / RoomType / IProgressTracker /
+//  TrackedTask / CreateTrackedTaskRequest / TaskPhase /
+//  calculateOverallProgress / SpanType + 8 个 trace 类型)
 
 // A2A messaging
 export type {
@@ -654,24 +614,8 @@ export {
   type SchedulerStats,
 } from "../orchestration/services";
 
-// ★ Session Latency Tracking (re-export for AI App convenience)
-export { SessionLatencyTrackerService } from "../../ai-harness/governance/observability/session-latency-tracker.service";
-export type {
-  LatencySession,
-  LatencyPhase,
-  LatencyCheckpoint,
-  LLMLatencyRecord,
-  LatencySessionSummary,
-  TTFTStats,
-  LatencyPercentileStats,
-  PhaseDurationSummary,
-  LatencySessionType,
-  LatencySessionStatus,
-  StartSessionInput,
-  StartPhaseInput,
-  RecordLLMLatencyInput,
-  ListSessionsFilter,
-} from "../../ai-harness/governance/observability/session-latency.types";
+// Session Latency Tracking — 迁移至 ai-harness/facade
+// (SessionLatencyTrackerService + 14 个 latency 类型)
 
 // ★ Runtime exports (formerly ai-engine/facade, PR 7)
 export * from "./exports/runtime";

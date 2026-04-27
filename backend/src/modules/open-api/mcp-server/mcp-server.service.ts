@@ -20,11 +20,11 @@ import {
   MCPToolResponse,
   JSON_RPC_ERRORS,
 } from "./abstractions/mcp-server.interface";
+import { GuardrailsPipelineService } from "../../ai-engine/facade";
 import {
-  GuardrailsPipelineService,
   AiObservabilityService,
   CostAttributionService,
-} from "../../ai-engine/facade";
+} from "../../ai-harness/facade";
 import { MCPToolBridgeService } from "./bridge/mcp-tool-bridge.service";
 import { MCPResourceProvider } from "./bridge/mcp-resource-provider";
 import { MCPPromptProvider } from "./bridge/mcp-prompt-provider";

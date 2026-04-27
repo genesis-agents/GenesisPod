@@ -17,8 +17,8 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
-import { KernelContext } from "@/modules/ai-engine/facade";
-import { SessionLatencyTrackerService } from "@/modules/ai-engine/facade";
+import { KernelContext } from "@/modules/ai-harness/facade";
+import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import type { Cache } from "cache-manager";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -87,11 +87,11 @@ import {
   ChatFacade,
   type AiCallerFn,
   type EstablishedFact,
-  TokenBudgetService,
   PromptCacheCoordinatorService,
   ExecutionCheckpointService,
   SessionMemorySidecarService,
 } from "@/modules/ai-engine/facade";
+import { TokenBudgetService } from "@/modules/ai-engine/facade";
 import { MissionObservabilityService } from "../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";

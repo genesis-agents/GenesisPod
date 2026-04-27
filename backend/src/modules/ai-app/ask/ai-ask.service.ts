@@ -19,8 +19,8 @@ import {
   IntentRouterService,
   RAGPipelineService,
 } from "../../ai-engine/facade";
-import { MissionExecutorService } from "../../ai-engine/facade";
-import { ProcessMemoryManagerService } from "@/modules/ai-engine/facade";
+import { MissionExecutorService } from "../../ai-harness/facade";
+import { ProcessMemoryManagerService } from "@/modules/ai-harness/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,

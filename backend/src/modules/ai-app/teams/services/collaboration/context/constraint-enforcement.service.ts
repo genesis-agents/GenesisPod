@@ -9,11 +9,11 @@
  * @see ai-engine/orchestration/services/constraint-enforcement.service.ts
  */
 
-// 从 AI Engine 重导出（向后兼容）
-export {
-  ConstraintEnforcementService,
-  type ConstraintSeverity,
-  type ExtractedConstraint,
-  type ConstraintViolation,
-  type OutputValidationResult,
+// 从 AI Harness（ConstraintEnforcementService）和 AI Engine（接口类型）重导出
+export { ConstraintEnforcementService } from "../../../../../ai-harness/facade";
+export type {
+  ConstraintSeverity,
+  ExtractedConstraint,
+  ConstraintViolation,
+  OutputValidationResult,
 } from "../../../../../ai-engine/facade";

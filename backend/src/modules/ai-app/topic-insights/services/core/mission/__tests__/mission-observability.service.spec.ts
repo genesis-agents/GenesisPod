@@ -10,11 +10,11 @@ import {
   ErrorTrackingService,
   AIMetricsService,
 } from "@/modules/ai-infra/facade";
-import { EventBusService } from "@/modules/ai-engine/facade";
+import { EventBusService } from "@/modules/ai-harness/facade";
 import {
   CostAttributionService,
   TraceCollectorService,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 // ─── Mock factories ───────────────────────────────────────────────────────────
 

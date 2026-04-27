@@ -8,8 +8,8 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { CircuitBreakerService } from "@/modules/ai-engine/facade";
-import { SessionLatencyTrackerService } from "@/modules/ai-engine/facade";
+import { CircuitBreakerService } from "@/modules/ai-harness/facade";
+import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { ToolRegistry } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { DataSourceType } from "../../../types/data-source.types";

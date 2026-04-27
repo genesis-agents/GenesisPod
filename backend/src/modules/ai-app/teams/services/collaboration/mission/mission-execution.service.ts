@@ -30,7 +30,7 @@ import type { TaskProfile } from "../../../../../ai-engine/facade";
 import { ToolRegistry } from "../../../../../ai-engine/facade";
 import type { ToolContext } from "../../../../../ai-engine/facade";
 // ★ IPC: Agent 间消息总线（Kernel L3）
-import { MessageBusService } from "../../../../../ai-engine/facade";
+import { MessageBusService } from "../../../../../ai-harness/facade";
 import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,

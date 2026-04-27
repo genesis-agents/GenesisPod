@@ -19,7 +19,7 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import {
   SessionLatencyTrackerService,
   type LatencySessionSummary,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * Latency Controller

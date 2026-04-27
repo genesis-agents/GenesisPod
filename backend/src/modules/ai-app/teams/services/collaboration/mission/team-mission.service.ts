@@ -28,7 +28,7 @@ import {
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIEngineFacade 访问）
-import { TaskCompletionType } from "../../../../../ai-engine/facade";
+import { TaskCompletionType } from "../../../../../ai-harness/facade";
 import { EmailService } from "../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -86,13 +86,13 @@ import {
 import {
   AgentFacade,
   TeamFacade,
-  ProgressTrackerService,
 } from "../../../../../ai-engine/facade";
+import { ProgressTrackerService } from "../../../../../ai-harness/facade";
 import {
   MissionExecutorService,
   EventJournalService,
   KernelContext,
-} from "../../../../../ai-engine/facade";
+} from "../../../../../ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts

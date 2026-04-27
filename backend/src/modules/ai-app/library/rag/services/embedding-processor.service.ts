@@ -8,7 +8,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { RAGFacade } from "../../../../ai-engine/facade";
-import { MissionExecutorService } from "../../../../ai-engine/facade";
+import { MissionExecutorService } from "../../../../ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 const BATCH_SIZE = 50;

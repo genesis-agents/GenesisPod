@@ -16,7 +16,7 @@ import {
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { mapWithConcurrencySettled } from "@/common/utils/concurrency.utils";
-import { HealthCheckRunner } from "@/modules/ai-engine/facade";
+import { HealthCheckRunner } from "@/modules/ai-harness/facade";
 import {
   ResearchMissionStatus,
   ResearchTaskStatus,

@@ -15,7 +15,7 @@ import {
 import {
   KernelContext,
   MissionExecutorService,
-} from "../../../ai-engine/facade";
+} from "../../../ai-harness/facade";
 import { BillingContext } from "../../../ai-infra/facade";
 
 export interface ChatMessage {
