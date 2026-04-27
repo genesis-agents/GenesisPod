@@ -84,12 +84,14 @@ import {
 } from "./helpers/token-spend.util";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
+import { runBudgetEstimateStage } from "./stages/00-budget-estimate.stage";
 import { runLeaderPlanStage } from "./stages/10-leader-plan.stage";
 import { runLeaderAssessM1Stage } from "./stages/30-leader-assess-m1.stage";
 import { runReconcilerStage } from "./stages/40-reconciler.stage";
 import { runAnalystStage } from "./stages/50-analyst.stage";
 import { runCriticStage } from "./stages/70-critic.stage";
 import { runLeaderHandoffStage } from "./stages/80-leader-handoff.stage";
+import { runPersistStage } from "./stages/99-persist.stage";
 
 interface MissionResult {
   readonly missionId: string;
@@ -348,69 +350,11 @@ export class ResearchTeamMission {
             // depth × budgetProfile 组合倍率：让两个 lever 协同 scale agent budget
             resolveBudgetMultiplier(input),
           );
-          // 持久化 completed 状态 + 完整结果（含 dimensions / themeSummary / verdicts）
-          const snap = pool.snapshot();
-          // P0-5: 优先存 ReportArtifact v2，fallback 旧 ResearchReport v1
-          const v2Title = result.reportArtifact?.metadata?.topic;
-          const v2Summary =
-            result.reportArtifact?.quickView?.executiveSummary?.markdown;
-          const reportPayload = result.reportArtifact
-            ? {
-                ...result.reportArtifact,
-                title: v2Title,
-                summary: v2Summary,
-              }
-            : (result.report as unknown as {
-                title?: string;
-                summary?: string;
-              });
-          // ★ Phase Lead-3: Leader 签字结果同时写入 mission 顶层列
-          //   - signed=false → markFailed 而不是 markCompleted（mission 标 quality-failed）
-          //   - signed=true  → markCompleted + 持久化 leaderOverallScore/Verdict
-          if (result.leaderSignOff && !result.leaderSignOff.signed) {
-            await this.store.markFailed(missionId, {
-              wallTimeMs: Date.now() - t0,
-              errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,
-              tokensUsed: snap.poolTokensUsed,
-              costUsd: snap.poolCostUsd,
-              trajectoryStored: result.trajectoryStored,
-              themeSummary: result.themeSummary,
-              dimensions: result.dimensions,
-              report: reportPayload as unknown as {
-                title?: string;
-                summary?: string;
-              },
-              reportArtifactVersion: result.reportArtifact ? 2 : 1,
-              userProfile: result.userProfile ?? null,
-              reconciliationReport: result.reconciliationReport ?? null,
-              verdicts: result.verdicts,
-              leaderJournal: undefined, // 已通过 appendLeaderJournal 增量写入
-              leaderOverallScore: result.leaderSignOff.leaderOverallScore,
-              leaderSigned: false,
-              leaderVerdict: result.leaderSignOff.leaderVerdict,
-            });
-          } else {
-            await this.store.markCompleted(missionId, {
-              finalScore: result.reviewScore,
-              tokensUsed: snap.poolTokensUsed,
-              costUsd: snap.poolCostUsd,
-              trajectoryStored: result.trajectoryStored,
-              wallTimeMs: Date.now() - t0,
-              themeSummary: result.themeSummary,
-              dimensions: result.dimensions,
-              report: reportPayload as unknown as {
-                title?: string;
-                summary?: string;
-              },
-              reportArtifactVersion: result.reportArtifact ? 2 : 1,
-              userProfile: result.userProfile ?? null,
-              reconciliationReport: result.reconciliationReport ?? null,
-              verdicts: result.verdicts,
-              leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
-              leaderSigned: result.leaderSignOff?.signed,
-              leaderVerdict: result.leaderSignOff?.leaderVerdict,
-            });
-          }
+          // ── Stage 99: 持久化（已抽到 stages/99-persist.stage.ts）──
+          await runPersistStage(
+            { missionId, t0, result, pool },
+            this.buildStageDeps(),
+          );
           clearTimeout(wallTimer);
           this.abortRegistry.unregister(missionId);
           return result;
@@ -482,49 +426,22 @@ export class ResearchTeamMission {
   ): Promise<MissionResult> {
     {
       {
-        await this.emit({
-          type: "agent-playground.mission:started",
+        // ── Stage 0: 预算预估 + mission:started（已抽到 stages/00-budget-estimate.stage.ts）──
+        const startCtx = this.buildStageCtx({
           missionId,
           userId,
-          payload: { input, workspaceId, startedAt: t0 },
+          input,
+          t0,
+          billing,
+          pool,
+          leader: undefined as never, // leader 在下一个 stage 才创建，budget 不需要它
+          budgetMultiplier,
         });
-
-        // ★ Phase P3-8 / P4-7: 启动前预算预估（按 budgetMultiplier 等比缩放）
-        const baseEstimate = 400_000; // deep+medium 基线
-        const estimateBudget = Math.round(
-          baseEstimate * Math.max(0.1, budgetMultiplier),
+        await runBudgetEstimateStage(
+          startCtx,
+          this.buildStageDeps(),
+          workspaceId,
         );
-        try {
-          const estimate = await billing.estimateAffordable({
-            maxTokens: estimateBudget,
-          });
-          if (!estimate.affordable) {
-            const warningType =
-              estimate.suggestion === "abort"
-                ? "agent-playground.mission:budget-warning-hard"
-                : "agent-playground.mission:budget-warning-soft";
-            await this.emit({
-              type: warningType,
-              missionId,
-              userId,
-              payload: {
-                shortfall: estimate.shortfall,
-                suggestion: estimate.suggestion,
-                estimatedCredits: estimate.estimatedCredits,
-                currentBalance: estimate.currentBalance,
-              },
-            });
-            if (estimate.suggestion === "abort") {
-              throw new Error(
-                `余额不足以启动 mission（短缺 ${estimate.shortfall} credits），请充值后重试`,
-              );
-            }
-          }
-        } catch (err) {
-          this.log.warn(
-            `[${missionId}] budget estimate failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
 
         // ── Stage 1: Leader 拆维度（M0 plan via LeaderService）──
         // ★ Phase Lead-Final: Lead 全程在场 —— 创建 SupervisedMission，整 mission 复用
