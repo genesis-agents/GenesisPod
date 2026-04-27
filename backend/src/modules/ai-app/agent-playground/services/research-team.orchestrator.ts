@@ -1544,6 +1544,25 @@ export class ResearchTeamOrchestrator {
             analyst.contradictions,
             "writer.contradictions",
           );
+          // ★ Raw findings 透传：让 Writer 不仅看 Analyst 抽出来的 insights，
+          //   还能看到每个 Researcher 原始的 (claim, evidence, source) 三元组。
+          //   这样 Writer 引用具体数字 / 时间 / URL 时，每条都能在原始证据里找到对应。
+          const rawFindings: {
+            dimension: string;
+            claim: string;
+            evidence: string;
+            source: string;
+          }[] = [];
+          for (const r of researcherResults) {
+            for (const f of r.findings ?? []) {
+              rawFindings.push({
+                dimension: r.dimension,
+                claim: f.claim,
+                evidence: f.evidence,
+                source: f.source,
+              });
+            }
+          }
           const writerRes = await this.runAndRelay(
             WriterAgent,
             {
@@ -1553,6 +1572,7 @@ export class ResearchTeamOrchestrator {
               insights: writerInsights,
               themeSummary: analyst.themeSummary,
               contradictions: writerContradictions,
+              rawFindings,
             },
             {
               missionId,

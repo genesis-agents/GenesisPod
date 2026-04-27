@@ -34,6 +34,18 @@ const Input = z.object({
       }),
     )
     .optional(),
+  // ★ Raw findings (per-dim): 让 Writer 能直接引用具体的 claim + source URL，
+  //   避免只能用 Analyst cherry-picked insights 而漏掉部分 findings 的 source。
+  rawFindings: z
+    .array(
+      z.object({
+        dimension: z.string(),
+        claim: z.string(),
+        evidence: z.string(),
+        source: z.string(),
+      }),
+    )
+    .default([]),
 });
 
 const DEPTH_SECTION_PLAN: Record<
@@ -103,6 +115,9 @@ export class WriterAgent extends AgentSpec<
       input.contradictions && input.contradictions.length > 0
         ? `- ${input.contradictions.length} cross-source contradictions to acknowledge transparently`
         : `- No major source contradictions detected`,
+      `- ${input.rawFindings?.length ?? 0} raw findings (claim + evidence + source URL per dimension) —`,
+      `  use these to back specific claims with [N] citations to the source URL. Don't write a section`,
+      `  with only generic prose; ground every paragraph in 1-2 specific findings if possible.`,
       ``,
       `## Report shape (return EXACTLY this JSON; field names must match)`,
       `{`,
