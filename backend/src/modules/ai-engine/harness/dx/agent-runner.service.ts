@@ -34,12 +34,95 @@ import {
 } from "./agent-spec.base";
 import { describeOutputSchemaForLlm } from "./zod-schema-prompt";
 
-export interface RunResult<TOutput> {
-  readonly output: TOutput;
-  readonly state: "completed" | "failed" | "cancelled";
-  readonly events: readonly IAgentEvent[];
+/**
+ * ★ 迭代出口标准枚举（mission-pipeline-exit-policy.md / baseline §1.4）
+ *
+ * 优先级：cancelled > failed_* > budget_exhausted > wall_time_exceeded
+ *           > max_iterations > validation_rejected_max > completed
+ */
+export type ExitReason =
+  // ─── 成功类 ────────────────────────────
+  | "completed"
+  // ─── 质量类（output 仍可用，但低于期望）─
+  | "validation_rejected_max"
+  // ─── 资源类 ────────────────────────────
+  | "budget_exhausted"
+  | "max_iterations"
+  | "wall_time_exceeded"
+  // ─── 错误类 ────────────────────────────
+  | "failed_parse"
+  | "failed_tool"
+  | "failed_model"
+  | "empty_response"
+  // ─── 主动类 ────────────────────────────
+  | "cancelled";
+
+/**
+ * 三段式 RunResult（mission-pipeline-runresult-schema.md / baseline §1.2）
+ *
+ *  段 1 业务产物：output / partialOutput
+ *  段 2 终态：state / exitReason / failureCode / diagnostic / recoveryHint
+ *  段 3 运行元信息：iterations / wallTimeMs / tokensUsed / costCents / modelTrail / events
+ *  段 4 工具使用：toolsUsed / toolsCatalogSnapshot
+ *  段 5 元数据：meta
+ *
+ * 老字段 output / state / events / iterations / wallTimeMs / agent 保留（向后兼容）。
+ * 新代码请用 段 2-5 字段。
+ */
+export interface RunResult<TOutput = unknown> {
+  // ─── 段 1：业务产物 ─────────────────────────────
+  readonly output?: TOutput;
+  readonly partialOutput?: unknown;
+
+  // ─── 段 2：终态 ─────────────────────────────────
+  readonly state: "completed" | "failed" | "cancelled" | "degraded";
+  readonly exitReason: ExitReason;
+  readonly failureCode?: import("../abstractions/agent-event.interface").HarnessFailureCode;
+  readonly diagnostic?: Record<string, unknown>;
+  readonly recoveryHint?: {
+    action: "retry" | "switch_model" | "downgrade_tier" | "abort";
+    reason?: string;
+    fallbackModelId?: string;
+    retryAfterMs?: number;
+  };
+
+  // ─── 段 3：运行元信息 ──────────────────────────
   readonly iterations: number;
   readonly wallTimeMs: number;
+  readonly tokensUsed: {
+    prompt: number;
+    completion: number;
+    total: number;
+  };
+  readonly costCents: number;
+  readonly modelTrail: readonly {
+    iter: number;
+    modelId: string;
+    promptTokens: number;
+    completionTokens: number;
+    latencyMs: number;
+  }[];
+  readonly events: readonly IAgentEvent[];
+
+  // ─── 段 4：工具使用快照 ────────────────────────
+  readonly toolsUsed: readonly {
+    toolId: string;
+    calls: number;
+    totalLatencyMs: number;
+    failures: number;
+  }[];
+  readonly toolsCatalogSnapshot: readonly string[];
+
+  // ─── 段 5：元信息 ──────────────────────────────
+  readonly meta: {
+    agentId: string;
+    specVersion?: string;
+    sessionId?: string;
+    startedAt: number;
+    finishedAt: number;
+  };
+
+  // ─── 兼容字段（旧 caller） ─────────────────────
   readonly agent: IAgent;
 }
 
@@ -74,6 +157,44 @@ export interface RunOptions {
    * 不需要改 spec class。Harness 在 buildIdentity 时套用倍率。
    */
   readonly budgetMultiplier?: number;
+  /**
+   * ★ Tool Recall hint —— 上层（如 Leader 阶段）给本次任务的工具收窄/偏好。
+   *
+   * 设计：mission-pipeline-baseline.md §1.1 / §3.4 / §10 Q1 Q2
+   *
+   * - 上层声明意图（如 dim 性质 = 'academic'），AgentRunner 据此从 ToolRegistry
+   *   实时召回工具子集
+   * - hint 缺失时按 spec.toolCategories（+ 兼容 spec.tools）召回
+   * - 五步流程：基础召回 → hint 收窄 → 黑名单减去 → ToolACL 过滤 → preferIds 标 ★
+   * - 召回结果同时驱动 (a) identity.tools (b) <available_tools> catalog block
+   *
+   * 安全约束（materialize() 内强制）：
+   *   - hint.categories 必须 ⊆ spec.toolCategories ∪ spec.tools categories（越界静默丢弃）
+   *   - hint.preferIds 必须 ∈ recalled 集（越界静默丢弃）
+   *   - recalled 为空 → InsufficientToolsError fail-fast
+   */
+  readonly toolRecallHint?: {
+    categories?: readonly string[];
+    excludeIds?: readonly string[];
+    preferIds?: readonly string[];
+  };
+  /**
+   * ★ Loop 覆盖（mission-pipeline-audit-layers.md L1 Reflexion 启用机制）
+   *
+   * 上层（如 thorough/paranoid 档位）可指定本次运行用 reflexion 而非 spec.loop 默认值。
+   * 同时透传 reflexion 配置（verifiers / passThreshold / maxRevisions）。
+   */
+  readonly loopOverride?: import("../abstractions").AgentLoopKind;
+  readonly reflexion?: {
+    passThreshold?: number;
+    maxRevisions?: number;
+  };
+  /**
+   * ★ Phase P12-1: AbortSignal 透传（mission-pipeline-baseline.md §9.4 / Q11）
+   * 上层（如 orchestrator）传 mission 级 controller.signal，所有子 runner 共享
+   * 取消信号；ReActLoop 已检查 options?.signal?.aborted。
+   */
+  readonly signal?: AbortSignal;
 }
 
 export class DefineAgentMissingError extends Error {
@@ -105,6 +226,27 @@ export class ByokRequiredError extends Error {
       `[${agentId}] BYOK key required for user ${userId} — set onMissingByok:'allow' to use platform key, or have user configure a personal key.`,
     );
     this.name = "ByokRequiredError";
+  }
+}
+
+/**
+ * Tool Recall 五步走完后召回为空时抛出 —— 早 fail，不进 ReActLoop 避免空 catalog
+ * 让 LLM 抓瞎。
+ */
+export class InsufficientToolsError extends Error {
+  readonly code = "INSUFFICIENT_TOOLS";
+  constructor(
+    public readonly agentId: string,
+    public readonly diagnostic: {
+      declaredCategories: readonly string[];
+      declaredIds: readonly string[];
+      hint?: RunOptions["toolRecallHint"];
+    },
+  ) {
+    super(
+      `[${agentId}] Tool Recall yielded empty pool. Spec declared categories=[${diagnostic.declaredCategories.join(",")}] / ids=[${diagnostic.declaredIds.join(",")}]; hint=${JSON.stringify(diagnostic.hint ?? null)}.`,
+    );
+    this.name = "InsufficientToolsError";
   }
 }
 
@@ -142,23 +284,59 @@ export class AgentRunner {
     // ── BYOK 预检（fail-fast，免得跑到第一次 chat 才 503）──
     await this.precheckByok(opts, meta.id);
 
+    // ── Tool Recall 五步流程 —— 决定 catalog 渲染 + identity.tools ──
+    const recall = await this.performToolRecall(meta, opts);
+    // emit tools_recalled 事件（baseline §1.3）—— 让上层 trace 可视化
+    if (opts.onEvent) {
+      try {
+        await opts.onEvent({
+          type: "tools_recalled",
+          agentId: meta.id,
+          timestamp: Date.now(),
+          payload: {
+            recalledIds: recall.recalledIds,
+            categories:
+              opts.toolRecallHint?.categories ?? meta.toolCategories ?? [],
+            source: recall.source,
+            preferIds: recall.effectivePreferIds,
+          },
+        });
+      } catch {
+        // 不让回调异常拖垮启动
+      }
+    }
+
     // ── 装配增强 systemPrompt blocks（环境 + 能力目录）──
-    const augmentBlocks = await this.collectAugmentBlocks(meta, opts);
+    const augmentBlocks = await this.collectAugmentBlocks(
+      meta,
+      opts,
+      recall.recalledIds,
+      recall.effectivePreferIds,
+    );
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
       input,
       meta,
       augmentBlocks,
+      recall.recalledIds,
       opts.budgetMultiplier,
       opts.userId,
       opts.workspaceId,
       opts.environment,
+      opts.loopOverride,
     );
 
     // ── 自动包 BillingContext（如果 userId 已知）──
     const work = async () =>
-      this.drainEvents(agent, instance, parsedInput, meta, opts.onEvent);
+      this.drainEvents(
+        agent,
+        instance,
+        parsedInput,
+        meta,
+        opts.onEvent,
+        opts.signal,
+      );
 
     // BillingContext 嵌套规则：
     //   - 外层（业务方 controller / interceptor / orchestrator）已包了 → 不动，沿用
@@ -265,12 +443,43 @@ export class AgentRunner {
       }
     }
 
+    const wallTimeMs = Date.now() - startMs;
+    const finishedAt = Date.now();
+    const hasOutput = meta.outputSchema
+      ? finalState === "completed" && finalOutput != null
+      : finalOutput != null && finalOutput !== "";
+    // finalState 是 drainEvents legacy 三态（不会 emit 'degraded'，那是 metrics 派生）
+    const legacyState = finalState as "completed" | "failed" | "cancelled";
+    const metrics = this.computeRunMetrics(events, legacyState, hasOutput);
+
     return {
-      output: finalOutput,
-      state: finalState,
-      events,
+      // 段 1
+      output: hasOutput ? finalOutput : undefined,
+      partialOutput: metrics.partialOutput,
+      // 段 2
+      state: metrics.state,
+      exitReason: metrics.exitReason,
+      failureCode: metrics.failureCode,
+      diagnostic: metrics.diagnostic,
+      recoveryHint: metrics.recoveryHint,
+      // 段 3
       iterations,
-      wallTimeMs: Date.now() - startMs,
+      wallTimeMs,
+      tokensUsed: metrics.tokensUsed,
+      costCents: 0, // TODO Phase P0-2 后期：从 BillingContext 取
+      modelTrail: metrics.modelTrail,
+      events,
+      // 段 4
+      toolsUsed: metrics.toolsUsed,
+      toolsCatalogSnapshot: metrics.toolsCatalogSnapshot,
+      // 段 5
+      meta: {
+        agentId: meta.id,
+        specVersion: meta.version ?? "1.0.0",
+        startedAt: startMs,
+        finishedAt,
+      },
+      // 兼容字段
       agent,
     };
   }
@@ -294,18 +503,46 @@ export class AgentRunner {
     // ── BYOK 预检（与 run() 同逻辑）──
     await this.precheckByok(opts, meta.id);
 
+    // ── Tool Recall（与 run() 同逻辑） ──
+    const recall = await this.performToolRecall(meta, opts);
+    if (opts.onEvent) {
+      try {
+        await opts.onEvent({
+          type: "tools_recalled",
+          agentId: meta.id,
+          timestamp: Date.now(),
+          payload: {
+            recalledIds: recall.recalledIds,
+            categories:
+              opts.toolRecallHint?.categories ?? meta.toolCategories ?? [],
+            source: recall.source,
+            preferIds: recall.effectivePreferIds,
+          },
+        });
+      } catch {
+        // ignore
+      }
+    }
+
     // ── 装配 systemPrompt 增强 block（环境 + 能力目录）──
-    const augmentBlocks = await this.collectAugmentBlocks(meta, opts);
+    const augmentBlocks = await this.collectAugmentBlocks(
+      meta,
+      opts,
+      recall.recalledIds,
+      recall.effectivePreferIds,
+    );
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
       input,
       meta,
       augmentBlocks,
+      recall.recalledIds,
       opts.budgetMultiplier,
       opts.userId,
       opts.workspaceId,
       opts.environment,
+      opts.loopOverride,
     );
 
     const inputForExec: Record<string, unknown> | string = parsedInput as
@@ -326,7 +563,11 @@ export class AgentRunner {
 
     if (!needsWrap) {
       // 直接 yield —— 外层已经包了 BillingContext 或 不需要
-      for await (const ev of agent.execute({ goal, input: inputForExec })) {
+      for await (const ev of agent.execute({
+        goal,
+        input: inputForExec,
+        signal: opts.signal,
+      })) {
         if (opts.onEvent) {
           try {
             await opts.onEvent(ev);
@@ -365,20 +606,238 @@ export class AgentRunner {
   // ─── private ────────────────────────────────────────────
 
   /** 跑 agent 事件循环，per-iteration 触发 onEvent，返回汇总。 */
+  /**
+   * 从 events + state 算出 RunResult 段 2-4 的派生字段。
+   *
+   * mission-pipeline-runresult-schema.md §3 字段填充时机
+   */
+  private computeRunMetrics(
+    events: readonly IAgentEvent[],
+    legacyState: "completed" | "failed" | "cancelled",
+    hasOutput: boolean,
+  ): {
+    exitReason: ExitReason;
+    failureCode?: import("../abstractions/agent-event.interface").HarnessFailureCode;
+    diagnostic?: Record<string, unknown>;
+    recoveryHint?: RunResult["recoveryHint"];
+    tokensUsed: { prompt: number; completion: number; total: number };
+    modelTrail: NonNullable<RunResult["modelTrail"]>;
+    toolsUsed: NonNullable<RunResult["toolsUsed"]>;
+    toolsCatalogSnapshot: readonly string[];
+    state: "completed" | "failed" | "cancelled" | "degraded";
+    partialOutput?: unknown;
+  } {
+    const promptTokens = 0;
+    let completionTokens = 0;
+    const modelTrail: {
+      iter: number;
+      modelId: string;
+      promptTokens: number;
+      completionTokens: number;
+      latencyMs: number;
+    }[] = [];
+    const toolsAcc = new Map<
+      string,
+      { calls: number; totalLatencyMs: number; failures: number }
+    >();
+    let toolsCatalogSnapshot: readonly string[] = [];
+    let lastErrorEvent: IAgentEvent | null = null;
+    let lastTerminatedReason: string | null = null;
+    let bestPartialOutput: unknown = null;
+    let lastValidationCandidate: unknown = null;
+    let consecutiveToolFailures: { toolId: string; count: number } | null =
+      null;
+    let iter = 0;
+
+    for (const ev of events) {
+      if (ev.type === "thinking") {
+        const p = ev.payload as { tokenCount?: number; modelId?: string };
+        if (p?.tokenCount) {
+          completionTokens += p.tokenCount;
+          if (p.modelId) {
+            modelTrail.push({
+              iter,
+              modelId: p.modelId,
+              promptTokens: 0,
+              completionTokens: p.tokenCount,
+              latencyMs: 0,
+            });
+          }
+        }
+      } else if (ev.type === "action_executed") {
+        iter += 1;
+        const r = ev.payload as {
+          action: { kind: string; toolId?: string };
+          error?: { message: string };
+          latencyMs?: number;
+          tokensUsed?: number;
+        };
+        if (r?.tokensUsed) completionTokens += r.tokensUsed;
+        const toolId = r?.action?.toolId;
+        if (toolId) {
+          const cur = toolsAcc.get(toolId) ?? {
+            calls: 0,
+            totalLatencyMs: 0,
+            failures: 0,
+          };
+          cur.calls += 1;
+          cur.totalLatencyMs += r?.latencyMs ?? 0;
+          if (r?.error) {
+            cur.failures += 1;
+            // 跟踪连续同 toolId 失败（用于 failed_tool exitReason 推断）
+            if (
+              consecutiveToolFailures &&
+              consecutiveToolFailures.toolId === toolId
+            ) {
+              consecutiveToolFailures.count += 1;
+            } else {
+              consecutiveToolFailures = { toolId, count: 1 };
+            }
+          } else {
+            // 成功 → 重置该 toolId 计数器
+            if (
+              consecutiveToolFailures &&
+              consecutiveToolFailures.toolId === toolId
+            ) {
+              consecutiveToolFailures = null;
+            }
+          }
+          toolsAcc.set(toolId, cur);
+        }
+      } else if (ev.type === "tools_recalled") {
+        const p = ev.payload as { recalledIds?: readonly string[] };
+        if (p?.recalledIds) toolsCatalogSnapshot = p.recalledIds;
+      } else if (ev.type === "validation_failed") {
+        const p = ev.payload as { candidateOutput?: unknown };
+        if (p?.candidateOutput !== undefined)
+          lastValidationCandidate = p.candidateOutput;
+      } else if (ev.type === "output") {
+        bestPartialOutput = (ev.payload as { output: unknown }).output;
+      } else if (ev.type === "error") {
+        lastErrorEvent = ev;
+      } else if (ev.type === "terminated") {
+        const r = (ev.payload as { reason?: string })?.reason;
+        if (r) lastTerminatedReason = r;
+      }
+    }
+
+    const errPayload =
+      (lastErrorEvent?.payload as
+        | import("../abstractions/agent-event.interface").IHarnessErrorPayload
+        | undefined) ?? undefined;
+    const failureCode = errPayload?.failureCode;
+    const diagnostic = errPayload?.diagnostic as
+      | Record<string, unknown>
+      | undefined;
+    const recoveryHint = errPayload?.recoveryHint;
+
+    // ─── 推断 ExitReason（mission-pipeline-exit-policy.md §7 映射表）──
+    let exitReason: ExitReason = "completed";
+    if (legacyState === "cancelled" || lastTerminatedReason === "cancelled") {
+      exitReason = "cancelled";
+    } else if (failureCode === "LOOP_BUDGET_EXHAUSTED") {
+      exitReason = "budget_exhausted";
+    } else if (failureCode === "RUNNER_WALL_TIME_EXCEEDED") {
+      exitReason = "wall_time_exceeded";
+    } else if (failureCode === "LOOP_MAX_ITERATIONS") {
+      exitReason = "max_iterations";
+    } else if (
+      failureCode === "PARSE_MALFORMED_JSON" ||
+      failureCode === "PARSE_MISSING_ACTION" ||
+      failureCode === "PARSE_UNKNOWN_ACTION_KIND" ||
+      failureCode === "PARSE_EMPTY_ACTIONS_ARRAY" ||
+      failureCode === "LOOP_REASONING_COT_EXHAUSTION"
+    ) {
+      exitReason = "failed_parse";
+    } else if (
+      failureCode === "TOOL_NOT_FOUND" ||
+      failureCode === "TOOL_TIMEOUT" ||
+      failureCode === "TOOL_RUNTIME_ERROR" ||
+      failureCode === "TOOL_INPUT_VALIDATION_FAILED" ||
+      (consecutiveToolFailures && consecutiveToolFailures.count >= 3)
+    ) {
+      exitReason = "failed_tool";
+    } else if (
+      failureCode === "PROVIDER_API_ERROR" ||
+      failureCode === "PROVIDER_BYOK_MODEL_NOT_FOUND" ||
+      failureCode === "PROVIDER_RATE_LIMIT"
+    ) {
+      exitReason = "failed_model";
+    } else if (
+      failureCode === "LOOP_EMPTY_RESPONSE_IMMEDIATE" ||
+      failureCode === "REFLEXION_CONSECUTIVE_EMPTY"
+    ) {
+      exitReason = "empty_response";
+    } else if (
+      failureCode === "RUNNER_OUTPUT_SCHEMA_MISMATCH" ||
+      failureCode === "REFLEXION_VERIFIER_LOW_SCORE"
+    ) {
+      exitReason = "validation_rejected_max";
+    } else if (legacyState === "failed") {
+      exitReason = "failed_parse"; // 兜底，未带 failureCode 时
+    }
+
+    // ─── 推断 state（degraded：有 partial 但不算 completed）──
+    let state: "completed" | "failed" | "cancelled" | "degraded" = legacyState;
+    if (
+      legacyState === "completed" &&
+      exitReason === "validation_rejected_max"
+    ) {
+      // 强制接受次优产物 → degraded（仍可用）
+      state = "degraded";
+    } else if (
+      legacyState === "failed" &&
+      (bestPartialOutput || lastValidationCandidate) &&
+      exitReason !== "cancelled"
+    ) {
+      // 有 partial 但 finalize 失败：保留 failed 状态但 partialOutput 可用
+      // state 不改成 degraded（避免假装"成功"）
+    }
+
+    const partialOutput = !hasOutput
+      ? (bestPartialOutput ?? lastValidationCandidate ?? undefined)
+      : undefined;
+
+    const toolsUsed = Array.from(toolsAcc.entries()).map(([toolId, v]) => ({
+      toolId,
+      calls: v.calls,
+      totalLatencyMs: v.totalLatencyMs,
+      failures: v.failures,
+    }));
+
+    return {
+      exitReason,
+      failureCode,
+      diagnostic,
+      recoveryHint,
+      tokensUsed: {
+        prompt: promptTokens,
+        completion: completionTokens,
+        total: promptTokens + completionTokens,
+      },
+      modelTrail,
+      toolsUsed,
+      toolsCatalogSnapshot,
+      state,
+      partialOutput,
+    };
+  }
+
   private async drainEvents(
     agent: IAgent,
     instance: AgentSpec<z.ZodType, z.ZodType>,
     parsedInput: unknown,
     _meta: DefineAgentOptions,
     onEvent?: (ev: IAgentEvent) => void | Promise<void>,
+    signal?: AbortSignal,
   ): Promise<{
     events: IAgentEvent[];
-    state: RunResult<unknown>["state"];
+    state: "completed" | "failed" | "cancelled";
     lastOutput: unknown;
     iterations: number;
   }> {
     const events: IAgentEvent[] = [];
-    let state: RunResult<unknown>["state"] = "completed";
+    let state: "completed" | "failed" | "cancelled" = "completed";
     let lastOutput: unknown = null;
     let iterations = 0;
 
@@ -401,6 +860,7 @@ export class AgentRunner {
       input: hasUserPromptBuilder
         ? (parsedInput as Record<string, unknown> | string)
         : undefined,
+      signal,
     })) {
       events.push(ev);
       if (ev.type === "action_executed") iterations += 1;
@@ -451,6 +911,8 @@ export class AgentRunner {
   private async collectAugmentBlocks(
     meta: DefineAgentOptions,
     opts: RunOptions,
+    recalledToolIds: readonly string[],
+    preferIds: readonly string[],
   ): Promise<string[]> {
     const blocks: string[] = [];
     if (opts.environment) {
@@ -458,10 +920,138 @@ export class AgentRunner {
       if (envBlock) blocks.push(envBlock);
     }
     if (opts.exposeCatalog !== false) {
-      const catalogBlock = this.buildCatalogBlock(meta.tools, meta.skills);
+      const catalogBlock = this.buildCatalogBlock(
+        recalledToolIds,
+        meta.skills,
+        preferIds,
+      );
       if (catalogBlock) blocks.push(catalogBlock);
     }
     return blocks;
+  }
+
+  /**
+   * ★ Tool Recall 五步流程（mission-pipeline-tool-recall.md §4）
+   *
+   *   Step 1. 基础召回：spec.toolCategories ∪ spec.tools（兼容旧 spec.tools 写法）
+   *   Step 2. hint.categories 收窄：超出 spec 池的 category 静默丢弃
+   *   Step 3. excludeIds 黑名单减去
+   *   Step 4. ToolACL 过滤（D13 P1 — 暂留接口，未实现时跳过）
+   *   Step 5. preferIds 标 ★（不收窄，仅在 catalog 渲染加注释）
+   *
+   * 返回 recalledIds（去重）+ effectivePreferIds（裁剪到 recalled 子集）。
+   *
+   * 任一步骤后召回为空 → 抛 InsufficientToolsError（fail-fast，不进 ReActLoop）。
+   */
+  private async performToolRecall(
+    meta: DefineAgentOptions,
+    opts: RunOptions,
+  ): Promise<{
+    recalledIds: readonly string[];
+    effectivePreferIds: readonly string[];
+    source: "spec" | "hint" | "spec+hint";
+  }> {
+    if (!this.toolRegistry) {
+      return { recalledIds: [], effectivePreferIds: [], source: "spec" };
+    }
+
+    const declaredCategories = meta.toolCategories ?? [];
+    const declaredIds = meta.tools ?? [];
+    const hint = opts.toolRecallHint;
+
+    // Step 1. 基础召回
+    const baseSet = new Set<string>();
+    if (declaredCategories.length > 0) {
+      const tools = this.toolRegistry.listByCategory(declaredCategories);
+      for (const t of tools) baseSet.add(t.id);
+    }
+    for (const id of declaredIds) {
+      if (this.toolRegistry.isAvailable(id)) baseSet.add(id);
+    }
+
+    // Step 2. hint.categories 收窄（仅保留 ∈ spec 声明 categories 的工具）
+    let pool = Array.from(baseSet);
+    if (hint?.categories && hint.categories.length > 0) {
+      const allowedCats = new Set<string>(declaredCategories);
+      const hintCatsValid = hint.categories.filter((c) => allowedCats.has(c));
+      if (hintCatsValid.length > 0) {
+        const hintRecall = this.toolRegistry.listByCategory(hintCatsValid);
+        const hintIds = new Set(hintRecall.map((t) => t.id));
+        // 收窄到 baseSet ∩ hintIds（保留 declaredIds 的精确 id 即使 cat 不在 hint）
+        pool = pool.filter((id) => hintIds.has(id) || declaredIds.includes(id));
+      }
+      // hintCatsValid 全部越界 → 静默放弃 hint 收窄（pool 保持基础召回）
+    }
+
+    // Step 3. excludeIds
+    if (hint?.excludeIds && hint.excludeIds.length > 0) {
+      const exclude = new Set<string>(hint.excludeIds);
+      pool = pool.filter((id) => !exclude.has(id));
+    }
+
+    // Step 4. ToolACL（D13）—— 用户 entitlements 过滤
+    if (opts.environment && pool.length > 0) {
+      try {
+        const ents = (await (
+          opts.environment as unknown as {
+            getUserEntitlements?: () => Promise<{ keys: string[] }>;
+          }
+        ).getUserEntitlements?.()) ?? { keys: [] };
+        const allowed: string[] = [];
+        for (const id of pool) {
+          const tool = this.toolRegistry.tryGet(id);
+          const required = tool?.requiredEntitlements;
+          if (!required || required.length === 0) {
+            allowed.push(id);
+            continue;
+          }
+          if (required.every((req) => ents.keys.includes(req))) {
+            allowed.push(id);
+          }
+        }
+        pool = allowed;
+      } catch {
+        // entitlement 查询失败 → fail-closed：删掉所有需要 entitlement 的工具
+        pool = pool.filter((id) => {
+          const tool = this.toolRegistry!.tryGet(id);
+          return !tool?.requiredEntitlements?.length;
+        });
+      }
+    }
+
+    // Step 5. preferIds 裁剪到 recalled 子集
+    const recalledSet = new Set(pool);
+    const effectivePreferIds = (hint?.preferIds ?? []).filter((id) =>
+      recalledSet.has(id),
+    );
+
+    // ★ Phase P18-2: 降级策略 — pool 空时尝试 fallback 到 spec 全集（不要 fail-fast）
+    if (
+      pool.length === 0 &&
+      (declaredCategories.length > 0 || declaredIds.length > 0)
+    ) {
+      // 1) 尝试丢掉 hint 收窄，用 baseSet
+      if (baseSet.size > 0) {
+        this.logger.warn(
+          `[${meta.id}] hint 收窄后池为空，回退到 spec 全集（baseSet=${baseSet.size}）`,
+        );
+        pool = Array.from(baseSet);
+      } else {
+        throw new InsufficientToolsError(meta.id, {
+          declaredCategories,
+          declaredIds,
+          hint,
+        });
+      }
+    }
+
+    const source: "spec" | "hint" | "spec+hint" = hint
+      ? declaredCategories.length > 0 || declaredIds.length > 0
+        ? "spec+hint"
+        : "hint"
+      : "spec";
+
+    return { recalledIds: pool, effectivePreferIds, source };
   }
 
   /**
@@ -509,21 +1099,25 @@ export class AgentRunner {
   }
 
   /**
-   * <available_tools> + <available_skills> block — 仅列该 Agent
-   * @DefineAgent({tools, skills}) 显式声明的能力，附 description。
-   * Agent 不需要自己查 ToolRegistry。
+   * <available_tools> + <available_skills> block —
+   *
+   *  - tools 来自 Tool Recall 五步流程（performToolRecall），不再读 spec.tools
+   *  - preferIds 在条目末尾追加 ★ recommended 标注，弱引导 LLM 但不强制
    */
   private buildCatalogBlock(
-    declaredTools?: readonly string[],
+    recalledToolIds: readonly string[],
     declaredSkills?: readonly string[],
+    preferIds: readonly string[] = [],
   ): string | null {
     const blocks: string[] = [];
-    if (declaredTools && declaredTools.length > 0 && this.toolRegistry) {
+    if (recalledToolIds.length > 0 && this.toolRegistry) {
       const lines: string[] = ["<available_tools>"];
-      for (const id of declaredTools) {
+      const preferred = new Set(preferIds);
+      for (const id of recalledToolIds) {
         const def = this.toolRegistry.tryGet(id);
         const desc = def?.description?.trim();
-        lines.push(`- ${id}${desc ? `: ${desc}` : ""}`);
+        const star = preferred.has(id) ? " ★ recommended" : "";
+        lines.push(`- ${id}${star}${desc ? `: ${desc}` : ""}`);
         if (def?.inputSchema) {
           const summary = this.summarizeJsonSchemaForLlm(def.inputSchema);
           if (summary) {
@@ -653,6 +1247,8 @@ export class AgentRunner {
     input: unknown,
     meta: DefineAgentOptions,
     augmentBlocks: readonly string[],
+    /** ★ Tool Recall 五步流程的产物，用作 identity.tools；不再读 meta.tools */
+    recalledToolIds: readonly string[],
     budgetMultiplier?: number,
     /** ★ Critical: 这三个是从 RunOptions 透传到 envelope 的运行时环境信息。
      *  缺失会导致 envelope.memory.userId=undefined（BYOK 解析断链）+
@@ -660,6 +1256,8 @@ export class AgentRunner {
     userId?: string,
     workspaceId?: string,
     runtimeEnv?: IRuntimeEnvironment,
+    /** ★ Phase P1-3: loop 覆盖（thorough+ 档位切 reflexion） */
+    loopOverride?: import("../abstractions").AgentLoopKind,
   ): {
     agent: IAgent;
     instance: AgentSpec<z.ZodType, z.ZodType>;
@@ -681,7 +1279,11 @@ export class AgentRunner {
     }
 
     // 2. Build identity（按 budgetMultiplier 缩放 budget.maxTokens / maxIterations）
-    const identity = this.buildIdentity(meta, budgetMultiplier);
+    const identity = this.buildIdentity(
+      meta,
+      recalledToolIds,
+      budgetMultiplier,
+    );
 
     // 3. Compose IAgentSpec for factory
     // 自动把 outputSchema 形状 + Harness 自动注入的环境/能力 block 拼到 systemPrompt
@@ -731,7 +1333,7 @@ export class AgentRunner {
 
     const agentSpec: IAgentSpec = {
       identity,
-      loop: meta.loop,
+      loop: loopOverride ?? meta.loop,
       systemPrompt: appendBlocks(
         meta.systemPrompt ??
           (buildSystemPromptFn
@@ -760,6 +1362,7 @@ export class AgentRunner {
 
   private buildIdentity(
     meta: DefineAgentOptions,
+    recalledToolIds: readonly string[],
     budgetMultiplier = 1.0,
   ): IAgentIdentity {
     const mult = Math.max(0.1, budgetMultiplier);
@@ -770,12 +1373,15 @@ export class AgentRunner {
     const isFull =
       typeof (id as IAgentIdentity).role === "object" &&
       typeof ((id as IAgentIdentity).role as { id?: string }).id === "string";
+    // ★ identity.tools = recalledToolIds（Tool Recall 五步流程的产物）。
+    //   recalledToolIds 为空时不写入（让 full.tools 兜底，老 spec 兼容）。
+    const toolsForIdentity =
+      recalledToolIds.length > 0 ? Array.from(recalledToolIds) : undefined;
     if (isFull) {
-      // augment with tools/forbiddenTools/skills from meta
       const full = id as IAgentIdentity;
       return new AgentIdentity({
         ...full,
-        tools: meta.tools ?? full.tools,
+        tools: toolsForIdentity ?? full.tools,
         forbiddenTools: meta.forbiddenTools ?? full.forbiddenTools,
         skills: meta.skills ?? full.skills,
         constraints: {
@@ -808,7 +1414,7 @@ export class AgentRunner {
     return new AgentIdentity({
       role,
       persona: sh.persona,
-      tools: meta.tools,
+      tools: toolsForIdentity,
       forbiddenTools: meta.forbiddenTools,
       skills: meta.skills,
       constraints: {

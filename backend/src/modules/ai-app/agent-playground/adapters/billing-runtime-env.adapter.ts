@@ -97,6 +97,31 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     };
   }
 
+  /**
+   * ★ Phase P1-16: ToolACL 真实接入（mission-pipeline-tool-acl.md）
+   *
+   * 当前实现：从 RuntimeEnvironmentService.snapshot 读 userKeys 推 entitlements。
+   *   - 任何用户都视为有 'public' entitlement
+   *   - 有 BYOK 的用户额外得 'image.generation'（用户自费，可启图像生成）
+   *   - 平台 admin entitlement 暂不实现（需 user_subscription 表，P2）
+   */
+  async getUserEntitlements(): Promise<{
+    keys: string[];
+    expiresAt?: Record<string, Date>;
+  }> {
+    try {
+      const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
+      const keys = ["public"];
+      if (snap.userKeys.hasByok) {
+        keys.push("image.generation"); // 自费 BYOK 用户可调图像生成
+      }
+      return { keys };
+    } catch {
+      // fail-closed
+      return { keys: ["public"] };
+    }
+  }
+
   async getModelAvailability(modelId: string): Promise<IModelAvailability> {
     // ★ 优先级 #1：本 mission 内已标记禁用（来自 HarnessFailureLearner 的
     // 历史失败模式）—— 直接返回 fallback 候选，绕开浪费 token 重蹈覆辙。
@@ -150,6 +175,52 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       }
     }
     return all;
+  }
+
+  /**
+   * Phase P3-7: stage 预检（mission-pipeline-baseline.md §9.3 Q10）
+   *
+   * 估算给定 budget 是否可负担。返回:
+   *   - affordable: 当前余额是否够
+   *   - shortfall: 不够时差多少
+   *   - suggestion: 'proceed'|'downgrade'|'abort' 决策建议
+   */
+  async estimateAffordable(budget: { maxTokens?: number }): Promise<{
+    affordable: boolean;
+    shortfall: number;
+    suggestion: "proceed" | "downgrade" | "abort";
+    estimatedCredits: number;
+    currentBalance: number;
+  }> {
+    const acct = await this.getCachedBalance();
+    // 粗估：1000 tokens ≈ 1 credit（依模型层不同会有差异）
+    const estimatedCredits = Math.ceil((budget.maxTokens ?? 0) / 1000);
+    if (acct.balance >= estimatedCredits) {
+      return {
+        affordable: true,
+        shortfall: 0,
+        suggestion: "proceed",
+        estimatedCredits,
+        currentBalance: acct.balance,
+      };
+    }
+    const shortfall = estimatedCredits - acct.balance;
+    if (acct.balance >= estimatedCredits / 2) {
+      return {
+        affordable: false,
+        shortfall,
+        suggestion: "downgrade",
+        estimatedCredits,
+        currentBalance: acct.balance,
+      };
+    }
+    return {
+      affordable: false,
+      shortfall,
+      suggestion: "abort",
+      estimatedCredits,
+      currentBalance: acct.balance,
+    };
   }
 
   async getQuotaSnapshot(): Promise<IQuotaSnapshot> {

@@ -45,6 +45,12 @@ import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "../../../ai-engine/runtime/resource/runtime-environment.service";
 import { LeaderAgent } from "../agents/leader.agent";
 import { ResearcherAgent } from "../agents/researcher.agent";
+import { ReconcilerAgent } from "../agents/reconciler.agent";
+import { CriticAgent } from "../agents/critic.agent";
+import { OutlinePlannerAgent } from "../agents/outline-planner.agent";
+import { ReportAssemblerService } from "./report-assembler.service";
+import { MissionStateService } from "./mission-state.service";
+import { MissionAbortRegistry } from "./mission-abort.registry";
 import { DimensionOutlineAgent } from "../agents/dimension-outline.agent";
 import { ChapterWriterAgent } from "../agents/chapter-writer.agent";
 import { ChapterReviewerAgent } from "../agents/chapter-reviewer.agent";
@@ -76,6 +82,12 @@ interface MissionResult {
     critique?: string;
     attempt?: number;
   }[];
+  // ★ Phase P0-5: ReportArtifact v2（结构化输出，三视图共享）
+  readonly reportArtifact?: import("../dto/report-artifact.dto").ReportArtifact;
+  // ★ Phase P0-4: Reconciler [3.5] 产物
+  readonly reconciliationReport?: unknown;
+  // ★ Phase P0-8: 用户档位 merged 后快照
+  readonly userProfile?: unknown;
 }
 
 interface RelayCtx {
@@ -88,6 +100,18 @@ interface RelayCtx {
   envAdapter?: BillingRuntimeEnvAdapter;
   /** budgetProfile 转出的倍率，scale 每个 agent 的 maxTokens / maxIterations */
   budgetMultiplier?: number;
+  /**
+   * ★ Tool Recall hint（mission-pipeline-baseline.md §3.4 [3.b]）—— 上层（如 Leader
+   * 阶段产出的 dim.toolHint）透传到 AgentRunner，AgentRunner 在 spec.toolCategories
+   * 召回的池子里再做 hint 收窄 + preferIds 标注。
+   */
+  toolRecallHint?: {
+    categories?: readonly string[];
+    excludeIds?: readonly string[];
+    preferIds?: readonly string[];
+  };
+  /** ★ Phase P1-3: loop 覆盖（thorough/paranoid 档位切 reflexion） */
+  loopOverride?: "react" | "reflexion";
 }
 
 /**
@@ -433,6 +457,9 @@ export class ResearchTeamOrchestrator {
     private readonly runtimeEnv: RuntimeEnvironmentService,
     private readonly store: MissionStore,
     private readonly failureLearner: HarnessFailureLearner,
+    private readonly reportAssembler: ReportAssemblerService,
+    private readonly missionState: MissionStateService,
+    private readonly abortRegistry: MissionAbortRegistry,
   ) {}
 
   async runMission(
@@ -441,6 +468,24 @@ export class ResearchTeamOrchestrator {
     userId: string,
     workspaceId?: string,
   ): Promise<MissionResult> {
+    // ★ Phase P12-1 / P14-1: 注册 abort controller + mission 级 wall-time
+    const missionAbort = this.abortRegistry.register(missionId);
+    const MISSION_WALL_TIME_MS = 1_800_000; // 30 分钟（baseline §10 D9）
+    const wallTimer = setTimeout(() => {
+      this.log.warn(
+        `[${missionId}] mission wall-time exceeded (${MISSION_WALL_TIME_MS}ms) — auto abort`,
+      );
+      void this.emit({
+        type: "agent-playground.mission:budget-warning-hard",
+        missionId,
+        userId,
+        payload: {
+          reason: "wall_time_exceeded",
+          wallTimeMs: MISSION_WALL_TIME_MS,
+        },
+      }).catch(() => {});
+      missionAbort.abort("mission_wall_time_exceeded");
+    }, MISSION_WALL_TIME_MS);
     const billing = new BillingRuntimeEnvAdapter(
       userId,
       workspaceId,
@@ -532,6 +577,20 @@ export class ResearchTeamOrchestrator {
           );
           // 持久化 completed 状态 + 完整结果（含 dimensions / themeSummary / verdicts）
           const snap = pool.snapshot();
+          // P0-5: 优先存 ReportArtifact v2，fallback 旧 ResearchReport v1
+          const v2Title = result.reportArtifact?.metadata?.topic;
+          const v2Summary =
+            result.reportArtifact?.quickView?.executiveSummary?.markdown;
+          const reportPayload = result.reportArtifact
+            ? {
+                ...result.reportArtifact,
+                title: v2Title,
+                summary: v2Summary,
+              }
+            : (result.report as unknown as {
+                title?: string;
+                summary?: string;
+              });
           await this.store.markCompleted(missionId, {
             finalScore: result.reviewScore,
             tokensUsed: snap.poolTokensUsed,
@@ -540,12 +599,17 @@ export class ResearchTeamOrchestrator {
             wallTimeMs: Date.now() - t0,
             themeSummary: result.themeSummary,
             dimensions: result.dimensions,
-            report: result.report as unknown as {
+            report: reportPayload as unknown as {
               title?: string;
               summary?: string;
             },
+            reportArtifactVersion: result.reportArtifact ? 2 : 1,
+            userProfile: result.userProfile ?? null,
+            reconciliationReport: result.reconciliationReport ?? null,
             verdicts: result.verdicts,
           });
+          clearTimeout(wallTimer);
+          this.abortRegistry.unregister(missionId);
           return result;
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -595,6 +659,8 @@ export class ResearchTeamOrchestrator {
             costUsd: snap.poolCostUsd,
             wallTimeMs: Date.now() - t0,
           });
+          clearTimeout(wallTimer);
+          this.abortRegistry.unregister(missionId);
           throw err;
         }
       },
@@ -620,6 +686,43 @@ export class ResearchTeamOrchestrator {
           payload: { input, workspaceId, startedAt: t0 },
         });
 
+        // ★ Phase P3-8 / P4-7: 启动前预算预估（按 budgetMultiplier 等比缩放）
+        const baseEstimate = 400_000; // deep+medium 基线
+        const estimateBudget = Math.round(
+          baseEstimate * Math.max(0.1, budgetMultiplier),
+        );
+        try {
+          const estimate = await billing.estimateAffordable({
+            maxTokens: estimateBudget,
+          });
+          if (!estimate.affordable) {
+            const warningType =
+              estimate.suggestion === "abort"
+                ? "agent-playground.mission:budget-warning-hard"
+                : "agent-playground.mission:budget-warning-soft";
+            await this.emit({
+              type: warningType,
+              missionId,
+              userId,
+              payload: {
+                shortfall: estimate.shortfall,
+                suggestion: estimate.suggestion,
+                estimatedCredits: estimate.estimatedCredits,
+                currentBalance: estimate.currentBalance,
+              },
+            });
+            if (estimate.suggestion === "abort") {
+              throw new Error(
+                `余额不足以启动 mission（短缺 ${estimate.shortfall} credits），请充值后重试`,
+              );
+            }
+          }
+        } catch (err) {
+          this.log.warn(
+            `[${missionId}] budget estimate failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
         // ── Stage 1: Leader 拆维度 ──
         await this.emit({
           type: "agent-playground.stage:started",
@@ -642,6 +745,7 @@ export class ResearchTeamOrchestrator {
             role: "leader",
             envAdapter: billing,
             budgetMultiplier,
+            loopOverride: this.resolveLoopOverride(input.auditLayers, "leader"),
           },
         );
         await this.tickCostDelta(
@@ -686,7 +790,15 @@ export class ResearchTeamOrchestrator {
         }
         const plan = leaderRes.output as {
           themeSummary: string;
-          dimensions: { id: string; name: string; rationale: string }[];
+          dimensions: {
+            id: string;
+            name: string;
+            rationale: string;
+            toolHint?: {
+              categories?: string[];
+              preferIds?: string[];
+            };
+          }[];
         };
         await this.emit({
           type: "agent-playground.stage:completed",
@@ -710,9 +822,34 @@ export class ResearchTeamOrchestrator {
             dimensions: plan.dimensions.map((d) => d.name),
           },
         });
-        const researcherResults = await this.runWithConcurrency(
+        // ★ Phase P1-17: 检测 dependsOn → 走 DAG 调度；否则全并行
+        const hasDependencies = plan.dimensions.some(
+          (d) => (d as { dependsOn?: string[] }).dependsOn?.length,
+        );
+        if (hasDependencies) {
+          await this.emit({
+            type: "agent-playground.stage:started",
+            missionId,
+            userId,
+            payload: {
+              stage: "researchers-dag",
+              dependencyMap: plan.dimensions.reduce(
+                (acc, d) => {
+                  const deps = (d as { dependsOn?: string[] }).dependsOn ?? [];
+                  if (deps.length > 0) acc[d.id] = deps;
+                  return acc;
+                },
+                {} as Record<string, string[]>,
+              ),
+            },
+          });
+        }
+        const researcherDispatch = hasDependencies
+          ? this.runDagConcurrency.bind(this)
+          : this.runWithConcurrency.bind(this);
+        const researcherResults = await researcherDispatch(
           plan.dimensions,
-          3,
+          input.concurrency,
           async (dim, idx) => {
             const agentId = `researcher#${idx}`;
             // 单个 researcher 失败不能拖垮整个 mission：
@@ -780,6 +917,14 @@ export class ResearchTeamOrchestrator {
                   role: "researcher",
                   envAdapter: billing,
                   budgetMultiplier,
+                  // ★ Leader 给的 dim.toolHint → Researcher 的 toolRecallHint
+                  // AgentRunner 五步召回会把它收窄到 spec.toolCategories 内的子集
+                  toolRecallHint: dim.toolHint
+                    ? {
+                        categories: dim.toolHint.categories,
+                        preferIds: dim.toolHint.preferIds,
+                      }
+                    : undefined,
                 },
               );
 
@@ -929,6 +1074,12 @@ export class ResearchTeamOrchestrator {
               };
 
               // ── TI-style per-dimension chapter pipeline ──
+              // ★ Phase P4-4: minimal 档位 + quick depth 跳过 chapter pipeline 节省成本
+              const skipChapterPipeline =
+                input.auditLayers === "minimal" || input.depth === "quick";
+              if (skipChapterPipeline) {
+                return researcherOut;
+              }
               try {
                 const enriched = await this.runPerDimensionPipeline({
                   missionId,
@@ -1034,6 +1185,122 @@ export class ResearchTeamOrchestrator {
           },
         });
 
+        // ── Stage B' (3.5): Reconciler 对账 ──
+        // mission-pipeline-baseline.md §3.5 / mission-pipeline-reconciler.md
+        // Researcher 并行产出后强制对账：事实表 / 冲突 / 重叠 / 空白 / 图候选池
+        // 失败不阻塞 mission（degraded：reconciliationReport 为空，下游 Analyst 退化为旧路径）
+        let reconciliationReport: {
+          factTable: unknown[];
+          conflicts: unknown[];
+          overlaps: unknown[];
+          gaps: unknown[];
+          figureCandidates: unknown[];
+          reconciliationReport: string;
+        } | null = null;
+        try {
+          await this.emit({
+            type: "agent-playground.stage:started",
+            missionId,
+            userId,
+            payload: { stage: "reconciler" },
+          });
+          await this.lifecycle(
+            missionId,
+            userId,
+            "reconciler",
+            "reconciler",
+            "started",
+          );
+          // ★ Phase P4-2: Reconciler 跨 mission 失败模式预查
+          await this.preDisableKnownFailingModels(
+            billing,
+            "playground.reconciler",
+            `${input.topic}::reconciler::${input.language}`,
+          );
+          const reconRes = await this.runAndRelay(
+            ReconcilerAgent,
+            {
+              topic: input.topic,
+              language: input.language,
+              plan: {
+                themeSummary: plan.themeSummary,
+                dimensions: plan.dimensions.map((d) => ({
+                  id: d.id,
+                  name: d.name,
+                  rationale: d.rationale,
+                })),
+              },
+              researcherResults,
+            },
+            {
+              missionId,
+              userId,
+              agentId: "reconciler",
+              role: "reconciler",
+              envAdapter: billing,
+              budgetMultiplier,
+            },
+          );
+          await this.tickCostDelta(
+            missionId,
+            userId,
+            "reconciler",
+            pool,
+            extractTokenSpend(reconRes.events),
+          );
+          if (reconRes.state === "completed" && reconRes.output) {
+            reconciliationReport =
+              reconRes.output as unknown as typeof reconciliationReport;
+            await this.emit({
+              type: "agent-playground.reconciliation:completed",
+              missionId,
+              userId,
+              payload: {
+                factCount: reconciliationReport!.factTable.length,
+                conflictCount: reconciliationReport!.conflicts.length,
+                overlapCount: reconciliationReport!.overlaps.length,
+                gapCount: reconciliationReport!.gaps.length,
+                figureCandidateCount:
+                  reconciliationReport!.figureCandidates.length,
+              },
+            });
+          }
+          await this.lifecycle(
+            missionId,
+            userId,
+            "reconciler",
+            "reconciler",
+            reconRes.state === "completed" ? "completed" : "failed",
+            {
+              wallTimeMs: reconRes.wallTimeMs,
+              iterations: reconRes.iterations,
+            },
+          );
+          await this.emit({
+            type: "agent-playground.stage:completed",
+            missionId,
+            userId,
+            payload: { stage: "reconciler", state: reconRes.state },
+          });
+        } catch (err) {
+          // 对账失败不阻塞 mission：emit warning，下游 Analyst 退化路径
+          const msg = err instanceof Error ? err.message : String(err);
+          this.log.warn(
+            `[${missionId}] reconciler stage failed (non-fatal): ${msg}`,
+          );
+          await this.emit({
+            type: "agent-playground.dimension:degraded",
+            missionId,
+            userId,
+            agentId: "reconciler",
+            payload: {
+              stage: "reconciler",
+              failureCode: "RECONCILER_FAILED",
+              innerMessage: msg,
+            },
+          }).catch(() => {});
+        }
+
         // ── Stage 3: Analyst 反思整合 ──
         await this.emit({
           type: "agent-playground.stage:started",
@@ -1048,12 +1315,25 @@ export class ResearchTeamOrchestrator {
           "analyst",
           "started",
         );
+        // ★ Phase P1-10: Summarize-on-Handoff（baseline §9.1）
+        const analystResearcherInput = this.missionState.compressIfNeeded(
+          researcherResults,
+          "analyst.researcherResults",
+        );
+        // ★ Phase P3-2: 跨 mission 失败模式预查（同 researcher 路径）
+        await this.preDisableKnownFailingModels(
+          billing,
+          "playground.analyst",
+          `${input.topic}::analyst::${input.language}`,
+        );
         const analystRes = await this.runAndRelay(
           AnalystAgent,
           {
             topic: input.topic,
             language: input.language,
-            researcherResults,
+            researcherResults: analystResearcherInput,
+            // ★ Phase P1-5: 强制 Analyst 消费 Reconciler 产物
+            reconciliationReport: reconciliationReport ?? undefined,
           },
           {
             missionId,
@@ -1062,6 +1342,10 @@ export class ResearchTeamOrchestrator {
             role: "analyst",
             envAdapter: billing,
             budgetMultiplier,
+            loopOverride: this.resolveLoopOverride(
+              input.auditLayers,
+              "analyst",
+            ),
           },
         );
         await this.tickCostDelta(
@@ -1118,6 +1402,92 @@ export class ResearchTeamOrchestrator {
           payload: { stage: "analyst", insightsCount: analyst.insights.length },
         });
 
+        // ★ Phase P4-1: 在 thorough+ 档位下，先跑 OutlinePlanner W1 给 Writer 提示
+        let outlinePlanResult: {
+          chapterOutlines: {
+            sectionId: string;
+            heading: string;
+            thesis: string;
+          }[];
+          targetWordsPerChapter: Record<string, number>;
+          factAllocation: Record<string, string[]>;
+          figurePlan: Record<string, string[]>;
+        } | null = null;
+        if (
+          input.auditLayers === "thorough" ||
+          input.auditLayers === "paranoid"
+        ) {
+          try {
+            const outlineRes = await this.runAndRelay(
+              OutlinePlannerAgent,
+              {
+                topic: input.topic,
+                language: input.language,
+                audienceProfile: input.audienceProfile,
+                styleProfile: input.styleProfile,
+                lengthProfile: input.lengthProfile,
+                withFigures: input.withFigures,
+                plan: {
+                  themeSummary: plan.themeSummary,
+                  dimensions: plan.dimensions.map((d) => ({
+                    id: d.id,
+                    name: d.name,
+                    rationale: d.rationale,
+                  })),
+                },
+                factTable:
+                  (
+                    reconciliationReport as unknown as {
+                      factTable?: {
+                        id: string;
+                        entity: string;
+                        attribute: string;
+                        value: string;
+                      }[];
+                    } | null
+                  )?.factTable ?? [],
+                figureCandidates: [],
+              },
+              {
+                missionId,
+                userId,
+                agentId: "outline-planner",
+                role: "outline-planner",
+                envAdapter: billing,
+                budgetMultiplier,
+              },
+            );
+            await this.tickCostDelta(
+              missionId,
+              userId,
+              "writer",
+              pool,
+              extractTokenSpend(outlineRes.events),
+            );
+            if (outlineRes.state === "completed" && outlineRes.output) {
+              outlinePlanResult =
+                outlineRes.output as unknown as typeof outlinePlanResult;
+              const chapterOutlines =
+                (outlinePlanResult as { chapterOutlines?: unknown[] } | null)
+                  ?.chapterOutlines ?? [];
+              await this.emit({
+                type: "agent-playground.dimension:outline:planned",
+                missionId,
+                userId,
+                payload: {
+                  chapterCount: chapterOutlines.length,
+                },
+              });
+            }
+          } catch (err) {
+            this.log.warn(
+              `[${missionId}] outline-planner failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+        // 标记使用避免 unused warning（Writer 当前不消费此 plan，未来 W2 会接入）
+        void outlinePlanResult;
+
         // ── Stage 4: Writer 起草 + 必要时 retry ──
         let attempts = 0;
         let report: ResearchReport | null = null;
@@ -1146,15 +1516,30 @@ export class ResearchTeamOrchestrator {
             "started",
             { attempt: attempts },
           );
+          // ★ Phase P4-3: Writer 跨 mission 失败模式预查
+          await this.preDisableKnownFailingModels(
+            billing,
+            "playground.writer",
+            `${input.topic}::writer::${input.language}`,
+          );
+          // ★ Phase P5-4: Writer 输入也 Summarize-on-Handoff
+          const writerInsights = this.missionState.compressIfNeeded(
+            analyst.insights,
+            "writer.insights",
+          );
+          const writerContradictions = this.missionState.compressIfNeeded(
+            analyst.contradictions,
+            "writer.contradictions",
+          );
           const writerRes = await this.runAndRelay(
             WriterAgent,
             {
               topic: input.topic,
               depth: input.depth,
               language: input.language,
-              insights: analyst.insights,
+              insights: writerInsights,
               themeSummary: analyst.themeSummary,
-              contradictions: analyst.contradictions,
+              contradictions: writerContradictions,
             },
             {
               missionId,
@@ -1162,6 +1547,10 @@ export class ResearchTeamOrchestrator {
               agentId: writerAgentId,
               role: "writer",
               envAdapter: billing,
+              loopOverride: this.resolveLoopOverride(
+                input.auditLayers,
+                "writer",
+              ),
             },
           );
           await this.tickCostDelta(
@@ -1358,6 +1747,380 @@ export class ResearchTeamOrchestrator {
             );
           });
 
+        // ★ Phase P1-19: 把 Reviewer 评分整合进 ReportArtifact.quality.dimensions
+        //   reviewer 是 L3 跨角审，得到的 reviewScore 反映 traceability + factual + style 的合成评估
+        //   用 reviewScore 增强 traceability/styleConformance/factualConsistency dim
+        // ── Phase P0-5: 装配 ReportArtifact v2（结构化输出）──
+        let reportArtifact:
+          | import("../dto/report-artifact.dto").ReportArtifact
+          | undefined;
+        try {
+          // ★ Phase P2-10: 从 lastWriterEvents 抽真实 modelTrail + 计算 generationTimeMs
+          const modelIds = new Set<string>();
+          let writerStartTs: number | undefined;
+          let writerEndTs: number | undefined;
+          for (const ev of lastWriterEvents ?? []) {
+            if (ev.type === "thinking") {
+              const p = ev.payload as { modelId?: string } | null;
+              if (p?.modelId) modelIds.add(p.modelId);
+            }
+            if (writerStartTs === undefined) writerStartTs = ev.timestamp;
+            writerEndTs = ev.timestamp;
+          }
+          const modelTrail = Array.from(modelIds);
+          const writerGenerationMs =
+            writerStartTs && writerEndTs
+              ? writerEndTs - writerStartTs
+              : wallTimeMs;
+          // Phase P15-2: rerun 时，userProfile 中含 prevMissionId 即视为增量
+          // 当前不真做 diff（需读取上一版 sections 做 4-gram 比较），先标记 isIncremental
+          const isIncremental = false; // P2+ 真实 diff
+          void isIncremental;
+          reportArtifact = this.reportAssembler.assemble({
+            topic: input.topic,
+            language: input.language,
+            styleProfile: input.styleProfile,
+            lengthProfile: input.lengthProfile,
+            audienceProfile: input.audienceProfile,
+            plan: {
+              themeSummary: plan.themeSummary,
+              dimensions: plan.dimensions.map((d) => ({
+                id: d.id,
+                name: d.name,
+                rationale: d.rationale,
+              })),
+            },
+            researcherResults: researcherResults.map((r) => ({
+              dimension: r.dimension,
+              findings: r.findings,
+              summary: r.summary,
+              // ★ Phase P1-1: 图候选透传到 Assembler（图来源红线）
+              figureCandidates: (r as { figureCandidates?: unknown[] })
+                .figureCandidates as
+                | {
+                    sourceUrl: string;
+                    imageUrl?: string;
+                    caption: string;
+                    sourcePageOrSection?: string;
+                    relevanceHint?: "high" | "medium" | "low";
+                  }[]
+                | undefined,
+            })),
+            analyst: {
+              themeSummary: report.summary,
+            },
+            writerReport: report,
+            reconciliationReport: reconciliationReport ?? undefined,
+            generationTimeMs: writerGenerationMs,
+            totalTokens: {
+              prompt: 0,
+              completion: snap.poolTokensUsed,
+              total: snap.poolTokensUsed,
+            },
+            costCents: Math.round((snap.poolCostUsd ?? 0) * 100),
+            modelTrail,
+          });
+        } catch (err) {
+          this.log.warn(
+            `[${missionId}] reportAssembler failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        // ★ Phase P5-2 / P7-8: 把 reconciliation 的事实质量进一步纳入 quality + qualityTrace
+        if (reportArtifact && reconciliationReport) {
+          reportArtifact.quality.qualityTrace.push({
+            stage: "reconciler",
+            check: `${(reconciliationReport as { factTable?: unknown[] }).factTable?.length ?? 0} facts / ${(reconciliationReport as { conflicts?: unknown[] }).conflicts?.length ?? 0} conflicts`,
+            passed:
+              ((
+                reconciliationReport as {
+                  conflicts?: { resolutionType: string }[];
+                }
+              ).conflicts?.filter(
+                (c) => c.resolutionType === "flagged-unresolved",
+              ).length ?? 0) === 0,
+            timestamp: Date.now(),
+          });
+        }
+        if (reportArtifact && reconciliationReport) {
+          const conflicts =
+            (
+              reconciliationReport as {
+                conflicts?: { resolutionType: string }[];
+              }
+            ).conflicts ?? [];
+          const unresolved = conflicts.filter(
+            (c) => c.resolutionType === "flagged-unresolved",
+          ).length;
+          if (unresolved > 0) {
+            const drop = Math.min(0.5, unresolved * 0.15);
+            reportArtifact.quality.dimensions.factualConsistency = Math.max(
+              0,
+              Math.round(
+                reportArtifact.quality.dimensions.factualConsistency *
+                  (1 - drop),
+              ),
+            );
+            reportArtifact.quality.warnings.push({
+              dimension: "factualConsistency",
+              message: `Reconciler 标记 ${unresolved} 项 unresolved 冲突`,
+            });
+          }
+          const gaps =
+            (reconciliationReport as { gaps?: { severity: string }[] }).gaps ??
+            [];
+          const criticalGaps = gaps.filter(
+            (g) => g.severity === "critical",
+          ).length;
+          if (criticalGaps > 0) {
+            reportArtifact.quality.dimensions.coverage = Math.max(
+              0,
+              Math.round(reportArtifact.quality.dimensions.coverage * 0.8),
+            );
+            reportArtifact.quality.warnings.push({
+              dimension: "coverage",
+              message: `Reconciler 识别 ${criticalGaps} 项 critical gap 未覆盖`,
+            });
+          }
+        }
+
+        // ★ Phase P5-3: withFigures=true 但 figureCount=0 时降低 coverage
+        if (
+          reportArtifact &&
+          input.withFigures &&
+          reportArtifact.figures.length === 0
+        ) {
+          reportArtifact.quality.warnings.push({
+            dimension: "withFigures",
+            message:
+              "用户开启图文并茂，但终稿无可用图（researcher 未抽到符合红线的图）",
+          });
+        }
+
+        // ★ Phase P5-8: 维度降级率超过 30% 时降低 coverage
+        if (reportArtifact) {
+          const totalDims = plan.dimensions.length;
+          const degradedDims = researcherResults.filter(
+            (r) => r.findings.length === 0,
+          ).length;
+          if (totalDims > 0 && degradedDims / totalDims > 0.3) {
+            reportArtifact.quality.dimensions.coverage = Math.max(
+              0,
+              Math.round(reportArtifact.quality.dimensions.coverage * 0.6),
+            );
+            reportArtifact.quality.warnings.push({
+              dimension: "coverage",
+              message: `${degradedDims}/${totalDims} 维度降级（无 findings）`,
+            });
+          }
+        }
+
+        // ★ Phase P1-19: Reviewer 三路评分整合到 quality.dimensions
+        if (reportArtifact && reviewScore > 0) {
+          const reviewerSignal = Math.max(0, Math.min(100, reviewScore));
+          // Reviewer 是 L3 跨角，主要信号来自整体可读性 + 事实可信
+          // 让 traceability / factualConsistency / styleConformance 与 reviewer 评分加权
+          const blend = (cur: number, signal: number, w = 0.4): number =>
+            Math.round(cur * (1 - w) + signal * w);
+          reportArtifact.quality.dimensions.traceability = blend(
+            reportArtifact.quality.dimensions.traceability,
+            reviewerSignal,
+          );
+          reportArtifact.quality.dimensions.factualConsistency = blend(
+            reportArtifact.quality.dimensions.factualConsistency,
+            reviewerSignal,
+            0.3,
+          );
+          reportArtifact.quality.dimensions.styleConformance = blend(
+            reportArtifact.quality.dimensions.styleConformance,
+            reviewerSignal,
+            0.5,
+          );
+          // overall 重算
+          const dims = reportArtifact.quality.dimensions;
+          reportArtifact.quality.overall = Math.round(
+            Object.values(dims).reduce((a, b) => a + b, 0) /
+              Object.keys(dims).length,
+          );
+          reportArtifact.quality.qualityTrace.push({
+            stage: "reviewer-l3",
+            check: "blended-into-quality-dimensions",
+            passed: reviewerSignal >= 70,
+            timestamp: Date.now(),
+          });
+          // 各 verifier 的 score 也入 trace（限制 trace 大小）
+          if (reportArtifact.quality.qualityTrace.length > 50) {
+            reportArtifact.quality.qualityTrace =
+              reportArtifact.quality.qualityTrace.slice(-30);
+          }
+          for (const v of verifierVerdicts) {
+            const ver = v as {
+              verifierId?: string;
+              score?: number;
+            };
+            if (ver?.verifierId && typeof ver.score === "number") {
+              reportArtifact.quality.qualityTrace.push({
+                stage: ver.verifierId,
+                check: `score=${ver.score}`,
+                passed: ver.score >= 70,
+                timestamp: Date.now(),
+              });
+            }
+          }
+        }
+
+        // ── Phase P1-4 / P37-1: L4 Critic
+        // 启用条件：thorough+ OR (audience=executive AND auditLayers≠minimal)
+        const enableCritic =
+          input.auditLayers === "thorough" ||
+          input.auditLayers === "paranoid" ||
+          (input.audienceProfile === "executive" &&
+            input.auditLayers !== "minimal");
+        if (enableCritic && reportArtifact) {
+          try {
+            // Phase P16-5: Critic 也接 FailureLearner
+            await this.preDisableKnownFailingModels(
+              billing,
+              "playground.critic",
+              `${input.topic}::critic::${input.language}`,
+            );
+            const criticRes = await this.runAndRelay(
+              CriticAgent,
+              {
+                topic: input.topic,
+                language: input.language,
+                audienceProfile: input.audienceProfile,
+                styleProfile: input.styleProfile,
+                lengthProfile: input.lengthProfile,
+                artifactSummary: {
+                  title: reportArtifact.metadata.topic,
+                  // Phase P32-1: executiveSummary 太长时截断（1500 chars 够 critic 评估）
+                  executiveSummary:
+                    reportArtifact.quickView.executiveSummary.markdown.slice(
+                      0,
+                      1500,
+                    ),
+                  sectionCount: reportArtifact.sections.length,
+                  sectionTitles: reportArtifact.sections.map((s) => s.title),
+                  citationCount: reportArtifact.citations.length,
+                  factCount: reportArtifact.factTable.length,
+                  figureCount: reportArtifact.figures.length,
+                  overallQuality: reportArtifact.quality.overall,
+                  qualityDimensions: reportArtifact.quality.dimensions,
+                },
+                upstreamReviewerVerdict:
+                  verifierVerdicts.length > 0
+                    ? {
+                        score: reviewScore,
+                        critique: (verifierVerdicts[0] as { critique?: string })
+                          ?.critique,
+                      }
+                    : undefined,
+              } as Parameters<typeof this.runner.run>[1],
+              {
+                missionId,
+                userId,
+                agentId: "critic",
+                role: "critic",
+                envAdapter: billing,
+                budgetMultiplier,
+              },
+            );
+            await this.tickCostDelta(
+              missionId,
+              userId,
+              "reviewer",
+              pool,
+              extractTokenSpend(criticRes.events),
+            );
+            if (criticRes.state === "completed" && criticRes.output) {
+              const criticOut = criticRes.output as {
+                overallVerdict: "pass" | "concerns" | "fail";
+                blindspots: string[];
+                biasFlags: string[];
+                suggestions: string[];
+                rationale: string;
+              };
+              // ★ Phase P21-2: emit 独立 critic:verdict 事件给前端 trace
+              await this.emit({
+                type: "agent-playground.critic:verdict",
+                missionId,
+                userId,
+                payload: {
+                  verdict: criticOut.overallVerdict,
+                  blindspotCount: criticOut.blindspots.length,
+                  biasCount: criticOut.biasFlags.length,
+                  suggestionCount: criticOut.suggestions.length,
+                  rationale: criticOut.rationale,
+                },
+              }).catch(() => {});
+              // 把 critic 输出写到 quality.warnings（不阻塞 mission）
+              const criticMessages: { dimension: string; message: string }[] = [
+                {
+                  dimension: "l4-critic",
+                  message: `[${criticOut.overallVerdict}] ${criticOut.rationale}`,
+                },
+                ...criticOut.blindspots.map((b) => ({
+                  dimension: "l4-blindspot",
+                  message: b,
+                })),
+                ...criticOut.biasFlags.map((b) => ({
+                  dimension: "l4-bias",
+                  message: b,
+                })),
+                ...criticOut.suggestions.map((s) => ({
+                  dimension: "l4-suggestion",
+                  message: s,
+                })),
+              ];
+              reportArtifact.quality.warnings.push(...criticMessages);
+              reportArtifact.quality.qualityTrace.push({
+                stage: "critic",
+                check: "l4-meta-review",
+                passed: criticOut.overallVerdict === "pass",
+                timestamp: Date.now(),
+              });
+              // fail verdict → 降低 overall + novelty + factualConsistency
+              if (criticOut.overallVerdict === "fail") {
+                reportArtifact.quality.hardGateViolations.push({
+                  dimension: "l4-critic",
+                  severity: "warning",
+                  message: `L4 critic 给出 fail 判定（${criticOut.rationale.slice(0, 100)}）`,
+                });
+                reportArtifact.quality.overall = Math.max(
+                  0,
+                  Math.round(reportArtifact.quality.overall * 0.7),
+                );
+                reportArtifact.quality.dimensions.novelty = Math.max(
+                  0,
+                  Math.round(reportArtifact.quality.dimensions.novelty * 0.6),
+                );
+                if (criticOut.biasFlags.length > 0) {
+                  reportArtifact.quality.dimensions.styleConformance = Math.max(
+                    0,
+                    Math.round(
+                      reportArtifact.quality.dimensions.styleConformance * 0.7,
+                    ),
+                  );
+                }
+              } else if (criticOut.overallVerdict === "concerns") {
+                reportArtifact.quality.overall = Math.max(
+                  0,
+                  Math.round(reportArtifact.quality.overall * 0.9),
+                );
+                reportArtifact.quality.dimensions.novelty = Math.max(
+                  0,
+                  Math.round(reportArtifact.quality.dimensions.novelty * 0.85),
+                );
+              }
+            }
+          } catch (err) {
+            this.log.warn(
+              `[${missionId}] L4 critic failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+
         return {
           missionId,
           report,
@@ -1367,6 +2130,20 @@ export class ResearchTeamOrchestrator {
           themeSummary: plan.themeSummary,
           dimensions: plan.dimensions,
           verdicts: verifierVerdicts as MissionResult["verdicts"],
+          reportArtifact,
+          reconciliationReport: reconciliationReport ?? undefined,
+          userProfile: {
+            depth: input.depth,
+            budgetProfile: input.budgetProfile,
+            styleProfile: input.styleProfile,
+            lengthProfile: input.lengthProfile,
+            audienceProfile: input.audienceProfile,
+            withFigures: input.withFigures,
+            auditLayers: input.auditLayers,
+            concurrency: input.concurrency,
+            viewMode: input.viewMode,
+            language: input.language,
+          },
         };
       }
     }
@@ -1456,10 +2233,15 @@ export class ResearchTeamOrchestrator {
     input: Parameters<AgentRunner["run"]>[1],
     ctx: RelayCtx,
   ): Promise<Awaited<ReturnType<AgentRunner["run"]>>> {
+    // Phase P12-1: 把 mission 级 abort signal 透传到所有子 runner
+    const signal = this.abortRegistry.getSignal(ctx.missionId);
     return this.runner.run(Spec, input, {
       userId: ctx.userId,
       environment: ctx.envAdapter,
       budgetMultiplier: ctx.budgetMultiplier,
+      toolRecallHint: ctx.toolRecallHint,
+      loopOverride: ctx.loopOverride,
+      signal,
       billingMeta: {
         moduleType: "agent-playground",
         operationType: ctx.role,
@@ -1469,6 +2251,58 @@ export class ResearchTeamOrchestrator {
         await this.relayAgentEvents([ev], ctx);
       },
     });
+  }
+
+  /**
+   * Phase P3-2: 通用失败模式预查（mission-pipeline-failure-learning.md）
+   * 给 analyst/writer/reconciler 等 stage 复用 researcher 的失败学习路径。
+   * 返回 preDisabled 数组，调用方应用到 BillingRuntimeEnvAdapter.markModelDisabled。
+   */
+  private async preDisableKnownFailingModels(
+    billing: BillingRuntimeEnvAdapter,
+    agentSpecId: string,
+    promptKey: string,
+  ): Promise<{ failed: string; fallback: string }[]> {
+    const known = await this.failureLearner
+      .lookup({ agentSpecId, systemPrompt: promptKey })
+      .catch(() => []);
+    const preDisabled: { failed: string; fallback: string }[] = [];
+    for (const rec of known) {
+      if (rec.count >= 2 && rec.lastFallbackModel) {
+        billing.markModelDisabled(rec.modelId, rec.lastFallbackModel);
+        preDisabled.push({
+          failed: rec.modelId,
+          fallback: rec.lastFallbackModel,
+        });
+      }
+    }
+    return preDisabled;
+  }
+
+  /**
+   * 根据 auditLayers 档位 + stage 类型决定是否切 reflexion loop。
+   * mission-pipeline-audit-layers.md L1 启用规则：
+   *   - thorough/paranoid 时 Leader/Analyst/Writer 走 reflexion
+   *   - default 时 deep depth + 高质量需求 stage 选择性启用
+   *   - minimal 时永远 react
+   */
+  private resolveLoopOverride(
+    auditLayers: string,
+    stage:
+      | "leader"
+      | "researcher"
+      | "reconciler"
+      | "analyst"
+      | "writer"
+      | "reviewer",
+  ): "react" | "reflexion" | undefined {
+    if (auditLayers === "minimal") return undefined;
+    const useReflexion =
+      auditLayers === "thorough" || auditLayers === "paranoid";
+    if (!useReflexion) return undefined;
+    // researcher / reconciler 不走 reflexion（成本敏感）
+    if (stage === "researcher" || stage === "reconciler") return undefined;
+    return "reflexion";
   }
 
   /**
@@ -1583,6 +2417,50 @@ export class ResearchTeamOrchestrator {
             originalTs: ev.timestamp,
           },
         });
+      } else if (ev.type === "tools_recalled") {
+        // ★ Phase P3-1: 中继 tools_recalled 让前端 trace 可视化
+        const p = ev.payload as {
+          recalledIds?: readonly string[];
+          categories?: readonly string[];
+          source?: string;
+          preferIds?: readonly string[];
+        };
+        await this.emit({
+          type: "agent-playground.tools:recalled",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            recalledIds: p.recalledIds ?? [],
+            categories: p.categories ?? [],
+            source: p.source ?? "spec",
+            preferIds: p.preferIds ?? [],
+            originalTs: ev.timestamp,
+          },
+        });
+      } else if (ev.type === "validation_failed") {
+        // ★ Phase P3-1: 中继 validation_failed 让前端可视化校验闸 reject
+        const p = ev.payload as {
+          rejectCount?: number;
+          maxRejects?: number;
+          issues?: string;
+        };
+        await this.emit({
+          type: "agent-playground.agent:validation-rejected",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            rejectCount: p.rejectCount ?? 0,
+            maxRejects: p.maxRejects ?? 3,
+            issues: p.issues ?? "",
+            originalTs: ev.timestamp,
+          },
+        });
       }
     }
   }
@@ -1655,6 +2533,77 @@ export class ResearchTeamOrchestrator {
       },
     );
     await Promise.all(workers);
+    return results;
+  }
+
+  /**
+   * Phase P1-17: 拓扑序分批并行（mission-pipeline-baseline.md §11 D17）
+   *
+   * 每个 item 可声明 dependsOn:string[] 指向其他 item.id；同 batch 内并行，
+   * 跨 batch 串行。检测到循环或缺失依赖时回退到全并行（不报错）。
+   *
+   * 仅当 items.some(i => i.dependsOn?.length) 时调用此方法；否则直接 runWithConcurrency。
+   */
+  private async runDagConcurrency<
+    TIn extends { id: string; dependsOn?: string[] },
+    TOut,
+  >(
+    items: readonly TIn[],
+    concurrency: number,
+    fn: (item: TIn, idx: number) => Promise<TOut>,
+  ): Promise<TOut[]> {
+    // 拓扑排序（Kahn 算法）
+    const ids = new Set(items.map((i) => i.id));
+    const inDeg = new Map<string, number>();
+    const adj = new Map<string, string[]>();
+    for (const it of items) {
+      const deps = (it.dependsOn ?? []).filter((d) => ids.has(d));
+      inDeg.set(it.id, deps.length);
+      for (const d of deps) {
+        const arr = adj.get(d) ?? [];
+        arr.push(it.id);
+        adj.set(d, arr);
+      }
+    }
+    const batches: string[][] = [];
+    let pending = Array.from(inDeg.entries())
+      .filter(([, n]) => n === 0)
+      .map(([id]) => id);
+    const seen = new Set<string>();
+    while (pending.length > 0) {
+      batches.push([...pending]);
+      pending.forEach((id) => seen.add(id));
+      const next: string[] = [];
+      for (const id of pending) {
+        for (const child of adj.get(id) ?? []) {
+          inDeg.set(child, (inDeg.get(child) ?? 0) - 1);
+          if (inDeg.get(child) === 0) next.push(child);
+        }
+      }
+      pending = next;
+    }
+    // 检测循环：未 seen 的 item 全部塞最后一批
+    if (seen.size < items.length) {
+      this.log.warn(
+        `[runDagConcurrency] cycle or missing deps detected — fallback to flat`,
+      );
+      return this.runWithConcurrency(items, concurrency, fn);
+    }
+    // 按 batch 跑
+    const results: TOut[] = new Array(items.length);
+    const idToIdx = new Map<string, number>();
+    items.forEach((it, i) => idToIdx.set(it.id, i));
+    for (const batch of batches) {
+      const batchItems = batch.map((id) => items[idToIdx.get(id)!]);
+      const batchResults = await this.runWithConcurrency(
+        batchItems,
+        concurrency,
+        async (it) => fn(it, idToIdx.get(it.id)!),
+      );
+      batchItems.forEach((it, i) => {
+        results[idToIdx.get(it.id)!] = batchResults[i];
+      });
+    }
     return results;
   }
 

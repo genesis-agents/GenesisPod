@@ -104,6 +104,35 @@ export class ToolRegistry
   }
 
   /**
+   * ★ 按多类别召回（Tool Recall 基础召回 Step 1）
+   *
+   * 输入若干 category，返回这些类别下所有 enabled 工具的去重并集。
+   *
+   * 与 getByCategory 的差异：
+   *   - 多类别一次取并集，对应 mission-pipeline-tool-recall.md §4 Step 1
+   *   - 自动 dedupe（不同类别共用 id 时不重复）
+   *   - 只返回 enabled 工具（disabled 的不进 catalog）
+   */
+  listByCategory(categories: readonly ToolCategory[]): ITool[] {
+    if (categories.length === 0) return [];
+    const seen = new Set<string>();
+    const result: ITool[] = [];
+    for (const cat of categories) {
+      const ids = this.byCategory.get(cat);
+      if (!ids) continue;
+      for (const id of ids) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const tool = this.tryGet(id);
+        if (tool && tool.enabled !== false) {
+          result.push(tool);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
    * 按标签获取工具
    */
   getByTag(tag: string): ITool[] {

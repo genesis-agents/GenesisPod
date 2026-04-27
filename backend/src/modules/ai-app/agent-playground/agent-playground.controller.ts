@@ -29,6 +29,7 @@ import { MissionOwnershipRegistry } from "./services/mission-ownership.registry"
 import { MissionEventBuffer } from "./services/mission-event-buffer.service";
 import { MissionStore } from "./services/mission-store.service";
 import { LeaderChatService } from "./services/leader-chat.service";
+import { MissionAbortRegistry } from "./services/mission-abort.registry";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
@@ -41,6 +42,7 @@ export class AgentPlaygroundController {
     private readonly ownership: MissionOwnershipRegistry,
     private readonly store: MissionStore,
     private readonly leaderChat: LeaderChatService,
+    private readonly abortRegistry: MissionAbortRegistry,
   ) {}
 
   /**
@@ -71,6 +73,183 @@ export class AgentPlaygroundController {
     const mission = await this.store.getById(id, userId);
     if (!mission) throw new ForbiddenException("Mission not found");
     return { mission };
+  }
+
+  /**
+   * GET /api/v1/agent-playground/missions/:id/export?format=csv-facts|csv-citations|markdown
+   * Phase P1-8: 数据集导出（mission-pipeline-baseline.md §7.9）
+   */
+  @Get("missions/:id/export")
+  async exportMission(
+    @Param("id") id: string,
+    @Query("format") format: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{ filename: string; mimeType: string; content: string }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const mission = await this.store.getById(id, userId);
+    if (!mission) throw new ForbiddenException("Mission not found");
+
+    const reportFull = (mission as { reportFull?: unknown }).reportFull as
+      | {
+          factTable?: {
+            entity: string;
+            attribute: string;
+            value: string;
+            sources?: number[];
+          }[];
+          citations?: {
+            index: number;
+            title: string;
+            url: string;
+            domain: string;
+            sourceType?: string;
+            credibilityScore?: number;
+            publishedAt?: string;
+          }[];
+          content?: { fullMarkdown?: string };
+        }
+      | null
+      | undefined;
+    if (!reportFull) {
+      throw new BadRequestException("Mission has no report yet");
+    }
+
+    const sanitize = (s: string): string =>
+      `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+
+    const topic = (reportFull as { metadata?: { topic?: string } }).metadata
+      ?.topic;
+    const slug = topic
+      ? topic
+          .replace(/[^\w一-龥-]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 40)
+      : id.slice(0, 8);
+
+    if (format === "csv-facts") {
+      const facts = reportFull.factTable ?? [];
+      const lines = ["entity,attribute,value,source_count,source_indices"];
+      for (const f of facts) {
+        const sources = f.sources ?? [];
+        lines.push(
+          `${sanitize(f.entity)},${sanitize(f.attribute)},${sanitize(f.value)},${sources.length},${sanitize(sources.join("|"))}`,
+        );
+      }
+      return {
+        filename: `${slug}-facts.csv`,
+        mimeType: "text/csv; charset=utf-8",
+        content: "﻿" + lines.join("\n"),
+      };
+    }
+
+    if (format === "csv-citations") {
+      const cites = reportFull.citations ?? [];
+      const lines = [
+        "index,title,url,domain,source_type,credibility_score,published_at",
+      ];
+      for (const c of cites) {
+        lines.push(
+          `${c.index},${sanitize(c.title)},${sanitize(c.url)},${sanitize(c.domain)},${sanitize(c.sourceType ?? "")},${c.credibilityScore ?? ""},${sanitize(c.publishedAt ?? "")}`,
+        );
+      }
+      return {
+        filename: `${slug}-citations.csv`,
+        mimeType: "text/csv; charset=utf-8",
+        content: "﻿" + lines.join("\n"),
+      };
+    }
+
+    // P103-1 / P108-1: 加 reconciliation 到 mission 持久化层读取
+    const missionRow = mission as {
+      reconciliationReport?: {
+        reconciliationReport?: string;
+        deduplicationStats?: {
+          duplicatesRemoved?: number;
+          termVariantsUnified?: number;
+          dataInconsistenciesFlagged?: number;
+        };
+        termGlossary?: { canonical: string; variants: string[] }[];
+      } | null;
+    };
+
+    if (format === "markdown") {
+      // Phase P6-15: 加 YAML frontmatter (mission 元信息)
+      const meta = (reportFull as { metadata?: Record<string, unknown> })
+        .metadata;
+      let md = "";
+      if (meta) {
+        md += "---\n";
+        md += `topic: "${(meta.topic as string)?.replace(/"/g, "'") ?? id}"\n`;
+        if (meta.generatedAt) md += `generatedAt: "${meta.generatedAt}"\n`;
+        if (meta.wordCount) md += `wordCount: ${meta.wordCount}\n`;
+        if (meta.sourceCount) md += `sourceCount: ${meta.sourceCount}\n`;
+        if (meta.figureCount) md += `figureCount: ${meta.figureCount}\n`;
+        if (meta.factCount) md += `factCount: ${meta.factCount}\n`;
+        if (meta.styleProfile) md += `styleProfile: ${meta.styleProfile}\n`;
+        if (meta.lengthProfile) md += `lengthProfile: ${meta.lengthProfile}\n`;
+        if (meta.audienceProfile)
+          md += `audienceProfile: ${meta.audienceProfile}\n`;
+        md += "---\n\n";
+      }
+      md += reportFull.content?.fullMarkdown ?? "";
+      // Phase P2-8: 末尾追加 references 附录（让导出 .md 自含引用）
+      const cites = reportFull.citations ?? [];
+      if (cites.length > 0) {
+        md += "\n\n---\n\n## 参考文献\n\n";
+        for (const c of cites) {
+          const tag = c.sourceType ? ` [${c.sourceType}]` : "";
+          const credit =
+            c.credibilityScore != null
+              ? ` ・可信度 ${c.credibilityScore}/100`
+              : "";
+          md += `[${c.index}]${tag} ${c.title} — ${c.domain}${c.publishedAt ? ` (${c.publishedAt.slice(0, 10)})` : ""}${credit}\n  ${c.url}\n\n`;
+        }
+      }
+      // P103-1 / P108-1: 附 Reconciliation 总览 + dedup 统计 + termGlossary
+      const recon = missionRow.reconciliationReport;
+      if (recon) {
+        md += "\n\n---\n\n## 附录：对账总览\n\n";
+        if (recon.deduplicationStats) {
+          md += `**去重统计**：去重 ${recon.deduplicationStats.duplicatesRemoved ?? 0} · 术语统一 ${recon.deduplicationStats.termVariantsUnified ?? 0} · 数据冲突 ${recon.deduplicationStats.dataInconsistenciesFlagged ?? 0}\n\n`;
+        }
+        if (recon.termGlossary && recon.termGlossary.length > 0) {
+          md += "**术语对照表**：\n";
+          for (const g of recon.termGlossary) {
+            md += `- **${g.canonical}** ↔ ${g.variants.join(" / ")}\n`;
+          }
+          md += "\n";
+        }
+        if (recon.reconciliationReport) {
+          md += recon.reconciliationReport;
+        }
+      }
+      return {
+        filename: `${slug}.md`,
+        mimeType: "text/markdown; charset=utf-8",
+        content: md,
+      };
+    }
+
+    if (format === "json") {
+      // Phase P6-16 / P104-1: 完整 ReportArtifact JSON 导出（机器可读，含 reconciliation）
+      return {
+        filename: `${slug}.json`,
+        mimeType: "application/json; charset=utf-8",
+        content: JSON.stringify(
+          {
+            artifact: reportFull,
+            reconciliation: missionRow.reconciliationReport ?? null,
+          },
+          null,
+          2,
+        ),
+      };
+    }
+
+    throw new BadRequestException(
+      `Unsupported export format: ${format}. Use csv-facts | csv-citations | markdown | json`,
+    );
   }
 
   /**
@@ -129,15 +308,28 @@ export class AgentPlaygroundController {
     if (!original)
       throw new ForbiddenException(`mission ${missionId} not found`);
 
+    // Phase P11-1: rerun 复用原 mission 的 userProfile（如有）
+    const originalProfile = (original as { userProfile?: unknown })
+      .userProfile as Partial<RunMissionInput> | null | undefined;
     const input: RunMissionInput = {
       topic: original.topic,
-      depth: (["quick", "standard", "deep"].includes(original.depth)
-        ? original.depth
-        : "standard") as RunMissionInput["depth"],
-      language: (original.language === "en-US"
-        ? "en-US"
-        : "zh-CN") as RunMissionInput["language"],
-      budgetProfile: "medium",
+      depth: (["quick", "standard", "deep"].includes(
+        originalProfile?.depth ?? original.depth,
+      )
+        ? (originalProfile?.depth ?? original.depth)
+        : "deep") as RunMissionInput["depth"],
+      language: (originalProfile?.language ??
+        (original.language === "en-US"
+          ? "en-US"
+          : "zh-CN")) as RunMissionInput["language"],
+      budgetProfile: originalProfile?.budgetProfile ?? "medium",
+      styleProfile: originalProfile?.styleProfile ?? "executive",
+      lengthProfile: originalProfile?.lengthProfile ?? "standard",
+      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
+      withFigures: originalProfile?.withFigures ?? true,
+      auditLayers: originalProfile?.auditLayers ?? "default",
+      concurrency: originalProfile?.concurrency ?? 3,
+      viewMode: originalProfile?.viewMode ?? "continuous",
       maxCredits: 300,
     };
 
@@ -180,6 +372,8 @@ export class AgentPlaygroundController {
         `mission ${missionId} status is ${persisted.status}, not running`,
       );
     }
+    // ★ Phase P12-1: 真触发 abort signal，让正在跑的 LLM/tool call 立即中断
+    this.abortRegistry.abort(missionId, "user_cancelled");
     await this.store.markCancelled(missionId);
     return { ok: true, status: "cancelled" };
   }

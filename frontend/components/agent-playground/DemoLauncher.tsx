@@ -5,36 +5,124 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   runResearchTeam,
+  type AudienceProfile,
+  type AuditLayers,
   type BudgetProfile,
+  type LengthProfile,
   type RunMissionInput,
+  type StyleProfile,
 } from '@/services/agent-playground/api';
-import { Loader2, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 
 export function DemoLauncher() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
-  // 从 query 预填（"更新"按钮跳转过来时带 topic/depth/language）
+  // ★ Phase P0-8 默认档位：深度 + 图文 + 中等其他（mission-pipeline-user-profiles.md §3）
   const initTopic = searchParams?.get('topic') ?? '';
   const initDepth = (searchParams?.get('depth') ??
-    'standard') as RunMissionInput['depth'];
+    'deep') as RunMissionInput['depth'];
   const initLang = (searchParams?.get('language') ??
     'zh-CN') as RunMissionInput['language'];
 
   const [topic, setTopic] = useState(initTopic);
   const [depth, setDepth] = useState<RunMissionInput['depth']>(
-    ['quick', 'standard', 'deep'].includes(initDepth) ? initDepth : 'standard'
+    ['quick', 'standard', 'deep'].includes(initDepth) ? initDepth : 'deep'
   );
   const [language, setLanguage] = useState<RunMissionInput['language']>(
     initLang === 'en-US' ? 'en-US' : 'zh-CN'
   );
-  const [budgetProfile, setBudgetProfile] = useState<BudgetProfile>('medium');
+  // P95-1: 用户档位 localStorage 持久化
+  const loadPref = <T extends string>(key: string, fallback: T): T => {
+    if (typeof window === 'undefined') return fallback;
+    return (localStorage.getItem(`playground:${key}`) as T | null) ?? fallback;
+  };
+  const [budgetProfile, setBudgetProfile] = useState<BudgetProfile>(() =>
+    loadPref('budgetProfile', 'medium' as BudgetProfile)
+  );
+  const [styleProfile, setStyleProfile] = useState<StyleProfile>(() =>
+    loadPref('styleProfile', 'executive' as StyleProfile)
+  );
+  const [lengthProfile, setLengthProfile] = useState<LengthProfile>(() =>
+    loadPref('lengthProfile', 'standard' as LengthProfile)
+  );
+  const [audienceProfile, setAudienceProfile] = useState<AudienceProfile>(() =>
+    loadPref('audienceProfile', 'domain-expert' as AudienceProfile)
+  );
+  const [withFigures, setWithFigures] = useState(() =>
+    typeof window === 'undefined'
+      ? true
+      : localStorage.getItem('playground:withFigures') !== '0'
+  );
+  const [auditLayers, setAuditLayers] = useState<AuditLayers>(() =>
+    loadPref('auditLayers', 'default' as AuditLayers)
+  );
+
+  // 写回 localStorage
+  const persist = (key: string, value: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`playground:${key}`, value);
+    }
+  };
+  // P94-1: advanced 折叠状态持久化
+  const [advanced, setAdvanced] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('playground:advanced-open') === '1';
+    }
+    return false;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Phase P5-11: 预算估算（粗估）
+  function estimateTokens(): number {
+    const base = 400; // K base for deep+medium+withFigures
+    const depthMul = depth === 'quick' ? 0.4 : depth === 'standard' ? 0.7 : 1;
+    const lenMul =
+      lengthProfile === 'brief'
+        ? 0.5
+        : lengthProfile === 'standard'
+          ? 1
+          : lengthProfile === 'deep'
+            ? 1.7
+            : 2.5;
+    const budgetMul =
+      budgetProfile === 'low'
+        ? 0.5
+        : budgetProfile === 'medium'
+          ? 1
+          : budgetProfile === 'high'
+            ? 2
+            : 4;
+    const auditMul =
+      auditLayers === 'minimal'
+        ? 0.7
+        : auditLayers === 'thorough'
+          ? 1.5
+          : auditLayers === 'paranoid'
+            ? 2.5
+            : 1;
+    const figMul = withFigures ? 1.15 : 1;
+    return Math.round(base * depthMul * lenMul * budgetMul * auditMul * figMul);
+  }
+  function estimateCost(): string {
+    // 粗估：1K tokens ≈ $0.002（混合模型）
+    return (estimateTokens() * 0.002).toFixed(2);
+  }
+  function estimateMinutes(): string {
+    const tokens = estimateTokens();
+    const minutes = Math.min(60, Math.max(2, Math.round(tokens / 60)));
+    return `${minutes}-${Math.min(60, minutes + 3)}`;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!topic.trim() || submitting) return;
+    const trimmed = topic.trim();
+    if (!trimmed || submitting) return;
+    if (trimmed.length < 4) {
+      setError('Topic 至少 4 个字符');
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -43,16 +131,22 @@ export function DemoLauncher() {
         depth,
         language,
         budgetProfile,
+        styleProfile,
+        lengthProfile,
+        audienceProfile,
+        withFigures,
+        auditLayers,
+        // P98-2: concurrency 由 backend 默认 3
       });
-      // 双重保险：API client 已校验，这里再 guard 一次
       if (!missionId || missionId === 'undefined') {
         throw new Error('Server did not return a missionId');
       }
+      // P42-2: 跳转后清 topic 字段（避免回退页面看到旧值困惑）
+      setTopic('');
       router.push(`/agent-playground/research-team/${missionId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      // 必修 #10: 跳转或失败都要重置；防 navigation 异常时按钮永久 loading
       setSubmitting(false);
     }
   }
@@ -68,24 +162,54 @@ export function DemoLauncher() {
         <label className="mb-1.5 block text-sm font-medium text-gray-900">
           {t('playground.researchTeam.topicLabel') || '研究 Topic'}
         </label>
-        <input
-          type="text"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          placeholder={
-            t('playground.researchTeam.topicPlaceholder') ||
-            '例如：AI agents market 2026 Q2'
-          }
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-          maxLength={200}
-          required
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder={
+              t('playground.researchTeam.topicPlaceholder') ||
+              '例如：AI agents market 2026 Q2'
+            }
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-16 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            maxLength={200}
+            required
+          />
+          {topic.length > 0 && (
+            <span
+              className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] ${topic.length > 180 ? 'text-amber-600' : 'text-gray-400'}`}
+            >
+              {topic.length}/200
+            </span>
+          )}
+        </div>
+        {/* Phase P16-2: 示例 topic 一键填充 */}
+        {!topic && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {[
+              'GPT-5 vs Claude Opus 5 能力对比',
+              '2026 全球碳中和政策进展',
+              'AI Agent 框架（LangGraph / AutoGen / CrewAI）对比',
+              'Web3 + AI 的早期应用场景',
+            ].map((sample) => (
+              <button
+                key={sample}
+                type="button"
+                onClick={() => setTopic(sample)}
+                className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] text-gray-600 hover:bg-violet-50 hover:text-violet-700"
+              >
+                {sample}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* 基础三档（默认就是深度 + 中文 + 中等预算） */}
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            {t('playground.researchTeam.depth') || '研究深度'}
+            研究深度
           </label>
           <select
             value={depth}
@@ -96,13 +220,13 @@ export function DemoLauncher() {
           >
             <option value="quick">快速（2-3 维度）</option>
             <option value="standard">标准（3-5 维度）</option>
-            <option value="deep">深度（5-7 维度）</option>
+            <option value="deep">深度（5-7 维度，默认）</option>
           </select>
         </div>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            {t('playground.researchTeam.language') || '输出语言'}
+            输出语言
           </label>
           <select
             value={language}
@@ -122,16 +246,211 @@ export function DemoLauncher() {
           </label>
           <select
             value={budgetProfile}
-            onChange={(e) => setBudgetProfile(e.target.value as BudgetProfile)}
+            onChange={(e) => {
+              const v = e.target.value as BudgetProfile;
+              setBudgetProfile(v);
+              persist('budgetProfile', v);
+            }}
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-            title="低/中/高 决定 token 上限；不限 几乎不设上限（按用户 BYOK 余额限制）"
           >
             <option value="low">低（约 $0.1）</option>
             <option value="medium">中（约 $0.5，默认）</option>
-            <option value="high">高（约 $2，深度研究）</option>
-            <option value="unlimited">不限（仅受 BYOK 余额限制）</option>
+            <option value="high">高（约 $2）</option>
+            <option value="unlimited">不限（仅 BYOK）</option>
           </select>
         </div>
+      </div>
+
+      {/* 图文 + 审核层级 */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3">
+          <input
+            type="checkbox"
+            id="withFigures"
+            checked={withFigures}
+            onChange={(e) => {
+              setWithFigures(e.target.checked);
+              persist('withFigures', e.target.checked ? '1' : '0');
+            }}
+            className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+          />
+          <label
+            htmlFor="withFigures"
+            className="flex-1 text-sm font-medium text-gray-900"
+          >
+            图文并茂（默认开）
+            <span className="block text-xs font-normal text-gray-500">
+              图必须来自参考文献，非 AI 创作
+            </span>
+          </label>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-900">
+            审核层级
+          </label>
+          <select
+            value={auditLayers}
+            onChange={(e) => {
+              const v = e.target.value as AuditLayers;
+              setAuditLayers(v);
+              persist('auditLayers', v);
+            }}
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+          >
+            <option value="minimal">最简（仅 L0 schema 校验）</option>
+            <option value="default">标准（L0+L3，默认）</option>
+            <option value="thorough">完整（L0+L1+L3+L4）</option>
+            <option value="paranoid">极致（全开 L0~L4）</option>
+          </select>
+        </div>
+      </div>
+
+      {/* 高级选项 */}
+      <div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !advanced;
+              setAdvanced(next);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(
+                  'playground:advanced-open',
+                  next ? '1' : '0'
+                );
+              }
+            }}
+            className="flex flex-1 items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          >
+            <span>高级选项</span>
+            {advanced ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+          {(depth !== 'deep' ||
+            budgetProfile !== 'medium' ||
+            styleProfile !== 'executive' ||
+            lengthProfile !== 'standard' ||
+            audienceProfile !== 'domain-expert' ||
+            !withFigures ||
+            auditLayers !== 'default') && (
+            <button
+              type="button"
+              onClick={() => {
+                setDepth('deep');
+                setBudgetProfile('medium');
+                setStyleProfile('executive');
+                setLengthProfile('standard');
+                setAudienceProfile('domain-expert');
+                setWithFigures(true);
+                setAuditLayers('default');
+                // P96-1: 清 localStorage 偏好
+                if (typeof window !== 'undefined') {
+                  [
+                    'budgetProfile',
+                    'styleProfile',
+                    'lengthProfile',
+                    'audienceProfile',
+                    'withFigures',
+                    'auditLayers',
+                  ].forEach((k) => localStorage.removeItem(`playground:${k}`));
+                }
+              }}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"
+              title="恢复默认档位（深度+图文+中等）"
+            >
+              重置默认
+            </button>
+          )}
+        </div>
+        {advanced && (
+          <div className="mt-3 grid grid-cols-3 gap-4 rounded-xl border border-gray-100 bg-gray-50/30 p-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                文风
+              </label>
+              <select
+                value={styleProfile}
+                onChange={(e) => {
+                  const v = e.target.value as StyleProfile;
+                  setStyleProfile(v);
+                  persist('styleProfile', v);
+                }}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+              >
+                <option value="academic">学术</option>
+                <option value="executive">高管简报（默认）</option>
+                <option value="journalistic">新闻</option>
+                <option value="technical">技术</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                长度
+              </label>
+              <select
+                value={lengthProfile}
+                onChange={(e) => {
+                  const v = e.target.value as LengthProfile;
+                  setLengthProfile(v);
+                  persist('lengthProfile', v);
+                }}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+              >
+                <option value="brief">简（~3K 字）</option>
+                <option value="standard">标准（~8K 字，默认）</option>
+                <option value="deep">深（~15K 字）</option>
+                <option value="extended">扩展（~25K 字）</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                受众
+              </label>
+              <select
+                value={audienceProfile}
+                onChange={(e) => {
+                  const v = e.target.value as AudienceProfile;
+                  setAudienceProfile(v);
+                  persist('audienceProfile', v);
+                }}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+              >
+                <option value="executive">高管</option>
+                <option value="domain-expert">领域专家（默认）</option>
+                <option value="general-public">大众</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Phase P5-11 / P9-1: 预算 + 配置摘要 */}
+      <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-2.5 text-xs text-violet-700">
+        <div>
+          预计 ~{estimateTokens()}K tokens · 约 ${estimateCost()} ·{' '}
+          {estimateMinutes()} 分钟
+        </div>
+        {audienceProfile === 'executive' && (
+          <div className="mt-0.5 text-[10px] text-violet-600">
+            高管受众自动启 L4 元审 · 总 cost ×1.3
+          </div>
+        )}
+        {auditLayers === 'thorough' && (
+          <div className="mt-0.5 text-[10px] text-violet-600">
+            thorough 启 L0+L1+L3+L4 → Leader/Analyst/Writer 走 reflexion
+          </div>
+        )}
+        {auditLayers === 'paranoid' && (
+          <div className="mt-0.5 text-[10px] text-violet-600">
+            paranoid 全开 L0~L4 + 同侪比对（贵 ~3×）
+          </div>
+        )}
       </div>
 
       {error && (
@@ -148,12 +467,12 @@ export function DemoLauncher() {
         {submitting ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            {t('playground.researchTeam.starting') || '启动中…'}
+            启动中…
           </>
         ) : (
           <>
             <Sparkles className="h-4 w-4" />
-            {t('playground.researchTeam.start') || '启动研究团队'}
+            启动研究团队
           </>
         )}
       </button>

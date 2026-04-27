@@ -36,10 +36,41 @@ const Output = z.object({
     }),
   ),
   summary: z.string(),
+  // ★ Phase P1-1: 图候选（图来源红线 baseline §7.4）
+  // Researcher 在 web-scraper / arxiv-search 等 tool observation 中遇到原图时，
+  // 抽取 figureCandidates（必须含 sourceUrl + 来自参考文献，不能 LLM 编造图）。
+  // 不抽到图时给空数组（withFigures=false 时也允许空）。
+  figureCandidates: z
+    .array(
+      z.object({
+        // P53-1: sourceUrl 强制 http(s) 协议
+        sourceUrl: z
+          .string()
+          .min(8)
+          .refine((s) => /^https?:\/\//i.test(s), {
+            message: "sourceUrl 必须以 http:// 或 https:// 开头",
+          }),
+        // imageUrl: 可选，但若有则必须 https 或 data:image
+        imageUrl: z
+          .string()
+          .optional()
+          .refine(
+            (s) => !s || /^https:\/\//i.test(s) || /^data:image\//i.test(s),
+            { message: "imageUrl 必须 https:// 或 data:image" },
+          ),
+        caption: z.string().min(3),
+        sourcePageOrSection: z.string().optional(),
+        relevanceHint: z.enum(["high", "medium", "low"]).default("medium"),
+      }),
+    )
+    // Phase P34-1: 单 dim cap 5 张图
+    .max(5)
+    .default([]),
 });
 
 @DefineAgent({
   id: "playground.researcher",
+  version: "1.2.0",
   identity: {
     role: "researcher",
     description:
@@ -49,19 +80,11 @@ const Output = z.object({
   // 在 reasoning model + 长 prompt 上单 revision 烧 80K，2 个 revision 240K。
   // verifier 评分由上层 orchestrator 的 reviewer 阶段做（一次性），不在每 dim 重做。
   loop: "react",
-  // ★ 完整研究工具集 —— Harness 系统注册 50+ 工具，agent 必须显式声明才能给 LLM 看到。
-  // 之前只声明 web-search/web-scraper 等于"屏蔽"了 LLM 对系统能力的认知。
-  // 现在覆盖所有 dim 研究可能用到的 information-gathering / parsing 工具。
-  tools: [
-    "web-search", // 公网搜索
-    "web-scraper", // 抓 URL 全文
-    "rag-search", // 内部 RAG / 已索引内容（复用历史研究）
-    "knowledge-graph", // 实体关系图（已建表）
-    "data-fetch", // 通用 HTTP（拿 JSON API / 数据集）
-    "file-parser", // 解析 PDF/DOC/CSV（scrape 拿到非 HTML 资源时用）
-    "arxiv-search", // 学术论文
-    "github-search", // 代码 / 开源项目
-  ],
+  // ★ Tool Recall（runtime 召回）—— 不再硬编码工具 id 列表。
+  // AgentRunner.performToolRecall() 启动时从 ToolRegistry 实时召回 'information'
+  // category 下所有 enabled 工具。Leader 给 dim 提供 toolHint 时进一步收窄。
+  // 工具 CRUD 自动跟进，无需改 spec。
+  toolCategories: ["information"],
   // ★ 去 verifiers + 去 skills（critical-review 本来是 verifier 路径）
   taskProfile: {
     creativity: "low",
@@ -82,24 +105,23 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
       ``,
-      `## Tool selection (refer to <available_tools> for full list & invocation examples)`,
-      `Pick the right tool for the right job; you have 8+ tools, not just web-search:`,
-      `- **rag-search**: ALWAYS try first — checks internal knowledge base for already-indexed`,
-      `  content on this topic (free, instant, often sufficient).`,
-      `- **knowledge-graph**: query entity relationships if the dimension involves people/orgs/products.`,
-      `- **web-search**: public web search (general fallback).`,
-      `- **arxiv-search**: when dimension is technical/academic (LLM/AI/science).`,
-      `- **github-search**: when dimension involves code/projects/open-source.`,
-      `- **data-fetch**: hit a known JSON API or dataset URL directly.`,
-      `- **web-scraper**: extract full content from a specific URL (use AFTER search returns it).`,
-      `- **file-parser**: parse PDF/DOC content if scrape returns binary resource.`,
+      `## Tool selection`,
+      `查看 <available_tools> block —— 那是 runtime 从 ToolRegistry 实时召回的工具集，`,
+      `Leader 已根据本 dim 的性质做过收窄（标 ★ recommended 的优先用，但不强制）。`,
+      `按工具描述匹配本 dim 的需求：`,
+      `- 内部知识 / 已索引内容相关 → 先试 rag-search 类（免费/即时）`,
+      `- 实体关系（人/组织/产品） → knowledge-graph 类`,
+      `- 学术/科研性质 → academic 类（arxiv / openalex / pubmed / semantic-scholar 等）`,
+      `- 政策/法规 → policy 类（federal-register / congress-gov / whitehouse-news 等）`,
+      `- 代码/开源 → community 类（github-search / hackernews-search 等）`,
+      `- 通用网页 → web-search / web-scraper / data-fetch`,
       ``,
       `## Workflow (efficient, do NOT iterate beyond what's needed)`,
-      `1. **rag-search first**: 1 query checking internal knowledge. If results are good, may suffice.`,
-      `2. **One web/specialized search round**: emit ONE parallel_tool_call with 2-4 queries`,
-      `   choosing the right tools (web-search / arxiv-search / github-search / data-fetch).`,
-      `3. **At most one scrape/parse round**: if a high-value URL needs full content, emit ONE`,
-      `   parallel_tool_call with web-scraper / file-parser. Skip if snippets are sufficient.`,
+      `1. **如果 catalog 中有 rag-search 类**: 1 query 看内部知识够不够。`,
+      `2. **One specialized search round**: emit ONE parallel_tool_call with 2-4 queries，`,
+      `   优先用 ★ recommended 的工具，混合 web-search 兜底。`,
+      `3. **At most one scrape/parse round**: 高价值 URL 抓全文用 web-scraper / file-parser。`,
+      `   摘要够用就跳过这步。`,
       `4. **Finalize**: emit { kind: "finalize", output: {...} } matching the schema below.`,
       ``,
       `## Hard constraints to control cost`,
@@ -107,6 +129,41 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `- Target 4-5 findings; do NOT iterate to add more.`,
       `- 1 short evidence quote per finding is enough.`,
       `- Use search snippets directly when sufficient; scrape ONLY for missing critical numbers.`,
+      ``,
+      `## Figure candidates (★★ 图来源红线 — 编造图直接 mission 失败)`,
+      `严禁红线：`,
+      `  ❌ 不要从 unsplash / pexels / shutterstock 等 stock 图库找配图`,
+      `  ❌ 不要写假 URL（必须是 tool 观察结果里**真实存在的**链接）`,
+      `  ❌ 不要"我觉得这里需要个图"凭空创建（Assembler 会五项校验删除并 trace 警告）`,
+      `  ❌ 不要写 AI 生成图片（image-generation 工具已禁用 ToolACL）`,
+      ``,
+      `合法来源：`,
+      `  ✅ web-scraper 返回的 HTML 内 <img src="...">（必须 https://）`,
+      `  ✅ arxiv-search / pubmed 返回的 paper figure URL`,
+      `  ✅ data-fetch 拿到的 JSON API 内含图片 URL`,
+      `  ✅ evidence URL 本身（OG image 元数据，作为 sourceUrl）`,
+      ``,
+      `如果 tool 观察结果中包含**真实图片**，按下面格式抽取到 figureCandidates 数组。`,
+      `没抽到图时给 [] 即可。**有疑问就给 [] —— 宁缺勿滥**。`,
+      ``,
+      `合法 figureCandidate 例子：`,
+      `  { "sourceUrl": "https://arxiv.org/abs/2401.12345",`,
+      `    "imageUrl": "https://arxiv.org/figs/2401.12345/fig3.png",`,
+      `    "caption": "Architecture diagram of MoE routing",`,
+      `    "sourcePageOrSection": "Figure 3",`,
+      `    "relevanceHint": "high" }`,
+      ``,
+      `非法（违规会被 Assembler 删除）：`,
+      `  - imageUrl=http:// (必须 https://)`,
+      `  - sourceUrl 为 unsplash.com / pexels.com (stock 图库)`,
+      `  - caption 为占位文字 / 编造内容`,
+      ``,
+      `每个 candidate 必须含：`,
+      `- sourceUrl: 图所在原文献的 URL（必填，至少 8 字符）`,
+      `- imageUrl: 真实图片直链（可选，从 evidence 抽到的 <img src> 或 figure URL）`,
+      `- caption: 图说明 ≥ 3 字符（从原文 figcaption / alt 提取）`,
+      `- sourcePageOrSection: "Figure 3" / "Section 4.2" 之类位置标记（可选）`,
+      `- relevanceHint: "high" | "medium" | "low"（评估与本 dim 的相关性）`,
       ``,
       `## Output JSON shape (field names must match exactly)`,
       `{`,
@@ -117,7 +174,11 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `      "source": "<URL or DOI/arxiv id>" }`,
       `    // 4-5 findings`,
       `  ],`,
-      `  "summary": "<2-3 sentences synthesizing findings>"`,
+      `  "summary": "<2-3 sentences synthesizing findings>",`,
+      `  "figureCandidates": [`,
+      `    { "sourceUrl": "...", "imageUrl": "...", "caption": "...", "sourcePageOrSection": "Figure 3", "relevanceHint": "high" }`,
+      `    // 0-3 张，没有就 []`,
+      `  ]`,
       `}`,
     ].join("\n");
   }

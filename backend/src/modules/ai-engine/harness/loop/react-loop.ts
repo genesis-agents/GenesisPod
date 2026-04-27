@@ -199,12 +199,40 @@ export class ReActLoop implements IAgentLoop {
     let consecutiveEmptyLLM = 0;
     let lastModelId: string | undefined;
 
+    // ─── Phase P0-2: 多重出口闸 ─────────────────────────────────
+    /** Wall-time 监控（mission-pipeline-exit-policy.md D9）—— 默认 180s/stage */
+    const wallTimeStart = Date.now();
+    const wallTimeLimitMs = criteria.maxWallTimeMs ?? 180_000;
+    /** 同 toolId 连续失败计数（mission-pipeline-tool-failure-circuit.md D7=3）*/
+    const TOOL_CIRCUIT_THRESHOLD = 3;
+    const toolFailureCounters = new Map<string, number>();
+
     while (iteration < criteria.maxIterations) {
       iteration += 1;
 
       // 0a. signal check
       if (options?.signal?.aborted) {
         yield this.makeEvent(agentId, "terminated", { reason: "cancelled" });
+        return;
+      }
+
+      // 0a'. wall-time check（exit-policy.md ExitReason='wall_time_exceeded'）
+      if (wallTimeLimitMs && Date.now() - wallTimeStart >= wallTimeLimitMs) {
+        yield this.makeEvent(agentId, "error", {
+          message: `ReActLoop wall-time exceeded (${Date.now() - wallTimeStart}ms >= ${wallTimeLimitMs}ms)`,
+          recoverable: false,
+          failureCode: "RUNNER_WALL_TIME_EXCEEDED",
+          diagnostic: {
+            elapsedMs: Date.now() - wallTimeStart,
+            wallTimeLimitMs,
+            iteration,
+            modelId: lastModelId,
+          },
+        });
+        yield this.makeEvent(agentId, "output", {
+          output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
+        });
+        yield this.makeEvent(agentId, "terminated", { reason: "budget" });
         return;
       }
 
@@ -594,6 +622,51 @@ export class ReActLoop implements IAgentLoop {
       };
       yield this.makeEvent(agentId, "action_executed", enrichedActionResult);
 
+      // ─── Phase P0-2: failed_tool 熔断（D7=3）──
+      // tool_call / parallel_tool_call 中任一同 toolId 连续失败 N 次 → exit
+      const toolIdsTouched: string[] = [];
+      if (decision.action.kind === "tool_call") {
+        toolIdsTouched.push(decision.action.toolId);
+      } else if (decision.action.kind === "parallel_tool_call") {
+        for (const c of decision.action.calls) {
+          toolIdsTouched.push(c.toolId);
+        }
+      }
+      if (toolIdsTouched.length > 0) {
+        const hasError = !!actionResult.error;
+        for (const tid of toolIdsTouched) {
+          if (hasError) {
+            const c = (toolFailureCounters.get(tid) ?? 0) + 1;
+            toolFailureCounters.set(tid, c);
+            if (c >= TOOL_CIRCUIT_THRESHOLD) {
+              yield this.makeEvent(agentId, "error", {
+                message: `Tool '${tid}' failed ${c} times consecutively (circuit broken)`,
+                recoverable: false,
+                failureCode: "TOOL_RUNTIME_ERROR",
+                diagnostic: {
+                  toolId: tid,
+                  consecutiveFailures: c,
+                  iteration,
+                  lastError: actionResult.error?.message,
+                },
+                recoveryHint: {
+                  action: "switch_model",
+                  reason:
+                    "Tool service unavailable; try alternative model or skip this tool",
+                },
+              });
+              yield this.makeEvent(agentId, "output", {
+                output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
+              });
+              yield this.makeEvent(agentId, "terminated", { reason: "error" });
+              return;
+            }
+          } else {
+            toolFailureCounters.set(tid, 0);
+          }
+        }
+      }
+
       // 4. reflect
       currentEnvelope = this.updateEnvelope(
         currentEnvelope,
@@ -628,12 +701,29 @@ export class ReActLoop implements IAgentLoop {
         }
         if (issuesParts.length > 0) {
           finalizeRejectCount += 1;
+          // ★ Phase P0-10: emit validation_failed 事件（baseline §1.3）
+          yield this.makeEvent(agentId, "validation_failed", {
+            rejectCount: finalizeRejectCount,
+            maxRejects: MAX_FINALIZE_REJECTS,
+            issues: issuesParts.join("; "),
+            candidateOutput: output,
+          });
           // 防死循环：连续 N 次 finalize 不达标 → 强制退出，不再让 LLM 改
           if (finalizeRejectCount >= MAX_FINALIZE_REJECTS) {
             this.logger.warn(
               `[${agentId}] finalize rejected ${finalizeRejectCount} times in a row, ` +
                 `accepting current candidate to avoid infinite loop. issues=${issuesParts.join("; ")}`,
             );
+            // ★ Phase P0-2: 标记为 validation_rejected_max（exit-policy.md）
+            yield this.makeEvent(agentId, "error", {
+              message: `finalize 校验闸 reject 达上限 ${MAX_FINALIZE_REJECTS}，强制接受次优产物`,
+              recoverable: false,
+              failureCode: "RUNNER_OUTPUT_SCHEMA_MISMATCH",
+              diagnostic: {
+                rejectCount: finalizeRejectCount,
+                lastIssues: issuesParts.join("; "),
+              },
+            });
             yield this.makeEvent(agentId, "output", { output: output ?? "" });
             yield this.makeEvent(agentId, "terminated", {
               reason: "completed",

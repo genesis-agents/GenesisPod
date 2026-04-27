@@ -121,6 +121,16 @@ export class HarnessedAgent implements IAgent {
   }
 
   async *execute(task: IAgentTask): AsyncIterable<IAgentEvent> {
+    // ★ Phase P13-1: 外部 task.signal 触发本 agent 的 abortController.abort()
+    // 这样 mission 级 cancel 能链到 ReActLoop 内的 chat / tool call
+    if (task.signal) {
+      if (task.signal.aborted) {
+        this.abortController.abort();
+      } else {
+        const onAbort = () => this.abortController.abort();
+        task.signal.addEventListener("abort", onAbort, { once: true });
+      }
+    }
     // If already cancelled before execute started, emit terminated immediately
     if (this.state === "cancelled" || this.abortController.signal.aborted) {
       this.state = "cancelled";

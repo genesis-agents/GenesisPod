@@ -36,6 +36,8 @@ import {
   TeamRosterPanel,
   VerifyConsensusPanel,
 } from '@/components/agent-playground';
+import { ArtifactReader } from '@/components/agent-playground/artifact';
+import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
 import {
   deriveView,
@@ -521,11 +523,104 @@ export default function MissionDetailPage() {
 
             {activeTab === 'report' && (
               <div className="space-y-4">
-                <ReportPanel
-                  finalReport={view.finalReport}
-                  reports={view.reports}
-                  finalScore={view.mission.finalScore}
-                />
+                {/* ★ Phase P0-6: ReportArtifact v2 三视图渲染（fallback 老 ReportPanel） */}
+                {(() => {
+                  const reportFull = persisted?.reportFull ?? view.finalReport;
+                  if (
+                    reportFull &&
+                    typeof reportFull === 'object' &&
+                    isReportArtifact(reportFull)
+                  ) {
+                    // ★ Phase P1-22: 用 mission.userProfile.viewMode 作为默认视图
+                    const userProfile = (
+                      persisted as {
+                        userProfile?: { viewMode?: string };
+                      } | null
+                    )?.userProfile;
+                    const defaultView =
+                      userProfile?.viewMode === 'chapter' ||
+                      userProfile?.viewMode === 'quick'
+                        ? userProfile.viewMode
+                        : 'continuous';
+                    const reconciliationReport = (
+                      persisted as { reconciliationReport?: unknown } | null
+                    )?.reconciliationReport as
+                      | {
+                          factTable?: unknown[];
+                          conflicts?: {
+                            factIds: string[];
+                            resolutionType:
+                              | 'kept-both'
+                              | 'preferred-one'
+                              | 'flagged-unresolved';
+                            rationale: string;
+                          }[];
+                          overlaps?: {
+                            dimensionPair?: [string, string];
+                            similarityScore?: number;
+                            overlappingClaim?: string;
+                            resolutionAction?: string;
+                          }[];
+                          gaps?: {
+                            dimensionId?: string;
+                            expectedAspects?: string[];
+                            severity?: 'critical' | 'minor';
+                          }[];
+                          reconciliationReport?: string;
+                          figureCandidates?: unknown[];
+                          deduplicationStats?: {
+                            duplicatesRemoved?: number;
+                            termVariantsUnified?: number;
+                            dataInconsistenciesFlagged?: number;
+                          };
+                          termGlossary?: {
+                            canonical: string;
+                            variants: string[];
+                          }[];
+                        }
+                      | undefined;
+                    // Phase P7-5: 从 events 抽 tools_recalled
+                    const toolRecallEntries = events
+                      .filter(
+                        (ev) => ev.type === 'agent-playground.tools:recalled'
+                      )
+                      .map((ev) => {
+                        const p = ev.payload as {
+                          agentId?: string;
+                          role?: string;
+                          recalledIds?: string[];
+                          categories?: string[];
+                          source?: string;
+                          preferIds?: string[];
+                        };
+                        return {
+                          agentId: p.agentId ?? '',
+                          role: p.role ?? '',
+                          recalledIds: p.recalledIds ?? [],
+                          categories: p.categories ?? [],
+                          source: p.source ?? 'spec',
+                          preferIds: p.preferIds ?? [],
+                        };
+                      })
+                      .slice(0, 12);
+                    return (
+                      <ArtifactReader
+                        artifact={reportFull}
+                        missionId={missionId}
+                        defaultView={defaultView}
+                        reconciliationReport={reconciliationReport}
+                        toolRecallEntries={toolRecallEntries}
+                      />
+                    );
+                  }
+                  return (
+                    <ReportPanel
+                      finalReport={view.finalReport}
+                      reports={view.reports}
+                      finalScore={view.mission.finalScore}
+                    />
+                  );
+                })()}
                 {view.verdicts.length > 0 && (
                   <VerifyConsensusPanel verdicts={view.verdicts} />
                 )}

@@ -51,6 +51,11 @@ export interface IAgentTask {
   readonly input?: string | Record<string, unknown>;
   /** 覆盖 identity 默认约束 */
   readonly constraintsOverride?: Partial<IAgentIdentity["constraints"]>;
+  /**
+   * Phase P13-1: AbortSignal 透传 (mission-pipeline-baseline.md §9.4 / Q11)
+   * Loop 内会检查 signal.aborted；上层 cancel 信号链到 LLM call。
+   */
+  readonly signal?: AbortSignal;
 
   /**
    * PR-M: 增量复用 —— 上次同一 task 的部分结果，executor 可决定复用还是重跑。

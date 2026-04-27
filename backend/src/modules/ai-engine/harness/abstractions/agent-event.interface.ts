@@ -11,6 +11,8 @@ export type AgentEventType =
   | "action_planned" // 决定做某个 action
   | "action_executed" // action 完成
   | "reflection" // 自我反思
+  | "validation_failed" // finalize 校验闸 reject（D2）
+  | "tools_recalled" // Tool Recall 五步流程产物 emit（baseline §1.3）
   | "output" // 最终输出
   | "error" // 错误
   | "budget_warning" // 预算即将耗尽
@@ -41,6 +43,34 @@ export interface IActionExecutedEvent extends IAgentEvent {
 export interface IOutputEvent extends IAgentEvent {
   type: "output";
   payload: { output: string | Record<string, unknown> };
+}
+
+/**
+ * Tool Recall 完成事件（baseline §1.3）。
+ * AgentRunner 在 Loop 启动前 emit 一次，让上层 trace 可视化"本次给 LLM 看到哪些工具"。
+ */
+export interface IToolsRecalledEvent extends IAgentEvent {
+  type: "tools_recalled";
+  payload: {
+    recalledIds: readonly string[];
+    categories: readonly string[];
+    source: "spec" | "hint" | "spec+hint";
+    preferIds?: readonly string[];
+  };
+}
+
+/**
+ * Finalize 校验闸 reject 事件（baseline §3.4 / D2）。
+ * 每次 schema 或 business rule 不通过时 emit；rejectCount 达 maxRejects 后强制接受。
+ */
+export interface IValidationFailedEvent extends IAgentEvent {
+  type: "validation_failed";
+  payload: {
+    rejectCount: number;
+    maxRejects: number;
+    issues: string;
+    candidateOutput?: unknown;
+  };
 }
 
 /**
