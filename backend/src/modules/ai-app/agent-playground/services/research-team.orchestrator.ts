@@ -916,30 +916,77 @@ export class ResearchTeamOrchestrator {
                 "started",
                 { dimension: dim.name },
               );
-              const r = await this.runAndRelay(
-                ResearcherAgent,
-                {
-                  topic: input.topic,
-                  dimension: dim.name,
-                  language: input.language,
-                },
-                {
-                  missionId,
-                  userId,
-                  agentId,
-                  role: "researcher",
-                  envAdapter: billing,
-                  budgetMultiplier,
-                  // ★ Leader 给的 dim.toolHint → Researcher 的 toolRecallHint
-                  // AgentRunner 五步召回会把它收窄到 spec.toolCategories 内的子集
-                  toolRecallHint: dim.toolHint
-                    ? {
-                        categories: dim.toolHint.categories,
-                        preferIds: dim.toolHint.preferIds,
-                      }
-                    : undefined,
-                },
-              );
+              const runResearcher = async (
+                attempt: number,
+                bumpedMult: number,
+                topicSuffix = "",
+              ) =>
+                this.runAndRelay(
+                  ResearcherAgent,
+                  {
+                    topic: input.topic + topicSuffix,
+                    dimension: dim.name,
+                    language: input.language,
+                  },
+                  {
+                    missionId,
+                    userId,
+                    agentId:
+                      attempt > 0 ? `${agentId}.retry${attempt}` : agentId,
+                    role: "researcher",
+                    envAdapter: billing,
+                    budgetMultiplier: bumpedMult,
+                    // ★ Leader 给的 dim.toolHint → Researcher 的 toolRecallHint
+                    // AgentRunner 五步召回会把它收窄到 spec.toolCategories 内的子集
+                    toolRecallHint: dim.toolHint
+                      ? {
+                          categories: dim.toolHint.categories,
+                          preferIds: dim.toolHint.preferIds,
+                        }
+                      : undefined,
+                  },
+                );
+              let r = await runResearcher(0, budgetMultiplier);
+
+              // ★ Self-heal: 第 1 次跑挂了 → 加 50% 预算 + 在 topic 加补救提示，重跑一次。
+              //    只对"可恢复"失败重试：schema 不达标 / wall-time / 空响应 / parse 失败。
+              //    rate-limit / quota / abort 不重试（重试也只是再次失败）。
+              const RECOVERABLE = new Set([
+                "RUNNER_OUTPUT_SCHEMA_MISMATCH",
+                "RUNNER_WALL_TIME_EXCEEDED",
+                "RUNNER_LOOP_LIMIT",
+                "LOOP_EMPTY_RESPONSE_IMMEDIATE",
+                "LOOP_REASONING_COT_EXHAUSTION",
+                "PARSE_MALFORMED_JSON",
+                "PARSE_MISSING_ACTION",
+                "PARSE_UNKNOWN_ACTION_KIND",
+                "PARSE_EMPTY_ACTIONS_ARRAY",
+              ]);
+              if (r.state !== "completed" || !r.output) {
+                const innerFail0 = extractAgentFailureDiagnostic(r.events);
+                const code0 = innerFail0?.failureCode;
+                if (code0 && RECOVERABLE.has(code0)) {
+                  this.log.warn(
+                    `[researcher#${idx}] dim "${dim.name}" first attempt failed (${code0}); retrying with +50% budget`,
+                  );
+                  await this.emit({
+                    type: "agent-playground.dimension:retrying",
+                    missionId,
+                    userId,
+                    agentId,
+                    payload: {
+                      dimension: dim.name,
+                      reason: code0,
+                      bumpedBudgetMultiplier: budgetMultiplier * 1.5,
+                    },
+                  }).catch(() => {});
+                  r = await runResearcher(
+                    1,
+                    budgetMultiplier * 1.5,
+                    `（重试：上一轮以 ${code0} 失败，请先返回符合 schema 的 finalize；4-5 条 finding，每条带 source URL）`,
+                  );
+                }
+              }
 
               // ★ 成功且确实用了 fallback model → 回写 recordSuccessfulFallback
               // 让下次同 key 命中时跳过失败 model，直接走 fallback。
