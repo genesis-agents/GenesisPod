@@ -176,6 +176,7 @@ export class FileParserTool extends BaseTool<
 
   readonly id = "file-parser";
   readonly category: ToolCategory = "processing";
+  readonly tags = ["processing", "file", "parser", "pdf", "docx", "extract"];
   readonly name = "文件解析";
   readonly description =
     "解析 PDF、Word (docx)、Excel (xlsx)、PowerPoint (pptx) 文件，提取文本内容、结构和表格数据。适用于文档分析、内容提取等场景。";

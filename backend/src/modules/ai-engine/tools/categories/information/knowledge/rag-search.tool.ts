@@ -183,6 +183,7 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
   private readonly logger = new Logger(RAGSearchTool.name);
   readonly id = "rag-search";
   readonly category: ToolCategory = "information";
+  readonly tags = ["knowledge", "rag", "vector", "internal", "embedding"];
   readonly name = "向量检索";
   readonly description =
     "在知识库中进行语义搜索，返回与查询最相关的文档片段。适用于需要从已保存的资源中查找信息的场景。支持按集合、资源、类型等条件过滤。";

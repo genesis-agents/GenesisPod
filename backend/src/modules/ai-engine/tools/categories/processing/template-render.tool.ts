@@ -123,6 +123,7 @@ export class TemplateRenderTool extends BaseTool<
 
   readonly id = "template-render";
   readonly category: ToolCategory = "processing";
+  readonly tags = ["processing", "template", "render", "handlebars", "jinja"];
   readonly name = "模板渲染";
   readonly description =
     "使用变量渲染模板内容。支持 Handlebars 风格语法、条件逻辑、循环、自定义辅助函数等。支持文本、HTML、Markdown、JSON 等多种格式。适用于邮件模板、文档生成、代码生成等场景。";

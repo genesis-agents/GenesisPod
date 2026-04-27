@@ -367,6 +367,7 @@ export class MessagePushTool extends BaseTool<
 
   readonly id = "message-push";
   readonly category: ToolCategory = "integration";
+  readonly tags = ["integration", "notification", "push", "messaging", "slack", "feishu"];
   readonly name = "消息推送";
   readonly description =
     "向多个平台发送消息通知，支持 Slack、Discord、Email 和自定义 Webhook。可发送纯文本、Markdown、HTML 或富文本格式，支持附件和多种投递选项。";

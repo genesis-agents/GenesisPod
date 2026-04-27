@@ -83,6 +83,7 @@ export class TextGenerationTool extends BaseTool<
 > {
   readonly id = "text-generation";
   readonly category: ToolCategory = "generation";
+  readonly tags = ["generation", "text", "writing", "completion"];
   readonly name = "文本生成";
   readonly description =
     "使用 AI 模型生成文本内容。适用于撰写文章、总结、翻译、改写等文本处理任务。支持设置系统提示和上下文。";

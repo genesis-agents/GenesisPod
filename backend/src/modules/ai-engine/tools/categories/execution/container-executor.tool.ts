@@ -277,6 +277,7 @@ export class ContainerExecutorTool extends BaseTool<
 
   readonly id = "container-executor";
   readonly category: ToolCategory = "execution";
+  readonly tags = ["execution", "container", "docker", "code", "sandbox"];
   readonly name = "容器代码执行";
   readonly description =
     "在隔离的 Docker 容器中安全执行代码。支持 Python、JavaScript、Java、Go、Rust 等多种语言。自动限制资源使用（CPU、内存、网络）。";

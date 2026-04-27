@@ -125,6 +125,7 @@ export class DatabaseQueryTool extends BaseTool<
   private readonly logger = new Logger(DatabaseQueryTool.name);
   readonly id = "database-query";
   readonly category: ToolCategory = "information";
+  readonly tags = ["knowledge", "database", "sql", "internal", "structured"];
   readonly name = "数据库查询";
   readonly description =
     "执行只读 SQL 查询，从数据库获取结构化数据。仅支持 SELECT 语句，不允许修改数据。适用于数据统计、报表生成、数据验证等场景。返回列信息和行数据。";

@@ -155,6 +155,7 @@ export class GitHubIntegrationTool extends BaseTool<
 
   readonly id = "github-integration";
   readonly category: ToolCategory = "integration";
+  readonly tags = ["integration", "github", "git", "repository", "vcs"];
   readonly name = "GitHub 集成";
   readonly description =
     "与 GitHub 仓库交互，支持创建/管理 Issue 和 PR、查看仓库信息、管理文件等操作。适用于代码协作、项目管理等场景。";

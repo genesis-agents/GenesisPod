@@ -112,6 +112,7 @@ export class ExportImageTool extends BaseTool<
 
   readonly id = "export-image";
   readonly category: ToolCategory = "export";
+  readonly tags = ["export", "image", "png", "jpeg", "raster"];
   readonly name = "导出图片";
   readonly description =
     "将 HTML 或 SVG 内容转换为图片文件。支持 PNG、JPEG、WebP 格式，可自定义尺寸和质量。";

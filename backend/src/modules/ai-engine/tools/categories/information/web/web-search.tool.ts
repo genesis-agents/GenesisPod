@@ -62,6 +62,7 @@ export interface WebSearchOutput {
 export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
   readonly id = "web-search";
   readonly category: ToolCategory = "information";
+  readonly tags = ["web", "search", "general"];
   readonly name = "网络搜索";
   readonly description =
     "搜索互联网获取最新信息。适用于需要实时数据、新闻、或需要验证的信息。返回搜索结果列表，包含标题、URL和摘要。";

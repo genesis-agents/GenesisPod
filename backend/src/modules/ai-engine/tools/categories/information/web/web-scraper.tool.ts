@@ -82,6 +82,7 @@ export class WebScraperTool extends BaseTool<
 > {
   readonly id = "web-scraper";
   readonly category: ToolCategory = "information";
+  readonly tags = ["web", "scrape", "html", "general"];
   readonly name = "网页抓取";
   readonly description =
     "抓取并解析指定 URL 的网页内容。提取页面标题和主要文本内容，适用于获取文章、博客、新闻等网页的详细信息。";

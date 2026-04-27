@@ -118,6 +118,7 @@ export class StructuredOutputTool extends BaseTool<
 > {
   readonly id = "structured-output";
   readonly category: ToolCategory = "generation";
+  readonly tags = ["generation", "structured", "json", "schema"];
   readonly name = "结构化输出";
   readonly description =
     "生成结构化数据输出，支持 JSON、YAML、XML 格式。可指定数据模式和模板，支持数据验证。适用于 API 响应、配置文件、数据导出等场景。";

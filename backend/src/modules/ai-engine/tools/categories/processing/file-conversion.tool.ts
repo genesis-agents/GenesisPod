@@ -119,6 +119,7 @@ export class FileConversionTool extends BaseTool<
 
   readonly id = "file-conversion";
   readonly category: ToolCategory = "processing";
+  readonly tags = ["processing", "file", "conversion", "format"];
   readonly name = "文件格式转换";
   readonly description =
     "转换文件格式，支持 Markdown、HTML、DOCX、PDF、JSON、CSV 之间的互转。适用于文档导出、数据格式转换等场景。";

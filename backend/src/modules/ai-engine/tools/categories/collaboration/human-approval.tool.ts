@@ -240,6 +240,7 @@ export class HumanApprovalTool extends BaseTool<
 
   readonly id = "human-approval";
   readonly category: ToolCategory = "collaboration";
+  readonly tags = ["collaboration", "human-in-loop", "approval", "review"];
   readonly name = "人类审批";
   readonly description =
     "请求人类审批、选择或反馈。适用于需要人工决策、确认重要操作、或需要人类创意输入的场景。支持确认、选择、输入和审查等多种交互模式。";

@@ -143,6 +143,7 @@ export class DataCleaningTool extends BaseTool<
 
   readonly id = "data-cleaning";
   readonly category: ToolCategory = "processing";
+  readonly tags = ["processing", "data", "cleaning", "etl", "preprocessing"];
   readonly name = "数据清洗";
   readonly description =
     "清洗和预处理数据。支持去除重复项、处理缺失值（填充/删除/插值）、标准化格式、数据转换等操作。适用于数据预处理、ETL 流程、数据质量改善等场景。";

@@ -153,6 +153,7 @@ export class DocumentDiffTool extends BaseTool<
 
   readonly id = "document-diff";
   readonly category: ToolCategory = "processing";
+  readonly tags = ["processing", "document", "diff", "compare", "version"];
   readonly name = "文档对比";
   readonly description =
     "对比两个文档或文本的差异。支持字符、单词、行、句子级别的对比，显示新增、删除、修改内容。支持多种输出格式（unified、side-by-side、JSON、HTML）。适用于版本对比、文档审核、变更跟踪等场景。";

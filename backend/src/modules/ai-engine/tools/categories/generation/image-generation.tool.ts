@@ -99,6 +99,7 @@ export class ImageGenerationTool extends BaseTool<
 > {
   readonly id = "image-generation";
   readonly category: ToolCategory = "generation";
+  readonly tags = ["generation", "image", "ai-image", "synthesis", "diffusion"];
   // ★ 图来源红线（mission-pipeline-baseline.md §7.4 D21）—— 标 destructive
   // 原因：图必须来自参考文献原始内容，禁止 AI 自创图。这里标 destructive 后：
   //   1) Tool Recall 五步流程里有 ToolACL 校验 → 没 image.generation entitlement 用户看不到

@@ -96,6 +96,7 @@ export interface ExportPDFOutput {
 export class ExportPDFTool extends BaseTool<ExportPDFInput, ExportPDFOutput> {
   readonly id = "export-pdf";
   readonly category: ToolCategory = "export";
+  readonly tags = ["export", "document", "pdf", "print"];
   readonly name = "导出 PDF";
   readonly description =
     "将内容导出为 PDF 文件。输入 Markdown 格式的内容，自动转换为高质量的 PDF 文档。支持自定义页面大小和边距。";

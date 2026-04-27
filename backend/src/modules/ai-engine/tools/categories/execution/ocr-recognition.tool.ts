@@ -159,6 +159,7 @@ export class OCRRecognitionTool extends BaseTool<
 
   readonly id = "ocr-recognition";
   readonly category: ToolCategory = "execution";
+  readonly tags = ["execution", "ocr", "image", "text-extraction", "vision"];
   readonly name = "OCR 文字识别";
   readonly description =
     "从图片中提取文字内容。支持多语言识别（中文、英文、日文、韩文等），返回文本、置信度和边界框信息。适用于文档扫描、图片文字提取等场景。";

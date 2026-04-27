@@ -114,6 +114,7 @@ export class AudioGenerationTool extends BaseTool<
 > {
   readonly id = "audio-generation";
   readonly category: ToolCategory = "generation";
+  readonly tags = ["generation", "audio", "tts", "speech", "voice"];
   readonly name = "音频生成";
   readonly description =
     "将文本转换为自然语音音频（Text-to-Speech）。支持多种语音选项、语言和情感风格。适用于生成播客、音频解说、有声读物等。";

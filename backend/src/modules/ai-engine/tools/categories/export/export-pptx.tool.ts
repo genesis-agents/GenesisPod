@@ -88,6 +88,7 @@ export class ExportPPTXTool extends BaseTool<
 > {
   readonly id = "export-pptx";
   readonly category: ToolCategory = "export";
+  readonly tags = ["export", "presentation", "pptx", "powerpoint", "slides"];
   readonly name = "导出 PPTX";
   readonly description =
     "将内容导出为 PowerPoint (PPTX) 文件。输入 Markdown 格式的内容，自动转换为幻灯片格式。";

@@ -181,6 +181,7 @@ export class VideoGenerationTool extends BaseTool<
 > {
   readonly id = "video-generation";
   readonly category: ToolCategory = "generation";
+  readonly tags = ["generation", "video", "ai-video", "synthesis"];
   readonly name = "视频生成";
   readonly description =
     "智能视频生成工具。支持文本转视频（Text-to-Video）、图片转视频（Image-to-Video）、视频编辑（剪辑、合并、调整大小等）。适用于生成营销视频、产品演示、动画效果等。";

@@ -151,6 +151,7 @@ export class DataValidationTool extends BaseTool<
 
   readonly id = "data-validation";
   readonly category: ToolCategory = "processing";
+  readonly tags = ["processing", "data", "validation", "schema", "check"];
   readonly name = "数据验证";
   readonly description =
     "验证数据的合法性和完整性。支持 JSON Schema 标准验证、自定义验证规则、格式校验等。适用于数据质量检查、表单验证、API 响应验证等场景。";

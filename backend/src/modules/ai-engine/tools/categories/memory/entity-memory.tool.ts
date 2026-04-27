@@ -296,6 +296,7 @@ export class EntityMemoryTool extends BaseTool<
 
   readonly id = "entity-memory";
   readonly category: ToolCategory = "memory";
+  readonly tags = ["memory", "entity", "person", "organization", "graph"];
   readonly name = "实体记忆";
   readonly description =
     "管理和检索命名实体（人物、地点、概念、组织、事件等）及其关系。支持实体存储、关系构建、上下文追踪和语义搜索，适用于构建知识图谱和理解实体间的复杂关系。";

@@ -314,6 +314,7 @@ export class AgentCommunicationTool
 
   readonly id = "agent-communication";
   readonly category: ToolCategory = "collaboration";
+  readonly tags = ["collaboration", "agent", "messaging", "communication"];
   readonly name = "Agent 通信";
   readonly description =
     "Agent 之间的消息传递工具。支持发送消息、接收消息、广播、回复、状态追踪等功能，适用于 Agent 协作场景。";

@@ -280,6 +280,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
 
   readonly id = "workflow-orchestration";
   readonly category: ToolCategory = "collaboration";
+  readonly tags = ["collaboration", "workflow", "orchestration", "pipeline", "automation"];
   readonly name = "工作流编排";
   readonly description =
     "定义和执行多步骤工作流，支持顺序、并行和条件执行模式，包含重试、超时、回滚等高级特性。适用于复杂的多 Agent 协作流程。";

@@ -205,6 +205,7 @@ export class CalendarIntegrationTool extends BaseTool<
 
   readonly id = "calendar-integration";
   readonly category: ToolCategory = "integration";
+  readonly tags = ["integration", "calendar", "scheduling", "meeting"];
   readonly name = "日历集成";
   readonly description =
     "与日历服务交互，支持创建/管理日程、查询空闲时间、设置提醒等。支持 Google Calendar、Outlook 等主流日历服务。";

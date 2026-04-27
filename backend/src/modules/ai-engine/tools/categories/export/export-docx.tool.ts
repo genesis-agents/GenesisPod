@@ -95,6 +95,7 @@ export class ExportDOCXTool extends BaseTool<
 > {
   readonly id = "export-docx";
   readonly category: ToolCategory = "export";
+  readonly tags = ["export", "document", "docx", "word", "office"];
   readonly name = "导出 DOCX";
   readonly description =
     "将内容导出为 Word (DOCX) 文件。输入 Markdown 格式的内容，自动转换为格式化的文档。支持标题、段落、列表等元素。";

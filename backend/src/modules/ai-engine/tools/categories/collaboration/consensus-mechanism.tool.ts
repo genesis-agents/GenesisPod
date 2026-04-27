@@ -217,6 +217,7 @@ export class ConsensusMechanismTool extends BaseTool<
 
   readonly id = "consensus-mechanism";
   readonly category: ToolCategory = "collaboration";
+  readonly tags = ["collaboration", "consensus", "voting", "agreement"];
   readonly name = "共识机制";
   readonly description =
     "在多个 Agent 之间建立共识，支持多种投票策略（多数决、全票通过、加权投票等）。适用于需要多方决策的场景。";

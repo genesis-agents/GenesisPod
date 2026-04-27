@@ -184,6 +184,7 @@ export class AgentHandoffTool extends BaseTool<
 
   readonly id = "agent-handoff";
   readonly category: ToolCategory = "collaboration";
+  readonly tags = ["collaboration", "handoff", "delegation", "agent"];
   readonly name = "Agent 委派";
   readonly description =
     "将任务委派给其他专业 Agent 执行。支持同步等待结果或异步后台执行，适用于需要跨 Agent 协作的复杂任务。";

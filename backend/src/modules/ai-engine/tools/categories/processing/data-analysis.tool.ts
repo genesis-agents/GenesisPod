@@ -95,6 +95,7 @@ export class DataAnalysisTool extends BaseTool<
 > {
   readonly id = "data-analysis";
   readonly category: ToolCategory = "processing";
+  readonly tags = ["processing", "data", "analysis", "statistics"];
   readonly name = "数据分析";
   readonly description =
     "使用 AI 分析数据并提取洞察。支持统计分析、趋势分析、比较分析等。可输出文本报告或结构化数据。";

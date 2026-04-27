@@ -112,6 +112,7 @@ export class SQLExecutorTool extends BaseTool<
 
   readonly id = "sql-executor";
   readonly category: ToolCategory = "execution";
+  readonly tags = ["execution", "sql", "database", "query", "structured"];
   readonly name = "SQL 查询执行";
   readonly description =
     "执行 SQL 查询并返回结构化结果。支持参数化查询以防止 SQL 注入。默认只读模式，适用于数据查询和分析场景。";

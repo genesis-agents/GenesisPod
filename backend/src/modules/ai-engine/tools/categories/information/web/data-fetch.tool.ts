@@ -88,6 +88,7 @@ export interface DataFetchOutput {
 export class DataFetchTool extends BaseTool<DataFetchInput, DataFetchOutput> {
   readonly id = "data-fetch";
   readonly category: ToolCategory = "information";
+  readonly tags = ["web", "api", "json", "data", "general"];
   readonly name = "数据获取";
   readonly description =
     "从内部数据源获取数据。支持获取资源库中的资源、文件内容或数据库记录。适用于需要访问已存储数据的场景。";

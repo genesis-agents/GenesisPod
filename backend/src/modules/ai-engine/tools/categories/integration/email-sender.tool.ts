@@ -176,6 +176,7 @@ export class EmailSenderTool extends BaseTool<
 
   readonly id = "email-sender";
   readonly category: ToolCategory = "integration";
+  readonly tags = ["integration", "email", "smtp", "messaging", "notification"];
   readonly name = "邮件发送";
   readonly description =
     "发送电子邮件，支持 HTML/纯文本格式、多收件人、抄送、附件等功能。适用于通知、报告发送、自动化邮件等场景。";

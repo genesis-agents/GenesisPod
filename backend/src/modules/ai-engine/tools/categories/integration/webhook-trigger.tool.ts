@@ -170,6 +170,7 @@ export class WebhookTriggerTool extends BaseTool<
 
   readonly id = "webhook-trigger";
   readonly category: ToolCategory = "integration";
+  readonly tags = ["integration", "webhook", "http", "trigger", "callback"];
   readonly name = "Webhook 触发";
   readonly description =
     "触发 Webhook，发送 HTTP 请求到指定端点。支持自定义请求方法、请求头、请求体、认证方式、重试策略等。适用于系统集成、自动化工作流等场景。";

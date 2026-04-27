@@ -517,6 +517,7 @@ export class CloudStorageTool extends BaseTool<
 
   readonly id = "cloud-storage";
   readonly category: ToolCategory = "integration";
+  readonly tags = ["integration", "storage", "s3", "cloud", "file"];
   readonly name = "云存储";
   readonly description =
     "与云存储服务交互，支持 AWS S3、Google Cloud Storage、Azure Blob 和 MinIO。可执行文件上传、下载、列表查询和删除操作，支持预签名 URL 生成和批量操作。";

@@ -248,6 +248,7 @@ export class KnowledgeBaseTool extends BaseTool<
 
   readonly id = "knowledge-base";
   readonly category: ToolCategory = "memory";
+  readonly tags = ["memory", "knowledge", "kb", "documents", "internal"];
   readonly name = "知识库";
   readonly description =
     "管理结构化知识文章。支持创建、读取、更新、删除、搜索和分类知识条目，适用于构建和维护知识库、文档库、FAQ 等内容系统。";

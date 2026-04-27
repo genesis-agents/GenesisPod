@@ -108,6 +108,7 @@ export class UserPreferencesTool extends BaseTool<
 
   readonly id = "user-preferences";
   readonly category: ToolCategory = "memory";
+  readonly tags = ["memory", "preferences", "user", "settings", "profile"];
   readonly name = "用户偏好";
   readonly description =
     "管理用户偏好设置，支持获取、设置、删除、列出和合并偏好。偏好按命名空间组织，支持嵌套键路径。";

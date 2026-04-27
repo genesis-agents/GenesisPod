@@ -145,6 +145,7 @@ export class LongTermMemoryTool extends BaseTool<
 > {
   readonly id = "long-term-memory";
   readonly category: ToolCategory = "memory";
+  readonly tags = ["memory", "long-term", "persistent", "history"];
   readonly name = "长期记忆";
   readonly description =
     "持久化记忆存储和检索。支持 store、retrieve、search、delete、list、update 操作。适用于存储知识库、用户偏好、历史记录等需要长期保存的数据。支持按类型、重要性、标签过滤和排序。";

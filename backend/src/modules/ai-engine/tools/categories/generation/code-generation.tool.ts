@@ -88,6 +88,7 @@ export class CodeGenerationTool extends BaseTool<
 > {
   readonly id = "code-generation";
   readonly category: ToolCategory = "generation";
+  readonly tags = ["generation", "code", "programming", "developer"];
   readonly name = "代码生成";
   readonly description =
     "使用 AI 生成代码。支持多种编程语言，可生成函数、类、完整模块等。支持添加注释和测试代码。";

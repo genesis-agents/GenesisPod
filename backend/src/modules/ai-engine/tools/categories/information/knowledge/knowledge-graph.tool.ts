@@ -241,6 +241,7 @@ export class KnowledgeGraphTool extends BaseTool<
   private readonly logger = new Logger(KnowledgeGraphTool.name);
   readonly id = "knowledge-graph";
   readonly category: ToolCategory = "information";
+  readonly tags = ["knowledge", "graph", "entity", "relationship", "internal"];
   readonly name = "知识图谱查询";
   readonly description =
     "查询知识图谱中的实体和关系。支持实体查找、关系查询、路径查找、邻居节点获取等功能。适用于知识推理、关系分析、影响力分析等场景。返回图节点和边的结构化数据。";

@@ -180,6 +180,7 @@ export class TaskDelegationTool extends BaseTool<
 
   readonly id = "task-delegation";
   readonly category: ToolCategory = "collaboration";
+  readonly tags = ["collaboration", "task", "delegation", "assignment"];
   readonly name = "任务委派";
   readonly description =
     "将任务委派给其他 Agent 执行，支持任务跟踪、状态查询、取消和更新。适用于多 Agent 协作场景。";

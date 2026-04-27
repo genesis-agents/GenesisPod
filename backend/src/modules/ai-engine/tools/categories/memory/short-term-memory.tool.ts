@@ -112,6 +112,7 @@ export class ShortTermMemoryTool extends BaseTool<
 > {
   readonly id = "short-term-memory";
   readonly category: ToolCategory = "memory";
+  readonly tags = ["memory", "short-term", "session", "context"];
   readonly name = "短期记忆";
   readonly description =
     "会话级别的临时记忆存储。支持 get、set、append、delete、clear、list 操作。适用于存储会话上下文、临时状态、对话历史等短期数据。";
