@@ -71,15 +71,15 @@ import {
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import { TraceCollectorService } from "@/modules/ai-engine/runtime/observability/trace-collector.service";
-import { CheckpointManager } from "../../runtime/journal/checkpoint-manager";
+import { CheckpointManager } from "../../../ai-harness/protocol/journal/checkpoint-manager";
 import { MessageBusService as A2AMessageBusService } from "../../runtime/ipc/message-bus.service";
 import {
   ExecutionContext,
   StepResult,
 } from "../../orchestration/abstractions/orchestrator.interface";
 import { MissionExecutorService } from "../../runtime/mission/mission-executor.service";
-import { EventJournalService } from "../../runtime/journal/event-journal.service";
-import { HierarchicalMemoryCascadeService } from "../../runtime/memory/hierarchical-memory-cascade.service";
+import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
+import { HierarchicalMemoryCascadeService } from "../../../ai-harness/memory/working/hierarchical-memory-cascade.service";
 import {
   AgentLifecycleProtocolService,
   type TaskNotificationPayload,

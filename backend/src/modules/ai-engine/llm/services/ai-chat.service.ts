@@ -30,7 +30,7 @@ import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { EventJournalService } from "../../runtime/journal/event-journal.service";
+import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
 import { CostAttributionService } from "../../runtime/observability/cost-attribution.service";
 import { AiObservabilityService } from "../../runtime/observability/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";

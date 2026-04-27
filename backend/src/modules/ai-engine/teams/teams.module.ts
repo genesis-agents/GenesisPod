@@ -33,9 +33,9 @@ import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { TraceCollectorService } from "../runtime/observability/trace-collector.service";
-import { CheckpointManager } from "../runtime/journal/checkpoint-manager";
+import { CheckpointManager } from "../../ai-harness/protocol/journal/checkpoint-manager";
 import { MissionExecutorService } from "../runtime/mission/mission-executor.service";
-import { EventJournalService } from "../runtime/journal/event-journal.service";
+import { EventJournalService } from "../../ai-harness/protocol/journal/event-journal.service";
 
 /**
  * Teams 模块

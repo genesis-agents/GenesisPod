@@ -5,15 +5,15 @@
  */
 
 // Memory (Runtime layer: process-level + hierarchical cascade)
-export { ProcessMemoryManagerService } from "../../runtime/memory/process-memory-manager.service";
-export { HierarchicalMemoryCascadeService } from "../../runtime/memory/hierarchical-memory-cascade.service";
+export { ProcessMemoryManagerService } from "../../../ai-harness/memory/working/process-memory-manager.service";
+export { HierarchicalMemoryCascadeService } from "../../../ai-harness/memory/working/hierarchical-memory-cascade.service";
 export type {
   MemoryScope,
   MemoryCascadeQuery,
   MemoryCascadeResult,
   MemoryWriteOptions,
-} from "../../runtime/memory/hierarchical-memory-cascade.service";
-export { SCOPE_PRIORITY } from "../../runtime/memory/hierarchical-memory-cascade.service";
+} from "../../../ai-harness/memory/working/hierarchical-memory-cascade.service";
+export { SCOPE_PRIORITY } from "../../../ai-harness/memory/working/hierarchical-memory-cascade.service";
 
 // Process
 export { ProcessManagerService } from "../../../ai-harness/process/manager/process-manager.service";
@@ -36,15 +36,15 @@ export {
 } from "../../../../common/context/kernel-context";
 
 // Journal
-export { EventJournalService } from "../../runtime/journal/event-journal.service";
+export { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
 export {
   CheckpointManager,
   InMemoryCheckpointStore,
-} from "../../runtime/journal/checkpoint-manager";
+} from "../../../ai-harness/protocol/journal/checkpoint-manager";
 export type {
   ICheckpointStore,
   CheckpointManagerConfig,
-} from "../../runtime/journal/checkpoint-manager";
+} from "../../../ai-harness/protocol/journal/checkpoint-manager";
 
 // IPC (EventBusService / ProgressTrackerService 在 ai-engine/facade/index.ts 以别名导出；此处提供原名)
 export { EventBusService } from "../../runtime/ipc/event-bus.service";
@@ -105,8 +105,8 @@ export type {
 } from "../../runtime/mission/mission-executor.interface";
 
 // Security
-export { CapabilityGuardService } from "../../runtime/security/capability-guard.service";
-export type { CapabilityCheckResult } from "../../runtime/security/capability.types";
+export { CapabilityGuardService } from "../../../ai-harness/governance/security/capability-guard.service";
+export type { CapabilityCheckResult } from "../../../ai-harness/governance/security/capability.types";
 
 // Scheduler
 export { KernelSchedulerService } from "../../../ai-harness/process/scheduler/kernel-scheduler.service";
@@ -137,4 +137,4 @@ export type {
 } from "../../runtime/resource/circuit-breaker.service";
 
 // API
-export { KernelApiService } from "../../runtime/api/kernel-api.service";
+export { KernelApiService } from "../../../ai-harness/runtime/kernel-api/kernel-api.service";

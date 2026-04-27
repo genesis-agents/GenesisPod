@@ -12,19 +12,19 @@ import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 
 // Cross-cutting runtime services
-import { RuntimeJournalModule } from "./journal/journal.module";
+import { RuntimeJournalModule } from "../../ai-harness/protocol/journal/journal.module";
 import { RuntimeIpcModule } from "./ipc/ipc.module";
 import { RuntimeResourceModule } from "./resource/resource.module";
-import { RuntimeMemoryModule } from "./memory/memory.module";
+import { RuntimeMemoryModule } from "../../ai-harness/memory/working/memory.module";
 import { ObservabilityModule } from "./observability/observability.module";
 
 // Runtime lifecycle services
 import { ProcessManagerService } from "../../ai-harness/process/manager/process-manager.service";
 import { ProcessSupervisorService } from "../../ai-harness/process/supervisor/process-supervisor.service";
 import { MissionExecutorService } from "./mission/mission-executor.service";
-import { CapabilityGuardService } from "./security/capability-guard.service";
+import { CapabilityGuardService } from "../../ai-harness/governance/security/capability-guard.service";
 import { KernelSchedulerService } from "../../ai-harness/process/scheduler/kernel-scheduler.service";
-import { KernelApiService } from "./api/kernel-api.service";
+import { KernelApiService } from "../../ai-harness/runtime/kernel-api/kernel-api.service";
 
 const RUNTIME_LIFECYCLE_PROVIDERS = [
   ProcessManagerService,

@@ -26,7 +26,7 @@ import { ParallelExecutor } from "./orchestration/executors/parallel-executor";
 import { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
 
 // Checkpoints
-import { CheckpointManager } from "./runtime/journal/checkpoint-manager";
+import { CheckpointManager } from "../ai-harness/protocol/journal/checkpoint-manager";
 
 // ★ Kernel services for executor integration
 import { ProgressTrackerService } from "./runtime/ipc/progress-tracker.service";

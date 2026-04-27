@@ -11,8 +11,8 @@ import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pi
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 // ★ L2 internal — 直接相对路径（不走 facade barrel，见 ai-chat.service.ts 说明）
-import { EventJournalService } from "../../runtime/journal/event-journal.service";
-import { CapabilityGuardService } from "../../runtime/security/capability-guard.service";
+import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
+import { CapabilityGuardService } from "../../../ai-harness/governance/security/capability-guard.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 
 /**

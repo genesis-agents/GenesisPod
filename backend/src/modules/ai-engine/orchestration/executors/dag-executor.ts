@@ -19,7 +19,7 @@ import {
   ExecutionResult,
 } from "../abstractions/orchestrator.interface";
 import { BaseExecutor } from "./base-executor";
-import type { CheckpointManager } from "../../../ai-engine/runtime/journal/checkpoint-manager";
+import type { CheckpointManager } from "../../../ai-harness/protocol/journal/checkpoint-manager";
 import type { TraceCollectorService } from "../../../ai-engine/runtime/observability/trace-collector.service";
 
 /** 默认看门狗超时（5 分钟） */
