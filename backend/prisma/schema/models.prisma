@@ -9237,9 +9237,18 @@ model AgentPlaygroundMission {
 
   /// 持久化的 blob（detail 页重新渲染用）
   themeSummary String? @map("theme_summary") @db.Text
-  dimensions   Json? // [{id, name, rationale}]
-  reportFull   Json?   @map("report_full") // 完整 ResearchReport
+  dimensions   Json? // [{id, name, rationale, toolHint?}]
+  reportFull   Json?   @map("report_full") // 完整 ResearchReport（v1）或 ReportArtifact（v2+）
+  /// ★ ReportArtifact schema 版本号（mission-pipeline-writer-artifact.md / D15）
+  /// v1 = 旧 ResearchReport（单 markdown）
+  /// v2 = ReportArtifact（sections / citations / figures / quickView / factTable）
+  reportArtifactVersion Int? @map("report_artifact_version")
   verdicts     Json? // [{verifierId, score, critique, attempt}]
+  /// ★ 用户档位（mission-pipeline-user-profiles.md §11 / D20）
+  /// merged after defaults applied + auto-rules applied
+  userProfile  Json?   @map("user_profile")
+  /// ★ Reconciler [3.5] 节点产物（factTable / conflicts / overlaps / gaps / figureCandidates）
+  reconciliationReport Json? @map("reconciliation_report")
 
   /// Leader 对话历史（点击 Leader 节点弹出聊天框）
   leaderChats AgentPlaygroundLeaderChat[]
