@@ -99,6 +99,12 @@ export class ImageGenerationTool extends BaseTool<
 > {
   readonly id = "image-generation";
   readonly category: ToolCategory = "generation";
+  // ★ 图来源红线（mission-pipeline-baseline.md §7.4 D21）—— 标 destructive
+  // 原因：图必须来自参考文献原始内容，禁止 AI 自创图。这里标 destructive 后：
+  //   1) Tool Recall 五步流程里有 ToolACL 校验 → 没 image.generation entitlement 用户看不到
+  //   2) L2 stage 重跑时自动跳过 destructive 调用历史
+  readonly sideEffect = "destructive" as const;
+  readonly requiredEntitlements = ["image.generation"] as const;
   readonly name = "图像生成";
   readonly description =
     "使用 AI 模型生成图像。支持文字描述生成图片、信息图、海报等。可指定风格、宽高比和模板布局。";

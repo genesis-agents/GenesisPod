@@ -436,6 +436,33 @@ export interface ITool<TInput = unknown, TOutput = unknown> {
   readonly enabled?: boolean;
 
   /**
+   * ★ 副作用类别（D14 Tool sideEffect 元数据）
+   *
+   * - 'none': 纯查询，重跑无副作用（如 web-search / arxiv-search）
+   * - 'idempotent': 写操作但幂等（如 set value by key）
+   * - 'destructive': 不可逆 / 不幂等（如 email-sender / image-generation）
+   *
+   * 用于：
+   *   - L2 stage 重跑时跳过 destructive 调用历史（mission-pipeline-baseline §9.7）
+   *   - figure 来源红线（image-generation 标 destructive，结合 ToolACL 拦截）
+   *
+   * 不填 → 默认 'none'（保守假设无副作用）。
+   */
+  readonly sideEffect?: "none" | "idempotent" | "destructive";
+
+  /**
+   * ★ 调用所需的 entitlement keys（D13 ToolACL）
+   *
+   * 用户必须在 IRuntimeEnvironment.getUserEntitlements() 返回的 keys 集合中
+   * 包含全部声明的 entitlement，才能在 catalog 中看到此工具且实际调用。
+   *
+   * 例：['finance.premium'] → 仅订阅高级金融数据用户可用
+   *
+   * 不填 → 公开工具，无访问限制。
+   */
+  readonly requiredEntitlements?: readonly string[];
+
+  /**
    * 执行工具
    */
   execute(input: TInput, context: ToolContext): Promise<ToolResult<TOutput>>;

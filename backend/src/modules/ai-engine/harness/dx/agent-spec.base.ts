@@ -48,6 +48,12 @@ export interface DefineAgentOptions<
   /** 唯一 id（用于 SpecAgentRegistry / 日志 / observability） */
   readonly id: string;
   /**
+   * ★ Spec 版本（mission-pipeline-baseline.md §9.8 / D15）
+   * SemVer：MAJOR.MINOR.PATCH。Checkpoint resume 时强校验，不匹配拒绝复用。
+   * 缺省 "1.0.0"。
+   */
+  readonly version?: string;
+  /**
    * Identity：可以写完整 IAgentIdentity，也可以写简写（只 role: string + 可选 persona）。
    * 简写会被装饰器展开为完整 identity。
    */
@@ -60,8 +66,30 @@ export interface DefineAgentOptions<
       };
   /** Loop 策略，默认 react */
   readonly loop?: AgentLoopKind;
-  /** 允许的 tool id 列表（白名单） */
+  /**
+   * 允许的 tool id 列表（白名单，编译期硬编码方式）
+   *
+   * @deprecated 推荐用 toolCategories（runtime 召回）。tools 仅用于：
+   *   - 已有 spec 的向后兼容
+   *   - 必须精确控制单个 id 的特殊场景
+   * 否则系统增删工具会导致 spec 漂移。
+   */
   readonly tools?: readonly string[];
+  /**
+   * ★ Tool Recall（runtime 召回）
+   *
+   * 声明 agent 业务上需要哪些**类别**的工具，AgentRunner 启动时从 ToolRegistry
+   * 实时拉取该类别下的所有 enabled 工具，渲染成 <available_tools> block 给 LLM。
+   *
+   * 优势：
+   *   - 工具 CRUD 自动跟进，spec 无需改
+   *   - 与 toolRecallHint 配合：上层（如 Leader）按 dim 性质给 hint，
+   *     AgentRunner 取交集做 catalog
+   *   - tools 与 toolCategories 同时存在时：tools ∪ toolCategories 召回
+   *
+   * 例：toolCategories: ['information']
+   */
+  readonly toolCategories?: readonly string[];
   /** 禁止的 tool id 列表（黑名单，优先级高于白名单） */
   readonly forbiddenTools?: readonly string[];
   /** 激活的 skill id 列表 */
