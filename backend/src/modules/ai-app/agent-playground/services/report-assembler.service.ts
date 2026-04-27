@@ -919,9 +919,15 @@ export class ReportAssemblerService {
     const violations: ArtifactQualityVerdicts["hardGateViolations"] = [];
     const warnings: ArtifactQualityVerdicts["warnings"] = [];
 
-    // ─── coverage：每个 dim 都要有 chapter ──
+    // ─── coverage：plan 维度 vs 实际 dim 章节 ──
+    //   旧逻辑用 dimSections × 20 是绝对值，quick depth 只生成 3 dim 永远封顶 60。
+    //   改成相对覆盖率：实际 dim 章节 / plan 计划维度 * 100，深度档自然达 100。
     const dimSections = sections.filter((s) => s.type === "dimension");
-    const coverageScore = Math.min(100, dimSections.length * 20);
+    const plannedDims = input?.plan?.dimensions?.length ?? 0;
+    const coverageScore =
+      plannedDims > 0
+        ? Math.min(100, Math.round((dimSections.length / plannedDims) * 100))
+        : Math.min(100, dimSections.length * 20);
 
     // ─── citationDensity：每个 dim section 至少 1 个 [N] ──
     const dimsWithCitations = dimSections.filter((s) => s.citations.length > 0);
