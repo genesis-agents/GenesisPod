@@ -1,15 +1,15 @@
 /**
- * Stage S2 — Leader M0: Plan
+ * Stage S2 — Leader plans the mission
  *
- * Lead 拆维度 + 声明 goals / qualityBar / hardConstraints / initialRisks。
+ * Leader 拆维度 + 声明 goals / qualityBar / hardConstraints / initialRisks。
  * 是后续所有 stage 的前提：dimensions[] 决定 researcher 派几个 worker，goals 决定
- * Lead M7 签字时引用什么 successCriteria。
+ * Leader 末段签字时引用什么 successCriteria 做问责。
  *
  *   reads  ctx: leader, missionId, userId
  *   writes ctx: plan = { themeSummary, dimensions, goals, initialRisks }
  *   deps:       emit, lifecycle
  *
- * Lead 内部已 emit lifecycle/journal 写入（SupervisedMission.plan() 自闭包）。
+ * Leader 内部已 emit lifecycle/journal 写入（SupervisedMission.plan() 自闭包）。
  * 本 stage 在前后补一层 stage:started/completed + leader:goals-set 事件给前端 trace。
  *
  * Failure modes: leader.plan() 抛错 → emit lifecycle:failed + rethrow（mission 终止）。

@@ -1,10 +1,12 @@
 /**
- * Stage S9 — L4 Critic (meta-review)
+ * Stage S9 — Reviewer runs L4 critic (meta-review)
  *
- * Writer + L3 reviewer 全部完成后，跑一轮独立的 meta-level 审查：识别报告里的
- * blindspots（漏掉的视角）/ biasFlags（写作倾向）/ suggestions（改进建议），
- * 给出 pass / concerns / fail 总判定。fail/concerns 会触发对 reportArtifact.quality
- * 各 dim 的降权。
+ * Writer 起草 + reviewer 三路评分（self/external/critical）全部完成后，跑一轮
+ * 独立的 L4 meta-level 审查：识别报告里的 blindspots（漏掉的视角）/ biasFlags
+ * （写作倾向）/ suggestions（改进建议），给出 pass / concerns / fail 总判定。
+ * fail/concerns 会触发对 reportArtifact.quality 各 dim 的降权。
+ *
+ * 这里"L4"是审查层级编号（layer-4 critic），不要与 mission stage 序号混淆。
  *
  *   reads  ctx: reportArtifact, verifierVerdicts, reviewScore, input
  *   mutate ctx.reportArtifact: quality.warnings / qualityTrace / hardGateViolations,
@@ -12,7 +14,7 @@
  *   deps:       reviewer.criticL4, invoker (preDisable + tickCost), emit, log
  *
  * Skip 条件: !enableCritic 时直接 return（minimal 档位 + 非 executive 受众）
- * Failure modes: 任何抛错 → log warn + 继续（不阻塞，下游 Lead M6 仍可工作）
+ * Failure modes: 任何抛错 → log warn + 继续（不阻塞，下游 Leader foreword 仍可工作）
  */
 
 import type { MissionContext } from "../mission-context";

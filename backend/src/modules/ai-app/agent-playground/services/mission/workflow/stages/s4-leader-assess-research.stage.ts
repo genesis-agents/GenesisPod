@@ -1,7 +1,7 @@
 /**
- * Stage S4 — Leader M1: Assess research + dispatch
+ * Stage S4 — Leader assesses research progress and dispatches corrective actions
  *
- * researcher×N 跑完之后，Lead 看到每个 dim 的 findings/sources/state，给出过程
+ * researcher×N 跑完之后，Leader 看到每个 dim 的 findings/sources/state，给出过程
  * 管理决策：accept-all / patch / redirect / abort，并把决策真正落到调度上。
  *
  *   reads  ctx: plan, researcherResults, leader
@@ -13,13 +13,13 @@
  *   accept / accept-degraded   → no-op，保留原 researcher 产出
  *   retry-with-critique        → 带 critique 重派 ResearcherAgent，覆盖原 result
  *   replace-spec               → 当前只注册 ResearcherAgent，降级为带换 spec 提示的 retry
- *   abort                      → 该 dim 标记 findings=[] + summary="(aborted by Lead M1)"
+ *   abort                      → 该 dim 标记 findings=[] + summary="(aborted by Leader)"
  * Mission-level decision:
- *   abort                      → throw "Lead aborted mission..."（mission 终止）
+ *   abort                      → throw "Leader aborted mission..."（mission 终止）
  *   redirect.newDimensions[]   → 追加 dim 到 plan + 跑 ResearcherAgent
  *
- * Failure modes: leader.assessResearchers 抛错（非 Lead 主动 abort）→ log warn + 继续
- *                Lead 主动 abort → rethrow（mission 终止）
+ * Failure modes: leader.assessResearchers 抛错（非 Leader 主动 abort）→ log warn + 继续
+ *                Leader 主动 abort → rethrow（mission 终止）
  */
 
 import { ResearcherAgent } from "../../../../agents/researcher/researcher.agent";
@@ -39,13 +39,13 @@ interface PlanDimensionLite {
   dependsOn?: string[];
 }
 
-export async function runLeaderAssessM1Stage(
+export async function runLeaderAssessResearchStage(
   ctx: MissionContext,
   deps: MissionDeps,
 ): Promise<void> {
   const { missionId, userId, plan, researcherResults, leader } = ctx;
   if (!plan || !researcherResults) {
-    throw new Error("M1 stage requires plan + researcherResults");
+    throw new Error("Leader assess stage requires plan + researcherResults");
   }
 
   try {
@@ -92,18 +92,18 @@ export async function runLeaderAssessM1Stage(
 
     if (m1.decision === "abort") {
       throw new Error(
-        `Lead aborted mission after assess-research: ${m1.rationale.slice(0, 200)}`,
+        `Leader aborted mission after assess-research: ${m1.rationale.slice(0, 200)}`,
       );
     }
-    // ★ Phase Lead-E: M1 patch/redirect dispatch
+    // 把 patch/redirect 决策落到 researcher 重派
     if (m1.decision === "patch" || m1.decision === "redirect") {
-      const stats = await dispatchM1Actions({
+      const stats = await dispatchAssessActions({
         ctx,
         deps,
         m1,
       });
       deps.log.log(
-        `[${missionId}] Leader M1 dispatch=${m1.decision}: retried=${stats.retried} aborted=${stats.aborted} appended=${stats.appended} skipped=${stats.skipped}`,
+        `[${missionId}] Leader assess dispatch=${m1.decision}: retried=${stats.retried} aborted=${stats.aborted} appended=${stats.appended} skipped=${stats.skipped}`,
       );
       await deps
         .emit({
@@ -119,7 +119,7 @@ export async function runLeaderAssessM1Stage(
         .catch(() => {});
     }
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith("Lead aborted")) {
+    if (err instanceof Error && err.message.startsWith("Leader aborted")) {
       throw err;
     }
     deps.log.warn(
@@ -128,9 +128,9 @@ export async function runLeaderAssessM1Stage(
   }
 }
 
-// ── M1 dispatch helpers ──
+// ── helpers ──
 
-async function dispatchM1Actions(args: {
+async function dispatchAssessActions(args: {
   ctx: MissionContext;
   deps: MissionDeps;
   m1: {
@@ -182,7 +182,7 @@ async function dispatchM1Actions(args: {
       researcherResults[idx] = {
         dimension: dim.name,
         findings: [],
-        summary: `(aborted by Lead M1: ${action.critique?.slice(0, 200) ?? "abandoned"})`,
+        summary: `(aborted by Leader: ${action.critique?.slice(0, 200) ?? "abandoned"})`,
       };
       aborted++;
       await deps
@@ -193,7 +193,7 @@ async function dispatchM1Actions(args: {
           agentId: `researcher#${idx}`,
           payload: {
             dimension: dim.name,
-            reason: "leader-m1-abort",
+            reason: "leader-assess-abort",
             critique: action.critique,
           },
         })
@@ -202,9 +202,9 @@ async function dispatchM1Actions(args: {
     }
     const critique =
       action.action === "replace-spec"
-        ? `[Lead M1 要求换 spec → 当前只注册了 ResearcherAgent，请用更激进的搜索策略] ${action.critique ?? ""} ${action.newAgentSpecId ? `(原意换为 ${action.newAgentSpecId})` : ""}`.trim()
+        ? `[Leader 在评审阶段要求换 spec → 当前只注册了 ResearcherAgent，请用更激进的搜索策略] ${action.critique ?? ""} ${action.newAgentSpecId ? `(原意换为 ${action.newAgentSpecId})` : ""}`.trim()
         : (action.critique ??
-          "Lead 在 M1 要求重做该维度，请提升覆盖率与来源质量");
+          "Leader 在评审阶段要求重做该维度，请提升覆盖率与来源质量");
 
     await deps
       .emit({
@@ -216,8 +216,8 @@ async function dispatchM1Actions(args: {
           dimension: dim.name,
           reason:
             action.action === "replace-spec"
-              ? "leader-m1-replace"
-              : "leader-m1-retry",
+              ? "leader-assess-replace"
+              : "leader-assess-retry",
           critique,
           bumpedBudgetMultiplier: budgetMultiplier * 1.3,
         },
@@ -229,7 +229,7 @@ async function dispatchM1Actions(args: {
       idx,
       budgetMultiplier: budgetMultiplier * 1.3,
       critique,
-      retryLabel: `lead-m1-${action.action === "replace-spec" ? "replace" : "retry"}`,
+      retryLabel: `leader-assess-${action.action === "replace-spec" ? "replace" : "retry"}`,
     });
     if (newOut) {
       researcherResults[idx] = newOut;
@@ -258,7 +258,7 @@ async function dispatchM1Actions(args: {
         agentId: `researcher#${idx}`,
         payload: {
           dimension: newDim.name,
-          reason: "leader-m1-extend",
+          reason: "leader-assess-extend",
           rationale: newDim.rationale,
         },
       })
@@ -267,7 +267,7 @@ async function dispatchM1Actions(args: {
       dim: newDim,
       idx,
       budgetMultiplier,
-      critique: `Lead 在 M1 追加了这个维度（rationale: ${newDim.rationale.slice(0, 150)}）`,
+      critique: `Leader 在评审阶段追加了这个维度（rationale: ${newDim.rationale.slice(0, 150)}）`,
       retryLabel: "lead-m1-extend",
     });
     researcherResults.push(

@@ -1,30 +1,30 @@
 /**
- * Stage S10 — Leader M6 foreword + M7 signoff (handoff)
+ * Stage S10 — Leader writes foreword and signs off
  *
- * Mission 末段 Lead 总收尾：
- *   M6 foreword  Lead 看完整报告 + 全部 verdicts 后写综合摘要（whatWeAnswered /
- *                whatRemainsUnclear / howToRead / recommendedFollowUp）
- *   M7 signoff   Lead 签字 + accountabilityNote（强制引用历史决策的问责文）
+ * Mission 末段 Leader 总收尾两个动作：
+ *   foreword:  Leader 看完整报告 + 全部 verdicts 后写综合摘要（whatWeAnswered /
+ *              whatRemainsUnclear / howToRead / recommendedFollowUp）
+ *   signoff:   Leader 签字 + accountabilityNote（强制引用历史决策的问责文）
  *
  *   reads  ctx: reportArtifact, plan, researcherResults, reconciliationReport,
  *               verifierVerdicts, leader
- *   mutate ctx.reportArtifact.metadata.leaderForeword = M6 输出
- *   writes ctx: leaderForeword (M6), leaderSignOff (M7)
+ *   mutate ctx.reportArtifact.metadata.leaderForeword = foreword 输出
+ *   writes ctx: leaderForeword, leaderSignOff
  *   deps:       leader.writeForeword, leader.signOff, emit, log
  *
  * Skip 条件: !ctx.reportArtifact || !ctx.plan || !ctx.researcherResults → return
- * 顺序约束: M7 仅在 M6 成功时跑（leaderForeword 为依据）
- * Failure modes: M6 失败 → log warn，跳过 M7（mission 仍 markCompleted）
- *                M7 失败 → log warn，下游 persist 走"无签字"分支（markCompleted）
+ * 顺序约束: signoff 仅在 foreword 成功时跑（foreword 为签字依据）
+ * Failure modes: foreword 失败 → log warn，跳过 signoff（mission 仍 markCompleted）
+ *                signoff  失败 → log warn，下游 persist 走"无签字"分支（markCompleted）
  *
- * 注：M7 拒签（signed=false）不算"失败"——是 Lead 主动行使否决权，
- *     persist stage 会据此 markFailed("Lead 拒绝签字")。
+ * 注：signoff 拒签（signed=false）不算"失败"——是 Leader 主动行使否决权，
+ *     persist stage 会据此 markFailed("Leader 拒绝签字")。
  */
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 
-export async function runLeaderHandoffStage(
+export async function runLeaderForewordAndSignoffStage(
   ctx: MissionContext,
   deps: MissionDeps,
 ): Promise<void> {
@@ -102,7 +102,7 @@ export async function runLeaderHandoffStage(
         ? "pass"
         : undefined;
 
-  // ── M6: leader.writeForeword() ──
+  // ── foreword: leader.writeForeword() ──
   try {
     const leaderForeword = await leader.writeForeword({
       researcherStates: dimensionStates,
@@ -131,11 +131,11 @@ export async function runLeaderHandoffStage(
       .catch(() => {});
   } catch (err) {
     deps.log.warn(
-      `[${ctx.missionId}] M6 foreword failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+      `[${ctx.missionId}] foreword failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
-  // ── M7: leader.signOff() —— 仅在 M6 成功时跑 ──
+  // ── signoff: leader.signOff() —— 仅在 foreword 成功时跑 ──
   if (ctx.leaderForeword) {
     try {
       const leaderSignOff = await leader.signOff(
@@ -161,7 +161,7 @@ export async function runLeaderHandoffStage(
         .catch(() => {});
     } catch (err) {
       deps.log.warn(
-        `[${ctx.missionId}] M7 sign-off failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        `[${ctx.missionId}] signoff failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
