@@ -15,16 +15,16 @@ import type {
   IAgentLoop,
   IOutputEvent,
   AgentState,
-} from "../abstractions";
-import { AgentFactory } from "../core/agent-factory";
-import { HookRegistry } from "../core/hook-registry";
-import { LoopRegistry } from "../loop/loop-registry";
-import { CheckpointService } from "../checkpoint/checkpoint.service";
-import type { ICheckpoint } from "../checkpoint/checkpoint.types";
+} from "../kernel/abstractions";
+import { AgentFactory } from "../kernel/core/agent-factory";
+import { HookRegistry } from "../kernel/core/hook-registry";
+import { LoopRegistry } from "../execution/loop/loop-registry";
+import { CheckpointService } from "../memory/checkpoint/checkpoint.service";
+import type { ICheckpoint } from "../memory/checkpoint/checkpoint.types";
 import {
   AgentEventStore,
   type AgentEventRecord,
-} from "../checkpoint/agent-event-store";
+} from "../memory/checkpoint/agent-event-store";
 
 @Injectable()
 export class HarnessFacade implements IHarness {
@@ -139,7 +139,7 @@ export class HarnessFacade implements IHarness {
       preserveUserId?: boolean;
     },
   ): Promise<{
-    agent: import("../abstractions").IAgent;
+    agent: import("../kernel/abstractions").IAgent;
     checkpoint: ICheckpoint;
   } | null> {
     if (!this.checkpointService) {

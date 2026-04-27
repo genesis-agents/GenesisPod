@@ -12,7 +12,7 @@ import type {
   FailureMode,
   IAgentExecutionContext,
   IContextEnvelope,
-} from "../abstractions";
+} from "../kernel/abstractions";
 
 interface EnqueuedTask {
   type: string;

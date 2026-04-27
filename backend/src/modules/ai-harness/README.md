@@ -20,34 +20,53 @@ ai-infra/    ← 平台基础设施（auth / credits / storage）
 **依赖方向强制单向**：ai-engine 永远不能 import ai-harness（已加 eslint 规则，
 `backend/.eslintrc.js` 内 `Phase H1` 区块）。
 
-## 当前已搬迁（PR-H1 → H3）
+## 当前结构（PR-R0 重整后 —— 7 大聚合）
 
 ```
 ai-harness/
 ├── README.md
-├── harness.module.ts                  ← NestJS module 定义
-├── index.ts                           ← top-level barrel
-├── facade/                            ← 外部消费者唯一入口（含 HarnessFacade）
-├── abstractions/                      ← agent 执行模型核心接口（PR-H2）
-├── core/                              ← AgentFactory + Registry + HarnessedAgent + ContextEnvelope
-├── loop/                              ← react / reflexion / plan-act / leader-worker loops
-├── executor/                          ← LlmExecutor + ToolInvoker + circuit-breaker
-├── dx/                                ← AgentRunner + AgentSpec.base + DefineAgent 装饰器
-├── events/                            ← DomainEventBus + adapters
-├── verify/                            ← JudgeService + 内置 verifiers
-├── runtime/                           ← BudgetAccountant + MissionBudgetPool + AgentExecutionContext
-├── checkpoint/                        ← AgentEventStore + CheckpointService
-├── context/                           ← ContextManager + Compactor + Pruner
-├── domain/                            ← Concept registry + DomainAdapter
-├── prompt/                            ← Prompt registry + templates
-├── skills/                            ← SkillRegistry + Loader + Activator
-├── subagent/                          ← Subagent spawner + isolation
-├── tools-selector/                    ← Tool selector + result fusion
-├── handoff/                           ← AgentRegistry + HandoffService
-├── learning/                          ← SkillLearner + sandbox replayer
-├── memory-bridge/                     ← MemoryAutoIndexer + InMemoryVectorStore + PrismaVectorStore
-├── mcp/                               ← MCP relay + adapter
-└── __tests__/                         ← harness-level integration tests
+├── harness.module.ts          ← NestJS module 定义
+├── index.ts                   ← top-level barrel
+├── facade/                    ← 外部消费者唯一入口（HarnessFacade + types re-export）
+│
+├── kernel/                    ★ Agent kernel —— "agent 是什么、怎么造"
+│   ├── abstractions/          IAgent / IAgentEvent / IAgentSpec / IContextEnvelope ...
+│   ├── core/                  AgentFactory / SpecAgentRegistry / HarnessedAgent / HookRegistry
+│   ├── dx/                    DefineAgent / AgentSpec / AgentRunner / FixtureStore / Inspector
+│   ├── domain/                DomainConceptRegistry / DomainAdapterRegistry
+│   ├── skills/                SkillRegistry / Loader / Activator
+│   └── learning/              SkillLearner / SkillLearningCoordinator
+│
+├── execution/                 ★ Agent execution —— "agent 怎么跑一次"
+│   ├── loop/                  react / reflexion / plan-act / leader-worker / loop-registry
+│   ├── executor/              LlmExecutor / ToolInvoker / ToolCircuitBreaker
+│   ├── context/               ContextManager / Compactor / Pruner / TokenEstimator / CacheControlPlanner
+│   ├── prompt/                PromptRegistry / PromptTemplate
+│   └── tools-selector/        ToolSelectorRegistry / ResultFusion
+│
+├── process/                   ★ Agent process management
+│   ├── subagent/              SubagentSpawner + isolation strategies
+│   └── handoff/               AgentRegistry / HandoffService
+│
+├── memory/                    ★ Agent memory（多种形态）
+│   ├── checkpoint/            AgentEventStore / CheckpointService / Stores
+│   ├── vector/                EmbeddingProvider / InMemoryVectorStore / PrismaVectorStore
+│   └── auto-index/            MemoryAutoIndexer / MemoryBridge
+│
+├── protocol/                  ★ Agent protocols —— "agent 跟外界 / 跟其它 agent 通信"
+│   ├── events/                DomainEventBus + DomainEventRegistry + Adapters
+│   └── mcp/                   MCPRelay + MCP tool adapter
+│
+├── governance/                ★ Agent governance
+│   └── verify/                JudgeService + 内置 verifiers
+│
+├── runtime/                   ★ Mission runtime —— "整个 mission 怎么活"
+│   ├── (mission-budget-pool / billing-runtime-env-adapter / budget-accountant /
+│   │    otel-tracer / span-exporter / mission-orchestrator / model-pricing /
+│   │    react-runner / tool-registry / verification / 等)
+│   └── ...
+│
+└── __tests__/                 ← harness-level integration tests
     ├── identity.interface.ts
     ├── agent.interface.ts             IAgent / IAgentTask / IAgentResult
     ├── agent-event.interface.ts       IAgentEvent（thinking/action/observation/...）

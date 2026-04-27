@@ -1,0 +1,22 @@
+/**
+ * verify/ — AI App 的唯一 verifier 入口
+ *
+ * 任何业务模块需要 multi-judge / consensus / Reflexion 闭环时，
+ * 只 import from "@/modules/ai-engine/harness/verify"。
+ *
+ * 不要直接 import runtime/verification/* —— 那是 ReActRunner 的内部实现细节。
+ */
+
+export { JudgeService } from "./judge.service";
+export type { BuiltInVerifierId } from "./judge.service";
+
+// 共享算法（来自 runtime/verification 内部，re-export 让 App 用单一入口）
+export { createConsensusResolver } from "../../runtime/verification/consensus";
+export type { ConsensusOptions } from "../../runtime/verification/consensus";
+export { MetaJudge } from "../../runtime/verification/meta-judge";
+
+// IVerifier 契约（ReflexionLoop 在 spec.verifiers 接受这个类型）
+export type { IVerifier } from "../../execution/loop/reflexion-loop";
+
+// 类型 re-export（App 不必跨目录引用）
+export type { Verdict, ConsensusDecision } from "../../runtime/types";

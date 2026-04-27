@@ -26,39 +26,39 @@ import {
   Optional,
 } from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
-import { AgentFactory } from "./core/agent-factory";
+import { AgentFactory } from "./kernel/core/agent-factory";
 import { ModelElectionService } from "../ai-engine/llm/election";
-import { SpecAgentRegistry } from "./core/spec-agent-registry";
+import { SpecAgentRegistry } from "./kernel/core/spec-agent-registry";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
   TOOL_CIRCUIT_BREAKER_PROBE,
 } from "../ai-engine/runtime/resource/runtime-resource.abstractions";
-import { HookRegistry } from "./core/hook-registry";
-import { ReActLoop } from "./loop/react-loop";
-import { PlanActLoop } from "./loop/plan-act-loop";
-import { ReflexionLoop } from "./loop/reflexion-loop";
-import { LoopRegistry } from "./loop/loop-registry";
-import { ToolInvoker } from "./executor/tool-invoker";
-import { ToolCircuitBreaker } from "./executor/tool-circuit-breaker";
-import { LlmExecutor } from "./executor/llm-executor";
-import { InMemoryVectorStore } from "./memory-bridge/in-memory-vector-store";
-import { PrismaVectorStore } from "./memory-bridge/prisma-vector-store";
-import { MemoryAutoIndexer } from "./memory-bridge/memory-auto-indexer";
-import { MemoryBridge } from "./memory-bridge/memory-bridge.service";
-import { SkillRegistry, SkillLoader, SkillActivator } from "./skills";
-import { SubagentSpawner } from "./subagent";
-import { ContextManager, ContextCompactor, PriorityPruner } from "./context";
-import { CacheControlPlanner } from "./context/cache-control-planner";
-import { AgentRegistry } from "./handoff/agent-registry";
-import { HandoffService } from "./handoff/handoff.service";
+import { HookRegistry } from "./kernel/core/hook-registry";
+import { ReActLoop } from "./execution/loop/react-loop";
+import { PlanActLoop } from "./execution/loop/plan-act-loop";
+import { ReflexionLoop } from "./execution/loop/reflexion-loop";
+import { LoopRegistry } from "./execution/loop/loop-registry";
+import { ToolInvoker } from "./execution/executor/tool-invoker";
+import { ToolCircuitBreaker } from "./execution/executor/tool-circuit-breaker";
+import { LlmExecutor } from "./execution/executor/llm-executor";
+import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
+import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
+import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
+import { MemoryBridge } from "./memory/auto-index/memory-bridge.service";
+import { SkillRegistry, SkillLoader, SkillActivator } from "./kernel/skills";
+import { SubagentSpawner } from "./process/subagent";
+import { ContextManager, ContextCompactor, PriorityPruner } from "./execution/context";
+import { CacheControlPlanner } from "./execution/context/cache-control-planner";
+import { AgentRegistry } from "./process/handoff/agent-registry";
+import { HandoffService } from "./process/handoff/handoff.service";
 import {
   CheckpointService,
   InMemoryCheckpointStore,
   PrismaCheckpointStore,
   AgentEventStore,
-} from "./checkpoint";
-import type { ICheckpointStore } from "./checkpoint/checkpoint.types";
-import { SkillLearner, SkillLearningCoordinator } from "./learning";
+} from "./memory/checkpoint";
+import type { ICheckpointStore } from "./memory/checkpoint/checkpoint.types";
+import { SkillLearner, SkillLearningCoordinator } from "./kernel/learning";
 
 // ★ SOTA task-centric runtime (Phase 2-5) — 通用 L2 组件，任何 AI App 可注入
 import {
@@ -69,18 +69,18 @@ import {
 } from "./runtime";
 import { ModelPricingRegistry } from "./runtime/model-pricing-registry";
 import { SpanExporter } from "./runtime/span-exporter";
-import { JudgeService } from "./verify/judge.service";
-import { MCPRelay } from "./mcp/mcp-relay.service";
-import { AgentRunner, FixtureStore, HarnessInspectorController } from "./dx";
+import { JudgeService } from "./governance/verify/judge.service";
+import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
+import { AgentRunner, FixtureStore, HarnessInspectorController } from "./kernel/dx";
 // PR-J..P
-import { LeaderWorkerLoop } from "./loop/leader-worker-loop";
-import { DomainEventRegistry } from "./events/domain-event-registry";
-import { DomainEventBus } from "./events/domain-event-bus";
-import { LoggerBroadcastAdapter } from "./events/broadcast-adapter";
-import { DomainConceptRegistry } from "./domain/concept-registry";
-import { DomainAdapterRegistry } from "./domain/domain-adapter";
-import { PromptRegistry } from "./prompt/prompt-registry";
-import { ToolSelectorRegistry } from "./tools-selector/tool-selector-registry";
+import { LeaderWorkerLoop } from "./execution/loop/leader-worker-loop";
+import { DomainEventRegistry } from "./protocol/events/domain-event-registry";
+import { DomainEventBus } from "./protocol/events/domain-event-bus";
+import { LoggerBroadcastAdapter } from "./protocol/events/broadcast-adapter";
+import { DomainConceptRegistry } from "./kernel/domain/concept-registry";
+import { DomainAdapterRegistry } from "./kernel/domain/domain-adapter";
+import { PromptRegistry } from "./execution/prompt/prompt-registry";
+import { ToolSelectorRegistry } from "./execution/tools-selector/tool-selector-registry";
 
 import { AiEngineLLMModule } from "../ai-engine/ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine/ai-engine-tools.module";

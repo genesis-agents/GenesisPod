@@ -1,54 +1,45 @@
 /**
  * AI Harness Facade —— ai-app 唯一入口
  *
- * 定位：harness 是"agent 怎么跑"的抽象。所有需要构建 spec agent / 跑 react loop /
- * 拿事件流 / 做 budget guard / 做 verify consensus 的 ai-app 模块，都从这里 import。
- *
- * 依赖方向（强制单向）：
- *   ai-app → ai-harness → ai-engine
- *   ai-engine 永远不允许 import ai-harness。
+ * 7 大聚合：kernel / execution / process / memory / protocol / governance / runtime
  */
 
-// ── Abstractions（IAgent / IAgentEvent / IAgentSpec / 等接口） ──
-export * from "../abstractions";
-
-// ── Service facade ──
-export { HarnessFacade } from "./harness.facade";
-
-// ── DX：DefineAgent / AgentSpec / AgentRunner / RunResult / FixtureStore ──
+// ── Kernel：abstractions + core + dx ──
+export * from "../kernel/abstractions";
+export { AgentFactory } from "../kernel/core/agent-factory";
+export { SpecAgentRegistry } from "../kernel/core/spec-agent-registry";
 export {
   AgentRunner,
   AgentSpec,
   DefineAgent,
   FixtureStore,
-} from "../dx";
-export type { RunResult } from "../dx";
+} from "../kernel/dx";
+export type { RunResult } from "../kernel/dx";
 
-// ── Core：AgentFactory + SpecAgentRegistry ──
-export { AgentFactory } from "../core/agent-factory";
-export { SpecAgentRegistry } from "../core/spec-agent-registry";
+// ── Service facade ──
+export { HarnessFacade } from "./harness.facade";
 
-// ── Verify ──
-export { JudgeService } from "../verify";
-export type { BuiltInVerifierId } from "../verify";
+// ── Governance：verify / failure-learning ──
+export { JudgeService } from "../governance/verify";
+export type { BuiltInVerifierId } from "../governance/verify";
 
-// ── Events（DomainEventBus 等） ──
+// ── Protocol：events ──
 export {
   DomainEventBus,
   DomainEventRegistry,
   LoggerBroadcastAdapter,
-} from "../events";
+} from "../protocol/events";
 export type {
   DomainEvent,
   IBroadcastAdapter,
   DomainEventTypeSpec,
-} from "../events";
+} from "../protocol/events";
 
-// ── Memory / Checkpoint / Runtime ──
-export { MemoryAutoIndexer } from "../memory-bridge/memory-auto-indexer";
+// ── Memory：auto-index / checkpoint ──
+export { MemoryAutoIndexer } from "../memory/auto-index/memory-auto-indexer";
+export { AgentEventStore, CheckpointService } from "../memory/checkpoint";
+export type { ICheckpoint, AgentEventRecord } from "../memory/checkpoint";
+
+// ── Runtime：mission pool / billing adapter ──
 export { MissionBudgetPool } from "../runtime/mission-budget-pool";
-export { AgentEventStore, CheckpointService } from "../checkpoint";
-export type { ICheckpoint, AgentEventRecord } from "../checkpoint";
-
-// ── Runtime adapters（IRuntimeEnvironment 实现） ──
 export { BillingRuntimeEnvAdapter } from "../runtime/billing-runtime-env.adapter";
