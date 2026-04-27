@@ -84,6 +84,8 @@ import {
 } from "./helpers/token-spend.util";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
+import { runReconcilerStage } from "./stages/40-reconciler.stage";
+import { runAnalystStage } from "./stages/50-analyst.stage";
 import { runCriticStage } from "./stages/70-critic.stage";
 import { runLeaderHandoffStage } from "./stages/80-leader-handoff.stage";
 
@@ -1409,222 +1411,39 @@ export class ResearchTeamMission {
           );
         }
 
-        // ── Stage B' (3.5): Reconciler 对账 ──
-        // mission-pipeline-baseline.md §3.5 / mission-pipeline-reconciler.md
-        // Researcher 并行产出后强制对账：事实表 / 冲突 / 重叠 / 空白 / 图候选池
-        // 失败不阻塞 mission（degraded：reconciliationReport 为空，下游 Analyst 退化为旧路径）
-        let reconciliationReport: {
-          factTable: unknown[];
-          conflicts: unknown[];
-          overlaps: unknown[];
-          gaps: unknown[];
-          figureCandidates: unknown[];
-          reconciliationReport: string;
-        } | null = null;
-        try {
-          await this.emit({
-            type: "agent-playground.stage:started",
-            missionId,
-            userId,
-            payload: { stage: "reconciler" },
-          });
-          await this.lifecycle(
-            missionId,
-            userId,
-            "reconciler",
-            "reconciler",
-            "started",
-          );
-          // ★ Phase P4-2: Reconciler 跨 mission 失败模式预查
-          await this.preDisableKnownFailingModels(
-            billing,
-            "playground.reconciler",
-            `${input.topic}::reconciler::${input.language}`,
-          );
-          // ★ Phase Lead-Services: 通过 ReconcilerService.reconcile() 替代直接 runAndRelay
-          const reconRes = await this.reconcilerService.reconcile(
-            {
-              topic: input.topic,
-              language: input.language,
-              plan: {
-                themeSummary: plan.themeSummary,
-                dimensions: plan.dimensions.map((d) => ({
-                  id: d.id,
-                  name: d.name,
-                  rationale: d.rationale,
-                })),
-              },
-              researcherResults,
-            },
-            {
-              missionId,
-              userId,
-              agentId: "reconciler",
-              role: "reconciler",
-              envAdapter: billing,
-              budgetMultiplier,
-            },
-          );
-          await this.tickCostDelta(
-            missionId,
-            userId,
-            "reconciler",
-            pool,
-            extractTokenSpend(reconRes.events),
-          );
-          if (reconRes.state === "completed" && reconRes.output) {
-            reconciliationReport =
-              reconRes.output as unknown as typeof reconciliationReport;
-            await this.emit({
-              type: "agent-playground.reconciliation:completed",
-              missionId,
-              userId,
-              payload: {
-                factCount: reconciliationReport!.factTable.length,
-                conflictCount: reconciliationReport!.conflicts.length,
-                overlapCount: reconciliationReport!.overlaps.length,
-                gapCount: reconciliationReport!.gaps.length,
-                figureCandidateCount:
-                  reconciliationReport!.figureCandidates.length,
-              },
-            });
-          }
-          await this.lifecycle(
-            missionId,
-            userId,
-            "reconciler",
-            "reconciler",
-            reconRes.state === "completed" ? "completed" : "failed",
-            {
-              wallTimeMs: reconRes.wallTimeMs,
-              iterations: reconRes.iterations,
-            },
-          );
-          await this.emit({
-            type: "agent-playground.stage:completed",
-            missionId,
-            userId,
-            payload: { stage: "reconciler", state: reconRes.state },
-          });
-        } catch (err) {
-          // 对账失败不阻塞 mission：emit warning，下游 Analyst 退化路径
-          const msg = err instanceof Error ? err.message : String(err);
-          this.log.warn(
-            `[${missionId}] reconciler stage failed (non-fatal): ${msg}`,
-          );
-          await this.emit({
-            type: "agent-playground.dimension:degraded",
-            missionId,
-            userId,
-            agentId: "reconciler",
-            payload: {
-              stage: "reconciler",
-              failureCode: "RECONCILER_FAILED",
-              innerMessage: msg,
-            },
-          }).catch(() => {});
-        }
-
-        // ── Stage 3: Analyst 反思整合 ──
-        await this.emit({
-          type: "agent-playground.stage:started",
+        // ── Stage B' (3.5): Reconciler 对账（已抽到 stages/40-reconciler.stage.ts）──
+        const reconCtx = this.buildStageCtx({
           missionId,
           userId,
-          payload: { stage: "analyst" },
-        });
-        await this.lifecycle(
-          missionId,
-          userId,
-          "analyst",
-          "analyst",
-          "started",
-        );
-        // ★ Phase P1-10: Summarize-on-Handoff（baseline §9.1）
-        const analystResearcherInput = this.missionState.compressIfNeeded(
-          researcherResults,
-          "analyst.researcherResults",
-        );
-        // ★ Phase P3-2: 跨 mission 失败模式预查（同 researcher 路径）
-        await this.preDisableKnownFailingModels(
+          input,
+          t0,
           billing,
-          "playground.analyst",
-          `${input.topic}::analyst::${input.language}`,
-        );
-        // ★ Phase Lead-Services: 通过 AnalystService.analyze() 替代直接 runAndRelay
-        const analystRes = await this.analystService.analyze(
-          {
-            topic: input.topic,
-            language: input.language,
-            researcherResults: analystResearcherInput,
-            // ★ Phase P1-5: 强制 Analyst 消费 Reconciler 产物
-            reconciliationReport: reconciliationReport ?? undefined,
-          },
-          {
+          pool,
+          leader,
+          budgetMultiplier,
+          plan,
+          researcherResults,
+        });
+        await runReconcilerStage(reconCtx, this.buildStageDeps());
+        const reconciliationReport = reconCtx.reconciliationReport;
+
+        // ── Stage 3: Analyst 反思整合（已抽到 stages/50-analyst.stage.ts）──
+        const analyst = await runAnalystStage(
+          this.buildStageCtx({
             missionId,
             userId,
-            agentId: "analyst",
-            role: "analyst",
-            envAdapter: billing,
+            input,
+            t0,
+            billing,
+            pool,
+            leader,
             budgetMultiplier,
-            loopOverride: this.resolveLoopOverride(
-              input.auditLayers,
-              "analyst",
-            ),
-          },
+            plan,
+            researcherResults,
+            reconciliationReport,
+          }),
+          this.buildStageDeps(),
         );
-        await this.tickCostDelta(
-          missionId,
-          userId,
-          "analyst",
-          pool,
-          extractTokenSpend(analystRes.events),
-        );
-        const analystFailMsg = extractFailureMessage(
-          analystRes.events,
-          analystRes.state,
-          !!analystRes.output,
-          {
-            iterations: analystRes.iterations,
-            wallTimeMs: analystRes.wallTimeMs,
-          },
-        );
-        await this.lifecycle(
-          missionId,
-          userId,
-          "analyst",
-          "analyst",
-          analystRes.state === "completed" ? "completed" : "failed",
-          {
-            wallTimeMs: analystRes.wallTimeMs,
-            iterations: analystRes.iterations,
-            error: analystFailMsg,
-          },
-        );
-        if (analystRes.state !== "completed" || !analystRes.output) {
-          throw new Error(
-            analystFailMsg ?? `Analyst stage failed: ${analystRes.state}`,
-          );
-        }
-        const analyst = analystRes.output as {
-          insights: {
-            headline: string;
-            narrative: string;
-            supportingDimensions: string[];
-            confidence: number;
-          }[];
-          themeSummary: string;
-          contradictions?: {
-            claim: string;
-            conflictingSources: string[];
-            resolution: string;
-          }[];
-        };
-        await this.emit({
-          type: "agent-playground.stage:completed",
-          missionId,
-          userId,
-          payload: { stage: "analyst", insightsCount: analyst.insights.length },
-        });
 
         // ★ Phase P4-1: 在 thorough+ 档位下，先跑 OutlinePlanner W1 给 Writer 提示
         let outlinePlanResult: {
@@ -2056,7 +1875,10 @@ export class ResearchTeamMission {
               themeSummary: report.summary,
             },
             writerReport: report,
-            reconciliationReport: reconciliationReport ?? undefined,
+            reconciliationReport: (reconciliationReport ??
+              undefined) as Parameters<
+              typeof this.reportAssembler.assemble
+            >[0]["reconciliationReport"],
             generationTimeMs: writerGenerationMs,
             totalTokens: {
               prompt: 0,
