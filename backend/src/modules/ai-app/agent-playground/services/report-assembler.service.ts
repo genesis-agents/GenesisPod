@@ -98,6 +98,10 @@ export class ReportAssemblerService {
    * 主入口：组装 ReportArtifact
    */
   assemble(input: AssembleInput): ReportArtifact {
+    // 0) Writer 经常用 markdown 链接 [text](url) 而非 [N] 编号；做一次预归一化，
+    //    把 [anchor](url) 全部替换为 [N]，并把发现的 url 同步进 writer.citations 头部，
+    //    保证 buildCitations 编号与 body 中的 [N] 对齐。
+    input = this.normalizeInlineCitations(input);
     // 1) 构建主 markdown（无图占位符）+ 格式修复（Phase P1-9）
     let fullMarkdown = this.applyFormatFixes(this.buildFullMarkdown(input));
 
@@ -265,6 +269,69 @@ export class ReportAssemblerService {
    *   9. 重复连续标题（## X\n\n## X）去重
    *  10. 文末多余空白 trim
    */
+  /**
+   * 归一化 inline 引用：把 `[anchor](https://...)` → `[N]`，把首次出现的 URL
+   * 推进 writer.citations 头部，保证 buildCitations 后续编号与 body 中的 [N] 对齐。
+   *
+   * Writer 经常忽略 prompt 中的 [N] 要求，直接产出 markdown 超链接。这一步把两种
+   * 风格统一到 [N] 编号，让 traceability / citationDensity 评分能正确计算。
+   */
+  private normalizeInlineCitations(input: AssembleInput): AssembleInput {
+    const sectionsCopy = input.writerReport.sections.map((s) => ({ ...s }));
+    const urlOrder: string[] = [];
+    const urlIdx = new Map<string, number>();
+    const assignIdx = (rawUrl: string): number => {
+      const url = rawUrl.trim();
+      if (urlIdx.has(url)) return urlIdx.get(url)!;
+      urlOrder.push(url);
+      const n = urlOrder.length;
+      urlIdx.set(url, n);
+      return n;
+    };
+    // [anchor](http(s)://...) — anchor 内部不含 ]
+    const linkRe = /\[([^\]\n]+?)\]\((https?:\/\/[^\s)]+)\)/g;
+    const transform = (body: string | undefined): string => {
+      if (!body) return body ?? "";
+      return body.replace(linkRe, (_m, _anchor: string, url: string) => {
+        const n = assignIdx(url);
+        return `[${n}]`;
+      });
+    };
+    const summaryT = transform(input.writerReport.summary);
+    for (const sec of sectionsCopy) {
+      sec.body = transform(sec.body);
+    }
+    const conclusionT = transform(input.writerReport.conclusion);
+    if (urlOrder.length === 0) return input;
+    // writer.citations[]：保证 [N] 顺序对应的 url 排在最前（去重）
+    const writerCites = (input.writerReport.citations ?? []).slice();
+    const merged: string[] = [];
+    const mergedSet = new Set<string>();
+    for (const u of urlOrder) {
+      if (!mergedSet.has(u)) {
+        merged.push(u);
+        mergedSet.add(u);
+      }
+    }
+    for (const u of writerCites) {
+      const t = u.trim();
+      if (t && !mergedSet.has(t)) {
+        merged.push(t);
+        mergedSet.add(t);
+      }
+    }
+    return {
+      ...input,
+      writerReport: {
+        ...input.writerReport,
+        summary: summaryT,
+        conclusion: conclusionT,
+        sections: sectionsCopy,
+        citations: merged,
+      },
+    };
+  }
+
   private applyFormatFixes(md: string): string {
     let content = md;
     // 1. 压缩 ≥3 个连续换行
