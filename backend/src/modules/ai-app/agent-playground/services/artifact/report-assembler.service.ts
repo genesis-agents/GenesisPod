@@ -26,11 +26,11 @@ import type {
   ArtifactQuickView,
   ArtifactSection,
   ReportArtifact,
-} from "../dto/report-artifact.dto";
+} from "../../dto/report-artifact.dto";
 import {
   dedupeFigureCandidates,
   isGarbageFigureUrl,
-} from "../utils/figure-filter.util";
+} from "../../utils/figure-filter.util";
 
 interface AssembleInput {
   topic: string;

@@ -21,15 +21,21 @@ services/
 │   ├── verifier.service.ts             ← 客观事实核验（4 mode，未接入）
 │   └── steward.service.ts              ← 资源 / 合规守门（4 scope，未接入）
 │
-├── mission-store.service.ts            ← Prisma 持久化（mission row + leader_journal jsonb）
-├── mission-state.service.ts            ← Mission 状态机
-├── mission-abort.registry.ts           ← AbortController 注册表（per-mission cancel）
-├── mission-ownership.registry.ts       ← Mission ↔ owner socket 映射
-├── mission-event-buffer.service.ts     ← In-memory 事件缓冲（给 /replay 用）
+├── mission/                            ← Mission 生命周期 / 状态 / 持久化
+│   ├── mission-store.service.ts        ← Prisma 持久化（mission row + leader_journal jsonb）
+│   ├── mission-state.service.ts        ← Mission 状态机
+│   ├── mission-abort.registry.ts       ← AbortController 注册表（per-mission cancel）
+│   ├── mission-ownership.registry.ts   ← Mission ↔ owner socket 映射
+│   └── mission-event-buffer.service.ts ← In-memory 事件缓冲（给 /replay 用）
 │
-├── leader-chat.service.ts              ← 用户与 Leader 的多轮聊天（M0 前的 clarify / append dim）
-├── report-assembler.service.ts         ← 多 dim findings → ReportArtifact v2 组装
-├── harness-failure-learner.service.ts  ← 跨 mission 失败模式记忆（model fallback 学习）
+├── chat/                               ← 用户与 Agent 的对话
+│   └── leader-chat.service.ts          ← 用户 ↔ Leader 多轮聊天（M0 前的 clarify / append dim）
+│
+├── artifact/                           ← 输出物组装
+│   └── report-assembler.service.ts     ← 多 dim findings → ReportArtifact v2 组装
+│
+├── failure-learning/                   ← 跨 mission 学习
+│   └── harness-failure-learner.service.ts ← 跨 mission 失败模式记忆（model fallback 学习）
 │
 └── __tests__/                          ← 单元测试
 ```
@@ -67,9 +73,9 @@ services/
 
 业务流程一概不感知。
 
-### 4. mission-\* 服务是状态层
+### 4. mission/ 子目录是状态层
 
-`mission-store / mission-state / mission-abort / mission-ownership /
+`mission/mission-store / mission-state / mission-abort / mission-ownership /
 mission-event-buffer` 是 mission 生命周期的 5 个面，应保持各司其职。
 
 - store: DB 持久化（CRUD）

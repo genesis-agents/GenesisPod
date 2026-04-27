@@ -47,9 +47,9 @@ import { LeaderAgent } from "../agents/leader/leader.agent";
 import { LeaderService, SupervisedMission } from "./roles";
 import { ResearcherAgent } from "../agents/researcher/researcher.agent";
 import { ReconcilerAgent } from "../agents/reconciler/reconciler.agent";
-import { ReportAssemblerService } from "./report-assembler.service";
-import { MissionStateService } from "./mission-state.service";
-import { MissionAbortRegistry } from "./mission-abort.registry";
+import { ReportAssemblerService } from "./artifact/report-assembler.service";
+import { MissionStateService } from "./mission/mission-state.service";
+import { MissionAbortRegistry } from "./mission/mission-abort.registry";
 import { AnalystAgent } from "../agents/analyst/analyst.agent";
 import { SingleShotWriterAgent } from "../agents/writer/single-shot-writer.agent";
 import { MissionOutlinePlannerAgent } from "../agents/writer/mission-outline-planner.agent";
@@ -68,8 +68,8 @@ import {
   type RunMissionInput,
 } from "../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "../adapters/billing-runtime-env.adapter";
-import { MissionStore } from "./mission-store.service";
-import { HarnessFailureLearner } from "./harness-failure-learner.service";
+import { MissionStore } from "./mission/mission-store.service";
+import { HarnessFailureLearner } from "./failure-learning/harness-failure-learner.service";
 
 /**
  * 维度元数据（Lead M0 plan 产出 / M1 redirect 追加都用这个 shape）。

@@ -10,13 +10,13 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   AiChatService,
   DomainEventBus,
   type DomainEvent,
-} from "../../../ai-engine/facade";
-import { MissionStore } from "./mission-store.service";
+} from "../../../../ai-engine/facade";
+import { MissionStore } from "../mission/mission-store.service";
 
 export type LeaderDecisionType =
   | "DIRECT_ANSWER" // 直接回答（讨论 / 解释）

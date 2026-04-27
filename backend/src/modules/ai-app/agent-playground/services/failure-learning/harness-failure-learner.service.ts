@@ -14,7 +14,7 @@
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { createHash } from "crypto";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 export interface FailurePatternKey {
   agentSpecId: string;

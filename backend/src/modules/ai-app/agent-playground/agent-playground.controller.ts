@@ -25,11 +25,11 @@ import {
   RunMissionInputSchema,
   type RunMissionInput,
 } from "./dto/run-mission.dto";
-import { MissionOwnershipRegistry } from "./services/mission-ownership.registry";
-import { MissionEventBuffer } from "./services/mission-event-buffer.service";
-import { MissionStore } from "./services/mission-store.service";
-import { LeaderChatService } from "./services/leader-chat.service";
-import { MissionAbortRegistry } from "./services/mission-abort.registry";
+import { MissionOwnershipRegistry } from "./services/mission/mission-ownership.registry";
+import { MissionEventBuffer } from "./services/mission/mission-event-buffer.service";
+import { MissionStore } from "./services/mission/mission-store.service";
+import { LeaderChatService } from "./services/chat/leader-chat.service";
+import { MissionAbortRegistry } from "./services/mission/mission-abort.registry";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
