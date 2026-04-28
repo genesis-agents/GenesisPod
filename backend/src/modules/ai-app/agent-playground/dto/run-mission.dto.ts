@@ -88,6 +88,49 @@ export function resolveBudgetMultiplier(input: RunMissionInput): number {
   );
 }
 
+/**
+ * Mission 级 wall-time 上限（ms）—— 按 depth × auditLayers × budgetProfile 三维联动。
+ *
+ * 旧实现固定 30 min，导致 depth=deep + auditLayers=thorough 必然撞墙。
+ * 新规则：
+ *   base depth: quick=10min / standard=25min / deep=50min
+ *   × audit:    minimal=0.7 / default=1.0 / thorough=1.5 / paranoid=2.0
+ *   × budget:   low=0.7 / medium=1.0 / high=1.4 / unlimited=2.0
+ *   全局 cap:   3 小时（避免无限运行）
+ *
+ * 实际样例：
+ *   quick + minimal + low                       ≈ 5 min
+ *   standard + default + medium                 = 25 min
+ *   deep + default + medium                     = 50 min  ← 默认深度档现在是 50min
+ *   deep + thorough + high                      ≈ 105 min
+ *   deep + paranoid + unlimited                 ≈ 200 min → cap 180 min
+ */
+export function resolveMissionWallTimeMs(input: RunMissionInput): number {
+  const depthBase: Record<RunMissionInput["depth"], number> = {
+    quick: 10 * 60 * 1000,
+    standard: 25 * 60 * 1000,
+    deep: 50 * 60 * 1000,
+  };
+  const auditMul: Record<RunMissionInput["auditLayers"], number> = {
+    minimal: 0.7,
+    default: 1.0,
+    thorough: 1.5,
+    paranoid: 2.0,
+  };
+  const budgetMul: Record<BudgetProfile, number> = {
+    low: 0.7,
+    medium: 1.0,
+    high: 1.4,
+    unlimited: 2.0,
+  };
+  const raw =
+    depthBase[input.depth] *
+    auditMul[input.auditLayers] *
+    budgetMul[input.budgetProfile];
+  const cap = 3 * 60 * 60 * 1000; // 3h hard ceiling
+  return Math.min(Math.round(raw), cap);
+}
+
 export const ResearchReportSchema = z.object({
   title: z.string().min(2),
   summary: z.string().min(20),

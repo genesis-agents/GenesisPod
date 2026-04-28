@@ -6,10 +6,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const ResearcherFinding = z.object({
   dimension: z.string(),
@@ -61,6 +58,8 @@ const Input = z.object({
         .optional(),
     })
     .optional(),
+  // ★ 第二轮简化提示（仅在 s6 stage 第一轮 LLM 返回 null/格式错误时由 orchestrator 注入）
+  retryHint: z.string().optional(),
 });
 
 const Output = z.object({
@@ -166,6 +165,9 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `Use field names exactly as shown.`,
       `confidence is a number between 0 and 1.`,
+      ...(input.retryHint
+        ? ["", `## ★ Retry 提示（上一次失败原因）`, input.retryHint, ""]
+        : []),
     ].join("\n");
   }
 }

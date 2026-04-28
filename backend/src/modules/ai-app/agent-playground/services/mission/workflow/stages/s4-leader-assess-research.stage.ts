@@ -82,7 +82,45 @@ export async function runLeaderAssessResearchStage(
         failureCode: failureCodeMatch ? failureCodeMatch[1] : undefined,
       };
     });
-    const m1 = await leader.assessResearchers(researcherOutcomes);
+    const m1Raw = await leader.assessResearchers(researcherOutcomes);
+    // ★ 防 retry 风暴：单轮 patch 数 ≤ 2。Leader 若返回 >2 个 retry-with-critique，
+    //    保留 finding-count 最少的 2 个（最弱的）继续 retry，其余降级为 accept-degraded。
+    //    rationale: 5 个 dim 同时 retry 会撞 wall-time + 预算池；保留 4 个 dim 工作
+    //    + 修最弱 2 个 比"重做 5 个 dim 但全部崩溃"质量更高（NaN 不是质量）。
+    const MAX_PATCHES_PER_ROUND = 2;
+    const retryActions = m1Raw.perDimension.filter(
+      (a) => a.action === "retry-with-critique" || a.action === "replace-spec",
+    );
+    let cappedNote: string | null = null;
+    if (retryActions.length > MAX_PATCHES_PER_ROUND) {
+      // 按 finding-count 升序 → 最弱的 dim 排在前面
+      const findingCountByDimId = new Map<string, number>();
+      for (const o of researcherOutcomes) {
+        findingCountByDimId.set(o.dimensionId, o.findingsCount);
+      }
+      const ranked = [...retryActions].sort(
+        (a, b) =>
+          (findingCountByDimId.get(a.dimensionId) ?? 0) -
+          (findingCountByDimId.get(b.dimensionId) ?? 0),
+      );
+      const keepIds = new Set(
+        ranked.slice(0, MAX_PATCHES_PER_ROUND).map((a) => a.dimensionId),
+      );
+      let downgraded = 0;
+      for (const a of m1Raw.perDimension) {
+        if (
+          (a.action === "retry-with-critique" || a.action === "replace-spec") &&
+          !keepIds.has(a.dimensionId)
+        ) {
+          // Cast through unknown — perDimension.action 是 zod 联合类型，运行时降级到 accept-degraded 安全
+          (a as unknown as { action: string }).action = "accept-degraded";
+          downgraded++;
+        }
+      }
+      cappedNote = `单轮 patch 上限=${MAX_PATCHES_PER_ROUND}；Leader 返回 ${retryActions.length} 个 retry，最弱 ${MAX_PATCHES_PER_ROUND} 个保留，其余 ${downgraded} 个降级 accept-degraded`;
+      deps.log.warn(`[${missionId}] ${cappedNote}`);
+    }
+    const m1 = m1Raw;
     await deps
       .emit({
         type: "agent-playground.leader:decision",
@@ -94,6 +132,7 @@ export async function runLeaderAssessResearchStage(
           rationale: m1.rationale,
           perDimension: m1.perDimension,
           newDimensionsCount: m1.newDimensions.length,
+          patchCap: cappedNote ?? undefined,
         },
       })
       .catch(() => {});

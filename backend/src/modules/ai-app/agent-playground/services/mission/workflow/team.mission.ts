@@ -62,6 +62,7 @@ import {
   type ResearchReport,
   resolveBudgetMultiplier,
   resolveMissionCredits,
+  resolveMissionWallTimeMs,
   type RunMissionInput,
 } from "../../../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
@@ -191,9 +192,13 @@ export class TeamMission {
     userId: string,
     workspaceId?: string,
   ): Promise<MissionResult> {
-    // 注册 abort controller + mission 级 wall-time
+    // 注册 abort controller + mission 级 wall-time（按 depth × audit × budget 联动）
     const missionAbort = this.abortRegistry.register(missionId);
-    const MISSION_WALL_TIME_MS = 1_800_000; // 30 分钟（baseline §10 D9）
+    const MISSION_WALL_TIME_MS = resolveMissionWallTimeMs(input);
+    this.log.log(
+      `[${missionId}] mission wall-time = ${Math.round(MISSION_WALL_TIME_MS / 60000)}min ` +
+        `(depth=${input.depth}, audit=${input.auditLayers}, budget=${input.budgetProfile})`,
+    );
     const wallTimer = setTimeout(() => {
       this.log.warn(
         `[${missionId}] mission wall-time exceeded (${MISSION_WALL_TIME_MS}ms) — auto abort`,

@@ -80,7 +80,9 @@ export async function runAnalystStage(
     `${input.topic}::analyst::${input.language}`,
   );
   // ★ Phase Lead-Services: AnalystService.analyze()
-  const analystRes = await deps.analyst.analyze(
+  // 双轮防 null：第一次 LLM 返回 null（schema mismatch）时，自动降级提示再跑一次
+  // 才报错。避免前面 6 个 dim 的产出被一次 LLM 毛刺整个 mission 全废。
+  let analystRes = await deps.analyst.analyze(
     {
       topic: input.topic,
       language: input.language,
@@ -107,6 +109,50 @@ export async function runAnalystStage(
     pool,
     extractTokenSpend(analystRes.events),
   );
+
+  // ★ 第一轮 null / 失败 → 简化提示重试一次（不放弃质量，只是给 LLM 一次机会修正格式）
+  if (analystRes.state !== "completed" || !analystRes.output) {
+    deps.log.warn(
+      `[${missionId}] analyst first attempt returned no output (state=${analystRes.state}) — retrying once with simplified prompt`,
+    );
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s6-analyst",
+      role: "analyst",
+      tag: "warning",
+      text: "Analyst 首轮无有效输出，简化提示后重试 1 次（避免单次 LLM 格式问题导致全 mission 失败）",
+      agentId: "analyst",
+    });
+    analystRes = await deps.analyst.analyze(
+      {
+        topic: input.topic,
+        language: input.language,
+        researcherResults: analystResearcherInput,
+        reconciliationReport: reconciliationReport ?? undefined,
+        retryHint:
+          "上一次输出为 null 或格式错误。请严格按 outputSchema 返回 { insights[], themeSummary }；contradictions 可以省略。每个 insight 至少 2 个 supportingDimensions。",
+      },
+      {
+        missionId,
+        userId,
+        agentId: "analyst.retry",
+        role: "analyst",
+        envAdapter: billing,
+        budgetMultiplier,
+        loopOverride: deps.invoker.resolveLoopOverride(
+          input.auditLayers,
+          "analyst",
+        ),
+      },
+    );
+    await deps.invoker.tickCost(
+      missionId,
+      userId,
+      "analyst",
+      pool,
+      extractTokenSpend(analystRes.events),
+    );
+  }
+
   const analystFailMsg = extractFailureMessage(
     analystRes.events,
     analystRes.state,
@@ -130,7 +176,7 @@ export async function runAnalystStage(
   );
   if (analystRes.state !== "completed" || !analystRes.output) {
     throw new Error(
-      analystFailMsg ?? `Analyst stage failed: ${analystRes.state}`,
+      `Analyst 综合阶段连续 2 次未产出有效结果（${analystFailMsg ?? analystRes.state}）。已采集到 ${researcherResults.length} 个维度的发现，建议查看 Mission 历史定位是哪一步丢失数据。`,
     );
   }
   const analyst = analystRes.output as AnalystOutputShape;
