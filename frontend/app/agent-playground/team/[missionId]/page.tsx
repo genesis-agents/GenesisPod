@@ -537,6 +537,7 @@ export default function MissionDetailPage() {
                 onSelect={(id) => setSelectedTaskKey(id)}
                 missionFailed={!!view.mission.failedAt}
                 missionFailedMessage={view.mission.failedMessage}
+                agents={view.agents}
               />
             )}
 

@@ -44,7 +44,8 @@ const ROLE_ROW: {
   label: string;
   rowIdx: number;
 }[] = [
-  // TI 同款 3-row 紧凑布局：Leader 居顶，Research Team 居中，三个 worker 横排底部
+  // 完全照搬 TI 拓扑：Leader → N Researchers → [Reviewer, Writer]
+  // analyst 仍在 pipeline 执行，只是不在网络图绘出（避免 fan-in 乱线）
   { role: 'leader', stage: 'leader', label: 'Leader', rowIdx: 0 },
   {
     role: 'researcher',
@@ -52,9 +53,8 @@ const ROLE_ROW: {
     label: 'Research Team',
     rowIdx: 1,
   },
-  { role: 'analyst', stage: 'analyst', label: 'Analyst', rowIdx: 2 },
-  { role: 'writer', stage: 'writer', label: 'Writer', rowIdx: 2 },
   { role: 'reviewer', stage: 'reviewer', label: 'Reviewer', rowIdx: 2 },
+  { role: 'writer', stage: 'writer', label: 'Writer', rowIdx: 2 },
 ];
 
 const ROLE_COLOR_KEY: Record<AgentRole, string> = {
@@ -297,25 +297,20 @@ export function TeamRosterPanel({
         rowMap[r.rowIdx].push(r.role);
       }
 
-      // Connections — 折叠 vs 展开 走两条路径
-      // ★ 修：展开时不再画 N 条 researcher→analyst fan-in 线（全部交叉很丑），
-      //   改为只画 1 条「中位 researcher」→ analyst 的代表性聚合线。
-      //   Leader → 每个 researcher 的 fan-out 保留，因为 7 条线发散是有信息量的。
+      // 完全照搬 TI 拓扑：Leader → 每个 Researcher (fan-out)，
+      //                    Leader → Reviewer / Writer (直连)
+      // analyst 仍在 pipeline 执行，但不在网络图绘出（避免乱线）
       const connections: TeamTopologyConnection[] = [];
       if (groupExpanded && researcherInstanceIds.length > 1) {
         for (const rid of researcherInstanceIds) {
           connections.push({ from: 'leader', to: rid });
         }
-        const midRid =
-          researcherInstanceIds[Math.floor(researcherInstanceIds.length / 2)];
-        connections.push({ from: midRid, to: 'analyst' });
       } else {
         const groupId = researcherInstanceIds[0] ?? 'research-team';
         connections.push({ from: 'leader', to: groupId });
-        connections.push({ from: groupId, to: 'analyst' });
       }
-      connections.push({ from: 'analyst', to: 'writer' });
-      connections.push({ from: 'writer', to: 'reviewer' });
+      connections.push({ from: 'leader', to: 'reviewer' });
+      connections.push({ from: 'leader', to: 'writer' });
 
       // 展开时拉高画布让 fan-out/fan-in 不挤
       const expanded = groupExpanded && researcherInstanceIds.length > 1;

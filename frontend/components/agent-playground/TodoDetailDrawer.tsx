@@ -318,21 +318,89 @@ type TimelineCardKind =
   | 'narrative'
   | 'thought'
   | 'tool-call'
+  | 'parallel-tool-call'
   | 'tool-result'
   | 'reflection'
   | 'finalize';
 
+interface ParallelSubCall {
+  toolId: string;
+  query?: string;
+  rawInput?: unknown;
+}
+
 interface TimelineCard {
   kind: TimelineCardKind;
   ts: number;
-  /** 给 narrative 用 */
   narrative?: MissionTodoNarrativeItem;
-  /** 给 trace 用 */
   trace?: AgentTraceItem;
-  /** 工具调用解包后的查询 */
+  /** 单工具调用的 query（kind='tool-call' 用） */
   query?: string;
-  /** observation 解出来的 search results */
+  /** parallel_tool_call 解包后的子工具列表（kind='parallel-tool-call' 用） */
+  subCalls?: ParallelSubCall[];
+  /** observation 解出来的 search results（kind='tool-result' 用） */
   results?: { title?: string; url?: string; snippet?: string }[];
+  /** 与该工具结果对应的工具 id（让 tool-result 卡知道它是谁的产物） */
+  resultToolId?: string;
+  /** raw input/output —— 给"展开看完整数据"用 */
+  rawInput?: unknown;
+  rawOutput?: unknown;
+}
+
+function collectSearchResultsDeep(
+  node: unknown
+): { title?: string; url?: string; snippet?: string }[] {
+  const out: { title?: string; url?: string; snippet?: string }[] = [];
+  const visit = (n: unknown) => {
+    if (!n) return;
+    if (typeof n === 'string') {
+      const trimmed = n.trim();
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
+        try {
+          visit(JSON.parse(trimmed));
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
+    if (Array.isArray(n)) {
+      n.forEach(visit);
+      return;
+    }
+    if (typeof n !== 'object') return;
+    const o = n as Record<string, unknown>;
+    if (typeof o.title === 'string' || typeof o.url === 'string') {
+      out.push({
+        title: typeof o.title === 'string' ? o.title : undefined,
+        url: typeof o.url === 'string' ? o.url : undefined,
+        snippet:
+          typeof o.snippet === 'string'
+            ? o.snippet
+            : typeof o.description === 'string'
+              ? o.description
+              : typeof o.content === 'string'
+                ? o.content
+                : undefined,
+      });
+    }
+    for (const k of [
+      'results',
+      'items',
+      'hits',
+      'output',
+      'data',
+      'preview',
+      'subResults',
+    ]) {
+      if (o[k] !== undefined) visit(o[k]);
+    }
+  };
+  visit(node);
+  return out;
 }
 
 function buildTimelineCards(
@@ -347,75 +415,60 @@ function buildTimelineCards(
     if (t.kind === 'thought' && t.text && t.text.trim()) {
       cards.push({ kind: 'thought', ts: t.ts, trace: t });
     } else if (t.kind === 'action' && t.toolId) {
-      const inp = (t.input ?? {}) as Record<string, unknown>;
-      const query =
-        typeof inp.query === 'string'
-          ? inp.query
-          : typeof inp.url === 'string'
-            ? inp.url
-            : undefined;
       if (t.toolId === 'finalize') {
         cards.push({ kind: 'finalize', ts: t.ts, trace: t });
+      } else if (t.toolId === 'parallel_tool_call' && Array.isArray(t.input)) {
+        const subCalls: ParallelSubCall[] = [];
+        for (const sub of t.input as unknown[]) {
+          if (!sub || typeof sub !== 'object') continue;
+          const o = sub as Record<string, unknown>;
+          const subToolId =
+            typeof o.toolId === 'string'
+              ? o.toolId
+              : typeof o.tool === 'string'
+                ? o.tool
+                : 'unknown';
+          const inp = (o.input ?? {}) as Record<string, unknown>;
+          const query =
+            typeof inp.query === 'string'
+              ? inp.query
+              : typeof inp.url === 'string'
+                ? inp.url
+                : undefined;
+          subCalls.push({ toolId: subToolId, query, rawInput: o });
+        }
+        cards.push({
+          kind: 'parallel-tool-call',
+          ts: t.ts,
+          trace: t,
+          subCalls,
+          rawInput: t.input,
+        });
       } else {
-        cards.push({ kind: 'tool-call', ts: t.ts, trace: t, query });
+        const inp = (t.input ?? {}) as Record<string, unknown>;
+        const query =
+          typeof inp.query === 'string'
+            ? inp.query
+            : typeof inp.url === 'string'
+              ? inp.url
+              : undefined;
+        cards.push({
+          kind: 'tool-call',
+          ts: t.ts,
+          trace: t,
+          query,
+          rawInput: t.input,
+        });
       }
     } else if (t.kind === 'observation' && !t.error) {
-      // 解 search results
-      const collected: { title?: string; url?: string; snippet?: string }[] =
-        [];
-      const visit = (node: unknown) => {
-        if (!node) return;
-        if (typeof node === 'string') {
-          const trimmed = node.trim();
-          if (
-            (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-            (trimmed.startsWith('[') && trimmed.endsWith(']'))
-          ) {
-            try {
-              visit(JSON.parse(trimmed));
-            } catch {
-              /* ignore */
-            }
-          }
-          return;
-        }
-        if (Array.isArray(node)) {
-          node.forEach(visit);
-          return;
-        }
-        if (typeof node !== 'object') return;
-        const o = node as Record<string, unknown>;
-        if (typeof o.title === 'string' || typeof o.url === 'string') {
-          collected.push({
-            title: typeof o.title === 'string' ? o.title : undefined,
-            url: typeof o.url === 'string' ? o.url : undefined,
-            snippet:
-              typeof o.snippet === 'string'
-                ? o.snippet
-                : typeof o.description === 'string'
-                  ? o.description
-                  : typeof o.content === 'string'
-                    ? o.content.slice(0, 280)
-                    : undefined,
-          });
-        }
-        for (const k of [
-          'results',
-          'items',
-          'hits',
-          'output',
-          'data',
-          'preview',
-        ]) {
-          if (o[k] !== undefined) visit(o[k]);
-        }
-      };
-      visit(t.output);
+      const results = collectSearchResultsDeep(t.output);
       cards.push({
         kind: 'tool-result',
         ts: t.ts,
         trace: t,
-        results: collected.slice(0, 6),
+        results,
+        resultToolId: t.toolId,
+        rawOutput: t.output,
       });
     } else if (t.kind === 'reflection' && t.text) {
       cards.push({ kind: 'reflection', ts: t.ts, trace: t });
@@ -425,7 +478,62 @@ function buildTimelineCards(
   return cards;
 }
 
-/** TI 配色：phase → bg/text/ring/Icon */
+// ─── 可展开文本组件 ───
+function ExpandableText({
+  text,
+  maxChars = 240,
+  className,
+}: {
+  text: string;
+  maxChars?: number;
+  className?: string;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  if (text.length <= maxChars) {
+    return <span className={className}>{linkify(text)}</span>;
+  }
+  return (
+    <span className={className}>
+      {expanded ? linkify(text) : linkify(text.slice(0, maxChars))}
+      {!expanded && '…'}{' '}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(!expanded);
+        }}
+        className="text-violet-600 hover:text-violet-800 hover:underline"
+      >
+        {expanded ? '收起' : '展开全文'}
+      </button>
+    </span>
+  );
+}
+
+// ─── 工具调用 raw I/O 折叠面板 ───
+function RawDataToggle({ label, data }: { label: string; data: unknown }) {
+  const [open, setOpen] = React.useState(false);
+  if (data == null) return null;
+  const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  return (
+    <details
+      className="mt-1.5 rounded-md bg-gray-50/80 ring-1 ring-gray-200"
+      open={open}
+      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+    >
+      <summary className="cursor-pointer px-2 py-1 text-[10px] font-medium text-gray-600 hover:text-gray-800">
+        {open ? '▾' : '▸'} {label}（{text.length.toLocaleString()} 字符）
+      </summary>
+      <pre className="font-mono mt-1 max-h-80 overflow-auto break-words rounded bg-white px-2 py-1.5 text-[10px] leading-relaxed text-gray-700">
+        {text.length > 30_000
+          ? text.slice(0, 30_000) + '\n…(已截断 30K 上限)'
+          : text}
+      </pre>
+    </details>
+  );
+}
+
+/** TI 配色：phase → bg/text/ring/Icon —— 主色调以 sky / slate 为主，避免大片绿色 */
 const KIND_STYLE: Record<
   TimelineCardKind,
   {
@@ -439,34 +547,43 @@ const KIND_STYLE: Record<
   }
 > = {
   thought: {
-    bg: 'bg-purple-50/60',
-    border: 'border-purple-200',
-    chip: 'bg-purple-100 text-purple-700',
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600',
+    bg: 'bg-violet-50/50',
+    border: 'border-violet-200',
+    chip: 'bg-violet-100 text-violet-700',
+    iconBg: 'bg-violet-100',
+    iconColor: 'text-violet-600',
     label: '思考',
     Icon: Brain,
   },
   'tool-call': {
-    bg: 'bg-blue-50/60',
-    border: 'border-blue-200',
-    chip: 'bg-blue-100 text-blue-700',
-    iconBg: 'bg-blue-100',
-    iconColor: 'text-blue-600',
+    bg: 'bg-sky-50/50',
+    border: 'border-sky-200',
+    chip: 'bg-sky-100 text-sky-700',
+    iconBg: 'bg-sky-100',
+    iconColor: 'text-sky-600',
     label: '调用工具',
     Icon: Search,
   },
+  'parallel-tool-call': {
+    bg: 'bg-sky-50/50',
+    border: 'border-sky-200',
+    chip: 'bg-sky-100 text-sky-700',
+    iconBg: 'bg-sky-100',
+    iconColor: 'text-sky-600',
+    label: '并发调用',
+    Icon: Search,
+  },
   'tool-result': {
-    bg: 'bg-indigo-50/60',
-    border: 'border-indigo-200',
-    chip: 'bg-indigo-100 text-indigo-700',
-    iconBg: 'bg-indigo-100',
-    iconColor: 'text-indigo-600',
+    bg: 'bg-slate-50/60',
+    border: 'border-slate-200',
+    chip: 'bg-slate-100 text-slate-700',
+    iconBg: 'bg-slate-100',
+    iconColor: 'text-slate-600',
     label: '工具结果',
     Icon: Database,
   },
   reflection: {
-    bg: 'bg-amber-50/60',
+    bg: 'bg-amber-50/50',
     border: 'border-amber-200',
     chip: 'bg-amber-100 text-amber-700',
     iconBg: 'bg-amber-100',
@@ -475,24 +592,92 @@ const KIND_STYLE: Record<
     Icon: Lightbulb,
   },
   finalize: {
-    bg: 'bg-emerald-50/70',
-    border: 'border-emerald-300',
-    chip: 'bg-emerald-100 text-emerald-700',
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-700',
+    bg: 'bg-sky-50/60',
+    border: 'border-sky-300',
+    chip: 'bg-sky-100 text-sky-700',
+    iconBg: 'bg-sky-100',
+    iconColor: 'text-sky-700',
     label: '产出',
     Icon: CheckCircle2,
   },
   narrative: {
-    bg: 'bg-sky-50/50',
-    border: 'border-sky-200',
-    chip: 'bg-sky-100 text-sky-700',
-    iconBg: 'bg-sky-100',
-    iconColor: 'text-sky-600',
+    bg: 'bg-blue-50/40',
+    border: 'border-blue-200',
+    chip: 'bg-blue-100 text-blue-700',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600',
     label: '进展',
     Icon: Info,
   },
 };
+
+// ─── 工具结果列表（paginated 展开） ───
+function ToolResultsList({
+  results,
+}: {
+  results: { title?: string; url?: string; snippet?: string }[];
+}) {
+  const [showAll, setShowAll] = React.useState(false);
+  const visible = showAll ? results : results.slice(0, 5);
+  return (
+    <ul className="space-y-1.5">
+      {visible.map((r, ri) => (
+        <li
+          key={ri}
+          className="rounded-md bg-white px-2 py-1.5 ring-1 ring-slate-200"
+        >
+          <a
+            href={r.url ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (!r.url) e.preventDefault();
+            }}
+            className="block min-w-0"
+          >
+            <p className="truncate text-[11.5px] font-medium text-gray-800 hover:text-violet-700">
+              {r.title ?? r.url ?? '(无标题)'}
+            </p>
+            {r.url && (
+              <p className="font-mono truncate text-[10px] text-gray-400">
+                {(() => {
+                  try {
+                    return new URL(r.url).hostname.replace(/^www\./, '');
+                  } catch {
+                    return r.url;
+                  }
+                })()}
+              </p>
+            )}
+            {r.snippet && (
+              <p className="mt-0.5 text-[10.5px] leading-relaxed text-gray-600">
+                {r.snippet.length > 200 && !showAll
+                  ? r.snippet.slice(0, 200) + '…'
+                  : r.snippet}
+              </p>
+            )}
+          </a>
+        </li>
+      ))}
+      {results.length > 5 && (
+        <li>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAll(!showAll);
+            }}
+            className="w-full rounded-md border border-dashed border-slate-300 bg-white px-2 py-1 text-center text-[11px] text-violet-600 hover:bg-violet-50 hover:text-violet-700"
+          >
+            {showAll
+              ? `▴ 收起，仅显示前 5 条`
+              : `▾ 展开剩余 ${results.length - 5} 条结果`}
+          </button>
+        </li>
+      )}
+    </ul>
+  );
+}
 
 function safeHostname(u: string): string | undefined {
   try {
@@ -674,30 +859,36 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
               return (
                 <>
                   {d.findings.length > 0 && (
-                    <section className="rounded-lg border border-emerald-100 bg-gradient-to-br from-emerald-50/70 to-teal-50/40">
-                      <div className="border-b border-emerald-100 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-                          ⭐ 关键发现 · {d.findings.length} 条
+                    <section className="rounded-lg border border-sky-100 bg-gradient-to-br from-sky-50/60 to-slate-50/30">
+                      <div className="border-b border-sky-100 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                          关键发现 · {d.findings.length} 条
                         </p>
                       </div>
                       <ol className="space-y-2 p-3">
                         {d.findings.map((f, i) => (
                           <li
                             key={i}
-                            className="rounded-md bg-white px-3 py-2 ring-1 ring-emerald-100"
+                            className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-200"
                           >
                             <div className="flex items-start gap-2">
-                              <span className="font-mono mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
+                              <span className="font-mono mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-[10px] font-bold text-sky-700">
                                 {i + 1}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <p className="text-[12.5px] font-medium leading-relaxed text-gray-900">
-                                  {f.claim}
-                                </p>
+                                <ExpandableText
+                                  text={f.claim}
+                                  maxChars={200}
+                                  className="text-[12.5px] font-medium leading-relaxed text-gray-900"
+                                />
                                 {f.evidence && (
-                                  <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
-                                    {f.evidence}
-                                  </p>
+                                  <div className="mt-1">
+                                    <ExpandableText
+                                      text={f.evidence}
+                                      maxChars={240}
+                                      className="text-[11px] leading-relaxed text-gray-600"
+                                    />
+                                  </div>
                                 )}
                                 {f.source && (
                                   <a
@@ -710,9 +901,7 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
                                     rel="noopener noreferrer"
                                     className="font-mono mt-1 inline-flex items-center gap-1 break-all text-[10px] text-violet-700 hover:underline"
                                   >
-                                    🔗{' '}
-                                    {safeHostname(f.source) ??
-                                      f.source.slice(0, 60)}
+                                    🔗 {safeHostname(f.source) ?? f.source}
                                   </a>
                                 )}
                               </div>
@@ -860,12 +1049,27 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
                                   c.trace.toolId}
                               </span>
                             )}
-                            {c.kind === 'tool-result' &&
-                              (c.results?.length ?? 0) > 0 && (
-                                <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-indigo-100">
-                                  {c.results!.length} 条结果
-                                </span>
-                              )}
+                            {c.kind === 'parallel-tool-call' && (
+                              <span className="font-mono inline-flex items-center gap-1 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-100">
+                                ⚡ 并发 × {c.subCalls?.length ?? 0}
+                              </span>
+                            )}
+                            {c.kind === 'tool-result' && (
+                              <>
+                                {c.resultToolId && (
+                                  <span className="font-mono inline-flex items-center gap-1 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-indigo-100">
+                                    {TOOL_LABEL[c.resultToolId]?.emoji ?? '🔧'}{' '}
+                                    {TOOL_LABEL[c.resultToolId]?.label ??
+                                      c.resultToolId}
+                                  </span>
+                                )}
+                                {(c.results?.length ?? 0) > 0 && (
+                                  <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-indigo-100">
+                                    {c.results!.length} 条结果
+                                  </span>
+                                )}
+                              </>
+                            )}
                             {c.trace?.tokensUsed != null &&
                               c.trace.tokensUsed > 0 && (
                                 <span className="font-mono text-[10px] text-gray-500">
@@ -887,90 +1091,88 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
                             </span>
                           </div>
                           <div className="space-y-1.5 px-3 py-2">
-                            {c.kind === 'narrative' &&
-                              c.narrative &&
-                              (() => {
-                                const segs = splitNarrativeText(
-                                  c.narrative.text
-                                );
-                                return segs.length === 1 ? (
-                                  <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-gray-800">
-                                    {linkify(segs[0].text)}
-                                  </p>
-                                ) : (
-                                  <ul className="space-y-1 text-[12px] leading-relaxed text-gray-800">
-                                    {segs.map((seg, si) => (
-                                      <li key={si} className="flex gap-2">
-                                        <span className="font-mono text-[10px] text-gray-400">
-                                          {seg.kind === 'li'
-                                            ? `${seg.idx}.`
-                                            : '·'}
-                                        </span>
-                                        <span className="flex-1 whitespace-pre-wrap break-words">
-                                          {linkify(seg.text)}
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                );
-                              })()}
+                            {c.kind === 'narrative' && c.narrative && (
+                              <ExpandableText
+                                text={c.narrative.text}
+                                maxChars={300}
+                                className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-gray-800"
+                              />
+                            )}
                             {c.kind === 'thought' && c.trace?.text && (
-                              <p className="whitespace-pre-wrap text-[12px] italic leading-relaxed text-purple-900">
-                                💭 {c.trace.text}
-                              </p>
+                              <ExpandableText
+                                text={`💭 ${c.trace.text}`}
+                                maxChars={300}
+                                className="whitespace-pre-wrap text-[12px] italic leading-relaxed text-purple-900"
+                              />
                             )}
-                            {c.kind === 'tool-call' && c.query && (
-                              <p className="font-mono break-words text-[11.5px] leading-relaxed text-blue-900">
-                                <span className="text-blue-500">▸</span>{' '}
-                                {c.query}
-                              </p>
+                            {c.kind === 'tool-call' && (
+                              <>
+                                {c.query && (
+                                  <p className="font-mono break-words text-[11.5px] leading-relaxed text-blue-900">
+                                    <span className="text-blue-500">▸</span>{' '}
+                                    {c.query}
+                                  </p>
+                                )}
+                                <RawDataToggle
+                                  label="完整 input"
+                                  data={c.rawInput}
+                                />
+                              </>
                             )}
+                            {c.kind === 'parallel-tool-call' &&
+                              c.subCalls &&
+                              c.subCalls.length > 0 && (
+                                <ul className="space-y-1">
+                                  {c.subCalls.map((sub, si) => {
+                                    const meta = TOOL_LABEL[sub.toolId] ?? {
+                                      label: sub.toolId,
+                                      emoji: '🔧',
+                                    };
+                                    return (
+                                      <li
+                                        key={si}
+                                        className="rounded-md bg-white px-2 py-1.5 ring-1 ring-blue-100"
+                                      >
+                                        <div className="flex items-baseline gap-1.5">
+                                          <span className="font-mono inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+                                            {meta.emoji} {meta.label}
+                                          </span>
+                                        </div>
+                                        {sub.query && (
+                                          <p className="font-mono mt-0.5 break-words text-[11.5px] leading-relaxed text-blue-900">
+                                            <span className="text-blue-500">
+                                              ▸
+                                            </span>{' '}
+                                            {sub.query}
+                                          </p>
+                                        )}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
                             {c.kind === 'tool-result' &&
                               c.results &&
                               c.results.length > 0 && (
-                                <ul className="space-y-1.5">
-                                  {c.results.slice(0, 4).map((r, ri) => (
-                                    <li
-                                      key={ri}
-                                      className="rounded-md bg-white px-2 py-1.5 ring-1 ring-indigo-100"
-                                    >
-                                      <a
-                                        href={r.url ?? '#'}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block min-w-0"
-                                      >
-                                        <p className="truncate text-[11.5px] font-medium text-gray-800 hover:text-violet-700">
-                                          {r.title ?? r.url ?? '(无标题)'}
-                                        </p>
-                                        {r.url && (
-                                          <p className="font-mono truncate text-[10px] text-gray-400">
-                                            {safeHostname(r.url) ?? r.url}
-                                          </p>
-                                        )}
-                                        {r.snippet && (
-                                          <p className="mt-0.5 line-clamp-2 text-[10.5px] leading-relaxed text-gray-600">
-                                            {r.snippet}
-                                          </p>
-                                        )}
-                                      </a>
-                                    </li>
-                                  ))}
-                                  {c.results.length > 4 && (
-                                    <li className="text-center text-[10px] text-gray-400">
-                                      … 还有 {c.results.length - 4} 条
-                                    </li>
-                                  )}
-                                </ul>
+                                <ToolResultsList results={c.results} />
                               )}
+                            {c.kind === 'tool-result' && (
+                              <RawDataToggle
+                                label="完整 output"
+                                data={c.rawOutput}
+                              />
+                            )}
                             {c.kind === 'reflection' && c.trace?.text && (
-                              <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-amber-900">
-                                ✨ {c.trace.text}
-                              </p>
+                              <ExpandableText
+                                text={`✨ ${c.trace.text}`}
+                                maxChars={300}
+                                className="whitespace-pre-wrap text-[12px] leading-relaxed text-amber-900"
+                              />
                             )}
                             {c.kind === 'finalize' && (
-                              <p className="text-[12px] font-medium text-emerald-800">
-                                ✓ 任务产出已完成（详见上方"关键发现"）
+                              <p className="text-[12px] font-medium text-sky-800">
+                                ✓
+                                任务产出已完成（详见上方&ldquo;关键发现&rdquo;）
                               </p>
                             )}
                           </div>

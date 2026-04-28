@@ -29,6 +29,7 @@ import type {
   MissionTodo,
   MissionTodoStatus,
 } from '@/lib/agent-playground/todo-ledger';
+import type { AgentLiveState } from '@/lib/agent-playground/derive';
 
 interface Props {
   todos: MissionTodo[];
@@ -37,6 +38,32 @@ interface Props {
   onSelect?: (todoId: string | null) => void;
   missionFailed?: boolean;
   missionFailedMessage?: string;
+  /** 用于显示模型列 —— 按 agentRefId / dimensionRef 解析 modelId */
+  agents?: AgentLiveState[];
+}
+
+/** 把 todo 解析到对应 agent 拿 modelId */
+function resolveModel(
+  todo: MissionTodo,
+  agents: AgentLiveState[]
+): string | undefined {
+  const ref = todo.agentRefId;
+  if (ref) {
+    const a =
+      agents.find((x) => x.agentId === ref) ??
+      agents.find((x) => x.agentId.startsWith(`${ref}.`));
+    if (a?.modelId) return a.modelId;
+  }
+  if (todo.assignee.dimensionName) {
+    const a = agents.find(
+      (x) =>
+        x.role === 'researcher' && x.dimension === todo.assignee.dimensionName
+    );
+    if (a?.modelId) return a.modelId;
+  }
+  // 按 role 兜底
+  const byRole = agents.find((x) => x.role === todo.assignee.role);
+  return byRole?.modelId;
 }
 
 const STATUS_BADGE: Record<
@@ -155,6 +182,7 @@ export function MissionTodoBoard({
   onSelect,
   missionFailed,
   missionFailedMessage,
+  agents,
 }: Props) {
   // 仅展示真实工作任务；system-stage 阶段不进入此表格
   const workTodos = todos.filter(
@@ -246,28 +274,28 @@ export function MissionTodoBoard({
         </div>
       </div>
 
-      {/* 单一扁平表格 */}
+      {/* 单一扁平表格 —— TI 同款 6 列：# / 任务 / 负责人 / 模型 / 状态 / 操作 */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <table className="w-full table-fixed">
           <thead className="border-b border-gray-200 bg-gray-50/80">
             <tr>
-              <th className="w-12 px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                序号
+              <th className="w-10 px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
+                #
               </th>
-              <th className="w-[44%] px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
-                任务
+              <th className="w-[42%] px-3 py-2.5 text-left text-xs font-semibold text-gray-600">
+                任务名称
               </th>
               <th className="w-[18%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
-                负责
+                负责人
               </th>
               <th className="w-[14%] px-2 py-2.5 text-left text-xs font-semibold text-gray-600">
-                类型
+                模型
               </th>
               <th className="w-[14%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 状态
               </th>
               <th className="w-[8%] px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                详情
+                操作
               </th>
             </tr>
           </thead>
@@ -303,28 +331,18 @@ export function MissionTodoBoard({
                       </span>
                       <div className="min-w-0 flex-1">
                         <div
-                          className="truncate text-sm font-medium text-gray-900"
+                          className="line-clamp-1 text-sm font-medium text-gray-900"
                           title={td.title}
                         >
                           {td.title}
                         </div>
-                        {td.artifacts.length > 0 && (
-                          <div className="mt-0.5 flex flex-wrap gap-1">
-                            {td.artifacts.map((a, i) => (
-                              <span
-                                key={`${a.kind}-${i}`}
-                                className="inline-flex items-center gap-1 rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600 ring-1 ring-gray-200"
-                                title={a.label}
-                              >
-                                <span className="text-gray-400">{a.label}</span>
-                                {a.value !== undefined && (
-                                  <span className="font-mono font-semibold text-gray-800">
-                                    {a.value}
-                                  </span>
-                                )}
-                              </span>
-                            ))}
-                          </div>
+                        {td.reasonText && (
+                          <p
+                            className="line-clamp-1 text-[11px] text-gray-500"
+                            title={td.reasonText}
+                          >
+                            {td.reasonText}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -333,14 +351,36 @@ export function MissionTodoBoard({
                     className="truncate px-2 py-2 text-xs text-gray-600"
                     title={`${roleLabel(td.assignee.role)}${td.assignee.agentId ? ' · ' + td.assignee.agentId : ''}`}
                   >
-                    {roleLabel(td.assignee.role)}
+                    <span className="font-mono inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-200">
+                      {td.assignee.agentId ?? roleLabel(td.assignee.role)}
+                    </span>
                   </td>
-                  <td className="px-2 py-2 text-[11px] text-gray-500">
-                    {originLabel(td)}
+                  <td className="px-2 py-2">
+                    {(() => {
+                      const modelId = agents
+                        ? resolveModel(td, agents)
+                        : undefined;
+                      if (!modelId)
+                        return (
+                          <span className="text-[10px] text-gray-300">—</span>
+                        );
+                      const short =
+                        modelId.length > 12
+                          ? modelId.slice(0, 12) + '…'
+                          : modelId;
+                      return (
+                        <span
+                          title={modelId}
+                          className="font-mono inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-200"
+                        >
+                          {short}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-2 py-2 text-center">
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${status.cls}`}
+                      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${status.cls}`}
                     >
                       <SIcon
                         className={`h-3 w-3 ${status.spin ? 'animate-spin' : ''}`}
