@@ -11,5 +11,6 @@ export { RawEventLog } from './RawEventLog';
 export { TeamRosterPanel } from './TeamRosterPanel';
 export { MissionTodoBoard } from './MissionTodoBoard';
 export { TodoDetailDrawer } from './TodoDetailDrawer';
+export { MissionFlowView } from './MissionFlowView';
 export { LeaderChatModal } from './LeaderChatModal';
 export { TeamMissionModal } from './TeamMissionModal';

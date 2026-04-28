@@ -23,14 +23,12 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
-  AgentLiveGrid,
   CapabilityMeters,
   CostBreakdownPanel,
   LeaderChatModal,
   MemoryIndexPanel,
+  MissionFlowView,
   MissionTodoBoard,
-  PipelineTimeline,
-  RawEventLog,
   ReportPanel,
   TeamMissionModal,
   TeamRosterPanel,
@@ -418,22 +416,17 @@ export default function MissionDetailPage() {
               topic={view.mission.topic}
               dimensions={view.mission.dimensions}
               missionStatus={
-                // ★ Bug fix: 优先用 persisted.status（DB source of truth）;
-                //   原逻辑依赖 view.mission.startedAt，replay buffer 回收后会
-                //   返回 idle，导致取消按钮被错误禁用
-                persisted?.status === 'running'
-                  ? 'running'
-                  : persisted?.status === 'failed'
-                    ? 'failed'
-                    : persisted?.status === 'completed'
-                      ? 'completed'
-                      : view.mission.failedAt
-                        ? 'failed'
-                        : view.mission.completedAt
-                          ? 'completed'
-                          : view.mission.startedAt
-                            ? 'running'
-                            : 'idle'
+                // ★ 取消按钮可用判定：只要不是终态（completed/failed/rejected/
+                //   cancelled）就视为 running。这样初次加载 persisted 还没回来 +
+                //   还没收到事件时也能取消（DB 已经创建了 running 行）。
+                view.mission.failedAt ||
+                persisted?.status === 'failed' ||
+                persisted?.status === 'rejected'
+                  ? 'failed'
+                  : view.mission.completedAt ||
+                      persisted?.status === 'completed'
+                    ? 'completed'
+                    : 'running'
               }
               onCollapse={() => setLeftCollapsed(true)}
               onLeaderClick={() => setLeaderChatOpen(true)}
@@ -551,11 +544,7 @@ export default function MissionDetailPage() {
             )}
 
             {activeTab === 'collab' && (
-              <div className="space-y-4">
-                <PipelineTimeline stages={view.stages} />
-                <AgentLiveGrid agents={view.agents} />
-                <RawEventLog events={events} />
-              </div>
+              <MissionFlowView view={view} events={events} />
             )}
 
             {activeTab === 'report' && (
@@ -722,10 +711,11 @@ export default function MissionDetailPage() {
         }}
       />
 
-      {/* Todo detail drawer (新版：以 todo.narrativeLog 为主时间线 + 4 层架构面包屑) */}
+      {/* Todo detail drawer (新版：narrativeLog 时间线 + 4 层架构面包屑 + chapter pipeline) */}
       <TodoDetailDrawer
         todo={selectedTodo}
         agents={view.agents}
+        dimensionPipelines={view.dimensionPipelines}
         onClose={() => setSelectedTaskKey(null)}
       />
 

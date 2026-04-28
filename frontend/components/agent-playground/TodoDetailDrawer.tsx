@@ -29,6 +29,7 @@ import { deriveLayerBreadcrumb } from '@/lib/agent-playground/todo-ledger';
 import type {
   AgentLiveState,
   AgentTraceItem,
+  DimensionPipelineState,
 } from '@/lib/agent-playground/derive';
 import { deriveDrawerSections } from '@/lib/agent-playground/drawer-derive';
 import {
@@ -53,6 +54,7 @@ import {
 interface Props {
   todo: MissionTodo | undefined;
   agents: AgentLiveState[];
+  dimensionPipelines?: Map<string, DimensionPipelineState>;
   onClose: () => void;
 }
 
@@ -338,7 +340,12 @@ const KIND_LABEL: Record<TimelineKind, string> = {
 };
 
 // ─── Main component ───────────────────────────────────
-export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
+export function TodoDetailDrawer({
+  todo,
+  agents,
+  dimensionPipelines,
+  onClose,
+}: Props) {
   const [showTimeline, setShowTimeline] = useState(true);
   const [showDiag, setShowDiag] = useState(false);
 
@@ -539,6 +546,189 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
               </ol>
             </Section>
           )}
+
+          {/* 章节进度 + 维度评分 (仅 dim todos with chapter pipeline) */}
+          {todo.scope === 'dimension' &&
+            todo.dimensionRef &&
+            (() => {
+              const pipeline = dimensionPipelines?.get(todo.dimensionRef);
+              if (!pipeline || pipeline.chapters.length === 0) return null;
+              return (
+                <>
+                  <Section
+                    title="章节进度"
+                    count={`${pipeline.chapters.filter((c) => c.status === 'passed').length} / ${pipeline.chapters.length} 通过${pipeline.totalWordCount ? ' · ' + pipeline.totalWordCount + ' 字' : ''}`}
+                  >
+                    <ul className="space-y-1.5 p-3">
+                      {pipeline.chapters.map((c) => {
+                        const cls =
+                          c.status === 'passed'
+                            ? 'bg-emerald-50 ring-emerald-200 text-emerald-700'
+                            : c.status === 'writing'
+                              ? 'bg-blue-50 ring-blue-200 text-blue-700'
+                              : c.status === 'reviewing'
+                                ? 'bg-amber-50 ring-amber-200 text-amber-700'
+                                : c.status === 'revising'
+                                  ? 'bg-orange-50 ring-orange-200 text-orange-700'
+                                  : c.status === 'failed'
+                                    ? 'bg-red-50 ring-red-200 text-red-700'
+                                    : 'bg-gray-50 ring-gray-200 text-gray-600';
+                        const statusLabel =
+                          c.status === 'passed'
+                            ? '已通过'
+                            : c.status === 'writing'
+                              ? '撰写中'
+                              : c.status === 'reviewing'
+                                ? '评审中'
+                                : c.status === 'revising'
+                                  ? `重写第 ${c.attempts} 轮`
+                                  : c.status === 'failed'
+                                    ? '失败'
+                                    : '待启动';
+                        return (
+                          <li
+                            key={c.index}
+                            className="rounded-md border border-gray-200 bg-white px-3 py-2"
+                          >
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-mono text-[10px] font-bold text-gray-500">
+                                #{c.index}
+                              </span>
+                              <span className="flex-1 text-[12.5px] font-medium text-gray-900">
+                                {c.heading}
+                              </span>
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+                                  cls
+                                )}
+                              >
+                                {statusLabel}
+                              </span>
+                            </div>
+                            {c.thesis && (
+                              <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+                                {c.thesis}
+                              </p>
+                            )}
+                            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-gray-500">
+                              {c.wordCount != null && c.wordCount > 0 && (
+                                <span>{c.wordCount} 字</span>
+                              )}
+                              {c.score != null && (
+                                <span
+                                  className={cn(
+                                    'font-mono font-semibold',
+                                    c.score >= 80
+                                      ? 'text-emerald-600'
+                                      : c.score >= 60
+                                        ? 'text-amber-600'
+                                        : 'text-red-600'
+                                  )}
+                                >
+                                  {c.score}/100
+                                </span>
+                              )}
+                              {c.attempts > 1 && (
+                                <span className="text-orange-600">
+                                  已重写 {c.attempts - 1} 次
+                                </span>
+                              )}
+                            </div>
+                            {c.critique && (
+                              <div className="mt-1.5 rounded-md bg-amber-50/50 px-2 py-1.5 ring-1 ring-amber-100">
+                                <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
+                                  Reviewer 反馈
+                                </p>
+                                <ExpandableText
+                                  text={c.critique}
+                                  maxChars={180}
+                                  className="text-[11px] leading-relaxed text-gray-700"
+                                />
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Section>
+
+                  {pipeline.grade && (
+                    <Section
+                      title="维度评分"
+                      count={`${pipeline.grade.overall}/100 · ${
+                        pipeline.grade.grade === 'excellent'
+                          ? '优秀'
+                          : pipeline.grade.grade === 'good'
+                            ? '良好'
+                            : pipeline.grade.grade === 'fair'
+                              ? '一般'
+                              : '不及格'
+                      }`}
+                    >
+                      <div className="p-3">
+                        <ul className="space-y-1.5">
+                          {(
+                            [
+                              ['breadth', '广度'],
+                              ['depth', '深度'],
+                              ['evidence', '证据'],
+                              ['coherence', '连贯性'],
+                              ['freshness', '时效性'],
+                            ] as const
+                          ).map(([k, label]) => {
+                            const a = pipeline.grade!.axes[k];
+                            if (!a) return null;
+                            return (
+                              <li key={k}>
+                                <div className="flex items-baseline justify-between text-[11px]">
+                                  <span className="text-gray-700">{label}</span>
+                                  <span
+                                    className={cn(
+                                      'font-mono font-semibold',
+                                      a.score >= 80
+                                        ? 'text-emerald-600'
+                                        : a.score >= 60
+                                          ? 'text-amber-600'
+                                          : 'text-red-600'
+                                    )}
+                                  >
+                                    {a.score}
+                                  </span>
+                                </div>
+                                <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-gray-100">
+                                  <div
+                                    className={cn(
+                                      'h-full rounded-full',
+                                      a.score >= 80
+                                        ? 'bg-emerald-400'
+                                        : a.score >= 60
+                                          ? 'bg-amber-400'
+                                          : 'bg-red-400'
+                                    )}
+                                    style={{ width: `${a.score}%` }}
+                                  />
+                                </div>
+                                {a.comment && (
+                                  <p className="mt-0.5 text-[10px] text-gray-500">
+                                    {a.comment}
+                                  </p>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        {pipeline.grade.summary && (
+                          <p className="mt-3 rounded bg-gray-50 px-2 py-1.5 text-[11px] leading-relaxed text-gray-700 ring-1 ring-gray-200">
+                            {pipeline.grade.summary}
+                          </p>
+                        )}
+                      </div>
+                    </Section>
+                  )}
+                </>
+              );
+            })()}
 
           {/* 使用工具 */}
           {sections.toolUsage.filter((t) => t.toolId !== 'finalize').length >
