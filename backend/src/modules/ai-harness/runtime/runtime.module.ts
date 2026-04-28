@@ -11,7 +11,7 @@
 import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 
-// Teams module (migrated from ai-engine/teams — PR-X4)
+// Teams module (PR-X4)
 import { TeamsModule } from "./teams/teams.module";
 
 // Cross-cutting runtime services

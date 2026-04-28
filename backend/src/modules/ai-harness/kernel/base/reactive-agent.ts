@@ -1,8 +1,8 @@
 /**
- * Legacy Reactive Agent (migrated from ai-engine/agents/base)
+ * Legacy Reactive Agent (migrated from ai-harness/kernel/base)
  *
  * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
- * Migrated: PR-X5 (ai-engine/agents/base → ai-harness/kernel/base)
+ * Migrated: PR-X5 (ai-harness/kernel/base → ai-harness/kernel/base)
  */
 
 import { ExecutionMode } from "../../../ai-engine/core";

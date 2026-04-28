@@ -1,10 +1,10 @@
 /**
- * Legacy Base Agent (migrated from ai-engine/agents/base)
+ * Legacy Base Agent (migrated from ai-harness/kernel/base)
  *
  * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
  * This class is kept for backwards-compat with existing ai-app agents (e.g. research).
  *
- * Migrated: PR-X5 (ai-engine/agents/base → ai-harness/kernel/base)
+ * Migrated: PR-X5 (ai-harness/kernel/base → ai-harness/kernel/base)
  */
 
 import { v4 as uuid } from "uuid";

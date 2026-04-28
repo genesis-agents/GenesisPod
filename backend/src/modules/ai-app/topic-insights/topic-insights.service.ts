@@ -8,7 +8,7 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.utils";
 import { sanitize } from "./utils/prompt-sanitizer";
-import { preprocessDimensionContent } from "../shared/report-template";
+import { preprocessDimensionContent } from "../contracts/report-template";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { RESEARCH_INTERNAL_EVENTS } from "./services/core/research/research-event-emitter.service";
 import { Observable, Subject, filter, map } from "rxjs";

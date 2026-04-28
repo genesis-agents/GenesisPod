@@ -4,8 +4,6 @@ import { DistributableKeysModule } from "../distributable-keys/distributable-key
 import { KeyAssignmentsModule } from "../key-assignments/key-assignments.module";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { UserApiKeysModule } from "../user-api-keys/user-api-keys.module";
-import { AdminByokDashboardController } from "./admin-byok-dashboard.controller";
-import { UserByokController } from "./user-byok.controller";
 import { ByokSchedulerService } from "./byok-scheduler.service";
 import { KeyResolverService } from "./key-resolver.service";
 
@@ -17,7 +15,8 @@ import { KeyResolverService } from "./key-resolver.service";
     DistributableKeysModule,
     SecretsModule,
   ],
-  controllers: [UserByokController, AdminByokDashboardController],
+  // PR-X17: HTTP Controllers moved to open-api/byok-admin or ai-app/byok
+  controllers: [],
   providers: [KeyResolverService, ByokSchedulerService],
   exports: [KeyResolverService],
 })

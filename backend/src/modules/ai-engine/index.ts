@@ -8,20 +8,22 @@
  * - core: 核心抽象（类型、错误、接口）
  * - tools: 工具系统（48 个内置工具）
  * - skills: 技能系统（Tool 的高级组合）
- * - agents: Agent 框架（ReAct/Plan-Based）
- * - orchestration: 编排引擎（工作流执行）
- * - collaboration: 协作框架（多 Agent 协作）
+ * - planning: 编排引擎（工作流执行），原名 orchestration
  * - constraint: 约束引擎（验证、过滤、限流）
  * - llm: LLM 适配层
  * - memory: 记忆系统
- * - mcp: MCP 协议层
+ *
+ * 已迁移子系统（PR-X4/X5/X7）：
+ * - agents/teams → ai-harness/kernel + ai-harness/runtime/teams
+ * - mcp → ai-harness/protocol/mcp
+ * - runtime → ai-harness/runtime
  *
  * 使用方式：
  * ```typescript
  * // 推荐：从具体子模块导入
  * import { EngineError, ToolError } from './ai-engine/core';
  * import { ITool, BaseTool } from './ai-engine/tools';
- * import { IAgent, ReactiveAgent } from './ai-engine/agents';
+ * // Agent/Team 类型请从 ai-harness/facade 导入
  *
  * // 或者使用命名空间
  * import * as Core from './ai-engine/core';
@@ -128,7 +130,7 @@ export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeli
 
 // NestJS 模块导出
 export { AiEngineModule } from "./ai-engine.module";
-export { AiEngineCoreModule } from "./ai-engine-core.module";
+export { AiEngineLightModule } from "./ai-engine-light.module";
 export { AiEngineLLMModule } from "./ai-engine-llm.module";
 export { AiEngineToolsModule } from "./ai-engine-tools.module";
 export { AiEngineSkillsModule } from "./ai-engine-skills.module";

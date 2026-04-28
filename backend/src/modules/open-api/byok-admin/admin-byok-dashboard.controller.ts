@@ -2,10 +2,10 @@ import { Controller, Get, Logger, Post, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { KeyAssignmentStatus, KeyRequestStatus } from "@prisma/client";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { DistributableKeysService } from "../../ai-engine/credentials/distributable-keys/distributable-keys.service";
 
 /**
  * 管理员 BYOK 仪表盘：分发池规模、活跃分配、待处理申请、本月消耗。

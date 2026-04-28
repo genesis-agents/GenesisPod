@@ -32,7 +32,7 @@ import {
   decodeUrlEntities,
   remapCitationIndices,
   preprocessDimensionContent,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import { AIModelType } from "@prisma/client";
 import type {
   ResearchTopic,

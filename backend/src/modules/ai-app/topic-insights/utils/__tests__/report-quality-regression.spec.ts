@@ -22,7 +22,7 @@ import {
   limitBoldFormatting,
   limitBlockquotes,
   detectForeignLanguageBlocks,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import { ReportQualityGateService } from "../../services/quality/report-quality-gate.service";
 import {
   normalizeBoldStyle,

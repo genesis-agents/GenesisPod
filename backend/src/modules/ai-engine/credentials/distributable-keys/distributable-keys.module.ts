@@ -1,12 +1,12 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { KeyAssignmentsModule } from "../key-assignments/key-assignments.module";
-import { DistributableKeysController } from "./distributable-keys.controller";
 import { DistributableKeysService } from "./distributable-keys.service";
 
 @Module({
   imports: [PrismaModule, forwardRef(() => KeyAssignmentsModule)],
-  controllers: [DistributableKeysController],
+  // PR-X17: HTTP Controllers moved to open-api/byok-admin or ai-app/byok
+  controllers: [],
   providers: [DistributableKeysService],
   exports: [DistributableKeysService],
 })

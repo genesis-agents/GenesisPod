@@ -1,9 +1,9 @@
 /**
- * Legacy Agent Orchestrator (migrated from ai-engine/agents/registry)
+ * Legacy Agent Orchestrator (migrated from ai-harness/kernel/registry)
  *
  * Selects and schedules IPlanBasedAgent instances for execution.
  * @deprecated For new agents use MissionOrchestrator / HarnessedAgent.
- * Migrated: PR-X5 (ai-engine/agents/registry → ai-harness/kernel/registry)
+ * Migrated: PR-X5 (ai-harness/kernel/registry → ai-harness/kernel/registry)
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";

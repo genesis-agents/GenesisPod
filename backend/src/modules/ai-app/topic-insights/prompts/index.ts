@@ -22,7 +22,7 @@ export {
   getExecutiveSummaryFormat,
   getDimensionResearchStandards,
   getQualityChecklist,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 
 export {
   DIMENSION_RESEARCH_SYSTEM_PROMPT,

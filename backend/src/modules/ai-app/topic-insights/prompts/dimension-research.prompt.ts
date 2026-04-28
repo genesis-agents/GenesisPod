@@ -13,7 +13,7 @@ import {
   CHART_STANDARDS,
   TABLE_STANDARDS,
   QUALITY_CHECKLIST,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import { isValidFigureUrl } from "../utils/sanitize-image-url.utils";
 import {
   buildContiguousMapping,

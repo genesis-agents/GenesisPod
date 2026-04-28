@@ -10,9 +10,9 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { KeyRequestsService } from "./key-requests.service";
-import { CreateKeyRequestDto } from "./dto";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { KeyRequestsService } from "../../ai-engine/credentials/key-requests/key-requests.service";
+import { CreateKeyRequestDto } from "../../ai-engine/credentials/key-requests/dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

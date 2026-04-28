@@ -18,7 +18,7 @@ import {
   stripLLMMetaNotes,
   stripInternalFigureNotation,
   getQualityChecklist,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import { stripChartJsonFromContent } from "../../utils/strip-chart-json.utils";
 
 /**

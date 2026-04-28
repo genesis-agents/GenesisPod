@@ -75,7 +75,7 @@ import {
   repairBrokenBoldMarkers,
   stripFigureComments,
   convertDescriptiveListsToBullets,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 
 describe("stripRawMarkdownInContent", () => {
   it("should strip ** markers but keep text", () => {

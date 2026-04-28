@@ -20,7 +20,7 @@ export { ContextEvolutionService } from "./context-evolution.service";
 // 上下文初始化服务（世界观设定）
 export { ContextInitializationService } from "./context-initialization.service";
 
-// 约束强制服务 — migrated to ai-engine/runtime
+// 约束强制服务 — migrated to ai-harness/runtime
 // export { ConstraintEnforcementService } from "./constraint-enforcement.service";
 
 // 上下文压缩服务
@@ -29,7 +29,7 @@ export { ContextCompressionService } from "./context-compression.service";
 // 意图检测服务
 export { IntentDetectionService } from "./intent-detection.service";
 
-// 熔断器服务 — migrated to ai-engine/runtime
+// 熔断器服务 — migrated to ai-harness/runtime
 // export { CircuitBreakerService, TaskCompletionType } from "./circuit-breaker.service";
 
 // Token 预算服务

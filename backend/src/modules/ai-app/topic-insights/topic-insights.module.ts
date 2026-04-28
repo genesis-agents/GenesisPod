@@ -12,7 +12,7 @@ import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { ExportModule } from "../../../common/export/export.module";
-import { TOPIC_INSIGHTS_DATA_EXPORT } from "../shared/interfaces/data-export.interface";
+import { TOPIC_INSIGHTS_DATA_EXPORT } from "../contracts/interfaces/data-export.interface";
 import { TopicInsightsAgent } from "./agents";
 import { TOPIC_INSIGHTS_TEAM_CONFIG } from "./teams";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源

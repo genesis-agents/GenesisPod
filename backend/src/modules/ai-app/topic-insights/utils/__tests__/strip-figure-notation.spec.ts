@@ -1,4 +1,4 @@
-import { stripInternalFigureNotation } from "@/modules/ai-app/shared/report-template";
+import { stripInternalFigureNotation } from "@/modules/ai-app/contracts/report-template";
 
 describe("stripInternalFigureNotation", () => {
   it("should strip [证据[N] 图M] notation", () => {

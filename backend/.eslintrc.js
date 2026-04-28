@@ -107,8 +107,8 @@ module.exports = {
       },
     },
     {
-      // AI-App modules must access AI Engine only through AIEngineFacade or Registry
-      // See CLAUDE.md: "所有 AI App 模块只通过 AIEngineFacade 和 Registry 访问 AI Engine"
+      // AI-App modules must access AI Engine only through AIFacade or Registry
+      // See CLAUDE.md: "所有 AI App 模块只通过 AIFacade 和 Registry 访问 AI Engine"
       files: ["**/modules/ai-app/**/*.ts"],
       excludedFiles: [
         // Test files may directly import internals for mocking
@@ -187,7 +187,7 @@ module.exports = {
                   "createConstraintProfile, MissionEvent, MissionContext, ITeam, etc. from 'ai-engine/facade'. " +
                   "For team *.config.ts files (which reference many abstractions), they are in ESLint excludedFiles.",
               },
-              // ★ Team orchestration services — must go through AIEngineFacade
+              // ★ Team orchestration services — must go through AIFacade
               {
                 group: [
                   "**/ai-engine/teams/orchestrator/mission-orchestrator*",
@@ -205,7 +205,7 @@ module.exports = {
                 group: ["**/ai-engine/planning/services"],
                 message:
                   "Import orchestration types from 'ai-engine/facade'. " +
-                  "Use AIEngineFacade getters instead of the barrel index.",
+                  "Use AIFacade getters instead of the barrel index.",
               },
               // Specific services with dedicated facade accessors:
               {
@@ -219,7 +219,7 @@ module.exports = {
                   "**/ai-engine/planning/services/task-decomposer*",
                 ],
                 message:
-                  "Inject AIEngineFacade and access via facade.intentDetector / facade.outputReviewer / etc.",
+                  "Inject AIFacade and access via facade.intentDetector / facade.outputReviewer / etc.",
               },
               // Broader orchestration internals:
               {
@@ -231,7 +231,7 @@ module.exports = {
                   "**/ai-engine/planning/capabilities/**",
                 ],
                 message:
-                  "Access orchestration internals only through AIEngineFacade. " +
+                  "Access orchestration internals only through AIFacade. " +
                   "If a type is missing from facade/index.ts, add it there first.",
               },
 
@@ -246,7 +246,7 @@ module.exports = {
                   "Import EmbeddingResult, SimilaritySearchOptions, SimilarityResult from 'ai-engine/facade'. " +
                   "For RAGPipelineService, add it to facade/index.ts exports first.",
               },
-              // Memory — must go through AIEngineFacade
+              // Memory — must go through AIFacade
               {
                 group: [
                   "**/ai-engine/knowledge/memory/stores/**",
@@ -254,7 +254,7 @@ module.exports = {
                   "**/ai-engine/knowledge/memory/memory-coordinator.service*",
                 ],
                 message:
-                  "Use AIEngineFacade.storeMemory()/retrieveMemory() instead.",
+                  "Use AIFacade.storeMemory()/retrieveMemory() instead.",
               },
 
               // ════════════════════════════════════════════════════════════
@@ -278,7 +278,7 @@ module.exports = {
                   "Do not import LongContentModule or its interfaces directly. " +
                   "AiEngineModule already includes it. Add missing types to facade/index.ts.",
               },
-              // Content fetch — must go through AIEngineFacade
+              // Content fetch — must go through AIFacade
               {
                 group: ["**/ai-engine/content/fetch/**"],
                 message: "Use facade.contentFetch instead.",
@@ -300,11 +300,11 @@ module.exports = {
               // ★ SECTION 8: Infra bounded context internals
               //   Covers: infra/realtime, infra/observability, infra/a2a.
               // ════════════════════════════════════════════════════════════
-              // Realtime — must go through AIEngineFacade
+              // Realtime — must go through AIFacade
               {
                 group: ["**/ai-engine/runtime/realtime/**"],
                 message:
-                  "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
+                  "Use AIFacade.emitToRoom()/emitProgress() instead.",
               },
               // MCP abstractions
               {
@@ -348,21 +348,12 @@ module.exports = {
       //
       // 单向依赖 ai-app → ai-harness → ai-engine
       //
-      // 当前例外：
-      //   1. ai-engine-planning.module.ts — orchestration/services 拆分迁移
-      //      过渡中暂用，PR-X4 拆完后移除该行
-      //   2. ai-engine.module.ts — CollaborationModule / AgentRegistry 直接引用
-      //      (pre-existing; tracked for cleanup)
-      //
-      // PR-X14: ai-engine/facade/** 内所有 backward-compat shim 文件已全部删除。
-      // ai-engine/facade/index.ts 仅保留 engine-internal 符号，不再 re-export harness。
-      // facade/**/*.ts 例外已移除（shim 文件不再存在）。
+      // PR-X18: 通过 DI tokens（ai-engine/abstractions/runtime-deps.tokens.ts）
+      // 完全消除 ai-engine-planning.module 的反向 import；engine 端只看
+      // Symbol token + 接口契约，harness 用 useExisting 绑定具体实现。
+      // 现在 ai-engine/** 全部生产代码 0 反向 import，零 eslint 例外（除测试）。
       files: ["**/modules/ai-engine/**/*.ts"],
       excludedFiles: [
-        // ai-engine-planning.module.ts 因 NestJS DI 必须 import 实现类（@Global
-        // 注入到 useFactory 的 inject 数组），是单向依赖架构下的不可避免出口。
-        // 保留此文件作为唯一允许反向 import 的边界点。
-        "**/modules/ai-engine/ai-engine-planning.module.ts",
         // Specs/tests are allowed to import harness facade for mocking purposes
         "**/modules/ai-engine/**/*.spec.ts",
         "**/modules/ai-engine/**/*.test.ts",

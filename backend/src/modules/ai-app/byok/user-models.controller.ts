@@ -11,11 +11,11 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
-import { AiConnectionTestService } from "./services/ai-connection-test.service";
+import { AiModelDiscoveryService } from "../../ai-engine/llm/services/ai-model-discovery.service";
+import { AiConnectionTestService } from "../../ai-engine/llm/services/ai-connection-test.service";
 import { UserApiKeysService } from "../../ai-engine/credentials/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "../../ai-engine/credentials/user-model-configs/user-model-configs.service";
-import { AutoConfigureService } from "./user-models-auto-configure.service";
+import { AutoConfigureService } from "../../ai-engine/llm/user-models-auto-configure.service";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
@@ -35,8 +35,8 @@ interface FetchUserModelsDto {
  * 等价，但用用户自己的 Personal Key（或表单里当场输入的新 Key）去拉
  * provider 的 /v1/models。
  *
- * 放在 ai-engine 层是因为要依赖 AiModelDiscoveryService；只暴露给
- * 登录用户（JwtAuthGuard），没有管理员限制。
+ * 迁移自 ai-engine/llm/user-models.controller.ts (PR-X17)
+ * 只暴露给登录用户（JwtAuthGuard），没有管理员限制。
  */
 @ApiTags("User - Models")
 @Controller("user/api-keys")
@@ -86,6 +86,8 @@ export class UserModelsController {
  * 一键 AI 配置：基于用户所有已配 Personal Keys，自动创建推荐的 UserModelConfig
  * （CHAT / CHAT_FAST / EMBEDDING / RERANK / ...），尽可能为每个 modelType 都
  * 配上一个合适的默认模型。
+ *
+ * 迁移自 ai-engine/llm/user-models.controller.ts (PR-X17)
  */
 @ApiTags("User - Model Configs")
 @Controller("user/model-configs")

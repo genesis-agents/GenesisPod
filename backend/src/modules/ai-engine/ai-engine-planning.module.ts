@@ -17,7 +17,6 @@ import { AiEngineSkillsModule } from "./ai-engine-skills.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
-import { AgentRegistry } from "../ai-harness/kernel/registry/plan-based-agent-registry";
 
 // Executors
 import { SequentialExecutor } from "./planning/executors/sequential-executor";
@@ -25,12 +24,20 @@ import { DAGExecutor } from "./planning/executors/dag-executor";
 import { ParallelExecutor } from "./planning/executors/parallel-executor";
 import { FunctionCallingExecutor } from "./planning/executors/function-calling-executor";
 
-// Checkpoints
-import { CheckpointManager } from "../ai-harness/protocol/journal/checkpoint-manager";
-
-// ★ Kernel services for executor integration
-import { ProgressTrackerService } from "../ai-harness/protocol/ipc/progress-tracker.service";
-import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
+// PR-X18: Engine 端 DI tokens (避免反向 import ai-harness)
+// harness 的 AgentRegistry / CheckpointManager / ProgressTracker / TraceCollector /
+// ConstraintEnforcement / ProcessSupervisor / AgentOrchestrator / AgentConfig 等
+// 通过 @Global HarnessModule 用 useExisting 绑到这些 token，engine 通过 token 注入
+import {
+  AGENT_REGISTRY_PORT,
+  CHECKPOINT_MANAGER_PORT,
+  PROGRESS_TRACKER_PORT,
+  TRACE_COLLECTOR_PORT,
+  type IAgentRegistryPort,
+  type ICheckpointManagerPort,
+  type IProgressTrackerPort,
+  type ITraceCollectorPort,
+} from "./abstractions/runtime-deps.tokens";
 
 // Orchestration Services
 import { TaskDecomposerService } from "./planning/services/task-decomposer.service";
@@ -41,7 +48,7 @@ import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.servi
 import { TokenBudgetService } from "./planning/services/token-budget.service";
 import { ContextEvolutionService } from "./planning/services/context-evolution.service";
 import { ContextInitializationService } from "./planning/services/context-initialization.service";
-import { ConstraintEnforcementService } from "../ai-harness/governance/resource/constraint-enforcement.service";
+// PR-X18: ConstraintEnforcementService 通过 CONSTRAINT_ENFORCEMENT_PORT token 注入
 import { ContextCompressionService } from "./planning/services/context-compression.service";
 import { IntentDetectionService } from "./planning/services/intent-detection.service";
 import { ReflectionService } from "./planning/services/reflection.service";
@@ -62,32 +69,29 @@ import { SessionMemorySidecarService } from "./planning/services/session-memory-
 import { AutoDreamService } from "./planning/services/auto-dream.service";
 import { AutoDreamSchedulerService } from "./planning/services/auto-dream-scheduler.service";
 
-// State Machine
-import { ProcessSupervisorService as ExecutionStateManager } from "../ai-harness/process/supervisor/process-supervisor.service";
+// State Machine — PR-X18: 通过 EXECUTION_STATE_MANAGER_PORT token 注入
 
 // Handlers
 import { WorkflowHandlerRegistry } from "./planning/handlers/handler-registry";
 
-// Agents (needed for executors)
-import { AgentOrchestrator } from "../ai-harness/kernel/registry/agent-orchestrator";
+// Agents — PR-X18: 通过 AGENT_REGISTRY_PORT / AGENT_ORCHESTRATOR_PORT /
+// AGENT_CONFIG_SERVICE_PORT token 注入；AgentsService 不再 re-export
 import { AgentsService } from "../open-api/agents-api";
-import { AgentConfigService } from "../ai-harness/kernel/config/agent-config.service";
 
 /**
- * Sequential Executor Factory
- * ★ 也注入 CircuitBreaker（BaseExecutor 通用能力）
+ * Sequential Executor Factory（PR-X18: AgentRegistry 通过 token 注入）
  */
 const sequentialExecutorFactory = {
   provide: SequentialExecutor,
   useFactory: (
     toolRegistry: ToolRegistry,
     skillRegistry: SkillRegistry,
-    agentRegistry: AgentRegistry,
+    agentRegistry: IAgentRegistryPort,
     handlerRegistry: WorkflowHandlerRegistry,
     circuitBreaker: CircuitBreakerService,
   ) => {
     const executor = new SequentialExecutor();
-    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry as never);
     executor.setHandlerRegistry(handlerRegistry);
     executor.setCircuitBreaker(circuitBreaker);
     return executor;
@@ -95,64 +99,62 @@ const sequentialExecutorFactory = {
   inject: [
     ToolRegistry,
     SkillRegistry,
-    AgentRegistry,
+    AGENT_REGISTRY_PORT,
     WorkflowHandlerRegistry,
     CircuitBreakerService,
   ],
 };
 
 /**
- * DAG Executor Factory
- * ★ 注入 Kernel 服务：ProgressTracker, CheckpointManager, CircuitBreaker, TraceCollector
+ * DAG Executor Factory（PR-X18: harness 服务通过 tokens 注入）
  */
 const dagExecutorFactory = {
   provide: DAGExecutor,
   useFactory: (
     toolRegistry: ToolRegistry,
     skillRegistry: SkillRegistry,
-    agentRegistry: AgentRegistry,
+    agentRegistry: IAgentRegistryPort,
     handlerRegistry: WorkflowHandlerRegistry,
-    checkpointManager: CheckpointManager,
+    checkpointManager: ICheckpointManagerPort,
     circuitBreaker: CircuitBreakerService,
-    progressTracker: ProgressTrackerService,
-    traceCollector: TraceCollectorService,
+    progressTracker: IProgressTrackerPort,
+    traceCollector: ITraceCollectorPort,
   ) => {
     const executor = new DAGExecutor();
-    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry as never);
     executor.setHandlerRegistry(handlerRegistry);
-    executor.setCheckpointManager(checkpointManager);
+    executor.setCheckpointManager(checkpointManager as never);
     executor.setCircuitBreaker(circuitBreaker);
-    executor.setProgressTracker(progressTracker);
-    executor.setTraceCollector(traceCollector);
+    executor.setProgressTracker(progressTracker as never);
+    executor.setTraceCollector(traceCollector as never);
     return executor;
   },
   inject: [
     ToolRegistry,
     SkillRegistry,
-    AgentRegistry,
+    AGENT_REGISTRY_PORT,
     WorkflowHandlerRegistry,
-    CheckpointManager,
+    CHECKPOINT_MANAGER_PORT,
     CircuitBreakerService,
-    ProgressTrackerService,
-    TraceCollectorService,
+    PROGRESS_TRACKER_PORT,
+    TRACE_COLLECTOR_PORT,
   ],
 };
 
 /**
- * Parallel Executor Factory
- * ★ 也注入 CircuitBreaker（BaseExecutor 通用能力）
+ * Parallel Executor Factory（PR-X18: AgentRegistry 通过 token 注入）
  */
 const parallelExecutorFactory = {
   provide: ParallelExecutor,
   useFactory: (
     toolRegistry: ToolRegistry,
     skillRegistry: SkillRegistry,
-    agentRegistry: AgentRegistry,
+    agentRegistry: IAgentRegistryPort,
     handlerRegistry: WorkflowHandlerRegistry,
     circuitBreaker: CircuitBreakerService,
   ) => {
     const executor = new ParallelExecutor();
-    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry);
+    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry as never);
     executor.setHandlerRegistry(handlerRegistry);
     executor.setCircuitBreaker(circuitBreaker);
     return executor;
@@ -160,21 +162,14 @@ const parallelExecutorFactory = {
   inject: [
     ToolRegistry,
     SkillRegistry,
-    AgentRegistry,
+    AGENT_REGISTRY_PORT,
     WorkflowHandlerRegistry,
     CircuitBreakerService,
   ],
 };
 
-/**
- * Checkpoint Manager Factory
- */
-const checkpointManagerFactory = {
-  provide: CheckpointManager,
-  useFactory: () => {
-    return new CheckpointManager();
-  },
-};
+// CheckpointManager Factory removed — PR-X18: harness HarnessModule 提供
+// CHECKPOINT_MANAGER_PORT 绑定，engine 通过 token 注入
 
 @Module({
   imports: [
@@ -184,11 +179,10 @@ const checkpointManagerFactory = {
   ],
   controllers: [],
   providers: [
-    // Agents (needed for executors)
-    AgentRegistry,
-    AgentOrchestrator,
+    // PR-X18: AgentRegistry / AgentOrchestrator / AgentConfigService /
+    // CheckpointManager / ConstraintEnforcementService / ExecutionStateManager
+    // 由 @Global HarnessModule 提供（绑到 *_PORT tokens），engine 不再注册
     AgentsService,
-    AgentConfigService,
 
     // Handlers
     WorkflowHandlerRegistry,
@@ -199,13 +193,11 @@ const checkpointManagerFactory = {
     parallelExecutorFactory,
     FunctionCallingExecutor,
 
-    // Checkpoint
-    checkpointManagerFactory,
+    // NOTE: harness 服务（ProgressTracker / TraceCollector / CheckpointManager
+    // / CircuitBreaker / ConstraintEnforcement / ExecutionStateManager）come
+    // from @Global() HarnessModule via DI tokens — engine 不直接 import
 
-    // NOTE: ProgressTrackerService, TraceCollectorService, CheckpointManager,
-    // CircuitBreakerService come from @Global() AiKernelModule — no need to re-declare
-
-    // Orchestration Services
+    // Engine Orchestration Services
     TaskDecomposerService,
     AgentExecutorService,
     OutputReviewerService,
@@ -214,7 +206,6 @@ const checkpointManagerFactory = {
     TokenBudgetService,
     ContextEvolutionService,
     ContextInitializationService,
-    ConstraintEnforcementService,
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
@@ -235,16 +226,12 @@ const checkpointManagerFactory = {
     // ★ Phase 9: Background Autonomous Agents
     AutoDreamService,
     AutoDreamSchedulerService,
-
-    // State Machine
-    ExecutionStateManager,
   ],
   exports: [
-    // Agents
-    AgentRegistry,
-    AgentOrchestrator,
+    // PR-X18: AgentRegistry / AgentOrchestrator / AgentConfigService /
+    // CheckpointManager / ConstraintEnforcementService / ExecutionStateManager
+    // 由 HarnessModule (@Global) 导出，engine 不再 re-export
     AgentsService,
-    AgentConfigService,
 
     // Handlers
     WorkflowHandlerRegistry,
@@ -254,9 +241,8 @@ const checkpointManagerFactory = {
     DAGExecutor,
     ParallelExecutor,
     FunctionCallingExecutor,
-    CheckpointManager,
 
-    // Services
+    // Engine Services
     TaskDecomposerService,
     AgentExecutorService,
     OutputReviewerService,
@@ -265,7 +251,6 @@ const checkpointManagerFactory = {
     TokenBudgetService,
     ContextEvolutionService,
     ContextInitializationService,
-    ConstraintEnforcementService,
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
@@ -273,7 +258,6 @@ const checkpointManagerFactory = {
     IntelligentModelRouterService,
     TaskPlannerService,
     IntentRouterService,
-    ExecutionStateManager,
     // ★ Phase 1-4: 基础设施升级
     QueryLoopService,
     TokenTrackerService,

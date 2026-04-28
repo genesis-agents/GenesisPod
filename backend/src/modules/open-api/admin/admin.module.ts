@@ -19,6 +19,8 @@ import { ResearchAdminController } from "./research-admin.controller";
 import { ApprovalsAdminController } from "./approvals-admin.controller";
 import { KernelAdminController } from "./kernel-admin.controller";
 import { AdminModelRecommendationsController } from "./admin-model-recommendations.controller";
+import { ObservabilityAdminController } from "./observability-admin.controller";
+import { HarnessInspectorController } from "./harness-inspector.controller";
 import { MCPExternalAdminController } from "../mcp-admin/mcp-external-admin.controller";
 import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -68,6 +70,8 @@ import {
     ApprovalsAdminController, // /admin/approvals/* routes for human-in-the-loop approvals
     KernelAdminController, // /admin/kernel/* routes for AI Kernel process management
     AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
+    ObservabilityAdminController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/governance/observability)
+    ...(process.env.NODE_ENV === "production" ? [] : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/kernel/dx)
   ],
   providers: [
     AdminService,

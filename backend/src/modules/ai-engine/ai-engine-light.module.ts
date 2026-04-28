@@ -1,5 +1,5 @@
 /**
- * AI Engine Core Module (Lightweight)
+ * AI Engine Light Module (Lightweight)
  *
  * 轻量级 AI Engine 入口，仅包含核心 LLM 能力。
  * 不加载 Teams / Collaboration / Image / LongContent 等重型子模块。
@@ -16,6 +16,8 @@
  *
  * PR-X14: AIFacade + FACADE_FEATURE_PROVIDERS 已迁移至 ai-harness/facade。
  * 消费 AIFacade 的模块请改用 HarnessModule（提供完整 facade 图）。
+ *
+ * PR-X17: 重命名自 AiEngineCoreModule → AiEngineLightModule（名称更准确）。
  *
  * 注意：此模块不标记 @Global()，需要显式导入。
  */
@@ -52,4 +54,4 @@ import { AICapabilityResolver } from "./planning/capabilities/ai-capability-reso
     PromptRegistryService,
   ],
 })
-export class AiEngineCoreModule {}
+export class AiEngineLightModule {}

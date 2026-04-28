@@ -1,11 +1,11 @@
 /**
- * Legacy Plan-Based Agent (migrated from ai-engine/agents/base)
+ * Legacy Plan-Based Agent (migrated from ai-harness/kernel/base)
  *
  * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
  * This base class supports the IPlanBasedAgent (plan → execute) paradigm.
  * New agents should implement IAgent via HarnessedAgent.
  *
- * Migrated: PR-X5 (ai-engine/agents/base → ai-harness/kernel/base)
+ * Migrated: PR-X5 (ai-harness/kernel/base → ai-harness/kernel/base)
  */
 
 import {

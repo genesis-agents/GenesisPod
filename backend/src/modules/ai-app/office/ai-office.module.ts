@@ -62,7 +62,7 @@ import { ResearchModule } from "../research/research.module";
 import { AiWritingModule } from "../writing/ai-writing.module";
 import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
 // Cross-module data export tokens are defined in
-// ai-app/shared/interfaces/data-export.interface.ts and used by
+// ai-app/contracts/interfaces/data-export.interface.ts and used by
 // SlidesDataImportService:
 // - TOPIC_INSIGHTS_DATA_EXPORT   provided by TopicInsightsModule
 // - RESEARCH_PROJECT_DATA_EXPORT provided by ResearchModule

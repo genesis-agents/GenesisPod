@@ -20,7 +20,6 @@ import { CostAttributionService } from "./cost-attribution.service";
 import { SessionLatencyTrackerService } from "./session-latency-tracker.service";
 import { LlmTracingService } from "./llm-tracing.service";
 import { EvalPipelineService } from "./eval-pipeline.service";
-import { ObservabilityController } from "./observability.controller";
 import { LlmEventsListener } from "./llm-events.listener";
 
 const OBSERVABILITY_PROVIDERS = [
@@ -35,7 +34,6 @@ const OBSERVABILITY_PROVIDERS = [
 @Global()
 @Module({
   imports: [PrismaModule],
-  controllers: [ObservabilityController],
   providers: [...OBSERVABILITY_PROVIDERS, LlmEventsListener],
   exports: OBSERVABILITY_PROVIDERS,
 })

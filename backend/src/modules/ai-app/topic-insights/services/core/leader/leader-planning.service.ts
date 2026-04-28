@@ -22,7 +22,7 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { sanitize } from "../../../utils/prompt-sanitizer";
-import { stripLLMMetaNotes } from "../../../../shared/report-template/pipeline/report-formatting.utils";
+import { stripLLMMetaNotes } from "../../../../contracts/report-template/pipeline/report-formatting.utils";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
 import { formatAnchorContentForPrompt } from "../../../utils/event-source-parser.utils";
 import {

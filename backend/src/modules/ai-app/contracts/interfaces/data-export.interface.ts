@@ -3,7 +3,7 @@
  *
  * Abstract contracts for importing data from Topic Insights, Research Project,
  * and Writing modules into Office/Slides.
- * Placed in ai-app/shared/ so consumers can reference tokens without creating
+ * Placed in ai-app/contracts/ so consumers can reference tokens without creating
  * cross-App dependencies.
  *
  * Providers are registered in each owner module and injected into Office

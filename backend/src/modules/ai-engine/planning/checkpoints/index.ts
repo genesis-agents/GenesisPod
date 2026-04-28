@@ -1,4 +1,4 @@
 /**
  * AI Engine - Orchestration Checkpoints
  */
-// checkpoint-manager — migrated to ai-engine/runtime, import from ai-engine/facade
+// checkpoint-manager — migrated to ai-harness/runtime, import from ai-harness/facade

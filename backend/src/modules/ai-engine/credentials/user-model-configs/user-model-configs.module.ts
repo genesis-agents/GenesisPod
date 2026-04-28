@@ -1,11 +1,11 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { UserModelConfigsController } from "./user-model-configs.controller";
 import { UserModelConfigsService } from "./user-model-configs.service";
 
 @Module({
   imports: [PrismaModule],
-  controllers: [UserModelConfigsController],
+  // PR-X17: HTTP Controllers moved to open-api/byok-admin or ai-app/byok
+  controllers: [],
   providers: [UserModelConfigsService],
   exports: [UserModelConfigsService],
 })

@@ -22,17 +22,17 @@ export type {
 export { MCPRelayToolAdapter } from "./mcp-relay-tool-adapter";
 export type { MCPClientLike, MCPToolDescriptor } from "./mcp-relay-tool-adapter";
 
-// Abstractions (moved from ai-engine/mcp)
+// Abstractions (PR-X7)
 export * from "./abstractions";
 
-// Client (moved from ai-engine/mcp)
+// Client (PR-X7)
 export * from "./client";
 
-// Manager (moved from ai-engine/mcp)
+// Manager (PR-X7)
 export * from "./manager";
 
-// Tools (moved from ai-engine/mcp — engine-style MCPToolAdapter)
+// Tools (PR-X7 — engine-style MCPToolAdapter)
 export * from "./tools";
 
-// Registry (moved from ai-engine/mcp)
+// Registry (PR-X7)
 export * from "./registry";

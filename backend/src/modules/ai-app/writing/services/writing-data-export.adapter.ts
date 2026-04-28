@@ -12,7 +12,7 @@ import {
   IWritingDataExport,
   IExportableWritingData,
   IWritingListItem,
-} from "../../shared/interfaces/data-export.interface";
+} from "../../contracts/interfaces/data-export.interface";
 import { WritingDataExportService } from "./writing-data-export.service";
 
 @Injectable()

@@ -13,6 +13,8 @@
  *   /harness/inspector/checkpoints/:agentId
  *   /harness/inspector/events/:agentId
  *   /harness/inspector/staged-skills
+ *
+ * Migrated from ai-harness/kernel/dx/inspector.controller.ts (PR-X17).
  */
 
 function assertInspectorEnabled(): void {
@@ -34,12 +36,12 @@ import {
   Param,
   Query,
 } from "@nestjs/common";
-import { LoopRegistry } from "../../execution/loop/loop-registry";
-import { SkillRegistry } from "../../kernel/skills/skill-registry";
-import { SpecAgentRegistry } from "../../kernel/core/spec-agent-registry";
-import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
-import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
-import { SkillLearningCoordinator } from "../../kernel/learning/skill-learning-coordinator";
+import { LoopRegistry } from "../../ai-harness/execution/loop/loop-registry";
+import { SkillRegistry } from "../../ai-harness/kernel/skills/skill-registry";
+import { SpecAgentRegistry } from "../../ai-harness/kernel/core/spec-agent-registry";
+import { CheckpointService } from "../../ai-harness/memory/checkpoint/checkpoint.service";
+import { AgentEventStore } from "../../ai-harness/memory/checkpoint/agent-event-store";
+import { SkillLearningCoordinator } from "../../ai-harness/kernel/learning/skill-learning-coordinator";
 
 @Controller("harness/inspector")
 export class HarnessInspectorController {

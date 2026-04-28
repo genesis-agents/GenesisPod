@@ -271,7 +271,7 @@ export {
 export { KernelSchedulerService } from "../process/scheduler/kernel-scheduler.service";
 
 // ════════════════════════════════════════════════════════════════════
-// Teams: registry + factory + orchestrator + service (PR-X4 migrated from ai-engine/teams)
+// Teams: registry + factory + orchestrator + service (PR-X4)
 // ════════════════════════════════════════════════════════════════════
 export { TeamRegistry } from "../runtime/teams/registry/team-registry";
 export { RoleRegistry } from "../runtime/teams/registry/role-registry";
@@ -340,7 +340,7 @@ export {
 } from "../../../common/context/kernel-context";
 
 // ════════════════════════════════════════════════════════════════════
-// Kernel (Legacy) — migrated from ai-engine/agents (PR-X5)
+// Kernel (Legacy) — PR-X5
 // ════════════════════════════════════════════════════════════════════
 
 // Legacy registry (IPlanBasedAgent plan→execute model)
@@ -359,7 +359,7 @@ export { PlanAgent } from "../kernel/base/plan-agent";
 export { PlanBasedAgent, type IPlanBasedAgent } from "../kernel/base/plan-based-agent";
 
 // ════════════════════════════════════════════════════════════════════
-// Process (Collaboration) — migrated from ai-engine/agents/collaboration (PR-X5)
+// Process (Collaboration) — PR-X5
 // ════════════════════════════════════════════════════════════════════
 export { CollaborationModule } from "../process/collaboration/collaboration.module";
 export { ReviewWorkflowService } from "../process/collaboration/review/review-workflow.service";

@@ -21,7 +21,7 @@ import {
   TABLE_STANDARDS,
   TABLE_STANDARDS_EN,
   getExecutiveSummaryFormat,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import {
   renderPromptTemplate,
   getLanguageInstruction,

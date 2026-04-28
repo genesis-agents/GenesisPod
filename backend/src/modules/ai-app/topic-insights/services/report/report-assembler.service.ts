@@ -56,7 +56,7 @@ import {
   collapsePseudoCodeHeadings,
   wrapPseudoCodeBlocks,
   collapseExcessSubHeadings,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import {
   sanitizeSectionOutput,
   stripLeadingBulletLists,

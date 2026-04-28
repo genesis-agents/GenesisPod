@@ -10,10 +10,10 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { KeyRequestStatus } from "@prisma/client";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { KeyRequestsService } from "./key-requests.service";
-import { ApproveKeyRequestDto, RejectKeyRequestDto } from "./dto";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
+import { KeyRequestsService } from "../../ai-engine/credentials/key-requests/key-requests.service";
+import { ApproveKeyRequestDto, RejectKeyRequestDto } from "../../ai-engine/credentials/key-requests/dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

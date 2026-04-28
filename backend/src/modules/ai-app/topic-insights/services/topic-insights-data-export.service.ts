@@ -4,7 +4,7 @@ import {
   ITopicInsightsDataExport,
   IExportableTopicInsightsData,
   ITopicInsightsListItem,
-} from "../../shared/interfaces/data-export.interface";
+} from "../../contracts/interfaces/data-export.interface";
 
 /**
  * Topic Insights Data Export Service

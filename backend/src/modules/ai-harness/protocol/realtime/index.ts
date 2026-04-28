@@ -6,7 +6,7 @@
 // Abstractions
 export * from "./abstractions";
 
-// Services — migrated to ai-engine/runtime, import from ai-engine/facade
+// Services — migrated to ai-harness/runtime, import from ai-harness/facade
 // export * from "./services";
 
 // Gateway (将在 Phase 4.2 创建)

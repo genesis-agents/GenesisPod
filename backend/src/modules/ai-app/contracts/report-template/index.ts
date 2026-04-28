@@ -5,7 +5,7 @@
  * Contains 13 content type rules enforced via:
  *   L1 Prompt constants → L2 Post-processing pipeline → L3 Frontend rendering
  *
- * Usage: import { getWritingStandards, splitEnumerationToList } from "@/modules/ai-app/shared/report-template";
+ * Usage: import { getWritingStandards, splitEnumerationToList } from "@/modules/ai-app/contracts/report-template";
  */
 export * from "./constants/report-writing-standards";
 export * from "./pipeline/report-formatting.utils";

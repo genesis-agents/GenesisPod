@@ -21,4 +21,4 @@ export {
 
 export { FixtureStore, type RecordedRun } from "./fixture-store";
 
-export { HarnessInspectorController } from "./inspector.controller";
+// HarnessInspectorController moved to open-api/admin/harness-inspector.controller.ts (PR-X17)

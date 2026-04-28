@@ -1,11 +1,11 @@
 /**
- * Legacy ReAct-mode Agent abstractions (migrated from ai-engine/agents/abstractions)
+ * Legacy ReAct-mode Agent abstractions (migrated from ai-harness/kernel/abstractions)
  *
  * @deprecated Use IAgent / IAgentTask from agent.interface.ts (harness runtime model).
  * These types support the legacy BaseAgent / ReactiveAgent / PlanAgent hierarchy.
  * New agents should implement IAgent via HarnessedAgent / SpecBasedAgent.
  *
- * Migrated: PR-X5 (ai-engine/agents/abstractions → ai-harness/kernel/abstractions)
+ * Migrated: PR-X5 (ai-harness/kernel/abstractions → ai-harness/kernel/abstractions)
  */
 
 import { JsonObject, ExecutionMode } from "../../../ai-engine/core";

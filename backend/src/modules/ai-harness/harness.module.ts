@@ -73,7 +73,7 @@ import { JudgeService } from "./governance/verify/judge.service";
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
 import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";
-import { AgentRunner, FixtureStore, HarnessInspectorController } from "./kernel/dx";
+import { AgentRunner, FixtureStore } from "./kernel/dx";
 // PR-J..P
 import { LeaderWorkerLoop } from "./execution/loop/leader-worker-loop";
 import { DomainEventRegistry } from "./protocol/events/domain-event-registry";
@@ -87,6 +87,26 @@ import { ToolSelectorRegistry } from "./execution/tools-selector/tool-selector-r
 import { AiEngineLLMModule } from "../ai-engine/ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine/ai-engine-tools.module";
 import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
+
+// PR-X18: Engine 端 DI tokens — harness 提供这 8 个 token 的 useExisting 绑定
+import {
+  AGENT_REGISTRY_PORT,
+  AGENT_ORCHESTRATOR_PORT,
+  AGENT_CONFIG_SERVICE_PORT,
+  CHECKPOINT_MANAGER_PORT,
+  PROGRESS_TRACKER_PORT,
+  TRACE_COLLECTOR_PORT,
+  CONSTRAINT_ENFORCEMENT_PORT,
+  EXECUTION_STATE_MANAGER_PORT,
+} from "../ai-engine/abstractions/runtime-deps.tokens";
+import { AgentRegistry as PlanBasedAgentRegistry } from "./kernel/registry/plan-based-agent-registry";
+import { AgentOrchestrator } from "./kernel/registry/agent-orchestrator";
+import { AgentConfigService } from "./kernel/config/agent-config.service";
+import { CheckpointManager } from "./protocol/journal/checkpoint-manager";
+import { ProgressTrackerService } from "./protocol/ipc/progress-tracker.service";
+import { TraceCollectorService } from "./governance/observability/trace-collector.service";
+import { ConstraintEnforcementService } from "./governance/resource/constraint-enforcement.service";
+import { ProcessSupervisorService } from "./process/supervisor/process-supervisor.service";
 
 // ★ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
 import { AIFacade } from "./facade/ai.facade";
@@ -109,7 +129,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     // Cross-cutting
     HookRegistry,
 
-    // ai-engine/runtime/resource 通过 DI token 拿 harness 能力探针，避免反向 import
+    // ai-harness/governance/resource (RuntimeResourceModule) 通过 DI token 拿 harness 能力探针，避免反向 import
     {
       provide: SPEC_AGENT_REGISTRY_PROBE,
       useExisting: SpecAgentRegistry,
@@ -118,6 +138,22 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
       provide: TOOL_CIRCUIT_BREAKER_PROBE,
       useExisting: ToolCircuitBreaker,
     },
+
+    // PR-X18: 8 个 engine 端 DI tokens — harness 提供具体类的 useExisting 绑定
+    // 这样 ai-engine-planning.module 用 token 注入，避免反向 import harness 类
+    PlanBasedAgentRegistry,
+    AgentOrchestrator,
+    AgentConfigService,
+    CheckpointManager,
+    ProcessSupervisorService,
+    { provide: AGENT_REGISTRY_PORT, useExisting: PlanBasedAgentRegistry },
+    { provide: AGENT_ORCHESTRATOR_PORT, useExisting: AgentOrchestrator },
+    { provide: AGENT_CONFIG_SERVICE_PORT, useExisting: AgentConfigService },
+    { provide: CHECKPOINT_MANAGER_PORT, useExisting: CheckpointManager },
+    { provide: PROGRESS_TRACKER_PORT, useExisting: ProgressTrackerService },
+    { provide: TRACE_COLLECTOR_PORT, useExisting: TraceCollectorService },
+    { provide: CONSTRAINT_ENFORCEMENT_PORT, useExisting: ConstraintEnforcementService },
+    { provide: EXECUTION_STATE_MANAGER_PORT, useExisting: ProcessSupervisorService },
 
     // Executor / Loop / Memory (Phase 2)
     ToolInvoker,
@@ -225,8 +261,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
   // PR-I: 关键 SOTA 缺口补全
   // - ToolCircuitBreaker: 连续失败自动 disable
   // - InMemoryVectorStore: Harness 内置语义召回（不强依赖外部 coordinator）
-  controllers:
-    process.env.NODE_ENV === "production" ? [] : [HarnessInspectorController],
+  // HarnessInspectorController moved to open-api/admin/harness-inspector.controller.ts (PR-X17)
   exports: [
     HarnessFacade,
     AgentFactory,
@@ -242,6 +277,21 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ReActLoop,
     PlanActLoop,
     ReflexionLoop,
+
+    // PR-X18: 导出 8 个 engine 端 token + 实现类（@Global，跨模块全局可注入）
+    PlanBasedAgentRegistry,
+    AgentOrchestrator,
+    AgentConfigService,
+    CheckpointManager,
+    ProcessSupervisorService,
+    AGENT_REGISTRY_PORT,
+    AGENT_ORCHESTRATOR_PORT,
+    AGENT_CONFIG_SERVICE_PORT,
+    CHECKPOINT_MANAGER_PORT,
+    PROGRESS_TRACKER_PORT,
+    TRACE_COLLECTOR_PORT,
+    CONSTRAINT_ENFORCEMENT_PORT,
+    EXECUTION_STATE_MANAGER_PORT,
 
     // ★ SOTA runtime exports
     AgentTracer,
@@ -259,7 +309,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ToolCircuitBreaker,
     InMemoryVectorStore,
 
-    // ai-engine/runtime/resource 探针 token（实际指向上面 useExisting）
+    // ai-harness/governance/resource 探针 token（实际指向上面 useExisting）
     SPEC_AGENT_REGISTRY_PROBE,
     TOOL_CIRCUIT_BREAKER_PROBE,
 

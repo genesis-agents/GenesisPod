@@ -24,7 +24,7 @@ import { ResearchDemoService } from "./demo/research-demo.service";
 import { ResearchDemoController } from "./demo/research-demo.controller";
 import { ResearchProjectExportService } from "./services/research-project-export.service";
 import { ResearchProjectExportAdapter } from "./services/research-project-export.adapter";
-import { RESEARCH_PROJECT_DATA_EXPORT } from "../shared/interfaces/data-export.interface";
+import { RESEARCH_PROJECT_DATA_EXPORT } from "../contracts/interfaces/data-export.interface";
 // Iterative research services
 import {
   TopicClassifierService,

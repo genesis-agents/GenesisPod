@@ -43,7 +43,7 @@ import { getExternalContentNotice } from "../../utils/external-content-wrapper.u
 import {
   getWritingStandards,
   getDimensionResearchStandards,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import { classifyModelTier } from "../../config/model-tier.config";
 import { TIER_ADAPTATIONS } from "../../config/prompt-adaptation.config";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";

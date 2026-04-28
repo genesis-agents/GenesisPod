@@ -8,7 +8,7 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-} from "@/modules/ai-app/shared/report-template";
+} from "@/modules/ai-app/contracts/report-template";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import {
   ReportAssemblerService,

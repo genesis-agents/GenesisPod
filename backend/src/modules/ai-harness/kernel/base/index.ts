@@ -1,5 +1,5 @@
 /**
- * Legacy Agent Base Classes — migrated from ai-engine/agents/base (PR-X5)
+ * Legacy Agent Base Classes — PR-X5 (now in ai-harness/kernel/base)
  * @deprecated Use HarnessedAgent / SpecBasedAgent for new agents.
  */
 export * from "./base-agent";

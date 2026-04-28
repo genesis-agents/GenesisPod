@@ -35,6 +35,7 @@ import { TableManagementModule } from "./modules/ai-infra/table-management/table
 import { CreditsModule } from "./modules/ai-infra/credits/credits.module";
 import { EncryptionModule } from "./modules/ai-infra/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/ai-engine/credentials/user-api-keys/user-api-keys.module";
+import { ByokModule } from "./modules/ai-app/byok/byok.module";
 import { DistributableKeysModule } from "./modules/ai-engine/credentials/distributable-keys";
 import { KeyAssignmentsModule } from "./modules/ai-engine/credentials/key-assignments";
 import { KeyRequestsModule } from "./modules/ai-engine/credentials/key-requests";
@@ -97,8 +98,10 @@ import { AgentsApiModule } from "./modules/open-api/agents-api/agents-api.module
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
 import { SkillsApiModule } from "./modules/open-api/skills-api/skills-api.module";
 import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
-// A2A Server module
-import { A2AModule } from "./modules/ai-harness/protocol/a2a";
+// A2A API module (open-api layer — PR-X17: controller moved from ai-harness/protocol/a2a)
+import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
+// BYOK Admin module (open-api layer — PR-X17: 4 admin controllers moved from ai-engine/credentials)
+import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 // L1→L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
@@ -169,6 +172,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     CreditsModule,
     EncryptionModule, // 全局加密服务（必须先于依赖它的模块注册）
     UserApiKeysModule,
+    ByokModule, // BYOK user-facing controllers (PR-X17: migrated from ai-engine/llm)
     // BYOK v2：可分发 Key 池 + 分配 + 申请 + 统一解析
     DistributableKeysModule,
     KeyAssignmentsModule,
@@ -236,16 +240,16 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // Public API module
     PublicApiModule,
 
-    // A2A Server module
-    A2AModule,
+    // A2A API module (PR-X17: controller moved to open-api/a2a-api)
+    A2AApiModule,
 
-    // AI Core API (PR-X6: moved from ai-engine/api)
+    // AI Core API (PR-X6)
     AiCoreModule,
 
-    // Agents API (PR-X6: moved from ai-engine/agents/api)
+    // Agents API (PR-X6)
     AgentsApiModule,
 
-    // MCP Admin API (PR-X7: moved from ai-engine/mcp/admin)
+    // MCP Admin API (PR-X7)
     McpAdminModule,
 
     // Skills API (PR-X16: moved from ai-engine/skills/api)
@@ -253,6 +257,9 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // Teams API (PR-X16: moved from ai-harness/runtime/teams/controllers)
     TeamsApiModule,
+
+    // BYOK Admin API (PR-X17: 4 admin controllers moved from ai-engine/credentials)
+    ByokAdminModule,
   ],
   controllers: [AppController],
   providers: [

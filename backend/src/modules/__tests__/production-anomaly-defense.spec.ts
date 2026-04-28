@@ -6,7 +6,7 @@
  */
 
 import { stripChartJsonFromContent } from "../ai-app/topic-insights/shared/utils/strip-chart-json.utils";
-import { stripLLMMetaNotes } from "../ai-app/shared/report-template";
+import { stripLLMMetaNotes } from "../ai-app/contracts/report-template";
 
 // ============================================================================
 // 1. JSON Residue Defense (from real reports)
@@ -433,7 +433,7 @@ describe("Production Defense: junk reference title filtering", () => {
     ];
     const {
       filterJunkReferences,
-    } = require("../ai-app/shared/report-template/pipeline/report-formatting.utils");
+    } = require("../ai-app/contracts/report-template/pipeline/report-formatting.utils");
     const filtered = filterJunkReferences(refs);
     expect(filtered).toHaveLength(1);
     expect(filtered[0].title).toContain("Multi-Agent");
@@ -449,7 +449,7 @@ describe("Production Defense: junk reference title filtering", () => {
     ];
     const {
       filterJunkReferences,
-    } = require("../ai-app/shared/report-template/pipeline/report-formatting.utils");
+    } = require("../ai-app/contracts/report-template/pipeline/report-formatting.utils");
     expect(filterJunkReferences(refs)).toHaveLength(0);
   });
 
@@ -463,7 +463,7 @@ describe("Production Defense: junk reference title filtering", () => {
     ];
     const {
       filterJunkReferences,
-    } = require("../ai-app/shared/report-template/pipeline/report-formatting.utils");
+    } = require("../ai-app/contracts/report-template/pipeline/report-formatting.utils");
     expect(filterJunkReferences(refs)).toHaveLength(1);
   });
 });

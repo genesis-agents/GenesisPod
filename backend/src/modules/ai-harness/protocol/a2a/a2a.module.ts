@@ -5,8 +5,17 @@
  * TraceCollectorService 来自 @Global() ObservabilityModule，本模块无需再次注册为 provider。
  */
 
+/**
+ * A2A (Agent-to-Agent) Module
+ * 将 Genesis.ai 暴露为 A2A 兼容的 Agent，让外部 AI Agent 可以发现和调用 Genesis 能力。
+ *
+ * Controller (A2AController) 迁移至 open-api/a2a-server.controller.ts (PR-X17)。
+ * DI token 绑定保留在本模块（作为服务协议层）。
+ *
+ * TraceCollectorService 来自 @Global() ObservabilityModule，本模块无需再次注册为 provider。
+ */
+
 import { Module } from "@nestjs/common";
-import { A2AController } from "./a2a.controller";
 import { AgentCardRegistry } from "./agent-card.registry";
 import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
@@ -17,11 +26,10 @@ import { TraceCollectorService } from "../../../ai-harness/governance/observabil
 
 @Module({
   imports: [SecretsModule, TeamsModule],
-  controllers: [A2AController],
   providers: [
     AgentCardRegistry,
     A2AApiKeyGuard,
-    // DI token bindings: A2AController injects via token instead of concrete class
+    // DI token bindings: A2AController (in open-api/a2a-server.controller.ts) injects via token
     {
       provide: TEAMS_SERVICE_TOKEN,
       useExisting: TeamsService,
@@ -31,6 +39,6 @@ import { TraceCollectorService } from "../../../ai-harness/governance/observabil
       useExisting: TraceCollectorService,
     },
   ],
-  exports: [AgentCardRegistry],
+  exports: [AgentCardRegistry, A2AApiKeyGuard, TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN],
 })
 export class A2AModule {}

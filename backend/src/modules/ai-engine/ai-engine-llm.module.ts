@@ -46,11 +46,7 @@ import { SystemModelInventoryService } from "./llm/services/system-model-invento
 // Model Fallback
 import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
 
-// User-facing controllers: dynamic model discovery + one-click auto-configure
-import {
-  UserModelsController,
-  UserModelConfigsAutoController,
-} from "./llm/user-models.controller";
+// Auto-configure service (used by UserModelConfigsAutoController in ai-app/byok)
 import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
 
 // Long-term editable recommendation matrix (user + admin auto-configure share this)
@@ -89,7 +85,6 @@ import { ModelElectionService } from "./llm/election/model-election.service";
     AiEngineConstraintModule,
     forwardRef(() => AiEnginePlanningModule),
   ],
-  controllers: [UserModelsController, UserModelConfigsAutoController],
   providers: [
     // LLM Factory & Adapters
     LLMFactory,
@@ -149,6 +144,7 @@ import { ModelElectionService } from "./llm/election/model-election.service";
     ModelRecommendationsService,
     SystemModelInventoryService,
     ModelElectionService,
+    AutoConfigureService,
   ],
 })
 export class AiEngineLLMModule {}
