@@ -5,7 +5,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import axios from "axios";
 import { WebScraperService } from "../web-scraper.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "../deduplication.service";
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -37,7 +37,7 @@ describe("WebScraperService", () => {
       providers: [
         WebScraperService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: MongoDBService, useValue: mockMongodb },
+        { provide: RawDataService, useValue: mockMongodb },
         { provide: DeduplicationService, useValue: mockDeduplication },
       ],
     })

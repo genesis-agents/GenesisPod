@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { GithubService } from "../github.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "../deduplication.service";
 
 // Mock axios at module level
@@ -100,7 +100,7 @@ describe("GithubService", () => {
       providers: [
         GithubService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: MongoDBService, useValue: mockMongodb },
+        { provide: RawDataService, useValue: mockMongodb },
         { provide: DeduplicationService, useValue: mockDeduplication },
         { provide: ConfigService, useValue: mockConfig },
       ],
@@ -571,7 +571,7 @@ describe("GithubService", () => {
         providers: [
           GithubService,
           { provide: PrismaService, useValue: mockPrisma },
-          { provide: MongoDBService, useValue: mockMongodb },
+          { provide: RawDataService, useValue: mockMongodb },
           { provide: DeduplicationService, useValue: mockDeduplication },
           { provide: ConfigService, useValue: mockConfig },
         ],

@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
 import { ResourceType, ImportTaskStatus, Prisma } from "@prisma/client";
 import { getErrorMessage } from "../../../../../../common/utils/error.utils";
 import {
@@ -39,7 +39,7 @@ export class ImportManagerService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
     private metadataExtractor: MetadataExtractorService,
     private duplicateDetector: DuplicateDetectorService,
     private paperMetadataExtractor: PaperMetadataExtractorService,
@@ -778,7 +778,7 @@ export class ImportManagerService {
         // 情形 1：Resource 没有 rawDataId（需要补充完整数据）
         if (!existingResource.rawDataId) {
           // 1. 存储完整原始数据到 MongoDB
-          rawDataId = await this.mongodb.insertRawData(
+          rawDataId = await this.rawData.insertRawData(
             "manual_import",
             rawData,
             resourceId,
@@ -803,7 +803,7 @@ export class ImportManagerService {
           });
 
           // 3. 建立双向引用（MongoDB → PostgreSQL）
-          await this.mongodb.linkResourceToRawData(rawDataId, resourceId);
+          await this.rawData.linkResourceToRawData(rawDataId, resourceId);
           this.logger.log(
             `✅ Linked raw data ${rawDataId} to existing resource ${resourceId}`,
           );
@@ -817,7 +817,7 @@ export class ImportManagerService {
           if (rawDataExists) {
             // 2a: raw_data 记录存在，更新它
             rawDataId = existingResource.rawDataId;
-            await this.mongodb.updateRawData(rawDataId, rawData, resourceId);
+            await this.rawData.updateRawData(rawDataId, rawData, resourceId);
             this.logger.log(
               `Updated raw data: ${rawDataId} for existing resource ${resourceId}`,
             );
@@ -826,12 +826,12 @@ export class ImportManagerService {
             this.logger.warn(
               `Orphaned rawDataId ${existingResource.rawDataId} for resource ${resourceId}, re-creating`,
             );
-            rawDataId = await this.mongodb.insertRawData(
+            rawDataId = await this.rawData.insertRawData(
               "manual_import",
               rawData,
               resourceId,
             );
-            await this.mongodb.linkResourceToRawData(rawDataId, resourceId);
+            await this.rawData.linkResourceToRawData(rawDataId, resourceId);
           }
 
           // 更新 PostgreSQL Resource 记录
@@ -864,7 +864,7 @@ export class ImportManagerService {
         );
 
         // 2. 存储完整原始数据到 MongoDB
-        rawDataId = await this.mongodb.insertRawData("manual_import", rawData);
+        rawDataId = await this.rawData.insertRawData("manual_import", rawData);
         this.logger.log(`Stored raw data in MongoDB: ${rawDataId}`);
 
         // 3. 在 PostgreSQL 创建 Resource 记录，设置 rawDataId
@@ -895,7 +895,7 @@ export class ImportManagerService {
         );
 
         // 4. 建立双向引用（MongoDB → PostgreSQL）
-        await this.mongodb.linkResourceToRawData(rawDataId, resourceId);
+        await this.rawData.linkResourceToRawData(rawDataId, resourceId);
         this.logger.log(
           `✅ Linked raw data ${rawDataId} ↔ PostgreSQL resource ${resourceId}`,
         );

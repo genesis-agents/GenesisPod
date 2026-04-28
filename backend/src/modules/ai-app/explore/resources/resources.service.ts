@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../common/rawdata/rawdata.service";
 import { ensureError } from "../../../../common/utils/error.utils";
 import { Prisma, ResourceType } from "@prisma/client";
 import { SourceWhitelistService } from "../../management/ingestion/config/services/source-whitelist.service";
@@ -22,7 +22,7 @@ export class ResourcesService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
     private whitelistService: SourceWhitelistService,
     private aiEnrichmentService: AIEnrichmentService,
     private repository: ResourcesRepository,
@@ -117,7 +117,7 @@ export class ResourcesService {
     // 如果有 rawDataId，获取完整原始数据
     let rawData = null;
     if (resource.rawDataId) {
-      rawData = await this.mongodb.findRawDataById(resource.rawDataId);
+      rawData = await this.rawData.findRawDataById(resource.rawDataId);
     }
 
     this.logger.log(`Retrieved resource ${id}`);

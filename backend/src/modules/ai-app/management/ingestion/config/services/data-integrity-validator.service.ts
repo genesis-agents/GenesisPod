@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
 
 interface RawDataDocument {
   resourceId?: string;
@@ -45,7 +45,7 @@ export class DataIntegrityValidatorService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
   ) {}
 
   /**
@@ -129,7 +129,7 @@ export class DataIntegrityValidatorService {
    */
   private async validateMongoDB() {
     const rawDataCollection =
-      this.mongodb.getRawDataCollection() as unknown as RawDataCollection;
+      this.rawData.getRawDataCollection() as unknown as RawDataCollection;
 
     const totalRawData = await rawDataCollection.countDocuments({});
     const rawDataWithResourceId = await rawDataCollection.countDocuments({
@@ -150,7 +150,7 @@ export class DataIntegrityValidatorService {
    */
   private async validateBidirectionalReferences() {
     const rawDataCollection =
-      this.mongodb.getRawDataCollection() as unknown as RawDataCollection;
+      this.rawData.getRawDataCollection() as unknown as RawDataCollection;
 
     // 获取所有有rawDataId的Resource
     const resourcesWithRawDataId = await this.prisma.resource.findMany({

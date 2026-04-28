@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import { getErrorStack } from "../../../../../common/utils/error.utils";
 import axios from "axios";
@@ -25,7 +25,7 @@ export class GithubService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
     private dedup: DeduplicationService,
     private config: ConfigService,
   ) {
@@ -159,7 +159,7 @@ export class GithubService {
     }
 
     // 层级1去重：检查同源是否已存在（GitHub 内部去重）
-    const existingRawData = await this.mongodb.findRawDataByExternalId(
+    const existingRawData = await this.rawData.findRawDataByExternalId(
       "github",
       repoFullName,
     );
@@ -173,7 +173,7 @@ export class GithubService {
 
     // 层级2去重：跨源检查 - 使用 externalId（防止同一项目从不同源采集）
     const crossSourceDuplicate =
-      await this.mongodb.findRawDataByExternalIdAcrossAllSources(repoFullName);
+      await this.rawData.findRawDataByExternalIdAcrossAllSources(repoFullName);
 
     if (crossSourceDuplicate) {
       const source = (crossSourceDuplicate as { source?: string }).source;
@@ -189,7 +189,7 @@ export class GithubService {
     if (repoUrl) {
       const normalizedUrl = this.dedup.normalizeUrl(repoUrl);
       const urlDuplicate =
-        await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
+        await this.rawData.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
       if (urlDuplicate) {
         const source = (urlDuplicate as { source?: string }).source;
@@ -208,7 +208,7 @@ export class GithubService {
 
     if (titleText) {
       const similarTitles =
-        await this.mongodb.findRawDataByTitleAcrossAllSources(titleText);
+        await this.rawData.findRawDataByTitleAcrossAllSources(titleText);
 
       for (const similar of similarTitles) {
         const similarData = similar as {
@@ -263,7 +263,7 @@ export class GithubService {
     const rawData = this.parseRawData(fullRepoData, repoFullName);
 
     // 1. 存储完整原始数据到 MongoDB
-    const rawDataId = await this.mongodb.insertRawData("github", rawData);
+    const rawDataId = await this.rawData.insertRawData("github", rawData);
 
     this.logger.log(
       `Stored raw data in MongoDB: ${repoFullName} -> ${rawDataId}`,
@@ -282,10 +282,10 @@ export class GithubService {
 
     // 3. ⚠️ 关键：建立双向引用
     // 3.1 MongoDB → PostgreSQL (resourceId)
-    await this.mongodb.linkResourceToRawData(rawDataId, resource.id);
+    await this.rawData.linkResourceToRawData(rawDataId, resource.id);
 
     // 3.2 验证引用同步成功
-    const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
+    const linkedRawData = await this.rawData.findRawDataById(rawDataId);
     const linkedResourceId = (linkedRawData as { resourceId?: string })
       ?.resourceId;
     if (linkedResourceId !== resource.id) {

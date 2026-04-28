@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ArxivService } from "../arxiv.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "../deduplication.service";
 import axios from "axios";
 import * as xml2js from "xml2js";
@@ -112,14 +112,14 @@ describe("ArxivService", () => {
       providers: [
         ArxivService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: MongoDBService, useValue: mockMongodbService },
+        { provide: RawDataService, useValue: mockMongodbService },
         { provide: DeduplicationService, useValue: mockDedupService },
       ],
     }).compile();
 
     service = module.get<ArxivService>(ArxivService);
     prismaService = module.get(PrismaService);
-    mongodbService = module.get(MongoDBService);
+    mongodbService = module.get(RawDataService);
     dedupService = module.get(DeduplicationService);
   });
 

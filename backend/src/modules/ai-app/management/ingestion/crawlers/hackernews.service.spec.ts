@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HackernewsService } from "./hackernews.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import { AIEnrichmentService } from "../../../explore/resources/ai-enrichment.service";
 import { HackernewsCommentsService } from "./hackernews-comments.service";
@@ -75,7 +75,7 @@ describe("HackernewsService", () => {
       providers: [
         HackernewsService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: MongoDBService, useValue: mockMongoService },
+        { provide: RawDataService, useValue: mockMongoService },
         { provide: DeduplicationService, useValue: mockDedupService },
         { provide: AIEnrichmentService, useValue: mockAiService },
         { provide: HackernewsCommentsService, useValue: mockCommentsService },
@@ -84,7 +84,7 @@ describe("HackernewsService", () => {
 
     service = module.get<HackernewsService>(HackernewsService);
     prismaService = module.get(PrismaService);
-    mongoService = module.get(MongoDBService);
+    mongoService = module.get(RawDataService);
   });
 
   afterEach(() => {

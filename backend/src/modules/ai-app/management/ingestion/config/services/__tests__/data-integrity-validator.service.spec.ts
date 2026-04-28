@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { DataIntegrityValidatorService } from "../data-integrity-validator.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../../../common/rawdata/rawdata.service";
 
 // ============================================================================
 // Helpers
@@ -82,7 +82,7 @@ describe("DataIntegrityValidatorService", () => {
       providers: [
         DataIntegrityValidatorService,
         { provide: PrismaService, useValue: prisma },
-        { provide: MongoDBService, useValue: mongodb },
+        { provide: RawDataService, useValue: mongodb },
       ],
     }).compile();
 

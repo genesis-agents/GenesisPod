@@ -11,9 +11,8 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { CommonModule } from "./common/common.module";
 import { PrismaModule } from "./common/prisma/prisma.module";
-import { MongoDBModule } from "./common/mongodb/mongodb.module";
+import { RawDataModule } from "./common/rawdata/rawdata.module";
 import { GraphModule } from "./common/graph/graph.module";
-import { Neo4jModule } from "./common/neo4j/neo4j.module";
 import { AiOrchestrationModule } from "./common/ai-orchestration";
 import { StreamingModule } from "./common/streaming";
 import { ContentProcessingModule } from "./common/content-processing";
@@ -145,9 +144,8 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // 数据库模块
     PrismaModule,
-    MongoDBModule,
+    RawDataModule,
     GraphModule,
-    Neo4jModule,
 
     // 公共服务模块
     CacheModule, // Redis/内存缓存（全局）

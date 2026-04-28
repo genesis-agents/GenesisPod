@@ -2,6 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../../../common/prisma/prisma.module";
+import { RawDataModule } from "../../../../../common/rawdata/rawdata.module";
 import { SourceWhitelistService } from "./services/source-whitelist.service";
 import { SourceWhitelistController } from "./controllers/source-whitelist.controller";
 import { CollectionRuleService } from "./services/collection-rule.service";
@@ -30,7 +31,7 @@ import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
  * - 导入管理和URL解析
  */
 @Module({
-  imports: [ConfigModule, PrismaModule, HttpModule],
+  imports: [ConfigModule, PrismaModule, HttpModule, RawDataModule],
   providers: [
     SourceWhitelistService,
     CollectionRuleService,

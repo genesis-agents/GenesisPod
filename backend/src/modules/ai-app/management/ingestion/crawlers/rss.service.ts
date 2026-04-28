@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ResourceType, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import * as Parser from "rss-parser";
 
@@ -45,7 +45,7 @@ export class RssService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
     private deduplication: DeduplicationService,
   ) {
     this.parser = new Parser({
@@ -403,7 +403,7 @@ export class RssService {
 
           // 3. 同时检查 raw_data 表（备份检查）
           const urlDuplicate =
-            await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
+            await this.rawData.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
           if (urlDuplicate) {
             const source = (urlDuplicate as { source?: string }).source;
@@ -437,7 +437,7 @@ export class RssService {
           };
 
           // 1. 存储完整原始数据到 MongoDB
-          const rawDataId = await this.mongodb.insertRawData("rss", rawData);
+          const rawDataId = await this.rawData.insertRawData("rss", rawData);
 
           this.logger.log(
             `Stored raw data in MongoDB: ${item.title} -> ${rawDataId}`,
@@ -460,10 +460,10 @@ export class RssService {
           );
 
           // 3. ⚠️ 关键：建立双向引用 MongoDB → PostgreSQL
-          await this.mongodb.linkResourceToRawData(rawDataId, resource.id);
+          await this.rawData.linkResourceToRawData(rawDataId, resource.id);
 
           // 4. 验证引用同步成功
-          const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
+          const linkedRawData = await this.rawData.findRawDataById(rawDataId);
           const linkedResourceId = (linkedRawData as { resourceId?: string })
             ?.resourceId;
           if (linkedResourceId !== resource.id) {

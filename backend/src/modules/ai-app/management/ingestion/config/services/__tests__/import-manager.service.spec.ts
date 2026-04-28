@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { ImportManagerService } from "../import-manager.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../../../common/rawdata/rawdata.service";
 import { MetadataExtractorService } from "../metadata-extractor.service";
 import { DuplicateDetectorService } from "../duplicate-detector.service";
 import { PaperMetadataExtractorService } from "../paper-metadata-extractor.service";
@@ -62,7 +62,7 @@ describe("ImportManagerService", () => {
       providers: [
         ImportManagerService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: MongoDBService, useValue: mockMongodb },
+        { provide: RawDataService, useValue: mockMongodb },
         { provide: MetadataExtractorService, useValue: mockMetadataExtractor },
         {
           provide: DuplicateDetectorService,

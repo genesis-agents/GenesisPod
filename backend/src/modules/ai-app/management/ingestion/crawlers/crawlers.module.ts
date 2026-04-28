@@ -15,6 +15,7 @@ import { BlogCollectionService } from "./blog-collection.service";
 import { BlogSchedulerService } from "./blog-scheduler.service";
 // Dependencies
 import { ResourcesModule } from "../../../explore/resources/resources.module";
+import { RawDataModule } from "../../../../../common/rawdata/rawdata.module";
 
 /**
  * Crawlers Module (数据爬虫模块)
@@ -24,7 +25,7 @@ import { ResourcesModule } from "../../../explore/resources/resources.module";
  * - 博客采集: 定时采集博客源
  */
 @Module({
-  imports: [ResourcesModule, ConfigModule],
+  imports: [ResourcesModule, ConfigModule, RawDataModule],
   controllers: [CrawlerController, BlogCollectionController],
   providers: [
     // Crawler services

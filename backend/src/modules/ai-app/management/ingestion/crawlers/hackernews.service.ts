@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import { AIEnrichmentService } from "../../../explore/resources/ai-enrichment.service";
 import { HackernewsCommentsService } from "./hackernews-comments.service";
@@ -28,7 +28,7 @@ export class HackernewsService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
     private dedup: DeduplicationService,
     private aiEnrichment: AIEnrichmentService,
     private commentsService: HackernewsCommentsService,
@@ -166,7 +166,7 @@ export class HackernewsService {
     const externalId = itemId.toString();
 
     // 层级1去重：检查同源是否已存在（HackerNews 内部去重）
-    const existingRawData = await this.mongodb.findRawDataByExternalId(
+    const existingRawData = await this.rawData.findRawDataByExternalId(
       "hackernews",
       externalId,
     );
@@ -178,7 +178,7 @@ export class HackernewsService {
 
     // 层级2去重：跨源检查 - 使用 externalId（防止同一故事从不同源采集）
     const crossSourceDuplicate =
-      await this.mongodb.findRawDataByExternalIdAcrossAllSources(externalId);
+      await this.rawData.findRawDataByExternalIdAcrossAllSources(externalId);
 
     if (crossSourceDuplicate) {
       const source = (crossSourceDuplicate as { source?: string }).source;
@@ -202,7 +202,7 @@ export class HackernewsService {
     if (storyUrl) {
       const normalizedUrl = this.dedup.normalizeUrl(storyUrl);
       const urlDuplicate =
-        await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
+        await this.rawData.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
       if (urlDuplicate) {
         const source = (urlDuplicate as { source?: string }).source;
@@ -219,7 +219,7 @@ export class HackernewsService {
 
     if (storyTitle) {
       const similarTitles =
-        await this.mongodb.findRawDataByTitleAcrossAllSources(storyTitle);
+        await this.rawData.findRawDataByTitleAcrossAllSources(storyTitle);
 
       for (const similar of similarTitles) {
         const similarData = similar as {
@@ -283,7 +283,7 @@ export class HackernewsService {
     }
 
     // 1. 存储完整原始数据到 MongoDB
-    const rawDataId = await this.mongodb.insertRawData("hackernews", rawData);
+    const rawDataId = await this.rawData.insertRawData("hackernews", rawData);
 
     this.logger.log(`Stored raw data in MongoDB: HN-${itemId} -> ${rawDataId}`);
 
@@ -300,10 +300,10 @@ export class HackernewsService {
 
     // 3. ⚠️ 关键：建立双向引用
     // 3.1 MongoDB → PostgreSQL (resourceId)
-    await this.mongodb.linkResourceToRawData(rawDataId, resource.id);
+    await this.rawData.linkResourceToRawData(rawDataId, resource.id);
 
     // 3.2 验证引用同步成功
-    const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
+    const linkedRawData = await this.rawData.findRawDataById(rawDataId);
     const linkedResourceId = (linkedRawData as { resourceId?: string })
       ?.resourceId;
     if (linkedResourceId !== resource.id) {

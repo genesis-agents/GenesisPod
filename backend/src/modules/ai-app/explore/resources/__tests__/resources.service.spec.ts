@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResourcesService } from "../resources.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { SourceWhitelistService } from "../../../management/ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { ResourcesRepository } from "../resources.repository";
@@ -14,7 +14,7 @@ global.fetch = mockFetch;
 describe("ResourcesService", () => {
   let service: ResourcesService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
-  let mockMongodb: jest.Mocked<Partial<MongoDBService>>;
+  let mockMongodb: jest.Mocked<Partial<RawDataService>>;
   let mockWhitelistService: jest.Mocked<Partial<SourceWhitelistService>>;
   let mockAIEnrichmentService: jest.Mocked<Partial<AIEnrichmentService>>;
   let mockRepository: jest.Mocked<Partial<ResourcesRepository>>;
@@ -68,7 +68,7 @@ describe("ResourcesService", () => {
 
     mockMongodb = {
       findRawDataById: jest.fn().mockResolvedValue(null),
-    } as jest.Mocked<Partial<MongoDBService>>;
+    } as jest.Mocked<Partial<RawDataService>>;
 
     mockWhitelistService = {
       validateUrl: jest.fn().mockResolvedValue({
@@ -116,7 +116,7 @@ describe("ResourcesService", () => {
       providers: [
         ResourcesService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: MongoDBService, useValue: mockMongodb },
+        { provide: RawDataService, useValue: mockMongodb },
         { provide: SourceWhitelistService, useValue: mockWhitelistService },
         { provide: AIEnrichmentService, useValue: mockAIEnrichmentService },
         { provide: ResourcesRepository, useValue: mockRepository },

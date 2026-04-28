@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import { getErrorStack } from "../../../../../common/utils/error.utils";
 import axios from "axios";
@@ -116,7 +116,7 @@ export class ArxivService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
     private dedup: DeduplicationService,
   ) {}
 
@@ -210,7 +210,7 @@ export class ArxivService {
     }
 
     // 层级1去重：检查同源是否已存在（arXiv 内部去重）
-    const existingRawData = await this.mongodb.findRawDataByExternalId(
+    const existingRawData = await this.rawData.findRawDataByExternalId(
       "arxiv",
       arxivId,
     );
@@ -222,7 +222,7 @@ export class ArxivService {
 
     // 层级2去重：跨源检查 - 使用 externalId（防止同一论文从不同源采集）
     const crossSourceDuplicate =
-      await this.mongodb.findRawDataByExternalIdAcrossAllSources(arxivId);
+      await this.rawData.findRawDataByExternalIdAcrossAllSources(arxivId);
 
     if (crossSourceDuplicate) {
       const source = (crossSourceDuplicate as { source?: string }).source;
@@ -239,7 +239,7 @@ export class ArxivService {
     if (abstractUrl) {
       const normalizedUrl = this.dedup.normalizeUrl(abstractUrl);
       const urlDuplicate =
-        await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
+        await this.rawData.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
       if (urlDuplicate) {
         const source = (urlDuplicate as { source?: string }).source;
@@ -252,7 +252,7 @@ export class ArxivService {
 
     // 层级4去重：标题相似度检查（防止同一内容以不同标题从不同源采集）
     const similarTitles =
-      await this.mongodb.findRawDataByTitleAcrossAllSources(title);
+      await this.rawData.findRawDataByTitleAcrossAllSources(title);
 
     for (const similar of similarTitles) {
       const similarData = similar as {
@@ -275,7 +275,7 @@ export class ArxivService {
     const rawData = this.parseRawData(entry, arxivId);
 
     // 1. 存储完整原始数据到 MongoDB
-    const rawDataId = await this.mongodb.insertRawData(
+    const rawDataId = await this.rawData.insertRawData(
       "arxiv",
       rawData as unknown as Record<string, unknown>,
     );
@@ -295,10 +295,10 @@ export class ArxivService {
 
     // 3. ⚠️ 关键：建立双向引用
     // 3.1 MongoDB → PostgreSQL (resourceId)
-    await this.mongodb.linkResourceToRawData(rawDataId, resource.id);
+    await this.rawData.linkResourceToRawData(rawDataId, resource.id);
 
     // 3.2 验证引用同步成功
-    const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
+    const linkedRawData = await this.rawData.findRawDataById(rawDataId);
     const linkedResourceId = (linkedRawData as { resourceId?: string })
       ?.resourceId;
     if (linkedResourceId !== resource.id) {

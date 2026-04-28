@@ -38,8 +38,9 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate --schema=prisma/schema
 
-# Build the application
-RUN npm run build
+# Build the application — bump V8 heap to avoid OOM on large TS graph
+# (Railway runners have ample RAM; local Docker Desktop default is tighter).
+RUN NODE_OPTIONS="--max-old-space-size=6144" npm run build
 
 # Remove devDependencies for smaller production image
 RUN npm prune --production --legacy-peer-deps

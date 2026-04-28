@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResourcesService } from "./resources.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../common/rawdata/rawdata.service";
 import { SourceWhitelistService } from "../../management/ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
@@ -11,7 +11,7 @@ import { ResourceType } from "@prisma/client";
 describe("ResourcesService", () => {
   let service: ResourcesService;
   let prismaService: jest.Mocked<PrismaService>;
-  let mongoDBService: jest.Mocked<MongoDBService>;
+  let mongoDBService: jest.Mocked<RawDataService>;
   let aiEnrichmentService: jest.Mocked<AIEnrichmentService>;
   let repositoryService: jest.Mocked<ResourcesRepository>;
 
@@ -80,7 +80,7 @@ describe("ResourcesService", () => {
       },
     };
 
-    const mockMongoDBService = {
+    const mockRawDataService = {
       findRawDataById: jest.fn(),
     };
 
@@ -118,7 +118,7 @@ describe("ResourcesService", () => {
       providers: [
         ResourcesService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: MongoDBService, useValue: mockMongoDBService },
+        { provide: RawDataService, useValue: mockRawDataService },
         { provide: SourceWhitelistService, useValue: mockWhitelistService },
         { provide: AIEnrichmentService, useValue: mockAIEnrichmentService },
         { provide: ResourcesRepository, useValue: mockResourcesRepository },
@@ -127,7 +127,7 @@ describe("ResourcesService", () => {
 
     service = module.get<ResourcesService>(ResourcesService);
     prismaService = module.get(PrismaService);
-    mongoDBService = module.get(MongoDBService);
+    mongoDBService = module.get(RawDataService);
     aiEnrichmentService = module.get(AIEnrichmentService);
     repositoryService = module.get(ResourcesRepository);
   });

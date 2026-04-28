@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MongoDBService } from "../../../../../common/mongodb/mongodb.service.postgres";
+import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
@@ -16,7 +16,7 @@ export class WebScraperService {
 
   constructor(
     private prisma: PrismaService,
-    private mongodb: MongoDBService,
+    private rawData: RawDataService,
     private deduplication: DeduplicationService,
   ) {}
 
@@ -318,7 +318,7 @@ export class WebScraperService {
         // URL去重检查（使用MongoDB）
         const normalizedUrl = this.deduplication.normalizeUrl(item.link);
         const urlDuplicate =
-          await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
+          await this.rawData.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
         if (urlDuplicate) {
           const source = (urlDuplicate as { source?: string }).source;
@@ -344,7 +344,7 @@ export class WebScraperService {
         };
 
         // 1. 存储完整原始数据到 MongoDB
-        const rawDataId = await this.mongodb.insertRawData(
+        const rawDataId = await this.rawData.insertRawData(
           "web_scraper",
           rawData,
         );
@@ -403,10 +403,10 @@ export class WebScraperService {
         );
 
         // 3. ⚠️ 关键：建立双向引用 MongoDB → PostgreSQL
-        await this.mongodb.linkResourceToRawData(rawDataId, resource.id);
+        await this.rawData.linkResourceToRawData(rawDataId, resource.id);
 
         // 4. 验证引用同步成功
-        const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
+        const linkedRawData = await this.rawData.findRawDataById(rawDataId);
         const linkedResourceId = (linkedRawData as { resourceId?: string })
           ?.resourceId;
         if (linkedResourceId !== resource.id) {

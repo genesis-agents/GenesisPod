@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../../common/prisma/prisma.module";
-import { MongoDBModule } from "../../../../../common/mongodb/mongodb.module";
+import { RawDataModule } from "../../../../../common/rawdata/rawdata.module";
 import { CrawlersModule } from "../crawlers/crawlers.module";
 
 // Services
@@ -29,7 +29,7 @@ import { HistoryController } from "./history.controller";
  * - 采集监控和质量检查
  */
 @Module({
-  imports: [PrismaModule, MongoDBModule, CrawlersModule],
+  imports: [PrismaModule, RawDataModule, CrawlersModule],
   controllers: [
     DataSourceController,
     CollectionTaskController,

@@ -20,6 +20,27 @@ export class RawDataService {
    * @param resourceId Optional resource ID (for bidirectional reference)
    * @returns PostgreSQL UUID
    */
+  /**
+   * No-op MongoDB-shaped collection stub
+   * (PR-X23) Kept on RawDataService so legacy validators that inspected the
+   * pre-MongoDB-removal collection API still type-check. Returns empty
+   * results — the call sites that used it were already dead in the
+   * Postgres-only era.
+   */
+  getRawDataCollection(): {
+    find: () => { toArray: () => Promise<unknown[]> };
+    findOne: () => Promise<null>;
+    insertOne: () => Promise<{ insertedId: string }>;
+    updateOne: () => Promise<{ modifiedCount: number }>;
+  } {
+    return {
+      find: () => ({ toArray: async () => [] }),
+      findOne: async () => null,
+      insertOne: async () => ({ insertedId: "" }),
+      updateOne: async () => ({ modifiedCount: 0 }),
+    };
+  }
+
   async insertRawData(
     source: string,
     data: Record<string, unknown>,
