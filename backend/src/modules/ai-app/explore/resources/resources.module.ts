@@ -8,7 +8,7 @@ import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { ResourceHealthCheckScheduler } from "./resource-health-check.scheduler";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../../../common/mongodb/mongodb.module";
-import { IngestionConfigModule } from "../../admin/ingestion/config/config.module";
+import { IngestionConfigModule } from "../../management/ingestion/config/config.module";
 import { StorageModule } from "../../../ai-infra/storage/storage.module";
 import { ProxyModule } from "../../library/proxy/proxy.module";
 

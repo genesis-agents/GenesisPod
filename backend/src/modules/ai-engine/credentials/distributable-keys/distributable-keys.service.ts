@@ -5,8 +5,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { DistributableKey, Prisma } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { EncryptionService } from "../encryption/encryption.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { EncryptionService } from "../../../ai-infra/encryption/encryption.service";
 
 /** Valid provider name pattern (复用 UserApiKeysService 的约束) */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;

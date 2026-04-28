@@ -13,8 +13,8 @@ import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
 import { AiConnectionTestService } from "./services/ai-connection-test.service";
-import { UserApiKeysService } from "../../ai-infra/user-api-keys/user-api-keys.service";
-import { UserModelConfigsService } from "../../ai-infra/user-model-configs/user-model-configs.service";
+import { UserApiKeysService } from "../../ai-engine/credentials/user-api-keys/user-api-keys.service";
+import { UserModelConfigsService } from "../../ai-engine/credentials/user-model-configs/user-model-configs.service";
 import { AutoConfigureService } from "./user-models-auto-configure.service";
 
 interface AuthenticatedRequest {

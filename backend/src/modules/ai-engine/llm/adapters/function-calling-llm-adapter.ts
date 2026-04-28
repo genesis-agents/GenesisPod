@@ -13,7 +13,7 @@ import {
   LLMRequestOptions,
   LLMResponse,
   ToolCallRequest,
-} from "../../orchestration/executors/function-calling-executor";
+} from "../../planning/executors/function-calling-executor";
 import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";

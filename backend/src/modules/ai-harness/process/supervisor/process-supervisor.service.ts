@@ -12,7 +12,7 @@
  * - Agent 任务并发控制
  * - 长时间运行任务的生命周期管理
  *
- * ★ Migrated from ai-engine/orchestration/state-machine/execution-state.manager.ts
+ * ★ Migrated from ai-engine/planning/state-machine/execution-state.manager.ts
  */
 
 import {

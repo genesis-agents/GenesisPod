@@ -22,7 +22,7 @@ export type {
 } from "../../core/types/agent.types";
 export { BUILTIN_AGENTS } from "../../core/types/agent.types";
 export type { ExecutionMode } from "../../core/types/context.types";
-export type { TaskPlan } from "../../orchestration/services/task-planner.service";
+export type { TaskPlan } from "../../planning/services/task-planner.service";
 export { createConstraintProfile } from "../../../ai-harness/runtime/teams/constraints/constraint-profile";
 // Note: MissionInput and MissionResult are defined in facade.types.ts (facade-level interfaces).
 // Engine-internal overrides were previously done via explicit named exports in facade/index.ts.
@@ -56,7 +56,7 @@ export {
 export type {
   TeamMemberInfo,
   IConstraintEnforcementService,
-} from "../../orchestration/services/interfaces";
+} from "../../planning/services/interfaces";
 
 // Agent interface types (PR-X5: moved to ai-harness/kernel/abstractions)
 export type {
@@ -149,10 +149,10 @@ export type {
 export type {
   Checkpoint,
   ExecutionContext,
-} from "../../orchestration/abstractions/orchestrator.interface";
+} from "../../planning/abstractions/orchestrator.interface";
 
 // Error detection utilities
-export type { ErrorDetectionRetryConfig } from "../../orchestration/utils/error-detection.utils";
+export type { ErrorDetectionRetryConfig } from "../../planning/utils/error-detection.utils";
 export {
   DEFAULT_RETRY_CONFIG,
   isRetryableError,
@@ -163,7 +163,7 @@ export {
   sleep,
   isApiErrorContent,
   parseErrorType,
-} from "../../orchestration/utils/error-detection.utils";
+} from "../../planning/utils/error-detection.utils";
 
 // Image generation interface & tokens
 export {
@@ -184,5 +184,5 @@ export type { SkillMdDefinition } from "../../skills/types/skill-md.types";
 export type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../../orchestration/capabilities/types";
+} from "../../planning/capabilities/types";
 // Note: AICapabilityContext is already re-exported via facade/types/facade.types.ts

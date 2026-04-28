@@ -5,11 +5,11 @@ import {
   BadRequestException,
   Optional,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { SecretsService, AuditContext } from "../secrets/secrets.service";
-import { CreditsService } from "../credits/credits.service";
-import { EncryptionService } from "../encryption/encryption.service";
-import { CacheService, CachePrefix, CacheTTL } from "../../../common/cache";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { SecretsService, AuditContext } from "../../../ai-infra/secrets/secrets.service";
+import { CreditsService } from "../../../ai-infra/credits/credits.service";
+import { EncryptionService } from "../../../ai-infra/encryption/encryption.service";
+import { CacheService, CachePrefix, CacheTTL } from "../../../../common/cache";
 import {
   SecretCategory,
   CreditTransactionType,

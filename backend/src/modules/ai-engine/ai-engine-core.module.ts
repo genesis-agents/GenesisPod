@@ -35,7 +35,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
 // Capabilities
-import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "./planning/capabilities/ai-capability-resolver.service";
 
 // Observability core 由 ai-harness/ObservabilityModule (@Global) 提供 —
 // 由 app.module.ts 统一装配，本轻量模块不直接依赖 ai-harness，

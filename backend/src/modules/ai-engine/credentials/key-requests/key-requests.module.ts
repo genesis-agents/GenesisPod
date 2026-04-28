@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { KeyAssignmentsModule } from "../key-assignments/key-assignments.module";
 import { AdminKeyRequestsController } from "./admin-key-requests.controller";
 import { UserKeyRequestsController } from "./key-requests.controller";

@@ -42,18 +42,18 @@ import type {
 import type {
   AgentContext,
   RouteResult,
-} from "../../orchestration/services/intent-router.service";
+} from "../../planning/services/intent-router.service";
 import type {
   RoomConfig,
   ProgressEvent,
 } from "../../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
 import { CircuitBreakerService } from "../../safety/resilience/circuit-breaker.service";
-import { AgentExecutorService } from "../../orchestration/services/agent-executor.service";
-import { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
-import { IntentDetectionService } from "../../orchestration/services/intent-detection.service";
+import { AgentExecutorService } from "../../planning/services/agent-executor.service";
+import { TaskDecomposerService } from "../../planning/services/task-decomposer.service";
+import { IntentDetectionService } from "../../planning/services/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-harness/process/supervisor/process-supervisor.service";
-import { OutputReviewerService } from "../../orchestration/services/output-reviewer.service";
-import { ContextEvolutionService } from "../../orchestration/services/context-evolution.service";
+import { OutputReviewerService } from "../../planning/services/output-reviewer.service";
+import { ContextEvolutionService } from "../../planning/services/context-evolution.service";
 import { AgentRegistry } from "../../../ai-harness/kernel/registry/legacy-agent-registry";
 
 @Injectable()

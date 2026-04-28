@@ -2,9 +2,9 @@ import { Controller, Get, Logger, Post, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { KeyAssignmentStatus, KeyRequestStatus } from "@prisma/client";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
 
 /**

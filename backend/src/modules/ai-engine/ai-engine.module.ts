@@ -17,7 +17,7 @@
  * - AiEngineLLMModule: LLM 适配层
  * - AiEngineToolsModule: 工具系统
  * - AiEngineSkillsModule: 技能系统
- * - AiEngineOrchestrationModule: 编排引擎
+ * - AiEnginePlanningModule: 编排引擎
  * - AiEngineMemoryModule: 记忆系统
  * - AiEngineConstraintModule: 约束引擎
  * - AiEngineKnowledgeModule: 知识能力 (RAG + Search)
@@ -32,7 +32,7 @@ import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 import { AiEngineLLMModule } from "./ai-engine-llm.module";
 import { AiEngineToolsModule } from "./ai-engine-tools.module";
 import { AiEngineSkillsModule } from "./ai-engine-skills.module";
-import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
+import { AiEnginePlanningModule } from "./ai-engine-planning.module";
 import { AiEngineMemoryModule } from "./ai-engine-memory.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { AiEngineKnowledgeModule } from "./ai-engine-knowledge.module";
@@ -74,7 +74,7 @@ import { CreditsModule } from "../ai-infra/credits/credits.module";
 // MCPManager and MCPClientRegistryService are now provided by HarnessModule (@Global)
 
 // Capabilities
-import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "./planning/capabilities/ai-capability-resolver.service";
 
 // Observability core 全部由 ai-harness/ObservabilityModule (@Global) 提供，
 // 包括 AiEngineTracingService / EvalPipelineService — engine 不再注册它们。
@@ -118,7 +118,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEngineLLMModule,
     AiEngineToolsModule,
     AiEngineSkillsModule,
-    AiEngineOrchestrationModule,
+    AiEnginePlanningModule,
     AiEngineMemoryModule,
     AiEngineConstraintModule,
     AiEngineKnowledgeModule,
@@ -175,7 +175,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEngineLLMModule,
     AiEngineToolsModule,
     AiEngineSkillsModule,
-    AiEngineOrchestrationModule,
+    AiEnginePlanningModule,
     AiEngineMemoryModule,
     AiEngineConstraintModule,
     AiEngineKnowledgeModule,

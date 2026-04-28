@@ -12,11 +12,11 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SecretsModule } from "../ai-infra/secrets/secrets.module";
-import { UserApiKeysModule } from "../ai-infra/user-api-keys/user-api-keys.module";
-import { KeyResolverModule } from "../ai-infra/key-resolver/key-resolver.module";
-import { UserModelConfigsModule } from "../ai-infra/user-model-configs/user-model-configs.module";
+import { UserApiKeysModule } from "../ai-engine/credentials/user-api-keys/user-api-keys.module";
+import { KeyResolverModule } from "../ai-engine/credentials/key-resolver/key-resolver.module";
+import { UserModelConfigsModule } from "../ai-engine/credentials/user-model-configs/user-model-configs.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
-import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
+import { AiEnginePlanningModule } from "./ai-engine-planning.module";
 import * as http from "http";
 import * as https from "https";
 
@@ -87,7 +87,7 @@ import { ModelElectionService } from "./llm/election/model-election.service";
     KeyResolverModule, // BYOK v2: 统一 API Key 解析
     UserModelConfigsModule, // BYOK v3: 用户自定义多模型
     AiEngineConstraintModule,
-    forwardRef(() => AiEngineOrchestrationModule),
+    forwardRef(() => AiEnginePlanningModule),
   ],
   controllers: [UserModelsController, UserModelConfigsAutoController],
   providers: [

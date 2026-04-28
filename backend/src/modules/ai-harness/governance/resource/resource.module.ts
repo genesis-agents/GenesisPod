@@ -20,8 +20,8 @@ import { forwardRef, Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineToolsModule } from "../../../ai-engine/ai-engine-tools.module";
 import { AiEngineSkillsModule } from "../../../ai-engine/ai-engine-skills.module";
-import { AiEngineOrchestrationModule } from "../../../ai-engine/ai-engine-orchestration.module";
-import { KeyResolverModule } from "../../../ai-infra/key-resolver/key-resolver.module";
+import { AiEnginePlanningModule } from "../../../ai-engine/ai-engine-planning.module";
+import { KeyResolverModule } from "../../../ai-engine/credentials/key-resolver/key-resolver.module";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
 // CircuitBreakerService 已搬到 ai-engine/safety/resilience/（PR-X3）
@@ -52,7 +52,7 @@ const RUNTIME_RESOURCE_PROVIDERS = [
     // 用 useExisting 绑到 token 上，因此本模块**不**直接 import ai-harness。
     forwardRef(() => AiEngineToolsModule),
     forwardRef(() => AiEngineSkillsModule),
-    forwardRef(() => AiEngineOrchestrationModule),
+    forwardRef(() => AiEnginePlanningModule),
     // discoverUserKeys 真接 KeyResolver + Secrets（替换原来写死的 hasByok=false）
     KeyResolverModule,
     SecretsModule,

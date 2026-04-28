@@ -33,13 +33,13 @@ import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import { estimateCost } from "../budget/cost-calculator";
-import { KeyResolverService } from "../../../ai-infra/key-resolver/key-resolver.service";
+import { KeyResolverService } from "../../../ai-engine/credentials/key-resolver/key-resolver.service";
 import {
   BYOKError,
   InvalidApiKeyError,
   NoAvailableKeyError,
   QuotaExceededError,
-} from "../../../ai-infra/key-resolver/key-resolver.errors";
+} from "../../../ai-engine/credentials/key-resolver/key-resolver.errors";
 
 export interface ChatCompletionOptions {
   model: string;

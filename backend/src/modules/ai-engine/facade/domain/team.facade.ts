@@ -57,11 +57,11 @@ import type {
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
-} from "../../orchestration/services/reflection.service";
+} from "../../planning/services/reflection.service";
 import type {
   CompressionOptions,
   CompressionResult,
-} from "../../orchestration/services/interfaces";
+} from "../../planning/services/interfaces";
 import type { SaveEvidenceRequest } from "../../knowledge/evidence/abstractions/evidence.interface";
 import type { VotingSession } from "../../../ai-harness/process/collaboration/patterns/voting-pattern";
 import type {
@@ -71,7 +71,7 @@ import type {
 import type { SkillMdDefinition } from "../../skills/types/skill-md.types";
 import { TeamsService } from "../../../ai-harness/runtime/teams/services/teams.service";
 import { TeamFactory } from "../../../ai-harness/runtime/teams/factory/team-factory";
-import { ContextInitializationService } from "../../orchestration/services/context-initialization.service";
+import { ContextInitializationService } from "../../planning/services/context-initialization.service";
 import { MissionOrchestrator } from "../../../ai-harness/runtime/teams/orchestrator/mission-orchestrator";
 import { TeamRegistry } from "../../../ai-harness/runtime/teams/registry/team-registry";
 import { RoleRegistry } from "../../../ai-harness/runtime/teams/registry/role-registry";

@@ -20,10 +20,10 @@ import { SkillRegistry } from "./skills/registry/skill-registry";
 import { AgentRegistry } from "../ai-harness/kernel/registry/legacy-agent-registry";
 
 // Executors
-import { SequentialExecutor } from "./orchestration/executors/sequential-executor";
-import { DAGExecutor } from "./orchestration/executors/dag-executor";
-import { ParallelExecutor } from "./orchestration/executors/parallel-executor";
-import { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
+import { SequentialExecutor } from "./planning/executors/sequential-executor";
+import { DAGExecutor } from "./planning/executors/dag-executor";
+import { ParallelExecutor } from "./planning/executors/parallel-executor";
+import { FunctionCallingExecutor } from "./planning/executors/function-calling-executor";
 
 // Checkpoints
 import { CheckpointManager } from "../ai-harness/protocol/journal/checkpoint-manager";
@@ -33,40 +33,40 @@ import { ProgressTrackerService } from "../ai-harness/protocol/ipc/progress-trac
 import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
 
 // Orchestration Services
-import { TaskDecomposerService } from "./orchestration/services/task-decomposer.service";
-import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
-import { OutputReviewerService } from "./orchestration/services/output-reviewer.service";
-import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
+import { TaskDecomposerService } from "./planning/services/task-decomposer.service";
+import { AgentExecutorService } from "./planning/services/agent-executor.service";
+import { OutputReviewerService } from "./planning/services/output-reviewer.service";
+import { IterationManagerService } from "./planning/services/iteration-manager.service";
 import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
-import { TokenBudgetService } from "./orchestration/services/token-budget.service";
-import { ContextEvolutionService } from "./orchestration/services/context-evolution.service";
-import { ContextInitializationService } from "./orchestration/services/context-initialization.service";
+import { TokenBudgetService } from "./planning/services/token-budget.service";
+import { ContextEvolutionService } from "./planning/services/context-evolution.service";
+import { ContextInitializationService } from "./planning/services/context-initialization.service";
 import { ConstraintEnforcementService } from "../ai-harness/governance/resource/constraint-enforcement.service";
-import { ContextCompressionService } from "./orchestration/services/context-compression.service";
-import { IntentDetectionService } from "./orchestration/services/intent-detection.service";
-import { ReflectionService } from "./orchestration/services/reflection.service";
-import { ComplexityAnalyzerService } from "./orchestration/services/complexity-analyzer.service";
-import { IntelligentModelRouterService } from "./orchestration/services/intelligent-model-router.service";
-import { TaskPlannerService } from "./orchestration/services/task-planner.service";
-import { IntentRouterService } from "./orchestration/services/intent-router.service";
+import { ContextCompressionService } from "./planning/services/context-compression.service";
+import { IntentDetectionService } from "./planning/services/intent-detection.service";
+import { ReflectionService } from "./planning/services/reflection.service";
+import { ComplexityAnalyzerService } from "./planning/services/complexity-analyzer.service";
+import { IntelligentModelRouterService } from "./planning/services/intelligent-model-router.service";
+import { TaskPlannerService } from "./planning/services/task-planner.service";
+import { IntentRouterService } from "./planning/services/intent-router.service";
 // ★ Phase 1-4: 基础设施升级新增服务
-import { QueryLoopService } from "./orchestration/services/query-loop.service";
-import { TokenTrackerService } from "./orchestration/services/token-tracker.service";
-import { ContextCompactionPipelineService } from "./orchestration/services/context-compaction-pipeline.service";
-import { ExecutionCheckpointService } from "./orchestration/services/execution-checkpoint.service";
-import { AdaptiveReplannerService } from "./orchestration/services/adaptive-replanner.service";
-import { CrossCuttingSynthesisService } from "./orchestration/services/cross-cutting-synthesis.service";
+import { QueryLoopService } from "./planning/services/query-loop.service";
+import { TokenTrackerService } from "./planning/services/token-tracker.service";
+import { ContextCompactionPipelineService } from "./planning/services/context-compaction-pipeline.service";
+import { ExecutionCheckpointService } from "./planning/services/execution-checkpoint.service";
+import { AdaptiveReplannerService } from "./planning/services/adaptive-replanner.service";
+import { CrossCuttingSynthesisService } from "./planning/services/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
-import { SessionMemorySidecarService } from "./orchestration/services/session-memory-sidecar.service";
+import { SessionMemorySidecarService } from "./planning/services/session-memory-sidecar.service";
 // ★ Phase 9: 后台自主 Agent
-import { AutoDreamService } from "./orchestration/services/auto-dream.service";
-import { AutoDreamSchedulerService } from "./orchestration/services/auto-dream-scheduler.service";
+import { AutoDreamService } from "./planning/services/auto-dream.service";
+import { AutoDreamSchedulerService } from "./planning/services/auto-dream-scheduler.service";
 
 // State Machine
 import { ProcessSupervisorService as ExecutionStateManager } from "../ai-harness/process/supervisor/process-supervisor.service";
 
 // Handlers
-import { WorkflowHandlerRegistry } from "./orchestration/handlers/handler-registry";
+import { WorkflowHandlerRegistry } from "./planning/handlers/handler-registry";
 
 // Agents (needed for executors)
 import { AgentOrchestrator } from "../ai-harness/kernel/registry/agent-orchestrator";
@@ -289,4 +289,4 @@ const checkpointManagerFactory = {
     AutoDreamSchedulerService,
   ],
 })
-export class AiEngineOrchestrationModule {}
+export class AiEnginePlanningModule {}

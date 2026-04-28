@@ -1,8 +1,8 @@
 import { Controller, Get, Patch, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { AIModelType } from "@prisma/client";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KeyResolverService } from "./key-resolver.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 

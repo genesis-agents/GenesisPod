@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ResourcesService } from "./resources.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { MongoDBService } from "../../../../common/mongodb/mongodb.service.postgres";
-import { SourceWhitelistService } from "../../admin/ingestion/config/services/source-whitelist.service";
+import { SourceWhitelistService } from "../../management/ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
 import { NotFoundException, BadRequestException } from "@nestjs/common";

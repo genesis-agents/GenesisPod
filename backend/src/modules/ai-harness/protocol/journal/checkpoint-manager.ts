@@ -2,7 +2,7 @@
  * AI Kernel - Checkpoint Manager
  * 检查点管理器实现
  *
- * Migrated from ai-engine/orchestration/checkpoints/checkpoint-manager.ts
+ * Migrated from ai-engine/planning/checkpoints/checkpoint-manager.ts
  */
 
 import { v4 as uuid } from "uuid";

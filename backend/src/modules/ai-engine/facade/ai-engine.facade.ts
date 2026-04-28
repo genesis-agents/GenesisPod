@@ -23,8 +23,8 @@ import {
   IntentRouterService,
   AgentContext,
   RouteResult,
-} from "../orchestration/services/intent-router.service";
-import type { AppModule } from "../orchestration/services/task-planner.service";
+} from "../planning/services/intent-router.service";
+import type { AppModule } from "../planning/services/task-planner.service";
 import type {
   A2AMessageType,
   A2APriority,
@@ -44,14 +44,14 @@ import { ModelFallbackService } from "../llm/model-fallback/model-fallback.servi
 import {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../orchestration/capabilities/ai-capability-resolver.service";
+} from "../planning/capabilities/ai-capability-resolver.service";
 import { CreditsService, BillingContext } from "../../ai-infra/facade";
 import { RequestContext } from "../../../common/context/request-context";
 import type { CreditBillingInfo } from "./types/facade.types";
 import type {
   AgentEvent,
   ExecutionConfig,
-} from "../orchestration/executors/function-calling-executor";
+} from "../planning/executors/function-calling-executor";
 
 // ★ P1 重构：使用分组的 Feature Providers
 import {
@@ -90,7 +90,7 @@ import type {
   RoomConfig,
   ProgressEvent,
 } from "../../ai-harness/protocol/realtime/abstractions/event-emitter.interface";
-import { CapabilitySummary } from "../orchestration/capabilities/types";
+import { CapabilitySummary } from "../planning/capabilities/types";
 import type {
   ChatWithSkillsRequest,
   ChatWithSkillsResponse,
@@ -149,11 +149,11 @@ import type {
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
-} from "../orchestration/services/reflection.service";
+} from "../planning/services/reflection.service";
 import type {
   CompressionOptions,
   CompressionResult,
-} from "../orchestration/services/interfaces";
+} from "../planning/services/interfaces";
 import type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
 import type { VotingSession } from "../../ai-harness/process/collaboration/patterns/voting-pattern";
 import type {
@@ -171,20 +171,20 @@ import { MCPManager } from "../../ai-harness/protocol/mcp/manager/mcp-manager";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../orchestration/capabilities/types";
+} from "../planning/capabilities/types";
 import type { SkillMdDefinition } from "../skills/types/skill-md.types";
 import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
-import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
-import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
-import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
+import { AgentExecutorService } from "../planning/services/agent-executor.service";
+import { TaskDecomposerService } from "../planning/services/task-decomposer.service";
+import { IntentDetectionService } from "../planning/services/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-harness/process/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
-import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
-import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
+import { FunctionCallingExecutor } from "../planning/executors/function-calling-executor";
+import { ContextInitializationService } from "../planning/services/context-initialization.service";
 import { TeamFactory } from "../../ai-harness/runtime/teams/factory/team-factory";
 import { MissionOrchestrator } from "../../ai-harness/runtime/teams/orchestrator/mission-orchestrator";
-import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
-import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
+import { OutputReviewerService } from "../planning/services/output-reviewer.service";
+import { ContextEvolutionService } from "../planning/services/context-evolution.service";
 import { ContentFetchService } from "../content/fetch/content-fetch.service";
 import { AgentRegistry } from "../../ai-harness/kernel/registry/legacy-agent-registry";
 import { TeamRegistry } from "../../ai-harness/runtime/teams/registry/team-registry";

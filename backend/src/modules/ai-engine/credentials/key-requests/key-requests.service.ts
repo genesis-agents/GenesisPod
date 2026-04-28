@@ -11,7 +11,7 @@ import {
   KeyRequestStatus,
   Prisma,
 } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
 
 export type EstimatedUsage = "LIGHT" | "MEDIUM" | "HEAVY";

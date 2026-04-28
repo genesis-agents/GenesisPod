@@ -34,12 +34,12 @@ import { StorageModule } from "./modules/ai-infra/storage/storage.module";
 import { TableManagementModule } from "./modules/ai-infra/table-management/table-management.module";
 import { CreditsModule } from "./modules/ai-infra/credits/credits.module";
 import { EncryptionModule } from "./modules/ai-infra/encryption/encryption.module";
-import { UserApiKeysModule } from "./modules/ai-infra/user-api-keys/user-api-keys.module";
-import { DistributableKeysModule } from "./modules/ai-infra/distributable-keys";
-import { KeyAssignmentsModule } from "./modules/ai-infra/key-assignments";
-import { KeyRequestsModule } from "./modules/ai-infra/key-requests";
-import { KeyResolverModule } from "./modules/ai-infra/key-resolver";
-import { UserModelConfigsModule } from "./modules/ai-infra/user-model-configs";
+import { UserApiKeysModule } from "./modules/ai-engine/credentials/user-api-keys/user-api-keys.module";
+import { DistributableKeysModule } from "./modules/ai-engine/credentials/distributable-keys";
+import { KeyAssignmentsModule } from "./modules/ai-engine/credentials/key-assignments";
+import { KeyRequestsModule } from "./modules/ai-engine/credentials/key-requests";
+import { KeyResolverModule } from "./modules/ai-engine/credentials/key-resolver";
+import { UserModelConfigsModule } from "./modules/ai-engine/credentials/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 // AI Harness — Agent kernel / execution / memory / process / protocol / governance / runtime
@@ -71,11 +71,11 @@ import { NotesModule } from "./modules/ai-app/library/notes/notes.module";
 import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/knowledge-graph.module";
 import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
 // Admin modules (backend management)
-import { WorkspaceModule } from "./modules/ai-app/admin/workspace/workspace.module";
-import { CrawlersModule } from "./modules/ai-app/admin/ingestion/crawlers/crawlers.module";
-import { SourcesModule } from "./modules/ai-app/admin/ingestion/sources/sources.module";
-import { IngestionConfigModule } from "./modules/ai-app/admin/ingestion/config/config.module";
-import { SchedulerModule } from "./modules/ai-app/admin/ingestion/scheduler/scheduler.module";
+import { WorkspaceModule } from "./modules/ai-app/management/workspace/workspace.module";
+import { CrawlersModule } from "./modules/ai-app/management/ingestion/crawlers/crawlers.module";
+import { SourcesModule } from "./modules/ai-app/management/ingestion/sources/sources.module";
+import { IngestionConfigModule } from "./modules/ai-app/management/ingestion/config/config.module";
+import { SchedulerModule } from "./modules/ai-app/management/ingestion/scheduler/scheduler.module";
 // Content modules (Phase 3: moved from ai-engine to ai-app)
 import { LongContentModule } from "./modules/ai-app/writing/content-engine/long-content.module";
 import { ContentAnalysisModule } from "./modules/ai-app/office/content-analysis/content-analysis.module";

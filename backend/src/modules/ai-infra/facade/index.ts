@@ -48,24 +48,24 @@ export { ErrorTrackingService } from "../monitoring/error-tracking.service";
 export { HealthCheckService } from "../monitoring/health-check.service";
 
 // ─── User API Keys ───
-export { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
+export { UserApiKeysService } from "../../ai-engine/credentials/user-api-keys/user-api-keys.service";
 
 // ─── BYOK v3：用户多模型配置 ───
-export { UserModelConfigsService } from "../user-model-configs/user-model-configs.service";
+export { UserModelConfigsService } from "../../ai-engine/credentials/user-model-configs/user-model-configs.service";
 export type {
   CreateUserModelConfigInput,
   UpdateUserModelConfigInput,
-} from "../user-model-configs/user-model-configs.service";
+} from "../../ai-engine/credentials/user-model-configs/user-model-configs.service";
 
 // ─── BYOK v2：分发池 / 分配 / 申请 / 统一解析 ───
-export { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
-export { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
-export { KeyRequestsService } from "../key-requests/key-requests.service";
-export { KeyResolverService } from "../key-resolver/key-resolver.service";
+export { DistributableKeysService } from "../../ai-engine/credentials/distributable-keys/distributable-keys.service";
+export { KeyAssignmentsService } from "../../ai-engine/credentials/key-assignments/key-assignments.service";
+export { KeyRequestsService } from "../../ai-engine/credentials/key-requests/key-requests.service";
+export { KeyResolverService } from "../../ai-engine/credentials/key-resolver/key-resolver.service";
 export type {
   KeySource,
   ResolvedKey,
-} from "../key-resolver/key-resolver.service";
+} from "../../ai-engine/credentials/key-resolver/key-resolver.service";
 export {
   BYOK_ERROR_CODES,
   BYOKError,
@@ -73,11 +73,11 @@ export {
   NoSystemKeyError,
   InvalidApiKeyError,
   QuotaExceededError,
-} from "../key-resolver/key-resolver.errors";
+} from "../../ai-engine/credentials/key-resolver/key-resolver.errors";
 export type {
   BYOKErrorCode,
   BYOKErrorMeta,
-} from "../key-resolver/key-resolver.errors";
+} from "../../ai-engine/credentials/key-resolver/key-resolver.errors";
 
 // ─── Release ───
 export { ReleaseService } from "../release/release.service";

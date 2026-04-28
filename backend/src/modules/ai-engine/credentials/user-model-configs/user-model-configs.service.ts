@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { AIModelType, Prisma, UserModelConfig } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 /** Provider → 默认 endpoint / apiFormat（与 UserApiKeysService.PROVIDER_DEFAULTS 保持一致） */
 const PROVIDER_API_DEFAULTS: Record<

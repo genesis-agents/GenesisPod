@@ -10,8 +10,8 @@ import type { ToolFeature } from "../facade.providers";
 import type {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../orchestration/capabilities/ai-capability-resolver.service";
-import type { CapabilitySummary } from "../../orchestration/capabilities/types";
+} from "../../planning/capabilities/ai-capability-resolver.service";
+import type { CapabilitySummary } from "../../planning/capabilities/types";
 import type {
   ChatRequest,
   ChatResponse,
@@ -24,7 +24,7 @@ import type {
 import type {
   AgentEvent,
   ExecutionConfig,
-} from "../../orchestration/executors/function-calling-executor";
+} from "../../planning/executors/function-calling-executor";
 
 export class ToolExecSubFacade {
   private readonly logger = new Logger(ToolExecSubFacade.name);

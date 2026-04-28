@@ -202,7 +202,7 @@ module.exports = {
               // ════════════════════════════════════════════════════════════
               // Barrel index (covers 'import ... from ".../orchestration/services"'):
               {
-                group: ["**/ai-engine/orchestration/services"],
+                group: ["**/ai-engine/planning/services"],
                 message:
                   "Import orchestration types from 'ai-engine/facade'. " +
                   "Use AIEngineFacade getters instead of the barrel index.",
@@ -210,13 +210,13 @@ module.exports = {
               // Specific services with dedicated facade accessors:
               {
                 group: [
-                  "**/ai-engine/orchestration/services/intent-detection*",
-                  "**/ai-engine/orchestration/services/output-reviewer*",
-                  "**/ai-engine/orchestration/services/context-evolution*",
-                  "**/ai-engine/orchestration/services/circuit-breaker*",
-                  "**/ai-engine/orchestration/services/agent-executor*",
-                  "**/ai-engine/orchestration/services/task-planner*",
-                  "**/ai-engine/orchestration/services/task-decomposer*",
+                  "**/ai-engine/planning/services/intent-detection*",
+                  "**/ai-engine/planning/services/output-reviewer*",
+                  "**/ai-engine/planning/services/context-evolution*",
+                  "**/ai-engine/planning/services/circuit-breaker*",
+                  "**/ai-engine/planning/services/agent-executor*",
+                  "**/ai-engine/planning/services/task-planner*",
+                  "**/ai-engine/planning/services/task-decomposer*",
                 ],
                 message:
                   "Inject AIEngineFacade and access via facade.intentDetector / facade.outputReviewer / etc.",
@@ -224,11 +224,11 @@ module.exports = {
               // Broader orchestration internals:
               {
                 group: [
-                  "**/ai-engine/orchestration/executors/**",
-                  "**/ai-engine/orchestration/state-machine/**",
-                  "**/ai-engine/orchestration/utils/**",
-                  "**/ai-engine/orchestration/interfaces/**",
-                  "**/ai-engine/orchestration/capabilities/**",
+                  "**/ai-engine/planning/executors/**",
+                  "**/ai-engine/planning/state-machine/**",
+                  "**/ai-engine/planning/utils/**",
+                  "**/ai-engine/planning/interfaces/**",
+                  "**/ai-engine/planning/capabilities/**",
                 ],
                 message:
                   "Access orchestration internals only through AIEngineFacade. " +
@@ -352,7 +352,7 @@ module.exports = {
       //   1. ai-engine/facade/** — 历史 ai-app 调用点的兼容 re-export 层
       //      （PR-X2..X4 完成后所有 ai-app 直接 import @/modules/ai-harness/facade，
       //      届时这层兼容出口可整体删除）
-      //   2. ai-engine-orchestration.module.ts — orchestration/services 拆分迁移
+      //   2. ai-engine-planning.module.ts — orchestration/services 拆分迁移
       //      过程中暂用，PR-X4 拆完后移除该行
       //
       // PR-X1 已完成：ai-engine.module.ts / ai-engine-core.module.ts /
@@ -361,7 +361,7 @@ module.exports = {
       files: ["**/modules/ai-engine/**/*.ts"],
       excludedFiles: [
         "**/modules/ai-engine/facade/**/*.ts",
-        "**/modules/ai-engine/ai-engine-orchestration.module.ts",
+        "**/modules/ai-engine/ai-engine-planning.module.ts",
         // Specs/tests are allowed to import harness facade for mocking purposes
         "**/modules/ai-engine/**/*.spec.ts",
         "**/modules/ai-engine/**/*.test.ts",

@@ -9,10 +9,10 @@ import { Logger, Provider } from "@nestjs/common";
 import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "../knowledge/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
-import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
+import { FunctionCallingExecutor } from "../planning/executors/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
 import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
-import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
+import { AgentExecutorService } from "../planning/services/agent-executor.service";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖
@@ -22,24 +22,24 @@ import { ProgressTrackerService } from "../../ai-harness/protocol/ipc/progress-t
 import { RateLimiter } from "../../ai-harness/governance/resource/rate-limiter";
 import { CostController } from "../../ai-harness/governance/resource/cost-controller";
 // ★ Orchestration 扩展依赖
-import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
-import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
+import { TaskDecomposerService } from "../planning/services/task-decomposer.service";
+import { IntentDetectionService } from "../planning/services/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../../ai-harness/process/supervisor/process-supervisor.service";
-import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
-import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
-import { QueryLoopService } from "../orchestration/services/query-loop.service";
-import { TokenTrackerService } from "../orchestration/services/token-tracker.service";
+import { OutputReviewerService } from "../planning/services/output-reviewer.service";
+import { ContextEvolutionService } from "../planning/services/context-evolution.service";
+import { QueryLoopService } from "../planning/services/query-loop.service";
+import { TokenTrackerService } from "../planning/services/token-tracker.service";
 // ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../llm/adapters/ai-chat-llm-adapter";
 import { InputBindingResolver } from "../skills/runtime/input-binding-resolver";
 import { SkillContentService } from "../skills/content/skill-content.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖
-import { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "../planning/capabilities/ai-capability-resolver.service";
 // ★ Teams Feature 依赖
 import { TeamsService } from "../../ai-harness/runtime/teams/services/teams.service";
 import { TeamFactory } from "../../ai-harness/runtime/teams/factory/team-factory";
-import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
+import { ContextInitializationService } from "../planning/services/context-initialization.service";
 import { MissionOrchestrator } from "../../ai-harness/runtime/teams/orchestrator/mission-orchestrator";
 // ★ Content Feature 依赖
 // ★ Phase 3→Phase 7: replaced L4 type imports with L2 abstractions (audit E-1)
@@ -52,9 +52,9 @@ import { ContentFetchService } from "../content/fetch/content-fetch.service";
 import { EmbeddingService } from "../knowledge/rag/embedding";
 import { VectorService } from "../knowledge/rag/vector";
 // ★ Intelligence Feature 依赖
-import { IntentRouterService } from "../orchestration/services/intent-router.service";
-import { ReflectionService } from "../orchestration/services/reflection.service";
-import { ContextCompressionService } from "../orchestration/services/context-compression.service";
+import { IntentRouterService } from "../planning/services/intent-router.service";
+import { ReflectionService } from "../planning/services/reflection.service";
+import { ContextCompressionService } from "../planning/services/context-compression.service";
 // ★ Phase 3→Phase 7: replaced L4 type import with L2 abstraction (audit E-2)
 import type { IReportSynthesisEngine } from "../content/abstractions/content-engine.interfaces";
 // ★ Collaboration Feature 依赖

@@ -1,8 +1,8 @@
 import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
-import { SecretsService } from "../secrets/secrets.service";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
 import { NoAvailableKeyError, NoSystemKeyError } from "./key-resolver.errors";
 

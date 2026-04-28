@@ -102,7 +102,7 @@ export {
 export * as Core from "./core";
 export * as Tools from "./tools";
 export * as Skills from "./skills";
-export * as Orchestration from "./orchestration";
+export * as Orchestration from "./planning";
 export * as Constraint from "./safety/constraint";
 export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
@@ -115,7 +115,7 @@ export * as Image from "./content/image";
 
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
-export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
+export { FunctionCallingExecutor } from "./planning/executors/function-calling-executor";
 export { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
 export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
 // HierarchicalMemoryCascadeService / ProcessMemoryManagerService / ConstraintEngine
@@ -132,7 +132,7 @@ export { AiEngineCoreModule } from "./ai-engine-core.module";
 export { AiEngineLLMModule } from "./ai-engine-llm.module";
 export { AiEngineToolsModule } from "./ai-engine-tools.module";
 export { AiEngineSkillsModule } from "./ai-engine-skills.module";
-export { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
+export { AiEnginePlanningModule } from "./ai-engine-planning.module";
 export { AiEngineMemoryModule } from "./ai-engine-memory.module";
 export { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 

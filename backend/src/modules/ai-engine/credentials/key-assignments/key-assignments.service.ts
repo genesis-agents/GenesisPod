@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { KeyAssignment, KeyAssignmentStatus, Prisma } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
 import { QuotaExceededError } from "../key-resolver/key-resolver.errors";
 

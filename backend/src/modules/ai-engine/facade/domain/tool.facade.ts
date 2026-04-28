@@ -19,8 +19,8 @@ import { TOOL_FEATURE, REGISTRY_FEATURE } from "../facade.providers";
 import type {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../orchestration/capabilities/ai-capability-resolver.service";
-import type { CapabilitySummary } from "../../orchestration/capabilities/types";
+} from "../../planning/capabilities/ai-capability-resolver.service";
+import type { CapabilitySummary } from "../../planning/capabilities/types";
 import type {
   ChatRequest,
   ChatResponse,
@@ -33,16 +33,16 @@ import type {
 import type {
   AgentEvent,
   ExecutionConfig,
-} from "../../orchestration/executors/function-calling-executor";
-import type { AppModule } from "../../orchestration/services/task-planner.service";
-import { IntentRouterService } from "../../orchestration/services/intent-router.service";
+} from "../../planning/executors/function-calling-executor";
+import type { AppModule } from "../../planning/services/task-planner.service";
+import { IntentRouterService } from "../../planning/services/intent-router.service";
 import { MCPManager } from "../../../ai-harness/protocol/mcp/manager/mcp-manager";
 import { FunctionCallingLLMAdapter } from "../../llm/adapters/function-calling-llm-adapter";
-import { FunctionCallingExecutor } from "../../orchestration/executors/function-calling-executor";
+import { FunctionCallingExecutor } from "../../planning/executors/function-calling-executor";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../../orchestration/capabilities/types";
+} from "../../planning/capabilities/types";
 import type { ToolRegistry } from "../../tools/registry/tool-registry";
 
 @Injectable()

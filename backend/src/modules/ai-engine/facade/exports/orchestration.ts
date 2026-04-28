@@ -1,17 +1,17 @@
 /**
  * Orchestration service exports
  */
-export { ContextCompressionService } from "../../orchestration/services/context-compression.service";
+export { ContextCompressionService } from "../../planning/services/context-compression.service";
 export type {
   DataChunk,
   SummaryChunk,
   CompressionResult,
   CompressionOptions,
-} from "../../orchestration/services/interfaces";
+} from "../../planning/services/interfaces";
 export {
   ContextStrategy,
   UserIntent,
-} from "../../orchestration/services/interfaces";
+} from "../../planning/services/interfaces";
 export type {
   ConstraintSeverity,
   ExtractedConstraint,
@@ -22,30 +22,30 @@ export type {
   ReviewResult,
   ReviewCriteria,
   TeamMemberInfo,
-} from "../../orchestration/services/interfaces";
+} from "../../planning/services/interfaces";
 export { ConstraintEnforcementService } from "../../../ai-harness/governance/resource/constraint-enforcement.service";
-export { TokenBudgetService } from "../../orchestration/services";
+export { TokenBudgetService } from "../../planning/services";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,
   ContentPriority,
   BudgetAllocation,
-} from "../../orchestration/services/token-budget.service";
-export { OutputReviewerService } from "../../orchestration/services/output-reviewer.service";
-export { ContextEvolutionService } from "../../orchestration/services/context-evolution.service";
-export { AgentExecutorService } from "../../orchestration/services/agent-executor.service";
+} from "../../planning/services/token-budget.service";
+export { OutputReviewerService } from "../../planning/services/output-reviewer.service";
+export { ContextEvolutionService } from "../../planning/services/context-evolution.service";
+export { AgentExecutorService } from "../../planning/services/agent-executor.service";
 export {
   CircuitBreakerService,
   TaskCompletionType,
 } from "../../safety/resilience/circuit-breaker.service";
-export { ContextInitializationService } from "../../orchestration/services/context-initialization.service";
-export { TaskDecomposerService } from "../../orchestration/services/task-decomposer.service";
+export { ContextInitializationService } from "../../planning/services/context-initialization.service";
+export { TaskDecomposerService } from "../../planning/services/task-decomposer.service";
 export { ProcessSupervisorService as ExecutionStateManager } from "../../../ai-harness/process/supervisor/process-supervisor.service";
 export { StateCategory } from "../../../ai-harness/process/supervisor/process-supervisor.service";
 export type { ExecutionStateStats } from "../../../ai-harness/process/supervisor/process-supervisor.service";
-export { AICapabilityResolver } from "../../orchestration/capabilities/ai-capability-resolver.service";
-export { IntentRouterService } from "../../orchestration/services/intent-router.service";
+export { AICapabilityResolver } from "../../planning/capabilities/ai-capability-resolver.service";
+export { IntentRouterService } from "../../planning/services/intent-router.service";
 export type {
   RouteResult,
   AgentContext as IntentAgentContext,
-} from "../../orchestration/services/intent-router.service";
+} from "../../planning/services/intent-router.service";

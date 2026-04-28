@@ -11,11 +11,11 @@ export { PromptSkillBridge } from "../skills/runtime";
 // ★ Re-export Engine types so AI App modules can import from facade instead of engine internals
 // RoomConfig / EngineEvent — 迁移至 ai-harness/facade
 export type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
-export type { AICapabilityContext } from "../orchestration/capabilities/ai-capability-resolver.service";
+export type { AICapabilityContext } from "../planning/capabilities/ai-capability-resolver.service";
 export type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../orchestration/capabilities/types";
+} from "../planning/capabilities/types";
 export type { SkillMdDefinition } from "../skills/types/skill-md.types";
 export type { EmbeddingResult } from "../knowledge/rag/embedding";
 export type {
@@ -23,7 +23,7 @@ export type {
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
 // TaskCompletionType — 迁移至 ai-harness/facade
-export { UserIntent } from "../orchestration/services/interfaces";
+export { UserIntent } from "../planning/services/interfaces";
 export type { TeamInfo } from "../../ai-harness/runtime/teams/services/teams.service";
 
 // ★ Registry classes — AI App 模块可直接注入，但 import 路径必须来自此文件
@@ -72,7 +72,7 @@ export type {
 } from "../core/types/agent.types";
 export { BUILTIN_AGENTS } from "../core/types/agent.types";
 export type { ExecutionMode } from "../core/types/context.types";
-export type { TaskPlan } from "../orchestration/services/task-planner.service";
+export type { TaskPlan } from "../planning/services/task-planner.service";
 export { createConstraintProfile } from "../../ai-harness/runtime/teams/constraints/constraint-profile";
 export type {
   MissionEvent,
@@ -88,14 +88,14 @@ export type {
 // ★ Batch 1 补充导出 — 所有 AI App 模块所需的额外符号
 
 // Orchestration services（for teams re-export shims）
-export { ContextCompressionService } from "../orchestration/services/context-compression.service";
+export { ContextCompressionService } from "../planning/services/context-compression.service";
 export type {
   DataChunk,
   SummaryChunk,
   CompressionResult,
   CompressionOptions,
-} from "../orchestration/services/interfaces";
-export { ContextStrategy } from "../orchestration/services/interfaces";
+} from "../planning/services/interfaces";
+export { ContextStrategy } from "../planning/services/interfaces";
 // ConstraintEnforcementService — 迁移至 ai-harness/facade
 export type {
   ConstraintSeverity,
@@ -106,26 +106,26 @@ export type {
   ReviewRequest,
   ReviewResult,
   ReviewCriteria,
-} from "../orchestration/services/interfaces";
-export { TokenBudgetService } from "../orchestration/services";
+} from "../planning/services/interfaces";
+export { TokenBudgetService } from "../planning/services";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,
   ContentPriority,
   BudgetAllocation,
-} from "../orchestration/services/token-budget.service";
-export { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
-export { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
+} from "../planning/services/token-budget.service";
+export { OutputReviewerService } from "../planning/services/output-reviewer.service";
+export { ContextEvolutionService } from "../planning/services/context-evolution.service";
 // ★ Batch 2 Topic Insights — ContextEvolution types
 export type {
   FactExtractionRequest,
   FactExtractionResult,
   ContextEvolutionConfig,
-} from "../orchestration/services/interfaces";
-export { AgentExecutorService } from "../orchestration/services/agent-executor.service";
+} from "../planning/services/interfaces";
+export { AgentExecutorService } from "../planning/services/agent-executor.service";
 // CircuitBreakerService — 迁移至 ai-harness/facade
-export { ContextInitializationService } from "../orchestration/services/context-initialization.service";
-export { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
+export { ContextInitializationService } from "../planning/services/context-initialization.service";
+export { TaskDecomposerService } from "../planning/services/task-decomposer.service";
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 // ProcessSupervisorService / ExecutionStateManager / StateCategory /
 // ExecutionStateStats — 迁移至 ai-harness/facade
@@ -184,7 +184,7 @@ export type { ModelFallbackOptions } from "../llm/model-fallback/model-fallback.
 export type { AIModelConfig } from "../llm/services/ai-model-config.service";
 
 // Orchestration interfaces（for teams/task-breakdown.service.ts）
-export type { TeamMemberInfo } from "../orchestration/services/interfaces";
+export type { TeamMemberInfo } from "../planning/services/interfaces";
 
 // Mission context types（for teams and writing modules）
 export type {
@@ -203,7 +203,7 @@ export {
 } from "../../ai-harness/runtime/teams/abstractions/mission-context.interface";
 
 // Error detection utilities（for teams/retry.utils.ts）
-export type { ErrorDetectionRetryConfig } from "../orchestration/utils/error-detection.utils";
+export type { ErrorDetectionRetryConfig } from "../planning/utils/error-detection.utils";
 export {
   DEFAULT_RETRY_CONFIG,
   isRetryableError,
@@ -214,7 +214,7 @@ export {
   sleep,
   isApiErrorContent,
   parseErrorType,
-} from "../orchestration/utils/error-detection.utils";
+} from "../planning/utils/error-detection.utils";
 
 
 // Skills interfaces（for office slides module）
@@ -326,12 +326,12 @@ export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
 // MCPExternalAdminController moved to open-api/mcp-admin (PR-X7) — import from there directly
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
-export { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";
-export { IntentRouterService } from "../orchestration/services/intent-router.service";
+export { AICapabilityResolver } from "../planning/capabilities/ai-capability-resolver.service";
+export { IntentRouterService } from "../planning/services/intent-router.service";
 export type {
   RouteResult,
   AgentContext as IntentAgentContext,
-} from "../orchestration/services/intent-router.service";
+} from "../planning/services/intent-router.service";
 
 // ★ Batch 2 — Safety（for mcp-server guardrails integration）
 export { GuardrailsPipelineService } from "../safety/guardrails/guardrails-pipeline.service";
@@ -447,17 +447,17 @@ export type {
   StepResult,
   StepStatus,
   WorkflowConfig as OrchestrationWorkflowConfig,
-} from "../orchestration/abstractions/orchestrator.interface";
+} from "../planning/abstractions/orchestrator.interface";
 
 // Workflow Handlers
 export type {
   WorkflowNodeHandler,
   MapStepConfig,
-} from "../orchestration/handlers/workflow-node-handler.interface";
-export { WorkflowHandlerRegistry } from "../orchestration/handlers/handler-registry";
+} from "../planning/handlers/workflow-node-handler.interface";
+export { WorkflowHandlerRegistry } from "../planning/handlers/handler-registry";
 
 // Executors
-export { DAGExecutor } from "../orchestration/executors/dag-executor";
+export { DAGExecutor } from "../planning/executors/dag-executor";
 
 // Constraint engine
 export type {
@@ -478,7 +478,7 @@ export type {
 } from "../../ai-harness/runtime/teams/constraints/constraint-engine.interface";
 
 // Orchestration interfaces (expand existing — add IConstraintEnforcementService)
-export type { IConstraintEnforcementService } from "../orchestration/services/interfaces";
+export type { IConstraintEnforcementService } from "../planning/services/interfaces";
 
 // Memory abstractions
 export type {
@@ -515,33 +515,33 @@ export {
   type QueryLoopConfig,
   type QueryLoopResult,
   type QueryLoopStopReason,
-} from "../orchestration/services";
+} from "../planning/services";
 
 // Token usage tracker
 export {
   TokenTrackerService,
   type TokenUsageSnapshot,
   type TokenUsageEntry,
-} from "../orchestration/services";
+} from "../planning/services";
 
 export {
   ContextCompactionPipelineService,
   type CompactionConfig,
   type CompactionResult,
   type CompactionLevel,
-} from "../orchestration/services";
+} from "../planning/services";
 
 export {
   ExecutionCheckpointService,
   type ExecutionCheckpoint,
-} from "../orchestration/services";
+} from "../planning/services";
 
 export {
   AdaptiveReplannerService,
   type ReplanTrigger,
   type ReplanResult,
   type MissionExecutionPlan,
-} from "../orchestration/services";
+} from "../planning/services";
 
 // ★ Phase 3: Tool Concurrency
 export { ToolConcurrencyService } from "../tools/concurrency/tool-concurrency.service";
@@ -556,17 +556,17 @@ export {
   type SidecarCategory,
   type SidecarEntry,
   type SidecarConfig,
-} from "../orchestration/services";
+} from "../planning/services";
 
 // ★ Phase 10: Coordinator Synthesize-Before-Delegate
-export { CrossCuttingSynthesisService } from "../orchestration/services/cross-cutting-synthesis.service";
+export { CrossCuttingSynthesisService } from "../planning/services/cross-cutting-synthesis.service";
 export type {
   DimensionResult,
   CrossCuttingTheme,
   Contradiction,
   ResearchGap,
   SynthesisResult,
-} from "../orchestration/services/cross-cutting-synthesis.service";
+} from "../planning/services/cross-cutting-synthesis.service";
 
 // ★ Phase 5: Prompt Cache Coordination
 export { PromptCacheCoordinatorService } from "../llm/services/prompt-cache-coordinator.service";
@@ -579,14 +579,14 @@ export {
   type AutoDreamConfig,
   type DreamStatus,
   type DreamResult,
-} from "../orchestration/services";
+} from "../planning/services";
 
 export {
   AutoDreamSchedulerService,
   type SchedulerConfig,
   type ScheduledScope,
   type SchedulerStats,
-} from "../orchestration/services";
+} from "../planning/services";
 
 // Session Latency Tracking — 迁移至 ai-harness/facade
 // (SessionLatencyTrackerService + 14 个 latency 类型)
