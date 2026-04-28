@@ -4,7 +4,7 @@
   "description": "Genesis.ai Backend API",
   "private": true,
   "scripts": {
-    "build": "prisma generate --schema=prisma/schema && nest build",
+    "build": "prisma generate && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "dev": "nest start --watch",
@@ -19,11 +19,11 @@
     "test:coverage": "jest --coverage",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "prisma:generate": "prisma generate --schema=prisma/schema",
-    "prisma:migrate": "prisma migrate dev --schema=prisma/schema",
-    "prisma:migrate:deploy": "prisma migrate deploy --schema=prisma/schema",
-    "prisma:studio": "prisma studio --schema=prisma/schema",
-    "db:studio:railway": "dotenv -e .env.railway -- prisma studio --schema=prisma/schema",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "db:studio:railway": "dotenv -e .env.railway -- prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
     "seed": "tsx prisma/seed.ts",
     "seed:templates": "tsx scripts/seed/seed-report-templates.ts",
@@ -42,6 +42,7 @@
     "maintenance:validate": "tsx scripts/maintenance/validate-data-integrity.ts"
   },
   "prisma": {
+    "schema": "prisma/schema",
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
