@@ -204,6 +204,107 @@ function fmtTime(ts: number): string {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
 }
 
+/** 相对时间（相对 anchor），人话 +1.2s / +5m 32s */
+function fmtRelative(ts: number, anchor: number): string {
+  const ms = ts - anchor;
+  if (ms < 0) return fmtTime(ts);
+  if (ms < 1000) return `+${ms}ms`;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `+${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  return `+${m}m ${rs}s`;
+}
+
+/**
+ * 把长文本智能拆成结构化片段：
+ * - 编号列表 "1) ... 2) ..." → bullet items
+ * - 多行 → 段落
+ * - 内嵌 URL → 链接化
+ */
+function splitNarrativeText(
+  text: string
+): { kind: 'p' | 'li'; text: string; idx?: string }[] {
+  const trimmed = text.trim();
+  // 如果包含 "N)" 或 "N、" 或 "N." 编号 → 拆 bullets
+  const numbered = trimmed.match(/(?:^|\n|；|;)\s*(\d+)[)）.、]\s+/g);
+  if (numbered && numbered.length >= 2) {
+    const parts = trimmed.split(/(?<=^|\n|；|;)\s*(\d+)[)）.、]\s+/);
+    const items: { kind: 'li'; text: string; idx?: string }[] = [];
+    for (let i = 1; i < parts.length; i += 2) {
+      const idx = parts[i];
+      const body = (parts[i + 1] ?? '').trim();
+      if (body) items.push({ kind: 'li', text: body, idx });
+    }
+    if (items.length > 0) return items;
+  }
+  // 多行 → 多段落
+  const lines = trimmed
+    .split(/\n\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length > 1)
+    return lines.map((l) => ({ kind: 'p' as const, text: l }));
+  return [{ kind: 'p', text: trimmed }];
+}
+
+/** 把 markdown link [text](url) + 裸 URL 转成 React node */
+function linkify(text: string): React.ReactNode[] {
+  // 先处理 markdown link
+  const mdLink = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = mdLink.exec(text)) !== null) {
+    if (m.index > lastIdx) {
+      nodes.push(linkifyBare(text.slice(lastIdx, m.index), key++));
+    }
+    nodes.push(
+      <a
+        key={`md-${key++}`}
+        href={m[2]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-violet-700 underline-offset-2 hover:underline"
+      >
+        {m[1]}
+      </a>
+    );
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < text.length) {
+    nodes.push(linkifyBare(text.slice(lastIdx), key++));
+  }
+  return nodes;
+}
+
+function linkifyBare(text: string, baseKey: number): React.ReactNode {
+  const urlRe = /(https?:\/\/[^\s)）]+)/g;
+  const parts = text.split(urlRe);
+  return (
+    <React.Fragment key={`bare-${baseKey}`}>
+      {parts.map((p, i) => {
+        if (urlRe.test(p)) {
+          urlRe.lastIndex = 0;
+          return (
+            <a
+              key={i}
+              href={p}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all text-violet-700 underline-offset-2 hover:underline"
+            >
+              {p.length > 50 ? p.slice(0, 50) + '…' : p}
+            </a>
+          );
+        }
+        return <React.Fragment key={i}>{p}</React.Fragment>;
+      })}
+    </React.Fragment>
+  );
+}
+
 export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
   if (!todo) return null;
 
@@ -369,11 +470,11 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
             </section>
           )}
 
-          {/* Narrative timeline —— 主视图，人话 */}
+          {/* Narrative timeline —— 主视图，纵向时间线 + 结构化文本 */}
           <section className="rounded-lg border border-gray-100 bg-white">
             <div className="border-b border-gray-100 px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
-                进展叙事 · {todo.narrativeLog.length} 条
+                时间线 · {todo.narrativeLog.length} 条进展
               </p>
             </div>
             {todo.narrativeLog.length === 0 ? (
@@ -383,35 +484,77 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
                   : '等待叙事事件流入…'}
               </p>
             ) : (
-              <ol className="space-y-2 p-3">
+              <ol className="relative space-y-0 p-3 pl-8">
+                {/* 竖直连接线 */}
+                <span
+                  className="absolute bottom-3 left-[18px] top-3 w-0.5 bg-gradient-to-b from-violet-200 via-gray-200 to-gray-100"
+                  aria-hidden="true"
+                />
                 {todo.narrativeLog.map((n, i) => {
                   const tone = TONE_STYLE[n.tone ?? 'info'];
                   const Icon = tone.Icon;
+                  const segments = splitNarrativeText(n.text);
+                  const anchor = todo.startedAt ?? todo.createdAt;
                   return (
                     <li
                       key={`${n.ts}-${i}`}
-                      className={`rounded-lg px-3 py-2 ring-1 ${tone.ring} ${tone.bg}`}
+                      className="relative pb-3 last:pb-0"
                     >
-                      <div className="mb-1 flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${tone.chip}`}
-                        >
-                          <Icon className="h-2.5 w-2.5" />
-                          {n.tone === 'success'
-                            ? '完成'
+                      {/* 节点圆点 */}
+                      <span
+                        className={`absolute -left-[26px] top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-white ${tone.bg} ${tone.ring}`}
+                      >
+                        <Icon
+                          className={`h-2.5 w-2.5 ${
+                            n.tone === 'success'
+                              ? 'text-emerald-600'
+                              : n.tone === 'warn'
+                                ? 'text-amber-600'
+                                : n.tone === 'error'
+                                  ? 'text-red-600'
+                                  : 'text-sky-600'
+                          }`}
+                        />
+                      </span>
+                      <div
+                        className={`rounded-lg border px-3 py-2 ${
+                          n.tone === 'success'
+                            ? 'border-emerald-100 bg-emerald-50/50'
                             : n.tone === 'warn'
-                              ? '注意'
+                              ? 'border-amber-100 bg-amber-50/50'
                               : n.tone === 'error'
-                                ? '错误'
-                                : '进展'}
-                        </span>
-                        <span className="font-mono text-[10px] text-gray-500">
-                          {fmtTime(n.ts)}
-                        </span>
+                                ? 'border-red-100 bg-red-50/50'
+                                : 'border-sky-100 bg-sky-50/40'
+                        }`}
+                      >
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="font-mono text-[10px] text-gray-500">
+                            {fmtRelative(n.ts, anchor)}
+                          </span>
+                          <span className="text-[9px] text-gray-400">·</span>
+                          <span className="font-mono text-[9px] text-gray-400">
+                            {fmtTime(n.ts)}
+                          </span>
+                        </div>
+                        {segments.length === 1 ? (
+                          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-gray-800">
+                            {linkify(segments[0].text)}
+                          </p>
+                        ) : (
+                          <ul className="space-y-1 text-[12px] leading-relaxed text-gray-800">
+                            {segments.map((seg, si) => (
+                              <li key={si} className="flex gap-2">
+                                <span className="font-mono text-[10px] text-gray-400">
+                                  {seg.kind === 'li' ? `${seg.idx}.` : '·'}
+                                </span>
+                                <span className="flex-1 whitespace-pre-wrap break-words">
+                                  {linkify(seg.text)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                      <p className="text-[12px] leading-relaxed text-gray-800">
-                        {n.text}
-                      </p>
                     </li>
                   );
                 })}
