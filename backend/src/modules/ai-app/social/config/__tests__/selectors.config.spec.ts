@@ -10,7 +10,7 @@ import {
   tryFill,
   waitForAny,
   humanDelay,
-} from "../config/selectors.config";
+} from "../selectors.config";
 
 describe("selectors.config", () => {
   describe("WECHAT_SELECTORS", () => {

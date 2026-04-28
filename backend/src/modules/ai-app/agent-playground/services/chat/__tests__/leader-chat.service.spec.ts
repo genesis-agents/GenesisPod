@@ -8,7 +8,7 @@
  * Prisma / chat / store。
  */
 
-import { LeaderChatService } from "../chat/leader-chat.service";
+import { LeaderChatService } from "../leader-chat.service";
 
 type ParseFn = (raw: string) => {
   response: string;

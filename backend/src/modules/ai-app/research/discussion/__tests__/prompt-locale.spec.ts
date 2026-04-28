@@ -15,7 +15,7 @@ import {
   PHASE_MESSAGES,
   ORCHESTRATOR_PROMPTS,
   SEARCH_MESSAGES,
-} from "../discussion/prompt-locale";
+} from "../prompt-locale";
 
 describe("resolveLanguage", () => {
   it('should return en-US for "en-US" input', () => {

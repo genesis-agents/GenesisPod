@@ -6,8 +6,8 @@ import {
   AgentExecutionContext,
   classifyError,
   shouldRetry,
-} from "../mission/agent-execution-context";
-import type { IContextEnvelope } from "../../kernel/abstractions";
+} from "../agent-execution-context";
+import type { IContextEnvelope } from "../../../kernel/abstractions";
 
 const fakeEnv = {
   id: "x",

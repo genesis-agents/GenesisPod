@@ -8,8 +8,8 @@ import {
   WECHAT_REQUIRED_COOKIES,
   TIMEOUT_CONFIG,
   RETRY_CONFIG,
-} from "../config/platforms.config";
-import { SocialPlatformType } from "../types";
+} from "../platforms.config";
+import { SocialPlatformType } from "../../types";
 
 describe("platforms.config", () => {
   describe("PLATFORM_CONFIGS", () => {

@@ -6,7 +6,7 @@ import {
   sanitizeForLog,
   safeStringify,
   sanitizeResponseBody,
-} from "../utils/log-sanitizer";
+} from "../log-sanitizer";
 
 describe("log-sanitizer", () => {
   describe("sanitizeForLog", () => {

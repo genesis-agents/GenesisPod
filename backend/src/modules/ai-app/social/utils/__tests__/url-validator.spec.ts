@@ -10,7 +10,7 @@ import {
   validateContentLength,
   truncateContent,
   CONTENT_LIMITS,
-} from "../utils/url-validator";
+} from "../url-validator";
 
 describe("url-validator", () => {
   describe("validateUrl", () => {

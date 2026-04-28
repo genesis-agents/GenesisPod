@@ -2,7 +2,7 @@
  * toOtelGenAiAttributes 单测 (PR-U)
  */
 
-import { toOtelGenAiAttributes } from "../tracer/otel-semantic-conventions";
+import { toOtelGenAiAttributes } from "../otel-semantic-conventions";
 
 describe("toOtelGenAiAttributes (PR-U)", () => {
   it("maps Anthropic model to gen_ai.system=anthropic", () => {

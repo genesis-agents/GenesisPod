@@ -2,7 +2,7 @@
  * InMemoryVectorStore 单元测试 (PR-I)
  */
 
-import { InMemoryVectorStore } from "../vector/in-memory-vector-store";
+import { InMemoryVectorStore } from "../in-memory-vector-store";
 
 describe("InMemoryVectorStore (PR-I)", () => {
   it("recalls top-K by cosine similarity", () => {

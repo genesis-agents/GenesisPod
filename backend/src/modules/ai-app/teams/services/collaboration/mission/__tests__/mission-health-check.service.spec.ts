@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { MissionHealthCheckService } from "../mission/mission-health-check.service";
-import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { MissionHealthCheckService } from "../mission-health-check.service";
+import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
 import { MissionStatus, AgentTaskStatus } from "@prisma/client";
 
 // ── helpers ──────────────────────────────────────────────────────────────────

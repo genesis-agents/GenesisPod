@@ -2,7 +2,7 @@
  * MissionBudgetPool 单元测试 (PR-I)
  */
 
-import { MissionBudgetPool } from "../mission/mission-budget-pool";
+import { MissionBudgetPool } from "../mission-budget-pool";
 
 describe("MissionBudgetPool (PR-I)", () => {
   it("shares spend across allocated accountants", () => {

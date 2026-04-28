@@ -1,19 +1,19 @@
 // Mock deep dependency chains before imports
-jest.mock("../../teams/ai-teams.service", () => ({
+jest.mock("../../../teams/ai-teams.service", () => ({
   AiTeamsService: jest.fn().mockImplementation(() => ({})),
 }));
-jest.mock("../../teams/services/ai/ai-response.service", () => ({
+jest.mock("../../../teams/services/ai/ai-response.service", () => ({
   AiResponseService: jest.fn().mockImplementation(() => ({})),
 }));
-jest.mock("../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../../ai-infra/credits/billing-context", () => ({
   BillingContext: { run: jest.fn() },
 }));
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { PlanningController } from "../controllers/planning.controller";
-import { PlanningOrchestratorService } from "../services/planning-orchestrator.service";
-import { PlanningTemplateService } from "../services/planning-template.service";
-import { PlanningDepth } from "../dto/create-plan.dto";
+import { PlanningController } from "../planning.controller";
+import { PlanningOrchestratorService } from "../../services/planning-orchestrator.service";
+import { PlanningTemplateService } from "../../services/planning-template.service";
+import { PlanningDepth } from "../../dto/create-plan.dto";
 
 const mockResponse = {
   setHeader: jest.fn(),

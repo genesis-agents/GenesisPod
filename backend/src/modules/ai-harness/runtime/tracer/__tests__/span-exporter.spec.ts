@@ -8,8 +8,8 @@
  *   - sink 抛错不会破坏其它 sink
  */
 
-import { AgentTracer } from "../tracer/otel-tracer";
-import { SpanExporter, type SpanRecord } from "../tracer/span-exporter";
+import { AgentTracer } from "../otel-tracer";
+import { SpanExporter, type SpanRecord } from "../span-exporter";
 
 describe("SpanExporter + AgentTracer (PR-G)", () => {
   it("emits a SpanRecord on span.end with attributes merged", () => {
