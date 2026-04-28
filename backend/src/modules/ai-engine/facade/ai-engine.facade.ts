@@ -167,7 +167,7 @@ import type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
-import { MCPManager } from "../mcp/manager/mcp-manager";
+import { MCPManager } from "../../ai-harness/protocol/mcp/manager/mcp-manager";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,

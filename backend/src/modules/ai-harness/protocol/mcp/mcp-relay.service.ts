@@ -19,10 +19,10 @@
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 import {
-  MCPToolAdapter,
+  MCPRelayToolAdapter,
   type MCPClientLike,
   type MCPToolDescriptor,
-} from "./mcp-tool-adapter";
+} from "./mcp-relay-tool-adapter";
 
 export interface MCPHttpTransport {
   readonly kind: "http";
@@ -97,7 +97,7 @@ export class MCPRelay implements OnModuleDestroy {
         skipped.push(tool.name);
         continue;
       }
-      const adapter = new MCPToolAdapter(config.id, tool, client);
+      const adapter = new MCPRelayToolAdapter(config.id, tool, client);
       this.toolRegistry.register(adapter);
       registered.push(adapter.id);
     }

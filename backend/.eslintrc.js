@@ -362,6 +362,10 @@ module.exports = {
       excludedFiles: [
         "**/modules/ai-engine/facade/**/*.ts",
         "**/modules/ai-engine/ai-engine-orchestration.module.ts",
+        // Specs/tests are allowed to import harness facade for mocking purposes
+        "**/modules/ai-engine/**/*.spec.ts",
+        "**/modules/ai-engine/**/*.test.ts",
+        "**/modules/ai-engine/**/__tests__/**/*.ts",
       ],
       rules: {
         "no-restricted-imports": [

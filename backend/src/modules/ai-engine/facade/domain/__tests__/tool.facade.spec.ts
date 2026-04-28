@@ -17,7 +17,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ToolFacade } from "../tool.facade";
 import { TOOL_FEATURE } from "../../facade.providers";
-import { MCPManager } from "../../../mcp/manager/mcp-manager";
+import { MCPManager } from "../../../../ai-harness/protocol/mcp/manager/mcp-manager";
 
 describe("ToolFacade", () => {
   let facade: ToolFacade;

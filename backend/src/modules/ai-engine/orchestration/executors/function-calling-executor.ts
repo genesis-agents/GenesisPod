@@ -16,7 +16,7 @@ import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
-import { MCPManager } from "../../mcp/manager/mcp-manager";
+import { MCPManager } from "../../facade";
 import { QueryLoopService } from "../services/query-loop.service";
 import { TokenTrackerService } from "../services/token-tracker.service";
 import { ContextCompactionPipelineService } from "../services/context-compaction-pipeline.service";

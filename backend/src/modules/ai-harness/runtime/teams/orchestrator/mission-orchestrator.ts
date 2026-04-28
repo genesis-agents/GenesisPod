@@ -56,7 +56,7 @@ import {
 } from "../../../../ai-engine/skills/abstractions/skill.interface";
 import { LLMFactory } from "../../../../ai-engine/llm/factory/llm-factory";
 import { LLMToolDefinition } from "../../../../ai-engine/llm/abstractions/llm-adapter.interface";
-import { MCPManager } from "../../../../ai-engine/mcp/manager/mcp-manager";
+import { MCPManager } from "../../../protocol/mcp/manager/mcp-manager";
 import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
 import {
   HandoffCoordinator,

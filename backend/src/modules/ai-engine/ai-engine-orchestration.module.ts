@@ -70,7 +70,7 @@ import { WorkflowHandlerRegistry } from "./orchestration/handlers/handler-regist
 
 // Agents (needed for executors)
 import { AgentOrchestrator } from "../ai-harness/kernel/registry/agent-orchestrator";
-import { AgentsController, AgentsService } from "./agents/api";
+import { AgentsService } from "../open-api/agents-api";
 import { AgentConfigService } from "../ai-harness/kernel/config/agent-config.service";
 
 /**
@@ -182,7 +182,7 @@ const checkpointManagerFactory = {
     forwardRef(() => AiEngineSkillsModule),
     forwardRef(() => AiEngineConstraintModule),
   ],
-  controllers: [AgentsController],
+  controllers: [],
   providers: [
     // Agents (needed for executors)
     AgentRegistry,

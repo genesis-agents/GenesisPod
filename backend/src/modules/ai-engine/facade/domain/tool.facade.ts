@@ -36,7 +36,7 @@ import type {
 } from "../../orchestration/executors/function-calling-executor";
 import type { AppModule } from "../../orchestration/services/task-planner.service";
 import { IntentRouterService } from "../../orchestration/services/intent-router.service";
-import { MCPManager } from "../../mcp/manager/mcp-manager";
+import { MCPManager } from "../../../ai-harness/protocol/mcp/manager/mcp-manager";
 import { FunctionCallingLLMAdapter } from "../../llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../../orchestration/executors/function-calling-executor";
 import type {

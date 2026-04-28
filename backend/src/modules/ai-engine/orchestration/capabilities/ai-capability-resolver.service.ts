@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
-import { MCPManager } from "../../mcp/manager/mcp-manager";
+import { MCPManager } from "../../facade";
 import { SkillLoaderService } from "../../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../skills/builder/skill-prompt-builder.service";
 import {

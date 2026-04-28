@@ -88,10 +88,13 @@ import { GoogleDriveModule } from "./modules/ai-app/library/integrations/google-
 import { AiFileOrganizerModule } from "./modules/ai-app/library/ai-file-organizer/ai-file-organizer.module";
 // Export module
 import { ExportModule } from "./common/export";
-// Open API modules (webhooks, public-api, mcp-server)
+// Open API modules (webhooks, public-api, mcp-server, ai-core, agents-api)
 import { WebhooksModule } from "./modules/open-api/webhooks";
 import { MCPServerModule } from "./modules/open-api/mcp-server";
 import { PublicApiModule } from "./modules/open-api/public-api/public-api.module";
+import { AiCoreModule } from "./modules/open-api/ai-core/ai-core.module";
+import { AgentsApiModule } from "./modules/open-api/agents-api/agents-api.module";
+import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
 // A2A Server module
 import { A2AModule } from "./modules/ai-harness/protocol/a2a";
 // Request context middleware
@@ -233,6 +236,15 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // A2A Server module
     A2AModule,
+
+    // AI Core API (PR-X6: moved from ai-engine/api)
+    AiCoreModule,
+
+    // Agents API (PR-X6: moved from ai-engine/agents/api)
+    AgentsApiModule,
+
+    // MCP Admin API (PR-X7: moved from ai-engine/mcp/admin)
+    McpAdminModule,
   ],
   controllers: [AppController],
   providers: [

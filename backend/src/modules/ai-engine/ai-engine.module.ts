@@ -53,8 +53,8 @@ import { AgentRegistry } from "./facade/exports/registries";
 import { LLMFactory } from "./llm/factory/llm-factory";
 import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 
-// Controllers & API Services (only AiCoreController, others in sub-modules)
-import { AiCoreController, AiCoreService } from "./api";
+// AiCoreController + AiCoreService moved to open-api/ai-core (PR-X6)
+// They are now registered in AiCoreModule, not here.
 
 // ★ Phase 3: ContentAnalysisModule moved to ai-app/office/content-analysis/
 
@@ -70,9 +70,8 @@ import { ImageModule } from "./content/image/image.module";
 import { PromptsModule } from "./llm/prompts/prompts.module";
 import { CreditsModule } from "../ai-infra/credits/credits.module";
 
-// MCP
-import { MCPManager } from "./mcp/manager/mcp-manager";
-import { MCPClientRegistryService } from "./mcp/registry/mcp-client-registry.service";
+// MCP moved to ai-harness/protocol/mcp (PR-X7)
+// MCPManager and MCPClientRegistryService are now provided by HarnessModule (@Global)
 
 // Capabilities
 import { AICapabilityResolver } from "./orchestration/capabilities/ai-capability-resolver.service";
@@ -137,19 +136,17 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
-  controllers: [AiCoreController], // ObservabilityController now in ObservabilityModule
+  controllers: [], // AiCoreController moved to open-api/ai-core (PR-X6)
   providers: [
     // === Facade Feature Providers (分组注入) ===
     ...FACADE_FEATURE_PROVIDERS,
 
-    // === API Service ===
-    AiCoreService,
+    // AiCoreService moved to open-api/ai-core (PR-X6)
 
     // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
 
-    // === MCP ===
-    MCPManager,
-    MCPClientRegistryService,
+    // === MCP moved to ai-harness/protocol/mcp (PR-X7) ===
+    // MCPManager and MCPClientRegistryService now provided by HarnessModule (@Global)
 
     // === Capabilities ===
     AICapabilityResolver,
@@ -197,9 +194,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // ★ VotingManager 和 HandoffCoordinator 通过 CollaborationModule 导出
 
-    // === MCP ===
-    MCPManager,
-    MCPClientRegistryService,
+    // === MCP moved to ai-harness/protocol/mcp (PR-X7) — MCPManager exported by HarnessModule ===
 
     // === Capabilities ===
     AICapabilityResolver,

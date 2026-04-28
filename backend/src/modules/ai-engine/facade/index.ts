@@ -136,7 +136,7 @@ export type {
   MCPToolResult,
   MCPServerInfo,
   MCPTool,
-} from "../mcp/abstractions/mcp.interface";
+} from "../../ai-harness/protocol/mcp/abstractions/mcp.interface";
 
 // Content feature types（for ai-app/office/content-analysis/）
 export {
@@ -315,7 +315,7 @@ export {
   type ElectionCostBias,
 } from "../llm/election";
 export { SearchService } from "../knowledge/search/search.service";
-export { MCPManager } from "../mcp/manager/mcp-manager";
+export { MCPManager } from "../../ai-harness/protocol/mcp/manager/mcp-manager";
 export { SkillLoaderService } from "../skills/loader/skill-loader.service";
 export { SkillContentService } from "../skills/content/skill-content.service";
 export type {
@@ -323,7 +323,7 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { MCPExternalAdminController } from "../mcp/admin/mcp-external-admin.controller";
+// MCPExternalAdminController moved to open-api/mcp-admin (PR-X7) — import from there directly
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
 export { AICapabilityResolver } from "../orchestration/capabilities/ai-capability-resolver.service";

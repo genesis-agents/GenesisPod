@@ -1,10 +1,10 @@
 /**
- * MCP protocol exports
+ * MCP protocol exports (moved to ai-harness/protocol/mcp — PR-X7)
  */
 export type {
   MCPServerConfig,
   MCPToolResult,
   MCPServerInfo,
   MCPTool,
-} from "../../mcp/abstractions/mcp.interface";
-export { MCPManager } from "../../mcp/manager/mcp-manager";
+} from "../../../ai-harness/protocol/mcp/abstractions/mcp.interface";
+export { MCPManager } from "../../../ai-harness/protocol/mcp/manager/mcp-manager";

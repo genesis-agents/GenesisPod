@@ -71,6 +71,8 @@ import { ModelPricingRegistry } from "./runtime/budget/model-pricing-registry";
 import { SpanExporter } from "./runtime/tracer/span-exporter";
 import { JudgeService } from "./governance/verify/judge.service";
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
+import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
+import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";
 import { AgentRunner, FixtureStore, HarnessInspectorController } from "./kernel/dx";
 // PR-J..P
 import { LeaderWorkerLoop } from "./execution/loop/leader-worker-loop";
@@ -181,6 +183,10 @@ import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
     // ★ PR-E: MCP Relay — 远端 MCP server 工具自动注册
     MCPRelay,
 
+    // ★ PR-X7: MCP Manager + Client Registry (moved from ai-engine)
+    MCPManager,
+    MCPClientRegistryService,
+
     // ★ PR-H: DX 套件 — @DefineAgent + AgentRunner + record/replay
     AgentRunner,
     FixtureStore,
@@ -225,6 +231,8 @@ import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
     JudgeService,
     SpanExporter,
     MCPRelay,
+    MCPManager,
+    MCPClientRegistryService,
     AgentRunner,
     FixtureStore,
     ToolCircuitBreaker,

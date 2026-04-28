@@ -29,7 +29,7 @@ import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry
 import { LLMFactory } from "../../../ai-engine/llm/factory/llm-factory";
 import { CostController } from "../../governance/resource/cost-controller";
 import { ShortTermMemoryService } from "../../../ai-engine/knowledge/memory/stores/short-term-memory.service";
-import { MCPManager } from "../../../ai-engine/mcp/manager/mcp-manager";
+import { MCPManager } from "../../protocol/mcp/manager/mcp-manager";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { TraceCollectorService } from "../../governance/observability/trace-collector.service";

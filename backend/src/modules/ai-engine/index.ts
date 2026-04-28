@@ -107,7 +107,8 @@ export * as Constraint from "./safety/constraint";
 export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
 export * as Memory from "./knowledge/memory";
-export * as MCP from "./mcp";
+// MCP moved to ai-harness/protocol/mcp (PR-X7)
+// export * as MCP from "./mcp"; — removed
 // Teams barrel 已迁移到 ai-harness/runtime/teams（PR-X4）
 // 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/runtime/teams"
 export * as Image from "./content/image";

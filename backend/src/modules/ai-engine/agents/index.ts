@@ -48,5 +48,5 @@ export {
   AIModelType,
 } from "../core/types/agent.types";
 
-// ==================== API Layer ====================
-export * from "./api";
+// ==================== API Layer (moved to open-api/agents-api, PR-X6) ====================
+// AgentsController / AgentsService / DTOs now live in open-api/agents-api/

@@ -19,7 +19,7 @@ import { ResearchAdminController } from "./research-admin.controller";
 import { ApprovalsAdminController } from "./approvals-admin.controller";
 import { KernelAdminController } from "./kernel-admin.controller";
 import { AdminModelRecommendationsController } from "./admin-model-recommendations.controller";
-import { MCPExternalAdminController } from "../../ai-engine/facade";
+import { MCPExternalAdminController } from "../mcp-admin/mcp-external-admin.controller";
 import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";

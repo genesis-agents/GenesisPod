@@ -1,5 +1,5 @@
 /**
- * MCPRelay + MCPToolAdapter 单元测试 (PR-E)
+ * MCPRelay + MCPRelayToolAdapter 单元测试 (PR-E)
  *
  * 用 registerMockServer 注入伪 MCP client，跳过真实网络。
  * 验证：
@@ -10,7 +10,7 @@
 
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 import { MCPRelay } from "../mcp-relay.service";
-import { MCPToolAdapter, type MCPClientLike } from "../mcp-tool-adapter";
+import { MCPRelayToolAdapter, type MCPClientLike } from "../mcp-relay-tool-adapter";
 
 function mkMockClient(toolName: string): MCPClientLike {
   return {
@@ -23,10 +23,10 @@ function mkMockClient(toolName: string): MCPClientLike {
   };
 }
 
-describe("MCPRelay + MCPToolAdapter (PR-E)", () => {
-  it("MCPToolAdapter forwards execute to MCP client", async () => {
+describe("MCPRelay + MCPRelayToolAdapter (PR-E)", () => {
+  it("MCPRelayToolAdapter forwards execute to MCP client", async () => {
     const client = mkMockClient("ping");
-    const adapter = new MCPToolAdapter(
+    const adapter = new MCPRelayToolAdapter(
       "srv-a",
       {
         name: "ping",
@@ -51,9 +51,9 @@ describe("MCPRelay + MCPToolAdapter (PR-E)", () => {
     expect(result.data).toEqual({ echo: { hello: "world" } });
   });
 
-  it("MCPToolAdapter surfaces isError as ToolResult.success=false", async () => {
+  it("MCPRelayToolAdapter surfaces isError as ToolResult.success=false", async () => {
     const client = mkMockClient("ping");
-    const adapter = new MCPToolAdapter(
+    const adapter = new MCPRelayToolAdapter(
       "srv-a",
       { name: "missing", inputSchema: { type: "object" } },
       client,
@@ -70,13 +70,13 @@ describe("MCPRelay + MCPToolAdapter (PR-E)", () => {
     expect(result.error?.code).toBe("MCP_TOOL_ERROR");
   });
 
-  it("MCPToolAdapter handles transport throw as MCP_TRANSPORT_ERROR", async () => {
+  it("MCPRelayToolAdapter handles transport throw as MCP_TRANSPORT_ERROR", async () => {
     const client: MCPClientLike = {
       callTool: jest.fn(async () => {
         throw new Error("network down");
       }),
     };
-    const adapter = new MCPToolAdapter(
+    const adapter = new MCPRelayToolAdapter(
       "srv-b",
       { name: "ping", inputSchema: { type: "object" } },
       client,
@@ -100,7 +100,7 @@ describe("MCPRelay + MCPToolAdapter (PR-E)", () => {
       client,
     );
     // The mock path bypasses listTools; we manually register adapters here
-    const adapter = new MCPToolAdapter(
+    const adapter = new MCPRelayToolAdapter(
       "srv-a",
       { name: "ping", inputSchema: { type: "object" } },
       client,
