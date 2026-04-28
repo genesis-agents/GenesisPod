@@ -90,7 +90,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
       {/* 执行摘要 */}
       {qv.executiveSummary.markdown && (
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <Sparkles className="h-4 w-4 text-violet-500" />
             执行摘要
@@ -103,7 +103,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
       {/* Top Highlights */}
       {qv.topHighlights.length > 0 && (
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <Star className="h-4 w-4 text-amber-500" />
             核心要点
@@ -128,7 +128,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
       {/* 关键图 */}
       {keyFigures.length > 0 && (
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <Sparkles className="h-4 w-4 text-violet-500" />
             关键图表
@@ -153,7 +153,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
       {/* Top Trends */}
       {qv.topTrends.length > 0 && (
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <TrendingUp className="h-4 w-4 text-emerald-500" />
             关键趋势
@@ -178,7 +178,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
       {/* Top Risks */}
       {qv.keyRisks.length > 0 && (
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <AlertCircle className="h-4 w-4 text-red-500" />
             关键风险
@@ -203,7 +203,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
       {/* Top Recommendations */}
       {qv.topRecommendations.length > 0 && (
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <Lightbulb className="h-4 w-4 text-amber-500" />
             战略建议
@@ -228,7 +228,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
       {/* Top Citations */}
       {keyCites.length > 0 && (
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
             <ExternalLink className="h-4 w-4 text-violet-500" />
             重点引用

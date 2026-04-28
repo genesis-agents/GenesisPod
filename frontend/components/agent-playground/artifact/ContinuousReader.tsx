@@ -88,7 +88,7 @@ export function ContinuousReader({ artifact }: Props) {
   return (
     <div className="flex gap-6">
       {/* 左侧浮动 mini-TOC */}
-      <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-56 flex-shrink-0 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:block">
+      <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-56 flex-shrink-0 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:block">
         <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
           <BookOpen className="h-3 w-3" />
           目录
@@ -140,7 +140,7 @@ export function ContinuousReader({ artifact }: Props) {
             </span>
           </div>
         )}
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <ArtifactMarkdown
             markdown={artifact.content.fullMarkdown}
             citations={artifact.citations}

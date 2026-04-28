@@ -50,7 +50,7 @@ export function FactTablePanel({ factTable, citations }: Props) {
   if (factTable.length === 0) return null;
   const conflicts = factTable.filter((f) => f.conflict);
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <button
         type="button"
         onClick={() => {

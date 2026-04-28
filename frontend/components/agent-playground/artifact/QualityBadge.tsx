@@ -56,7 +56,7 @@ export function QualityBadge({ quality }: Props) {
   const verdictMatch = l4Verdict?.match(/^\[(pass|concerns|fail)\]/);
   const verdict = verdictMatch?.[1] as 'pass' | 'concerns' | 'fail' | undefined;
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

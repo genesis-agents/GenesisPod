@@ -28,7 +28,7 @@ export function ToolRecallTrace({ entries }: Props) {
   const dedupedEntries = Array.from(dedupMap.values());
   if (dedupedEntries.length === 0) return null;
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
         <Wrench className="h-4 w-4 text-blue-500" />
         工具召回轨迹（{dedupedEntries.length} stage）

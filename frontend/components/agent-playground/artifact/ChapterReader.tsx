@@ -86,7 +86,7 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
   return (
     <div className="flex gap-6">
       {/* 左侧 TOC */}
-      <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 flex-shrink-0 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 flex-shrink-0 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <p className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
           <List className="h-3 w-3" />
           目录（{sections.length}）
@@ -130,7 +130,7 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
 
       {/* 右侧单章 */}
       <main className="min-w-0 flex-1">
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex-1">
               <p className="text-[10px] uppercase tracking-wide text-gray-500">

@@ -41,7 +41,7 @@ export function ReferencePanel({
 }: Props) {
   if (citations.length === 0) return null;
   return (
-    <section className="mt-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <section className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <h3 className="mb-3 text-sm font-bold text-gray-900">
         参考文献（{citations.length}）
       </h3>

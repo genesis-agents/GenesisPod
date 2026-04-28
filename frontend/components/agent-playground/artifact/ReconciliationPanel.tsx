@@ -47,7 +47,7 @@ export function ReconciliationPanel({ report }: Props) {
   const gapCount = report.gaps?.length ?? 0;
   if (factCount + conflictCount + overlapCount + gapCount === 0) return null;
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
