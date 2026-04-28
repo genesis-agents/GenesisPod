@@ -41,7 +41,14 @@ import type {
   MissionTodoNarrativeItem,
 } from '@/lib/agent-playground/todo-ledger';
 import { deriveLayerBreadcrumb } from '@/lib/agent-playground/todo-ledger';
-import type { AgentLiveState } from '@/lib/agent-playground/derive';
+import type {
+  AgentLiveState,
+  AgentTraceItem,
+} from '@/lib/agent-playground/derive';
+import {
+  deriveDrawerSections,
+  TOOL_LABEL,
+} from '@/lib/agent-playground/drawer-derive';
 
 interface Props {
   todo: MissionTodo | undefined;
@@ -305,6 +312,196 @@ function linkifyBare(text: string, baseKey: number): React.ReactNode {
   );
 }
 
+// ─── 时间线统一卡片：把 narrativeLog + trace action/observation 织成单一序列 ───
+
+type TimelineCardKind =
+  | 'narrative'
+  | 'thought'
+  | 'tool-call'
+  | 'tool-result'
+  | 'reflection'
+  | 'finalize';
+
+interface TimelineCard {
+  kind: TimelineCardKind;
+  ts: number;
+  /** 给 narrative 用 */
+  narrative?: MissionTodoNarrativeItem;
+  /** 给 trace 用 */
+  trace?: AgentTraceItem;
+  /** 工具调用解包后的查询 */
+  query?: string;
+  /** observation 解出来的 search results */
+  results?: { title?: string; url?: string; snippet?: string }[];
+}
+
+function buildTimelineCards(
+  narrativeLog: readonly MissionTodoNarrativeItem[],
+  trace: readonly AgentTraceItem[]
+): TimelineCard[] {
+  const cards: TimelineCard[] = [];
+  for (const n of narrativeLog) {
+    cards.push({ kind: 'narrative', ts: n.ts, narrative: n });
+  }
+  for (const t of trace) {
+    if (t.kind === 'thought' && t.text && t.text.trim()) {
+      cards.push({ kind: 'thought', ts: t.ts, trace: t });
+    } else if (t.kind === 'action' && t.toolId) {
+      const inp = (t.input ?? {}) as Record<string, unknown>;
+      const query =
+        typeof inp.query === 'string'
+          ? inp.query
+          : typeof inp.url === 'string'
+            ? inp.url
+            : undefined;
+      if (t.toolId === 'finalize') {
+        cards.push({ kind: 'finalize', ts: t.ts, trace: t });
+      } else {
+        cards.push({ kind: 'tool-call', ts: t.ts, trace: t, query });
+      }
+    } else if (t.kind === 'observation' && !t.error) {
+      // 解 search results
+      const collected: { title?: string; url?: string; snippet?: string }[] =
+        [];
+      const visit = (node: unknown) => {
+        if (!node) return;
+        if (typeof node === 'string') {
+          const trimmed = node.trim();
+          if (
+            (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+            (trimmed.startsWith('[') && trimmed.endsWith(']'))
+          ) {
+            try {
+              visit(JSON.parse(trimmed));
+            } catch {
+              /* ignore */
+            }
+          }
+          return;
+        }
+        if (Array.isArray(node)) {
+          node.forEach(visit);
+          return;
+        }
+        if (typeof node !== 'object') return;
+        const o = node as Record<string, unknown>;
+        if (typeof o.title === 'string' || typeof o.url === 'string') {
+          collected.push({
+            title: typeof o.title === 'string' ? o.title : undefined,
+            url: typeof o.url === 'string' ? o.url : undefined,
+            snippet:
+              typeof o.snippet === 'string'
+                ? o.snippet
+                : typeof o.description === 'string'
+                  ? o.description
+                  : typeof o.content === 'string'
+                    ? o.content.slice(0, 280)
+                    : undefined,
+          });
+        }
+        for (const k of [
+          'results',
+          'items',
+          'hits',
+          'output',
+          'data',
+          'preview',
+        ]) {
+          if (o[k] !== undefined) visit(o[k]);
+        }
+      };
+      visit(t.output);
+      cards.push({
+        kind: 'tool-result',
+        ts: t.ts,
+        trace: t,
+        results: collected.slice(0, 6),
+      });
+    } else if (t.kind === 'reflection' && t.text) {
+      cards.push({ kind: 'reflection', ts: t.ts, trace: t });
+    }
+  }
+  cards.sort((a, b) => a.ts - b.ts);
+  return cards;
+}
+
+/** TI 配色：phase → bg/text/ring/Icon */
+const KIND_STYLE: Record<
+  TimelineCardKind,
+  {
+    bg: string;
+    border: string;
+    chip: string;
+    iconBg: string;
+    iconColor: string;
+    label: string;
+    Icon: typeof Brain;
+  }
+> = {
+  thought: {
+    bg: 'bg-purple-50/60',
+    border: 'border-purple-200',
+    chip: 'bg-purple-100 text-purple-700',
+    iconBg: 'bg-purple-100',
+    iconColor: 'text-purple-600',
+    label: '思考',
+    Icon: Brain,
+  },
+  'tool-call': {
+    bg: 'bg-blue-50/60',
+    border: 'border-blue-200',
+    chip: 'bg-blue-100 text-blue-700',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600',
+    label: '调用工具',
+    Icon: Search,
+  },
+  'tool-result': {
+    bg: 'bg-indigo-50/60',
+    border: 'border-indigo-200',
+    chip: 'bg-indigo-100 text-indigo-700',
+    iconBg: 'bg-indigo-100',
+    iconColor: 'text-indigo-600',
+    label: '工具结果',
+    Icon: Database,
+  },
+  reflection: {
+    bg: 'bg-amber-50/60',
+    border: 'border-amber-200',
+    chip: 'bg-amber-100 text-amber-700',
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-700',
+    label: '反思',
+    Icon: Lightbulb,
+  },
+  finalize: {
+    bg: 'bg-emerald-50/70',
+    border: 'border-emerald-300',
+    chip: 'bg-emerald-100 text-emerald-700',
+    iconBg: 'bg-emerald-100',
+    iconColor: 'text-emerald-700',
+    label: '产出',
+    Icon: CheckCircle2,
+  },
+  narrative: {
+    bg: 'bg-sky-50/50',
+    border: 'border-sky-200',
+    chip: 'bg-sky-100 text-sky-700',
+    iconBg: 'bg-sky-100',
+    iconColor: 'text-sky-600',
+    label: '进展',
+    Icon: Info,
+  },
+};
+
+function safeHostname(u: string): string | undefined {
+  try {
+    return new URL(u).hostname.replace(/^www\./, '');
+  } catch {
+    return undefined;
+  }
+}
+
 export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
   if (!todo) return null;
 
@@ -470,96 +667,320 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
             </section>
           )}
 
-          {/* Narrative timeline —— 主视图，纵向时间线 + 结构化文本 */}
+          {/* 关键发现 / 工具使用 / 引用来源 三段结构化派生 */}
+          {linkedAgent &&
+            (() => {
+              const d = deriveDrawerSections(linkedAgent);
+              return (
+                <>
+                  {d.findings.length > 0 && (
+                    <section className="rounded-lg border border-emerald-100 bg-gradient-to-br from-emerald-50/70 to-teal-50/40">
+                      <div className="border-b border-emerald-100 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                          ⭐ 关键发现 · {d.findings.length} 条
+                        </p>
+                      </div>
+                      <ol className="space-y-2 p-3">
+                        {d.findings.map((f, i) => (
+                          <li
+                            key={i}
+                            className="rounded-md bg-white px-3 py-2 ring-1 ring-emerald-100"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="font-mono mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
+                                {i + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[12.5px] font-medium leading-relaxed text-gray-900">
+                                  {f.claim}
+                                </p>
+                                {f.evidence && (
+                                  <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+                                    {f.evidence}
+                                  </p>
+                                )}
+                                {f.source && (
+                                  <a
+                                    href={
+                                      /^https?:\/\//i.test(f.source)
+                                        ? f.source
+                                        : '#'
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono mt-1 inline-flex items-center gap-1 break-all text-[10px] text-violet-700 hover:underline"
+                                  >
+                                    🔗{' '}
+                                    {safeHostname(f.source) ??
+                                      f.source.slice(0, 60)}
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
+                  )}
+
+                  {d.toolUsage.length > 0 && (
+                    <section className="rounded-lg border border-blue-100 bg-gradient-to-br from-blue-50/60 to-purple-50/30 p-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <Search className="h-3.5 w-3.5 text-blue-600" />
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                          使用工具 · {d.toolUsage.length} 个
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {d.toolUsage.map((tu) => {
+                          const meta = TOOL_LABEL[tu.toolId] ?? {
+                            label: tu.toolId,
+                            emoji: '🔧',
+                          };
+                          return (
+                            <span
+                              key={tu.toolId}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-blue-700 ring-1 ring-blue-200"
+                              title={tu.samples.join('\n')}
+                            >
+                              <span>{meta.emoji}</span>
+                              <span>{meta.label}</span>
+                              <span className="rounded bg-blue-100 px-1.5 text-[10px] font-bold">
+                                ×{tu.callCount}
+                              </span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {d.sources.length > 0 && (
+                    <section className="rounded-lg border border-gray-100 bg-white">
+                      <div className="border-b border-gray-100 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                          引用来源 · {d.sources.length} 个唯一 URL
+                        </p>
+                      </div>
+                      <ul className="max-h-56 space-y-1 overflow-y-auto p-2">
+                        {d.sources.slice(0, 12).map((s, i) => (
+                          <li
+                            key={`${s.url}-${i}`}
+                            className="rounded-md px-2 py-1.5 hover:bg-violet-50/40"
+                          >
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block min-w-0"
+                            >
+                              <p className="truncate text-[11.5px] font-medium text-gray-800 group-hover:text-violet-700">
+                                {s.title ?? s.url}
+                              </p>
+                              <p className="font-mono mt-0.5 truncate text-[10px] text-gray-400">
+                                {s.domain ?? s.url}{' '}
+                                {s.hits > 1 && (
+                                  <span className="text-violet-500">
+                                    · 引用 {s.hits} 次
+                                  </span>
+                                )}
+                              </p>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                </>
+              );
+            })()}
+
+          {/* 完整时间线 —— 卡片式呈现 narrativeLog + trace events */}
           <section className="rounded-lg border border-gray-100 bg-white">
             <div className="border-b border-gray-100 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
-                时间线 · {todo.narrativeLog.length} 条进展
-              </p>
+              {(() => {
+                const cards = buildTimelineCards(
+                  todo.narrativeLog,
+                  linkedAgent?.trace ?? []
+                );
+                return (
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-700">
+                    完整时间线 · {cards.length} 个事件
+                  </p>
+                );
+              })()}
             </div>
-            {todo.narrativeLog.length === 0 ? (
-              <p className="px-3 py-4 text-center text-[11px] text-gray-500">
-                {todo.status === 'pending'
-                  ? '该任务尚未启动'
-                  : '等待叙事事件流入…'}
-              </p>
-            ) : (
-              <ol className="relative space-y-0 p-3 pl-8">
-                {/* 竖直连接线 */}
-                <span
-                  className="absolute bottom-3 left-[18px] top-3 w-0.5 bg-gradient-to-b from-violet-200 via-gray-200 to-gray-100"
-                  aria-hidden="true"
-                />
-                {todo.narrativeLog.map((n, i) => {
-                  const tone = TONE_STYLE[n.tone ?? 'info'];
-                  const Icon = tone.Icon;
-                  const segments = splitNarrativeText(n.text);
-                  const anchor = todo.startedAt ?? todo.createdAt;
-                  return (
-                    <li
-                      key={`${n.ts}-${i}`}
-                      className="relative pb-3 last:pb-0"
-                    >
-                      {/* 节点圆点 */}
-                      <span
-                        className={`absolute -left-[26px] top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-white ${tone.bg} ${tone.ring}`}
+            {(() => {
+              const cards = buildTimelineCards(
+                todo.narrativeLog,
+                linkedAgent?.trace ?? []
+              );
+              const anchor = todo.startedAt ?? todo.createdAt;
+              if (cards.length === 0) {
+                return (
+                  <p className="px-3 py-4 text-center text-[11px] text-gray-500">
+                    {todo.status === 'pending'
+                      ? '该任务尚未启动'
+                      : '等待事件流入…'}
+                  </p>
+                );
+              }
+              return (
+                <ol className="relative space-y-0 p-3 pl-9">
+                  <span
+                    className="absolute bottom-3 left-[20px] top-3 w-0.5 bg-gradient-to-b from-purple-200 via-blue-200 to-emerald-100"
+                    aria-hidden="true"
+                  />
+                  {cards.map((c, i) => {
+                    const style = KIND_STYLE[c.kind];
+                    const Icon = style.Icon;
+                    return (
+                      <li
+                        key={`${c.ts}-${i}`}
+                        className="relative pb-3 last:pb-0"
                       >
-                        <Icon
-                          className={`h-2.5 w-2.5 ${
-                            n.tone === 'success'
-                              ? 'text-emerald-600'
-                              : n.tone === 'warn'
-                                ? 'text-amber-600'
-                                : n.tone === 'error'
-                                  ? 'text-red-600'
-                                  : 'text-sky-600'
-                          }`}
-                        />
-                      </span>
-                      <div
-                        className={`rounded-lg border px-3 py-2 ${
-                          n.tone === 'success'
-                            ? 'border-emerald-100 bg-emerald-50/50'
-                            : n.tone === 'warn'
-                              ? 'border-amber-100 bg-amber-50/50'
-                              : n.tone === 'error'
-                                ? 'border-red-100 bg-red-50/50'
-                                : 'border-sky-100 bg-sky-50/40'
-                        }`}
-                      >
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="font-mono text-[10px] text-gray-500">
-                            {fmtRelative(n.ts, anchor)}
-                          </span>
-                          <span className="text-[9px] text-gray-400">·</span>
-                          <span className="font-mono text-[9px] text-gray-400">
-                            {fmtTime(n.ts)}
-                          </span>
+                        <span
+                          className={`absolute -left-[28px] top-1 inline-flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-white ${style.iconBg}`}
+                        >
+                          <Icon className={`h-3 w-3 ${style.iconColor}`} />
+                        </span>
+                        <div
+                          className={`rounded-lg border ${style.border} ${style.bg}`}
+                        >
+                          <div className="flex flex-wrap items-center gap-2 border-b border-black/5 px-3 py-1.5">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${style.chip}`}
+                            >
+                              {style.label}
+                            </span>
+                            {c.kind === 'tool-call' && c.trace?.toolId && (
+                              <span className="font-mono inline-flex items-center gap-1 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-100">
+                                {TOOL_LABEL[c.trace.toolId]?.emoji ?? '🔧'}{' '}
+                                {TOOL_LABEL[c.trace.toolId]?.label ??
+                                  c.trace.toolId}
+                              </span>
+                            )}
+                            {c.kind === 'tool-result' &&
+                              (c.results?.length ?? 0) > 0 && (
+                                <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-indigo-100">
+                                  {c.results!.length} 条结果
+                                </span>
+                              )}
+                            {c.trace?.tokensUsed != null &&
+                              c.trace.tokensUsed > 0 && (
+                                <span className="font-mono text-[10px] text-gray-500">
+                                  +{c.trace.tokensUsed}tk
+                                </span>
+                              )}
+                            {c.trace?.latencyMs != null && (
+                              <span className="font-mono text-[10px] text-gray-500">
+                                {c.trace.latencyMs}ms
+                              </span>
+                            )}
+                            <span className="ml-auto flex items-center gap-1.5">
+                              <span className="font-mono text-[10px] font-semibold text-gray-600">
+                                {fmtRelative(c.ts, anchor)}
+                              </span>
+                              <span className="font-mono text-[9px] text-gray-400">
+                                {fmtTime(c.ts)}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="space-y-1.5 px-3 py-2">
+                            {c.kind === 'narrative' &&
+                              c.narrative &&
+                              (() => {
+                                const segs = splitNarrativeText(
+                                  c.narrative.text
+                                );
+                                return segs.length === 1 ? (
+                                  <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-gray-800">
+                                    {linkify(segs[0].text)}
+                                  </p>
+                                ) : (
+                                  <ul className="space-y-1 text-[12px] leading-relaxed text-gray-800">
+                                    {segs.map((seg, si) => (
+                                      <li key={si} className="flex gap-2">
+                                        <span className="font-mono text-[10px] text-gray-400">
+                                          {seg.kind === 'li'
+                                            ? `${seg.idx}.`
+                                            : '·'}
+                                        </span>
+                                        <span className="flex-1 whitespace-pre-wrap break-words">
+                                          {linkify(seg.text)}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              })()}
+                            {c.kind === 'thought' && c.trace?.text && (
+                              <p className="whitespace-pre-wrap text-[12px] italic leading-relaxed text-purple-900">
+                                💭 {c.trace.text}
+                              </p>
+                            )}
+                            {c.kind === 'tool-call' && c.query && (
+                              <p className="font-mono break-words text-[11.5px] leading-relaxed text-blue-900">
+                                <span className="text-blue-500">▸</span>{' '}
+                                {c.query}
+                              </p>
+                            )}
+                            {c.kind === 'tool-result' &&
+                              c.results &&
+                              c.results.length > 0 && (
+                                <ul className="space-y-1.5">
+                                  {c.results.slice(0, 4).map((r, ri) => (
+                                    <li
+                                      key={ri}
+                                      className="rounded-md bg-white px-2 py-1.5 ring-1 ring-indigo-100"
+                                    >
+                                      <a
+                                        href={r.url ?? '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block min-w-0"
+                                      >
+                                        <p className="truncate text-[11.5px] font-medium text-gray-800 hover:text-violet-700">
+                                          {r.title ?? r.url ?? '(无标题)'}
+                                        </p>
+                                        {r.url && (
+                                          <p className="font-mono truncate text-[10px] text-gray-400">
+                                            {safeHostname(r.url) ?? r.url}
+                                          </p>
+                                        )}
+                                        {r.snippet && (
+                                          <p className="mt-0.5 line-clamp-2 text-[10.5px] leading-relaxed text-gray-600">
+                                            {r.snippet}
+                                          </p>
+                                        )}
+                                      </a>
+                                    </li>
+                                  ))}
+                                  {c.results.length > 4 && (
+                                    <li className="text-center text-[10px] text-gray-400">
+                                      … 还有 {c.results.length - 4} 条
+                                    </li>
+                                  )}
+                                </ul>
+                              )}
+                            {c.kind === 'reflection' && c.trace?.text && (
+                              <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-amber-900">
+                                ✨ {c.trace.text}
+                              </p>
+                            )}
+                            {c.kind === 'finalize' && (
+                              <p className="text-[12px] font-medium text-emerald-800">
+                                ✓ 任务产出已完成（详见上方"关键发现"）
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        {segments.length === 1 ? (
-                          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-gray-800">
-                            {linkify(segments[0].text)}
-                          </p>
-                        ) : (
-                          <ul className="space-y-1 text-[12px] leading-relaxed text-gray-800">
-                            {segments.map((seg, si) => (
-                              <li key={si} className="flex gap-2">
-                                <span className="font-mono text-[10px] text-gray-400">
-                                  {seg.kind === 'li' ? `${seg.idx}.` : '·'}
-                                </span>
-                                <span className="flex-1 whitespace-pre-wrap break-words">
-                                  {linkify(seg.text)}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              );
+            })()}
           </section>
 
           {/* 失败原因优先显示 */}
