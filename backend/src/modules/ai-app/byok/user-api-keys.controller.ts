@@ -12,8 +12,8 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { UserApiKeysService } from "../../ai-engine/credentials/user-api-keys/user-api-keys.service";
-import { SaveUserApiKeyDto, TestApiKeyDto } from "../../ai-engine/credentials/user-api-keys/dto";
+import { UserApiKeysService } from "../../ai-engine/facade";
+import { SaveUserApiKeyDto, TestApiKeyDto } from "../../ai-engine/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

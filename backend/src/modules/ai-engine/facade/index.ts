@@ -535,3 +535,27 @@ export {
   AIErrorType,
   AIErrorClassifier,
 } from "../llm/abstractions/error-classifier";
+
+// ════════════════════════════════════════════════════════════════════
+// BYOK / Credentials (PR-X30: surface for ai-app/byok controllers — they
+// previously reached into ai-engine/credentials/* directly, violating the
+// "ai-app accesses ai-engine only via facade" rule)
+// ════════════════════════════════════════════════════════════════════
+export { KeyAssignmentsService } from "../credentials/key-assignments/key-assignments.service";
+export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
+export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";
+export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
+export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
+export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
+export {
+  SaveUserApiKeyDto,
+  ApiKeyMode,
+} from "../credentials/user-api-keys/dto/save-user-api-key.dto";
+export { TestApiKeyDto } from "../credentials/user-api-keys/dto/test-api-key.dto";
+export {
+  CreateUserModelConfigDto,
+  UpdateUserModelConfigDto,
+} from "../credentials/user-model-configs/dto/user-model-config.dto";
+export { AiModelDiscoveryService } from "../llm/services/ai-model-discovery.service";
+export { AiConnectionTestService } from "../llm/services/ai-connection-test.service";
+export { AutoConfigureService } from "../llm/user-models-auto-configure.service";

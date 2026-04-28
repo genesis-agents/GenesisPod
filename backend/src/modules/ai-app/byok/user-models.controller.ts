@@ -11,11 +11,13 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AiModelDiscoveryService } from "../../ai-engine/llm/services/ai-model-discovery.service";
-import { AiConnectionTestService } from "../../ai-engine/llm/services/ai-connection-test.service";
-import { UserApiKeysService } from "../../ai-engine/credentials/user-api-keys/user-api-keys.service";
-import { UserModelConfigsService } from "../../ai-engine/credentials/user-model-configs/user-model-configs.service";
-import { AutoConfigureService } from "../../ai-engine/llm/user-models-auto-configure.service";
+import {
+  AiModelDiscoveryService,
+  AiConnectionTestService,
+  UserApiKeysService,
+  UserModelConfigsService,
+  AutoConfigureService,
+} from "../../ai-engine/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
