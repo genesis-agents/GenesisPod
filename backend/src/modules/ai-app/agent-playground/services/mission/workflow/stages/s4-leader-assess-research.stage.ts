@@ -27,6 +27,7 @@ import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { extractFailureMessage } from "../helpers/failure-extraction.util";
+import { narrate } from "../helpers/narrative.util";
 
 interface PlanDimensionLite {
   id: string;
@@ -49,6 +50,13 @@ export async function runLeaderAssessResearchStage(
   }
 
   try {
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s4-leader-assess",
+      role: "leader",
+      tag: "thinking",
+      text: `Leader 开始评审 ${plan.dimensions.length} 个维度的产出，决定是否需要补研究 / 砍维度`,
+      agentId: "leader",
+    });
     const researcherOutcomes = plan.dimensions.map((d) => {
       const r = researcherResults.find((x) => x.dimension === d.name);
       const findings = r?.findings ?? [];

@@ -20,6 +20,7 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
+import { narrate } from "../helpers/narrative.util";
 
 export async function runCriticStage(
   ctx: MissionContext,
@@ -45,6 +46,13 @@ export async function runCriticStage(
   if (!enableCritic) return;
 
   try {
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s9-critic-l4",
+      role: "critic",
+      tag: "judging",
+      text: "Critic L4 启动元审，从盲点 / 偏见 / 改进建议三个维度独立评估报告",
+      agentId: "critic",
+    });
     // Phase P16-5: Critic 也接 FailureLearner
     await deps.invoker.preDisableKnownFailingModels(
       billing,
@@ -112,13 +120,43 @@ export async function runCriticStage(
           userId,
           payload: {
             verdict: criticOut.overallVerdict,
+            overall: criticOut.overallVerdict,
             blindspotCount: criticOut.blindspots.length,
             biasCount: criticOut.biasFlags.length,
             suggestionCount: criticOut.suggestions.length,
             rationale: criticOut.rationale,
+            warnings: [
+              ...criticOut.blindspots.map((b) => ({
+                kind: "l4-blindspot",
+                message: b,
+                severity: "warning",
+              })),
+              ...criticOut.biasFlags.map((b) => ({
+                kind: "l4-bias",
+                message: b,
+                severity: "warning",
+              })),
+              ...criticOut.suggestions.map((s) => ({
+                kind: "l4-suggestion",
+                message: s,
+                severity: "info",
+              })),
+            ],
           },
         })
         .catch(() => {});
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s9-critic-l4",
+        role: "critic",
+        tag:
+          criticOut.overallVerdict === "pass"
+            ? "success"
+            : criticOut.overallVerdict === "fail"
+              ? "warning"
+              : "info",
+        text: `L4 元审完成 · ${criticOut.overallVerdict} · 盲点 ${criticOut.blindspots.length} / 偏见 ${criticOut.biasFlags.length} / 建议 ${criticOut.suggestions.length}`,
+        agentId: "critic",
+      });
       // 把 critic 输出写到 quality.warnings（不阻塞 mission）
       const criticMessages: { dimension: string; message: string }[] = [
         {

@@ -23,6 +23,7 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
+import { narrate } from "../helpers/narrative.util";
 
 export async function runLeaderForewordAndSignoffStage(
   ctx: MissionContext,
@@ -104,6 +105,13 @@ export async function runLeaderForewordAndSignoffStage(
 
   // ── foreword: leader.writeForeword() ──
   try {
+    await narrate(deps.emit, ctx.missionId, ctx.userId, {
+      stage: "s10-leader-signoff",
+      role: "leader",
+      tag: "writing",
+      text: "Leader 综合所有产出 + Critic 警示，开始写前言（whatWeAnswered / whatRemains / howToRead）",
+      agentId: "leader",
+    });
     const leaderForeword = await leader.writeForeword({
       researcherStates: dimensionStates,
       reconciliation: reconStats,

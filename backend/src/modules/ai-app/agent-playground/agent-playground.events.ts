@@ -63,4 +63,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("leader:foreword"), // M6 Leader 写完 meta-level Foreword
   T("leader:signed"), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
   T("dimension:retrying"), // researcher self-heal 重试触发
+  // ── 人话叙事事件（agent-narrative.md）──
+  // 每个 stage 在关键节点 emit 一条 short 自然语言句子，前端任务详情主时间线
+  // 直接渲染（不再事后翻译 raw JSON）。
+  T("agent:narrative"),
 ];

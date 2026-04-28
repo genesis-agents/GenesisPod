@@ -40,6 +40,7 @@ import type {
 import type { ResearchReport } from "../../../../dto/run-mission.dto";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { extractFailureMessage } from "../helpers/failure-extraction.util";
+import { narrate } from "../helpers/narrative.util";
 
 const MAX_WRITER_ATTEMPTS = 2;
 
@@ -134,6 +135,16 @@ export async function runWriterStage(
         attempt: attempts,
       },
     );
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s8-writer-draft",
+      role: "writer",
+      tag: "writing",
+      text:
+        attempts === 1
+          ? "Writer 开始起草报告（基于 Analyst 洞察 + 原始 finding）"
+          : `Writer 第 ${attempts} 轮重写（上一轮评分未达 70）`,
+      agentId: writerAgentId,
+    });
     // ★ Phase P4-3: Writer 跨 mission 失败模式预查
     await deps.invoker.preDisableKnownFailingModels(
       billing,
@@ -240,6 +251,22 @@ export async function runWriterStage(
       agentId: writerAgentId,
       payload: { attempt: attempts, report },
     });
+    const sectionCount =
+      (report as unknown as { sections?: unknown[] }).sections?.length ?? 0;
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s8-writer-draft",
+      role: "writer",
+      tag: "success",
+      text: `第 ${attempts} 轮起草完成 · ${sectionCount} 个章节`,
+      agentId: writerAgentId,
+    });
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s8-writer-draft",
+      role: "reviewer",
+      tag: "judging",
+      text: `Reviewer 启动 L3 三路评分（self / external / critical）`,
+      agentId: "reviewer",
+    });
 
     // ── L3 reviewer consensus（self/external/critical 三路评分） ──
     await deps.emit({
@@ -297,6 +324,16 @@ export async function runWriterStage(
         score: reviewScore,
         decision: verdict.decision.verdict,
       },
+    });
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s8-writer-draft",
+      role: "reviewer",
+      tag: verdict.decision.verdict === "pass" ? "success" : "warning",
+      text:
+        verdict.decision.verdict === "pass"
+          ? `三路共识 · 通过（${reviewScore} 分）`
+          : `三路共识 · 不通过（${reviewScore} 分），将触发 Writer 重写`,
+      agentId: "reviewer",
     });
     if (verdict.decision.verdict === "pass") break;
   } while (attempts < MAX_WRITER_ATTEMPTS);

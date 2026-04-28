@@ -9,6 +9,7 @@ export { ReportPanel } from './ReportPanel';
 export { DimensionsPanel } from './DimensionsPanel';
 export { RawEventLog } from './RawEventLog';
 export { TeamRosterPanel } from './TeamRosterPanel';
-export { TaskListPanel } from './TaskListPanel';
+export { MissionTodoBoard } from './MissionTodoBoard';
+export { TodoDetailDrawer } from './TodoDetailDrawer';
 export { LeaderChatModal } from './LeaderChatModal';
 export { TeamMissionModal } from './TeamMissionModal';

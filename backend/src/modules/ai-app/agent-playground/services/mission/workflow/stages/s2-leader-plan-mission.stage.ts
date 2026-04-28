@@ -17,6 +17,7 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
+import { narrate } from "../helpers/narrative.util";
 
 export async function runLeaderPlanStage(
   ctx: MissionContext,
@@ -31,6 +32,13 @@ export async function runLeaderPlanStage(
     payload: { stage: "leader" },
   });
   await deps.lifecycle(missionId, userId, "leader", "leader", "started");
+  await narrate(deps.emit, missionId, userId, {
+    stage: "s2-leader-plan",
+    role: "leader",
+    tag: "thinking",
+    text: "Leader 开始分析 topic，准备拆维度与声明 successCriteria",
+    agentId: "leader",
+  });
 
   // M0: leader.plan() 内部自动 emit lifecycle / appendLeaderJournal
   let planResult;
@@ -70,5 +78,15 @@ export async function runLeaderPlanStage(
       dimensions: ctx.plan.dimensions,
       themeSummary: ctx.plan.themeSummary,
     },
+  });
+  await narrate(deps.emit, missionId, userId, {
+    stage: "s2-leader-plan",
+    role: "leader",
+    tag: "success",
+    text: `Leader 拆出 ${ctx.plan.dimensions.length} 个研究维度：${ctx.plan.dimensions
+      .map((d) => d.name)
+      .slice(0, 3)
+      .join(" / ")}${ctx.plan.dimensions.length > 3 ? " 等" : ""}`,
+    agentId: "leader",
   });
 }

@@ -16,6 +16,7 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
+import { narrate } from "../helpers/narrative.util";
 
 export async function runReconcilerStage(
   ctx: MissionContext,
@@ -52,6 +53,13 @@ export async function runReconcilerStage(
       "reconciler",
       "started",
     );
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s5-reconciler",
+      role: "reconciler",
+      tag: "analyzing",
+      text: `Reconciler 开始跨维度对账（${plan.dimensions.length} 个维度）`,
+      agentId: "reconciler",
+    });
     // ★ Phase P4-2: Reconciler 跨 mission 失败模式预查
     await deps.invoker.preDisableKnownFailingModels(
       billing,
@@ -105,6 +113,14 @@ export async function runReconcilerStage(
             ctx.reconciliationReport!.figureCandidates.length,
         },
       });
+      const r = ctx.reconciliationReport!;
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s5-reconciler",
+        role: "reconciler",
+        tag: "success",
+        text: `对账完成 · ${r.factTable.length} 条事实 / ${r.conflicts.length} 处冲突 / ${r.gaps.length} 处缺口 / ${r.figureCandidates.length} 张图候选`,
+        agentId: "reconciler",
+      });
     }
     await deps.lifecycle(
       missionId,
@@ -126,6 +142,13 @@ export async function runReconcilerStage(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     deps.log.warn(`[${missionId}] reconciler stage failed (non-fatal): ${msg}`);
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s5-reconciler",
+      role: "reconciler",
+      tag: "warning",
+      text: `Reconciler 失败（非致命，下游走退化路径）：${msg.slice(0, 100)}`,
+      agentId: "reconciler",
+    });
     await deps
       .emit({
         type: "agent-playground.dimension:degraded",

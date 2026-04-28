@@ -18,6 +18,7 @@ import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { extractFailureMessage } from "../helpers/failure-extraction.util";
+import { narrate } from "../helpers/narrative.util";
 
 export interface AnalystOutputShape {
   insights: {
@@ -59,6 +60,13 @@ export async function runAnalystStage(
     payload: { stage: "analyst" },
   });
   await deps.lifecycle(missionId, userId, "analyst", "analyst", "started");
+  await narrate(deps.emit, missionId, userId, {
+    stage: "s6-analyst",
+    role: "analyst",
+    tag: "analyzing",
+    text: "Analyst 开始整合所有维度的发现，提炼跨维度核心洞察",
+    agentId: "analyst",
+  });
 
   // ★ Phase P1-10: Summarize-on-Handoff（baseline §9.1）
   const analystResearcherInput = deps.missionState.compressIfNeeded(
@@ -131,6 +139,13 @@ export async function runAnalystStage(
     missionId,
     userId,
     payload: { stage: "analyst", insightsCount: analyst.insights.length },
+  });
+  await narrate(deps.emit, missionId, userId, {
+    stage: "s6-analyst",
+    role: "analyst",
+    tag: "success",
+    text: `Analyst 综合完成 · 提炼 ${analyst.insights.length} 条核心洞察${analyst.contradictions?.length ? ` · 标记 ${analyst.contradictions.length} 处冲突` : ""}`,
+    agentId: "analyst",
   });
   ctx.analystOutput = analyst;
   return analyst;

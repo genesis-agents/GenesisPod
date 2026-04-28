@@ -33,6 +33,7 @@ import {
   extractFailureMessage,
 } from "../helpers/failure-extraction.util";
 import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
+import { narrate } from "../helpers/narrative.util";
 
 interface ResearcherDimResult {
   dimension: string;
@@ -84,6 +85,12 @@ export async function runResearcherDispatchStage(
       dimensions: plan.dimensions.map((d) => d.name),
     },
   });
+  await narrate(deps.emit, missionId, userId, {
+    stage: "s3-researchers",
+    role: "researcher",
+    tag: "info",
+    text: `派遣 ${plan.dimensions.length} 个 Researcher 并行采集（concurrency=${input.concurrency}）`,
+  });
 
   // ★ Phase P1-17: 检测 dependsOn → 走 DAG 调度；否则全并行
   const hasDependencies = plan.dimensions.some(
@@ -118,6 +125,13 @@ export async function runResearcherDispatchStage(
   );
 
   ctx.researcherResults = researcherResults;
+  const okCount = researcherResults.filter((r) => r.findings.length > 0).length;
+  await narrate(deps.emit, missionId, userId, {
+    stage: "s3-researchers",
+    role: "researcher",
+    tag: okCount === researcherResults.length ? "success" : "warning",
+    text: `${okCount} / ${researcherResults.length} 个维度采集完成${okCount < researcherResults.length ? "（部分维度降级）" : ""}`,
+  });
 
   if (pool.isExhausted()) {
     await deps.emit({
@@ -312,6 +326,10 @@ async function runOneDim(
         }),
       },
     );
+    const finalFindingsCount =
+      r.state === "completed" && r.output
+        ? ((r.output as { findings?: unknown[] }).findings ?? []).length
+        : 0;
     await deps.emit({
       type: "agent-playground.researcher:completed",
       missionId,
@@ -326,11 +344,19 @@ async function runOneDim(
           r.state === "completed" && r.output
             ? (r.output as { summary?: string }).summary
             : undefined,
-        findingsCount:
-          r.state === "completed" && r.output
-            ? ((r.output as { findings?: unknown[] }).findings ?? []).length
-            : 0,
+        findingsCount: finalFindingsCount,
       },
+    });
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s3-researchers",
+      role: "researcher",
+      tag: r.state === "completed" ? "success" : "warning",
+      text:
+        r.state === "completed"
+          ? `维度「${dim.name}」采集完成 · ${finalFindingsCount} 条 finding · ${r.iterations} 轮思考`
+          : `维度「${dim.name}」未完成（${r.state}），下游走退化路径`,
+      dimension: dim.name,
+      agentId,
     });
 
     if (r.state !== "completed" || !r.output) {

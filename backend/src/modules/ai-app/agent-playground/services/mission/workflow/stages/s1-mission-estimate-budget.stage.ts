@@ -16,6 +16,7 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
+import { narrate } from "../helpers/narrative.util";
 
 export async function runBudgetEstimateStage(
   ctx: MissionContext,
@@ -29,6 +30,12 @@ export async function runBudgetEstimateStage(
     missionId,
     userId,
     payload: { input, workspaceId, startedAt: t0 },
+  });
+  await narrate(deps.emit, missionId, userId, {
+    stage: "s1-budget",
+    role: "mission",
+    tag: "info",
+    text: `Mission 已启动 · 主题「${input.topic}」 · 深度 ${input.depth} · 预算档位 ${input.budgetProfile}`,
   });
 
   const baseEstimate = 400_000; // deep+medium 基线
@@ -56,10 +63,29 @@ export async function runBudgetEstimateStage(
         },
       });
       if (estimate.suggestion === "abort") {
+        await narrate(deps.emit, missionId, userId, {
+          stage: "s1-budget",
+          role: "mission",
+          tag: "warning",
+          text: `余额不足以启动（短缺 ${estimate.shortfall} credits），mission 终止`,
+        });
         throw new Error(
           `余额不足以启动 mission（短缺 ${estimate.shortfall} credits），请充值后重试`,
         );
       }
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s1-budget",
+        role: "mission",
+        tag: "warning",
+        text: `预算软告警：估算 ${estimate.estimatedCredits} credits，余额 ${estimate.currentBalance}（建议 ${estimate.suggestion}），mission 继续`,
+      });
+    } else {
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s1-budget",
+        role: "mission",
+        tag: "success",
+        text: `预算校验通过 · 估算 ${estimate.estimatedCredits} credits 内可完成`,
+      });
     }
   } catch (err) {
     deps.log.warn(

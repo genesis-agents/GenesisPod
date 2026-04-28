@@ -17,6 +17,7 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
+import { narrate } from "../helpers/narrative.util";
 
 export async function runWriterOutlineStage(
   ctx: MissionContext,
@@ -37,6 +38,13 @@ export async function runWriterOutlineStage(
     return;
   }
   try {
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s7-writer-outline",
+      role: "writer",
+      tag: "planning",
+      text: "Writer 开始规划报告 mission-level 章节大纲",
+      agentId: "outline-planner",
+    });
     const outlineRes = await deps.writer.planMissionOutline(
       {
         topic: input.topic,
@@ -93,6 +101,13 @@ export async function runWriterOutlineStage(
         payload: {
           chapterCount: outlinePlan.chapterOutlines?.length ?? 0,
         },
+      });
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s7-writer-outline",
+        role: "writer",
+        tag: "success",
+        text: `章节大纲规划完成 · ${outlinePlan.chapterOutlines?.length ?? 0} 章`,
+        agentId: "outline-planner",
       });
     }
   } catch (err) {
