@@ -11,6 +11,7 @@ import {
   History,
 } from 'lucide-react';
 import type { ReportDraft } from '@/lib/agent-playground/derive';
+import { Card } from '@/components/playground-ui';
 
 const MD_COMPONENTS = {
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
@@ -116,7 +117,7 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
 
   if (!finalReport) {
     return (
-      <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
+      <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
         <FileText className="mx-auto mb-3 h-7 w-7 text-gray-300" />
         <p className="text-sm font-medium text-gray-700">
           输出报告将在这里呈现
@@ -148,7 +149,7 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <Card className="overflow-hidden" bordered>
         <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-5">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md shadow-violet-500/20">
@@ -258,10 +259,10 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
             <Markdown content={finalReport.conclusion} />
           </div>
         )}
-      </div>
+      </Card>
 
       {reports.length > 1 && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <Card className="p-4" bordered>
           <button
             type="button"
             onClick={() => setShowHistory((s) => !s)}
@@ -292,7 +293,7 @@ export function ReportPanel({ finalReport, reports, finalScore }: Props) {
               ))}
             </ol>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );

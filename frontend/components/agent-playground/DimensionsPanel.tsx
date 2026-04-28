@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Layers, ChevronDown, ChevronRight } from 'lucide-react';
 import type { MissionState } from '@/lib/agent-playground/derive';
+import { Card, ExpandableText } from '@/components/playground-ui';
 
 export function DimensionsPanel({ mission }: { mission: MissionState }) {
   const dims = mission.dimensions ?? [];
@@ -11,17 +12,17 @@ export function DimensionsPanel({ mission }: { mission: MissionState }) {
 
   if (!mission.themeSummary && dims.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <Card className="p-5" bordered>
         <div className="mb-3 flex items-center gap-2">
           <Layers className="h-4 w-4 text-violet-500" />
           <h3 className="text-sm font-semibold text-gray-900">
-            Research Dimensions
+            研究维度（Research Dimensions）
           </h3>
         </div>
         <p className="rounded-lg bg-gray-50 px-3 py-3 text-[12px] text-gray-500">
-          Leader will produce a theme summary and dimension plan first
+          等 Leader 产出 theme summary 和维度规划
         </p>
-      </div>
+      </Card>
     );
   }
 
@@ -38,12 +39,12 @@ export function DimensionsPanel({ mission }: { mission: MissionState }) {
   };
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <Card className="p-5" bordered>
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-violet-500" />
           <h3 className="text-sm font-semibold text-gray-900">
-            Research Dimensions
+            研究维度（Research Dimensions）
           </h3>
           {dims.length > 0 && (
             <span className="text-xs text-gray-500">· {dims.length}</span>
@@ -55,7 +56,7 @@ export function DimensionsPanel({ mission }: { mission: MissionState }) {
             onClick={toggleAll}
             className="text-[11px] font-medium text-violet-600 hover:text-violet-800"
           >
-            {allExpanded ? 'Collapse all' : 'Expand all'}
+            {allExpanded ? '全部收起' : '全部展开'}
           </button>
         )}
       </div>
@@ -63,11 +64,13 @@ export function DimensionsPanel({ mission }: { mission: MissionState }) {
       {mission.themeSummary && (
         <div className="mb-3 rounded-lg bg-violet-50/50 px-3 py-2 ring-1 ring-violet-100">
           <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-600">
-            Theme summary
+            主题摘要
           </p>
-          <p className="text-[12px] leading-relaxed text-violet-900">
-            {mission.themeSummary}
-          </p>
+          <ExpandableText
+            text={mission.themeSummary}
+            maxChars={280}
+            className="text-[12px] leading-relaxed text-violet-900"
+          />
         </div>
       )}
 
@@ -94,7 +97,7 @@ export function DimensionsPanel({ mission }: { mission: MissionState }) {
                       {d.name}
                     </p>
                     <span className="shrink-0 text-[10px] text-gray-400">
-                      {isOpen ? 'collapse' : 'expand'}
+                      {isOpen ? '收起' : '展开'}
                     </span>
                   </div>
                   {!isOpen && d.rationale && (
@@ -112,17 +115,19 @@ export function DimensionsPanel({ mission }: { mission: MissionState }) {
               {isOpen && d.rationale && (
                 <div className="border-t border-violet-100 bg-violet-50/30 px-3 py-2.5">
                   <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-600">
-                    Why this dimension
+                    维度立项理由
                   </p>
-                  <p className="text-[12px] leading-relaxed text-gray-800">
-                    {d.rationale}
-                  </p>
+                  <ExpandableText
+                    text={d.rationale}
+                    maxChars={400}
+                    className="text-[12px] leading-relaxed text-gray-800"
+                  />
                 </div>
               )}
             </li>
           );
         })}
       </ol>
-    </div>
+    </Card>
   );
 }
