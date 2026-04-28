@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
 import { ClientDate } from '@/components/common/ClientDate';
+import { Card, ExpandableText } from '@/components/playground-ui';
 
 const ROLE_ICON: Record<string, typeof Brain> = {
   leader: Brain,
@@ -238,9 +239,11 @@ function parseEvent(ev: PlaygroundEvent): ParsedEvent {
         body: err ? (
           <p className="text-[11px] text-red-600">{err}</p>
         ) : (
-          <p className="line-clamp-2 text-[11px] text-gray-600">
-            {previewObject(p.output, 240)}
-          </p>
+          <ExpandableText
+            text={previewObject(p.output, 600)}
+            maxChars={180}
+            className="block text-[11px] text-gray-600"
+          />
         ),
       };
     }
@@ -289,7 +292,11 @@ function parseEvent(ev: PlaygroundEvent): ParsedEvent {
         subtitle:
           typeof p.attempt === 'number' ? `attempt #${p.attempt}` : undefined,
         body: critique ? (
-          <p className="line-clamp-3 text-[11px] text-gray-600">{critique}</p>
+          <ExpandableText
+            text={critique}
+            maxChars={220}
+            className="block text-[11px] text-gray-600"
+          />
         ) : undefined,
       };
     }
@@ -403,7 +410,7 @@ export function RawEventLog({ events }: { events: PlaygroundEvent[] }) {
   }, [events.length, autoScroll]);
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <Card className="overflow-hidden" bordered>
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-violet-500" />
@@ -434,6 +441,6 @@ export function RawEventLog({ events }: { events: PlaygroundEvent[] }) {
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
