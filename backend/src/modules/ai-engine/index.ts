@@ -130,7 +130,7 @@ export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeli
 
 // NestJS 模块导出
 export { AiEngineModule } from "./ai-engine.module";
-export { AiEngineLightModule } from "./ai-engine-light.module";
+// AiEngineLightModule removed (PR-X24): zero external consumers.
 export { AiEngineLLMModule } from "./ai-engine-llm.module";
 export { AiEngineToolsModule } from "./ai-engine-tools.module";
 export { AiEngineSkillsModule } from "./ai-engine-skills.module";
