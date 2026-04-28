@@ -563,6 +563,7 @@ export default function MissionDetailPage() {
                 missionFailed={!!view.mission.failedAt}
                 missionFailedMessage={view.mission.failedMessage}
                 agents={view.agents}
+                dimensionPipelines={view.dimensionPipelines}
               />
             )}
 

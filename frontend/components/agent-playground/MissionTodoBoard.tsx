@@ -33,7 +33,10 @@ import type {
   MissionTodoStatus,
   MissionTodoAssignee,
 } from '@/lib/agent-playground/todo-ledger';
-import type { AgentLiveState } from '@/lib/agent-playground/derive';
+import type {
+  AgentLiveState,
+  DimensionPipelineState,
+} from '@/lib/agent-playground/derive';
 import { Card, StatusPill, RoleChip } from '@/components/playground-ui';
 import { statusToken } from '@/lib/playground-design/tokens';
 import {
@@ -49,6 +52,84 @@ interface Props {
   missionFailed?: boolean;
   missionFailedMessage?: string;
   agents?: AgentLiveState[];
+  dimensionPipelines?: Map<string, DimensionPipelineState>;
+}
+
+/** dim 任务细分状态：采集 / 撰写 / 复审 / 重写 / 评分 / 完成 / 失败 */
+function deriveDimSubStatus(
+  td: MissionTodo,
+  pipelines?: Map<string, DimensionPipelineState>
+): { label: string; tone: string } | null {
+  if (td.scope !== 'dimension') return null;
+  if (td.status === 'failed')
+    return {
+      label: '采集失败',
+      tone: 'bg-red-100 text-red-700 ring-red-200',
+    };
+  if (td.status === 'cancelled')
+    return {
+      label: '已放弃',
+      tone: 'bg-gray-100 text-gray-600 ring-gray-200',
+    };
+  const pipeline = td.dimensionRef
+    ? pipelines?.get(td.dimensionRef)
+    : undefined;
+  // 还没起 outline → 数据采集中
+  if (!pipeline || pipeline.chapters.length === 0) {
+    return {
+      label: '数据采集',
+      tone: 'bg-blue-100 text-blue-700 ring-blue-200',
+    };
+  }
+  const chs = pipeline.chapters;
+  const total = chs.length;
+  const passed = chs.filter((c) => c.status === 'passed').length;
+  const failed = chs.filter((c) => c.status === 'failed').length;
+  const writing = chs.filter((c) => c.status === 'writing').length;
+  const reviewing = chs.filter((c) => c.status === 'reviewing').length;
+  const revising = chs.filter((c) => c.status === 'revising').length;
+  if (failed > 0) {
+    return {
+      label: `撰写失败 ${failed}/${total}`,
+      tone: 'bg-red-100 text-red-700 ring-red-200',
+    };
+  }
+  if (revising > 0) {
+    return {
+      label: `重写中 · ${revising}/${total}`,
+      tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+    };
+  }
+  if (reviewing > 0) {
+    return {
+      label: `初稿复审 · ${reviewing}/${total}`,
+      tone: 'bg-fuchsia-100 text-fuchsia-700 ring-fuchsia-200',
+    };
+  }
+  if (writing > 0) {
+    return {
+      label: `初稿撰写 · ${writing}/${total}`,
+      tone: 'bg-teal-100 text-teal-700 ring-teal-200',
+    };
+  }
+  // 全部章节通过，但 grade 还没出来
+  if (passed === total && !pipeline.grade) {
+    return {
+      label: '等待评分',
+      tone: 'bg-amber-100 text-amber-700 ring-amber-200',
+    };
+  }
+  if (passed === total && pipeline.grade) {
+    return {
+      label: `已完成 · ${pipeline.grade.overall}/100`,
+      tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+    };
+  }
+  // 还有 pending 章节
+  return {
+    label: `${passed}/${total} 章节就绪`,
+    tone: 'bg-blue-100 text-blue-700 ring-blue-200',
+  };
 }
 
 /** 解析 todo 到对应 agent 的 modelId */
@@ -134,59 +215,129 @@ function taskIcon(td: MissionTodo): LucideIcon {
   return Brain;
 }
 
-/** 起因 badge 文案 */
-function originLabel(td: MissionTodo): string {
-  // system stage：统一 4 字术语
+/** 起因 badge 文案 + 配色（每行前置的 4 字色块标签） */
+function originBadge(td: MissionTodo): { label: string; tone: string } {
+  // system stage：每阶段独立配色，4 字术语
   if (td.systemStageId) {
     switch (td.systemStageId) {
       case 's1-budget':
-        return '预算估算';
+        return {
+          label: '预算估算',
+          tone: 'bg-amber-100 text-amber-700 ring-amber-200',
+        };
       case 's2-leader-plan':
-        return '维度规划';
+        return {
+          label: '维度规划',
+          tone: 'bg-violet-100 text-violet-700 ring-violet-200',
+        };
       case 's3-researchers':
-        return '并行研究';
+        return {
+          label: '并行研究',
+          tone: 'bg-blue-100 text-blue-700 ring-blue-200',
+        };
       case 's4-leader-assess':
-        return '研究初审';
+        return {
+          label: '研究初审',
+          tone: 'bg-fuchsia-100 text-fuchsia-700 ring-fuchsia-200',
+        };
       case 's5-reconciler':
-        return '跨维对账';
+        return {
+          label: '跨维对账',
+          tone: 'bg-sky-100 text-sky-700 ring-sky-200',
+        };
       case 's6-analyst':
-        return '综合分析';
+        return {
+          label: '综合分析',
+          tone: 'bg-cyan-100 text-cyan-700 ring-cyan-200',
+        };
       case 's7-writer-outline':
-        return '章节规划';
+        return {
+          label: '章节规划',
+          tone: 'bg-teal-100 text-teal-700 ring-teal-200',
+        };
       case 's8-writer-draft':
-        return '撰写报告';
+        return {
+          label: '撰写报告',
+          tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+        };
       case 's9-critic-l4':
-        return '独立复审';
+        return {
+          label: '独立复审',
+          tone: 'bg-rose-100 text-rose-700 ring-rose-200',
+        };
       case 's10-leader-signoff':
-        return '终审签字';
+        return {
+          label: '终审签字',
+          tone: 'bg-purple-100 text-purple-700 ring-purple-200',
+        };
       case 's11-persist':
-        return '落库归档';
+        return {
+          label: '落库归档',
+          tone: 'bg-slate-100 text-slate-700 ring-slate-200',
+        };
     }
   }
   switch (td.origin) {
     case 'leader-plan':
-      return 'Leader 维度规划';
+      return {
+        label: '维度任务',
+        tone: 'bg-blue-100 text-blue-700 ring-blue-200',
+      };
     case 'leader-assess-retry':
-      return 'Leader 评审重派';
+      return {
+        label: '评审重派',
+        tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+      };
     case 'leader-assess-replace':
-      return 'Leader 换 spec';
+      return {
+        label: '换签 spec',
+        tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+      };
     case 'leader-assess-extend':
-      return 'Leader 追加';
+      return {
+        label: '追加任务',
+        tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+      };
     case 'leader-assess-abort':
-      return 'Leader 放弃';
+      return {
+        label: '放弃维度',
+        tone: 'bg-amber-100 text-amber-700 ring-amber-200',
+      };
     case 'leader-chat-create':
-      return 'Leader Chat 追加';
+      return {
+        label: '对话追加',
+        tone: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
+      };
     case 'self-heal-retry':
-      return '自愈重试';
+      return {
+        label: '自愈重试',
+        tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+      };
     case 'reviewer-revise':
-      return 'Reviewer 重写';
+      return {
+        label: '复审重写',
+        tone: 'bg-rose-100 text-rose-700 ring-rose-200',
+      };
     case 'critic-blindspot':
-      return 'Critic 警示';
+      return {
+        label: '复审警示',
+        tone: 'bg-red-100 text-red-700 ring-red-200',
+      };
     case 'reconciler-gap':
-      return 'Reconciler 缺口';
+      return {
+        label: '对账缺口',
+        tone: 'bg-sky-100 text-sky-700 ring-sky-200',
+      };
     case 'system-stage':
-      return '系统阶段';
+      return {
+        label: '系统阶段',
+        tone: 'bg-gray-100 text-gray-700 ring-gray-200',
+      };
   }
+}
+
+function originLabel(td: MissionTodo): string {
+  return originBadge(td).label;
 }
 
 /** assignee role → inspector 资料映射（覆盖 leader/researcher/analyst/writer/reviewer + reconciler/critic/mission） */
@@ -391,6 +542,7 @@ export function MissionTodoBoard({
   missionFailed,
   missionFailedMessage,
   agents,
+  dimensionPipelines,
 }: Props) {
   const [inspectorTodo, setInspectorTodo] = useState<MissionTodo | null>(null);
   // 任务列表包含 system 阶段 + 工作任务（chapter 重写聚合到 dim，不进表）
@@ -550,6 +702,7 @@ export function MissionTodoBoard({
                 isSelected && 'ring-2 ring-violet-400'
               );
               const modelId = agents ? resolveModel(td, agents) : undefined;
+              const subStatus = deriveDimSubStatus(td, dimensionPipelines);
               return (
                 <tr
                   key={td.id}
@@ -566,11 +719,19 @@ export function MissionTodoBoard({
                     >
                       {depthOf(td) > 0 && (
                         <span
-                          className="mt-1 inline-block h-3 w-3 flex-shrink-0 border-b-2 border-l-2 border-violet-200"
+                          className="mt-1.5 inline-block h-3 w-3 flex-shrink-0 border-b-2 border-l-2 border-violet-200"
                           aria-hidden
                         />
                       )}
-                      <Icon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                      <span
+                        className={cn(
+                          'mt-0.5 inline-flex flex-shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ring-1',
+                          originBadge(td).tone
+                        )}
+                      >
+                        {originBadge(td).label}
+                      </span>
+                      <Icon className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                       <div className="min-w-0 flex-1">
                         <div
                           className="line-clamp-1 text-sm font-medium text-gray-900"
@@ -578,13 +739,14 @@ export function MissionTodoBoard({
                         >
                           {td.title}
                         </div>
-                        <p
-                          className="line-clamp-1 text-[11px] text-gray-500"
-                          title={td.reasonText || originLabel(td)}
-                        >
-                          {originLabel(td)}
-                          {td.reasonText && ` · ${td.reasonText}`}
-                        </p>
+                        {td.reasonText && (
+                          <p
+                            className="line-clamp-1 text-[11px] text-gray-500"
+                            title={td.reasonText}
+                          >
+                            {td.reasonText}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -620,7 +782,19 @@ export function MissionTodoBoard({
                     )}
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <StatusPill status={sk} size="sm" />
+                    {subStatus ? (
+                      <span
+                        className={cn(
+                          'inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10.5px] font-medium ring-1',
+                          subStatus.tone
+                        )}
+                        title={subStatus.label}
+                      >
+                        {subStatus.label}
+                      </span>
+                    ) : (
+                      <StatusPill status={sk} size="sm" />
+                    )}
                   </td>
                   <td className="px-2 py-2 text-center">
                     <span className="inline-flex items-center gap-0.5 text-[11px] text-violet-600 hover:text-violet-700">
