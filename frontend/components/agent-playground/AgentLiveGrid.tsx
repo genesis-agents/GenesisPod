@@ -354,7 +354,7 @@ function AgentCard({ agent }: { agent: AgentLiveState }) {
         : null;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <span
