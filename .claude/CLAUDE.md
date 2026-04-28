@@ -38,22 +38,31 @@ Infra:    Docker + Railway + PM2 + Redis 7
 - **Redis 7**: 缓存和会话管理
 - 已移除 MongoDB、Neo4j、Qdrant（成本优化 70-75%）
 
-### AI 架构分层（5 层）
+### AI 架构分层（4 层 + L2.5 Harness）
 
 ```
-L5 Intent Gateway（意图网关层）→ 意图识别、路由分发          → modules/intent-gateway/
-L4 Open API（开放接口层）→ MCP Server、Public API、Webhooks  → modules/open-api/
-L3 AI Apps（业务应用层）→ Research、Teams、Writing、Office    → modules/ai-app/
-L2 AI Engine（核心能力层）→ LLM / Agents / Tools / RAG / Runtime → modules/ai-engine/
-      ├── facade/       对外统一入口
-      ├── llm/ tools/ agents/ teams/ skills/ mcp/ safety/ knowledge/ ...
-      └── runtime/      平台能力（memory/journal/ipc/resource/observability/
-                        a2a/realtime/process/scheduler/supervisor/mission/
-                        security/api/context）
-L1 Infrastructure（基础设施层）→ Auth、Credits、Storage       → modules/ai-infra/
+L4 Open API（开放接口层）→ MCP Server、Public API、Webhooks、Admin、A2A → modules/open-api/
+L3 AI Apps（业务应用层）→ Research、Teams、Writing、Office、Topic-Insights、Image、Social、Library 等 → modules/ai-app/
+L2.5 AI Harness（Agent 运行时脚手架）                          → modules/ai-harness/
+      ├── facade/        ai-app 统一入口（AIFacade/ChatFacade/RAGFacade/AgentFacade/TeamFacade/ToolFacade）
+      ├── kernel/        Agent 规范、AgentFactory、HookRegistry、SkillRegistry（SKILL.md 风格）、DX、learning
+      ├── execution/     ReAct/PlanAct/Reflexion/LeaderWorker loops、ToolInvoker、Context engineering
+      ├── memory/        向量存储、CheckpointService、MemoryAutoIndexer
+      ├── process/       SubagentSpawner、ProcessSupervisor、Handoff、KernelScheduler
+      ├── protocol/      EventBus/Journal/IPC、Realtime（WS gateway）、MCP、A2A
+      ├── governance/    TraceCollector、Observability、Judge/verifiers、ConstraintEnforcement
+      └── runtime/       TeamsModule（TeamRegistry/RoleRegistry/MissionOrchestrator）、judge-primitives
+L2 AI Engine（核心能力层）→ LLM / Tools / RAG / Skills / Planning → modules/ai-engine/
+      ├── facade/       engine 公共桶
+      └── llm/ tools/ skills/ planning/ safety/ knowledge/ content/ credentials/ core/ abstractions/
+L1 Infrastructure（基础设施层）→ Auth、Credits、Storage、Encryption、Secrets、Email、Notifications → modules/ai-infra/
 ```
 
-> 原 `modules/ai-kernel/` 目录已彻底删除，全部能力归并到 `ai-engine/runtime/`（PR 7）。
+> **依赖方向**：L4 → L3 → L2.5 → L2 → L1，严格单向（ESLint `no-restricted-imports` 强制）。AI Harness 编排 AI Engine 基元，不反向依赖 ai-app。
+>
+> **历史包袱**：`modules/ai-kernel/`（已删，PR 7）+ `modules/ai-engine/runtime/`（已迁出，PR-X4~X10）—— 早期分层尝试，所有 Agent 运行时能力现在都集中在 `modules/ai-harness/` 这一层。
+>
+> **L5 Intent Gateway 已删除**：原 `modules/intent-gateway/` 是 0 消费方的空壳包装（PR-X29），底层意图识别能力实际在 `ai-engine/planning/services/intent-detection.service.ts` 与 `intent-router.service.ts`。
 
 > 详细文档: [skills/ai-architecture-layering/SKILL.md](skills/ai/ai-architecture-layering/SKILL.md)
 
@@ -221,14 +230,14 @@ onModuleInit() {
 
 **模糊任务 → 可验证目标的转化（开工前必做）：**
 
-| 模糊描述         | 转化为可验证目标                                                |
-| ---------------- | --------------------------------------------------------------- |
-| "加个验证"       | "写测试覆盖非法输入，让测试通过"                                 |
-| "修这个 bug"     | "写复现 bug 的测试，让测试通过"                                  |
-| "重构 X"         | "重构前后所有测试通过，无新增失败"                               |
-| "性能优化"       | "明确指标（response time / throughput / UX）+ 基线 + 目标值"    |
-| "提升用户体验"   | "明确具体场景 + 当前痛点 + 改进后可观察的指标"                   |
-| "让它更好用"     | "列出 3 个具体可测的改进点 + 每点的成功标准"                     |
+| 模糊描述       | 转化为可验证目标                                             |
+| -------------- | ------------------------------------------------------------ |
+| "加个验证"     | "写测试覆盖非法输入，让测试通过"                             |
+| "修这个 bug"   | "写复现 bug 的测试，让测试通过"                              |
+| "重构 X"       | "重构前后所有测试通过，无新增失败"                           |
+| "性能优化"     | "明确指标（response time / throughput / UX）+ 基线 + 目标值" |
+| "提升用户体验" | "明确具体场景 + 当前痛点 + 改进后可观察的指标"               |
+| "让它更好用"   | "列出 3 个具体可测的改进点 + 每点的成功标准"                 |
 
 **多步骤任务必须先写计划，每步附验证标准**：
 
