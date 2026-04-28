@@ -21,8 +21,8 @@ module.exports = {
     "dist",
     "node_modules",
     "scripts",
-    "test/**/*.ts",
-    "test/__mocks__/**/*.ts",
+    "tests/**/*.ts",
+    "tests/__mocks__/**/*.ts",
   ],
   rules: {
     // TypeScript规则
@@ -89,7 +89,7 @@ module.exports = {
       files: [
         "**/*.spec.ts",
         "**/*.test.ts",
-        "**/test/**/*.ts",
+        "**/tests/**/*.ts",
         "**/__tests__/**/*.ts",
       ],
       rules: {
@@ -253,8 +253,7 @@ module.exports = {
                   "**/ai-engine/knowledge/memory/abstractions/**",
                   "**/ai-engine/knowledge/memory/memory-coordinator.service*",
                 ],
-                message:
-                  "Use AIFacade.storeMemory()/retrieveMemory() instead.",
+                message: "Use AIFacade.storeMemory()/retrieveMemory() instead.",
               },
 
               // ════════════════════════════════════════════════════════════
@@ -303,8 +302,7 @@ module.exports = {
               // Realtime — must go through AIFacade
               {
                 group: ["**/ai-engine/runtime/realtime/**"],
-                message:
-                  "Use AIFacade.emitToRoom()/emitProgress() instead.",
+                message: "Use AIFacade.emitToRoom()/emitProgress() instead.",
               },
               // MCP abstractions
               {

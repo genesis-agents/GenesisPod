@@ -10,7 +10,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "test",
     "src/collections/**",
     "src/learning-paths/**",
     "src/recommendations/**"

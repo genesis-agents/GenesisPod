@@ -1,5 +1,17 @@
 /**
- * SkillRegistry — 内存级 SKILL.md 注册表
+ * SkillRegistry (ai-harness/kernel) — 内存级 SKILL.md 注册表
+ *
+ * ⚠️ NAME COLLISION — there are TWO classes called `SkillRegistry` in
+ * this codebase. The full distinction is documented in
+ * `ai-engine/skills/registry/skill-registry.ts`. Quick summary:
+ *
+ *   - THIS class: SKILL.md frontmatter parsed at boot, indexed by `name`,
+ *     drives ReAct/Agent runtime instruction activation. Used via
+ *     `@/modules/ai-harness/facade`.
+ *
+ *   - The ai-engine one: CRUD store of programmatic `ISkill` objects,
+ *     DB-backed, drives the skills-api admin UI. Used via
+ *     `@/modules/ai-engine/facade`.
  *
  * 支持按 id / tag / activateFor (Role id) 查找。
  * 与 ai-engine/skills/（旧 CRUD 风格）隔离，互不干扰。

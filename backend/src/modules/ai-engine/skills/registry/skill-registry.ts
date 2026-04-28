@@ -1,6 +1,26 @@
 /**
  * AI Engine - Skill Registry
- * 技能注册表实现
+ *
+ * ⚠️ NAME COLLISION WARNING — there are TWO classes called `SkillRegistry`
+ * in this codebase. They are distinct concepts and **must not be mixed**:
+ *
+ * 1. THIS class — `ai-engine/skills/registry/skill-registry.ts`
+ *    - CRUD-style registry of `ISkill` instances (programmatic skill objects).
+ *    - Indexed by `domain` (Map<string, Set<id>>) and `layer` (Map<string, Set<id>>).
+ *    - Backed by DB via `SkillContentService`.
+ *    - Used by skills-api (open-api layer) for external skill management UI.
+ *    - Symbol: `import { SkillRegistry } from "@/modules/ai-engine/facade"`.
+ *
+ * 2. The other one — `ai-harness/kernel/skills/skill-registry.ts`
+ *    - In-memory registry of SKILL.md files (parsed frontmatter + body).
+ *    - Indexed by skill `name` (Map<string, ISkill>).
+ *    - Loaded at boot by `SkillLoader` from .skill.md / SKILL.md files in
+ *      ai-app/research/skills, writing/skills, topic-insights/skills, etc.
+ *    - Used by `ReActLoop` / `SkillActivator` for runtime instruction packs.
+ *    - Symbol: `import { SkillRegistry } from "@/modules/ai-harness/facade"`.
+ *
+ * Renaming one of them (e.g. SkillMdRegistry for the harness one) is tracked
+ * by audit P1-3 but deferred — the rename touches ~65 files.
  */
 
 import { Injectable, Logger } from "@nestjs/common";
