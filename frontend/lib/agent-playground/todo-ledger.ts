@@ -826,34 +826,35 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         }));
       }
     } else if (t === 'agent-playground.chapter:revision') {
+      // ★ 不再为每个 chapter 创建独立 todo —— 聚合为 dim todo 的"章节重写"
+      //   计数 + 把 critique 追加到 dim 的 narrativeLog（保留可读时间线）。
       const dim = p.dimension as string | undefined;
       const idx = p.chapterIndex as number | undefined;
       if (!dim || idx == null) continue;
-      const parent = order
+      const dimTodo = order
         .map((id) => todos.get(id)!)
         .reverse()
         .find((td) => td.scope === 'dimension' && td.dimensionRef === dim);
-      const childId = `chapter:${dim}:${idx}@${ev.timestamp}`;
-      upsert(childId, () => ({
-        id: childId,
-        parentId: parent?.id,
-        origin: 'reviewer-revise',
-        createdBy: 'reviewer',
-        createdAt: ev.timestamp,
-        reasonText:
-          (p.critique as string | undefined) ??
-          'Chapter Reviewer 评分低于阈值，要求重写',
-        scope: 'chapter',
-        title: `${dim} · 第 ${idx} 章 · 重写`,
-        assignee: { role: 'writer', dimensionName: dim },
-        status: 'in_progress',
-        startedAt: ev.timestamp,
-        artifacts: [],
-        narrativeLog: [
-          { ts: ev.timestamp, text: 'Reviewer 触发章节重写', tone: 'warn' },
-        ],
-        dimensionRef: dim,
-      }));
+      if (!dimTodo) continue;
+      const critique =
+        (p.critique as string | undefined) ??
+        'Chapter Reviewer 评分低于阈值，要求重写';
+      // 累计该 dim 总重写次数
+      const a = dimTodo.artifacts.find((x) => x.label === '章节重写');
+      const next = ((a?.value as number | undefined) ?? 0) + 1;
+      if (a) a.value = next;
+      else
+        dimTodo.artifacts.push({
+          kind: 'finding-count',
+          label: '章节重写',
+          value: next,
+        });
+      // 简短叙事
+      dimTodo.narrativeLog.push({
+        ts: ev.timestamp,
+        text: `第 ${idx} 章 · Reviewer 反馈重写（累计 ${next} 次）：${critique.slice(0, 80)}…`,
+        tone: 'warn',
+      });
     } else if (t === 'agent-playground.critic:verdict') {
       const warnings =
         (p.warnings as

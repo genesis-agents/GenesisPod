@@ -203,10 +203,16 @@ export default function MissionDetailPage() {
     return liveView;
   }, [events, persisted]);
 
+  // ★ Bug fix: mission.startedAt 在 mission:started 事件没在 replay buffer 时
+  //   会是 undefined（Railway recycle 后旧 mission 的常见情况）。优先用持久化 DB
+  //   里的 started_at 兜底，避免顶部状态条永远显示 "研究中 · 0s"。
+  const startedAtMs =
+    view.mission.startedAt ??
+    (persisted?.startedAt
+      ? new Date(persisted.startedAt).getTime()
+      : undefined);
   const finishedAt = view.mission.completedAt ?? view.mission.failedAt ?? null;
-  const wallTimeMs = view.mission.startedAt
-    ? (finishedAt ?? now) - view.mission.startedAt
-    : 0;
+  const wallTimeMs = startedAtMs ? (finishedAt ?? now) - startedAtMs : 0;
 
   // 默认进入卡片始终落到任务列表（不自动跳转 report）
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
