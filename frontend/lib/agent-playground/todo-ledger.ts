@@ -379,8 +379,8 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           () =>
             systemStageInit(
               's9-critic-l4',
-              'L4 元审 · 盲点 / 偏见 / 建议',
-              'Critic 独立 meta-review，从盲点 / 偏见 / 改进建议三个维度审视报告',
+              'L4 独立复审 · 盲点 / 偏见 / 建议',
+              'Critic 独立复审，从盲点 / 偏见 / 改进建议三个维度审视报告',
               'critic',
               ev.timestamp
             ),
@@ -870,8 +870,8 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         () =>
           systemStageInit(
             's9-critic-l4',
-            'L4 元审 · 盲点 / 偏见 / 建议',
-            'Critic 独立元审',
+            'L4 独立复审 · 盲点 / 偏见 / 建议',
+            'Critic 独立复审',
             'critic',
             ev.timestamp
           ),
@@ -1066,7 +1066,7 @@ export function deriveLayerBreadcrumb(todo: MissionTodo): MissionTodoLayer[] {
         case 's8-writer-draft':
           return 'Skills · 写作 + 引用规范化';
         case 's9-critic-l4':
-          return 'TaskProfile · 元审';
+          return 'TaskProfile · 独立复审';
         case 's10-leader-signoff':
           return 'TaskProfile · 签字提示';
         case 's1-budget':

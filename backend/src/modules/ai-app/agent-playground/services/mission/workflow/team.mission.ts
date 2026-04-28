@@ -5,7 +5,7 @@
  * 命名规则：s{序号}-{agent}-{职责}.stage.ts
  *
  *   s1  mission    estimate-budget          预算闸门 + mission:started
- *   s2  leader     plan-mission             Leader 拆维度 + 声明 goals
+ *   s2  leader     plan-mission             Leader 维度规划 + 声明 goals
  *   s3  researcher collect-findings         researcher×N 并行 + per-dim chapter pipeline
  *   s4  leader     assess-research          Leader 看 researcher 产出，retry/abort/extend
  *   s5  reconciler cross-dim-fact-check     跨 dim 对账 → factTable / conflicts / gaps

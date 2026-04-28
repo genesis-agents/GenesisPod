@@ -47,17 +47,17 @@ import {
 import type { DerivedView } from '@/lib/agent-playground/derive';
 
 const STAGE_META: Record<SystemStageId, { short: string; Icon: LucideIcon }> = {
-  's1-budget': { short: '预算', Icon: PiggyBank },
-  's2-leader-plan': { short: '拆维度', Icon: Brain },
-  's3-researchers': { short: '研究', Icon: Search },
-  's4-leader-assess': { short: '评审', Icon: Brain },
-  's5-reconciler': { short: '对账', Icon: ScanSearch },
-  's6-analyst': { short: '综合', Icon: GitBranch },
-  's7-writer-outline': { short: '大纲', Icon: PenLine },
-  's8-writer-draft': { short: '撰写', Icon: PenLine },
-  's9-critic-l4': { short: '元审', Icon: ShieldAlert },
-  's10-leader-signoff': { short: '签字', Icon: Gavel },
-  's11-persist': { short: '落库', Icon: Database },
+  's1-budget': { short: '预算估算', Icon: PiggyBank },
+  's2-leader-plan': { short: '维度规划', Icon: Brain },
+  's3-researchers': { short: '并行研究', Icon: Search },
+  's4-leader-assess': { short: '研究初审', Icon: Brain },
+  's5-reconciler': { short: '跨维对账', Icon: ScanSearch },
+  's6-analyst': { short: '综合分析', Icon: GitBranch },
+  's7-writer-outline': { short: '章节规划', Icon: PenLine },
+  's8-writer-draft': { short: '撰写报告', Icon: PenLine },
+  's9-critic-l4': { short: '独立复审', Icon: ShieldAlert },
+  's10-leader-signoff': { short: '终审签字', Icon: Gavel },
+  's11-persist': { short: '落库归档', Icon: Database },
 };
 
 const STAGE_ORDER: SystemStageId[] = [

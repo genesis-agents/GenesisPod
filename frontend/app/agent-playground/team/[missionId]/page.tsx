@@ -24,11 +24,12 @@ import {
 } from 'lucide-react';
 import {
   CapabilityMeters,
-  CostBreakdownPanel,
+  ComputeUsagePanel,
   LeaderChatModal,
   MemoryIndexPanel,
   MissionFlowView,
   MissionTodoBoard,
+  ReferencesPanel,
   ReportPanel,
   TeamMissionModal,
   TeamRosterPanel,
@@ -42,6 +43,7 @@ import {
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
+import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
 import { deriveView } from '@/lib/agent-playground/derive';
 import {
@@ -234,6 +236,27 @@ export default function MissionDetailPage() {
   }, [view.finalReport]);
 
   const isRunning = !view.mission.completedAt && !view.mission.failedAt;
+
+  // Cross-panel citation navigation：点报告中 [N] 角标 → 切到「参考文献」并定位
+  useEffect(() => {
+    setCitationClickCallback((evidenceId) => {
+      setActiveTab('references');
+      // 等 References tab 渲染完成（一帧）再滚动 / 高亮目标条目
+      requestAnimationFrame(() => {
+        const target =
+          document.getElementById(`ref-${evidenceId}`) ??
+          document.querySelector(`[data-cite-uuid="${evidenceId}"]`);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('ring-2', 'ring-violet-400');
+          setTimeout(() => {
+            target.classList.remove('ring-2', 'ring-violet-400');
+          }, 2000);
+        }
+      });
+    });
+    return () => setCitationClickCallback(null);
+  }, []);
 
   // Leader-owned dynamic task ledger（每条 todo = 一个 Leader/Reviewer/Critic 决策点）
   const todoLedger = useMemo(
@@ -655,15 +678,33 @@ export default function MissionDetailPage() {
               </div>
             )}
 
-            {activeTab === 'references' && <SourcesTab sources={allSources} />}
+            {activeTab === 'references' &&
+              (() => {
+                const reportFull = persisted?.reportFull ?? view.finalReport;
+                const richCitations =
+                  reportFull &&
+                  typeof reportFull === 'object' &&
+                  isReportArtifact(reportFull)
+                    ? reportFull.citations
+                    : undefined;
+                return (
+                  <ReferencesPanel
+                    citations={richCitations}
+                    fallbackSources={allSources}
+                  />
+                );
+              })()}
 
             {activeTab === 'cost' && (
               <div className="space-y-4">
                 <CapabilityMeters view={view} wallTimeMs={wallTimeMs} />
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <CostBreakdownPanel cost={view.cost} />
-                  <MemoryIndexPanel memory={view.memory} />
-                </div>
+                <ComputeUsagePanel
+                  cost={view.cost}
+                  agents={view.agents}
+                  todos={todoLedger}
+                  dimensionPipelines={view.dimensionPipelines}
+                />
+                <MemoryIndexPanel memory={view.memory} />
                 <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                   <div className="mb-3 flex items-center gap-2">
                     <Database className="h-4 w-4 text-emerald-500" />
@@ -859,93 +900,6 @@ function CompactMeters({
         <Activity className="h-3.5 w-3.5 text-sky-500" />
         {fmtTime(wallTimeMs)}
       </span>
-    </div>
-  );
-}
-
-function SourcesTab({ sources }: { sources: string[] }) {
-  // 把 URL 按域名聚类便于浏览
-  const grouped = (() => {
-    const map = new Map<string, string[]>();
-    for (const u of sources) {
-      let host = '其它';
-      try {
-        host = new URL(u).hostname.replace(/^www\./, '');
-      } catch {
-        // ignore non-URLs
-      }
-      const arr = map.get(host) ?? [];
-      arr.push(u);
-      map.set(host, arr);
-    }
-    return [...map.entries()].sort((a, b) => b[1].length - a[1].length);
-  })();
-
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <Layers className="h-4 w-4 text-violet-500" />
-        <h3 className="text-sm font-semibold text-gray-900">参考文献</h3>
-        <span className="ml-auto text-xs text-gray-500">
-          {sources.length} 个唯一来源 · {grouped.length} 个域名
-        </span>
-      </div>
-      {sources.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/40 px-4 py-8 text-center">
-          <Layers className="mx-auto mb-2 h-7 w-7 text-gray-300" />
-          <p className="text-sm font-medium text-gray-700">暂无引用来源</p>
-          <p className="mt-1 text-[11px] text-gray-500">
-            Researcher / Writer 在报告中引用 URL 后会自动收集到这里
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {grouped.map(([host, urls]) => (
-            <div
-              key={host}
-              className="rounded-xl border border-gray-100 bg-gray-50/30"
-            >
-              <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-                <span className="font-mono text-[11px] font-semibold text-gray-700">
-                  {host}
-                </span>
-                <span className="text-[10px] text-gray-500">
-                  {urls.length} 条
-                </span>
-              </div>
-              <ul className="space-y-1 p-2">
-                {urls.map((u, i) => {
-                  const safe = /^https?:\/\//i.test(u) ? u : null;
-                  return (
-                    <li
-                      key={`${u}-${i}`}
-                      className="rounded-md px-2 py-1.5 hover:bg-violet-50/40"
-                    >
-                      {safe ? (
-                        <a
-                          href={safe}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="line-clamp-2 break-all text-[11px] text-violet-700 underline-offset-2 hover:underline"
-                        >
-                          {safe}
-                        </a>
-                      ) : (
-                        <span
-                          className="line-clamp-2 break-all text-[11px] text-gray-400"
-                          title="non-http(s) source filtered"
-                        >
-                          {u}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

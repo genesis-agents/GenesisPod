@@ -101,7 +101,7 @@ Harness（执行底座）         ← ai-engine/runtime/*
 runMission()
   ├─ 装配 MissionContext + MissionDeps
   ├─ s1  mission     estimate-budget         预算闸门 + mission:started
-  ├─ s2  leader      plan-mission            Leader 拆维度 + 声明 goals
+  ├─ s2  leader      plan-mission            Leader 维度规划 + 声明 goals
   ├─ s3  researcher  collect-findings        researcher×N + per-dim pipeline
   ├─ s4  leader      assess-research         Leader 看 researcher 产出做 retry/abort
   ├─ s5  reconciler  cross-dim-fact-check    跨 dim 对账

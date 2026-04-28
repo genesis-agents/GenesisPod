@@ -10,6 +10,7 @@ import { QualityBadge } from './QualityBadge';
 import { FactTablePanel } from './FactTablePanel';
 import { ReconciliationPanel } from './ReconciliationPanel';
 import { ToolRecallTrace } from './ToolRecallTrace';
+import { ReportHeroStrip } from './ReportHeroStrip';
 
 type ViewMode = 'continuous' | 'chapter' | 'quick';
 
@@ -86,6 +87,8 @@ export function ArtifactReader({
   }, [view]);
   return (
     <div className="space-y-3">
+      {/* 报告头部资讯条（标题 / 字数 / 章节 / 引用 / 图表 / 事实 / 阅读时长 / 受众 tags） */}
+      <ReportHeroStrip artifact={artifact} />
       {/* 质量评分卡 + 视图切换 */}
       <QualityBadge quality={artifact.quality} />
       <div className="flex items-center justify-between">

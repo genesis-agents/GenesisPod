@@ -124,7 +124,7 @@ export function QualityBadge({ quality }: Props) {
                         : 'bg-red-100 text-red-700'
                   }`}
                 >
-                  L4 元审 · {verdict}
+                  L4 独立复审 · {verdict}
                 </span>
               )}
             </p>
@@ -192,7 +192,7 @@ export function QualityBadge({ quality }: Props) {
           {l4.length > 0 && (
             <div>
               <p className="mb-1 text-xs font-semibold text-violet-700">
-                L4 元审
+                L4 独立复审
               </p>
               <ul className="space-y-1">
                 {l4.map((w, i) => (

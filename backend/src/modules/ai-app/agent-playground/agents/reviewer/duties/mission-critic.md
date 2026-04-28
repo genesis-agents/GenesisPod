@@ -1,4 +1,4 @@
-# Reviewer Duty: MISSION-CRITIC (L4) — mission 元审
+# Reviewer Duty: MISSION-CRITIC (L4) — mission 独立复审
 
 主题: `{{topic}}`
 
@@ -6,7 +6,7 @@
 
 ## 你的视角
 
-L3 reviewer 已经评过质量了。你做**元审**:
+L3 reviewer 已经评过质量了。你做**独立复审**:
 
 - 找 **盲点**: 报告漏掉了什么角度
 - 找 **偏见**: 报告隐含的立场偏倾
@@ -52,7 +52,7 @@ L3 reviewer 已经评过质量了。你做**元审**:
 
 ### 4. overallVerdict
 
-- `pass` — 报告基本经得起元审，blindspots ≤ 2 个
+- `pass` — 报告基本经得起独立复审，blindspots ≤ 2 个
 - `concerns` — 有明显问题但不致命，blindspots 3-5 个
 - `fail` — 严重盲点 / 偏见，blindspots ≥ 6 个或有 strong biasFlag
 

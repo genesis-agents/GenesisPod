@@ -3,16 +3,18 @@
 /**
  * TodoDetailDrawer —— 单条 todo 的"完整故事"
  *
- * 信息架构（自上而下）：
+ * 信息架构（自上而下，遵循"采集 → 综合 → 评审"的真实流水线顺序）：
  *   Header        : origin badge + title + role
  *   Layer strip   : AI-APP → AI-HARNESS → AI-ENGINE → AI-INFRA（紧凑 chip）
  *   Stats         : 状态 / 耗时 / Tokens / 工具调用
  *   Reason        : 任务起因（reasonText）
  *   Failure       : 失败原因（仅 failed）
- *   关键发现       : findings 卡片（编号 + claim + evidence + source）
- *   引用来源       : 去重 URL 列表
- *   使用工具       : ToolBadge chips
- *   完整时间线     : 默认折叠，narrative + thought + tool-call + tool-result 卡
+ *   关键发现       : findings 卡片（编号 + claim + evidence + source）  ← 采集结果摘要
+ *   使用工具       : ToolBadge chips                                    ← 采集手段
+ *   引用来源       : 去重 URL 列表                                       ← 采集材料
+ *   完整时间线     : 默认折叠，narrative + thought + tool-call + tool-result 卡  ← 采集过程
+ *   章节进度       : chapter pipeline 状态卡                             ← 综合（章节撰写）
+ *   维度评分       : 5-axis grade                                        ← 评审（章节复审/维度打分）
  *   开发者诊断     : 默认折叠，原始 ReAct trace JSON
  *
  * 全程使用 playground-ui primitives + design tokens，禁止再写裸 Tailwind chip。
@@ -64,7 +66,7 @@ const ORIGIN_LABEL: Record<
   { label: string; cls: string }
 > = {
   'leader-plan': {
-    label: 'Leader 拆维度',
+    label: '维度规划',
     cls: 'bg-violet-50 text-violet-700 ring-violet-200',
   },
   'leader-assess-retry': {
@@ -547,7 +549,67 @@ export function TodoDetailDrawer({
             </Section>
           )}
 
-          {/* 章节进度 + 维度评分 (仅 dim todos with chapter pipeline) */}
+          {/* 使用工具 */}
+          {sections.toolUsage.filter((t) => t.toolId !== 'finalize').length >
+            0 && (
+            <Section
+              title="使用工具"
+              count={
+                sections.toolUsage.filter((t) => t.toolId !== 'finalize').length
+              }
+            >
+              <div className="flex flex-wrap gap-1.5 p-3">
+                {sections.toolUsage
+                  .filter((t) => t.toolId !== 'finalize')
+                  .map((tu) => (
+                    <ToolBadge
+                      key={tu.toolId}
+                      toolId={tu.toolId}
+                      count={tu.callCount}
+                    />
+                  ))}
+              </div>
+            </Section>
+          )}
+
+          {/* 引用来源 */}
+          {sections.sources.length > 0 && (
+            <Section title="引用来源" count={`${sections.sources.length} 个`}>
+              <ul className="max-h-72 space-y-1.5 overflow-y-auto p-3">
+                {sections.sources.map((s, i) => (
+                  <li key={`${s.url}-${i}`}>
+                    <SourceLink title={s.title} url={s.url} hits={s.hits} />
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          {/* 完整时间线 */}
+          {timeline.length > 0 && (
+            <Section
+              title="完整时间线"
+              count={`${timeline.length} 个事件`}
+              collapsible
+              defaultOpen={showTimeline}
+            >
+              <ol className="relative space-y-0 p-3 pl-9">
+                <span
+                  className="absolute bottom-3 left-[20px] top-3 w-0.5 bg-gradient-to-b from-violet-200 via-blue-200 to-emerald-100"
+                  aria-hidden="true"
+                />
+                {timeline.map((c, i) => (
+                  <TimelineEntryView
+                    key={`${c.ts}-${i}`}
+                    entry={c}
+                    anchor={anchor}
+                  />
+                ))}
+              </ol>
+            </Section>
+          )}
+
+          {/* 章节进度 + 维度评分 (仅 dim todos with chapter pipeline) — 信息采集后的下游产物，故置于"使用工具/引用来源/完整时间线"之后 */}
           {todo.scope === 'dimension' &&
             todo.dimensionRef &&
             (() => {
@@ -729,66 +791,6 @@ export function TodoDetailDrawer({
                 </>
               );
             })()}
-
-          {/* 使用工具 */}
-          {sections.toolUsage.filter((t) => t.toolId !== 'finalize').length >
-            0 && (
-            <Section
-              title="使用工具"
-              count={
-                sections.toolUsage.filter((t) => t.toolId !== 'finalize').length
-              }
-            >
-              <div className="flex flex-wrap gap-1.5 p-3">
-                {sections.toolUsage
-                  .filter((t) => t.toolId !== 'finalize')
-                  .map((tu) => (
-                    <ToolBadge
-                      key={tu.toolId}
-                      toolId={tu.toolId}
-                      count={tu.callCount}
-                    />
-                  ))}
-              </div>
-            </Section>
-          )}
-
-          {/* 引用来源 */}
-          {sections.sources.length > 0 && (
-            <Section title="引用来源" count={`${sections.sources.length} 个`}>
-              <ul className="max-h-72 space-y-1.5 overflow-y-auto p-3">
-                {sections.sources.map((s, i) => (
-                  <li key={`${s.url}-${i}`}>
-                    <SourceLink title={s.title} url={s.url} hits={s.hits} />
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {/* 完整时间线 */}
-          {timeline.length > 0 && (
-            <Section
-              title="完整时间线"
-              count={`${timeline.length} 个事件`}
-              collapsible
-              defaultOpen={showTimeline}
-            >
-              <ol className="relative space-y-0 p-3 pl-9">
-                <span
-                  className="absolute bottom-3 left-[20px] top-3 w-0.5 bg-gradient-to-b from-violet-200 via-blue-200 to-emerald-100"
-                  aria-hidden="true"
-                />
-                {timeline.map((c, i) => (
-                  <TimelineEntryView
-                    key={`${c.ts}-${i}`}
-                    entry={c}
-                    anchor={anchor}
-                  />
-                ))}
-              </ol>
-            </Section>
-          )}
 
           {/* 开发者诊断 */}
           {linkedAgent && linkedAgent.trace.length > 0 && (

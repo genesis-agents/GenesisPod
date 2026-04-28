@@ -717,7 +717,7 @@ const ROLE_PROFILE: Record<
   },
 };
 
-function buildAgentInspectorPayload(
+export function buildAgentInspectorPayload(
   role: AgentRole,
   agents: AgentLiveState[],
   stage?: StageState

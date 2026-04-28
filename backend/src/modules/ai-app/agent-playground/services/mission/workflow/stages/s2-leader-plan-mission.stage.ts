@@ -1,7 +1,7 @@
 /**
  * Stage S2 — Leader plans the mission
  *
- * Leader 拆维度 + 声明 goals / qualityBar / hardConstraints / initialRisks。
+ * Leader 维度规划 + 声明 goals / qualityBar / hardConstraints / initialRisks。
  * 是后续所有 stage 的前提：dimensions[] 决定 researcher 派几个 worker，goals 决定
  * Leader 末段签字时引用什么 successCriteria 做问责。
  *
@@ -36,7 +36,7 @@ export async function runLeaderPlanStage(
     stage: "s2-leader-plan",
     role: "leader",
     tag: "thinking",
-    text: "Leader 开始分析 topic，准备拆维度与声明 successCriteria",
+    text: "Leader 开始分析 topic，准备维度规划与声明 successCriteria",
     agentId: "leader",
   });
 

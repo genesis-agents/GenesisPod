@@ -50,7 +50,7 @@ export async function runCriticStage(
       stage: "s9-critic-l4",
       role: "critic",
       tag: "judging",
-      text: "Critic L4 启动元审，从盲点 / 偏见 / 改进建议三个维度独立评估报告",
+      text: "Critic L4 启动独立复审，从盲点 / 偏见 / 改进建议三个维度独立评估报告",
       agentId: "critic",
     });
     // Phase P16-5: Critic 也接 FailureLearner
@@ -154,7 +154,7 @@ export async function runCriticStage(
             : criticOut.overallVerdict === "fail"
               ? "warning"
               : "info",
-        text: `L4 元审完成 · ${criticOut.overallVerdict} · 盲点 ${criticOut.blindspots.length} / 偏见 ${criticOut.biasFlags.length} / 建议 ${criticOut.suggestions.length}`,
+        text: `L4 独立复审完成 · ${criticOut.overallVerdict} · 盲点 ${criticOut.blindspots.length} / 偏见 ${criticOut.biasFlags.length} / 建议 ${criticOut.suggestions.length}`,
         agentId: "critic",
       });
       // 把 critic 输出写到 quality.warnings（不阻塞 mission）

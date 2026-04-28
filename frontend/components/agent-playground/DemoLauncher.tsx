@@ -451,7 +451,7 @@ export function DemoLauncher() {
         </div>
         {audienceProfile === 'executive' && (
           <div className="mt-0.5 text-[10px] text-violet-600">
-            高管受众自动启 L4 元审 · 总 cost ×1.3
+            高管受众自动启 L4 独立复审 · 总 cost ×1.3
           </div>
         )}
         {auditLayers === 'thorough' && (

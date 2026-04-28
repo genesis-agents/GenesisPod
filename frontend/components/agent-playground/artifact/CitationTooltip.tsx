@@ -9,6 +9,7 @@ import {
   Shield,
 } from 'lucide-react';
 import type { ArtifactCitation } from '@/lib/agent-playground/report-artifact.types';
+import { triggerCitationClick } from '@/components/common/citations/citationNavigation';
 
 interface Props {
   index: number;
@@ -90,7 +91,12 @@ export function CitationTooltip({ index, citation, onCitationClick }: Props) {
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        onClick={() => onCitationClick?.(index)}
+        onClick={() => {
+          // 1) 当前面板内滚动（保留旧行为，用于 ContinuousReader 高亮）
+          onCitationClick?.(index);
+          // 2) 触发跨面板回调（page.tsx 注册：切到 references tab 并定位）
+          triggerCitationClick(citation.uuid || String(index));
+        }}
       >
         [{index}]
       </sup>

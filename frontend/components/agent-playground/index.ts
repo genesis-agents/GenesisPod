@@ -5,6 +5,8 @@ export { AgentLiveGrid } from './AgentLiveGrid';
 export { VerifyConsensusPanel } from './VerifyConsensusPanel';
 export { MemoryIndexPanel } from './MemoryIndexPanel';
 export { CostBreakdownPanel } from './CostBreakdownPanel';
+export { ComputeUsagePanel } from './ComputeUsagePanel';
+export { ReferencesPanel } from './ReferencesPanel';
 export { ReportPanel } from './ReportPanel';
 export { DimensionsPanel } from './DimensionsPanel';
 export { RawEventLog } from './RawEventLog';

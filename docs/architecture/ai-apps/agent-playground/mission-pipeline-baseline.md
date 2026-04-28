@@ -28,7 +28,7 @@
 | **Exit Reason**         | 迭代出口的标准枚举（10 种），见 §1.4。                                                                    |
 | **ReportArtifact**      | Writer 阶段的结构化输出（sections / citations / figures / quickView / factTable / metadata 等），见 §7。  |
 | **Reconciler**          | 并行 Researcher 产出后的对账节点（事实表抽取 / 冲突检测 / 重叠检测 / 空白检测），见 §3.5。                |
-| **Audit Layer (L0~L4)** | 审核分层（L0 自审 / L1 反思 / L2 同侪 / L3 跨角 / L4 元审），见 §6。                                      |
+| **Audit Layer (L0~L4)** | 审核分层（L0 自审 / L1 反思 / L2 同侪 / L3 跨角 / L4 独立复审），见 §6。                                  |
 
 ---
 
@@ -535,13 +535,13 @@ W5. QualityGate + Reviewer ⟲ (1+ 次)
 
 ## 6. 审核分层模型 L0~L4（Q5）
 
-| 层          | 谁负责                              | 范围                   | 默认状态                                                |
-| ----------- | ----------------------------------- | ---------------------- | ------------------------------------------------------- |
-| **L0 自审** | Agent 自己（Loop 内 finalize 闸）   | schema + business rule | ★ 总是启用（不可关）                                    |
-| **L1 反思** | Agent 自己（Reflexion verifier）    | 内容质量自评           | ☆ 用户档位控制（默认关）                                |
-| **L2 同侪** | 同角色另一实例                      | 跨实例一致性           | ☆ 用户档位控制（默认关）                                |
-| **L3 跨角** | 下游 Agent（Reviewer 审 Writer 等） | 是否满足下游需要       | ★ 总是启用（不可关）                                    |
-| **L4 元审** | 独立 Critic Agent（不参与生产）     | 跳出闭环看大方向       | ☆ 用户档位控制（默认 audienceProfile=executive 时启用） |
+| 层              | 谁负责                              | 范围                   | 默认状态                                                |
+| --------------- | ----------------------------------- | ---------------------- | ------------------------------------------------------- |
+| **L0 自审**     | Agent 自己（Loop 内 finalize 闸）   | schema + business rule | ★ 总是启用（不可关）                                    |
+| **L1 反思**     | Agent 自己（Reflexion verifier）    | 内容质量自评           | ☆ 用户档位控制（默认关）                                |
+| **L2 同侪**     | 同角色另一实例                      | 跨实例一致性           | ☆ 用户档位控制（默认关）                                |
+| **L3 跨角**     | 下游 Agent（Reviewer 审 Writer 等） | 是否满足下游需要       | ★ 总是启用（不可关）                                    |
+| **L4 独立复审** | 独立 Critic Agent（不参与生产）     | 跳出闭环看大方向       | ☆ 用户档位控制（默认 audienceProfile=executive 时启用） |
 
 **默认配置（§11 用户档位）**：`auditLayers='default'` → L0 + L3 启用，L1 + L2 + L4 关闭。
 

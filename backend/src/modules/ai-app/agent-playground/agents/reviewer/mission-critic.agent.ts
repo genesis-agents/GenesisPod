@@ -1,5 +1,5 @@
 /**
- * Critic Agent —— L4 元审（独立 critic，不参与生产）
+ * Critic Agent —— L4 独立复审（独立 critic，不参与生产）
  *
  * 上游：mission-pipeline-baseline.md §6 / mission-pipeline-audit-layers.md §4.5
  *
@@ -17,10 +17,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),

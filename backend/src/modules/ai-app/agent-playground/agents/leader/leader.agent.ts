@@ -7,7 +7,7 @@
  *   • 业务规则强制 M7 的 accountabilityNote 引用过去决策（防止橡皮图章签字）
  *
  * 4 个 phase:
- *   M0 plan            — 拆维度 + 声明 successCriteria/qualityBar/deliverables
+ *   M0 plan            — 维度规划 + 声明 successCriteria/qualityBar/deliverables
  *   M1 assess-research — researchers 完成后做过程管理（accept/patch/redirect/abort）
  *   M6 foreword        — 写 meta-level 综合摘要（vs Writer 的 ExecutiveSummary）
  *   M7 signoff         — 签字 + 自评分 + accountabilityNote

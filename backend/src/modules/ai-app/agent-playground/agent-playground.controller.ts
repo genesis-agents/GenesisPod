@@ -277,7 +277,7 @@ export class AgentPlaygroundController {
           md += recon.reconciliationReport;
         }
       }
-      // ★ Critic L4 元审查附录（auditLayers >= thorough 时生成）
+      // ★ Critic L4 独立复审附录（auditLayers >= thorough 时生成）
       // 让导出 .md 包含独立审查发现，便于复盘 / 二次撰稿。
       const quality = (
         reportFull as {
