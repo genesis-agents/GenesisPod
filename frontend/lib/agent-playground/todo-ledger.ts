@@ -568,17 +568,21 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         const decisionMsg = `重派 ${stats.retried ?? 0} / 中止 ${stats.aborted ?? 0} / 追加 ${stats.appended ?? 0} / 跳过 ${stats.skipped ?? 0}`;
         upsert(
           'system:s4-leader-assess',
-          () =>
-            systemStageInit(
+          () => {
+            const t0 = systemStageInit(
               's4-leader-assess',
               'Leader 评审 Researcher 产出',
-              'Leader 看每个 dim 的 finding 数、来源质量，给出 accept/patch/redirect/abort 决策',
+              'Leader 看每个 dim 的 finding 数 / 来源质量，给出 accept / patch / redirect / abort 决策',
               'leader',
               ev.timestamp
-            ),
+            );
+            t0.agentRefId = 'leader'; // 让抽屉关联 Leader trace（thought / action）
+            return t0;
+          },
           (t0) => {
             t0.status = 'done';
             t0.endedAt = ev.timestamp;
+            t0.agentRefId = t0.agentRefId ?? 'leader';
             t0.artifacts = [
               {
                 kind: 'finding-count',
@@ -586,22 +590,74 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
                 value: decisionMsg,
               },
             ];
+            addNarrative(
+              t0.id,
+              ev.timestamp,
+              `调度完成 · ${decisionMsg}（重派=同 Researcher 加补丁再做一遍 / 中止=放弃 / 追加=新加维度 / 跳过=已合格）`,
+              'success'
+            );
           }
         );
       } else if (phase === 'assess-research') {
+        const rationale = p.rationale as string | undefined;
+        const perDim =
+          (p.perDimension as
+            | {
+                dimensionId?: string;
+                dimensionName?: string;
+                action?: string;
+                patches?: string[];
+                rationale?: string;
+              }[]
+            | undefined) ?? [];
+        const decision = p.decision as string | undefined;
         upsert(
           'system:s4-leader-assess',
-          () =>
-            systemStageInit(
+          () => {
+            const t0 = systemStageInit(
               's4-leader-assess',
               'Leader 评审 Researcher 产出',
-              '评审',
+              'Leader 看每个 dim 的 finding 数 / 来源质量，给出 accept / patch / redirect / abort 决策',
               'leader',
               ev.timestamp
-            ),
+            );
+            t0.agentRefId = 'leader';
+            return t0;
+          },
           (t0) => {
             t0.status = 'in_progress';
             t0.startedAt = t0.startedAt ?? ev.timestamp;
+            t0.agentRefId = t0.agentRefId ?? 'leader';
+            if (decision) {
+              addNarrative(
+                t0.id,
+                ev.timestamp,
+                `Leader 评审决策：${decision}（accept=全收 / patch=补丁后再做 / redirect=换路线 / abort=放弃）`,
+                'info'
+              );
+            }
+            if (rationale && rationale.trim().length > 0) {
+              addNarrative(
+                t0.id,
+                ev.timestamp,
+                `理由：${rationale.slice(0, 400)}${rationale.length > 400 ? '…' : ''}`,
+                'info'
+              );
+            }
+            for (const d of perDim) {
+              const name = d.dimensionName ?? d.dimensionId ?? '?';
+              const action = d.action ?? '-';
+              const patches =
+                (d.patches ?? []).slice(0, 3).join(' · ') ||
+                d.rationale?.slice(0, 120) ||
+                '';
+              addNarrative(
+                t0.id,
+                ev.timestamp,
+                `${name} → ${action}${patches ? `：${patches}` : ''}`,
+                action === 'accept' ? 'success' : 'info'
+              );
+            }
           }
         );
       }

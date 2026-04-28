@@ -216,8 +216,12 @@ function taskIcon(td: MissionTodo): LucideIcon {
   return Brain;
 }
 
-/** 起因 badge 文案 + 配色（每行前置的 4 字色块标签） */
-function originBadge(td: MissionTodo): { label: string; tone: string } {
+/** 起因 badge 文案 + 配色 + tooltip（每行前置的 4 字色块标签） */
+function originBadge(td: MissionTodo): {
+  label: string;
+  tone: string;
+  hint: string;
+} {
   // system stage：每阶段独立配色，4 字术语
   if (td.systemStageId) {
     switch (td.systemStageId) {
@@ -225,56 +229,67 @@ function originBadge(td: MissionTodo): { label: string; tone: string } {
         return {
           label: '预算估算',
           tone: 'bg-amber-100 text-amber-700 ring-amber-200',
+          hint: 'Mission 启动前的 token 预算估算与额度校验（S1）',
         };
       case 's2-leader-plan':
         return {
           label: '维度规划',
           tone: 'bg-violet-100 text-violet-700 ring-violet-200',
+          hint: 'Leader 把 topic 拆成多个研究维度（MECE）+ 声明成功标准（S2）',
         };
       case 's3-researchers':
         return {
           label: '并行研究',
           tone: 'bg-blue-100 text-blue-700 ring-blue-200',
+          hint: '所有 Researcher 并行调研各自维度，搜证 / 提取 finding / 生成章节（S3）',
         };
       case 's4-leader-assess':
         return {
           label: '研究初审',
           tone: 'bg-fuchsia-100 text-fuchsia-700 ring-fuchsia-200',
+          hint: 'Leader 看完 Researcher 产出后做 accept / patch / redirect / abort 决策（S4）',
         };
       case 's5-reconciler':
         return {
           label: '跨维对账',
           tone: 'bg-sky-100 text-sky-700 ring-sky-200',
+          hint: '跨维度 fact-check：抽事实表、检测冲突 / 重叠 / 缺口（S5）',
         };
       case 's6-analyst':
         return {
           label: '综合分析',
           tone: 'bg-cyan-100 text-cyan-700 ring-cyan-200',
+          hint: 'Analyst 跨维度归纳 insights、消解矛盾、生成 themeSummary（S6）',
         };
       case 's7-writer-outline':
         return {
           label: '章节规划',
           tone: 'bg-teal-100 text-teal-700 ring-teal-200',
+          hint: 'Writer 规划 mission 级章节大纲（S7，仅 thorough+ 档位）',
         };
       case 's8-writer-draft':
         return {
           label: '撰写报告',
           tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+          hint: 'Writer 起草 + L3 三路 Reviewer 评分 + memory 入库 + 装配 ReportArtifact（S8）',
         };
       case 's9-critic-l4':
         return {
           label: '独立复审',
           tone: 'bg-rose-100 text-rose-700 ring-rose-200',
+          hint: '独立 Critic Agent 跳出闭环找盲点 / 偏见 / 改进建议（S9，thorough+ 启用）',
         };
       case 's10-leader-signoff':
         return {
           label: '终审签字',
           tone: 'bg-purple-100 text-purple-700 ring-purple-200',
+          hint: 'Leader 综合所有产出写前言并对最终交付物签字承诺（S10）',
         };
       case 's11-persist':
         return {
           label: '落库归档',
           tone: 'bg-slate-100 text-slate-700 ring-slate-200',
+          hint: '按签字结果 markCompleted / markFailed，trace 向量化入用户记忆（S11）',
         };
     }
   }
@@ -283,56 +298,67 @@ function originBadge(td: MissionTodo): { label: string; tone: string } {
       return {
         label: '维度任务',
         tone: 'bg-blue-100 text-blue-700 ring-blue-200',
+        hint: 'Leader 在 S2 维度规划阶段派下来的研究维度子任务',
       };
     case 'leader-assess-retry':
       return {
         label: '评审重派',
         tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+        hint: 'Leader 在 S4 初审看完 Researcher 产出后给出 patch 决策 —— 同一 Researcher 带着补丁要点（缺哪类证据）再做一轮',
       };
     case 'leader-assess-replace':
       return {
         label: '换签 spec',
         tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+        hint: 'Leader S4 初审决策：原方案不可救，改用新的 spec / 角色 / 检索策略重做',
       };
     case 'leader-assess-extend':
       return {
         label: '追加任务',
         tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+        hint: 'Leader S4 初审决策：维度覆盖不全，新增一个维度补上空白',
       };
     case 'leader-assess-abort':
       return {
         label: '放弃维度',
         tone: 'bg-amber-100 text-amber-700 ring-amber-200',
+        hint: 'Leader S4 初审决策：该维度无法补救，标记放弃，不再投入预算',
       };
     case 'leader-chat-create':
       return {
         label: '对话追加',
         tone: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
+        hint: '用户通过 Leader Chat 实时追加的研究维度',
       };
     case 'self-heal-retry':
       return {
         label: '自愈重试',
         tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+        hint: '上一轮 finalize 校验失败 / 工具失败 / 模型不可用，框架自动重试',
       };
     case 'reviewer-revise':
       return {
         label: '复审重写',
         tone: 'bg-rose-100 text-rose-700 ring-rose-200',
+        hint: 'Chapter Reviewer 评分 < 70，要求 Writer 按 critique 重写本章',
       };
     case 'critic-blindspot':
       return {
         label: '复审警示',
         tone: 'bg-red-100 text-red-700 ring-red-200',
+        hint: 'L4 Independent Critic 发现的盲点 / 偏见 / 改进建议',
       };
     case 'reconciler-gap':
       return {
         label: '对账缺口',
         tone: 'bg-sky-100 text-sky-700 ring-sky-200',
+        hint: 'Reconciler 跨维对账时发现的证据缺口（critical / minor）',
       };
     case 'system-stage':
       return {
         label: '系统阶段',
         tone: 'bg-gray-100 text-gray-700 ring-gray-200',
+        hint: '系统级阶段任务',
       };
   }
 }
@@ -737,9 +763,10 @@ export function MissionTodoBoard({
                       )}
                       <span
                         className={cn(
-                          'mt-0.5 inline-flex flex-shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ring-1',
+                          'mt-0.5 inline-flex flex-shrink-0 cursor-help items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ring-1',
                           originBadge(td).tone
                         )}
+                        title={originBadge(td).hint}
                       >
                         {originBadge(td).label}
                       </span>
