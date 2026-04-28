@@ -2,6 +2,7 @@
 
 import { Database, Tag } from 'lucide-react';
 import type { MemoryIndexState } from '@/lib/agent-playground/derive';
+import { Card } from '@/components/playground-ui';
 
 export function MemoryIndexPanel({
   memory,
@@ -9,7 +10,7 @@ export function MemoryIndexPanel({
   memory: MemoryIndexState | null;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <Card className="p-5" bordered>
       <div className="mb-3 flex items-center gap-2">
         <Database className="h-4 w-4 text-emerald-500" />
         <h3 className="text-sm font-semibold text-gray-900">记忆自动索引</h3>
@@ -49,6 +50,6 @@ export function MemoryIndexPanel({
           )}
         </>
       )}
-    </div>
+    </Card>
   );
 }

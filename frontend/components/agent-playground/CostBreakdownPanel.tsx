@@ -2,6 +2,7 @@
 
 import { Coins } from 'lucide-react';
 import type { CostState } from '@/lib/agent-playground/derive';
+import { Card } from '@/components/playground-ui';
 
 const STAGE_LABEL: Record<string, string> = {
   leader: 'Leader',
@@ -41,7 +42,7 @@ export function CostBreakdownPanel({ cost }: { cost: CostState }) {
   const max = Math.max(1, ...ordered.map((o) => o.tokensUsed));
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <Card className="p-5" bordered>
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Coins className="h-4 w-4 text-amber-500" />
@@ -81,6 +82,6 @@ export function CostBreakdownPanel({ cost }: { cost: CostState }) {
       <p className="mt-3 text-[10px] text-gray-400">
         消耗为估算值（约 $3 / 1M tokens）。实际计费通过 Credits 服务结算。
       </p>
-    </div>
+    </Card>
   );
 }

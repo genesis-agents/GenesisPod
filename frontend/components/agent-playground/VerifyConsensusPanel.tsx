@@ -2,6 +2,7 @@
 
 import { Gavel, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import type { VerifierVerdict } from '@/lib/agent-playground/derive';
+import { Card, ExpandableText } from '@/components/playground-ui';
 
 const VERIFIER_META: Record<
   string,
@@ -60,7 +61,7 @@ export function VerifyConsensusPanel({
       : null;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <Card className="p-5" bordered>
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Gavel className="h-4 w-4 text-violet-500" />
@@ -109,9 +110,13 @@ export function VerifyConsensusPanel({
                 </div>
                 <ScoreBar score={v.score} />
                 {v.critique && (
-                  <p className="mt-2 line-clamp-3 text-[11px] leading-relaxed text-gray-600">
-                    {v.critique}
-                  </p>
+                  <div className="mt-2">
+                    <ExpandableText
+                      text={v.critique}
+                      maxChars={180}
+                      className="text-[11px] leading-relaxed text-gray-600"
+                    />
+                  </div>
                 )}
                 {v.modelId && (
                   <p className="font-mono mt-1 text-[10px] text-gray-400">
@@ -130,6 +135,6 @@ export function VerifyConsensusPanel({
           已触发 Reflexion · 当前是第 {latestAttempt} 轮
         </p>
       )}
-    </div>
+    </Card>
   );
 }
