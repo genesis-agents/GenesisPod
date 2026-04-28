@@ -1,5 +1,1859 @@
 [
   {
+    "version": "40.3.0",
+    "date": "2026-04-28",
+    "changes": [
+      {
+        "type": "improvement",
+        "description": "pr-x30 fix facade boundary violation"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-x26 relocate 18 orphan specs next to their sources"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-x28 lift error-classifier, drop dead ai-orchestration"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-x25 eliminate 11 backward-compat shim files"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-x23 remove zombie mongodb/neo4j wrapper layers"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X17/X18 — 9 BYOK Controllers 上提 + DI token 彻底消除最后反向依赖"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X16 — 深度审计修复（同名消歧 + 命名清晰化 + Controller 上提）"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X15 — 命名深度审计修正 + harness/facade 解除 engine 私有路径穿透"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X14 — 消除 ai-engine/facade 全部反向依赖 + ai-engine.module 清理"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X12 — 消除 engine→app 与 infra→engine 反向依赖"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X11 — 删除 orphan agents 目录 + 修复 harness spec lint 错误"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X8/X9/X10 — 架构最终化（rename + BYOK 迁移 + admin rename）"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X6+X7 — Controller 上提 + MCP 整体搬到 harness"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X5 — engine/agents → harness/kernel + harness/process"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X4 — engine/teams 整体搬到 ai-harness/runtime/teams"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X3 phase 2 — capability-guard → engine + executors local deps"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X3 — circuit-breaker → engine + ai-chat EventEmitter decoupling"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X2 — migrate ai-app to ai-harness/facade"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-X1 — eliminate ai-engine → ai-harness reverse deps"
+      },
+      {
+        "type": "improvement",
+        "description": "organize runtime/ flat files into 6 sub-aggregates"
+      },
+      {
+        "type": "improvement",
+        "description": "PR-R0 — reorganize into 7 aggregates (kernel/execution/process/memory/protocol/governance/runtime)"
+      },
+      {
+        "type": "improvement",
+        "description": "generic team naming so playground is template for any team"
+      },
+      {
+        "type": "improvement",
+        "description": "extract S8 writer + rename stages + refresh comments"
+      },
+      {
+        "type": "improvement",
+        "description": "extract S3 researcher dispatch + per-dim pipeline"
+      },
+      {
+        "type": "improvement",
+        "description": "rename stages to s1..s11 + standardize headers"
+      },
+      {
+        "type": "improvement",
+        "description": "extract writer-outline stage (W1 planner)"
+      },
+      {
+        "type": "improvement",
+        "description": "extract budget-estimate + persist stages"
+      },
+      {
+        "type": "improvement",
+        "description": "extract M0 plan + M1 assess stages"
+      },
+      {
+        "type": "improvement",
+        "description": "extract reconciler + analyst stages"
+      },
+      {
+        "type": "improvement",
+        "description": "extract M6/M7 + L4 critic into stage files"
+      },
+      {
+        "type": "improvement",
+        "description": "add MissionContext interface for stage extract"
+      },
+      {
+        "type": "improvement",
+        "description": "mission/{workflow,lifecycle} split + helpers extracted"
+      },
+      {
+        "type": "improvement",
+        "description": "orchestrator → mission rename (mission/agent/harness clarity)"
+      },
+      {
+        "type": "improvement",
+        "description": "orchestrator delegates 6 stages to per-role services"
+      },
+      {
+        "type": "improvement",
+        "description": "full services dir reorg — mission/chat/artifact/failure-learning subdirs"
+      },
+      {
+        "type": "improvement",
+        "description": "8 per-role services + AgentInvoker + services dir reorg"
+      },
+      {
+        "type": "improvement",
+        "description": "unify reasoning_effort mapping + collapse model startsWith"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate all 13 business APIs from lib/api/ to services/<module>/"
+      },
+      {
+        "type": "improvement",
+        "description": "enforce platform/business layer boundary across TI"
+      },
+      {
+        "type": "improvement",
+        "description": "extract injectChartPlaceholdersByChapter for continuous view"
+      },
+      {
+        "type": "improvement",
+        "description": "delete inline leader chat, fully replaced by popup"
+      },
+      {
+        "type": "improvement",
+        "description": "彻底重做 demo — 把 Harness 每个能力都\"渲染出来\""
+      },
+      {
+        "type": "improvement",
+        "description": "drop TOPIC_INSIGHTS_USE_SOTA flag"
+      },
+      {
+        "type": "improvement",
+        "description": "kill services.ts barrel + rename memory/ → mission/"
+      },
+      {
+        "type": "improvement",
+        "description": "deep review pass 1 — facade boundary + enum docs + forwardref notes"
+      },
+      {
+        "type": "improvement",
+        "description": "f6 review+framework+agentic + f7 dimension crud + emits"
+      },
+      {
+        "type": "improvement",
+        "description": "f4 semantic stage events + f5 search quality + evidence sync"
+      },
+      {
+        "type": "improvement",
+        "description": "f3 mission dynamic · pause-amend-resume primitive"
+      },
+      {
+        "type": "improvement",
+        "description": "f2 leader interactions + reconciler fix + f4 emit groundwork"
+      },
+      {
+        "type": "improvement",
+        "description": "f1 foundation · restore templates + endpoints + l2 prompt-adaptation"
+      },
+      {
+        "type": "improvement",
+        "description": "R1-R8 agent-centric directory restructure"
+      },
+      {
+        "type": "improvement",
+        "description": "sota dir #6 - services/health/ -> services/monitoring/"
+      },
+      {
+        "type": "improvement",
+        "description": "sota dir #5 - gateway into gateways/ + rename to realtime"
+      },
+      {
+        "type": "improvement",
+        "description": "sota dir #4 - drop data-source- prefix"
+      },
+      {
+        "type": "improvement",
+        "description": "sota dir #3 - drop topic- prefix in services/topic/"
+      },
+      {
+        "type": "improvement",
+        "description": "sota dir #2 - data export into services/data/"
+      },
+      {
+        "type": "improvement",
+        "description": "sota dir #1 - dimension utils out of services/"
+      },
+      {
+        "type": "improvement",
+        "description": "god service split step 2 - extract ReportContentEditingService"
+      },
+      {
+        "type": "improvement",
+        "description": "god service split step 1 - extract ComputeUsageService"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 15 - event-emitter slimming (orphan emit methods)"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 14 - orphan prompts/types/utils sweep"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 13 - additional orphan sweep"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 12 - delete ResearchTemplateService (orphan)"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 11 - delete config/ + specialized-agents types"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 10 - delete services/leader + research/leader.service"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 9 - lifecycle drops leader planning + intent deps"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 8 - createMission stops calling legacy leader planning"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 7 - delete TopicTeamOrchestrator + dimension/ cascade"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 6 - god service drops TopicTeamOrchestratorService"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 5 — rewire scheduler + god service to harness"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 4 — delete task-executors/ directory"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 3 — delete legacy scheduler chain (~900 lines)"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 2 — delete resumeExecution + resumeExecutionForNewTask"
+      },
+      {
+        "type": "improvement",
+        "description": "h6 step 1 — delete continueExecution (legacy orphan)"
+      },
+      {
+        "type": "improvement",
+        "description": "tier c+d naming — fix misplaced files + expand stage names"
+      },
+      {
+        "type": "improvement",
+        "description": "tier a+b naming — drop module-name prefixes, unify suffixes"
+      },
+      {
+        "type": "improvement",
+        "description": "sota directory layout"
+      },
+      {
+        "type": "improvement",
+        "description": "p3-3 single execution path; remove feature flags"
+      },
+      {
+        "type": "improvement",
+        "description": "p3-2 delete harness/ carcass; pipeline switches to SpecAgentRegistry"
+      },
+      {
+        "type": "improvement",
+        "description": "p3-1 move pipeline/stages/utils/rollout out of harness/"
+      },
+      {
+        "type": "improvement",
+        "description": "架构图主页 6 层 → 5 层，runtime 合并进 AI Engine"
+      },
+      {
+        "type": "improvement",
+        "description": "drop fake StorageSettings panel from /admin/storage"
+      },
+      {
+        "type": "improvement",
+        "description": "flatten /admin/storage — drop outer tabs and collapse"
+      },
+      {
+        "type": "improvement",
+        "description": "delete ai-kernel, consolidate into ai-engine/runtime"
+      },
+      {
+        "type": "improvement",
+        "description": "merge /admin/system/storage into /admin/storage"
+      },
+      {
+        "type": "improvement",
+        "description": "split into 3 categories storage/data/resources"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate remaining kernel modules to ai-engine/runtime"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate journal / ipc / resource from ai-kernel to ai-engine/runtime"
+      },
+      {
+        "type": "improvement",
+        "description": "split ai-kernel/memory into semantic + runtime layers"
+      },
+      {
+        "type": "improvement",
+        "description": "merge ai-kernel/observability into ai-engine/runtime"
+      },
+      {
+        "type": "improvement",
+        "description": "consolidate A2A from ai-kernel into ai-engine/infra/a2a"
+      },
+      {
+        "type": "improvement",
+        "description": "drop b2 completely, r2-only"
+      },
+      {
+        "type": "improvement",
+        "description": "auto-configure picks best provider per modelType"
+      },
+      {
+        "type": "improvement",
+        "description": "evaluator via model_type_aliases"
+      },
+      {
+        "type": "improvement",
+        "description": "own cross-module data export (move from research)"
+      },
+      {
+        "type": "improvement",
+        "description": "restructure to Session → Step → Action model"
+      },
+      {
+        "type": "fix",
+        "description": "pr-x22 fix nest bootstrap DI errors blocking railway deploy"
+      },
+      {
+        "type": "fix",
+        "description": "tag-fallback keeps tag-less general-purpose tools"
+      },
+      {
+        "type": "fix",
+        "description": "Micro Pipeline only shows applicable stages for quick depth"
+      },
+      {
+        "type": "fix",
+        "description": "friendly trace messages for parser fallbacks + finalize hint"
+      },
+      {
+        "type": "fix",
+        "description": "friendly thought message when LLM skips envelope"
+      },
+      {
+        "type": "fix",
+        "description": "coverage = actual/planned dimensions, not absolute count"
+      },
+      {
+        "type": "fix",
+        "description": "apply novelty/style heuristics on fullMarkdown not titles"
+      },
+      {
+        "type": "fix",
+        "description": "persist userProfile at mission creation, not only completion"
+      },
+      {
+        "type": "fix",
+        "description": "repopulate section.citations after figure injection rebuild"
+      },
+      {
+        "type": "fix",
+        "description": "unified citation normalization scans 3 forms in document order"
+      },
+      {
+        "type": "fix",
+        "description": "also normalize [https://url] bare-bracket form to [N]"
+      },
+      {
+        "type": "fix",
+        "description": "normalize [text](url) markdown links to [N] for citation density scoring"
+      },
+      {
+        "type": "fix",
+        "description": "bump ReAct loop default wallTime to 300s"
+      },
+      {
+        "type": "fix",
+        "description": "bump maxIterations floor to min(base,5) for ReAct workflows"
+      },
+      {
+        "type": "fix",
+        "description": "maxIterations floor=3 + parse output before validateBusinessRules"
+      },
+      {
+        "type": "fix",
+        "description": "expose 8 information tools to Researcher (was only 2)"
+      },
+      {
+        "type": "fix",
+        "description": "align protocol with implementation (3 action kinds only) + precise error msgs"
+      },
+      {
+        "type": "fix",
+        "description": "tolerate LLM emitting action at top level (missing thinking+action wrapper)"
+      },
+      {
+        "type": "fix",
+        "description": "zero out remaining gaps in agent protocol layer (4 bugs)"
+      },
+      {
+        "type": "fix",
+        "description": "add 3 missing action kinds to protocol + skill invocation example"
+      },
+      {
+        "type": "fix",
+        "description": "emit full tool_call example in catalog (was missing toolId scaffolding)"
+      },
+      {
+        "type": "fix",
+        "description": "create entities + relationships tables (KG tool was hitting 42P01 in prod)"
+      },
+      {
+        "type": "fix",
+        "description": "inject tool inputSchema into catalog block (LLM was unable to call tools)"
+      },
+      {
+        "type": "fix",
+        "description": "adopt 4 TI engineering disciplines into Harness path (no arch change)"
+      },
+      {
+        "type": "fix",
+        "description": "revert default reasoning_effort minimal → low (gpt-5.4 BYOK rejects minimal)"
+      },
+      {
+        "type": "fix",
+        "description": "suppress RUNNER_OUTPUT_SCHEMA_MISMATCH when upstream error already emitted"
+      },
+      {
+        "type": "fix",
+        "description": "cover all residual error paths + 100% failure-code dry-run"
+      },
+      {
+        "type": "fix",
+        "description": "default reasoning_effort=minimal (was low → still leaks 50k+ CoT)"
+      },
+      {
+        "type": "fix",
+        "description": "stop coercing malformed LLM action into fake finalize + add diagnostic raw content"
+      },
+      {
+        "type": "fix",
+        "description": "pass real modelConfig to mapToParameters (was null → reasoning boost失效)"
+      },
+      {
+        "type": "fix",
+        "description": "silence three startup-noise issues in production logs"
+      },
+      {
+        "type": "fix",
+        "description": "kill startsWith heuristic in BYOK + stream paths (the actual gpt-5.4 fix)"
+      },
+      {
+        "type": "fix",
+        "description": "thread userId/runtimeEnv into envelope (was lost in materialize)"
+      },
+      {
+        "type": "fix",
+        "description": "unify continuous-view chapter slicing with chapter view"
+      },
+      {
+        "type": "fix",
+        "description": "drive model metadata from DB, kill startsWith heuristics"
+      },
+      {
+        "type": "fix",
+        "description": "align continuous-view image positions with chapter view"
+      },
+      {
+        "type": "fix",
+        "description": "per-chapter inject in continuous view (no more piled-at-start)"
+      },
+      {
+        "type": "fix",
+        "description": "continuous view shows charts again — extract injectChartPlaceholders"
+      },
+      {
+        "type": "fix",
+        "description": "close all 4 deep-review remaining bugs"
+      },
+      {
+        "type": "fix",
+        "description": "reasoning model short profile from 7500 to 12500 tokens"
+      },
+      {
+        "type": "fix",
+        "description": "respect agent spec.taskProfile in Loop chat() calls"
+      },
+      {
+        "type": "fix",
+        "description": "root-cause empty-LLM detection at right layer"
+      },
+      {
+        "type": "fix",
+        "description": "true root cause — dedup leader-plan dim names"
+      },
+      {
+        "type": "fix",
+        "description": "correct budget reason + format observation as cards"
+      },
+      {
+        "type": "fix",
+        "description": "root-cause fix for duplicated tasks via mission scoping"
+      },
+      {
+        "type": "fix",
+        "description": "close 5 deep-review gaps"
+      },
+      {
+        "type": "fix",
+        "description": "rerunMission missing required budgetProfile field"
+      },
+      {
+        "type": "fix",
+        "description": "cover stuck mission states for dim cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "more forgiving response extraction"
+      },
+      {
+        "type": "fix",
+        "description": "chip styles disappeared due to Tailwind JIT dynamic class"
+      },
+      {
+        "type": "fix",
+        "description": "close 4 review-discovered gaps for leader-chat append flow"
+      },
+      {
+        "type": "fix",
+        "description": "kill stale dimensions causing duplicated tasks"
+      },
+      {
+        "type": "fix",
+        "description": "surface failure reasons + format final outputs as cards"
+      },
+      {
+        "type": "fix",
+        "description": "repair stale relative imports after Wave 2/3 moves"
+      },
+      {
+        "type": "fix",
+        "description": "close last 4 idempotency gaps + clean platform warnings"
+      },
+      {
+        "type": "fix",
+        "description": "preserve outer BillingContext, don't overwrite"
+      },
+      {
+        "type": "fix",
+        "description": "close last 2 idempotency gaps + replace TI consumers"
+      },
+      {
+        "type": "fix",
+        "description": "close idempotency gaps + first TI consumer migrated"
+      },
+      {
+        "type": "fix",
+        "description": "refresh left team panel after leader creates TODO"
+      },
+      {
+        "type": "fix",
+        "description": "deep-review fixes after leader chat refactor"
+      },
+      {
+        "type": "fix",
+        "description": "close last 2 gaps after inline leader chat removal"
+      },
+      {
+        "type": "fix",
+        "description": "reset startedAt on mission retry to avoid false timeout"
+      },
+      {
+        "type": "fix",
+        "description": "svg renders 1 node per dimension + raw trace shows input/output"
+      },
+      {
+        "type": "fix",
+        "description": "unpack parallel_tool_call calls + flatten preview-string outputs"
+      },
+      {
+        "type": "fix",
+        "description": "hover actions on mission cards + progress label dedup"
+      },
+      {
+        "type": "fix",
+        "description": "show status only in agent inspector subtitle"
+      },
+      {
+        "type": "fix",
+        "description": "avoid duplicate role name in agent inspector header"
+      },
+      {
+        "type": "fix",
+        "description": "unpack parallel_tool_call to expose real tools + queries"
+      },
+      {
+        "type": "fix",
+        "description": "role detail card breaks out of svg canvas as full-screen modal"
+      },
+      {
+        "type": "fix",
+        "description": "svg topology - pure vertical pipeline, no crossing lines"
+      },
+      {
+        "type": "fix",
+        "description": "report panel localized w/ word count + violet executive callout"
+      },
+      {
+        "type": "fix",
+        "description": "localize event timeline + agent card chrome"
+      },
+      {
+        "type": "fix",
+        "description": "localize research-team launcher header"
+      },
+      {
+        "type": "fix",
+        "description": "localize demo launcher (research team form)"
+      },
+      {
+        "type": "fix",
+        "description": "localize all detail-page panels to chinese"
+      },
+      {
+        "type": "fix",
+        "description": "localize mission list page strings + clean unused imports"
+      },
+      {
+        "type": "fix",
+        "description": "localize collab tab strings + completed-empty-state hint"
+      },
+      {
+        "type": "fix",
+        "description": "references tab grouped by host + zh empty state, ai-planning import"
+      },
+      {
+        "type": "fix",
+        "description": "persist dimensions/themeSummary/verdicts + orphan recovery"
+      },
+      {
+        "type": "fix",
+        "description": "default tab tasks + settings + task drawer + clean svg lines"
+      },
+      {
+        "type": "fix",
+        "description": "完成态合成 stages/agents + 移除 chunks meter"
+      },
+      {
+        "type": "fix",
+        "description": "nested object preview no longer prints [object Object]"
+      },
+      {
+        "type": "fix",
+        "description": "svg topology + readable events + expandable dims"
+      },
+      {
+        "type": "fix",
+        "description": "replay ownership 加 db fallback"
+      },
+      {
+        "type": "fix",
+        "description": "深度对齐 ti — grid 4 列 / create-new 占位 / 折叠按钮位置"
+      },
+      {
+        "type": "fix",
+        "description": "observation 解析 search 结果 + report 用 markdown 渲染 + 全展开"
+      },
+      {
+        "type": "fix",
+        "description": "react-loop 暴露 LLM tokens + websocket 直连后端"
+      },
+      {
+        "type": "fix",
+        "description": "judge.service 透传 modelType + userId — 三 verifier 不再全挂"
+      },
+      {
+        "type": "fix",
+        "description": "react-loop 从 LLM 多 JSON 对象输出中只取第一个"
+      },
+      {
+        "type": "fix",
+        "description": "agent-runner 把 LLM 的 stringified output 反序列化后再 schema 校验"
+      },
+      {
+        "type": "fix",
+        "description": "各 agent prompt 显式列出 outputSchema 字段名"
+      },
+      {
+        "type": "fix",
+        "description": "chat() 全部透传 modelType + userId — 系统配置感知 + BYOK"
+      },
+      {
+        "type": "fix",
+        "description": "用系统配置的模型，不再要独立 API key"
+      },
+      {
+        "type": "fix",
+        "description": "修剩余 5 项 + 关键 missionId-missing bug"
+      },
+      {
+        "type": "fix",
+        "description": "深度审计修 8 项 demo bug（P0~P2）"
+      },
+      {
+        "type": "fix",
+        "description": "风格对齐 ai-insights — 加 AppShell + 重做 header/卡片"
+      },
+      {
+        "type": "fix",
+        "description": "路由 404 — 前端 /api/v1 缺失 + 后端控制器双重 api 前缀"
+      },
+      {
+        "type": "fix",
+        "description": "export MemoryAutoIndexer + PrismaVectorStore 修复 agent-playground DI 失败"
+      },
+      {
+        "type": "fix",
+        "description": "tool-circuit-breaker / in-memory-vector-store DI 故障"
+      },
+      {
+        "type": "fix",
+        "description": "sidebar 底部 nav + 主内容区被裁切"
+      },
+      {
+        "type": "fix",
+        "description": "review 必修 14 项 + 架构去穿透"
+      },
+      {
+        "type": "fix",
+        "description": "kill silent-fallback DI pattern across pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "activity write must use prisma not emitter"
+      },
+      {
+        "type": "fix",
+        "description": "5-way P0 capability recovery for production"
+      },
+      {
+        "type": "fix",
+        "description": "agent-hitl controller path double-prefix"
+      },
+      {
+        "type": "fix",
+        "description": "dimension accumulation + pipeline abort — but activity-emit gap remains"
+      },
+      {
+        "type": "fix",
+        "description": "deep review gaps — vision filter + topic name + synth remediation"
+      },
+      {
+        "type": "fix",
+        "description": "stage-level baseline alignment for research/write/synth"
+      },
+      {
+        "type": "fix",
+        "description": "package search/ as SearchModule"
+      },
+      {
+        "type": "fix",
+        "description": "align all 19 agent specs' system prompts to Apr 21 baseline"
+      },
+      {
+        "type": "fix",
+        "description": "lazy election accessor — fix OnModuleInit/OnApplicationBootstrap race"
+      },
+      {
+        "type": "fix",
+        "description": "kill all L2-internal facade barrel imports + setter-inject election"
+      },
+      {
+        "type": "fix",
+        "description": "bypass facade barrel in harness internal imports + cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "kill hardcoded gemini fallback + detect reasoning models correctly"
+      },
+      {
+        "type": "fix",
+        "description": "urlvalidationservice bootstrap — default fetcher via di-optional token"
+      },
+      {
+        "type": "fix",
+        "description": "createMission must trigger startExecution to run harness pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "break circular barrel import causing TopicRefreshScheduler DI failure"
+      },
+      {
+        "type": "fix",
+        "description": "harness deep-review fixes before rollout enable"
+      },
+      {
+        "type": "fix",
+        "description": "unregister HealthCheckRunner from DI — crashes Nest bootstrap"
+      },
+      {
+        "type": "fix",
+        "description": "close audit findings — DI wiring + abort/cancel + integration smoke"
+      },
+      {
+        "type": "fix",
+        "description": "close facade boundary violations + cleanup stale comments"
+      },
+      {
+        "type": "fix",
+        "description": "correct /admin/system/storage redirect direction and clean stale refs"
+      },
+      {
+        "type": "fix",
+        "description": "system model panel tabs + collapse + fix vertical text"
+      },
+      {
+        "type": "fix",
+        "description": "storage inventory placeholder syntax {count} -> {{count}}"
+      },
+      {
+        "type": "fix",
+        "description": "offload button ux — toast + 20s poll"
+      },
+      {
+        "type": "fix",
+        "description": "harden hydrate + snapshot retention + r2 only cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "unwrap nest response envelope + defensive nulls"
+      },
+      {
+        "type": "fix",
+        "description": "storage inventory panel auth header"
+      },
+      {
+        "type": "fix",
+        "description": "add missing feishu_items migration"
+      },
+      {
+        "type": "fix",
+        "description": "silence duplicate config p2002 + tls listener warning"
+      },
+      {
+        "type": "fix",
+        "description": "narrow jailbreak pattern + downgrade audit log level"
+      },
+      {
+        "type": "fix",
+        "description": "strict isolation when user exhausts own models"
+      },
+      {
+        "type": "fix",
+        "description": "auto-configure probes each candidate via chat before saving"
+      },
+      {
+        "type": "fix",
+        "description": "short-circuit blocklisted models at chatfacade entry"
+      },
+      {
+        "type": "fix",
+        "description": "set realistic maxtokens in auto-configured models"
+      },
+      {
+        "type": "fix",
+        "description": "invalid_model joins unrecoverable_error_types"
+      },
+      {
+        "type": "fix",
+        "description": "generation-agnostic pattern families for forward compat"
+      },
+      {
+        "type": "fix",
+        "description": "auto-configure picks newest by created timestamp not pattern order"
+      },
+      {
+        "type": "fix",
+        "description": "reorder recommendation patterns newest-first"
+      },
+      {
+        "type": "fix",
+        "description": "broaden isreasoning to include top-tier chat models"
+      },
+      {
+        "type": "fix",
+        "description": "close getModelConfig leak + refresh stale comment"
+      },
+      {
+        "type": "fix",
+        "description": "close fallback leak + one-key serves all applicable types"
+      },
+      {
+        "type": "fix",
+        "description": "route image-model connection test to /v1/images/generations"
+      },
+      {
+        "type": "fix",
+        "description": "user auto-configure now covers EMBEDDING / IMAGE / RERANK"
+      },
+      {
+        "type": "fix",
+        "description": "prefer UserModelConfig in getAllEnabledModelsByType"
+      },
+      {
+        "type": "fix",
+        "description": "portal to document.body so backdrop-filter ancestors can't trap it"
+      },
+      {
+        "type": "fix",
+        "description": "add --forceExit to pre-push jest"
+      },
+      {
+        "type": "fix",
+        "description": "review findings from UserModelConfig deep audit"
+      },
+      {
+        "type": "fix",
+        "description": "translate provider 401/429 into BYOK errors for user keys"
+      },
+      {
+        "type": "fix",
+        "description": "never blocklist the model when a BYOK error is thrown"
+      },
+      {
+        "type": "fix",
+        "description": "route BYOK errors to global modal instead of chat bubble"
+      },
+      {
+        "type": "fix",
+        "description": "merge userId before propagating + global error modal"
+      },
+      {
+        "type": "fix",
+        "description": "coerce axios response header values to string"
+      },
+      {
+        "type": "fix",
+        "description": "stop LatexRepair from gluing next chunk's H2 heading"
+      },
+      {
+        "type": "fix",
+        "description": "restore native right-click menu via TextSelectionToolbar"
+      },
+      {
+        "type": "fix",
+        "description": "align bilingual PDF pairs row-by-row"
+      },
+      {
+        "type": "fix",
+        "description": "use local translations for bilingual PDF"
+      },
+      {
+        "type": "fix",
+        "description": "strip boundary markers from LaTeX repair LLM output"
+      },
+      {
+        "type": "fix",
+        "description": "expand CJK guard to cover fullwidth punctuation"
+      },
+      {
+        "type": "fix",
+        "description": "preprocessLatex no longer strips legitimate $"
+      },
+      {
+        "type": "fix",
+        "description": "plug 4 more latex validator gaps"
+      },
+      {
+        "type": "fix",
+        "description": "chunked latex repair for large reports"
+      },
+      {
+        "type": "fix",
+        "description": "show parallelism instead of misleading 352% LLM percentage"
+      },
+      {
+        "type": "fix",
+        "description": "drop unsafe mechanical pre-clean in latex repair"
+      },
+      {
+        "type": "fix",
+        "description": "filter sub-steps from summary bar chart via name pattern"
+      },
+      {
+        "type": "fix",
+        "description": "proper tree nesting with parentStepId"
+      },
+      {
+        "type": "fix",
+        "description": "validator catches bare LaTeX commands outside $...$"
+      },
+      {
+        "type": "fix",
+        "description": "final review fixes — getLatestSummary auth, dead code cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "per-mission compute usage review fixes"
+      },
+      {
+        "type": "fix",
+        "description": "stop the regex-patch spiral on LaTeX formulas"
+      },
+      {
+        "type": "fix",
+        "description": "wrap bare \\command_sub + split prose-absorbed $...$"
+      },
+      {
+        "type": "fix",
+        "description": "close unclosed inline $ before bare-LaTeX wrap"
+      },
+      {
+        "type": "fix",
+        "description": "remove duplicate operationName causing TS1117 build failure"
+      },
+      {
+        "type": "fix",
+        "description": "add missing operationName to 7 chatFacade call sites"
+      },
+      {
+        "type": "fix",
+        "description": "real-time latency data from in-memory active sessions"
+      },
+      {
+        "type": "fix",
+        "description": "rerank review fixes — signal abort, fail-open semantics, 100% branch coverage"
+      },
+      {
+        "type": "fix",
+        "description": "add missing @Request import in latency.controller"
+      },
+      {
+        "type": "fix",
+        "description": "review fixes — fallback operationName, stream operationName, resume phases, auth"
+      },
+      {
+        "type": "fix",
+        "description": "harden concurrency, registry, DTO validation, layering"
+      },
+      {
+        "type": "fix",
+        "description": "isolate external content to defend indirect prompt injection"
+      },
+      {
+        "type": "fix",
+        "description": "harden controller authz and redact sensitive logs"
+      },
+      {
+        "type": "fix",
+        "description": "harden chapter view parsing and add countWords tests"
+      },
+      {
+        "type": "fix",
+        "description": "use stepId for step closure, fix parallel name collision"
+      },
+      {
+        "type": "fix",
+        "description": "fix parallel dimension tracking — per-task KernelContext isolation"
+      },
+      {
+        "type": "fix",
+        "description": "prevent cross-line formula absorption in mergeAdjacentMathBlocks"
+      },
+      {
+        "type": "fix",
+        "description": "remove fake processId that causes FK violation in EventJournal"
+      },
+      {
+        "type": "fix",
+        "description": "add formula damage diagnostics to trace $$$ origin"
+      },
+      {
+        "type": "fix",
+        "description": "wire latency tracking into MissionExecutionService"
+      },
+      {
+        "type": "fix",
+        "description": "add TTLT stats, per-phase TTLT, active session query, empty state UI"
+      },
+      {
+        "type": "fix",
+        "description": "rewrite Fix 2a-2d to prevent $$ boundary corruption"
+      },
+      {
+        "type": "fix",
+        "description": "protect math blocks from bare-LaTeX wrapping + 89 formula tests"
+      },
+      {
+        "type": "fix",
+        "description": "remove regex that destroys LaTeX formulas in reports"
+      },
+      {
+        "type": "fix",
+        "description": "resolve chart placeholders to images in PDF export"
+      },
+      {
+        "type": "fix",
+        "description": "fix citation verification index mismatch and dedup remapping"
+      },
+      {
+        "type": "fix",
+        "description": "default session filter to latest session instead of all"
+      },
+      {
+        "type": "fix",
+        "description": "auto-filter insights/ideas/demos by viewed session"
+      },
+      {
+        "type": "fix",
+        "description": "restore iterations tab to always visible"
+      },
+      {
+        "type": "fix",
+        "description": "relax demo iframe sandbox to enable interactive prototypes"
+      },
+      {
+        "type": "fix",
+        "description": "update tests for new ownership check signatures"
+      },
+      {
+        "type": "fix",
+        "description": "add ownership checks to prevent IDOR and fix pagination"
+      },
+      {
+        "type": "fix",
+        "description": "model test connection reads tokenParamName from DB config"
+      },
+      {
+        "type": "fix",
+        "description": "restore fullReport priority over detailedContent for continuous view"
+      },
+      {
+        "type": "fix",
+        "description": "make frontend ESLint compatible with Next.js 14 and 16"
+      },
+      {
+        "type": "feature",
+        "description": "PR-R2 — move api/security/journal/memory into ai-harness"
+      },
+      {
+        "type": "feature",
+        "description": "PR-R1 — move process/scheduler/supervisor into ai-harness/process/"
+      },
+      {
+        "type": "feature",
+        "description": "PR-H6b — ai-app migrated to ai-harness/facade, single-direction dep enforced"
+      },
+      {
+        "type": "feature",
+        "description": "PR-H5 + H6a — billing adapter into ai-harness, delete shim dir"
+      },
+      {
+        "type": "feature",
+        "description": "PR-H4 — decouple runtime/resource from ai-harness via DI tokens"
+      },
+      {
+        "type": "feature",
+        "description": "PR-H3 — full harness subtree moved into ai-harness module"
+      },
+      {
+        "type": "feature",
+        "description": "elevate harness to first-class module (PR-H1+H2 — abstractions moved)"
+      },
+      {
+        "type": "feature",
+        "description": "leader M1 patch/redirect dispatch — close lead loop"
+      },
+      {
+        "type": "feature",
+        "description": "leader-replanner-lite — 8-role agent system"
+      },
+      {
+        "type": "feature",
+        "description": "declare semantic tags for all 42 tools without tags"
+      },
+      {
+        "type": "feature",
+        "description": "show retry count + reason for self-healed researchers"
+      },
+      {
+        "type": "feature",
+        "description": "tool recall hint falls back to tool.tags when categories don't match"
+      },
+      {
+        "type": "feature",
+        "description": "self-heal retry for failed researcher (recoverable codes only)"
+      },
+      {
+        "type": "feature",
+        "description": "pass raw researcher findings to Writer (not only Analyst's cherry-picked insights)"
+      },
+      {
+        "type": "feature",
+        "description": "content-driven heuristics for novelty + styleConformance"
+      },
+      {
+        "type": "feature",
+        "description": "include Critic L4 findings in markdown export"
+      },
+      {
+        "type": "feature",
+        "description": "3-view artifact reader + 13 components + user profile form"
+      },
+      {
+        "type": "feature",
+        "description": "orchestrator 8-stage pipeline + 3 new services"
+      },
+      {
+        "type": "feature",
+        "description": "new agents + ReportArtifact DTO + figure filter util"
+      },
+      {
+        "type": "feature",
+        "description": "add ReportArtifact v2 columns to agent_playground_missions"
+      },
+      {
+        "type": "feature",
+        "description": "tool recall pipeline + RunResult 3-segment + abort propagation"
+      },
+      {
+        "type": "feature",
+        "description": "contracts for tool recall + multi-exit + tool ACL"
+      },
+      {
+        "type": "feature",
+        "description": "content-driven exit gate via outputSchema + business rules"
+      },
+      {
+        "type": "feature",
+        "description": "wire failure-learner lookup into orchestrator main flow"
+      },
+      {
+        "type": "feature",
+        "description": "orch+tool failure codes + cross-mission failure learning"
+      },
+      {
+        "type": "feature",
+        "description": "full-chain failure-code diagnostics + auto fallback (no arch change)"
+      },
+      {
+        "type": "feature",
+        "description": "user-facing budgetProfile + better budgets + clearer errors"
+      },
+      {
+        "type": "feature",
+        "description": "leader chat → CREATE_TODO appends dimensions (TI parity)"
+      },
+      {
+        "type": "feature",
+        "description": "close remaining gaps — stream RunOptions, balance cache, tests"
+      },
+      {
+        "type": "feature",
+        "description": "self-encapsulating runner — env-aware, byok-aware, agent-agnostic"
+      },
+      {
+        "type": "feature",
+        "description": "realtime stream + business-flow timeline"
+      },
+      {
+        "type": "feature",
+        "description": "wave 3 - report viewer + revisions hook + platform README"
+      },
+      {
+        "type": "feature",
+        "description": "wave 2 - annotations + ai-text-edit platform"
+      },
+      {
+        "type": "feature",
+        "description": "wave 1 - markdown / chart / citations platform"
+      },
+      {
+        "type": "feature",
+        "description": "ti-style search results host date score badges"
+      },
+      {
+        "type": "feature",
+        "description": "collapse svg to 3-row TI-style + research-team group expansion modal"
+      },
+      {
+        "type": "feature",
+        "description": "drawer shows chapter progress + 5-axis quality grade"
+      },
+      {
+        "type": "feature",
+        "description": "readable trace render + per-dim pipeline state, no truncation"
+      },
+      {
+        "type": "feature",
+        "description": "per-dimension chapter pipeline w/ outline writer reviewer integrator judge"
+      },
+      {
+        "type": "feature",
+        "description": "edit + delete mission with hover actions"
+      },
+      {
+        "type": "feature",
+        "description": "persist leader chat + match right-bottom panel style"
+      },
+      {
+        "type": "feature",
+        "description": "persist trace events to db + ws polling fallback"
+      },
+      {
+        "type": "feature",
+        "description": "wire LeaderChat to AgentInspector via dock"
+      },
+      {
+        "type": "feature",
+        "description": "surface real LLM model id per agent in task list"
+      },
+      {
+        "type": "feature",
+        "description": "platform LeaderChat + LeaderChatDock"
+      },
+      {
+        "type": "feature",
+        "description": "migrate MissionCard to AssetCard"
+      },
+      {
+        "type": "feature",
+        "description": "migrate TopicTeamPanel detail to AgentInspector"
+      },
+      {
+        "type": "feature",
+        "description": "wire 开始/更新/取消 buttons + leader chat optimistic ui"
+      },
+      {
+        "type": "feature",
+        "description": "platform AgentInspector for agent node detail popup"
+      },
+      {
+        "type": "feature",
+        "description": "rich task drawer w/ tools sources thoughts sections"
+      },
+      {
+        "type": "feature",
+        "description": "parallel researchers svg, failure-reason banner, rerun/cancel endpoints"
+      },
+      {
+        "type": "feature",
+        "description": "asset card media slot + unify planning / simulation / slides"
+      },
+      {
+        "type": "feature",
+        "description": "platformize asset card / layout / share modal / form hook"
+      },
+      {
+        "type": "feature",
+        "description": "leader chat md render + minimize, role detail w/ skills/tools"
+      },
+      {
+        "type": "feature",
+        "description": "drop tool store group, admin sits under innovation labs"
+      },
+      {
+        "type": "feature",
+        "description": "sidebar restructure - 知识沉淀 / 内容产出 / 创新Labs"
+      },
+      {
+        "type": "feature",
+        "description": "leader chat triggered from leader node click"
+      },
+      {
+        "type": "feature",
+        "description": "TI-style 5 tabs restructure"
+      },
+      {
+        "type": "feature",
+        "description": "writer prompt 升级到 publication-quality 标准"
+      },
+      {
+        "type": "feature",
+        "description": "mirror topic insights structure 1:1"
+      },
+      {
+        "type": "feature",
+        "description": "mission detail 重做成 ti 风格 left team + right tabbed 阵型"
+      },
+      {
+        "type": "feature",
+        "description": "mission 持久化 + 列表回看 + detail fallback"
+      },
+      {
+        "type": "feature",
+        "description": "agent-runner 自动注入 outputSchema 描述到 system prompt"
+      },
+      {
+        "type": "feature",
+        "description": "playground demo - research team (full real, no mock)"
+      },
+      {
+        "type": "feature",
+        "description": "t1 sota 冲刺 pr-q..u (cache / handoff / vector memory / learning / otel)"
+      },
+      {
+        "type": "feature",
+        "description": "sota upgrade pr-a..p (loop / verifier / checkpoint / dx / runtime-env)"
+      },
+      {
+        "type": "feature",
+        "description": "per-dim/per-section activity granularity"
+      },
+      {
+        "type": "feature",
+        "description": "phase 7 — sota runtime feature flag + delegation path"
+      },
+      {
+        "type": "feature",
+        "description": "phase 6 — human-in-loop + live agent step stream"
+      },
+      {
+        "type": "feature",
+        "description": "phase 5 — sota task-centric orchestration layer"
+      },
+      {
+        "type": "feature",
+        "description": "phase 4 — multi-judge verification layer"
+      },
+      {
+        "type": "feature",
+        "description": "phase 3 — 5 task protocols + protocol registry"
+      },
+      {
+        "type": "feature",
+        "description": "phase 2 — sota agent runtime (generic L2 + topic-insights adapters)"
+      },
+      {
+        "type": "feature",
+        "description": "phase 1 — sota task-centric data model"
+      },
+      {
+        "type": "feature",
+        "description": "chat auto-schedule + supplement figures + section remediation"
+      },
+      {
+        "type": "feature",
+        "description": "arxiv figure upgrade + cross-dim global outline"
+      },
+      {
+        "type": "feature",
+        "description": "dimension outline stage + dynamic add-dim reset"
+      },
+      {
+        "type": "feature",
+        "description": "section-evidence diversity + dimension CRUD + determ review fallback"
+      },
+      {
+        "type": "feature",
+        "description": "revisionRound + conclusion promotion + evidence diversity + leader actions"
+      },
+      {
+        "type": "feature",
+        "description": "leader-agent-selection + task keyword routing from baseline"
+      },
+      {
+        "type": "feature",
+        "description": "align Leader planning end-to-end with baseline 38347e2a7"
+      },
+      {
+        "type": "feature",
+        "description": "shared/config leader planning infrastructure from baseline"
+      },
+      {
+        "type": "feature",
+        "description": "harness ↔ Apr 21 baseline full capability recovery"
+      },
+      {
+        "type": "feature",
+        "description": "environment-aware model election + audit Top-10 fixes"
+      },
+      {
+        "type": "feature",
+        "description": "h5 rewire controllers + event handlers to harness primitives"
+      },
+      {
+        "type": "feature",
+        "description": "h3+h4 harness primitives — dimension scope + decision events"
+      },
+      {
+        "type": "feature",
+        "description": "h2 harness primitive — stage checkpoint + resume"
+      },
+      {
+        "type": "feature",
+        "description": "h1 harness primitive — cancel signal"
+      },
+      {
+        "type": "feature",
+        "description": "p4 capability reconciler + identity context + leader awareness + http endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "p2-2 register 17 specs to l2 SpecAgentRegistry"
+      },
+      {
+        "type": "feature",
+        "description": "p2-1 complete 16 remaining agent specs (17/17 total)"
+      },
+      {
+        "type": "feature",
+        "description": "p2-1 leader-planner spec (17 agent migration kickoff)"
+      },
+      {
+        "type": "feature",
+        "description": "p1-5 runtime environment wires all 3 registries"
+      },
+      {
+        "type": "feature",
+        "description": "p1-4 stub mode for zero-llm testing"
+      },
+      {
+        "type": "feature",
+        "description": "p1-3 access matrix + kernel-context passthrough"
+      },
+      {
+        "type": "feature",
+        "description": "p1-2 l2 llm-executor with zod + error-fed retry"
+      },
+      {
+        "type": "feature",
+        "description": "p1-1 generic IAgentSpec + target-architecture fields"
+      },
+      {
+        "type": "feature",
+        "description": "enable Topic Insights harness at 10% rollout on Railway"
+      },
+      {
+        "type": "feature",
+        "description": "wire AG-17-LDP via HarnessDispatcherService + HTTP endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "wire AG-16-MA MissionAdjuster into pipeline runtime"
+      },
+      {
+        "type": "feature",
+        "description": "tier group N — harness run metrics persistence + history api"
+      },
+      {
+        "type": "feature",
+        "description": "tier group M — rollout + auto-rollback + fixtures align"
+      },
+      {
+        "type": "feature",
+        "description": "tier group L — Nest CLI context + dim parallel + real outputs"
+      },
+      {
+        "type": "feature",
+        "description": "enhancement tier group K — section remediate + real judge + signal"
+      },
+      {
+        "type": "feature",
+        "description": "enhancement tier group J — 6 advanced agents + remediate loop"
+      },
+      {
+        "type": "feature",
+        "description": "enhancement tier group I — 5 agents + 4 stages (thorough depth)"
+      },
+      {
+        "type": "feature",
+        "description": "enhancement tier group H — quality gate + persist + cleanup"
+      },
+      {
+        "type": "feature",
+        "description": "enhancement tier group G — real search + evidence + dimension mapping"
+      },
+      {
+        "type": "feature",
+        "description": "enhancement tier group F — harness gets wired end-to-end"
+      },
+      {
+        "type": "feature",
+        "description": "wire harness agents to real LLM + audit fixes"
+      },
+      {
+        "type": "feature",
+        "description": "tier core harness pipeline + 6 agents + 8 stages"
+      },
+      {
+        "type": "feature",
+        "description": "phase 0 baseline recorder + mock fixtures + golden runner"
+      },
+      {
+        "type": "feature",
+        "description": "checkpoint/resume + skill learner (Phase 6 — final)"
+      },
+      {
+        "type": "feature",
+        "description": "context engineering — compactor + pruner + manager (Phase 5)"
+      },
+      {
+        "type": "feature",
+        "description": "subagent spawner with 3-level isolation (Phase 4)"
+      },
+      {
+        "type": "feature",
+        "description": "SKILL.md system with parser/registry/loader/activator (Phase 3)"
+      },
+      {
+        "type": "feature",
+        "description": "ReAct loop + tool invoker + memory bridge (Phase 2)"
+      },
+      {
+        "type": "feature",
+        "description": "introduce Harness abstraction layer (Phase 1)"
+      },
+      {
+        "type": "feature",
+        "description": "tabs + collapse storage panel + broken resources cleanup card"
+      },
+      {
+        "type": "feature",
+        "description": "system model inventory panel"
+      },
+      {
+        "type": "feature",
+        "description": "system model inventory panel"
+      },
+      {
+        "type": "feature",
+        "description": "detect deleted youtube videos + cleanup broken api"
+      },
+      {
+        "type": "feature",
+        "description": "gentle onboarding banner for unconfigured users"
+      },
+      {
+        "type": "feature",
+        "description": "storage inventory ui polish (tier a+b+c)"
+      },
+      {
+        "type": "feature",
+        "description": "storage inventory dashboard in data management"
+      },
+      {
+        "type": "feature",
+        "description": "auto offload scheduler for new data"
+      },
+      {
+        "type": "feature",
+        "description": "offload research_tasks.result json to r2"
+      },
+      {
+        "type": "feature",
+        "description": "add r2 preference switch env"
+      },
+      {
+        "type": "feature",
+        "description": "offload dimension_analyses.data_points json to b2"
+      },
+      {
+        "type": "feature",
+        "description": "prisma $extends for topic_report full_report hydrate (phase 2a)"
+      },
+      {
+        "type": "feature",
+        "description": "offload topic_reports.full_report to b2 (phase 1)"
+      },
+      {
+        "type": "feature",
+        "description": "add uploadText/downloadText to r2 service"
+      },
+      {
+        "type": "feature",
+        "description": "add EVALUATOR defaults + i18n + rename menu"
+      },
+      {
+        "type": "feature",
+        "description": "strict BYOK for RERANK + unify AI config under /me/ai"
+      },
+      {
+        "type": "feature",
+        "description": "add test-connection button to user's model list"
+      },
+      {
+        "type": "feature",
+        "description": "persistent recommendation matrix + admin one-click + shared UI"
+      },
+      {
+        "type": "feature",
+        "description": "add one-click auto-configure for user models"
+      },
+      {
+        "type": "feature",
+        "description": "rebuild user models page as admin-parity table + coverage panel"
+      },
+      {
+        "type": "feature",
+        "description": "user-scoped multi-model configs (admin-parity fields)"
+      },
+      {
+        "type": "feature",
+        "description": "user-selected modelId with dynamic discovery"
+      },
+      {
+        "type": "feature",
+        "description": "v2 — per-user BYOK with admin-distributable key pool"
+      },
+      {
+        "type": "feature",
+        "description": "opt-in LLM auto-router as the 5th precedence layer"
+      },
+      {
+        "type": "feature",
+        "description": "chapter-view → Slides entry + preset forwarding"
+      },
+      {
+        "type": "feature",
+        "description": "differentiated outline-exec-brief skill + presets listing API"
+      },
+      {
+        "type": "feature",
+        "description": "resolvedSkills now redirects task dispatch (phase B)"
+      },
+      {
+        "type": "feature",
+        "description": "skills-driven resolver with presets (trunk stable, skills flexible)"
+      },
+      {
+        "type": "feature",
+        "description": "final-boundary latex repair as 7th safety net"
+      },
+      {
+        "type": "feature",
+        "description": "wire state-machine scanner into validator"
+      },
+      {
+        "type": "feature",
+        "description": "escalating retry + golden eval corpus for latex"
+      },
+      {
+        "type": "feature",
+        "description": "add batch latex repair endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "add latex repair service for historical reports"
+      },
+      {
+        "type": "feature",
+        "description": "per-mission compute usage with mission selector"
+      },
+      {
+        "type": "feature",
+        "description": "add tool_call tracking to all search adapters"
+      },
+      {
+        "type": "feature",
+        "description": "rerank module — barrel export + orchestrator integration tests"
+      },
+      {
+        "type": "feature",
+        "description": "evaluation-driven loop — prompt telemetry + forced re-eval"
+      },
+      {
+        "type": "feature",
+        "description": "collapsible Step → Action tree view in compute usage"
+      },
+      {
+        "type": "feature",
+        "description": "step-level latency tracking with operationName"
+      },
+      {
+        "type": "feature",
+        "description": "add per-task phase tracking in MissionExecutionService"
+      },
+      {
+        "type": "feature",
+        "description": "integrate latency tracking into compute usage panel"
+      },
+      {
+        "type": "feature",
+        "description": "add session-level end-to-end latency tracking system"
+      },
+      {
+        "type": "feature",
+        "description": "add automation tooling for monitoring, testing, and CI checks"
+      },
+      {
+        "type": "feature",
+        "description": "improve UX with inline options, feedback controls, and phase navigation"
+      },
+      {
+        "type": "feature",
+        "description": "inject Checkpoint + SessionMemorySidecar into DimensionMissionService"
+      }
+    ]
+  },
+  {
     "version": "40.2.0",
     "date": "2026-04-05",
     "changes": [

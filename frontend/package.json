@@ -1,6 +1,6 @@
 {
   "name": "genesis-frontend",
-  "version": "40.2.26",
+  "version": "40.3.0",
   "private": true,
   "scripts": {
     "dev": "node scripts/generate-changelog.js && next dev",
