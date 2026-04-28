@@ -254,6 +254,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `Server Error: ${JSON.stringify(logContext)}`,
         exception instanceof Error ? exception.stack : undefined,
       );
+    } else if (
+      errorResponse.statusCode === HttpStatus.UNAUTHORIZED ||
+      errorResponse.statusCode === HttpStatus.FORBIDDEN
+    ) {
+      // Unauthenticated/forbidden requests are usually scanners/bots probing
+      // protected endpoints. The guard already rejected them; logging every
+      // hit at WARN floods the dashboard. Keep them visible at DEBUG only.
+      this.logger.debug(`Auth rejected: ${JSON.stringify(logContext)}`);
     } else if (errorResponse.statusCode >= 400) {
       this.logger.warn(`Client Error: ${JSON.stringify(logContext)}`);
     }

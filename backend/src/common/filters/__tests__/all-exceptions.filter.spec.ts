@@ -71,6 +71,7 @@ describe("AllExceptionsFilter", () => {
     // Spy on logger
     jest.spyOn(Logger.prototype, "error").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
     // Mock RequestContext
     jest.spyOn(RequestContext, "getRequestId").mockReturnValue("req-123");
@@ -564,6 +565,34 @@ describe("AllExceptionsFilter", () => {
       // Assert
       expect(Logger.prototype.warn).toHaveBeenCalledWith(
         expect.stringContaining("Client Error"),
+      );
+    });
+
+    it("should downgrade 401 (Unauthorized) to debug to silence scanner noise", () => {
+      // Arrange
+      const exception = new UnauthorizedException("Please sign in to continue");
+
+      // Act
+      filter.catch(exception, mockArgumentsHost);
+
+      // Assert
+      expect(Logger.prototype.warn).not.toHaveBeenCalled();
+      expect(Logger.prototype.debug).toHaveBeenCalledWith(
+        expect.stringContaining("Auth rejected"),
+      );
+    });
+
+    it("should downgrade 403 (Forbidden) to debug to silence scanner noise", () => {
+      // Arrange
+      const exception = new ForbiddenException("Access denied");
+
+      // Act
+      filter.catch(exception, mockArgumentsHost);
+
+      // Assert
+      expect(Logger.prototype.warn).not.toHaveBeenCalled();
+      expect(Logger.prototype.debug).toHaveBeenCalledWith(
+        expect.stringContaining("Auth rejected"),
       );
     });
 
