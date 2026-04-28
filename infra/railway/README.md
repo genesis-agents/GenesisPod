@@ -1,19 +1,57 @@
-# Railway Deployment Guide
+# Railway Operations
 
-## Overview
+This is the **single ops-side entry point** for everything Railway-related.
+Container-side files (Dockerfile, railway.toml, scripts that run _inside_
+the image) stay under `backend/`, `frontend/`, `ai-service/`. Operator-side
+files (env templates, runbooks, deploy/monitor scripts) all live here.
 
-Genesis.ai 部署到 Railway 的完整指南。
+## Layout
 
-## 架构
+```
+infra/railway/
+├── README.md                   ← you are here
+├── DEPLOY.md                   ← first-time setup walkthrough
+├── TROUBLESHOOTING.md          ← common build/runtime errors
+├── envs/
+│   ├── backend.env.example
+│   ├── frontend.env.example
+│   └── backend.env.railway.example
+├── scripts/                    ← run by engineer / CI, NOT in image
+│   ├── deploy.sh               ← initial project setup
+│   ├── monitor.sh              ← prod snapshot (per-service status + healthchecks)
+│   ├── logs.sh [service]       ← tail logs (--build for build phase)
+│   ├── studio.sh               ← prisma studio against prod DB via public proxy
+│   ├── db-shell.sh             ← psql against prod DB via public proxy
+│   ├── studio-railway.{ps1,bat}← Windows wrappers for studio.sh
+│   └── release-notify.ts       ← AI-generated release notes broadcast
+└── runbooks/
+    ├── rollback.md             ← bad commit / bad migration recovery
+    ├── db-migration.md         ← how to add migrations safely
+    └── incident-response.md    ← prod is on fire — read this first
+```
+
+Container-side files (DO NOT touch from this directory):
+
+```
+backend/
+├── Dockerfile                  ← Railway build (platform convention)
+├── railway.toml                ← per-service Railway config
+└── scripts/
+    └── entrypoint.sh           ← single source of truth for container boot
+                                  (sets NODE_ENV, runs `npm run deploy`,
+                                  exec node dist/main; PR-X43)
+```
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    Railway Project                   │
-├─────────────┬─────────────┬─────────────┬───────────┤
-│  Frontend   │   Backend   │  PostgreSQL │   Redis   │
-│  (Next.js)  │  (NestJS)   │  (Database) │  (Cache)  │
-│   :3000     │   :4000     │   :5432     │   :6379   │
-└─────────────┴─────────────┴─────────────┴───────────┘
+├──────────┬──────────┬──────────┬──────────┬─────────┤
+│ Frontend │ Backend  │  Redis   │ Postgres │ ai-svc  │
+│ Next.js  │  NestJS  │  cache   │ Prisma   │ FastAPI │
+│  :3000   │  :4000   │  :6379   │  :5432   │  :PORT  │
+└──────────┴──────────┴──────────┴──────────┴─────────┘
 ```
 
 ## 快速部署步骤
@@ -110,39 +148,31 @@ Railway 会自动监听 GitHub 仓库的 push 事件并部署。
 - `main` -> Production
 - `develop` -> Staging (可选)
 
-## 常用命令
+## Daily commands
 
 ```bash
-# 查看日志
-railway logs
+# Snapshot all services (status + commit + healthcheck body)
+./infra/railway/scripts/monitor.sh
 
-# 查看服务状态
-railway status
+# Tail logs
+./infra/railway/scripts/logs.sh backend
+./infra/railway/scripts/logs.sh ai-service --build
 
-# 打开 Dashboard
-railway open
+# Browse prod data (Prisma Studio against public proxy)
+./infra/railway/scripts/studio.sh
 
-# 运行远程命令
-railway run npm run db:migrate
+# Run ad-hoc SQL
+./infra/railway/scripts/db-shell.sh -- -c "SELECT count(*) FROM users;"
 ```
 
-## 故障排除
+## When something breaks
 
-### 构建失败
+Read `runbooks/incident-response.md` first — that file walks you through
+classification, mitigation, and post-mortem. The other two runbooks are
+deeper dives:
 
-```bash
-# 查看构建日志
-railway logs --build
-```
+- `runbooks/rollback.md` — bad commit or bad migration recovery
+- `runbooks/db-migration.md` — how to add migrations safely
 
-### 数据库连接问题
-
-确保 DATABASE_URL 环境变量正确引用:
-
-```
-${{Postgres.DATABASE_URL}}
-```
-
-### 内存不足
-
-在 Railway Dashboard 中增加服务的资源限制。
+Also see the older `TROUBLESHOOTING.md` for build-error patterns we've
+hit historically.

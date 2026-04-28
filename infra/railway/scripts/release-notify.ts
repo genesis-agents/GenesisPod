@@ -18,10 +18,13 @@ import { Module, Logger } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { HttpModule } from "@nestjs/axios";
 import { EventEmitterModule } from "@nestjs/event-emitter";
-import { PrismaModule } from "../src/common/prisma/prisma.module";
-import { ReleaseModule } from "../src/modules/core/release/release.module";
-import { ReleaseService } from "../src/modules/core/release/release.service";
-import { AiEngineModule } from "../src/modules/ai-engine/ai-engine.module";
+// PR-X46: relocated from backend/scripts/devops/ → infra/railway/scripts/.
+// Imports go through backend/ since the script runs as a backend CLI
+// (`npm run release:preview` in backend/).
+import { PrismaModule } from "../../../backend/src/common/prisma/prisma.module";
+import { ReleaseModule } from "../../../backend/src/modules/ai-infra/release/release.module";
+import { ReleaseService } from "../../../backend/src/modules/ai-infra/release/release.service";
+import { AiEngineModule } from "../../../backend/src/modules/ai-engine/ai-engine.module";
 
 const logger = new Logger("ReleaseNotificationCLI");
 

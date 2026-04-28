@@ -19,7 +19,7 @@ if ! railway whoami &> /dev/null; then
     railway login
 fi
 
-PROJECT_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+PROJECT_ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 
 echo ""
 echo "Step 1: Creating Railway project..."
