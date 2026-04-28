@@ -537,13 +537,16 @@ export function TeamRosterPanel({
                     )}
                   </div>
                   {lastThought ? (
-                    <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-600">
+                    <p
+                      className="mt-0.5 line-clamp-2 text-[11px] text-gray-600"
+                      title={lastThought}
+                    >
                       <Lightbulb className="mr-0.5 inline h-2.5 w-2.5 text-amber-500" />
                       {lastThought}
                     </p>
                   ) : (
                     <p className="mt-0.5 text-[11px] italic text-gray-400">
-                      {st?.detail ?? (isDone ? 'Completed' : 'Idle')}
+                      {st?.detail ?? (isDone ? '已完成' : '待启动')}
                     </p>
                   )}
                 </div>
