@@ -142,6 +142,9 @@ backend/fixtures/golden-reports/
 backend/exports/
 backend/public/
 
+# Jest coverage products that have leaked into src/ in the past (PR-X29)
+backend/src/coverage-supplemental/
+
 .aider*
 .claude/settings.local.json
 .claude/CLAUDE.local.md

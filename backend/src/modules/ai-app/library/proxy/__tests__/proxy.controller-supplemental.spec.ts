@@ -40,18 +40,7 @@ jest.mock("../../../../../common/config/app.config", () => ({
   },
 }));
 
-jest.mock("../../../../../config/domain-whitelist.config", () => ({
-  isDomainAllowed: jest.fn().mockImplementation((hostname: string) => {
-    const allowed = [
-      "arxiv.org",
-      "example.com",
-      "www.example.com",
-      "github.com",
-    ];
-    return allowed.includes(hostname);
-  }),
-  WHITELISTED_DOMAINS: ["arxiv.org", "example.com", "github.com"],
-}));
+// PR-X29: removed dead jest.mock for src/config/domain-whitelist.config (deleted file).
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
