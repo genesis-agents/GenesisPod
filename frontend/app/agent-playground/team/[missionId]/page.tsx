@@ -116,34 +116,29 @@ export default function MissionDetailPage() {
       // event buffer (replay only returns events still in buffer).
       const isCompleted = persisted.status === 'completed';
       const isFailed = persisted.status === 'failed';
+      const isCancelled = persisted.status === 'cancelled';
       const dims = (persisted.dimensions ?? []) as {
         id?: string;
         name: string;
         rationale?: string;
       }[];
 
+      const isTerminal = isCompleted || isFailed || isCancelled;
+      const terminalStageStatus: 'done' | 'failed' | 'pending' = isCompleted
+        ? 'done'
+        : isFailed || isCancelled
+          ? 'failed'
+          : 'pending';
       const stages: typeof liveView.stages = [
-        { id: 'leader', status: isCompleted || isFailed ? 'done' : 'pending' },
-        {
-          id: 'researchers',
-          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
-        },
-        {
-          id: 'analyst',
-          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
-        },
-        {
-          id: 'writer',
-          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
-        },
-        {
-          id: 'reviewer',
-          status: isCompleted ? 'done' : isFailed ? 'failed' : 'pending',
-        },
+        { id: 'leader', status: isTerminal ? 'done' : 'pending' },
+        { id: 'researchers', status: terminalStageStatus },
+        { id: 'analyst', status: terminalStageStatus },
+        { id: 'writer', status: terminalStageStatus },
+        { id: 'reviewer', status: terminalStageStatus },
       ];
 
       const synthAgents: typeof liveView.agents = [];
-      if (isCompleted || isFailed) {
+      if (isTerminal) {
         const phase = isCompleted ? 'completed' : 'failed';
         synthAgents.push({
           agentId: 'leader',
@@ -165,6 +160,9 @@ export default function MissionDetailPage() {
         }
       }
 
+      const terminalTs = persisted.completedAt
+        ? new Date(persisted.completedAt).getTime()
+        : undefined;
       return {
         ...liveView,
         mission: {
@@ -173,14 +171,11 @@ export default function MissionDetailPage() {
           depth: persisted.depth,
           language: persisted.language,
           startedAt: new Date(persisted.startedAt).getTime(),
-          completedAt: persisted.completedAt
-            ? new Date(persisted.completedAt).getTime()
-            : undefined,
-          failedAt:
-            isFailed && persisted.completedAt
-              ? new Date(persisted.completedAt).getTime()
-              : undefined,
-          failedMessage: persisted.errorMessage ?? undefined,
+          completedAt: isCompleted ? terminalTs : undefined,
+          failedAt: isFailed ? terminalTs : undefined,
+          cancelledAt: isCancelled ? terminalTs : undefined,
+          failedMessage:
+            persisted.errorMessage ?? (isCancelled ? '用户取消' : undefined),
           themeSummary: persisted.themeSummary ?? undefined,
           dimensions: persisted.dimensions ?? undefined,
           finalScore: persisted.finalScore ?? undefined,
@@ -200,6 +195,46 @@ export default function MissionDetailPage() {
         finalReport: persisted.reportFull ?? liveView.finalReport,
       };
     }
+    // ★ 兜底：即使有 live events，也用持久化 status 覆盖终态（用户取消后仍能识别）
+    if (persisted) {
+      const terminalTs = persisted.completedAt
+        ? new Date(persisted.completedAt).getTime()
+        : Date.now();
+      if (persisted.status === 'cancelled' && !liveView.mission.cancelledAt) {
+        return {
+          ...liveView,
+          mission: {
+            ...liveView.mission,
+            cancelledAt: terminalTs,
+            failedMessage: liveView.mission.failedMessage ?? '用户取消',
+          },
+        };
+      }
+      if (persisted.status === 'failed' && !liveView.mission.failedAt) {
+        return {
+          ...liveView,
+          mission: {
+            ...liveView.mission,
+            failedAt: terminalTs,
+            failedMessage:
+              liveView.mission.failedMessage ??
+              persisted.errorMessage ??
+              undefined,
+          },
+        };
+      }
+      if (persisted.status === 'completed' && !liveView.mission.completedAt) {
+        return {
+          ...liveView,
+          mission: {
+            ...liveView.mission,
+            completedAt: terminalTs,
+            finalScore:
+              liveView.mission.finalScore ?? persisted.finalScore ?? undefined,
+          },
+        };
+      }
+    }
     return liveView;
   }, [events, persisted]);
 
@@ -211,7 +246,11 @@ export default function MissionDetailPage() {
     (persisted?.startedAt
       ? new Date(persisted.startedAt).getTime()
       : undefined);
-  const finishedAt = view.mission.completedAt ?? view.mission.failedAt ?? null;
+  const finishedAt =
+    view.mission.completedAt ??
+    view.mission.failedAt ??
+    view.mission.cancelledAt ??
+    null;
   const wallTimeMs = startedAtMs ? (finishedAt ?? now) - startedAtMs : 0;
 
   // 默认进入卡片始终落到任务列表（不自动跳转 report）
@@ -235,7 +274,10 @@ export default function MissionDetailPage() {
     return [...set];
   }, [view.finalReport]);
 
-  const isRunning = !view.mission.completedAt && !view.mission.failedAt;
+  const isRunning =
+    !view.mission.completedAt &&
+    !view.mission.failedAt &&
+    !view.mission.cancelledAt;
 
   // Cross-panel citation navigation：点报告中 [N] 角标 → 切到「参考文献」并定位
   useEffect(() => {
@@ -351,6 +393,11 @@ export default function MissionDetailPage() {
                 研究中 · {Math.floor(wallTimeMs / 1000)}s
               </span>
             </div>
+          ) : view.mission.cancelledAt ? (
+            <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-gray-500" />
+              <span className="text-sm font-medium text-gray-700">已取消</span>
+            </div>
           ) : view.mission.failedAt ? (
             <div className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5">
               <span className="h-2 w-2 rounded-full bg-red-500" />
@@ -442,14 +489,16 @@ export default function MissionDetailPage() {
                 // ★ 取消按钮可用判定：只要不是终态（completed/failed/rejected/
                 //   cancelled）就视为 running。这样初次加载 persisted 还没回来 +
                 //   还没收到事件时也能取消（DB 已经创建了 running 行）。
-                view.mission.failedAt ||
-                persisted?.status === 'failed' ||
-                persisted?.status === 'rejected'
-                  ? 'failed'
-                  : view.mission.completedAt ||
-                      persisted?.status === 'completed'
-                    ? 'completed'
-                    : 'running'
+                view.mission.cancelledAt || persisted?.status === 'cancelled'
+                  ? 'cancelled'
+                  : view.mission.failedAt ||
+                      persisted?.status === 'failed' ||
+                      persisted?.status === 'rejected'
+                    ? 'failed'
+                    : view.mission.completedAt ||
+                        persisted?.status === 'completed'
+                      ? 'completed'
+                      : 'running'
               }
               onCollapse={() => setLeftCollapsed(true)}
               onLeaderClick={() => setLeaderChatOpen(true)}
@@ -562,6 +611,7 @@ export default function MissionDetailPage() {
                 onSelect={(id) => setSelectedTaskKey(id)}
                 missionFailed={!!view.mission.failedAt}
                 missionFailedMessage={view.mission.failedMessage}
+                missionCancelled={!!view.mission.cancelledAt}
                 agents={view.agents}
                 dimensionPipelines={view.dimensionPipelines}
               />

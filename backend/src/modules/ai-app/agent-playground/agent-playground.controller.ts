@@ -469,6 +469,13 @@ export class AgentPlaygroundController {
     // ★ Phase P12-1: 真触发 abort signal，让正在跑的 LLM/tool call 立即中断
     this.abortRegistry.abort(missionId, "user_cancelled");
     await this.store.markCancelled(missionId);
+    // ★ 通过事件缓冲广播 mission:cancelled，让正在监听的前端实时切到「已取消」
+    await this.buffer.broadcast({
+      type: "agent-playground.mission:cancelled",
+      scope: { missionId, userId },
+      payload: { reason: "user_cancelled", message: "用户取消" },
+      timestamp: Date.now(),
+    });
     return { ok: true, status: "cancelled" };
   }
 

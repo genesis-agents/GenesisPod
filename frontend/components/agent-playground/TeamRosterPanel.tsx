@@ -112,7 +112,7 @@ interface Props {
   /** mission 维度（从 leader stage 输出，用于左下任务列表） */
   dimensions?: { id?: string; name: string; rationale?: string }[];
   /** mission 当前状态 — 决定按钮显示 */
-  missionStatus?: 'running' | 'completed' | 'failed' | 'idle';
+  missionStatus?: 'running' | 'completed' | 'failed' | 'cancelled' | 'idle';
   onCollapse?: () => void;
   /** 点击 Leader 节点时触发（详情页用来打开 LeaderChatModal） */
   onLeaderClick?: () => void;
@@ -560,8 +560,30 @@ export function TeamRosterPanel({
       <div className="border-t border-gray-100 bg-gray-50/50 px-3 py-2.5">
         <div className="mb-1.5 flex items-center justify-between text-[11px]">
           <span className="font-medium text-gray-700">Mission progress</span>
-          <span className="font-mono text-gray-500">
-            {completedStages} / {totalStages}
+          <span className="flex items-center gap-1.5">
+            {missionStatus === 'cancelled' && (
+              <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700">
+                已取消
+              </span>
+            )}
+            {missionStatus === 'failed' && (
+              <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                已失败
+              </span>
+            )}
+            {missionStatus === 'completed' && (
+              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                已完成
+              </span>
+            )}
+            {missionStatus === 'running' && (
+              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                进行中
+              </span>
+            )}
+            <span className="font-mono text-gray-500">
+              {completedStages} / {totalStages}
+            </span>
           </span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">

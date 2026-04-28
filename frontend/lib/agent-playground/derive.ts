@@ -114,6 +114,7 @@ export interface MissionState {
   completedAt?: number;
   failedAt?: number;
   failedMessage?: string;
+  cancelledAt?: number;
   rejectedAt?: number;
   rejectedReason?: string;
   rejectedMessage?: string;
@@ -225,6 +226,9 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       mission.rejectedAt = ev.timestamp;
       mission.rejectedReason = p?.reason as string | undefined;
       mission.rejectedMessage = p?.userMessage as string | undefined;
+    } else if (t === 'agent-playground.mission:cancelled') {
+      mission.cancelledAt = ev.timestamp;
+      mission.failedMessage = (p?.message as string | undefined) ?? '用户取消';
     } else if (t === 'agent-playground.stage:started') {
       const stage = p?.stage as StageId | undefined;
       const cur = stage ? stages.get(stage) : undefined;

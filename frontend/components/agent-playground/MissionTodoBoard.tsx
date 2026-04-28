@@ -51,6 +51,7 @@ interface Props {
   onSelect?: (todoId: string | null) => void;
   missionFailed?: boolean;
   missionFailedMessage?: string;
+  missionCancelled?: boolean;
   agents?: AgentLiveState[];
   dimensionPipelines?: Map<string, DimensionPipelineState>;
 }
@@ -541,6 +542,7 @@ export function MissionTodoBoard({
   onSelect,
   missionFailed,
   missionFailedMessage,
+  missionCancelled,
   agents,
   dimensionPipelines,
 }: Props) {
@@ -702,7 +704,17 @@ export function MissionTodoBoard({
                 isSelected && 'ring-2 ring-violet-400'
               );
               const modelId = agents ? resolveModel(td, agents) : undefined;
-              const subStatus = deriveDimSubStatus(td, dimensionPipelines);
+              // Mission 已取消时，仍在 pending / in_progress 的 dim 任务统一展示"已取消"
+              const baseSub = deriveDimSubStatus(td, dimensionPipelines);
+              const subStatus =
+                missionCancelled &&
+                td.scope === 'dimension' &&
+                (td.status === 'in_progress' || td.status === 'pending')
+                  ? {
+                      label: '已取消',
+                      tone: 'bg-gray-100 text-gray-600 ring-gray-200',
+                    }
+                  : baseSub;
               return (
                 <tr
                   key={td.id}
@@ -791,6 +803,15 @@ export function MissionTodoBoard({
                         title={subStatus.label}
                       >
                         {subStatus.label}
+                      </span>
+                    ) : missionCancelled &&
+                      (td.status === 'in_progress' ||
+                        td.status === 'pending') ? (
+                      <span
+                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-gray-100 px-2 py-0.5 text-[10.5px] font-medium text-gray-600 ring-1 ring-gray-200"
+                        title="Mission 已取消"
+                      >
+                        已取消
                       </span>
                     ) : (
                       <StatusPill status={sk} size="sm" />
