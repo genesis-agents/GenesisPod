@@ -15,6 +15,7 @@
 
 import { CheckCircle2, AlertCircle, XCircle, ShieldAlert } from 'lucide-react';
 import type { MissionDetail } from '@/services/agent-playground/api';
+import { ExpandableText } from '@/components/playground-ui';
 
 interface Props {
   mission: MissionDetail;
@@ -113,9 +114,11 @@ export function LeadJournalPanel({ mission }: Props) {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-gray-900">{a.criterion}</p>
-                      <p className="mt-0.5 text-[11px] text-gray-600">
-                        {a.evidence}
-                      </p>
+                      <ExpandableText
+                        text={a.evidence}
+                        maxChars={140}
+                        className="mt-0.5 block text-[11px] text-gray-600"
+                      />
                     </div>
                   </li>
                 ))}
@@ -147,9 +150,13 @@ export function LeadJournalPanel({ mission }: Props) {
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700">
                 如何阅读本报告
               </p>
-              <p className="rounded-md bg-white/70 px-2.5 py-1.5 text-[12px] leading-relaxed text-gray-800 ring-1 ring-violet-100">
-                {foreword.howToRead}
-              </p>
+              <div className="rounded-md bg-white/70 px-2.5 py-1.5 ring-1 ring-violet-100">
+                <ExpandableText
+                  text={foreword.howToRead}
+                  maxChars={260}
+                  className="text-[12px] leading-relaxed text-gray-800"
+                />
+              </div>
             </div>
           )}
 
@@ -201,9 +208,11 @@ export function LeadJournalPanel({ mission }: Props) {
                     {d.decision}
                   </span>
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-gray-600">
-                  {d.rationale}
-                </p>
+                <ExpandableText
+                  text={d.rationale}
+                  maxChars={120}
+                  className="mt-0.5 block text-[10px] leading-relaxed text-gray-600"
+                />
               </li>
             ))}
           </ul>
