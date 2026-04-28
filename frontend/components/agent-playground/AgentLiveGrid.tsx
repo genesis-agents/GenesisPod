@@ -23,6 +23,7 @@ import type {
   AgentRole,
   AgentTraceItem,
 } from '@/lib/agent-playground/derive';
+import { ExpandableText } from '@/components/playground-ui';
 
 const ROLE_META: Record<
   AgentRole,
@@ -221,10 +222,14 @@ function TraceItem({ item }: { item: AgentTraceItem }) {
     return (
       <li className="flex gap-2 rounded-md bg-amber-50/40 px-2 py-1.5">
         <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-        <p className="flex-1 text-[12px] leading-relaxed text-gray-800">
-          <span className="font-semibold text-amber-700">Thought · </span>
-          {item.text || '(empty)'}
-        </p>
+        <div className="flex-1 text-[12px] leading-relaxed text-gray-800">
+          <span className="font-semibold text-amber-700">思考 · </span>
+          <ExpandableText
+            text={item.text || '(空)'}
+            maxChars={200}
+            className=""
+          />
+        </div>
       </li>
     );
   if (item.kind === 'action')
@@ -292,17 +297,21 @@ function TraceItem({ item }: { item: AgentTraceItem }) {
                     </p>
                   )}
                   {r.snippet && (
-                    <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-500">
-                      {r.snippet}
-                    </p>
+                    <ExpandableText
+                      text={r.snippet}
+                      maxChars={140}
+                      className="mt-0.5 block text-[10px] text-gray-500"
+                    />
                   )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-1 line-clamp-2 text-[11px] text-gray-600">
-              {previewOutput(item.output)}
-            </p>
+            <ExpandableText
+              text={previewOutput(item.output)}
+              maxChars={180}
+              className="mt-1 block text-[11px] text-gray-600"
+            />
           )}
         </div>
       </li>
