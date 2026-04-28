@@ -40,7 +40,7 @@ import { AICapabilityResolver } from "../../ai-engine/planning/capabilities/ai-c
 import { TeamsService } from "../runtime/teams/services/teams.service";
 import { TeamFactory } from "../runtime/teams/factory/team-factory";
 import { ContextInitializationService } from "../../ai-engine/planning/services/context-initialization.service";
-import { MissionOrchestrator } from "../runtime/teams/orchestrator/mission-orchestrator";
+import { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
 // ★ Content Feature 依赖
 // ★ Phase 3→Phase 7: replaced L4 type imports with L2 abstractions (audit E-1)
 import type {

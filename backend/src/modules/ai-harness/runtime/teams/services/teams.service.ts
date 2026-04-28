@@ -20,7 +20,7 @@ import { v4 as uuidv4 } from "uuid";
 import { TeamFactory } from "../factory/team-factory";
 import { TeamRegistry } from "../registry/team-registry";
 import { RoleRegistry } from "../registry/role-registry";
-import { MissionOrchestrator } from "../orchestrator/mission-orchestrator";
+import { TeamsMissionOrchestrator as MissionOrchestrator } from "../orchestrator/teams-mission-orchestrator";
 import {
   MissionEvent,
   MissionResult,

@@ -118,8 +118,8 @@ interface ReworkContext {
  * Mission 编排器实现
  */
 @Injectable()
-export class MissionOrchestrator implements IMissionOrchestrator {
-  private readonly logger = new Logger(MissionOrchestrator.name);
+export class TeamsMissionOrchestrator implements IMissionOrchestrator {
+  private readonly logger = new Logger(TeamsMissionOrchestrator.name);
   private readonly states = new Map<string, MissionExecutionState>();
   private readonly config: OrchestratorConfig;
   private readonly handoffCoordinator: HandoffCoordinator;

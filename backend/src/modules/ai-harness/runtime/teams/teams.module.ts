@@ -17,11 +17,11 @@ import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
 // ★ L2 internal — direct relative paths (禁 facade barrel)
 import { ConstraintEngine } from "../../governance/resource/constraint-engine";
-import { MissionOrchestrator } from "./orchestrator/mission-orchestrator";
+import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
 import { MessageBusService as A2AMessageBusService } from "../../protocol/ipc/message-bus.service";
-import { TeamsController } from "./controllers/teams.controller";
+// PR-X16: TeamsController 已迁移至 open-api/teams-api（HTTP Controller 上提）
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
@@ -47,7 +47,7 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
  * - Mission 编排器（集成 LLM/Tools/Skills/Memory）
  */
 @Module({
-  controllers: [TeamsController],
+  controllers: [], // TeamsController moved to open-api/teams-api (PR-X16)
   providers: [
     RoleRegistry,
     TeamRegistry,

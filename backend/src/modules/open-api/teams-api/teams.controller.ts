@@ -31,8 +31,8 @@ import {
   CreateMissionDto,
   MissionStatus,
   TeamInfo,
-} from "../services/teams.service";
-import { MissionResult } from "../abstractions/mission.interface";
+} from "../../ai-harness/runtime/teams/services/teams.service";
+import { MissionResult } from "../../ai-harness/runtime/teams/abstractions/mission.interface";
 
 // ==================== Request DTOs ====================
 

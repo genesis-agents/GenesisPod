@@ -72,7 +72,7 @@ import type { SkillMdDefinition } from "../../../ai-engine/skills/types/skill-md
 import { TeamsService } from "../../runtime/teams/services/teams.service";
 import { TeamFactory } from "../../runtime/teams/factory/team-factory";
 import { ContextInitializationService } from "../../../ai-engine/planning/services/context-initialization.service";
-import { MissionOrchestrator } from "../../runtime/teams/orchestrator/mission-orchestrator";
+import { TeamsMissionOrchestrator as MissionOrchestrator } from "../../runtime/teams/orchestrator/teams-mission-orchestrator";
 import { TeamRegistry } from "../../runtime/teams/registry/team-registry";
 import { RoleRegistry } from "../../runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";

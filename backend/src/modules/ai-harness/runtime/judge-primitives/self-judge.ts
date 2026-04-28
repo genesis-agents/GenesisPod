@@ -1,7 +1,7 @@
 /**
  * SelfJudge — 同 agent 用更严格配置自评
  *
- * 归属：L2 ai-engine/harness/runtime/verification/ — 通用能力
+ * 归属：L2 ai-engine/harness/runtime/judge-primitives/ — 通用能力
  *
  * 实现原则：
  *   - 用 LLM 的"低温严谨"模式对 draft 做事后评估

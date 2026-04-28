@@ -95,6 +95,8 @@ import { PublicApiModule } from "./modules/open-api/public-api/public-api.module
 import { AiCoreModule } from "./modules/open-api/ai-core/ai-core.module";
 import { AgentsApiModule } from "./modules/open-api/agents-api/agents-api.module";
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
+import { SkillsApiModule } from "./modules/open-api/skills-api/skills-api.module";
+import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
 // A2A Server module
 import { A2AModule } from "./modules/ai-harness/protocol/a2a";
 // Request context middleware
@@ -245,6 +247,12 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // MCP Admin API (PR-X7: moved from ai-engine/mcp/admin)
     McpAdminModule,
+
+    // Skills API (PR-X16: moved from ai-engine/skills/api)
+    SkillsApiModule,
+
+    // Teams API (PR-X16: moved from ai-harness/runtime/teams/controllers)
+    TeamsApiModule,
   ],
   controllers: [AppController],
   providers: [

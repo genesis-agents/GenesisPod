@@ -21,4 +21,4 @@ export {
 } from "./orchestrator.interface";
 
 // Implementation
-export { MissionOrchestrator } from "./mission-orchestrator";
+export { TeamsMissionOrchestrator as MissionOrchestrator } from "./teams-mission-orchestrator";

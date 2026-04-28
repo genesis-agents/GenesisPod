@@ -1,7 +1,7 @@
 /**
  * Consensus Resolver — multi-judge 结果仲裁
  *
- * 归属：L2 ai-engine/harness/runtime/verification/
+ * 归属：L2 ai-engine/harness/runtime/judge-primitives/
  *
  * 方案 §6.2 算法：
  *   - 全通过 → pass

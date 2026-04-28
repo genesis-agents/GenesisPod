@@ -1,7 +1,7 @@
 /**
  * ExternalJudge — 用不同 model 交叉评估 draft
  *
- * 归属：L2 ai-engine/harness/runtime/verification/
+ * 归属：L2 ai-engine/harness/runtime/judge-primitives/
  *
  * 典型用法：Claude 评 GPT 产物、或 GPT 评 Claude 产物。因不同模型的 bias 不同，
  * 交叉评估能发现 self-judge 找不到的盲点。

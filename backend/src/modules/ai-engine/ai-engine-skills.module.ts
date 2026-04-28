@@ -34,12 +34,12 @@ import { SkillPromptBuilder } from "./skills/builder/skill-prompt-builder.servic
 // Ecosystem
 import { SkillsMPClientService } from "./skills/ecosystem/skillsmp-client.service";
 
-// Public API
-import { SkillsController, SkillsApiService } from "./skills/api";
+// PR-X16: SkillsController + SkillsApiService 已迁移至 open-api/skills-api/
+// （HTTP Controller 上提，由 open-api 装配）
 
 @Module({
   imports: [HttpModule],
-  controllers: [SkillsController],
+  controllers: [],
   providers: [
     // Registry
     SkillRegistry,
@@ -62,9 +62,6 @@ import { SkillsController, SkillsApiService } from "./skills/api";
 
     // Sandbox
     SkillSandboxService,
-
-    // API Service
-    SkillsApiService,
   ],
   exports: [
     SkillRegistry,

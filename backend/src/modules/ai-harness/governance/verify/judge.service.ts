@@ -3,10 +3,10 @@
  *
  * 设计分层：
  *   - verify/        ← AI App 唯一进入点（轻量，依赖 AiChatService），本文件
- *   - runtime/verification/ ← ReActRunner 内部 JudgeSpec 工厂（签名重 + 纯算法 consensus/MetaJudge）
+ *   - runtime/judge-primitives/ ← ReActRunner 内部 JudgeSpec 工厂（签名重 + 纯算法 consensus/MetaJudge）
  *
  * 共享算法（createConsensusResolver / MetaJudge / Verdict 类型）从
- * runtime/verification/ re-export 出去，App 永远只 `import from "@/ai-engine/harness/verify"`。
+ * runtime/judge-primitives/ re-export 出去，App 永远只 `import from "@/ai-engine/harness/verify"`。
  *
  * 内置 verifiers：
  *   - self      · 同模型严苛自评（低 temp）
@@ -22,7 +22,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { IVerifier } from "../../execution/loop/reflexion-loop";
 import type { IContextEnvelope } from "../../kernel/abstractions";
-import { createConsensusResolver } from "../../runtime/verification/consensus";
+import { createConsensusResolver } from "../../runtime/judge-primitives/consensus";
 import type { Verdict, ConsensusDecision } from "../../runtime/env/types";
 import { AIModelType } from "@prisma/client";
 import { KernelContext } from "../../../../common/context/kernel-context";

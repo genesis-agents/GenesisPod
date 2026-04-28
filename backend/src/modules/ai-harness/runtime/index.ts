@@ -60,7 +60,7 @@ export type {
 } from "./env/task-queue-interface";
 
 // Verification (self / external / meta judge + consensus resolver)
-export * from "./verification";
+export * from "./judge-primitives";
 
 // Orchestration (thin mission orchestrator + replanner/registry 接口)
 export {

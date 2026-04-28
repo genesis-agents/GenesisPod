@@ -17,10 +17,10 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
 import { SkillsApiService } from "./skills-api.service";
-import { SkillAnalyticsService } from "../analytics/skill-analytics.service";
+import { SkillAnalyticsService } from "../../ai-engine/skills/analytics/skill-analytics.service";
 import { SetDomainOverrideDto } from "./dto/set-domain-override.dto";
 
 @ApiTags("Skills")

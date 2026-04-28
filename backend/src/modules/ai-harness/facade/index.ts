@@ -276,7 +276,7 @@ export { KernelSchedulerService } from "../process/scheduler/kernel-scheduler.se
 export { TeamRegistry } from "../runtime/teams/registry/team-registry";
 export { RoleRegistry } from "../runtime/teams/registry/role-registry";
 export { TeamFactory } from "../runtime/teams/factory/team-factory";
-export { MissionOrchestrator } from "../runtime/teams/orchestrator/mission-orchestrator";
+export { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
 export { TeamsService } from "../runtime/teams/services/teams.service";
 export type { TeamInfo, CreateMissionDto, MissionStatus } from "../runtime/teams/services/teams.service";
 export type { ITeam, TeamConfig, TeamId, TeamType } from "../runtime/teams/abstractions/team.interface";
