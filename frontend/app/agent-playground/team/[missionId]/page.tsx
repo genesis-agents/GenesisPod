@@ -418,13 +418,22 @@ export default function MissionDetailPage() {
               topic={view.mission.topic}
               dimensions={view.mission.dimensions}
               missionStatus={
-                view.mission.failedAt
-                  ? 'failed'
-                  : view.mission.completedAt
-                    ? 'completed'
-                    : view.mission.startedAt
-                      ? 'running'
-                      : 'idle'
+                // ★ Bug fix: 优先用 persisted.status（DB source of truth）;
+                //   原逻辑依赖 view.mission.startedAt，replay buffer 回收后会
+                //   返回 idle，导致取消按钮被错误禁用
+                persisted?.status === 'running'
+                  ? 'running'
+                  : persisted?.status === 'failed'
+                    ? 'failed'
+                    : persisted?.status === 'completed'
+                      ? 'completed'
+                      : view.mission.failedAt
+                        ? 'failed'
+                        : view.mission.completedAt
+                          ? 'completed'
+                          : view.mission.startedAt
+                            ? 'running'
+                            : 'idle'
               }
               onCollapse={() => setLeftCollapsed(true)}
               onLeaderClick={() => setLeaderChatOpen(true)}

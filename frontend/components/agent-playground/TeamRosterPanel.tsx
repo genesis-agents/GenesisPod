@@ -594,27 +594,38 @@ export function TeamRosterPanel({
           </div>
         )}
 
-        {/* 操作按钮：开始 / 更新 / 取消 */}
+        {/* 操作按钮：开始 / 更新 / 取消 —— 完全照搬 TI TopicTeamPanel 尺寸 + 样式 */}
         {(onRerun || onUpdate || onCancel) && (
-          <div className="mt-3 grid grid-cols-3 gap-1.5">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             {onRerun && (
               <button
                 type="button"
                 onClick={onRerun}
                 disabled={missionStatus === 'running'}
-                className="rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+                className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  missionStatus === 'running'
+                    ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                    : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                }`}
                 title="用相同配置启动一个新 mission"
               >
-                {missionStatus === 'running' ? '运行中' : '开始'}
+                <span>▶</span>
+                开始
               </button>
             )}
             {onUpdate && (
               <button
                 type="button"
                 onClick={onUpdate}
-                className="rounded-lg bg-gradient-to-r from-blue-500 to-violet-600 px-2 py-1.5 text-[11px] font-medium text-white shadow-sm transition-all hover:shadow-md"
+                disabled={missionStatus === 'running'}
+                className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  missionStatus === 'running'
+                    ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                    : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
+                }`}
                 title="编辑 topic / depth / language 后重新启动"
               >
+                <span>🔄</span>
                 更新
               </button>
             )}
@@ -623,13 +634,18 @@ export function TeamRosterPanel({
                 type="button"
                 onClick={onCancel}
                 disabled={missionStatus !== 'running'}
-                className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  missionStatus !== 'running'
+                    ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                    : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+                }`}
                 title={
                   missionStatus === 'running'
                     ? '取消运行中的 mission'
                     : '只有运行中的 mission 可以取消'
                 }
               >
+                <span>⏹</span>
                 取消
               </button>
             )}
