@@ -2,7 +2,7 @@
 
 > **日期**: 2026-01-20
 > **实现者**: Coder Agent
-> **设计文档**: `docs/designs/ai-tools-skills-integration.md`
+> **设计文档**: `docs/design/research-tools-skills-upgrade.md`
 
 ---
 
