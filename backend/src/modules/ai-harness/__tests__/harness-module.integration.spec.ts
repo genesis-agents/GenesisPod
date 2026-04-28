@@ -101,7 +101,7 @@ describe("HarnessModule (NestJS DI integration)", () => {
 
     // private field: inspect via any-cast since we only need to prove wiring
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const injected = (factory as any).subagentSpawner;
+    const injected = (factory as Record<string, unknown>).subagentSpawner;
     expect(injected).toBe(spawner);
   });
 
@@ -111,10 +111,8 @@ describe("HarnessModule (NestJS DI integration)", () => {
     const loop = moduleRef.get(ReActLoop);
     const activator = moduleRef.get(SkillActivator);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((loop as any).hookRegistry).toBe(hooks);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((activator as any).hooks).toBe(hooks);
+    expect((loop as Record<string, unknown>).hookRegistry).toBe(hooks);
+    expect((activator as Record<string, unknown>).hooks).toBe(hooks);
   });
 
   it("HarnessFacade.hooks is the DI HookRegistry (B-C4 regression)", async () => {
