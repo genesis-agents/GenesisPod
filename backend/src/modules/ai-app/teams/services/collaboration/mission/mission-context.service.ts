@@ -4,7 +4,7 @@ import {
   validateContextPackage,
   createEmptyContextPackage,
   EstablishedFact,
-} from "../../../interfaces/mission-context.interface";
+} from "../../../../../ai-harness/facade";
 
 /**
  * Mission Context Service

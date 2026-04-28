@@ -9,7 +9,7 @@ import {
   ContentFeatures,
   DataDensity,
   TemporalDimension,
-} from "./content-analysis.types";
+} from "../content-analysis/content-analysis.types";
 
 // Image types - re-exported from AI Engine via facade
 export {

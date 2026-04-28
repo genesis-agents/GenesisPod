@@ -13,7 +13,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionContextService } from "../mission-context.service";
-import { MissionContextPackage } from "../../../interfaces/mission-context.interface";
+import { MissionContextPackage } from "../../../../../../ai-harness/facade";
 
 // ============================================================
 // Helper factories

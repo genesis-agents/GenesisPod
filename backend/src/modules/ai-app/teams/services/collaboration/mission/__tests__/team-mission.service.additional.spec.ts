@@ -26,7 +26,7 @@ import { LeaderModelService } from "../../../ai/leader-model.service";
 import { EmailService } from "../../../../../../ai-infra/email/email.service";
 import { ConfigService } from "@nestjs/config";
 import { MissionContextService } from "../mission-context.service";
-import { ConstraintEnforcementService } from "../../context/constraint-enforcement.service";
+import { ConstraintEnforcementService } from "../../../../../../ai-harness/facade";
 import { MissionStateManager } from "../mission-state.manager";
 import { MissionLifecycleService } from "../mission-lifecycle.service";
 import { MissionRetryService } from "../mission-retry.service";

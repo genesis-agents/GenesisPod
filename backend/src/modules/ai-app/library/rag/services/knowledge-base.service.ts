@@ -8,7 +8,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseStatus, KnowledgeBaseSourceType } from "@prisma/client";
 import { DocumentProcessorService } from "./document-processor.service";
 import { EmbeddingProcessorService } from "./embedding-processor.service";
-import { KnowledgeBaseStats } from "../interfaces/rag.interfaces";
+import { KnowledgeBaseStats } from "../../../../ai-engine/facade";
 
 export interface CreateKnowledgeBaseInput {
   name: string;

@@ -13,8 +13,8 @@ export { AIOfficeCommonModule } from "./common.module";
 // 类型定义
 // ============================================================================
 
-// 内容分析类型
-export * from "./content-analysis.types";
+// 内容分析类型 (PR-X25: shim removed, point to canonical content-analysis/)
+export * from "../content-analysis/content-analysis.types";
 
 // 主题系统类型
 export * from "./theme.types";
@@ -26,8 +26,8 @@ export * from "./template-selection.types";
 // 服务
 // ============================================================================
 
-// 内容分析服务
-export { ContentAnalysisService } from "./content-analysis.service";
+// 内容分析服务 (PR-X25: shim removed, point to canonical content-analysis/)
+export { ContentAnalysisService } from "../content-analysis/content-analysis.service";
 
 // 模板选择服务
 export {
@@ -36,12 +36,12 @@ export {
   type PlanningResult,
 } from "./template-selection.service";
 
-// 图文匹配服务
+// 图文匹配服务 (PR-X25: shim removed, point to ai-engine/facade)
 export {
   ImageMatchingService,
   type ImagePrompt,
   type ImageMatchingResult,
-} from "./image-matching.service";
+} from "../../../ai-engine/facade";
 
 // 阅读体验服务
 export {

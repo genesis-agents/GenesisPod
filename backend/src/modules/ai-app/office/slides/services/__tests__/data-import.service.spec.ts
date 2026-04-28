@@ -10,7 +10,7 @@ import {
   TOPIC_INSIGHTS_DATA_EXPORT,
   RESEARCH_PROJECT_DATA_EXPORT,
   WRITING_DATA_EXPORT,
-} from "../../../interfaces/data-export.interface";
+} from "../../../../contracts/interfaces/data-export.interface";
 
 describe("SlidesDataImportService", () => {
   let service: SlidesDataImportService;

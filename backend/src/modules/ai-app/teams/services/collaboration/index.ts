@@ -45,7 +45,7 @@ export {
   ExtractedConstraint,
   OutputValidationResult,
 } from "./context";
-export type { ConstraintViolation as ContextConstraintViolation } from "./context/constraint-enforcement.service";
+export type { ConstraintViolation as ContextConstraintViolation } from "../../../../ai-engine/facade";
 
 // 协作服务（根目录）
 export * from "./team-collaboration.service";

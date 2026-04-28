@@ -28,7 +28,7 @@ import {
   isPermanentError,
   isApiErrorContent,
   sleep,
-} from "./retry.utils";
+} from "../../../../../ai-engine/facade";
 import { TaskType } from "@prisma/client";
 
 describe("Text Extraction Utils", () => {

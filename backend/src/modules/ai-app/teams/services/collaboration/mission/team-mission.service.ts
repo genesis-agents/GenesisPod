@@ -43,8 +43,8 @@ import { MissionContextService } from "./mission-context.service";
 import {
   MissionContextPackage,
   HardConstraint,
-} from "../../../interfaces/mission-context.interface";
-import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
+} from "../../../../../ai-harness/facade";
+import { ConstraintEnforcementService } from "../../../../../ai-harness/facade";
 import { MissionStateManager } from "./mission-state.manager";
 import { MissionLifecycleService } from "./mission-lifecycle.service";
 import { MissionRetryService } from "./mission-retry.service";
@@ -83,10 +83,7 @@ import {
   TaskBreakdownData,
   TaskAssignee,
 } from "../interfaces";
-import {
-  AgentFacade,
-  TeamFacade,
-} from "../../../../../ai-harness/facade";
+import { AgentFacade, TeamFacade } from "../../../../../ai-harness/facade";
 import { ProgressTrackerService } from "../../../../../ai-harness/facade";
 import {
   MissionExecutorService,

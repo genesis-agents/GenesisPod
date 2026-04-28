@@ -17,7 +17,7 @@ import {
   ITopicInsightsDataExport,
   IResearchProjectDataExport,
   IWritingDataExport,
-} from "../../interfaces/data-export.interface";
+} from "../../../contracts/interfaces/data-export.interface";
 import {
   SlidesSourceData,
   SlidesSourceType,

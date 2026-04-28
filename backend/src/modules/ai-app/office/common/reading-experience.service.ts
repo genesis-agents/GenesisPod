@@ -9,7 +9,7 @@ import {
   ContentComplexity,
   SectionFeatures,
   ParagraphFeatures,
-} from "./content-analysis.types";
+} from "../content-analysis/content-analysis.types";
 import {
   ReadingExperienceConfig,
   ReadingExperienceAnalysis,

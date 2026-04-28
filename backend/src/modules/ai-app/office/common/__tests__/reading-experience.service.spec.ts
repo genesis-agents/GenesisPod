@@ -10,7 +10,7 @@ import {
   DataDensity,
   TemporalDimension,
   HierarchyType,
-} from "../content-analysis.types";
+} from "../../content-analysis/content-analysis.types";
 import { VisualBreakType } from "../template-selection.types";
 
 const buildMockParagraph = (

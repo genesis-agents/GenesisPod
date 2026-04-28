@@ -4,13 +4,13 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { ContentAnalysisService } from "./content-analysis.service";
+import { ContentAnalysisService } from "../content-analysis/content-analysis.service";
 import {
   ContentFeatures,
   ContentComplexity,
   DataDensity,
   ContentAnalysisInput,
-} from "./content-analysis.types";
+} from "../content-analysis/content-analysis.types";
 import {
   SlideTemplateType,
   DocsTemplateType,

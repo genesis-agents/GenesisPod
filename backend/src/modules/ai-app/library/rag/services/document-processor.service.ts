@@ -14,7 +14,7 @@ import { KnowledgeBaseStatus, Prisma } from "@prisma/client";
 import {
   ProcessedDocument,
   ParentChunkData,
-} from "../interfaces/rag.interfaces";
+} from "../../../../ai-engine/facade";
 import type { ChunkingConfig } from "../../../../ai-engine/facade";
 import { DEFAULT_CHUNKING_CONFIG } from "../../../../ai-engine/facade";
 // eslint-disable-next-line @typescript-eslint/no-var-requires

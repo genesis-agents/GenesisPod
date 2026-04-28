@@ -31,7 +31,7 @@ import {
 import {
   MissionContextPackage,
   HardConstraint,
-} from "../../../interfaces/mission-context.interface";
+} from "../../../../../ai-harness/facade";
 // Types only needed from engine internals
 import type { AiCallerFn } from "../../../../../ai-engine/facade";
 

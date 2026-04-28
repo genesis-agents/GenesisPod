@@ -4,14 +4,14 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { TemplateSelectionService } from "../template-selection.service";
-import { ContentAnalysisService } from "../content-analysis.service";
+import { ContentAnalysisService } from "../../content-analysis/content-analysis.service";
 import {
   ContentComplexity,
   ContentCategory,
   DataDensity,
   TemporalDimension,
   HierarchyType,
-} from "../content-analysis.types";
+} from "../../content-analysis/content-analysis.types";
 
 const buildMockFeatures = (overrides = {}) => ({
   category: ContentCategory.INFORMATIONAL,

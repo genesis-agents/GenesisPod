@@ -8,11 +8,11 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { TokenBudgetService } from "../context/token-budget.service";
+import { ConstraintEnforcementService } from "../../../../../ai-harness/facade";
 import {
-  ConstraintEnforcementService,
+  TokenBudgetService,
   ExtractedConstraint,
-} from "../context/constraint-enforcement.service";
+} from "../../../../../ai-engine/facade";
 
 /**
  * 结构化实体

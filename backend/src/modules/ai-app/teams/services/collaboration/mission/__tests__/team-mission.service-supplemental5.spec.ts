@@ -23,7 +23,12 @@
 
 // Must be before imports - provides missing enum values not generated in worktree
 jest.mock("@prisma/client", () => ({
-  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, ...jest.requireActual("@prisma/client"),
+  PrismaClient: class PrismaClient {
+    $connect = jest.fn();
+    $disconnect = jest.fn();
+    $on = jest.fn();
+  },
+  ...jest.requireActual("@prisma/client"),
   AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
@@ -117,7 +122,7 @@ import { LeaderModelService } from "../../../ai/leader-model.service";
 import { EmailService } from "../../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
 import { MissionContextService } from "../mission-context.service";
-import { ConstraintEnforcementService } from "../../context/constraint-enforcement.service";
+import { ConstraintEnforcementService } from "../../../../../../ai-harness/facade";
 import { MissionStateManager } from "../mission-state.manager";
 import { MissionLifecycleService } from "../mission-lifecycle.service";
 import { MissionRetryService } from "../mission-retry.service";
