@@ -109,7 +109,7 @@ RUN mkdir -p /app/public/thumbnails /app/exports && \
     chown -R genesis:genesis /app/public /app/exports
 
 # Make entrypoint executable
-RUN chmod +x ./scripts/devops/docker-entrypoint.sh
+RUN chmod +x ./scripts/entrypoint.sh
 
 # Switch to non-root user
 USER genesis
@@ -122,4 +122,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:4000/health || exit 1
 
 # Start command
-CMD ["./scripts/devops/docker-entrypoint.sh"]
+CMD ["./scripts/entrypoint.sh"]
