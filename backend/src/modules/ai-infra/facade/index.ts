@@ -47,37 +47,12 @@ export { AIMetricsService } from "../monitoring/ai-metrics.service";
 export { ErrorTrackingService } from "../monitoring/error-tracking.service";
 export { HealthCheckService } from "../monitoring/health-check.service";
 
-// ─── User API Keys ───
-export { UserApiKeysService } from "../../ai-engine/credentials/user-api-keys/user-api-keys.service";
-
-// ─── BYOK v3：用户多模型配置 ───
-export { UserModelConfigsService } from "../../ai-engine/credentials/user-model-configs/user-model-configs.service";
-export type {
-  CreateUserModelConfigInput,
-  UpdateUserModelConfigInput,
-} from "../../ai-engine/credentials/user-model-configs/user-model-configs.service";
-
-// ─── BYOK v2：分发池 / 分配 / 申请 / 统一解析 ───
-export { DistributableKeysService } from "../../ai-engine/credentials/distributable-keys/distributable-keys.service";
-export { KeyAssignmentsService } from "../../ai-engine/credentials/key-assignments/key-assignments.service";
-export { KeyRequestsService } from "../../ai-engine/credentials/key-requests/key-requests.service";
-export { KeyResolverService } from "../../ai-engine/credentials/key-resolver/key-resolver.service";
-export type {
-  KeySource,
-  ResolvedKey,
-} from "../../ai-engine/credentials/key-resolver/key-resolver.service";
-export {
-  BYOK_ERROR_CODES,
-  BYOKError,
-  NoAvailableKeyError,
-  NoSystemKeyError,
-  InvalidApiKeyError,
-  QuotaExceededError,
-} from "../../ai-engine/credentials/key-resolver/key-resolver.errors";
-export type {
-  BYOKErrorCode,
-  BYOKErrorMeta,
-} from "../../ai-engine/credentials/key-resolver/key-resolver.errors";
+// BYOK 相关服务（UserApiKeysService / UserModelConfigsService /
+// DistributableKeysService / KeyAssignmentsService / KeyRequestsService /
+// KeyResolverService 等）已迁移到 ai-engine/credentials/（PR-X9）。
+// 消费方应直接 import from "@/modules/ai-engine/credentials/..."。
+// ai-infra/facade 不再 re-export — ai-infra 是最底层 AI-agnostic 设施，
+// 不能反向依赖 ai-engine。
 
 // ─── Release ───
 export { ReleaseService } from "../release/release.service";

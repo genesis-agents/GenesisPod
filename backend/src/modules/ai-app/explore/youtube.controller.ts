@@ -12,7 +12,7 @@ import {
 } from "@nestjs/common";
 import { Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
-import { YoutubeService } from "./youtube.service";
+import { YoutubeService } from "../../ai-engine/content/fetch/youtube.service";
 import {
   PdfGeneratorService,
   SubtitleExportOptions,

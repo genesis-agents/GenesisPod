@@ -40,7 +40,7 @@ import {
 } from "../../../../../ai-harness/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
-import { RuntimeEnvironmentService } from "../../../../../ai-harness/governance/resource/runtime-environment.service";
+import { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import { LeaderAgent } from "../../../agents/leader/leader.agent";
 import {
   LeaderService,

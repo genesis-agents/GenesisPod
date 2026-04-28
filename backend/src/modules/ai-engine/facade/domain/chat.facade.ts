@@ -27,8 +27,9 @@ import {
   CreditsService,
   BillingContext,
   InsufficientCreditsException,
-  BYOKError,
 } from "../../../ai-infra/facade";
+// PR-X9: BYOKError 已搬到 ai-engine/credentials/key-resolver
+import { BYOKError } from "../../credentials/key-resolver/key-resolver.errors";
 import { RequestContext } from "../../../../common/context/request-context";
 import { ModelSubFacade } from "../sub-facades/model.sub-facade";
 import type { ModelResolverService } from "../model-resolver.service";
