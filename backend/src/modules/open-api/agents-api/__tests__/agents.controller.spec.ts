@@ -17,8 +17,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { of } from "rxjs";
 import { AgentsController } from "../agents.controller";
-import { AgentOrchestrator } from "../../../ai-engine/facade/exports/registries";
-import { AgentRegistry } from "../../../ai-engine/facade/exports/registries";
+import { AgentOrchestrator } from "../../../ai-harness/facade";
+import { AgentRegistry } from "../../../ai-harness/facade";
 import { AgentsService } from "../agents.service";
 
 describe("AgentsController", () => {

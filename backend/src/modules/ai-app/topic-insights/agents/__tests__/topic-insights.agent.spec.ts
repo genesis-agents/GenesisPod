@@ -49,6 +49,15 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   ToolRegistry: class {},
   ChatFacade: class {},
   RAGFacade: class {},
+  PlanBasedAgent: class {
+    protected generateTaskId(): string {
+      return `task-${Math.random().toString(36).slice(2)}`;
+    }
+    protected generateStepId(): string {
+      return `step-${Math.random().toString(36).slice(2)}`;
+    }
+  },
+  BaseAgent: class {},
   BUILTIN_AGENTS: {
     TOPIC_INSIGHTS: "topic_insights",
   },

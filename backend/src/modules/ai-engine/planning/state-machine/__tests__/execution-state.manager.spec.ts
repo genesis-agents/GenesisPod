@@ -6,7 +6,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { ProcessSupervisorService as ExecutionStateManager } from "../../../../ai-harness/facade";
-import { StateCategory, ExecutionStateConfig } from "../../../../ai-engine/facade";
+import { StateCategory } from "../../../../ai-harness/facade";
+import type { ExecutionStateConfig } from "../../../../ai-harness/facade";
 import { CacheService } from "@/common/cache/cache.service";
 
 describe("ExecutionStateManager", () => {
