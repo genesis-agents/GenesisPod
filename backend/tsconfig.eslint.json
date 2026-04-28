@@ -4,8 +4,7 @@
     "src/**/*",
     "src/**/*.spec.ts",
     "src/**/__tests__/**/*.ts",
-    "jest.config.js",
-    "jest.config.swc.js"
+    "jest.config.js"
   ],
   "exclude": [
     "node_modules",
