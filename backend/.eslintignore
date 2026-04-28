@@ -1,5 +1,2 @@
-list-low.js
 coverage/
-coverage-app/
-coverage-engine/
 prisma/deploy-migrations.ts
