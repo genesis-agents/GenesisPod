@@ -2,7 +2,7 @@
  * Genesis.ai v2.1 - Multi-Agent 执行器
  *
  * 实现 Orchestrator + Content/Layout/Visual/Style 四个子Agent协作
- * ★ P3 迁移：使用 AIEngineFacade 统一入口
+ * ★ P3 迁移：使用 AIFacade 统一入口
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -172,7 +172,7 @@ export class AgentExecutorService {
 
   /**
    * 调用 LLM API
-   * ★ P3 迁移：使用 AIEngineFacade 统一入口
+   * ★ P3 迁移：使用 AIFacade 统一入口
    */
   private async callLLM(
     systemPrompt: string,

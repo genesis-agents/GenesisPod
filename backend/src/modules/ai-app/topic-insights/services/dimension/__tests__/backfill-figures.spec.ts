@@ -18,7 +18,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
-import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-engine/facade";
 import { buildFiguresSummary } from "../evidence-summary.utils";
 import type {
   FigureReference,
@@ -99,7 +99,7 @@ describe("图片管线业务仿真", () => {
       providers: [
         SectionWriterService,
         { provide: ChatFacade, useValue: mockAiFacade },
-        { provide: AIEngineFacade, useValue: mockEngineFacade },
+        { provide: AIFacade, useValue: mockEngineFacade },
       ],
     }).compile();
     service = module.get<SectionWriterService>(SectionWriterService);

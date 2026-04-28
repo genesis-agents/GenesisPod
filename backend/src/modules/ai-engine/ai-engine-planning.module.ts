@@ -17,7 +17,7 @@ import { AiEngineSkillsModule } from "./ai-engine-skills.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
-import { AgentRegistry } from "../ai-harness/kernel/registry/legacy-agent-registry";
+import { AgentRegistry } from "../ai-harness/kernel/registry/plan-based-agent-registry";
 
 // Executors
 import { SequentialExecutor } from "./planning/executors/sequential-executor";

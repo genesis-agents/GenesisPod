@@ -20,7 +20,7 @@ import {
  * 自我反思服务
  * 评估搜索结果质量，决定是否继续搜索
  *
- * ✅ 已迁移：使用 AIEngineFacade 统一入口
+ * ✅ 已迁移：使用 AIFacade 统一入口
  */
 @Injectable()
 export class SelfReflectionService {
@@ -56,7 +56,7 @@ export class SelfReflectionService {
     );
 
     try {
-      // ★ 使用 AIEngineFacade 统一入口，使用 CHAT_FAST 模型进行快速反思
+      // ★ 使用 AIFacade 统一入口，使用 CHAT_FAST 模型进行快速反思
       const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },

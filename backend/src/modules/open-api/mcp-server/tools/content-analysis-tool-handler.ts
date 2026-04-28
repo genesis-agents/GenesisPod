@@ -1,6 +1,6 @@
 /**
  * MCP Server - Content Analysis Tool Handler
- * Multi-dimensional content analysis via AIEngineFacade.chat()
+ * Multi-dimensional content analysis via AIFacade.chat()
  */
 
 import { Injectable, Logger } from "@nestjs/common";

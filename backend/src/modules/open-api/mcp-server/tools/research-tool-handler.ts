@@ -29,7 +29,7 @@ import {
   MCPToolResponse,
   MCPStreamEvent,
 } from "../abstractions/mcp-server.interface";
-import { AIEngineFacade } from "../../../ai-harness/facade";
+import { AIFacade } from "../../../ai-harness/facade";
 import { MCPStreamingBridge } from "../streaming/mcp-streaming-bridge";
 
 /** 已完成结果在内存中保留时长（30 分钟），供 SSE 断连重连后查询 */
@@ -86,7 +86,7 @@ export class ResearchToolHandler implements IMCPToolHandler {
   };
 
   constructor(
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiFacade: AIFacade,
     @Optional() private readonly streamingBridge?: MCPStreamingBridge,
   ) {}
 

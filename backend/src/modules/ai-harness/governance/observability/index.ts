@@ -9,6 +9,6 @@ export * from "./cost-attribution.service";
 export * from "./session-latency-tracker.service";
 export * from "./session-latency.types";
 export * from "./observability.controller";
-export * from "./ai-engine-tracing.service";
+export * from "./llm-tracing.service";
 export * from "./eval-pipeline.service";
 export * from "./trace.interface";

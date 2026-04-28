@@ -32,7 +32,7 @@ import {
   SearchService,
   ContextInitializationService,
   ToolRegistry,
-  AIEngineFacade,
+  AIFacade,
   AgentFacade,
   TeamFacade,
 } from "../../../../../ai-engine/facade";
@@ -167,7 +167,7 @@ describe("TeamMissionService Long Content Integration", () => {
           },
         },
         {
-          provide: AIEngineFacade,
+          provide: AIFacade,
           useFactory: (
             longContentEngine: LongContentEngineService,
             continuationProtocol: ContinuationProtocolService,

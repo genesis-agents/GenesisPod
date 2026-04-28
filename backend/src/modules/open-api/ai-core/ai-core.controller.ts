@@ -616,7 +616,7 @@ export class AiCoreController {
           );
         }
 
-        // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
+        // ★ 使用 AIFacade 统一获取模型（与 AI Ask 一致）
         let targetModelId = model;
         const facadeModel = await this.aiFacade.getModelById(model);
 
@@ -719,7 +719,7 @@ ${webSearchContext}
           res.setHeader("Connection", "keep-alive");
           res.flushHeaders();
 
-          // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
+          // ★ 使用 AIFacade.chat()，它会自动处理模型查找和 API Key
           try {
             const result = await this.aiFacade.chat({
               messages: chatMessages,
@@ -763,7 +763,7 @@ ${webSearchContext}
             res.end();
           }
         } else {
-          // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
+          // ★ 使用 AIFacade.chat()，它会自动处理模型查找和 API Key
           const result = await this.aiFacade.chat({
             messages: chatMessages,
             model: targetModelId,
@@ -833,7 +833,7 @@ ${webSearchContext}
 
     const executeQuickAction = async () => {
       try {
-        // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
+        // ★ 使用 AIFacade 统一获取模型（与 AI Ask 一致）
         let targetModelId = model;
         const facadeModel = await this.aiFacade.getModelById(model);
 
@@ -898,7 +898,7 @@ Output format:
 JSON output:`;
         }
 
-        // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
+        // ★ 使用 AIFacade.chat()，它会自动处理模型查找和 API Key
         const result = await this.aiFacade.chat({
           messages: [{ role: "user", content: prompt }],
           model: targetModelId,
@@ -962,7 +962,7 @@ JSON output:`;
 
     const executeSummary = async () => {
       try {
-        // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+        // ★ 使用 AIFacade 获取 CHAT_FAST tier 模型
         const fastModel = await this.aiFacade.getDefaultModelByType(
           AIModelType.CHAT_FAST,
         );
@@ -982,7 +982,7 @@ JSON output:`;
             ? `请为以下内容生成简洁的摘要：\n\n${content}\n\n要求：简明扼要，突出重点。`
             : `Please generate a concise summary of the following content:\n\n${content}`;
 
-        // ★ 使用 AIEngineFacade.chat()
+        // ★ 使用 AIFacade.chat()
         const result = await this.aiFacade.chat({
           messages: [{ role: "user", content: prompt }],
           model: modelConfig.modelId,
@@ -1038,7 +1038,7 @@ JSON output:`;
 
     const executeInsights = async () => {
       try {
-        // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+        // ★ 使用 AIFacade 获取 CHAT_FAST tier 模型
         const fastModel = await this.aiFacade.getDefaultModelByType(
           AIModelType.CHAT_FAST,
         );
@@ -1066,7 +1066,7 @@ Requirements:
 
 JSON output:`;
 
-        // ★ 使用 AIEngineFacade.chat()
+        // ★ 使用 AIFacade.chat()
         const result = await this.aiFacade.chat({
           messages: [{ role: "user", content: prompt }],
           model: modelConfig.modelId,
@@ -1159,7 +1159,7 @@ JSON output:`;
 
     const executeTranslate = async () => {
       try {
-        // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+        // ★ 使用 AIFacade 获取 CHAT_FAST tier 模型
         const fastModel = await this.aiFacade.getDefaultModelByType(
           AIModelType.CHAT_FAST,
         );
@@ -1197,7 +1197,7 @@ Translation:`;
           `[Translate] Text length: ${body.text.length}, using maxTokens: ${dynamicMaxTokens}`,
         );
 
-        // ★ 使用 AIEngineFacade.chat()
+        // ★ 使用 AIFacade.chat()
         const result = await this.aiFacade.chat({
           messages: [{ role: "user", content: prompt }],
           model: modelConfig.modelId,

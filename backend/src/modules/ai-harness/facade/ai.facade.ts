@@ -131,7 +131,7 @@ import type {
   SkillResult,
 } from "../../ai-engine/skills/abstractions/skill.interface";
 import type { BindingContext } from "../../ai-engine/skills/runtime/input-binding-resolver";
-// Use import type to avoid circular: PromptSkillAdapter → AIEngineFacade → PromptSkillAdapter
+// Use import type to avoid circular: PromptSkillAdapter → AIFacade → PromptSkillAdapter
 import type { PromptSkillAdapter } from "../../ai-engine/skills/runtime/prompt-skill-adapter";
 import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm-adapter";
 import type {
@@ -186,7 +186,7 @@ import { MissionOrchestrator } from "../runtime/teams/orchestrator/mission-orche
 import { OutputReviewerService } from "../../ai-engine/planning/services/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/planning/services/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
-import { AgentRegistry } from "../kernel/registry/legacy-agent-registry";
+import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../runtime/teams/registry/team-registry";
 import { RoleRegistry } from "../runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
@@ -229,15 +229,15 @@ const SENSITIVE_PATTERNS = [
  *   - ToolFacade  for tool execution, capability listing, and MCP tools
  *
  * Migration guide:
- *   1. Replace `import { AIEngineFacade } from "@/modules/ai-engine/facade"` with
+ *   1. Replace `import { AIFacade } from "@/modules/ai-engine/facade"` with
  *      the specific domain facade(s) you need, e.g.:
  *        import { ChatFacade } from "@/modules/ai-engine/facade"
  *   2. Update constructor injection:
- *        private readonly facade: AIEngineFacade  =>  private readonly chatFacade: ChatFacade
+ *        private readonly facade: AIFacade  =>  private readonly chatFacade: ChatFacade
  *   3. Update call sites:
  *        this.facade.chat(...)  =>  this.chatFacade.chat(...)
  *
- * Remaining uses of AIEngineFacade should only be for methods not yet extracted
+ * Remaining uses of AIFacade should only be for methods not yet extracted
  * to a domain facade (e.g. registerResearchExecutor, executeDirectResearch).
  * Those will be migrated in a future PR once a ResearchFacade or AgentFacade
  * extension is added.
@@ -254,8 +254,8 @@ const SENSITIVE_PATTERNS = [
  * ============================================================================
  */
 @Injectable()
-export class AIEngineFacade {
-  private readonly logger = new Logger(AIEngineFacade.name);
+export class AIFacade {
+  private readonly logger = new Logger(AIFacade.name);
 
   // ★ Sub-facades — instantiated at the end of the constructor
   // These are kept for backward-compat internal usage while domain facades are primary
@@ -347,7 +347,7 @@ export class AIEngineFacade {
     @Optional() readonly teamDomain?: TeamFacade,
     @Optional() readonly toolDomain?: ToolFacade,
   ) {
-    this.logger.log("AIEngineFacade initialized");
+    this.logger.log("AIFacade initialized");
     this.logFeatureAvailability();
 
     // ★ Instantiate sub-facades after all dependencies are ready

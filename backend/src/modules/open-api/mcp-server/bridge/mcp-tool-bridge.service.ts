@@ -8,7 +8,7 @@
  * - Registry 中注册的工具自动暴露，无需逐个手写 Handler
  * - 保留 curated handlers（现有 5 个精选工具）作为高优先级入口
  * - 通过命名前缀区分来源: curated / tool_ / skill_ / agent_
- * - 所有调用统一经过 AIEngineFacade，不绕过 Facade 层
+ * - 所有调用统一经过 AIFacade，不绕过 Facade 层
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
@@ -162,7 +162,7 @@ export class MCPToolBridgeService {
 
   /**
    * 执行桥接工具
-   * 统一路由到 AIEngineFacade 的对应方法
+   * 统一路由到 AIFacade 的对应方法
    */
   async executeBridgedTool(
     name: string,

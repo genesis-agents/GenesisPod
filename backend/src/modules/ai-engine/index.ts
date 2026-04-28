@@ -139,7 +139,7 @@ export { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 // TeamsModule（PR-X4: 已迁移，从 ai-harness/runtime/teams 导入）
 
 // Facade (统一入口) — engine-only symbols
-// AIEngineFacade / ModelResolverService 已迁移至 ai-harness/facade（PR-X13/PR-X14）
+// AIFacade / ModelResolverService 已迁移至 ai-harness/facade（PR-X13/PR-X14）
 // 消费方请从 "@/modules/ai-harness/facade" 导入。
 // facade/types 已删除（PR-X14）；类型请从 ai-harness/facade 导入。
 

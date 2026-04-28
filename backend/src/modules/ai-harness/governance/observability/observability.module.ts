@@ -18,7 +18,7 @@ import { TraceCollectorService } from "./trace-collector.service";
 import { AiObservabilityService } from "./ai-observability.service";
 import { CostAttributionService } from "./cost-attribution.service";
 import { SessionLatencyTrackerService } from "./session-latency-tracker.service";
-import { AiEngineTracingService } from "./ai-engine-tracing.service";
+import { LlmTracingService } from "./llm-tracing.service";
 import { EvalPipelineService } from "./eval-pipeline.service";
 import { ObservabilityController } from "./observability.controller";
 import { LlmEventsListener } from "./llm-events.listener";
@@ -28,7 +28,7 @@ const OBSERVABILITY_PROVIDERS = [
   AiObservabilityService,
   CostAttributionService,
   SessionLatencyTrackerService,
-  AiEngineTracingService,
+  LlmTracingService,
   EvalPipelineService,
 ];
 

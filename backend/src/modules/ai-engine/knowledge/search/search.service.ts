@@ -11,12 +11,12 @@
  * - 搜索结果排名和多样性过滤
  *
  * 使用指南：
- * 1. 上层 AI Apps 应通过 AIEngineFacade.search() 调用（统一入口）
+ * 1. 上层 AI Apps 应通过 AIFacade.search() 调用（统一入口）
  * 2. 底层服务（如 DeepResearchAgent）可直接注入本服务使用
- * 3. AIEngineFacade.search() 通过 web-search Tool 实现，最终也调用本服务
+ * 3. AIFacade.search() 通过 web-search Tool 实现，最终也调用本服务
  *
  * 分层架构：
- *   AIEngineFacade.search()  ← 统一入口（推荐）
+ *   AIFacade.search()  ← 统一入口（推荐）
  *         ↓
  *   web-search Tool (ToolRegistry)
  *         ↓

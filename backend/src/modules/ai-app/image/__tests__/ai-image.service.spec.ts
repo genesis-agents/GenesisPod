@@ -99,7 +99,7 @@ describe("AiImageService", () => {
     generateCollaborativePrompt: jest.fn(),
   };
 
-  const mockAIEngineFacade = {
+  const mockAIFacade = {
     chat: jest.fn(),
     getAvailableModels: jest.fn().mockResolvedValue([]),
     getModelConfig: jest.fn(),
@@ -120,7 +120,7 @@ describe("AiImageService", () => {
         { provide: ImageGenerationService, useValue: mockImageGeneration },
         { provide: ImageStorageService, useValue: mockImageStorage },
         { provide: Imagen4PromptService, useValue: mockImagen4Prompt },
-        { provide: ChatFacade, useValue: mockAIEngineFacade },
+        { provide: ChatFacade, useValue: mockAIFacade },
       ],
     }).compile();
 

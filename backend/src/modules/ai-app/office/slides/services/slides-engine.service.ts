@@ -976,7 +976,7 @@ ${feedback}
 3. 关键内容应该与新标题相关
 4. 只输出 JSON，不要其他内容`;
 
-      // ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+      // ★ P3 迁移：使用 AIFacade 替代 AiChatService
       const response = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT_FAST,

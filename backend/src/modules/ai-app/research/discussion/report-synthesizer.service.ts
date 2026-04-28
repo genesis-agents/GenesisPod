@@ -19,7 +19,7 @@ import {
  * 报告合成服务
  * 将搜索结果合成为结构化研究报告
  *
- * ✅ 已迁移：使用 AIEngineFacade 统一入口
+ * ✅ 已迁移：使用 AIFacade 统一入口
  */
 @Injectable()
 export class ReportSynthesizerService {
@@ -398,7 +398,7 @@ export class ReportSynthesizerService {
   /**
    * 生成单个章节
    *
-   * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+   * ★ P3 迁移：使用 AIFacade 替代 AiChatService
    */
   private async generateSection(
     sectionType: string,
@@ -410,7 +410,7 @@ export class ReportSynthesizerService {
     const prompt = this.buildSectionPrompt(sectionType, query, sources, lang);
 
     try {
-      // ★ 使用 AIEngineFacade 统一入口
+      // ★ 使用 AIFacade 统一入口
       const result = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT,

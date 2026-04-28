@@ -77,7 +77,7 @@ const mockAdminService = {
   installSkillFromMarketplace: jest.fn(),
 };
 
-const mockAIEngineFacade = {
+const mockAIFacade = {
   fetchAvailableModels: jest.fn(),
   testModelConnectionWithKey: jest.fn(),
 };
@@ -111,7 +111,7 @@ describe("AdminController", () => {
       controllers: [AdminController],
       providers: [
         { provide: AdminService, useValue: mockAdminService },
-        { provide: ChatFacade, useValue: mockAIEngineFacade },
+        { provide: ChatFacade, useValue: mockAIFacade },
         { provide: SecretsService, useValue: mockSecretsService },
         {
           provide: StorageInventoryService,
@@ -511,7 +511,7 @@ describe("AdminController", () => {
         message: "API key is not configured for this model",
       });
       expect(
-        mockAIEngineFacade.testModelConnectionWithKey,
+        mockAIFacade.testModelConnectionWithKey,
       ).not.toHaveBeenCalled();
     });
 
@@ -527,7 +527,7 @@ describe("AdminController", () => {
       };
       mockAdminService.getAIModel.mockResolvedValue(model);
       mockAdminService.getAIModelApiKey.mockResolvedValue("sk-test-key");
-      mockAIEngineFacade.testModelConnectionWithKey.mockResolvedValue({
+      mockAIFacade.testModelConnectionWithKey.mockResolvedValue({
         success: true,
         latency: 250,
       });
@@ -535,7 +535,7 @@ describe("AdminController", () => {
       const result = await controller.testAIModelConnection("m-1");
 
       expect(
-        mockAIEngineFacade.testModelConnectionWithKey,
+        mockAIFacade.testModelConnectionWithKey,
       ).toHaveBeenCalledWith(
         "openai",
         "gpt-4",
@@ -562,7 +562,7 @@ describe("AdminController", () => {
 
     it("should resolve api key from secretsService when secretKey given", async () => {
       mockSecretsService.getValue.mockResolvedValue("sk-from-secret");
-      mockAIEngineFacade.fetchAvailableModels.mockResolvedValue(["gpt-4"]);
+      mockAIFacade.fetchAvailableModels.mockResolvedValue(["gpt-4"]);
 
       const result = await controller.fetchAvailableModels({
         provider: "openai",
@@ -570,7 +570,7 @@ describe("AdminController", () => {
       });
 
       expect(mockSecretsService.getValue).toHaveBeenCalledWith("MY_SECRET");
-      expect(mockAIEngineFacade.fetchAvailableModels).toHaveBeenCalledWith(
+      expect(mockAIFacade.fetchAvailableModels).toHaveBeenCalledWith(
         "openai",
         "sk-from-secret",
         undefined,
@@ -580,7 +580,7 @@ describe("AdminController", () => {
     });
 
     it("should use direct apiKey if provided", async () => {
-      mockAIEngineFacade.fetchAvailableModels.mockResolvedValue(["gpt-4"]);
+      mockAIFacade.fetchAvailableModels.mockResolvedValue(["gpt-4"]);
 
       await controller.fetchAvailableModels({
         provider: "openai",
@@ -588,7 +588,7 @@ describe("AdminController", () => {
       });
 
       expect(mockSecretsService.getValue).not.toHaveBeenCalled();
-      expect(mockAIEngineFacade.fetchAvailableModels).toHaveBeenCalledWith(
+      expect(mockAIFacade.fetchAvailableModels).toHaveBeenCalledWith(
         "openai",
         "sk-direct",
         undefined,

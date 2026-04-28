@@ -2,14 +2,14 @@
  * Public API Controller E2E Tests
  *
  * Tests all endpoints exposed by the PublicApiController.
- * Mocks AI dependencies (AIEngineFacade, ChatFacade, ToolFacade).
+ * Mocks AI dependencies (AIFacade, ChatFacade, ToolFacade).
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotImplementedException, ExecutionContext } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PublicApiController } from "../public-api.controller";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { AIFacade } from "../../../ai-engine/facade/ai.facade";
 import { ChatFacade, ToolFacade } from "../../../ai-engine/facade";
 import { MCPApiKeyGuard } from "../../mcp-server/guards/mcp-api-key.guard";
 
@@ -50,7 +50,7 @@ describe("PublicApiController", () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PublicApiController],
       providers: [
-        { provide: AIEngineFacade, useValue: sharedMock },
+        { provide: AIFacade, useValue: sharedMock },
         { provide: ChatFacade, useValue: sharedMock },
         { provide: ToolFacade, useValue: sharedMock },
       ],
@@ -871,7 +871,7 @@ describe("PublicApiController", () => {
   // ==================== Error Handling ====================
 
   describe("Error Handling", () => {
-    it("should propagate errors from AIEngineFacade.chat", async () => {
+    it("should propagate errors from AIFacade.chat", async () => {
       aiFacade.chat.mockRejectedValue(new Error("AI service unavailable"));
 
       await expect(

@@ -1,5 +1,5 @@
 /**
- * AIEngineFacade - Supplemental2 tests
+ * AIFacade - Supplemental2 tests
  *
  * Covers uncovered branches not in supplemental.spec.ts or extended.spec.ts:
  * - chatStructured() — JSON parse, markdown fence, retry, throwOnParseError=false
@@ -10,7 +10,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { AIEngineFacade } from "../ai-engine.facade";
+import { AIFacade } from "../ai.facade";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import {
@@ -63,7 +63,7 @@ function makeModelConfigService() {
 async function buildFacadeWithProviders(
   chatService: ReturnType<typeof makeChatService>,
   extraProviders: Array<{ provide: string | symbol; useValue: unknown }> = [],
-): Promise<AIEngineFacade> {
+): Promise<AIFacade> {
   const defaultExtras = [
     { provide: MEMORY_FEATURE, useValue: undefined },
     { provide: TOOL_FEATURE, useValue: undefined },
@@ -89,22 +89,22 @@ async function buildFacadeWithProviders(
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
-      AIEngineFacade,
+      AIFacade,
       { provide: AiChatService, useValue: chatService },
       { provide: AiModelConfigService, useValue: makeModelConfigService() },
       ...merged,
     ],
   }).compile();
 
-  return module.get<AIEngineFacade>(AIEngineFacade);
+  return module.get<AIFacade>(AIFacade);
 }
 
 // ===========================================================================
 // chatStructured
 // ===========================================================================
 
-describe("AIEngineFacade chatStructured()", () => {
-  let facade: AIEngineFacade;
+describe("AIFacade chatStructured()", () => {
+  let facade: AIFacade;
   let chatSvc: ReturnType<typeof makeChatService>;
 
   beforeEach(async () => {
@@ -296,8 +296,8 @@ describe("AIEngineFacade chatStructured()", () => {
 // chat() with circuit breaker
 // ===========================================================================
 
-describe("AIEngineFacade chat() — circuit breaker", () => {
-  let facade: AIEngineFacade;
+describe("AIFacade chat() — circuit breaker", () => {
+  let facade: AIFacade;
   let chatSvc: ReturnType<typeof makeChatService>;
   let circuitBreaker: {
     canExecute: jest.Mock;
@@ -387,8 +387,8 @@ describe("AIEngineFacade chat() — circuit breaker", () => {
 // chat() with rate limiter and budget constraint
 // ===========================================================================
 
-describe("AIEngineFacade chat() — constraints", () => {
-  let facade: AIEngineFacade;
+describe("AIFacade chat() — constraints", () => {
+  let facade: AIFacade;
   let chatSvc: ReturnType<typeof makeChatService>;
   let rateLimiter: { check: jest.Mock; consume: jest.Mock };
   let costController: { checkBudget: jest.Mock };

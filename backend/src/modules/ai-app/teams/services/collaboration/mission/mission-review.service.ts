@@ -17,7 +17,7 @@ import {
 import { TopicEventEmitterService } from "../../events";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
-// ★ AI Engine 能力下沉：使用 AIEngineFacade 访问熔断器服务
+// ★ AI Engine 能力下沉：使用 AIFacade 访问熔断器服务
 import { AgentFacade } from "../../../../../ai-harness/facade";
 import { TaskCompletionType } from "../../../../../ai-harness/facade";
 import { MissionStateManager } from "./mission-state.manager";

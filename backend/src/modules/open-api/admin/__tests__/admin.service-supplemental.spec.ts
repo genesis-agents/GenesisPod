@@ -105,7 +105,7 @@ jest.mock("@prisma/client", () => ({
 jest.mock("../../../ai-engine/facade", () => ({
   inferIsReasoning: jest.fn().mockReturnValue(false),
   getKnownModelLimit: jest.fn().mockReturnValue(null),
-  AIEngineFacade: class {},
+  AIFacade: class {},
   ChatFacade: class {},
   GuardrailsPipelineService: class {},
 }));

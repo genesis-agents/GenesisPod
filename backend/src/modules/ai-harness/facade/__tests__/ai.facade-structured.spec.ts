@@ -1,5 +1,5 @@
 /**
- * AIEngineFacade - chatStructured 测试
+ * AIFacade - chatStructured 测试
  *
  * 测试结构化输出能力：
  * - chatStructured<T>() JSON Schema 强制输出
@@ -12,13 +12,13 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../ai-engine.facade";
+import { AIFacade } from "../ai.facade";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import { ORCHESTRATION_FEATURE } from "../facade.providers";
 
-describe("AIEngineFacade - chatStructured", () => {
-  let facade: AIEngineFacade;
+describe("AIFacade - chatStructured", () => {
+  let facade: AIFacade;
   let mockAiChatService: any;
 
   beforeEach(async () => {
@@ -50,7 +50,7 @@ describe("AIEngineFacade - chatStructured", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: AiModelConfigService, useValue: mockModelConfigService },
         {
@@ -60,7 +60,7 @@ describe("AIEngineFacade - chatStructured", () => {
       ],
     }).compile();
 
-    facade = module.get<AIEngineFacade>(AIEngineFacade);
+    facade = module.get<AIFacade>(AIFacade);
 
     jest.spyOn(Logger.prototype, "log").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();

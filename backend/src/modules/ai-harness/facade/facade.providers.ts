@@ -65,7 +65,7 @@ import { MessageBusService as A2AMessageBusService } from "../protocol/ipc/messa
 import { TraceCollectorService } from "../governance/observability/trace-collector.service";
 import { MemoryCoordinatorService } from "../../ai-engine/knowledge/memory/memory-coordinator.service";
 // ★ Registry Feature 依赖
-import { AgentRegistry } from "../kernel/registry/legacy-agent-registry";
+import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../runtime/teams/registry/team-registry";
 import { RoleRegistry } from "../runtime/teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
@@ -608,6 +608,6 @@ export const FACADE_FEATURE_PROVIDERS: Provider[] = [
 // ============================================================================
 // ★ Phase 5: Domain Facade Providers
 // Domain facades are @Injectable() NestJS providers that group related
-// capabilities. The God Facade (AIEngineFacade) delegates to them.
+// capabilities. The God Facade (AIFacade) delegates to them.
 // Each facade is registered by its class token directly in AIEngineModule.
 // ============================================================================

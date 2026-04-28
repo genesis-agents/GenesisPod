@@ -421,7 +421,7 @@ describe("SmartContentExtractorSkill", () => {
   // Without AI facade
   // --------------------------------------------------------------------------
 
-  describe("without AIEngineFacade", () => {
+  describe("without AIFacade", () => {
     let skillWithoutFacade: SmartContentExtractorSkill;
 
     beforeEach(async () => {

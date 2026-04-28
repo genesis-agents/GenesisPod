@@ -483,7 +483,7 @@ ${params.category ? `团队分类：${params.category}` : ""}
 请返回纯 JSON 格式，不要包含 markdown 代码块。`;
 
     try {
-      // ★ 使用 AIEngineFacade 获取默认 CHAT 模型，不直接访问数据库
+      // ★ 使用 AIFacade 获取默认 CHAT 模型，不直接访问数据库
       const modelConfig = await this.aiFacade.getDefaultTextModel();
 
       if (!modelConfig) {

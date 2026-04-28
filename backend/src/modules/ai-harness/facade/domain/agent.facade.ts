@@ -54,7 +54,7 @@ import { IntentDetectionService } from "../../../ai-engine/planning/services/int
 import { ProcessSupervisorService as ExecutionStateManager } from "../../process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../../ai-engine/planning/services/output-reviewer.service";
 import { ContextEvolutionService } from "../../../ai-engine/planning/services/context-evolution.service";
-import { AgentRegistry } from "../../kernel/registry/legacy-agent-registry";
+import { AgentRegistry } from "../../kernel/registry/plan-based-agent-registry";
 
 @Injectable()
 export class AgentFacade {

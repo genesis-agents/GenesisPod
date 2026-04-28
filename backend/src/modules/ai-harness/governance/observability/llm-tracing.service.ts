@@ -13,8 +13,8 @@ import { Injectable, Logger } from "@nestjs/common";
  * 详细指标收集由 AIMetricsService 处理并存储到数据库。
  */
 @Injectable()
-export class AiEngineTracingService {
-  private readonly logger = new Logger(AiEngineTracingService.name);
+export class LlmTracingService {
+  private readonly logger = new Logger(LlmTracingService.name);
 
   /**
    * 追踪 LLM 调用

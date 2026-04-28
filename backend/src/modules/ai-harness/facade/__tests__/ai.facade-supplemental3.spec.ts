@@ -1,5 +1,5 @@
 /**
- * AIEngineFacade - Supplemental3 tests
+ * AIFacade - Supplemental3 tests
  *
  * Covers uncovered branches not in supplemental/supplemental2:
  * - handleSkillProxy: domain/query provided WITH skills available → auto-delegates
@@ -30,7 +30,7 @@ jest.mock("@prisma/client", () => {
 });
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { AIEngineFacade } from "../ai-engine.facade";
+import { AIFacade } from "../ai.facade";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import {
@@ -104,7 +104,7 @@ const ALL_NULL_FEATURES = [
 async function buildFacade(
   chatService: ReturnType<typeof makeChatService>,
   extraProviders: Array<{ provide: string | symbol; useValue: unknown }> = [],
-): Promise<AIEngineFacade> {
+): Promise<AIFacade> {
   const extraTokens = new Set(extraProviders.map((p) => p.provide));
   const merged = [
     ...ALL_NULL_FEATURES.filter((d) => !extraTokens.has(d.provide)),
@@ -113,21 +113,21 @@ async function buildFacade(
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
-      AIEngineFacade,
+      AIFacade,
       { provide: AiChatService, useValue: chatService },
       { provide: AiModelConfigService, useValue: makeModelConfigService() },
       ...merged,
     ],
   }).compile();
 
-  return module.get<AIEngineFacade>(AIEngineFacade);
+  return module.get<AIFacade>(AIFacade);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tests: handleSkillProxy
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade handleSkillProxy (via chat())", () => {
+describe("AIFacade handleSkillProxy (via chat())", () => {
   let chatSvc: ReturnType<typeof makeChatService>;
 
   beforeEach(() => {
@@ -208,7 +208,7 @@ describe("AIEngineFacade handleSkillProxy (via chat())", () => {
 // Tests: enforceRateLimitAndBudget
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade enforceRateLimitAndBudget (via chat())", () => {
+describe("AIFacade enforceRateLimitAndBudget (via chat())", () => {
   let chatSvc: ReturnType<typeof makeChatService>;
 
   beforeEach(() => {
@@ -322,7 +322,7 @@ describe("AIEngineFacade enforceRateLimitAndBudget (via chat())", () => {
 // Tests: chatWithSkills
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade chatWithSkills()", () => {
+describe("AIFacade chatWithSkills()", () => {
   let chatSvc: ReturnType<typeof makeChatService>;
 
   beforeEach(() => {
@@ -427,7 +427,7 @@ describe("AIEngineFacade chatWithSkills()", () => {
 // Tests: chatStream
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade chatStream()", () => {
+describe("AIFacade chatStream()", () => {
   let chatSvc: ReturnType<typeof makeChatService>;
 
   beforeEach(() => {
@@ -496,7 +496,7 @@ describe("AIEngineFacade chatStream()", () => {
 // Tests: resolveModelId
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade resolveModelId (via chat())", () => {
+describe("AIFacade resolveModelId (via chat())", () => {
   let chatSvc: ReturnType<typeof makeChatService>;
 
   beforeEach(() => {

@@ -122,7 +122,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
       const userMessage =
         typeof input === "string" ? input : JSON.stringify(input, null, 2);
 
-      // 3. Call LLM via AIEngineFacade
+      // 3. Call LLM via AIFacade
       const taskProfile = fm.taskProfile ?? {
         creativity: "medium",
         outputLength: "medium",

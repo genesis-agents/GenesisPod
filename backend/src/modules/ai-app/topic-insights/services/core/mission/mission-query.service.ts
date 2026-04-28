@@ -559,7 +559,7 @@ export class MissionQueryService {
 
   /**
    * ★ 查询各模型类型的默认模型名称
-   * 使用 AIEngineFacade 获取模型配置
+   * 使用 AIFacade 获取模型配置
    */
   async getDefaultModelNames(): Promise<Map<AIModelType, string>> {
     const map = new Map<AIModelType, string>();

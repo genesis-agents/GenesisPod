@@ -44,7 +44,7 @@ export class AiImageAnalyticsService {
     }
 
     try {
-      // ★ P3 迁移：模型选择由 AIEngineFacade 内部处理，无需手动获取
+      // ★ P3 迁移：模型选择由 AIFacade 内部处理，无需手动获取
 
       const imageDescriptions = images
         .map(
@@ -53,7 +53,7 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      // ★ P3 迁移：使用 AIEngineFacade 统一入口
+      // ★ P3 迁移：使用 AIFacade 统一入口
       const response = await this.chatFacade.chat({
         messages: [
           {
@@ -114,7 +114,7 @@ export class AiImageAnalyticsService {
     }
 
     try {
-      // ★ P3 迁移：模型选择由 AIEngineFacade 内部处理，无需手动获取
+      // ★ P3 迁移：模型选择由 AIFacade 内部处理，无需手动获取
 
       const imageDescriptions = images
         .map(
@@ -123,7 +123,7 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      // ★ P3 迁移：使用 AIEngineFacade 统一入口
+      // ★ P3 迁移：使用 AIFacade 统一入口
       const response = await this.chatFacade.chat({
         messages: [
           {
@@ -187,7 +187,7 @@ export class AiImageAnalyticsService {
     }
 
     try {
-      // ★ P3 迁移：模型选择由 AIEngineFacade 内部处理，无需手动获取
+      // ★ P3 迁移：模型选择由 AIFacade 内部处理，无需手动获取
 
       const imageDescriptions = images
         .map(
@@ -196,7 +196,7 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      // ★ P3 迁移：使用 AIEngineFacade 统一入口
+      // ★ P3 迁移：使用 AIFacade 统一入口
       const response = await this.chatFacade.chat({
         messages: [
           {

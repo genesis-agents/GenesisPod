@@ -1,9 +1,9 @@
 // Mock the ai-engine facade before any imports to avoid pulling in
 // @nestjs/cache-manager / ioredis that are not installed in the test env.
 // The paths below match what Node sees with rootDir=src in jest.config.js.
-jest.mock("../../../ai-engine/facade/ai-engine.facade", () => {
+jest.mock("../../../ai-engine/facade/ai.facade", () => {
   return {
-    AIEngineFacade: class MockAIEngineFacade {},
+    AIFacade: class MockAIFacade {},
   };
 });
 jest.mock("../../../ai-engine/facade", () => {

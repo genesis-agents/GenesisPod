@@ -20,7 +20,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-harness/facade";
+import { AIFacade } from "@/modules/ai-harness/facade";
 import type { ExtractedFigure } from "../../types/research.types";
 
 /** 信息性图片类型：chart/table/diagram 直接保留，无需 Embedding 判断 */
@@ -51,7 +51,7 @@ function cosine(a: number[], b: number[]): number {
 export class FigureRelevanceService {
   private readonly logger = new Logger(FigureRelevanceService.name);
 
-  constructor(private readonly engineFacade: AIEngineFacade) {}
+  constructor(private readonly engineFacade: AIFacade) {}
 
   /**
    * 对候选图片列表进行 Embedding 相关性过滤（替代原 Vision LLM 方案）

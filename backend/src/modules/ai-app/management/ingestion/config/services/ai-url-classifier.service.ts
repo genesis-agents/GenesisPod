@@ -490,7 +490,7 @@ Only include alternatives if there are other plausible classifications with conf
   /**
    * 调用 LLM 进行分类
    *
-   * 通过 AIEngineFacade 统一入口调用，使用 TaskProfile 语义化配置：
+   * 通过 AIFacade 统一入口调用，使用 TaskProfile 语义化配置：
    * - creativity: "deterministic" — URL 分类需要确定性输出
    * - outputLength: "minimal"    — 简短的 JSON 分类结果
    */

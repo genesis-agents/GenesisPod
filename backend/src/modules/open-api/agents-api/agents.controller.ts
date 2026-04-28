@@ -19,7 +19,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { Observable, map, catchError, of } from "rxjs";
 import { AgentOrchestrator } from "../../ai-harness/kernel/registry/agent-orchestrator";
-import { AgentRegistry } from "../../ai-harness/kernel/registry/legacy-agent-registry";
+import { AgentRegistry } from "../../ai-harness/kernel/registry/plan-based-agent-registry";
 import {
   AgentId,
   BUILTIN_AGENTS,

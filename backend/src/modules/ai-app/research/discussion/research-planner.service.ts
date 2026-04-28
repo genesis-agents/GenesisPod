@@ -20,7 +20,7 @@ import {
  * 研究规划服务
  * 使用 AI 生成智能研究计划
  *
- * ✅ 已迁移：使用 AIEngineFacade 统一入口
+ * ✅ 已迁移：使用 AIFacade 统一入口
  */
 @Injectable()
 export class ResearchPlannerService {
@@ -64,7 +64,7 @@ export class ResearchPlannerService {
         : PLANNER_PROMPTS[lang].userPrompt(query);
 
     try {
-      // ★ 使用 AIEngineFacade 统一入口
+      // ★ 使用 AIFacade 统一入口
       const result = await this.chatFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },

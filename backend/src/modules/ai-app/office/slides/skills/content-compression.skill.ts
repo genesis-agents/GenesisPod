@@ -418,7 +418,7 @@ export class ContentCompressionSkill implements ISkill<
       // ★ 使用 ChatFacade 统一入口
       if (!this.chatFacade) {
         throw new Error(
-          "AIEngineFacade not available. Please check module configuration.",
+          "AIFacade not available. Please check module configuration.",
         );
       }
 

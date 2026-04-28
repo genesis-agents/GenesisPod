@@ -178,7 +178,7 @@ export class MissionExecutionService {
 
   /**
    * 获取模型配置
-   * ★ 架构重构：使用 AIEngineFacade 获取模型配置
+   * ★ 架构重构：使用 AIFacade 获取模型配置
    */
   private async getModelConfig(aiModel: string) {
     try {

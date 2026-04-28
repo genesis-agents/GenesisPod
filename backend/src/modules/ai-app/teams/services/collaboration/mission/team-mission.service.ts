@@ -27,7 +27,7 @@ import {
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
-// ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIEngineFacade 访问）
+// ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIFacade 访问）
 import { TaskCompletionType } from "../../../../../ai-harness/facade";
 import { EmailService } from "../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
@@ -55,7 +55,7 @@ import {
 } from "./mission-ai-caller.service";
 import { TeamMessageService } from "./team-message.service";
 import { TeamMemberService } from "./team-member.service";
-// ★ AI Engine 能力下沉：使用 AI Engine 的上下文初始化服务（通过 AIEngineFacade 访问）
+// ★ AI Engine 能力下沉：使用 AI Engine 的上下文初始化服务（通过 AIFacade 访问）
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
 import {
   isRetryableError,

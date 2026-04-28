@@ -47,7 +47,7 @@ jest.mock("../../../ai-engine/facade", () => ({
 
 // Mock ai-engine/facade which has transitive cache-manager deps
 jest.mock("../../../ai-engine/facade", () => ({
-  AIEngineFacade: class {},
+  AIFacade: class {},
   AiChatService: class {},
   ChatFacade: class {},
   EmbeddingService: class {},

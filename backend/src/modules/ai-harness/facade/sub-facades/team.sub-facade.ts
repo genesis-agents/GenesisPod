@@ -1,7 +1,7 @@
 /**
  * TeamSubFacade
  * Handles team mission orchestration.
- * Plain TypeScript class — NOT @Injectable. Instantiated by AIEngineFacade.
+ * Plain TypeScript class — NOT @Injectable. Instantiated by AIFacade.
  */
 
 import { Logger } from "@nestjs/common";

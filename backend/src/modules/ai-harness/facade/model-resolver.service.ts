@@ -2,7 +2,7 @@
  * Model Resolver Service
  * 模型解析子门面
  *
- * 从 AIEngineFacade 提取的模型管理职责：
+ * 从 AIFacade 提取的模型管理职责：
  * - 模型选择（含推理模型优先、熔断器、黑名单过滤）
  * - 模型列表查询（扩展/简化两种视图）
  * - 默认模型获取（按类型）
@@ -10,7 +10,7 @@
  *
  * 设计原则：
  * - 作为 Facade 的内部委托，不直接暴露给 AI Apps
- * - 消费者仍通过 AIEngineFacade 调用
+ * - 消费者仍通过 AIFacade 调用
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";

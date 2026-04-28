@@ -836,7 +836,7 @@ export interface StructuredChatResponse<T> {
 /**
  * 直接研究请求参数
  * ★ 由 ai-app/research 的 DiscussionResearchService 实现
- *   通过 AIEngineFacade.registerResearchExecutor() 注册
+ *   通过 AIFacade.registerResearchExecutor() 注册
  */
 export interface DirectResearchParams {
   query: string;

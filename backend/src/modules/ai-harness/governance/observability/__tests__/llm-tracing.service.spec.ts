@@ -1,13 +1,13 @@
 /**
- * Unit tests for AiEngineTracingService
+ * Unit tests for LlmTracingService
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AiEngineTracingService } from "../ai-engine-tracing.service";
+import { LlmTracingService } from "../llm-tracing.service";
 
-describe("AiEngineTracingService", () => {
-  let service: AiEngineTracingService;
+describe("LlmTracingService", () => {
+  let service: LlmTracingService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -17,10 +17,10 @@ describe("AiEngineTracingService", () => {
     jest.spyOn(Logger.prototype, "debug").mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AiEngineTracingService],
+      providers: [LlmTracingService],
     }).compile();
 
-    service = module.get<AiEngineTracingService>(AiEngineTracingService);
+    service = module.get<LlmTracingService>(LlmTracingService);
   });
 
   describe("traceLLMCall", () => {

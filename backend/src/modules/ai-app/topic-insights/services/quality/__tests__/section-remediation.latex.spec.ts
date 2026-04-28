@@ -11,7 +11,7 @@
  */
 import { Test } from "@nestjs/testing";
 import { SectionRemediationService } from "../section-remediation.service";
-import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-engine/facade";
 
 describe("SectionRemediationService — LaTeX safety guard", () => {
   let service: SectionRemediationService;
@@ -38,7 +38,7 @@ describe("SectionRemediationService — LaTeX safety guard", () => {
       providers: [
         SectionRemediationService,
         { provide: ChatFacade, useValue: { chat } },
-        { provide: AIEngineFacade, useValue: {} },
+        { provide: AIFacade, useValue: {} },
       ],
     }).compile();
     service = m.get(SectionRemediationService);

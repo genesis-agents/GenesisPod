@@ -1,7 +1,7 @@
 /**
  * MemorySubFacade
  * Handles short-term and long-term memory operations.
- * Plain TypeScript class — NOT @Injectable. Instantiated by AIEngineFacade.
+ * Plain TypeScript class — NOT @Injectable. Instantiated by AIFacade.
  */
 
 import { Logger } from "@nestjs/common";

@@ -5,7 +5,7 @@
  *
  * 双 Agent 体系说明（PR-X5）：
  *   - IAgent (agent.interface.ts) = 新一代 harness 运行时实例接口（推荐）
- *   - legacy-agent.interface.ts = 旧 ReAct-mode 接口（BaseAgent/ReactiveAgent/PlanAgent），
+ *   - plan-based-agent.interface.ts = 旧 ReAct-mode 接口（BaseAgent/ReactiveAgent/PlanAgent），
  *     标记 @deprecated，但保留兼容性，供 ai-app/research 等旧式 Agent 使用
  */
 
@@ -20,7 +20,7 @@ export * from "./action.interface";
 export * from "./agent-event.interface";
 export * from "./harness.interface";
 export * from "./runtime-env.interface";
-// Legacy ReAct-mode types — see legacy-agent.interface.ts @deprecated notice
+// Legacy ReAct-mode types — see plan-based-agent.interface.ts @deprecated notice
 export type {
   AgentContext,
   AgentMemory,
@@ -37,8 +37,8 @@ export type {
   AgentEventType,
   AgentCapability,
   AgentDefinition,
-} from "./legacy-agent.interface";
+} from "./plan-based-agent.interface";
 export type {
   AgentEvent as LegacyAgentEvent,
   IAgent as LegacyIAgent,
-} from "./legacy-agent.interface";
+} from "./plan-based-agent.interface";

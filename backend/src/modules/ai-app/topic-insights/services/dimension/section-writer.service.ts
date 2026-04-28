@@ -21,7 +21,7 @@ import {
 } from "@/modules/ai-engine/facade";
 import type { QueryLoopConfig } from "@/modules/ai-engine/facade";
 import { PromptCacheCoordinatorService } from "@/modules/ai-engine/facade";
-import { ChatFacade, AIEngineFacade } from "@/modules/ai-harness/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research/research-leader.service";
 import type { FigureRegistryEntry } from "./evidence-summary.utils";
@@ -171,7 +171,7 @@ export class SectionWriterService {
 
   constructor(
     private readonly chatFacade: ChatFacade,
-    private readonly engineFacade: AIEngineFacade,
+    private readonly engineFacade: AIFacade,
     @Optional()
     private readonly promptCacheCoordinator?: PromptCacheCoordinatorService,
   ) {}

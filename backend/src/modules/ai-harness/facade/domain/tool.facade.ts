@@ -75,7 +75,7 @@ export class ToolFacade {
   }
 
   /**
-   * Called by AIEngineFacade after construction to wire the chat function.
+   * Called by AIFacade after construction to wire the chat function.
    * This breaks the circular dependency between ChatFacade and ToolFacade.
    */
   setChatFn(fn: (req: ChatRequest) => Promise<ChatResponse>): void {

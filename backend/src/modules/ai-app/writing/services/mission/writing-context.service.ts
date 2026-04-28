@@ -50,7 +50,7 @@ export class WritingContextService {
         agentId: params.projectId, // 使用 projectId 作为 agentId 来追踪
       };
 
-      // 从 AIEngineFacade 获取技能提示
+      // 从 AIFacade 获取技能提示
       const skillPrompts =
         await this.toolFacade.capabilityGetSkillPrompts(context);
 

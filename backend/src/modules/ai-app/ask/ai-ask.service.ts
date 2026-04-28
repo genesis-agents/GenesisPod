@@ -488,7 +488,7 @@ export class AiAskService {
 
             aiResponseContent = finalContent || "抱歉，我无法完成这个请求。";
           } else {
-            // 使用传统模式（通过 AIEngineFacade 调用）
+            // 使用传统模式（通过 AIFacade 调用）
             // 构建系统提示词（包含项目上下文和 RAG 上下文）
             const systemPrompt = this.buildSystemPromptForChat(
               dto.content,
@@ -503,7 +503,7 @@ export class AiAskService {
               ...contextMessages,
             ];
 
-            // 使用 AIEngineFacade 统一入口
+            // 使用 AIFacade 统一入口
             const aiResponse = await this.chatFacade.chat({
               messages: messagesWithSystem,
               model: modelConfig.modelId, // 指定模型
@@ -837,7 +837,7 @@ export class AiAskService {
     }));
 
     try {
-      // 调用 AI (通过 AIEngineFacade 统一入口，带自动积分扣除)
+      // 调用 AI (通过 AIFacade 统一入口，带自动积分扣除)
       const aiResponse = await this.chatFacade.chat({
         messages: contextMessages,
         model: modelConfig.modelId, // 指定模型
@@ -1057,7 +1057,7 @@ export class AiAskService {
 
   /**
    * 获取模型配置
-   * 使用 AIEngineFacade 统一入口，避免直接访问 prisma.aIModel
+   * 使用 AIFacade 统一入口，避免直接访问 prisma.aIModel
    */
   private async getModelConfig(modelId?: string | null) {
     if (modelId) {
@@ -1069,7 +1069,7 @@ export class AiAskService {
           modelId: model.modelId,
           name: model.displayName,
           provider: model.provider,
-          apiKey: null, // API Key 由 AIEngineFacade 内部处理
+          apiKey: null, // API Key 由 AIFacade 内部处理
           apiEndpoint: model.apiEndpoint || null,
           maxTokens: model.maxTokens,
         };
@@ -1084,7 +1084,7 @@ export class AiAskService {
         modelId: defaultModel.modelId,
         name: defaultModel.displayName,
         provider: defaultModel.provider,
-        apiKey: null, // API Key 由 AIEngineFacade 内部处理
+        apiKey: null, // API Key 由 AIFacade 内部处理
         apiEndpoint: null,
         maxTokens: defaultModel.maxTokens,
       };

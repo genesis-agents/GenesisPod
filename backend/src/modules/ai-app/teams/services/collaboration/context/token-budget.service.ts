@@ -7,7 +7,7 @@
  * 此文件重新导出 AI Engine 的能力，保持向后兼容
  */
 
-// 重新导出 AI Engine 的 TokenBudgetService 和相关类型（通过 AIEngineFacade 统一入口）
+// 重新导出 AI Engine 的 TokenBudgetService 和相关类型（通过 AIFacade 统一入口）
 export {
   TokenBudgetService,
   type TokenBudgetModelConfig as ModelConfig,

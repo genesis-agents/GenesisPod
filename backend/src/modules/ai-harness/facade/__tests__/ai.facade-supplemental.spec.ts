@@ -1,5 +1,5 @@
 /**
- * AIEngineFacade - Supplemental tests
+ * AIFacade - Supplemental tests
  *
  * Covers additional uncovered paths in ai-engine.facade.ts:
  * - chat() with model fallback service
@@ -29,7 +29,7 @@ jest.mock("@prisma/client", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../ai-engine.facade";
+import { AIFacade } from "../ai.facade";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import { AIModelType } from "@prisma/client";
@@ -116,7 +116,7 @@ async function buildFacade(
   chatServiceOverrides: Record<string, unknown> = {},
   modelConfigOverrides: Record<string, unknown> = {},
 ): Promise<{
-  facade: AIEngineFacade;
+  facade: AIFacade;
   mockChat: jest.Mock;
   mockCircuitBreaker: ReturnType<typeof makeMockCircuitBreaker>;
 }> {
@@ -125,7 +125,7 @@ async function buildFacade(
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
-      AIEngineFacade,
+      AIFacade,
       { provide: AiChatService, useValue: mockChat },
       {
         provide: AiModelConfigService,
@@ -145,7 +145,7 @@ async function buildFacade(
   jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
   return {
-    facade: module.get<AIEngineFacade>(AIEngineFacade),
+    facade: module.get<AIFacade>(AIFacade),
     mockChat,
     mockCircuitBreaker,
   };
@@ -155,7 +155,7 @@ async function buildFacade(
 // chat() — model resolution from modelType
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — chat() model resolution", () => {
+describe("AIFacade — chat() model resolution", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("resolves modelId from request.model when provided", async () => {
@@ -207,7 +207,7 @@ describe("AIEngineFacade — chat() model resolution", () => {
 // chat() — ModelFallbackService path
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — chat() with ModelFallbackService", () => {
+describe("AIFacade — chat() with ModelFallbackService", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("uses fallback service when available and returns success result", async () => {
@@ -230,7 +230,7 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         {
           provide: AiChatService,
           useValue: makeMockAiChatService(),
@@ -253,7 +253,7 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
     // Inject modelFallbackService via private field
     (facade as unknown as Record<string, unknown>)["modelFallbackService"] =
       mockFallbackService;
@@ -283,7 +283,7 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -297,7 +297,7 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
     jest.spyOn(Logger.prototype, "error").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
     (facade as unknown as Record<string, unknown>)["modelFallbackService"] =
       mockFallbackService;
 
@@ -321,7 +321,7 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -335,7 +335,7 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
     jest.spyOn(Logger.prototype, "error").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
     (facade as unknown as Record<string, unknown>)["modelFallbackService"] = {
       executeWithFallback: mockFallbackExecute,
     };
@@ -353,7 +353,7 @@ describe("AIEngineFacade — chat() with ModelFallbackService", () => {
 // getDefaultTextModel / getDefaultImageModel / getModelById / getDefaultModelByType
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — model info getters", () => {
+describe("AIFacade — model info getters", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("getDefaultTextModel returns null when no default CHAT model", async () => {
@@ -471,7 +471,7 @@ describe("AIEngineFacade — model info getters", () => {
 // executeSkill()
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — executeSkill()", () => {
+describe("AIFacade — executeSkill()", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("calls skill.execute with input and context", async () => {
@@ -499,7 +499,7 @@ describe("AIEngineFacade — executeSkill()", () => {
     const mockLLMAdapter = { chat: jest.fn() };
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -520,7 +520,7 @@ describe("AIEngineFacade — executeSkill()", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
 
     const setLLMAdapter = jest.fn();
     const mockSkill = {
@@ -571,7 +571,7 @@ describe("AIEngineFacade — executeSkill()", () => {
 // resolveSkillInputBindings()
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — resolveSkillInputBindings()", () => {
+describe("AIFacade — resolveSkillInputBindings()", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("returns null for non-PromptSkillAdapter skills", async () => {
@@ -618,7 +618,7 @@ describe("AIEngineFacade — resolveSkillInputBindings()", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -639,7 +639,7 @@ describe("AIEngineFacade — resolveSkillInputBindings()", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
 
     const adapter = {
       execute: jest.fn(),
@@ -665,7 +665,7 @@ describe("AIEngineFacade — resolveSkillInputBindings()", () => {
 // buildContext() — topic, resource, memory, compression
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — buildContext()", () => {
+describe("AIFacade — buildContext()", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("builds context from custom source", async () => {
@@ -769,7 +769,7 @@ describe("AIEngineFacade — buildContext()", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -782,7 +782,7 @@ describe("AIEngineFacade — buildContext()", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
     (facade as unknown as Record<string, unknown>)["prisma"] = mockPrisma;
 
     const ctx = await facade.buildContext({
@@ -807,7 +807,7 @@ describe("AIEngineFacade — buildContext()", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -820,7 +820,7 @@ describe("AIEngineFacade — buildContext()", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
     (facade as unknown as Record<string, unknown>)["prisma"] = mockPrisma;
 
     const ctx = await facade.buildContext({
@@ -840,7 +840,7 @@ describe("AIEngineFacade — buildContext()", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -857,7 +857,7 @@ describe("AIEngineFacade — buildContext()", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
 
     const ctx = await facade.buildContext({
       sources: [{ type: "memory", id: "session-abc" }],
@@ -918,7 +918,7 @@ describe("AIEngineFacade — buildContext()", () => {
 // checkConstraints() — custom rules and invalid regex
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — checkConstraints() edge cases", () => {
+describe("AIFacade — checkConstraints() edge cases", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("detects custom content filter rule violations", async () => {
@@ -1009,14 +1009,14 @@ describe("AIEngineFacade — checkConstraints() edge cases", () => {
 // search() — ToolRegistry not available
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — search() without ToolRegistry", () => {
+describe("AIFacade — search() without ToolRegistry", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("returns failure when ToolRegistry not available", async () => {
     // Build facade without TOOL_FEATURE
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -1029,7 +1029,7 @@ describe("AIEngineFacade — search() without ToolRegistry", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
 
     const result = await facade.search({ query: "test query" });
 
@@ -1047,7 +1047,7 @@ describe("AIEngineFacade — search() without ToolRegistry", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: makeMockAiChatService() },
         {
           provide: AiModelConfigService,
@@ -1064,7 +1064,7 @@ describe("AIEngineFacade — search() without ToolRegistry", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
 
     const result = await facade.search({ query: "failing query" });
 
@@ -1077,7 +1077,7 @@ describe("AIEngineFacade — search() without ToolRegistry", () => {
 // chat() — isError path recording circuit breaker failure
 // ─────────────────────────────────────────────────────────────
 
-describe("AIEngineFacade — chat() isError response handling", () => {
+describe("AIFacade — chat() isError response handling", () => {
   afterEach(() => jest.restoreAllMocks());
 
   it("records circuit breaker failure when AiChatService returns isError=true", async () => {
@@ -1103,7 +1103,7 @@ describe("AIEngineFacade — chat() isError response handling", () => {
 
     const module = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         {
           provide: AiChatService,
           useValue: makeMockAiChatService({
@@ -1126,7 +1126,7 @@ describe("AIEngineFacade — chat() isError response handling", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "debug").mockImplementation();
 
-    const facade = module.get<AIEngineFacade>(AIEngineFacade);
+    const facade = module.get<AIFacade>(AIFacade);
     (facade as unknown as Record<string, unknown>)["creditsService"] =
       mockCreditsService;
 

@@ -1,7 +1,7 @@
 /**
  * ToolExecSubFacade
  * Handles tool execution, tool listing, and AI capability resolution.
- * Plain TypeScript class — NOT @Injectable. Instantiated by AIEngineFacade.
+ * Plain TypeScript class — NOT @Injectable. Instantiated by AIFacade.
  */
 
 import { Logger } from "@nestjs/common";

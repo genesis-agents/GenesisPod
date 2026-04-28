@@ -14,8 +14,8 @@ import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 @Module({
   imports: [
     SecretsModule, // Required for MCPApiKeyGuard
-    // ★ DiscussionModule removed — research accessed via AIEngineFacade.executeDirectResearch()
-    // AIEngineFacade is @Global, no explicit import needed
+    // ★ DiscussionModule removed — research accessed via AIFacade.executeDirectResearch()
+    // AIFacade is @Global, no explicit import needed
   ],
   controllers: [PublicApiController],
 })

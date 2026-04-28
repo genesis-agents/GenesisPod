@@ -2,7 +2,7 @@
  * Prompt Enhancement Service
  *
  * This service handles AI-powered prompt enhancement and parsing
- * ★ P3 迁移：使用 AIEngineFacade 统一入口
+ * ★ P3 迁移：使用 AIFacade 统一入口
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -42,7 +42,7 @@ export class PromptEnhancementService {
 
   /**
    * 调用 LLM 进行 Prompt 增强
-   * ★ P3 迁移：使用 AIEngineFacade 统一入口
+   * ★ P3 迁移：使用 AIFacade 统一入口
    */
   async enhancePromptWithLLM(
     content: string,

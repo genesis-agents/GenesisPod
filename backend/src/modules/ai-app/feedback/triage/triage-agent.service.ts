@@ -256,7 +256,7 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
    * 调用 AI API（使用项目标准的 AI 服务）
    */
   private async callAiApi(userPrompt: string): Promise<string> {
-    // ★ 通过 AIEngineFacade 获取默认聊天模型
+    // ★ 通过 AIFacade 获取默认聊天模型
     const defaultModel = await this.chatFacade.getDefaultTextModel();
     if (!defaultModel) {
       throw new Error("No default text model available for triage");

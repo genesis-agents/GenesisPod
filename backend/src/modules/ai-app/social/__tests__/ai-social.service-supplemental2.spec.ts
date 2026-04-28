@@ -34,7 +34,7 @@ jest.mock("../../../ai-engine/facade", () => ({
 }));
 
 jest.mock("../../../ai-engine/facade", () => ({
-  AIEngineFacade: class {},
+  AIFacade: class {},
   AiChatService: class {},
   ChatFacade: class {},
   EmbeddingService: class {},

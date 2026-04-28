@@ -90,7 +90,7 @@ export class SlideHtmlGenerationSkill implements ISkill<
         success: false,
         error: {
           code: "NO_AI_FACADE",
-          message: "AIEngineFacade not available",
+          message: "AIFacade not available",
           retryable: false,
         },
         metadata: {
@@ -133,7 +133,7 @@ export class SlideHtmlGenerationSkill implements ISkill<
         ? SLIDE_DESIGN_SYSTEM_BASE_PROMPT + "\n\n" + input.themePromptFragment
         : SLIDE_DESIGN_SYSTEM_PROMPT;
 
-      // Call AI via AIEngineFacade
+      // Call AI via AIFacade
       const messages: ChatMessage[] = [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

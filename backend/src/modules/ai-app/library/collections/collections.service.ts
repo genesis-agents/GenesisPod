@@ -325,7 +325,7 @@ export class CollectionsService {
     if (!resource) return;
 
     try {
-      // ★ 通过 AIEngineFacade 获取默认文本模型
+      // ★ 通过 AIFacade 获取默认文本模型
       const model = await this.chatFacade.getDefaultTextModel();
       if (!model) {
         this.logger.warn("[generateAutoTags] No default text model available");
@@ -777,7 +777,7 @@ export class CollectionsService {
    * 使用配置的默认文本模型，不硬编码模型名称
    */
   async aiBatchGenerateTags(userId: string, collectionId?: string) {
-    // ★ 通过 AIEngineFacade 获取默认文本模型
+    // ★ 通过 AIFacade 获取默认文本模型
     const model = await this.chatFacade.getDefaultTextModel();
     if (!model) {
       throw new Error("No default text model available for batch tagging");
@@ -905,7 +905,7 @@ export class CollectionsService {
    * 使用配置的默认文本模型，不硬编码模型名称
    */
   async aiSmartClassify(userId: string) {
-    // ★ 通过 AIEngineFacade 获取默认文本模型
+    // ★ 通过 AIFacade 获取默认文本模型
     const model = await this.chatFacade.getDefaultTextModel();
     if (!model) {
       throw new Error("No default text model available for smart classify");
@@ -1018,7 +1018,7 @@ export class CollectionsService {
    * 使用配置的默认文本模型，不硬编码模型名称
    */
   async aiThemeCluster(userId: string) {
-    // ★ 通过 AIEngineFacade 获取默认文本模型
+    // ★ 通过 AIFacade 获取默认文本模型
     const model = await this.chatFacade.getDefaultTextModel();
     if (!model) {
       throw new Error("No default text model available for theme clustering");

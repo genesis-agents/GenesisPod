@@ -1,6 +1,6 @@
 /**
  * MCP Server - Teams Debate Tool Handler
- * Multi-perspective debate via AIEngineFacade.chat() (dual-role simulation)
+ * Multi-perspective debate via AIFacade.chat() (dual-role simulation)
  */
 
 import { Injectable, Logger } from "@nestjs/common";

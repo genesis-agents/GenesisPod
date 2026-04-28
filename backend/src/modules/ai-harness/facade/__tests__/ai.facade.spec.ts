@@ -12,15 +12,15 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { AIEngineFacade } from "../ai-engine.facade";
+import { AIFacade } from "../ai.facade";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
 import { TOOL_FEATURE, ORCHESTRATION_FEATURE } from "../facade.providers";
 
-describe("AIEngineFacade", () => {
-  let facade: AIEngineFacade;
+describe("AIFacade", () => {
+  let facade: AIFacade;
   let mockAiChatService: any;
   let mockToolRegistry: any;
   let mockCircuitBreaker: any;
@@ -141,7 +141,7 @@ describe("AIEngineFacade", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: AiModelConfigService, useValue: mockModelConfigService },
         // ★ 使用 Feature Token 而非直接提供服务
@@ -157,7 +157,7 @@ describe("AIEngineFacade", () => {
       ],
     }).compile();
 
-    facade = module.get<AIEngineFacade>(AIEngineFacade);
+    facade = module.get<AIFacade>(AIFacade);
   });
 
   describe("chat", () => {
@@ -413,8 +413,8 @@ describe("AIEngineFacade", () => {
   });
 });
 
-describe("AIEngineFacade without optional dependencies", () => {
-  let facade: AIEngineFacade;
+describe("AIFacade without optional dependencies", () => {
+  let facade: AIFacade;
   let mockAiChatService: any;
 
   beforeEach(async () => {
@@ -453,14 +453,14 @@ describe("AIEngineFacade without optional dependencies", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        AIEngineFacade,
+        AIFacade,
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: AiModelConfigService, useValue: mockModelConfigService },
         // No ToolRegistry, CircuitBreakerService, PrismaService, etc.
       ],
     }).compile();
 
-    facade = module.get<AIEngineFacade>(AIEngineFacade);
+    facade = module.get<AIFacade>(AIFacade);
   });
 
   it("should work without circuit breaker", async () => {

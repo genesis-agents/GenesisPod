@@ -9,7 +9,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade, AIEngineFacade } from "@/modules/ai-harness/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import type {
   RemediationAction,
@@ -24,7 +24,7 @@ export class SectionRemediationService {
 
   constructor(
     private readonly chatFacade: ChatFacade,
-    private readonly engineFacade: AIEngineFacade,
+    private readonly engineFacade: AIFacade,
   ) {}
 
   /**

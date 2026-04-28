@@ -24,7 +24,7 @@ import {
   AgentEvent,
   AgentCapability,
   ExecutionPlan,
-} from "../abstractions/legacy-agent.interface";
+} from "../abstractions/plan-based-agent.interface";
 import {
   ILLMAdapter,
   LLMMessage,

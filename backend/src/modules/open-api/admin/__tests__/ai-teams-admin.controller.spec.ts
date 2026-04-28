@@ -1,6 +1,6 @@
 // Mock the ai-engine facade before any imports to avoid pulling in heavy deps
-jest.mock("../../../ai-engine/facade/ai-engine.facade", () => ({
-  AIEngineFacade: class MockAIEngineFacade {},
+jest.mock("../../../ai-engine/facade/ai.facade", () => ({
+  AIFacade: class MockAIFacade {},
 }));
 jest.mock("../../../ai-engine/facade", () => ({
   ChatFacade: class MockChatFacade {},

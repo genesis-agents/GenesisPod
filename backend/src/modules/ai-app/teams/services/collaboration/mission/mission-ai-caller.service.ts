@@ -65,7 +65,7 @@ export class MissionAICallerService {
 
   /**
    * 获取 AI 模型配置
-   * ★ 使用 AIEngineFacade 替代直接访问 prisma.aIModel
+   * ★ 使用 AIFacade 替代直接访问 prisma.aIModel
    */
   async getModelConfig(aiModel: string) {
     const modelConfig = await this.chatFacade.getModelById(aiModel);

@@ -1,6 +1,6 @@
 /**
  * MCP Server - Writing Assist Tool Handler
- * Writing assistance via AIEngineFacade.chat()
+ * Writing assistance via AIFacade.chat()
  */
 
 import { Injectable, Logger } from "@nestjs/common";

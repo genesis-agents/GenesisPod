@@ -24,7 +24,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { AIModelType } from "@prisma/client";
 import { Public } from "../../../common/decorators/public.decorator";
 import { MCPApiKeyGuard } from "../mcp-server/guards/mcp-api-key.guard";
-import { AIEngineFacade, ChatFacade, ToolFacade } from "../../ai-harness/facade";
+import { AIFacade, ChatFacade, ToolFacade } from "../../ai-harness/facade";
 import { StartResearchDto } from "./dto/research.dto";
 import { AskDto } from "./dto/ask.dto";
 import { ChatDto } from "./dto/chat.dto";
@@ -100,7 +100,7 @@ export class PublicApiController {
   private readonly logger = new Logger(PublicApiController.name);
 
   constructor(
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiFacade: AIFacade,
     private readonly chatFacade: ChatFacade,
     private readonly toolFacade: ToolFacade,
   ) {}
@@ -532,7 +532,7 @@ export class PublicApiController {
   // ==================== Private Helpers ====================
 
   /**
-   * Execute a multi-round debate using AIEngineFacade.chat()
+   * Execute a multi-round debate using AIFacade.chat()
    * Mirrors the logic from TeamsDebateToolHandler
    */
   private async executeDebate(

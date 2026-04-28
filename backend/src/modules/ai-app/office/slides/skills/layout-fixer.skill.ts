@@ -499,7 +499,7 @@ ${html.substring(0, 2000)}${html.length > 2000 ? "... (truncated)" : ""}
     try {
       if (!this.chatFacade) {
         this.logger.warn(
-          "[generateFixes] AIEngineFacade not available, using rule-based fixes",
+          "[generateFixes] AIFacade not available, using rule-based fixes",
         );
         return this.generateRuleBasedFixes(issues);
       }

@@ -88,8 +88,8 @@ import { AiEngineLLMModule } from "../ai-engine/ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine/ai-engine-tools.module";
 import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
 
-// ★ PR-X13: AIEngineFacade + Domain Facades (migrated from ai-engine/facade)
-import { AIEngineFacade } from "./facade/ai-engine.facade";
+// ★ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
+import { AIFacade } from "./facade/ai.facade";
 import { ChatFacade } from "./facade/domain/chat.facade";
 import { RAGFacade } from "./facade/domain/rag.facade";
 import { AgentFacade } from "./facade/domain/agent.facade";
@@ -211,7 +211,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     PromptRegistry,
     ToolSelectorRegistry,
 
-    // ★ PR-X13: AIEngineFacade + Domain Facades (migrated from ai-engine/facade)
+    // ★ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
     // These are @Global — all ai-app modules can inject them without explicit imports.
     ...FACADE_FEATURE_PROVIDERS,
     ModelResolverService,
@@ -220,7 +220,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     AgentFacade,
     TeamFacade,
     ToolFacade,
-    AIEngineFacade,
+    AIFacade,
   ],
   // PR-I: 关键 SOTA 缺口补全
   // - ToolCircuitBreaker: 连续失败自动 disable
@@ -277,14 +277,14 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     PromptRegistry,
     ToolSelectorRegistry,
 
-    // ★ PR-X13: AIEngineFacade + Domain Facades
+    // ★ PR-X13: AIFacade + Domain Facades
     ModelResolverService,
     ChatFacade,
     RAGFacade,
     AgentFacade,
     TeamFacade,
     ToolFacade,
-    AIEngineFacade,
+    AIFacade,
   ],
 })
 export class HarnessModule implements OnApplicationBootstrap {

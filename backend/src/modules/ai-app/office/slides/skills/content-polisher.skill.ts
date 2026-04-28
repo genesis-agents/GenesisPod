@@ -248,7 +248,7 @@ export class ContentPolisherSkill implements ISkill<
     // 如果没有 AI Facade，返回原始内容
     if (!this.chatFacade) {
       this.logger.warn(
-        "[polishPage] AIEngineFacade not available, returning original content",
+        "[polishPage] AIFacade not available, returning original content",
       );
       return { page, changes: [] };
     }

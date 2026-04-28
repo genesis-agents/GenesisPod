@@ -25,10 +25,10 @@ export type { RunResult } from "../kernel/dx";
 export { HarnessFacade } from "./harness.facade";
 
 // ════════════════════════════════════════════════════════════════════
-// AIEngineFacade + Domain Facades (moved from ai-engine/facade — PR-X13)
+// AIFacade + Domain Facades (moved from ai-engine/facade — PR-X13)
 // ai-app 模块通过 "@/modules/ai-harness/facade" 统一导入
 // ════════════════════════════════════════════════════════════════════
-export { AIEngineFacade } from "./ai-engine.facade";
+export { AIFacade } from "./ai.facade";
 export { ChatFacade } from "./domain/chat.facade";
 export { RAGFacade } from "./domain/rag.facade";
 export { AgentFacade } from "./domain/agent.facade";
@@ -79,13 +79,13 @@ export type { BuiltInVerifierId } from "../governance/verify";
 
 // ── Resource ──
 export { ResourceManagerService } from "../governance/resource/resource-manager.service";
-export { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
-export {
-  TaskCompletionType,
-  type CircuitState,
-  type CircuitBreakerConfig,
-  type HealthMetrics,
-} from "../../ai-engine/safety/resilience/circuit-breaker.service";
+// PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
+export { CircuitBreakerService, TaskCompletionType } from "../../ai-engine/facade";
+export type {
+  CircuitState,
+  CircuitBreakerConfig,
+  HealthMetrics,
+} from "../../ai-engine/facade";
 export { ConstraintEngine } from "../governance/resource/constraint-engine";
 export { ConstraintEnforcementService } from "../governance/resource/constraint-enforcement.service";
 export { CostController } from "../governance/resource/cost-controller";
@@ -124,7 +124,7 @@ export { TraceCollectorService } from "../governance/observability/trace-collect
 export { AiObservabilityService } from "../governance/observability/ai-observability.service";
 export { CostAttributionService } from "../governance/observability/cost-attribution.service";
 export { SessionLatencyTrackerService } from "../governance/observability/session-latency-tracker.service";
-export { AiEngineTracingService } from "../governance/observability/ai-engine-tracing.service";
+export { LlmTracingService } from "../governance/observability/llm-tracing.service";
 export { EvalPipelineService } from "../governance/observability/eval-pipeline.service";
 export type { EvalResult } from "../governance/observability/eval-pipeline.service";
 export type { TraceType } from "../governance/observability/trace.interface";
@@ -158,8 +158,9 @@ export type {
 } from "../governance/observability/session-latency.types";
 
 // ── Security ──
-export { CapabilityGuardService } from "../../ai-engine/safety/security/capability-guard.service";
-export type { CapabilityCheckResult } from "../../ai-engine/safety/security/capability.types";
+// PR-X15: 通过 engine/facade barrel，不穿透 engine 私有路径
+export { CapabilityGuardService } from "../../ai-engine/facade";
+export type { CapabilityCheckResult } from "../../ai-engine/facade";
 
 // ════════════════════════════════════════════════════════════════════
 // Protocol: events + ipc + journal + realtime
@@ -344,7 +345,7 @@ export {
 
 // Legacy registry (IPlanBasedAgent plan→execute model)
 // Note: Different from process/handoff/agent-registry (IAgent runtime model)
-export { AgentRegistry, type AgentRegistryStats } from "../kernel/registry/legacy-agent-registry";
+export { AgentRegistry, type AgentRegistryStats } from "../kernel/registry/plan-based-agent-registry";
 export { AgentOrchestrator, type AgentStatusReport } from "../kernel/registry/agent-orchestrator";
 
 // Agent config (DB-stored runtime overrides)

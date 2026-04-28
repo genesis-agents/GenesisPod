@@ -77,12 +77,12 @@ import { CreditsModule } from "../ai-infra/credits/credits.module";
 import { AICapabilityResolver } from "./planning/capabilities/ai-capability-resolver.service";
 
 // Observability core 全部由 ai-harness/ObservabilityModule (@Global) 提供，
-// 包括 AiEngineTracingService / EvalPipelineService — engine 不再注册它们。
+// 包括 LlmTracingService / EvalPipelineService — engine 不再注册它们。
 
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
-// ★ PR-X13: AIEngineFacade + Domain Facades + FACADE_FEATURE_PROVIDERS + ModelResolverService
+// ★ PR-X13: AIFacade + Domain Facades + FACADE_FEATURE_PROVIDERS + ModelResolverService
 // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
 // SKILL.md Runtime (PromptSkillBridge + InputBindingResolver)
@@ -146,7 +146,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptRegistryService,
 
     // === Facade (PR-X13) ===
-    // AIEngineFacade / Domain Facades / FACADE_FEATURE_PROVIDERS / ModelResolverService
+    // AIFacade / Domain Facades / FACADE_FEATURE_PROVIDERS / ModelResolverService
     // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
     // === SKILL.md Runtime ===
@@ -189,7 +189,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptRegistryService,
 
     // === Facade (PR-X13) ===
-    // AIEngineFacade / Domain Facades / ModelResolverService
+    // AIFacade / Domain Facades / ModelResolverService
     // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
     // === SKILL.md Runtime ===

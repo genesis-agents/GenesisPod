@@ -1210,7 +1210,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
           try {
             // Determine output length based on model capabilities
-            // ★ 使用 AIEngineFacade 返回的 isReasoning 字段，不再硬编码模型名称
+            // ★ 使用 AIFacade 返回的 isReasoning 字段，不再硬编码模型名称
             const modelId =
               aiModelConfig?.modelId ||
               (await this.getDefaultModelId(aiMember.aiModel));

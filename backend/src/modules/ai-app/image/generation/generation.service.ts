@@ -83,10 +83,10 @@ export class AiImageService {
 
   /**
    * Get all available models (text + image)
-   * ★ 完全通过 AIEngineFacade 获取，不再直接访问数据库
+   * ★ 完全通过 AIFacade 获取，不再直接访问数据库
    */
   async getAvailableModels() {
-    // Use AIEngineFacade to get available models (now includes icon and isDefault)
+    // Use AIFacade to get available models (now includes icon and isDefault)
     const textModelsData = await this.chatFacade.getAvailableModels(
       AIModelType.CHAT,
     );
@@ -98,7 +98,7 @@ export class AiImageService {
       `[getAvailableModels] Found ${textModelsData.length} CHAT models, ${imageModelsData.length} IMAGE_GENERATION models`,
     );
 
-    // Map to UI-friendly format (AIEngineFacade now returns icon and isDefault)
+    // Map to UI-friendly format (AIFacade now returns icon and isDefault)
     const textModels = textModelsData.map((m) => ({
       id: m.dbId || m.id,
       name: m.name,
@@ -574,7 +574,7 @@ export class AiImageService {
             textModelUsed = textModel.displayName;
             emitStep("prompt_generate", `Using ${textModelUsed}`, "processing");
 
-            // ★ 使用 enhancePromptWithLLM，内部通过 AIEngineFacade 调用 LLM
+            // ★ 使用 enhancePromptWithLLM，内部通过 AIFacade 调用 LLM
             const rawEnhancedPrompt =
               await this.promptEnhancementService.enhancePromptWithLLM(
                 inputContent,

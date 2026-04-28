@@ -1,14 +1,14 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchToolHandler } from "../research-tool-handler";
-import { AIEngineFacade } from "../../../../ai-engine/facade/ai-engine.facade";
+import { AIFacade } from "../../../../ai-engine/facade/ai.facade";
 import { MCPStreamingBridge } from "../../streaming/mcp-streaming-bridge";
 
-jest.mock("../../../../ai-engine/facade/ai-engine.facade");
+jest.mock("../../../../ai-engine/facade/ai.facade");
 jest.mock("../../streaming/mcp-streaming-bridge");
 
 describe("ResearchToolHandler", () => {
   let handler: ResearchToolHandler;
-  let mockAiFacade: jest.Mocked<AIEngineFacade>;
+  let mockAiFacade: jest.Mocked<AIFacade>;
   let mockStreamingBridge: jest.Mocked<MCPStreamingBridge>;
 
   const mockContext = {
@@ -23,7 +23,7 @@ describe("ResearchToolHandler", () => {
       providers: [
         ResearchToolHandler,
         {
-          provide: AIEngineFacade,
+          provide: AIFacade,
           useValue: {
             executeDirectResearch: jest.fn(),
           },
@@ -39,7 +39,7 @@ describe("ResearchToolHandler", () => {
     }).compile();
 
     handler = module.get<ResearchToolHandler>(ResearchToolHandler);
-    mockAiFacade = module.get(AIEngineFacade);
+    mockAiFacade = module.get(AIFacade);
     mockStreamingBridge = module.get(MCPStreamingBridge);
   });
 

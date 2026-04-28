@@ -2,7 +2,7 @@
  * AI Engine Facade — engine-only capability exports
  *
  * Only ai-engine internal symbols are exported here.
- * Harness symbols (AIEngineFacade / ChatFacade / RAGFacade / AgentFacade /
+ * Harness symbols (AIFacade / ChatFacade / RAGFacade / AgentFacade /
  * TeamFacade / ToolFacade / ModelResolverService / FACADE_FEATURE_PROVIDERS /
  * AgentRegistry / TeamRegistry / RoleRegistry / mission types / team types /
  * constraint types / PlanBasedAgent / BaseAgent / MCPManager / etc.)
@@ -499,3 +499,16 @@ export {
   type ScheduledScope,
   type SchedulerStats,
 } from "../planning/services";
+
+// ════════════════════════════════════════════════════════════════════
+// Safety / Resilience / Security （PR-X15: engine 公开 API barrel
+// 供 ai-harness/facade 转发，避免 harness 穿透 engine 私有路径）
+// ════════════════════════════════════════════════════════════════════
+export { CircuitBreakerService, TaskCompletionType } from "../safety/resilience/circuit-breaker.service";
+export type {
+  CircuitState,
+  CircuitBreakerConfig,
+  HealthMetrics,
+} from "../safety/resilience/circuit-breaker.service";
+export { CapabilityGuardService } from "../safety/security/capability-guard.service";
+export type { CapabilityCheckResult } from "../safety/security/capability.types";

@@ -14,8 +14,8 @@
  * - AiEngineConstraintModule (速率限制 + 成本控制)
  * - Prompt Registry (提示词版本管理)
  *
- * PR-X14: AIEngineFacade + FACADE_FEATURE_PROVIDERS 已迁移至 ai-harness/facade。
- * 消费 AIEngineFacade 的模块请改用 HarnessModule（提供完整 facade 图）。
+ * PR-X14: AIFacade + FACADE_FEATURE_PROVIDERS 已迁移至 ai-harness/facade。
+ * 消费 AIFacade 的模块请改用 HarnessModule（提供完整 facade 图）。
  *
  * 注意：此模块不标记 @Global()，需要显式导入。
  */

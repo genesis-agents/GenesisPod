@@ -22,7 +22,7 @@ const makeModel = (
 });
 
 // ---------------------------------------------------------------------------
-// Mock AIEngineFacade
+// Mock AIFacade
 // ---------------------------------------------------------------------------
 
 const mockAiFacade = {
@@ -49,7 +49,7 @@ describe("ModelSelectorService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ModelSelectorService,
-        { provide: "AIEngineFacade", useValue: mockAiFacade },
+        { provide: "AIFacade", useValue: mockAiFacade },
       ],
     })
       .overrideProvider(ModelSelectorService)

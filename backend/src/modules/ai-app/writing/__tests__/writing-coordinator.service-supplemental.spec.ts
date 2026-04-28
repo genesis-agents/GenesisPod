@@ -46,7 +46,7 @@ jest.mock("@prisma/client", () => ({
 // AIModelType.CHAT_FAST at module initialization time
 jest.mock("@/modules/ai-engine/facade", () => ({
   AgentFacade: class {},
-  AIEngineFacade: class {},
+  AIFacade: class {},
   ChatFacade: class {},
   TeamFacade: class {},
   RAGFacade: class {},

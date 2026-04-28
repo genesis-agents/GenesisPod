@@ -157,7 +157,7 @@ export class RAGPipelineService {
 
   /**
    * Stage 1: Generate hypothetical document using HyDE
-   * Uses AiChatService.chat() directly to avoid circular dependency with AIEngineFacade
+   * Uses AiChatService.chat() directly to avoid circular dependency with AIFacade
    */
   private async generateHypotheticalDocument(query: string): Promise<string> {
     const systemPrompt = `You are a helpful assistant that generates a hypothetical document passage that would perfectly answer the given query.

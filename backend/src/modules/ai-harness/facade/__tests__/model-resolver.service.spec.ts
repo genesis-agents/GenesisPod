@@ -1,7 +1,7 @@
 /**
  * ModelResolverService 单元测试
  *
- * 测试从 AIEngineFacade 提取的模型管理职责：
+ * 测试从 AIFacade 提取的模型管理职责：
  * - selectModel() 智能模型选择（推理/提供商/黑名单/token/熔断器）
  * - getReasoningModel() 推理模型获取
  * - getAvailableModelsExtended() 扩展模型列表

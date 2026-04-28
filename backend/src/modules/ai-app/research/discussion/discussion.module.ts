@@ -11,7 +11,7 @@
 import { Module, forwardRef, OnModuleInit } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
-import { AIEngineFacade } from "../../../ai-harness/facade";
+import { AIFacade } from "../../../ai-harness/facade";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 
 import { DiscussionResearchService } from "./discussion-research.service";
@@ -60,7 +60,7 @@ const services = [
 })
 export class DiscussionModule implements OnModuleInit {
   constructor(
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiFacade: AIFacade,
     private readonly researchService: DiscussionResearchService,
   ) {}
 

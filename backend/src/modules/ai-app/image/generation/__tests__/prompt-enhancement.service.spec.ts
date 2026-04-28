@@ -60,7 +60,7 @@ describe("PromptEnhancementService", () => {
       ).rejects.toThrow("No response from LLM");
     });
 
-    it("should call AIEngineFacade with correct parameters", async () => {
+    it("should call AIFacade with correct parameters", async () => {
       (mockFacade.chat as jest.Mock).mockResolvedValue({ content: "response" });
 
       await service.enhancePromptWithLLM("test content", "gpt-4o");

@@ -10,7 +10,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AgentId, AgentInput, AgentEvent } from "../../../ai-engine/core/types/agent.types";
-import { AgentRegistry } from "./legacy-agent-registry";
+import { AgentRegistry } from "./plan-based-agent-registry";
 import { GuardrailsPipelineService } from "../../../ai-engine/safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
 import { IPlanBasedAgent } from "../base/plan-based-agent";

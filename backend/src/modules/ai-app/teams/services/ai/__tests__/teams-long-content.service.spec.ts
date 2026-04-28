@@ -42,7 +42,7 @@ describe("TeamsLongContentService", () => {
     const longContentEngine = engineModule.get(LongContentEngineService);
     const continuationProtocol = engineModule.get(ContinuationProtocolService);
 
-    // Inject services directly (no longer through AIEngineFacade)
+    // Inject services directly (no longer through AIFacade)
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TeamsLongContentService,

@@ -297,7 +297,7 @@ export class FactCheckerSkill implements ISkill<
   ): Promise<Claim[]> {
     if (!this.chatFacade) {
       this.logger.warn(
-        "[extractClaims] AIEngineFacade not available, using regex-based extraction",
+        "[extractClaims] AIFacade not available, using regex-based extraction",
       );
       return this.extractClaimsWithRegex(page.content);
     }

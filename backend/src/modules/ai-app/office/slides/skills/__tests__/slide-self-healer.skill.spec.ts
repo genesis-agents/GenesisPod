@@ -553,7 +553,7 @@ describe("SlideSelfHealerSkill", () => {
       expect(result.data!.html).toContain("slide-container");
     });
 
-    it("should fall back to minimal template when AIEngineFacade is absent", async () => {
+    it("should fall back to minimal template when AIFacade is absent", async () => {
       const moduleWithoutFacade: TestingModule = await Test.createTestingModule(
         {
           providers: [

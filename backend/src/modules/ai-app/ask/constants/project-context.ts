@@ -71,7 +71,7 @@ genesis-ai/
 │   └── src/
 │       └── modules/
 │           ├── ai-engine/    # AI 引擎核心
-│           │   ├── facade/   # 统一入口 (AIEngineFacade)
+│           │   ├── facade/   # 统一入口 (AIFacade)
 │           │   ├── llm/      # LLM 适配层
 │           │   ├── skills/   # 可复用技能
 │           │   ├── agents/   # Agent 框架
@@ -129,7 +129,7 @@ AI Apps（应用层）→ Ask / Research / Teams / Office / Writing / Image / So
 
 #### AI Engine (ai-engine/)
 AI 引擎是整个系统的核心，提供：
-- **AIEngineFacade**: 统一入口，所有 AI 调用通过此门面
+- **AIFacade**: 统一入口，所有 AI 调用通过此门面
 - **LLM 适配器**: 统一接口调用 OpenAI/Claude/Gemini/Grok/DeepSeek
 - **Agent 框架**: 基础 Agent 类、Agent Registry、生命周期管理
 - **Teams 框架**: 多 Agent 协作，角色分工、任务分解

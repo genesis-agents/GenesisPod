@@ -45,7 +45,7 @@ import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 // AI Harness — Agent kernel / execution / memory / process / protocol / governance / runtime
 // 整体由 app.module.ts 装配（@Global，提供器全局可注入），ai-engine 不再反向依赖
 import { HarnessModule } from "./modules/ai-harness/harness.module";
-import { RuntimeModule } from "./modules/ai-harness/runtime/runtime-aggregate.module";
+import { RuntimeModule } from "./modules/ai-harness/runtime/runtime.module";
 import { RealtimeModule } from "./modules/ai-harness/protocol/realtime/realtime.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";

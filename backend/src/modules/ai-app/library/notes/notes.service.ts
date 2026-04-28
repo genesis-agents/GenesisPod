@@ -349,7 +349,7 @@ export class NotesService {
 
   /**
    * 请求AI解释
-   * 使用 AIEngineFacade 进行 AI 调用，不直接访问外部 API
+   * 使用 AIFacade 进行 AI 调用，不直接访问外部 API
    */
   async requestAIExplanation(
     noteId: string,
@@ -392,7 +392,7 @@ export class NotesService {
         context = `资源标题: ${note.resource.title}\n摘要: ${note.resource.abstract || "无"}`;
       }
 
-      // 使用 AIEngineFacade.chat() 进行 AI 调用
+      // 使用 AIFacade.chat() 进行 AI 调用
       const systemPrompt = context
         ? `你是一个专业的文档分析助手。以下是相关的文档上下文：\n\n${context}`
         : "你是一个专业的文档分析助手。";

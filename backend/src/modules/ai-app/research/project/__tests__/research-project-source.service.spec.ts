@@ -47,7 +47,7 @@ jest.mock("@prisma/client", () => ({
 jest.mock("@/modules/ai-engine/facade", () => ({
   ToolRegistry: jest.fn().mockImplementation(() => ({ tryGet: jest.fn() })),
   ToolContext: jest.fn(),
-  AIEngineFacade: jest.fn().mockImplementation(() => ({})),
+  AIFacade: jest.fn().mockImplementation(() => ({})),
 }));
 
 jest.mock("@/common/config/app.config", () => ({

@@ -110,10 +110,10 @@ export class LeaderModelService {
       context,
     };
 
-    // 委托给 ModelFallbackService (通过 AIEngineFacade)
+    // 委托给 ModelFallbackService (通过 AIFacade)
     if (!this.chatFacade.modelFallback) {
       throw new Error(
-        "ModelFallbackService is not available via AIEngineFacade",
+        "ModelFallbackService is not available via AIFacade",
       );
     }
     const result = await this.chatFacade.modelFallback.executeWithFallback(

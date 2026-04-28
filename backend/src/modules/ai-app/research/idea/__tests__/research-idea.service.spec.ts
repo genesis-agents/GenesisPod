@@ -1,7 +1,7 @@
 /**
  * Unit tests for ResearchIdeaService
  *
- * All Prisma and AIEngineFacade dependencies are fully mocked.
+ * All Prisma and AIFacade dependencies are fully mocked.
  */
 
 jest.mock("../../../../ai-engine/facade", () => ({

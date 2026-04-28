@@ -14,7 +14,7 @@ import {
   AgentEvent,
   AgentResult,
   ToolCallRecord,
-} from "../abstractions/legacy-agent.interface";
+} from "../abstractions/plan-based-agent.interface";
 import { BaseAgent } from "./base-agent";
 import {
   LLMMessage,

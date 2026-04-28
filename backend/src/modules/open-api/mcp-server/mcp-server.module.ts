@@ -43,7 +43,7 @@ import { AiEngineConstraintModule } from "../../ai-engine/ai-engine-constraint.m
   imports: [
     SecretsModule,
     AiEngineConstraintModule,
-    // ★ DiscussionModule removed — research accessed via AIEngineFacade.executeDirectResearch()
+    // ★ DiscussionModule removed — research accessed via AIFacade.executeDirectResearch()
   ],
   controllers: [MCPServerController, MCPServerAdminController],
   providers: [

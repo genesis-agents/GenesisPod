@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
-import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { InsufficientCreditsException } from "../../../types/research.exceptions";
 
@@ -80,7 +80,7 @@ describe("SectionWriterService", () => {
       providers: [
         SectionWriterService,
         { provide: ChatFacade, useValue: mockAiFacade },
-        { provide: AIEngineFacade, useValue: mockEngineFacade },
+        { provide: AIFacade, useValue: mockEngineFacade },
       ],
     }).compile();
 

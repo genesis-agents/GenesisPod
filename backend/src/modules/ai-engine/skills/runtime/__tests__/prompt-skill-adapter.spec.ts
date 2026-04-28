@@ -1,7 +1,7 @@
 /**
  * Unit tests for PromptSkillAdapter
  *
- * Note: AIEngineFacade is imported as `import type` in prompt-skill-adapter.ts,
+ * Note: AIFacade is imported as `import type` in prompt-skill-adapter.ts,
  * so we instantiate PromptSkillAdapter directly with a mock facade object
  * rather than going through NestJS DI.
  */

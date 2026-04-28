@@ -36,7 +36,7 @@ jest.mock("../../../teams/services/ai/ai-response.service", () => ({
   AiResponseService: class {},
 }));
 jest.mock("../../../../ai-engine/facade", () => ({
-  AIEngineFacade: class {},
+  AIFacade: class {},
   ChatFacade: class {},
   TeamFacade: class {},
   RAGFacade: class {},

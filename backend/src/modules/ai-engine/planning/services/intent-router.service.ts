@@ -9,7 +9,7 @@
  *
  * 与其他服务的关系：
  *   IntentRouterService → 解析意图 → "用哪些模块" → TaskPlannerService → TaskPlan
- *   TaskPlan → DagExecutor → 实际调用 AIEngineFacade 对应方法
+ *   TaskPlan → DagExecutor → 实际调用 AIFacade 对应方法
  *
  * 低置信度降级策略：
  *   confidence < 0.6 → 直接路由到 ask 模块，由对话兜底

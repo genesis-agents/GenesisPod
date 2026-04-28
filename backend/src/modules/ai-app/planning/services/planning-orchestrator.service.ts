@@ -202,7 +202,7 @@ export class PlanningOrchestratorService {
       planConfig: { goal: dto.goal, depth, autoAdvance: true },
     };
 
-    // Fix 1: Dynamic model allocation via AIEngineFacade
+    // Fix 1: Dynamic model allocation via AIFacade
     const aiMembers = await this.buildAIMembers(depth);
 
     const topic = await this.aiTeamsService.createTopic(userId, {
@@ -1738,7 +1738,7 @@ export class PlanningOrchestratorService {
 
   /**
    * Search the web for real-time data related to the planning goal.
-   * Generates multiple search queries, executes them via AIEngineFacade,
+   * Generates multiple search queries, executes them via AIFacade,
    * and stores results as references in the plan metadata.
    */
   private async searchForResearchPhase(

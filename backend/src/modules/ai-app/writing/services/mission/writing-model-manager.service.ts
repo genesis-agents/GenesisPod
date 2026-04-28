@@ -58,7 +58,7 @@ export class WritingModelManager {
     }
 
     try {
-      // 使用 AIEngineFacade 获取模型列表
+      // 使用 AIFacade 获取模型列表
       const models = await this.chatFacade.getAvailableModelsExtended(
         AIModelType.CHAT,
       );

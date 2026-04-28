@@ -38,7 +38,7 @@ export class AiCoreService {
 
   /**
    * 翻译文本
-   * ★ 使用 AIEngineFacade.chat()
+   * ★ 使用 AIFacade.chat()
    */
   async translateText(
     text: string,
@@ -48,7 +48,7 @@ export class AiCoreService {
     this.logger.log(`Translating text from ${sourceLang} to ${targetLang}`);
 
     try {
-      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+      // ★ 使用 AIFacade 获取 CHAT_FAST tier 模型
       const fastModel = await this.aiFacade.getDefaultModelByType(
         AIModelType.CHAT_FAST,
       );
@@ -76,7 +76,7 @@ export class AiCoreService {
         `[Translation] Text length: ${text.length}, estimated tokens: ${estimatedTokens}, using maxTokens: ${dynamicMaxTokens}`,
       );
 
-      // ★ 使用 AIEngineFacade.chat()
+      // ★ 使用 AIFacade.chat()
       const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
         model: modelConfig.modelId,

@@ -81,7 +81,7 @@ export class ImageGenerationService {
 
   /**
    * Get default text model (for prompt enhancement)
-   * ★ 完全通过 AIEngineFacade 获取，不再直接访问数据库
+   * ★ 完全通过 AIFacade 获取，不再直接访问数据库
    */
   async getDefaultTextModel() {
     const defaultModel = await this.chatFacade.getDefaultTextModel();
@@ -100,11 +100,11 @@ export class ImageGenerationService {
   /**
    * Get default image generation model
    *
-   * ★ 通过 AIEngineFacade 获取模型配置，不再直接访问数据库
+   * ★ 通过 AIFacade 获取模型配置，不再直接访问数据库
    * ★ apiKey 通过 getApiKeyForModel + SecretsService 解析，不直接使用数据库中的 apiKey
    */
   async getDefaultImageModel() {
-    // First try to find IMAGE_GENERATION model via AIEngineFacade
+    // First try to find IMAGE_GENERATION model via AIFacade
     const imageModel = await this.chatFacade.getDefaultImageModel();
 
     if (imageModel) {
@@ -160,7 +160,7 @@ export class ImageGenerationService {
   /**
    * Convert facade model config to full model config structure
    * ★ Helper to maintain compatibility with existing code
-   * ★ Uses AIEngineFacade.getFullModelConfig() to get full config including secretKey
+   * ★ Uses AIFacade.getFullModelConfig() to get full config including secretKey
    */
   private async convertToFullModelConfig(facadeModel: {
     id: string;
@@ -170,7 +170,7 @@ export class ImageGenerationService {
     maxTokens?: number;
     apiEndpoint?: string;
   }) {
-    // Get full config via AIEngineFacade (includes secretKey and all fields)
+    // Get full config via AIFacade (includes secretKey and all fields)
     const fullConfig = await this.chatFacade.getFullModelConfig(
       facadeModel.modelId,
     );
@@ -215,7 +215,7 @@ export class ImageGenerationService {
   /**
    * Get model by ID
    *
-   * ★ 通过 AIEngineFacade 获取模型配置，不再直接访问数据库
+   * ★ 通过 AIFacade 获取模型配置，不再直接访问数据库
    * ★ apiKey 通过 getApiKeyForModel 解析
    */
   async getModelById(id: string) {
