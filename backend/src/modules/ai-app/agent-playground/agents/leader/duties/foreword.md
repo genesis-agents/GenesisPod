@@ -114,18 +114,29 @@ dimensions（{{stageOutcomes.researcherStates.length}} 个）:
 
 ## Output JSON shape
 
+★ **必须用 ReAct 协议返回**：把下面对象包在 `{"thinking": "...", "action": {"kind": "finalize", "output": <下面对象>}}` 里。
+
 ```json
 {
-  "phase": "foreword",
-  "whatWeAnswered": [
-    {
-      "criterion": "<复述 successCriteria 的某一条>",
-      "addressed": "yes" | "partial" | "no",
-      "evidence": "<引用 §N 或 dim-X>"
+  "thinking": "...",
+  "action": {
+    "kind": "finalize",
+    "output": {
+      "phase": "foreword",
+      "whatWeAnswered": [
+        {
+          "criterion": "<复述 successCriteria 的某一条>",
+          "addressed": "yes",
+          "evidence": "<引用 §N 或 dim-X>"
+        }
+      ],
+      "whatRemainsUnclear": ["...", "..."],
+      "howToRead": "...",
+      "recommendedFollowUp": ["...", "..."]
     }
-  ],
-  "whatRemainsUnclear": ["...", ...],
-  "howToRead": "...",
-  "recommendedFollowUp": ["...", ...]
+  }
 }
 ```
+
+> output.whatWeAnswered[].addressed 取值: `"yes" | "partial" | "no"`
+> 漏掉 `{thinking, action: {kind: "finalize", output: ...}}` 这层包装会被框架驳回。

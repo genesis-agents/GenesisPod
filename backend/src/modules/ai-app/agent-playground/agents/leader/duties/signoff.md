@@ -142,13 +142,26 @@ dimensions 状态:
 
 ## Output JSON shape
 
+★ **必须用 ReAct 协议返回**：把下面对象包在 `{"thinking": "...", "action": {"kind": "finalize", "output": <下面对象>}}` 里。
+
 ```json
 {
-  "phase": "signoff",
-  "leaderOverallScore": <int 0-100>,
-  "leaderVerdict": "excellent" | "good" | "acceptable" | "failed",
-  "accountabilityNote": "<引用 M0/M1/M6 自己决策的问责说明>",
-  "signed": true | false,
-  "refusalReason": "..."   // signed=false 时必填
+  "thinking": "...",
+  "action": {
+    "kind": "finalize",
+    "output": {
+      "phase": "signoff",
+      "leaderOverallScore": 85,
+      "leaderVerdict": "good",
+      "accountabilityNote": "<引用 M0/M1/M6 自己决策的问责说明>",
+      "signed": true,
+      "refusalReason": ""
+    }
+  }
 }
 ```
+
+> output.leaderOverallScore: 整数 0-100
+> output.leaderVerdict 取值: `"excellent" | "good" | "acceptable" | "failed"`
+> signed=false 时 refusalReason 必填
+> 漏掉 `{thinking, action: {kind: "finalize", output: ...}}` 这层包装会被框架驳回。

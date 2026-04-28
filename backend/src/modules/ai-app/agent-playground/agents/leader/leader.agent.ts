@@ -21,10 +21,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
 
 // ── 共享子 schema ──
@@ -285,24 +282,32 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
    */
   validateBusinessRules(
     output: z.infer<typeof Output>,
-    ctx: { input: z.infer<typeof Input>; identity: unknown },
+    ctx: { input?: z.infer<typeof Input>; identity: unknown },
   ): void {
     const issues: string[] = [];
+    // ★ 防御性 guard：harness 链路异常时 ctx.input 可能是 undefined。
+    //   不再依赖 ctx.input.phase 做分支 —— 用 output.phase（discriminated
+    //   union 自带 phase 字段）做主分支判断，需要 input 字段的检查在内部
+    //   显式判 ctx.input 是否存在，缺失时跳过该项校验而不是崩溃。
+    const inputPhase = ctx.input?.phase;
 
-    if (output.phase === "plan" && ctx.input.phase === "plan") {
-      const target =
-        ctx.input.depth === "quick"
-          ? [2, 3]
-          : ctx.input.depth === "deep"
-            ? [5, 7]
-            : [3, 5];
-      if (
-        output.dimensions.length < target[0] ||
-        output.dimensions.length > target[1]
-      ) {
-        issues.push(
-          `depth=${ctx.input.depth} 要求 ${target[0]}-${target[1]} dim, 实际 ${output.dimensions.length}`,
-        );
+    if (output.phase === "plan") {
+      // depth-dim count 检查需要 ctx.input.depth；缺失时跳过这一条但仍校验 id 唯一
+      if (ctx.input && inputPhase === "plan") {
+        const target =
+          ctx.input.depth === "quick"
+            ? [2, 3]
+            : ctx.input.depth === "deep"
+              ? [5, 7]
+              : [3, 5];
+        if (
+          output.dimensions.length < target[0] ||
+          output.dimensions.length > target[1]
+        ) {
+          issues.push(
+            `depth=${ctx.input.depth} 要求 ${target[0]}-${target[1]} dim, 实际 ${output.dimensions.length}`,
+          );
+        }
       }
       const ids = new Set<string>();
       for (const d of output.dimensions) {
@@ -314,7 +319,8 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
 
     if (
       output.phase === "assess-research" &&
-      ctx.input.phase === "assess-research"
+      ctx.input &&
+      inputPhase === "assess-research"
     ) {
       const dimIds = new Set(
         ctx.input.researcherOutcomes.map((r) => r.dimensionId),
@@ -349,7 +355,7 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
       }
     }
 
-    if (output.phase === "foreword" && ctx.input.phase === "foreword") {
+    if (output.phase === "foreword" && ctx.input && inputPhase === "foreword") {
       const hasDegraded = ctx.input.stageOutcomes.researcherStates.some(
         (s) => s.state !== "completed",
       );

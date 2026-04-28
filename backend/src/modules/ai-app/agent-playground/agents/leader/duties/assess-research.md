@@ -89,22 +89,32 @@ hard constraints:
 
 ## Output JSON shape
 
+★ **必须用 ReAct 协议返回**：把下面对象包在 `{"thinking": "...", "action": {"kind": "finalize", "output": <下面对象>}}` 里。
+
 ```json
 {
-  "phase": "assess-research",
-  "decision": "accept-all" | "patch" | "redirect" | "abort",
-  "rationale": "...",
-  "perDimension": [
-    {
-      "dimensionId": "<from myPlan.dimensions>",
-      "action": "accept" | "accept-degraded" | "retry-with-critique" | "replace-spec" | "abort",
-      "critique": "<retry-with-critique 时填>",
-      "newAgentSpecId": "<replace-spec 时填>"
+  "thinking": "...",
+  "action": {
+    "kind": "finalize",
+    "output": {
+      "phase": "assess-research",
+      "decision": "accept-all",
+      "rationale": "...",
+      "perDimension": [
+        {
+          "dimensionId": "<from myPlan.dimensions>",
+          "action": "accept",
+          "critique": "<retry-with-critique 时填>",
+          "newAgentSpecId": "<replace-spec 时填>"
+        }
+      ],
+      "newDimensions": []
     }
-    // ... 必须覆盖所有 dim
-  ],
-  "newDimensions": []   // redirect 时填，每项结构同 M0 dimensions
+  }
 }
 ```
 
+> output.decision 取值: `"accept-all" | "patch" | "redirect" | "abort"`
+> output.perDimension[].action 取值: `"accept" | "accept-degraded" | "retry-with-critique" | "replace-spec" | "abort"`
 > ★ perDimension 必须覆盖所有 dimensionId（来自 myPlan.dimensions）。漏一个会被业务规则拒签。
+> 漏掉 `{thinking, action: {kind: "finalize", output: ...}}` 这层包装会被框架驳回。

@@ -98,32 +98,50 @@ M6 时你会逐条评估 yes / partial / no。
 
 ## Output JSON shape (字段名必须完全匹配)
 
+★ **关键：你必须用 ReAct 协议返回**（见 system 末尾的 Decision Protocol section）。
+即把下面这个 plan 对象包在 `{"thinking": "...", "action": {"kind": "finalize", "output": <plan>}}` 里。
+
+**正确示例（你应该这样返回）：**
+
 ```json
 {
-  "phase": "plan",
-  "themeSummary": "<one paragraph summarizing the research frame>",
-  "dimensions": [
-    {
-      "id": "<short-stable-id e.g. dim-1>",
-      "name": "<short title>",
-      "rationale": "<1-2 sentences why this dimension matters>",
-      "toolHint": { "categories": ["..."], "preferIds": ["..."] }
+  "thinking": "I have analyzed the topic and decomposed it into MECE dimensions...",
+  "action": {
+    "kind": "finalize",
+    "output": {
+      "phase": "plan",
+      "themeSummary": "<one paragraph summarizing the research frame>",
+      "dimensions": [
+        {
+          "id": "<short-stable-id e.g. dim-1>",
+          "name": "<short title>",
+          "rationale": "<1-2 sentences why this dimension matters>",
+          "toolHint": { "categories": ["..."], "preferIds": ["..."] }
+        }
+        // ... {{dimensionsTarget}} dimensions total
+      ],
+      "goals": {
+        "successCriteria": ["...", "..."],
+        "qualityBar": {
+          "minSources": 0,
+          "minCoverage": 0,
+          "hardConstraints": ["...", "..."]
+        },
+        "deliverables": ["...", "..."]
+      },
+      "initialRisks": [
+        { "type": "...", "severity": "low|medium|high", "mitigation": "..." }
+      ]
     }
-    // ... {{dimensionsTarget}} dimensions total
-  ],
-  "goals": {
-    "successCriteria": ["...", ...],
-    "qualityBar": {
-      "minSources": <int>,
-      "minCoverage": <int>,
-      "hardConstraints": ["...", ...]
-    },
-    "deliverables": ["...", ...]
-  },
-  "initialRisks": [
-    { "type": "...", "severity": "low|medium|high", "mitigation": "..." }
-  ]
+  }
 }
 ```
 
+**错误示例（不要这样直接返回顶级）：**
+
+```json
+{ "phase": "plan", "themeSummary": "...", "dimensions": [...] }
+```
+
+> 漏掉 `{thinking, action: {kind: "finalize", output: ...}}` 这层包装会被框架的 finalize 校验闸驳回。
 > 字段名严格按上面写。不要用 `description` / `title` / `tools` / `whyMECE` 这些替代字段。
