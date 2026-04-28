@@ -39,6 +39,15 @@ import { TraceCollectorService } from "../../../ai-harness/governance/observabil
       useExisting: TraceCollectorService,
     },
   ],
-  exports: [AgentCardRegistry, A2AApiKeyGuard, TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN],
+  exports: [
+    AgentCardRegistry,
+    A2AApiKeyGuard,
+    TEAMS_SERVICE_TOKEN,
+    TRACE_COLLECTOR_TOKEN,
+    // PR-X22: re-export SecretsModule so that consumers (e.g. A2AApiModule which
+    // declares A2AController + uses @UseGuards(A2AApiKeyGuard)) can resolve the
+    // guard's SecretsService dep in their own module context.
+    SecretsModule,
+  ],
 })
 export class A2AModule {}
