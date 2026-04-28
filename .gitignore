@@ -125,7 +125,10 @@ infra/oci/terraform/*.tfplan
 # Generated files (changelog.json is tracked for deployment)
 frontend/lib/generated/*
 !frontend/lib/generated/changelog.json
+# 4.5MB CHANGELOG.md was previously written to frontend root and tracked in
+# git, bloating diffs. Moved to lib/generated/ (PR-X35) and untracked.
 /CHANGELOG.md
+frontend/lib/generated/CHANGELOG.md
 
 # UI Patrol outputs (generated, not checked in)
 .ui-patrol/screenshots/

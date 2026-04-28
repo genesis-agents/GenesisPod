@@ -16,7 +16,7 @@ const { execSync } = require('child_process');
 // ── Paths ──────────────────────────────────────────────────────────────────
 const frontendDir = path.resolve(__dirname, '..');
 const rootDir = path.resolve(frontendDir, '..');
-const changelogPath = path.join(frontendDir, 'CHANGELOG.md');
+const changelogPath = path.join(frontendDir, 'lib/generated/CHANGELOG.md');
 const outputPath = path.join(frontendDir, 'lib/generated/changelog.json');
 
 // Detect Docker build: frontend is at /app, root package.json won't exist
