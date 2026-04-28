@@ -47,7 +47,11 @@ import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
 import { MemoryBridge } from "./memory/auto-index/memory-bridge.service";
 import { SkillRegistry, SkillLoader, SkillActivator } from "./kernel/skills";
 import { SubagentSpawner } from "./process/subagent";
-import { ContextManager, ContextCompactor, PriorityPruner } from "./execution/context";
+import {
+  ContextManager,
+  ContextCompactor,
+  PriorityPruner,
+} from "./execution/context";
 import { CacheControlPlanner } from "./execution/context/cache-control-planner";
 import { AgentRegistry } from "./process/handoff/agent-registry";
 import { HandoffService } from "./process/handoff/handoff.service";
@@ -88,7 +92,7 @@ import { AiEngineLLMModule } from "../ai-engine/ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine/ai-engine-tools.module";
 import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
 
-// PR-X18: Engine 端 DI tokens — harness 提供这 8 个 token 的 useExisting 绑定
+// PR-X18: Engine 端 DI tokens — harness 提供这 9 个 token 的 useExisting 绑定
 import {
   AGENT_REGISTRY_PORT,
   AGENT_ORCHESTRATOR_PORT,
@@ -98,6 +102,7 @@ import {
   TRACE_COLLECTOR_PORT,
   CONSTRAINT_ENFORCEMENT_PORT,
   EXECUTION_STATE_MANAGER_PORT,
+  MCP_PROVIDER_PORT,
 } from "../ai-engine/abstractions/runtime-deps.tokens";
 import { AgentRegistry as PlanBasedAgentRegistry } from "./kernel/registry/plan-based-agent-registry";
 import { AgentOrchestrator } from "./kernel/registry/agent-orchestrator";
@@ -152,8 +157,15 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     { provide: CHECKPOINT_MANAGER_PORT, useExisting: CheckpointManager },
     { provide: PROGRESS_TRACKER_PORT, useExisting: ProgressTrackerService },
     { provide: TRACE_COLLECTOR_PORT, useExisting: TraceCollectorService },
-    { provide: CONSTRAINT_ENFORCEMENT_PORT, useExisting: ConstraintEnforcementService },
-    { provide: EXECUTION_STATE_MANAGER_PORT, useExisting: ProcessSupervisorService },
+    {
+      provide: CONSTRAINT_ENFORCEMENT_PORT,
+      useExisting: ConstraintEnforcementService,
+    },
+    {
+      provide: EXECUTION_STATE_MANAGER_PORT,
+      useExisting: ProcessSupervisorService,
+    },
+    { provide: MCP_PROVIDER_PORT, useExisting: MCPManager },
 
     // Executor / Loop / Memory (Phase 2)
     ToolInvoker,
@@ -292,6 +304,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     TRACE_COLLECTOR_PORT,
     CONSTRAINT_ENFORCEMENT_PORT,
     EXECUTION_STATE_MANAGER_PORT,
+    MCP_PROVIDER_PORT,
 
     // ★ SOTA runtime exports
     AgentTracer,

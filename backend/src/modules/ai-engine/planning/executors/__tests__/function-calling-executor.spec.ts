@@ -2,7 +2,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { FunctionCallingExecutor } from "../function-calling-executor";
 import { ToolRegistry } from "../../../tools/registry";
 import { AICapabilityResolver } from "../../capabilities/ai-capability-resolver.service";
-import { MCPManager } from "@/modules/ai-harness/facade";
+import { MCP_PROVIDER_PORT } from "../../../abstractions/runtime-deps.tokens";
+import type { MCPManager } from "@/modules/ai-harness/facade";
 import {
   ILLMAdapter,
   LLMResponse,
@@ -137,7 +138,7 @@ describe("FunctionCallingExecutor", () => {
         FunctionCallingExecutor,
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: AICapabilityResolver, useValue: mockCapabilityResolver },
-        { provide: MCPManager, useValue: mockMCPManager },
+        { provide: MCP_PROVIDER_PORT, useValue: mockMCPManager },
       ],
     }).compile();
 

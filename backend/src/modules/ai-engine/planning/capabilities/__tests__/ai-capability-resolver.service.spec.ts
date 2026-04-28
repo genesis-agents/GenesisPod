@@ -6,7 +6,7 @@ import {
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../../skills/registry/skill-registry";
-import { MCPManager } from "@/modules/ai-harness/facade";
+import { MCP_PROVIDER_PORT } from "../../../abstractions/runtime-deps.tokens";
 import { SkillLoaderService } from "../../../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../../skills/builder/skill-prompt-builder.service";
 
@@ -101,7 +101,7 @@ describe("AICapabilityResolver", () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: SkillRegistry, useValue: mockSkillRegistry },
-        { provide: MCPManager, useValue: mockMcpManager },
+        { provide: MCP_PROVIDER_PORT, useValue: mockMcpManager },
         { provide: SkillLoaderService, useValue: mockSkillLoader },
         { provide: SkillPromptBuilder, useValue: mockSkillPromptBuilder },
       ],

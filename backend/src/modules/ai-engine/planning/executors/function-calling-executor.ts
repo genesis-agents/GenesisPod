@@ -3,7 +3,7 @@
  * 执行引擎 - 让 LLM 自主选择和调用工具
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { ToolRegistry } from "../../tools/registry";
 import {
   ToolContext,
@@ -17,6 +17,7 @@ import {
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
 import type { IMCPProvider } from "../../facade";
+import { MCP_PROVIDER_PORT } from "../../abstractions/runtime-deps.tokens";
 import { QueryLoopService } from "../services/query-loop.service";
 import { TokenTrackerService } from "../services/token-tracker.service";
 import { ContextCompactionPipelineService } from "../services/context-compaction-pipeline.service";
@@ -214,7 +215,9 @@ export class FunctionCallingExecutor {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly capabilityResolver?: AICapabilityResolver,
-    @Optional() private readonly mcpManager?: IMCPProvider,
+    @Optional()
+    @Inject(MCP_PROVIDER_PORT)
+    private readonly mcpManager?: IMCPProvider,
     @Optional() private readonly queryLoop?: QueryLoopService,
     @Optional() private readonly tokenTracker?: TokenTrackerService,
     @Optional()

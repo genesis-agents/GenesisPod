@@ -24,6 +24,7 @@ export const PROGRESS_TRACKER_PORT = Symbol("ProgressTrackerPort");
 export const TRACE_COLLECTOR_PORT = Symbol("TraceCollectorPort");
 export const CONSTRAINT_ENFORCEMENT_PORT = Symbol("ConstraintEnforcementPort");
 export const EXECUTION_STATE_MANAGER_PORT = Symbol("ExecutionStateManagerPort");
+export const MCP_PROVIDER_PORT = Symbol("MCPProviderPort");
 
 // ════════════════════════════════════════════════════════════════════
 // Loose duck-typed interfaces (engine 不关心 harness 实现细节)
@@ -72,5 +73,9 @@ export interface IConstraintEnforcementPort {
 }
 
 export interface IExecutionStateManagerPort {
+  [method: string]: any;
+}
+
+export interface IMCPProviderPort {
   [method: string]: any;
 }
