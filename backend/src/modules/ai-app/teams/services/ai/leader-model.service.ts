@@ -14,7 +14,7 @@ import type {
   AIModelConfig,
 } from "@/modules/ai-harness/facade";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { AIError } from "@/common/ai-orchestration/error-classifier";
+import { AIError } from "@/modules/ai-engine/facade";
 
 // ==================== 类型定义 (保持原有接口) ====================
 
@@ -112,9 +112,7 @@ export class LeaderModelService {
 
     // 委托给 ModelFallbackService (通过 AIFacade)
     if (!this.chatFacade.modelFallback) {
-      throw new Error(
-        "ModelFallbackService is not available via AIFacade",
-      );
+      throw new Error("ModelFallbackService is not available via AIFacade");
     }
     const result = await this.chatFacade.modelFallback.executeWithFallback(
       preferredModelId,

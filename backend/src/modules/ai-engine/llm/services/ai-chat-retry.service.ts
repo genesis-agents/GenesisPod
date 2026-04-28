@@ -1,8 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  AIErrorClassifier,
-  AIError,
-} from "../../../../common/ai-orchestration/error-classifier";
+import { AIErrorClassifier, AIError } from "../abstractions/error-classifier";
 
 /**
  * AI Chat Retry Service

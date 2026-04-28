@@ -23,7 +23,7 @@ import {
   AIError,
   AIErrorClassifier,
   AIErrorType,
-} from "@/common/ai-orchestration/error-classifier";
+} from "@/modules/ai-engine/llm/abstractions/error-classifier";
 import {
   BYOKError,
   NoModelConfiguredError,

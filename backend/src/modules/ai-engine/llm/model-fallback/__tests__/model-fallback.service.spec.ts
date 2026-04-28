@@ -5,7 +5,7 @@ import { AIModelType } from "@prisma/client";
 import {
   AIError,
   AIErrorType,
-} from "@/common/ai-orchestration/error-classifier";
+} from "@/modules/ai-engine/llm/abstractions/error-classifier";
 
 describe("ModelFallbackService", () => {
   let service: ModelFallbackService;

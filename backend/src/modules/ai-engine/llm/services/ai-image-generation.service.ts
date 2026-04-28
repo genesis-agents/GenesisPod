@@ -16,7 +16,7 @@ interface ImagenPrediction {
 
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
+import { AIErrorClassifier } from "../abstractions/error-classifier";
 
 export interface ImageGenerationResult {
   content: string;

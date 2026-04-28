@@ -29,13 +29,21 @@ export interface IAgentRegistryCompat {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export interface IMCPProvider {
-  getClient(serverId: string): {
-    connected?: boolean;
-    listTools(): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>>;
-    getServerInfo?(): { name: string; version: string } | undefined;
-  } | undefined;
+  getClient(serverId: string):
+    | {
+        connected?: boolean;
+        listTools(): Promise<
+          Array<{ name: string; description?: string; inputSchema?: unknown }>
+        >;
+        getServerInfo?(): { name: string; version: string } | undefined;
+      }
+    | undefined;
   getAllClients(): Array<unknown>;
-  getConnectedServers?(): Array<{ serverId: string; serverName: string; tools: unknown[] }>;
+  getConnectedServers?(): Array<{
+    serverId: string;
+    serverName: string;
+    tools: unknown[];
+  }>;
   callTool(
     serverId: string,
     toolName: string,
@@ -161,7 +169,10 @@ export type {
   ContentPriority,
   BudgetAllocation,
 } from "../planning/services/token-budget.service";
-export type { EstablishedFact, ExecutionConfig } from "../planning/services/interfaces";
+export type {
+  EstablishedFact,
+  ExecutionConfig,
+} from "../planning/services/interfaces";
 export { OutputReviewerService } from "../planning/services/output-reviewer.service";
 export { ContextEvolutionService } from "../planning/services/context-evolution.service";
 export type {
@@ -504,7 +515,10 @@ export {
 // Safety / Resilience / Security （PR-X15: engine 公开 API barrel
 // 供 ai-harness/facade 转发，避免 harness 穿透 engine 私有路径）
 // ════════════════════════════════════════════════════════════════════
-export { CircuitBreakerService, TaskCompletionType } from "../safety/resilience/circuit-breaker.service";
+export {
+  CircuitBreakerService,
+  TaskCompletionType,
+} from "../safety/resilience/circuit-breaker.service";
 export type {
   CircuitState,
   CircuitBreakerConfig,
@@ -512,3 +526,12 @@ export type {
 } from "../safety/resilience/circuit-breaker.service";
 export { CapabilityGuardService } from "../safety/security/capability-guard.service";
 export type { CapabilityCheckResult } from "../safety/security/capability.types";
+
+// ════════════════════════════════════════════════════════════════════
+// LLM Error Classification (PR-X28: lifted from common/ai-orchestration)
+// ════════════════════════════════════════════════════════════════════
+export {
+  AIError,
+  AIErrorType,
+  AIErrorClassifier,
+} from "../llm/abstractions/error-classifier";

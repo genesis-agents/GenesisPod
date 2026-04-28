@@ -4,7 +4,7 @@
  * 验证错误分类的正确性和可重试性判断
  */
 
-import { AIErrorClassifier, AIError, AIErrorType } from "./error-classifier";
+import { AIErrorClassifier, AIError, AIErrorType } from "../error-classifier";
 import { AxiosError } from "axios";
 
 describe("AIErrorClassifier", () => {

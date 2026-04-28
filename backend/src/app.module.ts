@@ -13,7 +13,9 @@ import { CommonModule } from "./common/common.module";
 import { PrismaModule } from "./common/prisma/prisma.module";
 import { RawDataModule } from "./common/rawdata/rawdata.module";
 import { GraphModule } from "./common/graph/graph.module";
-import { AiOrchestrationModule } from "./common/ai-orchestration";
+// AiOrchestrationModule removed (PR-X28): only error-classifier was used; it
+// is now at ai-engine/llm/abstractions/error-classifier.ts. Other services in
+// the old module had zero production consumers.
 import { StreamingModule } from "./common/streaming";
 import { ContentProcessingModule } from "./common/content-processing";
 import { ObservabilityModule } from "./common/observability";
@@ -149,7 +151,6 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // 公共服务模块
     CacheModule, // Redis/内存缓存（全局）
-    AiOrchestrationModule,
     StreamingModule,
     ContentProcessingModule,
     ObservabilityModule,
