@@ -747,12 +747,16 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           label: '采集到 finding',
           value: cnt,
         });
-        addNarrative(
-          target.id,
-          ev.timestamp,
-          `采集完成 · ${cnt} 条 finding${summary ? ` · ${summary.slice(0, 100)}` : ''}`,
-          'success'
-        );
+        // ★ 不再在此处加 narrative（backend narrate 已发"维度「X」采集完成"）。
+        //   如果 summary 有内容（额外信息），单独加一条做总结预览。
+        if (summary && summary.trim().length > 8) {
+          addNarrative(
+            target.id,
+            ev.timestamp,
+            `采集摘要：${summary.slice(0, 200)}${summary.length > 200 ? '…' : ''}`,
+            'info'
+          );
+        }
       } else {
         target.status = 'failed';
         addNarrative(
@@ -959,13 +963,19 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       (a) => a.dimension === td.dimensionRef && a.role === 'researcher'
     );
     if (!matching) continue;
-    if (td.status === 'pending' && matching.phase === 'running') {
+    // 不论 td 之前是 pending 还是 in_progress，都允许 agent.phase 直接覆盖
+    // （agent 可能直接从 pending → completed，跳过 running 观察）
+    if (matching.phase === 'completed') {
+      td.status = 'done';
+      td.startedAt = td.startedAt ?? matching.startedAt ?? td.createdAt;
+      td.endedAt = matching.endedAt ?? td.endedAt;
+    } else if (matching.phase === 'failed' && td.status !== 'cancelled') {
+      td.status = 'failed';
+      td.startedAt = td.startedAt ?? matching.startedAt ?? td.createdAt;
+      td.endedAt = matching.endedAt ?? td.endedAt;
+    } else if (matching.phase === 'running' && td.status === 'pending') {
       td.status = 'in_progress';
       td.startedAt = matching.startedAt ?? td.createdAt;
-    }
-    if (td.status === 'in_progress' && matching.phase === 'completed') {
-      td.status = 'done';
-      td.endedAt = matching.endedAt;
     }
     if (matching.phase === 'failed' && td.status !== 'cancelled') {
       td.status = 'failed';

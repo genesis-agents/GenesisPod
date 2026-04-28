@@ -351,19 +351,48 @@ function collectSearchResultsDeep(
   node: unknown
 ): { title?: string; url?: string; snippet?: string }[] {
   const out: { title?: string; url?: string; snippet?: string }[] = [];
+  // ★ 截断 JSON 兜底：当字符串看起来是 JSON 但 parse 失败（_truncated 形态），
+  //   用正则抠 title / url / content。
+  const regexExtract = (s: string) => {
+    const titleRe = /"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    const urlRe = /"url"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    const contentRe =
+      /"(?:content|snippet|description)"\s*:\s*"((?:[^"\\]|\\.){0,400})"/g;
+    const titles = [...s.matchAll(titleRe)].map((m) => m[1]);
+    const urls = [...s.matchAll(urlRe)].map((m) => m[1]);
+    const contents = [...s.matchAll(contentRe)].map((m) => m[1]);
+    const n = Math.max(titles.length, urls.length);
+    for (let i = 0; i < n; i++) {
+      if (titles[i] || urls[i]) {
+        out.push({
+          title: titles[i],
+          url: urls[i],
+          snippet: contents[i],
+        });
+      }
+    }
+  };
   const visit = (n: unknown) => {
     if (!n) return;
     if (typeof n === 'string') {
-      const trimmed = n.trim();
+      const trimmed = n
+        .trim()
+        .replace(/…$/, '')
+        .replace(/\.\.\.$/, '');
       if (
-        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+        (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
+        (trimmed.endsWith('}') || trimmed.endsWith(']'))
       ) {
         try {
           visit(JSON.parse(trimmed));
+          return;
         } catch {
-          /* ignore */
+          // truncated — 用正则
+          regexExtract(trimmed);
+          return;
         }
+      } else if (trimmed.includes('"title"') || trimmed.includes('"url"')) {
+        regexExtract(trimmed);
       }
       return;
     }
@@ -1105,19 +1134,11 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
                                 className="whitespace-pre-wrap text-[12px] italic leading-relaxed text-purple-900"
                               />
                             )}
-                            {c.kind === 'tool-call' && (
-                              <>
-                                {c.query && (
-                                  <p className="font-mono break-words text-[11.5px] leading-relaxed text-blue-900">
-                                    <span className="text-blue-500">▸</span>{' '}
-                                    {c.query}
-                                  </p>
-                                )}
-                                <RawDataToggle
-                                  label="完整 input"
-                                  data={c.rawInput}
-                                />
-                              </>
+                            {c.kind === 'tool-call' && c.query && (
+                              <p className="font-mono break-words text-[11.5px] leading-relaxed text-blue-900">
+                                <span className="text-blue-500">▸</span>{' '}
+                                {c.query}
+                              </p>
                             )}
                             {c.kind === 'parallel-tool-call' &&
                               c.subCalls &&
@@ -1156,12 +1177,12 @@ export function TodoDetailDrawer({ todo, agents, onClose }: Props) {
                               c.results.length > 0 && (
                                 <ToolResultsList results={c.results} />
                               )}
-                            {c.kind === 'tool-result' && (
-                              <RawDataToggle
-                                label="完整 output"
-                                data={c.rawOutput}
-                              />
-                            )}
+                            {c.kind === 'tool-result' &&
+                              (c.results?.length ?? 0) === 0 && (
+                                <p className="text-[11.5px] italic text-gray-500">
+                                  （工具未返回可解析的结构化结果，原始数据见底部"开发者诊断视图"）
+                                </p>
+                              )}
                             {c.kind === 'reflection' && c.trace?.text && (
                               <ExpandableText
                                 text={`✨ ${c.trace.text}`}
