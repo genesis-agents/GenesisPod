@@ -165,7 +165,8 @@
     }
   },
   "library": {
-    "title": "资源库",
+    "title": "知识库",
+    "subtitle": "管理你的资源、笔记与团队知识",
     "myLibrary": "我的资源库",
     "collections": "收藏夹",
     "resources": "资源",

@@ -1,26 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Plus,
-  FileText,
-  RefreshCw,
-  Loader2,
-  User,
-  Pencil,
-  Trash2,
-  MoreVertical,
-  AlertCircle,
-  Eye,
-  Cloud,
-  Database,
-  Globe,
-  Layers,
-  Bookmark,
-  NotebookPen,
-  ImageIcon,
-  BookOpen,
-} from 'lucide-react';
+import { Loader2, RefreshCw, User, AlertCircle } from 'lucide-react';
 import {
   useKnowledgeBase,
   useKnowledgeBaseDetail,
@@ -35,15 +16,18 @@ import DocumentListDialog from '../dialogs/DocumentListDialog';
 import AddDocumentsDialog from '../resources/AddDocumentsDialog';
 import KnowledgeBaseDetailDialog from './KnowledgeBaseDetailDialog';
 import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
+import KnowledgeBaseCard from './KnowledgeBaseCard';
+import CreateKnowledgeBaseCard from './CreateKnowledgeBaseCard';
+import SectionTitle from '../_design/SectionTitle';
 
 import { logger } from '@/lib/utils/logger';
+
 interface PersonalKnowledgeBaseTabProps {
   searchQuery?: string;
 }
 
 /**
- * 个人知识库 TAB
- * 显示用户的个人知识库列表，点击直接进入 RAG 工作台
+ * 个人知识库 Tab — 改为统一卡片网格（含"新建"占位卡）
  */
 export default function PersonalKnowledgeBaseTab({
   searchQuery = '',
@@ -51,18 +35,17 @@ export default function PersonalKnowledgeBaseTab({
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingKbId, setEditingKbId] = useState<string | null>(null);
   const [deletingKbId, setDeletingKbId] = useState<string | null>(null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [showDetailKbId, setShowDetailKbId] = useState<string | null>(null); // 弹窗显示详情的知识库ID
-  const [showSearchTest, setShowSearchTest] = useState<string | null>(null); // 搜索测试的知识库ID
+  const [showDetailKbId, setShowDetailKbId] = useState<string | null>(null);
+  const [showSearchTest, setShowSearchTest] = useState<string | null>(null);
   const [showDocList, setShowDocList] = useState<{
     kbId: string;
     kbName: string;
     documents: KnowledgeBaseDocument[];
-  } | null>(null); // 文档列表弹窗
+  } | null>(null);
   const [showAddDocs, setShowAddDocs] = useState<{
     kbId: string;
     kbName: string;
-  } | null>(null); // 添加内容弹窗
+  } | null>(null);
 
   const {
     knowledgeBases,
@@ -74,21 +57,18 @@ export default function PersonalKnowledgeBaseTab({
     refreshList,
   } = useKnowledgeBase();
 
-  // Get detail hook for editing
   const editingKbDetail = useKnowledgeBaseDetail(editingKbId || '');
 
   const handleDelete = async (kbId: string) => {
     try {
       await deleteKnowledgeBase(kbId);
       setDeletingKbId(null);
-      refreshList();
+      void refreshList();
     } catch (err) {
       logger.error('Failed to delete knowledge base:', err);
     }
   };
 
-  // Filter personal knowledge bases (type = PERSONAL or type is not set)
-  // Also apply search query filter if provided
   const personalKBs = knowledgeBases.filter((kb) => {
     const isPersonal = !kb.type || kb.type === 'PERSONAL';
     if (!isPersonal) return false;
@@ -100,116 +80,26 @@ export default function PersonalKnowledgeBaseTab({
     );
   });
 
-  const handleCreate = async (dto: CreateKnowledgeBaseDto) => {
-    await createKnowledgeBase({ ...dto, type: 'PERSONAL' });
-    setShowCreateDialog(false);
-  };
-
-  // 状态徽章 - 更醒目的设计
-  const getStatusBadge = (kb: KnowledgeBase) => {
-    const statusMap: Record<
-      string,
-      { label: string; bg: string; text: string; dot: string }
-    > = {
-      PENDING: {
-        label: '待处理',
-        bg: 'bg-gray-100',
-        text: 'text-gray-600',
-        dot: 'bg-gray-400',
-      },
-      PROCESSING: {
-        label: '处理中',
-        bg: 'bg-blue-50',
-        text: 'text-blue-600',
-        dot: 'bg-blue-500 animate-pulse',
-      },
-      READY: {
-        label: '就绪',
-        bg: 'bg-emerald-50',
-        text: 'text-emerald-600',
-        dot: 'bg-emerald-500',
-      },
-      UPDATING: {
-        label: '更新中',
-        bg: 'bg-amber-50',
-        text: 'text-amber-600',
-        dot: 'bg-amber-500 animate-pulse',
-      },
-      ERROR: {
-        label: '错误',
-        bg: 'bg-red-50',
-        text: 'text-red-600',
-        dot: 'bg-red-500',
-      },
-    };
-    const status = statusMap[kb.status] || statusMap.PENDING;
-
-    return (
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${status.bg} ${status.text}`}
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-        {status.label}
-      </span>
-    );
-  };
-
-  // 图标颜色轮换（按卡片索引），与自建团队卡片风格一致
-  const KB_GRADIENTS = [
-    {
-      gradient: 'from-violet-500 to-purple-600',
-      shadow: 'shadow-violet-500/30',
-    },
-    { gradient: 'from-blue-500 to-cyan-500', shadow: 'shadow-blue-500/30' },
-    {
-      gradient: 'from-emerald-500 to-teal-500',
-      shadow: 'shadow-emerald-500/30',
-    },
-    { gradient: 'from-orange-500 to-red-500', shadow: 'shadow-orange-500/30' },
-    { gradient: 'from-pink-500 to-rose-500', shadow: 'shadow-pink-500/30' },
-    { gradient: 'from-indigo-500 to-blue-600', shadow: 'shadow-indigo-500/30' },
-    { gradient: 'from-amber-500 to-orange-500', shadow: 'shadow-amber-500/30' },
-    { gradient: 'from-cyan-500 to-teal-500', shadow: 'shadow-cyan-500/30' },
-  ];
-
-  const getSourceTypeIcon = (type: KnowledgeBase['sourceType']) => {
-    const iconClass = 'h-7 w-7 text-white drop-shadow-sm';
-    const sw = 2.5;
-    const icons: Record<string, React.ReactNode> = {
-      GOOGLE_DRIVE: <Cloud className={iconClass} strokeWidth={sw} />,
-      MANUAL: <BookOpen className={iconClass} strokeWidth={sw} />,
-      URL: <Globe className={iconClass} strokeWidth={sw} />,
-      NOTION: <Layers className={iconClass} strokeWidth={sw} />,
-      BOOKMARK: <Bookmark className={iconClass} strokeWidth={sw} />,
-      NOTE: <NotebookPen className={iconClass} strokeWidth={sw} />,
-      IMAGE: <ImageIcon className={iconClass} strokeWidth={sw} />,
-    };
-    return icons[type] || <Database className={iconClass} strokeWidth={sw} />;
-  };
-
-  const getSourceTypeLabel = (type: KnowledgeBase['sourceType'] | string) => {
-    const labels: Record<string, string> = {
-      GOOGLE_DRIVE: 'Google Drive',
-      MANUAL: '手动上传',
-      URL: 'URL 抓取',
-      NOTION: 'Notion',
-      BOOKMARK: '书签',
-      NOTE: '笔记',
-      IMAGE: '图片',
-    };
-    return labels[type] || type;
+  const handleCreate = (dto: CreateKnowledgeBaseDto) => {
+    void (async () => {
+      try {
+        await createKnowledgeBase({ ...dto, type: 'PERSONAL' });
+        setShowCreateDialog(false);
+      } catch (err) {
+        logger.error('Failed to create knowledge base:', err);
+      }
+    })();
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
       </div>
     );
   }
 
   if (error) {
-    // 如果是认证错误，显示登录引导
     if (isAuthError(error)) {
       return (
         <SignInPrompt
@@ -218,12 +108,13 @@ export default function PersonalKnowledgeBaseTab({
         />
       );
     }
-
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
         <p className="text-red-600">加载知识库失败: {error.message}</p>
         <button
-          onClick={() => refreshList()}
+          onClick={() => {
+            void refreshList();
+          }}
           className="mt-3 text-sm font-medium text-red-700 hover:underline"
         >
           重试
@@ -232,186 +123,43 @@ export default function PersonalKnowledgeBaseTab({
     );
   }
 
-  // Empty state
-  if (personalKBs.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-50">
-          <User className="h-10 w-10 text-blue-600" />
-        </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">
-          创建你的第一个个人知识库
-        </h3>
-        <p className="mt-2 max-w-md text-center text-gray-500">
-          个人知识库用于存储你的私人文档、笔记和资料，支持 AI 智能检索和问答。
-        </p>
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          className="mt-6 flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-white transition-colors hover:bg-blue-700"
-        >
-          <Plus className="h-5 w-5" />
-          新建个人知识库
-        </button>
-
-        {showCreateDialog && (
-          <CreateKnowledgeBaseDialog
-            key={`create-kb-empty-${Date.now()}`}
-            onClose={() => setShowCreateDialog(false)}
-            onCreate={handleCreate}
-            creating={creating}
-            kbType="PERSONAL"
-          />
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <User className="h-5 w-5 text-blue-600" />
-          <span className="text-sm font-medium text-gray-700">
-            {personalKBs.length} 个个人知识库
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      {/* 分组标题 + 操作 */}
+      <SectionTitle
+        icon={User}
+        title="我的知识库"
+        description="个人私有知识库，仅你可见，可作为 AI 检索来源"
+        count={personalKBs.length}
+        action={
           <button
-            onClick={() => refreshList()}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            onClick={() => {
+              void refreshList();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5" />
             刷新
           </button>
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            新建知识库
-          </button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Knowledge Base Grid - Modern card design */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {personalKBs.map((kb, index) => (
-          <div
+      {/* 卡片网格（首格永远是"新建"卡） */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <CreateKnowledgeBaseCard
+          title="新建个人知识库"
+          description="为新主题创建专属空间，用于私人文档、笔记与 AI 检索"
+          onClick={() => setShowCreateDialog(true)}
+        />
+        {personalKBs.map((kb) => (
+          <KnowledgeBaseCard
             key={kb.id}
-            className={`group relative overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 ${
-              activeMenuId === kb.id
-                ? '' // 菜单打开时禁用 hover 动画，防止光标抖动
-                : 'hover:-translate-y-1 hover:shadow-lg'
-            } border-gray-100 hover:border-gray-200`}
-          >
-            {/* Action Menu */}
-            <div className="absolute right-4 top-4 z-10">
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setActiveMenuId(activeMenuId === kb.id ? null : kb.id);
-                  }}
-                  className="rounded-lg bg-white/80 p-1.5 text-gray-400 opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-gray-600 group-hover:opacity-100"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-
-                {activeMenuId === kb.id && (
-                  <div className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setEditingKbId(kb.id);
-                        setActiveMenuId(null);
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      编辑
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDeletingKbId(kb.id);
-                        setActiveMenuId(null);
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      删除
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowDetailKbId(kb.id)}
-              className="block w-full text-left"
-            >
-              {/* Card Header with Icon */}
-              <div className="p-5 pb-0">
-                <div className="flex items-start gap-4">
-                  {/* Large Gradient Icon */}
-                  {(() => {
-                    const iconStyle = KB_GRADIENTS[index % KB_GRADIENTS.length];
-                    return (
-                      <div
-                        className={`relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${iconStyle.gradient} shadow-lg ${iconStyle.shadow} transition-transform duration-300 group-hover:scale-105`}
-                      >
-                        {getSourceTypeIcon(kb.sourceType)}
-                        <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
-                      </div>
-                    );
-                  })()}
-                  <div className="min-w-0 flex-1 pt-1">
-                    <h3 className="truncate text-base font-semibold text-gray-900 transition-colors group-hover:text-blue-600">
-                      {kb.name}
-                    </h3>
-                    <p className="mt-0.5 truncate text-sm text-gray-500">
-                      {(kb.sourceTypes?.length
-                        ? kb.sourceTypes
-                        : [kb.sourceType]
-                      )
-                        .map((t) => getSourceTypeLabel(t))
-                        .join(' · ')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="px-5 py-3">
-                {kb.description ? (
-                  <p className="line-clamp-2 text-sm leading-relaxed text-gray-600">
-                    {kb.description}
-                  </p>
-                ) : (
-                  <p className="text-sm italic text-gray-400">暂无描述</p>
-                )}
-              </div>
-
-              {/* Card Footer */}
-              <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-5 py-3">
-                <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <FileText className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium">
-                    {kb._count?.documents ?? 0}
-                  </span>
-                  <span className="text-gray-400">文档</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(kb)}
-                  <Eye className="h-4 w-4 text-gray-300 transition-colors group-hover:text-blue-500" />
-                </div>
-              </div>
-            </button>
-          </div>
+            kb={kb}
+            variant="personal"
+            onOpen={() => setShowDetailKbId(kb.id)}
+            onEdit={() => setEditingKbId(kb.id)}
+            onDelete={() => setDeletingKbId(kb.id)}
+          />
         ))}
       </div>
 
@@ -432,7 +180,7 @@ export default function PersonalKnowledgeBaseTab({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="rounded-xl bg-white p-8 shadow-xl">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-violet-600" />
                 <span className="text-gray-600">加载知识库信息...</span>
               </div>
             </div>
@@ -466,7 +214,7 @@ export default function PersonalKnowledgeBaseTab({
           </div>
         ))}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       {deletingKbId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
@@ -482,7 +230,9 @@ export default function PersonalKnowledgeBaseTab({
                 取消
               </button>
               <button
-                onClick={() => handleDelete(deletingKbId)}
+                onClick={() => {
+                  void handleDelete(deletingKbId);
+                }}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 删除
@@ -492,7 +242,6 @@ export default function PersonalKnowledgeBaseTab({
         </div>
       )}
 
-      {/* 向量搜索测试对话框 */}
       {showSearchTest && (
         <SearchTestDialog
           knowledgeBaseId={showSearchTest}
@@ -500,7 +249,6 @@ export default function PersonalKnowledgeBaseTab({
         />
       )}
 
-      {/* 文档列表弹窗 */}
       {showDocList && (
         <DocumentListDialog
           documents={showDocList.documents}
@@ -514,50 +262,44 @@ export default function PersonalKnowledgeBaseTab({
         />
       )}
 
-      {/* 知识库详情弹窗 */}
       {showDetailKbId && (
         <KnowledgeBaseDetailDialog
           knowledgeBaseId={showDetailKbId}
           onClose={() => setShowDetailKbId(null)}
           onAddDocuments={() => {
-            const kb = personalKBs.find((k) => k.id === showDetailKbId);
+            const kb = personalKBs.find(
+              (k: KnowledgeBase) => k.id === showDetailKbId
+            );
             if (kb) {
-              setShowDetailKbId(null); // 先关闭详情弹窗
+              setShowDetailKbId(null);
               setShowAddDocs({ kbId: kb.id, kbName: kb.name });
             }
           }}
           onSearchTest={() => {
             const kbId = showDetailKbId;
-            setShowDetailKbId(null); // 先关闭详情弹窗
+            setShowDetailKbId(null);
             setShowSearchTest(kbId);
           }}
           onViewDocuments={(docs: KnowledgeBaseDocument[]) => {
-            const kb = personalKBs.find((k) => k.id === showDetailKbId);
+            const kb = personalKBs.find(
+              (k: KnowledgeBase) => k.id === showDetailKbId
+            );
             if (kb) {
-              setShowDetailKbId(null); // 先关闭详情弹窗
+              setShowDetailKbId(null);
               setShowDocList({ kbId: kb.id, kbName: kb.name, documents: docs });
             }
           }}
         />
       )}
 
-      {/* 添加内容弹窗 */}
       {showAddDocs && (
         <AddDocumentsDialog
           knowledgeBaseId={showAddDocs.kbId}
           knowledgeBaseName={showAddDocs.kbName}
           onClose={() => setShowAddDocs(null)}
-          onDocumentsAdded={async () => {
-            await refreshList();
+          onDocumentsAdded={() => {
+            void refreshList();
           }}
-        />
-      )}
-
-      {/* Click outside to close menu */}
-      {activeMenuId && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setActiveMenuId(null)}
         />
       )}
     </div>

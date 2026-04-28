@@ -165,7 +165,8 @@
     }
   },
   "library": {
-    "title": "Library",
+    "title": "Knowledge Library",
+    "subtitle": "Manage your resources, notes, and team knowledge",
     "myLibrary": "My Library",
     "collections": "Collections",
     "resources": "Resources",

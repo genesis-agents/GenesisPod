@@ -9,7 +9,6 @@ import {
   Bookmark,
   FileText,
   Image,
-  Share2,
   Database,
   User,
   Users,
@@ -18,6 +17,10 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import AppShell from '@/components/layout/AppShell';
+import LibraryHeader from '@/components/library/header/LibraryHeader';
+import LibraryTabs, {
+  type LibraryTabItem,
+} from '@/components/library/nav/LibraryTabs';
 import { Tag, UserStats } from '@/components/library/resources/CollectionNav';
 import ReadStatusBadge from '@/components/library/resources/ReadStatusBadge';
 import TagList from '@/components/library/resources/TagList';
@@ -332,6 +335,11 @@ function LibraryPageContent() {
   >(null);
   const [bookmarkedImagesLoaded, setBookmarkedImagesLoaded] = useState(false);
 
+  // 数据源中心：用户内容计数（书签 / 笔记 / 图片）
+  // 书签数沿用 paginatedItems.pagination.total；笔记 / 图片单独拉总数
+  const [notesTotal, setNotesTotal] = useState(0);
+  const [imagesTotal, setImagesTotal] = useState(0);
+
   // Selected image ID for navigation from bookmarks to Images tab
   const [selectedImageId, setSelectedImageId] = useState<string | undefined>(
     undefined
@@ -606,6 +614,62 @@ function LibraryPageContent() {
     if (activeTab === 'data-sources') {
       loadItems(1, false);
     }
+  }, [activeTab]);
+
+  // 数据源中心：拉取笔记 + 图片总数（用于 ContentSummaryCard 实数显示）
+  useEffect(() => {
+    if (activeTab !== 'data-sources') return;
+
+    let cancelled = false;
+
+    // 笔记总数：复用 GET /notes 的 total 字段（take=1 减少传输量）
+    const loadNotesTotal = async () => {
+      try {
+        const resp = await fetch(`${config.apiBaseUrl}/api/v1/notes?take=1`, {
+          headers: { ...getAuthHeader() },
+        });
+        if (!resp.ok) return;
+        const payload = (await resp.json()) as {
+          total?: number;
+          data?: { total?: number };
+        };
+        const total = payload.total ?? payload.data?.total ?? 0;
+        if (!cancelled && typeof total === 'number') {
+          setNotesTotal(total);
+        }
+      } catch (err) {
+        logger.error('Failed to load notes total:', err);
+      }
+    };
+
+    // 图片总数：使用书签图片端点（这是 Library 已暴露给用户的图片集合）
+    const loadImagesTotal = async () => {
+      try {
+        const resp = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-image/bookmarks`,
+          { headers: { ...getAuthHeader() } }
+        );
+        if (!resp.ok) return;
+        const payload = (await resp.json()) as unknown[] | { data?: unknown[] };
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.data)
+            ? payload.data
+            : [];
+        if (!cancelled) {
+          setImagesTotal(list.length);
+        }
+      } catch (err) {
+        logger.error('Failed to load images total:', err);
+      }
+    };
+
+    void loadNotesTotal();
+    void loadImagesTotal();
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeTab]);
 
   // Reload items when search query changes (with debounce)
@@ -1625,147 +1689,49 @@ function LibraryPageContent() {
     );
   };
 
+  // Library 主 Tab 配置（与 LibraryTabs 共用）
+  const libraryTabs: LibraryTabItem[] = [
+    {
+      id: 'personal-kb',
+      label: t('knowledgeBase.personalKb'),
+      icon: User,
+    },
+    {
+      id: 'team-kb',
+      label: t('knowledgeBase.teamKb'),
+      icon: Users,
+    },
+    {
+      id: 'data-sources',
+      label: t('dataSources.title'),
+      icon: HardDrive,
+    },
+  ];
+
   return (
     <AppShell>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-gray-50">
-        {/* Sticky Search Bar Container */}
-        <div className="sticky top-0 z-10 bg-gray-50 pb-4 pt-6">
-          <div className="px-8">
-            {/* Large Search Bar */}
-            <div className="mb-6">
-              <div className="relative rounded-lg border border-gray-300 bg-white shadow-sm">
-                <div className="flex items-center">
-                  <div className="flex items-center px-4 py-3">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder={t('library.search.resources')}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 border-none px-4 py-3 text-sm focus:outline-none focus:ring-0"
-                  />
-                  <div className="flex items-center gap-2 px-4">
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="rounded p-1 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
-                        title="Clear search"
-                      >
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                    {/* 知识图谱按钮暂时屏蔽
-                    <button
-                      onClick={() => setActiveTab('graph')}
-                      className={`flex items-center gap-1.5 rounded border px-3 py-2 text-xs font-medium transition-all ${
-                        activeTab === 'graph'
-                          ? 'border-purple-500 bg-purple-50 text-purple-700'
-                          : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700'
-                      }`}
-                      title="View Knowledge Graph"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                        />
-                      </svg>
-                      {t('library.tabs.graph')}
-                    </button>
-                    */}
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Unified Header: 标题 + 副标题 + 搜索框 */}
+        <LibraryHeader
+          title={t('library.title') || '知识库'}
+          subtitle={t('library.subtitle') || '管理你的资源、笔记与团队知识'}
+          searchPlaceholder={t('library.search.resources')}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
 
-            {/* Navigation Tabs - Knowledge Base focused with new tabs */}
-            <div className="flex flex-wrap items-center gap-2 pb-1">
-              {/* Primary Tabs - 数据源管理、个人知识库、团队知识库 */}
-              <button
-                onClick={() => setActiveTab('data-sources')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'data-sources'
-                    ? 'border-green-400 bg-green-50 text-green-700 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:bg-green-50/50 hover:text-green-700'
-                }`}
-              >
-                <HardDrive className="h-4 w-4" />
-                {t('dataSources.title')}
-              </button>
-              <button
-                onClick={() => setActiveTab('personal-kb')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'personal-kb'
-                    ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700'
-                }`}
-              >
-                <User className="h-4 w-4" />
-                {t('knowledgeBase.personalKb')}
-              </button>
-              <button
-                onClick={() => setActiveTab('team-kb')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'team-kb'
-                    ? 'border-purple-400 bg-purple-50 text-purple-700 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-50/50 hover:text-purple-700'
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                {t('knowledgeBase.teamKb')}
-              </button>
-              {/* 知识图谱功能暂时屏蔽，待完善后开放
-              <button
-                onClick={() => setActiveTab('graph')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-                  activeTab === 'graph'
-                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700'
-                }`}
-              >
-                <Share2 className="h-4 w-4" />
-                知识图谱
-              </button>
-              */}
-            </div>
-          </div>
-        </div>
+        {/* Unified Tabs: 中性灰底 + 紫色下划线 indicator */}
+        <LibraryTabs
+          tabs={libraryTabs}
+          activeTab={activeTab}
+          onChange={(id) =>
+            setActiveTab(id as 'personal-kb' | 'team-kb' | 'data-sources')
+          }
+        />
 
         {/* Main content area */}
-        <div className="px-8 py-3">
+        <div className="px-8 py-6">
           {/* AI Organize Panel - Show for bookmarks, notes, images sub-tabs */}
           {activeTab === 'data-sources' &&
             (currentDataSourceSubTab === 'bookmarks' ||
@@ -1800,6 +1766,11 @@ function LibraryPageContent() {
             <DataSourcesTab
               initialSubTab={initialDataSourceSubTab}
               onSubTabChange={(subTab) => setCurrentDataSourceSubTab(subTab)}
+              contentCounts={{
+                bookmarks: paginatedItems?.pagination?.total ?? 0,
+                notes: notesTotal,
+                images: imagesTotal,
+              }}
               renderBookmarks={() => {
                 // 书签列表视图
                 if (loading && !paginatedItems) {
