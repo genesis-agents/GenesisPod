@@ -430,8 +430,9 @@ export function MissionFlowView({ view, events }: Props) {
             · {STAGE_ORDER.length} 阶段
           </span>
         </div>
-        <div className="flex items-center gap-1 overflow-x-auto pb-1">
-          {STAGE_ORDER.map((sid, i) => {
+        {/* 11 阶段自适应换行 grid（避免横向滚动；进度通过左→右 + 上→下 视觉顺序） */}
+        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-11">
+          {STAGE_ORDER.map((sid) => {
             const td = systemTodoMap.get(sid);
             const status = td?.status ?? 'pending';
             const meta = STAGE_META[sid];
@@ -445,34 +446,28 @@ export function MissionFlowView({ view, events }: Props) {
                     ? 'bg-red-100 text-red-700 ring-red-300'
                     : 'bg-gray-50 text-gray-400 ring-gray-200';
             return (
-              <React.Fragment key={sid}>
-                <div
-                  className={cn(
-                    'flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 ring-1',
-                    tone
-                  )}
-                  title={td?.title ?? sid}
-                >
-                  <div className="flex items-center gap-1">
-                    <Icon className="h-3 w-3" />
-                    <span className="text-[10px] font-medium">
-                      {meta.short}
-                    </span>
-                  </div>
-                  <span className="text-[9px]">
-                    {status === 'done'
-                      ? '✓'
-                      : status === 'in_progress'
-                        ? '⟳'
-                        : status === 'failed'
-                          ? '✗'
-                          : '○'}
-                  </span>
-                </div>
-                {i < STAGE_ORDER.length - 1 && (
-                  <span className="font-mono text-[10px] text-gray-300">→</span>
+              <div
+                key={sid}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-1.5 ring-1',
+                  tone
                 )}
-              </React.Fragment>
+                title={td?.title ?? sid}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="text-center text-[10px] font-medium leading-tight">
+                  {meta.short}
+                </span>
+                <span className="text-[9px]">
+                  {status === 'done'
+                    ? '✓'
+                    : status === 'in_progress'
+                      ? '⟳'
+                      : status === 'failed'
+                        ? '✗'
+                        : '○'}
+                </span>
+              </div>
             );
           })}
         </div>

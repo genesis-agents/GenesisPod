@@ -424,20 +424,20 @@ export function TodoDetailDrawer({
 
         {/* ─── Body ─── */}
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {/* 4 层架构 strip */}
-          <div className="flex items-center gap-1.5 overflow-x-auto rounded-lg border border-violet-100 bg-violet-50/40 px-3 py-2">
-            {layers.map((l, i) => (
-              <React.Fragment key={l.id}>
-                <div className="min-w-0 flex-shrink-0">
-                  <p className="font-mono text-[10px] font-semibold text-violet-700">
-                    {l.label}
-                  </p>
-                  <p className="text-[10px] text-gray-600">{l.detail}</p>
-                </div>
-                {i < layers.length - 1 && (
-                  <ChevronRight className="h-3 w-3 flex-shrink-0 text-violet-300" />
-                )}
-              </React.Fragment>
+          {/* 4 层架构 strip — 2×2 grid，避免横向滚动 */}
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-violet-100 bg-violet-50/40 p-2">
+            {layers.map((l) => (
+              <div
+                key={l.id}
+                className="min-w-0 rounded-md bg-white/70 px-2 py-1.5 ring-1 ring-violet-100"
+              >
+                <p className="font-mono text-[10px] font-semibold leading-tight text-violet-700">
+                  {l.label}
+                </p>
+                <p className="mt-0.5 break-words text-[10.5px] leading-snug text-gray-600">
+                  {l.detail}
+                </p>
+              </div>
             ))}
           </div>
 

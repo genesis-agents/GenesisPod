@@ -415,11 +415,12 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             ? [{ kind: 'finding-count' as const, label: '主题摘要已产出' }]
             : []),
         ];
-        // 为每个 dim 创建 leader-plan todo
+        // 为每个 dim 创建 leader-plan todo（挂在 S3 并行研究阶段下，形成树状层级）
         dims.forEach((d, i) => {
           const id = `dim:${d.id}`;
           upsert(id, () => ({
             id,
+            parentId: 'system:s3-researchers',
             origin: 'leader-plan',
             createdBy: 'leader',
             createdAt: ev.timestamp,
@@ -739,16 +740,22 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         .reverse()
         .find((td) => td.scope === 'dimension' && td.dimensionRef === dim);
       if (!target) continue;
-      target.endedAt = ev.timestamp;
       if (state === 'completed') {
-        target.status = 'done';
+        // ★ 修复：researcher 采集只是 dim 任务的第一步，下游还有：
+        //    章节 outline → 章节撰写 × N → 章节复审 × N → 维度 5 轴评分
+        //    这里只记录"采集完成"里程碑，整体状态保持 in_progress；
+        //    真正 done 的判定下沉到下方 dimensionPipelines 兜底循环（grade 通过才标 done）。
         target.artifacts.push({
           kind: 'finding-count',
           label: '采集到 finding',
           value: cnt,
         });
-        // ★ 不再在此处加 narrative（backend narrate 已发"维度「X」采集完成"）。
-        //   如果 summary 有内容（额外信息），单独加一条做总结预览。
+        addNarrative(
+          target.id,
+          ev.timestamp,
+          `数据采集完成 · ${cnt} 条 finding，进入章节撰写与复审`,
+          'success'
+        );
         if (summary && summary.trim().length > 8) {
           addNarrative(
             target.id,
@@ -759,6 +766,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         }
       } else {
         target.status = 'failed';
+        target.endedAt = ev.timestamp;
         addNarrative(
           target.id,
           ev.timestamp,
@@ -983,25 +991,49 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     }
   }
 
-  // 用 dimensionPipelines 给 dim todos 补 chapter 产出
+  // 用 dimensionPipelines 给 dim todos 补 chapter 产出 + 校准真实完成状态
+  // ★ 核心规则：dim 只有在「所有章节通过 + 5 轴评分出炉」后才算 done；
+  //    否则一律保持 in_progress（包括"采集完成、撰写中"、"复审中"等中间态）。
   for (const td of dimTodos) {
     if (!td.dimensionRef) continue;
     const pipeline = dimensionPipelines.get(td.dimensionRef);
-    if (pipeline && pipeline.chapters.length > 0) {
-      const passed = pipeline.chapters.filter(
-        (c) => c.status === 'passed'
-      ).length;
+    if (!pipeline || pipeline.chapters.length === 0) {
+      // 还没起 outline → 维持 in_progress（researcher 在采集 / 等下游）
+      if (td.status !== 'failed' && td.status !== 'cancelled') {
+        td.status = 'in_progress';
+      }
+      continue;
+    }
+    const total = pipeline.chapters.length;
+    const passed = pipeline.chapters.filter(
+      (c) => c.status === 'passed'
+    ).length;
+    const failed = pipeline.chapters.filter(
+      (c) => c.status === 'failed'
+    ).length;
+
+    td.artifacts.push({
+      kind: 'chapter',
+      label: '章节通过 / 总数',
+      value: `${passed} / ${total}`,
+    });
+    if (pipeline.grade) {
       td.artifacts.push({
-        kind: 'chapter',
-        label: '章节通过 / 总数',
-        value: `${passed} / ${pipeline.chapters.length}`,
+        kind: 'verdict-score',
+        label: '维度评分',
+        value: `${pipeline.grade.overall}/100`,
       });
-      if (pipeline.grade) {
-        td.artifacts.push({
-          kind: 'verdict-score',
-          label: '维度评分',
-          value: `${pipeline.grade.overall}/100`,
-        });
+    }
+
+    // 状态校准：必须 chapters 全过 + grade 出炉
+    if (td.status !== 'failed' && td.status !== 'cancelled') {
+      if (failed > 0) {
+        td.status = 'failed';
+      } else if (passed === total && pipeline.grade) {
+        td.status = 'done';
+      } else {
+        td.status = 'in_progress';
+        td.endedAt = undefined;
       }
     }
   }

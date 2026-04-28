@@ -396,10 +396,35 @@ export function MissionTodoBoard({
   // 任务列表包含 system 阶段 + 工作任务（chapter 重写聚合到 dim，不进表）
   const workTodos = todos.filter((td) => td.scope !== 'chapter');
 
-  // 排序：system 任务按 stage 顺序（s1→s11），work 任务按 createdAt
-  const sorted = [...workTodos].sort((a, b) => {
-    return a.createdAt - b.createdAt;
-  });
+  // ─── 树状排序：parent 紧跟 children，children 缩进显示 ───
+  // 1. 索引 parent → children
+  const childrenByParent = new Map<string, MissionTodo[]>();
+  for (const td of workTodos) {
+    if (td.parentId) {
+      const arr = childrenByParent.get(td.parentId) ?? [];
+      arr.push(td);
+      childrenByParent.set(td.parentId, arr);
+    }
+  }
+  // 2. depth 计算（最多 2 层：system → dim → retry）
+  const depthOf = (td: MissionTodo): number => {
+    if (!td.parentId) return 0;
+    const parent = workTodos.find((x) => x.id === td.parentId);
+    return parent ? depthOf(parent) + 1 : 1;
+  };
+  // 3. DFS 展开顺序：root 按 createdAt，每个 root 后紧跟它的递归 children（也按 createdAt）
+  const sorted: MissionTodo[] = [];
+  const roots = workTodos
+    .filter((t) => !t.parentId || !workTodos.some((p) => p.id === t.parentId))
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const visit = (td: MissionTodo) => {
+    sorted.push(td);
+    const kids = (childrenByParent.get(td.id) ?? []).sort(
+      (a, b) => a.createdAt - b.createdAt
+    );
+    for (const k of kids) visit(k);
+  };
+  for (const r of roots) visit(r);
 
   const counts = workTodos.reduce(
     (acc, td) => {
@@ -535,7 +560,16 @@ export function MissionTodoBoard({
                     {idx + 1}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex items-start gap-2">
+                    <div
+                      className="flex items-start gap-2"
+                      style={{ paddingLeft: `${depthOf(td) * 18}px` }}
+                    >
+                      {depthOf(td) > 0 && (
+                        <span
+                          className="mt-1 inline-block h-3 w-3 flex-shrink-0 border-b-2 border-l-2 border-violet-200"
+                          aria-hidden
+                        />
+                      )}
                       <Icon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                       <div className="min-w-0 flex-1">
                         <div
