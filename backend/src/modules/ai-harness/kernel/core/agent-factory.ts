@@ -203,12 +203,12 @@ export class AgentFactory {
         }
       : undefined;
     const validateBusinessRulesWrapper = spec.validateBusinessRules
-      ? (output: unknown) => {
+      ? (output: unknown, input?: unknown) => {
           try {
             // ★ outputSchema 存在时，先 schema-parse 出结构化值再校验业务规则。
             //   ReActLoop.finalize 可能直接塞进 LLM 的字符串/部分对象，没有这一步
             //   validateBusinessRules 会拿到 raw 值（如 string），常见报错
-            //   "X is not iterable"。
+            //   "X is not iterable" / "Cannot read properties of undefined"。
             let typed: unknown = output;
             if (spec.outputSchema) {
               let candidate: unknown = output;
@@ -233,8 +233,12 @@ export class AgentFactory {
               }
               typed = parsed.data;
             }
+            // ★ Bug fix (2026-04-28): input 之前硬编码 undefined，导致 spec 里
+            //   `ctx.input.phase` 之类的访问崩溃为 "Cannot read properties of
+            //   undefined (reading 'phase')"。现在由 HarnessedAgent.execute()
+            //   把 task.input 透传过来。仍兼容旧调用点（input?=undefined 时退化）。
             spec.validateBusinessRules!(typed as never, {
-              input: undefined as never,
+              input: input as never,
               identity,
             });
             return null;

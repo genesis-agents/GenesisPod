@@ -72,9 +72,13 @@ export interface HarnessedAgentInit {
   ) => { ok: true } | { ok: false; issues: string };
   /**
    * 业务级 sanity check（spec.validateBusinessRules 包装），与 outputSchema
-   * 互补的语义校验。
+   * 互补的语义校验。第二个参数是当前 task.input —— spec 里需要按 input.phase
+   * 等字段做 discriminated union 分支时必须用到。
    */
-  validateBusinessRules?: (output: unknown) => string | null | undefined;
+  validateBusinessRules?: (
+    output: unknown,
+    input?: unknown,
+  ) => string | null | undefined;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -240,7 +244,13 @@ export class HarnessedAgent implements IAgent {
           // ★ 内容驱动退出闸：finalize 时框架用 spec.outputSchema +
           // validateBusinessRules 校验，不达标就 reject + critique reminder + continue
           outputSchemaValidator: this.outputSchemaValidator,
-          validateBusinessRules: this.validateBusinessRules,
+          // ★ 把当前 task.input 绑进 validateBusinessRules —— spec 里 ctx.input.phase
+          //   等 discriminated-union 分支才能正确执行（之前硬编码 undefined 会导致
+          //   "Cannot read properties of undefined (reading 'phase')" 链路崩塌）。
+          validateBusinessRules: this.validateBusinessRules
+            ? (output: unknown) =>
+                this.validateBusinessRules!(output, task.input)
+            : undefined,
         })) {
           yield ev;
           eventCount += 1;
