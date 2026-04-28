@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourcePlannerService } from "../data-source-planner.service";
-import { ChatFacade, ToolFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, ToolFacade } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 
 const mockAiFacade = {

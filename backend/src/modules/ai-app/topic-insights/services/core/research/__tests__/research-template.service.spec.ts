@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchTemplateService } from "../research-template.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { TemplateCategory } from "../../../../types/research-template.types";
 

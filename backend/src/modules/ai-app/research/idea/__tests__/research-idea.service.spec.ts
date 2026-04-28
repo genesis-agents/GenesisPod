@@ -7,6 +7,9 @@
 jest.mock("../../../../ai-engine/facade", () => ({
   ChatFacade: jest.fn(),
 }));
+jest.mock("../../../../ai-harness/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import {

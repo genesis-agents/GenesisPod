@@ -10,6 +10,7 @@ import { ChatFacade } from "../../../ai-harness/facade";
 import { SocialPlatformType } from "@prisma/client";
 
 jest.mock("../../../ai-engine/facade");
+jest.mock("../../../ai-harness/facade");
 
 describe("ContentVersionService", () => {
   let service: ContentVersionService;

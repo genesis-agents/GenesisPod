@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
-import { ChatFacade, AIFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import { InsufficientCreditsException } from "../../../types/research.exceptions";
 

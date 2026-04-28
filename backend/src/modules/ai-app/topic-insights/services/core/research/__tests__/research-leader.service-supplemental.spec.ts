@@ -9,7 +9,7 @@
  */
 
 jest.mock("@prisma/client", () => ({
-  ...jest.requireActual("@prisma/client"),
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, ...jest.requireActual("@prisma/client"),
   AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
@@ -24,11 +24,7 @@ jest.mock("@prisma/client", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchLeaderService } from "../research-leader.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  ChatFacade,
-  AgentFacade,
-  ToolFacade,
-} from "@/modules/ai-engine/facade";
+import { ChatFacade, AgentFacade, ToolFacade } from "@/modules/ai-harness/facade";
 import { ResearchEventEmitterService } from "../research-event-emitter.service";
 import { LeaderToolService } from "../../../data/leader-tool.service";
 import { LeaderPlanningService } from "../../leader/leader-planning.service";

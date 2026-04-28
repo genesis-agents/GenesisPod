@@ -5,6 +5,9 @@ import { ChatFacade } from "../../../../ai-harness/facade";
 jest.mock("../../../../ai-engine/facade", () => ({
   ChatFacade: jest.fn(),
 }));
+jest.mock("../../../../ai-harness/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
 
 // Mock the timeout utility
 jest.mock("../tool-timeout", () => ({

@@ -15,7 +15,7 @@ import {
   CritiqueRefineService,
   CritiqueRefineRequest,
 } from "../critique-refine.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   CritiqueCategory,

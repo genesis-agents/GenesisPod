@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 
 // Break circular dependency: writing-realtime.adapter imports WritingEventType from
 // writing-event-emitter.service, which in turn imports WritingRealtimeAdapter.

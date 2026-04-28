@@ -13,6 +13,11 @@ jest.mock("../../../ai-engine/facade", () => ({
   sanitizeForDb: jest.fn((str: string) => str || ""),
   sanitizeJson: jest.fn((obj: unknown) => obj),
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  RAGFacade: jest.fn(),
+  sanitizeForDb: jest.fn((str: string) => str || ""),
+  sanitizeJson: jest.fn((obj: unknown) => obj),
+}));
 
 describe("ContentFetcherService", () => {
   let service: ContentFetcherService;

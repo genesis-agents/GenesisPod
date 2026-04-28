@@ -4,17 +4,22 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchReplannerService } from "../discussion/research-replanner.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { SearchRound } from "../discussion/types";
 
 jest.mock("@prisma/client", () => ({
-  AIModelType: {
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
   },
 }));
 
 jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: jest.fn().mockImplementation(() => ({
+    chat: jest.fn(),
+  })),
+}));
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
   })),

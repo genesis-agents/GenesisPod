@@ -34,6 +34,32 @@ jest.mock("../../../ai-engine/facade", () => ({
     overrides: _overrides,
   })),
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  BUILTIN_TEAMS: {
+    RESEARCH: "research",
+    DEBATE: "debate",
+  },
+  BUILTIN_ROLES: {
+    RESEARCH_LEAD: "research-lead",
+    RESEARCHER: "researcher",
+    ANALYST: "analyst",
+    WRITER: "writer",
+    REVIEWER: "reviewer",
+  },
+  BUILTIN_TOOLS: {
+    WEB_SEARCH: "web-search",
+    WEB_SCRAPER: "web-scraper",
+    RAG_SEARCH: "rag-search",
+    DATA_ANALYSIS: "data-analysis",
+    TEXT_GENERATION: "text-generation",
+    EXPORT_DOCX: "export-docx",
+    EXPORT_PDF: "export-pdf",
+  },
+  createConstraintProfile: jest.fn((_preset: string, _overrides?: object) => ({
+    preset: _preset,
+    overrides: _overrides,
+  })),
+}));
 
 describe("RESEARCH_WORKFLOW", () => {
   it("should have required fields", () => {

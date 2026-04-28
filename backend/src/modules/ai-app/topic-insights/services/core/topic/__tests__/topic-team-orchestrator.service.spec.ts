@@ -5,7 +5,7 @@ import {
   RefreshOptions,
 } from "../topic-team-orchestrator.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 import { DimensionMissionService } from "../../../dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../../../report/report-synthesis.service";
 import { ResearchReviewerService } from "../../../collaboration/research-reviewer.service";

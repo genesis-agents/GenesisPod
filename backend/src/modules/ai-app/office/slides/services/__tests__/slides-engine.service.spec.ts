@@ -17,7 +17,7 @@ import { CheckpointService } from "../../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../../rendering/slides-export.service";
 import { ContentCompressionSkill } from "../../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../../skills/template-rendering.skill";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type {
   CheckpointState,
   PageOutline,

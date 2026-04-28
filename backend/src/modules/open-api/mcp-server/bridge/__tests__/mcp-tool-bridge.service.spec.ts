@@ -11,6 +11,14 @@ jest.mock("../../../../ai-engine/facade", () => ({
   ToolFacade: jest.fn(),
   AgentFacade: jest.fn(),
 }));
+jest.mock("../../../../ai-harness/facade", () => ({
+  ToolRegistry: jest.fn(),
+  SkillRegistry: jest.fn(),
+  AgentRegistry: jest.fn(),
+  ChatFacade: jest.fn(),
+  ToolFacade: jest.fn(),
+  AgentFacade: jest.fn(),
+}));
 
 describe("MCPToolBridgeService", () => {
   let service: MCPToolBridgeService;

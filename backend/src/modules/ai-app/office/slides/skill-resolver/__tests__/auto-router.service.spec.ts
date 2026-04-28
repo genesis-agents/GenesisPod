@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SlidesAutoRouterService } from "../auto-router.service";
 import { PresetLoader } from "../preset-loader.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { Preset } from "../skill-policy.types";
 
 /**

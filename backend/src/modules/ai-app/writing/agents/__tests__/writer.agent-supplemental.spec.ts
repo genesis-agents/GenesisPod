@@ -16,7 +16,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WriterAgent, WriterInput } from "../writer.agent";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ExpressionMemoryService } from "../../services/quality/expression-memory.service";
 import { CharacterPersonalityService } from "../../services/quality/character-personality.service";
 import { HistoricalKnowledgeService } from "../../services/quality/historical-knowledge.service";

@@ -13,11 +13,14 @@
 jest.mock("@/modules/ai-engine/facade", () => ({
   ChatFacade: jest.fn(),
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchMemoryService } from "../research-memory.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

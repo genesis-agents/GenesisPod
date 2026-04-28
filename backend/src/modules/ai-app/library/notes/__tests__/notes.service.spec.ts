@@ -4,6 +4,7 @@ jest.mock("../../../../../common/cache/cache.service", () => ({
   CacheService: jest.fn(),
 }));
 jest.mock("../../../../ai-engine/facade");
+jest.mock("../../../../ai-harness/facade");
 jest.mock("../../../../../common/prisma/prisma.service");
 
 import { Test, TestingModule } from "@nestjs/testing";

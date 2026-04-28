@@ -131,8 +131,24 @@ jest.mock("../../../ai-engine/facade", () => ({
   ChatFacade: class {},
   GuardrailsPipelineService: class {},
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  inferIsReasoning: jest.fn().mockReturnValue(false),
+  getKnownModelLimit: jest.fn().mockReturnValue(null),
+  AIFacade: class {},
+  ChatFacade: class {},
+  GuardrailsPipelineService: class {},
+}));
 
 jest.mock("../../../ai-engine/facade", () => ({
+  KernelApiService: class {},
+  MissionExecutorService: class {},
+  EventJournalService: class {},
+  ProcessMemoryManagerService: class {},
+  ResourceManagerService: class {},
+  EventBusService: class {},
+  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+}));
+jest.mock("../../../ai-harness/facade", () => ({
   KernelApiService: class {},
   MissionExecutorService: class {},
   EventJournalService: class {},

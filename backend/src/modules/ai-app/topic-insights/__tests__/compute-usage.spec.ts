@@ -31,7 +31,7 @@ import {
   ReportDataService,
   LatexRepairService,
 } from "../services";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

@@ -15,7 +15,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { NarrativeCraftService } from "../narrative-craft.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 describe("NarrativeCraftService (supplemental)", () => {
   let service: NarrativeCraftService;

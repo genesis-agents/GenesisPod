@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ContextBuilderService } from "../context-builder.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { StoryBibleService } from "../../bible/story-bible.service";
-import { ToolFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-harness/facade";
 
 function buildMockPrisma() {
   return {

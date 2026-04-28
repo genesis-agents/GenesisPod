@@ -2,6 +2,9 @@
 jest.mock("@/modules/ai-engine/facade", () => ({
   AgentFacade: class MockAgentFacade {},
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  AgentFacade: class MockAgentFacade {},
+}));
 
 // Break circular dependency
 jest.mock("../writing-event-emitter.service", () => ({
@@ -33,7 +36,7 @@ jest.mock("../writing-event-emitter.service", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 import { WritingRealtimeAdapter } from "../writing-realtime.adapter";
 
 describe("WritingRealtimeAdapter (supplemental)", () => {

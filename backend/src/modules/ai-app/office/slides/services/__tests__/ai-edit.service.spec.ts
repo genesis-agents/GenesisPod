@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { AIEditService } from "../ai-edit.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { LayoutFixerSkill } from "../../skills/layout-fixer.skill";
 import { ContentPolisherSkill } from "../../skills/content-polisher.skill";
 import { FactCheckerSkill } from "../../skills/fact-checker.skill";

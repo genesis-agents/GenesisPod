@@ -8,18 +8,8 @@
 import { describe, it, expect, beforeEach } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourceRouterService } from "../data-source-router.service";
-import {
-  ToolRegistry,
-  FederalRegisterTool,
-  CongressGovTool,
-  WhiteHouseNewsTool,
-  AICapabilityResolver,
-  EmbeddingService,
-  VectorService,
-  ChatFacade,
-  RAGFacade,
-  ToolFacade,
-} from "@/modules/ai-engine/facade";
+import { ChatFacade, RAGFacade, ToolFacade } from "@/modules/ai-harness/facade";
+import { ToolRegistry, FederalRegisterTool, CongressGovTool, WhiteHouseNewsTool, AICapabilityResolver, EmbeddingService, VectorService } from "@/modules/ai-engine/facade";
 import { DataSourcePlannerService } from "../data-source-planner.service";
 import { createMockAiEngineFacade } from "../../../__tests__/mocks";
 

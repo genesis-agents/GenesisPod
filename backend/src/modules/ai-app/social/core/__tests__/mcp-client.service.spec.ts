@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MCPClientService } from "../mcp-client.service";
-import { ToolFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-harness/facade";
 
 // Mock child_process.execSync so tests never hit the real shell
 jest.mock("child_process", () => ({

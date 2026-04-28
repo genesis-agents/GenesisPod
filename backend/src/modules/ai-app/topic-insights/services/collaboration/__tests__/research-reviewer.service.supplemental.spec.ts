@@ -13,7 +13,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchReviewerService } from "../research-reviewer.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ReviewQualityLevel } from "../../../types/collaboration.types";
 import type { DimensionReviewResult } from "../../../types/collaboration.types";
 import type { DimensionAnalysisResult } from "../../../types/research.types";

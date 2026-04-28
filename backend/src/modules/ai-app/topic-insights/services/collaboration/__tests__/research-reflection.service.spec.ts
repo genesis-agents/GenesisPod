@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchReflectionService } from "../research-reflection.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { ReflectionContext } from "../../../types/collaboration.types";
 import type { EnrichedEvidenceData } from "../../../types/research.types";
 

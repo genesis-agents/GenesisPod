@@ -48,6 +48,19 @@ jest.mock("../../../../ai-engine/facade", () => ({
   EventBusService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
+jest.mock("../../../../ai-harness/facade", () => ({
+  AIFacade: class {},
+  ChatFacade: class {},
+  TeamFacade: class {},
+  RAGFacade: class {},
+  ProgressTrackerService: class {},
+  MissionExecutorService: class {},
+  EventJournalService: class {},
+  ProcessMemoryManagerService: class {},
+  ResourceManagerService: class {},
+  EventBusService: class {},
+  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+}));
 jest.mock("../../../../ai-infra/facade", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),

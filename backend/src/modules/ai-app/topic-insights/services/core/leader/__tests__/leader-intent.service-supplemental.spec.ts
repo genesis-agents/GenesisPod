@@ -19,12 +19,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { LeaderIntentService } from "../leader-intent.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  ChatFacade,
-  AgentFacade,
-  ToolFacade,
-  UserIntent,
-} from "@/modules/ai-engine/facade";
+import { ChatFacade, AgentFacade, ToolFacade } from "@/modules/ai-harness/facade";
+import { UserIntent } from "@/modules/ai-engine/facade";
 import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
 import {
   LeaderToolService,

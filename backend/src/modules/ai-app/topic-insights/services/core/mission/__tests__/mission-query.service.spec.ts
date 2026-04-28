@@ -7,7 +7,7 @@ import { MissionQueryService } from "../mission-query.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ResearchLeaderService } from "../../research/research-leader.service";
 import { NotFoundException } from "@nestjs/common";
 import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";

@@ -28,6 +28,17 @@ jest.mock("@/modules/ai-engine/facade", () => ({
   ChatFacade: class {},
   RAGFacade: class {},
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  CircuitBreakerService: class {},
+  TaskCompletionType: {
+    TIMEOUT: "TIMEOUT",
+    API_ERROR: "API_ERROR",
+    SUCCESS: "SUCCESS",
+  },
+  ToolRegistry: class {},
+  ChatFacade: class {},
+  RAGFacade: class {},
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";

@@ -9,6 +9,16 @@ jest.mock("../../../../../../common/config/app.config", () => ({
     brand: { name: "TestBrand" },
   },
 }));
+jest.mock("../../../../../ai-harness/facade");
+jest.mock("../../../../../../common/prisma/prisma.service");
+jest.mock("../feishu-auth.service");
+jest.mock("../feishu-data-source.service");
+jest.mock("../../../rag/services/url-fetch.service");
+jest.mock("../../../../../../common/config/app.config", () => ({
+  APP_CONFIG: {
+    brand: { name: "TestBrand" },
+  },
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";

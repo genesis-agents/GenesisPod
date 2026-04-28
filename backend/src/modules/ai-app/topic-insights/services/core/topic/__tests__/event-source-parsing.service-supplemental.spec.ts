@@ -45,6 +45,9 @@ jest.mock("@prisma/client", () => ({
 jest.mock("@/modules/ai-engine/facade", () => ({
   ChatFacade: class {},
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ChatFacade: class {},
+}));
 
 jest.mock("@/modules/ai-infra/facade", () => ({
   BillingContext: {
@@ -61,7 +64,7 @@ jest.mock("@/common/utils/prisma-json.utils", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventSourceParsingService } from "../event-source-parsing.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

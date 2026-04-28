@@ -19,15 +19,8 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourceRouterService } from "../data-source-router.service";
-import {
-  ToolRegistry,
-  FederalRegisterTool,
-  CongressGovTool,
-  WhiteHouseNewsTool,
-  ChatFacade,
-  RAGFacade,
-  ToolFacade,
-} from "@/modules/ai-engine/facade";
+import { ChatFacade, RAGFacade, ToolFacade } from "@/modules/ai-harness/facade";
+import { ToolRegistry, FederalRegisterTool, CongressGovTool, WhiteHouseNewsTool } from "@/modules/ai-engine/facade";
 import { DataSourcePlannerService } from "../data-source-planner.service";
 import { DataSourceConnectorRegistry } from "../connectors/data-source-connector.registry";
 import { DataSourceType } from "../../../types/data-source.types";

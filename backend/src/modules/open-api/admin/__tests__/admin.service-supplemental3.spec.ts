@@ -37,6 +37,10 @@ jest.mock("../../../ai-engine/facade", () => ({
   inferIsReasoning: jest.fn().mockReturnValue(false),
   getKnownModelLimit: jest.fn().mockReturnValue(null),
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  inferIsReasoning: jest.fn().mockReturnValue(false),
+  getKnownModelLimit: jest.fn().mockReturnValue(null),
+}));
 
 import {
   inferIsReasoning,

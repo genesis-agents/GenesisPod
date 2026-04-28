@@ -12,10 +12,18 @@
  */
 
 jest.mock("@prisma/client", () => ({
-  AIModelType: { CHAT: "CHAT" },
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: { CHAT: "CHAT" },
 }));
 
 jest.mock("@/modules/ai-engine/facade", () => ({
+  CircuitBreakerService: class {},
+  TaskCompletionType: {
+    TIMEOUT: "TIMEOUT",
+    API_ERROR: "API_ERROR",
+    SUCCESS: "SUCCESS",
+  },
+}));
+jest.mock("@/modules/ai-harness/facade", () => ({
   CircuitBreakerService: class {},
   TaskCompletionType: {
     TIMEOUT: "TIMEOUT",
@@ -29,6 +37,11 @@ jest.mock("@/common/utils/timeout.utils", () => ({
 }));
 
 jest.mock("@/modules/ai-engine/facade", () => ({
+  ToolRegistry: class {},
+  ChatFacade: class {},
+  RAGFacade: class {},
+}));
+jest.mock("@/modules/ai-harness/facade", () => ({
   ToolRegistry: class {},
   ChatFacade: class {},
   RAGFacade: class {},

@@ -26,6 +26,14 @@ jest.mock("../../../../../ai-engine/facade", () => ({
     childChunkOverlap: 50,
   },
 }));
+jest.mock("../../../../../ai-harness/facade", () => ({
+  DEFAULT_CHUNKING_CONFIG: {
+    parentChunkSize: 2000,
+    parentChunkOverlap: 200,
+    childChunkSize: 400,
+    childChunkOverlap: 50,
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // Mock helpers

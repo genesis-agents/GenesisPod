@@ -17,12 +17,15 @@
 jest.mock("@/modules/ai-engine/facade", () => ({
   ChatFacade: jest.fn(),
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
 
 import {
   CritiqueRefineService,
   CritiqueRefineRequest,
 } from "../critique-refine.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   CritiqueCategory,
   CritiqueSeverity,

@@ -32,6 +32,11 @@ jest.mock("../../../ai-engine/facade", () => ({
   AiObservabilityService: jest.fn(),
   CostAttributionService: jest.fn(),
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  GuardrailsPipelineService: jest.fn(),
+  AiObservabilityService: jest.fn(),
+  CostAttributionService: jest.fn(),
+}));
 
 class MockToolHandler implements IMCPToolHandler {
   constructor(

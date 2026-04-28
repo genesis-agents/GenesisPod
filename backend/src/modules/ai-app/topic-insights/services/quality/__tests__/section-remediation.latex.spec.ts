@@ -11,7 +11,7 @@
  */
 import { Test } from "@nestjs/testing";
 import { SectionRemediationService } from "../section-remediation.service";
-import { ChatFacade, AIFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-harness/facade";
 
 describe("SectionRemediationService — LaTeX safety guard", () => {
   let service: SectionRemediationService;

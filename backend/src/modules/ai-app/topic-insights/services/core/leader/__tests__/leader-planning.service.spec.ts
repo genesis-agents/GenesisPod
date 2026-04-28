@@ -20,7 +20,7 @@ import {
 } from "@nestjs/common";
 import { LeaderPlanningService } from "../leader-planning.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   InsufficientCreditsException,
   ContextTooLongException,

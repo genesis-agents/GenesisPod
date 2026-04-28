@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SlidesLeader } from "../slides-leader";
 import { SlidesMission, SlidesTask } from "../types";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 const buildMission = (
   overrides: Partial<SlidesMission> = {},

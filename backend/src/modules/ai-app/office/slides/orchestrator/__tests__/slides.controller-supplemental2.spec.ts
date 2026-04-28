@@ -69,6 +69,15 @@ jest.mock("@/modules/ai-engine/facade", () => ({
   },
   EventJournalService: jest.fn(),
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  MissionExecutorService: jest.fn(),
+  KernelContext: {
+    run: jest
+      .fn()
+      .mockImplementation((_opts: unknown, fn: () => Promise<unknown>) => fn()),
+  },
+  EventJournalService: jest.fn(),
+}));
 
 jest.mock("@/modules/ai-infra/facade", () => ({
   BillingContext: {

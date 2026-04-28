@@ -16,7 +16,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { QueryStrategyService } from "../query-strategy.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../../types/data-source.types";
 
 // ============================================================

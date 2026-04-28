@@ -4,7 +4,8 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SlidesTeamMember } from "../slides-team-member";
-import { SkillRegistry, TeamFacade } from "@/modules/ai-engine/facade";
+import { TeamFacade } from "@/modules/ai-harness/facade";
+import { SkillRegistry } from "@/modules/ai-engine/facade";
 import type { SlidesTask, SkillExecutionContext } from "../types";
 
 // ==================== Mocks ====================

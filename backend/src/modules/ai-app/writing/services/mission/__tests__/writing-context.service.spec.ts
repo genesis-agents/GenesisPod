@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingContextService } from "../writing-context.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ToolFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-harness/facade";
 import { StyleTemplateService } from "../../style/style-template.service";
 import { ProfessionalVoiceService } from "../../quality/professional-voice.service";
 import { SensoryImmersionService } from "../../quality/sensory-immersion.service";

@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { ChapterRevisionService } from "../chapter-revision.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { RevisionChangeType } from "@prisma/client";
 
 function buildMockPrisma() {

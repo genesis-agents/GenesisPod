@@ -13,7 +13,7 @@
 
 // Must be before imports - provides missing enum values not generated in worktree
 jest.mock("@prisma/client", () => ({
-  ...jest.requireActual("@prisma/client"),
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, ...jest.requireActual("@prisma/client"),
   AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
@@ -47,7 +47,7 @@ jest.mock("cache-manager-ioredis-yet", () => ({ redisStore: jest.fn() }), {
 import { Test, TestingModule } from "@nestjs/testing";
 import { DynamicOutlineService } from "../dynamic-outline.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import type { ExtractedFact } from "../../consistency/fact-extractor.service";
 

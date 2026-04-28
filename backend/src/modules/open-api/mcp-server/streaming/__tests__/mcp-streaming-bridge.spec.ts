@@ -1,10 +1,14 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MCPStreamingBridge } from "../mcp-streaming-bridge";
 import { ProgressTrackerService } from "../../../../ai-harness/facade";
-import { EngineEventEmitterService } from "../../../../ai-engine/facade";
+import { EngineEventEmitterService } from "../../../../ai-harness/facade";
 import { Response } from "express";
 
 jest.mock("../../../../ai-engine/facade", () => ({
+  EngineEventEmitterService: jest.fn(),
+  ProgressTrackerService: jest.fn(),
+}));
+jest.mock("../../../../ai-harness/facade", () => ({
   EngineEventEmitterService: jest.fn(),
   ProgressTrackerService: jest.fn(),
 }));

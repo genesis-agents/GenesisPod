@@ -44,9 +44,19 @@ jest.mock("../../../ai-engine/facade", () => ({
   MissionExecutorService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  MissionExecutorService: class {},
+  KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
+}));
 
 // Mock ai-engine/facade which has transitive cache-manager deps
 jest.mock("../../../ai-engine/facade", () => ({
+  AIFacade: class {},
+  AiChatService: class {},
+  ChatFacade: class {},
+  EmbeddingService: class {},
+}));
+jest.mock("../../../ai-harness/facade", () => ({
   AIFacade: class {},
   AiChatService: class {},
   ChatFacade: class {},

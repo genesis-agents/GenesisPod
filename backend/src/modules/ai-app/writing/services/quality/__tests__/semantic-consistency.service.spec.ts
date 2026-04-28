@@ -3,7 +3,7 @@ import {
   SemanticConsistencyService,
   SemanticFact,
 } from "../semantic-consistency.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 describe("SemanticConsistencyService", () => {
   let service: SemanticConsistencyService;

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TopicContextRetrievalService } from "../topic-context-retrieval.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { RAGFacade } from "@/modules/ai-engine/facade";
+import { RAGFacade } from "@/modules/ai-harness/facade";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

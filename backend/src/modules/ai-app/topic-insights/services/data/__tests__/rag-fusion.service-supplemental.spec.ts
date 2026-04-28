@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { RAGFusionService } from "../rag-fusion.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   QueryVariantType,
   VariantSearchResult,

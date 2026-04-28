@@ -26,6 +26,11 @@ jest.mock("@/modules/ai-engine/facade", () => ({
   ToolContext: jest.fn(),
   AIFacade: jest.fn().mockImplementation(() => ({})),
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ToolRegistry: jest.fn().mockImplementation(() => ({ tryGet: jest.fn() })),
+  ToolContext: jest.fn(),
+  AIFacade: jest.fn().mockImplementation(() => ({})),
+}));
 
 jest.mock("@/common/config/app.config", () => ({
   APP_CONFIG: {

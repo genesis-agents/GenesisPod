@@ -18,6 +18,13 @@ jest.mock("@/modules/ai-engine/facade", () => ({
     register: jest.fn(),
   })),
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ToolRegistry: jest.fn().mockImplementation(() => ({
+    tryGet: jest.fn(),
+    get: jest.fn(),
+    register: jest.fn(),
+  })),
+}));
 
 describe("IterativeSearchService", () => {
   let service: IterativeSearchService;

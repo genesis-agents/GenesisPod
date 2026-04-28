@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MultiLanguageResearchService } from "../multi-language-research.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ResearchLanguage } from "../../../types/multi-language.types";
 
 const mockAiFacade = {

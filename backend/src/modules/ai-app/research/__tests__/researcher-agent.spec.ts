@@ -49,6 +49,32 @@ jest.mock("../../../ai-engine/facade", () => ({
   },
   RESEARCH_SERVICE_TOKEN: "RESEARCH_SERVICE_TOKEN",
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  BUILTIN_AGENTS: {
+    RESEARCHER: "researcher",
+  },
+  BUILTIN_TOOLS: {
+    WEB_SEARCH: "web-search",
+    RAG_SEARCH: "rag-search",
+    KNOWLEDGE_GRAPH: "knowledge-graph",
+    DATA_ANALYSIS: "data-analysis",
+    TEXT_GENERATION: "text-generation",
+    LONG_TERM_MEMORY: "long-term-memory",
+    DATA_FETCH: "data-fetch",
+  },
+  RESEARCH_SERVICE_TOKEN: "RESEARCH_SERVICE_TOKEN",
+  PlanBasedAgent: class {
+    protected templates: unknown[] = [];
+    protected selectionKeywords: string[] = [];
+    generateTaskId() {
+      return `task-${Date.now()}`;
+    }
+    generateStepId() {
+      return `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+  },
+  BaseAgent: class {},
+}));
 
 jest.mock("../../../ai-engine/core/types/agent.types", () => ({
   BUILTIN_TOOLS: {

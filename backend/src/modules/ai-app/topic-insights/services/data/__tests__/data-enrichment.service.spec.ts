@@ -2,6 +2,9 @@
 jest.mock("@/modules/ai-engine/facade", () => ({
   ToolRegistry: jest.fn(),
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ToolRegistry: jest.fn(),
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataEnrichmentService } from "../data-enrichment.service";

@@ -12,7 +12,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { FigureRelevanceService } from "../figure-relevance.service";
-import { AIFacade } from "@/modules/ai-engine/facade";
+import { AIFacade } from "@/modules/ai-harness/facade";
 import type { ExtractedFigure } from "../../../types/research.types";
 
 // ============================================================

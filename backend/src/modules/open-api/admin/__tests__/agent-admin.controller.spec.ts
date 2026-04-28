@@ -12,6 +12,9 @@ import {
 jest.mock("../../../ai-engine/facade", () => ({
   AgentConfigService: jest.fn(),
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  AgentConfigService: jest.fn(),
+}));
 
 describe("AgentAdminController", () => {
   let controller: AgentAdminController;

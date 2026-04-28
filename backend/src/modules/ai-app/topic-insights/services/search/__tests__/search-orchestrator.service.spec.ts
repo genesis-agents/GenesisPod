@@ -20,7 +20,7 @@ import { SearchExecutorService } from "../search-executor.service";
 import { ResultFusionService } from "../fusion/result-fusion.service";
 import { QualityGateService } from "../fusion/quality-gate.service";
 import { LlmRerankerAdapter } from "../rerank/llm-reranker.adapter";
-import { ToolFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-harness/facade";
 import { CapabilityGuardService } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 import type {

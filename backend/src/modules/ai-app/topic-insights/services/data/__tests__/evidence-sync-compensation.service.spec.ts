@@ -11,7 +11,8 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { EvidenceSyncCompensationService } from "../evidence-sync-compensation.service";
-import { TeamFacade, SaveEvidenceRequest } from "@/modules/ai-engine/facade";
+import { TeamFacade } from "@/modules/ai-harness/facade";
+import { SaveEvidenceRequest } from "@/modules/ai-engine/facade";
 
 describe("EvidenceSyncCompensationService", () => {
   let service: EvidenceSyncCompensationService;

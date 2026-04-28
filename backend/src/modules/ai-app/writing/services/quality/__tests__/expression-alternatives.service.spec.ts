@@ -3,7 +3,7 @@ import {
   ExpressionAlternativesService,
   AlternativeRequest,
 } from "../expression-alternatives.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 describe("ExpressionAlternativesService", () => {
   let service: ExpressionAlternativesService;

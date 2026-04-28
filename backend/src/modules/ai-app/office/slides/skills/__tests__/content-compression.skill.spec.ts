@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ContentCompressionSkill } from "../content-compression.skill";
 import { ContentAnalyzerSkill } from "../content-analyzer.skill";
 import { DataSupplementSkill } from "../data-supplement.skill";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   PageContent,
   PageOutline,

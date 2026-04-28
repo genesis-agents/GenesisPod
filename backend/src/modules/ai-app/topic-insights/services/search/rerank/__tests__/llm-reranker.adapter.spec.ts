@@ -4,6 +4,7 @@ import type { ChatFacade } from "@/modules/ai-engine/facade";
 import { DataSourceType } from "../../../../types/data-source.types";
 
 jest.mock("@/modules/ai-engine/facade", () => ({}));
+jest.mock("@/modules/ai-harness/facade", () => ({}));
 
 function makeCandidate(i: number, title: string): RerankCandidate {
   return {

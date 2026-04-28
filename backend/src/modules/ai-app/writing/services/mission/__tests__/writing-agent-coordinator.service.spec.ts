@@ -4,12 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingAgentCoordinator } from "../writing-agent-coordinator.service";
-import {
-  ChatFacade,
-  TeamFacade,
-  TeamRegistry,
-  RoleRegistry,
-} from "@/modules/ai-engine/facade";
+import { ChatFacade, TeamFacade, TeamRegistry, RoleRegistry } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import {
   StoryArchitectAgent,

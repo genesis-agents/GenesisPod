@@ -10,7 +10,7 @@
  */
 import { Test } from "@nestjs/testing";
 import { CritiqueRefineService } from "../critique-refine.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { CritiqueResult } from "../../../types/quality.types";
 
 describe("CritiqueRefineService — LaTeX safety guard", () => {

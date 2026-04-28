@@ -2,7 +2,7 @@
 // Mock @prisma/client to provide enums that may not be available if Prisma
 // schema hasn't been generated in this environment.
 jest.mock("@prisma/client", () => ({
-  AIModelType: {
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
     REASONING: "REASONING",
@@ -84,6 +84,21 @@ jest.mock("@/modules/ai-engine/facade", () => ({
     getProcessId: () => undefined,
   },
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  AgentFacade: class {},
+  AIFacade: class {},
+  ChatFacade: class {},
+  TeamFacade: class {},
+  RAGFacade: class {},
+  ProgressTrackerService: class {},
+  // KernelContext moved from ai-kernel to ai-engine/facade in kernel-merge PR;
+  // tests need a pass-through run() so nested service logic still executes.
+  KernelContext: {
+    run: <T>(_data: unknown, fn: () => T): T => fn(),
+    get: () => undefined,
+    getProcessId: () => undefined,
+  },
+}));
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -107,7 +122,7 @@ import {
   RefreshOptions,
 } from "../topic-team-orchestrator.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 import { DimensionMissionService } from "../../../dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../../../report/report-synthesis.service";
 import { ResearchReviewerService } from "../../../collaboration/research-reviewer.service";

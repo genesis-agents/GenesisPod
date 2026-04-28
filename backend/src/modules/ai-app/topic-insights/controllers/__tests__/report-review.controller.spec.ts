@@ -1,5 +1,6 @@
 // Break the ai-engine/facade import chain (transitively imports @nestjs/cache-manager)
 jest.mock("@/modules/ai-engine/facade", () => ({}));
+jest.mock("@/modules/ai-harness/facade", () => ({}));
 
 import { UnauthorizedException } from "@nestjs/common";
 import { ReportReviewController } from "../report-review.controller";

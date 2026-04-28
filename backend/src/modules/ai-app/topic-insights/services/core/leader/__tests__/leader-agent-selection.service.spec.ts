@@ -9,7 +9,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderAgentSelectionService } from "../leader-agent-selection.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers

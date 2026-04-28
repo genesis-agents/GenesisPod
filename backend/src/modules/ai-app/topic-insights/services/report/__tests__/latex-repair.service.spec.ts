@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { LatexRepairService } from "../latex-repair.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 describe("LatexRepairService", () => {
   let service: LatexRepairService;

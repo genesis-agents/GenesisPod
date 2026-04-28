@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { WritingContentGeneratorService } from "../writing-content-generator.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { WritingMissionInput } from "../writing-mission.service";
 
 function buildMockPrisma() {

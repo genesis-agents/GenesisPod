@@ -14,7 +14,7 @@ import { SlidesTeamOrchestrator } from "../slides-team-orchestrator";
 import { SlidesLeader } from "../slides-leader";
 import { SlidesTeamMember } from "../slides-team-member";
 import { SlidesRepository } from "../slides-repository";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 import { DeckConsistencyAuditorSkill } from "../../skills/deck-consistency-auditor.skill";
 import type {
   SlidesTeamOrchestratorInput,

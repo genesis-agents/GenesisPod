@@ -6,9 +6,14 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchProjectOutputService } from "../project/research-project-output.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: jest.fn().mockImplementation(() => ({
+    chat: jest.fn(),
+  })),
+}));
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
   })),

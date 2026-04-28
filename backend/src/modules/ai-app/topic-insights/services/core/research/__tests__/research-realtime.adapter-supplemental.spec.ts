@@ -24,7 +24,7 @@ jest.mock("../research-event-emitter.service", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchRealtimeAdapter } from "../research-realtime.adapter";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 
 function buildMocks() {
   const mockRealtimeEmitter = {

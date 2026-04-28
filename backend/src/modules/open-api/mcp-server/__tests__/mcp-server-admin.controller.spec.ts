@@ -42,6 +42,11 @@ jest.mock("../../../ai-engine/facade", () => ({
   AiObservabilityService: jest.fn(),
   CostAttributionService: jest.fn(),
 }));
+jest.mock("../../../ai-harness/facade", () => ({
+  GuardrailsPipelineService: jest.fn(),
+  AiObservabilityService: jest.fn(),
+  CostAttributionService: jest.fn(),
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { MCPServerAdminController } from "../mcp-server-admin.controller";

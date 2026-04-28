@@ -1,8 +1,15 @@
 // Must be before any imports that trigger the @nestjs/cache-manager chain
 jest.mock("@prisma/client", () => ({
-  AIModelType: { CHAT: "CHAT" },
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: { CHAT: "CHAT" },
 }));
 jest.mock("@/modules/ai-engine/facade", () => ({
+  ChatFacade: class {},
+  RAGFacade: class {},
+  ToolRegistry: class {},
+  AgentFacade: class {},
+  EvalPipelineService: class {},
+}));
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: class {},
   RAGFacade: class {},
   ToolRegistry: class {},
@@ -12,7 +19,7 @@ jest.mock("@/modules/ai-engine/facade", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { RAGFusionService } from "../rag-fusion.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   QueryVariantType,
   VariantSearchResult,

@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DynamicOutlineService } from "../dynamic-outline.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 
 function buildMockPrisma() {

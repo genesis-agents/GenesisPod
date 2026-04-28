@@ -11,6 +11,13 @@ jest.mock("../../../../ai-engine/facade", () => ({
   TeamRegistry: jest.fn(),
   ChatFacade: jest.fn(),
 }));
+jest.mock("../../../../ai-harness/facade", () => ({
+  ToolRegistry: jest.fn(),
+  SkillRegistry: jest.fn(),
+  AgentRegistry: jest.fn(),
+  TeamRegistry: jest.fn(),
+  ChatFacade: jest.fn(),
+}));
 
 jest.mock("../../tools/research-tool-handler");
 

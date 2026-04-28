@@ -18,7 +18,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SectionWriterService } from "../section-writer.service";
-import { ChatFacade, AIFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIFacade } from "@/modules/ai-harness/facade";
 import { buildFiguresSummary } from "../evidence-summary.utils";
 import type {
   FigureReference,

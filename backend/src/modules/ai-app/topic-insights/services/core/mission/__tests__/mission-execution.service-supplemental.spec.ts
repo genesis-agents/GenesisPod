@@ -21,7 +21,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import { ResearchEventEmitterService } from "../../research/research-event-emitter.service";
 import { MissionQueryService } from "../mission-query.service";
 import { ReportSynthesisService } from "../../../report/report-synthesis.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ResearchMemoryService } from "../../research/research-memory.service";
 import { DimensionResearchExecutor } from "../../task-executors/dimension-research.executor";
 import { ReviewDimensionExecutor } from "../../task-executors/review-dimension.executor";

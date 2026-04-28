@@ -4,7 +4,7 @@ import {
   TemporalTriple,
 } from "../temporal-conflict-analyzer.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 describe("TemporalConflictAnalyzerService", () => {
   let service: TemporalConflictAnalyzerService;

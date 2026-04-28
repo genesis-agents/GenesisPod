@@ -16,11 +16,14 @@
 jest.mock("@/modules/ai-engine/facade", () => ({
   ChatFacade: jest.fn(),
 }));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ChatFacade: jest.fn(),
+}));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportGeneratorService } from "../report-generator.service";
 import { ReportAssemblerService } from "../report-assembler.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import type { ResearchTopic } from "@prisma/client";
 import type {

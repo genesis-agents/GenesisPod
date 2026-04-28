@@ -2,7 +2,7 @@
 // Mock @prisma/client to provide enums that may not be available if Prisma
 // schema hasn't been generated in this environment (e.g. AIModelType.CHAT_FAST).
 jest.mock("@prisma/client", () => ({
-  AIModelType: {
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
     REASONING: "REASONING",
@@ -51,6 +51,16 @@ jest.mock("@/modules/ai-engine/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
+}));
+jest.mock("@/modules/ai-harness/facade", () => ({
+  AgentFacade: class {},
+  AIFacade: class {},
+  ChatFacade: class {},
+  TeamFacade: class {},
+  RAGFacade: class {},
+  ProgressTrackerService: class {},
+  BaseAgent: class {},
+  PlanBasedAgent: class {},
 }));
 // ─────────────────────────────────────────────────────────────────────────────
 

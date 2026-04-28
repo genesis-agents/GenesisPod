@@ -10,7 +10,7 @@
  */
 
 jest.mock("@prisma/client", () => ({
-  AIModelType: { CHAT: "CHAT" },
+  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: { CHAT: "CHAT" },
 }));
 
 // Mock BillingContext before importing the interceptor
