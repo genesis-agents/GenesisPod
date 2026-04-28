@@ -15,9 +15,9 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  ChatFacade,
   ChatMessage,
 } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import { PageOutline, CDN_RESOURCES } from "../checkpoint/checkpoint.types";
 import {

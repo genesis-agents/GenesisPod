@@ -7,7 +7,8 @@ import {
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { GenerateOutputDto, OutputTypeValue } from "./dto";
-import { ChatFacade, ChatMessage } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
+import type { ChatMessage } from "../../../ai-engine/facade";
 
 // Detailed prompt templates for each output type
 const PROMPT_TEMPLATES: Record<OutputTypeValue, string> = {

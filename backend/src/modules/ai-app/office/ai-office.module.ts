@@ -52,7 +52,7 @@ import { AgentsController } from "./agents";
 
 // Common (共享服务) - services are provided by AIOfficeCommonModule
 import { AIOfficeCommonModule } from "./common";
-import { TeamRegistry } from "../../ai-engine/facade";
+import { TeamRegistry } from "../../ai-harness/facade";
 import {
   REPORT_TEAM_CONFIG,
   SLIDES_TEAM_CONFIG,

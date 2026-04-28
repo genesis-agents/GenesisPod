@@ -18,13 +18,8 @@ import {
   MCPToolResponse,
   MCPToolSource,
 } from "../abstractions/mcp-server.interface";
-import {
-  ToolRegistry,
-  SkillRegistry,
-  ChatFacade,
-  ToolFacade,
-  AgentFacade,
-} from "../../../ai-engine/facade";
+import { ToolRegistry, SkillRegistry } from "../../../ai-engine/facade";
+import { ChatFacade, ToolFacade, AgentFacade } from "../../../ai-harness/facade";
 import { AgentRegistry } from "../../../ai-harness/facade";
 
 interface BridgedToolMeta {

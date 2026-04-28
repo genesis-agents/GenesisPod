@@ -19,12 +19,8 @@ import {
   MCPResource,
   MCPResourceContent,
 } from "../abstractions/mcp-server.interface";
-import {
-  ToolRegistry,
-  SkillRegistry,
-  TeamRegistry,
-  ChatFacade,
-} from "../../../ai-engine/facade";
+import { ToolRegistry, SkillRegistry } from "../../../ai-engine/facade";
+import { TeamRegistry, ChatFacade } from "../../../ai-harness/facade";
 import { AgentRegistry } from "../../../ai-harness/facade";
 import type { IPlanBasedAgent } from "../../../ai-harness/facade";
 import { APP_CONFIG } from "../../../../common/config/app.config";

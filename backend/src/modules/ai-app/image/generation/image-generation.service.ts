@@ -10,7 +10,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { SecretsService } from "../../../ai-infra/facade";
 
 interface ImageModelConfig {

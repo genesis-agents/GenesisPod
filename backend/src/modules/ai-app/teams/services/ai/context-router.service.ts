@@ -17,7 +17,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AgentFacade } from "../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../ai-harness/facade";
 import { UserIntent, ContextStrategy } from "../../../../ai-engine/facade";
 
 // 重导出 AI Engine 的类型（向后兼容）

@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import {
   assessSourceTier,

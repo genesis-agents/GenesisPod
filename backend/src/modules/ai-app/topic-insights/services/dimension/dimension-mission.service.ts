@@ -84,14 +84,14 @@ import {
   ContextCompressionService,
   type AICapabilityContext,
   ContextEvolutionService,
-  ChatFacade,
   type AiCallerFn,
   type EstablishedFact,
   PromptCacheCoordinatorService,
   ExecutionCheckpointService,
   SessionMemorySidecarService,
+  TokenBudgetService,
 } from "@/modules/ai-engine/facade";
-import { TokenBudgetService } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { MissionObservabilityService } from "../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";

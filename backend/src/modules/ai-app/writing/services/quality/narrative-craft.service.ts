@@ -22,8 +22,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade } from "@/modules/ai-engine/facade";
-import type { TaskProfile } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
+import type { TaskProfile } from "@/modules/ai-harness/facade";
 import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
 // ==================== 禁止模式库 ====================

@@ -18,7 +18,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================

@@ -18,7 +18,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AIModelType } from "@prisma/client";
-import { ChatFacade } from "../../modules/ai-engine/facade";
+import { ChatFacade } from "../../modules/ai-harness/facade";
 import { AiTaskType, AiModelConfig, ModelSelectionStrategy } from "./types";
 import {
   AiOrchestrationConfig,

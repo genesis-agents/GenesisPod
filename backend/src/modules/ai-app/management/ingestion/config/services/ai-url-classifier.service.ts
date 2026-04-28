@@ -5,7 +5,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ResourceType, AIModelType } from "@prisma/client";
-import { ChatFacade } from "../../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../../ai-harness/facade";
 
 export interface UrlClassificationResult {
   /**

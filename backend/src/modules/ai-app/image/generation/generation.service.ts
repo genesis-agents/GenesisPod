@@ -23,7 +23,7 @@ import {
   DataFetchingResult,
 } from "../../../../common/content-processing/data-fetching.service";
 import { AIModelType, Prisma } from "@prisma/client";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,

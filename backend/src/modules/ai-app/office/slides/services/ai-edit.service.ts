@@ -16,7 +16,7 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import {
   LayoutFixerSkill,
@@ -31,7 +31,7 @@ import {
   FactCheckerSkill,
   FactCheckerInput,
 } from "../skills/fact-checker.skill";
-import type { SkillContext } from "@/modules/ai-engine/facade";
+import type { SkillContext } from "@/modules/ai-harness/facade";
 
 // ============================================
 // Types

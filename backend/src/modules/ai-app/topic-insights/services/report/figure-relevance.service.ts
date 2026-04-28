@@ -20,7 +20,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AIEngineFacade } from "@/modules/ai-harness/facade";
 import type { ExtractedFigure } from "../../types/research.types";
 
 /** 信息性图片类型：chart/table/diagram 直接保留，无需 Embedding 判断 */

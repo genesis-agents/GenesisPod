@@ -7,7 +7,7 @@
  * 此文件保留用于向后兼容，将在未来版本中移除。
  */
 
-// Re-export everything from AI Engine for backwards compatibility
+// Re-export everything from AI Harness for backwards compatibility
 export {
   HardConstraint,
   CoreEntity,
@@ -19,4 +19,4 @@ export {
   createEmptyContextPackage,
   validateContextPackage,
   mergeContextPackages,
-} from "../../../ai-engine/facade";
+} from "../../../ai-harness/facade";

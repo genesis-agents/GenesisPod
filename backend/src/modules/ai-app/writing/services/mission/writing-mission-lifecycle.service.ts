@@ -20,12 +20,7 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import {
-  ChatFacade,
-  TeamFacade,
-  TeamRegistry,
-  RoleRegistry,
-} from "../../../../ai-engine/facade";
+import { ChatFacade, TeamFacade, TeamRegistry, RoleRegistry } from "../../../../ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,

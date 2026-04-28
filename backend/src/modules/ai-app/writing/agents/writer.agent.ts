@@ -13,7 +13,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseAgent } from "../../../ai-engine/facade/base-classes";
+import { BaseAgent } from "../../../ai-harness/facade";
 import {
   type ExecutionMode,
   BUILTIN_TOOLS,
@@ -35,7 +35,7 @@ import { PacingControlService } from "../services/quality/pacing-control.service
 // 新增：对话约束和角色一致性服务
 import { DialogueConstraintsService } from "../services/quality/dialogue-constraints.service";
 import { CharacterConsistencyService } from "../services/quality/character-consistency.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   generateStylePrompt,
   getRandomTechniques,

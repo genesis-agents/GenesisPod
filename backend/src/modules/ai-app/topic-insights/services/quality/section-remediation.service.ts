@@ -9,7 +9,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade, AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIEngineFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import type {
   RemediationAction,

@@ -14,7 +14,7 @@ import {
   RevisionDiffResponse,
   AiEditOperation,
 } from "../../dto/chapter-revision.dto";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 @Injectable()
 export class ChapterRevisionService {

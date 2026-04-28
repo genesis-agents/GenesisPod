@@ -11,7 +11,7 @@
 import { Module, forwardRef, OnModuleInit } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
-import { AIEngineFacade } from "../../../ai-engine/facade";
+import { AIEngineFacade } from "../../../ai-harness/facade";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 
 import { DiscussionResearchService } from "./discussion-research.service";

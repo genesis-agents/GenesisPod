@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade, ChatMessage } from "@/modules/ai-engine/facade";
+import { ChatFacade, ChatMessage } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import { PresetLoader } from "./preset-loader.service";
 import type {

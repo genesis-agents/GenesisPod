@@ -37,7 +37,8 @@ import {
   A2ATaskStatusResponse,
   A2ATaskStatus,
 } from "./a2a.types";
-import type { ConstraintProfile, TeamId } from "../../../ai-engine/facade";
+import type { ConstraintProfile } from "../../runtime/teams/constraints/constraint-profile";
+import type { TeamId } from "../../runtime/teams/abstractions/team.interface";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import { LruMap } from "@/common/utils/lru-map";
 

@@ -18,7 +18,7 @@ import { LongContentEngineService } from "./services/long-content-engine.service
 import {
   LONG_CONTENT_ENGINE_TOKEN,
   CONTINUATION_PROTOCOL_TOKEN,
-} from "../../../ai-engine/facade/facade.providers";
+} from "../../../ai-harness/facade";
 
 @Module({
   providers: [

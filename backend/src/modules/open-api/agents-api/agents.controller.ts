@@ -18,7 +18,8 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { Observable, map, catchError, of } from "rxjs";
-import { AgentOrchestrator, AgentRegistry } from "../../ai-engine/facade/exports/registries";
+import { AgentOrchestrator } from "../../ai-harness/kernel/registry/agent-orchestrator";
+import { AgentRegistry } from "../../ai-harness/kernel/registry/legacy-agent-registry";
 import {
   AgentId,
   BUILTIN_AGENTS,

@@ -19,7 +19,7 @@ import {
   RESEARCH_INTERNAL_EVENTS,
 } from "../research/research-event-emitter.service";
 
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { LeaderPlan } from "../../../types/leader.types";
 import { getModelDisplayNameMap } from "../../../utils/model-display-name";
 import type {

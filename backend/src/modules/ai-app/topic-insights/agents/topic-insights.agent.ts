@@ -7,7 +7,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
+import { PlanBasedAgent } from "../../../ai-harness/facade";
 import {
   BUILTIN_AGENTS,
   BUILTIN_TOOLS,

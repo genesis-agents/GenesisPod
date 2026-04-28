@@ -13,7 +13,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import {
   EntityType,

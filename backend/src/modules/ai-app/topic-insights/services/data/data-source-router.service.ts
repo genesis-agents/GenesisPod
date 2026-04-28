@@ -17,10 +17,8 @@ import {
   CongressGovTool,
   WhiteHouseNewsTool,
   type ToolContext,
-  ChatFacade,
-  RAGFacade,
-  ToolFacade,
 } from "@/modules/ai-engine/facade";
+import { ChatFacade, RAGFacade, ToolFacade } from "@/modules/ai-harness/facade";
 
 import {
   CircuitBreakerService,

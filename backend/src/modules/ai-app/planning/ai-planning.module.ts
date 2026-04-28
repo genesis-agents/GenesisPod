@@ -23,7 +23,7 @@ import {
   PlanningTemplateService,
 } from "./services";
 import { PLANNING_TEAM_CONFIG } from "./config";
-import { TeamRegistry } from "../../ai-engine/facade";
+import { TeamRegistry } from "../../ai-harness/facade";
 
 @Module({
   imports: [PrismaModule, AiEngineModule, AiTeamsModule],

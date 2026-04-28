@@ -10,7 +10,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import { NarrativeCraftService } from "../quality/narrative-craft.service";
 import { WritingTextProcessorService } from "../mission/writing-text-processor.service";
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";

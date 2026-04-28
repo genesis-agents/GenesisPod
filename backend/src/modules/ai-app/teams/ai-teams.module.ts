@@ -71,7 +71,7 @@ import {
 } from "./services";
 // 注意：UrlParserService 和 WebContentExtractionService 由 @Global() ContentProcessingModule 提供
 import { TeamMemberAgent, TeamCollaborationAgent } from "./agents";
-import { TeamRegistry } from "../../ai-engine/facade";
+import { TeamRegistry } from "../../ai-harness/facade";
 import { AgentRegistry } from "../../ai-harness/facade";
 import { DEBATE_TEAM_CONFIG } from "./teams";
 

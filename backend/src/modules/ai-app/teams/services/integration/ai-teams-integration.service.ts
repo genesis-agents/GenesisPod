@@ -9,17 +9,17 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import type { TeamInfo } from "../../../../ai-engine/facade";
 import {
   TeamFacade,
   TeamRegistry,
   RoleRegistry,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 import type {
+  TeamInfo,
   TeamConfig,
   ConstraintProfile,
   WorkflowConfig,
-} from "../../../../ai-engine/facade";
+} from "../../../../ai-harness/facade";
 import {
   CreateCustomTeamDto,
   UpdateCustomTeamDto,

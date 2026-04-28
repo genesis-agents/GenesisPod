@@ -1,6 +1,6 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { Subject } from "rxjs";
-import { TeamFacade } from "../../../ai-engine/facade";
+import { TeamFacade } from "../../../ai-harness/facade";
 import { DeepResearchSSEEvent, SearchRound } from "./types";
 import { AgentState, DiscussionMessage } from "./discussion-types";
 

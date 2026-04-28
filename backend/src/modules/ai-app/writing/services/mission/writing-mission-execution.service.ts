@@ -13,10 +13,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import {
-  ChatFacade,
-  AgentFacade,
-} from "../../../../ai-engine/facade";
+import { ChatFacade, AgentFacade } from "../../../../ai-harness/facade";
 import { ProgressTrackerService } from "../../../../ai-harness/facade";
 
 import type { WritingMissionInput } from "./writing-mission.types";

@@ -39,15 +39,15 @@ import { AiEngineKnowledgeModule } from "./ai-engine-knowledge.module";
 // ★ P2 能力下沉：新增子模块导入
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
-import { CollaborationModule } from "./facade/exports/registries";
-// ★ HarnessModule / RuntimeModule / RealtimeModule 由 app.module.ts 直接装配
-// （它们都是 @Global() — providers 自动跨模块可注入）。
+// ★ HarnessModule / RuntimeModule / RealtimeModule + CollaborationModule 由
+// app.module.ts / harness.module.ts 直接装配（@Global，跨模块可注入）。
 // AI Engine 不再反向依赖 ai-harness。
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
-import { AgentRegistry } from "./facade/exports/registries";
+// AgentRegistry 在 ai-harness/kernel/registry，由 HarnessModule 装配；
+// ai-engine.module 不再注入它，注册日志移至 HarnessModule onModuleInit。
 
 // LLM Factory & Adapter (用于初始化)
 import { LLMFactory } from "./llm/factory/llm-factory";
@@ -82,17 +82,8 @@ import { AICapabilityResolver } from "./planning/capabilities/ai-capability-reso
 // Prompt Registry
 import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 
-// Facade (统一入口)
-import { AIEngineFacade } from "./facade";
-import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
-import { ModelResolverService } from "./facade/model-resolver.service";
-
-// ★ Phase 5: Domain Facades
-import { ChatFacade } from "./facade/domain/chat.facade";
-import { RAGFacade } from "./facade/domain/rag.facade";
-import { AgentFacade } from "./facade/domain/agent.facade";
-import { TeamFacade } from "./facade/domain/team.facade";
-import { ToolFacade } from "./facade/domain/tool.facade";
+// ★ PR-X13: AIEngineFacade + Domain Facades + FACADE_FEATURE_PROVIDERS + ModelResolverService
+// 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
 // SKILL.md Runtime (PromptSkillBridge + InputBindingResolver)
 import { PromptSkillBridge } from "./skills/runtime/prompt-skill-bridge.service";
@@ -125,7 +116,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块
     EvidenceModule,
     QualityModule,
-    CollaborationModule,
+    // CollaborationModule 已搬到 ai-harness/process/collaboration（@Global），
+    // 由 harness.module 装配，无需在 engine 重复
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -138,9 +130,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
   ],
   controllers: [], // AiCoreController moved to open-api/ai-core (PR-X6)
   providers: [
-    // === Facade Feature Providers (分组注入) ===
-    ...FACADE_FEATURE_PROVIDERS,
-
     // AiCoreService moved to open-api/ai-core (PR-X6)
 
     // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
@@ -156,15 +145,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Prompt Registry ===
     PromptRegistryService,
 
-    // === Facade (统一入口) ===
-    ModelResolverService,
-    // ★ Phase 5: Domain Facades — registered before AIEngineFacade so they can be injected
-    ChatFacade,
-    RAGFacade,
-    AgentFacade,
-    TeamFacade,
-    ToolFacade,
-    AIEngineFacade,
+    // === Facade (PR-X13) ===
+    // AIEngineFacade / Domain Facades / FACADE_FEATURE_PROVIDERS / ModelResolverService
+    // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
     // === SKILL.md Runtime ===
     PromptSkillBridge,
@@ -182,7 +165,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块导出
     EvidenceModule,
     QualityModule,
-    CollaborationModule,
+    // CollaborationModule 已搬到 ai-harness/process/collaboration（@Global），
+    // 由 harness.module 装配，无需在 engine 重复
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
@@ -204,15 +188,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Prompt Registry ===
     PromptRegistryService,
 
-    // === Facade (统一入口) ===
-    ModelResolverService,
-    // ★ Phase 5: Domain Facades — exported for direct injection by AI App modules
-    ChatFacade,
-    RAGFacade,
-    AgentFacade,
-    TeamFacade,
-    ToolFacade,
-    AIEngineFacade,
+    // === Facade (PR-X13) ===
+    // AIEngineFacade / Domain Facades / ModelResolverService
+    // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
     // === SKILL.md Runtime ===
     PromptSkillBridge,
@@ -225,7 +203,6 @@ export class AiEngineModule implements OnModuleInit {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     private readonly skillRegistry: SkillRegistry,
-    private readonly agentRegistry: AgentRegistry,
     private readonly llmFactory: LLMFactory,
     private readonly universalLLMAdapter: UniversalLLMAdapter,
     private readonly prisma: PrismaService,
@@ -247,7 +224,7 @@ export class AiEngineModule implements OnModuleInit {
       `  Tools: ${this.toolRegistry.size()} (expected: ${TOTAL_TOOL_COUNT})`,
     );
     this.logger.log(`  Skills: ${this.skillRegistry.size()}`);
-    this.logger.log(`  Agents: ${this.agentRegistry.size()}`);
+    // Agents registry 由 HarnessModule 自报状态
     this.logger.log(
       `  LLM Adapters: ${this.llmFactory.getAllAdapters().length}`,
     );

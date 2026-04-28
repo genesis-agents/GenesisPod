@@ -17,10 +17,9 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import {
-  ChatFacade,
-  ToolFacade,
   ToolRegistry,
 } from "@/modules/ai-engine/facade";
+import { ChatFacade, ToolFacade } from "@/modules/ai-harness/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   AIModelType,

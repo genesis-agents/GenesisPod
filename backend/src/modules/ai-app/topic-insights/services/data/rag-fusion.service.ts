@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { mapWithConcurrency } from "@/common/utils/concurrency.utils";
 import {
   QueryVariant,

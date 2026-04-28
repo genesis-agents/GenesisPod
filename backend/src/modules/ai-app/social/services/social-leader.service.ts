@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { ContentFetcherService } from "./content-fetcher.service";
 import { ContentTransformerService } from "./content-transformer.service";
 import { ContentCheckerService } from "./content-checker.service";

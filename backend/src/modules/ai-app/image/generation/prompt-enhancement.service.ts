@@ -6,8 +6,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade } from "../../../ai-engine/facade";
-import type { TaskProfile } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
+import type { TaskProfile } from "../../../ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import {
   PromptEngineeringInsights,

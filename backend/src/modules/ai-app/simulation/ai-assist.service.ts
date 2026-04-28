@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ExternalDataService } from "./external-data.service";
-import { ChatFacade, type ChatMessage } from "../../ai-engine/facade";
+import { ChatFacade } from "../../ai-harness/facade";
+import type { ChatMessage } from "../../ai-engine/facade";
 
 export interface IndustryAnalysis {
   companies: Array<{

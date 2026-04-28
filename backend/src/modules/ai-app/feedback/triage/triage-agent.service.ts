@@ -14,7 +14,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SimilarityMatcherService } from "./similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../analyzer/screenshot-analyzer.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import {
   TriageInput,

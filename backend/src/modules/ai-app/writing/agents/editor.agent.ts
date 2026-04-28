@@ -9,7 +9,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseAgent } from "../../../ai-engine/facade/base-classes";
+import { BaseAgent } from "../../../ai-harness/facade";
 import {
   type ExecutionMode,
   BUILTIN_TOOLS,

@@ -20,7 +20,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ExpressionMemoryService } from "./expression-memory.service";
 import { CharacterPersonalityService } from "./character-personality.service";
 import { NarrativeCraftService } from "./narrative-craft.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 // ==================== 类型定义 ====================
 

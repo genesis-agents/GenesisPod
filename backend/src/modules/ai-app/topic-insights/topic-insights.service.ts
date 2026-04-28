@@ -51,7 +51,7 @@ import {
   ReportDataService,
   LatexRepairService,
 } from "./services";
-import { ChatFacade } from "../../ai-engine/facade";
+import { ChatFacade } from "../../ai-harness/facade";
 import {
   SessionLatencyTrackerService,
   type LatencySessionSummary,

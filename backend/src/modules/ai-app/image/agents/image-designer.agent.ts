@@ -17,7 +17,7 @@ interface StepArtifact {
   url?: string;
   metadata?: Record<string, unknown>;
 }
-import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
+import { PlanBasedAgent } from "../../../ai-harness/facade";
 import {
   BUILTIN_AGENTS,
   type AgentInput,

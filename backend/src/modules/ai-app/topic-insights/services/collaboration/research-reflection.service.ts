@@ -19,7 +19,7 @@ import {
   Logger,
   InternalServerErrorException,
 } from "@nestjs/common";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import type { EnrichedEvidenceData } from "../../types/research.types";
 import type {

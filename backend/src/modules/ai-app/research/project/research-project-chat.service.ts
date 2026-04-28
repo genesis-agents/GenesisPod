@@ -10,6 +10,8 @@ import { InputJsonValue } from "@prisma/client/runtime/library";
 import { SendChatMessageDto, CreateNoteDto, UpdateNoteDto } from "./dto";
 import {
   ChatFacade,
+} from "../../../ai-harness/facade";
+import type {
   ChatMessage as FacadeChatMessage,
 } from "../../../ai-engine/facade";
 import {

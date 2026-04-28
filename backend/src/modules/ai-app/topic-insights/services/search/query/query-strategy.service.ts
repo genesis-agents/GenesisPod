@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType, ResearchTopic, TopicDimension } from "@prisma/client";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 import type { SourceAwareQueries } from "../search.types";
 

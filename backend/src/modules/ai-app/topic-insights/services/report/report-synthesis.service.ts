@@ -8,15 +8,14 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
-  ChatFacade,
-  TeamFacade,
   OutputReviewerService,
   ContextEvolutionService,
   CrossCuttingSynthesisService,
   type SynthesisResult,
   type EstablishedFact,
+  TokenBudgetService,
 } from "@/modules/ai-engine/facade";
-import { TokenBudgetService } from "@/modules/ai-engine/facade";
+import { ChatFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";

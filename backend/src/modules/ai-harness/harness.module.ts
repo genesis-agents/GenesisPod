@@ -88,6 +88,16 @@ import { AiEngineLLMModule } from "../ai-engine/ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine/ai-engine-tools.module";
 import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
 
+// ★ PR-X13: AIEngineFacade + Domain Facades (migrated from ai-engine/facade)
+import { AIEngineFacade } from "./facade/ai-engine.facade";
+import { ChatFacade } from "./facade/domain/chat.facade";
+import { RAGFacade } from "./facade/domain/rag.facade";
+import { AgentFacade } from "./facade/domain/agent.facade";
+import { TeamFacade } from "./facade/domain/team.facade";
+import { ToolFacade } from "./facade/domain/tool.facade";
+import { ModelResolverService } from "./facade/model-resolver.service";
+import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
+
 @Global()
 @Module({
   imports: [
@@ -200,6 +210,17 @@ import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
     DomainAdapterRegistry,
     PromptRegistry,
     ToolSelectorRegistry,
+
+    // ★ PR-X13: AIEngineFacade + Domain Facades (migrated from ai-engine/facade)
+    // These are @Global — all ai-app modules can inject them without explicit imports.
+    ...FACADE_FEATURE_PROVIDERS,
+    ModelResolverService,
+    ChatFacade,
+    RAGFacade,
+    AgentFacade,
+    TeamFacade,
+    ToolFacade,
+    AIEngineFacade,
   ],
   // PR-I: 关键 SOTA 缺口补全
   // - ToolCircuitBreaker: 连续失败自动 disable
@@ -255,6 +276,15 @@ import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
     DomainAdapterRegistry,
     PromptRegistry,
     ToolSelectorRegistry,
+
+    // ★ PR-X13: AIEngineFacade + Domain Facades
+    ModelResolverService,
+    ChatFacade,
+    RAGFacade,
+    AgentFacade,
+    TeamFacade,
+    ToolFacade,
+    AIEngineFacade,
   ],
 })
 export class HarnessModule implements OnApplicationBootstrap {

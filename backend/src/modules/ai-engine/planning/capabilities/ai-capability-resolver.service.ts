@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { SkillRegistry } from "../../skills/registry/skill-registry";
-import { MCPManager } from "../../facade";
+import type { IMCPProvider } from "../../facade";
 import { SkillLoaderService } from "../../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../skills/builder/skill-prompt-builder.service";
 import {
@@ -79,7 +79,7 @@ export class AICapabilityResolver {
     private readonly prisma: PrismaService,
     private readonly toolRegistry: ToolRegistry,
     private readonly skillRegistry: SkillRegistry,
-    private readonly mcpManager: MCPManager,
+    private readonly mcpManager: IMCPProvider,
     private readonly skillLoader: SkillLoaderService,
     private readonly skillPromptBuilder: SkillPromptBuilder,
   ) {}

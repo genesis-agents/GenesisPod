@@ -8,7 +8,7 @@
 
 import { Module } from "@nestjs/common";
 import { ReportSynthesisEngine } from "./report-synthesis.service";
-import { REPORT_SYNTHESIS_ENGINE_TOKEN } from "../../../ai-engine/facade/facade.providers";
+import { REPORT_SYNTHESIS_ENGINE_TOKEN } from "../../../ai-harness/facade";
 
 @Module({
   providers: [

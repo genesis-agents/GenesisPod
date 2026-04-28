@@ -38,7 +38,7 @@ import {
 import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import {
   MissionExecutorService,
   EventBusService,

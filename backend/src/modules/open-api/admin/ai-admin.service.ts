@@ -270,11 +270,11 @@ import {
   SkillRegistry,
   SkillLoaderService,
   SkillContentService,
-  MCPManager,
   SearchService,
   MultiKeyRegistry,
   KeyHealthStatus,
 } from "../../ai-engine/facade";
+import { MCPManager } from "../../ai-harness/facade";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
 
 /**

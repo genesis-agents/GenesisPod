@@ -16,7 +16,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { ContentScore } from "./quality.types";
 
 /** 传入 LLM 的最大报告字符数，防止 token 超限 */

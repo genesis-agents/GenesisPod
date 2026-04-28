@@ -21,7 +21,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade, TeamFacade } from "../../../../ai-engine/facade";
+import { ChatFacade, TeamFacade } from "../../../../ai-harness/facade";
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
 import { WritingContextService } from "../mission/writing-context.service";
 import { WritingJsonParserService } from "../mission/writing-json-parser.service";

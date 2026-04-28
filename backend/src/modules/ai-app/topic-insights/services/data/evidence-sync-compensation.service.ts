@@ -12,7 +12,7 @@ import {
   OnModuleDestroy,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { TeamFacade } from "@/modules/ai-engine/facade";
+import { TeamFacade } from "@/modules/ai-harness/facade";
 import type { SaveEvidenceRequest } from "@/modules/ai-engine/facade";
 
 /**

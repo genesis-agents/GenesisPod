@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { SocialContentType, AIModelType } from "@prisma/client";
 import {
   BILINGUAL_FORMAT_GUIDE,

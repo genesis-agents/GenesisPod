@@ -4,9 +4,8 @@ import {
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
-  ChatFacade,
-  RAGFacade,
 } from "@/modules/ai-engine/facade";
+import { ChatFacade, RAGFacade } from "@/modules/ai-harness/facade";
 import {
   DataSourceType,
   DataSourceResult,

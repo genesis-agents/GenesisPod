@@ -17,7 +17,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
-import { ToolFacade } from "@/modules/ai-engine/facade";
+import { ToolFacade } from "@/modules/ai-harness/facade";
 import { CapabilityGuardService } from "@/modules/ai-harness/facade";
 import {
   DataSourceType,

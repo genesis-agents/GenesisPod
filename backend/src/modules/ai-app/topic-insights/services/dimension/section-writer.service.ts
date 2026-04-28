@@ -17,12 +17,11 @@ import {
 } from "@nestjs/common";
 import { InsufficientCreditsException } from "../../types/research.exceptions";
 import {
-  ChatFacade,
-  AIEngineFacade,
   inferIsReasoning,
 } from "@/modules/ai-engine/facade";
 import type { QueryLoopConfig } from "@/modules/ai-engine/facade";
 import { PromptCacheCoordinatorService } from "@/modules/ai-engine/facade";
+import { ChatFacade, AIEngineFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research/research-leader.service";
 import type { FigureRegistryEntry } from "./evidence-summary.utils";

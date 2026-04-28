@@ -86,7 +86,7 @@ import {
 import {
   AgentFacade,
   TeamFacade,
-} from "../../../../../ai-engine/facade";
+} from "../../../../../ai-harness/facade";
 import { ProgressTrackerService } from "../../../../../ai-harness/facade";
 import {
   MissionExecutorService,

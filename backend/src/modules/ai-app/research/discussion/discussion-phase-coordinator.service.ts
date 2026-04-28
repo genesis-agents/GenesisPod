@@ -10,7 +10,7 @@ import {
   InsufficientCreditsException,
 } from "../../../ai-infra/facade";
 import { ResearchIdeaService } from "../idea/research-idea.service";
-import { AgentFacade, TeamFacade } from "../../../ai-engine/facade";
+import { AgentFacade, TeamFacade } from "../../../ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,

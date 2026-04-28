@@ -13,7 +13,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { LeaderDecisionType, AIModelType } from "@prisma/client";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";

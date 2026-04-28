@@ -138,37 +138,10 @@ export { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 
 // TeamsModule（PR-X4: 已迁移，从 ai-harness/runtime/teams 导入）
 
-// Facade (统一入口)
-export { AIEngineFacade } from "./facade";
-export { ModelResolverService } from "./facade/model-resolver.service";
-export type {
-  // LLM 类型
-  ChatRequest,
-  ChatResponse,
-  // 搜索类型
-  SearchRequest,
-  SearchResponse,
-  SearchResultItem,
-  // 上下文类型
-  BuildContextRequest,
-  ContextSource,
-  // 记忆类型
-  StoreMemoryRequest,
-  RetrieveMemoryRequest,
-  MemoryItem,
-  // 约束类型
-  ConstraintConfig,
-  ConstraintResult,
-  // 任务配置类型（Facade 专用，与 Teams 不同）
-  TaskProfile as FacadeTaskProfile,
-  MissionProgress as FacadeMissionProgress,
-  ProgressCallback as FacadeProgressCallback,
-  // 结构化输出类型
-  StructuredChatRequest,
-  StructuredChatResponse,
-  JsonSchemaDefinition,
-  JsonSchemaProperty,
-} from "./facade/types";
+// Facade (统一入口) — engine-only symbols
+// AIEngineFacade / ModelResolverService 已迁移至 ai-harness/facade（PR-X13/PR-X14）
+// 消费方请从 "@/modules/ai-harness/facade" 导入。
+// facade/types 已删除（PR-X14）；类型请从 ai-harness/facade 导入。
 
 // Observability 服务 (AiObservability / CostAttribution / TraceCollector /
 // SessionLatencyTracker) 居住在 ai-harness — 消费方应从

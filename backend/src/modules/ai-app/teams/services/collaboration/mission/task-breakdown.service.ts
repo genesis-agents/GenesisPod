@@ -21,7 +21,7 @@ import {
 } from "../interfaces";
 
 // ★ AI Engine 服务（通过 AIEngineFacade 访问）
-import { AgentFacade } from "../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../ai-harness/facade";
 import type { TeamMemberInfo } from "../../../../../ai-engine/facade";
 
 @Injectable()

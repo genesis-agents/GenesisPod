@@ -16,7 +16,7 @@ import {
 } from "../abstractions/orchestrator.interface";
 import { ToolRegistry } from "../../tools/registry";
 import { SkillRegistry } from "../../skills/registry";
-import { AgentRegistry } from "../../facade/exports/registries";
+import type { IAgentRegistryCompat } from "../../facade";
 import type { WorkflowHandlerRegistry } from "../handlers/handler-registry";
 import type { MapStepConfig } from "../handlers/workflow-node-handler.interface";
 import { RetryStrategy } from "./retry-strategy";
@@ -46,7 +46,7 @@ export abstract class BaseExecutor implements IExecutor {
   protected readonly logger: Logger;
   protected toolRegistry?: ToolRegistry;
   protected skillRegistry?: SkillRegistry;
-  protected agentRegistry?: AgentRegistry;
+  protected agentRegistry?: IAgentRegistryCompat;
   protected handlerRegistry?: WorkflowHandlerRegistry;
   protected circuitBreaker?: CircuitBreakerService;
   protected progressTracker?: IProgressTracker;
@@ -61,7 +61,7 @@ export abstract class BaseExecutor implements IExecutor {
   setRegistries(
     toolRegistry: ToolRegistry,
     skillRegistry: SkillRegistry,
-    agentRegistry: AgentRegistry,
+    agentRegistry: IAgentRegistryCompat,
   ): void {
     this.toolRegistry = toolRegistry;
     this.skillRegistry = skillRegistry;

@@ -348,19 +348,20 @@ module.exports = {
       //
       // 单向依赖 ai-app → ai-harness → ai-engine
       //
-      // 当前唯二例外：
-      //   1. ai-engine/facade/** — 历史 ai-app 调用点的兼容 re-export 层
-      //      （PR-X2..X4 完成后所有 ai-app 直接 import @/modules/ai-harness/facade，
-      //      届时这层兼容出口可整体删除）
-      //   2. ai-engine-planning.module.ts — orchestration/services 拆分迁移
-      //      过程中暂用，PR-X4 拆完后移除该行
+      // 当前例外：
+      //   1. ai-engine-planning.module.ts — orchestration/services 拆分迁移
+      //      过渡中暂用，PR-X4 拆完后移除该行
+      //   2. ai-engine.module.ts — CollaborationModule / AgentRegistry 直接引用
+      //      (pre-existing; tracked for cleanup)
       //
-      // PR-X1 已完成：ai-engine.module.ts / ai-engine-core.module.ts /
-      // ai-engine-constraint.module.ts / ai-engine/index.ts 全部消除反向 import；
-      // ai-engine/runtime/ 子树已整体搬入 ai-harness（目录已删）。
+      // PR-X14: ai-engine/facade/** 内所有 backward-compat shim 文件已全部删除。
+      // ai-engine/facade/index.ts 仅保留 engine-internal 符号，不再 re-export harness。
+      // facade/**/*.ts 例外已移除（shim 文件不再存在）。
       files: ["**/modules/ai-engine/**/*.ts"],
       excludedFiles: [
-        "**/modules/ai-engine/facade/**/*.ts",
+        // ai-engine-planning.module.ts 因 NestJS DI 必须 import 实现类（@Global
+        // 注入到 useFactory 的 inject 数组），是单向依赖架构下的不可避免出口。
+        // 保留此文件作为唯一允许反向 import 的边界点。
         "**/modules/ai-engine/ai-engine-planning.module.ts",
         // Specs/tests are allowed to import harness facade for mocking purposes
         "**/modules/ai-engine/**/*.spec.ts",

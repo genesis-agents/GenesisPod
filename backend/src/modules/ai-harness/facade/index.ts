@@ -25,6 +25,53 @@ export type { RunResult } from "../kernel/dx";
 export { HarnessFacade } from "./harness.facade";
 
 // ════════════════════════════════════════════════════════════════════
+// AIEngineFacade + Domain Facades (moved from ai-engine/facade — PR-X13)
+// ai-app 模块通过 "@/modules/ai-harness/facade" 统一导入
+// ════════════════════════════════════════════════════════════════════
+export { AIEngineFacade } from "./ai-engine.facade";
+export { ChatFacade } from "./domain/chat.facade";
+export { RAGFacade } from "./domain/rag.facade";
+export { AgentFacade } from "./domain/agent.facade";
+export { TeamFacade } from "./domain/team.facade";
+export { ToolFacade } from "./domain/tool.facade";
+export { ModelResolverService } from "./model-resolver.service";
+export {
+  FACADE_FEATURE_PROVIDERS,
+  MEMORY_FEATURE,
+  TOOL_FEATURE,
+  ORCHESTRATION_FEATURE,
+  SKILL_FEATURE,
+  REALTIME_FEATURE,
+  CONSTRAINT_FEATURE,
+  TEAMS_FEATURE,
+  CONTENT_FEATURE,
+  KNOWLEDGE_FEATURE,
+  INTELLIGENCE_FEATURE,
+  COLLABORATION_FEATURE,
+  OBSERVABILITY_FEATURE,
+  REGISTRY_FEATURE,
+  LONG_CONTENT_ENGINE_TOKEN,
+  CONTINUATION_PROTOCOL_TOKEN,
+  REPORT_SYNTHESIS_ENGINE_TOKEN,
+} from "./facade.providers";
+export type {
+  MemoryFeature,
+  ToolFeature,
+  OrchestrationFeature,
+  SkillFeature,
+  RealtimeFeature,
+  ConstraintFeature,
+  TeamsFeature,
+  ContentFeature,
+  KnowledgeFeature,
+  IntelligenceFeature,
+  CollaborationFeature,
+  ObservabilityFeature,
+  RegistryFeature,
+  SkillUsageLogParams,
+} from "./facade.providers";
+
+// ════════════════════════════════════════════════════════════════════
 // Governance: verify + resource + observability + security
 // ════════════════════════════════════════════════════════════════════
 export { JudgeService } from "../governance/verify";
@@ -319,3 +366,53 @@ export { TodoService } from "../process/collaboration/todo/todo.service";
 export { VotingManager } from "../process/collaboration/patterns/voting-pattern";
 export { HandoffCoordinator, HandoffContextBuilder } from "../process/collaboration/patterns/handoff-pattern";
 export type { CollaborationMessage, ICollaborator } from "../process/collaboration/abstractions/collaborator.interface";
+
+// ════════════════════════════════════════════════════════════════════
+// MCP Protocol (PR-X14: migrated from ai-engine/facade shims)
+// ════════════════════════════════════════════════════════════════════
+export { MCPManager } from "../protocol/mcp/manager/mcp-manager";
+export type {
+  MCPServerConfig,
+  MCPToolResult,
+  MCPServerInfo,
+  MCPTool,
+} from "../protocol/mcp/abstractions/mcp.interface";
+
+// ════════════════════════════════════════════════════════════════════
+// Engine type forwards (PR-X14: harness 是 ai-app 的统一入口，
+// 转发常用 engine 类型避免 ai-app 同时 import 两个 facade)
+// ════════════════════════════════════════════════════════════════════
+export type {
+  TaskProfile,
+  ChatMessage,
+  CreativityLevel,
+  OutputLengthLevel,
+  ReasoningDepth,
+  ContentPart,
+  TextContentPart,
+  ImageUrlContentPart,
+} from "../../ai-engine/llm/types";
+
+export type {
+  ISkill,
+  SkillContext,
+  SkillResult,
+  SkillPermissions,
+  SkillLayer,
+  SkillResultError,
+  SkillResultMetadata,
+  SkillDefinition,
+  SkillConfig,
+} from "../../ai-engine/skills/abstractions/skill.interface";
+
+// Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
+export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+export { ModelFallbackService } from "../../ai-engine/llm/model-fallback/model-fallback.service";
+export type { ModelFallbackOptions } from "../../ai-engine/llm/model-fallback/model-fallback.service";
+export type { AIModelConfig } from "../../ai-engine/llm/services/ai-model-config.service";
+
+// Engine content/fetch helpers used by ai-app/social
+export {
+  sanitizeForDb,
+  sanitizeJson,
+} from "../../ai-engine/content/fetch/content-fetch.types";

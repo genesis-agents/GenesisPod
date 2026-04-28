@@ -5,7 +5,7 @@
  * Extracted from WritingMissionService to allow independent imports.
  */
 
-import type { MissionResult } from "../../../../ai-engine/facade";
+import type { MissionResult } from "../../../../ai-harness/facade";
 
 /**
  * 写作任务类型

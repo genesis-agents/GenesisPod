@@ -19,12 +19,8 @@ import {
   MissionLogType,
   MessageContentType,
 } from "@prisma/client";
-import {
-  ChatFacade,
-  AgentFacade,
-  ToolFacade,
-  ChatMessage,
-} from "../../../../../ai-engine/facade";
+import { ChatFacade, AgentFacade, ToolFacade } from "../../../../../ai-harness/facade";
+import type { ChatMessage } from "../../../../../ai-engine/facade";
 import type { TaskProfile } from "../../../../../ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../../ai-engine/facade";

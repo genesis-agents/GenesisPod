@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../ai-engine/facade";
+import { ChatFacade } from "../../ai-harness/facade";
 import { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
 import { AIModelType } from "@prisma/client";
 

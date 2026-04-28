@@ -14,11 +14,11 @@ import {
 import { execSync } from "child_process";
 import { MCPToolResult } from "../types/platform.types";
 import { MCP_SERVER_CONFIGS } from "../config/platforms.config";
-import { ToolFacade } from "@/modules/ai-engine/facade";
-import {
+import { ToolFacade } from "@/modules/ai-harness/facade";
+import type {
   MCPServerConfig as UnifiedMCPServerConfig,
   MCPToolResult as UnifiedMCPToolResult,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * ★ Social Module MCP Client Service (Refactored)

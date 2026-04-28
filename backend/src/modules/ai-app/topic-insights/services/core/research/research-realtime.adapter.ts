@@ -14,7 +14,7 @@ import {
   OnModuleDestroy,
   Optional,
 } from "@nestjs/common";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 import type {
   RoomConfig,
   EngineEvent,

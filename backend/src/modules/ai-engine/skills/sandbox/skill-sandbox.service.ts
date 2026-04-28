@@ -8,7 +8,7 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { SkillRegistry } from "../registry/skill-registry";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../content/skill-content.service";
-import type { ChatFacade } from "../../facade/domain/chat.facade";
+import type { IChatProvider } from "../../facade";
 import { PromptSkillAdapter } from "../runtime/prompt-skill-adapter";
 import { parseSkillMd } from "../loader/skill-parser";
 
@@ -53,9 +53,9 @@ export class SkillSandboxService {
     private readonly skillContentService: SkillContentService,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-member-access
     @Inject(
-      forwardRef(() => require("../../facade/domain/chat.facade").ChatFacade),
+      forwardRef(() => (require("../../../ai-harness/facade/domain/chat.facade") as { ChatFacade: unknown }).ChatFacade),
     )
-    private readonly facade: ChatFacade,
+    private readonly facade: IChatProvider,
   ) {}
 
   /**

@@ -16,7 +16,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { ChatFacade } from "../../ai-engine/facade";
+import { ChatFacade } from "../../ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";

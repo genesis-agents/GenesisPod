@@ -6,11 +6,8 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
-import {
-  ChatFacade,
-  ToolFacade,
-  ChatMessage,
-} from "../../../../ai-engine/facade";
+import { ChatFacade, ToolFacade } from "../../../../ai-harness/facade";
+import type { ChatMessage } from "../../../../ai-engine/facade";
 import {
   KernelContext,
   MissionExecutorService,
@@ -26,7 +23,9 @@ import {
 import { TopicContextRetrievalService } from "./topic-context-retrieval.service";
 import { ParsedUrl } from "../../../../../common/content-processing";
 import { TeamMemberAgent } from "../../agents";
-import type { AgentEvent, BuiltinToolId } from "../../../../ai-engine/facade";
+import type { BuiltinToolId } from "../../../../ai-engine/facade";
+// AgentEvent type matches the executor's emitted events (tool field, not toolId)
+import type { AgentEvent } from "../../../../ai-engine/planning/executors/function-calling-executor";
 import type { AICapabilityContext } from "../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../events";
 import {

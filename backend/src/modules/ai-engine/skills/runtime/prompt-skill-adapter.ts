@@ -16,7 +16,7 @@ import {
   JsonSchema,
 } from "../abstractions/skill.interface";
 import { SkillMdDefinition, SkillInputBinding } from "../types/skill-md.types";
-import type { ChatFacade } from "../../facade/domain/chat.facade";
+import type { IChatProvider } from "../../facade";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 
 /** Callback for recording execution metrics after each run */
@@ -81,7 +81,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
 
   constructor(
     private readonly definition: SkillMdDefinition,
-    private readonly facade: ChatFacade,
+    private readonly facade: IChatProvider,
     private readonly promptBuilder: SkillPromptBuilder,
     private readonly onExecutionComplete?: PromptSkillExecutionCallback,
   ) {

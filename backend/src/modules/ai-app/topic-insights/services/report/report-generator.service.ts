@@ -1,5 +1,5 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 import {

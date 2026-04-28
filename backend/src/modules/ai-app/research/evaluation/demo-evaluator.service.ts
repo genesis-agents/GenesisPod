@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { analyzeDemo, DemoAutoMetrics } from "./demo-auto-analyzer";
 import type { TopicType } from "./topic-classifier.service";
 import { extractJson } from "./extract-json";

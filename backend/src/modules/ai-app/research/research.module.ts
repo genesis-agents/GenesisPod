@@ -13,7 +13,8 @@
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { DiscussionModule } from "./discussion/discussion.module";
 import { ResearchProjectModule } from "./project/research-project.module";
-import { TeamRegistry, PromptSkillBridge } from "../../ai-engine/facade";
+import { PromptSkillBridge } from "../../ai-engine/facade";
+import { TeamRegistry } from "../../ai-harness/facade";
 import { AgentRegistry } from "../../ai-harness/facade";
 import { ResearcherAgent } from "./agents";
 import { RESEARCH_TEAM_CONFIG } from "./teams";

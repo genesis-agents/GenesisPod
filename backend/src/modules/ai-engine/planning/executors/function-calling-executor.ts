@@ -16,7 +16,7 @@ import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
-import { MCPManager } from "../../facade";
+import type { IMCPProvider } from "../../facade";
 import { QueryLoopService } from "../services/query-loop.service";
 import { TokenTrackerService } from "../services/token-tracker.service";
 import { ContextCompactionPipelineService } from "../services/context-compaction-pipeline.service";
@@ -214,7 +214,7 @@ export class FunctionCallingExecutor {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly capabilityResolver?: AICapabilityResolver,
-    @Optional() private readonly mcpManager?: MCPManager,
+    @Optional() private readonly mcpManager?: IMCPProvider,
     @Optional() private readonly queryLoop?: QueryLoopService,
     @Optional() private readonly tokenTracker?: TokenTrackerService,
     @Optional()

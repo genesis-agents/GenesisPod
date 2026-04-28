@@ -10,7 +10,7 @@
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 
 interface ExtractedFinding {

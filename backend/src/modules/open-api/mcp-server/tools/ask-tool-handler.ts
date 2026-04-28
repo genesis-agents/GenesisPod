@@ -10,7 +10,7 @@ import {
   MCPRequestContext,
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
-import { ChatFacade, RAGFacade } from "../../../ai-engine/facade";
+import { ChatFacade, RAGFacade } from "../../../ai-harness/facade";
 import { withToolTimeout, TOOL_TIMEOUT_MS } from "./tool-timeout";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 

@@ -11,6 +11,8 @@ import {
   ToolFacade,
   RAGFacade,
   AgentFacade,
+} from "../../ai-harness/facade";
+import {
   BUILTIN_TOOLS,
   type BuiltinToolId,
   type AICapabilityContext,

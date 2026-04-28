@@ -8,7 +8,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { LeaderDecisionType } from "@prisma/client";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { type AgentAssignment } from "../../../types/leader.types";

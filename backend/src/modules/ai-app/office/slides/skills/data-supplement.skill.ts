@@ -12,9 +12,9 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-  ChatFacade,
   ToolRegistry,
 } from "@/modules/ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type { ToolContext } from "@/modules/ai-engine/facade";
 
 /**

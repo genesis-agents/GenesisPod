@@ -13,7 +13,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 import { SlidesLeader } from "./slides-leader";
 import { SlidesTeamMember, TaskExecutionResult } from "./slides-team-member";
 import { SlidesRepository } from "./slides-repository";

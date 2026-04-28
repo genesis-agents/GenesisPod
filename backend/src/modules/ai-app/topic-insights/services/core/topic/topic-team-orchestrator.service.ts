@@ -7,7 +7,7 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { AgentFacade } from "@/modules/ai-engine/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
 import {
   EvalPipelineService,
   SessionLatencyTrackerService,

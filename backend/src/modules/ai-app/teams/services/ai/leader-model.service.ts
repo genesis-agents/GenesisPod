@@ -12,8 +12,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import type {
   ModelFallbackOptions,
   AIModelConfig,
-} from "@/modules/ai-engine/facade";
-import { ChatFacade } from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIError } from "@/common/ai-orchestration/error-classifier";
 
 // ==================== 类型定义 (保持原有接口) ====================

@@ -28,7 +28,8 @@ import {
   ForwardMessagesDto,
   BookmarkMessageDto,
 } from "./dto";
-import { ChatFacade, ChatMessage } from "../../ai-engine/facade";
+import { ChatFacade } from "../../ai-harness/facade";
+import type { ChatMessage } from "../../ai-engine/facade";
 import {
   KernelContext,
   MissionExecutorService,

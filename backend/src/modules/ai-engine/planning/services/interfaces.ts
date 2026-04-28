@@ -162,6 +162,10 @@ export interface ExecutionConfig {
   retryInitialDelay?: number;
   /** 超时时间（毫秒） */
   timeout?: number;
+  /** 最大迭代次数（agent execution） */
+  maxIterations?: number;
+  /** 最大工具调用次数 */
+  maxToolCalls?: number;
 }
 
 /**

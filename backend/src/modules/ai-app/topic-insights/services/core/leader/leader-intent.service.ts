@@ -16,12 +16,8 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  ChatFacade,
-  AgentFacade,
-  ToolFacade,
-  UserIntent,
-} from "@/modules/ai-engine/facade";
+import { ChatFacade, AgentFacade, ToolFacade } from "@/modules/ai-harness/facade";
+import { UserIntent } from "@/modules/ai-engine/facade";
 import {
   LeaderDecisionType,
   ResearchMissionStatus,

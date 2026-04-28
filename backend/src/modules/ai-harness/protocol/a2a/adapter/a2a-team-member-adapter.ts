@@ -9,11 +9,9 @@ import type {
   ITeamMember,
   TeamMemberId,
   MemberStatus,
-  IRole,
-  WorkStyle,
-  SkillId,
-  ToolId,
-} from "../../../../ai-engine/facade";
+} from "../../../runtime/teams/abstractions/member.interface";
+import type { IRole, WorkStyle } from "../../../runtime/teams/abstractions/role.interface";
+import type { SkillId, ToolId } from "../../../../ai-engine/facade";
 import { A2AAgentCard, A2ATaskStatus } from "../a2a.types";
 
 /**

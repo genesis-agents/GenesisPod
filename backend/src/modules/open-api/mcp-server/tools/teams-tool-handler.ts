@@ -10,8 +10,8 @@ import {
   MCPRequestContext,
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
-import { ChatFacade } from "../../../ai-engine/facade";
-import type { ChatMessage } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
+import type { ChatMessage } from "../../../ai-harness/facade";
 import { withToolTimeout, MULTI_STEP_TIMEOUT_MS } from "./tool-timeout";
 
 interface DebateRound {

@@ -5,7 +5,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { SkillRegistry, TeamFacade } from "@/modules/ai-engine/facade";
+import { SkillRegistry } from "@/modules/ai-engine/facade";
+import { TeamFacade } from "@/modules/ai-harness/facade";
 import {
   SlidesTask,
   SlidesTeamMemberRole,

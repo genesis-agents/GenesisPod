@@ -9,10 +9,8 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
-import {
-  ChatFacade,
-  ChatMessage,
-} from "../../ai-engine/facade";
+import { ChatFacade } from "../../ai-harness/facade";
+import type { ChatMessage } from "../../ai-engine/facade";
 import { ProgressTrackerService } from "../../ai-harness/facade";
 import {
   MissionExecutorService,

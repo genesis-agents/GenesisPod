@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,

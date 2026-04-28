@@ -12,7 +12,7 @@ import {
   StartWritingDto,
 } from "../../dto/chapter.dto";
 import type { WritingMissionInput } from "../mission/writing-mission.types";
-import type { MissionEvent } from "../../../../ai-engine/facade";
+import type { MissionEvent } from "../../../../ai-harness/facade";
 import { WritingMissionLifecycleService } from "../mission/writing-mission-lifecycle.service";
 import { WritingMissionQueryService } from "../mission/writing-mission-query.service";
 

@@ -11,7 +11,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { StateCategory } from "@/modules/ai-harness/facade";
 import type { ExecutionStateStats } from "@/modules/ai-harness/facade";
-import { AgentFacade } from "../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../ai-harness/facade";
 
 /**
  * 状态统计信息 (保持原有接口)

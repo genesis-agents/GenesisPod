@@ -22,7 +22,7 @@ import {
   ChatFacade,
   TeamFacade,
   RAGFacade,
-} from "../../../ai-engine/facade";
+} from "../../../ai-harness/facade";
 import { ProgressTrackerService } from "../../../ai-harness/facade";
 import {
   MissionExecutorService,

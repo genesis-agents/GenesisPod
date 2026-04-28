@@ -12,7 +12,7 @@ import { SkillRegistry } from "../registry/skill-registry";
 import { SkillLoaderService } from "../loader/skill-loader.service";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../content/skill-content.service";
-import type { ChatFacade } from "../../facade/domain/chat.facade";
+import type { IChatProvider } from "../../facade";
 import { SkillMdDefinition } from "../types/skill-md.types";
 import {
   PromptSkillAdapter,
@@ -40,12 +40,14 @@ export class PromptSkillBridge {
     private readonly promptBuilder: SkillPromptBuilder,
     private readonly prisma: PrismaService,
     private readonly skillContentService: SkillContentService,
-    // forwardRef breaks the circular import: PromptSkillBridge ↔ ChatFacade
+    // forwardRef breaks the circular import: PromptSkillBridge ↔ ChatFacade.
+    // ChatFacade is injected at runtime by HarnessModule; IChatProvider type avoids
+    // a direct ai-engine → ai-harness type import.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-member-access
     @Inject(
-      forwardRef(() => require("../../facade/domain/chat.facade").ChatFacade),
+      forwardRef(() => (require("../../../ai-harness/facade/domain/chat.facade") as { ChatFacade: unknown }).ChatFacade),
     )
-    private readonly facade: ChatFacade,
+    private readonly facade: IChatProvider,
   ) {
     // Create a shared callback that logs execution to AIUsageLog + updates usage count
     this.executionCallback = (params) => {

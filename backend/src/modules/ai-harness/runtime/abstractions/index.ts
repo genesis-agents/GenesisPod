@@ -3,7 +3,7 @@
  *
  * 运行时层需要的抽象类型——按归属拆分：
  *   - Harness 自有类型（realtime / observability）→ 直接走 harness 内部相对路径
- *   - Engine 自有类型（teams / agent / memory / orchestration）→ 走 ai-engine/facade
+ *   - Harness 自有类型（teams / agent / constraints）→ 走 harness 内部相对路径
  */
 
 // ==================== Realtime / Event Emitter (harness-owned) ====================
@@ -57,36 +57,36 @@ export type {
   ListTracesOptions,
 } from "../../governance/observability/trace.interface";
 
-// ==================== Teams / A2A Message (engine-owned) ====================
+// ==================== Teams / A2A Message (harness-owned) ====================
 
 export type {
   A2AMessage,
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../../ai-engine/facade";
+} from "../../runtime/teams/abstractions/a2a-message.interface";
 
-// ==================== Teams / Member (engine-owned) ====================
+// ==================== Teams / Member (harness-owned) ====================
 
-export type { ITeamMember, TeamMemberId, MemberStatus } from "../../../ai-engine/facade";
+export type { ITeamMember, TeamMemberId, MemberStatus } from "../../runtime/teams/abstractions/member.interface";
 
-// ==================== Teams / Role (engine-owned) ====================
+// ==================== Teams / Role (harness-owned) ====================
 
-export type { IRole, WorkStyle } from "../../../ai-engine/facade";
+export type { IRole, WorkStyle } from "../../runtime/teams/abstractions/role.interface";
 
-// ==================== Teams / Team (engine-owned) ====================
+// ==================== Teams / Team (harness-owned) ====================
 
-export type { TeamId } from "../../../ai-engine/facade";
+export type { TeamId } from "../../runtime/teams/abstractions/team.interface";
 
-// ==================== Core / Agent Types (engine-owned) ====================
+// ==================== Core / Agent Types (engine-owned, imported from ai-engine/facade) ====================
 
 export type { SkillId, ToolId } from "../../../ai-engine/facade";
 
 // ==================== Orchestration / Abstractions (engine-owned) ====================
 
-export type { Checkpoint, ExecutionContext } from "../../../ai-engine/facade";
+export type { Checkpoint, ExecutionContext } from "../../../ai-engine/planning/abstractions/orchestrator.interface";
 
-// ==================== Teams / Constraint Engine (engine-owned) ====================
+// ==================== Teams / Constraint Engine (harness-owned) ====================
 
 export type {
   IConstraintEngine,
@@ -95,7 +95,7 @@ export type {
   QualityEvaluation,
   EfficiencyEvaluation,
   ConstraintWarning,
-  ConstraintEngineViolation,
+  ConstraintViolation as ConstraintEngineViolation,
   ConstraintSuggestion,
   ResourceRequirement,
   ResourceAllocation,
@@ -103,11 +103,10 @@ export type {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../../../ai-engine/facade";
+} from "../../runtime/teams/constraints/constraint-engine.interface";
 
 // Also re-export ConstraintViolation under its original name for kernel-internal use
-// (the facade exports this as ConstraintEngineViolation to avoid collision)
-export type { ConstraintEngineViolation as ConstraintViolation } from "../../../ai-engine/facade";
+export type { ConstraintViolation } from "../../runtime/teams/constraints/constraint-engine.interface";
 
 // ==================== Orchestration / Services / Interfaces (engine-owned) ====================
 
@@ -118,11 +117,11 @@ export type {
   OutputValidationResult,
   HardConstraint,
   IConstraintEnforcementService,
-} from "../../../ai-engine/facade";
+} from "../../../ai-engine/planning/services/interfaces";
 
-// ==================== Teams / Constraints / Constraint Profile (engine-owned) ====================
+// ==================== Teams / Constraints / Constraint Profile (harness-owned) ====================
 
-export type { ConstraintProfile } from "../../../ai-engine/facade";
+export type { ConstraintProfile } from "../../runtime/teams/constraints/constraint-profile";
 
 // ==================== Memory / Abstractions (engine-owned) ====================
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { AIModelType, Prisma, SocialPlatformType } from "@prisma/client";
 import {
   PLATFORM_LIMITS,
