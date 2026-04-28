@@ -1,6 +1,11 @@
 module.exports = {
   moduleFileExtensions: ["js", "json", "ts"],
   rootDir: "src",
+  // PR-X40: roots includes both src/ (unit specs near sources) and
+  // ../tests/integration/ (cross-module integration specs that don't belong
+  // to any single module). All other paths in this config (coverageDirectory,
+  // moduleNameMapper, mock paths) stay relative to rootDir=src.
+  roots: ["<rootDir>", "<rootDir>/../tests/integration"],
   testRegex: ".*\\.spec\\.ts$",
   transform: {
     "^.+\\.(t|j)s$": [

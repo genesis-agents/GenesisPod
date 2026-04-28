@@ -5,8 +5,8 @@
  * Each test case uses real anomaly patterns found in reports 16c56e00 and 69e2f94f.
  */
 
-import { stripChartJsonFromContent } from "../ai-app/topic-insights/utils/strip-chart-json.utils";
-import { stripLLMMetaNotes } from "../ai-app/contracts/report-template";
+import { stripChartJsonFromContent } from "../../src/modules/ai-app/topic-insights/utils/strip-chart-json.utils";
+import { stripLLMMetaNotes } from "../../src/modules/ai-app/contracts/report-template";
 
 // ============================================================================
 // 1. JSON Residue Defense (from real reports)
@@ -433,7 +433,7 @@ describe("Production Defense: junk reference title filtering", () => {
     ];
     const {
       filterJunkReferences,
-    } = require("../ai-app/contracts/report-template/pipeline/report-formatting.utils");
+    } = require("../../src/modules/ai-app/contracts/report-template/pipeline/report-formatting.utils");
     const filtered = filterJunkReferences(refs);
     expect(filtered).toHaveLength(1);
     expect(filtered[0].title).toContain("Multi-Agent");
@@ -449,7 +449,7 @@ describe("Production Defense: junk reference title filtering", () => {
     ];
     const {
       filterJunkReferences,
-    } = require("../ai-app/contracts/report-template/pipeline/report-formatting.utils");
+    } = require("../../src/modules/ai-app/contracts/report-template/pipeline/report-formatting.utils");
     expect(filterJunkReferences(refs)).toHaveLength(0);
   });
 
@@ -463,7 +463,7 @@ describe("Production Defense: junk reference title filtering", () => {
     ];
     const {
       filterJunkReferences,
-    } = require("../ai-app/contracts/report-template/pipeline/report-formatting.utils");
+    } = require("../../src/modules/ai-app/contracts/report-template/pipeline/report-formatting.utils");
     expect(filterJunkReferences(refs)).toHaveLength(1);
   });
 });

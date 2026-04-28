@@ -4,6 +4,7 @@
     "src/**/*",
     "src/**/*.spec.ts",
     "src/**/__tests__/**/*.ts",
+    "tests/integration/**/*.ts",
     "jest.config.js"
   ],
   "exclude": [
