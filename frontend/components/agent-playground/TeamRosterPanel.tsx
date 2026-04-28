@@ -297,15 +297,18 @@ export function TeamRosterPanel({
         rowMap[r.rowIdx].push(r.role);
       }
 
-      // Connections — 折叠 vs 展开 走两条路径，避免乱线
+      // Connections — 折叠 vs 展开 走两条路径
+      // ★ 修：展开时不再画 N 条 researcher→analyst fan-in 线（全部交叉很丑），
+      //   改为只画 1 条「中位 researcher」→ analyst 的代表性聚合线。
+      //   Leader → 每个 researcher 的 fan-out 保留，因为 7 条线发散是有信息量的。
       const connections: TeamTopologyConnection[] = [];
       if (groupExpanded && researcherInstanceIds.length > 1) {
-        // Leader → 每个 researcher (fan-out)
-        // 每个 researcher → analyst (fan-in)
         for (const rid of researcherInstanceIds) {
           connections.push({ from: 'leader', to: rid });
-          connections.push({ from: rid, to: 'analyst' });
         }
+        const midRid =
+          researcherInstanceIds[Math.floor(researcherInstanceIds.length / 2)];
+        connections.push({ from: midRid, to: 'analyst' });
       } else {
         const groupId = researcherInstanceIds[0] ?? 'research-team';
         connections.push({ from: 'leader', to: groupId });
