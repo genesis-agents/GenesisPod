@@ -23,7 +23,7 @@ catch real bugs that hand-written stubs hide.
 
 ## Removed in PR-X29 / PR-X39
 
-| File            | Why we deleted it                                                                                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `openai.d.ts`   | The official `openai` npm package ships full, current types. Our hand-written stub was masking newer SDK APIs (tool calling, structured output, response_format) from the compiler.                                |
-| `turndown.d.ts` | We load `turndown` via `await import("turndown")` (dynamic import), which TypeScript does not strict-check. The stub was never enforced. The package's lack of official types is therefore harmless for our usage. |
+| File            | Why we deleted it                                                                                                                                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openai.d.ts`   | The official `openai` npm package ships full, current types. Our hand-written stub was masking newer SDK APIs (tool calling, structured output, response_format) from the compiler.                                                                                                                            |
+| `turndown.d.ts` | We load `turndown` via `await import("turndown")` (dynamic import). In dev `tsc --noEmit` skips the resolution, but `nest build` in Docker resolves it strictly and errors `TS7016: Could not find a declaration file`. PR-X42 followup: installed `@types/turndown@^5.0.6` instead — the official-types path. |
