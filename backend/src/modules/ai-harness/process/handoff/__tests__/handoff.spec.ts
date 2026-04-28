@@ -4,7 +4,7 @@
 
 import { AgentRegistry } from "../agent-registry";
 import { HandoffService } from "../handoff.service";
-import { ContextEnvelope } from "../../core/context-envelope";
+import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 import type { IAgent, IContextEnvelope } from "../../abstractions";
 
 function mkAgent(id: string): IAgent {

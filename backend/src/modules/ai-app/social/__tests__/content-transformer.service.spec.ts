@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentTransformerService } from "../services/content-transformer.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { SocialContentType } from "@prisma/client";
 
 jest.mock("../../../ai-engine/facade");

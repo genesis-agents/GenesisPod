@@ -10,7 +10,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { CollectionsService } from "../collections.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,

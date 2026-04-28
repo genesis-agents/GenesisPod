@@ -1,9 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchToolHandler } from "../research-tool-handler";
-import { AIFacade } from "../../../../ai-engine/facade/ai.facade";
+import { AIFacade } from "../../../../ai-harness/facade/ai.facade";
 import { MCPStreamingBridge } from "../../streaming/mcp-streaming-bridge";
 
-jest.mock("../../../../ai-engine/facade/ai.facade");
+jest.mock("../../../../ai-harness/facade/ai.facade");
 jest.mock("../../streaming/mcp-streaming-bridge");
 
 describe("ResearchToolHandler", () => {

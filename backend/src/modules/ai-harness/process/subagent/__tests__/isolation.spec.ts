@@ -2,7 +2,7 @@
  * Isolation policy 单元测试
  */
 
-import { ContextEnvelope } from "../../core/context-envelope";
+import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 import {
   NoneIsolation,
   ContextIsolation,

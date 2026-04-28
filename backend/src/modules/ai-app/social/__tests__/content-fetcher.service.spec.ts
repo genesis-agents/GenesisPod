@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentFetcherService } from "../services/content-fetcher.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { RAGFacade } from "../../../ai-engine/facade";
+import { RAGFacade } from "../../../ai-harness/facade";
 import { SocialContentSourceType } from "@prisma/client";
 
 jest.mock("../../../ai-engine/facade", () => ({

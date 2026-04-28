@@ -12,11 +12,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { AiResponseService } from "../ai-response.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import {
-  ChatFacade,
-  ToolFacade,
-  ToolRegistry,
-} from "../../../../../ai-engine/facade";
+import { ChatFacade, ToolFacade } from "../../../../../ai-harness/facade";
+import { ToolRegistry } from "../../../../../ai-engine/facade";
 import { ContextRouterService } from "../context-router.service";
 import { TopicContextRetrievalService } from "../topic-context-retrieval.service";
 import { TeamMemberAgent } from "../../../agents";

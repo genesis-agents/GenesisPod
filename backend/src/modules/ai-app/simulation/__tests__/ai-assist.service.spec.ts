@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIAssistService } from "../ai-assist.service";
 import { ExternalDataService } from "../external-data.service";
-import { ChatFacade } from "../../../ai-engine/facade/domain/chat.facade";
+import { ChatFacade } from "../../../ai-harness/facade/domain/chat.facade";
 
 describe("AIAssistService", () => {
   let service: AIAssistService;

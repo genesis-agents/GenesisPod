@@ -13,8 +13,8 @@
  */
 
 import { ConfigService } from "@nestjs/config";
-import { MissionOrchestrator } from "../mission-orchestrator";
-import { ConstraintEngine } from "../../../../../ai-engine/facade";
+import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams-mission-orchestrator";
+import { ConstraintEngine } from "../../../../../ai-harness/facade";
 import {
   MissionInput,
   MissionEventType,

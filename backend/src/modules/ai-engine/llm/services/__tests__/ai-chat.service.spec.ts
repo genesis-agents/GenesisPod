@@ -10,7 +10,7 @@ import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
 import { AIMetricsService } from "../../../../ai-infra/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
-import { CircuitBreakerService } from "../../../../ai-engine/facade";
+import { CircuitBreakerService } from "../../../../ai-harness/facade";
 import { AiConnectionTestService } from "../ai-connection-test.service";
 import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";

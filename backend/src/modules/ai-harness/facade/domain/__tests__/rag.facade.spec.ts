@@ -19,7 +19,7 @@ import {
   KNOWLEDGE_FEATURE,
   CONTENT_FEATURE,
   TOOL_FEATURE,
-} from "../../../ai-engine/facade.providers";
+} from "../../facade.providers";
 
 describe("RAGFacade", () => {
   let facade: RAGFacade;

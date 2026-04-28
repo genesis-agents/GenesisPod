@@ -16,7 +16,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AdminController } from "../admin.controller";
 import { AdminService } from "../admin.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { StorageInventoryService } from "../../../ai-infra/storage/storage-inventory.service";
 import { StorageOffloadService } from "../../../ai-infra/storage/storage-offload.service";

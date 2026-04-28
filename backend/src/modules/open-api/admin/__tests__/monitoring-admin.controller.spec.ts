@@ -5,10 +5,7 @@ import { ErrorTrackingService } from "../../../ai-infra/monitoring";
 import { AIMetricsService } from "../../../ai-infra/monitoring";
 import { AIAdminService } from "../ai-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import {
-  TraceCollectorService,
-  EvalPipelineService,
-} from "../../../ai-engine/facade";
+import { TraceCollectorService, EvalPipelineService } from "../../../ai-harness/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 

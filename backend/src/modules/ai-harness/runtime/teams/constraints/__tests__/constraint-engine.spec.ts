@@ -2,7 +2,7 @@
  * Unit tests for ConstraintEngine
  */
 
-import { ConstraintEngine } from "../../../../../ai-engine/facade";
+import { ConstraintEngine } from "../../../../../ai-harness/facade";
 import {
   createConstraintProfile,
   getDefaultConstraintProfile,

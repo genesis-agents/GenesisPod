@@ -27,15 +27,8 @@ jest.mock(
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamMissionService } from "../mission/team-mission.service";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
-import {
-  AiChatService,
-  SearchService,
-  ContextInitializationService,
-  ToolRegistry,
-  AIFacade,
-  AgentFacade,
-  TeamFacade,
-} from "../../../../../ai-engine/facade";
+import { AIFacade, AgentFacade, TeamFacade } from "../../../../../ai-harness/facade";
+import { AiChatService, SearchService, ContextInitializationService, ToolRegistry } from "../../../../../ai-engine/facade";
 import { CircuitBreakerService } from "../../../../../ai-harness/facade";
 import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";

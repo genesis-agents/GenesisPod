@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PromptEnhancementService } from "../prompt-enhancement.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 
 describe("PromptEnhancementService", () => {
   let service: PromptEnhancementService;

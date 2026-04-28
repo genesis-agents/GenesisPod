@@ -18,11 +18,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamMissionService } from "../team-mission.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import {
-  AgentFacade,
-  TeamFacade,
-  ToolRegistry,
-} from "../../../../../../ai-engine/facade";
+import { AgentFacade, TeamFacade } from "../../../../../../ai-harness/facade";
+import { ToolRegistry } from "../../../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../../../events";
 import { TeamsLongContentService } from "../../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../../ai/leader-model.service";

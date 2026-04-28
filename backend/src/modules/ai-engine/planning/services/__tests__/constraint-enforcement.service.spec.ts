@@ -11,7 +11,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { ConstraintEnforcementService } from "../../../../ai-engine/facade";
+import { ConstraintEnforcementService } from "../../../../ai-harness/facade";
 
 describe("ConstraintEnforcementService", () => {
   let service: ConstraintEnforcementService;

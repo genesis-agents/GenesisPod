@@ -61,12 +61,8 @@ jest.mock("@prisma/client", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionExecutionService } from "../mission-execution.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import {
-  ChatFacade,
-  AgentFacade,
-  ToolFacade,
-  ToolRegistry,
-} from "../../../../../../ai-engine/facade";
+import { ChatFacade, AgentFacade, ToolFacade } from "../../../../../../ai-harness/facade";
+import { ToolRegistry } from "../../../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../../../events";
 import { TeamsLongContentService } from "../../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../../ai/leader-model.service";

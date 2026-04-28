@@ -3,7 +3,7 @@ import { RAGController } from "../rag.controller";
 import { KnowledgeBaseService } from "../services/knowledge-base.service";
 import { RAGPipelineService } from "../services/rag-pipeline.service";
 import { GoogleDriveRAGService } from "../services/google-drive-rag.service";
-import { RAGFacade } from "../../../../ai-engine/facade";
+import { RAGFacade } from "../../../../ai-harness/facade";
 import { UrlFetchService } from "../services/url-fetch.service";
 import { PlatformImportService } from "../services/platform-import.service";
 

@@ -10,19 +10,19 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { KernelApiService } from "../kernel-api.service";
-import { ProcessManagerService } from "../../process/process-manager.service";
-import { EventJournalService } from "../../journal/event-journal.service";
-import { ProcessMemoryManagerService } from "../../memory/process-memory-manager.service";
-import { ResourceManagerService } from "../../resource/resource-manager.service";
+import { ProcessManagerService } from "../../../process/manager/process-manager.service";
+import { EventJournalService } from "../../../protocol/journal/event-journal.service";
+import { ProcessMemoryManagerService } from "../../../memory/working/process-memory-manager.service";
+import { ResourceManagerService } from "../../../governance/resource/resource-manager.service";
 import { MissionExecutorService } from "../../mission/mission-executor.service";
-import { CircuitBreakerService } from "../../resource/circuit-breaker.service";
-import { EventBusService } from "../../ipc/event-bus.service";
-import { MessageBusService } from "../../ipc/message-bus.service";
-import { ProgressTrackerService } from "../../ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../observability/ai-observability.service";
-import { CostAttributionService } from "../../observability/cost-attribution.service";
-import { CapabilityGuardService } from "../../security/capability-guard.service";
-import { KernelSchedulerService } from "../../scheduler/kernel-scheduler.service";
+import { CircuitBreakerService } from "../../../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EventBusService } from "../../../protocol/ipc/event-bus.service";
+import { MessageBusService } from "../../../protocol/ipc/message-bus.service";
+import { ProgressTrackerService } from "../../../protocol/ipc/progress-tracker.service";
+import { AiObservabilityService } from "../../../governance/observability/ai-observability.service";
+import { CostAttributionService } from "../../../governance/observability/cost-attribution.service";
+import { CapabilityGuardService } from "../../../../ai-engine/safety/security/capability-guard.service";
+import { KernelSchedulerService } from "../../../process/scheduler/kernel-scheduler.service";
 
 // ─── Shared test fixtures ────────────────────────────────────────────────────
 

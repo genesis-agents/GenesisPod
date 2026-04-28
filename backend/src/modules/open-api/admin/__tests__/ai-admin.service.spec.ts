@@ -1,14 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIAdminService } from "../ai-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import {
-  ToolRegistry,
-  SkillRegistry,
-  SkillLoaderService,
-  SkillContentService,
-  MCPManager,
-  SearchService,
-} from "../../../ai-engine/facade";
+import { MCPManager } from "../../../ai-harness/facade";
+import { ToolRegistry, SkillRegistry, SkillLoaderService, SkillContentService, SearchService } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 
 describe("AIAdminService", () => {

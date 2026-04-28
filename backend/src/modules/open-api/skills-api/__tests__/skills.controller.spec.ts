@@ -6,9 +6,9 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { SkillsController } from "../skills.controller";
 import { SkillsApiService } from "../skills-api.service";
-import { SkillAnalyticsService } from "../../analytics/skill-analytics.service";
-import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../../../common/guards/admin.guard";
+import { SkillAnalyticsService } from "../../../ai-engine/skills/analytics/skill-analytics.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { SetDomainOverrideDto } from "../dto/set-domain-override.dto";
 
 // ---------------------------------------------------------------------------

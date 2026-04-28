@@ -10,10 +10,10 @@
  */
 
 import { ReActLoop } from "../react-loop";
-import { HookRegistry } from "../../core/hook-registry";
-import { ContextEnvelope } from "../../core/context-envelope";
+import { HookRegistry } from "../../../kernel/core/hook-registry";
+import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 import { ToolInvoker } from "../../executor/tool-invoker";
-import type { IAgentEvent, ILoopTerminationCriteria } from "../../abstractions";
+import type { IAgentEvent, ILoopTerminationCriteria } from "../../../kernel/abstractions";
 
 function makeEnvelope(tools: string[] = []): ContextEnvelope {
   return new ContextEnvelope({
@@ -313,7 +313,7 @@ describe("ReActLoop (Phase 2)", () => {
   // ── v2: BudgetAccountant integration ──
   it("aborts loop when BudgetAccountant.exhausted() returns true", async () => {
     const { BudgetAccountant } =
-      await import("../../runtime/budget-accountant");
+      await import("../../../runtime/budget/budget-accountant");
     const budget = new BudgetAccountant({ maxTokens: 100, maxCostUsd: 0.01 });
     // Pre-exhaust
     budget.accountLLM(150, 0, 0);

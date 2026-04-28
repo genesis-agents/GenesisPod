@@ -8,7 +8,7 @@
  *   - tool.execute 透传到 client.callTool；isError 字段正确处理
  */
 
-import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
 import { MCPRelay } from "../mcp-relay.service";
 import { MCPRelayToolAdapter, type MCPClientLike } from "../mcp-relay-tool-adapter";
 

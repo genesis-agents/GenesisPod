@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionStateManager } from "../mission-state.manager";
-import { AgentFacade } from "../../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../../ai-harness/facade";
 import { StateCategory } from "../../../../../../ai-harness/facade";
 
 const mockStats = {

@@ -16,12 +16,12 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 // Mock ChatFacade and SecretsService modules
-jest.mock("../../../../ai-engine/facade/domain/chat.facade");
+jest.mock("../../../../ai-harness/facade/domain/chat.facade");
 jest.mock("../../../../ai-infra/secrets/secrets.service");
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ScreenshotAnalyzerService } from "../screenshot-analyzer.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import type { FeedbackAttachment } from "../../triage/triage-decision.types";
 

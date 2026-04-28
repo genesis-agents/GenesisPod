@@ -4,8 +4,8 @@
 
 import { CheckpointService } from "../checkpoint.service";
 import { InMemoryCheckpointStore } from "../in-memory-checkpoint-store";
-import { ContextEnvelope } from "../../core/context-envelope";
-import { AgentIdentity } from "../../core/agent-identity";
+import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { AgentIdentity } from "../../../kernel/core/agent-identity";
 
 function makeEnvelope(): ContextEnvelope {
   return new ContextEnvelope({

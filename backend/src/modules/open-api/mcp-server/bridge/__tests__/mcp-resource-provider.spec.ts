@@ -1,12 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MCPResourceProvider } from "../mcp-resource-provider";
-import {
-  ToolRegistry,
-  SkillRegistry,
-  AgentRegistry,
-  TeamRegistry,
-  ChatFacade,
-} from "../../../../ai-engine/facade";
+import { AgentRegistry, TeamRegistry, ChatFacade } from "../../../../ai-harness/facade";
+import { ToolRegistry, SkillRegistry } from "../../../../ai-engine/facade";
 import { ResearchToolHandler } from "../../tools/research-tool-handler";
 
 jest.mock("../../../../ai-engine/facade", () => ({

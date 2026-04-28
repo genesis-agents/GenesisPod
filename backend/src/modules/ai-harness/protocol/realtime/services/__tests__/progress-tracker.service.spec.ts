@@ -3,8 +3,8 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ProgressTrackerService } from "../../../../../ai-engine/facade";
-import { EventBusService as EngineEventEmitterService } from "../../../../../ai-engine/facade";
+import { ProgressTrackerService } from "../../../../../ai-harness/facade";
+import { EventBusService as EngineEventEmitterService } from "../../../../../ai-harness/facade";
 import type { RoomConfig } from "../../abstractions/event-emitter.interface";
 import type { CreateTrackedTaskRequest } from "../../abstractions/progress-tracker.interface";
 import { calculateOverallProgress } from "../../abstractions/progress-tracker.interface";

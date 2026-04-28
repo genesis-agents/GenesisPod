@@ -16,9 +16,9 @@ import {
   BadRequestException,
   ExecutionContext,
 } from "@nestjs/common";
-import { UserApiKeysController } from "../user-api-keys.controller";
+import { UserApiKeysController } from "../../../../ai-app/byok/user-api-keys.controller";
 import { UserApiKeysService } from "../user-api-keys.service";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
 import { ApiKeyMode, SaveUserApiKeyDto, TestApiKeyDto } from "../dto";
 
 // ---------------------------------------------------------------------------

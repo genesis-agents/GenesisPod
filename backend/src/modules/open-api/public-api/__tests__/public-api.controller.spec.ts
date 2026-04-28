@@ -9,8 +9,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotImplementedException, ExecutionContext } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PublicApiController } from "../public-api.controller";
-import { AIFacade } from "../../../ai-engine/facade/ai.facade";
-import { ChatFacade, ToolFacade } from "../../../ai-engine/facade";
+import { AIFacade } from "../../../ai-harness/facade/ai.facade";
+import { ChatFacade, ToolFacade } from "../../../ai-harness/facade";
 import { MCPApiKeyGuard } from "../../mcp-server/guards/mcp-api-key.guard";
 
 describe("PublicApiController", () => {

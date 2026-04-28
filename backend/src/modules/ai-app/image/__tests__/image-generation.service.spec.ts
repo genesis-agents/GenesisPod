@@ -7,7 +7,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { ImageGenerationService } from "../generation/image-generation.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { of } from "rxjs";
 
 // Mock SecretsService

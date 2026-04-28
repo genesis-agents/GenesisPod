@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamsDebateToolHandler } from "../teams-tool-handler";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 
 jest.mock("../../../../ai-engine/facade", () => ({
   ChatFacade: jest.fn(),

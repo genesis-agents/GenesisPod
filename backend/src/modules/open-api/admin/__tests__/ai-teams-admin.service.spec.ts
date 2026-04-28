@@ -1,12 +1,12 @@
 // Mock the ai-engine facade before any imports to avoid pulling in
 // @nestjs/cache-manager / ioredis that are not installed in the test env.
 // The paths below match what Node sees with rootDir=src in jest.config.js.
-jest.mock("../../../ai-engine/facade/ai.facade", () => {
+jest.mock("../../../ai-harness/facade/ai.facade", () => {
   return {
     AIFacade: class MockAIFacade {},
   };
 });
-jest.mock("../../../ai-engine/facade", () => {
+jest.mock("../../../ai-harness/facade", () => {
   return {
     ChatFacade: class MockChatFacade {},
     TaskProfile: {},
@@ -17,7 +17,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { AITeamsAdminService } from "../ai-teams-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { AITeamTemplateStatus } from "@prisma/client";
 
 describe("AITeamsAdminService", () => {

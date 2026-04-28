@@ -25,7 +25,7 @@ jest.mock("../../../../ai-engine/facade", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingAssistToolHandler } from "../writing-assist-tool-handler";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import { MCPRequestContext } from "../../abstractions/mcp-server.interface";
 import { withToolTimeout } from "../tool-timeout";
 

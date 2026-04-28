@@ -5,11 +5,8 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import {
-  CircuitBreakerService,
-  TaskCompletionType,
-  CircuitState as _CircuitState,
-} from "../../../../ai-engine/facade";
+import { CircuitBreakerService, TaskCompletionType } from "../../../../ai-harness/facade";
+import { CircuitState as _CircuitState } from "../../../../ai-engine/facade";
 
 describe("CircuitBreakerService", () => {
   let service: CircuitBreakerService;

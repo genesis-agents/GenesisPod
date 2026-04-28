@@ -23,7 +23,7 @@ import {
   SKILL_FEATURE,
   INTELLIGENCE_FEATURE,
   REGISTRY_FEATURE,
-} from "../../../ai-engine/facade.providers";
+} from "../../facade.providers";
 
 describe("TeamFacade", () => {
   let facade: TeamFacade;

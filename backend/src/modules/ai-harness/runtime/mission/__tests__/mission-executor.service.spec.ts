@@ -7,9 +7,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { MissionExecutorService } from "../mission-executor.service";
-import { ProcessManagerService } from "../../process/process-manager.service";
-import { EventJournalService } from "../../journal/event-journal.service";
-import type { ProcessSnapshot } from "../../process/process.types";
+import { ProcessManagerService } from "../../../process/manager/process-manager.service";
+import { EventJournalService } from "../../../protocol/journal/event-journal.service";
+import type { ProcessSnapshot } from "../../../process/manager/process.types";
 
 // ---------------------------------------------------------------------------
 // Helpers

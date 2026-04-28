@@ -3,7 +3,7 @@
  */
 
 import { PriorityPruner } from "../priority-pruner";
-import { ContextEnvelope } from "../../core/context-envelope";
+import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 import type { ISystemReminder } from "../../abstractions";
 
 function makeEnv(reminders: ISystemReminder[]): ContextEnvelope {

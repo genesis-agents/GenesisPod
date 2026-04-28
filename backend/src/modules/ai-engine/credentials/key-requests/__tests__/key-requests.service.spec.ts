@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { KeyRequestsService } from "../key-requests.service";
 import { KeyAssignmentsService } from "../../key-assignments/key-assignments.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KeyRequestStatus } from "@prisma/client";
 
 describe("KeyRequestsService", () => {

@@ -15,10 +15,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
 import { ChatFacade } from "../chat.facade";
-import { AiChatService } from "../../../llm/services/ai-chat.service";
-import { AiModelConfigService } from "../../../llm/services/ai-model-config.service";
+import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AiModelConfigService } from "../../../../ai-engine/llm/services/ai-model-config.service";
 import { CreditsService } from "../../../../ai-infra/credits/credits.service";
-import { ORCHESTRATION_FEATURE, SKILL_FEATURE } from "../../../ai-engine/facade.providers";
+import { ORCHESTRATION_FEATURE, SKILL_FEATURE } from "../../facade.providers";
 
 // ============================================================
 // Shared mocks

@@ -25,7 +25,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { ImageGenerationService } from "../image-generation.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { HttpService } from "@nestjs/axios";
 import { GEMINI_IMAGE_MODELS } from "../../core/image.constants";

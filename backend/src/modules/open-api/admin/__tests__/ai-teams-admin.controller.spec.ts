@@ -1,8 +1,8 @@
 // Mock the ai-engine facade before any imports to avoid pulling in heavy deps
-jest.mock("../../../ai-engine/facade/ai.facade", () => ({
+jest.mock("../../../ai-harness/facade/ai.facade", () => ({
   AIFacade: class MockAIFacade {},
 }));
-jest.mock("../../../ai-engine/facade", () => ({
+jest.mock("../../../ai-harness/facade", () => ({
   ChatFacade: class MockChatFacade {},
 }));
 

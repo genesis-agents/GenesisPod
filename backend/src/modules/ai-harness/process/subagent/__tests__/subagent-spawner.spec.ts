@@ -6,10 +6,10 @@ import {
   SubagentSpawner,
   SubagentSpawnBlockedError,
 } from "../subagent-spawner";
-import { AgentFactory } from "../../core/agent-factory";
-import { HookRegistry } from "../../core/hook-registry";
-import { AgentIdentity } from "../../core/agent-identity";
-import type { ISubagentSpec } from "../../abstractions";
+import { AgentFactory } from "../../../kernel/core/agent-factory";
+import { HookRegistry } from "../../../kernel/core/hook-registry";
+import { AgentIdentity } from "../../../kernel/core/agent-identity";
+import type { ISubagentSpec } from "../../../kernel/abstractions";
 
 function makeSpec(): ISubagentSpec {
   return {

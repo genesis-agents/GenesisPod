@@ -15,7 +15,7 @@ import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { FeishuService } from "../feishu.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../../ai-harness/facade";
 import { FeishuAuthService } from "../feishu-auth.service";
 import { FeishuDataSourceService } from "../feishu-data-source.service";
 import { UrlFetchService } from "../../../rag/services/url-fetch.service";

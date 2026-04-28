@@ -17,12 +17,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException } from "@nestjs/common";
 import { AiAskService } from "../ai-ask.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import {
-  ChatFacade,
-  AgentFacade,
-  RAGFacade,
-  ToolFacade,
-} from "../../../ai-engine/facade";
+import { ChatFacade, AgentFacade, RAGFacade, ToolFacade } from "../../../ai-harness/facade";
 
 describe("AiAskService", () => {
   let service: AiAskService;

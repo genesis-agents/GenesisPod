@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentFetcherService } from "../content-fetcher.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { RAGFacade } from "../../../../ai-engine/facade";
+import { RAGFacade } from "../../../../ai-harness/facade";
 import { SocialContentSourceType } from "@prisma/client";
 
 // Mock sanitize utilities from the facade

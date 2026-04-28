@@ -6,7 +6,7 @@ jest.mock("../../../../ai-engine/facade", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
 import { DiscussionAgentService } from "../discussion-agent.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 import {
   AgentState,
   DiscussionPhase,

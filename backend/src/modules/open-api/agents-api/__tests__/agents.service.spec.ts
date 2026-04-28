@@ -21,7 +21,7 @@ import { Logger } from "@nestjs/common";
 import { firstValueFrom } from "rxjs";
 import { take } from "rxjs/operators";
 import { AgentsService } from "../agents.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   OfficeAgentType,
   OfficeTaskStatus,

@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Imagen4PromptService } from "../generation/imagen4-prompt.service";
-import { TeamFacade } from "../../../ai-engine/facade";
+import { TeamFacade } from "../../../ai-harness/facade";
 
 // Helper to create an async generator that yields the given events
 function createMockEventGenerator(events: object[]) {

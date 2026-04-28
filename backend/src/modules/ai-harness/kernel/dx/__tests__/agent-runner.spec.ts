@@ -25,7 +25,7 @@ import type {
   IModelAvailability,
   IRuntimeEnvironment,
 } from "../../abstractions";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../../ai-infra/credits/billing-context";
 
 const Input = z.object({ topic: z.string().min(1) });
 const Output = z.object({

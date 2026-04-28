@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionReviewService } from "../mission-review.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { AgentFacade } from "../../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../../ai-harness/facade";
 import { TopicEventEmitterService } from "../../../events";
 import { TeamsLongContentService } from "../../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../../ai/leader-model.service";

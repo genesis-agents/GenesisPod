@@ -2,8 +2,8 @@
  * MemoryBridge 单元测试（Phase 2）
  */
 
-import { MemoryBridge } from "../memory-bridge.service";
-import { ContextEnvelope } from "../../core/context-envelope";
+import { MemoryBridge } from "../auto-index/memory-bridge.service";
+import { ContextEnvelope } from "../../kernel/core/context-envelope";
 
 function makeEnvelope(userId?: string): ContextEnvelope {
   return new ContextEnvelope({

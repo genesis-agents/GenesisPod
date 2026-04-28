@@ -24,7 +24,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ContentExtractorService } from "../../../../common/content-processing/content-extractor.service";
 import { DataFetchingService } from "../../../../common/content-processing/data-fetching.service";
 import { Imagen4PromptService } from "../generation/imagen4-prompt.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 
 describe("AiImageService", () => {
   let service: AiImageService;

@@ -6,7 +6,7 @@ import {
   estimateEnvelopeTokens,
   estimateMessageTokens,
 } from "../token-estimator";
-import { ContextEnvelope } from "../../core/context-envelope";
+import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 
 describe("TokenEstimator (PR-D: gpt-tokenizer-backed)", () => {
   it("estimateMessageTokens includes 4-token role overhead and content tokens", () => {

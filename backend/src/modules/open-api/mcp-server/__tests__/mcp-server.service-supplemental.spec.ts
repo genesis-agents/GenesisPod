@@ -18,11 +18,8 @@ import { MCPSessionManager } from "../gateway/mcp-session-manager";
 import { MCPToolBridgeService } from "../bridge/mcp-tool-bridge.service";
 import { MCPResourceProvider } from "../bridge/mcp-resource-provider";
 import { MCPPromptProvider } from "../bridge/mcp-prompt-provider";
-import {
-  GuardrailsPipelineService,
-  AiObservabilityService,
-  CostAttributionService,
-} from "../../../ai-engine/facade";
+import { AiObservabilityService, CostAttributionService } from "../../../ai-harness/facade";
+import { GuardrailsPipelineService } from "../../../ai-engine/facade";
 import {
   IMCPToolHandler,
   MCPRequestContext,

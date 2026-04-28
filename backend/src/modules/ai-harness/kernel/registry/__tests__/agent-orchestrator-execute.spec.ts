@@ -7,7 +7,7 @@
  */
 
 import { AgentOrchestrator } from "../agent-orchestrator";
-import { AgentRegistry } from "../agent-registry";
+import { AgentRegistry } from "../plan-based-agent-registry";
 import { AgentConfigService } from "../../config/agent-config.service";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 

@@ -16,7 +16,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { CollectionsService } from "../collections.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 
 const mockPrisma = {
   collection: {

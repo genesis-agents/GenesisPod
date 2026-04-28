@@ -20,7 +20,7 @@ import {
   OBSERVABILITY_FEATURE,
   REALTIME_FEATURE,
   REGISTRY_FEATURE,
-} from "../../../ai-engine/facade.providers";
+} from "../../facade.providers";
 
 describe("AgentFacade", () => {
   let facade: AgentFacade;

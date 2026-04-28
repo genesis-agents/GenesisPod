@@ -64,11 +64,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiTeamsService } from "../../../teams/ai-teams.service";
 import { AiResponseService } from "../../../teams/services/ai/ai-response.service";
 import { PlanningTemplateService } from "../planning-template.service";
-import {
-  ChatFacade,
-  TeamFacade,
-  RAGFacade,
-} from "../../../../ai-engine/facade";
+import { ChatFacade, TeamFacade, RAGFacade } from "../../../../ai-harness/facade";
 import { CreatePlanDto, PlanningDepth } from "../../dto/create-plan.dto";
 import { UpdatePlanDto } from "../../dto/update-plan.dto";
 import { TopicType } from "@prisma/client";

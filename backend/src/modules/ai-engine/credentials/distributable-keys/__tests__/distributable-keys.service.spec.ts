@@ -2,8 +2,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DistributableKeysService } from "../distributable-keys.service";
-import { EncryptionService } from "../../encryption/encryption.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { EncryptionService } from "../../../../ai-infra/encryption/encryption.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 const buildEncryption = () =>
   new EncryptionService({

@@ -7,7 +7,7 @@ import { HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiCoreService } from "../ai-core.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-engine/facade";
+import { ChatFacade } from "../../../ai-harness/facade";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 
 const mockPrisma = {

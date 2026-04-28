@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AgentRegistry } from "../agent-registry";
+import { AgentRegistry } from "../plan-based-agent-registry";
 import { IPlanBasedAgent } from "../../base/plan-based-agent";
 import {
   AgentConfig,

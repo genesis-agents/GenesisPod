@@ -11,7 +11,7 @@ import {
   ToolContext,
   JSONSchema,
 } from "../../../../ai-engine/facade";
-import { BaseTool } from "../../../../ai-engine/facade/base-classes";
+import { BaseTool } from "../../../../ai-harness/facade/base-classes";
 import { AICapability, AgentWorkStyle } from "@prisma/client";
 
 // ============================================================================

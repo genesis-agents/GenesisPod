@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TaskBreakdownService } from "../task-breakdown.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
-import { AgentFacade } from "../../../../../../ai-engine/facade";
+import { AgentFacade } from "../../../../../../ai-harness/facade";
 
 const mockTeamMembers = [
   {

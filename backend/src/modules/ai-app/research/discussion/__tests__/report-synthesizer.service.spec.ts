@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportSynthesizerService } from "../report-synthesizer.service";
-import { ChatFacade, TeamFacade } from "../../../../ai-engine/facade";
+import { ChatFacade, TeamFacade } from "../../../../ai-harness/facade";
 import { SearchRound, SearchSource } from "../types";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────

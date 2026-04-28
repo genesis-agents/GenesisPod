@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { YoutubeService, TranscriptSegment } from "../youtube.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SystemSettingService } from "../../../../common/settings/system-setting.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { SystemSettingService } from "../../../../../common/settings/system-setting.service";
 
 // Mock external fetch globally
 const mockFetch = jest.fn();

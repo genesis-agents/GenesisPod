@@ -26,11 +26,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { UserApiKeysService } from "../user-api-keys.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../secrets/secrets.service";
-import { CreditsService } from "../../credits/credits.service";
-import { EncryptionService } from "../../encryption/encryption.service";
-import { CacheService } from "../../../../common/cache";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
+import { CreditsService } from "../../../../ai-infra/credits/credits.service";
+import { EncryptionService } from "../../../../ai-infra/encryption/encryption.service";
+import { CacheService } from "../../../../../common/cache";
 import { UserApiKeyMode, CreditTransactionType } from "@prisma/client";
 import { ApiKeyMode } from "../dto";
 

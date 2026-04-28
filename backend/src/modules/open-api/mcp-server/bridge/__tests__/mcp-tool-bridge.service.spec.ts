@@ -1,13 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MCPToolBridgeService } from "../mcp-tool-bridge.service";
-import {
-  ToolRegistry,
-  SkillRegistry,
-  AgentRegistry,
-  ChatFacade,
-  ToolFacade,
-  AgentFacade,
-} from "../../../../ai-engine/facade";
+import { AgentRegistry, ChatFacade, ToolFacade, AgentFacade } from "../../../../ai-harness/facade";
+import { ToolRegistry, SkillRegistry } from "../../../../ai-engine/facade";
 
 jest.mock("../../../../ai-engine/facade", () => ({
   ToolRegistry: jest.fn(),

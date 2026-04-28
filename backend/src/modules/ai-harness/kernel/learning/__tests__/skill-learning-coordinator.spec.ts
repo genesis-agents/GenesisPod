@@ -10,7 +10,7 @@
 
 import { SkillLearningCoordinator } from "../skill-learning-coordinator";
 import { SkillLearner, type SkillCandidate } from "../skill-learner";
-import { SkillRegistry } from "../../ai-engine/skills/skill-registry";
+import { SkillRegistry } from "../../skills/skill-registry";
 
 const VALID_MARKDOWN = `---
 name: web-search-protocol

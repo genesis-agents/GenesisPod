@@ -5,7 +5,7 @@
 import { SkillActivator } from "../skill-activator";
 import { SkillRegistry } from "../skill-registry";
 import { HookRegistry } from "../../core/hook-registry";
-import { ContextEnvelope } from "../../core/context-envelope";
+import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 import { AgentIdentity } from "../../core/agent-identity";
 import type { ISkill, IAgentIdentity } from "../../abstractions";
 

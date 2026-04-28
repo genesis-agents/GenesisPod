@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiUrlClassifierService } from "../ai-url-classifier.service";
-import { ChatFacade } from "../../../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../../../ai-harness/facade";
 
 describe("AiUrlClassifierService", () => {
   let service: AiUrlClassifierService;

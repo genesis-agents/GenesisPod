@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AiImageAnalyticsService } from "../analytics.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-engine/facade";
+import { ChatFacade } from "../../../../ai-harness/facade";
 
 describe("AiImageAnalyticsService", () => {
   let service: AiImageAnalyticsService;

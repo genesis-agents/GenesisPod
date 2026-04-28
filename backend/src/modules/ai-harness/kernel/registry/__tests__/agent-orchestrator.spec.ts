@@ -1,5 +1,5 @@
 import { AgentOrchestrator } from "../agent-orchestrator";
-import { AgentRegistry } from "../agent-registry";
+import { AgentRegistry } from "../plan-based-agent-registry";
 import { AgentId } from "../../../core/types/agent.types";
 
 // Create mock agent factory

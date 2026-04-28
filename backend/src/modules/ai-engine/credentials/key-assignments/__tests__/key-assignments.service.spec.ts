@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConflictException, Logger, NotFoundException } from "@nestjs/common";
 import { KeyAssignmentsService } from "../key-assignments.service";
 import { DistributableKeysService } from "../../distributable-keys/distributable-keys.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KeyAssignmentStatus } from "@prisma/client";
 import { QuotaExceededError } from "../../key-resolver/key-resolver.errors";
 
