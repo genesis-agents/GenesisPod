@@ -3,7 +3,10 @@ builder = "dockerfile"
 useMetal = false
 
 [deploy]
-# 设置 NODE_ENV=production 以启用生产模式日志（仅 error/warn）
+# 启动入口已统一到 Dockerfile CMD (./scripts/devops/docker-entrypoint.sh)。
+# 这里不再覆盖 startCommand —— Railway 会直接执行 OCI CMD，逻辑跟本地
+# `docker run` 完全一致。脚本本身设置 NODE_ENV / NODE_OPTIONS /
+# PUPPETEER_EXECUTABLE_PATH，并依次跑 diagnose / deploy / exec node dist/main。
 #
 # Harness 灰度开关（在 Railway Variables 面板设置，不在本文件）：
 # - TOPIC_INSIGHTS_USE_HARNESS=1            主开关：允许 harness 路径接管
@@ -11,7 +14,6 @@ useMetal = false
 # - HARNESS_AGENTS_STUB=0                   agent 走真 LLM（不走 stub 占位）
 # 熄火：在 Variables 面板将 TOPIC_INSIGHTS_USE_HARNESS 改为 0 并 redeploy。
 # 监控：GET /harness/health  +  GET /harness/health/history?hours=24
-startCommand = "sh -c 'set -e; export NODE_ENV=production; export NODE_OPTIONS=\"--max-old-space-size=1536\"; export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium; npm run diagnose || true; npm run deploy || exit 1; exec node dist/main'"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 600
 restartPolicyType = "on_failure"
