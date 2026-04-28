@@ -72,6 +72,6 @@ module.exports = {
     "^pptxgenjs$": "<rootDir>/__mocks__/pptxgenjs.js",
     "^jsdom$": "<rootDir>/__mocks__/jsdom.js",
     "pdfjs-dist/legacy/build/pdf.mjs":
-      "<rootDir>/../test/__mocks__/pdfjs-dist.ts",
+      "<rootDir>/../tests/__mocks__/pdfjs-dist.ts",
   },
 };
