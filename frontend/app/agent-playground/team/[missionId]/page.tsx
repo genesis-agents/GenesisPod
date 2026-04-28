@@ -529,6 +529,8 @@ export default function MissionDetailPage() {
                 themeSummary={view.mission.themeSummary}
                 selectedKey={selectedTaskKey}
                 onSelect={(id) => setSelectedTaskKey(id)}
+                missionFailed={!!view.mission.failedAt}
+                missionFailedMessage={view.mission.failedMessage}
               />
             )}
 

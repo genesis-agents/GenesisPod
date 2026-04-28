@@ -28,6 +28,59 @@ import {
   type LeaderSignoffOutput,
 } from "../../agents/leader/leader.agent";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
+import {
+  extractAgentFailureDiagnostic,
+  extractFailureMessage,
+} from "../mission/workflow/helpers/failure-extraction.util";
+
+/**
+ * Recoverable failure codes —— Leader 自愈重试时识别这些码做一次重跑（+50% budget），
+ * 因为它们都是 LLM 一次性偶发问题（schema 不达标 / 截断 / 空响应），重试通常能过。
+ */
+const LEADER_RECOVERABLE = new Set([
+  "RUNNER_OUTPUT_SCHEMA_MISMATCH",
+  "RUNNER_WALL_TIME_EXCEEDED",
+  "RUNNER_LOOP_LIMIT",
+  "LOOP_EMPTY_RESPONSE_IMMEDIATE",
+  "LOOP_REASONING_COT_EXHAUSTION",
+  "PARSE_MALFORMED_JSON",
+  "PARSE_MISSING_ACTION",
+  "PARSE_UNKNOWN_ACTION_KIND",
+  "PARSE_EMPTY_ACTIONS_ARRAY",
+  "BUSINESS_RULE_VIOLATION",
+]);
+
+/**
+ * 把 leader.* runFn result 转为带诊断的失败摘要（用于 throw 时 UI 能看清楚到底挂在哪）。
+ * 优先级：events 里的 failureCode > extractFailureMessage 文本 > generic state。
+ */
+function describeLeaderFailure(
+  phase: string,
+  res: {
+    state: "completed" | "failed" | "cancelled";
+    output?: unknown;
+    events?: readonly unknown[];
+  },
+): { code: string; message: string; recoverable: boolean } {
+  const events = (res.events ?? []) as Parameters<
+    typeof extractAgentFailureDiagnostic
+  >[0];
+  const diag = extractAgentFailureDiagnostic(events);
+  const code = diag?.failureCode ?? "UNKNOWN";
+  const friendly = extractFailureMessage(events, res.state, !!res.output);
+  const message =
+    friendly ??
+    (res.state !== "completed"
+      ? `agent state=${res.state}`
+      : !res.output
+        ? `agent 没有产出 output`
+        : `agent 输出 phase 不是 ${phase}`);
+  return {
+    code,
+    message,
+    recoverable: LEADER_RECOVERABLE.has(code),
+  };
+}
 
 // ── Public types ──
 
@@ -130,25 +183,50 @@ export class SupervisedMission {
     this.context = { missionId, userId, task, decisions: [] };
   }
 
-  /** ★ M0: 拆分维度 + 声明目标 */
+  /** ★ M0: 拆分维度 + 声明目标（带 self-heal：第一次挂在可恢复码 → 自动重试一次） */
   async plan(): Promise<LeaderPlanOutput> {
-    const res = await this.runFn<unknown, LeaderPlanOutput>({
+    const planInput = {
+      phase: "plan" as const,
+      topic: this.context.task.topic,
+      depth: this.context.task.depth,
+      language: this.context.task.language,
+      userProfile: this.context.task.userProfile,
+    };
+
+    let res = await this.runFn<unknown, LeaderPlanOutput>({
       spec: LeaderAgent,
-      input: {
-        phase: "plan",
-        topic: this.context.task.topic,
-        depth: this.context.task.depth,
-        language: this.context.task.language,
-        userProfile: this.context.task.userProfile,
-      },
+      input: planInput,
       agentId: "leader",
     });
+
+    // self-heal：第一次挂在可恢复码（schema 不达标 / 截断 / 空响应）→ 自动重试一次
     if (
       res.state !== "completed" ||
       !res.output ||
       res.output.phase !== "plan"
     ) {
-      throw new Error("Leader.plan failed: agent did not return valid plan");
+      const fail0 = describeLeaderFailure("plan", res);
+      if (fail0.recoverable) {
+        this.log.warn(
+          `[supervisor.plan ${this.context.missionId}] first attempt failed (${fail0.code}: ${fail0.message.slice(0, 200)}); retrying once`,
+        );
+        res = await this.runFn<unknown, LeaderPlanOutput>({
+          spec: LeaderAgent,
+          input: planInput,
+          agentId: "leader.retry1",
+        });
+      }
+    }
+
+    if (
+      res.state !== "completed" ||
+      !res.output ||
+      res.output.phase !== "plan"
+    ) {
+      const fail = describeLeaderFailure("plan", res);
+      // 抛出带完整诊断信息的错误：上层 catch 会把它写到 mission.errorMessage / lifecycle.error，
+      // 前端任务详情就能看到具体失败码和消息（不再是 generic "did not return valid plan"）
+      throw new Error(`Leader.plan failed [${fail.code}]: ${fail.message}`);
     }
     this.context.plan = res.output;
     this.context.decisions.push({
@@ -204,8 +282,9 @@ export class SupervisedMission {
       !res.output ||
       res.output.phase !== "assess-research"
     ) {
+      const fail = describeLeaderFailure("assess-research", res);
       throw new Error(
-        "Leader.assessResearchers failed: agent did not return valid decision",
+        `Leader.assessResearchers failed [${fail.code}]: ${fail.message}`,
       );
     }
     const decision: PastDecision = {
@@ -258,8 +337,9 @@ export class SupervisedMission {
       !res.output ||
       res.output.phase !== "foreword"
     ) {
+      const fail = describeLeaderFailure("foreword", res);
       throw new Error(
-        "Leader.writeForeword failed: agent did not return valid foreword",
+        `Leader.writeForeword failed [${fail.code}]: ${fail.message}`,
       );
     }
     const foreword = { ...res.output, generatedAt: new Date().toISOString() };
@@ -327,9 +407,8 @@ export class SupervisedMission {
       !res.output ||
       res.output.phase !== "signoff"
     ) {
-      throw new Error(
-        "Leader.signOff failed: agent did not return valid sign-off",
-      );
+      const fail = describeLeaderFailure("signoff", res);
+      throw new Error(`Leader.signOff failed [${fail.code}]: ${fail.message}`);
     }
     return res.output;
   }

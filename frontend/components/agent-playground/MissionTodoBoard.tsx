@@ -43,6 +43,9 @@ interface Props {
   themeSummary?: string;
   selectedKey?: string | null;
   onSelect?: (todoId: string | null) => void;
+  /** mission 是否已失败 + 失败消息 —— 让任务列表能自渲染明确的失败兜底 */
+  missionFailed?: boolean;
+  missionFailedMessage?: string;
 }
 
 const STATUS_ROW_STYLES: Record<MissionTodoStatus, string> = {
@@ -207,6 +210,8 @@ export function MissionTodoBoard({
   themeSummary,
   selectedKey,
   onSelect,
+  missionFailed,
+  missionFailedMessage,
 }: Props) {
   // 上方阶段进度条 —— 从 todos 中找 system 类 todo 的状态
   const systemTodoMap = new Map<SystemStageId, MissionTodo>();
@@ -413,11 +418,9 @@ export function MissionTodoBoard({
       <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2">
           <ListChecks className="h-4 w-4 text-violet-500" />
-          <h3 className="text-sm font-semibold text-gray-900">
-            Leader 任务台账
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-900">任务列表</h3>
           <span className="text-xs text-gray-500">
-            · {workTodos.length} 项工作任务
+            · {workTodos.length} 项任务
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
@@ -448,16 +451,41 @@ export function MissionTodoBoard({
 
       {/* Work todos table */}
       {workTodos.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-10 text-center">
-          <Lightbulb className="mx-auto mb-2 h-7 w-7 text-amber-400" />
-          <p className="text-sm font-medium text-gray-700">
-            等 Leader 拆完维度，任务会动态出现
-          </p>
-          <p className="mt-1 text-[11px] text-gray-500">
-            Leader / Reviewer / Critic / Reconciler
-            的每个决策都会向台账追加新条目
-          </p>
-        </div>
+        missionFailed ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-700">
+                  Mission 失败 · 任务列表为空
+                </p>
+                <p className="mt-1 text-[12px] leading-relaxed text-red-800">
+                  Leader 拆维度阶段就挂了，没有产生任何子任务。
+                </p>
+                {missionFailedMessage && (
+                  <pre className="font-mono mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-white/70 p-2 text-[11px] leading-relaxed text-red-900 ring-1 ring-red-200">
+                    {missionFailedMessage}
+                  </pre>
+                )}
+                <p className="mt-2 text-[11px] text-red-700/80">
+                  点击上方进度条「拆维度」格子查看 Leader 诊断详情，或在 Mission
+                  列表页 Rerun 重试。
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-10 text-center">
+            <Lightbulb className="mx-auto mb-2 h-7 w-7 text-amber-400" />
+            <p className="text-sm font-medium text-gray-700">
+              等 Leader 拆完维度，任务会动态出现
+            </p>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Leader / Reviewer / Critic / Reconciler
+              的每个决策都会向任务列表追加新条目
+            </p>
+          </div>
+        )
       ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <table className="w-full table-fixed">

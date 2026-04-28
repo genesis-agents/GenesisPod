@@ -928,27 +928,23 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         'success'
       );
     } else if (t === 'agent-playground.mission:failed') {
-      upsert(
-        'system:s11-persist',
-        () =>
-          systemStageInit(
-            's11-persist',
-            '落库 + 索引',
-            '把 mission 全部产出写入数据库',
-            'mission',
-            ev.timestamp
-          ),
-        (t0) => {
-          t0.status = 'failed';
-          t0.endedAt = ev.timestamp;
+      // mission 失败：把当前正在跑的 stage 标 failed（因为它就是真正挂掉的那个），
+      // pending 的 stage 保持 pending（它们根本没跑），不要级联红化。
+      const failMsg = (p.message as string) ?? '未知错误';
+      for (const id of order) {
+        const td = todos.get(id)!;
+        if (td.scope !== 'system') continue;
+        if (td.status === 'in_progress') {
+          td.status = 'failed';
+          td.endedAt = ev.timestamp;
+          addNarrative(
+            td.id,
+            ev.timestamp,
+            `Mission 失败：${failMsg}`,
+            'error'
+          );
         }
-      );
-      addNarrative(
-        'system:s11-persist',
-        ev.timestamp,
-        `Mission 失败：${(p.message as string) ?? '未知错误'}`,
-        'error'
-      );
+      }
     }
   }
 
