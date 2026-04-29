@@ -808,6 +808,7 @@ export default function MissionDetailPage() {
         todo={selectedTodo}
         agents={view.agents}
         dimensionPipelines={view.dimensionPipelines}
+        allTodos={todoLedger}
         onClose={() => setSelectedTaskKey(null)}
       />
 

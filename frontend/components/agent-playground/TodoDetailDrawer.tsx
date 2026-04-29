@@ -57,6 +57,8 @@ interface Props {
   todo: MissionTodo | undefined;
   agents: AgentLiveState[];
   dimensionPipelines?: Map<string, DimensionPipelineState>;
+  /** 全量 todos 列表 — 用于 dim 父级 drawer 展示「本维度被 Leader 要求修改了什么」 */
+  allTodos?: MissionTodo[];
   onClose: () => void;
 }
 
@@ -346,6 +348,7 @@ export function TodoDetailDrawer({
   todo,
   agents,
   dimensionPipelines,
+  allTodos,
   onClose,
 }: Props) {
   const [showTimeline, setShowTimeline] = useState(true);
@@ -467,19 +470,135 @@ export function TodoDetailDrawer({
             />
           </div>
 
-          {/* Reason */}
-          {todo.reasonText && (
-            <Card className="px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600">
-                任务起因
-              </p>
-              <ExpandableText
-                text={todo.reasonText}
-                maxChars={300}
-                className="mt-1 text-[13px] leading-relaxed text-gray-800"
-              />
-            </Card>
-          )}
+          {/* Reason — 重派/重写类任务用更醒目的 Tone callout 展示「具体要求修改什么」 */}
+          {todo.reasonText &&
+            (todo.origin === 'leader-assess-retry' ||
+            todo.origin === 'leader-assess-replace' ||
+            todo.origin === 'leader-assess-extend' ||
+            todo.origin === 'reviewer-revise' ||
+            todo.origin === 'critic-blindspot' ||
+            todo.origin === 'self-heal-retry' ? (
+              <ToneCard
+                tone={
+                  todo.origin === 'critic-blindspot'
+                    ? 'error'
+                    : todo.origin === 'self-heal-retry'
+                      ? 'warn'
+                      : 'warn'
+                }
+                label={
+                  todo.origin === 'leader-assess-retry'
+                    ? 'Leader 要求修改（patch 内容）'
+                    : todo.origin === 'leader-assess-replace'
+                      ? 'Leader 要求换签 spec'
+                      : todo.origin === 'leader-assess-extend'
+                        ? 'Leader 追加维度的理由'
+                        : todo.origin === 'reviewer-revise'
+                          ? 'Reviewer 要求重写的 critique'
+                          : todo.origin === 'critic-blindspot'
+                            ? 'L4 Critic 警示'
+                            : '自愈触发理由'
+                }
+              >
+                <ExpandableText
+                  text={todo.reasonText}
+                  maxChars={800}
+                  className="text-[13px] leading-relaxed text-amber-900"
+                />
+              </ToneCard>
+            ) : (
+              <Card className="px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600">
+                  任务起因
+                </p>
+                <ExpandableText
+                  text={todo.reasonText}
+                  maxChars={300}
+                  className="mt-1 text-[13px] leading-relaxed text-gray-800"
+                />
+              </Card>
+            ))}
+
+          {/* dim 父级 drawer：展示「本维度被 Leader / Reviewer 要求修改了什么」一览 */}
+          {todo.scope === 'dimension' &&
+            !todo.parentId &&
+            allTodos &&
+            (() => {
+              const childPatches = allTodos.filter(
+                (x) =>
+                  x.parentId === todo.id &&
+                  (x.origin === 'leader-assess-retry' ||
+                    x.origin === 'leader-assess-replace' ||
+                    x.origin === 'leader-assess-extend' ||
+                    x.origin === 'reviewer-revise' ||
+                    x.origin === 'critic-blindspot')
+              );
+              if (childPatches.length === 0) return null;
+              return (
+                <Section
+                  title="Leader / Reviewer 要求的修改"
+                  count={`${childPatches.length} 项`}
+                >
+                  <ul className="space-y-2 p-3">
+                    {childPatches.map((c) => {
+                      const ORIGIN_LABEL_MAP: Record<string, string> = {
+                        'leader-assess-retry': 'Leader 重派',
+                        'leader-assess-replace': 'Leader 换签',
+                        'leader-assess-extend': 'Leader 追加',
+                        'reviewer-revise': 'Reviewer 重写',
+                        'critic-blindspot': 'Critic 警示',
+                      };
+                      const live =
+                        c.status === 'in_progress' || c.status === 'pending';
+                      return (
+                        <li
+                          key={c.id}
+                          className={cn(
+                            'rounded-md border px-3 py-2',
+                            live
+                              ? 'border-orange-200 bg-orange-50/40'
+                              : c.status === 'done'
+                                ? 'border-emerald-200 bg-emerald-50/40'
+                                : 'border-gray-200 bg-gray-50/40'
+                          )}
+                        >
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="font-mono text-[10px] font-semibold text-orange-700">
+                              {ORIGIN_LABEL_MAP[c.origin] ?? c.origin}
+                            </span>
+                            <span
+                              className={cn(
+                                'rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1',
+                                live
+                                  ? 'bg-orange-100 text-orange-700 ring-orange-200'
+                                  : c.status === 'done'
+                                    ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+                                    : 'bg-gray-100 text-gray-600 ring-gray-200'
+                              )}
+                            >
+                              {live
+                                ? '进行中'
+                                : c.status === 'done'
+                                  ? '已完成'
+                                  : c.status === 'failed'
+                                    ? '失败'
+                                    : c.status === 'cancelled'
+                                      ? '已放弃'
+                                      : '待启动'}
+                            </span>
+                          </div>
+                          <ExpandableText
+                            text={c.reasonText}
+                            maxChars={500}
+                            className="text-[12px] leading-relaxed text-gray-700"
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Section>
+              );
+            })()}
 
           {/* Failure callout */}
           {todo.status === 'failed' && linkedAgent?.failureMessage && (

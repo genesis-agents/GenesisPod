@@ -777,11 +777,20 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         dimensionRef: dim,
       }));
       if (parentTodo) {
+        // ★ 关键修复：Leader 重派时父 dim 从 done 回退到 in_progress，
+        //   sub-status 才能在 UI 上显示"重派采集中"，让用户看到 dim 真在重做
+        if (
+          isLeaderTriggered &&
+          (parentTodo.status === 'done' || parentTodo.status === 'failed')
+        ) {
+          parentTodo.status = 'in_progress';
+          parentTodo.endedAt = undefined;
+        }
         addNarrative(
           parentTodo.id,
           ev.timestamp,
           isLeaderTriggered
-            ? 'Leader 派出重试任务（见子任务）'
+            ? `Leader 触发重派：${critique?.slice(0, 200) ?? '需要补充证据'}`
             : '触发自愈重试',
           'warn'
         );

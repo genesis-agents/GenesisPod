@@ -59,9 +59,40 @@ interface Props {
 /** dim 任务细分状态：采集 / 撰写 / 复审 / 重写 / 评分 / 完成 / 失败 */
 function deriveDimSubStatus(
   td: MissionTodo,
-  pipelines?: Map<string, DimensionPipelineState>
+  pipelines?: Map<string, DimensionPipelineState>,
+  allTodos?: MissionTodo[]
 ): { label: string; tone: string } | null {
   if (td.scope !== 'dimension') return null;
+  // ★ 优先级最高：若该 dim 有 leader-assess-* 子任务在 in_progress，整个 dim 显示"重派采集中"
+  //   即便 dim 本身之前已 graded，Leader 重派时 UI 必须明确表达"在重做"
+  if (allTodos && td.scope === 'dimension') {
+    const liveLeaderRetry = allTodos.find(
+      (x) =>
+        x.parentId === td.id &&
+        (x.origin === 'leader-assess-retry' ||
+          x.origin === 'leader-assess-replace' ||
+          x.origin === 'leader-assess-extend') &&
+        (x.status === 'in_progress' || x.status === 'pending')
+    );
+    if (liveLeaderRetry) {
+      return {
+        label: 'Leader 重派采集中',
+        tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+      };
+    }
+    const liveSelfHeal = allTodos.find(
+      (x) =>
+        x.parentId === td.id &&
+        x.origin === 'self-heal-retry' &&
+        (x.status === 'in_progress' || x.status === 'pending')
+    );
+    if (liveSelfHeal) {
+      return {
+        label: '自愈重试中',
+        tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+      };
+    }
+  }
   if (td.status === 'failed')
     return {
       label: '采集失败',
@@ -731,7 +762,7 @@ export function MissionTodoBoard({
               );
               const modelId = agents ? resolveModel(td, agents) : undefined;
               // Mission 已取消时，仍在 pending / in_progress 的 dim 任务统一展示"已取消"
-              const baseSub = deriveDimSubStatus(td, dimensionPipelines);
+              const baseSub = deriveDimSubStatus(td, dimensionPipelines, todos);
               const subStatus =
                 missionCancelled &&
                 td.scope === 'dimension' &&
