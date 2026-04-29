@@ -367,6 +367,38 @@ model Resource {
   @@map("resources")
 }
 
+// Resource lifecycle event log — 不可变审计轨迹。
+// 记录所有 link health / archival / hard-deletion 决策（带原因和操作来源），
+// 即使原 Resource 被物理删除也保留快照，便于回溯。
+model ResourceLifecycleEvent {
+  id         String  @id @default(uuid())
+  resourceId String  @map("resource_id") // 不加 FK，删除后保留事件
+  // 删除时的快照（resource 已不存在时仍可看）
+  sourceUrl  String? @map("source_url") @db.Text
+  title      String? @db.VarChar(1000)
+  type       String? @db.VarChar(50) // ResourceType 枚举值快照
+
+  // HEALTH_CHECK_BROKEN | ARCHIVED | HARD_DELETED | RECOVERED | INGESTION_REJECTED
+  action String @db.VarChar(40)
+
+  // 触发原因（机器可读）—— oembed-400-malformed-id / oembed-401-private /
+  // oembed-404-deleted / stale-30d / orphaned-broken-no-attachments / manual-cleanup 等
+  reason String @db.VarChar(80)
+
+  // SCHEDULER | MANUAL_SCRIPT | API_ADMIN | INGESTION_RSS
+  actor String @db.VarChar(40)
+
+  // 失败计数、HTTP 状态、批次 id 等附加上下文
+  metadata Json? @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([resourceId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([reason, createdAt(sort: Desc)])
+  @@map("resource_lifecycle_events")
+}
+
 // 用户对资源的点赞记录
 model ResourceUpvote {
   id         String   @id @default(uuid())
