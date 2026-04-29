@@ -1,0 +1,242 @@
+import { runAnalystStage } from "./s6-analyst-synthesize-insights.stage";
+import type { MissionContext } from "../mission-context";
+import type { MissionDeps } from "../mission-deps";
+
+const ANALYST_OUTPUT = {
+  insights: [
+    {
+      headline: "AI grows",
+      narrative: "AI is growing",
+      supportingDimensions: ["Market", "Tech"],
+      confidence: 0.9,
+    },
+    {
+      headline: "Risks abound",
+      narrative: "There are risks",
+      supportingDimensions: ["Policy"],
+      confidence: 0.8,
+    },
+  ],
+  themeSummary: "AI is transforming everything",
+  contradictions: [],
+};
+
+function makeCtx(overrides: Partial<MissionContext> = {}): MissionContext {
+  return {
+    missionId: "m6",
+    userId: "u1",
+    t0: Date.now(),
+    budgetMultiplier: 1.0,
+    input: {
+      topic: "AI",
+      depth: "deep",
+      language: "zh-CN",
+      auditLayers: "standard",
+    } as MissionContext["input"],
+    billing: {} as MissionContext["billing"],
+    pool: {
+      snapshot: jest
+        .fn()
+        .mockReturnValue({ poolCostUsd: 0, poolTokensUsed: 0 }),
+    } as unknown as MissionContext["pool"],
+    leader: {} as MissionContext["leader"],
+    researcherResults: [
+      {
+        dimension: "Market",
+        findings: [{ claim: "c", evidence: "e", source: "http://a.com" }],
+        summary: "ok",
+      },
+    ],
+    reconciliationReport: null,
+    ...overrides,
+  } as unknown as MissionContext;
+}
+
+function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
+  return {
+    emit: jest.fn().mockResolvedValue(undefined),
+    log: {
+      warn: jest.fn(),
+      log: jest.fn(),
+      debug: jest.fn(),
+      error: jest.fn(),
+    },
+    lifecycle: jest.fn().mockResolvedValue(undefined),
+    analyst: {
+      analyze: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: ANALYST_OUTPUT,
+        events: [],
+        wallTimeMs: 1000,
+        iterations: 4,
+      }),
+    },
+    missionState: {
+      compressIfNeeded: jest.fn().mockImplementation((x: unknown) => x),
+    },
+    invoker: {
+      tickCost: jest.fn().mockResolvedValue(undefined),
+      preDisableKnownFailingModels: jest.fn().mockResolvedValue(undefined),
+      resolveLoopOverride: jest.fn().mockReturnValue(undefined),
+    },
+    ...overrides,
+  } as unknown as MissionDeps;
+}
+
+describe("runAnalystStage (S6)", () => {
+  it("throws if researcherResults missing", async () => {
+    const ctx = makeCtx({ researcherResults: undefined });
+    const deps = makeDeps();
+    await expect(runAnalystStage(ctx, deps)).rejects.toThrow(
+      /researcherResults/,
+    );
+  });
+
+  it("happy path: writes ctx.analystOutput and returns analyst", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    const result = await runAnalystStage(ctx, deps);
+    expect(ctx.analystOutput).toBeDefined();
+    expect(result.insights).toHaveLength(2);
+  });
+
+  it("emits stage:started and stage:completed", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    await runAnalystStage(ctx, deps);
+    const types = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
+    expect(types).toContain("agent-playground.stage:started");
+    expect(types).toContain("agent-playground.stage:completed");
+  });
+
+  it("first attempt null → retries once with simplified prompt", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    let callCount = 0;
+    (deps.analyst.analyze as jest.Mock).mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          state: "failed",
+          output: null,
+          events: [],
+          wallTimeMs: 0,
+          iterations: 1,
+        });
+      }
+      return Promise.resolve({
+        state: "completed",
+        output: ANALYST_OUTPUT,
+        events: [],
+        wallTimeMs: 0,
+        iterations: 1,
+      });
+    });
+    const result = await runAnalystStage(ctx, deps);
+    expect(callCount).toBe(2);
+    expect(result.insights).toHaveLength(2);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("first attempt returned no output"),
+    );
+  });
+
+  it("two consecutive null → throws", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.analyst.analyze as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      events: [],
+      wallTimeMs: 0,
+      iterations: 1,
+    });
+    await expect(runAnalystStage(ctx, deps)).rejects.toThrow(/连续 2 次/);
+  });
+
+  it("lifecycle called started/completed on success", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    await runAnalystStage(ctx, deps);
+    const calls = (deps.lifecycle as jest.Mock).mock.calls;
+    expect(calls[0][4]).toBe("started");
+    expect(calls[1][4]).toBe("completed");
+  });
+
+  it("lifecycle called failed when analyst fails", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.analyst.analyze as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      events: [],
+      wallTimeMs: 0,
+      iterations: 1,
+    });
+    await runAnalystStage(ctx, deps).catch(() => {});
+    const failedCall = (deps.lifecycle as jest.Mock).mock.calls.find(
+      (c) => c[4] === "failed",
+    );
+    expect(failedCall).toBeDefined();
+  });
+
+  it("compressIfNeeded called for researcherResults handoff", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    await runAnalystStage(ctx, deps);
+    expect(deps.missionState.compressIfNeeded).toHaveBeenCalledWith(
+      expect.anything(),
+      "analyst.researcherResults",
+    );
+  });
+
+  it("stage:completed includes insightsCount", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    await runAnalystStage(ctx, deps);
+    const completed = (deps.emit as jest.Mock).mock.calls.find(
+      (c) =>
+        c[0].type === "agent-playground.stage:completed" &&
+        c[0].payload?.stage === "analyst",
+    );
+    expect(completed[0].payload.insightsCount).toBe(2);
+  });
+
+  it("passes reconciliationReport to analyst.analyze when available", async () => {
+    const recon = { factTable: [], conflicts: [], gaps: [] };
+    const ctx = makeCtx({
+      reconciliationReport: recon as MissionContext["reconciliationReport"],
+    });
+    const deps = makeDeps();
+    await runAnalystStage(ctx, deps);
+    const analyzeCall = (deps.analyst.analyze as jest.Mock).mock.calls[0][0];
+    expect(analyzeCall.reconciliationReport).toBe(recon);
+  });
+
+  it("second attempt uses analyst.retry agentId", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    let firstCall = true;
+    (deps.analyst.analyze as jest.Mock).mockImplementation(() => {
+      if (firstCall) {
+        firstCall = false;
+        return Promise.resolve({
+          state: "failed",
+          output: null,
+          events: [],
+          wallTimeMs: 0,
+          iterations: 1,
+        });
+      }
+      return Promise.resolve({
+        state: "completed",
+        output: ANALYST_OUTPUT,
+        events: [],
+        wallTimeMs: 0,
+        iterations: 1,
+      });
+    });
+    await runAnalystStage(ctx, deps);
+    const secondCall = (deps.analyst.analyze as jest.Mock).mock.calls[1][1];
+    expect(secondCall.agentId).toBe("analyst.retry");
+  });
+});
