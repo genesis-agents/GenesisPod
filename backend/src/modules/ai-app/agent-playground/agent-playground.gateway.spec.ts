@@ -88,126 +88,142 @@ describe("AgentPlaygroundGateway", () => {
   });
 
   describe("handleJoin", () => {
-    it("returns error when missionId is missing", () => {
+    it("returns error when missionId is missing", async () => {
       const socket = makeMockSocket();
-      const result = gateway.handleJoin(socket as never, { missionId: "" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "",
+      });
       expect(result.ok).toBe(false);
       expect(result.error).toBe("missionId required");
     });
 
-    it("returns error when payload is null-ish", () => {
+    it("returns error when payload is null-ish", async () => {
       const socket = makeMockSocket();
-      const result = gateway.handleJoin(
+      const result = await gateway.handleJoin(
         socket as never,
         null as unknown as { missionId: string },
       );
       expect(result.ok).toBe(false);
     });
 
-    it("returns auth error when token is missing", () => {
+    it("returns auth error when token is missing", async () => {
       const socket = makeMockSocket({});
-      const result = gateway.handleJoin(socket as never, {
+      const result = await gateway.handleJoin(socket as never, {
         missionId: "m-1",
       });
       expect(result.ok).toBe(false);
       expect(result.error).toContain("auth");
     });
 
-    it("returns auth error when JWT is invalid", () => {
+    it("returns auth error when JWT is invalid", async () => {
       jwt.verify.mockImplementation(() => {
         throw new UnauthorizedException("bad token");
       });
       const socket = makeMockSocket({ token: "bad" });
-      const result = gateway.handleJoin(socket as never, { missionId: "m-1" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
       expect(result.ok).toBe(false);
       expect(result.error).toBeDefined();
     });
 
-    it("returns mission not found when ownership registry returns no owner", () => {
+    it("returns mission not found when ownership registry returns no owner", async () => {
       ownership.getOwner.mockReturnValue(undefined);
       const socket = makeMockSocket({ token: "valid" });
-      const result = gateway.handleJoin(socket as never, { missionId: "m-1" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
       expect(result.ok).toBe(false);
       expect(result.error).toBe("mission not found");
     });
 
-    it("returns forbidden when owner does not match userId", () => {
+    it("returns forbidden when owner does not match userId", async () => {
       ownership.getOwner.mockReturnValue("other-user");
       jwt.verify.mockReturnValue({ sub: "user-1" });
       const socket = makeMockSocket({ token: "valid" });
-      const result = gateway.handleJoin(socket as never, { missionId: "m-1" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
       expect(result.ok).toBe(false);
       expect(result.error).toBe("forbidden");
     });
 
-    it("joins room and returns ok when ownership matches", () => {
+    it("joins room and returns ok when ownership matches", async () => {
       ownership.getOwner.mockReturnValue("user-1");
       jwt.verify.mockReturnValue({ sub: "user-1" });
       const socket = makeMockSocket({ token: "valid" });
-      const result = gateway.handleJoin(socket as never, {
+      const result = await gateway.handleJoin(socket as never, {
         missionId: "m-abc",
       });
       expect(result.ok).toBe(true);
       expect(socket.join).toHaveBeenCalledWith("playground:m-abc");
     });
 
-    it("extracts userId from Authorization Bearer header", () => {
+    it("extracts userId from Authorization Bearer header", async () => {
       ownership.getOwner.mockReturnValue("user-2");
       jwt.verify.mockReturnValue({ sub: "user-2" });
       const socket = makeMockSocket({
         Authorization: "Bearer my-token",
       });
-      const result = gateway.handleJoin(socket as never, { missionId: "m-1" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
       expect(result.ok).toBe(true);
       expect(jwt.verify).toHaveBeenCalledWith("my-token");
     });
 
-    it("extracts userId from id field in JWT payload when sub missing", () => {
+    it("extracts userId from id field in JWT payload when sub missing", async () => {
       ownership.getOwner.mockReturnValue("user-from-id");
       jwt.verify.mockReturnValue({ id: "user-from-id" });
       const socket = makeMockSocket({ token: "valid" });
-      const result = gateway.handleJoin(socket as never, { missionId: "m-1" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
       expect(result.ok).toBe(true);
     });
 
-    it("extracts userId from userId field in JWT payload when sub and id missing", () => {
+    it("extracts userId from userId field in JWT payload when sub and id missing", async () => {
       ownership.getOwner.mockReturnValue("user-from-userId");
       jwt.verify.mockReturnValue({ userId: "user-from-userId" });
       const socket = makeMockSocket({ token: "valid" });
-      const result = gateway.handleJoin(socket as never, { missionId: "m-1" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
       expect(result.ok).toBe(true);
     });
 
-    it("returns error when JWT has no user fields", () => {
+    it("returns error when JWT has no user fields", async () => {
       jwt.verify.mockReturnValue({});
       const socket = makeMockSocket({ token: "valid" });
-      const result = gateway.handleJoin(socket as never, { missionId: "m-1" });
+      const result = await gateway.handleJoin(socket as never, {
+        missionId: "m-1",
+      });
       expect(result.ok).toBe(false);
       expect(result.error).toContain("no user");
     });
   });
 
   describe("handleLeave", () => {
-    it("returns ok=false when missionId is missing", () => {
+    it("returns ok=false when missionId is missing", async () => {
       const socket = makeMockSocket();
-      const result = gateway.handleLeave(socket as never, {
+      const result = await gateway.handleLeave(socket as never, {
         missionId: "",
       });
       expect(result.ok).toBe(false);
     });
 
-    it("calls socket.leave with correct room name", () => {
+    it("calls socket.leave with correct room name", async () => {
       const socket = makeMockSocket();
-      const result = gateway.handleLeave(socket as never, {
+      const result = await gateway.handleLeave(socket as never, {
         missionId: "m-xyz",
       });
       expect(result.ok).toBe(true);
       expect(socket.leave).toHaveBeenCalledWith("playground:m-xyz");
     });
 
-    it("returns ok when missionId provided", () => {
+    it("returns ok when missionId provided", async () => {
       const socket = makeMockSocket();
-      const result = gateway.handleLeave(socket as never, {
+      const result = await gateway.handleLeave(socket as never, {
         missionId: "some-id",
       });
       expect(result.ok).toBe(true);
