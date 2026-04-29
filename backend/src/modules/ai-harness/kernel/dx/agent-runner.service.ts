@@ -1368,11 +1368,14 @@ export class AgentRunner {
     //   response_format: json_schema 模式。该模式 OpenAI 在 token 预算内**强制**生成
     //   有效 JSON，从根源消除 reasoning model CoT 吃光 max_tokens → visible 输出空 →
     //   schema 校验 null 的故障类。
+    // ★ Phase P1 fix (2026-04-29 mission bab28b72)：仅当转换出的 JSON Schema 顶层是
+    //   type:"object" 时启用 OpenAI structured output (json_schema mode)。
+    //   discriminatedUnion / union / array 等 root 类型转出的 anyOf 顶层 OpenAI strict
+    //   模式不支持，会报 "schema must be 'type: object', got 'type: None'"。这种 spec
+    //   退回旧 json_object 模式（前置校验）。Leader (discriminatedUnion) 是典型例子。
     let outputJsonSchema: Record<string, unknown> | undefined;
     if (meta.outputSchema) {
       try {
-        // 加 $refStrategy='none' 内联所有引用（OpenAI 不支持 $ref）+ target='openAi' 模式
-        // 用 zodSchema 局部 cast 避免 zod 复杂泛型在 tsc 下 "Type instantiation is excessively deep"
         const zodSchema = meta.outputSchema as unknown as Parameters<
           typeof zodToJsonSchema
         >[0];
@@ -1380,8 +1383,13 @@ export class AgentRunner {
           target: "openAi",
           $refStrategy: "none",
         }) as Record<string, unknown>;
-        // openAi target 已剥掉 $schema/title 等 noise，可直接用
-        outputJsonSchema = raw;
+        if (raw && raw.type === "object") {
+          outputJsonSchema = raw;
+        } else {
+          this.logger.debug(
+            `[${meta.id}] outputSchema 顶层非 type:"object"（type=${JSON.stringify(raw?.type)}, keys=${Object.keys(raw ?? {}).join(",")}），不启用 json_schema 模式，回退到 json_object（OpenAI strict 不支持 union/array root）`,
+          );
+        }
       } catch (err) {
         this.logger.warn(
           `[${meta.id}] zodToJsonSchema 转换失败，回退到 json_object 模式: ` +
