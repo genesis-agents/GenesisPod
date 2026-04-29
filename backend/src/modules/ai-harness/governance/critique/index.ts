@@ -11,6 +11,17 @@
 
 export { CritiqueRefineService } from "./critique-refine.service";
 export type { CritiqueRefineRequest } from "./critique-refine.service";
+// ★ 沉淀 v2: section-level 4 维自评（写中评估，~700 token）
+export { SectionSelfEvalService } from "./section-self-eval.service";
+// ★ 沉淀 v2: 内容缺陷扫描（纯函数 utility，0 LLM）
+export {
+  type ContentDefectScan,
+  type DefectDetail,
+  type DefectDetails,
+  scanContentDefects,
+  createEmptyScan,
+  extractDefectDetails,
+} from "./defect-scanner";
 export {
   CritiqueCategory,
   CritiqueSeverity,
@@ -20,5 +31,9 @@ export {
   type CritiqueRefineIteration,
   type CritiqueRefineLoopResult,
   type CritiqueRefineConfig,
+  type SelfEvalDimension,
+  type SectionSelfEvalResult,
+  type RemediationAction,
+  type RemediationActionType,
   DEFAULT_CRITIQUE_REFINE_CONFIG,
 } from "./quality.types";

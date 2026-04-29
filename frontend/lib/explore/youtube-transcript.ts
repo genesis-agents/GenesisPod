@@ -218,6 +218,90 @@ export async function fetchTranscriptFromClient(
   }
 }
 
+export interface TranslatedSegment extends TranscriptSegment {
+  translatedText: string;
+}
+
+/**
+ * 上传翻译结果到服务器缓存（全局共享，所有用户复用）
+ * 注意：调用前后端要求该 videoId 的原始字幕已通过 uploadTranscriptToCache 入库
+ */
+export async function saveTranslationToCache(
+  videoId: string,
+  translatedTranscript: TranslatedSegment[],
+  targetLanguage: string,
+  apiBaseUrl: string
+): Promise<boolean> {
+  if (!translatedTranscript.length) return true;
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/youtube/save-translation`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId,
+          translatedTranscript,
+          targetLanguage,
+        }),
+      }
+    );
+    return response.ok;
+  } catch (error) {
+    logger.error('Failed to save translation to cache:', error);
+    return false;
+  }
+}
+
+/**
+ * 查询某视频是否已有保存的翻译
+ */
+export async function getTranslationStatus(
+  videoId: string,
+  apiBaseUrl: string
+): Promise<{ hasTranslation: boolean; targetLanguage?: string }> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/youtube/translation-status/${videoId}`
+    );
+    if (!response.ok) return { hasTranslation: false };
+    const result = await response.json();
+    const data = result?.data ?? result;
+    return {
+      hasTranslation: !!data?.hasTranslation,
+      targetLanguage: data?.targetLanguage,
+    };
+  } catch (error) {
+    logger.warn('Failed to get translation status:', error);
+    return { hasTranslation: false };
+  }
+}
+
+/**
+ * 拉取已保存的翻译（双语对齐）
+ * 复用 /youtube/subtitles，命中保存翻译时其 chinese 字段会被自动填充
+ */
+export async function fetchSavedTranslation(
+  videoId: string,
+  apiBaseUrl: string
+): Promise<TranscriptSegment[] | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/youtube/subtitles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId }),
+    });
+    if (!response.ok) return null;
+    const result = await response.json();
+    const data = result?.data ?? result;
+    if (!data?.hasTranslation || !Array.isArray(data?.chinese)) return null;
+    return data.chinese as TranscriptSegment[];
+  } catch (error) {
+    logger.warn('Failed to fetch saved translation:', error);
+    return null;
+  }
+}
+
 /**
  * 上传字幕到服务器缓存
  */

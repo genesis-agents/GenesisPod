@@ -83,9 +83,10 @@ export { JudgeService } from "../governance/verify";
 export type { BuiltInVerifierId } from "../governance/verify";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
 export { FigureRelevanceService } from "../governance/figure";
-// ★ 沉淀（2026-04-29）: Reflexion critique-refine 闭环（来自 topic-insights）
+// ★ 沉淀（2026-04-29）: Reflexion critique-refine + section-self-eval + defect-scanner
 export {
   CritiqueRefineService,
+  SectionSelfEvalService,
   CritiqueCategory,
   CritiqueSeverity,
   type CritiqueItem,
@@ -93,6 +94,16 @@ export {
   type CritiqueRefineRequest,
   type CritiqueRefineLoopResult,
   type CritiqueRefineConfig,
+  type SelfEvalDimension,
+  type SectionSelfEvalResult,
+  type RemediationAction,
+  type RemediationActionType,
+  type ContentDefectScan,
+  type DefectDetail,
+  type DefectDetails,
+  scanContentDefects,
+  createEmptyScan,
+  extractDefectDetails,
   DEFAULT_CRITIQUE_REFINE_CONFIG,
 } from "../governance/critique";
 
