@@ -477,7 +477,11 @@ export class AgentPlaygroundController {
       auditLayers: originalProfile?.auditLayers ?? "default",
       concurrency: originalProfile?.concurrency ?? 3,
       viewMode: originalProfile?.viewMode ?? "continuous",
-      maxCredits: 300,
+      // ★ 继承原 mission 的预算上限，不再硬编码 300（深度档位需要 600+）
+      maxCredits:
+        (original as { maxCredits?: number }).maxCredits ??
+        originalProfile?.maxCredits ??
+        300,
     };
 
     const newMissionId = randomUUID();

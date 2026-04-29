@@ -422,6 +422,17 @@ export default function MissionDetailPage() {
               <span className="h-2 w-2 rounded-full bg-red-500" />
               <span className="text-sm font-medium text-red-700">已失败</span>
             </div>
+          ) : view.mission.completedAt &&
+            persisted?.status === 'quality-failed' ? (
+            <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              <span
+                className="text-sm font-medium text-amber-700"
+                title="Leader 拒签，但报告仍可阅读"
+              >
+                质量未达标
+              </span>
+            </div>
           ) : view.mission.completedAt ? (
             <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
