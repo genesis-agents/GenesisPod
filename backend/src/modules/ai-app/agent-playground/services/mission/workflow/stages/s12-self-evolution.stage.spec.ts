@@ -229,4 +229,18 @@ describe("runSelfEvolutionStage (S12)", () => {
       runSelfEvolutionStage(BASE_INPUT, deps),
     ).resolves.toBeUndefined();
   });
+
+  it("wallTimeMs > 1h → wall-time recommendation included", async () => {
+    const deps = makeDeps();
+    const longRunInput = {
+      ...BASE_INPUT,
+      t0: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
+    };
+    await runSelfEvolutionStage(longRunInput, deps);
+    const postmortemCall = (deps.store.recordMissionPostmortem as jest.Mock)
+      .mock.calls[0][0];
+    expect(
+      postmortemCall.recommendations.some((r: string) => r.includes("墙时")),
+    ).toBe(true);
+  });
 });

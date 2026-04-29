@@ -272,4 +272,56 @@ describe("runCriticStage (S9)", () => {
     await runCriticStage(ctx, deps);
     expect(deps.invoker.tickCost).toHaveBeenCalled();
   });
+
+  it("verifierVerdicts undefined → defaults to [] (upstreamReviewerVerdict falsy branch)", async () => {
+    const ctx = makeCtx({ verifierVerdicts: undefined });
+    const deps = makeDeps();
+    await runCriticStage(ctx, deps);
+    expect(deps.reviewer.criticL4).toHaveBeenCalled();
+    const callArg = (deps.reviewer.criticL4 as jest.Mock).mock.calls[0][0];
+    expect(callArg.upstreamReviewerVerdict).toBeUndefined();
+  });
+
+  it("reviewScore undefined → defaults to 0", async () => {
+    const ctx = makeCtx({ reviewScore: undefined });
+    const deps = makeDeps();
+    await runCriticStage(ctx, deps);
+    expect(deps.reviewer.criticL4).toHaveBeenCalled();
+  });
+
+  it("LLM output with invalid/non-array fields → uses fallback empty arrays", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.reviewer.criticL4 as jest.Mock).mockResolvedValue({
+      state: "completed",
+      output: {
+        overallVerdict: "unknown-verdict",
+        blindspots: "not an array",
+        biasFlags: null,
+        suggestions: 42,
+        rationale: 99,
+      },
+      events: [],
+      wallTimeMs: 500,
+      iterations: 1,
+    });
+    await runCriticStage(ctx, deps);
+    const verdictCall = (deps.emit as jest.Mock).mock.calls.find(
+      (c) => c[0].type === "agent-playground.critic:verdict",
+    );
+    expect(verdictCall).toBeDefined();
+    expect(verdictCall[0].payload.verdict).toBe("concerns");
+    expect(verdictCall[0].payload.blindspotCount).toBe(0);
+    expect(verdictCall[0].payload.biasCount).toBe(0);
+  });
+
+  it("criticL4 throws non-Error → String(err) branch covered", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.reviewer.criticL4 as jest.Mock).mockRejectedValue("string error");
+    await expect(runCriticStage(ctx, deps)).resolves.toBeUndefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("L4 critic failed"),
+    );
+  });
 });
