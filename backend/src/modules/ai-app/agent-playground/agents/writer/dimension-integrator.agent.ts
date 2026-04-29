@@ -6,10 +6,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -44,10 +41,14 @@ const Output = z.object({
       "Integrate multiple chapters into a coherent dimension report + abstract + key findings",
   },
   loop: "react",
-  taskProfile: { creativity: "low", outputLength: "long" },
+  // ★ Round 3 真问题修复 (2026-04-29):
+  //   原 outputLength="long" → 8000 maxTokens，远小于多章拼接后字数 (epic 一个 dim 可能 30K+)。
+  //   配合 commit fd78b3480 (assembler 优先用 chapter 拼) 已治标，但 integrator 输出本身仍被截。
+  //   切到 "extended" → 16000 maxTokens，让 integrator 真能产出完整的 dim fullMarkdown。
+  taskProfile: { creativity: "low", outputLength: "extended" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 14_000, maxIterations: 3 },
+  budget: { maxTokens: 22_000, maxIterations: 3 },
 })
 export class DimensionIntegratorAgent extends AgentSpec<
   typeof Input,

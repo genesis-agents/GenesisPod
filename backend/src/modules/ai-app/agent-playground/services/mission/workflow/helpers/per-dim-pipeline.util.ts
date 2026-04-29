@@ -228,7 +228,12 @@ export async function runPerDimPipeline(
     wordCount: number;
   }[] = [];
   const previousHeadings: string[] = [];
-  const MAX_REVISION_ATTEMPTS = 2;
+  // ★ Round 3 真问题修复 (2026-04-29):
+  //   原 MAX=2 (最多 1+2=3 attempts)。配合 outputLength=long 截断，2 次 revise 不够把字数补回。
+  //   chapter-writer 已升到 outputLength=extended (16K maxTokens)，再加 1 次 revise 机会
+  //   让"prompt 强化扩写 + 模型有空间输出"组合发挥效果。
+  //   预期：用户实测 25K 实际 5K (20%) → 期望提升到 ≥ 60%。
+  const MAX_REVISION_ATTEMPTS = 3;
   const PASS_THRESHOLD = 75;
 
   for (const chapter of outline.chapters) {

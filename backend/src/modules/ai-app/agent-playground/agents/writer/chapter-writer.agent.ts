@@ -49,10 +49,15 @@ const Output = z.object({
       "Writes one chapter of a dimension report, TI-style strict format",
   },
   loop: "react",
-  taskProfile: { creativity: "medium", outputLength: "long" },
+  // ★ Round 3 真问题修复 (2026-04-29):
+  //   原 outputLength="long" → 8000 maxTokens，等于 targetWords 上限 (8000 字)。
+  //   中文 1:1 token，意味着 LLM 单次输出永远会被 maxTokens 截断到约 80% 实际产出。
+  //   这是用户实测"extended (25K) 实际只 5K (20%)"的真因之一。
+  //   切到 "extended" → 16000 maxTokens，给 8000 字 chapter 留出 2× 缓冲。
+  taskProfile: { creativity: "medium", outputLength: "extended" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 18_000, maxIterations: 4 },
+  budget: { maxTokens: 22_000, maxIterations: 4 },
 })
 export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
