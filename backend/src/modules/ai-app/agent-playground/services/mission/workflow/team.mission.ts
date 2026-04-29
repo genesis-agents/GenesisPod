@@ -39,6 +39,7 @@ import {
   MissionBudgetPool,
 } from "../../../../../ai-harness/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
+import { withUserContext } from "../../../../../../common/context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import { LeaderAgent } from "../../../agents/leader/leader.agent";
@@ -298,112 +299,116 @@ export class TeamMission {
       } as Record<string, unknown>,
     });
 
-    return BillingContext.run(
-      {
-        userId,
-        moduleType: "agent-playground",
-        operationType: "team",
-        referenceId: missionId,
-      },
-      async () => {
-        const t0 = Date.now();
-        try {
-          const result = await this.runMissionBody(
-            missionId,
-            input,
-            userId,
-            workspaceId,
-            pool,
-            t0,
-            billing,
-            // depth × budgetProfile 组合倍率：让两个 lever 协同 scale agent budget
-            resolveBudgetMultiplier(input),
-          );
-          // ── Stage 99: 持久化（已抽到 stages/s11-mission-persist.stage.ts）──
-          await runPersistStage(
-            { missionId, t0, result, pool },
-            this.buildStageDeps(),
-          );
-          // ── Stage 100: S12 self-evolution（best-effort，不阻塞返回）──
-          //   异步执行，让用户立即拿到 result；evolved 事件后续 emit 给前端
-          void runSelfEvolutionStage(
-            {
+    // ★ 必须同时 wrap withUserContext —— BillingContext 不会自动让 RequestContext.getUserId() 看到 userId，
+    //   reflexion / verifier 等异步内部调用 AiChatService 需要 RequestContext 拿 BYOK userId。
+    return withUserContext(userId, () =>
+      BillingContext.run(
+        {
+          userId,
+          moduleType: "agent-playground",
+          operationType: "team",
+          referenceId: missionId,
+        },
+        async () => {
+          const t0 = Date.now();
+          try {
+            const result = await this.runMissionBody(
               missionId,
+              input,
               userId,
-              t0,
+              workspaceId,
               pool,
-              plan: result.themeSummary
-                ? {
-                    dimensions: (result.dimensions ?? []) as unknown[],
-                    goals: undefined,
-                  }
-                : undefined,
-              researcherResults: result.dimensions as unknown[] | undefined,
-              reportArtifact: result.reportArtifact as
-                | { quality?: { overall?: number }; sections?: unknown[] }
-                | undefined,
-              leaderSignOff: result.leaderSignOff,
-            },
-            this.buildStageDeps(),
-          ).catch(() => {});
-          clearTimeout(wallTimer);
-          this.abortRegistry.unregister(missionId);
-          return result;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          const errName = err instanceof Error ? err.name : "Unknown";
-          const snap = pool.snapshot();
-          // ★ mission 级失败码归类
-          let missionFailureCode: string = "UNKNOWN";
-          if (
-            errName === "InsufficientCreditsException" ||
-            /credit|余额不足|insufficient/i.test(message)
-          ) {
-            missionFailureCode = "ORCH_CREDIT_INSUFFICIENT";
-          } else if (errName === "ByokRequiredError") {
-            missionFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
-          } else if (
-            errName === "InputValidationError" ||
-            errName === "DefineAgentMissingError"
-          ) {
-            missionFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
-          } else if (/timeout|timed out/i.test(message)) {
-            missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
-          } else if (/rate.?limit|429/i.test(message)) {
-            missionFailureCode = "PROVIDER_RATE_LIMIT";
-          } else if (!/aborted|cancelled/i.test(message)) {
-            missionFailureCode = "PROVIDER_API_ERROR";
-          }
-          // 任何 uncaught 错误都要让 UI 知道 —— 否则 status 永远停在 "running"
-          await this.invoker
-            .emitEvent({
-              type: "agent-playground.mission:failed",
-              missionId,
-              userId,
-              payload: {
-                message,
-                failureCode: missionFailureCode,
-                errorName: errName,
-                wallTimeMs: Date.now() - t0,
-                tokensUsed: snap.poolTokensUsed,
-                costUsd: snap.poolCostUsd,
-                diagnostic: {
-                  errorStack: err instanceof Error ? err.stack : undefined,
-                },
+              t0,
+              billing,
+              // depth × budgetProfile 组合倍率：让两个 lever 协同 scale agent budget
+              resolveBudgetMultiplier(input),
+            );
+            // ── Stage 99: 持久化（已抽到 stages/s11-mission-persist.stage.ts）──
+            await runPersistStage(
+              { missionId, t0, result, pool },
+              this.buildStageDeps(),
+            );
+            // ── Stage 100: S12 self-evolution（best-effort，不阻塞返回）──
+            //   异步执行，让用户立即拿到 result；evolved 事件后续 emit 给前端
+            void runSelfEvolutionStage(
+              {
+                missionId,
+                userId,
+                t0,
+                pool,
+                plan: result.themeSummary
+                  ? {
+                      dimensions: (result.dimensions ?? []) as unknown[],
+                      goals: undefined,
+                    }
+                  : undefined,
+                researcherResults: result.dimensions as unknown[] | undefined,
+                reportArtifact: result.reportArtifact as
+                  | { quality?: { overall?: number }; sections?: unknown[] }
+                  | undefined,
+                leaderSignOff: result.leaderSignOff,
               },
-            })
-            .catch(() => {});
-          await this.store.markFailed(missionId, {
-            errorMessage: message,
-            tokensUsed: snap.poolTokensUsed,
-            costUsd: snap.poolCostUsd,
-            wallTimeMs: Date.now() - t0,
-          });
-          clearTimeout(wallTimer);
-          this.abortRegistry.unregister(missionId);
-          throw err;
-        }
-      },
+              this.buildStageDeps(),
+            ).catch(() => {});
+            clearTimeout(wallTimer);
+            this.abortRegistry.unregister(missionId);
+            return result;
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            const errName = err instanceof Error ? err.name : "Unknown";
+            const snap = pool.snapshot();
+            // ★ mission 级失败码归类
+            let missionFailureCode: string = "UNKNOWN";
+            if (
+              errName === "InsufficientCreditsException" ||
+              /credit|余额不足|insufficient/i.test(message)
+            ) {
+              missionFailureCode = "ORCH_CREDIT_INSUFFICIENT";
+            } else if (errName === "ByokRequiredError") {
+              missionFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
+            } else if (
+              errName === "InputValidationError" ||
+              errName === "DefineAgentMissingError"
+            ) {
+              missionFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
+            } else if (/timeout|timed out/i.test(message)) {
+              missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
+            } else if (/rate.?limit|429/i.test(message)) {
+              missionFailureCode = "PROVIDER_RATE_LIMIT";
+            } else if (!/aborted|cancelled/i.test(message)) {
+              missionFailureCode = "PROVIDER_API_ERROR";
+            }
+            // 任何 uncaught 错误都要让 UI 知道 —— 否则 status 永远停在 "running"
+            await this.invoker
+              .emitEvent({
+                type: "agent-playground.mission:failed",
+                missionId,
+                userId,
+                payload: {
+                  message,
+                  failureCode: missionFailureCode,
+                  errorName: errName,
+                  wallTimeMs: Date.now() - t0,
+                  tokensUsed: snap.poolTokensUsed,
+                  costUsd: snap.poolCostUsd,
+                  diagnostic: {
+                    errorStack: err instanceof Error ? err.stack : undefined,
+                  },
+                },
+              })
+              .catch(() => {});
+            await this.store.markFailed(missionId, {
+              errorMessage: message,
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
+              wallTimeMs: Date.now() - t0,
+            });
+            clearTimeout(wallTimer);
+            this.abortRegistry.unregister(missionId);
+            throw err;
+          }
+        },
+      ),
     );
   }
 

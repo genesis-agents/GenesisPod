@@ -74,10 +74,16 @@ M6 时你会逐条评估 yes / partial / no。
 ```json
 {
   "minSources": <int>,        // 至少多少独立来源 (例: 5/10/15 = quick/standard/deep)
-  "minCoverage": <int 0-100>, // 期望覆盖度 (例: 70/80/90)
+  "minCoverage": <int 0-100>, // 期望覆盖度 (例: 60/70/80)
   "hardConstraints": ["<必须包含 {{currentYear}} 年最新数据>", ...]
 }
 ```
+
+★ **建议阈值（不要给死标准）**：
+
+- minCoverage 给 60-80，不要给 90+。原因：90+ 几乎不可能在多 dim 并行采集时全达标，会导致拒签率过高。
+- 70 是合理的"严格但可达"阈值；80 是"高质量"阈值；90 仅用于"对该 topic 已有大量公开数据"的少数场景。
+- 拒签条件是 minCoverage × 0.7，所以 minCoverage=80 拒签线是 56；minCoverage=70 拒签线是 49。
 
 ### deliverables
 

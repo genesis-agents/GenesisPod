@@ -89,6 +89,7 @@ export class ChapterReviewerAgent extends AgentSpec<
       `## decision 规则`,
       `- ≥ 70 分 → "pass"（不要为格式细节卡死，正文实质内容达标即可放行）`,
       `- < 70 → "revise" + critique 必须明确指出哪条 checklist 不达标 + 怎么改`,
+      `- ★ 硬规则：实际字数 (${input.chapter.wordCount}) < targetWords (${input.chapter.targetWords}) × 70% (${Math.round(input.chapter.targetWords * 0.7)}) → 强制 "revise"，severity="must-fix"，dimension="length"，要求 writer 显著扩写`,
       ``,
       `## ★ 防过度严格`,
       `chapter-writer 输出的 \`[N]\` 编号引用是合法格式。不要因"未使用 markdown link"扣分。`,

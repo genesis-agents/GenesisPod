@@ -316,6 +316,7 @@ export async function runPerDimPipeline(
           chapterIndex: chapter.index,
           heading: chapter.heading,
           wordCount: draft.wordCount,
+          targetWords: targetWordsPerChapter,
           attempt,
           state: "completed",
         },
