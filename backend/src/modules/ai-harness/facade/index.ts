@@ -83,6 +83,18 @@ export { JudgeService } from "../governance/verify";
 export type { BuiltInVerifierId } from "../governance/verify";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
 export { FigureRelevanceService } from "../governance/figure";
+// ★ 沉淀（2026-04-29）: Reflexion critique-refine 闭环（来自 topic-insights）
+export {
+  CritiqueRefineService,
+  CritiqueCategory,
+  CritiqueSeverity,
+  type CritiqueItem,
+  type CritiqueResult,
+  type CritiqueRefineRequest,
+  type CritiqueRefineLoopResult,
+  type CritiqueRefineConfig,
+  DEFAULT_CRITIQUE_REFINE_CONFIG,
+} from "../governance/critique";
 
 // ── Resource ──
 export { ResourceManagerService } from "../governance/resource/resource-manager.service";

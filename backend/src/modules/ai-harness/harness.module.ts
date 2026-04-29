@@ -76,6 +76,8 @@ import { SpanExporter } from "./runtime/tracer/span-exporter";
 import { JudgeService } from "./governance/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
 import { FigureRelevanceService } from "./governance/figure";
+// ★ 沉淀（2026-04-29）: Reflexion 批评-改进闭环（来自 topic-insights, TI 暂不切换）
+import { CritiqueRefineService } from "./governance/critique";
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
 import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";
@@ -240,6 +242,8 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
     // ★ 沉淀: figure 相关性判断（agent-playground 复用，TI 暂保留私有）
     FigureRelevanceService,
+    // ★ 沉淀: Reflexion critique-refine 闭环
+    CritiqueRefineService,
 
     // ★ PR-G: SpanExporter — AgentTracer 多目标分发（Logger + Langfuse）
     SpanExporter,
@@ -321,6 +325,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ModelPricingRegistry,
     JudgeService,
     FigureRelevanceService, // ★ 沉淀: figure 相关性
+    CritiqueRefineService, // ★ 沉淀: critique-refine
     SpanExporter,
     MCPRelay,
     MCPManager,
