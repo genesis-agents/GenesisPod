@@ -59,6 +59,56 @@ describe("InMemoryVectorStore (PR-I)", () => {
     expect(store.recall([1, 0], { namespace: "u2" })).toHaveLength(1);
   });
 
+  it("clear() without namespace removes all entries", () => {
+    const store = new InMemoryVectorStore();
+    store.add({
+      key: "a",
+      value: 1,
+      embedding: [1],
+      namespace: "ns1",
+      createdAt: 0,
+    });
+    store.add({
+      key: "b",
+      value: 2,
+      embedding: [0],
+      namespace: "ns2",
+      createdAt: 0,
+    });
+    expect(store.size()).toBe(2);
+    store.clear();
+    expect(store.size()).toBe(0);
+  });
+
+  it("clear(namespace) removes only entries in that namespace", () => {
+    const store = new InMemoryVectorStore();
+    store.add({
+      key: "a",
+      value: 1,
+      embedding: [1],
+      namespace: "keep",
+      createdAt: 0,
+    });
+    store.add({
+      key: "b",
+      value: 2,
+      embedding: [1],
+      namespace: "remove",
+      createdAt: 0,
+    });
+    store.add({
+      key: "c",
+      value: 3,
+      embedding: [1],
+      namespace: "remove",
+      createdAt: 0,
+    });
+    store.clear("remove");
+    expect(store.size()).toBe(1);
+    expect(store.recall([1], { namespace: "keep" })).toHaveLength(1);
+    expect(store.recall([1], { namespace: "remove" })).toHaveLength(0);
+  });
+
   it("evicts oldest when over capacity", () => {
     const store = new InMemoryVectorStore();
     store.setCapacity(2);

@@ -220,6 +220,75 @@ describe("PrismaVectorStore", () => {
     });
   });
 
+  describe("evictIfNeeded() — LRU eviction when over capacity", () => {
+    it("evicts oldest entries when namespace count exceeds capacity", async () => {
+      // perNamespaceCapacity = 5000; simulate count=5001 (1 overflow)
+      const oldestRow = { id: "old-id" };
+      const deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+      const findMany = jest
+        .fn()
+        .mockImplementation(
+          (
+            args:
+              | {
+                  where?: { namespace?: string };
+                  orderBy?: unknown;
+                  take?: number;
+                  select?: unknown;
+                }
+              | undefined,
+          ) => {
+            // When called for recall (no take), return []
+            // When called for eviction (take=1), return oldestRow
+            if (args?.take === 1) return Promise.resolve([oldestRow]);
+            return Promise.resolve([]);
+          },
+        );
+      const count = jest.fn().mockResolvedValue(5001);
+      const prisma = makePrisma({ findMany, deleteMany, count });
+      const store = new PrismaVectorStore(prisma as never);
+
+      await store.add({
+        namespace: "full-ns",
+        entryKey: "new-key",
+        content: "new content",
+        embedding: [1, 0],
+        confidence: 1,
+        tags: [],
+      });
+
+      // Flush the fire-and-forget evictIfNeeded promise
+      await new Promise((r) => setImmediate(r));
+
+      expect(count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { namespace: "full-ns" } }),
+      );
+      expect(deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ["old-id"] } } }),
+      );
+    });
+
+    it("skips eviction when namespace count is within capacity", async () => {
+      const deleteMany = jest.fn().mockResolvedValue({ count: 0 });
+      const count = jest.fn().mockResolvedValue(100); // well within 5000
+      const prisma = makePrisma({ deleteMany, count });
+      const store = new PrismaVectorStore(prisma as never);
+
+      await store.add({
+        namespace: "light-ns",
+        entryKey: "k1",
+        content: "content",
+        embedding: [1, 0],
+        confidence: 1,
+        tags: [],
+      });
+
+      await new Promise((r) => setImmediate(r));
+
+      expect(deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe("size()", () => {
     it("returns total count without namespace filter", async () => {
       const prisma = makePrisma({ count: jest.fn().mockResolvedValue(42) });
