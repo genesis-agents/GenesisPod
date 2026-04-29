@@ -84,6 +84,7 @@ export type { BuiltInVerifierId } from "../governance/verify";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
 export { FigureRelevanceService } from "../governance/figure";
 // ★ 沉淀（2026-04-29）: Reflexion critique-refine + section-self-eval + defect-scanner
+//   v3 (同日): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 export {
   CritiqueRefineService,
   SectionSelfEvalService,
@@ -98,6 +99,8 @@ export {
   type SectionSelfEvalResult,
   type RemediationAction,
   type RemediationActionType,
+  type RemediationResult,
+  type RemediationTrace,
   type ContentDefectScan,
   type DefectDetail,
   type DefectDetails,
@@ -105,6 +108,28 @@ export {
   createEmptyScan,
   extractDefectDetails,
   DEFAULT_CRITIQUE_REFINE_CONFIG,
+  // v3
+  ReportQualityGateService,
+  type QualityViolation,
+  type QualityCheckResult,
+  SectionRemediationService,
+  ReportEvaluationService,
+  type EvaluationDimension,
+  type ChapterEvaluation,
+  type EvaluationResult,
+  type ModelComparisonEntry,
+  type ChapterInput,
+  QualityTraceComputeService,
+  type QualityTraceContext,
+  type QualityTrace,
+  type QualityTraceEvidence,
+  type EvidenceQualityProbe,
+  type DimensionOutputProbe,
+  type PostProcessingProbe,
+  type SynthesisOutputProbe,
+  type FinalAssessmentProbe,
+  type OutputReviewProbe,
+  type PromptMetadata,
 } from "../governance/critique";
 
 // ── Resource ──

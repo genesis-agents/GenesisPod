@@ -15,7 +15,7 @@
  * 输出：ReportArtifact (v2)
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import type {
   ArtifactCitation,
   ArtifactFactTriple,
@@ -31,6 +31,10 @@ import {
   dedupeFigureCandidates,
   isGarbageFigureUrl,
 } from "../../utils/figure-filter.util";
+// ★ 沉淀消费（2026-04-29）：harness quality-gate 标杆实现
+import { ReportQualityGateService } from "@/modules/ai-harness/facade";
+// ★ 沉淀消费（2026-04-29）：engine LLM 输出后处理 — strip-chart-json
+import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
 interface AssembleInput {
   topic: string;
@@ -102,6 +106,10 @@ interface AssembleInput {
 
 @Injectable()
 export class ReportAssemblerService {
+  private readonly logger = new Logger(ReportAssemblerService.name);
+
+  constructor(private readonly qualityGate: ReportQualityGateService) {}
+
   /**
    * 主入口：组装 ReportArtifact
    */
@@ -112,6 +120,24 @@ export class ReportAssemblerService {
     input = this.normalizeInlineCitations(input);
     // 1) 构建主 markdown（无图占位符）+ 格式修复（Phase P1-9）
     let fullMarkdown = this.applyFormatFixes(this.buildFullMarkdown(input));
+
+    // 1.5) ★ harness quality-gate（沉淀自 TI）：full-report 级硬性规则 + 自动修复
+    //      规则覆盖：分割线 / 加粗密度 / 引用块密度 / 语言一致性 / 主观表达 / 引用孤儿 / 单源声明
+    //      自动修复后内容覆盖 fullMarkdown，违规记录推到 quality.warnings
+    const gateLang = input.language?.startsWith("en") ? "en" : "zh";
+    const gateResult = this.qualityGate.validateFullReport(
+      fullMarkdown,
+      gateLang,
+    );
+    if (gateResult.wasAutoFixed) {
+      fullMarkdown = gateResult.fixedContent;
+    }
+    if (gateResult.violations.length > 0) {
+      this.logger.log(
+        `[QualityGate] full-report: ${gateResult.violations.length} violations` +
+          ` (passed=${gateResult.passed}): ${gateResult.violations.map((v) => v.rule).join(", ")}`,
+      );
+    }
 
     // 2) sections 树（按 ## 标题切分 + 类型推断）
     let sections = this.buildSectionTree(fullMarkdown, input);
@@ -163,6 +189,14 @@ export class ReportAssemblerService {
       input,
       fullMarkdown,
     );
+
+    // 8.5) ★ 把 harness quality-gate 的违规推入 quality.warnings（前端可见）
+    for (const v of gateResult.violations) {
+      quality.warnings.push({
+        dimension: `quality_gate.${v.rule}`,
+        message: v.message,
+      });
+    }
 
     return {
       content: {
@@ -362,6 +396,9 @@ export class ReportAssemblerService {
 
   private applyFormatFixes(md: string): string {
     let content = md;
+    // 0. ★ 沉淀消费：清理 LLM 泄漏的图表 JSON 块、Figure References 元数据、裸 JSON 行
+    //    （Writer 偶尔把内部 chart 结构打到正文里）
+    content = stripChartJsonFromContent(content);
     // 1. 压缩 ≥3 个连续换行
     content = content.replace(/\n{3,}/g, "\n\n");
     // 2. 修复表格行尾缺 |（简化：行首/尾若无 | 但中间有 |）

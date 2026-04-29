@@ -79,6 +79,10 @@ const QualitySnapshot = z.object({
   criticVerdict: z.enum(["pass", "concerns", "fail"]).optional(),
   criticBlindspots: z.array(z.string()).default([]),
   criticBiases: z.array(z.string()).default([]),
+  // ★ 沉淀消费 v3 (2026-04-29): 10 维客观评审（EVALUATOR 模型独立打分）
+  objectiveScore: z.number().int().min(0).max(100).optional(),
+  objectiveGrade: z.string().optional(),
+  objectiveFeedback: z.string().optional(),
 });
 
 // ── Input: discriminated union by phase ──
@@ -148,6 +152,10 @@ const Input = z.discriminatedUnion("phase", [
       wordCount: z.number().int(),
       reviewerAvgScore: z.number().int().optional(),
       criticVerdict: z.enum(["pass", "concerns", "fail"]).optional(),
+      // ★ 沉淀消费 v3 (2026-04-29): 10 维客观评审（EVALUATOR 模型独立打分）
+      objectiveScore: z.number().int().optional(),
+      objectiveGrade: z.string().optional(),
+      objectiveFeedback: z.string().optional(),
     }),
     dimensionStates: z.array(
       z.object({

@@ -31,6 +31,7 @@ import type {
   ResearchReport,
 } from "../../../dto/run-mission.dto";
 import type { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
+import type { QualityTraceContext } from "../../../../../ai-harness/facade";
 
 export interface MissionContext {
   // ── 不变量（装配时确定）──
@@ -99,4 +100,9 @@ export interface MissionContext {
 
   /** 99-persist.stage.ts */
   trajectoryStored?: number;
+
+  /** ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace 收集 */
+  qualityTraceCtx?: QualityTraceContext;
+  /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */
+  reportEvaluation?: import("../../../../../ai-harness/facade").EvaluationResult;
 }

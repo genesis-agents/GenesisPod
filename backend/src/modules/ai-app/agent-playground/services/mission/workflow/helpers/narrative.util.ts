@@ -36,7 +36,9 @@ export type NarrativeStage =
   | "s6-analyst"
   | "s7-writer-outline"
   | "s8-writer-draft"
+  | "s8b-quality-enhancement"
   | "s9-critic-l4"
+  | "s9b-objective-evaluation"
   | "s10-leader-signoff"
   | "s11-persist";
 

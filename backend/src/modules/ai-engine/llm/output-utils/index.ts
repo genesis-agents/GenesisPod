@@ -4,8 +4,9 @@
  * 纯函数 utility（0 DI，0 LLM）。所有 ai-app 都可用。
  *
  * - sanitize-output: 白名单铁墙清理 LLM 输出（13 个正交修复函数）
+ * - strip-chart-json: 清理 LLM 泄漏的图表 JSON 块、Figure References 元数据
  *
- * TI 仍使用 ai-app/topic-insights/utils/sanitize-output.utils.ts。
+ * TI 是商用基线，保留独立的本地副本不切换到本实现；Playground 等新模块从这里消费。
  */
 
 export {
@@ -23,3 +24,8 @@ export {
   convertLongListItemsToParagraphs,
   removeOrphanCitations,
 } from "./sanitize-output.utils";
+
+export {
+  stripChartJsonFromContent,
+  extractMarkdownFromJsonString,
+} from "./strip-chart-json.utils";

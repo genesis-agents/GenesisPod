@@ -420,10 +420,16 @@ export {
   fixOrdinalBoldPosition,
   convertLongListItemsToParagraphs,
   removeOrphanCitations,
+  // ★ 沉淀（2026-04-29）: 图表 JSON 块清理（LLM 泄漏 metadata 修复）
+  stripChartJsonFromContent,
+  extractMarkdownFromJsonString,
 } from "../llm/output-utils";
 
 // ★ 沉淀（2026-04-29）: figure URL 有效性校验
 export { isValidFigureUrl } from "../safety/security/url-sanitizer.utils";
+
+// ★ 沉淀（2026-04-29）: Report Template — 13 类格式化标准（沉淀自 ai-app/contracts/report-template）
+export * from "../content/report-template";
 
 // ★ 沉淀（2026-04-29）: 引用工具（纯 utility，零 DI）
 export {

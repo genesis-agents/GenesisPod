@@ -125,6 +125,10 @@ export async function runLeaderForewordAndSignoffStage(
         criticVerdict,
         criticBlindspots,
         criticBiases,
+        // ★ 沉淀消费 v3: 注入 10 维客观评分（如果 s9b 跑过）
+        objectiveScore: ctx.reportEvaluation?.overallScore,
+        objectiveGrade: ctx.reportEvaluation?.grade,
+        objectiveFeedback: ctx.reportEvaluation?.feedback,
       },
     });
     ctx.leaderForeword = leaderForeword;
@@ -155,6 +159,10 @@ export async function runLeaderForewordAndSignoffStage(
           wordCount: reportArtifact.metadata.wordCount,
           reviewerAvgScore: reviewerAvg,
           criticVerdict,
+          // ★ 沉淀消费 v3: 注入 10 维客观评分
+          objectiveScore: ctx.reportEvaluation?.overallScore,
+          objectiveGrade: ctx.reportEvaluation?.grade,
+          objectiveFeedback: ctx.reportEvaluation?.feedback,
         },
         dimensionStates,
       );

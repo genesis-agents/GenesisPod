@@ -38,6 +38,11 @@ import {
   JudgeService,
   MemoryAutoIndexer,
   MissionBudgetPool,
+  // ★ 沉淀消费 v3 (2026-04-29): quality 闭环
+  SectionSelfEvalService,
+  SectionRemediationService,
+  ReportEvaluationService,
+  QualityTraceComputeService,
 } from "../../../../../ai-harness/facade";
 import { FigureExtractorService } from "../../../../../ai-engine/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
@@ -81,7 +86,9 @@ import { runReconcilerStage } from "./stages/s5-reconciler-cross-dim-fact-check.
 import { runAnalystStage } from "./stages/s6-analyst-synthesize-insights.stage";
 import { runWriterOutlineStage } from "./stages/s7-writer-plan-outline.stage";
 import { runWriterStage } from "./stages/s8-writer-draft-report.stage";
+import { runSectionQualityEnhancementStage } from "./stages/s8b-section-quality-enhancement.stage";
 import { runCriticStage } from "./stages/s9-reviewer-critic-l4.stage";
+import { runReportObjectiveEvaluationStage } from "./stages/s9b-report-objective-evaluation.stage";
 import { runLeaderForewordAndSignoffStage } from "./stages/s10-leader-foreword-and-signoff.stage";
 import { runPersistStage } from "./stages/s11-mission-persist.stage";
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
@@ -144,6 +151,11 @@ export class TeamMission {
     // ★ 沉淀（2026-04-29）: figure pipeline（agent-playground 复用 ai-engine + ai-harness 沉淀版）
     private readonly figureExtractor: FigureExtractorService,
     private readonly figureRelevance: FigureRelevanceService,
+    // ★ 沉淀消费 v3 (2026-04-29): quality 闭环
+    private readonly sectionSelfEval: SectionSelfEvalService,
+    private readonly sectionRemediation: SectionRemediationService,
+    private readonly reportEvaluation: ReportEvaluationService,
+    private readonly qualityTraceCompute: QualityTraceComputeService,
   ) {}
 
   /**
@@ -586,6 +598,27 @@ export class TeamMission {
         const indexed = s8Ctx.trajectoryStored ?? 0;
         const snap = pool.snapshot();
 
+        // ── Stage S8B: Section quality enhancement (沉淀消费 v3, 2026-04-29)
+        //    4 维写中自评 + 弱维度合并补救 + 强制重评（auditLayers !== "minimal" 时启用）
+        const s8bCtx = this.buildStageCtx({
+          missionId,
+          userId,
+          input,
+          t0,
+          billing,
+          pool,
+          leader,
+          budgetMultiplier,
+          plan,
+          researcherResults,
+          reconciliationReport,
+          reportArtifact,
+          report,
+          reviewScore,
+          verifierVerdicts,
+        });
+        await runSectionQualityEnhancementStage(s8bCtx, this.buildStageDeps());
+
         // ── Stage S9: Reviewer L4 critic（已抽到 stages/s9-reviewer-critic-l4.stage.ts）
         await runCriticStage(
           this.buildStageCtx({
@@ -607,6 +640,27 @@ export class TeamMission {
           }),
           this.buildStageDeps(),
         );
+
+        // ── Stage S9B: 10 维客观评审 (沉淀消费 v3, 2026-04-29)
+        //    EVALUATOR 模型独立打分，给 leader signoff 提供客观证据
+        const s9bCtx = this.buildStageCtx({
+          missionId,
+          userId,
+          input,
+          t0,
+          billing,
+          pool,
+          leader,
+          budgetMultiplier,
+          plan,
+          researcherResults,
+          reconciliationReport,
+          reportArtifact,
+          report,
+          reviewScore,
+          verifierVerdicts,
+        });
+        await runReportObjectiveEvaluationStage(s9bCtx, this.buildStageDeps());
 
         // ── Stage S10: Leader foreword + signoff
         // services/mission/workflow/stages/s10-leader-foreword-and-signoff.stage.ts
@@ -721,6 +775,10 @@ export class TeamMission {
       reportAssembler: this.reportAssembler,
       figureExtractor: this.figureExtractor,
       figureRelevance: this.figureRelevance,
+      sectionSelfEval: this.sectionSelfEval,
+      sectionRemediation: this.sectionRemediation,
+      reportEvaluation: this.reportEvaluation,
+      qualityTraceCompute: this.qualityTraceCompute,
       log: this.log,
       emit: this.invoker.emitEvent.bind(this.invoker),
       lifecycle: this.invoker.emitLifecycle.bind(this.invoker),

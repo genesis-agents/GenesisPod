@@ -121,6 +121,10 @@ export interface LeaderStageOutcomes {
     criticVerdict?: "pass" | "concerns" | "fail";
     criticBlindspots: string[];
     criticBiases: string[];
+    // ★ 沉淀消费 v3 (2026-04-29): 10 维客观评审注入
+    objectiveScore?: number;
+    objectiveGrade?: string;
+    objectiveFeedback?: string;
   };
 }
 
@@ -132,6 +136,10 @@ export interface LeaderFinalQuality {
   wordCount: number;
   reviewerAvgScore?: number;
   criticVerdict?: "pass" | "concerns" | "fail";
+  // ★ 沉淀消费 v3 (2026-04-29): 10 维客观评审注入
+  objectiveScore?: number;
+  objectiveGrade?: string;
+  objectiveFeedback?: string;
 }
 
 interface PastDecision {

@@ -32,6 +32,10 @@ import type {
   MemoryAutoIndexer,
   DomainEventBus,
   FigureRelevanceService,
+  SectionSelfEvalService,
+  SectionRemediationService,
+  ReportEvaluationService,
+  QualityTraceComputeService,
 } from "../../../../../ai-harness/facade";
 import type { FigureExtractorService } from "../../../../../ai-engine/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
@@ -84,6 +88,11 @@ export interface MissionDeps {
   // ★ 沉淀（2026-04-29）: figure pipeline（agent-playground 复用，TI 暂保留私有实现）
   readonly figureExtractor: FigureExtractorService;
   readonly figureRelevance: FigureRelevanceService;
+  // ★ 沉淀 v3 (2026-04-29): quality 闭环 — section self-eval / 弱维度补救 / 10 维评审 / 全链路 trace
+  readonly sectionSelfEval: SectionSelfEvalService;
+  readonly sectionRemediation: SectionRemediationService;
+  readonly reportEvaluation: ReportEvaluationService;
+  readonly qualityTraceCompute: QualityTraceComputeService;
 
   // ── bound helpers from trunk class（stage 不关心实现位置）──
   readonly log: Logger;

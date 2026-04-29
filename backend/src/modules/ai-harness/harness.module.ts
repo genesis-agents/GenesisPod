@@ -77,9 +77,14 @@ import { JudgeService } from "./governance/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
 import { FigureRelevanceService } from "./governance/figure";
 // ★ 沉淀（2026-04-29）: Reflexion 批评-改进闭环（来自 topic-insights, TI 暂不切换）
+//   v3 (同日): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 import {
   CritiqueRefineService,
   SectionSelfEvalService,
+  ReportQualityGateService,
+  SectionRemediationService,
+  ReportEvaluationService,
+  QualityTraceComputeService,
 } from "./governance/critique";
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
 import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
@@ -248,6 +253,11 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     // ★ 沉淀: Reflexion critique-refine 闭环
     CritiqueRefineService,
     SectionSelfEvalService,
+    // ★ 沉淀 v3: quality-gate / remediation / evaluation / trace-compute
+    ReportQualityGateService,
+    SectionRemediationService,
+    ReportEvaluationService,
+    QualityTraceComputeService,
 
     // ★ PR-G: SpanExporter — AgentTracer 多目标分发（Logger + Langfuse）
     SpanExporter,
@@ -331,6 +341,10 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     FigureRelevanceService, // ★ 沉淀: figure 相关性
     CritiqueRefineService, // ★ 沉淀: critique-refine
     SectionSelfEvalService, // ★ 沉淀: section-level 4 维自评
+    ReportQualityGateService, // ★ 沉淀 v3: code-enforced 质量门控
+    SectionRemediationService, // ★ 沉淀 v3: 弱维度合并补救
+    ReportEvaluationService, // ★ 沉淀 v3: 10 维结构化报告评审
+    QualityTraceComputeService, // ★ 沉淀 v3: 全链路质量 trace 纯计算
     SpanExporter,
     MCPRelay,
     MCPManager,

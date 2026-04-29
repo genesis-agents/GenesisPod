@@ -1,12 +1,10 @@
 /**
- * Report Template - Shared Report Formatting Standards
+ * Report Template - Shared Report Formatting Standards (re-export shim)
  *
- * Shared across all AI App modules (Topic Insights, Research, Writing, etc.).
- * Contains 13 content type rules enforced via:
- *   L1 Prompt constants → L2 Post-processing pipeline → L3 Frontend rendering
+ * 实现已沉淀到 ai-engine/content/report-template (2026-04-29)。
+ * 本 shim 维持原 import 路径不变，TI 等商用模块零改动。
  *
- * Usage: import { getWritingStandards, splitEnumerationToList } from "@/modules/ai-app/contracts/report-template";
+ * 新模块（Playground 等）请改从 `@/modules/ai-engine/facade` 或
+ * `@/modules/ai-engine/content/report-template` 直接导入。
  */
-export * from "./constants/report-writing-standards";
-export * from "./pipeline/report-formatting.utils";
-export * from "./pipeline/formatting-pipeline";
+export * from "@/modules/ai-engine/content/report-template";
