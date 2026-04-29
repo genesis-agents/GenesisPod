@@ -20,6 +20,7 @@ import { DashboardController } from "./controllers/dashboard.controller";
 import { ConfigurationController } from "./controllers/configuration.controller";
 import { ConfigurationService } from "./services/configuration.service";
 import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
+import { ResourceLifecycleModule } from "../../../explore/resources/resource-lifecycle.module";
 
 /**
  * Ingestion Config Module (数据采集配置模块)
@@ -31,7 +32,13 @@ import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
  * - 导入管理和URL解析
  */
 @Module({
-  imports: [ConfigModule, PrismaModule, HttpModule, RawDataModule],
+  imports: [
+    ConfigModule,
+    PrismaModule,
+    HttpModule,
+    RawDataModule,
+    ResourceLifecycleModule,
+  ],
   providers: [
     SourceWhitelistService,
     CollectionRuleService,
