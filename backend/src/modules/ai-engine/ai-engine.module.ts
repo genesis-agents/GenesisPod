@@ -65,6 +65,9 @@ import { ContentFetchModule } from "./content/fetch/content-fetch.module";
 
 // Other Modules
 import { ImageModule } from "./content/image/image.module";
+// ★ 沉淀（2026-04-29）: figure 抽取（来自 topic-insights，TI 暂不切换）
+//   不创建 sub-module，直接作为 provider 注册（ai-engine.module 已 @Global + imports AiEngineToolsModule）
+import { FigureExtractorService } from "./content/figure";
 // ★ TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），由 RuntimeModule 统一装配
 // ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
@@ -152,6 +155,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === SKILL.md Runtime ===
     PromptSkillBridge,
     InputBindingResolver,
+
+    // ★ 沉淀（2026-04-29）: figure-extractor（来自 topic-insights，agent-playground 复用）
+    FigureExtractorService,
   ],
   exports: [
     // ★ 重新导出子模块
@@ -195,6 +201,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === SKILL.md Runtime ===
     PromptSkillBridge,
     InputBindingResolver,
+
+    // ★ 沉淀: figure-extractor 作为顶层 export
+    FigureExtractorService,
   ],
 })
 export class AiEngineModule implements OnModuleInit {

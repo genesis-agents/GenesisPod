@@ -34,10 +34,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   AgentRunner,
   DomainEventBus,
+  FigureRelevanceService,
   JudgeService,
   MemoryAutoIndexer,
   MissionBudgetPool,
 } from "../../../../../ai-harness/facade";
+import { FigureExtractorService } from "../../../../../ai-engine/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
 import { withUserContext } from "../../../../../../common/context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
@@ -139,6 +141,9 @@ export class TeamMission {
     private readonly verifierService: VerifierService,
     private readonly stewardService: StewardService,
     private readonly invoker: AgentInvoker,
+    // ★ 沉淀（2026-04-29）: figure pipeline（agent-playground 复用 ai-engine + ai-harness 沉淀版）
+    private readonly figureExtractor: FigureExtractorService,
+    private readonly figureRelevance: FigureRelevanceService,
   ) {}
 
   /**
@@ -714,6 +719,8 @@ export class TeamMission {
       runtimeEnv: this.runtimeEnv,
       failureLearner: this.failureLearner,
       reportAssembler: this.reportAssembler,
+      figureExtractor: this.figureExtractor,
+      figureRelevance: this.figureRelevance,
       log: this.log,
       emit: this.invoker.emitEvent.bind(this.invoker),
       lifecycle: this.invoker.emitLifecycle.bind(this.invoker),

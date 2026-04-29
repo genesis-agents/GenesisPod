@@ -31,7 +31,9 @@ import type {
   JudgeService,
   MemoryAutoIndexer,
   DomainEventBus,
+  FigureRelevanceService,
 } from "../../../../../ai-harness/facade";
+import type { FigureExtractorService } from "../../../../../ai-engine/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 
@@ -79,6 +81,9 @@ export interface MissionDeps {
   readonly runtimeEnv: RuntimeEnvironmentService;
   readonly failureLearner: HarnessFailureLearner;
   readonly reportAssembler: ReportAssemblerService;
+  // ★ 沉淀（2026-04-29）: figure pipeline（agent-playground 复用，TI 暂保留私有实现）
+  readonly figureExtractor: FigureExtractorService;
+  readonly figureRelevance: FigureRelevanceService;
 
   // ── bound helpers from trunk class（stage 不关心实现位置）──
   readonly log: Logger;

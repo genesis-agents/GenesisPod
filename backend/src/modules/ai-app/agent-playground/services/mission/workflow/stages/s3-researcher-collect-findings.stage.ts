@@ -413,7 +413,67 @@ async function runOneDim(
       dimension: string;
       findings: { claim: string; evidence: string; source: string }[];
       summary: string;
+      figureCandidates?: {
+        sourceUrl: string;
+        imageUrl?: string;
+        caption: string;
+        sourcePageOrSection?: string;
+        relevanceHint?: "high" | "medium" | "low";
+      }[];
     };
+
+    // ── 沉淀（2026-04-29）: figure pipeline 自动抽图 ─────────────────
+    //   不再依赖 LLM 主动抽 figureCandidates（researcher 经常忽略 prompt）。
+    //   从 findings.source URL 自动 web-scraper 抽图 → embedding 相关性过滤 →
+    //   填回 researcherOut.figureCandidates。
+    if (input.withFigures && researcherOut.findings.length > 0) {
+      try {
+        // 取前 3 个高质量 source URL（避免抽太多浪费时间）
+        const sourceUrls = Array.from(
+          new Set(
+            researcherOut.findings
+              .map((f) => f.source)
+              .filter(
+                (s): s is string =>
+                  typeof s === "string" && /^https?:\/\//i.test(s),
+              )
+              .slice(0, 3),
+          ),
+        );
+        if (sourceUrls.length > 0) {
+          const allFigures = (
+            await Promise.all(
+              sourceUrls.map((url) =>
+                deps.figureExtractor
+                  .extractFiguresFromUrl(url, 15_000)
+                  .catch(() => []),
+              ),
+            )
+          ).flat();
+          if (allFigures.length > 0) {
+            const relevant = await deps.figureRelevance
+              .filterRelevantFigures(allFigures, dim.name)
+              .catch(() => allFigures);
+            // 取前 3 张高相关度图填到 figureCandidates
+            researcherOut.figureCandidates = relevant.slice(0, 3).map((f) => ({
+              sourceUrl: f.imageUrl, // 沉淀实现里 imageUrl 是绝对 URL
+              imageUrl: f.imageUrl,
+              caption: f.caption || `(图自 ${dim.name})`,
+              sourcePageOrSection: f.alt,
+              relevanceHint:
+                f.type === "chart" || f.type === "table" ? "high" : "medium",
+            }));
+            deps.log.log(
+              `[s3 figure-pipeline ${idx}] dim "${dim.name}" 抽 ${allFigures.length} 张 → 相关 ${relevant.length} → 用 ${researcherOut.figureCandidates.length}`,
+            );
+          }
+        }
+      } catch (err) {
+        deps.log.warn(
+          `[s3 figure-pipeline ${idx}] failed (best-effort): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
 
     // ── per-dim chapter pipeline (skip 在 minimal / quick 档位) ──
     const skipChapterPipeline =

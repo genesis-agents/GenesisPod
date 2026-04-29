@@ -367,6 +367,12 @@ export type {
   ImageMatchingResult,
 } from "../content/image/matching";
 
+// ★ 沉淀（2026-04-29）: figure 抽取（来自 topic-insights, TI 暂不切换）
+export {
+  FigureExtractorService,
+  type ExtractedFigure,
+} from "../content/figure";
+
 // ★ Phase 7: Content engine abstractions
 export type {
   ILongContentEngine,
