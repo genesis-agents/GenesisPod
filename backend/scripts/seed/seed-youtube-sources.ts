@@ -48,6 +48,21 @@ const YOUTUBE_CHANNELS = [
     description: "Bloomberg科技新闻与分析",
     keywords: ["tech", "business", "news", "markets", "bloomberg"],
   },
+  {
+    name: "Lenny's Podcast",
+    channelId: "UC6t1O76G0jYXOAoYCm153dA",
+    handle: "@LennysPodcast",
+    description:
+      "Lenny Rachitsky 的产品/增长/职业播客，深度访谈头部公司 PM、CEO、增长专家",
+    keywords: [
+      "product management",
+      "growth",
+      "startup",
+      "career",
+      "saas",
+      "pm",
+    ],
+  },
 ];
 
 async function seedYouTubeSources() {
