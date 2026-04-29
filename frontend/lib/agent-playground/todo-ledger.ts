@@ -715,6 +715,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       const dim = p.dimension as string | undefined;
       const reason = p.reason as string | undefined;
       const critique = p.critique as string | undefined;
+      const willExecute = (p.willExecute as boolean | undefined) ?? true;
       const isLeaderTriggered =
         reason === 'leader-assess-retry' ||
         reason === 'leader-assess-replace' ||
@@ -729,6 +730,21 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             td.status !== 'cancelled'
         );
       if (!dim) continue;
+      // ★ leader-chat-create + willExecute=false：仅是登记事件，不创建 retry 子任务
+      //   （父 dim 由 dimensions:appended 处理器创建为 status=pending）
+      //   避免子任务标 in_progress 误导用户以为在跑
+      if (reason === 'leader-chat-create' && !willExecute) {
+        if (parentTodo) {
+          addNarrative(
+            parentTodo.id,
+            ev.timestamp,
+            (p.note as string | undefined) ??
+              '已登记，待 orchestrator 在下一阶段拉起',
+            'info'
+          );
+        }
+        continue;
+      }
       if (reason === 'leader-assess-abort' && parentTodo) {
         parentTodo.status = 'cancelled';
         parentTodo.endedAt = ev.timestamp;

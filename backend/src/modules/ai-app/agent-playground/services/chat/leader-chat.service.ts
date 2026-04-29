@@ -240,6 +240,11 @@ export class LeaderChatService {
                   reason: "leader-chat-create",
                   rationale: t.rationale,
                   source: "user-chat",
+                  // ★ 关键：标 willExecute=false 让前端区分"已登记但暂未派遣"，
+                  //   不应在 UI 显示为"进行中"，应展示为"等待派遣"+ 提示用户
+                  //   重启 mission 或等 orchestrator boundary 拉起
+                  willExecute: false,
+                  note: "Leader Chat 已登记该维度，待 orchestrator 在下一阶段拉起或用户重启 mission",
                 },
                 timestamp: Date.now(),
               })

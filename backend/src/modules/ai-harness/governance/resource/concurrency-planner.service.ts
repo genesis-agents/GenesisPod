@@ -52,9 +52,16 @@ export class ConcurrencyPlanner {
     const max = opts.max ?? 8;
     const boost = opts.perProviderBoost ?? 2;
 
-    // 用户显式 override 优先（仍受 min/max 边界保护）
+    // 用户显式 override 优先 —— 必须 ≥ 1，否则视为非法（DTO 层应当已 .min(1) 校验，
+    // Planner 这里只防御性兜底；不再静默 clamp 0 → 1，避免用户感知不到的语义改写）
     if (opts.userOverride != null) {
-      const clamped = Math.min(Math.max(opts.userOverride, 1), max);
+      if (opts.userOverride < 1 || !Number.isFinite(opts.userOverride)) {
+        throw new Error(
+          `[ConcurrencyPlanner] userOverride 必须 ≥ 1 的有限数（收到 ${opts.userOverride}）；` +
+            `请在 DTO 层用 z.number().min(1) 拦截非法值`,
+        );
+      }
+      const clamped = Math.min(opts.userOverride, max);
       return {
         concurrency: clamped,
         providerCount: 0,

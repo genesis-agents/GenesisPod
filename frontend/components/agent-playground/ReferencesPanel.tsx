@@ -124,7 +124,9 @@ function CitationCard({ c }: { c: ArtifactCitation }) {
   const occ = c.occurrences?.length ?? 0;
   return (
     <li
-      id={`ref-${c.uuid || c.index}`}
+      // ★ 锚点 id 用 index（数字），与公共 CitationBadge.scrollToRef 的 selector 对齐
+      //   data-cite-uuid 仍保留供 page.tsx 的 setCitationClickCallback 跨面板跳转回查
+      id={`ref-${c.index}`}
       data-cite-uuid={c.uuid}
       className="scroll-mt-4 rounded-md border border-gray-200 bg-white px-3 py-2 transition-all hover:border-violet-200 hover:bg-violet-50/30"
     >

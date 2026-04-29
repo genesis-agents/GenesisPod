@@ -337,7 +337,10 @@ export class WebScraperTool extends BaseTool<
   private normalizeSrc(rawSrc: string, baseUrl: string): string | null {
     const trimmed = rawSrc.trim();
     if (!trimmed) return null;
-    if (trimmed.startsWith("data:image/")) return trimmed;
+    // ★ 关键安全：直接丢弃 data:image —— LLM context 防爆。
+    //   data:image base64 单张轻易 > 100KB，5 张/dim 会撑爆 LLM observation。
+    //   Researcher 的 figureCandidate.sourceUrl 也强制要求 http(s)，data: URL 无法引用。
+    if (trimmed.startsWith("data:")) return null;
     try {
       const abs = new URL(trimmed, baseUrl).toString();
       if (abs.startsWith("https://")) return abs;
