@@ -450,6 +450,18 @@ export async function runWriterStage(
         dimension: r.dimension,
         findings: r.findings,
         summary: r.summary,
+        // ★ per-dim chapter pipeline 产物（fullMarkdown 是 81K 字的"原料"，要传给 assembler）
+        fullMarkdown: (r as { fullMarkdown?: string }).fullMarkdown,
+        chapters: (
+          r as {
+            chapters?: {
+              index: number;
+              heading: string;
+              body: string;
+              wordCount: number;
+            }[];
+          }
+        ).chapters,
         figureCandidates: (r as { figureCandidates?: unknown[] })
           .figureCandidates as
           | {

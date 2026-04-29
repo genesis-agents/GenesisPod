@@ -46,6 +46,14 @@ interface AssembleInput {
     dimension: string;
     findings: { claim: string; evidence: string; source: string }[];
     summary: string;
+    /** ★ per-dim chapter pipeline 产出 —— 装配时优先用，避免 81K 字章节被压成 3K 字摘要 */
+    fullMarkdown?: string;
+    chapters?: {
+      index: number;
+      heading: string;
+      body: string;
+      wordCount: number;
+    }[];
     figureCandidates?: {
       sourceUrl: string;
       imageUrl?: string;
@@ -426,8 +434,23 @@ export class ReportAssemblerService {
       parts.push(input.analyst.themeSummary);
       parts.push("");
     }
-    // 维度章节
+    // ★ 维度章节优先用 per-dim-pipeline 的 fullMarkdown（含全部 chapter）
+    //   如果 dim 没有 fullMarkdown（chapter pipeline 跳过），fallback 到 writerReport.sections
+    const dimWithMarkdown = new Set<string>();
+    for (const r of input.researcherResults) {
+      if (r.fullMarkdown && r.fullMarkdown.trim().length > 200) {
+        parts.push(`## ${r.dimension}`);
+        parts.push("");
+        // 去掉 dim-level fullMarkdown 顶部的 "# 维度名" 标题（避免重复 H1）
+        const cleaned = r.fullMarkdown.replace(/^#\s+[^\n]+\n+/, "");
+        parts.push(cleaned);
+        parts.push("");
+        dimWithMarkdown.add(r.dimension);
+      }
+    }
+    // fallback: writerReport.sections 中没在 dimWithMarkdown 里的（如 cross-dim sections）
     for (const sec of input.writerReport.sections) {
+      if (dimWithMarkdown.has(sec.heading)) continue;
       parts.push(`## ${sec.heading}`);
       parts.push("");
       parts.push(sec.body);
