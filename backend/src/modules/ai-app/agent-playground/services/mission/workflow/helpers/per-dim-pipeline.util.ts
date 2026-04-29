@@ -34,6 +34,8 @@ import { narrate } from "./narrative.util";
 import { restoreGlobalIndices } from "../../../../../../ai-engine/facade";
 // ★ 沉淀 v2: 内容缺陷扫描（纯函数 utility，0 LLM）—— chapter draft 格式缺陷指标
 import { scanContentDefects } from "../../../../../../ai-harness/facade";
+// ★ 沉淀 v4: LLM 输出白名单清理（"铁墙函数"，13 个正交修复）
+import { sanitizeSectionOutput } from "../../../../../../ai-engine/facade";
 
 export interface PerDimPipelineArgs {
   missionId: string;
@@ -304,11 +306,15 @@ export async function runPerDimPipeline(
         });
         break;
       }
-      const draft = writerRes.output as {
+      const rawDraft = writerRes.output as {
         body: string;
         wordCount: number;
         citationsUsed: string[];
       };
+      // ★ 沉淀 v4 接入: sanitizeSectionOutput 白名单清理 LLM 输出
+      //   去掉非内容行（编辑备注 / 字数统计 / 元注释 / 营销空话等）
+      const cleanedBody = sanitizeSectionOutput(rawDraft.body);
+      const draft = { ...rawDraft, body: cleanedBody };
       lastDraft = draft;
       // ★ 沉淀 v2 接入: defect-scanner 在 chapter 完成时扫描格式缺陷，emit 给前端可见
       const defects = scanContentDefects(draft.body);

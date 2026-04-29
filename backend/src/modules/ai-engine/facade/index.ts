@@ -405,6 +405,26 @@ export {
   DEFAULT_RERANK_CONFIG,
 } from "../knowledge/rerank";
 
+// ★ 沉淀（2026-04-29）: LLM 输出后处理（白名单清理 + 13 个正交修复函数）
+export {
+  sanitizeSectionOutput,
+  stripLeadingBulletLists,
+  stripAnalyticalInlineBullets,
+  stripSectionOpeningShortLines,
+  stripCitationStacking,
+  replaceMarketingLanguage,
+  repairBrokenBoldPairs,
+  normalizeTransitionHeadings,
+  normalizeBoldStyle,
+  convertOrdinalBulletsToParagraphs,
+  fixOrdinalBoldPosition,
+  convertLongListItemsToParagraphs,
+  removeOrphanCitations,
+} from "../llm/output-utils";
+
+// ★ 沉淀（2026-04-29）: figure URL 有效性校验
+export { isValidFigureUrl } from "../safety/security/url-sanitizer.utils";
+
 // ★ 沉淀（2026-04-29）: 引用工具（纯 utility，零 DI）
 export {
   type CitationWithContext,
