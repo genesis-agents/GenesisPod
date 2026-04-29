@@ -223,6 +223,28 @@ export class LeaderChatService {
               `[send ${missionId}] broadcast dimensions:appended failed: ${e instanceof Error ? e.message : String(e)}`,
             );
           });
+          // ★ BUG-E 部分修：让前端任务列表立即显示这些新 dim 处于 pending 状态
+          //   每个新 dim 发一条 dimension:retrying 事件（reason=leader-chat-create）
+          //   todo-ledger 已映射为 leader-chat-create origin，会创建任务行可见
+          //   实际 Researcher 派遣由 orchestrator 在下一个 S5 boundary 检测 pending
+          //   dim 时统一拉起（深度修法见 Task #23 追记）。
+          for (let i = 0; i < (decision?.todo?.length ?? 0); i++) {
+            const t = decision.todo[i];
+            await this.eventBus
+              .emit({
+                type: "agent-playground.dimension:retrying",
+                scope: { missionId, userId },
+                agentId: `researcher#chat-${appendedIds[i]}`,
+                payload: {
+                  dimension: t.name,
+                  reason: "leader-chat-create",
+                  rationale: t.rationale,
+                  source: "user-chat",
+                },
+                timestamp: Date.now(),
+              })
+              .catch(() => {});
+          }
         }
       } catch (err) {
         this.log.warn(

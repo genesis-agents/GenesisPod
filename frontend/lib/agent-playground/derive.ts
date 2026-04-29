@@ -345,14 +345,27 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         const modelId = p?.modelId as string | undefined;
         if (modelId) cur.modelId = modelId;
       } else if (t === 'agent-playground.agent:action') {
-        // 关键：parallel_tool_call 的子工具数组在 p.calls，而非 p.input
-        // 把 calls 当作 input 传给消费者，让上层能统一解包
-        const inputOrCalls =
-          p?.input !== undefined
-            ? p.input
-            : Array.isArray(p?.calls)
-              ? p.calls
-              : undefined;
+        // ★ parallel_tool_call 拍平：把 calls[] 数组每条作为独立 action trace 推入
+        //   这样 ComputeUsagePanel 的 buildToolStats 能按 toolId 正确聚合，
+        //   不再出现 90% 工具调用统计丢失的问题（BUG-B）
+        const kind = p?.kind as string | undefined;
+        if (kind === 'parallel_tool_call' && Array.isArray(p?.calls)) {
+          for (let i = 0; i < p.calls.length; i++) {
+            const sub = p.calls[i] as Record<string, unknown> | undefined;
+            cur.trace.push({
+              kind: 'action',
+              ts: ts + i * 0.001, // 微小偏移避免完全相同 ts 引起的排序错乱
+              toolId:
+                (sub?.toolId as string | undefined) ??
+                (sub?.skillId as string | undefined) ??
+                (sub?.kind as string | undefined),
+              input: sub?.input,
+            });
+          }
+          cur.trace.sort((a, b) => a.ts - b.ts);
+          agents.set(agentId, cur);
+          continue;
+        }
         item = {
           kind: 'action',
           ts,
@@ -361,7 +374,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
             (p?.skillId as string | undefined) ??
             (p?.subagentName as string | undefined) ??
             (p?.kind as string | undefined),
-          input: inputOrCalls,
+          input: p?.input,
         };
       } else if (t === 'agent-playground.agent:observation') {
         item = {

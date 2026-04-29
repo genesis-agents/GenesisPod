@@ -120,6 +120,10 @@ function deriveDimSubStatus(
   const writing = chs.filter((c) => c.status === 'writing').length;
   const reviewing = chs.filter((c) => c.status === 'reviewing').length;
   const revising = chs.filter((c) => c.status === 'revising').length;
+  // ★ 已开工章节数 = 任何 status !== 'pending' —— 用于 N/M 副数字（开工/总数）
+  //   主标签按 "最深推进阶段" 决定（passed > review > writing > revising > pending）
+  //   副数字一律是 inflight（开工章节数），不再用单一状态计数
+  const inflight = chs.filter((c) => c.status !== 'pending').length;
   if (failed > 0) {
     return {
       label: `撰写失败 ${failed}/${total}`,
@@ -128,19 +132,19 @@ function deriveDimSubStatus(
   }
   if (revising > 0) {
     return {
-      label: `重写中 · ${revising}/${total}`,
+      label: `重写中 · ${inflight}/${total}`,
       tone: 'bg-orange-100 text-orange-700 ring-orange-200',
     };
   }
   if (reviewing > 0) {
     return {
-      label: `初稿复审 · ${reviewing}/${total}`,
+      label: `初稿复审 · ${inflight}/${total}`,
       tone: 'bg-fuchsia-100 text-fuchsia-700 ring-fuchsia-200',
     };
   }
   if (writing > 0) {
     return {
-      label: `初稿撰写 · ${writing}/${total}`,
+      label: `初稿撰写 · ${inflight}/${total}`,
       tone: 'bg-teal-100 text-teal-700 ring-teal-200',
     };
   }

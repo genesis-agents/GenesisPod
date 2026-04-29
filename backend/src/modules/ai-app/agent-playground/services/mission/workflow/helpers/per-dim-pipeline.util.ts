@@ -29,6 +29,7 @@ import type { BillingRuntimeEnvAdapter } from "../../../../../../ai-harness/faca
 import type { MissionBudgetPool } from "../../../../../../ai-harness/facade";
 import { extractTokenSpend } from "./token-spend.util";
 import { extractFailureMessage } from "./failure-extraction.util";
+import { narrate } from "./narrative.util";
 
 export interface PerDimPipelineArgs {
   missionId: string;
@@ -284,6 +285,15 @@ export async function runPerDimPipeline(
           state: "completed",
         },
       });
+      // ★ BUG-D: 章节级 narrative，让前端时间线不再静默
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "writer",
+        tag: "info",
+        text: `${dimensionName} · §${chapter.index} ${chapter.heading.slice(0, 30)} 撰写完成（${draft.wordCount} 字${attempt > 1 ? `，第 ${attempt} 轮` : ""}）`,
+        agentId: writerAgentId,
+        dimension: dimensionName,
+      });
 
       // ── review ──
       const reviewerAgentId = `chapter-reviewer#${dimensionIdx}.${chapter.index}.${attempt}`;
@@ -354,6 +364,20 @@ export async function runPerDimPipeline(
           score: verdict.score,
           critique: verdict.critique,
         },
+      });
+      // ★ BUG-D: 章节复审 narrative
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "reviewer",
+        tag:
+          verdict.decision === "pass"
+            ? "success"
+            : verdict.score < 60
+              ? "warning"
+              : "info",
+        text: `${dimensionName} · §${chapter.index} 复审 ${verdict.decision === "pass" ? "通过" : "需重写"}（${verdict.score}/100${attempt > 1 ? `，第 ${attempt} 轮` : ""}）`,
+        agentId: reviewerAgentId,
+        dimension: dimensionName,
       });
 
       if (
@@ -498,6 +522,15 @@ export async function runPerDimPipeline(
           axes: g.axes,
           summary: g.summary,
         },
+      });
+      // ★ BUG-D: 维度评分 narrative
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "reviewer",
+        tag: g.overall >= 80 ? "success" : g.overall >= 60 ? "info" : "warning",
+        text: `${dimensionName} · 5 轴评分出炉 ${g.overall}/100（${g.grade}）`,
+        agentId: gradeAgentId,
+        dimension: dimensionName,
       });
     }
   }

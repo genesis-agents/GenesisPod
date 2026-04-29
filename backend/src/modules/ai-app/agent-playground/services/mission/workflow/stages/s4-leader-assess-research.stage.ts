@@ -212,6 +212,15 @@ async function dispatchAssessActions(args: {
   let skipped = 0;
 
   // ── per-dim actions ──
+  // 先处理同步动作（accept / abort / 找不到 dim），收集需要 retry/replace 的 action
+  type RetryJob = {
+    idx: number;
+    dim: { id: string; name: string; rationale: string };
+    critique: string;
+    retryLabel: string;
+    reason: "leader-assess-retry" | "leader-assess-replace";
+  };
+  const retryJobs: RetryJob[] = [];
   for (const action of m1.perDimension) {
     const idx = plan.dimensions.findIndex((d) => d.id === action.dimensionId);
     if (idx < 0) {
@@ -252,37 +261,65 @@ async function dispatchAssessActions(args: {
         ? `[Leader 在评审阶段要求换 spec → 当前只注册了 ResearcherAgent，请用更激进的搜索策略] ${action.critique ?? ""} ${action.newAgentSpecId ? `(原意换为 ${action.newAgentSpecId})` : ""}`.trim()
         : (action.critique ??
           "Leader 在评审阶段要求重做该维度，请提升覆盖率与来源质量");
-
-    await deps
-      .emit({
-        type: "agent-playground.dimension:retrying",
-        missionId,
-        userId,
-        agentId: `researcher#${idx}`,
-        payload: {
-          dimension: dim.name,
-          reason:
-            action.action === "replace-spec"
-              ? "leader-assess-replace"
-              : "leader-assess-retry",
-          critique,
-          bumpedBudgetMultiplier: budgetMultiplier * 1.3,
-        },
-      })
-      .catch(() => {});
-
-    const newOut = await runResearcherWithCritique(ctx, deps, {
-      dim,
+    retryJobs.push({
       idx,
-      budgetMultiplier: budgetMultiplier * 1.3,
+      dim,
       critique,
       retryLabel: `leader-assess-${action.action === "replace-spec" ? "replace" : "retry"}`,
+      reason:
+        action.action === "replace-spec"
+          ? "leader-assess-replace"
+          : "leader-assess-retry",
     });
-    if (newOut) {
-      researcherResults[idx] = newOut;
-      retried++;
-    } else {
-      skipped++;
+  }
+
+  // ★ BUG-F 修复：retry 改并行 dispatch（之前 for-of await 串行，dim-2 要等 dim-1
+  //   跑完才起跑；上限已被 Iter 1b 卡到 2 个，并行不会爆预算）。
+  //   独立 budget multiplier 让每个 Researcher 跑自己的预算空间。
+  if (retryJobs.length > 0) {
+    // 先一次性 emit 所有 retry 事件让前端立即看到
+    for (const job of retryJobs) {
+      await deps
+        .emit({
+          type: "agent-playground.dimension:retrying",
+          missionId,
+          userId,
+          agentId: `researcher#${job.idx}`,
+          payload: {
+            dimension: job.dim.name,
+            reason: job.reason,
+            critique: job.critique,
+            bumpedBudgetMultiplier: budgetMultiplier * 1.3,
+          },
+        })
+        .catch(() => {});
+    }
+    // 并发跑
+    const results = await Promise.all(
+      retryJobs.map((job) =>
+        runResearcherWithCritique(ctx, deps, {
+          dim: job.dim,
+          idx: job.idx,
+          budgetMultiplier: budgetMultiplier * 1.3,
+          critique: job.critique,
+          retryLabel: job.retryLabel,
+        }).catch((err) => {
+          deps.log.warn(
+            `[${missionId}] retry job ${job.dim.name} threw: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return null;
+        }),
+      ),
+    );
+    for (let i = 0; i < retryJobs.length; i++) {
+      const job = retryJobs[i];
+      const newOut = results[i];
+      if (newOut) {
+        researcherResults[job.idx] = newOut;
+        retried++;
+      } else {
+        skipped++;
+      }
     }
   }
 
