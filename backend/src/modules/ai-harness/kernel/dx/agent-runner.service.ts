@@ -990,18 +990,14 @@ export class AgentRunner {
         //   ② tool 没声明 tags → 入选（视为 "通用工具"，如 web-search 类不应因
         //      Leader 给了 academic hint 就被踢出）
         //   ③ tool 声明了 tags 但与 hint 不相交 → 排除（明确不匹配）
-        const hintTagSet = new Set(
-          hint.categories.map((c) => c.toLowerCase()),
-        );
+        const hintTagSet = new Set(hint.categories.map((c) => c.toLowerCase()));
         const refinedPool: string[] = [];
         for (const id of pool) {
           const t = this.toolRegistry.tryGet(id);
           const tags = t?.tags;
           if (!tags || tags.length === 0) {
             refinedPool.push(id); // 通用工具兜底
-          } else if (
-            tags.some((tg) => hintTagSet.has(tg.toLowerCase()))
-          ) {
+          } else if (tags.some((tg) => hintTagSet.has(tg.toLowerCase()))) {
             refinedPool.push(id); // 明确匹配
           }
           // 否则：明确不匹配，排除
@@ -1407,10 +1403,17 @@ export class AgentRunner {
     // 仅 3 次迭代时 LLM 还在 gather 阶段就 RUNNER_LOOP_LIMIT。所以下限是
     // 结构最小 (3)，但不要超过 spec 声明的 base —— 即低成本档 ≈ base，
     // 高成本档不再额外加（已经满足）。
+    //
+    // ★ Phase P1 fix (2026-04-29 mission 8c7b4358 case)：maxIterationsHardCap 是
+    //   spec 声明的"决策边界绝对硬上限"，不被 multiplier 放大。
+    //   budgetMultiplier 7.28× 把 base 5 轮变 36 轮 → LLM 拥有过多 round 永远不 finalize。
+    //   spec 显式声明 maxIterationsHardCap 后，scaleIters 把缩放后的值再 clamp 到上限。
+    const hardCap = meta.budget?.maxIterationsHardCap;
     const scaleIters = (n: number | undefined): number | undefined => {
       if (n == null) return undefined;
       const structuralMin = Math.min(n, 5);
-      return Math.max(structuralMin, Math.round(n * mult));
+      const scaled = Math.max(structuralMin, Math.round(n * mult));
+      return hardCap != null ? Math.min(scaled, hardCap) : scaled;
     };
     const id = meta.identity;
     // Detect already-complete IAgentIdentity (has .role.id with name)

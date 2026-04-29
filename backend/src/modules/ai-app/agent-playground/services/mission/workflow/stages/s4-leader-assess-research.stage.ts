@@ -294,6 +294,27 @@ async function dispatchAssessActions(args: {
         })
         .catch(() => {});
     }
+    // ★ Phase P1 fix (2026-04-29 mission 8c7b4358)：retry phase 启动里程碑事件，
+    //   让 UI / 监控立即看到 "M1 patch dispatching N dims, expected wall=Xs"
+    //   原 case：18:05:53 leader:decision 后到 18:50:07 才有第一个 lifecycle:completed，
+    //   中间 44 min UI 看不到任何 milestone，只有 cost:tick 在涨。
+    const retryStartMs = Date.now();
+    await deps
+      .emit({
+        type: "agent-playground.dimension:retry-phase:started",
+        missionId,
+        userId,
+        payload: {
+          dimsRetrying: retryJobs.map((j) => ({
+            idx: j.idx,
+            dimension: j.dim.name,
+            reason: j.reason,
+          })),
+          bumpedBudgetMultiplier: budgetMultiplier * 1.3,
+          startMs: retryStartMs,
+        },
+      })
+      .catch(() => {});
     // 并发跑
     const results = await Promise.all(
       retryJobs.map((job) =>
@@ -321,6 +342,24 @@ async function dispatchAssessActions(args: {
         skipped++;
       }
     }
+    // retry phase 完成里程碑（含每 dim 是否成功 + 总耗时）
+    await deps
+      .emit({
+        type: "agent-playground.dimension:retry-phase:completed",
+        missionId,
+        userId,
+        payload: {
+          retried,
+          skipped,
+          wallTimeMs: Date.now() - retryStartMs,
+          perDim: retryJobs.map((j, i) => ({
+            idx: j.idx,
+            dimension: j.dim.name,
+            success: !!results[i],
+          })),
+        },
+      })
+      .catch(() => {});
   }
 
   // ── newDimensions[] (redirect) ──

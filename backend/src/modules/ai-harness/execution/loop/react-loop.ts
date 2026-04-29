@@ -209,6 +209,12 @@ export class ReActLoop implements IAgentLoop {
     const TOOL_CIRCUIT_THRESHOLD = 3;
     const toolFailureCounters = new Map<string, number>();
 
+    /**
+     * ★ Phase P1 fix (2026-04-29)：记录上一轮 action kind 给 iteration_progress 事件
+     * 用，让前端 UI 可视化"researcher 正在第 12/15 轮，还在 search"。
+     */
+    let lastActionKind: string | undefined;
+
     while (iteration < criteria.maxIterations) {
       iteration += 1;
 
@@ -216,6 +222,43 @@ export class ReActLoop implements IAgentLoop {
       if (options?.signal?.aborted) {
         yield this.makeEvent(agentId, "terminated", { reason: "cancelled" });
         return;
+      }
+
+      // ─── Phase P1 fix (2026-04-29 mission 8c7b4358)：iteration_progress emit ───
+      // 让上层（mission 事件流 / 前端 UI）每轮都能感知 ReAct 进度，避免 ReAct 长时间
+      // 内部 search 时外部看起来像死掉。approachingLimit=true 时同时在 envelope 里
+      // 注入 system reminder 强力提示 LLM finalize（见下方 0d）。
+      const approachingLimit =
+        criteria.maxIterations - iteration <= 2 && criteria.maxIterations > 3;
+      yield this.makeEvent(agentId, "iteration_progress", {
+        iteration,
+        maxIterations: criteria.maxIterations,
+        progress:
+          criteria.maxIterations > 0 ? iteration / criteria.maxIterations : 0,
+        approachingLimit,
+        lastActionKind,
+      });
+
+      // 0d. ★ Phase P1 fix：逼近 maxIterations 时强力 nudge LLM finalize
+      //   原 case (mission 8c7b4358)：researcher#0 在 retry 阶段跑 60+ ReAct 拍
+      //   始终 parallel_tool_call 不 finalize。原因：leader critique 太刚性 + LLM
+      //   没拿到"剩余轮数"信号。这里在 envelope 里临时注入 reminder，让 LLM
+      //   在剩 ≤ 2 轮时**必须**选 finalize。
+      if (approachingLimit && currentEnvelope instanceof ContextEnvelope) {
+        const remaining = criteria.maxIterations - iteration + 1;
+        const nudge =
+          `[ITERATION BUDGET WARNING] You have ${remaining} iteration(s) left out of ${criteria.maxIterations}. ` +
+          `On THIS turn, you MUST emit { "kind": "finalize", "output": {...} } using whatever tool results you ` +
+          `already have. Do NOT start a new tool_call or parallel_tool_call. ` +
+          `If your output is incomplete, finalize anyway and note the gap in the summary field — ` +
+          `the framework will accept partial results rather than letting you exhaust the budget.`;
+        currentEnvelope = currentEnvelope.append([
+          {
+            role: "user",
+            content: nudge,
+            timestamp: Date.now(),
+          },
+        ]).envelope;
       }
 
       // 0a'. wall-time check（exit-policy.md ExitReason='wall_time_exceeded'）
@@ -601,6 +644,8 @@ export class ReActLoop implements IAgentLoop {
         modelId: usage.modelId,
       });
       yield this.makeEvent(agentId, "action_planned", decision.action);
+      // 记录 action kind 给下一轮 iteration_progress 事件用
+      lastActionKind = decision.action.kind;
 
       // 3. act
       const actionResult = await this.executeAction(

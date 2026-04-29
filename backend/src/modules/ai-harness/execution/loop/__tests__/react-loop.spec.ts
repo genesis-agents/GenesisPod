@@ -13,7 +13,10 @@ import { ReActLoop } from "../react-loop";
 import { HookRegistry } from "../../../kernel/core/hook-registry";
 import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 import { ToolInvoker } from "../../executor/tool-invoker";
-import type { IAgentEvent, ILoopTerminationCriteria } from "../../../kernel/abstractions";
+import type {
+  IAgentEvent,
+  ILoopTerminationCriteria,
+} from "../../../kernel/abstractions";
 
 function makeEnvelope(tools: string[] = []): ContextEnvelope {
   return new ContextEnvelope({
@@ -101,16 +104,35 @@ describe("ReActLoop (Phase 2)", () => {
     );
 
     const types = events.map((e) => e.type);
+    // ★ Phase P1 fix (2026-04-29 mission 8c7b4358)：每轮 ReAct 入口都 emit
+    // iteration_progress 事件，让上层 UI / 监控看到进度，避免 silent 长循环看起来像死掉。
     expect(types).toEqual([
+      "iteration_progress",
       "thinking",
       "action_planned",
       "action_executed",
+      "iteration_progress",
       "thinking",
       "action_planned",
       "action_executed",
       "output",
       "terminated",
     ]);
+    const progressEvents = events.filter(
+      (e) => e.type === "iteration_progress",
+    );
+    expect(progressEvents).toHaveLength(2);
+    expect(progressEvents[0].payload).toMatchObject({
+      iteration: 1,
+      maxIterations: 5,
+      approachingLimit: false,
+    });
+    expect(progressEvents[1].payload).toMatchObject({
+      iteration: 2,
+      maxIterations: 5,
+      approachingLimit: false,
+      lastActionKind: "tool_call",
+    });
     const output = events.find((e) => e.type === "output");
     expect(output?.payload).toEqual({ output: "4" });
   });

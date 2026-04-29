@@ -109,6 +109,17 @@ export interface DefineAgentOptions<
     maxWallTimeMs?: number;
     /** USD 上限；不传则不强制 cost cap */
     maxCostUsd?: number;
+    /**
+     * ★ 决策上限的硬封顶（不被 budgetMultiplier 放大）
+     *
+     * 为什么需要：budgetMultiplier 同时缩放 maxTokens / maxIterations / maxWallTimeMs，
+     * 但 maxIterations 是"决策边界"（LLM 还能搜几轮），不应被多倍放大 ——
+     * 7.28× 把 5 轮变 36 轮直接让 LLM 永远不 finalize（见 P1 case 2026-04-29）。
+     *
+     * 推荐值：spec 默认 maxIterations × 2（容错 retry 一轮的级别）。
+     * 不设置则不封顶（保持向后兼容）。
+     */
+    maxIterationsHardCap?: number;
   };
   /** 默认 system prompt（如果 buildSystemPrompt 不重写，用此） */
   readonly systemPrompt?: string;

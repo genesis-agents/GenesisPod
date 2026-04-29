@@ -103,7 +103,17 @@ const Output = z.object({
   // 6 dim × 30K = 180K（vs 旧 720K），减 75%
   // ★ wallTime 600s（默认 300s）—— withFigures=true 时必须多 1 轮 web-scraper extractImages，
   //   抽图本身 60-120s，5 min 容易超时致 RUNNER_OUTPUT_SCHEMA_MISMATCH retry 风暴。
-  budget: { maxTokens: 30_000, maxIterations: 5, maxWallTimeMs: 600_000 },
+  // ★ Phase P1 fix (2026-04-29 mission 8c7b4358)：maxIterationsHardCap=10 是绝对硬上限。
+  //   leader-assess-research stage 用 budgetMultiplier 7.28× 把 base 5 放大到 36，
+  //   触发 LLM 60+ 轮 parallel_tool_call 永不 finalize 的死循环（44 分钟单 dim retry）。
+  //   硬上限 10 = base 5 × 2，给容错重试一轮但不给"再搜很多轮"的余地。
+  //   maxTokens / maxWallTimeMs 仍允许放大（容错），只锁 maxIterations（决策边界）。
+  budget: {
+    maxTokens: 30_000,
+    maxIterations: 5,
+    maxIterationsHardCap: 10,
+    maxWallTimeMs: 600_000,
+  },
 })
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
@@ -128,6 +138,15 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
           `> ${input.critique}`,
           `这次重做必须直接回应这些问题（覆盖率 / 来源质量 / 证据具体度）。`,
           `不要原样重复上一轮的 query 和 finding。`,
+          ``,
+          `## ★★★ 退出闸（必须遵守，否则被框架强制中断）`,
+          `你**最多 3 轮 parallel_tool_call**。3 轮后 framework 会注入 ITERATION BUDGET WARNING reminder，`,
+          `下一轮 LLM 必须 emit { "kind": "finalize", ... }，不允许再调 tool。`,
+          `如果 3 轮内没集齐 critique 要求的所有源（5-7 个一手源 / 州法 / 执行案例），`,
+          `**直接 finalize 当前 findings**，并在 summary 字段尾部追加：`,
+          `  「未能在 budget 内集齐：[列出还缺什么]」`,
+          `这样 leader 在二审能看到诚实的 gap，比反复刷 tool 跑超时更可信。`,
+          `质量 > 完整：4 条扎实的 finding 比 7 条凑数 finding 更高分。`,
         ].join("\n")
       : "";
 

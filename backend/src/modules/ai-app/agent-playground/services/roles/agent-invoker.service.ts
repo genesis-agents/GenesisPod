@@ -420,6 +420,34 @@ export class AgentInvoker {
             originalTs: ev.timestamp,
           },
         });
+      } else if (ev.type === "iteration_progress") {
+        // ★ Phase P1 fix (2026-04-29 mission 8c7b4358)：把 ReAct 每轮进度透到 mission
+        // 事件流。用途：前端 UI 可视化死循环（reservoir/timeline 卡 60+ 轮再无 milestone
+        // 的场景，原本只有 cost:tick 在涨，现在能看到 iter=12/15 + approachingLimit=true
+        // → 用户/监控立即能识别）。
+        const p = ev.payload as {
+          iteration?: number;
+          maxIterations?: number;
+          progress?: number;
+          approachingLimit?: boolean;
+          lastActionKind?: string;
+        };
+        await this.emitEvent({
+          type: "agent-playground.iteration:progress",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          agentId: ctx.agentId,
+          payload: {
+            agentId: ctx.agentId,
+            role: ctx.role,
+            iteration: p.iteration ?? 0,
+            maxIterations: p.maxIterations ?? 0,
+            progress: p.progress ?? 0,
+            approachingLimit: p.approachingLimit ?? false,
+            lastActionKind: p.lastActionKind,
+            originalTs: ev.timestamp,
+          },
+        });
       } else if (ev.type === "validation_failed") {
         const p = ev.payload as {
           rejectCount?: number;

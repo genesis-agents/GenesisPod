@@ -13,6 +13,7 @@ export type AgentEventType =
   | "reflection" // 自我反思
   | "validation_failed" // finalize 校验闸 reject（D2）
   | "tools_recalled" // Tool Recall 五步流程产物 emit（baseline §1.3）
+  | "iteration_progress" // ★ 每轮 ReAct 进度（iter / maxIter / approachingLimit），用于可视化死循环
   | "output" // 最终输出
   | "error" // 错误
   | "budget_warning" // 预算即将耗尽
@@ -56,6 +57,31 @@ export interface IToolsRecalledEvent extends IAgentEvent {
     categories: readonly string[];
     source: "spec" | "hint" | "spec+hint";
     preferIds?: readonly string[];
+  };
+}
+
+/**
+ * 每轮 ReAct 进度事件 —— 让 mission 事件流可看到 LLM 在第几轮、是否逼近上限。
+ *
+ * 用途：
+ *   - 前端 UI 可视化"researcher 正在 12/15 轮搜索"，避免 ReAct 长时间 silent 看起来像死掉
+ *   - 监控可对 approachingLimit=true 的 agent 告警（leader critique 过严的早期信号）
+ *   - approachingLimit 由 react-loop 在 iter ≥ maxIterations - 2 时设 true，
+ *     同时会在下一轮注入 system reminder 提示 LLM finalize
+ */
+export interface IIterationProgressEvent extends IAgentEvent {
+  type: "iteration_progress";
+  payload: {
+    /** 当前迭代序号（1-based） */
+    iteration: number;
+    /** 本次 run 的 maxIterations 上限 */
+    maxIterations: number;
+    /** iteration / maxIterations，用于 UI 进度条 */
+    progress: number;
+    /** 是否逼近上限（≥ maxIter-2），UI 可标黄/橙提醒 */
+    approachingLimit: boolean;
+    /** 上一轮 LLM 决定的 action kind（observability：知道是在 search 还是 finalize） */
+    lastActionKind?: string;
   };
 }
 
