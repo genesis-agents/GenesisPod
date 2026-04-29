@@ -14,10 +14,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -140,6 +137,8 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `   优先用 ★ recommended 的工具，混合 web-search 兜底。`,
       `3. **At most one scrape/parse round**: 高价值 URL 抓全文用 web-scraper / file-parser。`,
       `   摘要够用就跳过这步。`,
+      `   ★ 调 web-scraper 时**带 extractImages=true** —— 工具会把页面里合法 <img>`,
+      `   （已过滤图标 / pixel / 广告位）放在 output.images 里，可直接抽到 figureCandidates。`,
       `4. **Finalize**: emit { kind: "finalize", output: {...} } matching the schema below.`,
       ``,
       `## Hard constraints to control cost`,
@@ -156,6 +155,7 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `  ❌ 不要写 AI 生成图片（image-generation 工具已禁用 ToolACL）`,
       ``,
       `合法来源：`,
+      `  ✅ web-scraper output.images[]（已过滤图标/pixel；调用时 extractImages=true）`,
       `  ✅ web-scraper 返回的 HTML 内 <img src="...">（必须 https://）`,
       `  ✅ arxiv-search / pubmed 返回的 paper figure URL`,
       `  ✅ data-fetch 拿到的 JSON API 内含图片 URL`,
