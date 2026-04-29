@@ -19,6 +19,10 @@ import {
 } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import {
+  RateLimit,
+  RateLimitGuard,
+} from "../../../common/guards/rate-limit.guard";
 import { Public } from "../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
 import { PrismaService } from "../../../common/prisma/prisma.service";
@@ -406,6 +410,12 @@ export class AgentPlaygroundController {
    * 同时 /replay 端点提供 polling fallback。
    */
   @Post("team/run")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 5,
+    windowSeconds: 60,
+    message: "启动 mission 过于频繁，请稍后再试",
+  })
   runTeam(
     @Body() body: unknown,
     @Request() req: RequestWithUser,
@@ -443,6 +453,12 @@ export class AgentPlaygroundController {
    * 返回新 missionId 给前端跳转。
    */
   @Post("missions/:id/rerun")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 5,
+    windowSeconds: 60,
+    message: "重跑 mission 过于频繁，请稍后再试",
+  })
   async rerunMission(
     @Param("id") missionId: string,
     @Request() req: RequestWithUser,
@@ -510,6 +526,12 @@ export class AgentPlaygroundController {
    * todoTitle）—— todoId 是前端 derive 的虚拟 ID，后端无法独立解析。
    */
   @Post("missions/:id/todos/:todoId/rerun")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "todo 重跑过于频繁，请稍后再试",
+  })
   async rerunTodo(
     @Param("id") missionId: string,
     @Param("todoId") todoId: string,
@@ -587,13 +609,20 @@ export class AgentPlaygroundController {
     // 老 input 复用 + 把 hint 嵌进 topic 末尾（leader plan agent 看 topic 字符串）
     const originalProfile = (original as { userProfile?: unknown })
       .userProfile as Partial<RunMissionInput> | null | undefined;
+    // ★ P1-21 (2026-04-29): rerunTodo 拼接 topic 时给 hint 留足空间，
+    // 否则 hint 全被截掉，leader 看不到重跑意图
+    const TOPIC_LIMIT = 200;
+    const HINT_BLOCK = `\n\n[Re-run focus]\n${hintLines.join("\n")}`;
     const focusedTopic =
       hintLines.length > 0
-        ? `${original.topic}\n\n[Re-run focus]\n${hintLines.join("\n")}`
-        : original.topic;
+        ? (
+            original.topic.slice(0, TOPIC_LIMIT - HINT_BLOCK.length - 3) +
+            HINT_BLOCK
+          ).slice(0, TOPIC_LIMIT)
+        : original.topic.slice(0, TOPIC_LIMIT);
 
     const input: RunMissionInput = {
-      topic: focusedTopic.slice(0, 200),
+      topic: focusedTopic,
       depth: (["quick", "standard", "deep"].includes(
         originalProfile?.depth ?? original.depth,
       )
@@ -772,6 +801,12 @@ export class AgentPlaygroundController {
    * 用户向 Leader 提问 → 系统回复（基于 mission 上下文）→ 两条都持久化。
    */
   @Post("missions/:id/leader-chat")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 30,
+    windowSeconds: 60,
+    message: "Leader Chat 请求过于频繁，请稍后再试",
+  })
   async sendLeaderChat(
     @Param("id") missionId: string,
     @Body() body: { content?: string },
@@ -780,8 +815,9 @@ export class AgentPlaygroundController {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     await this.assertOwnership(missionId, userId);
-    const content = (body?.content ?? "").toString();
-    if (!content.trim()) {
+    // ★ P1-Q (2026-04-29): 先 trim 再校验长度 —— 否则大量空格的 4000 字符可绕过校验
+    const content = (body?.content ?? "").toString().trim();
+    if (!content) {
       throw new BadRequestException("content must be a non-empty string");
     }
     if (content.length > 4000) {

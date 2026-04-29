@@ -13,7 +13,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 
 const HANDOFF_TOKEN_LIMIT = 50_000;
-const CHARS_PER_TOKEN = 3.5; // 中英混合粗估
+// ★ P1-A (2026-04-29): 中文密度 ≈ 1.7 chars/token (tiktoken o200k 实测)，
+// 英文 ≈ 4 chars/token；纯中文 / 中英混合按 2.5 估算 + 20% safety margin（=2.0）
+// 防止低估导致 50K 阈值不触发 → handoff 实际爆 LLM context。
+const CHARS_PER_TOKEN = 2.0;
 
 @Injectable()
 export class MissionStateService {

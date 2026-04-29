@@ -67,49 +67,63 @@ export async function runPersistStage(
         summary?: string;
       });
 
-  // ★ Phase Lead-3: Leader 签字结果同时写入 mission 顶层列
-  if (result.leaderSignOff && !result.leaderSignOff.signed) {
-    await deps.store.markFailed(missionId, {
-      wallTimeMs: Date.now() - t0,
-      errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,
-      tokensUsed: snap.poolTokensUsed,
-      costUsd: snap.poolCostUsd,
-      trajectoryStored: result.trajectoryStored,
-      themeSummary: result.themeSummary,
-      dimensions: result.dimensions as never,
-      report: reportPayload as unknown as {
-        title?: string;
-        summary?: string;
-      },
-      reportArtifactVersion: result.reportArtifact ? 2 : 1,
-      userProfile: (result.userProfile ?? null) as never,
-      reconciliationReport: (result.reconciliationReport ?? null) as never,
-      verdicts: result.verdicts as never,
-      leaderJournal: undefined,
-      leaderOverallScore: result.leaderSignOff.leaderOverallScore,
-      leaderSigned: false,
-      leaderVerdict: result.leaderSignOff.leaderVerdict,
-    });
-  } else {
-    await deps.store.markCompleted(missionId, {
-      finalScore: result.reviewScore,
-      tokensUsed: snap.poolTokensUsed,
-      costUsd: snap.poolCostUsd,
-      trajectoryStored: result.trajectoryStored,
-      wallTimeMs: Date.now() - t0,
-      themeSummary: result.themeSummary,
-      dimensions: result.dimensions as never,
-      report: reportPayload as unknown as {
-        title?: string;
-        summary?: string;
-      },
-      reportArtifactVersion: result.reportArtifact ? 2 : 1,
-      userProfile: (result.userProfile ?? null) as never,
-      reconciliationReport: (result.reconciliationReport ?? null) as never,
-      verdicts: result.verdicts as never,
-      leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
-      leaderSigned: result.leaderSignOff?.signed,
-      leaderVerdict: result.leaderSignOff?.leaderVerdict,
-    });
+  // ★ P1-H (2026-04-29): persist DB 写入失败时，必须发事件让前端知道（否则前端永远 polling running）
+  try {
+    if (result.leaderSignOff && !result.leaderSignOff.signed) {
+      await deps.store.markFailed(missionId, {
+        wallTimeMs: Date.now() - t0,
+        errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,
+        tokensUsed: snap.poolTokensUsed,
+        costUsd: snap.poolCostUsd,
+        trajectoryStored: result.trajectoryStored,
+        themeSummary: result.themeSummary,
+        dimensions: result.dimensions as never,
+        report: reportPayload as unknown as {
+          title?: string;
+          summary?: string;
+        },
+        reportArtifactVersion: result.reportArtifact ? 2 : 1,
+        userProfile: (result.userProfile ?? null) as never,
+        reconciliationReport: (result.reconciliationReport ?? null) as never,
+        verdicts: result.verdicts as never,
+        leaderJournal: undefined,
+        leaderOverallScore: result.leaderSignOff.leaderOverallScore,
+        leaderSigned: false,
+        leaderVerdict: result.leaderSignOff.leaderVerdict,
+      });
+    } else {
+      await deps.store.markCompleted(missionId, {
+        finalScore: result.reviewScore,
+        tokensUsed: snap.poolTokensUsed,
+        costUsd: snap.poolCostUsd,
+        trajectoryStored: result.trajectoryStored,
+        wallTimeMs: Date.now() - t0,
+        themeSummary: result.themeSummary,
+        dimensions: result.dimensions as never,
+        report: reportPayload as unknown as {
+          title?: string;
+          summary?: string;
+        },
+        reportArtifactVersion: result.reportArtifact ? 2 : 1,
+        userProfile: (result.userProfile ?? null) as never,
+        reconciliationReport: (result.reconciliationReport ?? null) as never,
+        verdicts: result.verdicts as never,
+        leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
+        leaderSigned: result.leaderSignOff?.signed,
+        leaderVerdict: result.leaderSignOff?.leaderVerdict,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    deps.log.error(`[s11 ${missionId}] persist failed: ${message}`);
+    await deps
+      .emit({
+        type: "agent-playground.mission:persist-failed",
+        missionId,
+        userId: "", // 此 stage 不带 userId，由 emit 内部 best-effort 路由
+        payload: { message, wallTimeMs: Date.now() - t0 },
+      })
+      .catch(() => {});
+    throw err;
   }
 }

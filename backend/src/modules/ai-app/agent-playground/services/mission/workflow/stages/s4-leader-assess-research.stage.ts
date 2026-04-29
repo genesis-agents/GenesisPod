@@ -83,6 +83,26 @@ export async function runLeaderAssessResearchStage(
       };
     });
     const m1Raw = await leader.assessResearchers(researcherOutcomes);
+    // ★ P0-5 (2026-04-29): S4 多轮 patch 全局上限 —— 第二轮起所有 retry 强制降级 accept-degraded
+    //    防止 Leader 反复返回 patch 决策让 stage 被无限重入（mission 8c7b4358 runaway 同源）。
+    const MAX_S4_ROUNDS = 1; // 只允许第一轮真正 retry
+    ctx.s4PatchRound = (ctx.s4PatchRound ?? 0) + 1;
+    if (ctx.s4PatchRound > MAX_S4_ROUNDS) {
+      let downgraded = 0;
+      for (const a of m1Raw.perDimension) {
+        if (a.action === "retry-with-critique" || a.action === "replace-spec") {
+          (a as unknown as { action: string }).action = "accept-degraded";
+          downgraded++;
+        }
+      }
+      // 同时把 mission-level decision 从 patch/redirect 强降为 accept-all
+      if (m1Raw.decision === "patch" || m1Raw.decision === "redirect") {
+        (m1Raw as unknown as { decision: string }).decision = "accept-all";
+      }
+      deps.log.warn(
+        `[${missionId}] S4 round ${ctx.s4PatchRound} > ${MAX_S4_ROUNDS}: forced ${downgraded} retry→accept-degraded to prevent retry storm`,
+      );
+    }
     // ★ 防 retry 风暴：单轮 patch 数 ≤ 2。Leader 若返回 >2 个 retry-with-critique，
     //    保留 finding-count 最少的 2 个（最弱的）继续 retry，其余降级为 accept-degraded。
     //    rationale: 5 个 dim 同时 retry 会撞 wall-time + 预算池；保留 4 个 dim 工作
@@ -315,8 +335,8 @@ async function dispatchAssessActions(args: {
         },
       })
       .catch(() => {});
-    // 并发跑
-    const results = await Promise.all(
+    // ★ P1-K (2026-04-29): allSettled 替代 all —— 单个 job reject 不应中断整批
+    const settled = await Promise.allSettled(
       retryJobs.map((job) =>
         runResearcherWithCritique(ctx, deps, {
           dim: job.dim,
@@ -324,14 +344,18 @@ async function dispatchAssessActions(args: {
           budgetMultiplier: budgetMultiplier * 1.3,
           critique: job.critique,
           retryLabel: job.retryLabel,
-        }).catch((err) => {
-          deps.log.warn(
-            `[${missionId}] retry job ${job.dim.name} threw: ${err instanceof Error ? err.message : String(err)}`,
-          );
-          return null;
         }),
       ),
     );
+    const results: (Awaited<
+      ReturnType<typeof runResearcherWithCritique>
+    > | null)[] = settled.map((s, i) => {
+      if (s.status === "fulfilled") return s.value;
+      deps.log.warn(
+        `[${missionId}] retry job ${retryJobs[i].dim.name} threw: ${s.reason instanceof Error ? s.reason.message : String(s.reason)}`,
+      );
+      return null;
+    });
     for (let i = 0; i < retryJobs.length; i++) {
       const job = retryJobs[i];
       const newOut = results[i];

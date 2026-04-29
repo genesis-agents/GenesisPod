@@ -25,6 +25,12 @@ function makeMockOwnership() {
   };
 }
 
+function makeMockStore() {
+  return {
+    getById: jest.fn().mockResolvedValue(null),
+  };
+}
+
 function makeMockJwt(
   payload: Record<string, unknown> | null = { sub: "user-1" },
 ) {
@@ -52,16 +58,19 @@ describe("AgentPlaygroundGateway", () => {
   let eventBus: ReturnType<typeof makeMockEventBus>;
   let ownership: ReturnType<typeof makeMockOwnership>;
   let jwt: ReturnType<typeof makeMockJwt>;
+  let store: ReturnType<typeof makeMockStore>;
   let mockIo: { to: jest.Mock };
 
   beforeEach(() => {
     eventBus = makeMockEventBus();
     ownership = makeMockOwnership();
     jwt = makeMockJwt();
+    store = makeMockStore();
     gateway = new AgentPlaygroundGateway(
       eventBus as never,
       ownership as never,
       jwt as never,
+      store as never,
     );
     mockIo = { to: jest.fn().mockReturnValue({ emit: jest.fn() }) };
     // inject io server

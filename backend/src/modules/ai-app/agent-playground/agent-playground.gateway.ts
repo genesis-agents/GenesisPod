@@ -20,6 +20,7 @@ import { JwtService } from "@nestjs/jwt";
 import { DomainEventBus } from "../../ai-harness/facade";
 import { SocketBroadcastAdapter } from "./adapters/socket-broadcast.adapter";
 import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
+import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 
 interface JwtPayload {
   sub?: string;
@@ -39,6 +40,7 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
     private readonly eventBus: DomainEventBus,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly jwt: JwtService,
+    private readonly store: MissionStore,
   ) {}
 
   afterInit(): void {
@@ -50,10 +52,10 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
   }
 
   @SubscribeMessage("join")
-  handleJoin(
+  async handleJoin(
     client: Socket,
     payload: { missionId: string },
-  ): { ok: boolean; error?: string } {
+  ): Promise<{ ok: boolean; error?: string }> {
     if (!payload?.missionId) return { ok: false, error: "missionId required" };
     let userId: string;
     try {
@@ -64,15 +66,26 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
         error: err instanceof Error ? err.message : "auth failed",
       };
     }
-    const owner = this.ownership.getOwner(payload.missionId);
-    if (!owner) return { ok: false, error: "mission not found" };
+    // ★ P1-O (2026-04-29): ownership cache miss 时 fallback 到 DB（与 controller assertOwnership 一致），
+    //   防止 LRU evict / pod recycle 后历史 mission 无法订阅
+    let owner = this.ownership.getOwner(payload.missionId);
+    if (!owner) {
+      const persisted = await this.store
+        .getById(payload.missionId, userId)
+        .catch(() => null);
+      if (!persisted) return { ok: false, error: "mission not found" };
+      // DB 命中 → 重新登记 in-memory（hot path）
+      this.ownership.assign(payload.missionId, userId);
+      owner = userId;
+    }
     if (owner !== userId) {
       this.log.warn(
         `client ${client.id} (user=${userId}) tried to join mission=${payload.missionId} owned by ${owner}`,
       );
       return { ok: false, error: "forbidden" };
     }
-    void client.join(`playground:${payload.missionId}`);
+    // ★ P0-4: socket.join 是异步必须 await —— 否则后续 emit 时 room 还没生效会丢事件
+    await client.join(`playground:${payload.missionId}`);
     this.log.debug(
       `client ${client.id} joined playground:${payload.missionId}`,
     );
@@ -80,9 +93,13 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
   }
 
   @SubscribeMessage("leave")
-  handleLeave(client: Socket, payload: { missionId: string }): { ok: boolean } {
+  async handleLeave(
+    client: Socket,
+    payload: { missionId: string },
+  ): Promise<{ ok: boolean }> {
     if (!payload?.missionId) return { ok: false };
-    void client.leave(`playground:${payload.missionId}`);
+    // ★ P0-4: socket.leave 同样是异步
+    await client.leave(`playground:${payload.missionId}`);
     return { ok: true };
   }
 

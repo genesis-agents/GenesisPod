@@ -181,6 +181,9 @@ export async function runSectionQualityEnhancementStage(
       fullMarkdown,
       "utf8",
     );
+    // ★ P1-N (2026-04-29): 补救后 section.startOffset/endOffset 已漂移，
+    // 必须根据新的 fullMarkdown 重算每个 section 的 offset，否则 S9B 按错位文本评审
+    rebuildSectionOffsets(reportArtifact.sections, fullMarkdown);
   }
 
   await narrate(deps.emit, missionId, userId, {
@@ -194,4 +197,46 @@ export async function runSectionQualityEnhancementStage(
     } 分`,
     agentId: "writer",
   });
+}
+
+/**
+ * ★ P1-N (2026-04-29): 补救后 fullMarkdown 已变更，按 section.title 在新 markdown 中
+ * 重新定位 startOffset/endOffset。匹配规则：sections 按原顺序在 markdown 内查找
+ * `^#+\s*<title>\s*$` 标题行，下一个 section 标题作为 endOffset 边界。
+ */
+function rebuildSectionOffsets(
+  sections: { title: string; startOffset: number; endOffset: number }[],
+  fullMarkdown: string,
+): void {
+  let cursor = 0;
+  const headingRegex = /^#+\s+(.+?)\s*$/gm;
+  const matches: { title: string; index: number; endOfHeading: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = headingRegex.exec(fullMarkdown)) !== null) {
+    matches.push({
+      title: m[1].trim(),
+      index: m.index,
+      endOfHeading: m.index + m[0].length,
+    });
+  }
+  for (let i = 0; i < sections.length; i++) {
+    const sec = sections[i];
+    // 从 cursor 起找第一个 title 匹配项
+    const found = matches.find(
+      (mm) => mm.index >= cursor && mm.title === sec.title.trim(),
+    );
+    if (!found) continue;
+    sec.startOffset = found.index;
+    // endOffset = 下一个 section 的标题位置；最后一节到文末
+    const nextSec = sections[i + 1];
+    if (nextSec) {
+      const nextFound = matches.find(
+        (mm) => mm.index > found.index && mm.title === nextSec.title.trim(),
+      );
+      sec.endOffset = nextFound ? nextFound.index : fullMarkdown.length;
+    } else {
+      sec.endOffset = fullMarkdown.length;
+    }
+    cursor = found.endOfHeading;
+  }
 }

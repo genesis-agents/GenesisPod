@@ -81,6 +81,16 @@ export async function runLeaderPlanStage(
   }
   await deps.lifecycle(missionId, userId, "leader", "leader", "completed", {});
 
+  // ★ P1-D (2026-04-29): leader 返回空维度时必须 fail-fast —— 否则下游所有 stage 空跑
+  if (!planResult.dimensions || planResult.dimensions.length === 0) {
+    await deps.lifecycle(missionId, userId, "leader", "leader", "failed", {
+      error: "leader_plan_empty_dimensions",
+    });
+    throw new Error(
+      "Leader plan failed: dimensions[] is empty. Cannot proceed with researcher dispatch.",
+    );
+  }
+
   ctx.plan = {
     themeSummary: planResult.themeSummary,
     dimensions: planResult.dimensions,

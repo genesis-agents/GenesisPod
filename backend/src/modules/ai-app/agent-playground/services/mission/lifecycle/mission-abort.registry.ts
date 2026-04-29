@@ -26,6 +26,8 @@ export class MissionAbortRegistry {
   abort(missionId: string, reason?: string): boolean {
     const c = this.map.get(missionId);
     if (!c) return false;
+    // ★ P2-2 (2026-04-29): abort 是幂等的，二次调用 signal 已 aborted；跳过重复日志
+    if (c.signal.aborted) return false;
     try {
       c.abort(reason ?? "user_cancelled");
       this.log.log(`[abort] mission=${missionId} reason=${reason ?? "user"}`);

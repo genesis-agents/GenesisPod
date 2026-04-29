@@ -1203,10 +1203,15 @@ export class ReportAssemblerService {
         message: `事实一致性仅 ${factualConsistencyScore}/100（unresolved 冲突过多）`,
       });
     }
-    const overall = Math.round(
-      Object.values(dimensionScores).reduce((a, b) => a + b, 0) /
-        Object.keys(dimensionScores).length,
+    // ★ P2-1 (2026-04-29): NaN 兜底 + 0-100 clamp，避免 sections=0 等极端场景污染 overall
+    const safeScores = Object.values(dimensionScores).map((s) =>
+      isNaN(s) ? 50 : Math.min(100, Math.max(0, s)),
     );
+    const overallRaw =
+      safeScores.length > 0
+        ? safeScores.reduce((a, b) => a + b, 0) / safeScores.length
+        : 50;
+    const overall = isNaN(overallRaw) ? 50 : Math.round(overallRaw);
 
     // P100-1: finalVerdict 汇总
     const hasErrors = violations.some((v) => v.severity === "error");

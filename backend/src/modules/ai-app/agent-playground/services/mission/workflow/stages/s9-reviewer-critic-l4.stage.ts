@@ -105,12 +105,25 @@ export async function runCriticStage(
       extractTokenSpend(criticRes.events),
     );
     if (criticRes.state === "completed" && criticRes.output) {
-      const criticOut = criticRes.output as {
-        overallVerdict: "pass" | "concerns" | "fail";
-        blindspots: string[];
-        biasFlags: string[];
-        suggestions: string[];
-        rationale: string;
+      // ★ P1-G (2026-04-29): LLM 返回 schema 不全时强制 fallback，避免 .map() 抛 TypeError
+      const rawOut = criticRes.output as Record<string, unknown>;
+      const validVerdicts = ["pass", "concerns", "fail"] as const;
+      const criticOut = {
+        overallVerdict: validVerdicts.includes(
+          rawOut.overallVerdict as "pass" | "concerns" | "fail",
+        )
+          ? (rawOut.overallVerdict as "pass" | "concerns" | "fail")
+          : ("concerns" as const),
+        blindspots: Array.isArray(rawOut.blindspots)
+          ? (rawOut.blindspots as string[])
+          : [],
+        biasFlags: Array.isArray(rawOut.biasFlags)
+          ? (rawOut.biasFlags as string[])
+          : [],
+        suggestions: Array.isArray(rawOut.suggestions)
+          ? (rawOut.suggestions as string[])
+          : [],
+        rationale: typeof rawOut.rationale === "string" ? rawOut.rationale : "",
       };
       // ★ Phase P21-2: emit 独立 critic:verdict 事件给前端 trace
       await deps

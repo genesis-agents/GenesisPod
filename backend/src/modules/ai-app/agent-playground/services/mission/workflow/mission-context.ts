@@ -101,6 +101,12 @@ export interface MissionContext {
   /** 99-persist.stage.ts */
   trajectoryStored?: number;
 
+  /**
+   * ★ P0-5 (2026-04-29): S4 patch 轮次计数 —— 防止 stage 被反复重入导致 wall-time 爆炸。
+   * 每进入一次 dispatchAssessActions（patch/redirect 决策）+1，第二轮起强制降级 retry 为 accept-degraded。
+   */
+  s4PatchRound?: number;
+
   /** ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace 收集 */
   qualityTraceCtx?: QualityTraceContext;
   /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */

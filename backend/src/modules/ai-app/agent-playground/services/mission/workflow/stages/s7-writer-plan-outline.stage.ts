@@ -102,12 +102,27 @@ export async function runWriterOutlineStage(
         factAllocation?: Record<string, string[]>;
       };
       // ★ P1-E (2026-04-29): 真消费 — 写入 ctx.outlinePlan，S8 SingleShotWriter 严格按此 outline 起草
-      if (
-        outlinePlan.chapterOutlines &&
-        outlinePlan.chapterOutlines.length > 0
-      ) {
+      // ★ P1-F (2026-04-29): outline 节数边界 [1, 20] —— 0 节走无 outline 路径，>20 节截断为前 20 章
+      const MAX_OUTLINE_CHAPTERS = 20;
+      const chapters = outlinePlan.chapterOutlines ?? [];
+      if (chapters.length > 0 && chapters.length <= MAX_OUTLINE_CHAPTERS) {
         ctx.outlinePlan = {
-          chapterOutlines: outlinePlan.chapterOutlines.map((c) => ({
+          chapterOutlines: chapters.map((c) => ({
+            sectionId: c.sectionId,
+            heading: c.heading,
+            subheadings: c.subheadings ?? [],
+            thesis: c.thesis,
+            keyPointsToCover: c.keyPointsToCover,
+          })),
+          targetWordsPerChapter: outlinePlan.targetWordsPerChapter ?? {},
+          factAllocation: outlinePlan.factAllocation ?? {},
+        };
+      } else if (chapters.length > MAX_OUTLINE_CHAPTERS) {
+        deps.log.warn(
+          `[${missionId}] outline-planner returned ${chapters.length} chapters > ${MAX_OUTLINE_CHAPTERS} cap, truncating to ${MAX_OUTLINE_CHAPTERS}`,
+        );
+        ctx.outlinePlan = {
+          chapterOutlines: chapters.slice(0, MAX_OUTLINE_CHAPTERS).map((c) => ({
             sectionId: c.sectionId,
             heading: c.heading,
             subheadings: c.subheadings ?? [],

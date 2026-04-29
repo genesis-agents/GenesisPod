@@ -228,7 +228,14 @@ export class LeaderChatService {
           //   todo-ledger 已映射为 leader-chat-create origin，会创建任务行可见
           //   实际 Researcher 派遣由 orchestrator 在下一个 S5 boundary 检测 pending
           //   dim 时统一拉起（深度修法见 Task #23 追记）。
-          for (let i = 0; i < (decision?.todo?.length ?? 0); i++) {
+          // ★ P0-2: appendDimensions 可能部分失败返回 appendedIds.length < todo.length，
+          //   越界访问会让 agentId=`researcher#chat-undefined` 污染前端任务列表。
+          //   循环边界统一取 min(todo.length, appendedIds.length)，确保 1:1 对应。
+          const safeLen = Math.min(
+            decision?.todo?.length ?? 0,
+            appendedIds?.length ?? 0,
+          );
+          for (let i = 0; i < safeLen; i++) {
             const t = decision.todo[i];
             await this.eventBus
               .emit({

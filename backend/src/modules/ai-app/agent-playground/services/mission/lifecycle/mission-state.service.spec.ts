@@ -13,20 +13,20 @@ describe("MissionStateService", () => {
     expect(service.estimateTokens(undefined)).toBe(0);
   });
 
-  it("estimateTokens: string → length / 3.5 ceiled", () => {
-    const s = "hello world!"; // 12 chars → ceil(12/3.5) = 4
-    expect(service.estimateTokens(s)).toBe(Math.ceil(12 / 3.5));
+  it("estimateTokens: string → length / 2.0 ceiled", () => {
+    const s = "hello world!"; // 12 chars → ceil(12/2.0) = 6
+    expect(service.estimateTokens(s)).toBe(Math.ceil(12 / 2.0));
   });
 
-  it("estimateTokens: object → JSON.stringify length / 3.5", () => {
+  it("estimateTokens: object → JSON.stringify length / 2.0", () => {
     const obj = { a: 1, b: "test" };
-    const expected = Math.ceil(JSON.stringify(obj).length / 3.5);
+    const expected = Math.ceil(JSON.stringify(obj).length / 2.0);
     expect(service.estimateTokens(obj)).toBe(expected);
   });
 
   it("estimateTokens: array is JSON-stringified", () => {
     const arr = [1, 2, 3];
-    const expected = Math.ceil(JSON.stringify(arr).length / 3.5);
+    const expected = Math.ceil(JSON.stringify(arr).length / 2.0);
     expect(service.estimateTokens(arr)).toBe(expected);
   });
 

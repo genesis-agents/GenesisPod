@@ -187,6 +187,7 @@ export async function runSelfEvolutionStage(
       ...recommendations.map((r) => `- ${r}`),
     ].join("\n");
 
+    // ★ P1-I (2026-04-29): postmortem 写入失败不再静默吞错 —— 沉淀承诺破裂时必须留 telemetry
     await deps.store
       .recordMissionPostmortem({
         missionId,
@@ -199,7 +200,11 @@ export async function runSelfEvolutionStage(
         tokensUsed: totalTokens,
         costUsd: totalCostUsd,
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] S12 recordMissionPostmortem failed: ${err instanceof Error ? err.message : String(err)} (sediment lost)`,
+        );
+      });
 
     deps.log.log(
       `[${missionId}] S12 sediment recorded: postmortem to harness_vector_memory${leaderSigned === false ? " + failure pattern" : ""}`,

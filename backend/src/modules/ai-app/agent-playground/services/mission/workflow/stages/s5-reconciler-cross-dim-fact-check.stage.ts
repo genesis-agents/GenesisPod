@@ -39,6 +39,22 @@ export async function runReconcilerStage(
   }
 
   ctx.reconciliationReport = null;
+  // ★ P1-E (2026-04-29): 单维度时跨维对账无意义 —— 短路并显式标记 skipped，
+  // 下游 Analyst/Writer 能区分"对账失败"vs"无需对账"
+  if (plan.dimensions.length <= 1) {
+    deps.log.log(
+      `[${missionId}] reconciler: only ${plan.dimensions.length} dim(s), skipping cross-dim reconciliation`,
+    );
+    await deps
+      .emit({
+        type: "agent-playground.reconciliation:skipped",
+        missionId,
+        userId,
+        payload: { reason: "single_dimension" },
+      })
+      .catch(() => {});
+    return;
+  }
   try {
     await deps.emit({
       type: "agent-playground.stage:started",

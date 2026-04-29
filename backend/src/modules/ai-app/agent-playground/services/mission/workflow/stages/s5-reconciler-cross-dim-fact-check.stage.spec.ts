@@ -4,7 +4,10 @@ import type { MissionDeps } from "../mission-deps";
 
 const PLAN = {
   themeSummary: "AI",
-  dimensions: [{ id: "d1", name: "Market", rationale: "r" }],
+  dimensions: [
+    { id: "d1", name: "Market", rationale: "r" },
+    { id: "d2", name: "Tech", rationale: "r2" },
+  ],
   goals: {} as never,
   initialRisks: [] as string[],
 };

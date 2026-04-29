@@ -290,6 +290,13 @@ export async function runWriterStage(
     reviewScore = verdict.decision.score;
     verifierVerdicts = verdict.verdicts as unknown[];
     for (const v of verdict.verdicts) {
+      // ★ P1-J (2026-04-29): 残缺 verdict 元素跳过（缺 judgeId 或 score）
+      if (!v?.judgeId || typeof v.score !== "number") {
+        deps.log.warn(
+          `[${missionId}] malformed verdict skipped: ${JSON.stringify(v)}`,
+        );
+        continue;
+      }
       await deps.emit({
         type: "agent-playground.verifier:verdict",
         missionId,
@@ -477,7 +484,9 @@ export async function runWriterStage(
           | undefined,
       })),
       analyst: {
-        themeSummary: report.summary,
+        // ★ P1-C (2026-04-29): 优先用 analyst.themeSummary（已整合 reconciler）；
+        // 若缺失再 fallback 到 writer 起草的 summary，避免报告头摘要与 plan/正文割裂
+        themeSummary: analyst?.themeSummary || report.summary,
       },
       writerReport: report,
       reconciliationReport: (reconciliationReport ?? undefined) as Parameters<
@@ -496,6 +505,34 @@ export async function runWriterStage(
     deps.log.warn(
       `[${missionId}] reportAssembler failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
+  }
+
+  // ★ P1-M (2026-04-29): reportAssembler 即使失败，reconciliation 的关键 warning 也要 emit 给前端
+  // 否则 conflicts/gaps 信号永久丢失，leader signoff 无法据此判断
+  if (!reportArtifact && reconciliationReport) {
+    const conflicts =
+      (reconciliationReport as { conflicts?: { resolutionType: string }[] })
+        .conflicts ?? [];
+    const unresolved = conflicts.filter(
+      (c) => c.resolutionType === "flagged-unresolved",
+    ).length;
+    const gaps =
+      (reconciliationReport as { gaps?: { severity: string }[] }).gaps ?? [];
+    const criticalGaps = gaps.filter((g) => g.severity === "critical").length;
+    if (unresolved > 0 || criticalGaps > 0) {
+      await deps
+        .emit({
+          type: "agent-playground.reconciliation:warnings-orphaned",
+          missionId,
+          userId,
+          payload: {
+            unresolvedConflicts: unresolved,
+            criticalGaps,
+            note: "reportAssembler failed; reconciliation warnings emitted directly",
+          },
+        })
+        .catch(() => {});
+    }
   }
 
   // ── 5. 把 reconciliation/coverage/reviewer 三路质量信号融合到 quality.dimensions ──

@@ -154,8 +154,17 @@ export class AgentInvoker {
       traceId: args.traceId,
       timestamp: Date.now(),
     };
-    await this.eventBus.emit(event).catch(() => {
-      /* event 失败不影响主流程 */
+    // ★ P1-L (2026-04-29): 严重事件（lifecycle / cost / mission:*）至少 log，避免前后端状态不一致诡异
+    await this.eventBus.emit(event).catch((err: unknown) => {
+      const isCritical =
+        args.type.includes("lifecycle") ||
+        args.type.includes("cost:tick") ||
+        args.type.includes("mission:");
+      if (isCritical) {
+        this.log.warn(
+          `[${args.missionId}] critical event emit failed type=${args.type}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     });
   }
 

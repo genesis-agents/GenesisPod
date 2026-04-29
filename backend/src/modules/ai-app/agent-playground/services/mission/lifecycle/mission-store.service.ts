@@ -147,7 +147,12 @@ export class MissionStore {
           `[markCompleted ${id}] report size ${size} > ${MAX_REPORT_BYTES} bytes — truncating`,
         );
         const r = data.report as {
-          content?: { fullMarkdown?: string; fullReportSize?: number };
+          content?: {
+            fullMarkdown?: string;
+            fullReportSize?: number;
+            truncated?: boolean;
+            originalBytes?: number;
+          };
         };
         if (
           r.content?.fullMarkdown &&
@@ -156,6 +161,10 @@ export class MissionStore {
           r.content.fullMarkdown =
             r.content.fullMarkdown.slice(0, 100_000) +
             `\n\n... (truncated, ${size} bytes total)`;
+          // ★ P1-B (2026-04-29): 落 flag 让下游 postmortem learner / 前端 stats
+          // 知道 fullMarkdown 已被截断，避免按完整长度计算引用密度等指标
+          r.content.truncated = true;
+          r.content.originalBytes = size;
         }
       }
     }
@@ -279,9 +288,10 @@ export class MissionStore {
   }
 
   async markCancelled(id: string): Promise<void> {
+    // ★ P0-1: 仅在 status='running' 时改为 cancelled —— 防止 race 时把已 completed/failed 的 mission 错误覆盖
     await this.prisma.agentPlaygroundMission
-      .update({
-        where: { id },
+      .updateMany({
+        where: { id, status: "running" },
         data: {
           status: "cancelled",
           completedAt: new Date(),
@@ -355,8 +365,9 @@ export class MissionStore {
       if (data.leaderSigned != null) update.leaderSigned = data.leaderSigned;
       if (data.leaderVerdict != null) update.leaderVerdict = data.leaderVerdict;
     }
+    // ★ P0-1: 仅 status='running' 才能转为终态 —— 否则 race 中 markFailed 会覆盖 completed/cancelled
     await this.prisma.agentPlaygroundMission
-      .update({ where: { id }, data: update })
+      .updateMany({ where: { id, status: "running" }, data: update })
       .catch((err: unknown) => {
         this.log.warn(
           `[markFailed ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
