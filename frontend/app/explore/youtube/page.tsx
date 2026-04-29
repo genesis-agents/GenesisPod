@@ -29,6 +29,9 @@ import { logger } from '@/lib/utils/logger';
 import {
   fetchTranscriptSmart,
   uploadTranscriptToCache,
+  saveTranslationToCache,
+  fetchSavedTranslation,
+  type TranslatedSegment,
 } from '@/lib/explore/youtube-transcript';
 import ClientDate from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n/i18n-context';
@@ -259,6 +262,16 @@ function YouTubeTLDWContent() {
     null
   );
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Translation persistence: pending segments waiting to be flushed to server cache
+  const pendingTranslationsRef = useRef<Map<number, TranslatedSegment>>(
+    new Map()
+  );
+  // Lock pending queue to a specific videoId so URL-driven videoId switches
+  // don't cause us to write old-video translations to the new video's cache
+  const pendingVideoIdRef = useRef<string | null>(null);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const TRANSLATION_FLUSH_DEBOUNCE_MS = 5000;
 
   // 合并字幕为语义块
   const mergedTranscript = useMemo(() => {
@@ -826,6 +839,98 @@ function YouTubeTLDWContent() {
     }
   };
 
+  // Flush pending translations to server cache (global shared, all users benefit)
+  // Uses pendingVideoIdRef (not closure videoId) so a videoId switch that races
+  // with the flush still writes to the original video's cache.
+  const flushPendingTranslations = useCallback(async () => {
+    const ownerVideoId = pendingVideoIdRef.current;
+    if (!ownerVideoId || pendingTranslationsRef.current.size === 0) return;
+    const pending = Array.from(pendingTranslationsRef.current.values());
+    pendingTranslationsRef.current = new Map();
+    pendingVideoIdRef.current = null;
+    try {
+      const ok = await saveTranslationToCache(
+        ownerVideoId,
+        pending,
+        'zh-CN',
+        config.apiBaseUrl
+      );
+      if (!ok) {
+        // re-queue under the same owner so retry stays on the right video
+        if (!pendingVideoIdRef.current)
+          pendingVideoIdRef.current = ownerVideoId;
+        for (const seg of pending) {
+          if (pendingTranslationsRef.current.size < 500) {
+            pendingTranslationsRef.current.set(seg.start, seg);
+          }
+        }
+        logger.warn(
+          `Failed to persist ${pending.length} translation segments for ${ownerVideoId}, re-queued`
+        );
+      } else {
+        logger.debug(
+          `Persisted ${pending.length} translation segments for ${ownerVideoId}`
+        );
+      }
+    } catch (e) {
+      logger.error('flushPendingTranslations error:', e);
+    }
+  }, []);
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+    flushTimerRef.current = setTimeout(() => {
+      void flushPendingTranslations();
+    }, TRANSLATION_FLUSH_DEBOUNCE_MS);
+  }, [flushPendingTranslations]);
+
+  // Preload saved translations when video / merged transcript becomes available
+  useEffect(() => {
+    if (!videoId || mergedTranscript.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await fetchSavedTranslation(videoId, config.apiBaseUrl);
+        if (cancelled || !saved || saved.length === 0) return;
+
+        // Match each saved chinese segment to merged index by closest start time
+        const startToIndex = new Map<number, number>();
+        mergedTranscript.forEach((m, i) => startToIndex.set(m.start, i));
+
+        const next = new Map<number, string>();
+        for (const seg of saved) {
+          // exact match first
+          if (startToIndex.has(seg.start)) {
+            next.set(startToIndex.get(seg.start)!, seg.text);
+            continue;
+          }
+          // fallback: find merged segment whose [start, start+duration) contains seg.start
+          const idx = mergedTranscript.findIndex(
+            (m) => seg.start >= m.start && seg.start < m.start + m.duration
+          );
+          if (idx >= 0) next.set(idx, seg.text);
+        }
+        if (next.size > 0) {
+          setTranslations((prev) => {
+            const merged = new Map(prev);
+            next.forEach((v, k) => {
+              if (!merged.has(k)) merged.set(k, v);
+            });
+            return merged;
+          });
+          logger.debug(
+            `Preloaded ${next.size} cached translations for ${videoId}`
+          );
+        }
+      } catch (e) {
+        logger.warn('Preload saved translation failed:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId, mergedTranscript]);
+
   // Translate current merged segment when it's played (on-demand translation)
   useEffect(() => {
     const translateCurrentMergedSegment = async () => {
@@ -861,13 +966,34 @@ function YouTubeTLDWContent() {
         const result = await res.json();
         // API returns { success, data: { translation } } format
         const data = result?.data ?? result;
+        const translatedText = data.translation || currentMerged.text;
 
         // Update translations map using merged index
         setTranslations((prev) => {
           const newMap = new Map(prev);
-          newMap.set(activeMergedIndex, data.translation || currentMerged.text);
+          newMap.set(activeMergedIndex, translatedText);
           return newMap;
         });
+
+        // Queue for global cache persistence (skip if AI returned empty/fallback)
+        if (data.translation) {
+          // If the queue already belongs to a different video (URL switched),
+          // flush old owner first to avoid cross-contamination.
+          if (
+            pendingVideoIdRef.current &&
+            pendingVideoIdRef.current !== videoId
+          ) {
+            void flushPendingTranslations();
+          }
+          pendingVideoIdRef.current = videoId;
+          pendingTranslationsRef.current.set(currentMerged.start, {
+            text: currentMerged.text,
+            start: currentMerged.start,
+            duration: currentMerged.duration,
+            translatedText,
+          });
+          scheduleFlush();
+        }
 
         logger.debug(
           `Translated merged segment ${activeMergedIndex}: "${currentMerged.text.substring(0, 50)}..." -> "${data.translation?.substring(0, 50)}..."`
@@ -889,7 +1015,36 @@ function YouTubeTLDWContent() {
     };
 
     translateCurrentMergedSegment();
-  }, [showTranslation, activeMergedIndex, mergedTranscript, translations]);
+  }, [
+    showTranslation,
+    activeMergedIndex,
+    mergedTranscript,
+    translations,
+    scheduleFlush,
+    videoId,
+    flushPendingTranslations,
+  ]);
+
+  // Flush pending translations on unload / tab hidden / unmount
+  useEffect(() => {
+    const flushNow = () => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      void flushPendingTranslations();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushNow();
+    };
+    window.addEventListener('beforeunload', flushNow);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flushNow);
+      document.removeEventListener('visibilitychange', onVisibility);
+      flushNow();
+    };
+  }, [flushPendingTranslations]);
 
   if (!videoId) {
     return (
