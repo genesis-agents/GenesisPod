@@ -81,6 +81,7 @@ import { runWriterStage } from "./stages/s8-writer-draft-report.stage";
 import { runCriticStage } from "./stages/s9-reviewer-critic-l4.stage";
 import { runLeaderForewordAndSignoffStage } from "./stages/s10-leader-foreword-and-signoff.stage";
 import { runPersistStage } from "./stages/s11-mission-persist.stage";
+import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 
 interface MissionResult {
   readonly missionId: string;
@@ -323,6 +324,28 @@ export class TeamMission {
             { missionId, t0, result, pool },
             this.buildStageDeps(),
           );
+          // ── Stage 100: S12 self-evolution（best-effort，不阻塞返回）──
+          //   异步执行，让用户立即拿到 result；evolved 事件后续 emit 给前端
+          void runSelfEvolutionStage(
+            {
+              missionId,
+              userId,
+              t0,
+              pool,
+              plan: result.themeSummary
+                ? {
+                    dimensions: (result.dimensions ?? []) as unknown[],
+                    goals: undefined,
+                  }
+                : undefined,
+              researcherResults: result.dimensions as unknown[] | undefined,
+              reportArtifact: result.reportArtifact as
+                | { quality?: { overall?: number }; sections?: unknown[] }
+                | undefined,
+              leaderSignOff: result.leaderSignOff,
+            },
+            this.buildStageDeps(),
+          ).catch(() => {});
           clearTimeout(wallTimer);
           this.abortRegistry.unregister(missionId);
           return result;

@@ -67,4 +67,6 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   // 每个 stage 在关键节点 emit 一条 short 自然语言句子，前端任务详情主时间线
   // 直接渲染（不再事后翻译 raw JSON）。
   T("agent:narrative"),
+  // ── S12 self-evolution（mission 复盘）──
+  T("mission:evolved"), // mission 完成后异步：postmortem 统计 + 系统建议
 ];
