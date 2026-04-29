@@ -219,6 +219,7 @@ async function runOneDim(
           topic: input.topic + topicSuffix,
           dimension: dim.name,
           language: input.language,
+          withFigures: input.withFigures,
         },
         {
           missionId,

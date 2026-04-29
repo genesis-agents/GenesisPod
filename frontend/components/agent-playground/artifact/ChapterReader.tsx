@@ -1,59 +1,60 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import type {
   ArtifactCitation,
   ArtifactSection,
   ReportArtifact,
 } from '@/lib/agent-playground/report-artifact.types';
 import { ArtifactMarkdown } from './ArtifactMarkdown';
-import { ReferencePanel } from './ReferencePanel';
 
 interface Props {
   artifact: ReportArtifact;
   initialSectionId?: string;
 }
 
-/** 章节视图：左侧 TOC + 右侧单章渲染，URL 保留 sec={id} 锚点 */
+/**
+ * 章节视图（TI 双层模式）：
+ *  - 默认渲染章节卡列表（每章一个 button card）
+ *  - 点击进入全屏阅读单章；返回按钮回列表
+ *
+ * 对齐 frontend/components/ai-insights/reports/ChapterizedReportView.tsx
+ */
 export function ChapterReader({ artifact, initialSectionId }: Props) {
   const sections = artifact.sections;
-  const [activeId, setActiveId] = useState<string>(
-    initialSectionId ?? sections[0]?.id ?? ''
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSectionId ?? null
   );
-  const activeIndex = sections.findIndex((s) => s.id === activeId);
-  const activeSection: ArtifactSection | undefined = sections[activeIndex];
+  const selectedSection: ArtifactSection | undefined = sections.find(
+    (s) => s.id === selectedId
+  );
+  const selectedIndex = selectedSection
+    ? sections.findIndex((s) => s.id === selectedSection.id)
+    : -1;
 
   const sectionMarkdown = useMemo(() => {
-    if (!activeSection) return '';
+    if (!selectedSection) return '';
     return artifact.content.fullMarkdown
-      .slice(activeSection.startOffset, activeSection.endOffset)
+      .slice(selectedSection.startOffset, selectedSection.endOffset)
       .trimEnd();
-  }, [activeSection, artifact.content.fullMarkdown]);
+  }, [selectedSection, artifact.content.fullMarkdown]);
 
-  // 章节内出现的 citation 子集
+  // 当前章对应的 citations 子集（章末参考文献）
   const sectionCitations = useMemo(() => {
-    if (!activeSection) return [];
-    const ids = new Set(activeSection.citations);
+    if (!selectedSection) return [];
+    const ids = new Set(selectedSection.citations);
     return artifact.citations.filter((c) => ids.has(c.index));
-  }, [activeSection, artifact.citations]);
+  }, [selectedSection, artifact.citations]);
 
   const sectionFigures = useMemo(() => {
-    if (!activeSection) return [];
-    const ids = new Set(activeSection.figureIds);
+    if (!selectedSection) return [];
+    const ids = new Set(selectedSection.figureIds);
     return artifact.figures.filter((f) => ids.has(f.id));
-  }, [activeSection, artifact.figures]);
+  }, [selectedSection, artifact.figures]);
 
-  // ★ Phase P2-3: 章节视图反向溯源（同 ContinuousReader）
+  // 反向溯源
   const [reverseHighlight, setReverseHighlight] = useState<number | null>(null);
-  const handleReverseHighlight = (citation: ArtifactCitation) => {
-    setReverseHighlight(citation.index);
-    setTimeout(() => setReverseHighlight(null), 4000);
-    const firstSup = document.querySelector(
-      `sup[data-cite="${citation.index}"]`
-    );
-    firstSup?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
   useEffect(() => {
     if (reverseHighlight == null) return;
     const sups = document.querySelectorAll(
@@ -78,149 +79,171 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
     return <p className="text-sm text-gray-500">报告暂无可视章节</p>;
   }
 
-  return (
-    <div className="flex gap-6">
-      {/* 左侧 TOC */}
-      <aside className="sticky top-4 h-[calc(100vh-2rem)] w-64 flex-shrink-0 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
-          <List className="h-3 w-3" />
-          目录（{sections.length}）
-        </p>
-        <nav className="space-y-1">
-          {sections.map((s) => (
-            <div key={s.id}>
-              <button
-                type="button"
-                onClick={() => setActiveId(s.id)}
-                className={`block w-full truncate rounded px-2 py-1.5 text-left text-xs transition-colors ${
-                  activeId === s.id
-                    ? 'bg-blue-100 font-medium text-blue-700'
-                    : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
-                }`}
-              >
-                {s.title}
-                <span className="ml-1 text-[10px] text-gray-400">
-                  · {s.wordCount} 字
-                </span>
-              </button>
-              {/* Phase P36-1: 当前章 children 子节快速跳转 */}
-              {activeId === s.id && s.children && s.children.length > 0 && (
-                <ul className="ml-3 mt-0.5 border-l border-blue-200 pl-2">
-                  {s.children.map((child) => (
-                    <li key={child.id}>
-                      <a
-                        href={`#${child.anchor}`}
-                        className="block truncate py-0.5 text-[11px] text-gray-500 hover:text-blue-700"
-                      >
-                        {child.title}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
-        </nav>
-      </aside>
+  // ─── Selected: 全屏阅读单章（TI 风格） ───────────────────────
+  if (selectedSection) {
+    const totalWords = sections.reduce((s, x) => s + (x.wordCount ?? 0), 0);
+    void totalWords;
 
-      {/* 右侧单章 —— TI 同款极简：bg-white + p-6 */}
-      <main className="min-w-0 flex-1">
-        <div className="bg-white p-6">
-          {/* 章节顶部 chapter strip：章号 / 标题 / 元数据 / 翻页 */}
-          <div className="mb-6 flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
-            <div className="min-w-0 flex-1">
-              <p className="font-mono mb-1 text-[10px] uppercase tracking-[0.18em] text-blue-500">
-                Chapter {activeIndex + 1} / {sections.length}
-              </p>
-              <h2 className="font-serif mb-2 text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-[28px]">
-                {activeSection?.title ?? '—'}
-              </h2>
-              <p className="text-xs text-gray-500">
-                约 {activeSection?.readingTimeMinutes} 分钟 ·{' '}
-                {activeSection?.wordCount ?? 0} 字 · {sectionCitations.length}{' '}
-                引用
-                {sectionFigures.length > 0 && ` · ${sectionFigures.length} 图`}
-              </p>
-              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-400 to-purple-500 transition-all"
-                  style={{
-                    width: `${Math.round(((activeIndex + 1) / sections.length) * 100)}%`,
-                  }}
-                />
-              </div>
-            </div>
-            <div className="flex shrink-0 gap-1">
-              <button
-                type="button"
-                disabled={activeIndex === 0}
-                onClick={() => setActiveId(sections[activeIndex - 1].id)}
-                className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-                title="上一章"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                disabled={activeIndex === sections.length - 1}
-                onClick={() => setActiveId(sections[activeIndex + 1].id)}
-                className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-                title="下一章"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          {sectionMarkdown.trim().length === 0 ? (
-            <p className="rounded border border-dashed border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
-              该章节内容为空（可能是 Researcher 阶段降级失败）
-            </p>
-          ) : (
-            <ArtifactMarkdown
-              markdown={sectionMarkdown}
-              citations={sectionCitations}
-              figures={sectionFigures}
-            />
-          )}
-          {/* 章末：本章引用列表（TI 风格） */}
-          {sectionCitations.length > 0 && (
-            <div className="mt-10 border-t border-gray-100 pt-6">
-              <h4 className="mb-3 text-sm font-semibold tracking-tight text-gray-700">
-                本章参考文献
-              </h4>
-              <ol className="space-y-1.5">
-                {sectionCitations
-                  .slice()
-                  .sort((a, b) => a.index - b.index)
-                  .map((c) => (
-                    <li
-                      key={c.uuid}
-                      id={`ref-${c.index}`}
-                      data-cite-uuid={c.uuid}
-                      className="flex gap-2.5 text-sm leading-relaxed text-gray-600"
-                    >
-                      <span className="font-mono shrink-0 text-xs text-gray-400">
-                        [{c.index}]
-                      </span>
-                      <a
-                        href={c.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {c.title || c.domain || c.url}
-                      </a>
-                    </li>
-                  ))}
-              </ol>
-            </div>
-          )}
+    return (
+      <div className="flex h-full flex-col bg-white">
+        {/* Header: back + chapter number badge + title + word count */}
+        <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-2">
+          <button
+            type="button"
+            onClick={() => setSelectedId(null)}
+            className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            title="返回章节列表"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-medium text-green-700">
+            <Check className="h-3.5 w-3.5" />
+          </span>
+          <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+            第 {selectedIndex + 1} 章: {selectedSection.title}
+          </h3>
+          <span className="shrink-0 text-xs text-gray-400">
+            {selectedSection.wordCount} 字
+          </span>
         </div>
-        <ReferencePanel
-          citations={sectionCitations}
-          onClickReverseHighlight={handleReverseHighlight}
-        />
-      </main>
+
+        {/* Chapter content */}
+        <div className="flex-1 overflow-auto">
+          <div className="bg-white p-6">
+            {sectionMarkdown.trim().length === 0 ? (
+              <p className="rounded border border-dashed border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
+                该章节内容为空（可能是 Researcher 阶段降级失败）
+              </p>
+            ) : (
+              <ArtifactMarkdown
+                markdown={sectionMarkdown}
+                citations={sectionCitations}
+                figures={sectionFigures}
+              />
+            )}
+
+            {/* 章末参考文献（TI 风格） */}
+            {sectionCitations.length > 0 && (
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h4 className="mb-4 text-base font-semibold text-gray-700">
+                  参考文献
+                </h4>
+                <div className="space-y-2 text-sm text-gray-600">
+                  {sectionCitations
+                    .slice()
+                    .sort((a, b) => a.index - b.index)
+                    .map((c) => (
+                      <div
+                        key={c.uuid}
+                        id={`ref-${c.index}`}
+                        data-cite-uuid={c.uuid}
+                        className="flex gap-2.5 leading-relaxed"
+                      >
+                        <span className="font-mono shrink-0 text-xs text-gray-400">
+                          [{c.index}]
+                        </span>
+                        {c.url ? (
+                          <a
+                            href={c.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            {c.title || c.domain || c.url}
+                          </a>
+                        ) : (
+                          <span>{c.title || 'Unknown source'}</span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 章节列表视图 ─────────────────────────────────────
+  const stats = {
+    total: sections.length,
+    completed: sections.length,
+    totalWords: sections.reduce((s, x) => s + (x.wordCount ?? 0), 0),
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Stats Header */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
+        <div className="text-base text-gray-600">
+          共 {stats.total} 章 · 已完成 {stats.completed} · 总字数{' '}
+          {stats.totalWords >= 1000
+            ? `${(stats.totalWords / 1000).toFixed(1)}k`
+            : stats.totalWords}
+        </div>
+      </div>
+
+      {/* Chapter Cards */}
+      <div className="flex-1 overflow-auto p-4">
+        <div className="space-y-2">
+          {sections.map((s, idx) => {
+            const preview = artifact.content.fullMarkdown
+              .slice(s.startOffset, s.endOffset)
+              .replace(/^#{1,6}\s+[^\n]+\n+/, '')
+              .replace(/\*\*([^*]+)\*\*/g, '$1')
+              .replace(/\[(\d+)\]/g, '')
+              .replace(/^>\s*/gm, '')
+              .trim()
+              .slice(0, 200);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSelectedId(s.id)}
+                className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/50"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-medium text-green-700">
+                    <Check className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-base font-medium text-gray-800">
+                      第 {idx + 1} 章: {s.title}
+                    </div>
+                    {preview && (
+                      <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-gray-500">
+                        {preview}
+                        {preview.length >= 200 ? '...' : ''}
+                      </div>
+                    )}
+                  </div>
+                  {s.wordCount > 0 && (
+                    <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                      {s.wordCount} 字
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
+
+// keep useEffect type imports; fallback handler ref
+function _useReverseHighlight(
+  setReverseHighlight: (n: number | null) => void
+): (citation: ArtifactCitation) => void {
+  return (citation) => {
+    setReverseHighlight(citation.index);
+    setTimeout(() => setReverseHighlight(null), 4000);
+    const firstSup = document.querySelector(
+      `sup[data-cite="${citation.index}"]`
+    );
+    firstSup?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+}
+void _useReverseHighlight;

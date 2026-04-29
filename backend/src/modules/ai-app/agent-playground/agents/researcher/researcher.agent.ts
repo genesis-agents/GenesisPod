@@ -26,6 +26,8 @@ const Input = z.object({
    * 走单独字段表达"这是 Lead 让你回炉重做"，不混进 topic。
    */
   critique: z.string().optional(),
+  /** ★ withFigures=true 时强制 researcher 调 web-scraper extractImages=true 抽图 */
+  withFigures: z.boolean().default(true),
 });
 
 const Output = z.object({
@@ -147,10 +149,9 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `1. **如果 catalog 中有 rag-search 类**: 1 query 看内部知识够不够。`,
       `2. **One specialized search round**: emit ONE parallel_tool_call with 2-4 queries，`,
       `   优先用 ★ recommended 的工具，混合 web-search 兜底。`,
-      `3. **At most one scrape/parse round**: 高价值 URL 抓全文用 web-scraper / file-parser。`,
-      `   摘要够用就跳过这步。`,
-      `   ★ 调 web-scraper 时**带 extractImages=true** —— 工具会把页面里合法 <img>`,
-      `   （已过滤图标 / pixel / 广告位）放在 output.images 里，可直接抽到 figureCandidates。`,
+      input.withFigures
+        ? `3. **★ 必须 1 轮 web-scraper extractImages=true**（withFigures=true）：从 search 结果里挑 1-2 个高价值图文 URL（如 stanford / mckinsey / brookings / 政府 / arxiv 报告），调用 web-scraper 时**必须带 extractImages=true**。工具会把合法 <img>（过滤图标/pixel）放进 output.images。再从 output.images 抽 1-3 张到 figureCandidates。**没调 web-scraper extractImages 视为不达标**。`
+        : `3. **At most one scrape/parse round**: 高价值 URL 抓全文用 web-scraper / file-parser。摘要够用就跳过这步。`,
       `4. **Finalize**: emit { kind: "finalize", output: {...} } matching the schema below.`,
       ``,
       `## Hard constraints to control cost`,
