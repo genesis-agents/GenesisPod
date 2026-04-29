@@ -958,7 +958,7 @@ function SettingRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Compact inline meters in the tab bar (cost / score / wall / memory)
+// Compact inline meters in the tab bar (cost / score / wall / words)
 function CompactMeters({
   view,
   wallTimeMs,
@@ -971,12 +971,31 @@ function CompactMeters({
   const fmtTime = (ms: number) =>
     ms < 60_000 ? `${Math.floor(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m`;
 
+  // ★ 实时字数累加（每个 dim pipeline 的章节 wordCount 之和）
+  const totalWords = useMemo(() => {
+    let sum = 0;
+    for (const dim of view.dimensionPipelines.values()) {
+      for (const ch of dim.chapters) {
+        if (ch.wordCount) sum += ch.wordCount;
+      }
+    }
+    return sum;
+  }, [view.dimensionPipelines]);
+  const fmtWords = (n: number) =>
+    n < 1000 ? `${n} 字` : `${(n / 1000).toFixed(1)}k 字`;
+
   return (
     <div className="hidden items-center gap-4 whitespace-nowrap text-xs text-gray-500 lg:flex">
       <span className="flex items-center gap-1">
         <Coins className="h-3.5 w-3.5 text-amber-500" />
         {fmtTokens(view.cost.tokensUsed)} tk
       </span>
+      {totalWords > 0 && (
+        <span className="flex items-center gap-1" title="累计已写章节字数">
+          <FileText className="h-3.5 w-3.5 text-emerald-500" />
+          {fmtWords(totalWords)}
+        </span>
+      )}
       {view.mission.finalScore != null && (
         <span className="flex items-center gap-1">
           <Gavel className="h-3.5 w-3.5 text-violet-500" />
