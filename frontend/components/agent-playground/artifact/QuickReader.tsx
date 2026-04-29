@@ -10,7 +10,26 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import type { ReportArtifact } from '@/lib/agent-playground/report-artifact.types';
-import { FigureRenderer } from './FigureRenderer';
+import { FigureRenderer as PublicFigureRenderer } from '@/components/common/chart-viewer/FigureRenderer';
+import type { RenderableChart } from '@/components/common/chart-viewer/types';
+import type { ArtifactFigure } from '@/lib/agent-playground/report-artifact.types';
+
+function toRenderableChart(f: ArtifactFigure): RenderableChart {
+  return {
+    id: f.id,
+    chartType:
+      f.type === 'extracted_chart' || f.type === 'reference'
+        ? 'reference'
+        : 'generated',
+    type: f.chartType,
+    title: f.title,
+    description: f.caption,
+    imageUrl: f.imageUrl,
+    evidenceCitationIndex: f.evidenceCitationIndex,
+    sectionId: f.sectionId,
+    position: f.position,
+  };
+}
 
 interface Props {
   artifact: ReportArtifact;
@@ -139,11 +158,22 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
                 (c) => c.index === f.evidenceCitationIndex
               );
               return (
-                <FigureRenderer
+                <PublicFigureRenderer
                   key={f.id}
-                  figure={f}
-                  citationIndex={f.evidenceCitationIndex}
-                  citationUrl={cite?.url}
+                  chart={toRenderableChart(f)}
+                  showSource
+                  allowZoom
+                  evidenceInfo={
+                    cite
+                      ? {
+                          id: cite.uuid || `cite-${cite.index}`,
+                          title: cite.title,
+                          url: cite.url,
+                          snippet: cite.snippet,
+                          domain: cite.domain,
+                        }
+                      : null
+                  }
                 />
               );
             })}

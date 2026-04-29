@@ -2,8 +2,6 @@ export { ArtifactReader } from './ArtifactReader';
 export { ContinuousReader } from './ContinuousReader';
 export { ChapterReader } from './ChapterReader';
 export { QuickReader } from './QuickReader';
-export { CitationTooltip } from './CitationTooltip';
-export { FigureRenderer } from './FigureRenderer';
 export { ReferencePanel } from './ReferencePanel';
 export { ArtifactMarkdown } from './ArtifactMarkdown';
 export { QualityBadge } from './QualityBadge';

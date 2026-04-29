@@ -7,32 +7,59 @@ import type {
   ArtifactCitation,
   ArtifactFigure,
 } from '@/lib/agent-playground/report-artifact.types';
-import { CitationTooltip } from './CitationTooltip';
-import { FigureRenderer } from './FigureRenderer';
+import { CitationBadge } from '@/components/common/citations/CitationBadge';
+import { FigureRenderer as PublicFigureRenderer } from '@/components/common/chart-viewer/FigureRenderer';
+import type { RenderableChart } from '@/components/common/chart-viewer/types';
 import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
 
 interface Props {
   markdown: string;
-  citations: ArtifactCitation[];
-  figures: ArtifactFigure[];
-  onCitationClick?: (index: number) => void;
+  citations: readonly ArtifactCitation[];
+  figures: readonly ArtifactFigure[];
 }
 
 /**
- * Markdown 渲染器（基于公共 createMarkdownComponents，叠加：
- *   - [N] 角标 → CitationTooltip（hover 卡 + 点击跨面板跳转）
- *   - ![alt](#fig-id) 图占位符 → FigureRenderer
- *
- * 公共 createMarkdownComponents 已含 KaTeX / Mermaid / 标题锚点 / hash 链接平滑跳转，
- * 这里只在它的基础上做 [N] / 图占位的拦截。
+ * 把 ArtifactCitation 适配为公共 CitationBadge 的 evidence shape
  */
-export function ArtifactMarkdown({
-  markdown,
-  citations,
-  figures,
-  onCitationClick,
-}: Props) {
-  // 1. processText：拆分 [N] → CitationTooltip
+function toEvidence(c: ArtifactCitation) {
+  return {
+    id: c.uuid || `cite-${c.index}`,
+    title: c.title ?? null,
+    url: c.url ?? null,
+    snippet: c.snippet ?? null,
+    domain: c.domain ?? null,
+  };
+}
+
+/**
+ * 把 ArtifactFigure 适配为公共 FigureRenderer 的 RenderableChart
+ */
+function toRenderableChart(f: ArtifactFigure): RenderableChart {
+  return {
+    id: f.id,
+    chartType:
+      f.type === 'extracted_chart' || f.type === 'reference'
+        ? 'reference'
+        : 'generated',
+    type: f.chartType,
+    title: f.title,
+    description: f.caption,
+    imageUrl: f.imageUrl,
+    evidenceCitationIndex: f.evidenceCitationIndex,
+    sectionId: f.sectionId,
+    position: f.position,
+    data: undefined,
+  };
+}
+
+/**
+ * Markdown 渲染器（基于公共能力，agent-playground 层只做适配）：
+ *   - createMarkdownComponents：KaTeX / Mermaid / 标题锚点 / hash 链接平滑跳转
+ *   - CitationBadge：[N] 角标 hover 卡 + 跨面板跳 references
+ *   - PublicFigureRenderer：![alt](#fig-id) 图占位符 → 图片/Recharts 通用渲染
+ */
+export function ArtifactMarkdown({ markdown, citations, figures }: Props) {
+  // 1. processText：拆分 [N] → 公共 CitationBadge
   const processText = (text: string): React.ReactNode => {
     const parts: React.ReactNode[] = [];
     const re = /\[(\d+)\]/g;
@@ -43,14 +70,25 @@ export function ArtifactMarkdown({
       if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
       const num = parseInt(m[1], 10);
       const cite = citations.find((c) => c.index === num);
-      parts.push(
-        <CitationTooltip
-          key={`cite-${key++}-${num}`}
-          index={num}
-          citation={cite}
-          onCitationClick={onCitationClick}
-        />
-      );
+      if (cite) {
+        parts.push(
+          <CitationBadge
+            key={`cite-${key++}-${num}`}
+            index={num}
+            evidence={toEvidence(cite)}
+          />
+        );
+      } else {
+        parts.push(
+          <sup
+            key={`cite-missing-${key++}-${num}`}
+            className="mx-0.5 inline-block cursor-not-allowed rounded px-0.5 align-super text-[10px] text-gray-400"
+            title="引用元数据缺失"
+          >
+            [{num}]
+          </sup>
+        );
+      }
       lastIdx = re.lastIndex;
     }
     if (lastIdx < text.length) parts.push(text.slice(lastIdx));
@@ -63,7 +101,7 @@ export function ArtifactMarkdown({
     applyTextProcessingToBlockquote: true,
   });
 
-  // 3. 覆盖 img：拦截 #fig-* 占位符 → FigureRenderer
+  // 3. 覆盖 img：拦截 #fig-* 占位符 → 公共 FigureRenderer
   const components = {
     ...baseComponents,
     img: ({ src, alt }: { src?: string; alt?: string }) => {
@@ -75,11 +113,14 @@ export function ArtifactMarkdown({
             (c) => c.index === figure.evidenceCitationIndex
           );
           return (
-            <FigureRenderer
-              figure={figure}
-              citationIndex={figure.evidenceCitationIndex}
-              citationUrl={cite?.url}
-            />
+            <div className="my-4">
+              <PublicFigureRenderer
+                chart={toRenderableChart(figure)}
+                showSource
+                allowZoom
+                evidenceInfo={cite ? toEvidence(cite) : null}
+              />
+            </div>
           );
         }
         return (

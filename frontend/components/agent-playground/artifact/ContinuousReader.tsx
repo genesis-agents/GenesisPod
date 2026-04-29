@@ -16,7 +16,7 @@ interface Props {
 
 /** 连续视图：整篇 markdown 一篇到底，左侧浮动 mini-TOC */
 export function ContinuousReader({ artifact }: Props) {
-  const [highlightedCite, setHighlightedCite] = useState<number | null>(null);
+  const [highlightedCite] = useState<number | null>(null);
   const [reverseHighlight, setReverseHighlight] = useState<number | null>(null);
   // Phase P43-5: 滚动追踪当前 section
   const [activeSectionAnchor, setActiveSectionAnchor] = useState<string>('');
@@ -39,14 +39,6 @@ export function ContinuousReader({ artifact }: Props) {
     window.addEventListener('scroll', handler, { passive: true });
     return () => window.removeEventListener('scroll', handler);
   }, [artifact.sections]);
-
-  const handleCitationClick = (index: number) => {
-    setHighlightedCite(index);
-    setTimeout(() => setHighlightedCite(null), 2500);
-    document
-      .getElementById(`ref-${index}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
 
   // ★ Phase P1-12: 反向溯源 — 点击 ReferencePanel 引用条目 → 高亮文中所有位置
   const handleReverseHighlight = (citation: ArtifactCitation) => {
@@ -145,7 +137,6 @@ export function ContinuousReader({ artifact }: Props) {
             markdown={artifact.content.fullMarkdown}
             citations={artifact.citations}
             figures={artifact.figures}
-            onCitationClick={handleCitationClick}
           />
         </div>
         <ReferencePanel
