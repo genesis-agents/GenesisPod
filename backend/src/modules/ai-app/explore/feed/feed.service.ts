@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { Prisma, ResourceType } from "@prisma/client";
+import { EXCLUDE_DEAD_LINKS } from "../resources/link-health.constants";
 
 /**
  * Feed 流服务
@@ -31,11 +32,12 @@ export class FeedService {
       sortBy = "publishedAt",
     } = params;
 
-    // 始终过滤掉空标题的资源
+    // 始终过滤掉空标题的资源 + 隐藏失效链接（BROKEN/ARCHIVED）
     const where: Prisma.ResourceWhereInput = {
       NOT: {
         title: "",
       },
+      ...EXCLUDE_DEAD_LINKS,
     };
 
     if (type) {
@@ -116,6 +118,7 @@ export class FeedService {
         { abstract: { contains: query, mode: "insensitive" } },
         { content: { contains: query, mode: "insensitive" } },
       ],
+      ...EXCLUDE_DEAD_LINKS,
     };
 
     if (type) {
@@ -169,6 +172,7 @@ export class FeedService {
         trendingScore: {
           not: "0",
         },
+        ...EXCLUDE_DEAD_LINKS,
       },
     });
 
@@ -400,6 +404,7 @@ export class FeedService {
         id: { not: excludeId },
         type: resource.type,
         OR: orConditions,
+        ...EXCLUDE_DEAD_LINKS,
       },
       take,
       orderBy: [{ qualityScore: "desc" }, { publishedAt: "desc" }],
@@ -429,6 +434,7 @@ export class FeedService {
         id: { not: excludeId },
         type: type,
         OR: orConditions,
+        ...EXCLUDE_DEAD_LINKS,
       },
       take,
       orderBy: [{ qualityScore: "desc" }, { publishedAt: "desc" }],
@@ -448,6 +454,7 @@ export class FeedService {
       where: {
         id: { not: excludeId },
         type: type,
+        ...EXCLUDE_DEAD_LINKS,
       },
       take,
       orderBy: [
@@ -474,6 +481,7 @@ export class FeedService {
           { primaryCategory: primaryCategory },
           { categories: { array_contains: primaryCategory } },
         ],
+        ...EXCLUDE_DEAD_LINKS,
       },
       take,
       orderBy: [{ qualityScore: "desc" }, { publishedAt: "desc" }],

@@ -150,7 +150,10 @@ describe("ResourcesService", () => {
 
       // Assert
       expect(repositoryService.findMany).toHaveBeenCalledWith({
-        where: { NOT: { title: "" } },
+        where: {
+          NOT: { title: "" },
+          linkHealth: { notIn: ["BROKEN", "ARCHIVED"] },
+        },
         skip: 0,
         take: 20,
         orderBy: { publishedAt: "desc" },

@@ -7,12 +7,23 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
-const LINK_HEALTH = {
-  HEALTHY: "HEALTHY",
-  BROKEN: "BROKEN",
-  UNKNOWN: "UNKNOWN",
-  ARCHIVED: "ARCHIVED",
-} as const;
+import { LINK_HEALTH } from "./link-health.constants";
+
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "youtu.be",
+]);
+
+function isYoutubeUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    return YOUTUBE_HOSTS.has(new URL(url).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 资源链接健康检查调度器
@@ -31,8 +42,12 @@ export class ResourceHealthCheckScheduler
   private readonly BATCH_DELAY_MS = 500;
   private readonly HEAD_TIMEOUT_MS = 15000;
   private readonly FAIL_THRESHOLD = 3;
+  // YouTube 删除/私有信号确定（oEmbed 401/404），单次失败即可定性，无需 3 次冗余确认
+  private readonly YOUTUBE_FAIL_THRESHOLD = 1;
   private readonly ARCHIVE_AFTER_DAYS = 30;
   private readonly RECHECK_AFTER_DAYS = 7;
+  // 新入库 YouTube 资源在 24h 内强制回查一次，捕获"刚发不久就被删/审核下架"
+  private readonly YOUTUBE_RECHECK_NEW_HOURS = 24;
   private readonly INITIAL_DELAY_MS = 10 * 60 * 1000; // 10 minutes
 
   constructor(
@@ -117,11 +132,35 @@ export class ResourceHealthCheckScheduler
         now.getTime() - this.RECHECK_AFTER_DAYS * 24 * 60 * 60 * 1000,
       );
 
+      // 0. 新入库 24h 内未检查的 YouTube（最高优先级 — 捕获"刚发不久就被删"）
+      const youtubeRecheckThreshold = new Date(
+        now.getTime() - this.YOUTUBE_RECHECK_NEW_HOURS * 60 * 60 * 1000,
+      );
+      const newYoutubeResources = await this.prisma.resource.findMany({
+        where: {
+          createdAt: { gt: youtubeRecheckThreshold },
+          lastHealthCheckAt: null,
+          sourceUrl: {
+            contains: "youtube.com",
+          },
+        },
+        select: {
+          id: true,
+          sourceUrl: true,
+          pdfUrl: true,
+          linkHealth: true,
+          linkCheckFailCount: true,
+        },
+        take: this.BATCH_SIZE,
+      });
+
       // 1. UNKNOWN 优先
       const unknownResources = await this.prisma.resource.findMany({
         where: {
           linkHealth: LINK_HEALTH.UNKNOWN,
           sourceUrl: { not: "" },
+          // 排除上面已选取的新 YouTube，避免重复检查
+          NOT: { id: { in: newYoutubeResources.map((r) => r.id) } },
         },
         select: {
           id: true,
@@ -172,6 +211,7 @@ export class ResourceHealthCheckScheduler
       });
 
       const allResources = [
+        ...newYoutubeResources,
         ...unknownResources,
         ...staleResources,
         ...brokenResources,
@@ -183,7 +223,7 @@ export class ResourceHealthCheckScheduler
       }
 
       this.logger.log(
-        `Checking ${allResources.length} resources (unknown: ${unknownResources.length}, stale: ${staleResources.length}, broken: ${brokenResources.length})`,
+        `Checking ${allResources.length} resources (newYoutube: ${newYoutubeResources.length}, unknown: ${unknownResources.length}, stale: ${staleResources.length}, broken: ${brokenResources.length})`,
       );
 
       await this.checkBatch(allResources);
@@ -344,6 +384,7 @@ export class ResourceHealthCheckScheduler
   private async updateResourceHealth(
     resource: {
       id: string;
+      sourceUrl: string | null;
       linkHealth: string | null;
       linkCheckFailCount: number;
     },
@@ -367,9 +408,13 @@ export class ResourceHealthCheckScheduler
       }
     } else {
       // 失败：递增失败计数，超过阈值标记为 BROKEN
+      // YouTube 删除/私有信号确定（401/404），用单独阈值快速定性
+      const threshold = isYoutubeUrl(resource.sourceUrl)
+        ? this.YOUTUBE_FAIL_THRESHOLD
+        : this.FAIL_THRESHOLD;
       const newFailCount = resource.linkCheckFailCount + 1;
       const newHealth =
-        newFailCount >= this.FAIL_THRESHOLD
+        newFailCount >= threshold
           ? LINK_HEALTH.BROKEN
           : (resource.linkHealth ?? LINK_HEALTH.UNKNOWN);
 
@@ -388,7 +433,7 @@ export class ResourceHealthCheckScheduler
 
       if (becameBroken) {
         this.logger.warn(
-          `Resource ${resource.id} marked BROKEN after ${newFailCount} failures`,
+          `Resource ${resource.id} marked BROKEN after ${newFailCount} failures (threshold=${threshold})`,
         );
       }
     }

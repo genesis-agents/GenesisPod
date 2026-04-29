@@ -70,7 +70,10 @@ describe("FeedService", () => {
           skip: 0,
           take: 20,
           orderBy: { publishedAt: "desc" },
-          where: { NOT: { title: "" } },
+          where: {
+            NOT: { title: "" },
+            linkHealth: { notIn: ["BROKEN", "ARCHIVED"] },
+          },
         }),
       );
     });
@@ -317,7 +320,10 @@ describe("FeedService", () => {
         expect.objectContaining({
           take: 10,
           orderBy: { trendingScore: "desc" },
-          where: { trendingScore: { not: "0" } },
+          where: {
+            trendingScore: { not: "0" },
+            linkHealth: { notIn: ["BROKEN", "ARCHIVED"] },
+          },
         }),
       );
     });

@@ -12,6 +12,7 @@ import { SourceWhitelistService } from "../../management/ingestion/config/servic
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
 import { APP_CONFIG } from "../../../../common/config/app.config";
+import { EXCLUDE_DEAD_LINKS } from "./link-health.constants";
 
 /**
  * 资源管理服务
@@ -50,11 +51,12 @@ export class ResourcesService {
       sortOrder = "desc",
     } = params;
 
-    // 构建查询条件 - 始终过滤掉空标题的资源
+    // 构建查询条件 - 始终过滤掉空标题的资源 + 隐藏失效链接（BROKEN/ARCHIVED）
     const where: Prisma.ResourceWhereInput = {
       NOT: {
         title: "",
       },
+      ...EXCLUDE_DEAD_LINKS,
     };
 
     if (type) {
@@ -251,7 +253,7 @@ export class ResourcesService {
   async searchSuggestions(query: string, limit: number = 5) {
     const searchQuery = query.trim().toLowerCase();
 
-    // 执行全文搜索
+    // 执行全文搜索（隐藏失效链接）
     const results = await this.prisma.resource.findMany({
       where: {
         OR: [
@@ -259,6 +261,7 @@ export class ResourcesService {
           { abstract: { contains: searchQuery, mode: "insensitive" } },
           { content: { contains: searchQuery, mode: "insensitive" } },
         ],
+        ...EXCLUDE_DEAD_LINKS,
       },
       select: {
         id: true,

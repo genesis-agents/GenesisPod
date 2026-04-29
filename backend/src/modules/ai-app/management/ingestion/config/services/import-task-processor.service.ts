@@ -2,6 +2,43 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { ImportTask, ImportTaskStatus, ResourceType } from "@prisma/client";
 import { getErrorMessage } from "../../../../../../common/utils/error.utils";
+import { LINK_HEALTH } from "../../../../explore/resources/link-health.constants";
+
+const YOUTUBE_PRECHECK_TIMEOUT_MS = 8000;
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "youtu.be",
+]);
+
+/**
+ * Pre-flight check for YouTube URLs before insertion. Hits YouTube's oEmbed
+ * endpoint — 200 means video exists, 401/404 means private/deleted (skip
+ * insertion), other states (network error, rate limit) → treat as unverified
+ * and let the periodic health checker decide later.
+ *
+ * Returns: "healthy" | "dead" | "unknown"
+ */
+async function precheckYoutubeUrl(
+  url: string,
+): Promise<"healthy" | "dead" | "unknown"> {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (!YOUTUBE_HOSTS.has(host)) return "unknown";
+    const axios = (await import("axios")).default;
+    const res = await axios.get(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+      { timeout: YOUTUBE_PRECHECK_TIMEOUT_MS, validateStatus: () => true },
+    );
+    if (res.status === 200) return "healthy";
+    if (res.status === 401 || res.status === 404) return "dead";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 /**
  * Import Task Processor Service
@@ -142,6 +179,24 @@ export class ImportTaskProcessorService {
         );
         resourceId = existingResource.id;
       } else {
+        // YouTube 入库前 oEmbed 预检：404/401 直接放弃，不污染库存
+        const precheck = await precheckYoutubeUrl(task.sourceUrl);
+        if (precheck === "dead") {
+          this.logger.warn(
+            `Skipping dead YouTube URL ${task.sourceUrl} (oEmbed 401/404 — deleted or private)`,
+          );
+          await this.prisma.importTask.update({
+            where: { id: task.id },
+            data: {
+              status: ImportTaskStatus.FAILED,
+              errorMessage: "YouTube video unavailable (deleted/private)",
+              updatedAt: new Date(),
+              completedAt: new Date(),
+            },
+          });
+          return;
+        }
+
         // 创建新的Resource
         const metadata =
           task.metadata &&
@@ -155,6 +210,13 @@ export class ImportTaskProcessorService {
           (metadata.description as string | undefined) ||
           null;
 
+        // 预检 healthy → linkHealth=HEALTHY 入库，前端立即可见且不显示警告
+        // 预检 unknown（非 YouTube 或网络错误）→ 走默认 UNKNOWN，等待 health checker
+        // 注意：lastHealthCheckAt 故意保持 null —— 让 health-checker 的"24h 加速回查"
+        // 队列在入库后能再确认一次，捕获"博主刚发不久就删/审核下架"的场景
+        const initialHealth =
+          precheck === "healthy" ? LINK_HEALTH.HEALTHY : LINK_HEALTH.UNKNOWN;
+
         const resource = await this.prisma.resource.create({
           data: {
             type: task.resourceType as ResourceType,
@@ -162,6 +224,7 @@ export class ImportTaskProcessorService {
             abstract,
             sourceUrl: task.sourceUrl,
             publishedAt: new Date(),
+            linkHealth: initialHealth,
             // 默认值
             upvoteCount: 0,
             viewCount: 0,
@@ -173,7 +236,7 @@ export class ImportTaskProcessorService {
 
         resourceId = resource.id;
         this.logger.log(
-          `Created new resource: ${resourceId} for task ${task.id}`,
+          `Created new resource: ${resourceId} for task ${task.id} (linkHealth=${initialHealth})`,
         );
       }
 

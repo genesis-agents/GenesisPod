@@ -117,14 +117,15 @@ describe("ResourceHealthCheckScheduler", () => {
 
       await scheduler.runHealthCheck();
 
-      // archiveStaleResources + 3 priority queries = 4 findMany calls
-      expect(prisma.resource.findMany).toHaveBeenCalledTimes(4);
+      // archiveStaleResources + newYoutube + 3 priority queries = 5 findMany calls
+      expect(prisma.resource.findMany).toHaveBeenCalledTimes(5);
       expect(prisma.resource.update).not.toHaveBeenCalled();
     });
 
     it("processes UNKNOWN, stale HEALTHY, and BROKEN resources", async () => {
       prisma.resource.findMany
         .mockResolvedValueOnce([]) // archiveStaleResources query
+        .mockResolvedValueOnce([]) // newYoutube 24h recheck query
         .mockResolvedValueOnce([
           {
             id: "u1",
@@ -171,7 +172,8 @@ describe("ResourceHealthCheckScheduler", () => {
 
     it("continues when single resource throws (does not break batch)", async () => {
       prisma.resource.findMany
-        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]) // archive
+        .mockResolvedValueOnce([]) // newYoutube
         .mockResolvedValueOnce([
           {
             id: "u1",
@@ -313,7 +315,7 @@ describe("ResourceHealthCheckScheduler", () => {
       );
     });
 
-    it("youtube oEmbed 401 → broken", async () => {
+    it("youtube oEmbed 401 → broken on first failure (YouTube fast threshold)", async () => {
       prisma.resource.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([
@@ -331,12 +333,13 @@ describe("ResourceHealthCheckScheduler", () => {
 
       await scheduler.runHealthCheck();
 
-      // first failure, count 0+1=1, still UNKNOWN, not yet BROKEN
+      // YouTube uses YOUTUBE_FAIL_THRESHOLD=1: 0+1=1 ≥ 1 → BROKEN immediately.
+      // 401/404 是 YouTube 删除/私有的确定信号，无需 3 次冗余确认
       expect(prisma.resource.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             linkCheckFailCount: 1,
-            linkHealth: "UNKNOWN",
+            linkHealth: "BROKEN",
           }),
         }),
       );
