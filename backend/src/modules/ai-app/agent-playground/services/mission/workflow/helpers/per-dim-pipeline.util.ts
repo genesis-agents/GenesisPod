@@ -452,10 +452,19 @@ export async function runPerDimPipeline(
         dimension: dimensionName,
       });
 
+      // ★ 字数硬门槛：实际产出 < target × 70% 时强制 revise（即使 reviewer 给 pass）
+      //   原因：观测到 extended (25K) mission 实际只产 5K 字（20%）—— reviewer 评分 ≥ PASS_THRESHOLD
+      //   但字数严重不达标。LLM 默认惜字如金，必须显式 retry 才能逼出长文。
+      //   仅在 attempt < MAX 时拒绝；attempt 用完则放行（避免无限 retry）。
+      const isLengthFail =
+        draft.wordCount < Math.round(targetWordsPerChapter * 0.7) &&
+        attempt < MAX_REVISION_ATTEMPTS + 1;
+
       if (
-        verdict.decision === "pass" ||
-        verdict.score >= PASS_THRESHOLD ||
-        attempt >= MAX_REVISION_ATTEMPTS + 1
+        !isLengthFail &&
+        (verdict.decision === "pass" ||
+          verdict.score >= PASS_THRESHOLD ||
+          attempt >= MAX_REVISION_ATTEMPTS + 1)
       ) {
         writtenChapters.push({
           index: chapter.index,
@@ -467,7 +476,12 @@ export async function runPerDimPipeline(
         break;
       }
 
-      lastCritique = verdict.critique;
+      // 字数 fail 时 critique 必须显式说出来，让下一轮 writer 知道扩写
+      const lengthCritiquePrefix = isLengthFail
+        ? `[字数严重不足] 上轮仅 ${draft.wordCount} 字（目标 ${targetWordsPerChapter} 字，仅 ${Math.round((draft.wordCount / targetWordsPerChapter) * 100)}%）。必须把章节扩到至少 ${Math.round(targetWordsPerChapter * 0.85)} 字：增加分析段落、补充案例数据、深化推理、加引用。不要重复已有内容。\n\n`
+        : "";
+      lastCritique =
+        lengthCritiquePrefix + (verdict.critique ?? verdict.summary ?? "");
       await deps.emit({
         type: "agent-playground.chapter:revision",
         missionId,
