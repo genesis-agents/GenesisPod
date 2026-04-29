@@ -112,9 +112,13 @@ Requirements:
         modelType: AIModelType.CHAT,
         model: remediationModelId || undefined,
         skipGuardrails: true,
+        // ★ Round 4 真问题修复 (2026-04-29):
+        //   原 outputLength="long" (8000 maxTokens) — 重写一个 5000+ 字的章节会被截断到 ~80%。
+        //   切到 "extended" (16000) 给章节扩写留充足空间，配合 "remediated_content_too_short" 校验
+        //   (内容 < 50% 原文长度则放弃) 防止退化。
         taskProfile: {
           creativity: "medium",
-          outputLength: "long",
+          outputLength: "extended",
         },
       });
 
