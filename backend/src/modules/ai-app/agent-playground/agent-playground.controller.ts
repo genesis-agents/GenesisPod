@@ -19,7 +19,9 @@ import {
 } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 import { TeamMission } from "./services/mission/workflow/team.mission";
 import {
   RunMissionInputSchema,
@@ -43,6 +45,7 @@ export class AgentPlaygroundController {
     private readonly store: MissionStore,
     private readonly leaderChat: LeaderChatService,
     private readonly abortRegistry: MissionAbortRegistry,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -344,6 +347,56 @@ export class AgentPlaygroundController {
     throw new BadRequestException(
       `Unsupported export format: ${format}. Use csv-facts | csv-citations | markdown | json`,
     );
+  }
+
+  /**
+   * POST /api/v1/agent-playground/dev/trigger-mission
+   *
+   * 内部触发端点 —— 让外部脚本（npm scripts / sh / curl）能启动 mission，
+   * 不依赖前端 / JWT。鉴权方式：必须传 userApiKeyId（user_api_keys 表主键 UUID），
+   * 后端校验该 id 真实存在 → 反查 user_id → 启动 mission。
+   *
+   * 这等价于"持有 BYOK API 密钥记录的 ID"才能触发，相当于密钥所有人凭证。
+   * 不公开访问（id 是 UUID v4，不可猜测，且需要数据库直接读取才能拿到）。
+   */
+  @Public()
+  @Post("dev/trigger-mission")
+  async devTriggerMission(
+    @Body() body: { userApiKeyId: string; input: unknown },
+  ): Promise<{ missionId: string; userId: string }> {
+    if (!body?.userApiKeyId) {
+      throw new BadRequestException("userApiKeyId required");
+    }
+    // 反查 user_id —— prisma typed accessor 名为 userApiKey
+    const apiKey = await this.prisma.userApiKey.findUnique({
+      where: { id: body.userApiKeyId },
+      select: { userId: true },
+    });
+    if (!apiKey) {
+      throw new ForbiddenException(
+        `userApiKeyId ${body.userApiKeyId} not found`,
+      );
+    }
+    const userId = apiKey.userId;
+    const parsed = RunMissionInputSchema.safeParse(body.input);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        `Invalid input: ${parsed.error.issues
+          .map((i) => `${i.path.join(".")}:${i.message}`)
+          .join("; ")}`,
+      );
+    }
+    const input: RunMissionInput = parsed.data;
+    const missionId = randomUUID();
+    this.ownership.assign(missionId, userId);
+    void this.orchestrator
+      .runMission(missionId, input, userId)
+      .catch((err: unknown) => {
+        this.log.error(
+          `dev-trigger mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    return { missionId, userId };
   }
 
   /**
