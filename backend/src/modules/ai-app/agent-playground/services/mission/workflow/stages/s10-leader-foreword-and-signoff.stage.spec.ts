@@ -260,4 +260,96 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
     const signoffCall = (ctx.leader.signOff as jest.Mock).mock.calls[0][0];
     expect(signoffCall.objectiveScore).toBe(78);
   });
+
+  it("reconciliationReport with critical gaps → criticalGaps filter covered", async () => {
+    const ctx = makeCtx({
+      reconciliationReport: {
+        factTable: [{ id: "f1" }],
+        conflicts: [],
+        gaps: [
+          {
+            severity: "critical",
+            expectedAspects: ["regulation", "compliance"],
+          },
+          { severity: "minor", expectedAspects: ["optional"] },
+        ],
+      } as unknown as MissionContext["reconciliationReport"],
+    });
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    const forewordCall = (ctx.leader.writeForeword as jest.Mock).mock
+      .calls[0][0];
+    expect(forewordCall.reconciliation.criticalGaps).toHaveLength(1);
+    expect(forewordCall.reconciliation.criticalGaps[0]).toContain("regulation");
+  });
+
+  it("l4-blindspot and l4-bias warnings → criticBlindspots/criticBiases covered", async () => {
+    const ctx = makeCtx();
+    ctx.reportArtifact!.quality.warnings.push(
+      { dimension: "l4-blindspot", message: "Missing regulatory context" },
+      { dimension: "l4-bias", message: "Western-centric framing" },
+    );
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    const forewordCall = (ctx.leader.writeForeword as jest.Mock).mock
+      .calls[0][0];
+    expect(forewordCall.qualitySnapshot.criticBlindspots).toEqual([
+      "Missing regulatory context",
+    ]);
+    expect(forewordCall.qualitySnapshot.criticBiases).toEqual([
+      "Western-centric framing",
+    ]);
+  });
+
+  it("summary starting with (failed → dimState = degraded", async () => {
+    const ctx = makeCtx();
+    ctx.researcherResults = [
+      {
+        dimension: "Market",
+        findings: [{ claim: "c", evidence: "e", source: "http://a.com" }],
+        summary: "(failed: LLM timeout)",
+      },
+    ];
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    const signoffCall = (ctx.leader.signOff as jest.Mock).mock.calls[0];
+    expect(signoffCall[1]).toEqual(
+      expect.arrayContaining([{ name: "Market", state: "degraded" }]),
+    );
+  });
+
+  it("verifierVerdicts empty → reviewerAvg is undefined in foreword", async () => {
+    const ctx = makeCtx({ verifierVerdicts: [] });
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    const forewordCall = (ctx.leader.writeForeword as jest.Mock).mock
+      .calls[0][0];
+    expect(forewordCall.qualitySnapshot.reviewerAvgScore).toBeUndefined();
+  });
+
+  it("l4-critic message [fail] → criticVerdict = fail", async () => {
+    const ctx = makeCtx();
+    ctx.reportArtifact!.quality.warnings.push({
+      dimension: "l4-critic",
+      message: "[fail] Report has major flaws",
+    });
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    const forewordCall = (ctx.leader.writeForeword as jest.Mock).mock
+      .calls[0][0];
+    expect(forewordCall.qualitySnapshot.criticVerdict).toBe("fail");
+  });
+
+  it("l4-critic message [concerns] → criticVerdict = concerns", async () => {
+    const ctx = makeCtx();
+    ctx.reportArtifact!.quality.warnings.push({
+      dimension: "l4-critic",
+      message: "[concerns] Some areas need attention",
+    });
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    const forewordCall = (ctx.leader.writeForeword as jest.Mock).mock
+      .calls[0][0];
+    expect(forewordCall.qualitySnapshot.criticVerdict).toBe("concerns");
+  });
 });
