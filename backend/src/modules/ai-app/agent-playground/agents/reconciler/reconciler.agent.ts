@@ -18,10 +18,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const FactTriple = z.object({
   id: z.string(),
@@ -200,8 +197,12 @@ export class ReconcilerAgent extends AgentSpec<typeof Input, typeof Output> {
       `4. **Detect gaps**: plan.dimensions[i].rationale promises certain aspects but findings don't cover.`,
       `   - severity "critical" if gap breaks dim's purpose; "minor" if peripheral.`,
       ``,
-      `5. **Figure candidates**: build empty array []. Researcher 当前不抽 figureCandidates，`,
-      `   未来 phase 接通图来源管线后再填。本节点暂留接口。`,
+      `5. **Figure candidates**: 把 researcherResults[*].figureCandidates 的所有图聚合到一个数组。`,
+      `   - 去重：sourceUrl 相同 → 保 relevanceHint 最高的一条`,
+      `   - 跨 dim 合并：每个候选保留 sourceUrl / imageUrl / caption / sourcePageOrSection / relevanceHint 原字段`,
+      `   - 不要凭空创造图，不要"建议生成图"。只汇总 Researcher 已抽到的真实图。`,
+      `   - 单 mission 最多保留 20 张（按 relevanceHint=high 优先 + caption 信息量倒序）`,
+      `   - 没有任何 figureCandidates 输入时给 [] —— 宁缺勿滥。`,
       ``,
       `6. **reconciliationReport**: concise markdown summary, ≤1500 chars total. Sections:`,
       `   - "# 对账总览" / "# Reconciliation Overview"`,

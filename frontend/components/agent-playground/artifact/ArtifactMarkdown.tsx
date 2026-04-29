@@ -3,6 +3,9 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import type {
   ArtifactCitation,
   ArtifactFigure,
@@ -10,7 +13,12 @@ import type {
 import { CitationBadge } from '@/components/common/citations/CitationBadge';
 import { FigureRenderer as PublicFigureRenderer } from '@/components/common/chart-viewer/FigureRenderer';
 import type { RenderableChart } from '@/components/common/chart-viewer/types';
-import { createMarkdownComponents } from '@/lib/markdown/createMarkdownComponents';
+import {
+  createMarkdownComponents,
+  preprocessLatex,
+  stripProseBullets,
+  KATEX_OPTIONS,
+} from '@/components/common/markdown-viewer';
 
 interface Props {
   markdown: string;
@@ -134,13 +142,17 @@ export function ArtifactMarkdown({ markdown, citations, figures }: Props) {
     },
   };
 
+  // 与 TI 报告管线对齐：同样过 preprocessLatex + stripProseBullets + KaTeX
+  const cleaned = stripProseBullets(preprocessLatex(markdown));
+
   return (
     <div className="prose prose-sm max-w-none text-sm">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw, [rehypeKatex, KATEX_OPTIONS]]}
         components={components as never}
       >
-        {markdown}
+        {cleaned}
       </ReactMarkdown>
     </div>
   );
