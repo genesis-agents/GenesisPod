@@ -64,6 +64,16 @@ const STATUS_CONFIG: Record<
     color: 'bg-amber-50 text-amber-700',
     icon: XCircle,
   },
+  cancelled: {
+    label: '已取消',
+    color: 'bg-gray-100 text-gray-700',
+    icon: XCircle,
+  },
+  'quality-failed': {
+    label: '质量未达标',
+    color: 'bg-amber-50 text-amber-700',
+    icon: XCircle,
+  },
 };
 
 const DEPTH_GRADIENT: Record<string, string> = {

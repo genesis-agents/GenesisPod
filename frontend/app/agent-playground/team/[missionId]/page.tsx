@@ -832,6 +832,8 @@ export default function MissionDetailPage() {
         dimensionPipelines={view.dimensionPipelines}
         allTodos={todoLedger}
         onClose={() => setSelectedTaskKey(null)}
+        missionId={missionId}
+        missionTerminal={!isRunning}
       />
 
       {/* Settings modal */}

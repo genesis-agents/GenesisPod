@@ -21,7 +21,9 @@
  */
 
 import React, { useState } from 'react';
-import { X as XIcon, ChevronRight, Lightbulb } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { X as XIcon, ChevronRight, Lightbulb, RefreshCw } from 'lucide-react';
+import { rerunTodo } from '@/services/agent-playground/api';
 import { cn } from '@/lib/utils/common';
 import type {
   MissionTodo,
@@ -60,6 +62,9 @@ interface Props {
   /** 全量 todos 列表 — 用于 dim 父级 drawer 展示「本维度被 Leader 要求修改了什么」 */
   allTodos?: MissionTodo[];
   onClose: () => void;
+  /** 单 todo 重跑 —— 仅 mission 终态 + 非 abort/persist origin 时启用 */
+  missionId?: string;
+  missionTerminal?: boolean;
 }
 
 // ─── Origin label ────────────────────────────────────
@@ -350,11 +355,41 @@ export function TodoDetailDrawer({
   dimensionPipelines,
   allTodos,
   onClose,
+  missionId,
+  missionTerminal,
 }: Props) {
+  const router = useRouter();
   const [showTimeline, setShowTimeline] = useState(true);
   const [showDiag, setShowDiag] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
 
   if (!todo) return null;
+
+  const canRerun =
+    !!(missionId && missionTerminal) &&
+    todo.systemStageId !== 's11-persist' &&
+    todo.origin !== 'leader-assess-abort' &&
+    (todo.status === 'done' ||
+      todo.status === 'failed' ||
+      todo.status === 'cancelled');
+
+  const handleRerun = async () => {
+    if (!missionId || rerunning) return;
+    setRerunning(true);
+    try {
+      const { missionId: newId } = await rerunTodo(missionId, todo.id, {
+        origin: todo.origin,
+        scope: todo.scope,
+        dimensionRef: todo.dimensionRef,
+        todoTitle: todo.title,
+        reasonText: todo.reasonText,
+      });
+      router.push(`/agent-playground/team/${newId}`);
+    } catch (e) {
+      window.alert(`重跑失败：${e instanceof Error ? e.message : String(e)}`);
+      setRerunning(false);
+    }
+  };
 
   const origin = ORIGIN_LABEL[todo.origin];
   const layers = deriveLayerBreadcrumb(todo);
@@ -416,13 +451,29 @@ export function TodoDetailDrawer({
               {todo.title}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-3 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
+          <div className="ml-3 flex items-center gap-1.5">
+            {canRerun && (
+              <button
+                type="button"
+                onClick={() => void handleRerun()}
+                disabled={rerunning}
+                className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700 ring-1 ring-blue-200 transition-colors hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
+                title="基于此任务的反馈启动一个新 mission，重点改进它"
+              >
+                <RefreshCw
+                  className={cn('h-3 w-3', rerunning && 'animate-spin')}
+                />
+                重跑此任务
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         {/* ─── Body ─── */}
