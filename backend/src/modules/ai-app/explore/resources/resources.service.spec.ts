@@ -5,6 +5,7 @@ import { RawDataService } from "../../../../common/rawdata/rawdata.service";
 import { SourceWhitelistService } from "../../management/ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
+import { ResourceLifecycleService } from "./resource-lifecycle.service";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResourceType } from "@prisma/client";
 
@@ -114,6 +115,11 @@ describe("ResourcesService", () => {
       findUserUpvotedResourceIds: jest.fn(),
     };
 
+    const mockLifecycle = {
+      record: jest.fn().mockResolvedValue(undefined),
+      recordBatch: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResourcesService,
@@ -122,6 +128,7 @@ describe("ResourcesService", () => {
         { provide: SourceWhitelistService, useValue: mockWhitelistService },
         { provide: AIEnrichmentService, useValue: mockAIEnrichmentService },
         { provide: ResourcesRepository, useValue: mockResourcesRepository },
+        { provide: ResourceLifecycleService, useValue: mockLifecycle },
       ],
     }).compile();
 

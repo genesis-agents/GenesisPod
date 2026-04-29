@@ -6,6 +6,7 @@ import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { ResourceHealthCheckScheduler } from "./resource-health-check.scheduler";
+import { ResourceLifecycleModule } from "./resource-lifecycle.module";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { RawDataModule } from "../../../../common/rawdata/rawdata.module";
 import { IngestionConfigModule } from "../../management/ingestion/config/config.module";
@@ -22,6 +23,7 @@ import { ProxyModule } from "../../library/proxy/proxy.module";
     IngestionConfigModule,
     StorageModule,
     ProxyModule, // 用于 FlareSolverr 支持
+    ResourceLifecycleModule,
   ],
   controllers: [ResourcesController],
   providers: [
@@ -38,6 +40,7 @@ import { ProxyModule } from "../../library/proxy/proxy.module";
     AIEnrichmentService,
     PdfThumbnailService,
     DynamicThumbnailService,
+    ResourceLifecycleModule,
   ],
 })
 export class ResourcesModule {}

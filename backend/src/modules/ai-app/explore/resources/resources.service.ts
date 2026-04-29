@@ -13,6 +13,7 @@ import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import { EXCLUDE_DEAD_LINKS } from "./link-health.constants";
+import { ResourceLifecycleService } from "./resource-lifecycle.service";
 
 /**
  * 资源管理服务
@@ -27,6 +28,7 @@ export class ResourcesService {
     private whitelistService: SourceWhitelistService,
     private aiEnrichmentService: AIEnrichmentService,
     private repository: ResourcesRepository,
+    private lifecycle: ResourceLifecycleService,
   ) {}
 
   /**
@@ -1049,22 +1051,50 @@ export class ResourcesService {
     archived: number;
     total: number;
   }> {
-    // ★ 2026-04-22 加固：两步操作放事务里，且 deleteMany 的 where 再叠
+    // 2026-04-22 加固：两步操作放事务里，且 deleteMany 的 where 再叠
     // notes/comments none 条件双保险，防止 select 到 delete 之间用户写笔记
     // 导致误删。
+    // 2026-04-29 加：所有删除/归档前先 snapshot + 写 lifecycle 事件，
+    // 即使 resource 物理删除也保留审计轨迹。
+    const toDelete = await this.prisma.resource.findMany({
+      where: {
+        linkHealth: "BROKEN",
+        notes: { none: {} },
+        comments: { none: {} },
+      },
+      select: { id: true, sourceUrl: true, title: true, type: true },
+    });
+    const toArchive = await this.prisma.resource.findMany({
+      where: {
+        linkHealth: "BROKEN",
+        OR: [{ notes: { some: {} } }, { comments: { some: {} } }],
+      },
+      select: { id: true, sourceUrl: true, title: true, type: true },
+    });
+
+    await this.lifecycle.recordBatch([
+      ...toDelete.map((r) => ({
+        resourceId: r.id,
+        action: "HARD_DELETED" as const,
+        reason: "manual-admin-cleanup",
+        actor: "API_ADMIN" as const,
+        snapshot: { sourceUrl: r.sourceUrl, title: r.title, type: r.type },
+      })),
+      ...toArchive.map((r) => ({
+        resourceId: r.id,
+        action: "ARCHIVED" as const,
+        reason: "manual-admin-cleanup",
+        actor: "API_ADMIN" as const,
+        snapshot: { sourceUrl: r.sourceUrl, title: r.title, type: r.type },
+      })),
+    ]);
+
     const result = await this.prisma.$transaction(async (tx) => {
       const deleteResult = await tx.resource.deleteMany({
-        where: {
-          linkHealth: "BROKEN",
-          notes: { none: {} },
-          comments: { none: {} },
-        },
+        where: { id: { in: toDelete.map((r) => r.id) } },
       });
       const archiveResult = await tx.resource.updateMany({
-        where: {
-          linkHealth: "BROKEN",
-          OR: [{ notes: { some: {} } }, { comments: { some: {} } }],
-        },
+        where: { id: { in: toArchive.map((r) => r.id) } },
         data: { linkHealth: "ARCHIVED" },
       });
       return { deleted: deleteResult.count, archived: archiveResult.count };

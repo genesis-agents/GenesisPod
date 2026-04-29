@@ -8,6 +8,12 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 import { LINK_HEALTH } from "./link-health.constants";
+import { ResourceLifecycleService } from "./resource-lifecycle.service";
+
+interface CheckResult {
+  ok: boolean;
+  reason: string;
+}
 
 const YOUTUBE_HOSTS = new Set([
   "youtube.com",
@@ -53,6 +59,7 @@ export class ResourceHealthCheckScheduler
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly lifecycle: ResourceLifecycleService,
   ) {
     const intervalHours = this.configService.get<number>(
       "RESOURCE_HEALTH_CHECK_INTERVAL_HOURS",
@@ -150,6 +157,8 @@ export class ResourceHealthCheckScheduler
           pdfUrl: true,
           linkHealth: true,
           linkCheckFailCount: true,
+          title: true,
+          type: true,
         },
         take: this.BATCH_SIZE,
       });
@@ -168,6 +177,8 @@ export class ResourceHealthCheckScheduler
           pdfUrl: true,
           linkHealth: true,
           linkCheckFailCount: true,
+          title: true,
+          type: true,
         },
         take: this.BATCH_SIZE,
       });
@@ -188,6 +199,8 @@ export class ResourceHealthCheckScheduler
           pdfUrl: true,
           linkHealth: true,
           linkCheckFailCount: true,
+          title: true,
+          type: true,
         },
         take: this.BATCH_SIZE,
         orderBy: { lastHealthCheckAt: "asc" },
@@ -205,6 +218,8 @@ export class ResourceHealthCheckScheduler
           pdfUrl: true,
           linkHealth: true,
           linkCheckFailCount: true,
+          title: true,
+          type: true,
         },
         take: this.BATCH_SIZE,
         orderBy: { lastHealthCheckAt: "asc" },
@@ -227,6 +242,10 @@ export class ResourceHealthCheckScheduler
       );
 
       await this.checkBatch(allResources);
+
+      // 检查跑完后，物理删除"BROKEN 且无 notes/comments"的孤儿资源
+      // —— 把脏数据从库里清出去，而不是只标记后让它躺着
+      await this.deleteOrphanedBrokenResources();
 
       this.logger.log("Resource link health check completed");
     } catch (error) {
@@ -285,6 +304,8 @@ export class ResourceHealthCheckScheduler
     pdfUrl: string | null;
     linkHealth: string | null;
     linkCheckFailCount: number;
+    title?: string | null;
+    type?: string | null;
   }): Promise<void> {
     const urlsToCheck: string[] = [];
 
@@ -299,17 +320,19 @@ export class ResourceHealthCheckScheduler
       return;
     }
 
-    // 任意一个 URL 可达即认为健康
+    // 任意一个 URL 可达即认为健康；记录最后一个失败原因（若全部失败）
     let isHealthy = false;
+    let lastReason = "no-url";
     for (const url of urlsToCheck) {
-      const ok = await this.checkUrlSmart(url);
-      if (ok) {
+      const result = await this.checkUrlSmart(url);
+      lastReason = result.reason;
+      if (result.ok) {
         isHealthy = true;
         break;
       }
     }
 
-    await this.updateResourceHealth(resource, isHealthy);
+    await this.updateResourceHealth(resource, isHealthy, lastReason);
   }
 
   /**
@@ -318,7 +341,7 @@ export class ResourceHealthCheckScheduler
    *   走 oEmbed API（https://www.youtube.com/oembed?url=...）— 视频删除返回 404
    * - 其他：走原有的 HTTP HEAD/GET Range 检查
    */
-  private async checkUrlSmart(url: string): Promise<boolean> {
+  private async checkUrlSmart(url: string): Promise<CheckResult> {
     try {
       const parsed = new URL(url);
       const host = parsed.hostname.toLowerCase();
@@ -342,12 +365,13 @@ export class ResourceHealthCheckScheduler
    *
    * 状态码解读：
    * - 200 → 视频还在，HEALTHY
+   * - 400 → 视频 ID 损坏（曾经的 lowercase bug），BROKEN
    * - 401 → 视频被设为私有，BROKEN
    * - 404 → 视频已删除，BROKEN
-   * - 429 / 503 / 网络超时 → 临时故障，保守返回 true（不递增失败计数），
+   * - 429 / 503 / 网络超时 → 临时故障，保守返回 ok=true（不递增失败计数），
    *   避免 YouTube 限流 / 出口 IP 被封导致批量误标 BROKEN
    */
-  private async checkYoutubeUrl(url: string): Promise<boolean> {
+  private async checkYoutubeUrl(url: string): Promise<CheckResult> {
     try {
       const axios = (await import("axios")).default;
       const res = await axios.get(
@@ -357,24 +381,28 @@ export class ResourceHealthCheckScheduler
           validateStatus: () => true,
         },
       );
-      if (res.status === 200) return true;
-      if (res.status === 401 || res.status === 404) {
-        this.logger.debug(
-          `[youtube oembed] ${res.status} for ${url} → deleted/private`,
-        );
-        return false;
+      if (res.status === 200) return { ok: true, reason: "oembed-200" };
+      if (res.status === 400) {
+        this.logger.debug(`[youtube oembed] 400 for ${url} → malformed id`);
+        return { ok: false, reason: "oembed-400-malformed-id" };
       }
-      // 其他状态码（429 限流 / 5xx 服务端 / 403 地域限制）保守视为临时故障
+      if (res.status === 401) {
+        this.logger.debug(`[youtube oembed] 401 for ${url} → private`);
+        return { ok: false, reason: "oembed-401-private" };
+      }
+      if (res.status === 404) {
+        this.logger.debug(`[youtube oembed] 404 for ${url} → deleted`);
+        return { ok: false, reason: "oembed-404-deleted" };
+      }
       this.logger.warn(
         `[youtube oembed] ambiguous status ${res.status} for ${url}, treating as healthy`,
       );
-      return true;
+      return { ok: true, reason: `oembed-${res.status}-ambiguous` };
     } catch (error) {
-      // 网络超时 / DNS 等也保守返回 true
       this.logger.warn(
         `[youtube oembed] network error for ${url}: ${(error as Error).message}, treating as healthy`,
       );
-      return true;
+      return { ok: true, reason: "oembed-network-error" };
     }
   }
 
@@ -387,13 +415,20 @@ export class ResourceHealthCheckScheduler
       sourceUrl: string | null;
       linkHealth: string | null;
       linkCheckFailCount: number;
+      title?: string | null;
+      type?: string | null;
     },
     isHealthy: boolean,
+    reason: string,
   ): Promise<void> {
     const now = new Date();
+    const snapshot = {
+      sourceUrl: resource.sourceUrl,
+      title: resource.title ?? null,
+      type: resource.type ?? null,
+    };
 
     if (isHealthy) {
-      // 恢复健康：重置失败计数
       const wasRecovered = resource.linkHealth === LINK_HEALTH.BROKEN;
       await this.prisma.resource.update({
         where: { id: resource.id },
@@ -405,10 +440,15 @@ export class ResourceHealthCheckScheduler
       });
       if (wasRecovered) {
         this.logger.log(`Resource ${resource.id} recovered: BROKEN -> HEALTHY`);
+        await this.lifecycle.record({
+          resourceId: resource.id,
+          action: "RECOVERED",
+          reason,
+          actor: "SCHEDULER",
+          snapshot,
+        });
       }
     } else {
-      // 失败：递增失败计数，超过阈值标记为 BROKEN
-      // YouTube 删除/私有信号确定（401/404），用单独阈值快速定性
       const threshold = isYoutubeUrl(resource.sourceUrl)
         ? this.YOUTUBE_FAIL_THRESHOLD
         : this.FAIL_THRESHOLD;
@@ -433,21 +473,33 @@ export class ResourceHealthCheckScheduler
 
       if (becameBroken) {
         this.logger.warn(
-          `Resource ${resource.id} marked BROKEN after ${newFailCount} failures (threshold=${threshold})`,
+          `Resource ${resource.id} marked BROKEN after ${newFailCount} failures (threshold=${threshold}, reason=${reason})`,
         );
+        await this.lifecycle.record({
+          resourceId: resource.id,
+          action: "HEALTH_CHECK_BROKEN",
+          reason,
+          actor: "SCHEDULER",
+          snapshot,
+          metadata: { failCount: newFailCount, threshold },
+        });
       }
     }
   }
 
   /**
    * 将长时间 BROKEN 且无关联内容的资源自动归档
+   *
+   * 注意：此方法实际上不会触发——`deleteOrphanedBrokenResources` 在
+   * runHealthCheck 末尾已经把"无 notes/comments 的 BROKEN"物理删除了，
+   * 留给这里的只剩"有附件的 BROKEN"，但它们因为附件存在不满足下面的过滤。
+   * 保留此方法作为安全网，以防 hard-delete 路径未来被禁用。
    */
   private async archiveStaleResources(): Promise<void> {
     const archiveThreshold = new Date(
       Date.now() - this.ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000,
     );
 
-    // 查找 BROKEN 超过30天、且没有 notes/comments 的资源
     const staleResources = await this.prisma.resource.findMany({
       where: {
         linkHealth: LINK_HEALTH.BROKEN,
@@ -455,7 +507,7 @@ export class ResourceHealthCheckScheduler
         notes: { none: {} },
         comments: { none: {} },
       },
-      select: { id: true },
+      select: { id: true, sourceUrl: true, title: true, type: true },
       take: 200,
     });
 
@@ -470,8 +522,55 @@ export class ResourceHealthCheckScheduler
       data: { linkHealth: LINK_HEALTH.ARCHIVED },
     });
 
+    await this.lifecycle.recordBatch(
+      staleResources.map((r) => ({
+        resourceId: r.id,
+        action: "ARCHIVED" as const,
+        reason: "stale-broken-30d",
+        actor: "SCHEDULER" as const,
+        snapshot: { sourceUrl: r.sourceUrl, title: r.title, type: r.type },
+      })),
+    );
+
     this.logger.log(
       `Archived ${staleResources.length} stale broken resources (broken >30d, no notes/comments)`,
+    );
+  }
+
+  /**
+   * 物理删除孤儿 BROKEN 资源（无 notes/comments），并写入 lifecycle 事件快照。
+   * 与 archiveStaleResources 互补：归档保留行，删除清空空间——后者只对真正"无人问津"的执行。
+   */
+  private async deleteOrphanedBrokenResources(): Promise<void> {
+    const orphans = await this.prisma.resource.findMany({
+      where: {
+        linkHealth: LINK_HEALTH.BROKEN,
+        notes: { none: {} },
+        comments: { none: {} },
+      },
+      select: { id: true, sourceUrl: true, title: true, type: true },
+      take: 500,
+    });
+
+    if (orphans.length === 0) return;
+
+    // 先写审计事件，再删除——这样即使 deleteMany 异常也有记录
+    await this.lifecycle.recordBatch(
+      orphans.map((r) => ({
+        resourceId: r.id,
+        action: "HARD_DELETED" as const,
+        reason: "orphaned-broken-no-attachments",
+        actor: "SCHEDULER" as const,
+        snapshot: { sourceUrl: r.sourceUrl, title: r.title, type: r.type },
+      })),
+    );
+
+    const deleted = await this.prisma.resource.deleteMany({
+      where: { id: { in: orphans.map((r) => r.id) } },
+    });
+
+    this.logger.log(
+      `Hard-deleted ${deleted.count} orphaned BROKEN resources (no notes/comments)`,
     );
   }
 
@@ -479,7 +578,7 @@ export class ResourceHealthCheckScheduler
    * 发送 HTTP HEAD 请求检查 URL 可达性
    * 回退策略：HEAD 被拒绝时尝试 GET Range
    */
-  private async checkUrl(url: string): Promise<boolean> {
+  private async checkUrl(url: string): Promise<CheckResult> {
     try {
       const axios = (await import("axios")).default;
       const response = await axios.head(url, {
@@ -492,12 +591,11 @@ export class ResourceHealthCheckScheduler
           Accept: "*/*",
         },
       });
-      return response.status < 400;
-    } catch {
-      // 部分服务器拒绝 HEAD，回退到 GET Range
+      return { ok: response.status < 400, reason: `head-${response.status}` };
+    } catch (headErr) {
       try {
         const axios = (await import("axios")).default;
-        await axios.get(url, {
+        const r = await axios.get(url, {
           timeout: this.HEAD_TIMEOUT_MS,
           maxRedirects: 5,
           validateStatus: (status) => status < 400,
@@ -507,9 +605,10 @@ export class ResourceHealthCheckScheduler
             Range: "bytes=0-0",
           },
         });
-        return true;
-      } catch {
-        return false;
+        return { ok: true, reason: `get-range-${r.status}` };
+      } catch (e) {
+        const msg = (e as Error).message || "unknown";
+        return { ok: false, reason: `http-error:${msg.slice(0, 50)}` };
       }
     }
   }

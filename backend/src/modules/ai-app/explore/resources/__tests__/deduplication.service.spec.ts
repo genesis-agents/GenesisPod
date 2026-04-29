@@ -63,18 +63,22 @@ describe("DeduplicationService", () => {
       expect(normalized).toBe("https://github.com/owner/repo");
     });
 
-    it("should normalize YouTube URLs to watch format", () => {
+    it("should normalize YouTube URLs to watch format and preserve case-sensitive video ID", () => {
+      // YouTube video IDs are case-sensitive — kotam_vvnmy ≠ kOTAM_vVnMY.
+      // Lowercasing destroys the ID; old behavior caused 8 corrupted records
+      // before the 2026-04-29 fix.
       const shortenedUrl = "https://youtu.be/dQw4w9WgXcQ";
       const normalized = service.normalizeUrl(shortenedUrl);
 
-      expect(normalized).toBe("https://www.youtube.com/watch?v=dqw4w9wgxcq");
+      expect(normalized).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     });
 
-    it("should convert to lowercase", () => {
+    it("should lowercase host but preserve case in path", () => {
       const url = "https://EXAMPLE.COM/Article";
       const normalized = service.normalizeUrl(url);
 
-      expect(normalized).toBe(normalized.toLowerCase());
+      // host lowercased per RFC 3986; path case-sensitive
+      expect(normalized).toBe("https://example.com/Article");
     });
 
     it("should return lowercased original URL when URL is invalid", () => {

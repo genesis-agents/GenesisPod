@@ -18,6 +18,15 @@ jest.mock("rss-parser", () => {
   }));
 });
 
+// Mock YouTube oEmbed precheck — tests use synthetic IDs ("longId" / "unknownId")
+// that real YouTube can't resolve. Default to "not-youtube" (no-op pass-through);
+// explicit YouTube tests can override via mockResolvedValueOnce("dead"|"healthy").
+jest.mock("../../../../explore/resources/youtube-precheck.util", () => ({
+  precheckYoutubeUrl: jest
+    .fn()
+    .mockResolvedValue({ verdict: "not-youtube", reason: "not-youtube" }),
+}));
+
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockPrisma = {

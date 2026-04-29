@@ -4,6 +4,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { DeduplicationService } from "./deduplication.service";
 import * as Parser from "rss-parser";
+import { precheckYoutubeUrl } from "../../../explore/resources/youtube-precheck.util";
 
 /**
  * 采集结果接口
@@ -411,6 +412,17 @@ export class RssService {
               `⚠️ Duplicate found in raw_data: ${item.title?.substring(0, 50)}... (source: ${source})`,
             );
             duplicateCount++;
+            continue;
+          }
+
+          // YouTube oEmbed 预检：400/401/404 直接跳过，不污染库存
+          // (正常 URL 此调用极快；非 YouTube 的 verdict=not-youtube 立即返回)
+          const ytPrecheck = await precheckYoutubeUrl(item.link);
+          if (ytPrecheck.verdict === "dead") {
+            this.logger.warn(
+              `Skipping dead YouTube URL ${item.link} (${ytPrecheck.reason})`,
+            );
+            skippedCount++;
             continue;
           }
 

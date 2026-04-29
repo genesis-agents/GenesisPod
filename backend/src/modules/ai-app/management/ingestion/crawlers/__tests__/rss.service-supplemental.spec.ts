@@ -29,6 +29,14 @@ jest.mock("rss-parser", () => {
   }));
 });
 
+// Mock YouTube oEmbed precheck — synthetic test IDs would otherwise hit real
+// YouTube and fail with 400. Default verdict makes precheck a no-op.
+jest.mock("../../../../explore/resources/youtube-precheck.util", () => ({
+  precheckYoutubeUrl: jest
+    .fn()
+    .mockResolvedValue({ verdict: "not-youtube", reason: "not-youtube" }),
+}));
+
 // ── Shared mocks ──────────────────────────────────────────────────────────────
 
 const mockPrisma = {

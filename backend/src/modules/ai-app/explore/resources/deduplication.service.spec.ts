@@ -74,10 +74,12 @@ describe("DeduplicationService", () => {
       expect(normalized).toContain("https://");
     });
 
-    it("should lowercase the URL", () => {
+    it("should lowercase host but preserve path case", () => {
+      // Path case is significant (YouTube IDs / Drive IDs / JWT tokens);
+      // only host is lowercased per RFC 3986.
       const url = "https://Example.COM/PAGE";
       const normalized = service.normalizeUrl(url);
-      expect(normalized).toBe("https://example.com/page");
+      expect(normalized).toBe("https://example.com/PAGE");
     });
 
     it("should handle invalid URLs gracefully", () => {

@@ -69,15 +69,19 @@ export class DeduplicationService {
       ];
       trackingParams.forEach((param) => parsed.searchParams.delete(param));
       parsed.protocol = "https:";
+      // Lowercase only host (case-insensitive per RFC 3986). Path/query are
+      // case-sensitive — lowercasing them destroys YouTube IDs (kotam_vvnmy
+      // ≠ kOTAM_vVnMY), Drive IDs, JWT tokens, etc. Bug fixed 2026-04-29
+      // after 8 corrupted YouTube IDs were ingested via this path.
+      parsed.hostname = parsed.hostname.toLowerCase();
 
       let normalized = parsed.toString();
       if (normalized.endsWith("/")) {
         normalized = normalized.slice(0, -1);
       }
-      normalized = this.normalizePlatformUrl(normalized);
-      return normalized.toLowerCase();
+      return this.normalizePlatformUrl(normalized);
     } catch {
-      return url.toLowerCase();
+      return url;
     }
   }
 

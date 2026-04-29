@@ -6,6 +6,7 @@ import { RawDataService } from "../../../../../common/rawdata/rawdata.service";
 import { SourceWhitelistService } from "../../../management/ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { ResourcesRepository } from "../resources.repository";
+import { ResourceLifecycleService } from "../resource-lifecycle.service";
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -112,6 +113,11 @@ describe("ResourcesService", () => {
       deleteUpvoteWithCount: jest.fn().mockResolvedValue(undefined),
     } as jest.Mocked<Partial<ResourcesRepository>>;
 
+    const mockLifecycle = {
+      record: jest.fn().mockResolvedValue(undefined),
+      recordBatch: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResourcesService,
@@ -120,6 +126,7 @@ describe("ResourcesService", () => {
         { provide: SourceWhitelistService, useValue: mockWhitelistService },
         { provide: AIEnrichmentService, useValue: mockAIEnrichmentService },
         { provide: ResourcesRepository, useValue: mockRepository },
+        { provide: ResourceLifecycleService, useValue: mockLifecycle },
       ],
     }).compile();
 
