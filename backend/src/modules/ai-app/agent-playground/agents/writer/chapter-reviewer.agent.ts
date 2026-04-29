@@ -22,11 +22,38 @@ const Input = z.object({
   }),
 });
 
+/** Iter 2d: critique 改结构化 issues 数组（替代大段叙述） */
+const ReviewIssue = z.object({
+  severity: z.enum(["must-fix", "should-fix", "nice-to-have"]),
+  dimension: z.enum([
+    "evidence",
+    "logic",
+    "structure",
+    "citation",
+    "length",
+    "style",
+  ]),
+  /** 例 "§2 第 3 段" / "Implications" */
+  pointer: z.string(),
+  /** 一句话问题 */
+  issue: z.string(),
+  /** 一句话改法（动词开头）*/
+  suggestion: z.string(),
+});
+
 const Output = z.object({
   index: z.number().int(),
   decision: z.enum(["pass", "revise"]),
   score: z.number().int().min(0).max(100),
-  critique: z.string(),
+  /** 结构化 issues（最多 6 条；pass 时可空数组） */
+  issues: z.array(ReviewIssue).max(6).default([]),
+  /** 1-2 句话总评摘要（≤ 150 字符）—— 替代旧 critique 中的"概括陈述"部分 */
+  summary: z.string().max(300),
+  /**
+   * @deprecated 兼容旧客户端 —— 平铺 issues 拼成的可读文本。
+   * 新前端应消费 issues + summary，不要直接展示这个字段。
+   */
+  critique: z.string().optional(),
 });
 
 @DefineAgent({
@@ -76,7 +103,19 @@ export class ChapterReviewerAgent extends AgentSpec<
       `  "index": ${input.chapter.index},`,
       `  "decision": "pass" or "revise",`,
       `  "score": <0-100 整数>,`,
-      `  "critique": "<具体可执行的修改建议；pass 时给出强项总结>"`,
+      `  "summary": "<1-2 句总评，≤ 150 字>",`,
+      `  "issues": [  // 0-6 条结构化问题。pass 时可为空数组。`,
+      `    {`,
+      `      "severity": "must-fix" | "should-fix" | "nice-to-have",`,
+      `      "dimension": "evidence" | "logic" | "structure" | "citation" | "length" | "style",`,
+      `      "pointer": "<位置如 §2 第 3 段 / Key Finding / Implications>",`,
+      `      "issue": "<一句话问题描述>",`,
+      `      "suggestion": "<一句话改法，动词开头>"`,
+      `    }`,
+      `    // ★ 禁止"建议提升整体质量"这种笼统描述`,
+      `    // ★ revise 必须 ≥ 1 条 must-fix；pass 可全部 nice-to-have 或空`,
+      `  ],`,
+      `  "critique": "<可选，旧客户端兼容字段：把 issues 串成可读文本>"`,
       `}`,
     ].join("\n");
   }

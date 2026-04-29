@@ -46,10 +46,24 @@ export const RunMissionInputSchema = z.object({
   auditLayers: z
     .enum(["minimal", "default", "thorough", "paranoid"])
     .default("default"),
-  concurrency: z.number().int().min(1).max(5).default(3),
+  concurrency: z.number().int().min(1).max(10).default(3),
   viewMode: z.enum(["continuous", "chapter", "quick"]).default("continuous"),
   /** @deprecated 保留兼容老前端；新前端用 budgetProfile */
   maxCredits: z.number().int().positive().max(10_000).optional(),
+  /**
+   * 用户自定义 wall-time（毫秒）。不传则按 depth × audit × budget 矩阵推断（resolveMissionWallTimeMs）。
+   * 范围 60s ~ 3h。
+   */
+  wallTimeMs: z
+    .number()
+    .int()
+    .min(60_000)
+    .max(3 * 60 * 60 * 1000)
+    .optional(),
+  /**
+   * 用户自定义 budget 倍率（覆盖 resolveBudgetMultiplier）。范围 0.3 ~ 10。
+   */
+  budgetMultiplierOverride: z.number().min(0.3).max(10).optional(),
 });
 
 export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;
@@ -80,8 +94,11 @@ export const DEPTH_BUDGET_MULTIPLIER: Record<
   deep: 1.4,
 };
 
-/** 业务方拿这个直接用 —— 已经把 budgetProfile + depth 组合好 */
+/** 业务方拿这个直接用 —— 已经把 budgetProfile + depth 组合好；用户传 override 时优先 */
 export function resolveBudgetMultiplier(input: RunMissionInput): number {
+  if (input.budgetMultiplierOverride != null) {
+    return input.budgetMultiplierOverride;
+  }
   return (
     BUDGET_PROFILE_MULTIPLIER[input.budgetProfile] *
     DEPTH_BUDGET_MULTIPLIER[input.depth]
@@ -106,6 +123,10 @@ export function resolveBudgetMultiplier(input: RunMissionInput): number {
  *   deep + paranoid + unlimited                 ≈ 200 min → cap 180 min
  */
 export function resolveMissionWallTimeMs(input: RunMissionInput): number {
+  if (input.wallTimeMs != null) {
+    // 用户显式覆盖（DTO 已 cap 到 60s ~ 3h）
+    return input.wallTimeMs;
+  }
   const depthBase: Record<RunMissionInput["depth"], number> = {
     quick: 10 * 60 * 1000,
     standard: 25 * 60 * 1000,

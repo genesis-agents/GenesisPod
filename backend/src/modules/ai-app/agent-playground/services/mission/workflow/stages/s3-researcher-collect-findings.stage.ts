@@ -429,6 +429,7 @@ async function runOneDim(
           topic: input.topic,
           language: input.language,
           depth: input.depth,
+          lengthProfile: input.lengthProfile,
           pool,
           researcherOut,
           billing,

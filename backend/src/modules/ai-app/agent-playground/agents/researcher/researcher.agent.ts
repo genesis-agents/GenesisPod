@@ -104,6 +104,18 @@ const Output = z.object({
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
     const currentDate = new Date().toISOString().slice(0, 10);
+    // ★ Iter 2a: 时效性约束 —— 默认查询 12 个月内来源（深度档可放宽到 24 个月，
+    //   由 Researcher 自己根据题材判断）。这避免 LLM 拉到 5 年前旧文章导致评分 freshness 低。
+    const since12mo = (() => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - 1);
+      return d.toISOString().slice(0, 10);
+    })();
+    const since24mo = (() => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - 2);
+      return d.toISOString().slice(0, 10);
+    })();
     const critiqueBlock = input.critique
       ? [
           ``,
@@ -146,6 +158,15 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `- Target 4-5 findings; do NOT iterate to add more.`,
       `- 1 short evidence quote per finding is enough.`,
       `- Use search snippets directly when sufficient; scrape ONLY for missing critical numbers.`,
+      ``,
+      `## ★ 时效性约束（freshness — 影响 dim 5-axis 评分中的 freshness 维度）`,
+      `currentDate = ${currentDate}`,
+      `- 优先选择 ${since12mo} 之后的来源（最近 12 个月）—— 这是默认硬约束`,
+      `- 仅当某事实只能用更早的奠基性来源（论文 / 政策原文）解释时，才放宽到 ${since24mo}（24 个月）`,
+      `- 超过 24 个月的来源，必须在 finding.evidence 里标注"作为 background context"，不能作为支撑当前判断的主要证据`,
+      `- 调用 web-search 时建议在 query 末尾追加 "after:${since12mo.slice(0, 7)}" 帮搜索引擎过滤`,
+      `- 调用 arxiv-search 时优先选择 ${since12mo.slice(0, 4)}-${currentDate.slice(0, 4)} 区间论文`,
+      `- finding.source 写明发布日期（如 "2025-08-15"）让评分器能识别 freshness`,
       ``,
       `## Figure candidates (★★ 图来源红线 — 编造图直接 mission 失败)`,
       `严禁红线：`,

@@ -34,6 +34,11 @@ export { RAGFacade } from "./domain/rag.facade";
 export { AgentFacade } from "./domain/agent.facade";
 export { TeamFacade } from "./domain/team.facade";
 export { ToolFacade } from "./domain/tool.facade";
+export { ConcurrencyPlanner } from "../governance/resource/concurrency-planner.service";
+export type {
+  ConcurrencyPlanOptions,
+  ConcurrencyPlan,
+} from "../governance/resource/concurrency-planner.service";
 export { ModelResolverService } from "./model-resolver.service";
 export {
   FACADE_FEATURE_PROVIDERS,
@@ -80,7 +85,10 @@ export type { BuiltInVerifierId } from "../governance/verify";
 // ── Resource ──
 export { ResourceManagerService } from "../governance/resource/resource-manager.service";
 // PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
-export { CircuitBreakerService, TaskCompletionType } from "../../ai-engine/facade";
+export {
+  CircuitBreakerService,
+  TaskCompletionType,
+} from "../../ai-engine/facade";
 export type {
   CircuitState,
   CircuitBreakerConfig,
@@ -278,12 +286,29 @@ export { RoleRegistry } from "../runtime/teams/registry/role-registry";
 export { TeamFactory } from "../runtime/teams/factory/team-factory";
 export { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
 export { TeamsService } from "../runtime/teams/services/teams.service";
-export type { TeamInfo, CreateMissionDto, MissionStatus } from "../runtime/teams/services/teams.service";
-export type { ITeam, TeamConfig, TeamId, TeamType } from "../runtime/teams/abstractions/team.interface";
+export type {
+  TeamInfo,
+  CreateMissionDto,
+  MissionStatus,
+} from "../runtime/teams/services/teams.service";
+export type {
+  ITeam,
+  TeamConfig,
+  TeamId,
+  TeamType,
+} from "../runtime/teams/abstractions/team.interface";
 export { BUILTIN_TEAMS } from "../runtime/teams/abstractions/team.interface";
-export type { IRole, RoleId, WorkStyle } from "../runtime/teams/abstractions/role.interface";
+export type {
+  IRole,
+  RoleId,
+  WorkStyle,
+} from "../runtime/teams/abstractions/role.interface";
 export { BUILTIN_ROLES } from "../runtime/teams/abstractions/role.interface";
-export type { ITeamMember, TeamMemberId, MemberStatus } from "../runtime/teams/abstractions/member.interface";
+export type {
+  ITeamMember,
+  TeamMemberId,
+  MemberStatus,
+} from "../runtime/teams/abstractions/member.interface";
 export type { WorkflowConfig } from "../runtime/teams/abstractions/workflow.interface";
 export type {
   MissionInput,
@@ -345,8 +370,14 @@ export {
 
 // Legacy registry (IPlanBasedAgent plan→execute model)
 // Note: Different from process/handoff/agent-registry (IAgent runtime model)
-export { AgentRegistry, type AgentRegistryStats } from "../kernel/registry/plan-based-agent-registry";
-export { AgentOrchestrator, type AgentStatusReport } from "../kernel/registry/agent-orchestrator";
+export {
+  AgentRegistry,
+  type AgentRegistryStats,
+} from "../kernel/registry/plan-based-agent-registry";
+export {
+  AgentOrchestrator,
+  type AgentStatusReport,
+} from "../kernel/registry/agent-orchestrator";
 
 // Agent config (DB-stored runtime overrides)
 export { AgentConfigService } from "../kernel/config/agent-config.service";
@@ -356,7 +387,10 @@ export { AgentConfigService } from "../kernel/config/agent-config.service";
 export { BaseAgent, createAgent } from "../kernel/base/base-agent";
 export { ReactiveAgent } from "../kernel/base/reactive-agent";
 export { PlanAgent } from "../kernel/base/plan-agent";
-export { PlanBasedAgent, type IPlanBasedAgent } from "../kernel/base/plan-based-agent";
+export {
+  PlanBasedAgent,
+  type IPlanBasedAgent,
+} from "../kernel/base/plan-based-agent";
 
 // ════════════════════════════════════════════════════════════════════
 // Process (Collaboration) — PR-X5
@@ -365,8 +399,14 @@ export { CollaborationModule } from "../process/collaboration/collaboration.modu
 export { ReviewWorkflowService } from "../process/collaboration/review/review-workflow.service";
 export { TodoService } from "../process/collaboration/todo/todo.service";
 export { VotingManager } from "../process/collaboration/patterns/voting-pattern";
-export { HandoffCoordinator, HandoffContextBuilder } from "../process/collaboration/patterns/handoff-pattern";
-export type { CollaborationMessage, ICollaborator } from "../process/collaboration/abstractions/collaborator.interface";
+export {
+  HandoffCoordinator,
+  HandoffContextBuilder,
+} from "../process/collaboration/patterns/handoff-pattern";
+export type {
+  CollaborationMessage,
+  ICollaborator,
+} from "../process/collaboration/abstractions/collaborator.interface";
 
 // ════════════════════════════════════════════════════════════════════
 // MCP Protocol (PR-X14: migrated from ai-engine/facade shims)

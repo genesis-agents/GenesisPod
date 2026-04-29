@@ -39,6 +39,8 @@ export interface PerDimPipelineArgs {
   topic: string;
   language: "zh-CN" | "en-US";
   depth: "quick" | "standard" | "deep";
+  /** 章节字数规格（lengthProfile 决定每节字数 + 章节数） */
+  lengthProfile?: "brief" | "standard" | "deep" | "extended";
   pool: MissionBudgetPool;
   researcherOut: {
     dimension: string;
@@ -89,8 +91,25 @@ export async function runPerDimPipeline(
   } = args;
 
   const targetChapterCount = depth === "quick" ? 3 : depth === "deep" ? 7 : 5;
-  const targetWordsPerChapter =
-    depth === "quick" ? 600 : depth === "deep" ? 2500 : 1500;
+  // ★ Iter 2c: lengthProfile 决定每节字数（depth fallback 兼容老调用方）
+  //   brief:    400 字/节  → 紧凑版（适合执行摘要档位）
+  //   standard: 1000 字/节 → 标准（默认）
+  //   deep:     1800 字/节 → 深度展开
+  //   extended: 2800 字/节 → 长文（接近论文章节）
+  const lp = args.lengthProfile;
+  const targetWordsPerChapter = lp
+    ? lp === "brief"
+      ? 400
+      : lp === "deep"
+        ? 1800
+        : lp === "extended"
+          ? 2800
+          : 1000 // standard
+    : depth === "quick"
+      ? 600
+      : depth === "deep"
+        ? 2500
+        : 1500;
   const dimAgentTag = `researcher#${dimensionIdx}`;
 
   if (researcherOut.findings.length === 0) return researcherOut;
@@ -339,18 +358,51 @@ export async function runPerDimPipeline(
         pool,
         extractTokenSpend(reviewerRes.events),
       );
+      type ReviewIssue = {
+        severity: "must-fix" | "should-fix" | "nice-to-have";
+        dimension:
+          | "evidence"
+          | "logic"
+          | "structure"
+          | "citation"
+          | "length"
+          | "style";
+        pointer: string;
+        issue: string;
+        suggestion: string;
+      };
       const verdict =
         reviewerRes.state === "completed" && reviewerRes.output
           ? (reviewerRes.output as {
               decision: "pass" | "revise";
               score: number;
-              critique: string;
+              summary?: string;
+              issues?: ReviewIssue[];
+              critique?: string;
             })
           : {
               decision: "pass" as const,
               score: 60,
+              summary: "(reviewer failed)",
+              issues: [],
               critique: "(reviewer failed)",
             };
+      // 兼容旧 critique 文本：若 LLM 没出 issues，把 critique 字符串当 1 条 issue
+      const issues: ReviewIssue[] =
+        verdict.issues && verdict.issues.length > 0
+          ? verdict.issues
+          : verdict.critique
+            ? [
+                {
+                  severity:
+                    verdict.decision === "revise" ? "must-fix" : "nice-to-have",
+                  dimension: "structure",
+                  pointer: "整章",
+                  issue: verdict.critique.slice(0, 200),
+                  suggestion: "见 issue 描述",
+                },
+              ]
+            : [];
       await deps.emit({
         type: "agent-playground.chapter:review:completed",
         missionId,
@@ -362,7 +414,10 @@ export async function runPerDimPipeline(
           attempt,
           decision: verdict.decision,
           score: verdict.score,
-          critique: verdict.critique,
+          summary: verdict.summary,
+          issues,
+          // 兼容字段：critique 仍 emit 让旧前端能展示
+          critique: verdict.critique ?? verdict.summary,
         },
       });
       // ★ BUG-D: 章节复审 narrative

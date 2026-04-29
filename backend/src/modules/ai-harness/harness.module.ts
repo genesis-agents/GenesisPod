@@ -116,6 +116,7 @@ import { ProcessSupervisorService } from "./process/supervisor/process-superviso
 // ★ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
 import { AIFacade } from "./facade/ai.facade";
 import { ChatFacade } from "./facade/domain/chat.facade";
+import { ConcurrencyPlanner } from "./governance/resource/concurrency-planner.service";
 import { RAGFacade } from "./facade/domain/rag.facade";
 import { AgentFacade } from "./facade/domain/agent.facade";
 import { TeamFacade } from "./facade/domain/team.facade";
@@ -269,6 +270,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     TeamFacade,
     ToolFacade,
     AIFacade,
+    ConcurrencyPlanner,
   ],
   // PR-I: 关键 SOTA 缺口补全
   // - ToolCircuitBreaker: 连续失败自动 disable
@@ -348,6 +350,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     TeamFacade,
     ToolFacade,
     AIFacade,
+    ConcurrencyPlanner,
   ],
 })
 export class HarnessModule implements OnApplicationBootstrap {
