@@ -41,6 +41,8 @@ export interface PerDimPipelineArgs {
   depth: "quick" | "standard" | "deep";
   /** 章节字数规格（lengthProfile 决定每节字数 + 章节数） */
   lengthProfile?: "brief" | "standard" | "deep" | "extended" | "epic" | "mega";
+  /** mission 总维度数 —— 让本 dim 按 missionTarget / dimCount 推算字数 */
+  dimensionCount?: number;
   pool: MissionBudgetPool;
   researcherOut: {
     dimension: string;
@@ -91,42 +93,39 @@ export async function runPerDimPipeline(
   } = args;
 
   const lp = args.lengthProfile;
-  // ★ Iter 2c + epic/mega: lengthProfile 决定每节字数 + 维度章节数
-  //   brief:    400 字/节   × 3 章 = 1.2k 字/dim
-  //   standard: 1000 字/节  × 5 章 = 5k 字/dim
-  //   deep:     1800 字/节  × 7 章 = 12.6k 字/dim
-  //   extended: 2800 字/节  × 8 章 = 22.4k 字/dim
-  //   epic:     5000 字/节  × 12 章 = 60k 字/dim → mission 多 dim 总量 80k+
-  //   mega:     10000 字/节 × 20 章 = 200k 字/dim → mission 多 dim 总量 200k+（cap by chapter-writer max 25000）
-  const targetChapterCount =
-    lp === "epic"
-      ? 12
-      : lp === "mega"
-        ? 20
-        : lp === "extended"
-          ? 8
-          : depth === "quick"
-            ? 3
-            : depth === "deep"
-              ? 7
-              : 5;
-  const targetWordsPerChapter = lp
-    ? lp === "brief"
-      ? 400
-      : lp === "deep"
-        ? 1800
-        : lp === "extended"
-          ? 2800
-          : lp === "epic"
-            ? 5000
-            : lp === "mega"
-              ? 10000
-              : 1000 // standard
-    : depth === "quick"
-      ? 600
+  const dimCount = Math.max(1, args.dimensionCount ?? 5);
+  // ★ Iter 2c + epic/mega: 按 mission target 总字数 / 维度数 推算每个 dim 字数
+  //   brief    → 3K /dim    standard → 8K /dim    deep   → 15K /dim
+  //   extended → 25K /dim   epic     → 80K /dim   mega   → 200K /dim
+  //   再按"目标 6-15 章/dim"反推每章字数（cap 在 chapter-writer maxTokens 范围内）
+  const missionTarget = !lp
+    ? depth === "quick"
+      ? 3000
       : depth === "deep"
-        ? 2500
-        : 1500;
+        ? 15000
+        : 8000
+    : lp === "brief"
+      ? 3000
+      : lp === "standard"
+        ? 8000
+        : lp === "deep"
+          ? 15000
+          : lp === "extended"
+            ? 25000
+            : lp === "epic"
+              ? 80000
+              : 200000; // mega
+  const dimTargetWords = Math.round(missionTarget / dimCount);
+
+  // 每章字数 cap 在 [400, 25000]，先按"理想 6 章/dim"推
+  const idealChapters = lp === "brief" ? 3 : lp === "standard" ? 5 : 8;
+  const naivePerChapter = Math.round(dimTargetWords / idealChapters);
+  const targetWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
+  // 章节数 = dim 字数 / 每章字数（保持 ≥3 ≤ 25 章）
+  const targetChapterCount = Math.max(
+    3,
+    Math.min(25, Math.round(dimTargetWords / targetWordsPerChapter)),
+  );
   const dimAgentTag = `researcher#${dimensionIdx}`;
 
   if (researcherOut.findings.length === 0) return researcherOut;

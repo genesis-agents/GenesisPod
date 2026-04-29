@@ -430,6 +430,7 @@ async function runOneDim(
           language: input.language,
           depth: input.depth,
           lengthProfile: input.lengthProfile,
+          dimensionCount: ctx.plan?.dimensions.length,
           pool,
           researcherOut,
           billing,
