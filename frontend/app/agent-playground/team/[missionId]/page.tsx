@@ -114,8 +114,13 @@ export default function MissionDetailPage() {
       // Synthesize stages and agents skeleton from persisted snapshot so the
       // detail page is informative even after Railway recycles the in-memory
       // event buffer (replay only returns events still in buffer).
-      const isCompleted = persisted.status === 'completed';
-      const isFailed = persisted.status === 'failed';
+      // quality-failed (Leader 拒签) 视为 completed 的一种 — 报告仍可阅读，
+      // 用 finalScore < 60 区分；rejected 视为 failed。
+      const isCompleted =
+        persisted.status === 'completed' ||
+        persisted.status === 'quality-failed';
+      const isFailed =
+        persisted.status === 'failed' || persisted.status === 'rejected';
       const isCancelled = persisted.status === 'cancelled';
       const dims = (persisted.dimensions ?? []) as {
         id?: string;
@@ -210,7 +215,10 @@ export default function MissionDetailPage() {
           },
         };
       }
-      if (persisted.status === 'failed' && !liveView.mission.failedAt) {
+      if (
+        (persisted.status === 'failed' || persisted.status === 'rejected') &&
+        !liveView.mission.failedAt
+      ) {
         return {
           ...liveView,
           mission: {
@@ -223,7 +231,11 @@ export default function MissionDetailPage() {
           },
         };
       }
-      if (persisted.status === 'completed' && !liveView.mission.completedAt) {
+      if (
+        (persisted.status === 'completed' ||
+          persisted.status === 'quality-failed') &&
+        !liveView.mission.completedAt
+      ) {
         return {
           ...liveView,
           mission: {
@@ -231,6 +243,13 @@ export default function MissionDetailPage() {
             completedAt: terminalTs,
             finalScore:
               liveView.mission.finalScore ?? persisted.finalScore ?? undefined,
+            // quality-failed 时把 leader 拒签信息 surfaces 到 UI banner
+            failedMessage:
+              persisted.status === 'quality-failed'
+                ? (liveView.mission.failedMessage ??
+                  persisted.errorMessage ??
+                  '质量未达标，但报告仍可阅读')
+                : liveView.mission.failedMessage,
           },
         };
       }
@@ -487,8 +506,8 @@ export default function MissionDetailPage() {
               dimensions={view.mission.dimensions}
               missionStatus={
                 // ★ 取消按钮可用判定：只要不是终态（completed/failed/rejected/
-                //   cancelled）就视为 running。这样初次加载 persisted 还没回来 +
-                //   还没收到事件时也能取消（DB 已经创建了 running 行）。
+                //   cancelled/quality-failed）就视为 running。这样初次加载 persisted
+                //   还没回来 + 还没收到事件时也能取消（DB 已经创建了 running 行）。
                 view.mission.cancelledAt || persisted?.status === 'cancelled'
                   ? 'cancelled'
                   : view.mission.failedAt ||
@@ -496,7 +515,8 @@ export default function MissionDetailPage() {
                       persisted?.status === 'rejected'
                     ? 'failed'
                     : view.mission.completedAt ||
-                        persisted?.status === 'completed'
+                        persisted?.status === 'completed' ||
+                        persisted?.status === 'quality-failed'
                       ? 'completed'
                       : 'running'
               }
