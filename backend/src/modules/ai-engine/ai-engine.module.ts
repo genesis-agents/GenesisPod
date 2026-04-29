@@ -68,6 +68,10 @@ import { ImageModule } from "./content/image/image.module";
 // ★ 沉淀（2026-04-29）: figure 抽取（来自 topic-insights，TI 暂不切换）
 //   不创建 sub-module，直接作为 provider 注册（ai-engine.module 已 @Global + imports AiEngineToolsModule）
 import { FigureExtractorService } from "./content/figure";
+// ★ 沉淀（2026-04-29）: LLM Reranker（来自 topic-insights）
+//   位置严格遵守"rerank 是 RAG 第二阶段（knowledge 子领域）"+"单向依赖"两条原则：
+//   放 ai-engine/knowledge/rerank/ + 用 AiChatService（ai-engine 内层 LLM 调用）
+import { LlmRerankerAdapter } from "./knowledge/rerank";
 // ★ TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），由 RuntimeModule 统一装配
 // ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
@@ -158,6 +162,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // ★ 沉淀（2026-04-29）: figure-extractor（来自 topic-insights，agent-playground 复用）
     FigureExtractorService,
+    // ★ 沉淀: LLM Reranker
+    LlmRerankerAdapter,
   ],
   exports: [
     // ★ 重新导出子模块
@@ -204,6 +210,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // ★ 沉淀: figure-extractor 作为顶层 export
     FigureExtractorService,
+    LlmRerankerAdapter,
   ],
 })
 export class AiEngineModule implements OnModuleInit {

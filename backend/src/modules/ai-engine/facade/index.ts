@@ -373,6 +373,38 @@ export {
   type ExtractedFigure,
 } from "../content/figure";
 
+// ★ 沉淀（2026-04-29）: LLM 注入防御三件套（OWASP LLM01）
+export {
+  createSecurityLogger,
+  SecurityAuditLogger,
+  SecurityEventType,
+  SecuritySeverity,
+  type SecurityLogEntry,
+  sanitize,
+  sanitizePromptInput,
+  sanitizeExternalContent,
+  containsDangerousContent,
+  escapeForPrompt,
+  type SanitizeOptions,
+  type SanitizeResult,
+  wrapExternalContent,
+  wrapExternalContentBatch,
+  type WrapExternalContentOptions,
+} from "../safety/security/llm-injection";
+
+// ★ 沉淀（2026-04-29）: LLM Reranker（来自 topic-insights, 用 AiChatService 内层调用）
+export {
+  LlmRerankerAdapter,
+  type RerankableItem,
+  type RerankCandidate,
+  type RerankedItem,
+  type RerankResult,
+  type RerankRequest,
+  type RerankAdapter,
+  type RerankConfig,
+  DEFAULT_RERANK_CONFIG,
+} from "../knowledge/rerank";
+
 // ★ 沉淀（2026-04-29）: 引用工具（纯 utility，零 DI）
 export {
   type CitationWithContext,

@@ -6,6 +6,8 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+// ★ 沉淀接入: 外部 evidence 进 prompt 前用 XML 隔离 + sanitize（防 OWASP LLM01）
+import { wrapExternalContent } from "../../../../ai-engine/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -54,11 +56,15 @@ const Output = z.object({
 })
 export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    // ★ 沉淀接入: 外部 evidence 文本用 wrapExternalContent 包装，防注入
     const sourceList = input.sources
-      .map(
-        (s, i) =>
-          `  [${i + 1}] claim=${s.claim} | evidence=${s.evidence.slice(0, 240)} | source=${s.source}`,
-      )
+      .map((s, i) => {
+        const wrappedEvidence = wrapExternalContent(s.evidence, {
+          source: "research-evidence",
+          maxLength: 240,
+        });
+        return `  [${i + 1}] claim=${s.claim} | source=${s.source}\n${wrappedEvidence}`;
+      })
       .join("\n");
     const lang =
       input.language === "zh-CN"

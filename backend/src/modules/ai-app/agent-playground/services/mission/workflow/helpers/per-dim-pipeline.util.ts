@@ -32,6 +32,8 @@ import { extractFailureMessage } from "./failure-extraction.util";
 import { narrate } from "./narrative.util";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
 import { restoreGlobalIndices } from "../../../../../../ai-engine/facade";
+// ★ 沉淀 v2: 内容缺陷扫描（纯函数 utility，0 LLM）—— chapter draft 格式缺陷指标
+import { scanContentDefects } from "../../../../../../ai-harness/facade";
 
 export interface PerDimPipelineArgs {
   missionId: string;
@@ -308,6 +310,17 @@ export async function runPerDimPipeline(
         citationsUsed: string[];
       };
       lastDraft = draft;
+      // ★ 沉淀 v2 接入: defect-scanner 在 chapter 完成时扫描格式缺陷，emit 给前端可见
+      const defects = scanContentDefects(draft.body);
+      const totalDefects =
+        defects.bareLatexCount +
+        defects.brokenDollarNesting +
+        defects.unwrappedEnvironments +
+        defects.pseudoCodeLines +
+        defects.leakedMetaNotes +
+        defects.leakedFigureNotes +
+        defects.longListItems +
+        defects.trappedConclusions;
       await deps.emit({
         type: "agent-playground.chapter:writing:completed",
         missionId,
@@ -321,6 +334,9 @@ export async function runPerDimPipeline(
           targetWords: targetWordsPerChapter,
           attempt,
           state: "completed",
+          // 沉淀 v2: 缺陷指标（0 = 干净，> 0 = 有格式问题）
+          defectScan:
+            totalDefects > 0 ? { total: totalDefects, ...defects } : undefined,
         },
       });
       // ★ BUG-D: 章节级 narrative，让前端时间线不再静默
