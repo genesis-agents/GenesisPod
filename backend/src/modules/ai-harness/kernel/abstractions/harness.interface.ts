@@ -55,6 +55,15 @@ export interface IAgentSpec<TInput = unknown, TOutput = unknown> {
   readonly outputSchema?: z.ZodType<TOutput>;
 
   /**
+   * ★ Phase P1 fix (2026-04-29 mission a1393e14)：用 outputSchema 转换出的 OpenAI 兼容
+   * JSON Schema，传给 chat service → API caller → OpenAI `response_format: json_schema`
+   * 模式。OpenAI 该模式**保证**输出有效 JSON 且匹配 schema，从根源消除推理模型 CoT 撑爆
+   * → visible 输出空 → null 的故障类。agent-runner 在 materialize 时由 zodToJsonSchema
+   * 自动派生，spec 不需手写。
+   */
+  readonly outputJsonSchema?: Record<string, unknown>;
+
+  /**
    * 业务规则校验钩子。Zod 解析成功后调用；throw 则同 Zod 失败处理（重试）。
    * 用于跨字段校验，如"assignment.modelId 必须在 capabilities.env.models 内"。
    */

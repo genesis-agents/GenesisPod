@@ -95,6 +95,11 @@ export class ReflexionLoop implements IAgentLoop {
         output: unknown,
       ) => { ok: true } | { ok: false; issues: string };
       validateBusinessRules?: (output: unknown) => string | null | undefined;
+      /**
+       * ★ Phase P1 fix (2026-04-29)：透传给内层 ReActLoop 启用 OpenAI structured
+       * output (json_schema) 模式。
+       */
+      outputJsonSchema?: Record<string, unknown>;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "reflexion-agent";
