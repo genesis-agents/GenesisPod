@@ -373,6 +373,23 @@ export {
   type ExtractedFigure,
 } from "../content/figure";
 
+// ★ 沉淀（2026-04-29）: 引用工具（纯 utility，零 DI）
+export {
+  type CitationWithContext,
+  type EvidenceFingerprint,
+  type CitationVerifyResult,
+  type VerificationStats,
+  type VerifyCitationsResult,
+  type EvidenceForVerification,
+  type LocalToGlobalMap,
+  extractCitationsWithContext,
+  buildEvidenceFingerprint,
+  scoreCitationMatch,
+  verifyCitations,
+  buildContiguousMapping,
+  restoreGlobalIndices,
+} from "../content/citation";
+
 // ★ Phase 7: Content engine abstractions
 export type {
   ILongContentEngine,

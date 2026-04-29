@@ -30,6 +30,8 @@ import type { MissionBudgetPool } from "../../../../../../ai-harness/facade";
 import { extractTokenSpend } from "./token-spend.util";
 import { extractFailureMessage } from "./failure-extraction.util";
 import { narrate } from "./narrative.util";
+// ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
+import { restoreGlobalIndices } from "../../../../../../ai-engine/facade";
 
 export interface PerDimPipelineArgs {
   missionId: string;
@@ -466,10 +468,19 @@ export async function runPerDimPipeline(
           verdict.score >= PASS_THRESHOLD ||
           attempt >= MAX_REVISION_ATTEMPTS + 1)
       ) {
+        // ★ 沉淀接入: chapter 局部 [1][2] → dim 全局编号重映射
+        //   chapter.sourceIndices 是 outline 阶段每章可引用的 dim findings 索引（0-based）。
+        //   chapter body 用 [1][2][N] 指 chapterSources[0][1][N-1] = findings[sourceIndices[N-1]]。
+        //   这里直接还原成 dim 全局 [N+1]（1-based），让多章拼接后编号不冲突。
+        const localToGlobal = new Map<number, number>();
+        chapter.sourceIndices.forEach((globalIdx, localIdx) => {
+          localToGlobal.set(localIdx + 1, globalIdx + 1);
+        });
+        const remappedBody = restoreGlobalIndices(draft.body, localToGlobal);
         writtenChapters.push({
           index: chapter.index,
           heading: chapter.heading,
-          body: draft.body,
+          body: remappedBody,
           wordCount: draft.wordCount,
         });
         previousHeadings.push(chapter.heading);
