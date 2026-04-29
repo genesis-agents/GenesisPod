@@ -60,20 +60,15 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
       `sup[data-cite="${reverseHighlight}"]`
     );
     sups.forEach((el) =>
-      el.classList.add(
-        'ring-2',
-        'ring-violet-400',
-        'rounded-md',
-        'bg-violet-200'
-      )
+      el.classList.add('ring-2', 'ring-blue-400', 'rounded-md', 'bg-blue-200')
     );
     return () => {
       sups.forEach((el) =>
         el.classList.remove(
           'ring-2',
-          'ring-violet-400',
+          'ring-blue-400',
           'rounded-md',
-          'bg-violet-200'
+          'bg-blue-200'
         )
       );
     };
@@ -99,8 +94,8 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
                 onClick={() => setActiveId(s.id)}
                 className={`block w-full truncate rounded px-2 py-1.5 text-left text-xs transition-colors ${
                   activeId === s.id
-                    ? 'bg-violet-100 font-medium text-violet-700'
-                    : 'text-gray-600 hover:bg-violet-50 hover:text-violet-700'
+                    ? 'bg-blue-100 font-medium text-blue-700'
+                    : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
                 }`}
               >
                 {s.title}
@@ -110,12 +105,12 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
               </button>
               {/* Phase P36-1: 当前章 children 子节快速跳转 */}
               {activeId === s.id && s.children && s.children.length > 0 && (
-                <ul className="ml-3 mt-0.5 border-l border-violet-200 pl-2">
+                <ul className="ml-3 mt-0.5 border-l border-blue-200 pl-2">
                   {s.children.map((child) => (
                     <li key={child.id}>
                       <a
                         href={`#${child.anchor}`}
-                        className="block truncate py-0.5 text-[11px] text-gray-500 hover:text-violet-700"
+                        className="block truncate py-0.5 text-[11px] text-gray-500 hover:text-blue-700"
                       >
                         {child.title}
                       </a>
@@ -134,7 +129,7 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
           {/* 章节顶部 chapter strip：章号 / 标题 / 元数据 / 翻页 */}
           <div className="mb-6 flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
             <div className="min-w-0 flex-1">
-              <p className="font-mono mb-1 text-[10px] uppercase tracking-[0.18em] text-violet-500">
+              <p className="font-mono mb-1 text-[10px] uppercase tracking-[0.18em] text-blue-500">
                 Chapter {activeIndex + 1} / {sections.length}
               </p>
               <h2 className="font-serif mb-2 text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-[28px]">
@@ -148,7 +143,7 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
               </p>
               <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full bg-gradient-to-r from-violet-400 to-purple-500 transition-all"
+                  className="h-full bg-gradient-to-r from-blue-400 to-purple-500 transition-all"
                   style={{
                     width: `${Math.round(((activeIndex + 1) / sections.length) * 100)}%`,
                   }}
@@ -211,7 +206,7 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
                         href={c.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-violet-600 hover:underline"
+                        className="text-blue-600 hover:underline"
                       >
                         {c.title || c.domain || c.url}
                       </a>

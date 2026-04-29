@@ -58,20 +58,15 @@ export function ContinuousReader({ artifact }: Props) {
       `sup[data-cite="${reverseHighlight}"]`
     );
     sups.forEach((el) =>
-      el.classList.add(
-        'ring-2',
-        'ring-violet-400',
-        'rounded-md',
-        'bg-violet-200'
-      )
+      el.classList.add('ring-2', 'ring-blue-400', 'rounded-md', 'bg-blue-200')
     );
     return () => {
       sups.forEach((el) =>
         el.classList.remove(
           'ring-2',
-          'ring-violet-400',
+          'ring-blue-400',
           'rounded-md',
-          'bg-violet-200'
+          'bg-blue-200'
         )
       );
     };
@@ -79,7 +74,7 @@ export function ContinuousReader({ artifact }: Props) {
 
   return (
     <div className="flex gap-6">
-      {/* 左侧浮动 mini-TOC */}
+      {/* 左侧浮动 mini-TOC（TI 风格：blue 主色） */}
       <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-56 flex-shrink-0 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:block">
         <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
           <BookOpen className="h-3 w-3" />
@@ -92,8 +87,8 @@ export function ContinuousReader({ artifact }: Props) {
               href={`#${s.anchor}`}
               className={`block truncate rounded px-2 py-1 text-xs transition-colors ${
                 activeSectionAnchor === s.anchor
-                  ? 'bg-violet-100 font-medium text-violet-700'
-                  : 'text-gray-600 hover:bg-violet-50 hover:text-violet-700'
+                  ? 'bg-blue-100 font-medium text-blue-700'
+                  : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
               }`}
             >
               {s.title}

@@ -145,34 +145,10 @@ export function ArtifactMarkdown({ markdown, citations, figures }: Props) {
   // 与 TI 报告管线对齐：同样过 preprocessLatex + stripProseBullets + KaTeX
   const cleaned = stripProseBullets(preprocessLatex(markdown));
 
+  // ★ TI 对齐：与 ChapterizedReportView preview / ReportEditor preview 完全相同的 prose 类
+  //   不引入新的颜色 / 字号 / 间距，确保两条产品线视觉同款。
   return (
-    <article
-      className={[
-        'prose prose-gray max-w-none',
-        // 标题层级（参考 TI ReportEditor + AI Writing 长文）
-        'prose-headings:font-semibold prose-headings:tracking-tight',
-        'prose-h1:mb-4 prose-h1:mt-0 prose-h1:text-3xl prose-h1:leading-tight',
-        'prose-h2:mb-3 prose-h2:mt-8 prose-h2:text-2xl prose-h2:leading-snug prose-h2:border-b prose-h2:border-gray-200 prose-h2:pb-2',
-        'prose-h3:mb-2 prose-h3:mt-6 prose-h3:text-xl prose-h3:leading-snug',
-        'prose-h4:mb-1.5 prose-h4:mt-5 prose-h4:text-lg',
-        // 段落（增大行高 + 中文友好的可读密度）
-        'prose-p:my-3 prose-p:leading-[1.85] prose-p:text-[15px] prose-p:text-gray-800',
-        // 重点（TI 风格：加粗用品牌蓝突出）
-        'prose-strong:font-semibold prose-strong:text-violet-700',
-        // 列表
-        'prose-ul:my-3 prose-ul:pl-6 prose-ol:my-3 prose-ol:pl-6',
-        'prose-li:my-1 prose-li:text-[15px] prose-li:leading-[1.8]',
-        // blockquote（章节首段「核心判断」要醒目）
-        'prose-blockquote:my-4 prose-blockquote:rounded-r-lg prose-blockquote:border-l-4 prose-blockquote:border-violet-400 prose-blockquote:bg-violet-50/60 prose-blockquote:py-1.5 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:text-gray-800',
-        // 链接
-        'prose-a:text-violet-600 prose-a:no-underline hover:prose-a:underline',
-        // 行内 code / 表格
-        'prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[13px] prose-code:text-gray-800 prose-code:before:content-[""] prose-code:after:content-[""]',
-        'prose-table:my-4 prose-table:border-collapse',
-        'prose-th:border prose-th:border-gray-200 prose-th:bg-gray-50 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:text-sm prose-th:font-semibold prose-th:text-gray-700',
-        'prose-td:border prose-td:border-gray-200 prose-td:px-3 prose-td:py-2 prose-td:text-sm prose-td:text-gray-700',
-      ].join(' ')}
-    >
+    <article className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeRaw, [rehypeKatex, KATEX_OPTIONS]]}
