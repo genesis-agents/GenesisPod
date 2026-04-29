@@ -123,9 +123,9 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
         </nav>
       </aside>
 
-      {/* 右侧单章 */}
+      {/* 右侧单章 —— TI 同款极简：bg-white + p-6 */}
       <main className="min-w-0 flex-1">
-        <div className="rounded-2xl border border-gray-200 bg-white px-8 py-10 shadow-sm sm:px-12">
+        <div className="bg-white p-6">
           {/* 章节顶部 chapter strip：章号 / 标题 / 元数据 / 翻页 */}
           <div className="mb-6 flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
             <div className="min-w-0 flex-1">
