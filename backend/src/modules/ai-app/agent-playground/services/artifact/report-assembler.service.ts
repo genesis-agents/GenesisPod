@@ -1277,8 +1277,13 @@ function extractDomain(url: string): string | null {
   }
 }
 
-/** lengthProfile 字数 target（mission-pipeline-user-profiles.md §4.3） */
-function lengthTargetFor(
+/**
+ * lengthProfile 字数 target（mission-pipeline-user-profiles.md §4.3）
+ *
+ * 也被 s10 leader signoff stage 调用，用于把 target 注入 leader.finalQuality，
+ * 让 Lead 看到"承诺 vs 实际"。
+ */
+export function lengthTargetFor(
   profile: "brief" | "standard" | "deep" | "extended" | "epic" | "mega",
 ): number {
   switch (profile) {

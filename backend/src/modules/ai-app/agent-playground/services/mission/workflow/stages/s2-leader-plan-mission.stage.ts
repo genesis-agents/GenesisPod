@@ -40,10 +40,39 @@ export async function runLeaderPlanStage(
     agentId: "leader",
   });
 
+  // ★ P0#2 (2026-04-29): S12 → S2 闭环 —— 召回该用户最近 3 个 mission postmortem
+  // 让 Leader 显式参考"过去同 user 的失败教训 / 拒签原因 / 改进建议"
+  // store.listRecentPostmortems 失败时 fallback 空数组（不阻塞 mission）
+  const priorPostmortems = await deps.store
+    .listRecentPostmortems(userId, 3)
+    .catch((err) => {
+      deps.log.warn(
+        `[s2 ${missionId}] listRecentPostmortems failed (non-fatal): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return [];
+    });
+  if (priorPostmortems.length > 0) {
+    deps.log.log(
+      `[s2 ${missionId}] injected ${priorPostmortems.length} prior postmortems to Leader plan`,
+    );
+  }
+
   // M0: leader.plan() 内部自动 emit lifecycle / appendLeaderJournal
   let planResult;
   try {
-    planResult = await leader.plan();
+    planResult = await leader.plan({
+      priorPostmortems: priorPostmortems.map((p) => ({
+        missionId: p.missionId,
+        topic: p.topic,
+        summary: p.summary,
+        recommendations: p.recommendations,
+        leaderSigned: p.leaderSigned,
+        qualityScore: p.qualityScore,
+        createdAt: p.createdAt.toISOString(),
+      })),
+    });
   } catch (err) {
     await deps.lifecycle(missionId, userId, "leader", "leader", "failed", {
       error: err instanceof Error ? err.message : String(err),

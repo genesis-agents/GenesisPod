@@ -140,6 +140,12 @@ export interface LeaderFinalQuality {
   objectiveScore?: number;
   objectiveGrade?: string;
   objectiveFeedback?: string;
+  // ★ P0#3 (2026-04-29): lengthAccuracy 反向闭环到 leader signoff 决策
+  // 由 ReportAssembler.buildQualityStub 计算（实际字数 vs lengthProfile target ±20%/40%/60%）
+  // 0-100：≥80=兑现承诺；<60=严重缩水（如 mega 承诺 200K 实际 50K），leader 应限制 verdict ≤ acceptable
+  lengthAccuracy?: number;
+  /** 用户期望字数（lengthProfile 推算的 target），给 leader 看实际 vs 期望差距 */
+  targetWordCount?: number;
 }
 
 interface PastDecision {
@@ -192,13 +198,25 @@ export class SupervisedMission {
   }
 
   /** ★ M0: 拆分维度 + 声明目标（带 self-heal：第一次挂在可恢复码 → 自动重试一次） */
-  async plan(): Promise<LeaderPlanOutput> {
+  async plan(opts?: {
+    priorPostmortems?: {
+      missionId: string;
+      topic: string;
+      summary: string;
+      recommendations: string[];
+      leaderSigned: boolean | null;
+      qualityScore: number | null;
+      createdAt: string;
+    }[];
+  }): Promise<LeaderPlanOutput> {
     const planInput = {
       phase: "plan" as const,
       topic: this.context.task.topic,
       depth: this.context.task.depth,
       language: this.context.task.language,
       userProfile: this.context.task.userProfile,
+      // ★ P0#2 (2026-04-29): S12 → S2 闭环
+      priorPostmortems: opts?.priorPostmortems ?? [],
     };
 
     let res = await this.runFn<unknown, LeaderPlanOutput>({
@@ -235,6 +253,27 @@ export class SupervisedMission {
       // 抛出带完整诊断信息的错误：上层 catch 会把它写到 mission.errorMessage / lifecycle.error，
       // 前端任务详情就能看到具体失败码和消息（不再是 generic "did not return valid plan"）
       throw new Error(`Leader.plan failed [${fail.code}]: ${fail.message}`);
+    }
+    // ★ 防御 LLM 违反 plan.md prompt：
+    //    plan.md 第 84 行明确："minCoverage 给 60-80，不要给 90+，原因：90+ 几乎不可能在多 dim 并行采集时全达标"
+    //    但实测 LLM 经常无视该建议，给出 minCoverage=85/90/95，导致拒签线 (× 0.7) = 60+ 也无法达标
+    //    对策：output 后处理 clamp 到 80，并把原值记到 decisions 让 leader 自己看到调整
+    {
+      const qb = res.output.goals?.qualityBar;
+      if (qb && typeof qb.minCoverage === "number" && qb.minCoverage > 80) {
+        const original = qb.minCoverage;
+        qb.minCoverage = 80;
+        this.log.warn(
+          `[supervisor.plan ${this.context.missionId}] clamped minCoverage ${original}→80 (LLM violated plan.md guidance)`,
+        );
+        this.context.decisions.push({
+          phase: "plan",
+          at: new Date().toISOString(),
+          decision: `clamp-minCoverage:${original}→80`,
+          rationale:
+            "Leader 在 plan 阶段提出的 minCoverage 超过 plan.md 建议上限 80，系统自动 clamp。M7 sign-off 时拒签线为 minCoverage × 0.7 = 56。",
+        });
+      }
     }
     this.context.plan = res.output;
     this.context.decisions.push({

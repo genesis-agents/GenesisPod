@@ -93,6 +93,22 @@ const Input = z.discriminatedUnion("phase", [
     depth: z.enum(["quick", "standard", "deep"]),
     language: z.enum(["zh-CN", "en-US"]),
     userProfile: z.unknown().optional(),
+    // ★ P0#2 (2026-04-29): S12 → S2 闭环
+    // 用户最近 3 个同 namespace 的 postmortem，让 Leader plan 阶段
+    // 显式参考"过去同 user 的失败教训 / 拒签原因 / 改进建议"
+    priorPostmortems: z
+      .array(
+        z.object({
+          missionId: z.string(),
+          topic: z.string(),
+          summary: z.string(),
+          recommendations: z.array(z.string()),
+          leaderSigned: z.boolean().nullable(),
+          qualityScore: z.number().nullable(),
+          createdAt: z.string(), // ISO date string
+        }),
+      )
+      .default([]),
   }),
   z.object({
     phase: z.literal("assess-research"),
@@ -156,6 +172,9 @@ const Input = z.discriminatedUnion("phase", [
       objectiveScore: z.number().int().optional(),
       objectiveGrade: z.string().optional(),
       objectiveFeedback: z.string().optional(),
+      // ★ P0#3 (2026-04-29): 字数兑现率 — <60 强制 verdict ≤ acceptable
+      lengthAccuracy: z.number().int().optional(),
+      targetWordCount: z.number().int().optional(),
     }),
     dimensionStates: z.array(
       z.object({
@@ -407,6 +426,29 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
         issues.push(
           `accountabilityNote 必须引用历史决策（含 "我在/我决定/M0/M1/M6/当时" 等关键词），不接受空话`,
         );
+      }
+      // ★ P0#3 (2026-04-29): lengthAccuracy 兜底
+      // 即使 LLM 给出 excellent/good，但实际字数严重缩水（<60 即承诺 vs 实际偏差 > 40%）
+      // 时强制降级为 acceptable，避免 leader 给 mega 承诺 200K 实际 50K 的报告"excellent"
+      if (
+        ctx.input &&
+        typeof ctx.input === "object" &&
+        "phase" in ctx.input &&
+        ctx.input.phase === "signoff"
+      ) {
+        const fq = ctx.input.finalQuality;
+        if (
+          typeof fq.lengthAccuracy === "number" &&
+          fq.lengthAccuracy < 60 &&
+          (v === "excellent" || v === "good")
+        ) {
+          issues.push(
+            `lengthAccuracy=${fq.lengthAccuracy} (字数严重偏离 lengthProfile target，` +
+              `实际 ${fq.wordCount} vs 期望 ${fq.targetWordCount ?? "?"}），` +
+              `verdict 不能高于 acceptable。请重新 sign off：调整 verdict ≤ acceptable，` +
+              `并在 accountabilityNote 中说明 mission 未达成字数承诺。`,
+          );
+        }
       }
     }
 

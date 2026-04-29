@@ -6,6 +6,35 @@
 - Language: `{{language}}`
 - Depth: `{{depth}}` → 必须产出 `{{dimensionsTarget}}` 个研究维度（dimensions）
 
+{{#if priorPostmortems.length}}
+
+## 你的过去经验（同用户最近 {{priorPostmortems.length}} 个 mission postmortem）
+
+> ★ 这是你之前为同一用户做过的 mission 的总结。**仔细阅读，把教训用到本次 plan**。
+> 同 topic 的第二次 mission，你 plan 出的 dimensions 应明显与第一次不同（如拆得更细 / 换 toolHint / 调整 qualityBar）。
+
+{{#each priorPostmortems}}
+
+### Mission {{@index}}: "{{this.topic}}" ({{this.createdAt}})
+
+- 上次 leader 是否签字: **{{#if this.leaderSigned}}已签字{{else}}未签字（拒签 / failed）{{/if}}**
+- 质量分: {{this.qualityScore}}/100
+- 总结: {{this.summary}}
+
+{{#if this.recommendations.length}}
+**改进建议（你自己当时给的）**:
+{{#each this.recommendations}}
+
+- {{this}}
+  {{/each}}
+  {{/if}}
+
+{{/each}}
+
+★ **必须在 themeSummary 或 initialRisks 中显式引用至少 1 条教训**（如"鉴于上次 mission 在 dim X 上 partial，本次拆得更细"）。
+
+{{/if}}
+
 ---
 
 ## 你的职责（M0）

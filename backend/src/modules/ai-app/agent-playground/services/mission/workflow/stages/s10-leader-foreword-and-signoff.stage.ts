@@ -24,6 +24,7 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { narrate } from "../helpers/narrative.util";
+import { lengthTargetFor } from "../../../artifact/report-assembler.service";
 
 export async function runLeaderForewordAndSignoffStage(
   ctx: MissionContext,
@@ -33,7 +34,7 @@ export async function runLeaderForewordAndSignoffStage(
   if (!ctx.plan) return;
   if (!ctx.researcherResults) return;
 
-  const { reportArtifact, plan, researcherResults, leader } = ctx;
+  const { reportArtifact, plan, researcherResults, leader, input } = ctx;
   const reconciliationReport = ctx.reconciliationReport;
   const verifierVerdicts = ctx.verifierVerdicts ?? [];
 
@@ -163,6 +164,10 @@ export async function runLeaderForewordAndSignoffStage(
           objectiveScore: ctx.reportEvaluation?.overallScore,
           objectiveGrade: ctx.reportEvaluation?.grade,
           objectiveFeedback: ctx.reportEvaluation?.feedback,
+          // ★ P0#3 (2026-04-29): 注入字数兑现率 + 用户期望字数
+          // 让 Leader 看到"承诺 vs 实际"，<60 时按 signoff.md 规则强制 verdict ≤ acceptable
+          lengthAccuracy: reportArtifact.quality.dimensions.lengthAccuracy,
+          targetWordCount: lengthTargetFor(input.lengthProfile),
         },
         dimensionStates,
       );
