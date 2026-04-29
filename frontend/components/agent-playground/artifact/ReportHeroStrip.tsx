@@ -41,10 +41,12 @@ const STYLE_LABEL: Record<string, string> = {
   technical: '技术风格',
 };
 const LENGTH_LABEL: Record<string, string> = {
-  brief: '简版',
-  standard: '标准',
-  deep: '深度',
-  extended: '加长',
+  brief: '简版 · 3K',
+  standard: '标准 · 8K',
+  deep: '深度 · 15K',
+  extended: '加长 · 25K',
+  epic: '巨幅 · 80K',
+  mega: '专著 · 200K',
 };
 const LANG_LABEL: Record<string, string> = {
   'zh-CN': '中文',

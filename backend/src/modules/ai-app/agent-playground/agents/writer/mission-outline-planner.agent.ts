@@ -100,7 +100,11 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
     const target = lengthTarget(input.lengthProfile);
-    const perChapter = Math.round(target / input.plan.dimensions.length);
+    // ChapterWriter agent 单章硬上限 25000 字，mission-outline-planner 不能超过
+    const PER_CHAPTER_HARD_CAP = 25000;
+    const naivePerChapter = Math.round(target / input.plan.dimensions.length);
+    const perChapter = Math.min(naivePerChapter, PER_CHAPTER_HARD_CAP);
+    const requiresMoreChaptersForCap = naivePerChapter > PER_CHAPTER_HARD_CAP;
     return [
       `You are the W1 outline planner for a ${input.lengthProfile} (~${target} words) report on "${input.topic}".`,
       `Audience: ${input.audienceProfile}. Style: ${input.styleProfile}.`,
@@ -116,7 +120,13 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
       `- keyPointsToCover: 该章必须覆盖的 3-5 个要点（用于 ChapterWriter 检查覆盖度）`,
       ``,
       `## Allocations`,
-      `- targetWordsPerChapter: 给每个 sectionId 分配字数（合计 ≈ ${target}，每章约 ${perChapter}）`,
+      `- targetWordsPerChapter: 给每个 sectionId 分配字数（合计 ≈ ${target}，每章约 ${perChapter}，单章硬上限 ${PER_CHAPTER_HARD_CAP}）`,
+      requiresMoreChaptersForCap
+        ? `  ⚠️ 当前总字数 ${target} ÷ ${input.plan.dimensions.length} 维度 = ${naivePerChapter} 字/维度，超出单章 25000 字硬上限。`
+        : "",
+      requiresMoreChaptersForCap
+        ? `  → 必须把超出的维度拆分成多个 sectionId（例如 "<dim.id>-part1" / "<dim.id>-part2"），让每个 sectionId 字数 ≤ ${PER_CHAPTER_HARD_CAP}。`
+        : "",
       `- factAllocation: { sectionId: [factId, ...] } 把 factTable 中的事实显式分配到章节，`,
       `  避免后续章节抢/漏事实。每事实只能分给 1 章。`,
       `- figurePlan: { sectionId: [figureId, ...] } 仅 withFigures=true 时填，每章 1-3 张。${input.withFigures ? "" : "本次 withFigures=false，figurePlan 给 {} 空对象即可。"}`,
