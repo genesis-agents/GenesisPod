@@ -73,7 +73,10 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `- 章节标题: ${input.chapter.heading}`,
       `- 章节核心论点 (thesis): ${input.chapter.thesis}`,
       `- keyPoints: ${input.chapter.keyPoints.map((p, i) => `${i + 1}) ${p}`).join("；")}`,
-      `- 目标字数: 约 ${input.targetWords} 字（偏差 ≤ 30%）`,
+      `- **目标字数: ${input.targetWords} 字（必须 ≥ ${Math.round(input.targetWords * 0.85)} 字才算合格；< 70% 必被打回重写）**`,
+      input.targetWords >= 3000
+        ? `- **章节深度: ${input.targetWords} 字相当于 ${Math.round(input.targetWords / 600)} 个论述段落（每段 ~600 字），不要少**`
+        : "",
       ``,
       `## 核心要求`,
       `1. **聚焦性**: 只写本章节，不要越界其他章节内容`,
@@ -90,7 +93,9 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `## 章节结构（必须遵循）`,
       `1. **首段引言**：一行 markdown blockquote："> **核心判断**：<本章最关键结论>"`,
-      `2. **主体 3-5 段**：每段一个 keyPoint，含具体数字 / 时间 / 实体 / 案例 + \`[N]\` 引用`,
+      input.targetWords >= 5000
+        ? `2. **主体 ${Math.max(5, Math.round(input.targetWords / 800))} 段**：每段围绕 1 个分析维度展开（数据 / 案例 / 因果 / 对比 / 推演），含具体数字 / 时间 / 实体 + \`[N]\` 引用。绝不写概括性短段，每段必须 400-800 字`
+        : `2. **主体 3-5 段**：每段一个 keyPoint，含具体数字 / 时间 / 实体 / 案例 + \`[N]\` 引用`,
       `3. **末段 Implications**：以 "**Implications**：" 开头一段，写本章对读者的实际意义`,
       ``,
       `## 去重与独特性（重要）`,
