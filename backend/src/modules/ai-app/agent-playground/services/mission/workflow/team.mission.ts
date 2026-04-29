@@ -336,6 +336,7 @@ export class TeamMission {
                 userId,
                 t0,
                 pool,
+                topic: input.topic,
                 plan: result.themeSummary
                   ? {
                       dimensions: (result.dimensions ?? []) as unknown[],

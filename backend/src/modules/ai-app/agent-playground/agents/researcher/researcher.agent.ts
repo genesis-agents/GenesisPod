@@ -101,7 +101,9 @@ const Output = z.object({
   // ★ budget 大幅收紧：120K → 30K，maxIter 20 → 5
   // 单 dim 5 iter 足够：1 search + 1 scrape + 1 finalize = 3 iter；5 iter 留 buffer
   // 6 dim × 30K = 180K（vs 旧 720K），减 75%
-  budget: { maxTokens: 30_000, maxIterations: 5 },
+  // ★ wallTime 600s（默认 300s）—— withFigures=true 时必须多 1 轮 web-scraper extractImages，
+  //   抽图本身 60-120s，5 min 容易超时致 RUNNER_OUTPUT_SCHEMA_MISMATCH retry 风暴。
+  budget: { maxTokens: 30_000, maxIterations: 5, maxWallTimeMs: 600_000 },
 })
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {

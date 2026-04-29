@@ -33,6 +33,8 @@ interface SelfEvolutionInput {
   userId: string;
   t0: number;
   pool: { snapshot(): { poolTokensUsed: number; poolCostUsd: number } };
+  /** 用于 postmortem 元数据（可读 topic 比 mission UUID 友好） */
+  topic?: string;
   plan?: {
     dimensions: unknown[];
     goals?: { qualityBar?: { minCoverage?: number } };
@@ -150,10 +152,58 @@ export async function runSelfEvolutionStage(
       })
       .catch(() => {});
 
-    // TODO（深度修法 — 下个 PR）：
-    //   - FailureLearner.recordMissionOutcome(topic, model, success/failure)
-    //   - MemoryAutoIndexer.indexMissionFindings(reportArtifact, missionId)
-    //   - 写入 agent_playground_mission_postmortems 表（新建）
+    // ── 真沉淀 1：FailureLearner 记 mission 级失败结果 ─────────────────
+    //   仅在 leader 拒签时记一条粗粒度 failure pattern，让下次同 user 同 topic
+    //   启动时 leader plan 阶段可参考"上次同主题没过线"的 prior knowledge
+    if (leaderSigned === false) {
+      await deps.failureLearner
+        .recordFailure({
+          key: {
+            agentSpecId: "playground.mission",
+            modelId: "(mission-level)",
+            systemPrompt: args.topic ?? missionId,
+            failureCode: "LEADER_REFUSED_SIGN",
+          },
+          missionId,
+          userId,
+          diagnostic: {
+            topic: args.topic,
+            qualityHitRate,
+            qualityScore: overallQuality,
+            recommendations,
+          },
+        })
+        .catch(() => {});
+    }
+
+    // ── 真沉淀 2：mission postmortem 入 harness_vector_memory ─────────
+    //   namespace=userId，tags=['agent-playground', 'mission-postmortem', 'signed'/'unsigned']
+    //   下次 leader plan 阶段可调 store.listRecentPostmortems(userId, 3) 拿历史教训
+    const postmortemSummary = [
+      `Mission "${args.topic ?? missionId}" — ${leaderSigned === true ? "签字交付" : leaderSigned === false ? "Leader 拒签" : "未签字"}`,
+      `质量 ${overallQuality ?? "-"}/100，命中率 ${qualityHitRate != null ? (qualityHitRate * 100).toFixed(0) + "%" : "n/a"}`,
+      `Token ${totalTokens}，cost $${totalCostUsd.toFixed(2)}，墙时 ${Math.round(wallTimeMs / 60000)}min`,
+      `经验：`,
+      ...recommendations.map((r) => `- ${r}`),
+    ].join("\n");
+
+    await deps.store
+      .recordMissionPostmortem({
+        missionId,
+        userId,
+        topic: args.topic ?? missionId,
+        summary: postmortemSummary,
+        recommendations,
+        leaderSigned,
+        qualityScore: overallQuality,
+        tokensUsed: totalTokens,
+        costUsd: totalCostUsd,
+      })
+      .catch(() => {});
+
+    deps.log.log(
+      `[${missionId}] S12 sediment recorded: postmortem to harness_vector_memory${leaderSigned === false ? " + failure pattern" : ""}`,
+    );
   } catch (err) {
     deps.log.warn(
       `[${missionId}] S12 self-evolution failed (best-effort, ignored): ${err instanceof Error ? err.message : String(err)}`,

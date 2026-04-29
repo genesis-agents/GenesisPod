@@ -430,6 +430,105 @@ export class MissionStore {
     return rows;
   }
 
+  /**
+   * S12 真沉淀 —— 把 mission postmortem 写到 harness_vector_memory，
+   * namespace=userId，tags=['agent-playground', 'mission-postmortem']，
+   * 让下次 leader plan 阶段能召回同 user 历史教训作为 prior knowledge。
+   *
+   * 不算 embedding（s12 在 best-effort 路径 + 异步运行，不烧 LLM token），
+   * 召回靠 namespace + tags 过滤即可。
+   */
+  async recordMissionPostmortem(input: {
+    missionId: string;
+    userId: string;
+    topic: string;
+    summary: string;
+    recommendations: string[];
+    leaderSigned: boolean | null;
+    qualityScore: number | null;
+    tokensUsed: number;
+    costUsd: number;
+  }): Promise<void> {
+    try {
+      await this.prisma.harnessVectorMemory.create({
+        data: {
+          namespace: input.userId,
+          source: "agent-playground:mission",
+          entryKey: `mission-postmortem:${input.missionId}`,
+          content: input.summary.slice(0, 2000),
+          embedding: [],
+          confidence: 1.0,
+          tags: [
+            "agent-playground",
+            "mission-postmortem",
+            input.leaderSigned === true ? "signed" : "unsigned",
+          ],
+          metadata: {
+            missionId: input.missionId,
+            topic: input.topic,
+            recommendations: input.recommendations,
+            qualityScore: input.qualityScore,
+            tokensUsed: input.tokensUsed,
+            costUsd: input.costUsd,
+          },
+        },
+      });
+    } catch (err) {
+      this.log.warn(
+        `recordMissionPostmortem failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * 召回某 user 最近 N 条 mission postmortem（用于 leader plan 阶段）。
+   * 返回精简内容，给 plan duty.md 模板渲染。
+   */
+  async listRecentPostmortems(
+    userId: string,
+    limit = 3,
+  ): Promise<
+    {
+      missionId: string;
+      topic: string;
+      summary: string;
+      recommendations: string[];
+      leaderSigned: boolean | null;
+      qualityScore: number | null;
+      createdAt: Date;
+    }[]
+  > {
+    const rows = await this.prisma.harnessVectorMemory
+      .findMany({
+        where: {
+          namespace: userId,
+          tags: { has: "mission-postmortem" },
+        },
+        orderBy: { createdAt: "desc" },
+        take: Math.min(Math.max(limit, 1), 10),
+      })
+      .catch(() => []);
+    return rows.map((r) => {
+      const meta = (r.metadata ?? {}) as Record<string, unknown>;
+      return {
+        missionId: String(meta.missionId ?? ""),
+        topic: String(meta.topic ?? ""),
+        summary: r.content,
+        recommendations: Array.isArray(meta.recommendations)
+          ? (meta.recommendations as string[])
+          : [],
+        leaderSigned: r.tags.includes("signed")
+          ? true
+          : r.tags.includes("unsigned")
+            ? false
+            : null,
+        qualityScore:
+          typeof meta.qualityScore === "number" ? meta.qualityScore : null,
+        createdAt: r.createdAt,
+      };
+    });
+  }
+
   async getById(id: string, userId: string): Promise<MissionDetail | null> {
     const row = await this.prisma.agentPlaygroundMission.findFirst({
       where: { id, userId },
