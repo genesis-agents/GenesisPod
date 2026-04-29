@@ -174,13 +174,6 @@ export class ReActLoop implements IAgentLoop {
        * findings 数量下限等）。返回非空 issues 字符串就 reject。
        */
       validateBusinessRules?: (output: unknown) => string | null | undefined;
-      /**
-       * ★ Phase P1 fix (2026-04-29 mission a1393e14)：OpenAI structured output
-       * (json_schema mode) 用的 schema，由 agent-runner 用 zodToJsonSchema 派生。
-       * 透传到 chatService.chat() → API caller，OpenAI 在 token 预算内**强制**生成
-       * 有效 JSON，从根源消除 reasoning model CoT 撑爆 → visible 输出 null 故障类。
-       */
-      outputJsonSchema?: Record<string, unknown>;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
@@ -190,7 +183,6 @@ export class ReActLoop implements IAgentLoop {
     const specTaskProfile = options?.taskProfile;
     const outputSchemaValidator = options?.outputSchemaValidator;
     const validateBusinessRules = options?.validateBusinessRules;
-    const outputJsonSchema = options?.outputJsonSchema;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
@@ -407,9 +399,6 @@ export class ReActLoop implements IAgentLoop {
           currentEnvelope.memory.userId,
           // Spec 声明的 TaskProfile（如 researcher='long' / leader='medium'）
           specTaskProfile,
-          // ★ Phase P1 fix (2026-04-29)：把 spec 派生的 JSON schema 透到 chat() →
-          //   OpenAI json_schema mode 强约束输出，消除 visible null 故障类
-          outputJsonSchema,
         );
         decision = reasoned.decision;
         usage = reasoned.usage;
@@ -932,11 +921,6 @@ export class ReActLoop implements IAgentLoop {
     userId?: string,
     /** Spec 声明的 TaskProfile —— 优先用 agent 真实意图，缺省走 medium */
     specTaskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile,
-    /**
-     * ★ Phase P1 fix (2026-04-29)：spec 派生的 JSON schema，透给 chat() 启用 OpenAI
-     * structured output (json_schema) 模式 —— OpenAI 强约束输出，消除 null 故障类。
-     */
-    outputJsonSchema?: Record<string, unknown>,
   ): Promise<{
     decision: ParsedDecision;
     /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
@@ -985,18 +969,7 @@ export class ReActLoop implements IAgentLoop {
       // ReActLoop 收到非空 content 误以为成功，进 parseDecision 失败 → finalize
       // raw text → 误导 trace。
       strictMode: true,
-      // ★ Phase P1 fix (2026-04-29)：当 spec 提供 outputJsonSchema 时，启用 OpenAI
-      //   structured output (json_schema) 模式 —— 比 json_object 更强约束，
-      //   API caller 自动识别此参数并切换 response_format。无 schema 时 fallback 到
-      //   json_object 兼容旧路径。
-      ...(outputJsonSchema
-        ? {
-            outputSchema: {
-              type: "json_schema" as const,
-              schema: outputJsonSchema,
-            },
-          }
-        : { responseFormat: "json" }),
+      responseFormat: "json",
       // ★ Harness 内部 agent-to-agent 编排，不是用户原始输入；guardrails
       // 对内部系统 prompt 进行内容审查会误杀（特别是含 BUILTIN_TOOL 描述、
       // 评审 prompt 等可能触发敏感词检测的合法系统内容）。

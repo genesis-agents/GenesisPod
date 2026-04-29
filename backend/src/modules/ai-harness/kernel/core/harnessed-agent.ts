@@ -79,12 +79,6 @@ export interface HarnessedAgentInit {
     output: unknown,
     input?: unknown,
   ) => string | null | undefined;
-  /**
-   * ★ Phase P1 fix (2026-04-29 mission a1393e14)：OpenAI json_schema mode 用的
-   * structured output schema（agent-runner 由 Zod 派生）。Loop 在 chat() 时透传，
-   * 让 OpenAI 强约束输出有效 JSON，从根源消除 reasoning model CoT 撑爆 → null 故障类。
-   */
-  outputJsonSchema?: Record<string, unknown>;
 }
 
 export class HarnessedAgent implements IAgent {
@@ -105,7 +99,6 @@ export class HarnessedAgent implements IAgent {
   private readonly taskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile;
   private readonly outputSchemaValidator?: HarnessedAgentInit["outputSchemaValidator"];
   private readonly validateBusinessRules?: HarnessedAgentInit["validateBusinessRules"];
-  private readonly outputJsonSchema?: HarnessedAgentInit["outputJsonSchema"];
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
   private readonly abortController = new AbortController();
 
@@ -128,7 +121,6 @@ export class HarnessedAgent implements IAgent {
     this.taskProfile = init.taskProfile;
     this.outputSchemaValidator = init.outputSchemaValidator;
     this.validateBusinessRules = init.validateBusinessRules;
-    this.outputJsonSchema = init.outputJsonSchema;
     this.state = "idle";
   }
 
@@ -223,7 +215,6 @@ export class HarnessedAgent implements IAgent {
             validateBusinessRules?: (
               output: unknown,
             ) => string | null | undefined;
-            outputJsonSchema?: Record<string, unknown>;
           },
         ) => AsyncIterable<IAgentEvent>;
 
@@ -260,9 +251,6 @@ export class HarnessedAgent implements IAgent {
             ? (output: unknown) =>
                 this.validateBusinessRules!(output, task.input)
             : undefined,
-          // ★ Phase P1 fix (2026-04-29)：透传 OpenAI json_schema mode 用的 schema，
-          //   ReActLoop 在 chat() 时启用 structured output 强约束。
-          outputJsonSchema: this.outputJsonSchema,
         })) {
           yield ev;
           eventCount += 1;

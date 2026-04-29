@@ -33,49 +33,6 @@ import {
   type DefineAgentOptions,
 } from "./agent-spec.base";
 import { describeOutputSchemaForLlm } from "./zod-schema-prompt";
-import { zodToJsonSchema } from "zod-to-json-schema";
-
-/**
- * 深度递归校验 JSON Schema 是否满足 OpenAI strict 模式硬规则。
- * 返回违规说明数组（空数组 = strict-compatible）。
- */
-function validateOpenAIStrictRecursive(node: unknown, path = "$"): string[] {
-  const issues: string[] = [];
-  if (!node || typeof node !== "object") return issues;
-  const n = node as {
-    type?: string | string[];
-    properties?: Record<string, unknown>;
-    required?: string[];
-    additionalProperties?: boolean | unknown;
-    items?: unknown;
-    anyOf?: unknown[];
-  };
-  if (n.type === "object") {
-    if (n.additionalProperties !== false) {
-      issues.push(
-        `${path}: missing additionalProperties:false (z.record 等开放 schema 不被 OpenAI strict 支持)`,
-      );
-    }
-    const props = Object.keys(n.properties ?? {});
-    const req = n.required ?? [];
-    const missing = props.filter((p) => !req.includes(p));
-    if (missing.length > 0) {
-      issues.push(`${path}: fields not in required: ${missing.join(",")}`);
-    }
-    for (const [k, v] of Object.entries(n.properties ?? {})) {
-      issues.push(...validateOpenAIStrictRecursive(v, `${path}.${k}`));
-    }
-  }
-  if (n.type === "array" && n.items) {
-    issues.push(...validateOpenAIStrictRecursive(n.items, `${path}[]`));
-  }
-  if (Array.isArray(n.anyOf)) {
-    n.anyOf.forEach((sub, i) =>
-      issues.push(...validateOpenAIStrictRecursive(sub, `${path}#anyOf[${i}]`)),
-    );
-  }
-  return issues;
-}
 
 /**
  * ★ 迭代出口标准枚举（mission-pipeline-exit-policy.md / baseline §1.4）
@@ -1405,49 +1362,6 @@ export class AgentRunner {
           }) as Promise<unknown>
       : undefined;
 
-    // ★ Phase P1 fix (2026-04-29 mission a1393e14)：从 spec.outputSchema (Zod) 派生
-    //   OpenAI 兼容的 JSON Schema，全链路传到 chat service → API caller → OpenAI
-    //   response_format: json_schema 模式。该模式 OpenAI 在 token 预算内**强制**生成
-    //   有效 JSON，从根源消除 reasoning model CoT 吃光 max_tokens → visible 输出空 →
-    //   schema 校验 null 的故障类。
-    // ★ Phase P1 fix (2026-04-29 missions a1393e14 + bab28b72)：仅当转换出的 JSON
-    //   Schema **整树**符合 OpenAI strict 模式时启用 structured output (json_schema)。
-    //
-    //   OpenAI strict 模式硬规则（深度递归）：
-    //     1. 顶层必须 type:"object"（discriminatedUnion / union / array root → 拒绝）
-    //     2. 每个 type:"object" 节点必须 additionalProperties:false
-    //        （z.record 转出 additionalProperties:<valueSchema> → 拒绝）
-    //     3. 每个 object 的所有 properties 必须在 required 数组里
-    //
-    //   任一违反 → 整 schema fallback 到 json_object 兼容旧路径，spec 不需手改。
-    //   通过的 schema (analyst/researcher/chapter-writer 等) 才享受新 strict 防 null
-    //   保护。这是"不破坏现有 spec"前提下的最大安全启用范围。
-    let outputJsonSchema: Record<string, unknown> | undefined;
-    if (meta.outputSchema) {
-      try {
-        const zodSchema = meta.outputSchema as unknown as Parameters<
-          typeof zodToJsonSchema
-        >[0];
-        const raw = zodToJsonSchema(zodSchema, {
-          target: "openAi",
-          $refStrategy: "none",
-        }) as Record<string, unknown>;
-        const violations = validateOpenAIStrictRecursive(raw);
-        if (violations.length === 0 && raw && raw.type === "object") {
-          outputJsonSchema = raw;
-        } else {
-          this.logger.debug(
-            `[${meta.id}] outputSchema 不符合 OpenAI strict 规则，回退到 json_object: ${violations.slice(0, 3).join("; ") || `root.type=${JSON.stringify(raw?.type)}`}`,
-          );
-        }
-      } catch (err) {
-        this.logger.warn(
-          `[${meta.id}] zodToJsonSchema 转换失败，回退到 json_object 模式: ` +
-            (err instanceof Error ? err.message : String(err)),
-        );
-      }
-    }
-
     const agentSpec: IAgentSpec = {
       identity,
       loop: loopOverride ?? meta.loop,
@@ -1459,7 +1373,6 @@ export class AgentRunner {
       ),
       taskProfile: meta.taskProfile,
       outputSchema: meta.outputSchema,
-      outputJsonSchema,
       validateBusinessRules: validateFn,
       stubFn,
       buildSystemPrompt: buildSystemPromptFn,

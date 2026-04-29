@@ -264,9 +264,6 @@ export class AgentFactory {
       // ★ 内容驱动退出闸 validator
       outputSchemaValidator,
       validateBusinessRules: validateBusinessRulesWrapper,
-      // ★ Phase P1 fix (2026-04-29 mission a1393e14)：透传 OpenAI json_schema mode 用的
-      //   structured-output schema，让 Loop 在 chat() 时启用强约束输出（消除 null/empty 故障类）
-      outputJsonSchema: spec.outputJsonSchema,
     });
   }
 
