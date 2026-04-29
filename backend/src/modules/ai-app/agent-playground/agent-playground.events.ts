@@ -16,6 +16,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("mission:completed"),
   T("mission:failed"),
   T("mission:rejected"),
+  T("mission:cancelled"), // controller.ts manual cancel — 之前未注册被 bus drop（同类 bug 与 P1 修复）
+  T("mission:manual-rerun-from-todo"), // controller.ts 手动 rerun — 同上
   T("stage:started"),
   T("stage:completed"),
   T("agent:lifecycle"),
@@ -69,4 +71,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("agent:narrative"),
   // ── S12 self-evolution（mission 复盘）──
   T("mission:evolved"), // mission 完成后异步：postmortem 统计 + 系统建议
+  // ── Phase P1 fix (2026-04-29 mission 8c7b4358) — ReAct 死循环防护 ──
+  T("iteration:progress"), // 每轮 ReAct 进度（iter / maxIter / approachingLimit），UI 死循环可视化
+  T("dimension:retry-phase:started"), // Leader patch retry 阶段启动里程碑（前 case 卡 44min 中间 0 milestone）
+  T("dimension:retry-phase:completed"), // Leader patch retry 阶段完成里程碑（含 wallTimeMs / 各 dim 成败）
 ];
