@@ -6,8 +6,7 @@
  * Writer 起草时按 outline 走，不必边写边规划。
  *
  *   reads  ctx: plan, reconciliationReport, input.auditLayers
- *   writes ctx: (none —— 当前 Writer 不消费此 outline，只 emit dimension:outline:planned
- *                给前端 trace。后续 W2 接入时这里会改为写 ctx.outlinePlan)
+ *   writes ctx: outlinePlan (★ P1-E 2026-04-29: 真消费 — S8 SingleShotWriter 按此 outline 起草)
  *   deps:       writer.planMissionOutline, invoker (tickCost), emit, log
  *
  * Skip 条件: auditLayers ∉ {thorough, paranoid} → 直接 return
@@ -92,8 +91,33 @@ export async function runWriterOutlineStage(
     );
     if (outlineRes.state === "completed" && outlineRes.output) {
       const outlinePlan = outlineRes.output as {
-        chapterOutlines?: unknown[];
+        chapterOutlines?: {
+          sectionId: string;
+          heading: string;
+          subheadings?: string[];
+          thesis: string;
+          keyPointsToCover: string[];
+        }[];
+        targetWordsPerChapter?: Record<string, number>;
+        factAllocation?: Record<string, string[]>;
       };
+      // ★ P1-E (2026-04-29): 真消费 — 写入 ctx.outlinePlan，S8 SingleShotWriter 严格按此 outline 起草
+      if (
+        outlinePlan.chapterOutlines &&
+        outlinePlan.chapterOutlines.length > 0
+      ) {
+        ctx.outlinePlan = {
+          chapterOutlines: outlinePlan.chapterOutlines.map((c) => ({
+            sectionId: c.sectionId,
+            heading: c.heading,
+            subheadings: c.subheadings ?? [],
+            thesis: c.thesis,
+            keyPointsToCover: c.keyPointsToCover,
+          })),
+          targetWordsPerChapter: outlinePlan.targetWordsPerChapter ?? {},
+          factAllocation: outlinePlan.factAllocation ?? {},
+        };
+      }
       await deps.emit({
         type: "agent-playground.dimension:outline:planned",
         missionId,

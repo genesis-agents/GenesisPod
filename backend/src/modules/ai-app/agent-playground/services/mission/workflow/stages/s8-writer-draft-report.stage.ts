@@ -188,6 +188,9 @@ export async function runWriterStage(
         themeSummary: analyst.themeSummary,
         contradictions: writerContradictions,
         rawFindings,
+        // ★ P1-E (2026-04-29): 注入 S7 outline，让 Writer 严格按章节大纲起草
+        // 仅 thorough+ 档位 S7 跑了 outline-planner，否则 ctx.outlinePlan 为空
+        outlinePlan: ctx.outlinePlan,
       },
       {
         missionId,

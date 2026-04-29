@@ -105,4 +105,21 @@ export interface MissionContext {
   qualityTraceCtx?: QualityTraceContext;
   /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */
   reportEvaluation?: import("../../../../../ai-harness/facade").EvaluationResult;
+  /**
+   * ★ P1-E (2026-04-29): S7 outline 真消费
+   * thorough+ 档位下 S7 产出的 mission-level chapter outline，由 S8 SingleShotWriter
+   * 严格按 sectionId/heading/thesis/keyPoints/targetWords 起草，提升长文兑现率。
+   * 之前是死字段（仅 emit 给前端 trace）。
+   */
+  outlinePlan?: {
+    chapterOutlines: {
+      sectionId: string;
+      heading: string;
+      subheadings: string[];
+      thesis: string;
+      keyPointsToCover: string[];
+    }[];
+    targetWordsPerChapter: Record<string, number>;
+    factAllocation: Record<string, string[]>;
+  };
 }

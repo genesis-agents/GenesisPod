@@ -6,10 +6,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 import { ResearchReportSchema } from "../../dto/run-mission.dto";
 
 const Input = z.object({
@@ -46,6 +43,25 @@ const Input = z.object({
       }),
     )
     .default([]),
+  // ★ P1-E (2026-04-29): S7 outline 真消费
+  // 当 auditLayers ∈ {thorough, paranoid} 时 S7 已产出 mission-level chapter outline，
+  // Writer 应该按 outline 的 sectionId/heading/thesis/keyPointsToCover/targetWordsPerChapter
+  // 起草，而不是从零规划。这样 epic/mega 长文兑现率才会真正提升。
+  outlinePlan: z
+    .object({
+      chapterOutlines: z.array(
+        z.object({
+          sectionId: z.string(),
+          heading: z.string(),
+          subheadings: z.array(z.string()).default([]),
+          thesis: z.string(),
+          keyPointsToCover: z.array(z.string()),
+        }),
+      ),
+      targetWordsPerChapter: z.record(z.string(), z.number()).default({}),
+      factAllocation: z.record(z.string(), z.array(z.string())).default({}),
+    })
+    .optional(),
 });
 
 const DEPTH_SECTION_PLAN: Record<
@@ -94,12 +110,21 @@ export class SingleShotWriterAgent extends AgentSpec<
         ? "用简体中文撰写。文字风格要专业、严谨、引述准确，不要使用「相信」「或许」等弱化措辞。"
         : "Write in formal English with precise terminology. Avoid hedging language ('perhaps', 'may'). Prefer evidence-backed prose.";
 
+    // ★ P1-E (2026-04-29): 如果 S7 已产出 outline，构建逐章详细指导
+    // outline 提供：sectionId/heading/thesis/keyPointsToCover/targetWords/factIds
+    // Writer 必须严格按 outline 写而不是从零规划，提升 epic/mega 长文兑现率
+    const outlineGuide = input.outlinePlan
+      ? this.buildOutlineGuidance(input.outlinePlan)
+      : null;
+
     return [
       `You are a senior research analyst at a top-tier consulting firm (think McKinsey / BCG / Stanford HAI).`,
       `Produce a publication-quality research report on "${input.topic}".`,
       ``,
       `## Output requirements`,
-      `- Depth tier: ${input.depth} → ${plan.sectionCount} sections, ${plan.wordsPerSection} words per section, total ~${plan.totalWords} words`,
+      outlineGuide
+        ? `- ★ MUST follow the pre-planned chapter outline below — section count, headings, theses, key points, and word targets are all PRESCRIBED. Do not invent new chapters.`
+        : `- Depth tier: ${input.depth} → ${plan.sectionCount} sections, ${plan.wordsPerSection} words per section, total ~${plan.totalWords} words`,
       `- ${langGuide}`,
       `- Structure each section with:`,
       `  · Opening Key Finding callout (markdown blockquote: "> **Key Finding**: ...")`,
@@ -109,6 +134,7 @@ export class SingleShotWriterAgent extends AgentSpec<
       `- Use markdown bold (**...**) for critical terms and numbers; lists only when enumeration adds clarity`,
       `- AVOID generic filler ("In conclusion", "It is important to note") — every sentence must add information`,
       ``,
+      ...(outlineGuide ? [outlineGuide, ``] : []),
       `## Available materials`,
       `- Theme synthesis (from Analyst): ${input.themeSummary}`,
       `- ${input.insights.length} validated insights (each with confidence + supporting dimensions) — see user message`,
@@ -137,5 +163,67 @@ export class SingleShotWriterAgent extends AgentSpec<
       ``,
       `Field names exactly as shown. All URLs must start with http(s):// and be sourced from the insights — do not fabricate.`,
     ].join("\n");
+  }
+
+  /**
+   * ★ P1-E (2026-04-29): 构建 outline 指导段落，让 Writer 按章节大纲严格写作。
+   *
+   * S7 MissionOutlinePlannerAgent 已产出 chapterOutlines + targetWordsPerChapter
+   * + factAllocation。Writer 必须按 outline 的 sectionId/heading/thesis/keyPoints
+   * 起草，而不是边写边规划。这样 epic/mega 长文兑现率才会真正提升。
+   */
+  private buildOutlineGuidance(
+    outline: NonNullable<z.infer<typeof Input>["outlinePlan"]>,
+  ): string {
+    const lines: string[] = [
+      `## ★ Pre-planned Chapter Outline (MUST FOLLOW)`,
+      ``,
+      `The Outline Planner has already structured this report into ${outline.chapterOutlines.length} chapters.`,
+      `Write each chapter EXACTLY as prescribed — do not merge, split, or invent new chapters.`,
+      ``,
+    ];
+    let totalTarget = 0;
+    for (let i = 0; i < outline.chapterOutlines.length; i++) {
+      const ch = outline.chapterOutlines[i];
+      const target = outline.targetWordsPerChapter[ch.sectionId];
+      if (typeof target === "number") totalTarget += target;
+      const facts = outline.factAllocation[ch.sectionId] ?? [];
+      lines.push(`### Chapter ${i + 1}: "${ch.heading}"`);
+      lines.push(`- **sectionId**: \`${ch.sectionId}\``);
+      lines.push(`- **Thesis**: ${ch.thesis}`);
+      if (typeof target === "number") {
+        lines.push(
+          `- **Target word count**: ~${target} words (must hit ≥80% of this)`,
+        );
+      }
+      if (ch.keyPointsToCover.length > 0) {
+        lines.push(
+          `- **Key points to cover** (use these as paragraph anchors):`,
+        );
+        for (const kp of ch.keyPointsToCover) {
+          lines.push(`  · ${kp}`);
+        }
+      }
+      if (ch.subheadings.length > 0) {
+        lines.push(
+          `- **Subheadings** (use as ### sub-sections within the body):`,
+        );
+        for (const sh of ch.subheadings) {
+          lines.push(`  · ${sh}`);
+        }
+      }
+      if (facts.length > 0) {
+        lines.push(
+          `- **Pre-allocated facts** (cite these by id; full text in factTable below): ${facts.join(", ")}`,
+        );
+      }
+      lines.push(``);
+    }
+    if (totalTarget > 0) {
+      lines.push(
+        `**Total target word count for the report**: ~${totalTarget} words. Aim for the prescribed length per chapter.`,
+      );
+    }
+    return lines.join("\n");
   }
 }

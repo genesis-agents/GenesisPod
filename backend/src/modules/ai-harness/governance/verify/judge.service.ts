@@ -60,6 +60,26 @@ const PROMPTS: Record<BuiltInVerifierId, string> = {
   critical: CRITICAL_PROMPT,
 };
 
+/**
+ * ★ P1-D (2026-04-29): 三 verifier 跨 model family 路由
+ *
+ * 业界 SOTA (Anthropic / o1) 用"不同模型族"做 consensus，避免同模型自评相关性高、
+ * consensus 失真。本项目通过 AIModelType 让用户 BYOK 时自然路由到不同模型：
+ *
+ *   - self     → CHAT      writer 主模型严苛自评（捕捉模型自身 bias）
+ *   - external → EVALUATOR 用户配置的独立评审模型（最可能不同 family；未配置则回落 CHAT）
+ *   - critical → CHAT_FAST 不同 tier 模型（Haiku/mini/Flash 等，常与 CHAT 不同 family）
+ *
+ * 当用户未配置某 type 时，AiChatService 会自动 fallback 到 CHAT —— 不破坏现有行为。
+ * 用户配置不同 family 时（如 CHAT=Sonnet / EVALUATOR=GPT-4o / CHAT_FAST=Haiku），
+ * consensus 真正去相关，分数更可信。
+ */
+const MODEL_TYPE_BY_VERIFIER: Record<BuiltInVerifierId, AIModelType> = {
+  self: AIModelType.CHAT,
+  external: AIModelType.EVALUATOR,
+  critical: AIModelType.CHAT_FAST,
+};
+
 @Injectable()
 export class JudgeService {
   private readonly logger = new Logger(JudgeService.name);
@@ -84,8 +104,10 @@ export class JudgeService {
             ],
             taskProfile: { creativity: "deterministic", outputLength: "short" },
             responseFormat: "json",
-            // 系统配置感知 + BYOK：让 chat() 走 user default → DB default 链路
-            modelType: AIModelType.CHAT,
+            // ★ P1-D (2026-04-29): 按 verifier id 路由到不同 modelType，
+            // 让 BYOK 用户的 consensus 真正去相关。未配置某 type 时 chat()
+            // 内部会自动 fallback 到 CHAT，不破坏现有行为。
+            modelType: MODEL_TYPE_BY_VERIFIER[id],
             userId: KernelContext.get()?.userId,
             signal,
           });
