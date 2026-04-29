@@ -1219,7 +1219,7 @@ function extractDomain(url: string): string | null {
 
 /** lengthProfile 字数 target（mission-pipeline-user-profiles.md §4.3） */
 function lengthTargetFor(
-  profile: "brief" | "standard" | "deep" | "extended",
+  profile: "brief" | "standard" | "deep" | "extended" | "epic" | "mega",
 ): number {
   switch (profile) {
     case "brief":
@@ -1230,6 +1230,10 @@ function lengthTargetFor(
       return 15000;
     case "extended":
       return 25000;
+    case "epic":
+      return 80000;
+    case "mega":
+      return 200000;
     default:
       return 8000;
   }

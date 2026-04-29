@@ -40,7 +40,7 @@ export interface PerDimPipelineArgs {
   language: "zh-CN" | "en-US";
   depth: "quick" | "standard" | "deep";
   /** 章节字数规格（lengthProfile 决定每节字数 + 章节数） */
-  lengthProfile?: "brief" | "standard" | "deep" | "extended";
+  lengthProfile?: "brief" | "standard" | "deep" | "extended" | "epic" | "mega";
   pool: MissionBudgetPool;
   researcherOut: {
     dimension: string;
@@ -90,13 +90,26 @@ export async function runPerDimPipeline(
     budgetMultiplier,
   } = args;
 
-  const targetChapterCount = depth === "quick" ? 3 : depth === "deep" ? 7 : 5;
-  // ★ Iter 2c: lengthProfile 决定每节字数（depth fallback 兼容老调用方）
-  //   brief:    400 字/节  → 紧凑版（适合执行摘要档位）
-  //   standard: 1000 字/节 → 标准（默认）
-  //   deep:     1800 字/节 → 深度展开
-  //   extended: 2800 字/节 → 长文（接近论文章节）
   const lp = args.lengthProfile;
+  // ★ Iter 2c + epic/mega: lengthProfile 决定每节字数 + 维度章节数
+  //   brief:    400 字/节   × 3 章 = 1.2k 字/dim
+  //   standard: 1000 字/节  × 5 章 = 5k 字/dim
+  //   deep:     1800 字/节  × 7 章 = 12.6k 字/dim
+  //   extended: 2800 字/节  × 8 章 = 22.4k 字/dim
+  //   epic:     5000 字/节  × 12 章 = 60k 字/dim → mission 多 dim 总量 80k+
+  //   mega:     10000 字/节 × 20 章 = 200k 字/dim → mission 多 dim 总量 200k+（cap by chapter-writer max 25000）
+  const targetChapterCount =
+    lp === "epic"
+      ? 12
+      : lp === "mega"
+        ? 20
+        : lp === "extended"
+          ? 8
+          : depth === "quick"
+            ? 3
+            : depth === "deep"
+              ? 7
+              : 5;
   const targetWordsPerChapter = lp
     ? lp === "brief"
       ? 400
@@ -104,7 +117,11 @@ export async function runPerDimPipeline(
         ? 1800
         : lp === "extended"
           ? 2800
-          : 1000 // standard
+          : lp === "epic"
+            ? 5000
+            : lp === "mega"
+              ? 10000
+              : 1000 // standard
     : depth === "quick"
       ? 600
       : depth === "deep"

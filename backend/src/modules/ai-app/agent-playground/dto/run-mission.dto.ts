@@ -37,7 +37,7 @@ export const RunMissionInputSchema = z.object({
     .enum(["academic", "executive", "journalistic", "technical"])
     .default("executive"),
   lengthProfile: z
-    .enum(["brief", "standard", "deep", "extended"])
+    .enum(["brief", "standard", "deep", "extended", "epic", "mega"])
     .default("standard"),
   audienceProfile: z
     .enum(["executive", "domain-expert", "general-public"])

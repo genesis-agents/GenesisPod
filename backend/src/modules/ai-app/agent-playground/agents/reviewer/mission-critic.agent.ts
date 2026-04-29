@@ -26,7 +26,9 @@ const Input = z.object({
   styleProfile: z
     .enum(["academic", "executive", "journalistic", "technical"])
     .optional(),
-  lengthProfile: z.enum(["brief", "standard", "deep", "extended"]).optional(),
+  lengthProfile: z
+    .enum(["brief", "standard", "deep", "extended", "epic", "mega"])
+    .optional(),
   artifactSummary: z.object({
     title: z.string(),
     executiveSummary: z.string(),

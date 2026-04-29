@@ -5,10 +5,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -27,7 +24,7 @@ const Input = z.object({
       source: z.string(),
     }),
   ),
-  targetWords: z.number().int().min(200).max(5000),
+  targetWords: z.number().int().min(200).max(25000),
   /** 之前已写完的章节标题列表（用于去重，不要重复前文） */
   previousChapterHeadings: z.array(z.string()).optional(),
   previousCritique: z.string().optional(),

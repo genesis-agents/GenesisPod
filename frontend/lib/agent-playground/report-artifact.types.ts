@@ -138,7 +138,7 @@ export interface ArtifactMetadata {
   wordCount: number;
   readingTimeMinutes: number;
   styleProfile: 'academic' | 'executive' | 'journalistic' | 'technical';
-  lengthProfile: 'brief' | 'standard' | 'deep' | 'extended';
+  lengthProfile: 'brief' | 'standard' | 'deep' | 'extended' | 'epic' | 'mega';
   audienceProfile: 'executive' | 'domain-expert' | 'general-public';
   language: 'zh-CN' | 'en-US';
   totalTokens: { prompt: number; completion: number; total: number };

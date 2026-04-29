@@ -614,6 +614,8 @@ export default function MissionDetailPage() {
                 missionCancelled={!!view.mission.cancelledAt}
                 agents={view.agents}
                 dimensionPipelines={view.dimensionPipelines}
+                missionId={missionId}
+                missionTerminal={!isRunning}
               />
             )}
 

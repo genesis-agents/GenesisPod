@@ -442,6 +442,153 @@ export class AgentPlaygroundController {
   }
 
   /**
+   * POST /api/v1/agent-playground/missions/:id/todos/:todoId/rerun
+   *
+   * 单 todo 重跑 v1 —— 创建新 mission，沿用原 input + 注入 focusHint，
+   *   让 leader 在 S2 plan 阶段重点优化该 dim/chapter/finding。
+   *
+   * 不允许重跑：origin = leader-assess-abort（已放弃）/ system:s11-persist（终态归档）。
+   *
+   * 前端必须在 body 携带 todo 的语义信息（origin / scope / dimensionRef / chapterIndex /
+   * todoTitle）—— todoId 是前端 derive 的虚拟 ID，后端无法独立解析。
+   */
+  @Post("missions/:id/todos/:todoId/rerun")
+  async rerunTodo(
+    @Param("id") missionId: string,
+    @Param("todoId") todoId: string,
+    @Body()
+    body: {
+      origin?: string;
+      scope?: "dimension" | "chapter" | "review" | "system" | "mission";
+      dimensionRef?: string;
+      chapterIndex?: number;
+      todoTitle?: string;
+      reasonText?: string;
+    },
+    @Request() req: RequestWithUser,
+  ): Promise<{ missionId: string; streamNamespace: string }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    await this.assertOwnership(missionId, userId);
+
+    const original = await this.store.getById(missionId, userId);
+    if (!original)
+      throw new ForbiddenException(`mission ${missionId} not found`);
+
+    if (original.status === "running") {
+      throw new BadRequestException(
+        "Source mission is still running — cancel or wait for completion before re-running individual todos",
+      );
+    }
+
+    const origin = (body?.origin ?? "").trim();
+    if (origin === "leader-assess-abort") {
+      throw new BadRequestException(
+        "Aborted dimensions cannot be re-run; create a new mission instead",
+      );
+    }
+    if (origin === "system-stage" && todoId.endsWith("s11-persist")) {
+      throw new BadRequestException(
+        "Persistence stage cannot be re-run — re-run the whole mission instead",
+      );
+    }
+
+    // 构造给新 mission leader 看的 focusHint（中文 / 英文双语，让 leader 自主选择）
+    const scope = body?.scope ?? "mission";
+    const dimRef = (body?.dimensionRef ?? "").trim();
+    const chapterIdx = body?.chapterIndex;
+    const todoTitle = (body?.todoTitle ?? "").trim();
+    const reasonText = (body?.reasonText ?? "").trim();
+    const hintLines: string[] = [];
+    if (scope === "dimension" && dimRef) {
+      hintLines.push(
+        `本次为单维度重跑：重点改进维度「${dimRef}」`,
+        `Focused re-run: improve dimension "${dimRef}"`,
+      );
+    } else if (
+      scope === "chapter" &&
+      dimRef &&
+      typeof chapterIdx === "number"
+    ) {
+      hintLines.push(
+        `本次为章节重跑：维度「${dimRef}」第 ${chapterIdx + 1} 章需要重点改写`,
+        `Focused re-run: rewrite chapter ${chapterIdx + 1} of dimension "${dimRef}"`,
+      );
+    } else if (scope === "review") {
+      hintLines.push(
+        `本次为复审改进重跑：${todoTitle || origin}`,
+        `Focused re-run: address review finding "${todoTitle || origin}"`,
+      );
+    } else if (scope === "system") {
+      hintLines.push(
+        `本次为系统阶段重跑：${todoTitle || todoId}`,
+        `Focused re-run: redo system stage "${todoTitle || todoId}"`,
+      );
+    }
+    if (reasonText) hintLines.push(`Context: ${reasonText}`);
+
+    // 老 input 复用 + 把 hint 嵌进 topic 末尾（leader plan agent 看 topic 字符串）
+    const originalProfile = (original as { userProfile?: unknown })
+      .userProfile as Partial<RunMissionInput> | null | undefined;
+    const focusedTopic =
+      hintLines.length > 0
+        ? `${original.topic}\n\n[Re-run focus]\n${hintLines.join("\n")}`
+        : original.topic;
+
+    const input: RunMissionInput = {
+      topic: focusedTopic.slice(0, 200),
+      depth: (["quick", "standard", "deep"].includes(
+        originalProfile?.depth ?? original.depth,
+      )
+        ? (originalProfile?.depth ?? original.depth)
+        : "deep") as RunMissionInput["depth"],
+      language: (originalProfile?.language ??
+        (original.language === "en-US"
+          ? "en-US"
+          : "zh-CN")) as RunMissionInput["language"],
+      budgetProfile: originalProfile?.budgetProfile ?? "medium",
+      styleProfile: originalProfile?.styleProfile ?? "executive",
+      lengthProfile: originalProfile?.lengthProfile ?? "standard",
+      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
+      withFigures: originalProfile?.withFigures ?? true,
+      auditLayers: originalProfile?.auditLayers ?? "default",
+      concurrency: originalProfile?.concurrency ?? 3,
+      viewMode: originalProfile?.viewMode ?? "continuous",
+      maxCredits: 300,
+    };
+
+    const newMissionId = randomUUID();
+    this.ownership.assign(newMissionId, userId);
+
+    // emit 一个 mission:manual-rerun-from-todo 事件，让前端 ledger 把新 mission
+    // 关联到 sourceTodoId（用户能在 todo 详情看到"重跑历史"）
+    await this.buffer.broadcast({
+      type: "agent-playground.mission:manual-rerun-from-todo",
+      scope: { missionId: newMissionId, userId },
+      payload: {
+        sourceMissionId: missionId,
+        sourceTodoId: todoId,
+        origin,
+        scope,
+        dimensionRef: dimRef || undefined,
+        chapterIndex: chapterIdx,
+        todoTitle: todoTitle || undefined,
+      },
+      timestamp: Date.now(),
+    });
+
+    void this.orchestrator
+      .runMission(newMissionId, input, userId)
+      .catch((err: unknown) => {
+        this.log.error(
+          `mission ${newMissionId} (rerun-todo ${todoId} of ${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+
+    return { missionId: newMissionId, streamNamespace: "agent-playground" };
+  }
+
+  /**
    * POST /api/v1/agent-playground/missions/:id/cancel
    * 取消运行中的 mission：DB 状态置为 cancelled，前端停止 polling。
    *

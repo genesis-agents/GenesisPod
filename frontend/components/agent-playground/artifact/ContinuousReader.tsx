@@ -132,7 +132,42 @@ export function ContinuousReader({ artifact }: Props) {
             </span>
           </div>
         )}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white px-8 py-10 shadow-sm sm:px-10 sm:py-12 lg:px-14 lg:py-14">
+          {/* 报告标题 + meta（TI 同款长文起手式） */}
+          <header className="mb-8 border-b border-gray-100 pb-6">
+            <h1 className="font-serif mb-2 text-3xl font-bold leading-tight tracking-tight text-gray-900 sm:text-4xl">
+              {artifact.metadata.topic}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+              <span>
+                {artifact.metadata.wordCount >= 1000
+                  ? `${(artifact.metadata.wordCount / 1000).toFixed(1)}k`
+                  : artifact.metadata.wordCount}{' '}
+                字
+              </span>
+              <span>·</span>
+              <span>
+                <Clock className="mr-0.5 inline h-3 w-3 align-text-bottom" />约{' '}
+                {artifact.metadata.readingTimeMinutes} 分钟
+              </span>
+              <span>·</span>
+              <span>{artifact.sections.length} 章</span>
+              <span>·</span>
+              <span>{artifact.metadata.sourceCount} 引用</span>
+              {artifact.metadata.figureCount > 0 && (
+                <>
+                  <span>·</span>
+                  <span>{artifact.metadata.figureCount} 图</span>
+                </>
+              )}
+              {artifact.metadata.factCount > 0 && (
+                <>
+                  <span>·</span>
+                  <span>{artifact.metadata.factCount} 事实</span>
+                </>
+              )}
+            </div>
+          </header>
           <ArtifactMarkdown
             markdown={artifact.content.fullMarkdown}
             citations={artifact.citations}

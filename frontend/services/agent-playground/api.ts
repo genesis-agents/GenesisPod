@@ -239,6 +239,43 @@ export interface LeaderChatSendResponse {
   appendedDimensionIds?: string[];
 }
 
+export interface RerunTodoInput {
+  origin: string;
+  scope: 'dimension' | 'chapter' | 'review' | 'system' | 'mission';
+  dimensionRef?: string;
+  chapterIndex?: number;
+  todoTitle?: string;
+  reasonText?: string;
+}
+
+/**
+ * 单 todo 重跑 v1 —— 后端创建新 mission，沿用原 input + 注入 focusHint。
+ * 前端跳转到新 missionId 即可。
+ */
+export async function rerunTodo(
+  missionId: string,
+  todoId: string,
+  body: RerunTodoInput
+): Promise<{ missionId: string; streamNamespace: string }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/todos/${encodeURIComponent(todoId)}/rerun`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Rerun todo failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{ missionId: string; streamNamespace: string }>(raw);
+}
+
 export async function rerunMission(
   missionId: string
 ): Promise<{ missionId: string; streamNamespace: string }> {

@@ -13,17 +13,21 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
   language: z.enum(["zh-CN", "en-US"]),
   audienceProfile: z.enum(["executive", "domain-expert", "general-public"]),
   styleProfile: z.enum(["academic", "executive", "journalistic", "technical"]),
-  lengthProfile: z.enum(["brief", "standard", "deep", "extended"]),
+  lengthProfile: z.enum([
+    "brief",
+    "standard",
+    "deep",
+    "extended",
+    "epic",
+    "mega",
+  ]),
   withFigures: z.boolean(),
   plan: z.object({
     themeSummary: z.string(),
@@ -128,6 +132,15 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
   }
 }
 
-function lengthTarget(p: "brief" | "standard" | "deep" | "extended"): number {
-  return { brief: 3000, standard: 8000, deep: 15000, extended: 25000 }[p];
+function lengthTarget(
+  p: "brief" | "standard" | "deep" | "extended" | "epic" | "mega",
+): number {
+  return {
+    brief: 3000,
+    standard: 8000,
+    deep: 15000,
+    extended: 25000,
+    epic: 80000,
+    mega: 200000,
+  }[p];
 }

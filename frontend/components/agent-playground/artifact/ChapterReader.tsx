@@ -130,18 +130,23 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
 
       {/* 右侧单章 */}
       <main className="min-w-0 flex-1">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                第 {activeIndex + 1} / {sections.length} 章 · 约{' '}
-                {activeSection?.readingTimeMinutes} 分钟 ·{' '}
+        <div className="rounded-2xl border border-gray-200 bg-white px-8 py-10 shadow-sm sm:px-12">
+          {/* 章节顶部 chapter strip：章号 / 标题 / 元数据 / 翻页 */}
+          <div className="mb-6 flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
+            <div className="min-w-0 flex-1">
+              <p className="font-mono mb-1 text-[10px] uppercase tracking-[0.18em] text-violet-500">
+                Chapter {activeIndex + 1} / {sections.length}
+              </p>
+              <h2 className="font-serif mb-2 text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-[28px]">
+                {activeSection?.title ?? '—'}
+              </h2>
+              <p className="text-xs text-gray-500">
+                约 {activeSection?.readingTimeMinutes} 分钟 ·{' '}
                 {activeSection?.wordCount ?? 0} 字 · {sectionCitations.length}{' '}
                 引用
                 {sectionFigures.length > 0 && ` · ${sectionFigures.length} 图`}
               </p>
-              {/* Phase P16-4: 章节进度条 */}
-              <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-100">
+              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-100">
                 <div
                   className="h-full bg-gradient-to-r from-violet-400 to-purple-500 transition-all"
                   style={{
@@ -150,12 +155,12 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
                 />
               </div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex shrink-0 gap-1">
               <button
                 type="button"
                 disabled={activeIndex === 0}
                 onClick={() => setActiveId(sections[activeIndex - 1].id)}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40"
+                className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
                 title="上一章"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -164,7 +169,7 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
                 type="button"
                 disabled={activeIndex === sections.length - 1}
                 onClick={() => setActiveId(sections[activeIndex + 1].id)}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40"
+                className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
                 title="下一章"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -181,6 +186,39 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
               citations={sectionCitations}
               figures={sectionFigures}
             />
+          )}
+          {/* 章末：本章引用列表（TI 风格） */}
+          {sectionCitations.length > 0 && (
+            <div className="mt-10 border-t border-gray-100 pt-6">
+              <h4 className="mb-3 text-sm font-semibold tracking-tight text-gray-700">
+                本章参考文献
+              </h4>
+              <ol className="space-y-1.5">
+                {sectionCitations
+                  .slice()
+                  .sort((a, b) => a.index - b.index)
+                  .map((c) => (
+                    <li
+                      key={c.uuid}
+                      id={`ref-${c.index}`}
+                      data-cite-uuid={c.uuid}
+                      className="flex gap-2.5 text-sm leading-relaxed text-gray-600"
+                    >
+                      <span className="font-mono shrink-0 text-xs text-gray-400">
+                        [{c.index}]
+                      </span>
+                      <a
+                        href={c.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-violet-600 hover:underline"
+                      >
+                        {c.title || c.domain || c.url}
+                      </a>
+                    </li>
+                  ))}
+              </ol>
+            </div>
           )}
         </div>
         <ReferencePanel

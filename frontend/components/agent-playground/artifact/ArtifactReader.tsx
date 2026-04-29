@@ -86,12 +86,9 @@ export function ArtifactReader({
     }
   }, [view]);
   return (
-    <div className="space-y-3">
-      {/* 报告头部资讯条（标题 / 字数 / 章节 / 引用 / 图表 / 事实 / 阅读时长 / 受众 tags） */}
-      <ReportHeroStrip artifact={artifact} />
-      {/* 质量评分卡 + 视图切换 */}
-      <QualityBadge quality={artifact.quality} />
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Sticky 单条工具栏：视图切换 + 质量评分缩略 + 元信息 + 导出 */}
+      <div className="sticky top-0 z-10 -mx-2 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white/95 px-2 py-2 backdrop-blur-sm">
         <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
           <ViewBtn
             active={view === 'continuous'}
@@ -115,9 +112,28 @@ export function ArtifactReader({
             快速视图
           </ViewBtn>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
+          {/* 质量分缩略（TI 没有，agent-playground 差异化） */}
           <span
-            className="text-[10px] text-gray-500"
+            className="inline-flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 ring-1 ring-gray-200"
+            title={Object.entries(artifact.quality.dimensions ?? {})
+              .map(([k, v]) => `${k} ${v}`)
+              .join(' · ')}
+          >
+            <span className="font-semibold text-gray-700">质量</span>
+            <span
+              className={`font-mono font-bold ${
+                artifact.quality.overall >= 80
+                  ? 'text-emerald-600'
+                  : artifact.quality.overall >= 65
+                    ? 'text-amber-600'
+                    : 'text-red-600'
+              }`}
+            >
+              {artifact.quality.overall}
+            </span>
+          </span>
+          <span
             title={[
               `生成于 ${artifact.metadata.generatedAt}`,
               artifact.metadata.modelTrail.length > 0
@@ -129,12 +145,16 @@ export function ArtifactReader({
               .filter(Boolean)
               .join('\n')}
           >
-            v{artifact.metadata.version} · {artifact.metadata.wordCount} 字 ·{' '}
-            {Math.round(artifact.metadata.generationTimeMs / 1000)}s
+            v{artifact.metadata.version} ·{' '}
+            {Math.round(artifact.metadata.generationTimeMs / 1000)}s · $
+            {(artifact.metadata.costCents / 100).toFixed(2)}
           </span>
           {missionId && <ExportMenu missionId={missionId} />}
         </div>
       </div>
+
+      {/* hero 信息条 —— 接收对象 / style profile / hard-gate 警示等元信息 */}
+      <ReportHeroStrip artifact={artifact} />
 
       {view === 'continuous' && <ContinuousReader artifact={artifact} />}
       {view === 'chapter' && <ChapterReader artifact={artifact} />}

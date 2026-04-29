@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ListChecks,
   Lightbulb,
@@ -25,8 +26,10 @@ import {
   Gavel,
   Database,
   Sparkles,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
+import { rerunTodo } from '@/services/agent-playground/api';
 import { cn } from '@/lib/utils/common';
 import type {
   MissionTodo,
@@ -54,6 +57,10 @@ interface Props {
   missionCancelled?: boolean;
   agents?: AgentLiveState[];
   dimensionPipelines?: Map<string, DimensionPipelineState>;
+  /** mission id —— 用于单 todo 重跑 */
+  missionId?: string;
+  /** mission 是否处于终态（completed/failed/cancelled）—— 决定是否允许重跑 */
+  missionTerminal?: boolean;
 }
 
 /** dim 任务细分状态：采集 / 撰写 / 复审 / 重写 / 评分 / 完成 / 失败 */
@@ -606,8 +613,46 @@ export function MissionTodoBoard({
   missionCancelled,
   agents,
   dimensionPipelines,
+  missionId,
+  missionTerminal,
 }: Props) {
+  const router = useRouter();
   const [inspectorTodo, setInspectorTodo] = useState<MissionTodo | null>(null);
+  const [rerunningId, setRerunningId] = useState<string | null>(null);
+
+  const canRerunTodo = (td: MissionTodo): boolean => {
+    if (!missionTerminal || !missionId) return false;
+    // s11 持久化阶段不能单独重跑
+    if (td.systemStageId === 's11-persist') return false;
+    // 已放弃的维度不重跑（应整体 rerun 重新规划）
+    if (td.origin === 'leader-assess-abort') return false;
+    // 仅终态 / 失败 / 完成 任务允许（pending / in_progress 不显示）
+    return (
+      td.status === 'done' ||
+      td.status === 'failed' ||
+      td.status === 'cancelled'
+    );
+  };
+
+  const handleRerunTodo = async (td: MissionTodo) => {
+    if (!missionId || rerunningId) return;
+    setRerunningId(td.id);
+    try {
+      const { missionId: newId } = await rerunTodo(missionId, td.id, {
+        origin: td.origin,
+        scope: td.scope,
+        dimensionRef: td.dimensionRef,
+        todoTitle: td.title,
+        reasonText: td.reasonText,
+      });
+      router.push(`/agent-playground/team/${newId}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      window.alert(`重跑失败：${msg}`);
+    } finally {
+      setRerunningId(null);
+    }
+  };
   // 任务列表包含 system 阶段 + 工作任务（chapter 重写聚合到 dim，不进表）
   const workTodos = todos.filter((td) => td.scope !== 'chapter');
 
@@ -880,9 +925,31 @@ export function MissionTodoBoard({
                     )}
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <span className="inline-flex items-center gap-0.5 text-[11px] text-violet-600 hover:text-violet-700">
-                      详情 <ChevronRight className="h-3 w-3" />
-                    </span>
+                    <div className="inline-flex items-center justify-end gap-1.5">
+                      {canRerunTodo(td) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleRerunTodo(td);
+                          }}
+                          disabled={rerunningId === td.id}
+                          className="inline-flex items-center gap-0.5 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10.5px] font-medium text-violet-700 ring-1 ring-violet-200 transition-colors hover:bg-violet-100 disabled:cursor-wait disabled:opacity-60"
+                          title="基于当前结果重新启动一次 mission，重点改进此任务"
+                        >
+                          <RefreshCw
+                            className={cn(
+                              'h-3 w-3',
+                              rerunningId === td.id && 'animate-spin'
+                            )}
+                          />
+                          重跑
+                        </button>
+                      )}
+                      <span className="inline-flex items-center gap-0.5 text-[11px] text-violet-600 hover:text-violet-700">
+                        详情 <ChevronRight className="h-3 w-3" />
+                      </span>
+                    </div>
                   </td>
                 </tr>
               );

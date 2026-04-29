@@ -24,7 +24,7 @@ const Input = z.object({
     }),
   ),
   /** 期望章节数：3-7 由 depth 决定 */
-  targetChapterCount: z.number().int().min(3).max(8),
+  targetChapterCount: z.number().int().min(3).max(25),
 });
 
 const Output = z.object({
