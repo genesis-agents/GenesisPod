@@ -353,16 +353,14 @@ describe("MissionOrchestrator.orchestrate — deadlock: no task but not final", 
         return false;
       }),
       dequeueNext: jest.fn().mockResolvedValue(null),
-      getStats: jest
-        .fn()
-        .mockResolvedValue(
-          makeStats({
-            completed: 0,
-            awaitingHuman: 0,
-            running: 0,
-            scheduled: 0,
-          }),
-        ),
+      getStats: jest.fn().mockResolvedValue(
+        makeStats({
+          completed: 0,
+          awaitingHuman: 0,
+          running: 0,
+          scheduled: 0,
+        }),
+      ),
     });
 
     const onFinalize = jest.fn().mockResolvedValue(undefined);

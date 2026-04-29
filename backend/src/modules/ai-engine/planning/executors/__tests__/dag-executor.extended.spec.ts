@@ -185,12 +185,10 @@ describe("DAGExecutor (extended coverage)", () => {
       executor.setProgressTracker(mockProgressTracker);
 
       const tool = {
-        execute: jest
-          .fn()
-          .mockResolvedValue({
-            success: false,
-            error: { message: "Tool failed" },
-          }),
+        execute: jest.fn().mockResolvedValue({
+          success: false,
+          error: { message: "Tool failed" },
+        }),
       };
       const toolRegistry = { tryGet: jest.fn().mockReturnValue(tool) } as any;
       executor.setRegistries(toolRegistry, {} as any, {} as any);

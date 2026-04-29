@@ -60,9 +60,7 @@ function mockConnect(
   return jest
     .spyOn(
       relay as unknown as {
-        connect(
-          config: MCPServerConfig,
-        ): Promise<
+        connect(config: MCPServerConfig): Promise<
           MCPClientLike & {
             listTools(): Promise<{ tools: MCPToolDescriptor[] }>;
             close?(): Promise<void>;

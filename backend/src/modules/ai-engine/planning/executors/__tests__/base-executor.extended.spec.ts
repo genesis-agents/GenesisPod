@@ -709,12 +709,10 @@ describe("BaseExecutor (extended coverage)", () => {
 
     it("should throw when tool execution fails", async () => {
       const mockTool = {
-        execute: jest
-          .fn()
-          .mockResolvedValue({
-            success: false,
-            error: { message: "Tool failed" },
-          }),
+        execute: jest.fn().mockResolvedValue({
+          success: false,
+          error: { message: "Tool failed" },
+        }),
       };
       const mockRegistry = {
         tryGet: jest.fn().mockReturnValue(mockTool),
@@ -754,12 +752,10 @@ describe("BaseExecutor (extended coverage)", () => {
 
     it("should throw when skill execution fails", async () => {
       const mockSkill = {
-        execute: jest
-          .fn()
-          .mockResolvedValue({
-            success: false,
-            error: { message: "Skill failed" },
-          }),
+        execute: jest.fn().mockResolvedValue({
+          success: false,
+          error: { message: "Skill failed" },
+        }),
       };
       const mockSkillRegistry = {
         tryGet: jest.fn().mockReturnValue(mockSkill),

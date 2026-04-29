@@ -180,13 +180,11 @@ describe("AiChatService (extended coverage)", () => {
         {
           provide: AiConnectionTestService,
           useValue: {
-            testModelConnectionWithKey: jest
-              .fn()
-              .mockResolvedValue({
-                success: true,
-                message: "ok",
-                latency: 100,
-              }),
+            testModelConnectionWithKey: jest.fn().mockResolvedValue({
+              success: true,
+              message: "ok",
+              latency: 100,
+            }),
           },
         },
         {

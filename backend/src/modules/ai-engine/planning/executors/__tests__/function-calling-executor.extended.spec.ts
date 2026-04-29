@@ -1117,16 +1117,14 @@ describe("FunctionCallingExecutor (extended coverage)", () => {
       const mockTokenTracker: jest.Mocked<TokenTrackerService> = {
         createSession: jest.fn(),
         recordUsage: jest.fn(),
-        getUsage: jest
-          .fn()
-          .mockReturnValue({
-            inputTokens: 0,
-            outputTokens: 0,
-            cacheCreationTokens: 0,
-            cacheReadTokens: 0,
-            totalTokens: 0,
-            callCount: 0,
-          }),
+        getUsage: jest.fn().mockReturnValue({
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheCreationTokens: 0,
+          cacheReadTokens: 0,
+          totalTokens: 0,
+          callCount: 0,
+        }),
         endSession: jest.fn(),
       } as unknown as jest.Mocked<TokenTrackerService>;
 
