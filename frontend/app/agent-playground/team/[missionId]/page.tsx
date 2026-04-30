@@ -121,6 +121,8 @@ export default function MissionDetailPage() {
         'agent-playground.mission:completed',
         'agent-playground.mission:failed',
         'agent-playground.mission:cancelled',
+        // ★ 2026-04-30 (B 路线): 局部重跑完成也要 re-fetch persisted —— stage 产物已 patch
+        'agent-playground.mission:rerun-completed',
       ].includes(ev.type)
     );
     if (!terminal) return;

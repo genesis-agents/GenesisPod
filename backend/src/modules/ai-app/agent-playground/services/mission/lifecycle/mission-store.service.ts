@@ -622,6 +622,74 @@ export class MissionStore {
     });
   }
 
+  /**
+   * ★ 2026-04-30 (B5): markRerunPatch —— 单 stage 局部重跑后只 update 受影响字段
+   *
+   * 不动 status / completedAt（mission 已 completed 不应回退到 running）。
+   * 不接受 PascalCase 字段名（用 Prisma model 的 camelCase）。
+   * 调用方传什么字段就 update 什么，undefined 字段保持原值。
+   *
+   * 典型用例：
+   *   - dimension 重跑 → 传 dimensions / report / reportFull / verdicts
+   *   - chapter 重跑 → 只传 reportFull (含新 fullMarkdown + sections)
+   *   - s9b/s10 重跑 → 传 verdicts / leaderSigned / leaderVerdict / leaderOverallScore
+   */
+  async markRerunPatch(
+    id: string,
+    patch: {
+      themeSummary?: string;
+      dimensions?: unknown;
+      reportFull?: unknown;
+      verdicts?: unknown;
+      reportArtifactVersion?: number;
+      reconciliationReport?: unknown;
+      leaderOverallScore?: number;
+      leaderSigned?: boolean;
+      leaderVerdict?: string;
+      finalScore?: number;
+      tokensUsed?: number;
+      costUsd?: number;
+      // tokens/costs 这里是"重跑产生的增量"，调用方需自己 read 当前值再加
+      reportTitle?: string;
+      reportSummary?: string;
+    },
+  ): Promise<void> {
+    const update: Prisma.AgentPlaygroundMissionUpdateInput = {};
+    if (patch.themeSummary !== undefined)
+      update.themeSummary = patch.themeSummary;
+    if (patch.dimensions !== undefined)
+      update.dimensions = (patch.dimensions ?? null) as Prisma.InputJsonValue;
+    if (patch.reportFull !== undefined)
+      update.reportFull = (patch.reportFull ?? null) as Prisma.InputJsonValue;
+    if (patch.verdicts !== undefined)
+      update.verdicts = (patch.verdicts ?? null) as Prisma.InputJsonValue;
+    if (patch.reportArtifactVersion !== undefined)
+      update.reportArtifactVersion = patch.reportArtifactVersion;
+    if (patch.reconciliationReport !== undefined)
+      update.reconciliationReport = (patch.reconciliationReport ??
+        null) as Prisma.InputJsonValue;
+    if (patch.leaderOverallScore !== undefined)
+      update.leaderOverallScore = patch.leaderOverallScore;
+    if (patch.leaderSigned !== undefined)
+      update.leaderSigned = patch.leaderSigned;
+    if (patch.leaderVerdict !== undefined)
+      update.leaderVerdict = patch.leaderVerdict;
+    if (patch.finalScore !== undefined) update.finalScore = patch.finalScore;
+    if (patch.tokensUsed !== undefined) update.tokensUsed = patch.tokensUsed;
+    if (patch.costUsd !== undefined) update.costUsd = patch.costUsd;
+    if (patch.reportTitle !== undefined)
+      update.reportTitle = patch.reportTitle.slice(0, 500);
+    if (patch.reportSummary !== undefined)
+      update.reportSummary = patch.reportSummary;
+    await this.prisma.agentPlaygroundMission
+      .update({ where: { id }, data: update })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[markRerunPatch ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
   async getById(id: string, userId: string): Promise<MissionDetail | null> {
     const row = await this.prisma.agentPlaygroundMission.findFirst({
       where: { id, userId },

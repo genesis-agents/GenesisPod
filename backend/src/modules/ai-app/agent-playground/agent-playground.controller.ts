@@ -38,6 +38,7 @@ import { MissionStore } from "./services/mission/lifecycle/mission-store.service
 import { MissionCheckpointService } from "../../ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
+import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
@@ -53,6 +54,7 @@ export class AgentPlaygroundController {
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly prisma: PrismaService,
     private readonly checkpoint: MissionCheckpointService,
+    private readonly localRerun: LocalRerunService,
   ) {}
 
   /**
@@ -725,6 +727,78 @@ export class AgentPlaygroundController {
       });
 
     return { missionId: newMissionId, streamNamespace: "agent-playground" };
+  }
+
+  /**
+   * POST /api/v1/agent-playground/missions/:id/todos/:todoId/local-rerun
+   *
+   * 单 stage 局部重跑（B 路线）—— 与 rerunTodo 对偶：
+   *   ✓ 复用原 missionId（不创建新 mission）
+   *   ✓ 跑指定的 stage（按 todo.scope 路由）
+   *   ✓ 产物 patch 回原 mission（markRerunPatch）
+   *   ✓ 失败时原产物保留
+   *
+   * v1 仅支持 system:s9b（10 维客观评审重跑）。其它 scope 抛 BadRequest，
+   * 调用方应该 fallback 到老 rerunTodo（开新研究）。
+   */
+  @Post("missions/:id/todos/:todoId/local-rerun")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "局部重跑过于频繁，请稍后再试",
+  })
+  async localRerunTodo(
+    @Param("id") missionId: string,
+    @Param("todoId") todoId: string,
+    @Body()
+    body: {
+      origin?: string;
+      scope?: "dimension" | "chapter" | "review" | "system" | "mission";
+      dimensionRef?: string;
+      chapterIndex?: number;
+      todoTitle?: string;
+      reasonText?: string;
+    },
+    @Request() req: RequestWithUser,
+  ): Promise<{
+    ok: true;
+    missionId: string;
+    scope: string;
+    durationMs: number;
+  }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    await this.assertOwnership(missionId, userId);
+
+    const result = await this.localRerun.run(
+      {
+        missionId,
+        userId,
+        todoId,
+        origin: (body?.origin ?? "").trim(),
+        scope: (body?.scope ?? "mission") as
+          | "dimension"
+          | "chapter"
+          | "review"
+          | "system"
+          | "mission",
+        dimensionRef: body?.dimensionRef?.trim() || undefined,
+        chapterIndex: body?.chapterIndex,
+        todoTitle: body?.todoTitle?.trim() || undefined,
+        reasonText: body?.reasonText?.trim() || undefined,
+      },
+      // emit fn —— 直接走 buffer.broadcast（与老 rerunTodo 同款）
+      async (args) => {
+        await this.buffer.broadcast({
+          type: args.type,
+          scope: { missionId: args.missionId, userId: args.userId },
+          payload: args.payload as Record<string, unknown>,
+          timestamp: Date.now(),
+        });
+      },
+    );
+    return result;
   }
 
   /**

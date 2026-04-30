@@ -33,6 +33,11 @@ import { HarnessFailureLearner } from "./services/failure-learning/harness-failu
 import { ReportAssemblerService } from "./services/artifact/report-assembler.service";
 import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
 import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
+// ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
+import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
+import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
+import { RerunLockRegistry } from "./services/mission/rerun/rerun-lock.registry";
+import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
 import {
   AgentInvoker,
   LeaderService,
@@ -92,6 +97,11 @@ import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
     ReviewerService,
     VerifierService,
     StewardService,
+    // ── 局部重跑 ──
+    LocalRerunService,
+    CtxHydratorService,
+    RerunLockRegistry,
+    StageRerunDispatcher,
   ],
   exports: [MissionEventBuffer],
 })

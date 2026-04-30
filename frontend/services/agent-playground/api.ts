@@ -282,6 +282,52 @@ export async function rerunTodo(
   return unwrapStandard<{ missionId: string; streamNamespace: string }>(raw);
 }
 
+/**
+ * 单 todo 局部重跑 v1（B 路线）—— 复用原 missionId，单 stage 重跑 + patch 回原 mission。
+ *
+ * v1 仅支持 system:s9b（10 维客观评审重跑）。
+ * 后端会根据 todo 信息判断 scope，不支持的 scope 抛 BadRequest。
+ *
+ * 与 rerunTodo 区别：
+ *   rerunTodo     → 创建新 mission（前端跳转新 missionId）
+ *   localRerunTodo → 不创建新 mission，原 missionId 保留，stage 产物 patch 进 DB
+ *
+ * 前端调用后应 listen mission:rerun-completed 事件 → re-fetch 原 missionDetail
+ */
+export async function localRerunTodo(
+  missionId: string,
+  todoId: string,
+  body: RerunTodoInput
+): Promise<{
+  ok: true;
+  missionId: string;
+  scope: string;
+  durationMs: number;
+}> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/todos/${encodeURIComponent(todoId)}/local-rerun`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Local rerun failed: ${res.status} ${text.slice(0, 300)}`);
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{
+    ok: true;
+    missionId: string;
+    scope: string;
+    durationMs: number;
+  }>(raw);
+}
+
 export async function rerunMission(
   missionId: string
 ): Promise<{ missionId: string; streamNamespace: string }> {

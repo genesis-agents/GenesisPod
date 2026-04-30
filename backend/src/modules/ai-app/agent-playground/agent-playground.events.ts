@@ -18,6 +18,10 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("mission:rejected"),
   T("mission:cancelled"), // controller.ts manual cancel — 之前未注册被 bus drop（同类 bug 与 P1 修复）
   T("mission:manual-rerun-from-todo"), // controller.ts 手动 rerun — 同上
+  // ── 2026-04-30: 单 stage 局部重跑（B 路线）──
+  T("mission:rerun-started"), // 局部重跑开始（payload: scope, todoId, sourceStage）
+  T("mission:rerun-completed"), // 局部重跑成功，patch 已落库（payload: scope, todoId, durationMs）
+  T("mission:rerun-failed"), // 局部重跑失败，原产物保留（payload: scope, todoId, errorMessage）
   T("stage:started"),
   T("stage:completed"),
   T("agent:lifecycle"),
