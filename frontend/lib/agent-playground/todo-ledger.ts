@@ -1097,6 +1097,40 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         'Mission 完成 · 已持久化',
         'success'
       );
+      // ★ P0-LIVE-MISSION-DONE-LEFTOVER (2026-04-30): mission 成功完成时把所有
+      //   非终态 todo 一次性 finalize，避免 UI 显示 mission 已完成但部分 todo
+      //   仍挂在"进行中"/"待启动"。常见情形：leader-assess-retry 派的二轮 dim
+      //   todo / chapter pipeline 子任务，后端没单独 emit 终态事件。
+      //   - in_progress → done (mission 都成功了说明它的产出被纳入)
+      //   - pending → cancelled (不会再跑)
+      //   - 已终态 (done/failed/cancelled) 保留不动
+      for (const id of order) {
+        const td = todos.get(id)!;
+        if (
+          td.status === 'done' ||
+          td.status === 'failed' ||
+          td.status === 'cancelled'
+        ) {
+          continue;
+        }
+        if (td.status === 'in_progress') {
+          td.status = 'done';
+          td.endedAt = ev.timestamp;
+          td.narrativeLog.push({
+            ts: ev.timestamp,
+            text: 'Mission 完成时自动结收（由 mission:completed 终化）',
+            tone: 'info',
+          });
+        } else if (td.status === 'pending') {
+          td.status = 'cancelled';
+          td.endedAt = ev.timestamp;
+          td.narrativeLog.push({
+            ts: ev.timestamp,
+            text: 'Mission 已完成，本任务未启动即终结',
+            tone: 'info',
+          });
+        }
+      }
     } else if (t === 'agent-playground.mission:failed') {
       // ★ P0-LIVE-UI-STATUS (2026-04-30): mission 失败时所有非终态 todo 都
       //   要 finalize，否则 UI 永远显示"进行中"和已死的 mission 矛盾。
