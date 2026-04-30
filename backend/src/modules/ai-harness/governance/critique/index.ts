@@ -50,6 +50,13 @@ export {
 // ★ 沉淀 v3 (2026-04-29): 弱维度合并补救（单次 LLM 调用 + STRONG tier 升级）
 export { SectionRemediationService } from "./section-remediation.service";
 
+// ★ 沉淀 Phase 3 (2026-04-29): 字数中位数归一化（沉淀自 TI leader-planning）
+export {
+  balanceTargetWords,
+  type BalancerOptions,
+  type BalancerResult,
+} from "./word-count-balancer";
+
 // ★ 沉淀 v3 (2026-04-29): 10 维结构化报告评审 + 模型对比（EVALUATOR 类型）
 export {
   ReportEvaluationService,

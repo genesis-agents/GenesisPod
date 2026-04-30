@@ -130,7 +130,14 @@ export {
   type FinalAssessmentProbe,
   type OutputReviewProbe,
   type PromptMetadata,
+  // ★ 沉淀 Phase 3 (2026-04-29): 字数中位数归一化
+  balanceTargetWords,
+  type BalancerOptions,
+  type BalancerResult,
 } from "../governance/critique";
+
+// ★ 沉淀 Phase 3 (2026-04-29): 通用并发信号量
+export { ConcurrencyLimiter } from "../execution/concurrency";
 
 // ── Resource ──
 export { ResourceManagerService } from "../governance/resource/resource-manager.service";
