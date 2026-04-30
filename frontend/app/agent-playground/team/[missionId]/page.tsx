@@ -41,6 +41,7 @@ import {
   type MissionTodo,
 } from '@/lib/agent-playground/todo-ledger';
 import { cn } from '@/lib/utils/common';
+import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
@@ -981,7 +982,7 @@ function MissionSettingsModal({
   const [auditLayers, setAuditLayers] = useState<AL>('default');
   const [withFigures, setWithFigures] = useState(true);
   const [concurrency, setConcurrency] = useState(3);
-  const [knowledgeBaseIds, setKnowledgeBaseIds] = useState('');
+  const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -998,7 +999,7 @@ function MissionSettingsModal({
     setWithFigures((userProfile?.withFigures as boolean) ?? true);
     setConcurrency((userProfile?.concurrency as number) ?? 3);
     const kbIds = userProfile?.knowledgeBaseIds as string[] | undefined;
-    setKnowledgeBaseIds(Array.isArray(kbIds) ? kbIds.join(',') : '');
+    setKnowledgeBaseIds(Array.isArray(kbIds) ? kbIds : []);
     setSaveError(null);
   }, [open, mission.topic, mission.depth, mission.language, userProfile]);
 
@@ -1012,10 +1013,6 @@ function MissionSettingsModal({
     setSaving(true);
     setSaveError(null);
     try {
-      const kbList = knowledgeBaseIds
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
       const { runTeam } = await import('@/services/agent-playground/api');
       const { missionId: newId } = await runTeam({
         topic: topic.trim(),
@@ -1027,7 +1024,8 @@ function MissionSettingsModal({
         auditLayers,
         withFigures,
         concurrency,
-        knowledgeBaseIds: kbList.length > 0 ? kbList : undefined,
+        knowledgeBaseIds:
+          knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
       });
       router.push(`/agent-playground/team/${newId}`);
     } catch (e) {
@@ -1193,13 +1191,11 @@ function MissionSettingsModal({
             </FormField>
           </div>
 
-          <FormField label="知识库 ID 列表（逗号分隔，留空走纯 web-search）">
-            <input
-              type="text"
-              value={knowledgeBaseIds}
-              onChange={(e) => setKnowledgeBaseIds(e.target.value)}
-              placeholder="kb-id-1, kb-id-2"
-              className="font-mono w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px]"
+          <FormField label="知识库（最多 10 个，留空 = 纯 web-search）">
+            <KnowledgeBaseSelector
+              selectedIds={knowledgeBaseIds}
+              onSelectionChange={setKnowledgeBaseIds}
+              maxSelections={10}
             />
           </FormField>
 
