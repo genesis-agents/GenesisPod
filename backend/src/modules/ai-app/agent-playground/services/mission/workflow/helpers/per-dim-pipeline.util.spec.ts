@@ -325,7 +325,9 @@ describe("runPerDimPipeline", () => {
     expect(lifecycleCalls.some((c) => c[4] === "completed")).toBe(true);
   });
 
-  it("handles reviewer failure by treating as pass", async () => {
+  // ★ P0-R3-1 (round 3): reviewer 失败不再伪装 pass，而是按 revise 处理走 retry；
+  // attempts 耗尽后仍产出 chapter（degraded path），最终 chapter 数应 > 0
+  it("reviewer failure treated as revise — attempts exhausted then chapter still produced", async () => {
     const writer = {
       planDimensionOutline: jest.fn().mockResolvedValue({
         state: "completed",
@@ -335,33 +337,37 @@ describe("runPerDimPipeline", () => {
         wallTimeMs: 100,
       }),
     };
+    // 多 attempt 模拟：writer 总是成功，reviewer 总是失败 → revise 重试到 attempt 耗尽后放行
     const invoker = {
-      invoke: jest
-        .fn()
-        .mockResolvedValueOnce({
-          // chapter writer succeeds
+      invoke: jest.fn().mockImplementation((spec: { id?: string }) => {
+        const id = spec?.id ?? "";
+        if (id.includes("integrator")) {
+          return {
+            state: "completed",
+            output: makeIntegratorOutput(),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 200,
+          };
+        }
+        if (id.includes("review")) {
+          return {
+            state: "failed",
+            output: undefined,
+            events: [],
+            iterations: 1,
+            wallTimeMs: 50,
+          };
+        }
+        // writer / 其他
+        return {
           state: "completed",
           output: makeWriterOutput(1200),
           events: [],
           iterations: 1,
           wallTimeMs: 100,
-        })
-        .mockResolvedValueOnce({
-          // reviewer fails
-          state: "failed",
-          output: undefined,
-          events: [],
-          iterations: 1,
-          wallTimeMs: 50,
-        })
-        .mockResolvedValueOnce({
-          // integrator
-          state: "completed",
-          output: makeIntegratorOutput(),
-          events: [],
-          iterations: 1,
-          wallTimeMs: 200,
-        }),
+        };
+      }),
       tickCost: jest.fn().mockResolvedValue(undefined),
     };
     const reviewer = {
@@ -379,7 +385,7 @@ describe("runPerDimPipeline", () => {
       reviewer: reviewer as never,
     });
     const result = await runPerDimPipeline(baseArgs, deps);
-    // reviewer failure treated as pass, so chapter should be written
+    // 即使 reviewer 一直失败，attempts 耗尽后 chapter 仍按最后一版 draft 落地
     expect(result.chapters?.length).toBeGreaterThan(0);
   });
 

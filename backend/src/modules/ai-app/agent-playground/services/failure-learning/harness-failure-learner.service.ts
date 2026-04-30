@@ -39,8 +39,32 @@ export class HarnessFailureLearner {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * ★ P1-R3-C (round 3): pattern key 高基数修复
+   *
+   * 之前用 systemPrompt 全文 hash —— 但 systemPrompt 含动态 topic / dimension /
+   * language 等运行时渲染内容，每次 mission 都不同，导致：
+   *   - 同 (agent, model, errorCode) 永远建新行（DB 高速膨胀）
+   *   - count++ 失效，preDisableKnownFailingModels 永不命中
+   *
+   * 修复策略：从 systemPrompt 中抽取**结构特征**作为稳定 key——
+   *   1. 取首 200 字符（通常是 agent role 声明 + 任务说明，相对稳定）
+   *   2. 剥离明显的动态内容（数字、URL、UUID-like、引号包裹的用户输入）
+   *   3. 仍 hash 取 16 字符前缀
+   *
+   * 这样同 agent 同任务模板的不同 mission 命中同一 key，count 真正累加。
+   */
   private hashPrompt(systemPrompt: string): string {
-    return createHash("sha256").update(systemPrompt).digest("hex").slice(0, 16);
+    const head = systemPrompt.slice(0, 200);
+    const stable = head
+      .replace(/\b\d+\b/g, "N") // 数字
+      .replace(/https?:\/\/\S+/g, "URL") // URL
+      .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "UUID") // UUID-like
+      .replace(/"[^"]{1,80}"/g, '"X"') // 引号包裹用户文本
+      .replace(/'[^']{1,80}'/g, "'X'")
+      .replace(/\s+/g, " ")
+      .trim();
+    return createHash("sha256").update(stable).digest("hex").slice(0, 16);
   }
 
   /** 记录一次失败（同 key 计数+1，更新 lastDiagnostic） */

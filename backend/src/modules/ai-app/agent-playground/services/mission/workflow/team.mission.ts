@@ -48,7 +48,8 @@ import { FigureExtractorService } from "../../../../../ai-engine/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
 import { withUserContext } from "../../../../../../common/context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
-import { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
+// ★ P2-R3-3 (round 3): 与同文件相邻 import 统一相对路径风格
+import { RuntimeEnvironmentService } from "../../../../../ai-harness/facade";
 import { LeaderAgent } from "../../../agents/leader/leader.agent";
 import {
   LeaderService,

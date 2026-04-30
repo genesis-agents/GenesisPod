@@ -429,6 +429,13 @@ export class SupervisedMission {
     if (!this.context.plan || !this.context.foreword) {
       throw new Error("must call plan() and writeForeword() before signOff()");
     }
+    // ★ P2-R3-1 (round 3): decisions 数组无上限累积，长 mission（多 patch round）
+    // 可能积累 20+ 条让 M7 prompt token 增长；M7 关键决策只需最近 15 条 + plan
+    const MAX_DECISIONS_FOR_SIGNOFF = 15;
+    const decisionsForSignoff =
+      this.context.decisions.length > MAX_DECISIONS_FOR_SIGNOFF
+        ? this.context.decisions.slice(-MAX_DECISIONS_FOR_SIGNOFF)
+        : this.context.decisions;
     const res = await this.runFn<unknown, LeaderSignoffOutput>({
       spec: LeaderAgent,
       input: {
@@ -439,7 +446,7 @@ export class SupervisedMission {
           goals: this.context.plan.goals,
           dimensions: this.context.plan.dimensions,
         },
-        myDecisions: this.context.decisions,
+        myDecisions: decisionsForSignoff,
         myForeword: {
           whatWeAnswered: this.context.foreword.whatWeAnswered,
           whatRemainsUnclear: this.context.foreword.whatRemainsUnclear,

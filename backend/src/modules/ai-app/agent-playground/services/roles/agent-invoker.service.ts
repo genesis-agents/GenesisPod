@@ -118,7 +118,10 @@ export class AgentInvoker {
     return preDisabled;
   }
 
-  /** auditLayers 档位 → loop override（researcher/reconciler 不走 reflexion） */
+  /**
+   * auditLayers 档位 → loop override（researcher/reconciler 不走 reflexion）
+   * ★ P2-R3-2 (round 3): 补全 stage 类型签名，含 verifier/steward/critic
+   */
   resolveLoopOverride(
     auditLayers: string,
     stage:
@@ -127,7 +130,10 @@ export class AgentInvoker {
       | "reconciler"
       | "analyst"
       | "writer"
-      | "reviewer",
+      | "reviewer"
+      | "verifier"
+      | "critic"
+      | "steward",
   ): "react" | "reflexion" | undefined {
     if (auditLayers === "minimal") return undefined;
     const useReflexion =

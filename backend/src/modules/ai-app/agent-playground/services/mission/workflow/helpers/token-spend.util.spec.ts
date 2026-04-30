@@ -73,11 +73,52 @@ describe("extractTokenSpend", () => {
     expect(extractTokenSpend(events)).toBe(0);
   });
 
-  it("ignores action_executed with tokensUsed as non-number", () => {
+  it("ignores action_executed with tokensUsed as non-numeric string", () => {
     const events = [
       makeEvent("action_executed", { tokensUsed: "not-a-number" }),
     ];
     expect(extractTokenSpend(events)).toBe(0);
+  });
+
+  // ★ P1-NEW-B (round 2): 兼容字符串数字
+  it("accepts numeric string tokensUsed (round 2)", () => {
+    const events = [
+      makeEvent("action_executed", { tokensUsed: "100" }),
+      makeEvent("action_executed", { tokensUsed: "250" }),
+    ];
+    expect(extractTokenSpend(events)).toBe(350);
+  });
+
+  // ★ P1-R3-A (round 3): 大数攻击防护
+  it("rejects exponential big numbers (>1M tokens) — anti-overflow guard", () => {
+    const events = [
+      makeEvent("action_executed", { tokensUsed: "9e99" }),
+      makeEvent("action_executed", { tokensUsed: 1_000_001 }),
+      makeEvent("action_executed", { tokensUsed: 50 }),
+    ];
+    expect(extractTokenSpend(events)).toBe(50);
+  });
+
+  it("rejects negative tokensUsed (round 3)", () => {
+    const events = [
+      makeEvent("action_executed", { tokensUsed: -100 }),
+      makeEvent("action_executed", { tokensUsed: 50 }),
+    ];
+    expect(extractTokenSpend(events)).toBe(50);
+  });
+
+  it("rejects Infinity / NaN (round 3)", () => {
+    const events = [
+      makeEvent("action_executed", { tokensUsed: Infinity }),
+      makeEvent("action_executed", { tokensUsed: NaN }),
+      makeEvent("action_executed", { tokensUsed: 50 }),
+    ];
+    expect(extractTokenSpend(events)).toBe(50);
+  });
+
+  it("accepts max boundary 1_000_000 tokens (round 3)", () => {
+    const events = [makeEvent("action_executed", { tokensUsed: 1_000_000 })];
+    expect(extractTokenSpend(events)).toBe(1_000_000);
   });
 
   it("ignores budget_warning with null payload", () => {

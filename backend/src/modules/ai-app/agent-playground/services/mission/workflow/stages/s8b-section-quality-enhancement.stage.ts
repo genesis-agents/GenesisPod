@@ -213,10 +213,13 @@ function rebuildSectionOffsets(
   sections: { title: string; startOffset: number; endOffset: number }[],
   fullMarkdown: string,
 ): void {
+  // ★ P0-R3-2 (round 3): CRLF 规范化 —— Windows / 部分 LLM provider 输出含 \r\n，
+  // `line.length + 1` 假设 \n 单字节会让 offset 每行少 1 字节，N 行后整体偏移
+  const normalized = fullMarkdown.replace(/\r\n/g, "\n");
   // 行级扫描收集所有 `## ` 二级标题（与 buildSectionTree 同规则）
   const headings: { title: string; startOffset: number }[] = [];
   let charOffset = 0;
-  for (const line of fullMarkdown.split("\n")) {
+  for (const line of normalized.split("\n")) {
     if (line.startsWith("## ") && !line.startsWith("### ")) {
       headings.push({
         title: line.slice(3).trim(),
@@ -242,7 +245,7 @@ function rebuildSectionOffsets(
     sec.startOffset = headings[matchIdx].startOffset;
     // endOffset = 下一个原 section 对应的 heading 起点；若到末尾则文末
     const nextSec = sections[i + 1];
-    let endOff = fullMarkdown.length;
+    let endOff = normalized.length;
     if (nextSec) {
       const nextWant = nextSec.title.trim();
       const nextIdx = headings.findIndex(

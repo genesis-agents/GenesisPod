@@ -427,12 +427,16 @@ export async function runPerDimPipeline(
               critique?: string;
             })
           : {
-              decision: "pass" as const,
-              score: 60,
+              // ★ P0-R3-1 (round 3): reviewer 失败时不能伪装 pass —— score 40 (<PASS_THRESHOLD=75)
+              // + decision="revise" 让章节进入 retry 路径，避免章节质量信号被静默篡改
+              decision: "revise" as const,
+              score: 40,
               summary: "(reviewer failed)",
               issues: [],
               critique: "(reviewer failed)",
             };
+      const isReviewerFallback =
+        reviewerRes.state !== "completed" || !reviewerRes.output;
       // 兼容旧 critique 文本：若 LLM 没出 issues，把 critique 字符串当 1 条 issue
       const issues: ReviewIssue[] =
         verdict.issues && verdict.issues.length > 0
@@ -467,16 +471,20 @@ export async function runPerDimPipeline(
         },
       });
       // ★ BUG-D: 章节复审 narrative
+      // ★ P0-R3-1 (round 3): reviewer fallback 标 warning 让前端能感知"reviewer 故障 ≠ 通过"
       await narrate(deps.emit, missionId, userId, {
         stage: "s3-researchers",
         role: "reviewer",
-        tag:
-          verdict.decision === "pass"
+        tag: isReviewerFallback
+          ? "warning"
+          : verdict.decision === "pass"
             ? "success"
             : verdict.score < 60
               ? "warning"
               : "info",
-        text: `${dimensionName} · §${chapter.index} 复审 ${verdict.decision === "pass" ? "通过" : "需重写"}（${verdict.score}/100${attempt > 1 ? `，第 ${attempt} 轮` : ""}）`,
+        text: isReviewerFallback
+          ? `${dimensionName} · §${chapter.index} 复审失败，按 revise 处理`
+          : `${dimensionName} · §${chapter.index} 复审 ${verdict.decision === "pass" ? "通过" : "需重写"}（${verdict.score}/100${attempt > 1 ? `，第 ${attempt} 轮` : ""}）`,
         agentId: reviewerAgentId,
         dimension: dimensionName,
       });

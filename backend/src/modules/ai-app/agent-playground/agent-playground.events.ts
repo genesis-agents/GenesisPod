@@ -79,4 +79,7 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("reconciliation:skipped"), // S5 单维度短路（无需跨维对账）
   T("reconciliation:warnings-orphaned"), // S8 reportAssembler 失败但 reconciler warning 仍要 emit
   T("mission:persist-failed"), // S11 DB 写入失败 —— 关键，不能被 drop 否则前端永远卡 running
+  // ── 第三轮补漏（2026-04-29 round 3）：P1-R3-D ──
+  T("event:oversized"), // socket-broadcast 256KB cap 降级标识，前端按此 type 拉 /replay
+  T("event:dropped"), // socket-broadcast 序列化失败标识，前端可显示"事件丢失"警告
 ];
