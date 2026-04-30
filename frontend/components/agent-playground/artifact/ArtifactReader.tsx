@@ -335,7 +335,7 @@ export function ArtifactReader({
                   </div>
                   <div>
                     <span className="text-gray-500">Tokens：</span>
-                    {artifact.metadata.totalTokens?.total ?? 0}
+                    {artifact.metadata.totalTokens.total}
                   </div>
                   <div>
                     <span className="text-gray-500">成本：</span>$

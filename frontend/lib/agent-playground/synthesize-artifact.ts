@@ -136,21 +136,30 @@ export function synthesizeArtifactFromV1(v1: V1Report): ReportArtifact {
     };
   });
 
+  // ★ 2026-04-30: 必须填齐 ReportArtifact schema 全部字段，否则下游组件访问
+  //   undefined 会触发 React error boundary（如 metadata.totalTokens.total /
+  //   quality.dimensions.factualConsistency 等深路径）。
   return {
-    schemaVersion: 2,
     metadata: {
-      missionId: '',
       topic: title,
       generatedAt: new Date().toISOString(),
-      wordCount: fullMarkdown.length,
+      generationTimeMs: 0,
+      version: 1,
+      isIncremental: false,
+      dimensionCount: 0,
       sourceCount: citations.length,
-      figureCount: 0,
       factCount: 0,
+      figureCount: 0,
+      wordCount: fullMarkdown.length,
+      readingTimeMinutes: Math.max(1, Math.ceil(fullMarkdown.length / 400)),
       styleProfile: 'executive',
       lengthProfile: 'standard',
       audienceProfile: 'domain-expert',
+      language: 'zh-CN',
+      totalTokens: { prompt: 0, completion: 0, total: 0 },
+      costCents: 0,
       modelTrail: [],
-    } as unknown as ReportArtifact['metadata'],
+    },
     content: {
       fullMarkdown,
       fullReportSize: fullMarkdown.length,
@@ -161,18 +170,30 @@ export function synthesizeArtifactFromV1(v1: V1Report): ReportArtifact {
     factTable: [],
     quality: {
       overall: 0,
-      grade: 'pending',
       dimensions: {
-        factualConsistency: 0,
-        coverage: 0,
         traceability: 0,
+        factualConsistency: 0,
+        novelty: 0,
+        coverage: 0,
+        redundancy: 0,
+        formatCorrectness: 0,
+        citationDensity: 0,
         styleConformance: 0,
+        lengthAccuracy: 0,
+        chapterBalance: 0,
       },
-      qualityTrace: [],
+      hardGateViolations: [],
       warnings: [],
-    } as unknown as ReportArtifact['quality'],
+      qualityTrace: [],
+    },
     quickView: {
-      executiveSummary: { markdown: summary },
+      executiveSummary: { markdown: summary, wordCount: summary.length },
+      whatYouWillLearn: [],
+      keyHighlights: [],
+      keyCitations: [],
+      keyFigures: [],
+      topInsights: [],
+      estimatedReadingTime: Math.max(1, Math.ceil(fullMarkdown.length / 400)),
     } as unknown as ReportArtifact['quickView'],
   } as unknown as ReportArtifact;
 }
