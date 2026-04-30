@@ -88,17 +88,23 @@ export interface KeyHealthStatus {
 const KEY_COOLDOWN_MS = 5 * 60 * 1000; // 5 分钟
 
 /**
- * Key 限流冷却时间（毫秒）- 429 Too Many Requests 默认短冷却。
+ * Key 限流冷却时间（毫秒）- 429 Too Many Requests 短冷却。
  *
- * ★ P0-LIVE-COOLDOWN-FALSEPOS (2026-04-30): 之前 429 一律给 24 小时冷却，但
- * Serper / Tavily 等 API 的 429 多半是 per-second / per-minute 限流（不是月
- * 配额耗尽），瞬时高频就触发 → key 被锁 24h，dashboard 显示配额还剩 2324
- * 但系统仍说 "0/1 可用 冷却 1436 分钟"。
+ * ★ P0-LIVE-COOLDOWN-FALSEPOS (2026-04-30): per-provider 区分。
+ * Serper：1 分钟（用户实证 dashboard 配额仍剩 2324 但被锁 1436 min）。
+ *   Serper 的 429 是 per-second 突发限流，1 分钟 retry 已绰绰有余。
+ * 其他 provider：30 分钟（更稳健的默认）。
  *
- * 改成 30 分钟后：若真月配额耗尽 → 30 分钟后重试还是 429 → 自动续期 30 分钟，
- * 用户体验等价；若是瞬时限流 → 30 分钟后恢复，不再误锁 24h。
+ * 若真月配额耗尽 → cooldown 后重试还是 429 → 自动续期同 cooldown，
+ * 用户体验等价；若是瞬时限流 → cooldown 后恢复，不再误锁 24h。
  */
-const KEY_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000; // 30 分钟
+const KEY_RATE_LIMIT_COOLDOWN_MS_DEFAULT = 30 * 60 * 1000; // 30 分钟
+const KEY_RATE_LIMIT_COOLDOWN_MS_BY_PROVIDER: Record<string, number> = {
+  serper: 60 * 1000, // 1 分钟
+};
+const rateLimitCooldownFor = (provider: string): number =>
+  KEY_RATE_LIMIT_COOLDOWN_MS_BY_PROVIDER[provider] ??
+  KEY_RATE_LIMIT_COOLDOWN_MS_DEFAULT;
 
 /** Key 长冷却时间（毫秒）- 月配额耗尽（HTTP 402 / 显式 quota header）后长冷却 */
 const KEY_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 小时
@@ -250,14 +256,14 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const health = this.keyHealthMap.get(healthKey);
 
       // Key 从未失败过，或冷却期已过
-      // ★ P0-LIVE-COOLDOWN-FALSEPOS (2026-04-30): 三档冷却
-      //   402 月配额耗尽 → 24h；429 瞬时限流 → 30min；其他临时错误 → 5min
+      // ★ P0-LIVE-COOLDOWN-FALSEPOS (2026-04-30): 三档 + per-provider 冷却
+      //   402 月配额耗尽 → 24h；429 瞬时限流 → serper=1min, 其他=30min；其他 → 5min
       let cooldown = KEY_COOLDOWN_MS;
       if (health) {
         if (isQuotaExhaustedError(health.errorCode))
           cooldown = KEY_QUOTA_COOLDOWN_MS;
         else if (isRateLimitError(health.errorCode))
-          cooldown = KEY_RATE_LIMIT_COOLDOWN_MS;
+          cooldown = rateLimitCooldownFor(provider);
       }
       if (!health || now - health.failedAt >= cooldown) {
         if (health) {
@@ -387,13 +393,13 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const health = this.keyHealthMap.get(healthKey);
 
       // 计算是否健康：未失败过，或冷却期已过
-      // 与 selectHealthyKey 的三档冷却保持一致（402 → 24h, 429 → 30min, 其他 → 5min）
+      // 与 selectHealthyKey 一致：402 → 24h, 429 → per-provider (serper=1min,其他=30min), 其他 → 5min
       let cooldown = KEY_COOLDOWN_MS;
       if (health) {
         if (isQuotaExhaustedError(health.errorCode))
           cooldown = KEY_QUOTA_COOLDOWN_MS;
         else if (isRateLimitError(health.errorCode))
-          cooldown = KEY_RATE_LIMIT_COOLDOWN_MS;
+          cooldown = rateLimitCooldownFor(provider);
       }
       const isHealthy = !health || now - health.failedAt >= cooldown;
 
