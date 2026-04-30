@@ -188,6 +188,52 @@ interface TimelineEntry {
   toolError?: string;
   /** 失败的子调用列表（parallel_tool_call 中部分失败时） */
   toolErrors?: { toolId?: string; url?: string; error: string }[];
+  /**
+   * ★ P0-LIVE-UI-TOOL-EMPTY (2026-04-30): 当 collectResultsDeep 提取不到结构化
+   * results 也无 error，但 output 里其实有 markdown/text 内容（比如 scrape tool
+   * 返回 {markdown}）时，存这里做兜底"raw 内容预览"，让用户至少看到抓到了什么。
+   */
+  rawOutputPreview?: string;
+  /** 调用时的 URL（从 trace.input.url 抽出），用于让 tool-call query 可点击 */
+  callUrl?: string;
+}
+
+/**
+ * 简单 URL 检测：以 http/https 开头 + 至少一个非空字符。
+ */
+function looksLikeUrl(s: string | undefined): boolean {
+  return !!s && /^https?:\/\/\S+$/i.test(s.trim());
+}
+
+/**
+ * 从 output 里抽 raw 文本预览（markdown / content / text / body 字段，前 500 字符）。
+ * 仅当 collectResultsDeep 拿不到 {title,url} 结构时使用。
+ */
+function extractRawOutputPreview(output: unknown): string | undefined {
+  if (!output) return undefined;
+  if (typeof output === 'string') {
+    const trimmed = output.trim();
+    if (trimmed.length === 0) return undefined;
+    return trimmed.slice(0, 500);
+  }
+  if (typeof output !== 'object') return undefined;
+  const o = output as Record<string, unknown>;
+  for (const key of ['markdown', 'content', 'text', 'body', 'html']) {
+    const v = o[key];
+    if (typeof v === 'string' && v.trim().length > 0) {
+      return v.trim().slice(0, 500);
+    }
+  }
+  // success: true 但无明确字段时尝试格式化整个 output
+  if (o.success === true || o.ok === true) {
+    try {
+      const s = JSON.stringify(output);
+      if (s.length > 2 && s !== '{}') return s.slice(0, 500);
+    } catch {
+      /* ignore */
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -347,7 +393,13 @@ function buildTimeline(
             : typeof inp.url === 'string'
               ? inp.url
               : undefined;
-        out.push({ kind: 'tool-call', ts: t.ts, trace: t, query });
+        const callUrl =
+          typeof inp.url === 'string' && looksLikeUrl(inp.url)
+            ? inp.url
+            : looksLikeUrl(query)
+              ? query
+              : undefined;
+        out.push({ kind: 'tool-call', ts: t.ts, trace: t, query, callUrl });
       }
     } else if (t.kind === 'observation') {
       // 跳过 finalize 的 observation（产出在 findings）
@@ -363,6 +415,10 @@ function buildTimeline(
           ? t.error
           : ((t.error as { message?: string }).message ?? undefined)
         : undefined;
+      const rawOutputPreview =
+        results.length === 0 && !topError && subErrors.length === 0
+          ? extractRawOutputPreview(t.output)
+          : undefined;
       out.push({
         kind: 'tool-result',
         ts: t.ts,
@@ -371,6 +427,7 @@ function buildTimeline(
         resultToolId: t.toolId,
         toolError: topError,
         toolErrors: subErrors.length > 0 ? subErrors : undefined,
+        rawOutputPreview,
       });
     } else if (t.kind === 'reflection' && t.text) {
       out.push({ kind: 'reflection', ts: t.ts, trace: t });
@@ -1108,7 +1165,21 @@ function TimelineEntryBody({ entry }: { entry: TimelineEntry }) {
         )}
         {entry.query && (
           <p className="font-mono break-words text-[12px] leading-relaxed text-blue-900">
-            <span className="text-blue-500">▸</span> {entry.query}
+            <span className="text-blue-500">▸</span>{' '}
+            {/* ★ P0-LIVE-UI-TOOL-LINK (2026-04-30): query 是 URL 时渲染可点击链接，
+                之前用户看到 https://... 全是纯文本，没法直接点开溯源 */}
+            {entry.callUrl ? (
+              <a
+                href={entry.callUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 hover:decoration-blue-500"
+              >
+                {entry.query}
+              </a>
+            ) : (
+              entry.query
+            )}
           </p>
         )}
       </div>
@@ -1142,12 +1213,13 @@ function TimelineEntryBody({ entry }: { entry: TimelineEntry }) {
     const hasResults = entry.results && entry.results.length > 0;
     const hasErrors =
       !!entry.toolError || (entry.toolErrors && entry.toolErrors.length > 0);
+    const hasRawPreview = !!entry.rawOutputPreview;
     // ★ P0-LIVE-UI-TOOL-ERR-PARTIAL (2026-04-30): parallel_tool_call 同时含
     //   成功 + 失败时（如 5 个抓 URL 中 1 个 HTTP 403, 4 个成功），之前只看
     //   results.length > 0 就走 ToolResultList 完全跳过 errors 显示，用户看
     //   不到失败子调用的原因。改为 results 和 errors 同时渲染（先列错误警示
     //   卡，再列成功结果）。
-    if (!hasResults && !hasErrors) {
+    if (!hasResults && !hasErrors && !hasRawPreview) {
       return (
         <p className="text-[11px] italic text-gray-500">
           （工具未返回可解析的结构化结果）
@@ -1186,6 +1258,20 @@ function TimelineEntryBody({ entry }: { entry: TimelineEntry }) {
           </div>
         )}
         {hasResults && <ToolResultList results={entry.results ?? []} />}
+        {/* ★ P0-LIVE-UI-TOOL-EMPTY (2026-04-30): tool 抓到 markdown/text 但
+            结构化提取拿不到 {title,url} 时（scrape_web_page 等），展示 raw
+            预览，让用户至少看到抓取到内容了 */}
+        {!hasResults && hasRawPreview && entry.rawOutputPreview && (
+          <div className="rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              原始抓取内容预览
+            </p>
+            <p className="font-mono whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-800">
+              {entry.rawOutputPreview}
+              {entry.rawOutputPreview.length >= 500 ? ' …' : ''}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
