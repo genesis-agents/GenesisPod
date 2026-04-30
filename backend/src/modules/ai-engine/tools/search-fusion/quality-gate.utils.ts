@@ -112,13 +112,23 @@ export function evaluateSearchQuality<T extends QualityGateItem>(
   }
 
   // 4. 学术覆盖
-  if (requireAcademic && academicSourceTypes) {
-    const hasAcademic = result.items.some((i) =>
-      academicSourceTypes.has(i.sourceType),
-    );
-    if (!hasAcademic) {
-      gaps.push("No academic sources present despite requireAcademic flag");
+  // ★ P2-R5 (3) (2026-04-30): requireAcademic=true 但 academicSourceTypes 未传时
+  //   原代码静默跳过整段检查，违反 requireAcademic 承诺。改为：未传时直接 gap
+  //   (调用方拼装错配置)。
+  if (requireAcademic) {
+    if (!academicSourceTypes) {
+      gaps.push(
+        "requireAcademic=true but academicSourceTypes not provided — caller misconfiguration",
+      );
       pushAction("add_academic_source");
+    } else {
+      const hasAcademic = result.items.some((i) =>
+        academicSourceTypes.has(i.sourceType),
+      );
+      if (!hasAcademic) {
+        gaps.push("No academic sources present despite requireAcademic flag");
+        pushAction("add_academic_source");
+      }
     }
   }
 

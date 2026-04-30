@@ -27,7 +27,9 @@ import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { MissionStore } from "./mission-store.service";
 
 const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 min
-const STARTUP_DELAY_MS = 30 * 1000; // 30s 给系统先启动稳定再扫
+// ★ P2-R5 (5) (2026-04-30): 30s 与 recoverOrphanedRunning 在 Railway 大表场景
+//   下可能撞车（粗粒度全表 update）。扩到 60s 留足缓冲，避免双方同时争 row lock。
+const STARTUP_DELAY_MS = 60 * 1000;
 
 @Injectable()
 export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
@@ -96,6 +98,10 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
   }
 
   private async fetchRunningMissions(): Promise<MissionHealthSnapshot[]> {
+    // ★ P2-R5 (2) (2026-04-30): take=200 上限 —— 当系统真有 200+ running mission
+    //   时被截断 → 截掉的 mission 永远不被巡检。warn 提示运维（应该极少触发，
+    //   但发生时静默扫漏会很危险）。
+    const HEALTH_SCAN_LIMIT = 200;
     const rows = await this.prisma.agentPlaygroundMission
       .findMany({
         where: { status: "running" },
@@ -105,7 +111,8 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
           status: true,
           startedAt: true,
         },
-        take: 200,
+        take: HEALTH_SCAN_LIMIT,
+        orderBy: { startedAt: "asc" }, // 最老的优先扫，避免新 mission 抢资源
       })
       .catch((err: unknown) => {
         this.log.warn(
@@ -120,6 +127,11 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
       });
 
     if (rows.length === 0) return [];
+    if (rows.length === HEALTH_SCAN_LIMIT) {
+      this.log.warn(
+        `[health] fetchRunningMissions hit take=${HEALTH_SCAN_LIMIT} cap — some running missions may not be scanned this cycle`,
+      );
+    }
 
     // lastActivityAt: 用最近一条 mission event 的 ts；无 event 则 fallback startedAt
     const ids = rows.map((r) => r.id);
@@ -135,7 +147,17 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
     for (const a of lastActivities) {
       const ts = a._max.ts;
       if (ts != null) {
-        activityMap.set(a.missionId, new Date(Number(ts)));
+        // ★ P2-R5 (1) (2026-04-30): bigint 极端值精度风险 — Number() 超过
+        //   Number.MAX_SAFE_INTEGER (9007199254740991ms ≈ year 2255) 精度丢失。
+        //   epoch ms 当下不会越界，但显式 clamp 让 bug 走特殊路径而非静默错位。
+        const tsMs = Number(ts);
+        if (!Number.isFinite(tsMs) || tsMs > Number.MAX_SAFE_INTEGER) {
+          this.log.warn(
+            `[health] mission ${a.missionId} ts=${String(ts)} exceeds MAX_SAFE_INTEGER, skipping`,
+          );
+          continue;
+        }
+        activityMap.set(a.missionId, new Date(tsMs));
       }
     }
 
