@@ -21,9 +21,8 @@
  */
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { X as XIcon, ChevronRight, Lightbulb, RefreshCw } from 'lucide-react';
-import { rerunTodo, localRerunTodo } from '@/services/agent-playground/api';
+import { localRerunTodo } from '@/services/agent-playground/api';
 import { cn } from '@/lib/utils/common';
 import type {
   MissionTodo,
@@ -467,54 +466,43 @@ export function TodoDetailDrawer({
   missionId,
   missionTerminal,
 }: Props) {
-  const router = useRouter();
   const [showTimeline, setShowTimeline] = useState(true);
   const [showDiag, setShowDiag] = useState(false);
   const [rerunning, setRerunning] = useState(false);
 
   if (!todo) return null;
 
+  // ★ 2026-04-30 (B 路线): 重跑按钮只在 v1 真实支持的 scope 显示，避免误导。
+  //   v1 真实支持: system:s9b（10 维客观评审局部重跑，不创建新 mission）
+  //   其它 scope（dimension / chapter / s10 / retry todo 等）当前不显示重跑按钮 ——
+  //   避免点了走老 rerunTodo 创建新 mission，这违反"按钮意图 = 局部重跑"的语义。
+  //   v1.1 扩容 chapter / dimension 后会扩展此处的 supportsLocalRerun 判定。
+  const supportsLocalRerun =
+    todo.scope === 'system' && todo.id.endsWith('s9b-objective-evaluation');
+
   const canRerun =
     !!(missionId && missionTerminal) &&
     todo.systemStageId !== 's11-persist' &&
     todo.origin !== 'leader-assess-abort' &&
+    supportsLocalRerun &&
     (todo.status === 'done' ||
       todo.status === 'failed' ||
       todo.status === 'cancelled');
 
-  // ★ 2026-04-30 (B 路线): 根据 todo.scope 路由
-  //   v1 仅 system:s9b 支持局部重跑（不创建新 mission，patch 回原 mission）
-  //   其它 scope 走老的 rerunTodo（创建新 mission）—— 标签会改为"开新研究对比"
-  const supportsLocalRerun =
-    todo.scope === 'system' && todo.id.endsWith('s9b-objective-evaluation');
-
   const handleRerun = async () => {
-    if (!missionId || rerunning) return;
+    if (!missionId || rerunning || !supportsLocalRerun) return;
     setRerunning(true);
     try {
-      if (supportsLocalRerun) {
-        // 局部重跑：不跳转，保留在原 mission detail 页（mission:rerun-completed
-        // 事件会触发 page.tsx re-fetch persisted）
-        await localRerunTodo(missionId, todo.id, {
-          origin: todo.origin,
-          scope: todo.scope,
-          dimensionRef: todo.dimensionRef,
-          todoTitle: todo.title,
-          reasonText: todo.reasonText,
-        });
-        // 完成后清 rerunning flag，让用户看新评分；不跳转
-        setRerunning(false);
-        return;
-      }
-      // Fresh rerun：创建新 mission 跑全流程
-      const { missionId: newId } = await rerunTodo(missionId, todo.id, {
+      // 局部重跑：不跳转，保留在原 mission detail 页（mission:rerun-completed
+      // 事件会触发 page.tsx re-fetch persisted）
+      await localRerunTodo(missionId, todo.id, {
         origin: todo.origin,
         scope: todo.scope,
         dimensionRef: todo.dimensionRef,
         todoTitle: todo.title,
         reasonText: todo.reasonText,
       });
-      router.push(`/agent-playground/team/${newId}`);
+      setRerunning(false);
     } catch (e) {
       window.alert(`重跑失败：${e instanceof Error ? e.message : String(e)}`);
       setRerunning(false);
@@ -587,22 +575,13 @@ export function TodoDetailDrawer({
                 type="button"
                 onClick={() => void handleRerun()}
                 disabled={rerunning}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ring-1 transition-colors disabled:cursor-wait disabled:opacity-60',
-                  supportsLocalRerun
-                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100'
-                    : 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100'
-                )}
-                title={
-                  supportsLocalRerun
-                    ? '局部重跑：在当前 mission 内重跑此任务，产物 patch 回原报告（不创建新 mission）'
-                    : '开新研究：基于此任务的反馈创建新 mission 跑全流程，原 mission 保留'
-                }
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200 transition-colors hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-60"
+                title="局部重跑：在当前 mission 内重跑此任务，产物 patch 回原报告（不创建新 mission）"
               >
                 <RefreshCw
                   className={cn('h-3 w-3', rerunning && 'animate-spin')}
                 />
-                {supportsLocalRerun ? '局部重跑' : '开新研究对比'}
+                局部重跑
               </button>
             )}
             <button
