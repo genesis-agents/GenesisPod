@@ -446,6 +446,17 @@ export {
   verifyCitations,
   buildContiguousMapping,
   restoreGlobalIndices,
+  // ★ Phase 9 沉淀 (2026-04-29): 5 种学术引用格式
+  type CitationStyle,
+  type SourceCategory as CitationSourceCategory,
+  type CitationAuthor,
+  type CitationMetadata,
+  type FormattedCitation,
+  type Bibliography,
+  type RawEvidence as CitationRawEvidence,
+  buildCitationMetadata,
+  formatCitation,
+  generateBibliography,
 } from "../content/citation";
 
 // ★ Phase 7: Content engine abstractions

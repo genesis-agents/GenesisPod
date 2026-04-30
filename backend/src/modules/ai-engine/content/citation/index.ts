@@ -25,3 +25,17 @@ export {
   buildContiguousMapping,
   restoreGlobalIndices,
 } from "./citation-verifier.utils";
+
+// ★ Phase 9 沉淀 (2026-04-29): 5 种学术引用格式（APA/MLA/Chicago/IEEE/Harvard）
+export {
+  type CitationStyle,
+  type SourceCategory,
+  type CitationAuthor,
+  type CitationMetadata,
+  type FormattedCitation,
+  type Bibliography,
+  type RawEvidence,
+  buildCitationMetadata,
+  formatCitation,
+  generateBibliography,
+} from "./citation-formatter";
