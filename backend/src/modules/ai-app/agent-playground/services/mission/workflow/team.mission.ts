@@ -276,6 +276,26 @@ export class TeamMission {
         });
         throw new Error(msg);
       }
+      // ★ P0-CONFIG-MODEL (2026-04-30): 仅 1 个 healthy 模型时给 warning event，
+      //   让前端能展示"无 fallback"提示。任一模型 rate-limit/失败时整个 mission
+      //   会全 fail。non-blocking warning，不抛错。
+      if (healthy.length === 1) {
+        await this.invoker
+          .emitEvent({
+            type: "agent-playground.mission:warning",
+            missionId,
+            userId,
+            payload: {
+              code: "SINGLE_MODEL_NO_FALLBACK",
+              modelId: healthy[0].modelId,
+              userMessage:
+                `当前仅启用 1 个模型 (${healthy[0].modelId})，` +
+                `若该模型 rate-limit 或临时故障，mission 将无 fallback。` +
+                `建议在 设置 → 模型 启用 2+ 模型作为备份`,
+            },
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       // 仅 reject-throw 抛出；env 查询失败不阻断（partial info ok）
       if (err instanceof Error && err.message.includes("BYOK 配置")) throw err;
