@@ -48,6 +48,23 @@ import {
   decodeHtmlEntities,
   removeEmptyHeadings,
   cleanupEmptyBullets,
+  // ★ P0-LIVE-REPORT-FORMAT (2026-04-30): 接入更多 TI 沉淀的 report-formatting
+  //   helpers，覆盖 LLM 输出常见 artifacts。共 27 个全 idempotent / non-destructive。
+  deduplicateParagraphs,
+  deduplicateHeadings,
+  deduplicateAdjacentCitations,
+  deduplicateTerminalSections,
+  deduplicateIdenticalSections,
+  stripLeakedHtmlComments,
+  stripFigureComments,
+  stripCitationsFromHeadings,
+  fixDoubleSourceLabels,
+  fixDuplicateHeadings,
+  mergeTelegramParagraphs,
+  repairBrokenBoldMarkers,
+  bulletifyBlockquoteItems,
+  boldSummaryPrefixes,
+  splitEnumerationToList,
 } from "@/modules/ai-engine/facade";
 
 interface AssembleInput {
@@ -453,6 +470,33 @@ export class ReportAssemblerService {
     // ★ 注 1：stripLLMMetaNotes 不适用于装配后 fullMarkdown（会误删合法标题），仅 LLM raw output 阶段用
     // ★ 注 2：sanitizeHeadingLevels 是给 dimension-content 用（剥 H1/H2 留 H3+），
     //   playground fullMarkdown 含 H1/H2 装配标题，不适用
+    // 7) HTML 注释泄漏（<!-- xxx -->）— LLM 偶尔泄漏推理痕迹
+    content = stripLeakedHtmlComments(content);
+    // 8) figure 备注块清理（"备注：图1 显示 ..."）
+    content = stripFigureComments(content);
+    // 9) 标题里的 [1] 引用清理（"## 市场分析 [1]" → "## 市场分析"）
+    content = stripCitationsFromHeadings(content);
+    // 10) 同一 source 重复标签合并（"(来源: a) (来源: a)" → "(来源: a)"）
+    content = fixDoubleSourceLabels(content);
+    // 11) 同名标题加序号（避免 anchor 冲突）
+    content = fixDuplicateHeadings(content);
+    // 12) 短电报段落合并（连续单句换行段→合并为正常段落）
+    content = mergeTelegramParagraphs(content);
+    // 13) 破碎粗体标记修复（**xxx → **xxx**）
+    content = repairBrokenBoldMarkers(content);
+    // 14) 引用块内的 dash → bullet
+    content = bulletifyBlockquoteItems(content);
+    // 15) 总结/要点等前缀加粗（"总结：xxx" → "**总结：** xxx"）
+    content = boldSummaryPrefixes(content);
+    // 16) 行内枚举拆 bullet（"包括：A、B、C" → "- A\n- B\n- C"）
+    content = splitEnumerationToList(content);
+    // 17) 段落级去重（fullMarkdown 全局，不带 dimIndex 上下文）
+    content = deduplicateParagraphs(content, new Set<string>());
+    // 18) 标题级去重 + 相邻引用合并 + 末段重复清理
+    content = deduplicateHeadings(content);
+    content = deduplicateAdjacentCitations(content);
+    content = deduplicateTerminalSections(content);
+    content = deduplicateIdenticalSections(content);
 
     // ── 以下为 playground 专属（沉淀工具未覆盖）──
     // 压缩 ≥3 个连续换行
