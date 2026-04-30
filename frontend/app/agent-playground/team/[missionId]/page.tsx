@@ -31,7 +31,6 @@ import {
   MissionFlowView,
   MissionTodoBoard,
   ReferencesPanel,
-  ReportPanel,
   TeamMissionModal,
   TeamRosterPanel,
   TodoDetailDrawer,
@@ -44,6 +43,7 @@ import {
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
+import { ensureRenderableArtifact } from '@/lib/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
 import { deriveView } from '@/lib/agent-playground/derive';
@@ -754,101 +754,118 @@ export default function MissionDetailPage() {
               <div className="space-y-4">
                 {/* ★ Phase Lead-1+: Leader-Replanner-Lite 全程产物展示 */}
                 {persisted && <LeadJournalPanel mission={persisted} />}
-                {/* ★ Phase P0-6: ReportArtifact v2 三视图渲染（fallback 老 ReportPanel） */}
+                {/* ★ 2026-04-30: 永远走 ArtifactReader 三视图，不再 fallback ReportPanel。
+                    数据形状：v2 ReportArtifact / v1 ResearchReport / null 都通过
+                    ensureRenderableArtifact 适配为可渲染的 v2 形态：
+                      - v2 直接用
+                      - v1 (来自 socket report:draft) 适配成最小 v2 骨架
+                      - null（mission 未跑到 / failed / orphan）显示空态
+                    用户原话："就是有啥输出啥，后面可以更新" —— mission 进程中
+                    view.finalReport 会被 report:draft 事件更新（章节级流式）；
+                    mission:completed 后 re-fetch 拿真正的 v2 升级；不再有 ReportPanel
+                    路径让用户看"乱七八糟"的 fallback。 */}
                 {(() => {
                   const reportFull = persisted?.reportFull ?? view.finalReport;
-                  if (
+                  const isV2 =
                     reportFull &&
                     typeof reportFull === 'object' &&
-                    isReportArtifact(reportFull)
-                  ) {
-                    // ★ Phase P1-22: 用 mission.userProfile.viewMode 作为默认视图
-                    const userProfile = (
-                      persisted as {
-                        userProfile?: { viewMode?: string };
-                      } | null
-                    )?.userProfile;
-                    const defaultView =
-                      userProfile?.viewMode === 'chapter' ||
-                      userProfile?.viewMode === 'quick'
-                        ? userProfile.viewMode
-                        : 'continuous';
-                    const reconciliationReport = (
-                      persisted as { reconciliationReport?: unknown } | null
-                    )?.reconciliationReport as
-                      | {
-                          factTable?: unknown[];
-                          conflicts?: {
-                            factIds: string[];
-                            resolutionType:
-                              | 'kept-both'
-                              | 'preferred-one'
-                              | 'flagged-unresolved';
-                            rationale: string;
-                          }[];
-                          overlaps?: {
-                            dimensionPair?: [string, string];
-                            similarityScore?: number;
-                            overlappingClaim?: string;
-                            resolutionAction?: string;
-                          }[];
-                          gaps?: {
-                            dimensionId?: string;
-                            expectedAspects?: string[];
-                            severity?: 'critical' | 'minor';
-                          }[];
-                          reconciliationReport?: string;
-                          figureCandidates?: unknown[];
-                          deduplicationStats?: {
-                            duplicatesRemoved?: number;
-                            termVariantsUnified?: number;
-                            dataInconsistenciesFlagged?: number;
-                          };
-                          termGlossary?: {
-                            canonical: string;
-                            variants: string[];
-                          }[];
-                        }
-                      | undefined;
-                    // Phase P7-5: 从 events 抽 tools_recalled
-                    const toolRecallEntries = events
-                      .filter(
-                        (ev) => ev.type === 'agent-playground.tools:recalled'
-                      )
-                      .map((ev) => {
-                        const p = ev.payload as {
-                          agentId?: string;
-                          role?: string;
-                          recalledIds?: string[];
-                          categories?: string[];
-                          source?: string;
-                          preferIds?: string[];
+                    isReportArtifact(reportFull);
+                  // mission 状态决定空态文案
+                  const emptyMessage = view.mission.failedAt
+                    ? `Mission 失败：${view.mission.failedMessage ?? '未知错误'}\n\n（请重新启动一个新 mission）`
+                    : view.mission.cancelledAt
+                      ? '已被用户取消\n\n（数据未持久化）'
+                      : view.mission.completedAt
+                        ? '报告生成中…\n\n（可能 S11 持久化未完成，稍后刷新页面）'
+                        : '报告生成中…\n\n（mission 仍在跑 S1-S10，写作完成后会显示草稿；mission 完成后会显示完整三视图）';
+                  const fallbackTitle = view.mission.topic ?? '研究报告';
+
+                  const artifact = isV2
+                    ? reportFull
+                    : ensureRenderableArtifact(
+                        reportFull,
+                        fallbackTitle,
+                        emptyMessage
+                      );
+
+                  // ★ Phase P1-22: 用 mission.userProfile.viewMode 作为默认视图
+                  const userProfile = (
+                    persisted as {
+                      userProfile?: { viewMode?: string };
+                    } | null
+                  )?.userProfile;
+                  const defaultView =
+                    userProfile?.viewMode === 'chapter' ||
+                    userProfile?.viewMode === 'quick'
+                      ? userProfile.viewMode
+                      : 'continuous';
+                  const reconciliationReport = (
+                    persisted as { reconciliationReport?: unknown } | null
+                  )?.reconciliationReport as
+                    | {
+                        factTable?: unknown[];
+                        conflicts?: {
+                          factIds: string[];
+                          resolutionType:
+                            | 'kept-both'
+                            | 'preferred-one'
+                            | 'flagged-unresolved';
+                          rationale: string;
+                        }[];
+                        overlaps?: {
+                          dimensionPair?: [string, string];
+                          similarityScore?: number;
+                          overlappingClaim?: string;
+                          resolutionAction?: string;
+                        }[];
+                        gaps?: {
+                          dimensionId?: string;
+                          expectedAspects?: string[];
+                          severity?: 'critical' | 'minor';
+                        }[];
+                        reconciliationReport?: string;
+                        figureCandidates?: unknown[];
+                        deduplicationStats?: {
+                          duplicatesRemoved?: number;
+                          termVariantsUnified?: number;
+                          dataInconsistenciesFlagged?: number;
                         };
-                        return {
-                          agentId: p.agentId ?? '',
-                          role: p.role ?? '',
-                          recalledIds: p.recalledIds ?? [],
-                          categories: p.categories ?? [],
-                          source: p.source ?? 'spec',
-                          preferIds: p.preferIds ?? [],
-                        };
-                      })
-                      .slice(0, 12);
-                    return (
-                      <ArtifactReader
-                        artifact={reportFull}
-                        missionId={missionId}
-                        defaultView={defaultView}
-                        reconciliationReport={reconciliationReport}
-                        toolRecallEntries={toolRecallEntries}
-                      />
-                    );
-                  }
+                        termGlossary?: {
+                          canonical: string;
+                          variants: string[];
+                        }[];
+                      }
+                    | undefined;
+                  const toolRecallEntries = events
+                    .filter(
+                      (ev) => ev.type === 'agent-playground.tools:recalled'
+                    )
+                    .map((ev) => {
+                      const p = ev.payload as {
+                        agentId?: string;
+                        role?: string;
+                        recalledIds?: string[];
+                        categories?: string[];
+                        source?: string;
+                        preferIds?: string[];
+                      };
+                      return {
+                        agentId: p.agentId ?? '',
+                        role: p.role ?? '',
+                        recalledIds: p.recalledIds ?? [],
+                        categories: p.categories ?? [],
+                        source: p.source ?? 'spec',
+                        preferIds: p.preferIds ?? [],
+                      };
+                    })
+                    .slice(0, 12);
                   return (
-                    <ReportPanel
-                      finalReport={view.finalReport}
-                      reports={view.reports}
-                      finalScore={view.mission.finalScore}
+                    <ArtifactReader
+                      artifact={artifact}
+                      missionId={missionId}
+                      defaultView={defaultView}
+                      reconciliationReport={reconciliationReport}
+                      toolRecallEntries={toolRecallEntries}
                     />
                   );
                 })()}
