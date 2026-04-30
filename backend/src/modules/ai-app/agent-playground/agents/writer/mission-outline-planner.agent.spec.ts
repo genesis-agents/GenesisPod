@@ -220,16 +220,30 @@ describe("MissionOutlinePlannerAgent", () => {
       ).toBe(true);
     });
 
-    it("accepts empty chapterOutlines array", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, chapterOutlines: [] }).success,
-      ).toBe(true);
-    });
-
-    it("accepts factAllocation with multiple entries", () => {
+    it("accepts empty chapterOutlines array with empty factAllocation", () => {
       expect(
         outputSchema.safeParse({
           ...baseOutput,
+          chapterOutlines: [],
+          factAllocation: {},
+          targetWordsPerChapter: {},
+        }).success,
+      ).toBe(true);
+    });
+
+    it("accepts factAllocation with multiple entries matching chapterOutlines sectionIds", () => {
+      const dim2Chapter = {
+        sectionId: "dim2",
+        heading: "Tech Adoption Overview",
+        subheadings: [],
+        thesis: "Tech adoption drives revenue outcomes.",
+        keyPointsToCover: ["infra", "cost"],
+      };
+      expect(
+        outputSchema.safeParse({
+          ...baseOutput,
+          chapterOutlines: [validChapterOutline, dim2Chapter],
+          targetWordsPerChapter: { dim1: 4000, dim2: 4000 },
           factAllocation: { dim1: ["fact-1", "fact-2"], dim2: ["fact-3"] },
         }).success,
       ).toBe(true);

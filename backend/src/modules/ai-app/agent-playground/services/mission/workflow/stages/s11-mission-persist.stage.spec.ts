@@ -217,4 +217,48 @@ describe("runPersistStage (S11)", () => {
       "mission-42",
     );
   });
+
+  it("persist failure → logs error, emits persist-failed, rethrows", async () => {
+    const deps = makeDeps();
+    (deps.store.markCompleted as jest.Mock).mockRejectedValue(
+      new Error("DB write failed"),
+    );
+    await expect(
+      runPersistStage(
+        {
+          missionId: "m11",
+          t0: Date.now() - 5000,
+          result: BASE_RESULT,
+          pool: makePool(),
+        },
+        deps,
+      ),
+    ).rejects.toThrow("DB write failed");
+    expect(deps.log.error as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("persist failed"),
+    );
+    const persistFailedCall = (deps.emit as jest.Mock).mock.calls.find(
+      (c) => c[0].type === "agent-playground.mission:persist-failed",
+    );
+    expect(persistFailedCall).toBeDefined();
+  });
+
+  it("persist failure with non-Error thrown → String(err) used in log", async () => {
+    const deps = makeDeps();
+    (deps.store.markCompleted as jest.Mock).mockRejectedValue("string error");
+    await expect(
+      runPersistStage(
+        {
+          missionId: "m11",
+          t0: Date.now() - 5000,
+          result: BASE_RESULT,
+          pool: makePool(),
+        },
+        deps,
+      ),
+    ).rejects.toBe("string error");
+    expect(deps.log.error as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("persist failed"),
+    );
+  });
 });

@@ -252,4 +252,84 @@ describe("extractFailureMessage", () => {
     const msg = extractFailureMessage(events, "failed", false);
     expect(msg).toContain("上下文超长");
   });
+
+  it("state=cancelled → returns Agent 被取消", () => {
+    const msg = extractFailureMessage([], "cancelled", false);
+    expect(msg).toContain("取消");
+  });
+
+  it("reflection event with verdicts array → scores pushed from verdicts array", () => {
+    const events = [
+      makeEvent("reflection", {
+        verdicts: [
+          { score: 45, critique: "too short" },
+          { score: 50, critique: "no depth" },
+        ],
+      }),
+      makeEvent("terminated", { reason: "budget" }),
+    ];
+    const msg = extractFailureMessage(events, "failed", false);
+    // Verifier exhaustion path should trigger
+    expect(msg).toContain("Reflexion");
+  });
+
+  it("terminated budget + llmReturnedEmpty → LLM 持续返回空 finalize message", () => {
+    // Need finalize events with empty output to trigger llmReturnedEmpty=true
+    const events = [
+      makeEvent("action_executed", {
+        action: { kind: "finalize" },
+        output: "",
+      }),
+      makeEvent("action_executed", {
+        action: { kind: "finalize" },
+        output: "",
+      }),
+      makeEvent("terminated", { reason: "budget" }),
+    ];
+    const msg = extractFailureMessage(events, "failed", false);
+    expect(msg).toContain("LLM 持续返回空");
+  });
+
+  it("terminated reason=cancelled → includes 取消 message", () => {
+    const events = [makeEvent("terminated", { reason: "cancelled" })];
+    const msg = extractFailureMessage(events, "failed", false);
+    expect(msg).toContain("取消");
+  });
+
+  it("terminated reason=error → includes 内部错误", () => {
+    const events = [makeEvent("terminated", { reason: "error" })];
+    const msg = extractFailureMessage(events, "failed", false);
+    expect(msg).toContain("内部错误");
+  });
+
+  it("terminated reason=unknown-type → includes 异常终止 default message", () => {
+    const events = [makeEvent("terminated", { reason: "some-unknown-reason" })];
+    const msg = extractFailureMessage(events, "failed", false);
+    expect(msg).toContain("异常终止");
+  });
+
+  it("terminated reason=budget with wallTimeMs in runStats → includes 耗时 in detail", () => {
+    const events = [makeEvent("terminated", { reason: "budget" })];
+    const msg = extractFailureMessage(events, "failed", false, {
+      wallTimeMs: 30000,
+      iterations: 5,
+    });
+    expect(msg).toContain("30.0s");
+  });
+
+  it("finalize action with null output → counted as empty finalize", () => {
+    const events = [
+      makeEvent("action_executed", {
+        action: { kind: "finalize" },
+        output: null,
+      }),
+      makeEvent("action_executed", {
+        action: { kind: "finalize" },
+        output: null,
+      }),
+      makeEvent("terminated", { reason: "budget" }),
+    ];
+    const msg = extractFailureMessage(events, "failed", false);
+    expect(msg).toContain("LLM 持续返回空");
+  });
 });

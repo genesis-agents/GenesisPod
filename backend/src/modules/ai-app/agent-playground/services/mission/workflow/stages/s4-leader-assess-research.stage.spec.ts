@@ -277,4 +277,42 @@ describe("runLeaderAssessResearchStage (S4)", () => {
       expect.stringContaining("conflicts with existing"),
     );
   });
+
+  it("s4PatchRound > MAX_S4_ROUNDS → retry actions force-downgraded to accept-degraded", async () => {
+    const ctx = makeCtx();
+    // Simulate second round (already ran once)
+    (ctx as unknown as Record<string, unknown>).s4PatchRound = 1;
+    (ctx.leader.assessResearchers as jest.Mock).mockResolvedValue({
+      decision: "patch",
+      rationale: "retry again",
+      perDimension: [
+        {
+          dimensionId: "d1",
+          action: "retry-with-critique",
+          critique: "Still bad",
+        },
+        { dimensionId: "d2", action: "accept" },
+      ],
+      newDimensions: [],
+    });
+    const deps = makeDeps();
+    await runLeaderAssessResearchStage(ctx, deps);
+    // Round 2 exceeds MAX_S4_ROUNDS=1, so retry actions should be downgraded
+    // No invoke should be called since retry is downgraded to accept-degraded
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("forced"),
+    );
+  });
+
+  it("assessResearchers throws non-fatal → warn includes M1 assess-research failed", async () => {
+    const ctx = makeCtx();
+    (ctx.leader.assessResearchers as jest.Mock).mockRejectedValue(
+      new Error("LLM timeout"),
+    );
+    const deps = makeDeps();
+    await runLeaderAssessResearchStage(ctx, deps);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("M1 assess-research failed"),
+    );
+  });
 });
