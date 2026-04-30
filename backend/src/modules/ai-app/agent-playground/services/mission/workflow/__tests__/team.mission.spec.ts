@@ -206,6 +206,8 @@ function buildTeamMission() {
     register: jest.fn().mockReturnValue(new AbortController()),
     unregister: jest.fn(),
     abort: jest.fn(),
+    isAborted: jest.fn().mockReturnValue(false),
+    getSignal: jest.fn().mockReturnValue(undefined),
   };
 
   const mockCredits = {
@@ -578,7 +580,10 @@ describe("TeamMission.runMission", () => {
       );
     });
 
-    it("abort/cancel error → failureCode stays UNKNOWN (not classified)", async () => {
+    it("abort/cancel error → does NOT emit mission:failed (P0-LIVE-CANCEL-GHOST)", async () => {
+      // ★ P0-LIVE-CANCEL-GHOST (2026-04-30): cancel 路径不再 emit mission:failed
+      //   避免派生 stage 错误盖住"用户取消"真因。mission:cancelled 已由
+      //   abortRegistry.abort() 调用方（controller / wallTimer）emit。
       const { mission, mockInvoker } = buildTeamMission();
       const { runReconcilerStage }: { runReconcilerStage: jest.Mock } =
         jest.requireMock("../stages/s5-reconciler-cross-dim-fact-check.stage");
@@ -586,13 +591,11 @@ describe("TeamMission.runMission", () => {
       await expect(
         mission.runMission("m-1", VALID_INPUT, "user-1"),
       ).rejects.toThrow();
-      expect(mockInvoker.emitEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: expect.objectContaining({
-            failureCode: "UNKNOWN",
-          }),
-        }),
-      );
+      const failedCalls = mockInvoker.emitEvent.mock.calls.filter((c) => {
+        const ev = c[0] as { type?: string };
+        return ev?.type === "agent-playground.mission:failed";
+      });
+      expect(failedCalls.length).toBe(0);
     });
 
     it("calls unregister even on error", async () => {

@@ -54,7 +54,8 @@ export class ReflexionLoop implements IAgentLoop {
 
   private defaultOptions: ReflexionOptions = {
     verifiers: [],
-    passThreshold: 75,
+    // ★ P0-LIVE-REFLEXION-LOW-SCORE (2026-04-30): 60 门槛，60-74 走 degraded
+    passThreshold: 60,
     maxRevisions: 2,
   };
 
@@ -102,7 +103,13 @@ export class ReflexionLoop implements IAgentLoop {
       ...this.defaultOptions,
       ...(options?.reflexion ?? {}),
     };
-    const passThreshold = merged.passThreshold ?? 75;
+    // ★ P0-LIVE-REFLEXION-LOW-SCORE (2026-04-30): mission 8e77271d 实证 —
+    //   outline/chapter-writer 评分 62-67/100 < 75 阈值反复 fail。但这些
+    //   都是已经写出有效 draft 的 partial output，"差强人意"比"整章重写到
+    //   死循环"或"空"好得多。降默认门槛到 60 让 60-74 分内容通过（agent-runner
+    //   层会标 degraded，per-dim-pipeline 已修过接受 degraded）。
+    //   passThreshold 优先级：caller 显式覆盖 > 60 默认。
+    const passThreshold = merged.passThreshold ?? 60;
     const maxRevisions = merged.maxRevisions ?? 2;
     const verifiers = merged.verifiers ?? [];
 

@@ -389,6 +389,31 @@ export class TeamMission {
             const message = err instanceof Error ? err.message : String(err);
             const errName = err instanceof Error ? err.name : "Unknown";
             const snap = pool.snapshot();
+            // ★ P0-LIVE-CANCEL-GHOST (2026-04-30): mission 8e77271d 实证 —
+            //   用户取消后 mission 主流程没立即退出，下游 stage（reconciler/
+            //   analyst）继续跑但每个 agent 入口 signal.aborted 即退出，
+            //   wallTimeMs=2-5ms iterations=0 没产 output → schema_mismatch
+            //   派生错误 → s6 stage throw → catch 这里发 mission:failed
+            //   "Analyst 连续 2 次未产出"，把"用户取消"真因彻底遮蔽。
+            //   修复：cancel 时 catch 走 cancelled 路径，不发 mission:failed。
+            const wasCancelled =
+              missionAbort.signal.aborted ||
+              /aborted|cancelled|user_cancelled/i.test(message);
+            if (wasCancelled) {
+              const cancelReason =
+                typeof missionAbort.signal.reason === "string"
+                  ? missionAbort.signal.reason
+                  : "user_cancelled";
+              this.log.log(
+                `[${missionId}] catch detected mission abort (${cancelReason}), routing to cancel path instead of failure (suppressed派生 errors: ${message.slice(0, 200)})`,
+              );
+              // mission:cancelled 已在 abortRegistry.abort() 调用方（controller /
+              // wallTimer）emit；DB markCancelled 也已在那里执行。这里**不**重复
+              // emit mission:failed，避免 schema_mismatch 这种派生错误盖住真因。
+              clearTimeout(wallTimer);
+              this.abortRegistry.unregister(missionId);
+              throw err;
+            }
             // ★ mission 级失败码归类
             let missionFailureCode: string = "UNKNOWN";
             if (
@@ -407,7 +432,7 @@ export class TeamMission {
               missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
             } else if (/rate.?limit|429/i.test(message)) {
               missionFailureCode = "PROVIDER_RATE_LIMIT";
-            } else if (!/aborted|cancelled/i.test(message)) {
+            } else {
               missionFailureCode = "PROVIDER_API_ERROR";
             }
             // 任何 uncaught 错误都要让 UI 知道 —— 否则 status 永远停在 "running"
@@ -454,6 +479,23 @@ export class TeamMission {
     billing: BillingRuntimeEnvAdapter,
     budgetMultiplier: number,
   ): Promise<MissionResult> {
+    // ★ P0-LIVE-CANCEL-GHOST (2026-04-30): mission 8e77271d 实证 — 用户取消后
+    //   mission 主流程没立即退出，下游 stage（reconciler/analyst）继续跑，
+    //   每个 agent 入口 signal.aborted 立刻退出但 wallTimeMs=2-5ms iterations=0
+    //   产 schema_mismatch 派生错误遮蔽 cancel 真因。
+    //   修复：每个关键 stage 边界 check abortRegistry，aborted 直接 throw 跳出，
+    //   走外层 catch 的 wasCancelled 分支，不再跑后续 stage 制造假错误。
+    const checkAbort = (between: string): void => {
+      if (this.abortRegistry.isAborted(missionId)) {
+        const reason = this.abortRegistry.getSignal(missionId)?.reason;
+        const reasonStr =
+          typeof reason === "string" && reason ? reason : "user_cancelled";
+        this.log.log(
+          `[${missionId}] abort detected before stage "${between}" (reason=${reasonStr}), short-circuiting`,
+        );
+        throw new Error(`Mission aborted: ${reasonStr}`);
+      }
+    };
     {
       {
         // ── Stage 0: 预算预估 + mission:started（已抽到 stages/s1-mission-estimate-budget.stage.ts）──
@@ -520,6 +562,7 @@ export class TeamMission {
           budgetMultiplier,
           plan,
         });
+        checkAbort("s3-researchers");
         await runResearcherDispatchStage(s3Ctx, this.buildStageDeps());
         const researcherResults = s3Ctx.researcherResults!;
         // ★ Phase 5: 最重 stage 完成后保存 checkpoint（researcher 数据是 mission 价值核心）
@@ -565,9 +608,11 @@ export class TeamMission {
           plan,
           researcherResults,
         });
+        checkAbort("s5-reconciler");
         await runReconcilerStage(reconCtx, this.buildStageDeps());
         const reconciliationReport = reconCtx.reconciliationReport;
 
+        checkAbort("s6-analyst");
         // ── Stage 3: Analyst 反思整合（已抽到 stages/s6-analyst-synthesize-insights.stage.ts）──
         const analyst = await runAnalystStage(
           this.buildStageCtx({
@@ -587,6 +632,7 @@ export class TeamMission {
         );
 
         // Stage S7: Writer plans mission outline（已抽到 stages/s7-writer-plan-outline.stage.ts）
+        checkAbort("s7-writer-outline");
         await runWriterOutlineStage(
           this.buildStageCtx({
             missionId,
@@ -618,6 +664,7 @@ export class TeamMission {
           researcherResults,
           reconciliationReport,
         });
+        checkAbort("s8-writer");
         await runWriterStage(
           s8Ctx,
           this.buildStageDeps(),
