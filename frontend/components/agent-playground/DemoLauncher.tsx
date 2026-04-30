@@ -128,7 +128,7 @@ export function DemoLauncher() {
         ? 0.7
         : auditLayers === 'thorough'
           ? 1.5
-          : auditLayers === 'paranoid'
+          : auditLayers === 'thorough+'
             ? 2.5
             : 1;
     const figMul = withFigures ? 1.15 : 1;
@@ -336,7 +336,7 @@ export function DemoLauncher() {
             <option value="minimal">最简（仅 L0 schema 校验）</option>
             <option value="default">标准（L0+L3，默认）</option>
             <option value="thorough">完整（L0+L1+L3+L4）</option>
-            <option value="paranoid">极致（全开 L0~L4）</option>
+            <option value="thorough+">极致（全开 L0~L4）</option>
           </select>
         </div>
       </div>
@@ -505,7 +505,7 @@ export function DemoLauncher() {
             thorough 启 L0+L1+L3+L4 → Leader/Analyst/Writer 走 reflexion
           </div>
         )}
-        {auditLayers === 'paranoid' && (
+        {auditLayers === 'thorough+' && (
           <div className="mt-0.5 text-[10px] text-violet-600">
             paranoid 全开 L0~L4 + 同侪比对（贵 ~3×）
           </div>

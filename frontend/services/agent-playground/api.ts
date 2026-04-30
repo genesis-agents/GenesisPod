@@ -17,9 +17,15 @@ export type StyleProfile =
   | 'executive'
   | 'journalistic'
   | 'technical';
-export type LengthProfile = 'brief' | 'standard' | 'deep' | 'extended';
+export type LengthProfile =
+  | 'brief'
+  | 'standard'
+  | 'deep'
+  | 'extended'
+  | 'epic'
+  | 'mega';
 export type AudienceProfile = 'executive' | 'domain-expert' | 'general-public';
-export type AuditLayers = 'minimal' | 'default' | 'thorough' | 'paranoid';
+export type AuditLayers = 'minimal' | 'default' | 'thorough' | 'thorough+';
 export type ViewMode = 'continuous' | 'chapter' | 'quick';
 
 export interface RunMissionInput {
