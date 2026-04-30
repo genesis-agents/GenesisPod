@@ -185,9 +185,40 @@ export async function runAnalystStage(
     },
   );
   if (!finalUsable) {
-    throw new Error(
-      `Analyst 综合阶段连续 2 次未产出有效结果（${analystFailMsg ?? analystRes.state}）。已采集到 ${researcherResults.length} 个维度的发现，建议查看 Mission 历史定位是哪一步丢失数据。`,
+    // ★ P0-LIVE-NULL-OUTPUT (2026-04-30): mission 8e77271d 实证 — gpt-5.4 reasoning
+    //   model 在 analyst prompt 下两次都返 visible content = null（CoT 吃光
+    //   max_completion_tokens），RUNNER_OUTPUT_SCHEMA_MISMATCH。之前直接 throw
+    //   让 mission 全死，浪费已采集的 6 维 researcher results + reconciler facts。
+    //   改成发空 analystOutput 让下游 writer / reviewer 至少能把已有 facts 渲成
+    //   报告（可能是低质量的，但好过完全失败）。
+    deps.log.warn(
+      `[${missionId}] analyst 两次 schema 校验失败，发空 analystOutput 兜底让 mission 跑完（${analystFailMsg ?? analystRes.state}）`,
     );
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s6-analyst",
+      role: "analyst",
+      tag: "warning",
+      text: `Analyst 综合阶段连续 2 次未产出（LLM 返 null）。发空 insights 兜底，下游 Writer 直接基于 ${researcherResults.length} 维度 raw findings 写报告（质量会打折）。`,
+      agentId: "analyst",
+    });
+    const fallback: AnalystOutputShape = {
+      insights: [],
+      themeSummary: `（analyst 阶段未产出有效综合分析；下游基于 ${researcherResults.length} 个维度的原始研究发现直接撰写报告）`,
+      contradictions: [],
+    };
+    await deps.emit({
+      type: "agent-playground.stage:completed",
+      missionId,
+      userId,
+      payload: {
+        stage: "analyst",
+        insightsCount: 0,
+        degraded: true,
+        reason: analystFailMsg ?? "schema_mismatch",
+      },
+    });
+    ctx.analystOutput = fallback;
+    return fallback;
   }
   const analyst = analystRes.output as AnalystOutputShape;
   await deps.emit({

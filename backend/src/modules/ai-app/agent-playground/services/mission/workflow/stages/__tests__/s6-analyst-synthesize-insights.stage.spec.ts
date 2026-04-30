@@ -140,7 +140,10 @@ describe("runAnalystStage (S6)", () => {
     );
   });
 
-  it("two consecutive null → throws", async () => {
+  it("two consecutive null → falls back to empty analystOutput (mission stays alive)", async () => {
+    // ★ P0-LIVE-NULL-OUTPUT (2026-04-30): 之前两次 null 直接 throw 让 mission
+    //   全死，浪费已采集的 6 维 researcher results。改成发空 analystOutput
+    //   让下游 writer/reviewer 至少能渲出报告（即便质量低）。
     const ctx = makeCtx();
     const deps = makeDeps();
     (deps.analyst.analyze as jest.Mock).mockResolvedValue({
@@ -150,7 +153,10 @@ describe("runAnalystStage (S6)", () => {
       wallTimeMs: 0,
       iterations: 1,
     });
-    await expect(runAnalystStage(ctx, deps)).rejects.toThrow(/连续 2 次/);
+    const result = await runAnalystStage(ctx, deps);
+    expect(result.insights).toHaveLength(0);
+    expect(result.themeSummary).toMatch(/未产出有效综合分析/);
+    expect(ctx.analystOutput).toBe(result);
   });
 
   it("lifecycle called started/completed on success", async () => {

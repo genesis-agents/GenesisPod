@@ -395,7 +395,23 @@ export class AgentInvoker {
           },
         });
       } else if (ev.type === "reflection") {
-        const p = ev.payload as { text?: string; verdict?: string };
+        // ★ P0-LIVE-OBS-VERDICT (2026-04-30): reflexion-loop emit 的 payload 是
+        //   { revision, score, verdicts: [{judgeId, score, critique}] }，之前
+        //   错解构成 {text, verdict} 把所有评分细节扔掉，前端 reflection event
+        //   永远只有 role/agentId/originalTs 三字段，不知道 verifier 给了多少分
+        //   /哪条 critique 拖低评分。透传完整 payload 让 trace 看得到。
+        const p = ev.payload as {
+          revision?: number;
+          score?: number;
+          verdicts?: Array<{
+            judgeId: string;
+            score: number;
+            critique: string;
+          }>;
+          // legacy fallback
+          text?: string;
+          verdict?: string;
+        };
         await this.emitEvent({
           type: "agent-playground.agent:reflection",
           missionId: ctx.missionId,
@@ -404,6 +420,9 @@ export class AgentInvoker {
           payload: {
             agentId: ctx.agentId,
             role: ctx.role,
+            revision: p.revision,
+            score: p.score,
+            verdicts: p.verdicts,
             text: p.text,
             verdict: p.verdict,
             originalTs: ev.timestamp,
