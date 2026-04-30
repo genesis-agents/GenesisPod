@@ -102,8 +102,25 @@ export class AgentPlaygroundController {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     const mission = await this.store.getById(id, userId);
-    if (!mission) throw new ForbiddenException("Mission not found");
-    return { mission };
+    if (mission) return { mission };
+    // ★ R-LIVE-4 (2026-04-30): mission 启动后 5s 内 GET → store.getById null
+    //   (store.create 未跑完) 但 in-memory ownership 已 assign。这里降级返回
+    //   "starting" 占位，避免前端 detail 页面被 403 顶掉；前端轮询会拉到完整
+    //   row 后渲染真实数据。仅 in-memory 已确认 ownership 才允许，否则仍 403。
+    const owner = this.ownership.getOwner(id);
+    if (owner === userId) {
+      this.log.debug(
+        `[getMission ${id}] DB row not yet persisted; returning ownership-confirmed pending placeholder`,
+      );
+      return {
+        mission: {
+          id,
+          status: "starting",
+          startedAt: new Date().toISOString(),
+        },
+      };
+    }
+    throw new ForbiddenException("Mission not found");
   }
 
   /**

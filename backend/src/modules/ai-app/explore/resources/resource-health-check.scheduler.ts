@@ -579,26 +579,23 @@ export class ResourceHealthCheckScheduler
    * 回退策略：HEAD 被拒绝时尝试 GET Range
    */
   private async checkUrl(url: string): Promise<CheckResult> {
-    try {
-      const axios = (await import("axios")).default;
-      const response = await axios.head(url, {
-        timeout: this.HEAD_TIMEOUT_MS,
-        maxRedirects: 5,
-        validateStatus: (status) => status < 400,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          Accept: "*/*",
-        },
-      });
-      return { ok: response.status < 400, reason: `head-${response.status}` };
-    } catch (headErr) {
+    // ★ R-LIVE-2 (2026-04-30): 429 / 503 / 网络超时 是临时故障（rate limit /
+    //   出口 IP 被封），不能让批量爬虫式 health check 把 5 个 resource 集中
+    //   标 BROKEN。HEAD 真错 / 4xx 真错才 → ok=false，transient 一律 fail-open。
+    const TRANSIENT_STATUSES = new Set([408, 429, 502, 503, 504]);
+    const isTransientError = (e: Error): boolean => {
+      const msg = e.message || "";
+      return /timeout|ECONNRESET|ENETUNREACH|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/i.test(
+        msg,
+      );
+    };
+    const tryGetRange = async (): Promise<CheckResult> => {
       try {
         const axios = (await import("axios")).default;
         const r = await axios.get(url, {
           timeout: this.HEAD_TIMEOUT_MS,
           maxRedirects: 5,
-          validateStatus: (status) => status < 400,
+          validateStatus: (status: number) => status < 400,
           headers: {
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -607,9 +604,43 @@ export class ResourceHealthCheckScheduler
         });
         return { ok: true, reason: `get-range-${r.status}` };
       } catch (e) {
-        const msg = (e as Error).message || "unknown";
+        const err = e as Error;
+        if (isTransientError(err)) {
+          return { ok: true, reason: "get-network-transient" };
+        }
+        const msg = err.message || "unknown";
+        const m = msg.match(/status code (\d+)/i);
+        if (m && TRANSIENT_STATUSES.has(parseInt(m[1], 10))) {
+          return { ok: true, reason: `get-${m[1]}-transient` };
+        }
         return { ok: false, reason: `http-error:${msg.slice(0, 50)}` };
       }
+    };
+    try {
+      const axios = (await import("axios")).default;
+      const response = await axios.head(url, {
+        timeout: this.HEAD_TIMEOUT_MS,
+        maxRedirects: 5,
+        validateStatus: (status: number) => status < 400,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          Accept: "*/*",
+        },
+      });
+      return { ok: true, reason: `head-${response.status}` };
+    } catch (headErr) {
+      const err = headErr as Error;
+      const msg = err.message || "";
+      const statusMatch = msg.match(/status code (\d+)/i);
+      const status = statusMatch ? parseInt(statusMatch[1], 10) : null;
+      if (status != null && TRANSIENT_STATUSES.has(status)) {
+        return { ok: true, reason: `head-${status}-transient` };
+      }
+      if (isTransientError(err)) {
+        return { ok: true, reason: "head-network-transient" };
+      }
+      return tryGetRange();
     }
   }
 

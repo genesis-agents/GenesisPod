@@ -258,10 +258,18 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // 记录高延迟调用（超过 10 秒）
-    if (fullEvent.latencyMs > 10000) {
+    // ★ R-LIVE-5/7 (2026-04-30): 区分 chat vs reasoning 双阈值，避免 reasoning
+    //   thinking 时间合理但报告 chat=5s 阈值的噪声告警。reasoning model（gpt-5.4
+    //   等）thinking 1 min 内属正常；超过 30s 才告警；普通 chat 超过 10s 告警。
+    const isReasoning =
+      /^(o1|o3|o4|gpt-5)/i.test(fullEvent.model) ||
+      /reasoning/i.test(fullEvent.modelType ?? "");
+    const latencyThreshold = isReasoning ? 30000 : 10000;
+    if (fullEvent.latencyMs > latencyThreshold) {
       this.logger.warn(
-        `高延迟 LLM 调用: ${fullEvent.latencyMs}ms - ${fullEvent.model} @ ${fullEvent.module}.${fullEvent.operation}`,
+        `高延迟 LLM 调用: ${fullEvent.latencyMs}ms - ${fullEvent.model} ` +
+          `(${isReasoning ? "reasoning" : "chat"}, threshold=${latencyThreshold}ms) ` +
+          `@ ${fullEvent.module}.${fullEvent.operation}`,
       );
     }
   }

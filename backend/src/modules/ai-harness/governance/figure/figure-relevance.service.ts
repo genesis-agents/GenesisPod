@@ -31,8 +31,15 @@ import { AIFacade } from "../../facade";
 /** 信息性图片类型：chart/table/diagram 直接保留，无需 Embedding 判断 */
 const INFORMATIONAL_FIGURE_TYPES = new Set(["chart", "table", "diagram"]);
 
-/** Stage 2 全局相关性阈值：photo caption 与研究主题的 cosine 相似度下限 */
-const STAGE2_COSINE_THRESHOLD = 0.35;
+/**
+ * Stage 2 全局相关性阈值：photo caption 与研究主题的 cosine 相似度下限。
+ *
+ * ★ R-LIVE-3 (2026-04-30): 实证 0.35 对中文政策/法规类 dim 过严（10 张抽样 0
+ *   命中），跨语言（中文 caption vs 英文 topicTitle）downstream cosine 普遍
+ *   0.25-0.32 区间。降到 0.28 作为"safety net"，让边缘相关图通过；后续可走
+ *   分维度阈值（policy/regulation 类放宽到 0.25, tech/product 类保持 0.35）。
+ */
+const STAGE2_COSINE_THRESHOLD = 0.28;
 
 /** photo 有效 caption 最小长度（< 10 字符视为无描述，直接拒绝） */
 const MIN_CAPTION_LENGTH = 10;

@@ -65,7 +65,7 @@ describe("FigureRelevanceService", () => {
       expect(result).toHaveLength(0);
     });
 
-    it("accepts photo when caption embedding similarity >= 0.35", async () => {
+    it("accepts photo when caption embedding similarity >= threshold", async () => {
       // Both embeddings are identical → cosine = 1.0 → accepted
       const embedding = [0.8, 0.2, 0.5];
       const facade = makeEngineFacade(embedding);
@@ -80,7 +80,7 @@ describe("FigureRelevanceService", () => {
       expect(result).toHaveLength(1);
     });
 
-    it("rejects photo when cosine similarity < 0.35", async () => {
+    it("rejects photo when cosine similarity < threshold", async () => {
       // Topic embedding vs completely orthogonal caption embedding
       const facade = {
         embeddingGenerate: jest
