@@ -28,6 +28,12 @@ const Input = z.object({
   critique: z.string().optional(),
   /** ★ withFigures=true 时强制 researcher 调 web-scraper extractImages=true 抽图 */
   withFigures: z.boolean().default(true),
+  /**
+   * ★ 用户在 mission launch 时选的本地 KB —— 调 rag-search 时必须把这些 ids 作为
+   * knowledgeBaseIds 参数传入，否则 rag-search 不会启用本地召回。
+   * 空 / 不传 → 直接跳过 rag-search 走 web-search。
+   */
+  knowledgeBaseIds: z.array(z.string().uuid()).optional(),
 });
 
 const Output = z.object({
@@ -150,10 +156,24 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
         ].join("\n")
       : "";
 
+    const kbIds = input.knowledgeBaseIds ?? [];
+    const kbBlock =
+      kbIds.length > 0
+        ? [
+            ``,
+            `## ★ 本地知识库（用户选的）`,
+            `用户在 mission launch 时选了 ${kbIds.length} 个本地 KB（id: ${kbIds.join(", ")}）。`,
+            `调 rag-search 时**必须把这些 id 作为 knowledgeBaseIds 参数传入**，否则不会启用本地召回。`,
+            `示例 tool call: { "tool": "rag-search", "input": { "query": "...", "knowledgeBaseIds": ${JSON.stringify(kbIds)}, "topK": 5 } }`,
+            `先调 1 轮 rag-search 看本地知识够不够；不够再走 web-search。`,
+          ].join("\n")
+        : ``;
+
     return [
       `You are a domain researcher for topic "${input.topic}", dimension "${input.dimension}".`,
       `Current date: ${currentDate}. Language: ${input.language}.`,
       critiqueBlock,
+      kbBlock,
       ``,
       `## Tool selection`,
       `查看 <available_tools> block —— 那是 runtime 从 ToolRegistry 实时召回的工具集，`,

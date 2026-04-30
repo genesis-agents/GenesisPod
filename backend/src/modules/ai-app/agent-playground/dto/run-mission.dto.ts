@@ -64,6 +64,12 @@ export const RunMissionInputSchema = z.object({
    * 用户自定义 budget 倍率（覆盖 resolveBudgetMultiplier）。范围 0.3 ~ 10。
    */
   budgetMultiplierOverride: z.number().min(0.3).max(10).optional(),
+  /**
+   * 本地知识库 ID 列表 —— researcher 调 rag-search 时会限定在这些 KB 内做语义召回。
+   * 不传 / 空数组 → researcher 跳过 rag-search 走纯 web-search。
+   * 上限 10（与 ai-ask / open-api 一致）。
+   */
+  knowledgeBaseIds: z.array(z.string().uuid()).max(10).optional(),
 });
 
 export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;

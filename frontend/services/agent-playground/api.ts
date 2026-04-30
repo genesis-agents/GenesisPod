@@ -44,6 +44,12 @@ export interface RunMissionInput {
   viewMode?: ViewMode;
   /** @deprecated 直接数字上限；新代码用 budgetProfile */
   maxCredits?: number;
+  /**
+   * 本地知识库 ID 列表（最多 10 个）。
+   * researcher 调 rag-search 时会限定在这些 KB 内做语义召回。
+   * 不传 / 空数组 → researcher 跳过 rag-search 走纯 web-search。
+   */
+  knowledgeBaseIds?: string[];
 }
 
 export interface RunMissionResponse {

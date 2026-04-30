@@ -13,6 +13,7 @@ import {
   type StyleProfile,
 } from '@/services/agent-playground/api';
 import { ChevronDown, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { KnowledgeBaseSelector } from '@/components/common/selectors';
 
 export function DemoLauncher() {
   const { t } = useTranslation();
@@ -68,6 +69,23 @@ export function DemoLauncher() {
   const [auditLayers, setAuditLayers] = useState<AuditLayers>(() =>
     loadPref('auditLayers', 'default' as AuditLayers)
   );
+  // ★ 2026-04-30: 本地知识库选择 — researcher 走 rag-search 时限定召回范围
+  // 持久化策略：localStorage 存上次选择的 ids，进页面自动恢复
+  const [selectedKnowledgeBaseIds, setSelectedKnowledgeBaseIds] = useState<
+    string[]
+  >(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('playground:knowledgeBaseIds');
+      if (!raw) return [];
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((x): x is string => typeof x === 'string')
+        : [];
+    } catch {
+      return [];
+    }
+  });
 
   // 写回 localStorage
   const persist = (key: string, value: string) => {
@@ -147,6 +165,10 @@ export function DemoLauncher() {
         audienceProfile,
         withFigures,
         auditLayers,
+        knowledgeBaseIds:
+          selectedKnowledgeBaseIds.length > 0
+            ? selectedKnowledgeBaseIds
+            : undefined,
         // P98-2: concurrency 由 backend 默认 3
       });
       if (!missionId || missionId === 'undefined') {
@@ -317,6 +339,30 @@ export function DemoLauncher() {
             <option value="paranoid">极致（全开 L0~L4）</option>
           </select>
         </div>
+      </div>
+
+      {/* 本地知识库（可选） */}
+      <div className="rounded-xl border border-gray-200 bg-white p-3">
+        <KnowledgeBaseSelector
+          selectedIds={selectedKnowledgeBaseIds}
+          onSelectionChange={(ids) => {
+            setSelectedKnowledgeBaseIds(ids);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(
+                'playground:knowledgeBaseIds',
+                JSON.stringify(ids)
+              );
+            }
+          }}
+          multiple
+          maxSelections={10}
+          filterType="ALL"
+          onlyReady
+        />
+        <p className="mt-2 text-xs text-gray-500">
+          选了知识库后，研究员先在本地 KB 做语义召回再补 web-search。不选 → 纯
+          web-search。
+        </p>
       </div>
 
       {/* 高级选项 */}

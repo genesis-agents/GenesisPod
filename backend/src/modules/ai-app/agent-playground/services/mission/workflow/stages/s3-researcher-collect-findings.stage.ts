@@ -220,6 +220,7 @@ async function runOneDim(
           dimension: dim.name,
           language: input.language,
           withFigures: input.withFigures,
+          knowledgeBaseIds: input.knowledgeBaseIds,
         },
         {
           missionId,
