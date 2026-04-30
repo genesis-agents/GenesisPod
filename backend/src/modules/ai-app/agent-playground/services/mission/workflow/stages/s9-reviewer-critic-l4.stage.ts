@@ -105,7 +105,11 @@ export async function runCriticStage(
       pool,
       extractTokenSpend(criticRes.events),
     );
-    if (criticRes.state === "completed" && criticRes.output) {
+    // ★ degraded 也算成功——L4 critic 即使 verifier 评分微低也仍输出有效 verdict
+    if (
+      (criticRes.state === "completed" || criticRes.state === "degraded") &&
+      criticRes.output
+    ) {
       // ★ P1-G (2026-04-29): LLM 返回 schema 不全时强制 fallback，避免 .map() 抛 TypeError
       const rawOut = criticRes.output as Record<string, unknown>;
       const validVerdicts = ["pass", "concerns", "fail"] as const;
