@@ -22,6 +22,10 @@ import {
   type AggregatedSearchResult,
 } from "../../../types/data-source.types";
 import type { AdapterSearchResult } from "../search.types";
+// ★ Phase 10 (2026-04-29): TI 已有自己的 normalizeUrl / extractDomain 行为
+// (强升 https / lowercase 整 URL / 保留 www.) — 与沉淀版的"标准化"行为不兼容
+// 沉淀版 (ai-engine/facade search-fusion) 给新业务用, TI 保持原实现避免回归
+// 备注: TI 行为已被 spec 锁定, 切换需配套 spec 调整, 暂不强迁
 
 /** Maximum number of items allowed from the same domain */
 const MAX_ITEMS_PER_DOMAIN = 3;
@@ -361,6 +365,10 @@ export class ResultFusionService {
    * - Strip trailing slash
    * - Strip fragment (#...)
    * - Normalize to https
+   *
+   * ★ Phase 10 (2026-04-29): 已评估接入 ai-engine 沉淀的 normalizeUrl,
+   * 但沉淀版"不强升 https + 不 lowercase 整 URL + 去 www."的标准化行为
+   * 与 TI spec 不兼容, 保留原实现; 沉淀版给新业务复用。
    */
   normalizeUrl(url: string): string {
     try {
@@ -375,7 +383,6 @@ export class ResultFusionService {
       }
       return parsed.toString().toLowerCase();
     } catch {
-      // Not a valid URL — return lowercased original for best-effort dedup
       return url.toLowerCase().replace(/#.*$/, "").replace(/\/$/, "");
     }
   }
@@ -400,7 +407,11 @@ export class ResultFusionService {
     return intersectionCount / unionCount;
   }
 
-  /** Extract hostname from a URL string, falling back to the raw string. */
+  /**
+   * Extract hostname from a URL string, falling back to the raw string.
+   * ★ Phase 10 (2026-04-29): 沉淀版 extractSearchDomain 会去 www. 前缀,
+   * TI spec 期待保留 www. (e.g. www.example.com), 故保留原实现。
+   */
   extractDomain(url: string): string {
     try {
       return new URL(url).hostname.toLowerCase();
