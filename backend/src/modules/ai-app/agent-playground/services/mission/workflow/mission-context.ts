@@ -107,6 +107,13 @@ export interface MissionContext {
    */
   s4PatchRound?: number;
 
+  /**
+   * ★ Phase 6 (2026-04-29): S10 拒签 revision 轮次计数。
+   * Leader 第 1 次拒签 → 触发一次 S8 重写 + S9/S10 重跑（revision 循环）。
+   * 第 2 次仍拒签 → 直接 markFailed，避免无限 revision。
+   */
+  s10RevisionRound?: number;
+
   /** ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace 收集 */
   qualityTraceCtx?: QualityTraceContext;
   /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */

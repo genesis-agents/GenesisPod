@@ -739,6 +739,25 @@ export class TeamMission {
         await runLeaderForewordAndSignoffStage(stageCtx, stageDeps);
         const leaderSignOff = stageCtx.leaderSignOff;
 
+        // ★ Phase 6 (2026-04-29): 拒签 revision 推荐事件 —— 给前端展示"立即修订重跑"按钮
+        // 不在主流程自动重跑（避免无限循环 + mission 资源失控），而是让前端用户决定
+        // 后续可结合 missions/:id/rerun endpoint 自动构造 revision spec
+        if (leaderSignOff && leaderSignOff.signed === false) {
+          await this.invoker
+            .emitEvent({
+              type: "agent-playground.leader:rejected-revision-recommended",
+              missionId,
+              userId,
+              payload: {
+                refusalReason: leaderSignOff.refusalReason,
+                leaderVerdict: leaderSignOff.leaderVerdict,
+                leaderOverallScore: leaderSignOff.leaderOverallScore,
+                hint: "建议: 调整 lengthProfile/auditLayers 后立即 rerun，或参考 refusalReason 修复输入",
+              },
+            })
+            .catch(() => {});
+        }
+
         return {
           missionId,
           report,

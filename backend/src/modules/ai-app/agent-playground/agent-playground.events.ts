@@ -85,4 +85,6 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("event:dropped"), // socket-broadcast 序列化失败标识，前端可显示"事件丢失"警告
   // ── Phase 2 (TI RemediationTrace 模式)：S8B 补救成效汇总 ──
   T("section:remediation:summary"),
+  // ── Phase 6 (2026-04-29): leader 拒签 revision 引导事件 ──
+  T("leader:rejected-revision-recommended"),
 ];

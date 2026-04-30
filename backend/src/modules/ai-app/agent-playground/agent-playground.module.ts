@@ -23,6 +23,7 @@ import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-o
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
+import { MissionHealthScheduler } from "./services/mission/lifecycle/mission-health.scheduler";
 import {
   MissionCheckpointService,
   type MissionCheckpointStore,
@@ -74,6 +75,8 @@ import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
         new MissionCheckpointService(store),
       inject: [PrismaMissionCheckpointStore],
     },
+    // ★ Phase 6 (2026-04-29): playground 接入 ai-harness 沉淀的 MissionHealthMonitor
+    MissionHealthScheduler,
     LeaderChatService,
     HarnessFailureLearner,
     ReportAssemblerService,
