@@ -45,6 +45,12 @@ interface SelfEvolutionInput {
     sections?: unknown[];
   };
   leaderSignOff?: { signed?: boolean };
+  /**
+   * ★ P1-NEW-A (round 2): mission abort signal —— S12 fire-and-forget 时
+   * wallTimer 已被 clear 但 S12 内部仍在跑 LLM/DB；signal 让 S12 在 abort 触发时
+   * 立即停手，防止 BYOK credits 超 wall-time 后被继续消耗。
+   */
+  abortSignal?: AbortSignal;
 }
 
 interface PostmortemSummary {
@@ -73,7 +79,14 @@ export async function runSelfEvolutionStage(
   const { missionId, userId, t0, plan, researcherResults, reportArtifact } =
     args;
 
+  // ★ P1-NEW-A (round 2): abort 检查 helper —— 在每个 await 前后判断
+  const isAborted = () => args.abortSignal?.aborted === true;
+
   try {
+    if (isAborted()) {
+      deps.log.warn(`[${missionId}] S12 skipped: abort signal received`);
+      return;
+    }
     const wallTimeMs = Date.now() - t0;
     const totalTokens = args.pool.snapshot().poolTokensUsed;
     const totalCostUsd = args.pool.snapshot().poolCostUsd;
@@ -151,6 +164,13 @@ export async function runSelfEvolutionStage(
         payload: summary as unknown as Record<string, unknown>,
       })
       .catch(() => {});
+
+    if (isAborted()) {
+      deps.log.warn(
+        `[${missionId}] S12 aborted before failure-learner / postmortem write`,
+      );
+      return;
+    }
 
     // ── 真沉淀 1：FailureLearner 记 mission 级失败结果 ─────────────────
     //   仅在 leader 拒签时记一条粗粒度 failure pattern，让下次同 user 同 topic

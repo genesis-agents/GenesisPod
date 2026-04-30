@@ -103,34 +103,50 @@ export async function runWriterOutlineStage(
       };
       // ★ P1-E (2026-04-29): 真消费 — 写入 ctx.outlinePlan，S8 SingleShotWriter 严格按此 outline 起草
       // ★ P1-F (2026-04-29): outline 节数边界 [1, 20] —— 0 节走无 outline 路径，>20 节截断为前 20 章
+      // ★ P1-NEW-D (round 2): sectionId 去重 + targetWords/factAllocation 修剪到合法集合
       const MAX_OUTLINE_CHAPTERS = 20;
-      const chapters = outlinePlan.chapterOutlines ?? [];
-      if (chapters.length > 0 && chapters.length <= MAX_OUTLINE_CHAPTERS) {
-        ctx.outlinePlan = {
-          chapterOutlines: chapters.map((c) => ({
-            sectionId: c.sectionId,
-            heading: c.heading,
-            subheadings: c.subheadings ?? [],
-            thesis: c.thesis,
-            keyPointsToCover: c.keyPointsToCover,
-          })),
-          targetWordsPerChapter: outlinePlan.targetWordsPerChapter ?? {},
-          factAllocation: outlinePlan.factAllocation ?? {},
-        };
-      } else if (chapters.length > MAX_OUTLINE_CHAPTERS) {
+      const rawChapters = outlinePlan.chapterOutlines ?? [];
+      // 1) sectionId 去重：保留首个出现的（防御 LLM 重复 id）
+      const seenIds = new Set<string>();
+      const chapters = rawChapters.filter((c) => {
+        if (seenIds.has(c.sectionId)) return false;
+        seenIds.add(c.sectionId);
+        return true;
+      });
+      if (chapters.length !== rawChapters.length) {
         deps.log.warn(
-          `[${missionId}] outline-planner returned ${chapters.length} chapters > ${MAX_OUTLINE_CHAPTERS} cap, truncating to ${MAX_OUTLINE_CHAPTERS}`,
+          `[${missionId}] outline-planner returned ${rawChapters.length - chapters.length} duplicate sectionId, deduplicated`,
         );
+      }
+      // 2) 截断到上限
+      const finalChapters = chapters.slice(0, MAX_OUTLINE_CHAPTERS);
+      if (chapters.length > MAX_OUTLINE_CHAPTERS) {
+        deps.log.warn(
+          `[${missionId}] outline-planner returned ${chapters.length} chapters > ${MAX_OUTLINE_CHAPTERS} cap, truncating`,
+        );
+      }
+      // 3) 修剪 targetWords / factAllocation 只保留有效 sectionId 的 key
+      const validIds = new Set(finalChapters.map((c) => c.sectionId));
+      const trimRecord = <T>(
+        rec: Record<string, T> | undefined,
+      ): Record<string, T> => {
+        const out: Record<string, T> = {};
+        for (const [k, v] of Object.entries(rec ?? {})) {
+          if (validIds.has(k)) out[k] = v;
+        }
+        return out;
+      };
+      if (finalChapters.length > 0) {
         ctx.outlinePlan = {
-          chapterOutlines: chapters.slice(0, MAX_OUTLINE_CHAPTERS).map((c) => ({
+          chapterOutlines: finalChapters.map((c) => ({
             sectionId: c.sectionId,
             heading: c.heading,
             subheadings: c.subheadings ?? [],
             thesis: c.thesis,
             keyPointsToCover: c.keyPointsToCover,
           })),
-          targetWordsPerChapter: outlinePlan.targetWordsPerChapter ?? {},
-          factAllocation: outlinePlan.factAllocation ?? {},
+          targetWordsPerChapter: trimRecord(outlinePlan.targetWordsPerChapter),
+          factAllocation: trimRecord(outlinePlan.factAllocation),
         };
       }
       await deps.emit({

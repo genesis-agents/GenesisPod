@@ -22,6 +22,8 @@ import type { MissionDeps } from "../mission-deps";
 
 interface PersistInput {
   missionId: string;
+  /** ★ P1-NEW-H (round 2): userId 必传 —— persist-failed 事件不能空 userId 路由 */
+  userId: string;
   t0: number;
   result: {
     report?: unknown;
@@ -50,7 +52,7 @@ export async function runPersistStage(
   args: PersistInput,
   deps: MissionDeps,
 ): Promise<void> {
-  const { missionId, t0, result, pool } = args;
+  const { missionId, userId, t0, result, pool } = args;
   const snap = pool.snapshot();
   // P0-5: 优先存 ReportArtifact v2，fallback 旧 ResearchReport v1
   const v2Title = result.reportArtifact?.metadata?.topic;
@@ -120,7 +122,7 @@ export async function runPersistStage(
       .emit({
         type: "agent-playground.mission:persist-failed",
         missionId,
-        userId: "", // 此 stage 不带 userId，由 emit 内部 best-effort 路由
+        userId,
         payload: { message, wallTimeMs: Date.now() - t0 },
       })
       .catch(() => {});

@@ -66,13 +66,23 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
         error: err instanceof Error ? err.message : "auth failed",
       };
     }
-    // ★ P1-O (2026-04-29): ownership cache miss 时 fallback 到 DB（与 controller assertOwnership 一致），
-    //   防止 LRU evict / pod recycle 后历史 mission 无法订阅
+    // ★ P1-O (2026-04-29): ownership cache miss 时 fallback 到 DB
+    // ★ P1-NEW-G (round 2): DB 异常区分对待 —— 故障 vs 真不存在
     let owner = this.ownership.getOwner(payload.missionId);
     if (!owner) {
-      const persisted = await this.store
-        .getById(payload.missionId, userId)
-        .catch(() => null);
+      let persisted: { id: string } | null = null;
+      let dbErrored = false;
+      try {
+        persisted = await this.store.getById(payload.missionId, userId);
+      } catch (err) {
+        dbErrored = true;
+        this.log.warn(
+          `gateway DB fallback failed for mission=${payload.missionId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      if (dbErrored) {
+        return { ok: false, error: "service temporarily unavailable" };
+      }
       if (!persisted) return { ok: false, error: "mission not found" };
       // DB 命中 → 重新登记 in-memory（hot path）
       this.ownership.assign(payload.missionId, userId);

@@ -37,12 +37,13 @@ const Input = z.object({
     citationCount: z.number(),
     factCount: z.number(),
     figureCount: z.number(),
-    overallQuality: z.number(),
-    qualityDimensions: z.record(z.string(), z.number()),
+    // ★ P2-NEW-1 (round 2): 与其他 reviewer score 字段保持一致 [0, 100]
+    overallQuality: z.number().min(0).max(100),
+    qualityDimensions: z.record(z.string(), z.number().min(0).max(100)),
   }),
   upstreamReviewerVerdict: z
     .object({
-      score: z.number(),
+      score: z.number().min(0).max(100),
       critique: z.string().optional(),
     })
     .optional(),

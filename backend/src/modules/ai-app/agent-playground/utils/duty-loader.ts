@@ -142,12 +142,20 @@ function expandIf(input: string, vars: Record<string, unknown>): string {
   let prev = "";
   let cur = input;
   // 多次 pass 处理嵌套（最多 8 层防死循环）
-  for (let i = 0; i < 8 && prev !== cur; i++) {
+  let i = 0;
+  for (; i < 8 && prev !== cur; i++) {
     prev = cur;
     cur = cur.replace(re, (_m, key: string, body: string) => {
       const v = getNested(vars, key);
       return isTruthy(v) ? body : "";
     });
+  }
+  // ★ P2-NEW-3 (round 2): 达到 8 层上限但仍未稳定 → 模板可能有问题，留 telemetry
+  if (i >= 8 && prev !== cur) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[duty-loader] expandIf hit 8-pass cap, may have unresolved nesting`,
+    );
   }
   return cur;
 }
@@ -157,7 +165,8 @@ function expandEach(input: string, vars: Record<string, unknown>): string {
   const re = /\{\{#each\s+([\w.]+)\s*\}\}([\s\S]*?)\{\{\/each\}\}/g;
   let prev = "";
   let cur = input;
-  for (let i = 0; i < 8 && prev !== cur; i++) {
+  let _i = 0;
+  for (; _i < 8 && prev !== cur; _i++) {
     prev = cur;
     cur = cur.replace(re, (_m, key: string, body: string) => {
       const arr = getNested(vars, key);
@@ -179,6 +188,13 @@ function expandEach(input: string, vars: Record<string, unknown>): string {
         })
         .join("");
     });
+  }
+  // ★ P2-NEW-3 (round 2): 同 expandIf — 达到 8 层上限留 telemetry
+  if (_i >= 8 && prev !== cur) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[duty-loader] expandEach hit 8-pass cap, may have unresolved nesting`,
+    );
   }
   return cur;
 }

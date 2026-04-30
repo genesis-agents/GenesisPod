@@ -41,6 +41,7 @@ import type { ResearchReport } from "../../../../dto/run-mission.dto";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { extractFailureMessage } from "../helpers/failure-extraction.util";
 import { narrate } from "../helpers/narrative.util";
+import { clampScore, scaleScore } from "../helpers/quality-score.util";
 
 const MAX_WRITER_ATTEMPTS = 2;
 
@@ -557,11 +558,10 @@ export async function runWriterStage(
     ).length;
     if (unresolved > 0) {
       const drop = Math.min(0.5, unresolved * 0.15);
-      reportArtifact.quality.dimensions.factualConsistency = Math.max(
-        0,
-        Math.round(
-          reportArtifact.quality.dimensions.factualConsistency * (1 - drop),
-        ),
+      // ★ P1-NEW-C (round 2): 用 scaleScore 统一 0-100 + NaN clamp
+      reportArtifact.quality.dimensions.factualConsistency = scaleScore(
+        reportArtifact.quality.dimensions.factualConsistency,
+        1 - drop,
       );
       reportArtifact.quality.warnings.push({
         dimension: "factualConsistency",
@@ -572,9 +572,9 @@ export async function runWriterStage(
       (reconciliationReport as { gaps?: { severity: string }[] }).gaps ?? [];
     const criticalGaps = gaps.filter((g) => g.severity === "critical").length;
     if (criticalGaps > 0) {
-      reportArtifact.quality.dimensions.coverage = Math.max(
-        0,
-        Math.round(reportArtifact.quality.dimensions.coverage * 0.8),
+      reportArtifact.quality.dimensions.coverage = scaleScore(
+        reportArtifact.quality.dimensions.coverage,
+        0.8,
       );
       reportArtifact.quality.warnings.push({
         dimension: "coverage",
@@ -599,9 +599,9 @@ export async function runWriterStage(
       (r) => r.findings.length === 0,
     ).length;
     if (totalDims > 0 && degradedDims / totalDims > 0.3) {
-      reportArtifact.quality.dimensions.coverage = Math.max(
-        0,
-        Math.round(reportArtifact.quality.dimensions.coverage * 0.6),
+      reportArtifact.quality.dimensions.coverage = scaleScore(
+        reportArtifact.quality.dimensions.coverage,
+        0.6,
       );
       reportArtifact.quality.warnings.push({
         dimension: "coverage",
@@ -610,9 +610,10 @@ export async function runWriterStage(
     }
   }
   if (reportArtifact && reviewScore > 0) {
-    const reviewerSignal = Math.max(0, Math.min(100, reviewScore));
+    const reviewerSignal = clampScore(reviewScore);
+    // ★ P1-NEW-C (round 2): blend 内部最终用 clampScore 兜底，防止累积 NaN/越界
     const blend = (cur: number, signal: number, w = 0.4): number =>
-      Math.round(cur * (1 - w) + signal * w);
+      clampScore(cur * (1 - w) + signal * w);
     reportArtifact.quality.dimensions.traceability = blend(
       reportArtifact.quality.dimensions.traceability,
       reviewerSignal,
@@ -628,7 +629,7 @@ export async function runWriterStage(
       0.5,
     );
     const dims = reportArtifact.quality.dimensions;
-    reportArtifact.quality.overall = Math.round(
+    reportArtifact.quality.overall = clampScore(
       Object.values(dims).reduce((a, b) => a + b, 0) / Object.keys(dims).length,
     );
     reportArtifact.quality.qualityTrace.push({

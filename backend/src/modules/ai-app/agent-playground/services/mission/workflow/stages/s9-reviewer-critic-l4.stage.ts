@@ -21,6 +21,7 @@ import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { narrate } from "../helpers/narrative.util";
+import { scaleScore } from "../helpers/quality-score.util";
 
 export async function runCriticStage(
   ctx: MissionContext,
@@ -197,36 +198,35 @@ export async function runCriticStage(
         timestamp: Date.now(),
       });
       // fail verdict → 降低 overall + novelty + factualConsistency
+      // ★ P1-NEW-C (round 2): 用 scaleScore 统一 0-100 + NaN clamp
       if (criticOut.overallVerdict === "fail") {
         reportArtifact.quality.hardGateViolations.push({
           dimension: "l4-critic",
           severity: "warning",
           message: `L4 critic 给出 fail 判定（${criticOut.rationale.slice(0, 100)}）`,
         });
-        reportArtifact.quality.overall = Math.max(
-          0,
-          Math.round(reportArtifact.quality.overall * 0.7),
+        reportArtifact.quality.overall = scaleScore(
+          reportArtifact.quality.overall,
+          0.7,
         );
-        reportArtifact.quality.dimensions.novelty = Math.max(
-          0,
-          Math.round(reportArtifact.quality.dimensions.novelty * 0.6),
+        reportArtifact.quality.dimensions.novelty = scaleScore(
+          reportArtifact.quality.dimensions.novelty,
+          0.6,
         );
         if (criticOut.biasFlags.length > 0) {
-          reportArtifact.quality.dimensions.styleConformance = Math.max(
-            0,
-            Math.round(
-              reportArtifact.quality.dimensions.styleConformance * 0.7,
-            ),
+          reportArtifact.quality.dimensions.styleConformance = scaleScore(
+            reportArtifact.quality.dimensions.styleConformance,
+            0.7,
           );
         }
       } else if (criticOut.overallVerdict === "concerns") {
-        reportArtifact.quality.overall = Math.max(
-          0,
-          Math.round(reportArtifact.quality.overall * 0.9),
+        reportArtifact.quality.overall = scaleScore(
+          reportArtifact.quality.overall,
+          0.9,
         );
-        reportArtifact.quality.dimensions.novelty = Math.max(
-          0,
-          Math.round(reportArtifact.quality.dimensions.novelty * 0.85),
+        reportArtifact.quality.dimensions.novelty = scaleScore(
+          reportArtifact.quality.dimensions.novelty,
+          0.85,
         );
       }
     }

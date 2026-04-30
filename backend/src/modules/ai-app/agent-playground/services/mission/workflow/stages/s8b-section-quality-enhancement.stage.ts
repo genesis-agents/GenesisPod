@@ -200,43 +200,57 @@ export async function runSectionQualityEnhancementStage(
 }
 
 /**
- * ★ P1-N (2026-04-29): 补救后 fullMarkdown 已变更，按 section.title 在新 markdown 中
- * 重新定位 startOffset/endOffset。匹配规则：sections 按原顺序在 markdown 内查找
- * `^#+\s*<title>\s*$` 标题行，下一个 section 标题作为 endOffset 边界。
+ * ★ P1-N (2026-04-29): 补救后 fullMarkdown 变更，重新定位 section offset。
+ *
+ * ★ P0-NEW-2/3 (round 2 修补)：与 ReportAssemblerService.buildSectionTree 严格对齐
+ * 用行级扫描而非正则——只承认 `## ` 二级标题（不含 `### ` 三级），避免补救文本中的
+ * 子标题 / 一级标题被误判。title 比较用 trim 严格相等，不放进 regex 避免元字符。
+ *
+ * 找不到 title 时：把 startOffset/endOffset 标 -1，下游消费方按 >=0 校验后再 slice，
+ * 避免保留陈旧 offset 让 S9B 切到错位文本。
  */
 function rebuildSectionOffsets(
   sections: { title: string; startOffset: number; endOffset: number }[],
   fullMarkdown: string,
 ): void {
-  let cursor = 0;
-  const headingRegex = /^#+\s+(.+?)\s*$/gm;
-  const matches: { title: string; index: number; endOfHeading: number }[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = headingRegex.exec(fullMarkdown)) !== null) {
-    matches.push({
-      title: m[1].trim(),
-      index: m.index,
-      endOfHeading: m.index + m[0].length,
-    });
+  // 行级扫描收集所有 `## ` 二级标题（与 buildSectionTree 同规则）
+  const headings: { title: string; startOffset: number }[] = [];
+  let charOffset = 0;
+  for (const line of fullMarkdown.split("\n")) {
+    if (line.startsWith("## ") && !line.startsWith("### ")) {
+      headings.push({
+        title: line.slice(3).trim(),
+        startOffset: charOffset,
+      });
+    }
+    charOffset += line.length + 1; // +1 for the "\n"
   }
+  // 按原 section 顺序消费 headings —— 同名标题用首个未消费项匹配
+  let headingIdx = 0;
   for (let i = 0; i < sections.length; i++) {
     const sec = sections[i];
-    // 从 cursor 起找第一个 title 匹配项
-    const found = matches.find(
-      (mm) => mm.index >= cursor && mm.title === sec.title.trim(),
+    const wantTitle = sec.title.trim();
+    const matchIdx = headings.findIndex(
+      (h, idx) => idx >= headingIdx && h.title === wantTitle,
     );
-    if (!found) continue;
-    sec.startOffset = found.index;
-    // endOffset = 下一个 section 的标题位置；最后一节到文末
-    const nextSec = sections[i + 1];
-    if (nextSec) {
-      const nextFound = matches.find(
-        (mm) => mm.index > found.index && mm.title === nextSec.title.trim(),
-      );
-      sec.endOffset = nextFound ? nextFound.index : fullMarkdown.length;
-    } else {
-      sec.endOffset = fullMarkdown.length;
+    if (matchIdx < 0) {
+      // 标题在补救后被改写或丢失 —— 显式标无效，下游必须校验 >=0
+      sec.startOffset = -1;
+      sec.endOffset = -1;
+      continue;
     }
-    cursor = found.endOfHeading;
+    sec.startOffset = headings[matchIdx].startOffset;
+    // endOffset = 下一个原 section 对应的 heading 起点；若到末尾则文末
+    const nextSec = sections[i + 1];
+    let endOff = fullMarkdown.length;
+    if (nextSec) {
+      const nextWant = nextSec.title.trim();
+      const nextIdx = headings.findIndex(
+        (h, idx) => idx > matchIdx && h.title === nextWant,
+      );
+      if (nextIdx >= 0) endOff = headings[nextIdx].startOffset;
+    }
+    sec.endOffset = endOff;
+    headingIdx = matchIdx + 1;
   }
 }

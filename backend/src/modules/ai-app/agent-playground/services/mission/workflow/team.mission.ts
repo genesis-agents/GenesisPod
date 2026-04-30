@@ -342,12 +342,16 @@ export class TeamMission {
             );
             // ── Stage 99: 持久化（已抽到 stages/s11-mission-persist.stage.ts）──
             await runPersistStage(
-              { missionId, t0, result, pool },
+              { missionId, userId, t0, result, pool },
               this.buildStageDeps(),
             );
             // ── Stage 100: S12 self-evolution（best-effort，不阻塞返回）──
             //   异步执行，让用户立即拿到 result；evolved 事件后续 emit 给前端
-            void runSelfEvolutionStage(
+            //   ★ P1-NEW-A (round 2): 把 abortSignal 传进 S12，让 wallTimer 触发 / 用户取消
+            //   时 S12 能立即停手，防止超 wall-time 后继续烧 BYOK credits。
+            //   wallTimer / abortRegistry 也推迟到 S12 完成后再清理，确保 signal 在
+            //   S12 整个生命周期内都可用。
+            const s12Promise = runSelfEvolutionStage(
               {
                 missionId,
                 userId,
@@ -365,11 +369,14 @@ export class TeamMission {
                   | { quality?: { overall?: number }; sections?: unknown[] }
                   | undefined,
                 leaderSignOff: result.leaderSignOff,
+                abortSignal: missionAbort.signal,
               },
               this.buildStageDeps(),
             ).catch(() => {});
-            clearTimeout(wallTimer);
-            this.abortRegistry.unregister(missionId);
+            void s12Promise.finally(() => {
+              clearTimeout(wallTimer);
+              this.abortRegistry.unregister(missionId);
+            });
             return result;
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);

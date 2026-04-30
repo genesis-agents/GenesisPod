@@ -81,6 +81,9 @@ export async function narrate(
       text: ev.text,
       dimension: ev.dimension,
       chapterIndex: ev.chapterIndex,
+      // ★ P1-NEW-F (round 2): payload 内补 agentId —— 前端订阅者按 payload.agentId
+      // 取读才能正确关联到具体 agent 行（顶层 agentId 不一定被前端解析）
+      agentId: ev.agentId,
     },
   }).catch(() => {
     /* narrative best-effort */

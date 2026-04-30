@@ -75,4 +75,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("iteration:progress"), // 每轮 ReAct 进度（iter / maxIter / approachingLimit），UI 死循环可视化
   T("dimension:retry-phase:started"), // Leader patch retry 阶段启动里程碑（前 case 卡 44min 中间 0 milestone）
   T("dimension:retry-phase:completed"), // Leader patch retry 阶段完成里程碑（含 wallTimeMs / 各 dim 成败）
+  // ── 第二轮深度排查补漏（2026-04-29 round 2）：P0-NEW-1 ──
+  T("reconciliation:skipped"), // S5 单维度短路（无需跨维对账）
+  T("reconciliation:warnings-orphaned"), // S8 reportAssembler 失败但 reconciler warning 仍要 emit
+  T("mission:persist-failed"), // S11 DB 写入失败 —— 关键，不能被 drop 否则前端永远卡 running
 ];

@@ -60,20 +60,53 @@ const Input = z.object({
     .optional(),
 });
 
-const Output = z.object({
-  chapterOutlines: z.array(
-    z.object({
-      sectionId: z.string(),
-      heading: z.string(),
-      subheadings: z.array(z.string()).default([]),
-      thesis: z.string().min(10),
-      keyPointsToCover: z.array(z.string()).min(1),
-    }),
-  ),
-  targetWordsPerChapter: z.record(z.string(), z.number()),
-  factAllocation: z.record(z.string(), z.array(z.string())).default({}),
-  figurePlan: z.record(z.string(), z.array(z.string())).default({}),
-});
+const Output = z
+  .object({
+    chapterOutlines: z.array(
+      z.object({
+        sectionId: z.string(),
+        heading: z.string(),
+        subheadings: z.array(z.string()).default([]),
+        thesis: z.string().min(10),
+        keyPointsToCover: z.array(z.string()).min(1),
+      }),
+    ),
+    targetWordsPerChapter: z.record(z.string(), z.number()),
+    factAllocation: z.record(z.string(), z.array(z.string())).default({}),
+    figurePlan: z.record(z.string(), z.array(z.string())).default({}),
+  })
+  // ★ P1-NEW-D (round 2): sectionId 唯一性 + key 集合一致性早期信号；
+  // 若 LLM 返回违规，agent 会进入 RUNNER_OUTPUT_SCHEMA_MISMATCH 触发自愈重试。
+  .superRefine((data, ctx) => {
+    const ids = data.chapterOutlines.map((c) => c.sectionId);
+    const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+    if (dup) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `chapterOutlines.sectionId 重复: ${dup}`,
+        path: ["chapterOutlines"],
+      });
+    }
+    const idSet = new Set(ids);
+    for (const k of Object.keys(data.targetWordsPerChapter)) {
+      if (!idSet.has(k)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `targetWordsPerChapter key "${k}" 未出现在 chapterOutlines.sectionId`,
+          path: ["targetWordsPerChapter"],
+        });
+      }
+    }
+    for (const k of Object.keys(data.factAllocation)) {
+      if (!idSet.has(k)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `factAllocation key "${k}" 未出现在 chapterOutlines.sectionId`,
+          path: ["factAllocation"],
+        });
+      }
+    }
+  });
 
 @DefineAgent({
   id: "playground.writer.outline-planner",
