@@ -516,6 +516,10 @@ export class TeamMission {
         throw new Error(`Mission aborted: ${reasonStr}`);
       }
     };
+    // ★ P0-LIVE-PATCH-SILENT (2026-04-30): mission-level shared state，跨 stage 共享。
+    //   buildStageCtx 每次 new 新 ctx，要把这个对象 reference 注入让 stage 之间能读写。
+    const sharedState: { s4PatchFailures?: MissionContext["s4PatchFailures"] } =
+      {};
     {
       {
         // ── Stage 0: 预算预估 + mission:started（已抽到 stages/s1-mission-estimate-budget.stage.ts）──
@@ -599,21 +603,25 @@ export class TeamMission {
         );
 
         // ── Stage S4: Leader assesses research（已抽到 stages/s4-leader-assess-research.stage.ts）──
-        await runLeaderAssessResearchStage(
-          this.buildStageCtx({
-            missionId,
-            userId,
-            input,
-            t0,
-            billing,
-            pool,
-            leader,
-            budgetMultiplier,
-            plan,
-            researcherResults,
-          }),
-          this.buildStageDeps(),
-        );
+        const s4Ctx = this.buildStageCtx({
+          missionId,
+          userId,
+          input,
+          t0,
+          billing,
+          pool,
+          leader,
+          budgetMultiplier,
+          plan,
+          researcherResults,
+          sharedState,
+        });
+        await runLeaderAssessResearchStage(s4Ctx, this.buildStageDeps());
+        // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 写到本 ctx 的 s4PatchFailures
+        //   要回写到 mission-level sharedState，让下游 S10 读到
+        if (s4Ctx.s4PatchFailures && s4Ctx.s4PatchFailures.length > 0) {
+          sharedState.s4PatchFailures = s4Ctx.s4PatchFailures;
+        }
 
         // ── Stage B' (3.5): Reconciler 对账（已抽到 stages/s5-reconciler-cross-dim-fact-check.stage.ts）──
         const reconCtx = this.buildStageCtx({
@@ -801,6 +809,9 @@ export class TeamMission {
           report,
           reviewScore,
           verifierVerdicts,
+          // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S10 必须看到 S4 patch 失败列表，
+          //   patchFailures.length > 0 时强制 signed=false
+          sharedState,
         });
         const stageDeps = this.buildStageDeps();
         await runLeaderForewordAndSignoffStage(stageCtx, stageDeps);
@@ -872,6 +883,14 @@ export class TeamMission {
     report?: MissionContext["report"];
     reviewScore?: number;
     verifierVerdicts?: unknown[];
+    /**
+     * ★ P0-LIVE-PATCH-SILENT (2026-04-30): mission-level shared state 透传。
+     * 之前 buildStageCtx 每次创建新 ctx, 跨 stage state（如 S4 patch 失败列表）
+     * 全丢。新增 sharedState 让上游 stage 写、下游 stage 读。
+     */
+    sharedState?: {
+      s4PatchFailures?: MissionContext["s4PatchFailures"];
+    };
   }): MissionContext {
     return {
       missionId: args.missionId,
@@ -889,6 +908,7 @@ export class TeamMission {
       report: args.report,
       reviewScore: args.reviewScore,
       verifierVerdicts: args.verifierVerdicts,
+      s4PatchFailures: args.sharedState?.s4PatchFailures,
     };
   }
 

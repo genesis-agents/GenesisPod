@@ -107,6 +107,26 @@ export interface MissionContext {
    */
   s4PatchRound?: number;
 
+  /**
+   * ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 dispatch 失败的 retry job 真因记录。
+   *
+   * 之前 dispatchAssessActions 内 DAGExecutor catch 静默 swallow，patch 失败
+   * 完全不上报 → mission 主流程不知道 Leader 觉得"必须 patch"的 dim 实际没补到，
+   * 继续走 S5/S6/S7/S8 → 用残缺/陈旧 findings 起草报告 → S10 Leader 仍可能签字
+   * 因为不知道这些 patch 失败了。
+   *
+   * 现在显式落到 ctx：S4 失败一次 push 一条；下游 S10 leader signoff 必须读这个
+   * 字段，patchFailures.length > 0 时强制 mission 至少 quality-degraded。
+   */
+  s4PatchFailures?: {
+    dimensionId: string;
+    dimensionName: string;
+    retryLabel: string;
+    reason: string;
+    error: string;
+    occurredAt: number;
+  }[];
+
   // ★ P1-R5-I (2026-04-30): s10RevisionRound 之前是死字段 — 注释承诺"第 2 次拒签
   //   markFailed 避免无限 revision"未实现。当下 S10 路径 leader signoff 失败直接发
   //   mission:failed，没有 revision 循环；字段无消费方。删除直至真正实现。

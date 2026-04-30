@@ -171,6 +171,34 @@ export async function runLeaderForewordAndSignoffStage(
         },
         dimensionStates,
       );
+      // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 patch 失败硬约束。
+      //   Leader 在 S4 已自己说"必须 patch"该 dim，patch 又失败 = mission 产出
+      //   不达 Leader 自定的硬性 success criteria。强制 signed=false 避免静默
+      //   通过；overall 至少 -10 标 degraded；accountabilityNote 注明真因，让
+      //   下游 markFailed (quality-failed) 路径生效，DB 状态与现实一致。
+      const patchFailures = ctx.s4PatchFailures ?? [];
+      if (patchFailures.length > 0 && leaderSignOff.signed) {
+        const failedDimNames = patchFailures
+          .map((f) => f.dimensionName)
+          .join("、");
+        leaderSignOff.signed = false;
+        leaderSignOff.leaderVerdict = "failed";
+        leaderSignOff.leaderOverallScore = Math.max(
+          0,
+          (leaderSignOff.leaderOverallScore ?? 60) - 10,
+        );
+        leaderSignOff.accountabilityNote =
+          `${leaderSignOff.accountabilityNote ?? ""}\n\n` +
+          `[S4-Patch-Failed-Hard-Block] Leader 在 S4 评审阶段判定以下维度需 patch：` +
+          `${failedDimNames}（共 ${patchFailures.length} 个 dim）。所有 patch 重派均失败` +
+          `（${patchFailures.map((f) => `${f.dimensionName}: ${f.error.slice(0, 80)}`).join("; ")}）。` +
+          `按 Leader 自定 successCriteria，本 mission 未达硬性要求，强制拒签；` +
+          `用户可在前端选 重跑 / 接受退化产物 / 修改 lengthProfile 后重启。`.trim();
+        deps.log.warn(
+          `[${ctx.missionId}] S10 强制拒签：S4 patch 失败 ${patchFailures.length} 个 dim，` +
+            `Leader 自定 success criteria 不达 → signed=false`,
+        );
+      }
       ctx.leaderSignOff = leaderSignOff;
       await deps
         .emit({

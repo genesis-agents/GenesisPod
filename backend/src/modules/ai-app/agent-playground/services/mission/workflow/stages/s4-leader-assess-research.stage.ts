@@ -361,6 +361,9 @@ async function dispatchAssessActions(args: {
     const results: (Awaited<
       ReturnType<typeof runResearcherWithCritique>
     > | null)[] = new Array(retryJobs.length).fill(null);
+    // ★ P0-LIVE-MISSION-DONE-LEFTOVER (2026-04-30): 记录每个 retry job 的失败
+    //   原因，让后续 emit dimension:retry-failed 携带 reason 给 ledger 收尾。
+    const errors: (string | null)[] = new Array(retryJobs.length).fill(null);
     let dispatched = false;
     const adapter: DAGAdapter<RetryDAGTask> = {
       fetchExecutable: async () =>
@@ -378,9 +381,12 @@ async function dispatchAssessActions(args: {
           const slot = retryJobs.findIndex((j) => j.idx === task.idx);
           if (slot >= 0) results[slot] = out;
         } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
           deps.log.warn(
-            `[${missionId}] retry DAG task ${task.id} threw: ${err instanceof Error ? err.message : String(err)}`,
+            `[${missionId}] retry DAG task ${task.id} threw: ${msg}`,
           );
+          const slot = retryJobs.findIndex((j) => j.idx === task.idx);
+          if (slot >= 0) errors[slot] = msg.slice(0, 300);
         }
       },
       countPending: async () => 0, // 一次性调度后无 pending
@@ -407,7 +413,64 @@ async function dispatchAssessActions(args: {
         retried++;
       } else {
         skipped++;
+        const errMsg = errors[i] ?? "retry produced no output (silent skip)";
+        // ★ P0-LIVE-PATCH-SILENT (2026-04-30): retry 失败必须三处可见
+        //   (1) emit dimension:retry-failed — 让 ledger 闭环 retry todo 状态
+        //   (2) push 到 ctx.s4PatchFailures — 让 S10 leader signoff 看到这是
+        //       Leader 自己说"必须 patch"但 patch 失败的硬伤，强制至少 quality-degraded
+        //   (3) researcherResults[idx].summary 注 [degraded]，writer 至少能看到
+        await deps
+          .emit({
+            type: "agent-playground.dimension:retry-failed",
+            missionId,
+            userId,
+            agentId: `researcher#${job.idx}`,
+            payload: {
+              dimension: job.dim.name,
+              reason: job.reason,
+              error: errMsg,
+              retryLabel: job.retryLabel,
+            },
+          })
+          .catch(() => {});
+        ctx.s4PatchFailures = ctx.s4PatchFailures ?? [];
+        ctx.s4PatchFailures.push({
+          dimensionId: job.dim.id,
+          dimensionName: job.dim.name,
+          retryLabel: job.retryLabel,
+          reason: job.reason,
+          error: errMsg,
+          occurredAt: Date.now(),
+        });
+        const existing = researcherResults[job.idx];
+        if (existing) {
+          researcherResults[job.idx] = {
+            ...existing,
+            summary:
+              `${existing.summary ?? ""}\n\n[degraded] Leader 重派失败 (${errMsg})；本维度沿用首轮 findings`.trim(),
+          };
+        }
       }
+    }
+    // ★ retry 阶段后做一次 mission-level 显式 emit, 让前端 / Leader signoff 看到
+    if (skipped > 0) {
+      await deps
+        .emit({
+          type: "agent-playground.mission:degraded",
+          missionId,
+          userId,
+          payload: {
+            reason: "s4-patch-failed",
+            patchFailures: ctx.s4PatchFailures ?? [],
+            failedCount: skipped,
+            retriedCount: retried,
+          },
+        })
+        .catch(() => {});
+      deps.log.warn(
+        `[${missionId}] S4 patch dispatch 失败 ${skipped}/${retryJobs.length}，` +
+          `mission 进入 degraded 模式（Leader signoff 阶段会读 ctx.s4PatchFailures）`,
+      );
     }
     // retry phase 完成里程碑（含每 dim 是否成功 + 总耗时）
     await deps

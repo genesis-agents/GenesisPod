@@ -887,6 +887,46 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           'warn'
         );
       }
+    } else if (t === 'agent-playground.dimension:retry-failed') {
+      // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 retry 失败显式收尾对应 retry todo。
+      //   找最近的 leader-assess-* origin todo 匹配 dimensionRef，标 failed。
+      const dim = p.dimension as string | undefined;
+      const error = p.error as string | undefined;
+      if (dim) {
+        const target = order
+          .map((id) => todos.get(id)!)
+          .reverse()
+          .find(
+            (td) =>
+              td.scope === 'dimension' &&
+              td.dimensionRef === dim &&
+              (td.origin === 'leader-assess-retry' ||
+                td.origin === 'leader-assess-replace' ||
+                td.origin === 'leader-assess-extend') &&
+              td.status !== 'cancelled' &&
+              td.status !== 'done'
+          );
+        if (target) {
+          target.status = 'failed';
+          target.endedAt = ev.timestamp;
+          target.narrativeLog.push({
+            ts: ev.timestamp,
+            text: `Leader 重派失败：${error ?? '无具体错误'}（本维度沿用首轮 findings）`,
+            tone: 'error',
+          });
+        }
+      }
+    } else if (t === 'agent-playground.mission:degraded') {
+      // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 patch 失败导致 mission degraded。
+      //   附在 s11-persist 的 narrative 上，让用户看到 mission 完成但是有缺陷。
+      const reason = (p.reason as string) ?? 'unknown';
+      const failedCount = (p.failedCount as number) ?? 0;
+      addNarrative(
+        'system:s4-leader-assess',
+        ev.timestamp,
+        `Mission 标记 degraded：${reason} (${failedCount} 项失败)，下游 Leader signoff 将强制拒签`,
+        'warn'
+      );
     } else if (t === 'agent-playground.researcher:completed') {
       const dim = (p.dimension as string | undefined) ?? '';
       const cnt = (p.findingsCount as number | undefined) ?? 0;
