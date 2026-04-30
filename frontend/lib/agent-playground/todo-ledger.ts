@@ -1022,13 +1022,23 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         'success'
       );
     } else if (t === 'agent-playground.mission:failed') {
-      // mission 失败：把当前正在跑的 stage 标 failed（因为它就是真正挂掉的那个），
-      // pending 的 stage 保持 pending（它们根本没跑），不要级联红化。
+      // ★ P0-LIVE-UI-STATUS (2026-04-30): mission 失败时所有非终态 todo 都
+      //   要 finalize，否则 UI 永远显示"进行中"和已死的 mission 矛盾。
+      //   - system scope in_progress → failed（真正挂掉的那个 stage）
+      //   - 其它 scope (dimension / review / chapter) in_progress → cancelled（被中断）
+      //   - pending 任何 scope → cancelled（不会再跑）
+      //   只有终态 (done / failed / cancelled) 保留不动。
       const failMsg = (p.message as string) ?? '未知错误';
       for (const id of order) {
         const td = todos.get(id)!;
-        if (td.scope !== 'system') continue;
-        if (td.status === 'in_progress') {
+        if (
+          td.status === 'done' ||
+          td.status === 'failed' ||
+          td.status === 'cancelled'
+        ) {
+          continue;
+        }
+        if (td.scope === 'system' && td.status === 'in_progress') {
           td.status = 'failed';
           td.endedAt = ev.timestamp;
           addNarrative(
@@ -1036,6 +1046,16 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             ev.timestamp,
             `Mission 失败：${failMsg}`,
             'error'
+          );
+        } else {
+          // dimension / review / chapter / 其它 scope —— 中断而非失败
+          td.status = 'cancelled';
+          td.endedAt = ev.timestamp;
+          addNarrative(
+            td.id,
+            ev.timestamp,
+            `Mission 失败，子任务中断（${failMsg}）`,
+            'warn'
           );
         }
       }
