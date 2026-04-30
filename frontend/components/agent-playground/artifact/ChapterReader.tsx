@@ -22,7 +22,46 @@ interface Props {
  * 对齐 frontend/components/ai-insights/reports/ChapterizedReportView.tsx
  */
 export function ChapterReader({ artifact, initialSectionId }: Props) {
-  const sections = artifact.sections;
+  // ★ 2026-04-30: 启发式合并被 chapter-writer LLM 违规写成 H2 的"keyPoint 子小节"
+  //   到前一个真章节。后端 buildSectionTree 只看 ## 切 sections，但 LLM 经常把
+  //   "1. xxx" / "（一）xxx" / "其一：xxx" 这种 keyPoint 编号写成 ## H2，导致
+  //   一个 chapter 被切成 N 张卡片（如 f976eb07 sections=54 实际只有 ~8 个 chapter）。
+  //   合并规则：H2 标题以下列模式开头视为"伪 H2 子小节"，吸收到前一个真章节范围内：
+  //     - 数字+点 (1. 2. 10.)
+  //     - 中文数字 (一、二、三 / 一. / （一）)
+  //     - 顺序词 (其一 其二 / 第一 第二)
+  //   合并 = 前一章节 endOffset 扩展到本节 endOffset；本节不进 chapter 卡列表。
+  const PSEUDO_H2_PATTERN =
+    /^(\d+[.、]|[一二三四五六七八九十]+[.、]|（[一二三四五六七八九十]+）|[（(][1-9]\d*[）)]|其[一二三四五六七八九十]|第[一二三四五六七八九十]+[、章节])\s*/u;
+  const sections = useMemo(() => {
+    const all = artifact.sections.filter(
+      (s) => s.level === 2 && s.parentId == null
+    );
+    const merged: typeof all = [];
+    for (const s of all) {
+      const isPseudo =
+        PSEUDO_H2_PATTERN.test(s.title.trim()) && merged.length > 0;
+      if (isPseudo) {
+        // 合并到前一个真章节：扩展 endOffset + 累加 wordCount
+        const prev = merged[merged.length - 1];
+        prev.endOffset = Math.max(prev.endOffset, s.endOffset);
+        prev.wordCount = (prev.wordCount ?? 0) + (s.wordCount ?? 0);
+        // citations / figureIds / factIds 也合并
+        prev.citations = Array.from(
+          new Set([...(prev.citations ?? []), ...(s.citations ?? [])])
+        );
+        prev.figureIds = Array.from(
+          new Set([...(prev.figureIds ?? []), ...(s.figureIds ?? [])])
+        );
+        prev.factIds = Array.from(
+          new Set([...(prev.factIds ?? []), ...(s.factIds ?? [])])
+        );
+      } else {
+        merged.push({ ...s });
+      }
+    }
+    return merged;
+  }, [artifact.sections]);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSectionId ?? null
   );

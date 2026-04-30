@@ -127,6 +127,13 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `- ❌ 无 marker 短句独行`,
       `- ❌ 字数统计 / 编辑备注（如 "(约 850 字)"）`,
       `- ❌ HTML 标签 / HTML 实体`,
+      // ★ 2026-04-30: H2 滥用治理 —— LLM 经常把 keyPoint "1./2./3." 写成 ## H2，
+      //   导致 reportAssembler buildSectionTree 把每个 keyPoint 切成独立章节 → 章节
+      //   视图碎成 50+ 张卡片。强制 chapter body 内只能有 0 或 1 个 ## H2（即 chapter
+      //   标题本身），keyPoint 子小节必须用 ### H3 或正文段落。
+      `- ❌ chapter 正文中再写 \`## \` H2 标题（一个 chapter 只允许一个顶层 H2 = 章标题）`,
+      `- ❌ 用 \`## 1. xxx\` / \`## （一）xxx\` / \`## 其一：xxx\` 这类编号 H2 切分论点 ——`,
+      `      keyPoint 论点必须用 ### H3 或直接段落论述展开，不能升级为同级章节`,
       ``,
       // ★ Phase 1 TI prompt 移植: 反电报式写作硬约束（dimension-research.prompt 验证有效）
       `## 禁止电报式写作（最严格的反 AI 痕迹规则）`,

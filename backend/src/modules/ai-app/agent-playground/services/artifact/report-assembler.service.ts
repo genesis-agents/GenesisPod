@@ -170,6 +170,13 @@ export class ReportAssemblerService {
       );
     }
 
+    // ★ 2026-04-30: H2 滥用治理 —— buildSectionTree 之前 sanitize keyPoint 编号 H2 为 H3
+    //   chapter-writer LLM 经常违反 prompt 把 "1./2./（一）/其一" 写成 ## H2 切分论点，
+    //   导致 sections 数量爆炸（实测 8 章变 54 张卡）。这里启发式降级：
+    //     ## "1." / "（一）" / "其一" / "第一" / 数字+点 开头的 H2 → ### H3
+    //   降级仅在已经存在过至少一个 H2（即真章节）后生效，避免误降首章。
+    fullMarkdown = this.sanitizeKeyPointH2(fullMarkdown);
+
     // 2) sections 树（按 ## 标题切分 + 类型推断）
     let sections = this.buildSectionTree(fullMarkdown, input);
 
@@ -714,6 +721,43 @@ export class ReportAssemblerService {
   }
 
   // ─── 2. sections 树 ─────────────────────────────────────────────
+  /**
+   * ★ 2026-04-30: 把 chapter writer 写错的"keyPoint 编号 H2"降级为 H3。
+   *
+   * 真因：LLM 经常把分论点 "1. xxx / 2. xxx / （一） xxx / 其一：xxx" 写成 `## ` H2
+   * 而不是 prompt 要求的 `### ` H3 或正文段落，导致 buildSectionTree 把每个 keyPoint
+   * 切成独立 section（实测一份 8 章报告变 54 张章节卡）。
+   *
+   * 启发式：H2 标题以下列模式开头视为伪 H2，降级为 H3：
+   *   - 阿拉伯数字+点 (1. 2. 10.)
+   *   - 中文数字+顿/点 (一、二、三. )
+   *   - 括号编号 (一)（一）(1)（1）
+   *   - "其一/其二" / "第一章/第二节"
+   *
+   * 仅在前面已经至少有过一个真 H2 后才降级，避免误降首章。
+   */
+  private sanitizeKeyPointH2(markdown: string): string {
+    const PSEUDO_H2 =
+      /^##\s+(\d+[.、]|[一二三四五六七八九十]+[.、]|（[一二三四五六七八九十]+）|[（(][1-9]\d*[）)]|其[一二三四五六七八九十]|第[一二三四五六七八九十]+[、章节])/u;
+    const lines = markdown.split("\n");
+    let h2Count = 0;
+    let inCodeBlock = false;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^(```|~~~)/.test(line.trim())) inCodeBlock = !inCodeBlock;
+      if (inCodeBlock) continue;
+      if (line.startsWith(">") || line.startsWith("    ")) continue;
+      if (line.startsWith("## ") && !line.startsWith("### ")) {
+        if (h2Count > 0 && PSEUDO_H2.test(line)) {
+          lines[i] = "###" + line.slice(2);
+          continue;
+        }
+        h2Count++;
+      }
+    }
+    return lines.join("\n");
+  }
+
   private buildSectionTree(
     fullMarkdown: string,
     input: AssembleInput,
