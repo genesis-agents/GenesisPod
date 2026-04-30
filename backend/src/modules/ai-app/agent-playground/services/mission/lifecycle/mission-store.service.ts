@@ -106,26 +106,67 @@ export class MissionStore {
     });
   }
 
-  async recoverOrphanedRunning(maxAgeMinutes = 30): Promise<number> {
+  /**
+   * ★ 2026-04-30 重构：之前 maxAgeMinutes=30 太紧 —— mission 跑 deep/thorough 档
+   * 60min 是常态，正在跑的 mission 撞上 Railway deploy 重启就被误标 failed。
+   *
+   * 新策略（多重门槛过滤）：
+   *   1. startedAt < now - maxAgeMinutes（默认 90min）才算"超龄"
+   *   2. 但若 lastActivityAt 在最近 ACTIVITY_GRACE_MINUTES（默认 5min）内有事件
+   *      → 进程可能刚重启就 resume 了 / scheduler 还没扫到，跳过本轮，留给 health
+   *      monitor 5min 后基于 lastActivityAt 做精准判断
+   *   3. errorMessage 给用户可操作的提示而非裸技术消息
+   */
+  async recoverOrphanedRunning(maxAgeMinutes = 90): Promise<number> {
+    const ACTIVITY_GRACE_MINUTES = 5;
     const cutoff = new Date(Date.now() - maxAgeMinutes * 60_000);
-    // ★ P0-R5-1: 先拉 ID 再 updateMany + 清 checkpoint
-    const orphans = await this.prisma.agentPlaygroundMission
+    const activityCutoff = new Date(
+      Date.now() - ACTIVITY_GRACE_MINUTES * 60_000,
+    );
+    // 1. 拉所有 startedAt 超龄的 running mission
+    const candidates = await this.prisma.agentPlaygroundMission
       .findMany({
         where: { status: "running", startedAt: { lt: cutoff } },
         select: { id: true },
       })
       .catch((): { id: string }[] => []);
+    if (candidates.length === 0) return 0;
+    // 2. 用最近事件 ts 过滤掉"刚才还在动"的 mission
+    const candidateIds = candidates.map((c) => c.id);
+    const recentActivities = await this.prisma.agentPlaygroundMissionEvent
+      .groupBy({
+        by: ["missionId"],
+        where: { missionId: { in: candidateIds } },
+        _max: { ts: true },
+      })
+      .catch(() => [] as { missionId: string; _max: { ts: bigint | null } }[]);
+    const activeIds = new Set<string>();
+    for (const a of recentActivities) {
+      const ts = a._max.ts;
+      if (ts != null) {
+        const tsMs = Number(ts);
+        if (Number.isFinite(tsMs) && tsMs > activityCutoff.getTime()) {
+          activeIds.add(a.missionId);
+        }
+      }
+    }
+    const trueOrphanIds = candidateIds.filter((id) => !activeIds.has(id));
+    if (trueOrphanIds.length === 0) {
+      this.log.log(
+        `[recoverOrphanedRunning] ${candidateIds.length} candidates super-aged, but ${activeIds.size} have recent activity (< ${ACTIVITY_GRACE_MINUTES}min) — sparing them this round`,
+      );
+      return 0;
+    }
+    // 3. 真正 orphan 的才 markFailed
     const result = await this.prisma.agentPlaygroundMission
       .updateMany({
-        where: {
-          status: "running",
-          startedAt: { lt: cutoff },
-        },
+        where: { id: { in: trueOrphanIds }, status: "running" },
         data: {
           status: "failed",
           completedAt: new Date(),
           errorMessage:
-            "Mission orphaned - service recycled during execution; in-memory state lost.",
+            `Mission 进程在执行过程中被回收（Railway deploy 或服务重启导致内存状态丢失，运行超过 ${maxAgeMinutes} 分钟无新事件）。\n\n` +
+            "建议：使用顶部「重新运行」按钮重启相同主题，或微调档位（depth / lengthProfile）后重新发起。",
         },
       })
       .catch((err: unknown) => {
@@ -134,11 +175,12 @@ export class MissionStore {
         );
         return { count: 0 };
       });
-    // 清 checkpoint（并发安全，每行独立 update）
-    await Promise.all(orphans.map((m) => this.clearCheckpointJsonbKey(m.id)));
+    await Promise.all(
+      trueOrphanIds.map((id) => this.clearCheckpointJsonbKey(id)),
+    );
     if (result.count > 0) {
       this.log.warn(
-        `[recoverOrphanedRunning] marked ${result.count} orphaned running missions as failed`,
+        `[recoverOrphanedRunning] marked ${result.count} truly orphaned missions as failed (super-aged > ${maxAgeMinutes}min, no activity in ${ACTIVITY_GRACE_MINUTES}min)`,
       );
     }
     return result.count;

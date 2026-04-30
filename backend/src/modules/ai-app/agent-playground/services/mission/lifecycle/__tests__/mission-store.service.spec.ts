@@ -11,6 +11,10 @@ function makePrisma() {
       findMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
+    // recoverOrphanedRunning groupBy 用来过滤"最近 5min 有事件"
+    agentPlaygroundMissionEvent: {
+      groupBy: jest.fn().mockResolvedValue([]),
+    },
     harnessVectorMemory: {
       create: jest.fn().mockResolvedValue({}),
       findMany: jest.fn().mockResolvedValue([]),
@@ -77,8 +81,16 @@ describe("MissionStore", () => {
     ).resolves.toBeUndefined();
   });
 
-  // recoverOrphanedRunning
-  it("recoverOrphanedRunning: updates running missions older than cutoff", async () => {
+  // recoverOrphanedRunning（2026-04-30 重构后：先 findMany 拉 super-aged candidates
+  // → groupBy 过滤"最近 5min 有事件"的活跃 mission → updateMany 真正 orphan 的）
+  it("recoverOrphanedRunning: updates super-aged missions with no recent activity", async () => {
+    prisma.agentPlaygroundMission.findMany.mockResolvedValue([
+      { id: "m1" },
+      { id: "m2" },
+      { id: "m3" },
+    ]);
+    // 三个候选都没有最近活动事件 → 都被 markFailed
+    prisma.agentPlaygroundMissionEvent.groupBy.mockResolvedValue([]);
     prisma.agentPlaygroundMission.updateMany.mockResolvedValue({ count: 3 });
     const count = await store.recoverOrphanedRunning(30);
     expect(count).toBe(3);
@@ -89,7 +101,25 @@ describe("MissionStore", () => {
     );
   });
 
+  it("recoverOrphanedRunning: spares missions with recent activity (< 5min)", async () => {
+    prisma.agentPlaygroundMission.findMany.mockResolvedValue([
+      { id: "m1" },
+      { id: "m2" },
+    ]);
+    // m1 / m2 都有最近 30s 内活动 → 跳过本轮，不 markFailed
+    const recentTs = BigInt(Date.now() - 30_000);
+    prisma.agentPlaygroundMissionEvent.groupBy.mockResolvedValue([
+      { missionId: "m1", _max: { ts: recentTs } },
+      { missionId: "m2", _max: { ts: recentTs } },
+    ]);
+    const count = await store.recoverOrphanedRunning(30);
+    expect(count).toBe(0);
+    // updateMany 不应被调（无真 orphan）
+    expect(prisma.agentPlaygroundMission.updateMany).not.toHaveBeenCalled();
+  });
+
   it("recoverOrphanedRunning: returns 0 on prisma error", async () => {
+    prisma.agentPlaygroundMission.findMany.mockResolvedValue([{ id: "m1" }]);
     prisma.agentPlaygroundMission.updateMany.mockRejectedValue(
       new Error("err"),
     );

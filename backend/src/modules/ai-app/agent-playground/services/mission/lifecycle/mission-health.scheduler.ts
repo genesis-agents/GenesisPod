@@ -46,8 +46,10 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
       fetchRunningMissions: () => this.fetchRunningMissions(),
       onTimeout: (v) => this.handleTimeout(v),
       config: {
-        // mission 启动后 30 min 无活动算 stale（与 recoverOrphanedRunning 默认对齐）
-        staleThresholdMs: 30 * 60 * 1000,
+        // ★ 2026-04-30: 60 min 无活动才算 stale（之前 30min 误判正常 deep/thorough mission）
+        //   mission 跑 60min 是常见档位（每个 dim 10-15min × 4-6 个 dim），活动事件是
+        //   章节级别 emit 的，stage 切换间偶有 5-10min 沉默正常 → 需要 30min 缓冲。
+        staleThresholdMs: 60 * 60 * 1000,
         // 整体 wall-time 上限 4 小时（远超正常 mission 最长档位）
         maxWallTimeMs: 4 * 60 * 60 * 1000,
         includeStatuses: ["running"],
