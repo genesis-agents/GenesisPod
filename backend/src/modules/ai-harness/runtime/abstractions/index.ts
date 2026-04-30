@@ -68,11 +68,18 @@ export type {
 
 // ==================== Teams / Member (harness-owned) ====================
 
-export type { ITeamMember, TeamMemberId, MemberStatus } from "../../runtime/teams/abstractions/member.interface";
+export type {
+  ITeamMember,
+  TeamMemberId,
+  MemberStatus,
+} from "../../runtime/teams/abstractions/member.interface";
 
 // ==================== Teams / Role (harness-owned) ====================
 
-export type { IRole, WorkStyle } from "../../runtime/teams/abstractions/role.interface";
+export type {
+  IRole,
+  WorkStyle,
+} from "../../runtime/teams/abstractions/role.interface";
 
 // ==================== Teams / Team (harness-owned) ====================
 
@@ -84,7 +91,10 @@ export type { SkillId, ToolId } from "../../../ai-engine/facade";
 
 // ==================== Orchestration / Abstractions (engine-owned) ====================
 
-export type { Checkpoint, ExecutionContext } from "../../../ai-engine/planning/abstractions/orchestrator.interface";
+export type {
+  Checkpoint,
+  ExecutionContext,
+} from "../../../ai-engine/planning/abstractions/orchestrator.interface";
 
 // ==================== Teams / Constraint Engine (harness-owned) ====================
 
@@ -123,7 +133,7 @@ export type {
 
 export type { ConstraintProfile } from "../../runtime/teams/constraints/constraint-profile";
 
-// ==================== Memory / Abstractions (engine-owned) ====================
+// ==================== Memory / Abstractions (harness-owned 2026-04-30) ====================
 
 export type {
   IMemoryStore,
@@ -134,4 +144,4 @@ export type {
   MemorySearchOptions,
   MemorySearchResult,
   ConversationMessage,
-} from "../../../ai-engine/facade";
+} from "../../memory/abstractions/memory.interface";
