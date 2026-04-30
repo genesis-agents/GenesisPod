@@ -13,9 +13,10 @@ import { Injectable } from "@nestjs/common";
 import { VerifierAgent } from "../../agents/verifier/verifier.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "../../../../ai-harness/facade";
+import { normalizeRunnerState } from "./runner-state.util";
 
 interface InvokeResult<TOut> {
-  state: "completed" | "failed" | "cancelled";
+  state: "completed" | "degraded" | "failed" | "cancelled";
   output?: TOut;
   events: readonly IAgentEvent[];
   iterations: number;
@@ -76,12 +77,7 @@ export class VerifierService {
       ctx,
     );
     return {
-      state:
-        r.state === "completed"
-          ? "completed"
-          : r.state === "cancelled"
-            ? "cancelled"
-            : "failed",
+      state: normalizeRunnerState(r.state),
       output: r.output as TOut | undefined,
       events: r.events,
       iterations: r.iterations,

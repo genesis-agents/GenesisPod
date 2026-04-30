@@ -24,9 +24,12 @@ import { ChapterReviewerAgent } from "../../agents/writer/chapter-reviewer.agent
 import { DimensionIntegratorAgent } from "../../agents/writer/dimension-integrator.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "../../../../ai-harness/facade";
+import { normalizeRunnerState } from "./runner-state.util";
 
 interface InvokeResult<TOut> {
-  state: "completed" | "failed" | "cancelled";
+  // degraded: reflexion verifier 评分 < passThreshold 但 outputSchema 合法的次优产物，
+  // 调用方应当作"可用"对待（避免因为 75 分门槛把整个 mission 全废）。
+  state: "completed" | "degraded" | "failed" | "cancelled";
   output?: TOut;
   events: readonly IAgentEvent[];
   iterations: number;
@@ -92,12 +95,7 @@ export class WriterService {
       ctx,
     );
     return {
-      state:
-        r.state === "completed"
-          ? "completed"
-          : r.state === "cancelled"
-            ? "cancelled"
-            : "failed",
+      state: normalizeRunnerState(r.state),
       output: r.output as TOut | undefined,
       events: r.events,
       iterations: r.iterations,

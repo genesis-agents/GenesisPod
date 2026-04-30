@@ -11,6 +11,7 @@ import { Injectable } from "@nestjs/common";
 import { AnalystAgent } from "../../agents/analyst/analyst.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "../../../../ai-harness/facade";
+import { normalizeRunnerState } from "./runner-state.util";
 
 @Injectable()
 export class AnalystService {
@@ -20,7 +21,8 @@ export class AnalystService {
     input: TIn,
     ctx: InvocationContext,
   ): Promise<{
-    state: "completed" | "failed" | "cancelled";
+    // degraded: reflexion verifier 评分 < passThreshold 但 outputSchema 合法的次优产物
+    state: "completed" | "degraded" | "failed" | "cancelled";
     output?: TOut;
     events: readonly IAgentEvent[];
     iterations: number;
@@ -32,12 +34,7 @@ export class AnalystService {
       ctx,
     );
     return {
-      state:
-        r.state === "completed"
-          ? "completed"
-          : r.state === "cancelled"
-            ? "cancelled"
-            : "failed",
+      state: normalizeRunnerState(r.state),
       output: r.output as TOut | undefined,
       events: r.events,
       iterations: r.iterations,

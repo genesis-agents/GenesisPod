@@ -19,6 +19,7 @@ import {
   MissionBudgetPool,
   type IAgentEvent,
 } from "../../../../ai-harness/facade";
+import { normalizeRunnerState } from "./runner-state.util";
 
 export interface ResearcherDimSpec {
   id: string;
@@ -62,7 +63,7 @@ export class ResearcherService {
     ctx: InvocationContext;
     pool?: MissionBudgetPool;
   }): Promise<{
-    state: "completed" | "failed" | "cancelled";
+    state: "completed" | "degraded" | "failed" | "cancelled";
     output?: ResearcherOutput;
     events: readonly IAgentEvent[];
     iterations: number;
@@ -88,12 +89,7 @@ export class ResearcherService {
       );
     }
     return {
-      state:
-        r.state === "completed"
-          ? "completed"
-          : r.state === "cancelled"
-            ? "cancelled"
-            : "failed",
+      state: normalizeRunnerState(r.state),
       output: r.output as ResearcherOutput | undefined,
       events: r.events,
       iterations: r.iterations,

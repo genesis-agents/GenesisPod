@@ -57,7 +57,7 @@ const LEADER_RECOVERABLE = new Set([
 function describeLeaderFailure(
   phase: string,
   res: {
-    state: "completed" | "failed" | "cancelled";
+    state: "completed" | "degraded" | "failed" | "cancelled";
     output?: unknown;
     events?: readonly unknown[];
   },
@@ -176,7 +176,7 @@ export type LeaderRunFn = <TIn, TOut>(args: {
   input: TIn;
   agentId: string;
 }) => Promise<{
-  state: "completed" | "failed" | "cancelled";
+  state: "completed" | "degraded" | "failed" | "cancelled";
   output?: TOut;
   events?: readonly unknown[];
 }>;

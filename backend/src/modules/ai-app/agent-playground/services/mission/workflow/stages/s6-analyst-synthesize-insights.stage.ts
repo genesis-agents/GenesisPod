@@ -111,7 +111,12 @@ export async function runAnalystStage(
   );
 
   // ★ 第一轮 null / 失败 → 简化提示重试一次（不放弃质量，只是给 LLM 一次机会修正格式）
-  if (analystRes.state !== "completed" || !analystRes.output) {
+  //   degraded 也算"有产出"（reflexion verifier 评分略低于阈值但结构合法）→ 不重试。
+  //   只有真正的 failed/cancelled 或空 output 才走重试。
+  const firstRoundUsable =
+    (analystRes.state === "completed" || analystRes.state === "degraded") &&
+    !!analystRes.output;
+  if (!firstRoundUsable) {
     deps.log.warn(
       `[${missionId}] analyst first attempt returned no output (state=${analystRes.state}) — retrying once with simplified prompt`,
     );
@@ -162,19 +167,24 @@ export async function runAnalystStage(
       wallTimeMs: analystRes.wallTimeMs,
     },
   );
+  // ★ degraded（reflexion verifier 评分 < passThreshold 但结构合法）算成功
+  const finalUsable =
+    (analystRes.state === "completed" || analystRes.state === "degraded") &&
+    !!analystRes.output;
   await deps.lifecycle(
     missionId,
     userId,
     "analyst",
     "analyst",
-    analystRes.state === "completed" ? "completed" : "failed",
+    finalUsable ? "completed" : "failed",
     {
       wallTimeMs: analystRes.wallTimeMs,
       iterations: analystRes.iterations,
       error: analystFailMsg,
+      degraded: analystRes.state === "degraded" || undefined,
     },
   );
-  if (analystRes.state !== "completed" || !analystRes.output) {
+  if (!finalUsable) {
     throw new Error(
       `Analyst 综合阶段连续 2 次未产出有效结果（${analystFailMsg ?? analystRes.state}）。已采集到 ${researcherResults.length} 个维度的发现，建议查看 Mission 历史定位是哪一步丢失数据。`,
     );

@@ -212,12 +212,16 @@ export async function runWriterStage(
       pool,
       extractTokenSpend(writerRes.events),
     );
+    // ★ degraded 算成功：reflexion verifier 评分略低于阈值但 outputSchema 合法
+    const writerUsable =
+      (writerRes.state === "completed" || writerRes.state === "degraded") &&
+      !!writerRes.output;
     await deps.lifecycle(
       missionId,
       userId,
       writerAgentId,
       "writer",
-      writerRes.state === "completed" ? "completed" : "failed",
+      writerUsable ? "completed" : "failed",
       {
         wallTimeMs: writerRes.wallTimeMs,
         iterations: writerRes.iterations,
@@ -231,9 +235,10 @@ export async function runWriterStage(
             wallTimeMs: writerRes.wallTimeMs,
           },
         ),
+        degraded: writerRes.state === "degraded" || undefined,
       },
     );
-    if (writerRes.state !== "completed" || !writerRes.output) {
+    if (!writerUsable) {
       lastWriterFailMsg = extractFailureMessage(
         writerRes.events,
         writerRes.state,

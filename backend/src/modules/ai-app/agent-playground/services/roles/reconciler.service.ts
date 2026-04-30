@@ -10,6 +10,7 @@ import { Injectable } from "@nestjs/common";
 import { ReconcilerAgent } from "../../agents/reconciler/reconciler.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "../../../../ai-harness/facade";
+import { normalizeRunnerState } from "./runner-state.util";
 
 export interface ReconcileInput {
   topic: string;
@@ -42,7 +43,7 @@ export class ReconcilerService {
     input: ReconcileInput,
     ctx: InvocationContext,
   ): Promise<{
-    state: "completed" | "failed" | "cancelled";
+    state: "completed" | "degraded" | "failed" | "cancelled";
     output?: ReconcileOutput;
     events: readonly IAgentEvent[];
     iterations: number;
@@ -50,12 +51,7 @@ export class ReconcilerService {
   }> {
     const r = await this.invoker.invoke(ReconcilerAgent, input, ctx);
     return {
-      state:
-        r.state === "completed"
-          ? "completed"
-          : r.state === "cancelled"
-            ? "cancelled"
-            : "failed",
+      state: normalizeRunnerState(r.state),
       output: r.output as ReconcileOutput | undefined,
       events: r.events,
       iterations: r.iterations,

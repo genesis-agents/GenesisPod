@@ -13,9 +13,10 @@ import { MissionCriticAgent } from "../../agents/reviewer/mission-critic.agent";
 import { DimensionQualityJudgeAgent } from "../../agents/reviewer/dimension-quality-judge.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import type { IAgentEvent } from "../../../../ai-harness/facade";
+import { normalizeRunnerState } from "./runner-state.util";
 
 interface InvokeResult<TOut> {
-  state: "completed" | "failed" | "cancelled";
+  state: "completed" | "degraded" | "failed" | "cancelled";
   output?: TOut;
   events: readonly IAgentEvent[];
   iterations: number;
@@ -58,12 +59,7 @@ export class ReviewerService {
       ctx,
     );
     return {
-      state:
-        r.state === "completed"
-          ? "completed"
-          : r.state === "cancelled"
-            ? "cancelled"
-            : "failed",
+      state: normalizeRunnerState(r.state),
       output: r.output as TOut | undefined,
       events: r.events,
       iterations: r.iterations,
