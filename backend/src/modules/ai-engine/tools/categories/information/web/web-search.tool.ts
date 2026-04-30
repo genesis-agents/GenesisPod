@@ -52,6 +52,19 @@ export interface WebSearchOutput {
    * 结果总数
    */
   totalResults: number;
+
+  /**
+   * 失败时的具体错误信息（success=false 时存在）
+   * ★ P0-LIVE-SEARCH-EMPTY (2026-04-30): 之前丢掉了 SearchService 返回的 error，
+   *   导致 LLM / trace 只看到 "success: false, totalResults: 0" 不知道根因。
+   */
+  error?: string;
+
+  /**
+   * 实际使用的搜索 provider（tavily / serper / duckduckgo）
+   * 让 LLM/调用方知道 fallback chain 走到了哪一步
+   */
+  provider?: string;
 }
 
 // ============================================================================
@@ -113,6 +126,14 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
         type: "number",
         description: "返回的结果数量",
       },
+      error: {
+        type: "string",
+        description: "失败时的错误信息（success=false 时）",
+      },
+      provider: {
+        type: "string",
+        description: "实际命中的搜索提供商（tavily/serper/duckduckgo）",
+      },
     },
   };
 
@@ -145,6 +166,8 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
       results: response.results,
       success: response.success,
       totalResults: response.results.length,
+      error: response.error, // ★ 把真实错误透传给 LLM / trace
+      provider: response.provider,
     };
   }
 }
