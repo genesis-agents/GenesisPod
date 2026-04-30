@@ -554,6 +554,23 @@ export type {
   ExecutionPartition,
 } from "../tools/concurrency/tool-concurrency.service";
 
+// ★ Phase 8 沉淀 (2026-04-29): Search 多源融合 + 质量门通用工具
+export {
+  type IndexedItem,
+  normalizeUrl,
+  dedupeByUrlAndTitle,
+  tokenizeQuery,
+  computeRelevanceScore,
+  extractDomain as extractSearchDomain,
+  enforceDomainDiversity,
+  type SuggestedSearchAction,
+  type QualityGateInput,
+  type QualityGateContext,
+  type QualityGateItem,
+  type QualityVerdict,
+  evaluateSearchQuality,
+} from "../tools/search-fusion";
+
 // ★ Phase 7: Session Memory Sidecar
 export {
   SessionMemorySidecarService,
