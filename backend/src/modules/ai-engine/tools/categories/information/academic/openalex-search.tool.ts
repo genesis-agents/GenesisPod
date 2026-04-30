@@ -254,6 +254,7 @@ export class OpenAlexSearchTool extends BaseTool<
       // 带退避重试的请求，最多重试 3 次
       const maxRetries = 3;
       let responseData: OpenAlexApiResponse | undefined;
+      let lastError: Error | undefined;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         // 等待 429 全局冷却
@@ -275,7 +276,8 @@ export class OpenAlexSearchTool extends BaseTool<
             );
           break;
         } catch (err) {
-          const is429 = err instanceof Error && err.message.includes("429");
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const is429 = lastError.message.includes("429");
           if (is429 && attempt < maxRetries) {
             const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
             OpenAlexSearchTool.cooldownUntil = Date.now() + backoff;
@@ -301,7 +303,7 @@ export class OpenAlexSearchTool extends BaseTool<
           papers: [],
           totalResults: 0,
           query,
-          error: "OpenAlex 搜索失败: 重试耗尽",
+          error: `OpenAlex 搜索失败: ${lastError?.message || "重试 3 次后仍未拿到响应"}`,
         };
       }
 

@@ -184,7 +184,7 @@ export class WhiteHouseNewsTool extends BaseTool<
           success: false,
           items: [],
           totalCount: 0,
-          error: "无法获取白宫新闻页面内容",
+          error: `无法获取白宫新闻页面内容 (url=${searchUrl}): ${result.error || "fetchUrlContent 返回空内容"}`,
         };
       }
 

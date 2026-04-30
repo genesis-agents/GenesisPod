@@ -231,6 +231,7 @@ export class PubMedSearchTool extends BaseTool<
 
       const maxRetries = 3;
       let esearchData: ESearchResult | undefined;
+      let lastEsearchError: Error | undefined;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         await this.acquireSlot();
@@ -243,7 +244,9 @@ export class PubMedSearchTool extends BaseTool<
           break;
         } catch (err) {
           this.releaseSlot();
-          const is429 = err instanceof Error && err.message.includes("429");
+          lastEsearchError =
+            err instanceof Error ? err : new Error(String(err));
+          const is429 = lastEsearchError.message.includes("429");
           if (is429 && attempt < maxRetries) {
             const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
             PubMedSearchTool.cooldownUntil = Date.now() + backoff;
@@ -269,7 +272,7 @@ export class PubMedSearchTool extends BaseTool<
           articles: [],
           totalResults: 0,
           query,
-          error: "PubMed 搜索失败: 重试耗尽",
+          error: `PubMed 搜索失败 (esearch): ${lastEsearchError?.message || "重试 3 次后仍未拿到响应"}`,
         };
       }
 
@@ -302,6 +305,7 @@ export class PubMedSearchTool extends BaseTool<
       this.logger.debug(`[doExecute] esummary params: id=${pmids.join(",")}`);
 
       let esummaryData: ESummaryResult | undefined;
+      let lastEsummaryError: Error | undefined;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         await this.acquireSlot();
@@ -314,7 +318,9 @@ export class PubMedSearchTool extends BaseTool<
           break;
         } catch (err) {
           this.releaseSlot();
-          const is429 = err instanceof Error && err.message.includes("429");
+          lastEsummaryError =
+            err instanceof Error ? err : new Error(String(err));
+          const is429 = lastEsummaryError.message.includes("429");
           if (is429 && attempt < maxRetries) {
             const backoff = Math.pow(2, attempt + 1) * 1000;
             PubMedSearchTool.cooldownUntil = Date.now() + backoff;
@@ -340,7 +346,7 @@ export class PubMedSearchTool extends BaseTool<
           articles: [],
           totalResults,
           query,
-          error: "PubMed 获取文章详情失败: 重试耗尽",
+          error: `PubMed 获取文章详情失败 (esummary, ${pmids.length} PMIDs): ${lastEsummaryError?.message || "重试 3 次后仍未拿到响应"}`,
         };
       }
 

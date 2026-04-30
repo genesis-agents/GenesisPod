@@ -220,6 +220,7 @@ export class ArxivSearchTool extends BaseTool<
       // 关键：收到 429 时设置全局冷却，防止其他并发请求继续打 ArXiv
       const maxRetries = 3;
       let xmlData: string | undefined;
+      let lastError: Error | undefined;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         await this.acquireSlot();
         try {
@@ -231,7 +232,8 @@ export class ArxivSearchTool extends BaseTool<
           break; // 成功
         } catch (err) {
           this.releaseSlot(); // 立即释放槽位
-          const is429 = err instanceof Error && err.message.includes("429");
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const is429 = lastError.message.includes("429");
           if (is429 && attempt < maxRetries) {
             const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
             // 设置全局冷却：所有排队的请求也必须等到冷却结束
@@ -254,12 +256,13 @@ export class ArxivSearchTool extends BaseTool<
       }
 
       if (!xmlData) {
+        // ★ P0-LIVE-TOOL-ERR-DETAIL (2026-04-30): 透传最后一次 attempt 真实错误
         return {
           success: false,
           papers: [],
           totalResults: 0,
           query,
-          error: "ArXiv 搜索失败: 重试耗尽",
+          error: `ArXiv 搜索失败: ${lastError?.message || "重试 3 次后仍未拿到响应（可能是 429 全局冷却 / 网络超时）"}`,
         };
       }
 

@@ -244,6 +244,7 @@ export class FinanceApiTool extends BaseTool<
       // Rate-limited request with retry on 429
       const maxRetries = 3;
       let responseData: AlphaVantageResponse | undefined;
+      let lastError: Error | undefined;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         await this.acquireSlot();
@@ -257,7 +258,8 @@ export class FinanceApiTool extends BaseTool<
           break; // success
         } catch (err) {
           this.releaseSlot();
-          const is429 = err instanceof Error && err.message.includes("429");
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const is429 = lastError.message.includes("429");
           if (is429 && attempt < maxRetries) {
             const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
             FinanceApiTool.cooldownUntil = Date.now() + backoff;
@@ -282,7 +284,7 @@ export class FinanceApiTool extends BaseTool<
           success: false,
           queryType,
           data: [],
-          error: "Finance API 请求失败: 重试耗尽",
+          error: `Finance API (Alpha Vantage) 请求失败: ${lastError?.message || "重试 3 次后仍未拿到响应（可能配额耗尽 / 网络超时）"}`,
         };
       }
 
