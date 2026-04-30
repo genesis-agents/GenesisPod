@@ -383,6 +383,148 @@ describe("runResearcherDispatchStage (S3)", () => {
     expect(degradedCall).toBeDefined();
   });
 
+  it("exception with ByokRequiredError name → PROVIDER_BYOK_MODEL_NOT_FOUND degraded", async () => {
+    const ctx = makeCtx({ plan: { ...makeCtx().plan!, dimensions: [DIM_A] } });
+    const deps = makeDeps();
+    const byokError = new Error("BYOK required");
+    byokError.name = "ByokRequiredError";
+    (deps.invoker.invoke as jest.Mock).mockRejectedValue(byokError);
+    await runResearcherDispatchStage(ctx, deps);
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const degradedCall = emitCalls.find(
+      (c) => c[0].type === "agent-playground.dimension:degraded",
+    );
+    expect(degradedCall).toBeDefined();
+    expect(degradedCall[0].payload.innerFailureCode).toBe(
+      "PROVIDER_BYOK_MODEL_NOT_FOUND",
+    );
+  });
+
+  it("exception with InputValidationError name → RUNNER_INPUT_SCHEMA_MISMATCH degraded", async () => {
+    const ctx = makeCtx({ plan: { ...makeCtx().plan!, dimensions: [DIM_A] } });
+    const deps = makeDeps();
+    const validationError = new Error("input schema mismatch");
+    validationError.name = "InputValidationError";
+    (deps.invoker.invoke as jest.Mock).mockRejectedValue(validationError);
+    await runResearcherDispatchStage(ctx, deps);
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const degradedCall = emitCalls.find(
+      (c) => c[0].type === "agent-playground.dimension:degraded",
+    );
+    expect(degradedCall).toBeDefined();
+    expect(degradedCall[0].payload.innerFailureCode).toBe(
+      "RUNNER_INPUT_SCHEMA_MISMATCH",
+    );
+  });
+
+  it("figure pipeline: extractFiguresFromUrl rejects → .catch(() => []) silently", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        withFigures: true,
+      } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "completed",
+      output: {
+        dimension: DIM_A.name,
+        findings: [{ claim: "c", evidence: "e", source: "http://source.com" }],
+        summary: "ok",
+      },
+      events: [],
+      wallTimeMs: 500,
+      iterations: 2,
+      agent: null,
+    });
+    (deps.figureExtractor.extractFiguresFromUrl as jest.Mock).mockRejectedValue(
+      new Error("extract failed"),
+    );
+    await runResearcherDispatchStage(ctx, deps);
+    // Should complete without error (catch → [])
+    expect(ctx.researcherResults).toBeDefined();
+  });
+
+  it("figure pipeline: filterRelevantFigures rejects → .catch(() => allFigures) branch", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        withFigures: true,
+      } as MissionContext["input"],
+    });
+    const mockFigure = {
+      imageUrl: "http://fig.com/img.png",
+      caption: "Chart",
+      alt: "alt",
+      type: "chart",
+    };
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "completed",
+      output: {
+        dimension: DIM_A.name,
+        findings: [{ claim: "c", evidence: "e", source: "http://source.com" }],
+        summary: "ok",
+      },
+      events: [],
+      wallTimeMs: 500,
+      iterations: 2,
+      agent: null,
+    });
+    (deps.figureExtractor.extractFiguresFromUrl as jest.Mock).mockResolvedValue(
+      [mockFigure],
+    );
+    (deps.figureRelevance.filterRelevantFigures as jest.Mock).mockRejectedValue(
+      new Error("filter error"),
+    );
+    await runResearcherDispatchStage(ctx, deps);
+    // Should complete without error (catch → allFigures)
+    expect(ctx.researcherResults).toBeDefined();
+  });
+
+  it("figure pipeline: filterRelevantFigures throws synchronously → outer catch logs warn", async () => {
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+      input: {
+        ...makeCtx().input,
+        withFigures: true,
+      } as MissionContext["input"],
+    });
+    const mockFigure = {
+      imageUrl: "http://fig.com/img.png",
+      caption: "Chart",
+      alt: "alt",
+      type: "chart",
+    };
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockResolvedValue({
+      state: "completed",
+      output: {
+        dimension: DIM_A.name,
+        findings: [{ claim: "c", evidence: "e", source: "http://source.com" }],
+        summary: "ok",
+      },
+      events: [],
+      wallTimeMs: 500,
+      iterations: 2,
+      agent: null,
+    });
+    (deps.figureExtractor.extractFiguresFromUrl as jest.Mock).mockResolvedValue(
+      [mockFigure],
+    );
+    (
+      deps.figureRelevance.filterRelevantFigures as jest.Mock
+    ).mockImplementation(() => {
+      throw new Error("sync-filter-error");
+    });
+    await runResearcherDispatchStage(ctx, deps);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("figure-pipeline"),
+    );
+  });
+
   it("dim failure with innerFailure.failureCode → recordFailure called", async () => {
     const ctx = makeCtx({ plan: { ...makeCtx().plan!, dimensions: [DIM_A] } });
     const deps = makeDeps();

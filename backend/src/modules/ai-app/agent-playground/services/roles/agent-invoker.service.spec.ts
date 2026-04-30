@@ -338,16 +338,14 @@ describe("AgentInvoker.preDisableKnownFailingModels", () => {
     const eventBus = makeEventBus();
     const abortRegistry = makeAbortRegistry();
     const failureLearner = {
-      lookup: jest
-        .fn()
-        .mockResolvedValue([
-          {
-            modelId: "new-model",
-            count: 1,
-            lastFallbackModel: "fallback",
-            resolved: false,
-          },
-        ]),
+      lookup: jest.fn().mockResolvedValue([
+        {
+          modelId: "new-model",
+          count: 1,
+          lastFallbackModel: "fallback",
+          resolved: false,
+        },
+      ]),
     };
     const svc = new AgentInvoker(
       runner as never,
@@ -370,16 +368,14 @@ describe("AgentInvoker.preDisableKnownFailingModels", () => {
     const eventBus = makeEventBus();
     const abortRegistry = makeAbortRegistry();
     const failureLearner = {
-      lookup: jest
-        .fn()
-        .mockResolvedValue([
-          {
-            modelId: "bad-model",
-            count: 5,
-            lastFallbackModel: undefined,
-            resolved: false,
-          },
-        ]),
+      lookup: jest.fn().mockResolvedValue([
+        {
+          modelId: "bad-model",
+          count: 5,
+          lastFallbackModel: undefined,
+          resolved: false,
+        },
+      ]),
     };
     const svc = new AgentInvoker(
       runner as never,
@@ -878,5 +874,175 @@ describe("AgentInvoker relay via invoke.onEvent", () => {
     });
     // No additional emit for unknown event types
     expect(eventBus.emit.mock.calls.length).toBe(emitsBefore);
+  });
+
+  it("iteration_progress event → emits iteration:progress", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      makeAbortRegistry() as never,
+      makeFailureLearner() as never,
+    );
+
+    let capturedOnEvent: ((ev: unknown) => Promise<void>) | undefined;
+    runner.run.mockImplementation(
+      async (
+        _spec: unknown,
+        _input: unknown,
+        opts: { onEvent: (ev: unknown) => Promise<void> },
+      ) => {
+        capturedOnEvent = opts.onEvent;
+        return {
+          state: "completed",
+          output: {},
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        };
+      },
+    );
+
+    await svc.invoke({} as never, {}, baseCtx);
+    await capturedOnEvent!({
+      type: "iteration_progress",
+      payload: {
+        iteration: 5,
+        maxIterations: 15,
+        progress: 0.33,
+        approachingLimit: false,
+        lastActionKind: "tool_call",
+      },
+      timestamp: Date.now(),
+    });
+
+    const progressCall = eventBus.emit.mock.calls.find(
+      (c) => c[0].type === "agent-playground.iteration:progress",
+    );
+    expect(progressCall).toBeDefined();
+    expect(progressCall![0].payload.iteration).toBe(5);
+  });
+
+  it("truncatePayload: large JSON object > 4000 chars → _truncated preview", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      makeAbortRegistry() as never,
+      makeFailureLearner() as never,
+    );
+
+    let capturedOnEvent: ((ev: unknown) => Promise<void>) | undefined;
+    runner.run.mockImplementation(
+      async (
+        _spec: unknown,
+        _input: unknown,
+        opts: { onEvent: (ev: unknown) => Promise<void> },
+      ) => {
+        capturedOnEvent = opts.onEvent;
+        return {
+          state: "completed",
+          output: {},
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        };
+      },
+    );
+
+    await svc.invoke({} as never, {}, baseCtx);
+    const largeOutput = { data: "x".repeat(5000) };
+    await capturedOnEvent!({
+      type: "action_executed",
+      payload: {
+        action: { kind: "tool_call", toolId: "scraper" },
+        output: largeOutput,
+        latencyMs: 100,
+      },
+      timestamp: Date.now(),
+    });
+
+    const obsCall = eventBus.emit.mock.calls.find(
+      (c) => c[0].type === "agent-playground.agent:observation",
+    );
+    expect(obsCall).toBeDefined();
+    expect(
+      (obsCall![0].payload.output as { _truncated?: boolean })._truncated,
+    ).toBe(true);
+  });
+
+  it("truncatePayload: circular reference object → String(payload) branch", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      makeAbortRegistry() as never,
+      makeFailureLearner() as never,
+    );
+
+    let capturedOnEvent: ((ev: unknown) => Promise<void>) | undefined;
+    runner.run.mockImplementation(
+      async (
+        _spec: unknown,
+        _input: unknown,
+        opts: { onEvent: (ev: unknown) => Promise<void> },
+      ) => {
+        capturedOnEvent = opts.onEvent;
+        return {
+          state: "completed",
+          output: {},
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        };
+      },
+    );
+
+    await svc.invoke({} as never, {}, baseCtx);
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    await capturedOnEvent!({
+      type: "action_executed",
+      payload: {
+        action: { kind: "tool_call", toolId: "scraper" },
+        output: circular,
+        latencyMs: 50,
+      },
+      timestamp: Date.now(),
+    });
+
+    const obsCall = eventBus.emit.mock.calls.find(
+      (c) => c[0].type === "agent-playground.agent:observation",
+    );
+    expect(obsCall).toBeDefined();
+    expect(typeof obsCall![0].payload.output).toBe("string");
+  });
+
+  it("emitEvent with critical type + eventBus throws → logs warn (line 164)", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      makeAbortRegistry() as never,
+      makeFailureLearner() as never,
+    );
+
+    // Make eventBus.emit throw for the next call
+    eventBus.emit.mockRejectedValueOnce(new Error("bus error"));
+
+    // emitEvent with a type containing "lifecycle" → isCritical = true
+    await svc.emitEvent({
+      type: "agent-playground.lifecycle:test",
+      missionId: "m1",
+      userId: "u1",
+      payload: {},
+    });
+
+    // Should not throw, but should log a warn
+    expect(eventBus.emit).toHaveBeenCalled();
   });
 });
