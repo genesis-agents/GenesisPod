@@ -501,11 +501,38 @@ async function runOneDim(
         deps,
       );
     } catch (err) {
+      // ★ P0-LIVE-PATCH-SILENT (2026-04-30): per-dim chapter pipeline 失败之前
+      //   静默 log warn 后 return researcherOut，UI 看不到该 dim 章节缺失，
+      //   下游 S8 writer 基于无章节数据装配，产出严重退化。修复：emit
+      //   dimension:degraded 事件 + summary 注 [chapter-pipeline-failed]，
+      //   下游 writer / S10 signoff 都能看到。
       const message = err instanceof Error ? err.message : String(err);
       deps.log.warn(
         `[per-dim pipeline ${idx}] threw on "${dim.name}": ${message}`,
       );
-      return researcherOut;
+      await deps
+        .emit({
+          type: "agent-playground.dimension:degraded",
+          missionId,
+          userId,
+          agentId,
+          payload: {
+            dimension: dim.name,
+            state: "chapter-pipeline-failed",
+            failureCode: "ORCH_CHAPTER_PIPELINE_FAILED",
+            innerMessage: message,
+            diagnostic: {
+              stage: "per-dim-chapter-pipeline",
+              errorMessage: message,
+            },
+          },
+        })
+        .catch(() => {});
+      return {
+        ...researcherOut,
+        summary:
+          `${researcherOut.summary ?? ""}\n\n[chapter-pipeline-failed] ${message.slice(0, 150)}`.trim(),
+      };
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

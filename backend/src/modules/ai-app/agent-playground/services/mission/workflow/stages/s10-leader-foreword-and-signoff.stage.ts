@@ -30,7 +30,33 @@ export async function runLeaderForewordAndSignoffStage(
   ctx: MissionContext,
   deps: MissionDeps,
 ): Promise<void> {
-  if (!ctx.reportArtifact) return;
+  // ★ P0-LIVE-PATCH-SILENT (2026-04-30): 之前 reportArtifact 缺失时静默 return,
+  //   下游 persist 走 markCompleted（默认成功路径）→ mission 假成功。修改为：
+  //   reportArtifact 缺失 = S8 装配失败硬伤，必须显式拒签让 markFailed 生效。
+  if (!ctx.reportArtifact) {
+    deps.log.warn(
+      `[${ctx.missionId}] S10 entered without reportArtifact — likely S8 assembler failed. ` +
+        `Forcing signOff=false to surface as quality-failed (was silent skip → fake completion).`,
+    );
+    ctx.leaderSignOff = {
+      phase: "signoff",
+      signed: false,
+      leaderVerdict: "failed",
+      leaderOverallScore: 0,
+      accountabilityNote:
+        "[S8-Assembler-Failed-Hard-Block] reportArtifact 装配失败，无可签字依据，强制拒签。" +
+        "用户可在前端选 重跑 / 修改 lengthProfile 后重启。",
+    };
+    await deps
+      .emit({
+        type: "agent-playground.leader:signed",
+        missionId: ctx.missionId,
+        userId: ctx.userId,
+        payload: ctx.leaderSignOff,
+      })
+      .catch(() => {});
+    return;
+  }
   if (!ctx.plan) return;
   if (!ctx.researcherResults) return;
 
