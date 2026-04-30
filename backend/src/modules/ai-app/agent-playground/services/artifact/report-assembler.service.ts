@@ -549,6 +549,66 @@ export class ReportAssemblerService {
       parts.push(input.analyst.themeSummary);
       parts.push("");
     }
+    // ★ P0-LIVE-REPORT-FORMAT (2026-04-30): TI 风格章节结构（贴 TI buildFullReport
+    //   的 coreViewpoints + keyData 模式）—— 每个维度章节开头注入 "🎯 核心观点"
+    //   列表（取自 analyst.keyInsights 中和该 dim 相关的；找不到则用 dim.rationale），
+    //   章末若 reconciliationReport.factTable 含该 dim 关键事实则注入 "**关键数据：**"。
+    const matchInsightsFor = (dim: string): string[] => {
+      const insights = input.analyst?.keyInsights ?? [];
+      const byMatch = insights
+        .filter((ins) => {
+          const blob = `${ins.title ?? ""} ${ins.oneLine ?? ""}`.toLowerCase();
+          return blob.includes(dim.toLowerCase());
+        })
+        .map((ins) => ins.oneLine ?? ins.title ?? "")
+        .filter(Boolean);
+      if (byMatch.length > 0) return byMatch.slice(0, 5);
+      const planDim = input.plan.dimensions.find((d) => d.name === dim);
+      if (planDim?.rationale) return [planDim.rationale];
+      return [];
+    };
+    const matchKeyFactsFor = (dim: string): string[] => {
+      // 用本 dim findings 头部 evidence 作为关键数据条目（最多 5 条 + 来源域）
+      const r = input.researcherResults.find((rr) => rr.dimension === dim);
+      if (!r) return [];
+      return r.findings
+        .filter((f) => f.evidence && f.evidence.trim().length > 5)
+        .slice(0, 5)
+        .map((f) => {
+          const domain = (() => {
+            try {
+              return new URL(f.source).hostname.replace(/^www\./, "");
+            } catch {
+              return "";
+            }
+          })();
+          return domain ? `${f.evidence} (来源: ${domain})` : f.evidence;
+        });
+    };
+    const buildDimSectionHeader = (dim: string): string[] => {
+      const block: string[] = [];
+      const points = matchInsightsFor(dim);
+      if (points.length > 0) {
+        block.push("🎯 **核心观点：**");
+        block.push("");
+        for (const p of points) block.push(`- ${p}`);
+        block.push("");
+      }
+      return block;
+    };
+    const buildDimSectionFooter = (dim: string): string[] => {
+      const block: string[] = [];
+      const facts = matchKeyFactsFor(dim);
+      if (facts.length > 0) {
+        block.push("");
+        block.push("**关键数据：**");
+        block.push("");
+        for (const f of facts) block.push(`- ${f}`);
+        block.push("");
+      }
+      return block;
+    };
+
     // ★ 维度章节优先用 per-dim-pipeline 的 fullMarkdown（含全部 chapter）
     //   如果 dim 没有 fullMarkdown（chapter pipeline 跳过），fallback 到 writerReport.sections
     const dimWithMarkdown = new Set<string>();
@@ -556,9 +616,11 @@ export class ReportAssemblerService {
       if (r.fullMarkdown && r.fullMarkdown.trim().length > 200) {
         parts.push(`## ${r.dimension}`);
         parts.push("");
+        for (const line of buildDimSectionHeader(r.dimension)) parts.push(line);
         // 去掉 dim-level fullMarkdown 顶部的 "# 维度名" 标题（避免重复 H1）
         const cleaned = r.fullMarkdown.replace(/^#\s+[^\n]+\n+/, "");
         parts.push(cleaned);
+        for (const line of buildDimSectionFooter(r.dimension)) parts.push(line);
         parts.push("");
         dimWithMarkdown.add(r.dimension);
       }
@@ -568,7 +630,17 @@ export class ReportAssemblerService {
       if (dimWithMarkdown.has(sec.heading)) continue;
       parts.push(`## ${sec.heading}`);
       parts.push("");
+      // dim 级 writerReport.section 也注入核心观点 / 关键数据
+      const matchedDim = input.plan.dimensions.find(
+        (d) => d.name === sec.heading,
+      );
+      if (matchedDim) {
+        for (const line of buildDimSectionHeader(sec.heading)) parts.push(line);
+      }
       parts.push(sec.body);
+      if (matchedDim) {
+        for (const line of buildDimSectionFooter(sec.heading)) parts.push(line);
+      }
       parts.push("");
     }
     // 跨维度分析
