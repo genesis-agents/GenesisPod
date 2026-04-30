@@ -428,18 +428,48 @@ function collectResultsDeep(
     }
     if (typeof n !== 'object') return;
     const o = n as Record<string, unknown>;
-    if (typeof o.title === 'string' || typeof o.url === 'string') {
+    // ★ 2026-04-30: 扩展识别 researcher findings 格式（{claim, evidence, source}）+
+    //   通用 url 字段名（source / sourceUrl / link / href）+ title 字段名（claim / heading / name）
+    const titleField =
+      typeof o.title === 'string'
+        ? o.title
+        : typeof o.heading === 'string'
+          ? o.heading
+          : typeof o.claim === 'string'
+            ? o.claim
+            : typeof o.name === 'string'
+              ? o.name
+              : undefined;
+    const urlField =
+      typeof o.url === 'string'
+        ? o.url
+        : typeof o.sourceUrl === 'string'
+          ? o.sourceUrl
+          : typeof o.link === 'string'
+            ? o.link
+            : typeof o.href === 'string'
+              ? o.href
+              : typeof o.source === 'string' &&
+                  /^https?:\/\//i.test(o.source.trim())
+                ? o.source.trim()
+                : undefined;
+    const snippetField =
+      typeof o.snippet === 'string'
+        ? o.snippet
+        : typeof o.description === 'string'
+          ? o.description
+          : typeof o.content === 'string'
+            ? o.content
+            : typeof o.evidence === 'string'
+              ? o.evidence
+              : typeof o.summary === 'string'
+                ? o.summary
+                : undefined;
+    if (titleField || urlField) {
       out.push({
-        title: typeof o.title === 'string' ? o.title : undefined,
-        url: typeof o.url === 'string' ? o.url : undefined,
-        snippet:
-          typeof o.snippet === 'string'
-            ? o.snippet
-            : typeof o.description === 'string'
-              ? o.description
-              : typeof o.content === 'string'
-                ? o.content
-                : undefined,
+        title: titleField,
+        url: urlField,
+        snippet: snippetField,
       });
     }
     for (const k of [
@@ -450,6 +480,12 @@ function collectResultsDeep(
       'data',
       'preview',
       'subResults',
+      // ★ researcher tool 输出
+      'findings',
+      'sources',
+      // ★ rag-search 工具命中
+      'matches',
+      'documents',
     ]) {
       if (o[k] !== undefined) visit(o[k]);
     }
