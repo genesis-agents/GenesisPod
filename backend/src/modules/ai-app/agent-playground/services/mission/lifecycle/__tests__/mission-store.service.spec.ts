@@ -15,6 +15,8 @@ function makePrisma() {
       create: jest.fn().mockResolvedValue({}),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    // ★ P0-R5-1: terminal-state methods 调 $executeRaw 清 checkpoint JSONB key
+    $executeRaw: jest.fn().mockResolvedValue(0),
   };
 }
 

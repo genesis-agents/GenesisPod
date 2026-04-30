@@ -146,4 +146,33 @@ export class MissionCheckpointService<TPayload = unknown> {
   isCompleted(decision: MissionResumeDecision<TPayload>, key: string): boolean {
     return decision.completedKeys.has(key);
   }
+
+  /**
+   * ★ P0-R5-2 (2026-04-30): rerun 闭环 — 把 fromMissionId 的 checkpoint 复制到
+   *   toMissionId（新建的 rerun mission）让其跳过已完成 stage。
+   *   过期 / status=completed/cancelled 的 checkpoint 不复制（rerun 应当从头跑）。
+   *   返回值：是否成功复制（false 表示无可恢复 checkpoint，新 mission 从 S1 全跑）。
+   */
+  async cloneCheckpoint(
+    fromMissionId: string,
+    toMissionId: string,
+  ): Promise<boolean> {
+    const decision = await this.canResume(fromMissionId);
+    if (!decision.canResume || !decision.snapshot) {
+      this.log.debug(
+        `[checkpoint.clone] from=${fromMissionId} → to=${toMissionId} skipped (reason=${decision.reason})`,
+      );
+      return false;
+    }
+    await this.save(
+      toMissionId,
+      decision.snapshot.payload,
+      decision.snapshot.completedKeys,
+      "running",
+    );
+    this.log.log(
+      `[checkpoint.clone] from=${fromMissionId} → to=${toMissionId} keys=${decision.snapshot.completedKeys.length}`,
+    );
+    return true;
+  }
 }

@@ -85,8 +85,34 @@ export class MissionStore {
    * 启动恢复：把所有 status='running' 但已经超过 maxAgeMinutes 的 mission
    * 标记为 failed（Railway 重启后 in-memory orchestrator 已死，但 DB 还停在 running）
    */
+  /**
+   * ★ P0-R5-1 (2026-04-30): 终态化 mission 时一并清掉 leaderJournal.__checkpoint
+   *   避免 quality-failed / orphaned mission 的 checkpoint 残留导致后续 listResumable
+   *   误显示"可恢复"。用 PostgreSQL 内建的 jsonb `-` 算子原子删除 key。
+   */
+  private async clearCheckpointJsonbKey(missionId: string): Promise<void> {
+    await this.prisma.$executeRaw`
+        UPDATE "AgentPlaygroundMission"
+        SET "leaderJournal" = COALESCE("leaderJournal", '{}'::jsonb) - '__checkpoint'
+        WHERE id = ${missionId}
+          AND "leaderJournal" ? '__checkpoint'
+      `.catch((err: unknown) => {
+      this.log.warn(
+        `[clearCheckpoint ${missionId}] update failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return 0;
+    });
+  }
+
   async recoverOrphanedRunning(maxAgeMinutes = 30): Promise<number> {
     const cutoff = new Date(Date.now() - maxAgeMinutes * 60_000);
+    // ★ P0-R5-1: 先拉 ID 再 updateMany + 清 checkpoint
+    const orphans = await this.prisma.agentPlaygroundMission
+      .findMany({
+        where: { status: "running", startedAt: { lt: cutoff } },
+        select: { id: true },
+      })
+      .catch((): { id: string }[] => []);
     const result = await this.prisma.agentPlaygroundMission
       .updateMany({
         where: {
@@ -106,6 +132,8 @@ export class MissionStore {
         );
         return { count: 0 };
       });
+    // 清 checkpoint（并发安全，每行独立 update）
+    await Promise.all(orphans.map((m) => this.clearCheckpointJsonbKey(m.id)));
     if (result.count > 0) {
       this.log.warn(
         `[recoverOrphanedRunning] marked ${result.count} orphaned running missions as failed`,
@@ -207,6 +235,8 @@ export class MissionStore {
           `[markCompleted ${id}] guarded update failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
+    // ★ P0-R5-1: 成功完成也清 checkpoint，避免 listResumable 把已 completed 的视作可恢复
+    await this.clearCheckpointJsonbKey(id);
   }
 
   /**
@@ -303,6 +333,8 @@ export class MissionStore {
           `[markCancelled ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
+    // ★ P0-R5-1: cancel 也清 checkpoint，否则 listResumable 仍会显示"可恢复"
+    await this.clearCheckpointJsonbKey(id);
   }
 
   async markFailed(
@@ -373,6 +405,8 @@ export class MissionStore {
           `[markFailed ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
+    // ★ P0-R5-1: 失败也清 checkpoint（包括 quality-failed 拒签路径）
+    await this.clearCheckpointJsonbKey(id);
   }
 
   /**
@@ -509,16 +543,63 @@ export class MissionStore {
       createdAt: Date;
     }[]
   > {
-    const rows = await this.prisma.harnessVectorMemory
-      .findMany({
+    // ★ P1-R5-D (2026-04-30): S12 fire-and-forget vs S2 召回竞态修复
+    //   如果用户最近 5min 内有 mission 已 completed 但 postmortem 还没落表（S12 在跑），
+    //   等最多 3s 让 S12 写完，避免 S2 取到旧 postmortem 漏掉最近教训。
+    const recentMissionExists = await this.prisma.agentPlaygroundMission
+      .findFirst({
         where: {
-          namespace: userId,
-          tags: { has: "mission-postmortem" },
+          userId,
+          status: { in: ["completed", "quality-failed"] },
+          completedAt: { gte: new Date(Date.now() - 5 * 60_000) },
         },
-        orderBy: { createdAt: "desc" },
-        take: Math.min(Math.max(limit, 1), 10),
+        select: { id: true, completedAt: true },
+        orderBy: { completedAt: "desc" },
       })
-      .catch(() => []);
+      .catch(() => null);
+
+    const fetchPostmortems = async () =>
+      this.prisma.harnessVectorMemory
+        .findMany({
+          where: {
+            namespace: userId,
+            tags: { has: "mission-postmortem" },
+          },
+          orderBy: { createdAt: "desc" },
+          take: Math.min(Math.max(limit, 1), 10),
+        })
+        .catch(() => []);
+
+    let rows = await fetchPostmortems();
+
+    if (recentMissionExists) {
+      // 检查是否包含该 mission 的 postmortem；不包含则短暂等待 S12 写入
+      const recentMissionId = recentMissionExists.id;
+      const hasRecent = rows.some(
+        (r) =>
+          ((r.metadata as Record<string, unknown> | null)?.missionId ??
+            null) === recentMissionId,
+      );
+      if (!hasRecent) {
+        const deadline = Date.now() + 3000;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 300));
+          rows = await fetchPostmortems();
+          if (
+            rows.some(
+              (r) =>
+                ((r.metadata as Record<string, unknown> | null)?.missionId ??
+                  null) === recentMissionId,
+            )
+          ) {
+            this.log.debug(
+              `[listRecentPostmortems ${userId}] S12 caught up for mission ${recentMissionId}`,
+            );
+            break;
+          }
+        }
+      }
+    }
     return rows.map((r) => {
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
       return {

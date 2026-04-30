@@ -527,6 +527,18 @@ export class AgentPlaygroundController {
     const newMissionId = randomUUID();
     this.ownership.assign(newMissionId, userId);
 
+    // ★ P0-R5-2 (2026-04-30): rerun 闭环 — 复制原 mission checkpoint 到新 mission
+    //   让 team.mission 入口 canResume() 取到 ok 决策，下游 stage 跳过已完成 keys。
+    //   过期 / 已 completed 的 checkpoint 自动跳过；新 mission 从头跑。
+    const cloned = await this.checkpoint
+      .cloneCheckpoint(missionId, newMissionId)
+      .catch(() => false);
+    if (cloned) {
+      this.log.log(
+        `[rerun] mission ${newMissionId} resumed from ${missionId} checkpoint`,
+      );
+    }
+
     void this.orchestrator
       .runMission(newMissionId, input, userId)
       .catch((err: unknown) => {

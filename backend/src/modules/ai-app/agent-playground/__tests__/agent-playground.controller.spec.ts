@@ -81,6 +81,9 @@ function buildController() {
   const leaderChat = makeLeaderChat();
   const abortRegistry = makeAbortRegistry();
   const prisma = makePrisma();
+  const checkpoint = {
+    cloneCheckpoint: jest.fn().mockResolvedValue(false),
+  };
 
   const controller = new AgentPlaygroundController(
     orchestrator as never,
@@ -90,6 +93,7 @@ function buildController() {
     leaderChat as never,
     abortRegistry as never,
     prisma as never,
+    checkpoint as never,
   );
 
   return {
