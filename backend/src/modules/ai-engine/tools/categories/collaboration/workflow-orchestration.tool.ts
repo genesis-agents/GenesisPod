@@ -280,7 +280,13 @@ export class WorkflowOrchestrationTool extends BaseTool<
 
   readonly id = "workflow-orchestration";
   readonly category: ToolCategory = "collaboration";
-  readonly tags = ["collaboration", "workflow", "orchestration", "pipeline", "automation"];
+  readonly tags = [
+    "collaboration",
+    "workflow",
+    "orchestration",
+    "pipeline",
+    "automation",
+  ];
   readonly name = "工作流编排";
   readonly description =
     "定义和执行多步骤工作流，支持顺序、并行和条件执行模式，包含重试、超时、回滚等高级特性。适用于复杂的多 Agent 协作流程。";
@@ -506,7 +512,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "START",
         workflowId,
-        error: "Workflow not found",
+        error: `Workflow not found (workflowId="${workflowId}", available: [${Array.from(this.workflowStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -623,7 +629,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "PAUSE",
         workflowId,
-        error: "Workflow not found",
+        error: `Workflow not found (workflowId="${workflowId}", available: [${Array.from(this.workflowStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -632,7 +638,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "PAUSE",
         workflowId,
-        error: "Only running workflows can be paused",
+        error: `Only running workflows can be paused (workflowId="${workflowId}", currentStatus="${workflow.status}")`,
       };
     }
 
@@ -657,7 +663,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "RESUME",
         workflowId,
-        error: "Workflow not found",
+        error: `Workflow not found (workflowId="${workflowId}", available: [${Array.from(this.workflowStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -666,7 +672,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "RESUME",
         workflowId,
-        error: "Only paused workflows can be resumed",
+        error: `Only paused workflows can be resumed (workflowId="${workflowId}", currentStatus="${workflow.status}")`,
       };
     }
 
@@ -683,7 +689,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "CANCEL",
         workflowId,
-        error: "Workflow not found",
+        error: `Workflow not found (workflowId="${workflowId}", available: [${Array.from(this.workflowStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -705,7 +711,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "GET_STATUS",
         workflowId,
-        error: "Workflow not found",
+        error: `Workflow not found (workflowId="${workflowId}", available: [${Array.from(this.workflowStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -731,7 +737,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "UPDATE_CONTEXT",
         workflowId,
-        error: "Workflow not found",
+        error: `Workflow not found (workflowId="${workflowId}", available: [${Array.from(this.workflowStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -758,7 +764,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "ROLLBACK",
         workflowId,
-        error: "Workflow not found",
+        error: `Workflow not found (workflowId="${workflowId}", available: [${Array.from(this.workflowStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -767,7 +773,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
         success: false,
         operation: "ROLLBACK",
         workflowId,
-        error: "Rollback not enabled for this workflow",
+        error: `Rollback not enabled for this workflow (workflowId="${workflowId}"; pass options.rollback.enabled=true at CREATE time to enable)`,
       };
     }
 

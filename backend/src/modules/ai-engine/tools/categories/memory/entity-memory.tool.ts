@@ -432,6 +432,9 @@ export class EntityMemoryTool extends BaseTool<
   private static readonly RELATION_TYPE = "entity_relation";
 
   private memoryTableReady: boolean | null = null;
+  /** ★ P0-LIVE-TOOL-EMPTY-ERR (2026-04-30): 记录"unavailable"具体原因，
+   *  防止 LLM observation 看到 generic "Knowledge base unavailable" 不知所以然。 */
+  private memoryTableUnavailableReason: string | null = null;
 
   constructor(private readonly prisma: PrismaService) {
     super();
@@ -444,10 +447,23 @@ export class EntityMemoryTool extends BaseTool<
         Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='long_term_memories') AS "exists"`,
       );
       this.memoryTableReady = result[0]?.exists ?? false;
-    } catch {
+      if (!this.memoryTableReady) {
+        this.memoryTableUnavailableReason =
+          "Postgres table 'long_term_memories' does not exist (Prisma migration not run on this database)";
+      }
+    } catch (err) {
       this.memoryTableReady = false;
+      this.memoryTableUnavailableReason =
+        err instanceof Error
+          ? `Failed to query information_schema for 'long_term_memories': ${err.message}`
+          : `Failed to query information_schema for 'long_term_memories': ${String(err)}`;
     }
     return this.memoryTableReady;
+  }
+
+  /** Helper for callers to surface the precise unavailable reason in their `error` field. */
+  private get knowledgeBaseUnavailableError(): string {
+    return `Knowledge base unavailable: ${this.memoryTableUnavailableReason || "long_term_memories table not initialized"}`;
   }
 
   /**
@@ -553,7 +569,7 @@ export class EntityMemoryTool extends BaseTool<
       return {
         success: false,
         operation: EntityOperation.STORE,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
@@ -620,7 +636,7 @@ export class EntityMemoryTool extends BaseTool<
       return {
         success: false,
         operation: EntityOperation.RETRIEVE,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
@@ -656,7 +672,7 @@ export class EntityMemoryTool extends BaseTool<
       return {
         success: false,
         operation: EntityOperation.UPDATE,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
@@ -702,7 +718,7 @@ export class EntityMemoryTool extends BaseTool<
       return {
         success: false,
         operation: EntityOperation.DELETE,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
@@ -762,7 +778,7 @@ export class EntityMemoryTool extends BaseTool<
       return {
         success: false,
         operation: EntityOperation.ADD_RELATION,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 

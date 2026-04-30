@@ -82,6 +82,11 @@ export interface DataAnalysisOutput {
    * 是否成功
    */
   success: boolean;
+
+  /**
+   * 失败时的明细原因
+   */
+  error?: string;
 }
 
 // ============================================================================
@@ -217,9 +222,14 @@ export class DataAnalysisTool extends BaseTool<
       // 解析响应
       return this.parseAnalysisResponse(response.content, outputFormat);
     } catch (error) {
+      // ★ P0-LIVE-TOOL-EMPTY-ERR (2026-04-30): 透传 LLM/parse 真因
       return {
         analysis: "",
         success: false,
+        error:
+          error instanceof Error
+            ? `Data analysis failed: ${error.message}`
+            : `Data analysis failed: ${String(error)}`,
       };
     }
   }

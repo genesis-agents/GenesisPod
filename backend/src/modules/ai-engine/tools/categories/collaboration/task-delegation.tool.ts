@@ -371,7 +371,7 @@ export class TaskDelegationTool extends BaseTool<
         success: false,
         operation: "CHECK_STATUS",
         taskId,
-        error: "Task not found",
+        error: `Task not found (taskId="${taskId}", available: [${Array.from(this.taskStore.keys()).slice(0, 20).join(", ") || "<none>"}])`,
       };
     }
 
@@ -392,7 +392,7 @@ export class TaskDelegationTool extends BaseTool<
         success: false,
         operation: "CANCEL",
         taskId,
-        error: "Task not found",
+        error: `Task not found (taskId="${taskId}", available: [${Array.from(this.taskStore.keys()).slice(0, 20).join(", ") || "<none>"}])`,
       };
     }
 
@@ -401,7 +401,7 @@ export class TaskDelegationTool extends BaseTool<
         success: false,
         operation: "CANCEL",
         taskId,
-        error: "Cannot cancel completed or failed task",
+        error: `Cannot cancel completed or failed task (taskId="${taskId}", currentStatus="${task.status}")`,
       };
     }
 
@@ -427,7 +427,7 @@ export class TaskDelegationTool extends BaseTool<
         success: false,
         operation: "UPDATE",
         taskId,
-        error: "Task not found",
+        error: `Task not found (taskId="${taskId}", available: [${Array.from(this.taskStore.keys()).slice(0, 20).join(", ") || "<none>"}])`,
       };
     }
 
@@ -436,7 +436,7 @@ export class TaskDelegationTool extends BaseTool<
         success: false,
         operation: "UPDATE",
         taskId,
-        error: "Cannot update completed or cancelled task",
+        error: `Cannot update completed or cancelled task (taskId="${taskId}", currentStatus="${task.status}")`,
       };
     }
 

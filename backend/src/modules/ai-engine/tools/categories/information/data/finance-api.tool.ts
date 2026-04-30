@@ -390,6 +390,29 @@ export class FinanceApiTool extends BaseTool<
   }
 
   /**
+   * Alpha Vantage 配额限速 / API key 失效时不返 4xx，而是 200 + JSON 里
+   * 带 "Note" / "Information" / "Error Message" 字段。提取这些让 LLM
+   * 看到真实失败原因（quota / invalid key / rate limit）而不是 generic
+   * "未找到 symbol 数据".
+   */
+  private extractAlphaVantageDiagnostic(
+    raw: Record<string, unknown> | undefined,
+  ): string | null {
+    if (!raw || typeof raw !== "object") return null;
+    const r = raw;
+    const note = r.Note ?? r.note;
+    const info = r.Information ?? r.information;
+    const errMsg = r["Error Message"] ?? r.errorMessage;
+    if (typeof note === "string" && note.trim())
+      return `Alpha Vantage Note: ${note.slice(0, 280)}`;
+    if (typeof info === "string" && info.trim())
+      return `Alpha Vantage Information: ${info.slice(0, 280)}`;
+    if (typeof errMsg === "string" && errMsg.trim())
+      return `Alpha Vantage Error Message: ${errMsg.slice(0, 280)}`;
+    return null;
+  }
+
+  /**
    * Parse Alpha Vantage response into FinanceApiOutput
    */
   private parseResponse(
@@ -420,7 +443,7 @@ export class FinanceApiTool extends BaseTool<
           success: false,
           queryType,
           data: [],
-          error: "不支持的查询类型",
+          error: `不支持的查询类型 (queryType="${queryType}", 允许值: stock_quote/stock_daily/forex/crypto/economic_indicator)`,
         };
     }
   }
@@ -435,11 +458,16 @@ export class FinanceApiTool extends BaseTool<
   ): FinanceApiOutput {
     const quote = raw["Global Quote"];
     if (!quote || Object.keys(quote).length === 0) {
+      const diag = this.extractAlphaVantageDiagnostic(
+        raw as unknown as Record<string, unknown>,
+      );
       return {
         success: false,
         queryType,
         data: [],
-        error: "未找到股票数据，请检查 symbol 是否正确",
+        error: diag
+          ? `未找到股票数据 (Global Quote 为空)。${diag}`
+          : "未找到股票数据，请检查 symbol 是否正确（Alpha Vantage 返回 Global Quote 字段为空）",
       };
     }
 
@@ -474,11 +502,16 @@ export class FinanceApiTool extends BaseTool<
   ): FinanceApiOutput {
     const timeSeries = raw["Time Series (Daily)"];
     if (!timeSeries) {
+      const diag = this.extractAlphaVantageDiagnostic(
+        raw as unknown as Record<string, unknown>,
+      );
       return {
         success: false,
         queryType,
         data: [],
-        error: "未找到日线数据，请检查 symbol 是否正确",
+        error: diag
+          ? `未找到日线数据 ("Time Series (Daily)" 字段缺失)。${diag}`
+          : "未找到日线数据，请检查 symbol 是否正确（Alpha Vantage 返回缺少 Time Series (Daily) 字段）",
       };
     }
 
@@ -513,11 +546,16 @@ export class FinanceApiTool extends BaseTool<
   ): FinanceApiOutput {
     const rate = raw["Realtime Currency Exchange Rate"];
     if (!rate) {
+      const diag = this.extractAlphaVantageDiagnostic(
+        raw as unknown as Record<string, unknown>,
+      );
       return {
         success: false,
         queryType,
         data: [],
-        error: "未找到汇率数据，请检查货币代码是否正确",
+        error: diag
+          ? `未找到汇率数据 ("Realtime Currency Exchange Rate" 字段缺失)。${diag}`
+          : "未找到汇率数据，请检查货币代码是否正确（Alpha Vantage 返回缺少 Realtime Currency Exchange Rate 字段）",
       };
     }
 
@@ -550,11 +588,16 @@ export class FinanceApiTool extends BaseTool<
   ): FinanceApiOutput {
     const rawData = raw.data;
     if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
+      const diag = this.extractAlphaVantageDiagnostic(
+        raw as unknown as Record<string, unknown>,
+      );
       return {
         success: false,
         queryType,
         data: [],
-        error: "未找到经济指标数据，请检查 indicator 名称是否正确",
+        error: diag
+          ? `未找到经济指标数据 (data 数组为空)。${diag}`
+          : "未找到经济指标数据，请检查 indicator 名称是否正确（Alpha Vantage 返回 data 数组为空）",
       };
     }
 

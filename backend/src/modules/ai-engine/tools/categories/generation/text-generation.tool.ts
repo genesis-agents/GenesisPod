@@ -70,6 +70,11 @@ export interface TextGenerationOutput {
    * 使用的模型
    */
   model?: string;
+
+  /**
+   * 失败时的明细原因（LLM/网络/parse 真因）
+   */
+  error?: string;
 }
 
 // ============================================================================
@@ -220,9 +225,14 @@ export class TextGenerationTool extends BaseTool<
         model: response.model,
       };
     } catch (error) {
+      // ★ P0-LIVE-TOOL-EMPTY-ERR (2026-04-30): 同 code-generation.
       return {
         text: "",
         success: false,
+        error:
+          error instanceof Error
+            ? `Text generation failed: ${error.message}`
+            : `Text generation failed: ${String(error)}`,
       };
     }
   }

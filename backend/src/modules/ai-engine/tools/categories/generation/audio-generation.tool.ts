@@ -269,12 +269,15 @@ export class AudioGenerationTool extends BaseTool<
       const result = await this.ttsService.generateAudio(script);
 
       if (!result) {
+        // ★ P0-LIVE-TOOL-EMPTY-ERR (2026-04-30): TTS provider 返回 null/undefined
+        //   时通常是 API key 失效 / 配额耗尽 / 网络超时；带上 provider 名称
+        //   让 LLM 知道是哪家 provider 挂了。
         return {
           audioUrl: "",
           duration: 0,
           format,
           success: false,
-          error: "Failed to generate audio",
+          error: `Failed to generate audio: TTS provider "${provider}" returned no result (likely API key invalid / quota exhausted / network timeout — check Admin → Secrets for ${provider}_API_KEY)`,
         };
       }
 

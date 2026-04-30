@@ -419,7 +419,7 @@ export class ConsensusMechanismTool extends BaseTool<
         success: false,
         operation: "CAST_VOTE",
         proposalId,
-        error: "Proposal not found",
+        error: `Proposal not found (proposalId="${proposalId}", available: [${Array.from(this.proposalStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -428,7 +428,7 @@ export class ConsensusMechanismTool extends BaseTool<
         success: false,
         operation: "CAST_VOTE",
         proposalId,
-        error: "Voting is closed",
+        error: `Voting is closed (proposalId="${proposalId}", closedAt previous CLOSE_VOTING action)`,
       };
     }
 
@@ -441,7 +441,7 @@ export class ConsensusMechanismTool extends BaseTool<
         success: false,
         operation: "CAST_VOTE",
         proposalId,
-        error: "Voter not in voter list",
+        error: `Voter not in voter list (voterId="${vote.voterId}", allowed voters: [${proposal.voters.map((v) => v.voterId).join(", ") || "<none>"}])`,
       };
     }
 
@@ -452,7 +452,7 @@ export class ConsensusMechanismTool extends BaseTool<
         success: false,
         operation: "CAST_VOTE",
         proposalId,
-        error: "Voter has already voted",
+        error: `Voter has already voted (voterId="${vote.voterId}", previousVote=${JSON.stringify(existingVote.value)} at ${existingVote.timestamp})`,
       };
     }
 
@@ -481,7 +481,7 @@ export class ConsensusMechanismTool extends BaseTool<
         success: false,
         operation: "GET_STATUS",
         proposalId,
-        error: "Proposal not found",
+        error: `Proposal not found (proposalId="${proposalId}", available: [${Array.from(this.proposalStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -502,7 +502,7 @@ export class ConsensusMechanismTool extends BaseTool<
         success: false,
         operation: "CLOSE_VOTING",
         proposalId,
-        error: "Proposal not found",
+        error: `Proposal not found (proposalId="${proposalId}", available: [${Array.from(this.proposalStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 
@@ -519,7 +519,7 @@ export class ConsensusMechanismTool extends BaseTool<
         success: false,
         operation: "GET_RESULT",
         proposalId,
-        error: "Proposal not found",
+        error: `Proposal not found (proposalId="${proposalId}", available: [${Array.from(this.proposalStore.keys()).join(", ") || "<none>"}])`,
       };
     }
 

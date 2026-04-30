@@ -75,6 +75,11 @@ export interface CodeGenerationOutput {
    * 是否成功
    */
   success: boolean;
+
+  /**
+   * 失败时的明细原因（LLM/网络/parse 真因）
+   */
+  error?: string;
 }
 
 // ============================================================================
@@ -235,10 +240,17 @@ ${referenceCode}
         success: true,
       };
     } catch (error) {
+      // ★ P0-LIVE-TOOL-EMPTY-ERR (2026-04-30): catch 完全吞 error，LLM 看到
+      //   {success: false} 不知所以然反复重试浪费 token。透传 LLM/网络/parse
+      //   真因到 error 字段。
       return {
         code: "",
         language,
         success: false,
+        error:
+          error instanceof Error
+            ? `Code generation failed: ${error.message}`
+            : `Code generation failed: ${String(error)}`,
       };
     }
   }

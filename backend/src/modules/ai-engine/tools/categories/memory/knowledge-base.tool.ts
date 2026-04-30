@@ -401,6 +401,8 @@ export class KnowledgeBaseTool extends BaseTool<
   private static readonly ENTRY_TYPE = "knowledge_entry";
 
   private memoryTableReady: boolean | null = null;
+  /** ★ P0-LIVE-TOOL-EMPTY-ERR (2026-04-30): 记录 unavailable 具体原因 */
+  private memoryTableUnavailableReason: string | null = null;
 
   constructor(private readonly prisma: PrismaService) {
     super();
@@ -413,10 +415,22 @@ export class KnowledgeBaseTool extends BaseTool<
         Prisma.sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='long_term_memories') AS "exists"`,
       );
       this.memoryTableReady = result[0]?.exists ?? false;
-    } catch {
+      if (!this.memoryTableReady) {
+        this.memoryTableUnavailableReason =
+          "Postgres table 'long_term_memories' does not exist (Prisma migration not run on this database)";
+      }
+    } catch (err) {
       this.memoryTableReady = false;
+      this.memoryTableUnavailableReason =
+        err instanceof Error
+          ? `Failed to query information_schema for 'long_term_memories': ${err.message}`
+          : `Failed to query information_schema for 'long_term_memories': ${String(err)}`;
     }
     return this.memoryTableReady;
+  }
+
+  private get knowledgeBaseUnavailableError(): string {
+    return `Knowledge base unavailable: ${this.memoryTableUnavailableReason || "long_term_memories table not initialized"}`;
   }
 
   /**
@@ -520,7 +534,7 @@ export class KnowledgeBaseTool extends BaseTool<
       return {
         success: false,
         operation: KnowledgeOperation.CREATE,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
@@ -568,7 +582,7 @@ export class KnowledgeBaseTool extends BaseTool<
       return {
         success: false,
         operation: KnowledgeOperation.READ,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
@@ -604,7 +618,7 @@ export class KnowledgeBaseTool extends BaseTool<
       return {
         success: false,
         operation: KnowledgeOperation.UPDATE,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
@@ -663,7 +677,7 @@ export class KnowledgeBaseTool extends BaseTool<
       return {
         success: false,
         operation: KnowledgeOperation.DELETE,
-        error: "Knowledge base unavailable",
+        error: this.knowledgeBaseUnavailableError,
       };
     }
 
