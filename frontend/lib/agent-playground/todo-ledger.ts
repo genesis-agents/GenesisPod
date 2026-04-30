@@ -390,6 +390,24 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             t0.startedAt = ev.timestamp;
           }
         );
+      } else if (stage === 's12-self-evolution') {
+        // ★ S12 自我进化（2026-04-30）：mission 完成后跑 fire-and-forget 复盘 +
+        //   FailureLearner / postmortem 入向量记忆，下次同主题召回历史经验
+        upsert(
+          'system:s12-self-evolution',
+          () =>
+            systemStageInit(
+              's12-self-evolution',
+              '自我进化',
+              '复盘 + FailureLearner / postmortem 入向量记忆，下次同主题召回历史经验',
+              'mission',
+              ev.timestamp
+            ),
+          (t0) => {
+            t0.status = 'in_progress';
+            t0.startedAt = ev.timestamp;
+          }
+        );
       }
     } else if (t === 'agent-playground.stage:completed') {
       const stage = p.stage as string | undefined;
@@ -547,6 +565,47 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
                   kind: 'finding-count' as const,
                   label: '撰写迭代',
                   value: `${attempts} 轮`,
+                },
+              ]
+            : []),
+        ];
+      } else if (stage === 's12-self-evolution') {
+        // ★ S12 自我进化 stage:completed
+        const status = (p.status as string) ?? 'completed';
+        const s12 = upsert('system:s12-self-evolution', () =>
+          systemStageInit(
+            's12-self-evolution',
+            '自我进化',
+            '复盘 + 入向量记忆',
+            'mission',
+            ev.timestamp
+          )
+        );
+        s12.status =
+          status === 'failed'
+            ? 'failed'
+            : status === 'cancelled'
+              ? 'cancelled'
+              : 'done';
+        s12.endedAt = ev.timestamp;
+        const recCount = p.recommendationsCount as number | undefined;
+        const leaderSigned = p.leaderSigned as boolean | null | undefined;
+        s12.artifacts = [
+          ...(recCount != null
+            ? [
+                {
+                  kind: 'finding-count' as const,
+                  label: '改进建议',
+                  value: recCount,
+                },
+              ]
+            : []),
+          ...(leaderSigned === false
+            ? [
+                {
+                  kind: 'finding-count' as const,
+                  label: 'Leader 拒签',
+                  value: '已记入 FailureLearner',
                 },
               ]
             : []),
