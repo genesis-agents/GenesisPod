@@ -50,7 +50,7 @@ const Output = z.object({
     description:
       "Writes one chapter of a dimension report, TI-style strict format",
   },
-  loop: "react",
+  loop: "reflexion",
   // ★ Round 3 真问题修复 (2026-04-29):
   //   原 outputLength="long" → 8000 maxTokens，等于 targetWords 上限 (8000 字)。
   //   中文 1:1 token，意味着 LLM 单次输出永远会被 maxTokens 截断到约 80% 实际产出。

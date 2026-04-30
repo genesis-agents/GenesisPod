@@ -65,7 +65,7 @@ const Output = z.object({
     description:
       "L4 meta-critic — independent reviewer outside Writer/Reviewer loop, surfaces blindspots and biases",
   },
-  loop: "react",
+  loop: "simple",
   toolCategories: [],
   taskProfile: {
     creativity: "low",

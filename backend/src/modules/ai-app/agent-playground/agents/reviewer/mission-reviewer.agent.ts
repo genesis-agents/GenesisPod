@@ -6,10 +6,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 import { ResearchReportSchema } from "../../dto/run-mission.dto";
 
 const Input = z.object({
@@ -30,7 +27,7 @@ const Output = z.object({
     role: "reviewer",
     description: "Final QA reviewer — score the draft report on 4 dimensions",
   },
-  loop: "react",
+  loop: "simple",
   taskProfile: { creativity: "deterministic", outputLength: "short" },
   inputSchema: Input,
   outputSchema: Output,

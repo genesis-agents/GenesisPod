@@ -12,10 +12,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -58,7 +55,7 @@ const Output = z.object({
     role: "quality-judge",
     description: "5-axis quality grading for a dimension report",
   },
-  loop: "react",
+  loop: "simple",
   taskProfile: { creativity: "deterministic", outputLength: "medium" },
   inputSchema: Input,
   outputSchema: Output,

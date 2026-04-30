@@ -91,7 +91,7 @@ const DEPTH_SECTION_PLAN: Record<
     role: "writer",
     description: "Write final research report in structured Markdown",
   },
-  loop: "react",
+  loop: "reflexion",
   skills: [],
   taskProfile: { creativity: "medium", outputLength: "extended" },
   inputSchema: Input,

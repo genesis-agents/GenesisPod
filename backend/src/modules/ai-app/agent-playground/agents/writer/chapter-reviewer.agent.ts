@@ -62,7 +62,7 @@ const Output = z.object({
     role: "chapter-reviewer",
     description: "Quality gate for a single chapter draft",
   },
-  loop: "react",
+  loop: "simple",
   taskProfile: { creativity: "deterministic", outputLength: "short" },
   inputSchema: Input,
   outputSchema: Output,

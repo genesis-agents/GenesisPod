@@ -116,7 +116,7 @@ const Output = z
     description:
       "W1 outline planner — pre-allocate facts/figures to chapters before parallel writing",
   },
-  loop: "react",
+  loop: "reflexion",
   toolCategories: [],
   taskProfile: {
     creativity: "low",

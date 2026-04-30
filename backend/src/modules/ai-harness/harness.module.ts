@@ -37,6 +37,7 @@ import { HookRegistry } from "./kernel/core/hook-registry";
 import { ReActLoop } from "./execution/loop/react-loop";
 import { PlanActLoop } from "./execution/loop/plan-act-loop";
 import { ReflexionLoop } from "./execution/loop/reflexion-loop";
+import { SimpleLoop } from "./execution/loop/simple-loop";
 import { LoopRegistry } from "./execution/loop/loop-registry";
 import { ToolInvoker } from "./execution/executor/tool-invoker";
 import { ToolCircuitBreaker } from "./execution/executor/tool-circuit-breaker";
@@ -188,6 +189,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ReActLoop,
     PlanActLoop,
     ReflexionLoop,
+    SimpleLoop,
     LoopRegistry,
     MemoryBridge,
 
@@ -314,6 +316,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ReActLoop,
     PlanActLoop,
     ReflexionLoop,
+    SimpleLoop,
 
     // PR-X18: 导出 8 个 engine 端 token + 实现类（@Global，跨模块全局可注入）
     PlanBasedAgentRegistry,
@@ -391,6 +394,7 @@ export class HarnessModule implements OnApplicationBootstrap {
     @Inject(ReActLoop) private readonly reactLoop: ReActLoop,
     @Inject(PlanActLoop) private readonly planActLoop: PlanActLoop,
     @Inject(ReflexionLoop) private readonly reflexionLoop: ReflexionLoop,
+    @Inject(SimpleLoop) private readonly simpleLoop: SimpleLoop,
     @Inject(LeaderWorkerLoop)
     private readonly leaderWorkerLoop: LeaderWorkerLoop,
     @Inject(JudgeService) private readonly judgeService: JudgeService,
@@ -419,6 +423,8 @@ export class HarnessModule implements OnApplicationBootstrap {
     this.loopRegistry.register(this.reactLoop);
     this.loopRegistry.register(this.planActLoop);
     this.loopRegistry.register(this.reflexionLoop);
+    // ★ Phase live-fix (2026-04-30): 单步直答 loop（纯生成 / 评分类 agent 用）
+    this.loopRegistry.register(this.simpleLoop);
     // PR-L: 五元环 loop
     this.loopRegistry.register(this.leaderWorkerLoop);
 

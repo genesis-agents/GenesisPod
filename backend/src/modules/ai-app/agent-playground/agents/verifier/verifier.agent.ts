@@ -16,10 +16,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
 
 const Citation = z.object({
@@ -124,7 +121,7 @@ export type VerifierOutput = z.infer<typeof Output>;
     description:
       "客观事实核验员。一个 class，4 种 mode 覆盖引用 / 数字 / claim / 来源分级。",
   },
-  loop: "react",
+  loop: "simple",
   toolCategories: ["information"],
   taskProfile: {
     creativity: "deterministic",

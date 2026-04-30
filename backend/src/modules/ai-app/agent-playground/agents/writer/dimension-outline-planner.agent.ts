@@ -50,7 +50,7 @@ const Output = z.object({
     description:
       "Plan N chapters for one dimension based on its source manifest",
   },
-  loop: "react",
+  loop: "reflexion",
   taskProfile: { creativity: "low", outputLength: "medium" },
   inputSchema: Input,
   outputSchema: Output,

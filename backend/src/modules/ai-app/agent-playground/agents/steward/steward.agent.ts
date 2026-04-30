@@ -16,10 +16,7 @@
  */
 
 import { z } from "zod";
-import {
-  AgentSpec,
-  DefineAgent,
-} from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
 
 const Input = z.discriminatedUnion("scope", [
@@ -118,7 +115,7 @@ export type StewardOutput = z.infer<typeof Output>;
     description:
       "资源 / 合规 / 边界守门员。一个 class，4 种 scope 覆盖 budget / compliance / data-boundary / source-diversity。",
   },
-  loop: "react",
+  loop: "reflexion",
   toolCategories: [],
   taskProfile: {
     creativity: "deterministic",
