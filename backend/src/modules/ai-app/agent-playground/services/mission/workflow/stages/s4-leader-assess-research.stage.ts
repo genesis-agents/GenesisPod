@@ -28,6 +28,7 @@ import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { extractFailureMessage } from "../helpers/failure-extraction.util";
 import { narrate } from "../helpers/narrative.util";
+import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
 // ★ Phase 7 (2026-04-29): 用 ai-harness 沉淀的 DAGExecutor 替代 Promise.allSettled
 import {
   DAGExecutor,
@@ -409,7 +410,46 @@ async function dispatchAssessActions(args: {
       const job = retryJobs[i];
       const newOut = results[i];
       if (newOut) {
-        researcherResults[job.idx] = newOut;
+        // ★ 2026-04-30 fix (#36/#37 retry todo 借用第一次 grade)：
+        //   之前 retry researcher 跑完只覆盖 researcherResults[idx]，但 chapters /
+        //   fullMarkdown / grade 都是首次 S3 per-dim chapter pipeline 出的 stale 值。
+        //   下游 S8 writer 装配 reportArtifact 用的还是老 grade，前端 retry todo
+        //   绑定该 dim 显示的 grade 跟第一次一模一样（用户截图的"评审重派 80/80
+        //   两次评分一样"假象）。修复：retry 成功后重跑 runPerDimPipeline 拿新
+        //   chapter pipeline 产物（含新 5-axis grade），整体覆盖 researcherResults[idx]。
+        const skipChapterPipeline =
+          ctx.input.auditLayers === "minimal" || ctx.input.depth === "quick";
+        if (skipChapterPipeline) {
+          researcherResults[job.idx] = newOut;
+        } else {
+          try {
+            const dimPipelineOut = await runPerDimPipeline(
+              {
+                missionId,
+                userId: ctx.userId,
+                dimensionIdx: job.idx,
+                dimensionName: job.dim.name,
+                topic: ctx.input.topic,
+                language: ctx.input.language,
+                depth: ctx.input.depth,
+                lengthProfile: ctx.input.lengthProfile,
+                dimensionCount: ctx.plan?.dimensions.length,
+                pool: ctx.pool,
+                researcherOut: newOut,
+                billing: ctx.billing,
+                budgetMultiplier: ctx.budgetMultiplier * 1.3,
+              },
+              deps,
+            );
+            researcherResults[job.idx] = dimPipelineOut;
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            deps.log.warn(
+              `[s4-retry-pipeline ${job.idx}] re-run chapter pipeline failed for "${job.dim.name}": ${errMsg}; falling back to researcher output only`,
+            );
+            researcherResults[job.idx] = newOut;
+          }
+        }
         retried++;
       } else {
         skipped++;
