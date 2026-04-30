@@ -199,6 +199,22 @@ export async function runSectionQualityEnhancementStage(
     } 分`,
     agentId: "writer",
   });
+  // ★ Phase 2 (TI RemediationTrace 模式): emit 结构化 trace 让前端可视化补救成效
+  await deps
+    .emit({
+      type: "agent-playground.section:remediation:summary",
+      missionId,
+      userId,
+      payload: {
+        evaluatedCount,
+        remediatedCount,
+        avgScoreDelta:
+          remediatedCount > 0
+            ? Number((scoreDeltaSum / remediatedCount).toFixed(2))
+            : 0,
+      },
+    })
+    .catch(() => {});
 }
 
 /**

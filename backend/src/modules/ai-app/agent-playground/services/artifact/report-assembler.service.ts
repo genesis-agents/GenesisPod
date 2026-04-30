@@ -34,7 +34,21 @@ import {
 // ★ 沉淀消费（2026-04-29）：harness quality-gate 标杆实现
 import { ReportQualityGateService } from "@/modules/ai-harness/facade";
 // ★ 沉淀消费（2026-04-29）：engine LLM 输出后处理 — strip-chart-json
-import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
+// ★ Phase 2 (2026-04-29): 接入 TI 沉淀的 77 个 report-formatting 工具
+import {
+  stripChartJsonFromContent,
+  filterJunkReferences,
+  deduplicateReferencesByUrl,
+  upgradeHttpToHttps,
+  decodeUrlEntities,
+  remapCitationIndices,
+  removeHorizontalRules,
+  repairOrderedListContinuity,
+  repairBrokenListItems,
+  decodeHtmlEntities,
+  removeEmptyHeadings,
+  cleanupEmptyBullets,
+} from "@/modules/ai-engine/facade";
 
 interface AssembleInput {
   topic: string;
@@ -142,8 +156,15 @@ export class ReportAssemblerService {
     // 2) sections 树（按 ## 标题切分 + 类型推断）
     let sections = this.buildSectionTree(fullMarkdown, input);
 
-    // 3) citations 编号原子分配 + occurrences
-    const citations = this.buildCitations(fullMarkdown, sections, input);
+    // 3) citations 编号原子分配 + occurrences（★ Phase 2: indexMapping 可能改写 fullMarkdown）
+    const citationsResult = this.buildCitations(fullMarkdown, sections, input);
+    const citations = citationsResult.citations;
+    if (citationsResult.fullMarkdown !== fullMarkdown) {
+      // citation 重映射后正文已变，需重建 sections 以对齐
+      fullMarkdown = citationsResult.fullMarkdown;
+      sections = this.buildSectionTree(fullMarkdown, input);
+      this.recomputeCitationOccurrences(citations, sections, fullMarkdown);
+    }
 
     // 4) figures 强校验 + 关联 sectionId（依赖 sections + citations）
     const figures = this.buildFigures(input, citations, sections);
@@ -398,35 +419,48 @@ export class ReportAssemblerService {
   private applyFormatFixes(md: string): string {
     let content = md;
     // 0. ★ 沉淀消费：清理 LLM 泄漏的图表 JSON 块、Figure References 元数据、裸 JSON 行
-    //    （Writer 偶尔把内部 chart 结构打到正文里）
     content = stripChartJsonFromContent(content);
-    // 1. 压缩 ≥3 个连续换行
+    // ★ Phase 2 接入: 用沉淀工具替代手写（覆盖更全 + battle-tested）
+    // 1) HTML entities 解码（&amp; → &）
+    content = decodeHtmlEntities(content);
+    // 2) 空标题清理
+    content = removeEmptyHeadings(content);
+    // 3) 多余水平线（--- 在错误位置）清理
+    content = removeHorizontalRules(content);
+    // 4) 有序列表连续性修复（1 2 4 5 → 1 2 3 4）
+    content = repairOrderedListContinuity(content);
+    // 5) 破碎列表项修复（"- " 后空行 / 层级错乱）
+    content = repairBrokenListItems(content);
+    // 6) 空 bullet 清理
+    content = cleanupEmptyBullets(content);
+    // ★ 注 1：stripLLMMetaNotes 不适用于装配后 fullMarkdown（会误删合法标题），仅 LLM raw output 阶段用
+    // ★ 注 2：sanitizeHeadingLevels 是给 dimension-content 用（剥 H1/H2 留 H3+），
+    //   playground fullMarkdown 含 H1/H2 装配标题，不适用
+
+    // ── 以下为 playground 专属（沉淀工具未覆盖）──
+    // 压缩 ≥3 个连续换行
     content = content.replace(/\n{3,}/g, "\n\n");
-    // 2. 修复表格行尾缺 |（简化：行首/尾若无 | 但中间有 |）
+    // 表格行尾缺 |
     content = content.replace(
       /^(\|[^\n]+[^|\s])(\n|$)/gm,
       (_, p1: string, p2: string) => `${p1}|${p2}`,
     );
-    // 3. heading 跳跃修复（h1 后直接 h3 → 改 h3 为 h2）
-    content = content.replace(/^# (.+)\n+### /gm, "# $1\n\n## ");
-    // 4. 列表 tab → 4-space
+    // 列表 tab → 4-space
     content = content.replace(/^(\s*)\t+/gm, (_, sp: string) =>
       sp.replace(/\t/g, "    "),
     );
-    // 5. 孤儿 [N]（粗略）：找 [N] 但全文无 "[N] http"
+    // 孤儿 [N] 标注
     content = this.markOrphanCitations(content);
-    // 6. LaTeX 跨段落 $$ 修复（成对检查；奇数 → 闭一个）
+    // LaTeX 跨段落 $$ 修复
     const dollarCount = (content.match(/\$\$/g) ?? []).length;
     if (dollarCount % 2 !== 0) {
       content += "\n$$";
     }
-    // 7. 单元格内换行
+    // 单元格内换行
     content = content.replace(/(\|[^|\n]*?)\\n([^|\n]*?\|)/g, "$1<br>$2");
-    // 8. >>> 规范化（>>> → >）
+    // >>> 规范化
     content = content.replace(/^>{3,}\s/gm, "> ");
-    // 9. 重复连续标题去重
-    content = content.replace(/^(##+ .+)\n+\1\n/gm, "$1\n");
-    // 10. 文末空白 trim
+    // 文末空白 trim
     content = content.replace(/[ \t]+$/gm, "").trimEnd();
     return content;
   }
@@ -589,7 +623,14 @@ export class ReportAssemblerService {
       flush(charOffset, bodyText);
       sections.push(currentSection);
     }
-    return sections;
+    // ★ Phase 2 (TI report-assembler:268-387 模式): 两遍处理 —— 过滤纯标题无内容的空 section
+    // 防止"维度 N 没产出但占位"导致下游 quality.coverage 错误归零
+    return sections.filter((s) => {
+      const body = fullMarkdown.slice(s.startOffset, s.endOffset);
+      // 纯标题（剥离所有 #...）后非空才保留
+      const stripped = body.replace(/^#+\s+.*\n?/gm, "").trim();
+      return stripped.length > 0;
+    });
   }
 
   private inferSectionType(title: string): ArtifactSection["type"] {
@@ -605,11 +646,16 @@ export class ReportAssemblerService {
   }
 
   // ─── 3. citations + occurrences ────────────────────────────────
+  /**
+   * ★ Phase 2 (2026-04-29): 改为返回 { citations, fullMarkdown }，
+   * 因 indexMapping 重映射可能改写正文 [N] 编号，调用方需用更新后版本继续 buildSectionTree。
+   */
   private buildCitations(
     fullMarkdown: string,
     sections: ArtifactSection[],
     input: AssembleInput,
-  ): ArtifactCitation[] {
+  ): { citations: ArtifactCitation[]; fullMarkdown: string } {
+    // ★ Phase 2 接入 TI 沉淀: filterJunk → decodeEntities → upgradeHttps → dedupe
     // 收集所有 source URL（writer.citations + writer.sections[].sources + researcher findings）
     const seen = new Map<string, number>();
     const ordered: string[] = [];
@@ -630,7 +676,29 @@ export class ReportAssemblerService {
       for (const f of r.findings) collectUrl(f.source);
     }
 
-    const citations: ArtifactCitation[] = ordered.map((url, idx) => {
+    // ★ Phase 2 移植 TI 沉淀工具：3 步链路
+    //   1) filterJunkReferences: 滤掉 example.com / placeholder / # 等垃圾 URL
+    //   2) decodeUrlEntities: 修复 &amp; / &#x2F; 等 HTML 实体腐蚀
+    //   3) upgradeHttpToHttps: HTTP → HTTPS（防混合内容警告 + SEO 友好）
+    let refEntries: { url: string; index: number }[] = ordered.map(
+      (url, i) => ({
+        url,
+        index: i + 1,
+      }),
+    );
+    refEntries = filterJunkReferences(refEntries);
+    refEntries = decodeUrlEntities(refEntries);
+    refEntries = upgradeHttpToHttps(refEntries);
+    // 4) deduplicateReferencesByUrl: 同 URL 不同大小写 / trailing slash 归并
+    const { deduplicated, indexMapping } =
+      deduplicateReferencesByUrl(refEntries);
+    // 应用 indexMapping 到正文，让 [N] 编号与最终 citations 对齐
+    if (Object.keys(indexMapping).length > 0) {
+      fullMarkdown = remapCitationIndices(fullMarkdown, indexMapping);
+    }
+    const finalUrls = deduplicated.map((e) => e.url);
+
+    const citations: ArtifactCitation[] = finalUrls.map((url, idx) => {
       const num = idx + 1;
       const domain = extractDomain(url);
       return {
@@ -675,7 +743,7 @@ export class ReportAssemblerService {
       if (!sec.citations.includes(num)) sec.citations.push(num);
     }
 
-    return citations;
+    return { citations, fullMarkdown };
   }
 
   private inferSourceType(

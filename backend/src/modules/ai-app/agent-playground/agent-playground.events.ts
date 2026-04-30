@@ -83,4 +83,6 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   // ── 第三轮补漏（2026-04-29 round 3）：P1-R3-D ──
   T("event:oversized"), // socket-broadcast 256KB cap 降级标识，前端按此 type 拉 /replay
   T("event:dropped"), // socket-broadcast 序列化失败标识，前端可显示"事件丢失"警告
+  // ── Phase 2 (TI RemediationTrace 模式)：S8B 补救成效汇总 ──
+  T("section:remediation:summary"),
 ];
