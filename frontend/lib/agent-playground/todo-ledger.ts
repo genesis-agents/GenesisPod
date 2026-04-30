@@ -90,7 +90,9 @@ export type SystemStageId =
   | 's6-analyst'
   | 's7-writer-outline'
   | 's8-writer-draft'
+  | 's8b-quality-enhancement'
   | 's9-critic-l4'
+  | 's9b-objective-evaluation'
   | 's10-leader-signoff'
   | 's11-persist'
   | 's12-self-evolution';
@@ -181,26 +183,129 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     systemStageId: stageId,
   });
 
-  // 启动时种入 S1 budget todo
+  // ★ 2026-04-30: mission:started 时一次性预占 12 个 stage 占位卡，避免任务列表
+  //   只显示已经 fired 的 stage，让用户看不到后续会做什么。各 stage 收到自己的
+  //   stage:started 时会被 promote 到 in_progress（保留预占的 title/description）。
+  const SYSTEM_STAGE_PRESETS: {
+    id: SystemStageId;
+    title: string;
+    desc: string;
+    role:
+      | 'mission'
+      | 'leader'
+      | 'researcher'
+      | 'reconciler'
+      | 'analyst'
+      | 'writer'
+      | 'critic';
+  }[] = [
+    {
+      id: 's1-budget',
+      title: '预算闸门 + Mission 启动',
+      desc: '根据用户档位（depth × budgetProfile）估算 token 预算并校验余额',
+      role: 'mission',
+    },
+    {
+      id: 's2-leader-plan',
+      title: 'Leader 拆解任务',
+      desc: 'Leader 看 topic，产出 themeSummary + 多个研究维度并声明 successCriteria',
+      role: 'leader',
+    },
+    {
+      id: 's3-researchers',
+      title: '维度并行研究',
+      desc: '按 Leader 拆解的维度并行派遣 Researcher，每人负责一个维度的资料采集',
+      role: 'researcher',
+    },
+    {
+      id: 's4-leader-assess',
+      title: 'Leader 评审 Researcher 产出',
+      desc: '看 finding 数量 / summary 质量，决定 retry / abort / extend / accept',
+      role: 'leader',
+    },
+    {
+      id: 's5-reconciler',
+      title: '跨维度对账',
+      desc: 'Reconciler 把所有维度的 finding 收齐做事实抽取、冲突检测、缺口识别',
+      role: 'reconciler',
+    },
+    {
+      id: 's6-analyst',
+      title: '综合分析',
+      desc: 'Analyst 把对账后的 fact + 各维度 findings 综合成 mission-level insight',
+      role: 'analyst',
+    },
+    {
+      id: 's7-writer-outline',
+      title: '撰写大纲',
+      desc: 'Writer 根据综合分析产出 mission-level chapter outline（thorough+ 档位启用）',
+      role: 'writer',
+    },
+    {
+      id: 's8-writer-draft',
+      title: '撰写报告',
+      desc: 'Writer 起草报告并由 L3 verifier 三路评分；若分数低于阈值会触发重写',
+      role: 'writer',
+    },
+    {
+      id: 's8b-quality-enhancement',
+      title: '章节质量闭环',
+      desc: '对每个章节跑 4 维自评（深度/证据/可操作/写作），弱维度自动 LLM 补救并强制重评',
+      role: 'writer',
+    },
+    {
+      id: 's9-critic-l4',
+      title: 'L4 独立复审 · 盲点 / 偏见 / 建议',
+      desc: 'Critic 独立复审，从盲点 / 偏见 / 改进建议三个维度审视报告',
+      role: 'critic',
+    },
+    {
+      id: 's9b-objective-evaluation',
+      title: '10 维客观评审',
+      desc: 'EVALUATOR 模型独立给每章按 10 维打分（事实/深度/证据/密度/逻辑/可视/写作/原创/时效/可操作）',
+      role: 'critic',
+    },
+    {
+      id: 's10-leader-signoff',
+      title: 'Leader 签字',
+      desc: 'Leader 综合所有产出 + Critic 警示，写综合摘要 + 签字（accountabilityNote）',
+      role: 'leader',
+    },
+    {
+      id: 's11-persist',
+      title: '持久化',
+      desc: '把 reportArtifact + leaderSignOff + verdicts 等终态产物落盘到 DB',
+      role: 'mission',
+    },
+    {
+      id: 's12-self-evolution',
+      title: '自我进化',
+      desc: '复盘 + FailureLearner / postmortem 入向量记忆，下次同主题召回历史经验',
+      role: 'mission',
+    },
+  ];
+  // 启动时一次性创建所有 stage 占位 todo（S1 立刻 in_progress，其它保持 pending）
   for (const ev of events) {
     if (ev.type === 'agent-playground.mission:started') {
-      upsert(
-        'system:s1-budget',
-        () =>
-          systemStageInit(
-            's1-budget',
-            '预算闸门 + Mission 启动',
-            '根据用户档位（depth × budgetProfile）估算 token 预算并校验余额',
-            'mission',
-            ev.timestamp
-          ),
-        (t) => {
-          if (t.status === 'pending') {
-            t.status = 'in_progress';
-            t.startedAt = ev.timestamp;
+      for (const preset of SYSTEM_STAGE_PRESETS) {
+        upsert(
+          `system:${preset.id}`,
+          () =>
+            systemStageInit(
+              preset.id,
+              preset.title,
+              preset.desc,
+              preset.role,
+              ev.timestamp
+            ),
+          (t) => {
+            if (preset.id === 's1-budget' && t.status === 'pending') {
+              t.status = 'in_progress';
+              t.startedAt = ev.timestamp;
+            }
           }
-        }
-      );
+        );
+      }
       break;
     }
   }
@@ -390,6 +495,40 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             t0.startedAt = ev.timestamp;
           }
         );
+      } else if (stage === 's8b-quality-enhancement') {
+        // ★ 2026-04-30: 沉淀 v3 quality 闭环阶段（4 维写中自评 + 弱维度自动补救）
+        upsert(
+          'system:s8b-quality-enhancement',
+          () =>
+            systemStageInit(
+              's8b-quality-enhancement',
+              '章节质量闭环',
+              '对每个章节跑 4 维自评（深度/证据/可操作/写作），弱维度自动 LLM 补救并强制重评',
+              'writer',
+              ev.timestamp
+            ),
+          (t0) => {
+            t0.status = 'in_progress';
+            t0.startedAt = ev.timestamp;
+          }
+        );
+      } else if (stage === 's9b-objective-evaluation') {
+        // ★ 2026-04-30: 沉淀 v3 quality 闭环阶段（10 维 EVALUATOR 模型客观评分）
+        upsert(
+          'system:s9b-objective-evaluation',
+          () =>
+            systemStageInit(
+              's9b-objective-evaluation',
+              '10 维客观评审',
+              'EVALUATOR 模型独立给每章按 10 维打分（事实/深度/证据/密度/逻辑/可视/写作/原创/时效/可操作）',
+              'critic',
+              ev.timestamp
+            ),
+          (t0) => {
+            t0.status = 'in_progress';
+            t0.startedAt = ev.timestamp;
+          }
+        );
       } else if (stage === 's12-self-evolution') {
         // ★ S12 自我进化（2026-04-30）：mission 完成后跑 fire-and-forget 复盘 +
         //   FailureLearner / postmortem 入向量记忆，下次同主题召回历史经验
@@ -565,6 +704,78 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
                   kind: 'finding-count' as const,
                   label: '撰写迭代',
                   value: `${attempts} 轮`,
+                },
+              ]
+            : []),
+        ];
+      } else if (stage === 's8b-quality-enhancement') {
+        // ★ 2026-04-30 S8B 质量闭环 stage:completed
+        const s8b = upsert('system:s8b-quality-enhancement', () =>
+          systemStageInit(
+            's8b-quality-enhancement',
+            '章节质量闭环',
+            '4 维自评 + 弱维度补救',
+            'writer',
+            ev.timestamp
+          )
+        );
+        s8b.status = 'done';
+        s8b.endedAt = ev.timestamp;
+        const evalCount = p.evaluatedCount as number | undefined;
+        const remCount = p.remediatedCount as number | undefined;
+        const delta = p.avgScoreDelta as number | undefined;
+        s8b.artifacts = [
+          ...(typeof evalCount === 'number'
+            ? [
+                {
+                  kind: 'finding-count' as const,
+                  label: '评估章节',
+                  value: evalCount,
+                },
+              ]
+            : []),
+          ...(typeof remCount === 'number'
+            ? [
+                {
+                  kind: 'finding-count' as const,
+                  label: '补救章节',
+                  value: remCount,
+                },
+              ]
+            : []),
+          ...(typeof delta === 'number' && delta !== 0
+            ? [
+                {
+                  kind: 'verdict-score' as const,
+                  label: '平均提升',
+                  value: `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`,
+                },
+              ]
+            : []),
+        ];
+      } else if (stage === 's9b-objective-evaluation') {
+        // ★ 2026-04-30 S9B 10 维客观评审 stage:completed
+        const status = (p.status as string) ?? 'completed';
+        const s9b = upsert('system:s9b-objective-evaluation', () =>
+          systemStageInit(
+            's9b-objective-evaluation',
+            '10 维客观评审',
+            'EVALUATOR 模型独立打分',
+            'critic',
+            ev.timestamp
+          )
+        );
+        s9b.status = status === 'failed' ? 'failed' : 'done';
+        s9b.endedAt = ev.timestamp;
+        const overall = p.overallScore as number | undefined;
+        const grade = p.grade as string | undefined;
+        s9b.artifacts = [
+          ...(typeof overall === 'number'
+            ? [
+                {
+                  kind: 'verdict-score' as const,
+                  label: '总分',
+                  value: `${overall}/100${grade ? ` (${grade})` : ''}`,
                 },
               ]
             : []),
