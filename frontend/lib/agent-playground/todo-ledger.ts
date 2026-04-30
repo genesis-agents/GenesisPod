@@ -1353,23 +1353,23 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           ];
         }
       );
-      warnings.forEach((w, i) => {
-        const wid = `critic:${ev.timestamp}#${i}`;
-        upsert(wid, () => ({
-          id: wid,
-          parentId: s9.id,
-          origin: 'critic-blindspot',
-          createdBy: 'critic',
-          createdAt: ev.timestamp,
-          reasonText: w.message,
-          scope: 'review',
-          title: `${w.kind === 'l4-blindspot' ? '盲点' : w.kind === 'l4-bias' ? '偏见' : w.kind === 'l4-suggestion' ? '建议' : 'L4 警示'} · ${w.message.slice(0, 60)}`,
-          assignee: { role: 'critic' },
-          status: 'done',
-          endedAt: ev.timestamp,
-          artifacts: [],
-          narrativeLog: [{ ts: ev.timestamp, text: w.message, tone: 'warn' }],
-        }));
+      // ★ 2026-04-30: warnings 不再每条独立成 todo（之前 10+ 警示就是 10+ todo 条
+      //   霸占任务列表）；改为合并到 s9 主 todo 的 narrativeLog 显示。
+      warnings.forEach((w) => {
+        const tagPrefix =
+          w.kind === 'l4-blindspot'
+            ? '盲点'
+            : w.kind === 'l4-bias'
+              ? '偏见'
+              : w.kind === 'l4-suggestion'
+                ? '建议'
+                : 'L4 警示';
+        addNarrative(
+          s9.id,
+          ev.timestamp,
+          `${tagPrefix}：${w.message}`,
+          w.severity === 'error' ? 'error' : 'warn'
+        );
       });
     } else if (t === 'agent-playground.mission:completed') {
       upsert(
