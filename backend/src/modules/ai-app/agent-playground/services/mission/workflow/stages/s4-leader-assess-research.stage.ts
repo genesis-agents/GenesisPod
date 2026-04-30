@@ -384,7 +384,12 @@ async function dispatchAssessActions(args: {
         }
       },
       countPending: async () => 0, // 一次性调度后无 pending
-      isCancelled: async () => ctx.pool.isExhausted?.() ?? false,
+      // ★ P1-R5-C (2026-04-30): 之前只看 pool 是否耗尽 → 用户主动取消时 abort
+      //   signal 触发但 pool 未耗尽 → DAG 继续跑 retry 5-10min 烧 credits。
+      //   补一路 signal.aborted；isCancelled 任一 true 即停。
+      isCancelled: async () =>
+        (ctx.pool.isExhausted?.() ?? false) ||
+        (deps.abortRegistry?.isAborted(missionId) ?? false),
     };
     const dagExec = new DAGExecutor();
     // maxConcurrent=2 与 MAX_PATCHES_PER_ROUND 对齐, 防止 reasoning 模型 rate limit

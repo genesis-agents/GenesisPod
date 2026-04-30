@@ -172,6 +172,12 @@ export async function runSelfEvolutionStage(
       return;
     }
 
+    // ★ P1-R5-G (2026-04-30): wallTimer 触发后 S12 内每个 await 前 check abort
+    //   避免 LLM 调用已发出后 1-min 内继续烧 credits。
+    if (isAborted()) {
+      deps.log.warn(`[${missionId}] S12 aborted before failure-learner`);
+      return;
+    }
     // ── 真沉淀 1：FailureLearner 记 mission 级失败结果 ─────────────────
     //   仅在 leader 拒签时记一条粗粒度 failure pattern，让下次同 user 同 topic
     //   启动时 leader plan 阶段可参考"上次同主题没过线"的 prior knowledge
@@ -196,6 +202,11 @@ export async function runSelfEvolutionStage(
         .catch(() => {});
     }
 
+    // ★ P1-R5-G (2026-04-30): postmortem 写入前再 check abort
+    if (isAborted()) {
+      deps.log.warn(`[${missionId}] S12 aborted before postmortem write`);
+      return;
+    }
     // ── 真沉淀 2：mission postmortem 入 harness_vector_memory ─────────
     //   namespace=userId，tags=['agent-playground', 'mission-postmortem', 'signed'/'unsigned']
     //   下次 leader plan 阶段可调 store.listRecentPostmortems(userId, 3) 拿历史教训

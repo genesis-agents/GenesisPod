@@ -107,12 +107,9 @@ export interface MissionContext {
    */
   s4PatchRound?: number;
 
-  /**
-   * ★ Phase 6 (2026-04-29): S10 拒签 revision 轮次计数。
-   * Leader 第 1 次拒签 → 触发一次 S8 重写 + S9/S10 重跑（revision 循环）。
-   * 第 2 次仍拒签 → 直接 markFailed，避免无限 revision。
-   */
-  s10RevisionRound?: number;
+  // ★ P1-R5-I (2026-04-30): s10RevisionRound 之前是死字段 — 注释承诺"第 2 次拒签
+  //   markFailed 避免无限 revision"未实现。当下 S10 路径 leader signoff 失败直接发
+  //   mission:failed，没有 revision 循环；字段无消费方。删除直至真正实现。
 
   /** ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace 收集 */
   qualityTraceCtx?: QualityTraceContext;

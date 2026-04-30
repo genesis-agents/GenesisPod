@@ -18,6 +18,7 @@ import {
   type OnModuleDestroy,
 } from "@nestjs/common";
 import {
+  DomainEventBus,
   MissionHealthMonitor,
   type MissionHealthSnapshot,
   type HealthVerdict,
@@ -37,6 +38,7 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly store: MissionStore,
+    private readonly eventBus: DomainEventBus,
   ) {
     this.monitor = new MissionHealthMonitor({
       fetchRunningMissions: () => this.fetchRunningMissions(),
@@ -158,5 +160,30 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
       errorMessage,
       wallTimeMs: verdict.ageMs,
     });
+    // ★ P1-R5-F (2026-04-30): scheduler 之前只 markFailed 不 emit；前端只能 polling
+    //   才看到状态变化。补 emit mission:failed，让 WS 实时通知。
+    await this.eventBus
+      .emit({
+        type: "agent-playground.mission:failed",
+        scope: {
+          missionId: verdict.missionId,
+          userId: verdict.snapshot.userId ?? "",
+        },
+        payload: {
+          message: errorMessage,
+          failureCode:
+            verdict.reason === "wall-time-exceeded"
+              ? "RUNNER_WALL_TIME_EXCEEDED"
+              : "MISSION_STALE",
+          wallTimeMs: verdict.ageMs,
+          source: "health-scheduler",
+        },
+        timestamp: Date.now(),
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[health] emit mission:failed for ${verdict.missionId} dropped: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   }
 }

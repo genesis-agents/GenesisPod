@@ -8,16 +8,15 @@ describe("PrismaMissionCheckpointStore", () => {
         update: jest.fn().mockResolvedValue({}),
         findMany: jest.fn(),
       },
+      // ★ P1-R5-A: save 现在用 $executeRaw + jsonb_set 原子 update
+      $executeRaw: jest.fn().mockResolvedValue(1),
     };
     const store = new PrismaMissionCheckpointStore(prismaMock as never);
     return { store, prisma: prismaMock };
   }
 
-  it("save merges checkpoint into leaderJournal __checkpoint key", async () => {
+  it("save uses jsonb_set $executeRaw with checkpoint payload", async () => {
     const { store, prisma } = makeStore();
-    prisma.agentPlaygroundMission.findUnique.mockResolvedValue({
-      leaderJournal: { decisions: [{ phase: "plan" }] },
-    });
     await store.save({
       missionId: "m1",
       savedAt: new Date("2026-04-29T10:00:00Z"),
@@ -25,30 +24,47 @@ describe("PrismaMissionCheckpointStore", () => {
       completedKeys: ["s1", "s2"],
       status: "running",
     });
-    const call = prisma.agentPlaygroundMission.update.mock.calls[0][0];
-    expect(call.where).toEqual({ id: "m1" });
-    const journal = call.data.leaderJournal as Record<string, unknown>;
-    expect(journal.decisions).toEqual([{ phase: "plan" }]); // 保留原内容
-    expect(journal.__checkpoint).toMatchObject({
-      payload: { stage: "s5" },
-      completedKeys: ["s1", "s2"],
-      status: "running",
-    });
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    // 第二段是 stringified persisted blob
+    const call = prisma.$executeRaw.mock.calls[0];
+    const valuesArr = call.slice(1) as unknown[];
+    const persistedJson = valuesArr.find(
+      (v): v is string =>
+        typeof v === "string" &&
+        v.includes("__checkpoint") === false &&
+        v.startsWith("{"),
+    );
+    expect(persistedJson).toBeDefined();
+    const persisted = JSON.parse(persistedJson!) as {
+      savedAt: string;
+      payload: { stage: string };
+      completedKeys: string[];
+      status: string;
+    };
+    expect(persisted.savedAt).toBe("2026-04-29T10:00:00.000Z");
+    expect(persisted.payload).toEqual({ stage: "s5" });
+    expect(persisted.completedKeys).toEqual(["s1", "s2"]);
+    expect(persisted.status).toBe("running");
+    expect(store.getSaveFailures("m1")).toBe(0);
   });
 
-  it("save warns + skips when mission not found", async () => {
+  it("save records consecutive failure count when DB throws", async () => {
     const { store, prisma } = makeStore();
-    prisma.agentPlaygroundMission.findUnique.mockResolvedValue(null);
-    await expect(
-      store.save({
-        missionId: "missing",
+    prisma.$executeRaw
+      .mockRejectedValueOnce(new Error("DB down"))
+      .mockRejectedValueOnce(new Error("DB down"))
+      .mockRejectedValueOnce(new Error("DB down"));
+    for (let i = 0; i < 3; i++) {
+      await store.save({
+        missionId: "m1",
         savedAt: new Date(),
         payload: {},
         completedKeys: [],
         status: "running",
-      }),
-    ).resolves.toBeUndefined();
-    expect(prisma.agentPlaygroundMission.update).not.toHaveBeenCalled();
+      });
+    }
+    expect(store.getSaveFailures("m1")).toBe(3);
+    expect(store.isDegraded("m1")).toBe(true);
   });
 
   it("load returns null when mission missing or no checkpoint", async () => {
@@ -110,11 +126,12 @@ describe("PrismaMissionCheckpointStore", () => {
     expect(prisma.agentPlaygroundMission.update).not.toHaveBeenCalled();
   });
 
-  it("listResumable filters userId + status=running + cutoff", async () => {
+  it("listResumable filters userId + status=running, applies savedAt cutoff in memory", async () => {
     const { store, prisma } = makeStore();
     prisma.agentPlaygroundMission.findMany.mockResolvedValue([
       {
         id: "m1",
+        startedAt: new Date("2026-04-29T09:00:00Z"),
         leaderJournal: {
           __checkpoint: {
             savedAt: "2026-04-29T10:00:00Z",
@@ -125,7 +142,7 @@ describe("PrismaMissionCheckpointStore", () => {
         },
       },
       // 没 checkpoint 的 mission 应被过滤
-      { id: "m2", leaderJournal: {} },
+      { id: "m2", startedAt: new Date(), leaderJournal: {} },
     ]);
     const out = await store.listResumable("user-1");
     expect(out).toHaveLength(1);
@@ -136,6 +153,58 @@ describe("PrismaMissionCheckpointStore", () => {
       userId: "user-1",
       status: "running",
     });
+    // ★ P0-R5-3: where 不再含 startedAt 过滤；改在应用层按 savedAt 比对
+    expect(findCall.where.startedAt).toBeUndefined();
+  });
+
+  it("listResumable filters out checkpoints with savedAt older than cutoff", async () => {
+    const { store, prisma } = makeStore();
+    prisma.agentPlaygroundMission.findMany.mockResolvedValue([
+      {
+        id: "old",
+        startedAt: new Date("2026-04-01T00:00:00Z"),
+        leaderJournal: {
+          __checkpoint: {
+            savedAt: "2026-04-01T00:00:00Z",
+            payload: {},
+            completedKeys: [],
+            status: "running",
+          },
+        },
+      },
+      {
+        id: "fresh",
+        startedAt: new Date("2026-04-01T00:00:00Z"),
+        leaderJournal: {
+          __checkpoint: {
+            savedAt: "2026-04-29T12:00:00Z",
+            payload: {},
+            completedKeys: [],
+            status: "running",
+          },
+        },
+      },
+    ]);
+    const out = await store.listResumable(
+      "user-1",
+      new Date("2026-04-29T00:00:00Z"),
+    );
+    expect(out.map((s) => s.missionId)).toEqual(["fresh"]);
+  });
+
+  it("load returns null when savedAt is invalid (P1-R5-B)", async () => {
+    const { store, prisma } = makeStore();
+    prisma.agentPlaygroundMission.findUnique.mockResolvedValue({
+      leaderJournal: {
+        __checkpoint: {
+          savedAt: "not-a-date",
+          payload: {},
+          completedKeys: [],
+          status: "running",
+        },
+      },
+    });
+    expect(await store.load("m1")).toBeNull();
   });
 
   it("listResumable returns [] on prisma error (graceful)", async () => {

@@ -123,14 +123,13 @@ export function evaluateSearchQuality<T extends QualityGateItem>(
   }
 
   // 5. 失败源比例
+  // ★ P0-R5-5 (2026-04-30): sourceCounts[src]=undefined 但 sources.includes(src)=true
+  //   时原 if-else 都不进 failed++，缺失数据被误判成功。统一：count 不存在或 0 → failed++
   if (requestedSources.length > 0) {
     let failed = 0;
     for (const src of requestedSources) {
       const count = result.sourceCounts?.[src];
-      if (count === undefined || count === 0) {
-        if (!result.sources.includes(src)) failed++;
-        else if (count === 0) failed++;
-      }
+      if (count === undefined || count === 0) failed++;
     }
     const ratio = failed / requestedSources.length;
     if (ratio > failedSourceRatio) {

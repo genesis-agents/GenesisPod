@@ -316,17 +316,26 @@ function extractAuthors(metadata?: Record<string, unknown>): CitationAuthor[] {
     return [{ fullName: "Unknown", isOrganization: false }];
   }
   const authors = metadata.authors as Array<string | { name: string }>;
-  return authors.map((a) => {
-    const name = typeof a === "string" ? a : a.name;
-    const parts = name.split(/\s+/);
-    if (parts.length >= 2) {
-      return {
-        firstName: parts.slice(0, -1).join(" "),
-        lastName: parts[parts.length - 1],
-        fullName: name,
-      };
-    }
-    return { fullName: name };
+  // ★ P0-R5-6 (2026-04-30): LLM 经常返回 "Jane Smith and John Doe" 一条 string
+  //   纯 /\s+/ 拆 → firstName="Jane Smith and John", lastName="Doe"，APA 输出
+  //   "Doe, J." 学术格式错。先按 and / & / , / ; 拆多作者，再各自拆名。
+  return authors.flatMap((a) => {
+    const raw = typeof a === "string" ? a : a.name;
+    const splitted = raw
+      .split(/\s*(?:\band\b|&|,|;)\s*/i)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    return splitted.map((name) => {
+      const parts = name.split(/\s+/);
+      if (parts.length >= 2) {
+        return {
+          firstName: parts.slice(0, -1).join(" "),
+          lastName: parts[parts.length - 1],
+          fullName: name,
+        };
+      }
+      return { fullName: name };
+    });
   });
 }
 
@@ -353,12 +362,12 @@ function classifySource(
   if (sourceType === "github") return "website";
 
   if (domain) {
+    // arxiv 用 includes 安全（学术域名几乎不会有钓鱼）
     if (domain.includes("arxiv")) return "preprint";
-    if (
-      domain.includes("reuters") ||
-      domain.includes("bbc") ||
-      domain.includes("cnn")
-    ) {
+    // ★ P1-R5-E (2026-04-30): includes("reuters") 会误把 fakenewsreuters.com /
+    //   reuters-clone.com 等钓鱼域名判为权威新闻。改用精确域名匹配 + 子域名后缀。
+    const newsExact = ["reuters.com", "bbc.co.uk", "bbc.com", "cnn.com"];
+    if (newsExact.some((d) => domain === d || domain.endsWith("." + d))) {
       return "news_article";
     }
   }
@@ -373,23 +382,15 @@ function extractYear(date?: Date | string | null): string | null {
 
 function formatAuthorsAPA(authors: CitationAuthor[]): string {
   if (authors.length === 0) return "Unknown";
-  if (authors.length === 1) {
-    const a = authors[0];
-    return a.lastName
-      ? `${a.lastName}, ${a.firstName?.charAt(0) || ""}.`
-      : a.fullName;
-  }
-  if (authors.length === 2) {
-    return authors
-      .map((a) =>
-        a.lastName
-          ? `${a.lastName}, ${a.firstName?.charAt(0) || ""}.`
-          : a.fullName,
-      )
-      .join(", & ");
-  }
-  const first = authors[0];
-  return `${first.lastName || first.fullName}, ${first.firstName?.charAt(0) || ""}., et al.`;
+  // ★ P1-R5-H (2026-04-30): firstName 缺失时不输出 "Smith, ." 孤独 dot
+  const apaSingle = (a: CitationAuthor): string => {
+    if (!a.lastName) return a.fullName;
+    const initial = a.firstName?.charAt(0) || "";
+    return initial ? `${a.lastName}, ${initial}.` : a.lastName;
+  };
+  if (authors.length === 1) return apaSingle(authors[0]);
+  if (authors.length === 2) return authors.map(apaSingle).join(", & ");
+  return `${apaSingle(authors[0])}, et al.`;
 }
 
 function formatAuthorsMLA(authors: CitationAuthor[]): string {
