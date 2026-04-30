@@ -320,11 +320,14 @@ describe("WebScraperTool", () => {
 
       // doExecute catches success:false and returns a structured failure object
       // The outer ToolResult.success is still true (doExecute returned normally)
+      // ★ P0-LIVE-SCRAPER-EMPTY (2026-04-30): error 透传上游真实错误，不再
+      //   硬编码 "Failed to fetch URL content"，让 LLM 知道是 HTTP 404 / 403 /
+      //   Connection refused / timeout 等具体原因。
       expect(result.success).toBe(true);
       expect(result.data?.success).toBe(false);
       expect(result.data?.content).toBe("");
       expect(result.data?.contentLength).toBe(0);
-      expect(result.data?.error).toBe("Failed to fetch URL content");
+      expect(result.data?.error).toBe("HTTP 404: Not Found");
     });
 
     it("should return empty title and content on fetch failure", async () => {

@@ -159,6 +159,12 @@ export interface RAGSearchOutput {
    * 查询向量的维度信息（用于调试）
    */
   embeddingDimension?: number;
+
+  /**
+   * 失败时的明细原因（success=false 时）
+   * ★ 例如 "RAG unavailable: chunks/embeddings tables not found (pgvector not configured)"
+   */
+  error?: string;
 }
 
 // ============================================================================
@@ -373,6 +379,8 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
         results: [],
         success: false,
         totalResults: 0,
+        error:
+          "RAG unavailable: chunks/embeddings tables not found (pgvector not configured on this database)",
       };
     }
 

@@ -218,13 +218,18 @@ export class WebScraperTool extends BaseTool<
       const result = await this.searchService.fetchUrlContent(url);
 
       if (!result.success) {
+        // ★ P0-LIVE-SCRAPER-EMPTY (2026-04-30): 之前硬编码 "Failed to fetch URL content"
+        //   把 fetchUrlContent 返回的真实 HTTP 错误（403 Forbidden / 451 Unavailable
+        //   For Legal Reasons / timeout / "PDF skipped — using snippet"）全吞了，
+        //   LLM 看到一连串相同 generic 错误反复抓同样 URL 浪费 12K tokens/iter。
+        //   透传原始 error 让 LLM 决策：403 → 换源；timeout → 跳过；PDF skipped → 用 snippet。
         return {
           title: "",
           content: "",
           url,
           contentLength: 0,
           success: false,
-          error: "Failed to fetch URL content",
+          error: result.error || "Failed to fetch URL content",
         };
       }
 

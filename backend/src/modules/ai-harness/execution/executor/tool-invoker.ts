@@ -215,6 +215,7 @@ export class ToolInvoker {
         // PR-I: 失败上报到 circuit breaker
         this.circuitBreaker?.recordFailure(action.toolId);
         const errMsg = result.error?.message ?? `Tool ${action.toolId} failed`;
+        const errCode = result.error?.code;
         const err = new Error(errMsg);
         this.logger.warn(`Tool ${action.toolId} failed: ${errMsg}`);
         // ★ failureCode 推断
@@ -224,14 +225,28 @@ export class ToolInvoker {
           failureCode = "TOOL_INPUT_VALIDATION_FAILED";
         span?.recordException(err);
         span?.end({ success: false });
+        // ★ P0-LIVE-TOOL-ERR-VISIBILITY (2026-04-30): result.data 在异常路径
+        //   通常是 undefined，LLM observation 看不到任何信息只能凭空猜测，
+        //   反复发同样 query 拿同样的空 → maxIterations 跑空。把 error 细节
+        //   注入 output，确保 LLM 下一轮决策能看到"为什么失败"。
+        const visibleOutput =
+          result.data !== undefined && result.data !== null
+            ? result.data
+            : {
+                success: false,
+                error: errMsg,
+                errorCode: errCode,
+                toolId: action.toolId,
+              };
         return {
           action,
-          output: result.data,
+          output: visibleOutput,
           error: err,
           failureCode,
           diagnostic: {
             toolId: action.toolId,
             toolError: errMsg,
+            errorCode: errCode,
             input: action.input,
           },
           latencyMs: Date.now() - startMs,
@@ -267,9 +282,16 @@ export class ToolInvoker {
       if (/timeout|timed out/i.test(err.message)) failureCode = "TOOL_TIMEOUT";
       span?.recordException(err);
       span?.end({ success: false });
+      // ★ P0-LIVE-TOOL-ERR-VISIBILITY (2026-04-30): 同上，把 error 细节
+      //   注入 LLM 可见的 output，让 ReAct 下一轮能看到详细失败原因。
       return {
         action,
-        output: undefined,
+        output: {
+          success: false,
+          error: err.message,
+          toolId: action.toolId,
+          failureCode,
+        },
         error: err,
         failureCode,
         diagnostic: {
