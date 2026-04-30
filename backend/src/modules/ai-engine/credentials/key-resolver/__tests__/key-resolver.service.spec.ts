@@ -70,7 +70,9 @@ describe("KeyResolverService", () => {
         prisma.user.findUnique.mockResolvedValue({ role: UserRole.ADMIN });
       });
 
-      it("returns SYSTEM when secret is configured", async () => {
+      it("returns SYSTEM when secret is configured (ADMIN no BYOK)", async () => {
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
+        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
         (secrets.getValueInternal as jest.Mock)
           .mockResolvedValueOnce("sys-openai-secret")
           .mockResolvedValueOnce("https://endpoint");
@@ -85,21 +87,41 @@ describe("KeyResolverService", () => {
         );
       });
 
-      it("throws NoSystemKeyError when secret missing", async () => {
+      it("throws NoSystemKeyError when ADMIN has no BYOK and no SYSTEM", async () => {
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
+        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
         (secrets.getValueInternal as jest.Mock).mockResolvedValue(null);
         await expect(service.resolveKey("admin", "openai")).rejects.toThrow(
           NoSystemKeyError,
         );
       });
 
-      it("does not consult personal or assigned keys", async () => {
+      it("returns PERSONAL when ADMIN has BYOK Personal Key", async () => {
+        // 2026-04-30 admin priority: PERSONAL -> ASSIGNED -> SYSTEM
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue({
+          apiKey: "admin-byok-key",
+          apiEndpoint: null,
+          preferredModelId: null,
+        });
+        const r = await service.resolveKey("admin", "openai");
+        expect(r.source).toBe("PERSONAL");
+        expect(r.apiKey).toBe("admin-byok-key");
+        expect(secrets.getValueInternal).not.toHaveBeenCalled();
+      });
+
+      it("falls back to SYSTEM only when ADMIN has no Personal/Assigned", async () => {
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
+        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
         (secrets.getValueInternal as jest.Mock).mockResolvedValue("sys");
-        await service.resolveKey("admin", "openai");
-        expect(userApiKeys.getPersonalKey).not.toHaveBeenCalled();
-        expect(assignments.resolveActive).not.toHaveBeenCalled();
+        const r = await service.resolveKey("admin", "openai");
+        expect(userApiKeys.getPersonalKey).toHaveBeenCalled();
+        expect(assignments.resolveActive).toHaveBeenCalled();
+        expect(r.source).toBe("SYSTEM");
       });
 
       it("honors explicit systemSecretName before conventional name", async () => {
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
+        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
         (secrets.getValueInternal as jest.Mock).mockImplementation(
           (name: string) =>
             name === "claude-api-key"
@@ -117,6 +139,8 @@ describe("KeyResolverService", () => {
       });
 
       it("falls back to provider-alias lookup when conventional name missing", async () => {
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
+        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
         (secrets.getValueInternal as jest.Mock).mockImplementation(
           (name: string) => (name === "gemini-api" ? "sys-gemini-value" : null),
         );

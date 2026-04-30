@@ -1115,6 +1115,33 @@ export class ReActLoop implements IAgentLoop {
         return { decision: { thinking, action } };
       }
 
+      // ★ 2026-04-30 容错：LLM 返回了合法 object 但完全没 envelope（无 action /
+      // 无 actions / 无顶层 kind）—— 这种情况以前 normalizeAction 会抛
+      // InvalidActionError + ERROR log + fallback 把整段 raw text 当 finalize
+      // output（导致下游拿到 string 而非结构化对象）。
+      //
+      // 实际产线 chapter-writer / dimension-integrator / dimension-quality-judge
+      // 等 agent 大量触发 —— 它们的 system prompt 只说了"输出 JSON shape: {...}"
+      // 没强制要求 envelope，reasoning model 直接吐 output 顶层。
+      //
+      // 改为：把整个 obj 当 finalize.output（保留结构化对象，不再退化字符串），
+      // log 仅 debug 提示 envelope 缺失，不再污染错误流。
+      if (obj.action === undefined) {
+        this.logger.debug(
+          `LLM emitted finalize output without envelope; auto-wrapping. ` +
+            `keys=[${Object.keys(obj as Record<string, unknown>).join(",")}]`,
+        );
+        return {
+          decision: {
+            thinking,
+            action: {
+              kind: "finalize",
+              output: obj as Record<string, unknown>,
+            },
+          },
+        };
+      }
+
       const action = this.normalizeAction(obj.action);
       return { decision: { thinking, action } };
     } catch (err) {

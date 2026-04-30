@@ -27,10 +27,13 @@ export interface ResolvedKey {
  * 统一的 API Key 解析入口。所有 LLM 调用都必须通过这里拿 Key，
  * 禁止直接访问 UserApiKeysService / SecretsService。
  *
- * 规则（与设计文档 §3 一致）：
- * - 管理员（User.role = ADMIN）：永远使用系统 Secret，忽略其 Personal/Assigned
- * - 普通用户：优先 Personal，其次 Assigned，都没有则抛 NoAvailableKeyError
- * - 不做 PERSONAL → SYSTEM 的静默回退（避免账单归属混乱）
+ * 规则（2026-04-30 修订）：
+ * - 所有用户优先级一致：Personal → Assigned
+ * - ADMIN 在 Personal/Assigned 都没有时**回退到 SYSTEM**（保留管理员维持系统功能能力）
+ * - 普通用户在 Personal/Assigned 都没有时抛 NoAvailableKeyError（不静默回退 SYSTEM 避免账单混乱）
+ *
+ * 历史变更：之前 ADMIN 永远走 SYSTEM 忽略 Personal/Assigned，导致 ADMIN 用户
+ * 配的 BYOK PERSONAL key 完全无效（业务希望 ADMIN 也能用自己的 key）。
  */
 @Injectable()
 export class KeyResolverService {
@@ -61,15 +64,22 @@ export class KeyResolverService {
       throw new UnauthorizedException("User not found");
     }
 
-    if (user.role === UserRole.ADMIN) {
-      return this.resolveSystemKey(
-        userId,
-        normalizedProvider,
-        options.systemSecretName ?? null,
-      );
+    // ★ 2026-04-30 修订：所有用户（含 ADMIN）都先试 PERSONAL → ASSIGNED。
+    // ADMIN 在两者都没有时回退到 SYSTEM；普通用户抛 NoAvailableKeyError。
+    // 之前 ADMIN 强制 SYSTEM 让 ADMIN 用户的 BYOK PERSONAL key 完全失效。
+    try {
+      return await this.resolveUserKey(userId, normalizedProvider);
+    } catch (err) {
+      if (err instanceof NoAvailableKeyError && user.role === UserRole.ADMIN) {
+        // ADMIN 兜底走 SYSTEM
+        return this.resolveSystemKey(
+          userId,
+          normalizedProvider,
+          options.systemSecretName ?? null,
+        );
+      }
+      throw err;
     }
-
-    return this.resolveUserKey(userId, normalizedProvider);
   }
 
   /**
@@ -89,7 +99,7 @@ export class KeyResolverService {
 
   /**
    * 用户可用的全部 provider 集合。
-   * - ADMIN：系统 Secret 已配置的 provider
+   * - ADMIN：Personal ∪ Assigned ∪ 系统 Secret 已配置的 provider
    * - USER：Personal ∪ Assigned
    */
   async getAvailableProviders(userId: string): Promise<string[]> {
@@ -99,15 +109,19 @@ export class KeyResolverService {
     });
     if (!user) return [];
 
-    if (user.role === UserRole.ADMIN) {
-      return this.secrets.listAvailableProviders();
-    }
-
     const [personal, assigned] = await Promise.all([
       this.userApiKeys.getAvailableProviders(userId),
       this.keyAssignments.getAvailableProviders(userId),
     ]);
-    return Array.from(new Set([...personal, ...assigned]));
+    const merged = new Set([...personal, ...assigned]);
+
+    if (user.role === UserRole.ADMIN) {
+      // ADMIN 额外把系统 Secret 已配置的 provider 也算进去（与 resolveKey 兜底一致）
+      const sys = await this.secrets.listAvailableProviders();
+      for (const p of sys) merged.add(p);
+    }
+
+    return Array.from(merged);
   }
 
   /**
