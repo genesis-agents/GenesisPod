@@ -34,6 +34,8 @@ import {
 import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
+// ★ Phase 5 (2026-04-29): 接入 ai-harness 沉淀的 MissionCheckpointService
+import { MissionCheckpointService } from "../../ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
 
@@ -50,6 +52,7 @@ export class AgentPlaygroundController {
     private readonly leaderChat: LeaderChatService,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly prisma: PrismaService,
+    private readonly checkpoint: MissionCheckpointService,
   ) {}
 
   /**
@@ -64,6 +67,27 @@ export class AgentPlaygroundController {
     if (!userId) throw new ForbiddenException("Authentication required");
     const items = await this.store.listByUser(userId, 100);
     return { items };
+  }
+
+  /**
+   * GET /api/v1/agent-playground/missions/resumable
+   * ★ Phase 5: 列出当前用户有 checkpoint 的可恢复 mission
+   * 让前端展示"上次中断的 mission，可继续"
+   */
+  @Get("missions/resumable")
+  async listResumable(@Request() req: RequestWithUser): Promise<{
+    items: { missionId: string; savedAt: string; completedKeys: string[] }[];
+  }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const snapshots = await this.checkpoint.listResumable(userId);
+    return {
+      items: snapshots.map((s) => ({
+        missionId: s.missionId,
+        savedAt: s.savedAt.toISOString(),
+        completedKeys: s.completedKeys,
+      })),
+    };
   }
 
   /**

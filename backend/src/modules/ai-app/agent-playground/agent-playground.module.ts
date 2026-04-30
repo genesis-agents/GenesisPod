@@ -22,6 +22,11 @@ import { TeamMission } from "./services/mission/workflow/team.mission";
 import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
+import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
+import {
+  MissionCheckpointService,
+  type MissionCheckpointStore,
+} from "../../ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { HarnessFailureLearner } from "./services/failure-learning/harness-failure-learner.service";
 import { ReportAssemblerService } from "./services/artifact/report-assembler.service";
@@ -61,6 +66,14 @@ import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
     MissionOwnershipRegistry,
     MissionEventBuffer,
     MissionStore,
+    // ★ Phase 5 (2026-04-29): playground 接入 ai-harness 沉淀的 MissionCheckpointService
+    PrismaMissionCheckpointStore,
+    {
+      provide: MissionCheckpointService,
+      useFactory: (store: MissionCheckpointStore) =>
+        new MissionCheckpointService(store),
+      inject: [PrismaMissionCheckpointStore],
+    },
     LeaderChatService,
     HarnessFailureLearner,
     ReportAssemblerService,

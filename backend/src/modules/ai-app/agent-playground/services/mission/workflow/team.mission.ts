@@ -43,6 +43,8 @@ import {
   SectionRemediationService,
   ReportEvaluationService,
   QualityTraceComputeService,
+  // ★ Phase 5 (2026-04-29): mission checkpoint
+  MissionCheckpointService,
 } from "../../../../../ai-harness/facade";
 import { FigureExtractorService } from "../../../../../ai-engine/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
@@ -157,6 +159,8 @@ export class TeamMission {
     private readonly sectionRemediation: SectionRemediationService,
     private readonly reportEvaluation: ReportEvaluationService,
     private readonly qualityTraceCompute: QualityTraceComputeService,
+    // ★ Phase 5 (2026-04-29): 接入 ai-harness 沉淀的 mission checkpoint
+    private readonly missionCheckpoint: MissionCheckpointService,
   ) {}
 
   /**
@@ -346,6 +350,8 @@ export class TeamMission {
               { missionId, userId, t0, result, pool },
               this.buildStageDeps(),
             );
+            // ★ Phase 5 (2026-04-29): persist 成功后清理 checkpoint，避免被 listResumable 误识别
+            await this.missionCheckpoint.clear(missionId);
             // ── Stage 100: S12 self-evolution（best-effort，不阻塞返回）──
             //   异步执行，让用户立即拿到 result；evolved 事件后续 emit 给前端
             //   ★ P1-NEW-A (round 2): 把 abortSignal 传进 S12，让 wallTimer 触发 / 用户取消
@@ -494,6 +500,13 @@ export class TeamMission {
         });
         await runLeaderPlanStage(m0Ctx, this.buildStageDeps());
         const plan = m0Ctx.plan!;
+        // ★ Phase 5 (2026-04-29): 关键 stage 完成后保存 checkpoint
+        await this.missionCheckpoint.save(
+          missionId,
+          { lastStage: "s2-leader-plan", topic: input.topic },
+          ["s1-budget", "s2-leader-plan"],
+          "running",
+        );
 
         // ── Stage S3: Researcher×N dispatch（已抽到 stages/s3-researcher-collect-findings.stage.ts）──
         const s3Ctx = this.buildStageCtx({
@@ -509,6 +522,18 @@ export class TeamMission {
         });
         await runResearcherDispatchStage(s3Ctx, this.buildStageDeps());
         const researcherResults = s3Ctx.researcherResults!;
+        // ★ Phase 5: 最重 stage 完成后保存 checkpoint（researcher 数据是 mission 价值核心）
+        await this.missionCheckpoint.save(
+          missionId,
+          {
+            lastStage: "s3-researcher-dispatch",
+            topic: input.topic,
+            dimensionCount: plan.dimensions.length,
+            researcherCount: researcherResults.length,
+          },
+          ["s1-budget", "s2-leader-plan", "s3-researcher-dispatch"],
+          "running",
+        );
 
         // ── Stage S4: Leader assesses research（已抽到 stages/s4-leader-assess-research.stage.ts）──
         await runLeaderAssessResearchStage(
@@ -605,6 +630,27 @@ export class TeamMission {
         const reportArtifact = s8Ctx.reportArtifact;
         const indexed = s8Ctx.trajectoryStored ?? 0;
         const snap = pool.snapshot();
+        // ★ Phase 5: writer 起草完成是写作侧最贵的步骤，保存 checkpoint 让重启可跳过
+        await this.missionCheckpoint.save(
+          missionId,
+          {
+            lastStage: "s8-writer-draft",
+            topic: input.topic,
+            reviewScore,
+            hasReportArtifact: !!reportArtifact,
+          },
+          [
+            "s1-budget",
+            "s2-leader-plan",
+            "s3-researcher-dispatch",
+            "s4-leader-assess",
+            "s5-reconciler",
+            "s6-analyst",
+            "s7-writer-outline",
+            "s8-writer-draft",
+          ],
+          "running",
+        );
 
         // ── Stage S8B: Section quality enhancement (沉淀消费 v3, 2026-04-29)
         //    4 维写中自评 + 弱维度合并补救 + 强制重评（auditLayers !== "minimal" 时启用）

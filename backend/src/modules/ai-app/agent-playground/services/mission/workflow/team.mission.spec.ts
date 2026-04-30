@@ -240,6 +240,15 @@ function buildTeamMission() {
     {} as never, // sectionRemediation
     {} as never, // reportEvaluation
     {} as never, // qualityTraceCompute
+    // ★ Phase 5 (2026-04-29): missionCheckpoint mock — save/clear no-op
+    {
+      save: jest.fn().mockResolvedValue(undefined),
+      clear: jest.fn().mockResolvedValue(undefined),
+      load: jest.fn().mockResolvedValue(null),
+      canResume: jest.fn(),
+      listResumable: jest.fn().mockResolvedValue([]),
+      isCompleted: jest.fn().mockReturnValue(false),
+    } as never,
   );
 
   return {
