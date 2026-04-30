@@ -187,7 +187,7 @@ interface TimelineEntry {
   /** ★ P0-LIVE-UI-TOOL-ERR (2026-04-30): tool 失败时的明细原因 */
   toolError?: string;
   /** 失败的子调用列表（parallel_tool_call 中部分失败时） */
-  toolErrors?: { toolId?: string; error: string }[];
+  toolErrors?: { toolId?: string; url?: string; error: string }[];
 }
 
 /**
@@ -196,8 +196,8 @@ interface TimelineEntry {
  */
 function collectToolErrorsDeep(
   node: unknown
-): { toolId?: string; error: string }[] {
-  const out: { toolId?: string; error: string }[] = [];
+): { toolId?: string; url?: string; error: string }[] {
+  const out: { toolId?: string; url?: string; error: string }[] = [];
   const visit = (n: unknown, ctxToolId?: string) => {
     if (!n) return;
     if (typeof n !== 'object') return;
@@ -214,8 +214,9 @@ function collectToolErrorsDeep(
           : ctxToolId;
     const err = typeof o.error === 'string' ? o.error : undefined;
     const success = typeof o.success === 'boolean' ? o.success : undefined;
+    const url = typeof o.url === 'string' ? o.url : undefined;
     if (err && (success === false || success === undefined)) {
-      out.push({ toolId: tid, error: err });
+      out.push({ toolId: tid, url, error: err });
     }
     for (const k of ['output', 'subResults', 'data']) {
       if (o[k] !== undefined) visit(o[k], tid);
@@ -1141,42 +1142,52 @@ function TimelineEntryBody({ entry }: { entry: TimelineEntry }) {
     const hasResults = entry.results && entry.results.length > 0;
     const hasErrors =
       !!entry.toolError || (entry.toolErrors && entry.toolErrors.length > 0);
-    if (!hasResults && hasErrors) {
-      // ★ P0-LIVE-UI-TOOL-ERR (2026-04-30): 工具失败时显示具体原因（HTTP 状态码 /
-      //   "Not enough credits" / "PDF skipped" 等），不再显示 generic 兜底。
-      return (
-        <div className="space-y-1.5">
-          {entry.toolError && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5">
-              <p className="font-mono text-[11px] leading-relaxed text-red-700">
-                {entry.toolError}
-              </p>
-            </div>
-          )}
-          {entry.toolErrors?.map((e, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5"
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                {e.toolId || '子调用'}
-              </p>
-              <p className="font-mono mt-0.5 text-[11px] leading-relaxed text-amber-900">
-                {e.error}
-              </p>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    if (!hasResults) {
+    // ★ P0-LIVE-UI-TOOL-ERR-PARTIAL (2026-04-30): parallel_tool_call 同时含
+    //   成功 + 失败时（如 5 个抓 URL 中 1 个 HTTP 403, 4 个成功），之前只看
+    //   results.length > 0 就走 ToolResultList 完全跳过 errors 显示，用户看
+    //   不到失败子调用的原因。改为 results 和 errors 同时渲染（先列错误警示
+    //   卡，再列成功结果）。
+    if (!hasResults && !hasErrors) {
       return (
         <p className="text-[11px] italic text-gray-500">
           （工具未返回可解析的结构化结果）
         </p>
       );
     }
-    return <ToolResultList results={entry.results ?? []} />;
+    return (
+      <div className="space-y-2">
+        {entry.toolError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5">
+            <p className="font-mono text-[11px] leading-relaxed text-red-700">
+              {entry.toolError}
+            </p>
+          </div>
+        )}
+        {entry.toolErrors && entry.toolErrors.length > 0 && (
+          <div className="space-y-1.5">
+            {entry.toolErrors.map((e, i) => (
+              <div
+                key={i}
+                className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                  {e.toolId || '子调用失败'}
+                </p>
+                {e.url && (
+                  <p className="font-mono mt-0.5 break-all text-[10.5px] leading-relaxed text-amber-700/80">
+                    {e.url}
+                  </p>
+                )}
+                <p className="font-mono mt-0.5 break-words text-[11px] leading-relaxed text-amber-900">
+                  {e.error}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        {hasResults && <ToolResultList results={entry.results ?? []} />}
+      </div>
+    );
   }
   if (entry.kind === 'reflection' && entry.trace?.text) {
     return (
