@@ -607,9 +607,31 @@ async function runResearcherWithCritique(
     },
   );
   if (r.state !== "completed" || !r.output) return null;
-  return r.output as {
+  const output = r.output as {
     dimension: string;
     findings: { claim: string; evidence: string; source: string }[];
     summary: string;
   };
+  // ★ 2026-04-30 fix (#36 retry researcher 不发 researcher:completed)：
+  //   原本只 emit lifecycle，前端 todo-ledger 只看 researcher:completed 事件
+  //   判断 retry 真实完成。漏 emit 导致 retry todo 借用 dim 第一次 grade，
+  //   两次评分一模一样的假象。这里补 emit。
+  await deps
+    .emit({
+      type: "agent-playground.researcher:completed",
+      missionId,
+      userId,
+      agentId,
+      payload: {
+        dimension: dim.name,
+        state: "completed",
+        iterations: r.iterations,
+        wallTimeMs: r.wallTimeMs,
+        summary: output.summary,
+        findingsCount: output.findings?.length ?? 0,
+        retryLabel,
+      },
+    })
+    .catch(() => {});
+  return output;
 }

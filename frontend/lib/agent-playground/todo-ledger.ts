@@ -932,10 +932,55 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       const cnt = (p.findingsCount as number | undefined) ?? 0;
       const state = p.state as string | undefined;
       const summary = p.summary as string | undefined;
+      // ★ 2026-04-30 fix (#37): retryLabel 存在时这是 retry researcher 完成事件，
+      //   找匹配的 leader-assess-* retry child todo 收尾，不污染原始 dim todo。
+      //   修了 retry todo 借用第一次 grade 显示假完成的 bug。
+      const retryLabel = p.retryLabel as string | undefined;
+      if (retryLabel) {
+        const retryTarget = order
+          .map((id) => todos.get(id)!)
+          .reverse()
+          .find(
+            (td) =>
+              td.scope === 'dimension' &&
+              td.dimensionRef === dim &&
+              (td.origin === 'leader-assess-retry' ||
+                td.origin === 'leader-assess-replace' ||
+                td.origin === 'leader-assess-extend') &&
+              td.status === 'in_progress'
+          );
+        if (retryTarget) {
+          retryTarget.artifacts.push({
+            kind: 'finding-count',
+            label: 'retry 后 finding',
+            value: cnt,
+          });
+          if (summary && summary.trim().length > 8) {
+            retryTarget.artifacts.push({
+              kind: 'finding-count',
+              label: 'retry summary',
+              value: summary.slice(0, 200),
+            });
+          }
+          retryTarget.status = 'done';
+          retryTarget.endedAt = ev.timestamp;
+          retryTarget.narrativeLog.push({
+            ts: ev.timestamp,
+            text: `重派 researcher 完成 · ${cnt} 条新 finding（独立于第一次 grade）`,
+            tone: 'success',
+          });
+        }
+        continue;
+      }
       const target = order
         .map((id) => todos.get(id)!)
         .reverse()
-        .find((td) => td.scope === 'dimension' && td.dimensionRef === dim);
+        .find(
+          (td) =>
+            td.scope === 'dimension' &&
+            td.dimensionRef === dim &&
+            td.origin === 'leader-plan'
+        );
       if (!target) continue;
       if (state === 'completed') {
         // ★ 修复：researcher 采集只是 dim 任务的第一步，下游还有：
@@ -1245,8 +1290,20 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
   // 用 dimensionPipelines 给 dim todos 补 chapter 产出 + 校准真实完成状态
   // ★ 核心规则：dim 只有在「所有章节通过 + 5 轴评分出炉」后才算 done；
   //    否则一律保持 in_progress（包括"采集完成、撰写中"、"复审中"等中间态）。
+  // ★ 2026-04-30 fix (#37): 仅对原始 leader-plan dim todo 应用兜底，retry 子 todo
+  //   有自己的 lifecycle（researcher:completed with retryLabel → 直接 done）。
+  //   之前所有 dim-scope todo 都被 grade 驱动，导致 retry 子 todo 借用第一次的
+  //   grade 显示"已完成 80/100"，与原 dim 完全相同分数的假象。
   for (const td of dimTodos) {
     if (!td.dimensionRef) continue;
+    if (
+      td.origin === 'leader-assess-retry' ||
+      td.origin === 'leader-assess-replace' ||
+      td.origin === 'leader-assess-extend' ||
+      td.origin === 'leader-assess-abort'
+    ) {
+      continue; // retry 子 todo 由自己的 researcher:completed 事件收尾
+    }
     const pipeline = dimensionPipelines.get(td.dimensionRef);
     if (!pipeline || pipeline.chapters.length === 0) {
       // 还没起 outline → 维持 in_progress（researcher 在采集 / 等下游）
