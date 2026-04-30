@@ -353,6 +353,26 @@ export class TeamMission {
         },
         async () => {
           const t0 = Date.now();
+          // ★ 2026-04-30: 部分产物收集器 —— mission 抛错时 catch 也能拿到已构建的产物
+          //   传给 markFailed 写库，让前端在失败/拒签时仍能看到报告内容。
+          //   之前 result 在 try 内，catch 里 result=undefined → markFailed 不写 reportFull。
+          const partial: {
+            report?: unknown;
+            reportArtifact?: unknown;
+            reviewScore?: number;
+            verifierVerdicts?: unknown;
+            trajectoryStored?: number;
+            themeSummary?: string;
+            dimensions?: unknown[];
+            reconciliationReport?: unknown;
+            userProfile?: unknown;
+            leaderSignOff?: {
+              leaderOverallScore: number;
+              leaderVerdict: "excellent" | "good" | "acceptable" | "failed";
+              signed: boolean;
+              refusalReason?: string;
+            };
+          } = {};
           try {
             const result = await this.runMissionBody(
               missionId,
@@ -364,6 +384,7 @@ export class TeamMission {
               billing,
               // depth × budgetProfile 组合倍率：让两个 lever 协同 scale agent budget
               resolveBudgetMultiplier(input),
+              partial,
             );
             // ── Stage 99: 持久化（已抽到 stages/s11-mission-persist.stage.ts）──
             await runPersistStage(
@@ -474,11 +495,36 @@ export class TeamMission {
                 },
               })
               .catch(() => {});
+            // ★ 2026-04-30: 把已构建的产物（reportArtifact / verdicts / leaderSignOff 等）
+            //   一并传给 markFailed —— 之前普通 failed 路径全部丢失，前端看到空白报告。
+            //   reportArtifact 优先，fallback 旧 ResearchReport v1。
+            const reportPayload =
+              partial.reportArtifact ??
+              (partial.report as
+                | { title?: string; summary?: string }
+                | undefined);
             await this.store.markFailed(missionId, {
               errorMessage: message,
               tokensUsed: snap.poolTokensUsed,
               costUsd: snap.poolCostUsd,
               wallTimeMs: Date.now() - t0,
+              trajectoryStored: partial.trajectoryStored,
+              themeSummary: partial.themeSummary,
+              dimensions: partial.dimensions,
+              report: reportPayload as
+                | { title?: string; summary?: string }
+                | undefined,
+              reportArtifactVersion: partial.reportArtifact
+                ? 2
+                : partial.report
+                  ? 1
+                  : undefined,
+              userProfile: partial.userProfile,
+              reconciliationReport: partial.reconciliationReport,
+              verdicts: partial.verifierVerdicts,
+              leaderOverallScore: partial.leaderSignOff?.leaderOverallScore,
+              leaderSigned: partial.leaderSignOff?.signed,
+              leaderVerdict: partial.leaderSignOff?.leaderVerdict,
             });
             clearTimeout(wallTimer);
             this.abortRegistry.unregister(missionId);
@@ -498,6 +544,28 @@ export class TeamMission {
     t0: number,
     billing: BillingRuntimeEnvAdapter,
     budgetMultiplier: number,
+    /**
+     * ★ 2026-04-30: 部分产物收集器（mutable ref）。runMissionBody 在每个 stage
+     * 完成时回填进度，让外层 catch 抛错时能拿到 reportArtifact / verdicts /
+     * leaderSignOff 等已构建产物，传给 markFailed 写库 —— 防失败时丢全部产物。
+     */
+    partial?: {
+      report?: unknown;
+      reportArtifact?: unknown;
+      reviewScore?: number;
+      verifierVerdicts?: unknown;
+      trajectoryStored?: number;
+      themeSummary?: string;
+      dimensions?: unknown[];
+      reconciliationReport?: unknown;
+      userProfile?: unknown;
+      leaderSignOff?: {
+        leaderOverallScore: number;
+        leaderVerdict: "excellent" | "good" | "acceptable" | "failed";
+        signed: boolean;
+        refusalReason?: string;
+      };
+    },
   ): Promise<MissionResult> {
     // ★ P0-LIVE-CANCEL-GHOST (2026-04-30): mission 8e77271d 实证 — 用户取消后
     //   mission 主流程没立即退出，下游 stage（reconciler/analyst）继续跑，
@@ -639,6 +707,7 @@ export class TeamMission {
         checkAbort("s5-reconciler");
         await runReconcilerStage(reconCtx, this.buildStageDeps());
         const reconciliationReport = reconCtx.reconciliationReport;
+        if (partial) partial.reconciliationReport = reconciliationReport;
 
         checkAbort("s6-analyst");
         // ── Stage 3: Analyst 反思整合（已抽到 stages/s6-analyst-synthesize-insights.stage.ts）──
@@ -704,6 +773,28 @@ export class TeamMission {
         const verifierVerdicts = s8Ctx.verifierVerdicts!;
         const reportArtifact = s8Ctx.reportArtifact;
         const indexed = s8Ctx.trajectoryStored ?? 0;
+        // ★ 2026-04-30: S8 已构建 reportArtifact，回填 partial 让后续 stage 抛错时不丢
+        if (partial) {
+          partial.report = report;
+          partial.reportArtifact = reportArtifact;
+          partial.reviewScore = reviewScore;
+          partial.verifierVerdicts = verifierVerdicts;
+          partial.trajectoryStored = indexed;
+          partial.themeSummary = plan.themeSummary;
+          partial.dimensions = plan.dimensions as unknown[];
+          partial.userProfile = {
+            depth: input.depth,
+            budgetProfile: input.budgetProfile,
+            styleProfile: input.styleProfile,
+            lengthProfile: input.lengthProfile,
+            audienceProfile: input.audienceProfile,
+            withFigures: input.withFigures,
+            auditLayers: input.auditLayers,
+            concurrency: input.concurrency,
+            viewMode: input.viewMode,
+            language: input.language,
+          };
+        }
         const snap = pool.snapshot();
         // ★ Phase 5: writer 起草完成是写作侧最贵的步骤，保存 checkpoint 让重启可跳过
         await this.missionCheckpoint.save(
@@ -816,6 +907,7 @@ export class TeamMission {
         const stageDeps = this.buildStageDeps();
         await runLeaderForewordAndSignoffStage(stageCtx, stageDeps);
         const leaderSignOff = stageCtx.leaderSignOff;
+        if (partial && leaderSignOff) partial.leaderSignOff = leaderSignOff;
 
         // ★ Phase 6 (2026-04-29): 拒签 revision 推荐事件 —— 给前端展示"立即修订重跑"按钮
         // 不在主流程自动重跑（避免无限循环 + mission 资源失控），而是让前端用户决定

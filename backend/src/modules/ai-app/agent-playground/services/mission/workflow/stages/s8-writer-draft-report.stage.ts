@@ -397,9 +397,13 @@ export async function runWriterStage(
   });
 
   const snap = pool.snapshot();
+  // ★ 2026-04-30: 移走 S8 的 mission:completed —— 此时 S8B/S9/S9B/S10/S11/S12 都未跑，
+  //   提前 emit 让前端误判 mission 已完成（且 DB 行还是 running，造成"假成功"）。
+  //   mission:completed 改在 S11 markCompleted 成功后 emit。
+  //   S8 只 emit draft:completed 让前端知道写作环节已结束、进入审稿/签字。
   const wallTimeMs = Date.now() - t0;
   await deps.emit({
-    type: "agent-playground.mission:completed",
+    type: "agent-playground.draft:completed",
     missionId,
     userId,
     payload: {
@@ -666,4 +670,27 @@ export async function runWriterStage(
   ctx.reviewScore = reviewScore;
   ctx.verifierVerdicts = verifierVerdicts;
   ctx.trajectoryStored = indexed;
+
+  // ★ 2026-04-30: reportArtifact 装配完成后 emit 一个 light 事件让 socket store 知道
+  //   v2 artifact 已就绪。前端不接收 full artifact（避免 256K event cap），而是收到此事件
+  //   后异步 re-fetch getMissionDetail 拿持久化好的 reportFull。
+  //   注：此时 DB 还没写（S11 才写），但 ctx.reportArtifact 已就位。前端 listener 应等
+  //   mission:completed（S11 emit）再 fetch，本事件只用于"能力切换"提示（Quality 闭环开始）。
+  if (reportArtifact) {
+    await deps
+      .emit({
+        type: "agent-playground.report:assembled",
+        missionId,
+        userId,
+        payload: {
+          version: 2,
+          sectionsCount: reportArtifact.sections.length,
+          citationsCount: reportArtifact.citations.length,
+          figuresCount: reportArtifact.figures.length,
+          fullMarkdownSize: reportArtifact.content.fullReportSize,
+          qualityOverall: reportArtifact.quality.overall,
+        },
+      })
+      .catch(() => {});
+  }
 }

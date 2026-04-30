@@ -8,7 +8,7 @@
  * Tabs: Live Collab / Report / Verify / Sources / Cost & Memory / Raw Events
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Activity,
@@ -108,6 +108,39 @@ export default function MissionDetailPage() {
       cancelled = true;
     };
   }, [missionId, invalidId]);
+
+  // ★ 2026-04-30: mission:completed / mission:failed / mission:cancelled 事件触发 re-fetch
+  //   彻底解决"persisted 只 mount fetch 一次永不更新"导致 reportFull = null 走 fallback 的 bug。
+  //   S11 mission-persist 写库成功后才 emit mission:completed（修复了 S8 提前 emit），
+  //   此时 reportFull 已落库，re-fetch 拿到 v2 ReportArtifact → ArtifactReader 路径生效。
+  const lastTerminalRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (invalidId) return;
+    const terminal = events.find((ev) =>
+      [
+        'agent-playground.mission:completed',
+        'agent-playground.mission:failed',
+        'agent-playground.mission:cancelled',
+      ].includes(ev.type)
+    );
+    if (!terminal) return;
+    const sig = `${terminal.type}:${terminal.timestamp ?? ''}`;
+    if (lastTerminalRef.current === sig) return;
+    lastTerminalRef.current = sig;
+    let cancelled = false;
+    // small delay 让后端 S11 write commit + cache invalidation 落定
+    const t = setTimeout(() => {
+      getMissionDetail(missionId)
+        .then((d) => {
+          if (!cancelled) setPersisted(d);
+        })
+        .catch(() => {});
+    }, 800);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [events, missionId, invalidId]);
 
   const view = useMemo(() => {
     const liveView = deriveView(events);

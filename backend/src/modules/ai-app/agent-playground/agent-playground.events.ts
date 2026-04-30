@@ -31,6 +31,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("cost:tick"),
   T("budget:exhausted"),
   T("report:draft"),
+  T("draft:completed"), // S8 写作环节完成（区别于 mission:completed —— 此时还要跑 S8B/S9/S9B/S10/S11/S12）
+  T("report:assembled"), // S8 reportArtifact v2 装配完成 light-payload 信号（前端用于触发 re-fetch）
   T("memory:indexed"),
   // ── TI-style per-dimension 子流程事件 ──
   T("dimension:outline:planned"), // outline agent 产出 N 章节规划

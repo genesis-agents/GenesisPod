@@ -114,6 +114,25 @@ export async function runPersistStage(
         leaderSigned: result.leaderSignOff?.signed,
         leaderVerdict: result.leaderSignOff?.leaderVerdict,
       });
+      // ★ 2026-04-30: 真正的 mission:completed —— 在 markCompleted 写库成功后 emit。
+      //   之前 S8 提前 emit 导致前端"假成功"且 DB 行还是 running。
+      await deps
+        .emit({
+          type: "agent-playground.mission:completed",
+          missionId,
+          userId,
+          payload: {
+            reviewScore: result.reviewScore,
+            costUsd: snap.poolCostUsd,
+            tokensUsed: snap.poolTokensUsed,
+            trajectoryStored: result.trajectoryStored,
+            wallTimeMs: Date.now() - t0,
+            verifierVerdicts: result.verdicts,
+            leaderSigned: result.leaderSignOff?.signed,
+            leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
+          },
+        })
+        .catch(() => {});
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

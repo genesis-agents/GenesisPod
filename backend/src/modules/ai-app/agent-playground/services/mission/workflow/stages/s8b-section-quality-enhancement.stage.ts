@@ -73,18 +73,52 @@ export async function runSectionQualityEnhancementStage(
   );
   let fullMarkdown = reportArtifact.content.fullMarkdown;
 
+  // ★ 2026-04-30: S8B 整体 wall-time 守卫（safety net，非主修复）。
+  //   实测 43 section × eval+remediate 串行 ~11min，正常完成；20min 顶得住 60+ section
+  //   极端 case + 单 LLM 偶发 30s 重试。目的：防 LLM 真 hang（如 4xx 死循环）拖死 mission。
+  //   注：这只是 belt-and-suspenders；单 LLM call 已有 60s/90s timeout 兜底。
+  const S8B_WALL_TIME_MS = 20 * 60 * 1000;
+  const s8bDeadline = Date.now() + S8B_WALL_TIME_MS;
+
   for (const section of sectionsByOffset) {
+    if (Date.now() > s8bDeadline) {
+      deps.log.warn(
+        `[s8b] wall-time exceeded (${S8B_WALL_TIME_MS}ms), skipping remaining sections to unblock S9-S12`,
+      );
+      break;
+    }
     const body = fullMarkdown.slice(section.startOffset, section.endOffset);
     if (!body || body.length < 200) continue;
 
     try {
+      // ★ 2026-04-30: 单 section LLM call 60s 超时 —— 防 critical-judge 这类
+      //   model 失败重试导致单次 call 阻塞分钟级。Promise.race + AbortController 模式。
+      const withTimeout = <T>(
+        promise: Promise<T>,
+        ms: number,
+        label: string,
+      ): Promise<T> =>
+        Promise.race([
+          promise,
+          new Promise<T>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`[s8b] ${label} timeout ${ms}ms`)),
+              ms,
+            ),
+          ),
+        ]);
+
       // 1) self-eval before
-      const evalBefore = await deps.sectionSelfEval.evaluateSection({
-        content: body,
-        sectionTitle: section.title,
-        topicName: input.topic,
-        language,
-      });
+      const evalBefore = await withTimeout(
+        deps.sectionSelfEval.evaluateSection({
+          content: body,
+          sectionTitle: section.title,
+          topicName: input.topic,
+          language,
+        }),
+        60_000,
+        `selfEval-before "${section.title}"`,
+      );
       evaluatedCount++;
 
       if (evalBefore.overallOk || evalBefore.weakAreas.length === 0) {
@@ -100,12 +134,16 @@ export async function runSectionQualityEnhancementStage(
       }));
 
       // 3) remediate（外层 runMission 已 wrap withUserContext，credits 自动归集）
-      const remediation = await deps.sectionRemediation.remediate({
-        content: body,
-        sectionTitle: section.title,
-        actions,
-        language,
-      });
+      const remediation = await withTimeout(
+        deps.sectionRemediation.remediate({
+          content: body,
+          sectionTitle: section.title,
+          actions,
+          language,
+        }),
+        90_000,
+        `remediate "${section.title}"`,
+      );
 
       if (remediation.skipped) {
         deps.log.debug(
@@ -115,12 +153,16 @@ export async function runSectionQualityEnhancementStage(
       }
 
       // 4) self-eval after — 强制重评
-      const evalAfter = await deps.sectionSelfEval.evaluateSection({
-        content: remediation.content,
-        sectionTitle: section.title,
-        topicName: input.topic,
-        language,
-      });
+      const evalAfter = await withTimeout(
+        deps.sectionSelfEval.evaluateSection({
+          content: remediation.content,
+          sectionTitle: section.title,
+          topicName: input.topic,
+          language,
+        }),
+        60_000,
+        `selfEval-after "${section.title}"`,
+      );
 
       const beforeAvg =
         Object.values(evalBefore.scores).reduce((a, b) => a + b, 0) /

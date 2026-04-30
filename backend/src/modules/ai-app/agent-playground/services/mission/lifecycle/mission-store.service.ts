@@ -372,33 +372,32 @@ export class MissionStore {
       costUsd: data.costUsd ?? null,
       wallTimeMs: data.wallTimeMs ?? null,
     };
-    if (isLeadRefusal) {
-      // Lead 拒签时连同最终产物一起存（前端能展示，便于用户复盘）
-      if (data.trajectoryStored != null)
-        update.trajectoryStored = data.trajectoryStored;
-      if (data.themeSummary != null) update.themeSummary = data.themeSummary;
-      if (data.dimensions !== undefined)
-        update.dimensions = (data.dimensions ?? null) as Prisma.InputJsonValue;
-      if (data.report !== undefined) {
-        update.reportFull = (data.report ?? null) as Prisma.InputJsonValue;
-        update.reportTitle = data.report?.title?.slice(0, 500) ?? null;
-        update.reportSummary = data.report?.summary ?? null;
-      }
-      if (data.verdicts !== undefined)
-        update.verdicts = (data.verdicts ?? null) as Prisma.InputJsonValue;
-      if (data.reportArtifactVersion != null)
-        update.reportArtifactVersion = data.reportArtifactVersion;
-      if (data.userProfile !== undefined)
-        update.userProfile = (data.userProfile ??
-          null) as Prisma.InputJsonValue;
-      if (data.reconciliationReport !== undefined)
-        update.reconciliationReport = (data.reconciliationReport ??
-          null) as Prisma.InputJsonValue;
-      if (data.leaderOverallScore != null)
-        update.leaderOverallScore = data.leaderOverallScore;
-      if (data.leaderSigned != null) update.leaderSigned = data.leaderSigned;
-      if (data.leaderVerdict != null) update.leaderVerdict = data.leaderVerdict;
+    // ★ 2026-04-30: 之前 isLeadRefusal=false 时所有产物丢失（用户看到空白报告）。
+    //   现在改为：传了什么产物就存什么产物，不分 isLeadRefusal 路径。
+    //   Lead 拒签状态语义靠 status=quality-failed 区分，跟产物存储解耦。
+    if (data.trajectoryStored != null)
+      update.trajectoryStored = data.trajectoryStored;
+    if (data.themeSummary != null) update.themeSummary = data.themeSummary;
+    if (data.dimensions !== undefined)
+      update.dimensions = (data.dimensions ?? null) as Prisma.InputJsonValue;
+    if (data.report !== undefined) {
+      update.reportFull = (data.report ?? null) as Prisma.InputJsonValue;
+      update.reportTitle = data.report?.title?.slice(0, 500) ?? null;
+      update.reportSummary = data.report?.summary ?? null;
     }
+    if (data.verdicts !== undefined)
+      update.verdicts = (data.verdicts ?? null) as Prisma.InputJsonValue;
+    if (data.reportArtifactVersion != null)
+      update.reportArtifactVersion = data.reportArtifactVersion;
+    if (data.userProfile !== undefined)
+      update.userProfile = (data.userProfile ?? null) as Prisma.InputJsonValue;
+    if (data.reconciliationReport !== undefined)
+      update.reconciliationReport = (data.reconciliationReport ??
+        null) as Prisma.InputJsonValue;
+    if (data.leaderOverallScore != null)
+      update.leaderOverallScore = data.leaderOverallScore;
+    if (data.leaderSigned != null) update.leaderSigned = data.leaderSigned;
+    if (data.leaderVerdict != null) update.leaderVerdict = data.leaderVerdict;
     // ★ P0-1: 仅 status='running' 才能转为终态 —— 否则 race 中 markFailed 会覆盖 completed/cancelled
     await this.prisma.agentPlaygroundMission
       .updateMany({ where: { id, status: "running" }, data: update })
