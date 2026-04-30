@@ -28,6 +28,11 @@ import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { extractFailureMessage } from "../helpers/failure-extraction.util";
 import { narrate } from "../helpers/narrative.util";
+// ★ Phase 7 (2026-04-29): 用 ai-harness 沉淀的 DAGExecutor 替代 Promise.allSettled
+import {
+  DAGExecutor,
+  type DAGAdapter,
+} from "../../../../../../ai-harness/facade";
 
 interface PlanDimensionLite {
   id: string;
@@ -335,26 +340,59 @@ async function dispatchAssessActions(args: {
         },
       })
       .catch(() => {});
-    // ★ P1-K (2026-04-29): allSettled 替代 all —— 单个 job reject 不应中断整批
-    const settled = await Promise.allSettled(
-      retryJobs.map((job) =>
-        runResearcherWithCritique(ctx, deps, {
-          dim: job.dim,
-          idx: job.idx,
-          budgetMultiplier: budgetMultiplier * 1.3,
-          critique: job.critique,
-          retryLabel: job.retryLabel,
-        }),
-      ),
-    );
+    // ★ Phase 7 (2026-04-29): 用 ai-harness 沉淀的 DAGExecutor 替代 Promise.allSettled
+    // 优势：① 内置 maxConcurrent 限流防 reasoning 模型 rate limit
+    //       ② 单 job 失败不污染整批（同 allSettled），但更显式
+    //       ③ 死锁 / 取消感知预留扩展点
+    type RetryDAGTask = {
+      id: string;
+      idx: number;
+      dim: { id: string; name: string; rationale: string };
+      critique: string;
+      retryLabel: string;
+    };
+    const dagTasks: RetryDAGTask[] = retryJobs.map((j) => ({
+      id: `dim-${j.idx}`,
+      idx: j.idx,
+      dim: j.dim,
+      critique: j.critique,
+      retryLabel: j.retryLabel,
+    }));
     const results: (Awaited<
       ReturnType<typeof runResearcherWithCritique>
-    > | null)[] = settled.map((s, i) => {
-      if (s.status === "fulfilled") return s.value;
-      deps.log.warn(
-        `[${missionId}] retry job ${retryJobs[i].dim.name} threw: ${s.reason instanceof Error ? s.reason.message : String(s.reason)}`,
-      );
-      return null;
+    > | null)[] = new Array(retryJobs.length).fill(null);
+    let dispatched = false;
+    const adapter: DAGAdapter<RetryDAGTask> = {
+      fetchExecutable: async () =>
+        dispatched ? [] : ((dispatched = true), dagTasks),
+      executor: async (task) => {
+        try {
+          const out = await runResearcherWithCritique(ctx, deps, {
+            dim: task.dim,
+            idx: task.idx,
+            budgetMultiplier: budgetMultiplier * 1.3,
+            critique: task.critique,
+            retryLabel: task.retryLabel,
+          });
+          // 找回 task 在 retryJobs 中的位置（dim-{idx} 直接定位）
+          const slot = retryJobs.findIndex((j) => j.idx === task.idx);
+          if (slot >= 0) results[slot] = out;
+        } catch (err) {
+          deps.log.warn(
+            `[${missionId}] retry DAG task ${task.id} threw: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+      countPending: async () => 0, // 一次性调度后无 pending
+      isCancelled: async () => ctx.pool.isExhausted?.() ?? false,
+    };
+    const dagExec = new DAGExecutor();
+    // maxConcurrent=2 与 MAX_PATCHES_PER_ROUND 对齐, 防止 reasoning 模型 rate limit
+    await dagExec.run(adapter, {
+      maxConcurrent: 2,
+      pollIntervalMs: 100,
+      postTaskDelayMs: 0,
+      maxConsecutiveWaits: 5,
     });
     for (let i = 0; i < retryJobs.length; i++) {
       const job = retryJobs[i];
