@@ -67,6 +67,15 @@ export class HarnessFailureLearner {
     return createHash("sha256").update(stable).digest("hex").slice(0, 16);
   }
 
+  /**
+   * ★ P0-R4-3 (round 4): legacy hash —— 旧代码用 systemPrompt 全文 hash，
+   * lookup 时同时查新旧 key 让历史失败学习数据过渡期可用。
+   * 后续可写迁移脚本批量重 hash 老行，再去除此 fallback。
+   */
+  private legacyHashPrompt(systemPrompt: string): string {
+    return createHash("sha256").update(systemPrompt).digest("hex").slice(0, 16);
+  }
+
   /** 记录一次失败（同 key 计数+1，更新 lastDiagnostic） */
   async recordFailure(input: {
     key: FailurePatternKey;
@@ -131,13 +140,16 @@ export class HarnessFailureLearner {
   }): Promise<
     (FailurePatternHit & { modelId: string; failureCode: string })[]
   > {
-    const promptHashPrefix = this.hashPrompt(input.systemPrompt);
+    // ★ P0-R4-3 (round 4): 同时查新旧 hash key 兼容历史 DB 行
+    const newHash = this.hashPrompt(input.systemPrompt);
+    const legacyHash = this.legacyHashPrompt(input.systemPrompt);
+    const hashes = newHash === legacyHash ? [newHash] : [newHash, legacyHash];
     try {
       const records = await this.prisma.harnessFailurePattern.findMany({
         where: {
           agentSpecId: input.agentSpecId,
           ...(input.modelId ? { modelId: input.modelId } : {}),
-          promptHashPrefix,
+          promptHashPrefix: { in: hashes },
         },
         orderBy: { lastSeenAt: "desc" },
         take: 20,

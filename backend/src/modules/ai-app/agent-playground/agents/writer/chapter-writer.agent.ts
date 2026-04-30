@@ -26,7 +26,9 @@ const Input = z.object({
       source: z.string(),
     }),
   ),
-  targetWords: z.number().int().min(200).max(25000),
+  // ★ P0-R4-5 (round 4): 25000 与 budget.maxTokens=22000 矛盾导致 epic 死循环；
+  // 降到 12000 让 LLM 单次输出可达 ≥85% 字数门槛；epic 200K → 17 章 × 12K 拼接
+  targetWords: z.number().int().min(200).max(12000),
   /** 之前已写完的章节标题列表（用于去重，不要重复前文） */
   previousChapterHeadings: z.array(z.string()).optional(),
   previousCritique: z.string().optional(),

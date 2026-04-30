@@ -89,11 +89,11 @@ describe("extractTokenSpend", () => {
     expect(extractTokenSpend(events)).toBe(350);
   });
 
-  // ★ P1-R3-A (round 3): 大数攻击防护
-  it("rejects exponential big numbers (>1M tokens) — anti-overflow guard", () => {
+  // ★ P1-R3-A (round 3) + P2-R4-1 (round 4): 大数攻击防护，上限 5M 留 Sonnet 余量
+  it("rejects exponential big numbers (>5M tokens) — anti-overflow guard", () => {
     const events = [
       makeEvent("action_executed", { tokensUsed: "9e99" }),
-      makeEvent("action_executed", { tokensUsed: 1_000_001 }),
+      makeEvent("action_executed", { tokensUsed: 5_000_001 }),
       makeEvent("action_executed", { tokensUsed: 50 }),
     ];
     expect(extractTokenSpend(events)).toBe(50);
@@ -116,9 +116,9 @@ describe("extractTokenSpend", () => {
     expect(extractTokenSpend(events)).toBe(50);
   });
 
-  it("accepts max boundary 1_000_000 tokens (round 3)", () => {
-    const events = [makeEvent("action_executed", { tokensUsed: 1_000_000 })];
-    expect(extractTokenSpend(events)).toBe(1_000_000);
+  it("accepts max boundary 5_000_000 tokens (round 4)", () => {
+    const events = [makeEvent("action_executed", { tokensUsed: 5_000_000 })];
+    expect(extractTokenSpend(events)).toBe(5_000_000);
   });
 
   it("ignores budget_warning with null payload", () => {

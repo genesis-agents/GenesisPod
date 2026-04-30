@@ -4,7 +4,7 @@
  * 覆盖：
  *   - inputSchema: all lengthProfile values, audienceProfile, styleProfile, withFigures
  *   - outputSchema: chapterOutlines (thesis min 10), targetWordsPerChapter
- *   - buildSystemPrompt: lengthTarget mapping, perChapter cap 25000,
+ *   - buildSystemPrompt: lengthTarget mapping, perChapter cap 12000 (round 4),
  *     requiresMoreChaptersForCap branch, withFigures branch
  */
 
@@ -324,6 +324,7 @@ describe("MissionOutlinePlannerAgent", () => {
         input: { ...baseInput, lengthProfile: "extended" },
         identity,
       });
+      // ★ round 4: target 仍 25000，但 perChapter cap 已降到 12000
       expect(prompt).toContain("25000");
     });
 
@@ -374,13 +375,13 @@ describe("MissionOutlinePlannerAgent", () => {
       expect(prompt).not.toContain("figurePlan 给 {} 空对象即可");
     });
 
-    it("epic with 2 dimensions: naive perChapter 40000 > cap 25000 → shows warning", () => {
-      // epic = 80000 words / 2 dims = 40000 per chapter > 25000 cap
+    it("epic with 2 dimensions: naive perChapter 40000 > cap 12000 → shows warning (round 4)", () => {
+      // ★ round 4: cap 已从 25000 降到 12000；epic = 80000 / 2 = 40000 仍 > 12000
       const prompt = agent.buildSystemPrompt({
         input: { ...baseInput, lengthProfile: "epic" },
         identity,
       });
-      expect(prompt).toContain("25000");
+      expect(prompt).toContain("12000");
       expect(prompt).toContain("超出单章");
     });
 

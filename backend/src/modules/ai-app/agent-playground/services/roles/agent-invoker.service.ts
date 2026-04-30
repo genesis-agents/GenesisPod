@@ -139,7 +139,17 @@ export class AgentInvoker {
     const useReflexion =
       auditLayers === "thorough" || auditLayers === "paranoid";
     if (!useReflexion) return undefined;
-    if (stage === "researcher" || stage === "reconciler") return undefined;
+    // ★ P1-R4-E (round 4): verifier/critic/steward 是"快速判断"角色，
+    // reflexion 反思 loop 反而让它们多花 2-3 倍 tokens 时间却无质量提升；
+    // researcher/reconciler 同理（之前已 react-only）
+    if (
+      stage === "researcher" ||
+      stage === "reconciler" ||
+      stage === "verifier" ||
+      stage === "critic" ||
+      stage === "steward"
+    )
+      return undefined;
     return "reflexion";
   }
 

@@ -429,13 +429,19 @@ export class SupervisedMission {
     if (!this.context.plan || !this.context.foreword) {
       throw new Error("must call plan() and writeForeword() before signOff()");
     }
-    // ★ P2-R3-1 (round 3): decisions 数组无上限累积，长 mission（多 patch round）
-    // 可能积累 20+ 条让 M7 prompt token 增长；M7 关键决策只需最近 15 条 + plan
-    const MAX_DECISIONS_FOR_SIGNOFF = 15;
-    const decisionsForSignoff =
-      this.context.decisions.length > MAX_DECISIONS_FOR_SIGNOFF
-        ? this.context.decisions.slice(-MAX_DECISIONS_FOR_SIGNOFF)
-        : this.context.decisions;
+    // ★ P2-R3-1 (round 3) + P1-R4-D (round 4): decisions 数组无上限累积，长 mission
+    // 可能积累 20+ 条让 M7 prompt token 增长。
+    // round 4 修正：先保留所有 plan / foreword 类（关键审议决策），再用最近 15 条 assess
+    // 兜底，避免无脑 slice(-15) 把第 0 条 plan 决策截掉让 M7 看不到 M0 计划。
+    const MAX_ASSESS_DECISIONS_FOR_SIGNOFF = 15;
+    const allDecisions = this.context.decisions;
+    const planAndForeword = allDecisions.filter(
+      (d) => d.phase === "plan" || d.phase === "foreword",
+    );
+    const recentAssess = allDecisions
+      .filter((d) => d.phase === "assess-research")
+      .slice(-MAX_ASSESS_DECISIONS_FOR_SIGNOFF);
+    const decisionsForSignoff = [...planAndForeword, ...recentAssess];
     const res = await this.runFn<unknown, LeaderSignoffOutput>({
       spec: LeaderAgent,
       input: {

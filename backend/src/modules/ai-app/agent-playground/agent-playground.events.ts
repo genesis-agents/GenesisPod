@@ -41,6 +41,7 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("chapter:revision"), // 触发重写（critique 反馈）
   T("dimension:integrating:started"),
   T("dimension:integrating:completed"),
+  T("dimension:integrating:failed"), // P1-R4-B (round 4): integrator 失败前端切错误态
   T("dimension:graded"), // 5-axis 评分结果
   // ── Leader chat 触发的动态追加 ──
   T("dimensions:appended"), // CREATE_TODO 决策 → 追加 dim 到 mission.dimensions

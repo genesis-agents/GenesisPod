@@ -133,8 +133,10 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
     const target = lengthTarget(input.lengthProfile);
-    // ChapterWriter agent 单章硬上限 25000 字，mission-outline-planner 不能超过
-    const PER_CHAPTER_HARD_CAP = 25000;
+    // ★ P0-R4-5 (round 4): ChapterWriter budget.maxTokens=22000 + 中文 1:1 token，
+    // 25K 字单章永远写不到 ≥85% 字数门槛 → epic 死循环。降到 12000 与 chapter-writer
+    // schema 上限对齐；epic 200K → 17 章 × 12K 安全可达。
+    const PER_CHAPTER_HARD_CAP = 12000;
     const naivePerChapter = Math.round(target / input.plan.dimensions.length);
     const perChapter = Math.min(naivePerChapter, PER_CHAPTER_HARD_CAP);
     const requiresMoreChaptersForCap = naivePerChapter > PER_CHAPTER_HARD_CAP;
@@ -155,7 +157,7 @@ export class MissionOutlinePlannerAgent extends AgentSpec<
       `## Allocations`,
       `- targetWordsPerChapter: 给每个 sectionId 分配字数（合计 ≈ ${target}，每章约 ${perChapter}，单章硬上限 ${PER_CHAPTER_HARD_CAP}）`,
       requiresMoreChaptersForCap
-        ? `  ⚠️ 当前总字数 ${target} ÷ ${input.plan.dimensions.length} 维度 = ${naivePerChapter} 字/维度，超出单章 25000 字硬上限。`
+        ? `  ⚠️ 当前总字数 ${target} ÷ ${input.plan.dimensions.length} 维度 = ${naivePerChapter} 字/维度，超出单章 ${PER_CHAPTER_HARD_CAP} 字硬上限。`
         : "",
       requiresMoreChaptersForCap
         ? `  → 必须把超出的维度拆分成多个 sectionId（例如 "<dim.id>-part1" / "<dim.id>-part2"），让每个 sectionId 字数 ≤ ${PER_CHAPTER_HARD_CAP}。`

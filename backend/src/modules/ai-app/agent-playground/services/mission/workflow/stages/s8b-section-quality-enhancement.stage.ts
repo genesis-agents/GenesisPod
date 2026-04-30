@@ -176,14 +176,16 @@ export async function runSectionQualityEnhancementStage(
 
   // 回写更新后的 fullMarkdown
   if (remediatedCount > 0) {
-    reportArtifact.content.fullMarkdown = fullMarkdown;
+    // ★ P0-R4-1 (round 4): rebuildSectionOffsets 内部 normalize CRLF 后扫描
+    // 写入的 sec.startOffset/endOffset 是 normalized 域；下游 slice 用的是
+    // reportArtifact.content.fullMarkdown，必须同步 normalize 否则错位 N 字节。
+    const normalizedFull = fullMarkdown.replace(/\r\n/g, "\n");
+    reportArtifact.content.fullMarkdown = normalizedFull;
     reportArtifact.content.fullReportSize = Buffer.byteLength(
-      fullMarkdown,
+      normalizedFull,
       "utf8",
     );
-    // ★ P1-N (2026-04-29): 补救后 section.startOffset/endOffset 已漂移，
-    // 必须根据新的 fullMarkdown 重算每个 section 的 offset，否则 S9B 按错位文本评审
-    rebuildSectionOffsets(reportArtifact.sections, fullMarkdown);
+    rebuildSectionOffsets(reportArtifact.sections, normalizedFull);
   }
 
   await narrate(deps.emit, missionId, userId, {

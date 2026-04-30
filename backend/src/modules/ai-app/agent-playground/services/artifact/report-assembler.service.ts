@@ -334,6 +334,8 @@ export class ReportAssemblerService {
     const urlIdx = new Map<string, number>();
     const assignIdx = (rawUrl: string): number => {
       const url = rawUrl.trim();
+      // ★ P1-R4-G (round 4): 空 URL 不进 citations，防 LLM 输出 [text]() 等污染
+      if (!url) return -1;
       if (urlIdx.has(url)) return urlIdx.get(url)!;
       urlOrder.push(url);
       const n = urlOrder.length;
@@ -349,15 +351,14 @@ export class ReportAssemblerService {
       /(\[\d+\])|\[([^\]\n]+?)\]\((https?:\/\/[^\s)]+)\)|\[(https?:\/\/[^\]\s]+)\]/g;
     const transform = (body: string | undefined): string => {
       if (!body) return body ?? "";
-      return body.replace(
-        unifiedRe,
-        (_m, alreadyN, _anchor, mdUrl, bareUrl) => {
-          if (alreadyN) return alreadyN as string; // [N] 已是数字编号，原样保留
-          const url: string = mdUrl ?? bareUrl;
-          const n = assignIdx(url);
-          return `[${n}]`;
-        },
-      );
+      return body.replace(unifiedRe, (m, alreadyN, _anchor, mdUrl, bareUrl) => {
+        if (alreadyN) return alreadyN as string; // [N] 已是数字编号，原样保留
+        const url: string = mdUrl ?? bareUrl;
+        const n = assignIdx(url);
+        // ★ P1-R4-G (round 4): 空 URL 时保留原文不替换为 [-1]
+        if (n < 0) return m;
+        return `[${n}]`;
+      });
     };
     const summaryT = transform(input.writerReport.summary);
     for (const sec of sectionsCopy) {
@@ -537,9 +538,21 @@ export class ReportAssemblerService {
         currentSection.wordCount / (input.language === "zh-CN" ? 400 : 250),
       );
     };
+    // ★ P0-R4-2 (round 4): 跟踪代码块 / 引用块上下文，避免误识别块内 ## 为 section
+    let inCodeBlock = false;
     for (const line of lines) {
       const lineWithNL = line + "\n";
-      if (line.startsWith("## ") && !line.startsWith("### ")) {
+      // 围栏代码块翻转（``` 或 ~~~）
+      if (/^(```|~~~)/.test(line.trim())) {
+        inCodeBlock = !inCodeBlock;
+      } else if (
+        !inCodeBlock &&
+        // 排除引用块（> ##）和缩进代码块（4 空格起）
+        !line.startsWith(">") &&
+        !line.startsWith("    ") &&
+        line.startsWith("## ") &&
+        !line.startsWith("### ")
+      ) {
         // close previous
         if (currentSection) {
           const bodyText = fullMarkdown.slice(bodyStart, charOffset);
@@ -834,30 +847,27 @@ export class ReportAssemblerService {
     if (!input.reconciliationReport?.factTable) return [];
     const urlToIndex = new Map<string, number>();
     for (const c of citations) urlToIndex.set(c.url, c.index);
-    return input.reconciliationReport.factTable.map((f) => ({
-      id: f.id,
-      entity: f.entity,
-      attribute: f.attribute,
-      value: f.value,
-      sources: f.sources
-        .map((s) => urlToIndex.get(s) ?? -1)
-        .filter((n) => n > 0),
-      conflict: input.reconciliationReport!.conflicts.find((c) =>
-        c.factIds.includes(f.id),
-      )
-        ? {
-            factIds: input.reconciliationReport!.conflicts.find((c) =>
-              c.factIds.includes(f.id),
-            )!.factIds,
-            resolutionType: input.reconciliationReport!.conflicts.find((c) =>
-              c.factIds.includes(f.id),
-            )!.resolutionType,
-            rationale: input.reconciliationReport!.conflicts.find((c) =>
-              c.factIds.includes(f.id),
-            )!.rationale,
-          }
-        : undefined,
-    }));
+    // ★ P1-R4-F (round 4): 单次 find + 缓存，避免每个 fact 调 4 次同样的 find（O(n²)）
+    const conflicts = input.reconciliationReport.conflicts ?? [];
+    return input.reconciliationReport.factTable.map((f) => {
+      const conflict = conflicts.find((c) => c.factIds.includes(f.id));
+      return {
+        id: f.id,
+        entity: f.entity,
+        attribute: f.attribute,
+        value: f.value,
+        sources: f.sources
+          .map((s) => urlToIndex.get(s) ?? -1)
+          .filter((n) => n > 0),
+        conflict: conflict
+          ? {
+              factIds: conflict.factIds,
+              resolutionType: conflict.resolutionType,
+              rationale: conflict.rationale,
+            }
+          : undefined,
+      };
+    });
   }
 
   // ─── 6. quickView 派生 ─────────────────────────────────────────
@@ -1006,20 +1016,32 @@ export class ReportAssemblerService {
     const traceabilityScore = citationDensityScore; // 简化：与 citationDensity 一致
 
     // ─── chapterBalance：字数标准差 ──
+    // ★ P1-R4-H (round 4): 全部 wordCount=0（中文 countWords 失效或空报告）时
+    // 不应显示"非常均衡 90 分"，应给低分 + warning，与 lengthAccuracy 信号一致
     const wordCounts = sections.map((s) => s.wordCount).filter((n) => n > 0);
-    const avgWords =
-      wordCounts.reduce((a, b) => a + b, 0) / Math.max(1, wordCounts.length);
-    const stdDev = Math.sqrt(
-      wordCounts.reduce((a, n) => a + Math.pow(n - avgWords, 2), 0) /
-        Math.max(1, wordCounts.length),
-    );
-    const balanceRatio = avgWords > 0 ? stdDev / avgWords : 1;
-    const balanceScore = balanceRatio < 0.5 ? 90 : balanceRatio < 0.8 ? 70 : 50;
-    if (balanceScore < 70) {
+    let balanceScore: number;
+    let balanceRatio = 0;
+    if (wordCounts.length === 0) {
+      balanceScore = 35;
       warnings.push({
         dimension: "chapterBalance",
-        message: `章节字数标准差 ${(balanceRatio * 100).toFixed(0)}% > 50%`,
+        message: "所有章节字数为 0（可能 wordCount 计算失败或报告为空）",
       });
+    } else {
+      const avgWords =
+        wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length;
+      const stdDev = Math.sqrt(
+        wordCounts.reduce((a, n) => a + Math.pow(n - avgWords, 2), 0) /
+          wordCounts.length,
+      );
+      balanceRatio = avgWords > 0 ? stdDev / avgWords : 1;
+      balanceScore = balanceRatio < 0.5 ? 90 : balanceRatio < 0.8 ? 70 : 50;
+      if (balanceScore < 70) {
+        warnings.push({
+          dimension: "chapterBalance",
+          message: `章节字数标准差 ${(balanceRatio * 100).toFixed(0)}% > 50%`,
+        });
+      }
     }
 
     // ─── overall：加权平均 ──

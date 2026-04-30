@@ -9,11 +9,12 @@ import type { IAgentEvent } from "../../../../../../ai-harness/facade";
  * tokensUsed 偶发是 "100"（字符串），严格 typeof 判断会让所有事件被跳过，
  * 累加结果 0 → 预算上限保护失效 + cost UI 显示 $0。
  *
- * ★ P1-R3-A (round 3): 大数攻击面 —— 异常 provider 返回 "9e99" / "1e10" 等
- * 让 pool 瞬间溢出触发 budget exhausted；上限 1M tokens / call 是合理业务边界
- * （Claude/GPT-4 单次调用绝无超 1M 的可能）。
+ * ★ P1-R3-A (round 3) + P2-R4-1 (round 4): 大数攻击面 —— 异常 provider 返回
+ * "9e99" / "1e10" 等让 pool 瞬间溢出触发 budget exhausted；
+ * 上限 5M tokens / call 给 Sonnet 1M context 极端长输出留余量，
+ * 同时 reject 真垃圾大数。reject 时 console.warn 留可观测性。
  */
-const MAX_TOKENS_PER_CALL = 1_000_000;
+const MAX_TOKENS_PER_CALL = 5_000_000;
 
 function safeNumber(v: unknown): number | null {
   let n: number | null = null;
@@ -23,7 +24,13 @@ function safeNumber(v: unknown): number | null {
     if (!isNaN(parsed) && isFinite(parsed)) n = parsed;
   }
   if (n == null) return null;
-  if (n < 0 || n > MAX_TOKENS_PER_CALL) return null;
+  if (n < 0 || n > MAX_TOKENS_PER_CALL) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[token-spend] rejected out-of-range tokensUsed=${n} (max=${MAX_TOKENS_PER_CALL})`,
+    );
+    return null;
+  }
   return n;
 }
 

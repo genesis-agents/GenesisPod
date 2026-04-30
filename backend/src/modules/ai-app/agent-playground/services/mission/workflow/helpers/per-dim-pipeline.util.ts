@@ -246,6 +246,10 @@ export async function runPerDimPipeline(
       | { body: string; wordCount: number; citationsUsed: string[] }
       | undefined;
     let lastCritique: string | undefined;
+    // ★ P1-R4-A (round 4): reviewer 连续失败计数，避免 reviewer 持续故障让 writer
+    // 反复重试导致 token 倍增（round 3 改 fallback 为 revise 引入的副作用）
+    let consecutiveReviewerFailures = 0;
+    const MAX_REVIEWER_FAILURES = 2;
 
     while (attempt < MAX_REVISION_ATTEMPTS + 1) {
       attempt += 1;
@@ -437,6 +441,14 @@ export async function runPerDimPipeline(
             };
       const isReviewerFallback =
         reviewerRes.state !== "completed" || !reviewerRes.output;
+      // ★ P1-R4-A (round 4): cap reviewer 连续失败次数，超过则放弃重试避免 token 爆炸
+      if (isReviewerFallback) {
+        consecutiveReviewerFailures += 1;
+      } else {
+        consecutiveReviewerFailures = 0;
+      }
+      const reviewerExhausted =
+        consecutiveReviewerFailures >= MAX_REVIEWER_FAILURES;
       // 兼容旧 critique 文本：若 LLM 没出 issues，把 critique 字符串当 1 条 issue
       const issues: ReviewIssue[] =
         verdict.issues && verdict.issues.length > 0
@@ -492,16 +504,21 @@ export async function runPerDimPipeline(
       // ★ 字数硬门槛：实际产出 < target × 70% 时强制 revise（即使 reviewer 给 pass）
       //   原因：观测到 extended (25K) mission 实际只产 5K 字（20%）—— reviewer 评分 ≥ PASS_THRESHOLD
       //   但字数严重不达标。LLM 默认惜字如金，必须显式 retry 才能逼出长文。
-      //   仅在 attempt < MAX 时拒绝；attempt 用完则放行（避免无限 retry）。
+      //   ★ P0-R4-4 (round 4 真修): round 2 commit message 写了但 git add 漏文件，
+      //   实际仍是 `< MAX+1`。改为 `< MAX` 让最后一轮（attempt=MAX）真正放行，
+      //   避免最后一次 revise 是哑炮。
       const isLengthFail =
         draft.wordCount < Math.round(targetWordsPerChapter * 0.7) &&
-        attempt < MAX_REVISION_ATTEMPTS + 1;
+        attempt < MAX_REVISION_ATTEMPTS;
 
       if (
         !isLengthFail &&
         (verdict.decision === "pass" ||
           verdict.score >= PASS_THRESHOLD ||
-          attempt >= MAX_REVISION_ATTEMPTS + 1)
+          attempt >= MAX_REVISION_ATTEMPTS + 1 ||
+          // ★ P1-R4-A (round 4): reviewer 连续故障超 MAX_REVIEWER_FAILURES，
+          // 不再重试，按当前 draft 落地避免 token 倍增
+          reviewerExhausted)
       ) {
         // ★ 沉淀接入: chapter 局部 [1][2] → dim 全局编号重映射
         //   chapter.sourceIndices 是 outline 阶段每章可引用的 dim findings 索引（0-based）。
@@ -526,8 +543,11 @@ export async function runPerDimPipeline(
       const lengthCritiquePrefix = isLengthFail
         ? `[字数严重不足] 上轮仅 ${draft.wordCount} 字（目标 ${targetWordsPerChapter} 字，仅 ${Math.round((draft.wordCount / targetWordsPerChapter) * 100)}%）。必须把章节扩到至少 ${Math.round(targetWordsPerChapter * 0.85)} 字：增加分析段落、补充案例数据、深化推理、加引用。不要重复已有内容。\n\n`
         : "";
-      lastCritique =
-        lengthCritiquePrefix + (verdict.critique ?? verdict.summary ?? "");
+      // ★ P1-R4-C (round 4): critique 长度上限 2000 字，防多 attempt 累积爆 prompt
+      const MAX_CRITIQUE_CHARS = 2000;
+      lastCritique = (
+        lengthCritiquePrefix + (verdict.critique ?? verdict.summary ?? "")
+      ).slice(0, MAX_CRITIQUE_CHARS);
       await deps.emit({
         type: "agent-playground.chapter:revision",
         missionId,
@@ -603,6 +623,19 @@ export async function runPerDimPipeline(
       payload: {
         dimension: dimensionName,
         totalWordCount: integrated.totalWordCount,
+        chapterCount: writtenChapters.length,
+      },
+    });
+  } else {
+    // ★ P1-R4-B (round 4): integrator 失败必须 emit failed 让前端切到错误态
+    await deps.emit({
+      type: "agent-playground.dimension:integrating:failed",
+      missionId,
+      userId,
+      agentId: integratorAgentId,
+      payload: {
+        dimension: dimensionName,
+        state: integrateRes.state,
         chapterCount: writtenChapters.length,
       },
     });

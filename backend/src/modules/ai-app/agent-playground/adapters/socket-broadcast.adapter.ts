@@ -87,15 +87,17 @@ export class SocketBroadcastAdapter implements IBroadcastAdapter {
   }
 
   /**
-   * 启发式：含已知大字段 / 大字符串 / 长数组 / 多 key 对象时才做完整 size 预检。
-   * 纯标量与小事件直接 fast-path 避免双 stringify。
+   * 启发式：含已知大字段 / 大字符串 / 长数组 时才做完整 size 预检。
+   * ★ P1-R4-I (round 4): 精确化 —— 检查字段实际大小而非仅 key 存在 / 字段数；
+   * 避免 lifecycle 等多 key 但内容小的事件被误判触发预检。
    */
   private isPotentiallyLarge(payload: unknown): boolean {
     if (payload == null) return false;
     if (typeof payload === "string") return payload.length > 8 * 1024;
-    if (Array.isArray(payload)) return payload.length > 50;
+    if (Array.isArray(payload)) return payload.length > 100;
     if (typeof payload === "object") {
       const obj = payload as Record<string, unknown>;
+      // 检查已知大字段的实际尺寸，仅"真大"才触发预检
       const heavyKeys = [
         "fullMarkdown",
         "sections",
@@ -104,9 +106,16 @@ export class SocketBroadcastAdapter implements IBroadcastAdapter {
         "reportFull",
         "content",
         "report",
+        "body",
       ];
-      if (heavyKeys.some((k) => k in obj)) return true;
-      return Object.keys(obj).length > 5;
+      for (const k of heavyKeys) {
+        const v = obj[k];
+        if (typeof v === "string" && v.length > 8 * 1024) return true;
+        if (Array.isArray(v) && v.length > 50) return true;
+        if (v && typeof v === "object" && Object.keys(v).length > 5)
+          return true;
+      }
+      return false;
     }
     return false;
   }

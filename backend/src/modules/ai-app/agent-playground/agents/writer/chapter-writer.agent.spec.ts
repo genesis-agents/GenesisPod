@@ -73,15 +73,17 @@ describe("ChapterWriterAgent", () => {
       expect(r.success).toBe(true);
     });
 
-    it("accepts targetWords = 25000 (boundary max)", () => {
+    // ★ P0-R4-5 (round 4): targetWords 上限从 25000 降至 12000，避免 LLM
+    // budget.maxTokens=22000 + 中文 1:1 token 永远写不到 ≥85% 字数门槛
+    it("accepts targetWords = 12000 (boundary max round 4)", () => {
       expect(
-        inputSchema.safeParse({ ...baseInput, targetWords: 25000 }).success,
+        inputSchema.safeParse({ ...baseInput, targetWords: 12000 }).success,
       ).toBe(true);
     });
 
-    it("rejects targetWords above 25000", () => {
+    it("rejects targetWords above 12000", () => {
       expect(
-        inputSchema.safeParse({ ...baseInput, targetWords: 25001 }).success,
+        inputSchema.safeParse({ ...baseInput, targetWords: 12001 }).success,
       ).toBe(false);
     });
 
