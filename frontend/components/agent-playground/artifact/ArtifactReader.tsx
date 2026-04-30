@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Download, List, RefreshCw, Sparkles } from 'lucide-react';
+import {
+  BookOpen,
+  Download,
+  Info,
+  List,
+  RefreshCw,
+  Sparkles,
+  X as XIcon,
+} from 'lucide-react';
 import type { ReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import type { DimensionPipelineState } from '@/lib/agent-playground/derive';
 import { ContinuousReader } from './ContinuousReader';
@@ -115,6 +123,12 @@ export function ArtifactReader({
     }
     return { revising };
   }, [dimensionPipelines]);
+  // ★ 2026-04-30 (#51 报告极简化): 元信息抽屉
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [insightsTab, setInsightsTab] = useState<
+    'quality' | 'meta' | 'fact' | 'recon' | 'tool'
+  >('quality');
+
   // Phase P16-7: 视图切换持久到 URL hash
   const [view, setView] = useState<ViewMode>(() => {
     if (typeof window !== 'undefined') {
@@ -159,17 +173,22 @@ export function ArtifactReader({
             快速视图
           </ViewBtn>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
-          {/* 质量分缩略（TI 没有，agent-playground 差异化） */}
-          <span
-            className="inline-flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 ring-1 ring-gray-200"
-            title={Object.entries(artifact.quality.dimensions ?? {})
-              .map(([k, v]) => `${k} ${v}`)
-              .join(' · ')}
+        {/* ★ 2026-04-30 (#51): 工具栏右侧只保留 报告分析 / 导出 两个按钮，
+            质量分数 / metadata / 事实表 / 对账 / 工具召回 全移到右侧 slide-over */}
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+          <button
+            type="button"
+            onClick={() => {
+              setInsightsTab('quality');
+              setInsightsOpen(true);
+            }}
+            className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-gray-100"
+            title="查看质量评分 / 元信息 / 事实表 / 对账 / 工具召回"
           >
-            <span className="font-semibold text-gray-700">质量</span>
+            <Info className="h-3.5 w-3.5" />
+            <span className="font-medium">报告分析</span>
             <span
-              className={`font-mono font-bold ${
+              className={`font-mono ml-1 font-bold ${
                 artifact.quality.overall >= 80
                   ? 'text-emerald-600'
                   : artifact.quality.overall >= 65
@@ -179,23 +198,7 @@ export function ArtifactReader({
             >
               {artifact.quality.overall}
             </span>
-          </span>
-          <span
-            title={[
-              `生成于 ${artifact.metadata.generatedAt}`,
-              artifact.metadata.modelTrail.length > 0
-                ? `模型: ${artifact.metadata.modelTrail.join(', ')}`
-                : '',
-              `tokens: ${artifact.metadata.totalTokens.total}`,
-              `cost: $${(artifact.metadata.costCents / 100).toFixed(2)}`,
-            ]
-              .filter(Boolean)
-              .join('\n')}
-          >
-            v{artifact.metadata.version} ·{' '}
-            {Math.round(artifact.metadata.generationTimeMs / 1000)}s · $
-            {(artifact.metadata.costCents / 100).toFixed(2)}
-          </span>
+          </button>
           {missionId && <ExportMenu missionId={missionId} />}
         </div>
       </div>
@@ -241,9 +244,7 @@ export function ArtifactReader({
         </div>
       )}
 
-      {/* hero 信息条 —— 接收对象 / style profile / hard-gate 警示等元信息 */}
-      <ReportHeroStrip artifact={artifact} />
-
+      {/* ★ 2026-04-30 (#51): 主区只渲染报告正文 —— 元信息全在右侧抽屉 */}
       {view === 'continuous' && <ContinuousReader artifact={artifact} />}
       {view === 'chapter' && (
         <ChapterReader
@@ -258,22 +259,115 @@ export function ArtifactReader({
         />
       )}
 
-      {/* 事实表（所有视图都显示，超越 TI 的关键差异化） */}
-      {artifact.factTable.length > 0 && (
-        <FactTablePanel
-          factTable={artifact.factTable}
-          citations={artifact.citations}
-        />
-      )}
-
-      {/* 对账总览（如有 Reconciler [3.5] 产物） */}
-      {reconciliationReport && (
-        <ReconciliationPanel report={reconciliationReport} />
-      )}
-
-      {/* Tool Recall trace（如有运行时事件） */}
-      {toolRecallEntries && toolRecallEntries.length > 0 && (
-        <ToolRecallTrace entries={toolRecallEntries} />
+      {/* ★ 2026-04-30 (#51): 报告分析 slide-over —— 元信息抽屉 */}
+      {insightsOpen && (
+        <>
+          {/* backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/30"
+            onClick={() => setInsightsOpen(false)}
+          />
+          {/* panel */}
+          <div className="fixed right-0 top-0 z-50 flex h-full w-[420px] max-w-[92vw] flex-col border-l border-gray-200 bg-white shadow-2xl">
+            {/* header + tabs */}
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h3 className="text-sm font-semibold text-gray-900">报告分析</h3>
+              <button
+                type="button"
+                onClick={() => setInsightsOpen(false)}
+                className="rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                title="关闭"
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1 border-b border-gray-100 px-3 py-2 text-[11px]">
+              {(
+                [
+                  { key: 'quality', label: '质量' },
+                  { key: 'meta', label: '元信息' },
+                  ...(artifact.factTable.length > 0
+                    ? [{ key: 'fact', label: '事实表' } as const]
+                    : []),
+                  ...(reconciliationReport
+                    ? [{ key: 'recon', label: '对账' } as const]
+                    : []),
+                  ...(toolRecallEntries && toolRecallEntries.length > 0
+                    ? [{ key: 'tool', label: '工具召回' } as const]
+                    : []),
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setInsightsTab(t.key)}
+                  className={
+                    insightsTab === t.key
+                      ? 'rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700 ring-1 ring-blue-200'
+                      : 'rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50'
+                  }
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {/* body */}
+            <div className="flex-1 overflow-auto p-4">
+              {insightsTab === 'quality' && (
+                <div className="space-y-3">
+                  <QualityBadge quality={artifact.quality} />
+                  <ReportHeroStrip artifact={artifact} />
+                </div>
+              )}
+              {insightsTab === 'meta' && (
+                <div className="space-y-2 text-[12px] text-gray-700">
+                  <div>
+                    <span className="text-gray-500">生成时间：</span>
+                    {artifact.metadata.generatedAt}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">版本：</span> v
+                    {artifact.metadata.version}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">耗时：</span>
+                    {Math.round(artifact.metadata.generationTimeMs / 1000)}s
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Tokens：</span>
+                    {artifact.metadata.totalTokens?.total ?? 0}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">成本：</span>$
+                    {(artifact.metadata.costCents / 100).toFixed(2)}
+                  </div>
+                  {artifact.metadata.modelTrail.length > 0 && (
+                    <div>
+                      <span className="text-gray-500">模型：</span>
+                      <span className="font-mono text-[11px]">
+                        {artifact.metadata.modelTrail.join(' / ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {insightsTab === 'fact' && artifact.factTable.length > 0 && (
+                <FactTablePanel
+                  factTable={artifact.factTable}
+                  citations={artifact.citations}
+                />
+              )}
+              {insightsTab === 'recon' && reconciliationReport && (
+                <ReconciliationPanel report={reconciliationReport} />
+              )}
+              {insightsTab === 'tool' &&
+                toolRecallEntries &&
+                toolRecallEntries.length > 0 && (
+                  <ToolRecallTrace entries={toolRecallEntries} />
+                )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

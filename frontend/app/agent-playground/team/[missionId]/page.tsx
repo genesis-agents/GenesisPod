@@ -824,10 +824,11 @@ export default function MissionDetailPage() {
 
             {activeTab === 'report' && (
               <div className="space-y-4">
-                {/* ★ Phase Lead-1+: Leader-Replanner-Lite 全程产物展示 */}
-                {persisted && <LeadJournalPanel mission={persisted} />}
-                {/* ★ 2026-04-30: artifact / 子 props 已在 component 顶部 useMemo 缓存，
-                    setNow 500ms tick 不再触发 ArtifactMarkdown 重渲，图片不闪 */}
+                {/* ★ 2026-04-30 (#51 报告极简化)：
+                    主区只渲染纯报告（ArtifactReader 含视图切换 + 修订 banner + 正文）
+                    LeadJournalPanel / VerifyConsensusPanel / 质量分数 / 元信息 /
+                    事实表 / 对账 / 工具召回 全部移到 ArtifactReader 内部右侧 slide-over，
+                    点击"报告分析"按钮打开。 */}
                 <ArtifactReader
                   artifact={reportArtifact}
                   missionId={missionId}
@@ -840,9 +841,6 @@ export default function MissionDetailPage() {
                   toolRecallEntries={reportToolRecallEntries}
                   dimensionPipelines={view.dimensionPipelines}
                 />
-                {view.verdicts.length > 0 && (
-                  <VerifyConsensusPanel verdicts={view.verdicts} />
-                )}
               </div>
             )}
 
