@@ -184,6 +184,45 @@ interface TimelineEntry {
   subCalls?: ParallelSubCall[];
   results?: { title?: string; url?: string; snippet?: string }[];
   resultToolId?: string;
+  /** ★ P0-LIVE-UI-TOOL-ERR (2026-04-30): tool 失败时的明细原因 */
+  toolError?: string;
+  /** 失败的子调用列表（parallel_tool_call 中部分失败时） */
+  toolErrors?: { toolId?: string; error: string }[];
+}
+
+/**
+ * 同时收集 tool errors（success===false 或 error 字段非空时的 message）。
+ * 让 UI 在 results 为空时仍能展示具体失败原因，而不是 generic"未返回任何内容"。
+ */
+function collectToolErrorsDeep(
+  node: unknown
+): { toolId?: string; error: string }[] {
+  const out: { toolId?: string; error: string }[] = [];
+  const visit = (n: unknown, ctxToolId?: string) => {
+    if (!n) return;
+    if (typeof n !== 'object') return;
+    if (Array.isArray(n)) {
+      n.forEach((x) => visit(x, ctxToolId));
+      return;
+    }
+    const o = n as Record<string, unknown>;
+    const tid =
+      typeof o.toolId === 'string'
+        ? o.toolId
+        : typeof o.tool === 'string'
+          ? o.tool
+          : ctxToolId;
+    const err = typeof o.error === 'string' ? o.error : undefined;
+    const success = typeof o.success === 'boolean' ? o.success : undefined;
+    if (err && (success === false || success === undefined)) {
+      out.push({ toolId: tid, error: err });
+    }
+    for (const k of ['output', 'subResults', 'data']) {
+      if (o[k] !== undefined) visit(o[k], tid);
+    }
+  };
+  visit(node);
+  return out;
 }
 
 function collectResultsDeep(
@@ -309,16 +348,28 @@ function buildTimeline(
               : undefined;
         out.push({ kind: 'tool-call', ts: t.ts, trace: t, query });
       }
-    } else if (t.kind === 'observation' && !t.error) {
+    } else if (t.kind === 'observation') {
       // 跳过 finalize 的 observation（产出在 findings）
       if (t.toolId === 'finalize') continue;
+      // ★ P0-LIVE-UI-TOOL-ERR (2026-04-30): observation 自带 error 时之前直接
+      //   skip 了整个 entry，UI 看不到任何信息。改为照常 push tool-result，
+      //   把 error 透传到 toolError 字段；同时从 output 里递归提取 success:false
+      //   子调用错误（parallel_tool_call 部分失败的情形）。
       const results = collectResultsDeep(t.output);
+      const subErrors = collectToolErrorsDeep(t.output);
+      const topError = t.error
+        ? typeof t.error === 'string'
+          ? t.error
+          : ((t.error as { message?: string }).message ?? undefined)
+        : undefined;
       out.push({
         kind: 'tool-result',
         ts: t.ts,
         trace: t,
         results,
         resultToolId: t.toolId,
+        toolError: topError,
+        toolErrors: subErrors.length > 0 ? subErrors : undefined,
       });
     } else if (t.kind === 'reflection' && t.text) {
       out.push({ kind: 'reflection', ts: t.ts, trace: t });
@@ -1087,14 +1138,45 @@ function TimelineEntryBody({ entry }: { entry: TimelineEntry }) {
     );
   }
   if (entry.kind === 'tool-result') {
-    if (!entry.results || entry.results.length === 0) {
+    const hasResults = entry.results && entry.results.length > 0;
+    const hasErrors =
+      !!entry.toolError || (entry.toolErrors && entry.toolErrors.length > 0);
+    if (!hasResults && hasErrors) {
+      // ★ P0-LIVE-UI-TOOL-ERR (2026-04-30): 工具失败时显示具体原因（HTTP 状态码 /
+      //   "Not enough credits" / "PDF skipped" 等），不再显示 generic 兜底。
+      return (
+        <div className="space-y-1.5">
+          {entry.toolError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5">
+              <p className="font-mono text-[11px] leading-relaxed text-red-700">
+                {entry.toolError}
+              </p>
+            </div>
+          )}
+          {entry.toolErrors?.map((e, i) => (
+            <div
+              key={i}
+              className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                {e.toolId || '子调用'}
+              </p>
+              <p className="font-mono mt-0.5 text-[11px] leading-relaxed text-amber-900">
+                {e.error}
+              </p>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (!hasResults) {
       return (
         <p className="text-[11px] italic text-gray-500">
           （工具未返回可解析的结构化结果）
         </p>
       );
     }
-    return <ToolResultList results={entry.results} />;
+    return <ToolResultList results={entry.results ?? []} />;
   }
   if (entry.kind === 'reflection' && entry.trace?.text) {
     return (

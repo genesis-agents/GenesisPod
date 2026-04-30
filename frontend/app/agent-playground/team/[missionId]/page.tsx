@@ -21,6 +21,7 @@ import {
   Layers,
   ListChecks,
   RefreshCw,
+  X as XIcon,
 } from 'lucide-react';
 import {
   CapabilityMeters,
@@ -280,6 +281,11 @@ export default function MissionDetailPage() {
   const [researchTeamOpen, setResearchTeamOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
+  // ★ P1-UI-DISMISS-BANNER (2026-04-30): mission failed banner 支持手动关闭，
+  //   按 missionId 分桶，避免不同 mission 共用同一个状态。
+  const [dismissedFailedBanner, setDismissedFailedBanner] = useState<
+    Record<string, boolean>
+  >({});
 
   const allSources = useMemo(() => {
     const set = new Set<string>();
@@ -584,47 +590,80 @@ export default function MissionDetailPage() {
         {/* Right Panel - tabbed content */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Status banners */}
-          {(error && connState !== 'live') || view.mission.failedMessage ? (
-            <div className="space-y-2 border-b border-gray-200 bg-white px-4 py-2">
-              {error && connState !== 'live' && (
-                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <p>WebSocket 不可用 · 已退化为 4s 轮询 /replay</p>
-                </div>
-              )}
-              {view.mission.failedMessage &&
-                (persisted?.status === 'quality-failed' ? (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+          {(() => {
+            const showWsError = !!(error && connState !== 'live');
+            const failedDismissed = !!dismissedFailedBanner[missionId];
+            const showFailedBanner =
+              !!view.mission.failedMessage && !failedDismissed;
+            if (!showWsError && !showFailedBanner) return null;
+            return (
+              <div className="space-y-2 border-b border-gray-200 bg-white px-4 py-2">
+                {showWsError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold">
-                        Leader 拒签 · 质量未达标但报告可阅读
-                      </p>
-                      <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-amber-900/90">
-                        {view.mission.failedMessage}
-                      </p>
+                    <p>WebSocket 不可用 · 已退化为 4s 轮询 /replay</p>
+                  </div>
+                )}
+                {showFailedBanner &&
+                  (persisted?.status === 'quality-failed' ? (
+                    <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 pr-8 text-xs text-amber-800">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">
+                          Leader 拒签 · 质量未达标但报告可阅读
+                        </p>
+                        <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-amber-900/90">
+                          {view.mission.failedMessage}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('report')}
+                          className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-300 hover:bg-amber-200"
+                        >
+                          查看输出报告 →
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setActiveTab('report')}
-                        className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-300 hover:bg-amber-200"
+                        aria-label="关闭"
+                        onClick={() =>
+                          setDismissedFailedBanner((prev) => ({
+                            ...prev,
+                            [missionId]: true,
+                          }))
+                        }
+                        className="absolute right-1.5 top-1.5 rounded p-0.5 text-amber-700 hover:bg-amber-100"
                       >
-                        查看输出报告 →
+                        <XIcon className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold">Mission 失败</p>
-                      <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-red-900/90">
-                        {view.mission.failedMessage}
-                      </p>
+                  ) : (
+                    <div className="relative flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5 pr-8 text-xs text-red-800">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">Mission 失败</p>
+                        <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-red-900/90">
+                          {view.mission.failedMessage}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="关闭"
+                        onClick={() =>
+                          setDismissedFailedBanner((prev) => ({
+                            ...prev,
+                            [missionId]: true,
+                          }))
+                        }
+                        className="absolute right-1.5 top-1.5 rounded p-0.5 text-red-700 hover:bg-red-100"
+                      >
+                        <XIcon className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                  </div>
-                ))}
-            </div>
-          ) : null}
+                  ))}
+              </div>
+            );
+          })()}
 
           {/* Tabs — TI style: border-b primary underline; horizontal scroll on overflow */}
           <div className="flex min-w-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
