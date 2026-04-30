@@ -1,17 +1,128 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, RefreshCw, Loader2 } from 'lucide-react';
 import type {
   ArtifactCitation,
   ArtifactSection,
   ReportArtifact,
 } from '@/lib/agent-playground/report-artifact.types';
+import type { DimensionPipelineState } from '@/lib/agent-playground/derive';
 import { ArtifactMarkdown } from './ArtifactMarkdown';
 
 interface Props {
   artifact: ReportArtifact;
   initialSectionId?: string;
+  /** ★ 2026-04-30: 实时章节修订状态（writing/reviewing/revising/passed/failed） */
+  dimensionPipelines?: Map<string, DimensionPipelineState>;
+}
+
+/**
+ * 反查 section 对应的 chapter live status：
+ *   1) 找 sourceDimensionId 对应的 dim pipeline
+ *   2) 在 pipeline.chapters 里按 heading（或顺序）匹配 chapter
+ *   3) 返回 status；找不到默认 'passed'（reportArtifact 已经装配过 = 已完成）
+ */
+function lookupChapterLiveStatus(
+  section: ArtifactSection,
+  dimensionPipelines?: Map<string, DimensionPipelineState>
+): 'pending' | 'writing' | 'reviewing' | 'revising' | 'passed' | 'failed' {
+  if (!dimensionPipelines || dimensionPipelines.size === 0) return 'passed';
+  // 多个 dim 的章节都有可能匹配 —— 优先用 sourceDimensionId
+  const candidates: DimensionPipelineState[] = [];
+  for (const [dimName, p] of dimensionPipelines.entries()) {
+    if (
+      section.sourceDimensionId &&
+      p.dimension === section.sourceDimensionId
+    ) {
+      candidates.push(p);
+    } else if (
+      section.title.includes(dimName) ||
+      dimName.includes(section.title)
+    ) {
+      candidates.push(p);
+    }
+  }
+  if (candidates.length === 0) {
+    // section title 模糊匹配 chapter heading
+    for (const p of dimensionPipelines.values()) {
+      const matched = p.chapters.find(
+        (c) =>
+          c.heading.trim() === section.title.trim() ||
+          c.heading.includes(section.title) ||
+          section.title.includes(c.heading)
+      );
+      if (matched) return matched.status;
+    }
+    return 'passed';
+  }
+  for (const p of candidates) {
+    const matched = p.chapters.find(
+      (c) =>
+        c.heading.trim() === section.title.trim() ||
+        c.heading.includes(section.title) ||
+        section.title.includes(c.heading)
+    );
+    if (matched) return matched.status;
+  }
+  // 找不到具体章节但有匹配的 dim pipeline —— 看该 dim 是否有任何章节在跑
+  for (const p of candidates) {
+    if (
+      p.chapters.some((c) => c.status === 'revising' || c.status === 'writing')
+    ) {
+      return 'revising';
+    }
+  }
+  return 'passed';
+}
+
+function StatusBadge({
+  status,
+}: {
+  status:
+    | 'pending'
+    | 'writing'
+    | 'reviewing'
+    | 'revising'
+    | 'passed'
+    | 'failed';
+}) {
+  if (status === 'passed') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
+        <Check className="h-3 w-3" />
+        已完成
+      </span>
+    );
+  }
+  if (status === 'revising' || status === 'writing') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+        <RefreshCw className="h-3 w-3 animate-spin" />
+        {status === 'revising' ? '修订中' : '写作中'}
+      </span>
+    );
+  }
+  if (status === 'reviewing') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-700">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        评审中
+      </span>
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
+        失败
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+      待启动
+    </span>
+  );
 }
 
 /**
@@ -21,7 +132,11 @@ interface Props {
  *
  * 对齐 frontend/components/ai-insights/reports/ChapterizedReportView.tsx
  */
-export function ChapterReader({ artifact, initialSectionId }: Props) {
+export function ChapterReader({
+  artifact,
+  initialSectionId,
+  dimensionPipelines,
+}: Props) {
   // ★ 2026-04-30: 启发式合并被 chapter-writer LLM 违规写成 H2 的"keyPoint 子小节"
   //   到前一个真章节。后端 buildSectionTree 只看 ## 切 sections，但 LLM 经常把
   //   "1. xxx" / "（一）xxx" / "其一：xxx" 这种 keyPoint 编号写成 ## H2，导致
@@ -205,9 +320,20 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
   }
 
   // ─── 章节列表视图 ─────────────────────────────────────
+  // ★ 2026-04-30: 用 live status 重算 stats，让 "已完成 N" 真实反映非修订中的章数
+  const sectionLiveStatuses = sections.map((s) =>
+    lookupChapterLiveStatus(s, dimensionPipelines)
+  );
+  const completedCount = sectionLiveStatuses.filter(
+    (st) => st === 'passed'
+  ).length;
+  const inFlightCount = sectionLiveStatuses.filter(
+    (st) => st === 'writing' || st === 'reviewing' || st === 'revising'
+  ).length;
   const stats = {
     total: sections.length,
-    completed: sections.length,
+    completed: completedCount,
+    inFlight: inFlightCount,
     totalWords: sections.reduce((s, x) => s + (x.wordCount ?? 0), 0),
   };
 
@@ -216,7 +342,13 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
       {/* Stats Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
         <div className="text-base text-gray-600">
-          共 {stats.total} 章 · 已完成 {stats.completed} · 总字数{' '}
+          共 {stats.total} 章 · 已完成 {stats.completed}
+          {stats.inFlight > 0 && (
+            <span className="ml-1 text-amber-600">
+              · 进行中 {stats.inFlight}
+            </span>
+          )}{' '}
+          · 总字数{' '}
           {stats.totalWords >= 1000
             ? `${(stats.totalWords / 1000).toFixed(1)}k`
             : stats.totalWords}
@@ -227,6 +359,11 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
       <div className="flex-1 overflow-auto p-4">
         <div className="space-y-2">
           {sections.map((s, idx) => {
+            const liveStatus = sectionLiveStatuses[idx];
+            const isInFlight =
+              liveStatus === 'writing' ||
+              liveStatus === 'reviewing' ||
+              liveStatus === 'revising';
             const preview = artifact.content.fullMarkdown
               .slice(s.startOffset, s.endOffset)
               .replace(/^#{1,6}\s+[^\n]+\n+/, '')
@@ -235,20 +372,39 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
               .replace(/^>\s*/gm, '')
               .trim()
               .slice(0, 200);
+            const cardClasses = isInFlight
+              ? 'block w-full rounded-xl border border-amber-200 bg-amber-50/30 p-4 text-left transition-all hover:border-amber-300 hover:bg-amber-50/60'
+              : liveStatus === 'failed'
+                ? 'block w-full rounded-xl border border-red-200 bg-red-50/30 p-4 text-left transition-all hover:border-red-300 hover:bg-red-50/60'
+                : 'block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/50';
+            const numberCircleClass = isInFlight
+              ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-medium text-amber-700'
+              : liveStatus === 'failed'
+                ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm font-medium text-red-700'
+                : 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-medium text-green-700';
             return (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => setSelectedId(s.id)}
-                className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/50"
+                className={cardClasses}
               >
                 <div className="flex items-start gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-medium text-green-700">
-                    <Check className="h-4 w-4" />
+                  <span className={numberCircleClass}>
+                    {isInFlight ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : liveStatus === 'failed' ? (
+                      <span className="font-bold">×</span>
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-base font-medium text-gray-800">
-                      第 {idx + 1} 章: {s.title}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-base font-medium text-gray-800">
+                        第 {idx + 1} 章: {s.title}
+                      </div>
+                      <StatusBadge status={liveStatus} />
                     </div>
                     {preview && (
                       <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-gray-500">
@@ -258,7 +414,13 @@ export function ChapterReader({ artifact, initialSectionId }: Props) {
                     )}
                   </div>
                   {s.wordCount > 0 && (
-                    <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    <span
+                      className={
+                        isInFlight
+                          ? 'shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700'
+                          : 'shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700'
+                      }
+                    >
                       {s.wordCount} 字
                     </span>
                   )}

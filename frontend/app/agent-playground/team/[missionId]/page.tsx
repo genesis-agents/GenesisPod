@@ -866,6 +866,7 @@ export default function MissionDetailPage() {
                       defaultView={defaultView}
                       reconciliationReport={reconciliationReport}
                       toolRecallEntries={toolRecallEntries}
+                      dimensionPipelines={view.dimensionPipelines}
                     />
                   );
                 })()}

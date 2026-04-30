@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { BookOpen, Download, List, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, Download, List, RefreshCw, Sparkles } from 'lucide-react';
 import type { ReportArtifact } from '@/lib/agent-playground/report-artifact.types';
+import type { DimensionPipelineState } from '@/lib/agent-playground/derive';
 import { ContinuousReader } from './ContinuousReader';
 import { ChapterReader } from './ChapterReader';
 import { QuickReader } from './QuickReader';
@@ -53,6 +54,12 @@ interface Props {
     source: string;
     preferIds?: readonly string[];
   }[];
+  /**
+   * ★ 2026-04-30: 实时章节修订状态
+   * 从 view.dimensionPipelines 传进来，让 chapter 视图能看到哪些章节正在
+   * writing / reviewing / revising，避免章节卡永远显示"已完成"。
+   */
+  dimensionPipelines?: Map<string, DimensionPipelineState>;
 }
 
 /**
@@ -67,7 +74,47 @@ export function ArtifactReader({
   missionId,
   reconciliationReport,
   toolRecallEntries,
+  dimensionPipelines,
 }: Props) {
+  // ★ 2026-04-30: 收集所有正在修订/写作/评审的章节，给 ChapterReader 渲染状态徽标，
+  //   并在工具栏下方加"修订中"banner。chapter:writing:started / chapter:revision /
+  //   chapter:rewritten 事件触发 derive.ts 更新 dimensionPipelines.chapters[].status，
+  //   这里反查得到 live status，避免章节卡永远停在"已完成"假象。
+  const liveActivity = useMemo(() => {
+    if (!dimensionPipelines || dimensionPipelines.size === 0) {
+      return {
+        revising: [] as {
+          dim: string;
+          idx: number;
+          heading: string;
+          status: string;
+        }[],
+      };
+    }
+    const revising: {
+      dim: string;
+      idx: number;
+      heading: string;
+      status: string;
+    }[] = [];
+    for (const [dim, p] of dimensionPipelines.entries()) {
+      for (const ch of p.chapters) {
+        if (
+          ch.status === 'writing' ||
+          ch.status === 'reviewing' ||
+          ch.status === 'revising'
+        ) {
+          revising.push({
+            dim,
+            idx: ch.index,
+            heading: ch.heading,
+            status: ch.status,
+          });
+        }
+      }
+    }
+    return { revising };
+  }, [dimensionPipelines]);
   // Phase P16-7: 视图切换持久到 URL hash
   const [view, setView] = useState<ViewMode>(() => {
     if (typeof window !== 'undefined') {
@@ -153,11 +200,57 @@ export function ArtifactReader({
         </div>
       </div>
 
+      {/* ★ 2026-04-30: 修订进行中 banner —— 用户能看到"哪些章节正在被改" */}
+      {liveActivity.revising.length > 0 && (
+        <div className="-mx-2 flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-amber-600" />
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 font-medium">
+              正在修订 {liveActivity.revising.length} 个章节 · Revising{' '}
+              {liveActivity.revising.length} chapter
+              {liveActivity.revising.length > 1 ? 's' : ''}
+            </div>
+            <div className="space-y-0.5 text-[11px] leading-relaxed text-amber-800/90">
+              {liveActivity.revising.slice(0, 6).map((c, i) => {
+                const statusLabel =
+                  c.status === 'revising'
+                    ? '修订中 · revising'
+                    : c.status === 'reviewing'
+                      ? '评审中 · reviewing'
+                      : '写作中 · writing';
+                return (
+                  <div key={i} className="truncate">
+                    <span className="font-mono mr-1.5 inline-block min-w-[2rem] rounded bg-amber-200/60 px-1 text-center text-amber-900">
+                      {c.idx + 1}
+                    </span>
+                    <span className="text-amber-900">[{c.dim}]</span>{' '}
+                    <span className="text-amber-800">{c.heading}</span>{' '}
+                    <span className="text-[10px] text-amber-700">
+                      ({statusLabel})
+                    </span>
+                  </div>
+                );
+              })}
+              {liveActivity.revising.length > 6 && (
+                <div className="text-[10px] text-amber-700">
+                  …还有 {liveActivity.revising.length - 6} 个章节进行中
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* hero 信息条 —— 接收对象 / style profile / hard-gate 警示等元信息 */}
       <ReportHeroStrip artifact={artifact} />
 
       {view === 'continuous' && <ContinuousReader artifact={artifact} />}
-      {view === 'chapter' && <ChapterReader artifact={artifact} />}
+      {view === 'chapter' && (
+        <ChapterReader
+          artifact={artifact}
+          dimensionPipelines={dimensionPipelines}
+        />
+      )}
       {view === 'quick' && (
         <QuickReader
           artifact={artifact}
