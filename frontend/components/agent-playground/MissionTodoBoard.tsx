@@ -246,6 +246,8 @@ function taskIcon(td: MissionTodo): LucideIcon {
         return ShieldAlert;
       case 's11-persist':
         return Database;
+      case 's12-self-evolution':
+        return Sparkles;
     }
   }
   if (td.scope === 'dimension') return Search;
@@ -332,6 +334,12 @@ function originBadge(td: MissionTodo): {
           label: '落库归档',
           tone: 'bg-slate-100 text-slate-700 ring-slate-200',
           hint: '按签字结果 markCompleted / markFailed，trace 向量化入用户记忆（S11）',
+        };
+      case 's12-self-evolution':
+        return {
+          label: '自我进化',
+          tone: 'bg-indigo-100 text-indigo-700 ring-indigo-200',
+          hint: '本次 mission 复盘 → FailureLearner 记失败 pattern + postmortem 入向量记忆，下次同主题启动时 leader plan 自动召回历史经验（S12）',
         };
     }
   }
@@ -622,8 +630,9 @@ export function MissionTodoBoard({
 
   const canRerunTodo = (td: MissionTodo): boolean => {
     if (!missionTerminal || !missionId) return false;
-    // s11 持久化阶段不能单独重跑
+    // s11 持久化 / s12 自我进化阶段不能单独重跑
     if (td.systemStageId === 's11-persist') return false;
+    if (td.systemStageId === 's12-self-evolution') return false;
     // 已放弃的维度不重跑（应整体 rerun 重新规划）
     if (td.origin === 'leader-assess-abort') return false;
     // 仅终态 / 失败 / 完成 任务允许（pending / in_progress 不显示）

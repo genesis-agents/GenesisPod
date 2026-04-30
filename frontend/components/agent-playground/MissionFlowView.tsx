@@ -58,6 +58,7 @@ const STAGE_META: Record<SystemStageId, { short: string; Icon: LucideIcon }> = {
   's9-critic-l4': { short: '独立复审', Icon: ShieldAlert },
   's10-leader-signoff': { short: '终审签字', Icon: Gavel },
   's11-persist': { short: '落库归档', Icon: Database },
+  's12-self-evolution': { short: '自我进化', Icon: Sparkles },
 };
 
 const STAGE_ORDER: SystemStageId[] = [
@@ -72,6 +73,7 @@ const STAGE_ORDER: SystemStageId[] = [
   's9-critic-l4',
   's10-leader-signoff',
   's11-persist',
+  's12-self-evolution',
 ];
 
 interface Props {

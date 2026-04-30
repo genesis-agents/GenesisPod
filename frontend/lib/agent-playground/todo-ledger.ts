@@ -92,7 +92,8 @@ export type SystemStageId =
   | 's8-writer-draft'
   | 's9-critic-l4'
   | 's10-leader-signoff'
-  | 's11-persist';
+  | 's11-persist'
+  | 's12-self-evolution';
 
 export interface MissionTodo {
   id: string;
@@ -1174,6 +1175,8 @@ export function deriveLayerBreadcrumb(todo: MissionTodo): MissionTodoLayer[] {
         case 's1-budget':
         case 's11-persist':
           return '—';
+        case 's12-self-evolution':
+          return 'FailureLearner + VectorMemory';
       }
     }
     if (todo.scope === 'dimension') return 'ReAct + 自愈';
