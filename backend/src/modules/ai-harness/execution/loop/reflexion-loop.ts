@@ -28,6 +28,10 @@ import { BudgetAccountant } from "../../runtime/budget/budget-accountant";
 
 /**
  * Verifier 抽象 — PR-B 的 JudgeService 实现此接口（可为 self/external/meta）。
+ *
+ * ★ 2026-04-30: evaluate() 允许返回 null 表示"我无法评估这次"（LLM parse 失败 /
+ * 模型不可用 / chat throw），上层 reflexion-loop 会把 null 视为 abstain，**不计入
+ * 平均分**，避免坏 verifier 用兜底常量分把 composite score 永远拉低。
  */
 export interface IVerifier {
   readonly id: string;
@@ -35,7 +39,7 @@ export interface IVerifier {
     output: unknown;
     envelope: IContextEnvelope;
     signal?: AbortSignal;
-  }): Promise<{ score: number; critique: string }>;
+  }): Promise<{ score: number; critique: string } | null>;
 }
 
 export interface ReflexionOptions {
@@ -222,7 +226,7 @@ export class ReflexionLoop implements IAgentLoop {
       }
 
       // VERIFY
-      const verdicts = await Promise.all(
+      const rawVerdicts = await Promise.all(
         verifiers.map((v) =>
           v.evaluate({
             output: lastOutput,
@@ -231,16 +235,46 @@ export class ReflexionLoop implements IAgentLoop {
           }),
         ),
       );
+
+      // ★ 2026-04-30: 过滤掉 null verdict（verifier abstain — parse 失败 / 模型
+      // 不可用）。如果只剩部分健康 verdict，仅基于健康部分算分；如果**全部**
+      // verdict 都 abstain，说明 verifier 系统挂了，不能反复 retry 烧 budget，
+      // 直接 force-pass 当前 output 并发 warning（让 orchestrator/UI 看到）。
+      const healthy = rawVerdicts
+        .map((v, i) => (v ? { ...v, judgeId: verifiers[i].id } : null))
+        .filter(
+          (v): v is { score: number; critique: string; judgeId: string } =>
+            v !== null,
+        );
+      const abstainCount = rawVerdicts.length - healthy.length;
+
+      if (healthy.length === 0) {
+        yield this.event(agentId, "reflection", {
+          revision,
+          score: null,
+          verdicts: [],
+          note: `所有 ${rawVerdicts.length} 个 verifier 都 abstain（parse fail / 模型不可用），跳过本轮评分，直接 accept output`,
+          abstainCount,
+        });
+        yield this.event(agentId, "output", { output: lastOutput });
+        yield this.event(agentId, "terminated", {
+          reason: "completed",
+          note: "verifiers unavailable — accepted draft without scoring",
+        });
+        return;
+      }
+
       const avgScore =
-        verdicts.reduce((a, b) => a + b.score, 0) / verdicts.length;
+        healthy.reduce((a, b) => a + b.score, 0) / healthy.length;
       yield this.event(agentId, "reflection", {
         revision,
         score: avgScore,
-        verdicts: verdicts.map((v, i) => ({
-          judgeId: verifiers[i].id,
+        verdicts: healthy.map((v) => ({
+          judgeId: v.judgeId,
           score: v.score,
           critique: v.critique,
         })),
+        ...(abstainCount > 0 ? { abstainCount } : {}),
       });
 
       if (avgScore >= passThreshold) {
@@ -258,9 +292,9 @@ export class ReflexionLoop implements IAgentLoop {
       revision += 1;
       if (revision > maxRevisions) break;
 
-      // CRITIQUE → inject reminder for next ACT
-      const critiqueText = verdicts
-        .map((v, i) => `- [${verifiers[i].id} score=${v.score}] ${v.critique}`)
+      // CRITIQUE → inject reminder for next ACT（仅基于健康 verdict 写 critique）
+      const critiqueText = healthy
+        .map((v) => `- [${v.judgeId} score=${v.score}] ${v.critique}`)
         .join("\n");
       const reminderMsg: IContextMessage = {
         role: "user",

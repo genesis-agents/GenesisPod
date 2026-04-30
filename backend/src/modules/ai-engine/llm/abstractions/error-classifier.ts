@@ -268,9 +268,12 @@ export class AIErrorClassifier {
         );
 
       case 404:
+        // ★ 2026-04-30 fix: 之前 hardcoded "Model not found" 会吞掉 OpenAI 的真实
+        // error message（含具体哪个 modelId / "does not have access" 等定位线索），
+        // 让 debug 时只能瞎猜。改用真实 errorMessage（与其他 case 一致）。
         return new AIError(
           AIErrorType.INVALID_MODEL,
-          "Model not found",
+          String(errorMessage),
           status,
           error,
           provider,

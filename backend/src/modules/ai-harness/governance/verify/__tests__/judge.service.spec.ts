@@ -62,12 +62,14 @@ describe("JudgeService (PR-B)", () => {
     expect(out.score).toBe(100);
   });
 
-  it("falls back to score=50 when LLM output is unparseable", async () => {
+  it("returns null (abstain) when LLM output is unparseable", async () => {
+    // ★ 2026-04-30: 行为变更 — parse 失败不再用兜底 50，返回 null 让上层
+    // reflexion-loop 跳过本 verdict，避免坏 verifier 永远拉低 composite。
     const chat = mkChat(["not json at all"]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const v = new JudgeService(chat as any).createVerifier("critical");
     const out = await v.evaluate({ output: "x", envelope: makeEnv() });
-    expect(out.score).toBe(50);
+    expect(out).toBeNull();
   });
 
   it("judgeWithConsensus aggregates multi-verifier verdicts", async () => {

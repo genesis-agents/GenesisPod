@@ -38,7 +38,7 @@ import type {
   MemoryEvent,
   MemoryQuery,
   MemoryContext,
-} from "../../../ai-engine/knowledge/memory/memory-coordinator.service";
+} from "../../../ai-harness/memory/coordinator/memory-coordinator.service";
 import type {
   AgentContext,
   RouteResult,

@@ -23,7 +23,7 @@ import {
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
-import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

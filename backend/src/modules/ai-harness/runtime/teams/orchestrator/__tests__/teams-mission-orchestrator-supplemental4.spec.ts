@@ -16,7 +16,7 @@ import type { MissionInput } from "../../abstractions/mission.interface";
 import type { ITeam } from "../../abstractions/team.interface";
 import type { ITeamMember } from "../../abstractions/member.interface";
 import type { ConstraintProfile } from "../../constraints";
-import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import type { HierarchicalMemoryCascadeService } from "@/modules/ai-harness/memory/working/hierarchical-memory-cascade.service";
 import type { AgentLifecycleProtocolService } from "@/modules/ai-harness/protocol/ipc/agent-lifecycle-protocol.service";
 import type { AdaptiveReplannerService } from "@/modules/ai-engine/planning/services/adaptive-replanner.service";

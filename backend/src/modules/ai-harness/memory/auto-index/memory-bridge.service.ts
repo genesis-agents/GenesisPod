@@ -15,7 +15,7 @@ import type {
   ISystemReminder,
 } from "../../kernel/abstractions";
 import { ContextEnvelope } from "../../kernel/core/context-envelope";
-import { MemoryCoordinatorService } from "../../../ai-engine/knowledge/memory/memory-coordinator.service";
+import { MemoryCoordinatorService } from "../../../ai-harness/memory/coordinator/memory-coordinator.service";
 
 export interface RecallOptions {
   query: string;

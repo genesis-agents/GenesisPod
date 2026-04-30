@@ -18,7 +18,6 @@
  * - AiEngineToolsModule: 工具系统
  * - AiEngineSkillsModule: 技能系统
  * - AiEnginePlanningModule: 编排引擎
- * - AiEngineMemoryModule: 记忆系统
  * - AiEngineConstraintModule: 约束引擎
  * - AiEngineKnowledgeModule: 知识能力 (RAG + Search)
  */
@@ -33,7 +32,9 @@ import { AiEngineLLMModule } from "./ai-engine-llm.module";
 import { AiEngineToolsModule } from "./ai-engine-tools.module";
 import { AiEngineSkillsModule } from "./ai-engine-skills.module";
 import { AiEnginePlanningModule } from "./ai-engine-planning.module";
-import { AiEngineMemoryModule } from "./ai-engine-memory.module";
+// AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
+// ai-harness/memory（CLAUDE.md L2.5 规定 memory 是 Harness 一等公民），
+// 由 RuntimeMemoryModule (@Global) 提供，无需 engine 层 forwardRef。
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { AiEngineKnowledgeModule } from "./ai-engine-knowledge.module";
 // ★ P2 能力下沉：新增子模块导入
@@ -117,7 +118,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEngineToolsModule,
     AiEngineSkillsModule,
     AiEnginePlanningModule,
-    AiEngineMemoryModule,
     AiEngineConstraintModule,
     AiEngineKnowledgeModule,
     // ★ P2 能力下沉：新增子模块
@@ -171,7 +171,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     AiEngineToolsModule,
     AiEngineSkillsModule,
     AiEnginePlanningModule,
-    AiEngineMemoryModule,
     AiEngineConstraintModule,
     AiEngineKnowledgeModule,
     // ★ P2 能力下沉：新增子模块导出

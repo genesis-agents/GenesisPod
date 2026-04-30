@@ -103,7 +103,8 @@ import { ToolSelectorRegistry } from "./execution/tools-selector/tool-selector-r
 
 import { AiEngineLLMModule } from "../ai-engine/ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine/ai-engine-tools.module";
-import { AiEngineMemoryModule } from "../ai-engine/ai-engine-memory.module";
+// AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
+// ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 
 // PR-X18: Engine 端 DI tokens — harness 提供这 9 个 token 的 useExisting 绑定
 import {
@@ -142,7 +143,6 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
   imports: [
     forwardRef(() => AiEngineLLMModule),
     forwardRef(() => AiEngineToolsModule),
-    forwardRef(() => AiEngineMemoryModule),
   ],
   providers: [
     // Cross-cutting

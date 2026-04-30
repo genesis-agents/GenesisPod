@@ -16,14 +16,14 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseTool } from "../../base/base-tool";
+import { BaseTool } from "@/modules/ai-engine/tools/base/base-tool";
 import {
   ToolContext,
   JSONSchema,
   ToolCategory,
-} from "../../abstractions/tool.interface";
+} from "@/modules/ai-engine/tools/abstractions/tool.interface";
 
-import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 
 // ============================================================================
 // Types

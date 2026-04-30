@@ -126,7 +126,9 @@ describe("JudgeService supplement — critique not string", () => {
 // ─── chat throws → catch path ────────────────────────────────────────────────
 
 describe("JudgeService supplement — chat throws", () => {
-  it("returns score=50 with error message when chat throws", async () => {
+  it("returns null (abstain) when chat throws", async () => {
+    // ★ 2026-04-30: 行为变更 — chat throw 不再用兜底 50 + "judge error"
+    // critique，返回 null（abstain），让上层 reflexion-loop 跳过本 verdict。
     const chat = {
       chat: jest.fn(async () => {
         throw new Error("Rate limit exceeded");
@@ -137,8 +139,7 @@ describe("JudgeService supplement — chat throws", () => {
     const v = svc.createVerifier("self");
 
     const out = await v.evaluate({ output: "draft", envelope: makeEnv() });
-    expect(out.score).toBe(50);
-    expect(out.critique).toContain("judge error");
+    expect(out).toBeNull();
   });
 });
 

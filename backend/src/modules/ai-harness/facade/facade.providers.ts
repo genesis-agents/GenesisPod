@@ -6,8 +6,8 @@
  */
 
 import { Logger, Provider } from "@nestjs/common";
-import { ShortTermMemoryService } from "../../ai-engine/knowledge/memory/stores/short-term-memory.service";
-import { LongTermMemoryService } from "../../ai-engine/knowledge/memory/stores/long-term-memory.service";
+import { ShortTermMemoryService } from "../../ai-harness/memory/stores/short-term-memory.service";
+import { LongTermMemoryService } from "../../ai-harness/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../../ai-engine/planning/executors/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
@@ -63,7 +63,7 @@ import { VotingManager } from "../process/collaboration/patterns/voting-pattern"
 import { MessageBusService as A2AMessageBusService } from "../protocol/ipc/message-bus.service";
 // ★ Observability Feature 依赖
 import { TraceCollectorService } from "../governance/observability/trace-collector.service";
-import { MemoryCoordinatorService } from "../../ai-engine/knowledge/memory/memory-coordinator.service";
+import { MemoryCoordinatorService } from "../../ai-harness/memory/coordinator/memory-coordinator.service";
 // ★ Registry Feature 依赖
 import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../runtime/teams/registry/team-registry";

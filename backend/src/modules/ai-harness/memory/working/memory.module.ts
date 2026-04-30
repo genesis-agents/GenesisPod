@@ -1,30 +1,111 @@
 /**
- * Runtime Memory Module
+ * Harness Memory Module
  *
- * 提供 AI Engine runtime 层的记忆能力：
- * - HierarchicalMemoryCascadeService: 4 层记忆级联（org → team → project → session）
- * - ProcessMemoryManagerService: 进程级记忆管理（基于 ProcessMemory 表）
+ * Memory 是 L2.5 Harness 的一等公民（CLAUDE.md AI 架构分层规定）。
+ * 本模块统一提供 harness 层所有记忆能力：
+ *
+ *   Runtime（agent runtime 状态）
+ *   - HierarchicalMemoryCascadeService: 4 层记忆级联（org → team → project → session）
+ *   - ProcessMemoryManagerService:      进程级记忆管理（基于 ProcessMemory 表）
+ *
+ *   Stores（基础存储）
+ *   - InMemoryStore:        进程内 KV 存储原语
+ *   - ConversationMemory:   对话历史
+ *   - ShortTermMemoryService: session 级 TTL 存储（LRU）
+ *   - LongTermMemoryService:  Prisma 持久化的长期偏好/知识
+ *
+ *   Coordinator（统一读写协调器）
+ *   - MemoryCoordinatorService: 4 层 recall/store 协调（Memory OS）
  *
  * 本模块是 @Global()，所有其他模块无需显式 import 即可注入这些 service。
  *
- * 注意：Semantic 层记忆（ShortTerm/LongTerm/InMemory/MemoryCoordinator）
- * 位于 ai-engine/knowledge/memory/，由 AiEngineMemoryModule 提供。
+ * 历史：2026-04-30 把 ai-engine/knowledge/memory/{coordinator,stores,abstractions}
+ * 整体迁入 ai-harness/memory/，与 working/vector/checkpoint/auto-index 平级，
+ * 解决 memory 错位嵌在 knowledge 子模块下的架构债（参见 audit P1）。
  */
 
-import { Global, Module } from "@nestjs/common";
+import { Global, Module, OnModuleInit, Logger } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
+
+// Working
 import { HierarchicalMemoryCascadeService } from "./hierarchical-memory-cascade.service";
 import { ProcessMemoryManagerService } from "./process-memory-manager.service";
 
-const RUNTIME_MEMORY_PROVIDERS = [
+// Stores
+import { ShortTermMemoryService } from "../stores/short-term-memory.service";
+import { LongTermMemoryService } from "../stores/long-term-memory.service";
+import { InMemoryStore, ConversationMemory } from "../stores/in-memory-store";
+
+// Coordinator
+import { MemoryCoordinatorService } from "../coordinator/memory-coordinator.service";
+
+// Tools (迁自 ai-engine/tools/categories/memory，因 ESLint 单向依赖规则)
+import { ShortTermMemoryTool } from "../tools/short-term-memory.tool";
+import { LongTermMemoryTool } from "../tools/long-term-memory.tool";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+
+const inMemoryStoreFactory = {
+  provide: InMemoryStore,
+  useFactory: () => new InMemoryStore(),
+};
+
+const conversationMemoryFactory = {
+  provide: ConversationMemory,
+  useFactory: () => new ConversationMemory(),
+};
+
+const HARNESS_MEMORY_PROVIDERS = [
+  // Working layer
   HierarchicalMemoryCascadeService,
   ProcessMemoryManagerService,
+  // Stores
+  inMemoryStoreFactory,
+  conversationMemoryFactory,
+  ShortTermMemoryService,
+  LongTermMemoryService,
+  // Coordinator (KnowledgeGraphTool 通过 @Optional 注入；它在 ai-engine/tools
+  // 由 AiEngineToolsModule 提供，AiEngineModule @Global 让它全局可见，因此
+  // 这里不需要重复注册。)
+  MemoryCoordinatorService,
+  // Tools (迁自 ai-engine/tools/categories/memory)
+  ShortTermMemoryTool,
+  LongTermMemoryTool,
+];
+
+const HARNESS_MEMORY_EXPORTS = [
+  HierarchicalMemoryCascadeService,
+  ProcessMemoryManagerService,
+  InMemoryStore,
+  ConversationMemory,
+  ShortTermMemoryService,
+  LongTermMemoryService,
+  MemoryCoordinatorService,
+  ShortTermMemoryTool,
+  LongTermMemoryTool,
 ];
 
 @Global()
 @Module({
   imports: [PrismaModule],
-  providers: RUNTIME_MEMORY_PROVIDERS,
-  exports: RUNTIME_MEMORY_PROVIDERS,
+  providers: HARNESS_MEMORY_PROVIDERS,
+  exports: HARNESS_MEMORY_EXPORTS,
 })
-export class RuntimeMemoryModule {}
+export class RuntimeMemoryModule implements OnModuleInit {
+  private readonly logger = new Logger(RuntimeMemoryModule.name);
+
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    private readonly shortTermMemoryTool: ShortTermMemoryTool,
+    private readonly longTermMemoryTool: LongTermMemoryTool,
+  ) {}
+
+  onModuleInit() {
+    // ★ 把迁自 ai-engine/tools 的 2 个 memory tool 注册到全局 ToolRegistry，
+    // 让它们与 engine 注册的 44 个 tool 一起被 agent 调用方发现。
+    this.toolRegistry.register(this.shortTermMemoryTool);
+    this.toolRegistry.register(this.longTermMemoryTool);
+    this.logger.log(
+      `[RuntimeMemoryModule] Registered 2 harness-side memory tools: short-term-memory, long-term-memory`,
+    );
+  }
+}

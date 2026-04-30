@@ -505,17 +505,10 @@ export { DAGExecutor } from "../planning/executors/dag-executor";
 // Orchestration interfaces
 export type { IConstraintEnforcementService } from "../planning/services/interfaces";
 
-// Memory abstractions
-export type {
-  IMemoryStore,
-  IConversationMemory,
-  IWorkingMemory,
-  MemoryEntry,
-  MemoryType,
-  MemorySearchOptions,
-  MemorySearchResult,
-  ConversationMessage,
-} from "../knowledge/memory/abstractions/memory.interface";
+// Memory abstractions 已移除（2026-04-30）—— Memory 整体迁到 ai-harness/memory，
+// 请从 "@/modules/ai-harness/memory/abstractions/memory.interface" 或
+// "@/modules/ai-harness/facade" 导入 IMemoryStore / MemoryEntry 等类型。
+// engine facade 不能 re-export ai-harness 类型（ESLint 单向依赖规则）。
 
 // ★ Image Search tool types
 export type {

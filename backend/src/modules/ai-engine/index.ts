@@ -108,7 +108,8 @@ export * as Orchestration from "./planning";
 export * as Constraint from "./safety/constraint";
 export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
-export * as Memory from "./knowledge/memory";
+// Memory barrel 已迁移到 ai-harness/memory（2026-04-30）
+// 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/memory"
 // MCP moved to ai-harness/protocol/mcp (PR-X7)
 // export * as MCP from "./mcp"; — removed
 // Teams barrel 已迁移到 ai-harness/runtime/teams（PR-X4）
@@ -118,11 +119,10 @@ export * as Image from "./content/image";
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
 export { FunctionCallingExecutor } from "./planning/executors/function-calling-executor";
-export { ShortTermMemoryService } from "./knowledge/memory/stores/short-term-memory.service";
-export { LongTermMemoryService } from "./knowledge/memory/stores/long-term-memory.service";
+// ShortTermMemoryService / LongTermMemoryService / MemoryCoordinatorService /
 // HierarchicalMemoryCascadeService / ProcessMemoryManagerService / ConstraintEngine
-// 居住在 ai-harness — 消费方应从 "@/modules/ai-harness/facade" 导入。
-// engine 主 barrel 不再做反向 re-export。
+// 都居住在 ai-harness — 消费方应从 "@/modules/ai-harness/facade" 或
+// "@/modules/ai-harness/memory" 导入。engine 主 barrel 不再做反向 re-export。
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
 // Teams 模块核心服务（PR-X4: 已迁移到 ai-harness/runtime/teams，不再从 ai-engine barrel 导出）
@@ -135,7 +135,8 @@ export { AiEngineLLMModule } from "./ai-engine-llm.module";
 export { AiEngineToolsModule } from "./ai-engine-tools.module";
 export { AiEngineSkillsModule } from "./ai-engine-skills.module";
 export { AiEnginePlanningModule } from "./ai-engine-planning.module";
-export { AiEngineMemoryModule } from "./ai-engine-memory.module";
+// AiEngineMemoryModule 已移除（2026-04-30）—— 见 RuntimeMemoryModule
+// (ai-harness/memory/working/memory.module.ts)
 export { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 
 // TeamsModule（PR-X4: 已迁移，从 ai-harness/runtime/teams 导入）

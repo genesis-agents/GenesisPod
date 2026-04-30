@@ -90,10 +90,11 @@ import {
 
 // ============================================================================
 // Memory Tools (记忆管理)
+// ShortTermMemoryTool / LongTermMemoryTool 已迁到 ai-harness/memory/tools/
+// 它们由 RuntimeMemoryModule (@Global) 在 onModuleInit 时通过 ToolRegistry.register
+// 注册到全局工具表（harness 可以 import ai-engine，反向被 ESLint 拦截）。
 // ============================================================================
 import {
-  ShortTermMemoryTool,
-  LongTermMemoryTool,
   EntityMemoryTool,
   KnowledgeBaseTool,
   UserPreferencesTool,
@@ -183,9 +184,7 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   CalendarIntegrationTool,
   WebhookTriggerTool,
 
-  // Memory Tools
-  ShortTermMemoryTool,
-  LongTermMemoryTool,
+  // Memory Tools (Short/LongTerm 由 RuntimeMemoryModule 单独注册，见 ai-harness/memory/tools/)
   EntityMemoryTool,
   KnowledgeBaseTool,
   UserPreferencesTool,
@@ -285,9 +284,7 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "calendar-integration": CalendarIntegrationTool,
   "webhook-trigger": WebhookTriggerTool,
 
-  // Memory
-  "short-term-memory": ShortTermMemoryTool,
-  "long-term-memory": LongTermMemoryTool,
+  // Memory (Short/LongTerm 由 ai-harness/memory/tools/ 注册到 ToolRegistry)
   "entity-memory": EntityMemoryTool,
   "knowledge-base": KnowledgeBaseTool,
   "user-preferences": UserPreferencesTool,

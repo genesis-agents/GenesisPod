@@ -86,7 +86,12 @@ export class JudgeService {
 
   constructor(private readonly chat: AiChatService) {}
 
-  /** 创建一个内置 verifier。可在 spec.verifiers 里直接 by-id 引用。 */
+  /** 创建一个内置 verifier。可在 spec.verifiers 里直接 by-id 引用。
+   *
+   * ★ 2026-04-30 行为变更（治"critical 永远 50 分污染 composite"）：
+   *   - parse 失败 / chat throw → 返回 **null**（abstain），上层 reflexion-loop /
+   *     consensus 会跳过本 verdict，不再用兜底 50 分把 composite 一直拉低。
+   */
   createVerifier(id: BuiltInVerifierId): IVerifier {
     return {
       id,
@@ -112,12 +117,18 @@ export class JudgeService {
             signal,
           });
           const parsed = this.parseVerdict(res.content);
-          return parsed ?? { score: 50, critique: "judge LLM parse failed" };
+          if (!parsed) {
+            this.logger.warn(
+              `[judge:${id}] parseVerdict 返回 null — 模型输出非 JSON。原始 head=${res.content.slice(0, 200)}`,
+            );
+            return null;
+          }
+          return parsed;
         } catch (err) {
           this.logger.warn(
-            `[judge:${id}] evaluation failed: ${err instanceof Error ? err.message : String(err)}`,
+            `[judge:${id}] evaluation failed (abstain): ${err instanceof Error ? err.message : String(err)}`,
           );
-          return { score: 50, critique: `judge error: ${String(err)}` };
+          return null;
         }
       },
     };
@@ -142,39 +153,71 @@ export class JudgeService {
     passThreshold?: number;
   }): Promise<{ verdicts: Verdict[]; decision: ConsensusDecision }> {
     const verifiers = this.createVerifiers(input.verifierIds);
-    const verdicts: Verdict[] = await Promise.all(
+    // ★ 2026-04-30: evaluate() 返回 null 视为 abstain，从 consensus 中剔除。
+    const raw = await Promise.all(
       verifiers.map(async (v) => {
         const r = await v.evaluate({
           output: input.output,
           envelope: input.envelope,
           signal: input.signal,
         });
-        return { judgeId: v.id, score: r.score, critique: r.critique };
+        return r
+          ? { judgeId: v.id, score: r.score, critique: r.critique }
+          : null;
       }),
     );
+    const verdicts: Verdict[] = raw.filter((v): v is Verdict => v !== null);
     const resolver = createConsensusResolver({
       passThreshold: input.passThreshold ?? 70,
     });
     return { verdicts, decision: resolver(verdicts) };
   }
 
+  /**
+   * ★ 2026-04-30: 增强容错 — 小模型经常输出"前导文字 + JSON 块 + 后续解释"。
+   * 三步尝试：
+   *   1. 先剥 ```json...``` 围栏
+   *   2. 直接 JSON.parse
+   *   3. 失败则正则抽第一个 {...} 块（覆盖 'Here is my evaluation: {...} done.' 之类）
+   */
   private parseVerdict(
     raw: string,
   ): { score: number; critique: string } | null {
     let text = raw.trim();
     const fence = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (fence) text = fence[1];
-    try {
-      const obj = JSON.parse(text) as { score?: unknown; critique?: unknown };
-      if (typeof obj.score === "number") {
-        return {
-          score: Math.max(0, Math.min(100, obj.score)),
-          critique:
-            typeof obj.critique === "string" ? obj.critique.slice(0, 500) : "",
+    if (fence) text = fence[1].trim();
+
+    const tryParse = (
+      candidate: string,
+    ): { score: number; critique: string } | null => {
+      try {
+        const obj = JSON.parse(candidate) as {
+          score?: unknown;
+          critique?: unknown;
         };
+        if (typeof obj.score === "number") {
+          return {
+            score: Math.max(0, Math.min(100, obj.score)),
+            critique:
+              typeof obj.critique === "string"
+                ? obj.critique.slice(0, 500)
+                : "",
+          };
+        }
+      } catch {
+        /* fall through */
       }
-    } catch {
-      // fall through
+      return null;
+    };
+
+    const direct = tryParse(text);
+    if (direct) return direct;
+
+    // 抽取第一个 { ... } JSON 对象（贪婪匹配带 score 字段的对象）
+    const objMatch = text.match(/\{[\s\S]*?"score"[\s\S]*?\}/);
+    if (objMatch) {
+      const extracted = tryParse(objMatch[0]);
+      if (extracted) return extracted;
     }
     return null;
   }

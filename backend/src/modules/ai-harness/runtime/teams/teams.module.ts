@@ -28,7 +28,7 @@ import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
 import { LLMFactory } from "../../../ai-engine/llm/factory/llm-factory";
 import { CostController } from "../../governance/resource/cost-controller";
-import { ShortTermMemoryService } from "../../../ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "../../../ai-harness/memory/stores/short-term-memory.service";
 import { MCPManager } from "../../protocol/mcp/manager/mcp-manager";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";

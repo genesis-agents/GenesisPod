@@ -22,7 +22,7 @@ import type { MissionInput } from "../../abstractions/mission.interface";
 import type { ITeam } from "../../abstractions/team.interface";
 import type { ITeamMember } from "../../abstractions/member.interface";
 import type { ConstraintProfile } from "../../constraints";
-import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import type { MissionExecutorService } from "@/modules/ai-harness/facade";
 import type { EventJournalService } from "@/modules/ai-harness/facade";
 

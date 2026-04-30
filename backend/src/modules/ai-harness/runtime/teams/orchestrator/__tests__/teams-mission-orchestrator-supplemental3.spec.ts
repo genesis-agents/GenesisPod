@@ -21,7 +21,7 @@ import { MissionInput } from "../../abstractions/mission.interface";
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
-import { ShortTermMemoryService } from "@/modules/ai-engine/knowledge/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
 import { CheckpointManager } from "../../../../../ai-harness/facade";
 import { MissionExecutorService } from "@/modules/ai-harness/facade";
