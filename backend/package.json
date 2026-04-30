@@ -4,7 +4,7 @@
   "description": "Genesis.ai Backend API",
   "private": true,
   "scripts": {
-    "build": "prisma generate && nest build",
+    "build": "prisma generate && nest build && node scripts/copy-build-assets.js",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "start": "nest start",
     "dev": "nest start --watch",
