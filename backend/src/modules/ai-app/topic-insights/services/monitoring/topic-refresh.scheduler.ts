@@ -7,6 +7,9 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RefreshFrequency, ResearchTopicStatus } from "@prisma/client";
 import { TopicTeamOrchestratorService } from "../core/topic/topic-team-orchestrator.service";
+// ★ P1-CTX-BYOK (2026-04-30): cron 触发的刷新链路必须显式注入 RequestContext.userId,
+//   否则下游 AiChatService 走不到 BYOK key resolver — BYOK-only 用户全 fail。
+import { withUserContext } from "../../../../../common/context";
 
 /**
  * Topic Refresh Scheduler
@@ -136,23 +139,28 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.logger.log(`Starting scheduled refresh for topic: ${topic.name}`);
+    this.logger.log(
+      `Starting scheduled refresh for topic: ${topic.name} (user=${topic.userId})`,
+    );
 
+    // ★ P1-CTX-BYOK (2026-04-30): wrap with userContext 让下游 AiChatService /
+    //   BYOK key resolver 能拿到 topic.userId; 之前 BYOK-only 用户的定时刷新全 fail。
     try {
-      // 执行增量刷新
-      await this.orchestrator.executeRefresh(topic, {
-        incremental: true,
-      });
+      await withUserContext(topic.userId, async () => {
+        // 执行增量刷新
+        await this.orchestrator.executeRefresh(topic, {
+          incremental: true,
+        });
 
-      // 更新下次刷新时间
-      const nextRefreshAt = this.calculateNextRefreshTime(
-        topic.refreshFrequency,
-      );
-      await this.prisma.researchTopic.update({
-        where: { id: topicId },
-        data: { nextRefreshAt },
+        // 更新下次刷新时间
+        const nextRefreshAt = this.calculateNextRefreshTime(
+          topic.refreshFrequency,
+        );
+        await this.prisma.researchTopic.update({
+          where: { id: topicId },
+          data: { nextRefreshAt },
+        });
       });
-
       this.logger.log(`Completed scheduled refresh for topic: ${topic.name}`);
     } catch (error) {
       this.logger.error(
