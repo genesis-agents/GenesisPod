@@ -187,6 +187,23 @@ export class ReportAssemblerService {
       }
     }
 
+    // 4.5) ★ P0-LIVE-REPORT-FORMAT (2026-04-30): TI 风格 — 把"## 参考文献"段落
+    //   追加到 fullMarkdown 末尾，让前端 ChapterReader / ContinuousReader 都能
+    //   作为标准 section 渲染（之前 references 仅在 citations[] 里，markdown 末尾
+    //   缺最后一个 section, 用户复制 markdown 时参考文献也会跟着丢）。
+    if (citations.length > 0) {
+      const refSection = this.buildReferencesSection(citations, input.language);
+      if (refSection) {
+        fullMarkdown = fullMarkdown.trimEnd() + "\n\n" + refSection + "\n";
+        sections = this.buildSectionTree(fullMarkdown, input);
+        this.recomputeCitationOccurrences(citations, sections, fullMarkdown);
+        for (const f of figures) {
+          const sec = sections.find((s) => s.id === f.sectionId);
+          if (sec && !sec.figureIds.includes(f.id)) sec.figureIds.push(f.id);
+        }
+      }
+    }
+
     // 5) factTable
     const factTable = this.buildFactTable(input, citations);
 
@@ -490,6 +507,32 @@ export class ReportAssemblerService {
       orphans.map((n) => `[${n}]`).join(", ") +
       " -->"
     );
+  }
+
+  /**
+   * ★ P0-LIVE-REPORT-FORMAT (2026-04-30): TI 风格 references section 构造
+   * 对齐 topic-insights/services/report/report-assembler.ts:1000 buildReferencesSection。
+   * 输入：去重后的 citations[]；输出：以 "## 参考文献" 开头的完整 markdown 段。
+   */
+  private buildReferencesSection(
+    citations: ArtifactCitation[],
+    language?: string,
+  ): string {
+    if (!citations.length) return "";
+    const isEn = (language ?? "").toLowerCase().startsWith("en");
+    const heading = isEn ? "References" : "参考文献";
+    const lines = citations
+      .slice()
+      .sort((a, b) => a.index - b.index)
+      .map((c) => {
+        const safeTitle = (c.title || c.domain || c.url)
+          .replace(/\[/g, "\\[")
+          .replace(/\]/g, "\\]");
+        const domainSuffix =
+          c.domain && c.domain !== "unknown" ? `. ${c.domain}` : "";
+        return `[${c.index}] [${safeTitle}](${c.url})${domainSuffix}`;
+      });
+    return `## ${heading}\n\n${lines.join("\n\n")}`;
   }
 
   // ─── 1. fullMarkdown ────────────────────────────────────────────

@@ -423,6 +423,29 @@ describe("ReportAssemblerService", () => {
     const result = service.assemble(input);
     expect(result.content.fullMarkdown).toContain("full dim markdown content");
   });
+
+  // ★ P0-LIVE-REPORT-FORMAT (2026-04-30): 参考文献 section 必须 append 到 markdown 末尾
+  it("assemble: appends ## 参考文献 section to fullMarkdown when citations present", () => {
+    const input = makeBaseInput();
+    const result = service.assemble(input);
+    expect(result.citations.length).toBeGreaterThan(0);
+    expect(result.content.fullMarkdown).toMatch(/##\s+参考文献/);
+    expect(result.sections.find((s) => s.title === "参考文献")).toBeDefined();
+    // each citation has a corresponding [N] line in the references section
+    const refSectionMatch = result.content.fullMarkdown.match(
+      /##\s+参考文献[\s\S]*$/,
+    );
+    expect(refSectionMatch).not.toBeNull();
+    for (const c of result.citations) {
+      expect(refSectionMatch![0]).toContain(`[${c.index}]`);
+    }
+  });
+
+  it("assemble: emits English References heading for en-US language", () => {
+    const input = { ...makeBaseInput(), language: "en-US" as const };
+    const result = service.assemble(input);
+    expect(result.content.fullMarkdown).toMatch(/##\s+References/);
+  });
 });
 
 // lengthTargetFor helper
