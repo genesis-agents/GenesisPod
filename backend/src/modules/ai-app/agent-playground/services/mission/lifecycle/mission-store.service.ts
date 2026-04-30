@@ -91,11 +91,13 @@ export class MissionStore {
    *   误显示"可恢复"。用 PostgreSQL 内建的 jsonb `-` 算子原子删除 key。
    */
   private async clearCheckpointJsonbKey(missionId: string): Promise<void> {
+    // ★ 2026-04-30 fix: raw SQL 必须用 DB 实际表/列名（@@map / @map 后的 snake_case），
+    // 不能用 Prisma model 名（PascalCase），否则 relation/column does not exist。
     await this.prisma.$executeRaw`
-        UPDATE "AgentPlaygroundMission"
-        SET "leaderJournal" = COALESCE("leaderJournal", '{}'::jsonb) - '__checkpoint'
+        UPDATE agent_playground_missions
+        SET leader_journal = COALESCE(leader_journal, '{}'::jsonb) - '__checkpoint'
         WHERE id = ${missionId}
-          AND "leaderJournal" ? '__checkpoint'
+          AND leader_journal ? '__checkpoint'
       `.catch((err: unknown) => {
       this.log.warn(
         `[clearCheckpoint ${missionId}] update failed: ${err instanceof Error ? err.message : String(err)}`,

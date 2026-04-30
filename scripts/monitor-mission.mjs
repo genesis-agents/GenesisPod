@@ -21,7 +21,27 @@ async function poll() {
     `SELECT payload, ts FROM agent_playground_mission_events WHERE mission_id=$1 AND type='agent-playground.stage:started' ORDER BY ts DESC LIMIT 1`, MID
   );
   const newEvents = await p.$queryRawUnsafe(
-    `SELECT type, agent_id, ts, payload FROM agent_playground_mission_events WHERE mission_id=$1 AND ts > $2 AND type IN ('agent-playground.stage:started','agent-playground.stage:completed','agent-playground.stage:failed','agent-playground.mission:failed','agent-playground.tool:error','agent-playground.agent:lifecycle') ORDER BY ts ASC LIMIT 30`,
+    `SELECT type, agent_id, ts, payload FROM agent_playground_mission_events WHERE mission_id=$1 AND ts > $2 AND type IN (
+      'agent-playground.stage:started',
+      'agent-playground.stage:completed',
+      'agent-playground.stage:failed',
+      'agent-playground.mission:failed',
+      'agent-playground.tool:error',
+      'agent-playground.agent:lifecycle',
+      'agent-playground.agent:error',
+      'agent-playground.dimension:degraded',
+      'agent-playground.dimension:integrating:failed'
+    ) ORDER BY ts ASC LIMIT 50`,
+    MID, lastTs
+  );
+  // 单独抓 OpenAI 真实 error message — 现在 error-classifier 不再吞掉，可在 observation/error 事件 payload 里看到
+  const openaiErrors = await p.$queryRawUnsafe(
+    `SELECT type, agent_id, ts, payload FROM agent_playground_mission_events WHERE mission_id=$1 AND ts > $2 AND (
+      payload::text ILIKE '%does not exist%' OR
+      payload::text ILIKE '%do not have access%' OR
+      payload::text ILIKE '%model_not_found%' OR
+      payload::text ILIKE '%INVALID_MODEL%'
+    ) ORDER BY ts ASC LIMIT 20`,
     MID, lastTs
   );
 
@@ -46,16 +66,24 @@ async function poll() {
     const tag = e.type.split('.').pop();
     const sn = e.payload?.stage || e.payload?.key || '';
     const errInfo = e.payload?.error ? ` err=${JSON.stringify(e.payload.error).slice(0,200)}` : '';
+    const msg = e.payload?.message ? ` msg="${String(e.payload.message).slice(0,200)}"` : '';
     const lifecycle = e.payload?.phase || e.payload?.event || '';
     if (tag === 'lifecycle' && lifecycle !== 'started' && lifecycle !== 'completed') {
-      console.log(`[EVT ${e.ts.toISOString()}] ${tag} ${e.agent_id||'-'} ${lifecycle}${errInfo}`);
+      console.log(`[EVT ${e.ts.toISOString()}] ${tag} ${e.agent_id||'-'} ${lifecycle}${errInfo}${msg}`);
     } else if (tag !== 'lifecycle') {
-      console.log(`[EVT ${e.ts.toISOString()}] ${tag} ${e.agent_id||'-'} ${sn}${errInfo}`);
+      console.log(`[EVT ${e.ts.toISOString()}] ${tag} ${e.agent_id||'-'} ${sn}${errInfo}${msg}`);
     }
     if (e.ts > lastTs) lastTs = e.ts;
   }
+  // 高亮 OpenAI 真实 error
+  for (const e of openaiErrors) {
+    const blob = JSON.stringify(e.payload).slice(0, 400);
+    console.log(`[!OPENAI_ERR ${e.ts.toISOString()}] ${e.agent_id||'-'} ${blob}`);
+    if (e.ts > lastTs) lastTs = e.ts;
+  }
 
-  if (state === 'completed' || state === 'failed') {
+  // 终态扩展 — 含 quality-failed / cancelled
+  if (['completed','failed','quality-failed','cancelled'].includes(state)) {
     console.log(`[DONE] state=${state} final=${finalScore} score=${score} signed=${signed} tokens=${tokens} cost=${cost} err=${err}`);
     return true;
   }

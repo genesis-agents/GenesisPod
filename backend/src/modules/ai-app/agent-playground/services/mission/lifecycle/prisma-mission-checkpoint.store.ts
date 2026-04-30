@@ -64,10 +64,14 @@ export class PrismaMissionCheckpointStore<
     // ★ P1-R5-A (2026-04-30): 用 PostgreSQL jsonb_set 原子 update，避免与
     //   appendLeaderJournal 并发时 read-modify-write 互覆盖。COALESCE 处理 null。
     try {
+      // ★ 2026-04-30 fix: 用 DB 实际表名 agent_playground_missions / leader_journal
+      // （之前用了 Prisma model 名 PascalCase 触发 relation does not exist。
+      //  Prisma model AgentPlaygroundMission @@map "agent_playground_missions"，
+      //  field leaderJournal @map "leader_journal"，raw SQL 必须用 mapped 实名。）
       await this.prisma.$executeRaw`
-        UPDATE "AgentPlaygroundMission"
-        SET "leaderJournal" = jsonb_set(
-          COALESCE("leaderJournal", '{}'::jsonb),
+        UPDATE agent_playground_missions
+        SET leader_journal = jsonb_set(
+          COALESCE(leader_journal, '{}'::jsonb),
           '{__checkpoint}',
           ${JSON.stringify(persisted)}::jsonb,
           true

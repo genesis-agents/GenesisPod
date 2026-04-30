@@ -106,18 +106,19 @@ export class RateLimiterService {
     platformType: SocialPlatformType,
     success: boolean,
   ): Promise<void> {
-    // 更新连接的发布统计
+    // ★ 2026-04-30 fix: raw SQL 必须用 DB 实际表/列名（@@map / @map 后的 snake_case），
+    // 不能用 Prisma model 名（PascalCase），否则 relation/column does not exist。
     await this.prisma.$executeRaw`
-      UPDATE "SocialPlatformConnection"
+      UPDATE social_platform_connections
       SET
-        "lastPublishAt" = NOW(),
-        "todayPublishCount" = CASE
-          WHEN DATE("lastPublishAt") = CURRENT_DATE THEN "todayPublishCount" + 1
+        last_publish_at = NOW(),
+        today_publish_count = CASE
+          WHEN DATE(last_publish_at) = CURRENT_DATE THEN today_publish_count + 1
           ELSE 1
         END,
-        "totalPublishCount" = "totalPublishCount" + 1,
-        "updatedAt" = NOW()
-      WHERE "userId" = ${userId} AND "platformType" = ${platformType}
+        total_publish_count = total_publish_count + 1,
+        updated_at = NOW()
+      WHERE user_id = ${userId} AND platform_type = ${platformType}
     `;
 
     this.logger.log(
