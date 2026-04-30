@@ -192,7 +192,11 @@ export async function runPerDimPipeline(
       ),
     },
   );
-  if (outlineRes.state !== "completed" || !outlineRes.output) {
+  // ★ degraded 也算"有产出"（reflexion verifier 评分略低于阈值但 outputSchema 合法）
+  const outlineUsable =
+    (outlineRes.state === "completed" || outlineRes.state === "degraded") &&
+    !!outlineRes.output;
+  if (!outlineUsable) {
     return researcherOut;
   }
   const outline = outlineRes.output as {
@@ -300,7 +304,12 @@ export async function runPerDimPipeline(
         pool,
         extractTokenSpend(writerRes.events),
       );
-      if (writerRes.state !== "completed" || !writerRes.output) {
+      // ★ degraded 也算"有产出"——chapter body 完整、只是 verifier 评分偏低，
+      // 仍然能进 reviewer 路径继续被打磨（章节质量靠 reviewer 闭环兜底）
+      const writerUsable =
+        (writerRes.state === "completed" || writerRes.state === "degraded") &&
+        !!writerRes.output;
+      if (!writerUsable) {
         await deps.emit({
           type: "agent-playground.chapter:writing:completed",
           missionId,
@@ -439,8 +448,11 @@ export async function runPerDimPipeline(
               issues: [],
               critique: "(reviewer failed)",
             };
+      // ★ degraded 也算成功：reviewer 是 simple-loop 但保险接受
       const isReviewerFallback =
-        reviewerRes.state !== "completed" || !reviewerRes.output;
+        (reviewerRes.state !== "completed" &&
+          reviewerRes.state !== "degraded") ||
+        !reviewerRes.output;
       // ★ P1-R4-A (round 4): cap reviewer 连续失败次数，超过则放弃重试避免 token 爆炸
       if (isReviewerFallback) {
         consecutiveReviewerFailures += 1;
