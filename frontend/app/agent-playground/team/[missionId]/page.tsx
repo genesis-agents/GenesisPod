@@ -334,6 +334,78 @@ export default function MissionDetailPage() {
     return [...set];
   }, [view.finalReport]);
 
+  // ★ 2026-04-30 (#50 修复图片一闪一闪): setNow 每 500ms 触发 page re-render，
+  //   之前报告 tab IIFE 里 ensureRenderableArtifact / toolRecallEntries 每次都新建
+  //   引用 → ArtifactReader → ContinuousReader → ArtifactMarkdown 整树重渲 →
+  //   react-markdown 重新解析 → <img> 重新挂载导致闪烁。
+  //   把这些计算挪到 useMemo，依赖具体内容字段（不包括 now / wallTimeMs），
+  //   即使 setNow tick 也不会重算 artifact，markdown DOM 稳定不抖。
+  const reportFullRef = persisted?.reportFull ?? view.finalReport;
+  const reportArtifact = useMemo(() => {
+    const isV2 =
+      reportFullRef &&
+      typeof reportFullRef === 'object' &&
+      isReportArtifact(reportFullRef);
+    if (isV2) return reportFullRef;
+    const emptyMessage = view.mission.failedAt
+      ? `Mission 失败：${view.mission.failedMessage ?? '未知错误'}\n\n（请重新启动一个新 mission）`
+      : view.mission.cancelledAt
+        ? '已被用户取消\n\n（数据未持久化）'
+        : view.mission.completedAt
+          ? '报告生成中…\n\n（可能 S11 持久化未完成，稍后刷新页面）'
+          : '报告生成中…\n\n（mission 仍在跑 S1-S10，写作完成后会显示草稿；mission 完成后会显示完整三视图）';
+    const fallbackTitle = view.mission.topic ?? '研究报告';
+    return ensureRenderableArtifact(reportFullRef, fallbackTitle, emptyMessage);
+  }, [
+    reportFullRef,
+    view.mission.failedAt,
+    view.mission.cancelledAt,
+    view.mission.completedAt,
+    view.mission.failedMessage,
+    view.mission.topic,
+  ]);
+
+  const reportDefaultView = useMemo(() => {
+    const userProfile = (
+      persisted as { userProfile?: { viewMode?: string } } | null
+    )?.userProfile;
+    return userProfile?.viewMode === 'chapter' ||
+      userProfile?.viewMode === 'quick'
+      ? userProfile.viewMode
+      : ('continuous' as const);
+  }, [persisted]);
+
+  const reportReconciliationReport = useMemo(
+    () =>
+      (persisted as { reconciliationReport?: unknown } | null)
+        ?.reconciliationReport,
+    [persisted]
+  );
+
+  const reportToolRecallEntries = useMemo(() => {
+    return events
+      .filter((ev) => ev.type === 'agent-playground.tools:recalled')
+      .map((ev) => {
+        const p = ev.payload as {
+          agentId?: string;
+          role?: string;
+          recalledIds?: string[];
+          categories?: string[];
+          source?: string;
+          preferIds?: string[];
+        };
+        return {
+          agentId: p.agentId ?? '',
+          role: p.role ?? '',
+          recalledIds: p.recalledIds ?? [],
+          categories: p.categories ?? [],
+          source: p.source ?? 'spec',
+          preferIds: p.preferIds ?? [],
+        };
+      })
+      .slice(0, 12);
+  }, [events]);
+
   const isRunning =
     !view.mission.completedAt &&
     !view.mission.failedAt &&
@@ -754,122 +826,20 @@ export default function MissionDetailPage() {
               <div className="space-y-4">
                 {/* ★ Phase Lead-1+: Leader-Replanner-Lite 全程产物展示 */}
                 {persisted && <LeadJournalPanel mission={persisted} />}
-                {/* ★ 2026-04-30: 永远走 ArtifactReader 三视图，不再 fallback ReportPanel。
-                    数据形状：v2 ReportArtifact / v1 ResearchReport / null 都通过
-                    ensureRenderableArtifact 适配为可渲染的 v2 形态：
-                      - v2 直接用
-                      - v1 (来自 socket report:draft) 适配成最小 v2 骨架
-                      - null（mission 未跑到 / failed / orphan）显示空态
-                    用户原话："就是有啥输出啥，后面可以更新" —— mission 进程中
-                    view.finalReport 会被 report:draft 事件更新（章节级流式）；
-                    mission:completed 后 re-fetch 拿真正的 v2 升级；不再有 ReportPanel
-                    路径让用户看"乱七八糟"的 fallback。 */}
-                {(() => {
-                  const reportFull = persisted?.reportFull ?? view.finalReport;
-                  const isV2 =
-                    reportFull &&
-                    typeof reportFull === 'object' &&
-                    isReportArtifact(reportFull);
-                  // mission 状态决定空态文案
-                  const emptyMessage = view.mission.failedAt
-                    ? `Mission 失败：${view.mission.failedMessage ?? '未知错误'}\n\n（请重新启动一个新 mission）`
-                    : view.mission.cancelledAt
-                      ? '已被用户取消\n\n（数据未持久化）'
-                      : view.mission.completedAt
-                        ? '报告生成中…\n\n（可能 S11 持久化未完成，稍后刷新页面）'
-                        : '报告生成中…\n\n（mission 仍在跑 S1-S10，写作完成后会显示草稿；mission 完成后会显示完整三视图）';
-                  const fallbackTitle = view.mission.topic ?? '研究报告';
-
-                  const artifact = isV2
-                    ? reportFull
-                    : ensureRenderableArtifact(
-                        reportFull,
-                        fallbackTitle,
-                        emptyMessage
-                      );
-
-                  // ★ Phase P1-22: 用 mission.userProfile.viewMode 作为默认视图
-                  const userProfile = (
-                    persisted as {
-                      userProfile?: { viewMode?: string };
-                    } | null
-                  )?.userProfile;
-                  const defaultView =
-                    userProfile?.viewMode === 'chapter' ||
-                    userProfile?.viewMode === 'quick'
-                      ? userProfile.viewMode
-                      : 'continuous';
-                  const reconciliationReport = (
-                    persisted as { reconciliationReport?: unknown } | null
-                  )?.reconciliationReport as
-                    | {
-                        factTable?: unknown[];
-                        conflicts?: {
-                          factIds: string[];
-                          resolutionType:
-                            | 'kept-both'
-                            | 'preferred-one'
-                            | 'flagged-unresolved';
-                          rationale: string;
-                        }[];
-                        overlaps?: {
-                          dimensionPair?: [string, string];
-                          similarityScore?: number;
-                          overlappingClaim?: string;
-                          resolutionAction?: string;
-                        }[];
-                        gaps?: {
-                          dimensionId?: string;
-                          expectedAspects?: string[];
-                          severity?: 'critical' | 'minor';
-                        }[];
-                        reconciliationReport?: string;
-                        figureCandidates?: unknown[];
-                        deduplicationStats?: {
-                          duplicatesRemoved?: number;
-                          termVariantsUnified?: number;
-                          dataInconsistenciesFlagged?: number;
-                        };
-                        termGlossary?: {
-                          canonical: string;
-                          variants: string[];
-                        }[];
-                      }
-                    | undefined;
-                  const toolRecallEntries = events
-                    .filter(
-                      (ev) => ev.type === 'agent-playground.tools:recalled'
-                    )
-                    .map((ev) => {
-                      const p = ev.payload as {
-                        agentId?: string;
-                        role?: string;
-                        recalledIds?: string[];
-                        categories?: string[];
-                        source?: string;
-                        preferIds?: string[];
-                      };
-                      return {
-                        agentId: p.agentId ?? '',
-                        role: p.role ?? '',
-                        recalledIds: p.recalledIds ?? [],
-                        categories: p.categories ?? [],
-                        source: p.source ?? 'spec',
-                        preferIds: p.preferIds ?? [],
-                      };
-                    })
-                    .slice(0, 12);
-                  return (
-                    <ArtifactReader
-                      artifact={artifact}
-                      missionId={missionId}
-                      defaultView={defaultView}
-                      reconciliationReport={reconciliationReport}
-                      toolRecallEntries={toolRecallEntries}
-                      dimensionPipelines={view.dimensionPipelines}
-                    />
-                  );
-                })()}
+                {/* ★ 2026-04-30: artifact / 子 props 已在 component 顶部 useMemo 缓存，
+                    setNow 500ms tick 不再触发 ArtifactMarkdown 重渲，图片不闪 */}
+                <ArtifactReader
+                  artifact={reportArtifact}
+                  missionId={missionId}
+                  defaultView={reportDefaultView}
+                  reconciliationReport={
+                    reportReconciliationReport as Parameters<
+                      typeof ArtifactReader
+                    >[0]['reconciliationReport']
+                  }
+                  toolRecallEntries={reportToolRecallEntries}
+                  dimensionPipelines={view.dimensionPipelines}
+                />
                 {view.verdicts.length > 0 && (
                   <VerifyConsensusPanel verdicts={view.verdicts} />
                 )}
