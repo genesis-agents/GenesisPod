@@ -18,18 +18,24 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { narrate } from "../helpers/narrative.util";
+import { startStageTimer } from "../helpers/stage-emit.util";
 
 export async function runLeaderPlanStage(
   ctx: MissionContext,
   deps: MissionDeps,
 ): Promise<void> {
   const { missionId, userId, leader } = ctx;
+  // ★ OBSERVABILITY (2026-04-30): 用 startStageTimer 统一 stage:completed 事件
+  //   shape，注入 durationMs / status / tokensUsed 等公共度量，让 UI 能在
+  //   一个地方拿到所有 stage 性能数据。stage 业务字段进 custom。
+  const stageTimer = startStageTimer();
+  const tokensBefore = ctx.pool?.snapshot?.()?.poolTokensUsed ?? 0;
 
   await deps.emit({
     type: "agent-playground.stage:started",
     missionId,
     userId,
-    payload: { stage: "leader" },
+    payload: { stage: "leader", startedAtMs: stageTimer.startedAtMs },
   });
   await deps.lifecycle(missionId, userId, "leader", "leader", "started");
   await narrate(deps.emit, missionId, userId, {
@@ -108,12 +114,12 @@ export async function runLeaderPlanStage(
       },
     })
     .catch(() => {});
-  await deps.emit({
-    type: "agent-playground.stage:completed",
-    missionId,
-    userId,
-    payload: {
-      stage: "leader",
+  const tokensAfter = ctx.pool?.snapshot?.()?.poolTokensUsed ?? 0;
+  await stageTimer.emitCompleted(deps.emit, missionId, userId, {
+    stage: "leader",
+    tokensUsed: tokensAfter - tokensBefore,
+    agentInvocations: 1,
+    custom: {
       dimensions: ctx.plan.dimensions,
       themeSummary: ctx.plan.themeSummary,
     },
