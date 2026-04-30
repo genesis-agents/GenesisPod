@@ -205,8 +205,17 @@ function looksLikeUrl(s: string | undefined): boolean {
 }
 
 /**
- * 从 output 里抽 raw 文本预览（markdown / content / text / body 字段，前 500 字符）。
- * 仅当 collectResultsDeep 拿不到 {title,url} 结构时使用。
+ * 从 output 抽人类友好的"结论摘要"。
+ *
+ * 输出策略（按优先级）：
+ *   1) outcome / conclusion / summary / answer / verdict 字段（工具自己给的结论）
+ *   2) results[] 命中数 + 首条标题 + 来源域名 → "命中 N 条 · 首条：{title} ({domain}) / Matched N · top: ..."
+ *   3) 大段文本字段 (markdown / content / text / body) 截前 500
+ *   4) note / message / reason 字段 → 双语化（已知模式翻译）
+ *   5) success/ok flag → "成功未匹配 · No matches" / "失败 · Failed"
+ *   6) 兜底：undefined（不展示 raw JSON）
+ *
+ * 双语原则：英文工具消息保留原文 + 附中文翻译；中文 note 保留原文 + 附英文。
  */
 function extractRawOutputPreview(output: unknown): string | undefined {
   if (!output) return undefined;
@@ -217,22 +226,124 @@ function extractRawOutputPreview(output: unknown): string | undefined {
   }
   if (typeof output !== 'object') return undefined;
   const o = output as Record<string, unknown>;
+
+  // 1) 工具自报结论字段
+  for (const key of ['outcome', 'conclusion', 'summary', 'answer', 'verdict']) {
+    const v = o[key];
+    if (typeof v === 'string' && v.trim().length > 0) {
+      return v.trim().slice(0, 500);
+    }
+  }
+
+  // 2) results[] 结构化命中
+  if (Array.isArray(o.results) && o.results.length > 0) {
+    const total =
+      typeof o.totalResults === 'number'
+        ? o.totalResults
+        : (o.results as unknown[]).length;
+    const first = (o.results as unknown[])[0] as
+      | Record<string, unknown>
+      | undefined;
+    const firstTitle =
+      typeof first?.title === 'string' && first.title.trim()
+        ? first.title.trim()
+        : typeof first?.heading === 'string' && first.heading.trim()
+          ? first.heading.trim()
+          : undefined;
+    const firstUrl = typeof first?.url === 'string' ? first.url : undefined;
+    const domain = firstUrl ? safeDomain(firstUrl) : undefined;
+    const zh = `命中 ${total} 条结果${
+      firstTitle
+        ? ` · 首条：「${firstTitle.slice(0, 60)}」${domain ? `（${domain}）` : ''}`
+        : ''
+    }`;
+    const en = `Matched ${total} result${total > 1 ? 's' : ''}${
+      firstTitle
+        ? ` · top: "${firstTitle.slice(0, 60)}"${domain ? ` (${domain})` : ''}`
+        : ''
+    }`;
+    return `${zh}\n${en}`;
+  }
+
+  // 3) 大段文本字段
   for (const key of ['markdown', 'content', 'text', 'body', 'html']) {
     const v = o[key];
     if (typeof v === 'string' && v.trim().length > 0) {
       return v.trim().slice(0, 500);
     }
   }
-  // success: true 但无明确字段时尝试格式化整个 output
-  if (o.success === true || o.ok === true) {
-    try {
-      const s = JSON.stringify(output);
-      if (s.length > 2 && s !== '{}') return s.slice(0, 500);
-    } catch {
-      /* ignore */
+
+  // 4) note / message / reason → 双语化
+  for (const key of ['note', 'message', 'reason', 'description']) {
+    const v = o[key];
+    if (typeof v === 'string' && v.trim().length > 0) {
+      return bilingualizeToolNote(v.trim());
     }
   }
+
+  // 5) success/ok flag 兜底叙述
+  if (typeof o.success === 'boolean' || typeof o.ok === 'boolean') {
+    const ok = o.success === true || o.ok === true;
+    const total =
+      typeof o.totalResults === 'number'
+        ? o.totalResults
+        : Array.isArray(o.results)
+          ? (o.results as unknown[]).length
+          : undefined;
+    if (ok && total === 0)
+      return '调用成功但未匹配到结果\nSucceeded but matched 0 results';
+    if (ok && typeof total === 'number')
+      return `调用成功，命中 ${total} 条\nSucceeded · matched ${total} result${total > 1 ? 's' : ''}`;
+    if (!ok) return '调用未成功\nCall did not succeed';
+  }
+
+  // 6) 兜底：不展示 raw JSON
   return undefined;
+}
+
+/** 提取 URL 域名，失败返回 undefined */
+function safeDomain(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 把工具 note 双语呈现：已知英文模式 → 中英对照；其它原文 + 一句标签。
+ *   "no knowledgeBaseId provided -- caller should fall back to web-search"
+ *     → "未指定知识库，已切换到网页搜索 / No KB specified, fell back to web search"
+ */
+function bilingualizeToolNote(note: string): string {
+  const lower = note.toLowerCase();
+  if (
+    lower.includes('no knowledgebaseid') ||
+    lower.includes('fall back to web-search') ||
+    lower.includes('fall back to web search')
+  ) {
+    return '未指定知识库，已自动切换到网页搜索\nNo knowledge base specified, fell back to web search';
+  }
+  if (lower.includes('rate limit') || lower.includes('rate-limit')) {
+    return '调用被限流，已稍后重试\nRate limited, retrying';
+  }
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return '调用超时\nCall timed out';
+  }
+  if (lower.includes('not found') || lower.includes('404')) {
+    return '未找到匹配的资源\nResource not found';
+  }
+  if (lower.includes('forbidden') || lower.includes('403')) {
+    return '访问被拒绝（403）\nAccess forbidden (403)';
+  }
+  if (lower.includes('unauthor') || lower.includes('401')) {
+    return '未授权（401）\nUnauthorized (401)';
+  }
+  if (lower.includes('quota') || lower.includes('insufficient')) {
+    return '配额不足\nQuota exhausted';
+  }
+  // 未识别的 note 原文返回 + 限长（已是人话不强翻）
+  return note.slice(0, 240);
 }
 
 /**
@@ -1267,15 +1378,13 @@ function TimelineEntryBody({ entry }: { entry: TimelineEntry }) {
           </div>
         )}
         {hasResults && <ToolResultList results={entry.results ?? []} />}
-        {/* ★ P0-LIVE-UI-TOOL-EMPTY (2026-04-30): tool 抓到 markdown/text 但
-            结构化提取拿不到 {title,url} 时（scrape_web_page 等），展示 raw
-            预览，让用户至少看到抓取到内容了 */}
+        {/* tool 没有结构化 {title,url} 但有可读结论时展示 —— 人话样式（非 mono） */}
         {!hasResults && hasRawPreview && entry.rawOutputPreview && (
           <div className="rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-              原始抓取内容预览
+            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              结论 · Outcome
             </p>
-            <p className="font-mono whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-800">
+            <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-gray-700">
               {entry.rawOutputPreview}
               {entry.rawOutputPreview.length >= 500 ? ' …' : ''}
             </p>
