@@ -139,6 +139,30 @@ export {
 // ★ 沉淀 Phase 3 (2026-04-29): 通用并发信号量
 export { ConcurrencyLimiter } from "../execution/concurrency";
 
+// ★ 沉淀 Phase 4 (2026-04-29): Checkpoint / Health / DAG 三件套
+export {
+  MissionCheckpointService,
+  type MissionCheckpointSnapshot,
+  type MissionCheckpointStore,
+  type MissionResumeDecision,
+  InMemoryMissionCheckpointStore,
+} from "../process/checkpoint";
+export {
+  MissionHealthMonitor,
+  type MissionHealthSnapshot,
+  type HealthCheckConfig,
+  type HealthVerdict,
+  type HealthCheckResult,
+  type MissionHealthMonitorOptions,
+} from "../process/health";
+export {
+  DAGExecutor,
+  type DAGTask,
+  type DAGAdapter,
+  type DAGSchedulerConfig,
+  type DAGExecutionResult,
+} from "../execution/dag";
+
 // ── Resource ──
 export { ResourceManagerService } from "../governance/resource/resource-manager.service";
 // PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
