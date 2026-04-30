@@ -15,7 +15,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { MissionContext } from "../workflow/mission-context";
-import type { MissionStore } from "../lifecycle/mission-store.service";
+import { MissionStore } from "../lifecycle/mission-store.service";
 import type {
   RunMissionInput,
   ResearchReport,

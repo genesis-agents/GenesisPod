@@ -14,8 +14,8 @@
  */
 
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
-import type { MissionStore } from "../lifecycle/mission-store.service";
-import type { ReportEvaluationService } from "../../../../../ai-harness/facade";
+import { MissionStore } from "../lifecycle/mission-store.service";
+import { ReportEvaluationService } from "../../../../../ai-harness/facade";
 import type { ChapterInput } from "../../../../../ai-harness/facade";
 import type { LocalRerunInput } from "./local-rerun.service";
 import type { HydratedMissionContext } from "./ctx-hydrator.service";
