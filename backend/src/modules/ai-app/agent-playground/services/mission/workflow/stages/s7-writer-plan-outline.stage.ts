@@ -17,6 +17,7 @@ import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "../helpers/token-spend.util";
 import { narrate } from "../helpers/narrative.util";
+import { normalizeTargetWords } from "../helpers/word-count-normalizer.util";
 
 export async function runWriterOutlineStage(
   ctx: MissionContext,
@@ -137,6 +138,20 @@ export async function runWriterOutlineStage(
         return out;
       };
       if (finalChapters.length > 0) {
+        const trimmedTargetWords = trimRecord(
+          outlinePlan.targetWordsPerChapter,
+        );
+        // ★ Phase 1 移植 (TI leader-planning.service.ts:859-880): 中位数归一化
+        // 防止 LLM 返回极度不均的字数分配（500/500/500/7000）—— 极小章节凑空话、
+        // 极大章节超 ChapterWriter budget 触发死循环。
+        const normalized = normalizeTargetWords(trimmedTargetWords);
+        if (normalized.normalized) {
+          deps.log.log(
+            `[${missionId}] outline targetWords normalized: median=${normalized.stats.median}, ` +
+              `allowed=[${normalized.stats.minAllowed}, ${normalized.stats.maxAllowed}], ` +
+              `clamped down=${normalized.stats.countClampedDown} up=${normalized.stats.countClampedUp}`,
+          );
+        }
         ctx.outlinePlan = {
           chapterOutlines: finalChapters.map((c) => ({
             sectionId: c.sectionId,
@@ -145,7 +160,7 @@ export async function runWriterOutlineStage(
             thesis: c.thesis,
             keyPointsToCover: c.keyPointsToCover,
           })),
-          targetWordsPerChapter: trimRecord(outlinePlan.targetWordsPerChapter),
+          targetWordsPerChapter: normalized.targetWords,
           factAllocation: trimRecord(outlinePlan.factAllocation),
         };
       }
