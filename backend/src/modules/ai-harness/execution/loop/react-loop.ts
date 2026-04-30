@@ -866,7 +866,16 @@ export class ReActLoop implements IAgentLoop {
     }
 
     // 走到这里 = 跑完 maxIterations 没 finalize；保险起见 emit 一个 LOOP_MAX_ITERATIONS
-    // 错误事件，让上层 trace 能看到为什么以 "budget" reason 退出。
+    // 错误事件，让上层 trace 能看到为什么以 "error" reason 退出。
+    //
+    // ★ P0-LIVE-MAX-ITER (2026-04-30): 旧版 emit output=lastAssistantMessage 然后
+    //   terminated:budget → runner extractLegacyMetrics 把 reason="budget" 推断成
+    //   legacyState="completed" → 上游 stage 看到 state="completed" + output=空字符串
+    //   或最后一条 tool_call decision JSON → schema 校验已经过了才发现是垃圾。
+    //   实测 mission 79b7de75 researcher#0 run=9 iter 永不 finalize，最后 output 是
+    //   parallel_tool_call 的 raw decision JSON 不是 finding[]。
+    //   修复：terminated reason="error" 让 runner 落到 legacyState="failed"，
+    //   stage 才能正确走 dimension:degraded 兜底而不是把垃圾当 finding。
     this.logger.warn(
       `[${agentId}] reached maxIterations=${criteria.maxIterations} without finalize`,
     );
@@ -879,10 +888,7 @@ export class ReActLoop implements IAgentLoop {
         iteration,
       },
     });
-    yield this.makeEvent(agentId, "output", {
-      output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
-    });
-    yield this.makeEvent(agentId, "terminated", { reason: "budget" });
+    yield this.makeEvent(agentId, "terminated", { reason: "error" });
   }
 
   // ─── Helpers ─────────────────────────────────────────────

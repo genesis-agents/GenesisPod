@@ -248,7 +248,10 @@ describe("ReActLoop (Phase 2)", () => {
       ),
     );
     const terminated = events.find((e) => e.type === "terminated");
-    expect(terminated?.payload).toEqual({ reason: "budget" });
+    // ★ P0-LIVE-MAX-ITER (2026-04-30): maxIterations 命中改 reason="error"
+    //   让 runner 落到 legacyState="failed"，stage 才能走 dimension:degraded
+    //   兜底（旧的 reason="budget" 会被推断成 completed + 垃圾 output）。
+    expect(terminated?.payload).toEqual({ reason: "error" });
     const actionExecs = events.filter((e) => e.type === "action_executed");
     expect(actionExecs).toHaveLength(2);
   });

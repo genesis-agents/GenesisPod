@@ -319,7 +319,12 @@ export class AiChatService {
 
   private emitSpanStart(
     traceId: string,
-    input: { spanType?: string; name: string; type?: string; metadata?: Record<string, unknown> },
+    input: {
+      spanType?: string;
+      name: string;
+      type?: string;
+      metadata?: Record<string, unknown>;
+    },
   ): string {
     const correlationId = randomUUID();
     this.events?.emit("llm.span.start", { correlationId, traceId, ...input });
@@ -328,7 +333,12 @@ export class AiChatService {
 
   private emitSpanEnd(
     correlationId: string,
-    input: { status: string; error?: string; output?: Record<string, unknown>; metadata?: Record<string, unknown> },
+    input: {
+      status: string;
+      error?: string;
+      output?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+    },
   ): void {
     this.events?.emit("llm.span.end", { correlationId, ...input });
   }
@@ -1569,6 +1579,40 @@ export class AiChatService {
         errorCode: result.isError ? "LLM_CALL_FAILED" : undefined,
         errorMsg: result.isError ? result.content.substring(0, 500) : undefined,
       });
+
+      // ★ P0-LIVE-MODEL-EMPTY (2026-04-30): 检测"假成功"——HTTP 200 但 content 为空。
+      //   实测 gpt-5.4 (model_id 在 OpenAI 上不存在或 reasoning model 内部 CoT
+      //   吃光 max_completion_tokens) 立即 finalize 空 JSON / 空字符串 / null，
+      //   不触发 isError → fallback chain 不跑 → researcher / analyst / writer
+      //   被 LLM 假成功反复喂空 output → maxIterations runaway / verifier 评分极低。
+      //   把"非 error 但 content 实质为空"强制升级为 LLM_EMPTY_RESPONSE，触发 fallback。
+      const trimmedContent = (result.content ?? "").trim();
+      const looksEmptyJson =
+        trimmedContent === "" ||
+        trimmedContent === "{}" ||
+        trimmedContent === "[]" ||
+        trimmedContent === "null" ||
+        trimmedContent === '""';
+      const noOutputProduced =
+        !result.isError &&
+        looksEmptyJson &&
+        (result.tokensUsed ?? 0) > 0 &&
+        // reasoning model 完全没吐 visible content（completion>0 但 thinking 也 0
+        // 表示 model_id 大概率不存在或被服务端拒），或 普通 model 直接吐空
+        result.finishReason !== "tool_calls"; // tool_calls 走另外路径，不算空
+      if (noOutputProduced) {
+        this.logger.warn(
+          `[chat] Model ${currentModel} returned empty content despite tokensUsed=${result.tokensUsed} ` +
+            `(finishReason=${result.finishReason ?? "unknown"}). Treating as LLM_EMPTY_RESPONSE → triggering fallback.`,
+        );
+        result.isError = true;
+        result.errorType = "LLM_EMPTY_RESPONSE" as never;
+        result.content =
+          `Model "${currentModel}" returned empty content (tokensUsed=${result.tokensUsed}, ` +
+          `finishReason=${result.finishReason ?? "unknown"}). ` +
+          `Likely cause: model_id not recognized by provider, reasoning CoT exhausted max_completion_tokens, ` +
+          `or BYOK key mismatch. Will fall back to next available model.`;
+      }
 
       if (!result.isError) {
         // ★ Circuit Breaker: Record success
