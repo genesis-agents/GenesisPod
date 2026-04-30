@@ -87,11 +87,35 @@ export interface KeyHealthStatus {
 /** Key 冷却时间（毫秒）- 临时性错误（400/401/403/5xx）后多久重试 */
 const KEY_COOLDOWN_MS = 5 * 60 * 1000; // 5 分钟
 
-/** Key 长冷却时间（毫秒）- 配额耗尽（429 Too Many Requests）后长时间冷却 */
+/**
+ * Key 限流冷却时间（毫秒）- 429 Too Many Requests 默认短冷却。
+ *
+ * ★ P0-LIVE-COOLDOWN-FALSEPOS (2026-04-30): 之前 429 一律给 24 小时冷却，但
+ * Serper / Tavily 等 API 的 429 多半是 per-second / per-minute 限流（不是月
+ * 配额耗尽），瞬时高频就触发 → key 被锁 24h，dashboard 显示配额还剩 2324
+ * 但系统仍说 "0/1 可用 冷却 1436 分钟"。
+ *
+ * 改成 30 分钟后：若真月配额耗尽 → 30 分钟后重试还是 429 → 自动续期 30 分钟，
+ * 用户体验等价；若是瞬时限流 → 30 分钟后恢复，不再误锁 24h。
+ */
+const KEY_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000; // 30 分钟
+
+/** Key 长冷却时间（毫秒）- 月配额耗尽（HTTP 402 / 显式 quota header）后长冷却 */
 const KEY_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 小时
 
-/** 判断错误码是否为配额耗尽类（需要长冷却）— 只有 429 是真正的速率/配额限制 */
-const isQuotaExhaustedError = (errorCode: number): boolean => errorCode === 429;
+/**
+ * 判断是否为速率限制错误（短冷却即可，避免 24h 误锁）。
+ * 注意：429 不再单独给 24h，统一走 30 分钟短冷却。
+ */
+const isRateLimitError = (errorCode: number): boolean => errorCode === 429;
+
+/**
+ * 判断是否为月配额真正耗尽（需要 24h 长冷却）。
+ * - 402 Payment Required：明确表示余额不足
+ * 当前未对 429 做 quota header 嗅探（多数 API 不在 status code 上区分），按
+ * 短冷却处理；若真月配额耗尽，30min 后再次 429 → 自动续 30min，效果等价。
+ */
+const isQuotaExhaustedError = (errorCode: number): boolean => errorCode === 402;
 
 /** 健康记录过期时间（毫秒）- 24 小时后清理 */
 const KEY_HEALTH_TTL_MS = 24 * 60 * 60 * 1000;
@@ -225,11 +249,16 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const healthKey = this.getKeyHash(provider, key);
       const health = this.keyHealthMap.get(healthKey);
 
-      // Key 从未失败过，或冷却期已过（配额耗尽用长冷却）
-      const cooldown =
-        health && isQuotaExhaustedError(health.errorCode)
-          ? KEY_QUOTA_COOLDOWN_MS
-          : KEY_COOLDOWN_MS;
+      // Key 从未失败过，或冷却期已过
+      // ★ P0-LIVE-COOLDOWN-FALSEPOS (2026-04-30): 三档冷却
+      //   402 月配额耗尽 → 24h；429 瞬时限流 → 30min；其他临时错误 → 5min
+      let cooldown = KEY_COOLDOWN_MS;
+      if (health) {
+        if (isQuotaExhaustedError(health.errorCode))
+          cooldown = KEY_QUOTA_COOLDOWN_MS;
+        else if (isRateLimitError(health.errorCode))
+          cooldown = KEY_RATE_LIMIT_COOLDOWN_MS;
+      }
       if (!health || now - health.failedAt >= cooldown) {
         if (health) {
           this.logger.debug(
@@ -310,6 +339,26 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * ★ P0-LIVE-COOLDOWN-FALSEPOS (2026-04-30): 公开的清冷却 API。
+   * 给管理后台 / 用户在确认 dashboard 配额仍有时手动重置。
+   * 返回清掉的 key 数量。
+   */
+  resetAllKeyCooldowns(provider?: SearchProvider): number {
+    let cleared = 0;
+    for (const k of [...this.keyHealthMap.keys()]) {
+      if (provider && !k.startsWith(`${provider}:`)) continue;
+      this.keyHealthMap.delete(k);
+      cleared++;
+    }
+    if (cleared > 0) {
+      this.logger.warn(
+        `[Search] Manually cleared ${cleared} key cooldown(s)${provider ? ` for ${provider}` : ""} (admin reset)`,
+      );
+    }
+    return cleared;
+  }
+
+  /**
    * 获取用于显示的脱敏密钥
    * 显示前4位 + **** + 后3位（如 tvly-abcd****xyz）
    */
@@ -337,11 +386,15 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const healthKey = this.getKeyHash(provider, key);
       const health = this.keyHealthMap.get(healthKey);
 
-      // 计算是否健康：未失败过，或冷却期已过（配额耗尽用长冷却）
-      const cooldown =
-        health && isQuotaExhaustedError(health.errorCode)
-          ? KEY_QUOTA_COOLDOWN_MS
-          : KEY_COOLDOWN_MS;
+      // 计算是否健康：未失败过，或冷却期已过
+      // 与 selectHealthyKey 的三档冷却保持一致（402 → 24h, 429 → 30min, 其他 → 5min）
+      let cooldown = KEY_COOLDOWN_MS;
+      if (health) {
+        if (isQuotaExhaustedError(health.errorCode))
+          cooldown = KEY_QUOTA_COOLDOWN_MS;
+        else if (isRateLimitError(health.errorCode))
+          cooldown = KEY_RATE_LIMIT_COOLDOWN_MS;
+      }
       const isHealthy = !health || now - health.failedAt >= cooldown;
 
       // 计算冷却结束时间

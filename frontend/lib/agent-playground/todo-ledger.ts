@@ -501,6 +501,22 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             value: (p.insightsCount as number) ?? 0,
           },
         ];
+        // ★ P1-LIVE-STATUS-INCONSISTENT (2026-04-30): reconciler-gap todo 之前
+        //   永远停在 pending，drawer 顶部显示"待启动"但下方 narrative 已经有
+        //   "Reconciler 标记 N 处缺口"。Analyst stage 完成 = 这些 gap 已被
+        //   显式纳入综合分析（ctx.reconciliationReport 透传给 analyst.analyze），
+        //   所以同步把 reconciler-gap todo 标 done。
+        for (const t of todos.values()) {
+          if (t.origin === 'reconciler-gap' && t.status === 'pending') {
+            t.status = 'done';
+            t.endedAt = ev.timestamp;
+            t.narrativeLog.push({
+              ts: ev.timestamp,
+              text: 'Analyst 已纳入综合分析',
+              tone: 'success',
+            });
+          }
+        }
       } else if (stage === 'writer') {
         const s8 = upsert('system:s8-writer-draft', () =>
           systemStageInit(
