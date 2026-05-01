@@ -3,6 +3,7 @@
  * 验证中间件
  */
 
+import { Logger } from "@nestjs/common";
 import { z } from "zod";
 import { ValidationError } from "../../core/errors";
 import {
@@ -12,6 +13,26 @@ import {
   JSONSchema,
 } from "../abstractions/tool.interface";
 import { IToolMiddleware } from "./middleware.interface";
+
+/**
+ * Output validation 三档 mode（2026-05-01）：
+ * - strict (默认): schema 不一致直接 throw ValidationError
+ * - lenient: 仅 warn，返回原始 result（兼容旧行为）
+ * - coerce: 尝试补 optional 字段默认值；required 缺失则 fallthrough strict
+ *
+ * env 解析：
+ * - STRICT_OUTPUT_VALIDATION_MODE=lenient|strict|coerce 优先
+ * - STRICT_OUTPUT_VALIDATION=0 兼容映射到 lenient（生产逃生阀）
+ * - 默认 strict
+ */
+type ValidationMode = "lenient" | "strict" | "coerce";
+
+function getValidationMode(): ValidationMode {
+  const m = process.env.STRICT_OUTPUT_VALIDATION_MODE?.toLowerCase();
+  if (m === "lenient" || m === "coerce" || m === "strict") return m;
+  if (process.env.STRICT_OUTPUT_VALIDATION === "0") return "lenient";
+  return "strict";
+}
 
 /**
  * 验证中间件配置
@@ -134,13 +155,59 @@ export class ValidationMiddleware implements IToolMiddleware {
       result.data,
       tool.outputSchema,
     );
-    if (!schemaResult.valid) {
-      throw new ValidationError(
-        schemaResult.errors ?? [],
-        `Output validation failed for tool '${tool.id}'`,
-      );
+    if (schemaResult.valid) {
+      return result;
     }
 
+    const mode = getValidationMode();
+
+    if (mode === "lenient") {
+      Logger.warn(
+        `Output validation warning for tool '${tool.id}': ${JSON.stringify(schemaResult.errors)}`,
+        "ValidationMiddleware",
+      );
+      return result;
+    }
+
+    if (mode === "coerce") {
+      const coerced = this.tryCoerce(result.data, tool.outputSchema);
+      if (coerced !== null) {
+        Logger.warn(
+          `Output coerced for tool '${tool.id}': ${JSON.stringify(schemaResult.errors)}`,
+          "ValidationMiddleware",
+        );
+        return { ...result, data: coerced };
+      }
+      // coerce 失败 fallthrough 到 strict reject（required 字段缺失补不出来）
+    }
+
+    // strict（默认）+ coerce 兜底失败
+    throw new ValidationError(
+      schemaResult.errors ?? [],
+      `Output validation failed for tool '${tool.id}'`,
+    );
+  }
+
+  /**
+   * coerce mode：补 optional 字段默认值。
+   * required 缺失返回 null（让上层 fallthrough strict reject）。
+   */
+  private tryCoerce(data: unknown, schema: JSONSchema): unknown | null {
+    if (!data || typeof data !== "object" || !schema.properties) return null;
+    const obj = data as Record<string, unknown>;
+    const result: Record<string, unknown> = { ...obj };
+    for (const [key, propSchema] of Object.entries(schema.properties)) {
+      if (key in result) continue;
+      // required 缺失 → 不能 coerce
+      if (schema.required?.includes(key)) return null;
+      // 推断默认值（仅 optional 字段）
+      const propType = (propSchema as { type?: string }).type;
+      if (propType === "string") result[key] = "";
+      else if (propType === "number" || propType === "integer") result[key] = 0;
+      else if (propType === "boolean") result[key] = false;
+      else if (propType === "array") result[key] = [];
+      else if (propType === "object") result[key] = {};
+    }
     return result;
   }
 
