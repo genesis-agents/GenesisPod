@@ -69,7 +69,11 @@ const Output = z.object({
   loop: "simple",
   // PR-X-skill-bridge: 6 项 chapter QA gate
   skills: ["chapter-quality-gate"],
-  taskProfile: { creativity: "deterministic", outputLength: "short" },
+  taskProfile: {
+    creativity: "deterministic",
+    outputLength: "short",
+    taskKind: "review",
+  },
   inputSchema: Input,
   outputSchema: Output,
   // ★ 2026-05-01 (PR-G iter9): maxIterations 走集中常量

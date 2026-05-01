@@ -6,11 +6,21 @@ import {
   ReasoningDepth,
   CREATIVITY_TO_TEMPERATURE,
   OUTPUT_LENGTH_TO_TOKENS,
+  FAST_TASK_KINDS,
   getReasoningMinTokens,
   JSON_OUTPUT_MAX_TEMPERATURE,
   getKnownModelLimit,
 } from "../types";
 import { AIModelConfig } from "./ai-chat.service";
+
+/**
+ * 模型等级 — pickModelType 的返回值
+ *
+ * - "CHAT_FAST": mini / fast 模型（reviewer / sanity-check / classify / summarize 等轻量任务）
+ * - "CHAT":      标准 chat 模型（write / plan / research 等中重量任务）
+ * - "REASONING": 推理模型（需要 reasoningDepth moderate/deep 的任务）
+ */
+export type ModelTierHint = "CHAT_FAST" | "CHAT" | "REASONING";
 
 /**
  * TaskProfile 参数映射结果
@@ -191,6 +201,47 @@ export class TaskProfileMapperService {
       maxTokens: effectiveMaxTokens,
       reasoningDepth: mappedReasoningDepth,
     };
+  }
+
+  /**
+   * L3-10 LLM 分级路由：根据 TaskProfile.taskKind 推荐模型等级
+   *
+   * 规则（优先级从高到低）：
+   * 1. reasoningDepth ∈ {moderate, deep} → "REASONING"（显式推理请求，不降级）
+   * 2. taskKind ∈ FAST_TASK_KINDS + outputLength ∈ {minimal, short, medium, standard} → "CHAT_FAST"
+   * 3. 其余 → "CHAT"（保留现有路由逻辑）
+   *
+   * 返回值是一个「建议」，调用方可在需要时覆盖（如模型不支持 CHAT_FAST 时回退到 CHAT）。
+   *
+   * @param profile TaskProfile（可为 undefined，向后兼容）
+   * @returns ModelTierHint
+   */
+  pickModelType(profile: TaskProfile | undefined): ModelTierHint {
+    if (!profile) return "CHAT";
+
+    // Rule 1: explicit deep reasoning always wins — do not downgrade to mini
+    if (
+      profile.reasoningDepth === "moderate" ||
+      profile.reasoningDepth === "deep"
+    ) {
+      return "REASONING";
+    }
+
+    // Rule 2: fast kinds with non-long output → mini model
+    if (profile.taskKind && FAST_TASK_KINDS.has(profile.taskKind)) {
+      const length = profile.outputLength;
+      if (
+        !length ||
+        length === "minimal" ||
+        length === "short" ||
+        length === "medium" ||
+        length === "standard"
+      ) {
+        return "CHAT_FAST";
+      }
+    }
+
+    return "CHAT";
   }
 
   /**

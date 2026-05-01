@@ -69,6 +69,43 @@ export type TaskType =
   | "reflection"; // 自我评估、元认知
 
 /**
+ * TaskKind — 用于 L3-10 LLM 分级路由
+ *
+ * FAST_TASK_KINDS（review / sanity-check / classify / summarize）在 outputLength <= "standard"
+ * 时由 TaskProfileMapperService.pickModelType() 自动路由到 CHAT_FAST，
+ * 减少 reviewer/sanity-check 类任务对 reasoning 模型的不必要占用。
+ *
+ * | kind         | 路由建议  | 场景                        |
+ * |-------------|-----------|----------------------------|
+ * | review       | CHAT_FAST | 报告评分、章节审查           |
+ * | sanity-check | CHAT_FAST | 输出完整性校验、快速核验     |
+ * | classify     | CHAT_FAST | 分类标签、意图识别           |
+ * | summarize    | CHAT_FAST | 摘要、压缩                   |
+ * | plan         | CHAT      | 规划（outputLength 决定 tier）|
+ * | write        | CHAT      | 内容创作                     |
+ * | research     | CHAT      | 深度研究、调研               |
+ */
+export type TaskKind =
+  | "review"
+  | "sanity-check"
+  | "classify"
+  | "summarize"
+  | "plan"
+  | "write"
+  | "research";
+
+/**
+ * TaskKind 集合：这些 kind 应走 CHAT_FAST（mini 模型）
+ * 路由条件：taskKind ∈ FAST_TASK_KINDS + outputLength <= "standard"
+ */
+export const FAST_TASK_KINDS = new Set<TaskKind>([
+  "review",
+  "sanity-check",
+  "classify",
+  "summarize",
+]);
+
+/**
  * 输出格式 - 影响 temperature 调整（Phase 2 实现）
  */
 export type OutputFormat =
@@ -202,6 +239,18 @@ export interface TaskProfile {
    * 辅助 AI Engine 优化参数选择
    */
   taskType?: TaskType;
+
+  /**
+   * 任务种类 — 用于 L3-10 LLM 分级路由
+   *
+   * 当 taskKind ∈ {review, sanity-check, classify, summarize} 且
+   * outputLength <= "standard" 时，TaskProfileMapperService.pickModelType()
+   * 返回 "CHAT_FAST"，自动路由到 mini 模型。
+   *
+   * 注意：若同时设置了 reasoningDepth（"moderate" | "deep"），
+   * reasoningDepth 优先，不会降级到 CHAT_FAST。
+   */
+  taskKind?: TaskKind;
 
   /**
    * 输出格式（Phase 2 实现）

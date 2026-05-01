@@ -58,7 +58,11 @@ const Output = z.object({
   loop: "simple",
   // PR-X-skill-bridge: per-dim 5-axis 评分协议
   skills: ["dimension-quality-review"],
-  taskProfile: { creativity: "deterministic", outputLength: "medium" },
+  taskProfile: {
+    creativity: "deterministic",
+    outputLength: "medium",
+    taskKind: "review",
+  },
   inputSchema: Input,
   outputSchema: Output,
   budget: { maxTokens: 8_000, maxIterations: 3 },

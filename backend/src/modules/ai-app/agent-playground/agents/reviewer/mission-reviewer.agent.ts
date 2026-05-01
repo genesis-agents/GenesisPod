@@ -30,7 +30,11 @@ const Output = z.object({
   loop: "simple",
   // PR-X-skill-bridge: L3 multi-judge 评分协议
   skills: ["multi-judge-mission-review"],
-  taskProfile: { creativity: "deterministic", outputLength: "short" },
+  taskProfile: {
+    creativity: "deterministic",
+    outputLength: "short",
+    taskKind: "review",
+  },
   inputSchema: Input,
   outputSchema: Output,
   budget: { maxTokens: 16_000, maxIterations: 4 },

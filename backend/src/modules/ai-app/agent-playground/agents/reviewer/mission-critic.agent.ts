@@ -73,6 +73,7 @@ const Output = z.object({
     creativity: "low",
     outputLength: "medium",
     reasoningDepth: "deep",
+    taskKind: "review",
   },
   inputSchema: Input,
   outputSchema: Output,
