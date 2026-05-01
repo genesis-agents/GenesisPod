@@ -12,11 +12,11 @@ import { UserApiKeysService } from "../../ai-infra/credentials/user-api-keys/use
 import { UserModelConfigsService } from "../../ai-infra/credentials/user-model-configs/user-model-configs.service";
 import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
 import { AiConnectionTestService } from "./services/ai-connection-test.service";
-import { ModelRecommendationsService } from "./recommendations/model-recommendations.service";
+import { ModelRecommendationsService } from "./selection/model-recommendations.service";
 import {
   EXCLUDED_MODEL_SUBSTRINGS,
   PROVIDER_PREFERENCE_BY_TYPE,
-} from "./recommendations/default-recommendations";
+} from "./selection/default-recommendations";
 
 export interface AutoConfigureResult {
   createdCount: number;

@@ -24,35 +24,35 @@ choosing `accept-degraded` here means owning that choice at signoff.
 - `myPlan.goals` — what you committed to at M0 (successCriteria / qualityBar)
 - `myPlan.dimensions[]` — the dims you decomposed
 - `researcherOutcomes[]` — actual results: `{ dimensionId, dimensionName, state,
-  findingsCount, sources, failureCode?, summary }`
+findingsCount, sources, failureCode?, summary }`
 
 ## Decision 1 — overall direction
 
-| `decision`    | Meaning                                                                                   |
-| ------------- | ----------------------------------------------------------------------------------------- |
-| `accept-all`  | All dims usable → proceed to reconciler                                                   |
-| `patch`       | At least 1 dim needs patching (retry / critique). Each dim's action specified per-dim    |
-| `redirect`    | Need new dims because some `successCriteria` can't be answered by current dims (use `newDimensions`) |
-| `abort`       | Multiple critical failures, mission unsalvageable                                         |
+| `decision`   | Meaning                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `accept-all` | All dims usable → proceed to reconciler                                                              |
+| `patch`      | At least 1 dim needs patching (retry / critique). Each dim's action specified per-dim                |
+| `redirect`   | Need new dims because some `successCriteria` can't be answered by current dims (use `newDimensions`) |
+| `abort`      | Multiple critical failures, mission unsalvageable                                                    |
 
 ## Decision 2 — per-dimension action
 
-| `action`              | Meaning                                                                |
-| --------------------- | ---------------------------------------------------------------------- |
-| `accept`              | This dim is good                                                       |
-| `accept-degraded`     | Has issues but no retry — foreword MUST flag this                      |
-| `retry-with-critique` | Same spec, run again with critique appended                            |
-| `replace-spec`        | Different agent spec (fill `newAgentSpecId`)                           |
-| `abort`               | Drop this dim — foreword MUST list it in `whatRemainsUnclear`          |
+| `action`              | Meaning                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `accept`              | This dim is good                                              |
+| `accept-degraded`     | Has issues but no retry — foreword MUST flag this             |
+| `retry-with-critique` | Same spec, run again with critique appended                   |
+| `replace-spec`        | Different agent spec (fill `newAgentSpecId`)                  |
+| `abort`               | Drop this dim — foreword MUST list it in `whatRemainsUnclear` |
 
 ## Decision 2.5 — retry/replace strategy (REQUIRED for retry / replace)
 
 When `action ∈ {retry-with-critique, replace-spec}`, you MUST set `strategy`:
 
-| `strategy`         | When to pick                                                       | Effect                                                        |
-| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `fresh-collect`    | Findings themselves untrustworthy: too few / low-quality sources / key evidence missing / outdated | Re-run researcher from scratch; new task row; independent score |
-| `reuse-recompute`  | Findings adequate but writing or scoring is the problem            | Reuse existing findings; only rewrite chapter + re-score; no new task row |
+| `strategy`        | When to pick                                                                                       | Effect                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `fresh-collect`   | Findings themselves untrustworthy: too few / low-quality sources / key evidence missing / outdated | Re-run researcher from scratch; new task row; independent score           |
+| `reuse-recompute` | Findings adequate but writing or scoring is the problem                                            | Reuse existing findings; only rewrite chapter + re-score; no new task row |
 
 **Default is `fresh-collect`** for backwards compatibility, but the LLM should
 choose actively based on the critique. Don't blindly default.

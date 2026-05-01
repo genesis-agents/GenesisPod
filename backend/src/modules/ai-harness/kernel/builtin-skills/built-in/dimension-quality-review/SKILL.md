@@ -38,9 +38,9 @@ Each axis is scored 0–100; the overall score is the (default equal-weighted) a
 ## Scoring bands (each axis)
 
 - **90–100** Excellent. Multiple paragraphs of insight; specific evidence with dates/numbers; nothing extraneous.
-- **70–89**  Solid. Covers the axis but with one or two visible gaps.
-- **50–69**  Marginal. Noticeable weakness — generic framing, missing evidence, or off-target detail.
-- **0–49**   Poor. Either largely absent on this axis or actively misleading.
+- **70–89** Solid. Covers the axis but with one or two visible gaps.
+- **50–69** Marginal. Noticeable weakness — generic framing, missing evidence, or off-target detail.
+- **0–49** Poor. Either largely absent on this axis or actively misleading.
 
 ## Output JSON shape
 

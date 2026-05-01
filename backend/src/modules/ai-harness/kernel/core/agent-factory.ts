@@ -12,7 +12,7 @@ import { randomUUID } from "crypto";
 // (HarnessModule.onApplicationBootstrap) to avoid NestJS v10 forwardRef+Optional
 // timing issues on sibling providers (LlmExecutor was losing AiChatService
 // resolution in prod when this was a constructor @Optional inject).
-import type { ModelElectionService } from "../../../ai-engine/llm/election";
+import type { ModelElectionService } from "../../../ai-engine/llm/selection";
 import type { EnvironmentSnapshot } from "../../../ai-harness/governance/resource/runtime-environment.types";
 import type {
   IAgent,
@@ -30,7 +30,7 @@ import { SpecBasedAgent } from "./spec-based-agent";
 import { ReActLoop } from "../../execution/loop/react-loop";
 import { LoopRegistry } from "../../execution/loop/loop-registry";
 import { MemoryBridge } from "../../memory/auto-index/memory-bridge.service";
-import { SkillActivator } from "../../kernel/skills/skill-activator";
+import { SkillActivator } from "../../kernel/builtin-skills/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { LlmExecutor } from "../../execution/executor/llm-executor";

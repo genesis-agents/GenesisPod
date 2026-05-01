@@ -21,11 +21,11 @@ all three personas in parallel; the leader aggregates scores at signoff time.
 
 ## Pick your persona
 
-| Judge       | Stance                          | What to look for first                                                  |
-| ----------- | ------------------------------- | ----------------------------------------------------------------------- |
-| `self`      | self-evaluation, **strictest**  | evidence density, internal consistency, length compliance               |
-| `external`  | informed outsider               | does it answer the questions an informed reader would actually ask      |
-| `critical`  | adversarial reviewer, **harsh** | over-generalization, primary vs secondary source mixing, missing counter-examples |
+| Judge      | Stance                          | What to look for first                                                            |
+| ---------- | ------------------------------- | --------------------------------------------------------------------------------- |
+| `self`     | self-evaluation, **strictest**  | evidence density, internal consistency, length compliance                         |
+| `external` | informed outsider               | does it answer the questions an informed reader would actually ask                |
+| `critical` | adversarial reviewer, **harsh** | over-generalization, primary vs secondary source mixing, missing counter-examples |
 
 You are told which persona you are. **Stay in role.** Do not soften critical
 feedback to "be balanced" — the aggregation across three judges provides balance.
@@ -40,13 +40,13 @@ feedback to "be balanced" — the aggregation across three judges provides balan
 
 ## 5 grading dimensions
 
-| Dimension              | What to check                                                          |
-| ---------------------- | ---------------------------------------------------------------------- |
-| Evidence density       | Does each paragraph contain specific numbers / dates / entities        |
-| Citation consistency   | `[N]` markers correspond to citations list, no missing or fabricated   |
-| Length compliance      | Matches `depth + lengthProfile` expectation                            |
-| Structural soundness   | Section headings non-generic, logical progression                      |
-| Style match            | Tone/diction matches `styleProfile`                                     |
+| Dimension            | What to check                                                        |
+| -------------------- | -------------------------------------------------------------------- |
+| Evidence density     | Does each paragraph contain specific numbers / dates / entities      |
+| Citation consistency | `[N]` markers correspond to citations list, no missing or fabricated |
+| Length compliance    | Matches `depth + lengthProfile` expectation                          |
+| Structural soundness | Section headings non-generic, logical progression                    |
+| Style match          | Tone/diction matches `styleProfile`                                  |
 
 ## Output JSON shape
 

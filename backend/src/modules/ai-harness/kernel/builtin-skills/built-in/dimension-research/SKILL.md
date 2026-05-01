@@ -69,7 +69,9 @@ Emit:
       // 4-5 findings ideal
     ],
     "summary": "<one-paragraph synthesis of the dim>",
-    "figureCandidates": [/* optional, see figure red lines below */]
+    "figureCandidates": [
+      /* optional, see figure red lines below */
+    ]
   }
 }
 ```

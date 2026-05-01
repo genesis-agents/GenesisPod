@@ -50,6 +50,7 @@ For each `successCriterion`, answer with:
 Open questions / underspecified areas / critical gaps the report didn't answer.
 
 **Must include:**
+
 - Every critical gap from `reconciliation.criticalGaps`
 - Every degraded / aborted dim
 - Every critic blindspot that wasn't fully addressed in subsequent revisions
@@ -60,6 +61,7 @@ Do not hide gaps. The user will use this report to make decisions; pretending
 ### 3. `howToRead`
 
 ≤ 200 chars reading guide:
+
 - Which section(s) to prioritize
 - Which sections have weaker evidence and should be supplemented with external sources
 - Any sequencing tips ("read §3 before §5; §5 builds on §3's framework")

@@ -46,8 +46,8 @@ Each dim carries a `toolHint`:
 
 ```json
 {
-  "categories": ["..."],   // 1–3 categories chosen from <available_tools>
-  "preferIds": ["..."]     // 0–3 specific tool ids (optional)
+  "categories": ["..."], // 1–3 categories chosen from <available_tools>
+  "preferIds": ["..."] // 0–3 specific tool ids (optional)
 }
 ```
 

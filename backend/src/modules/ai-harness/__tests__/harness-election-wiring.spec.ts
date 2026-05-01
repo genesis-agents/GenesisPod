@@ -20,7 +20,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AgentFactory } from "../kernel/core/agent-factory";
-import { ModelElectionService } from "../../ai-engine/llm/election";
+import { ModelElectionService } from "../../ai-engine/llm/selection";
 
 describe("harness · election wiring across lifecycle", () => {
   let module: TestingModule;

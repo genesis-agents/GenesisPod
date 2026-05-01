@@ -15,7 +15,7 @@
 import { Logger } from "@nestjs/common";
 import { SkillLearningCoordinator } from "../skill-learning-coordinator";
 import { SkillLearner, type SkillCandidate } from "../skill-learner";
-import { BuiltInReActSkillRegistry } from "../../skills/skill-registry";
+import { BuiltInReActSkillRegistry } from "../../builtin-skills/skill-registry";
 
 jest.spyOn(Logger.prototype, "warn").mockImplementation();
 jest.spyOn(Logger.prototype, "log").mockImplementation();

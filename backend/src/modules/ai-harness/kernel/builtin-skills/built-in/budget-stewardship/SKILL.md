@@ -30,11 +30,11 @@ that is the leader's decision.
 
 Compute `usagePct = tokensUsed / tokensLimit × 100`.
 
-| Condition                                    | Level     | Meaning                                                |
-| -------------------------------------------- | --------- | ------------------------------------------------------ |
-| `usagePct < softWarnPct`                     | `info`    | budget normal — no action needed (skip alert if quiet) |
-| `softWarnPct ≤ usagePct < hardBlockPct`      | `warning` | flag to leader — suggest trimming remaining stages     |
-| `usagePct ≥ hardBlockPct`                    | `block`   | hard stop — no new stages may start                    |
+| Condition                               | Level     | Meaning                                                |
+| --------------------------------------- | --------- | ------------------------------------------------------ |
+| `usagePct < softWarnPct`                | `info`    | budget normal — no action needed (skip alert if quiet) |
+| `softWarnPct ≤ usagePct < hardBlockPct` | `warning` | flag to leader — suggest trimming remaining stages     |
+| `usagePct ≥ hardBlockPct`               | `block`   | hard stop — no new stages may start                    |
 
 ## Special rule — runway projection
 

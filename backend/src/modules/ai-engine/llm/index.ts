@@ -21,5 +21,5 @@ export * from "./factory";
 // Services
 export * from "./services";
 
-// Model Fallback (★ P4 沉淀)
-export * from "./model-fallback";
+// Model Selection (PR-X-Q: 合并自原 election + recommendations + model-fallback)
+export * from "./selection";

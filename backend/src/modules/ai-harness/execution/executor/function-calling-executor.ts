@@ -23,7 +23,7 @@ import { TokenTrackerService } from "./token-tracker.service";
 import { ContextCompactionPipelineService } from "../../../ai-engine/llm/context/context-compaction-pipeline.service";
 import { ExecutionCheckpointService } from "./execution-checkpoint.service";
 import { ToolConcurrencyService } from "../../../ai-engine/tools/concurrency/tool-concurrency.service";
-import { ModelFallbackService } from "../../../ai-engine/llm/model-fallback/model-fallback.service";
+import { ModelFallbackService } from "../../../ai-engine/llm/selection/model-fallback.service";
 import { SessionMemorySidecarService } from "./session-memory-sidecar.service";
 
 // ============================================================================

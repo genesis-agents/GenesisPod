@@ -49,12 +49,12 @@ to retrieve the real source and check it against what the report claims.
 
 ## Verdict statuses
 
-| Status                     | Meaning                                                         |
-| -------------------------- | --------------------------------------------------------------- |
-| `verified`                 | tool fetched real content; quote matches; date sane             |
+| Status                     | Meaning                                                          |
+| -------------------------- | ---------------------------------------------------------------- |
+| `verified`                 | tool fetched real content; quote matches; date sane              |
 | `unverified-but-plausible` | could not fetch (timeout / paywall) but claim is industry common |
-| `unverified-suspicious`    | could not fetch + URL anomalies / domain on block list          |
-| `contradicted`             | fetched content disagrees with the quote / number               |
+| `unverified-suspicious`    | could not fetch + URL anomalies / domain on block list           |
+| `contradicted`             | fetched content disagrees with the quote / number                |
 
 ## Output JSON shape
 

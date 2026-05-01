@@ -35,7 +35,7 @@ import {
 import type { MissionEvent } from "../runtime/teams/abstractions/mission.interface";
 import { TaskCompletionType } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ModelFallbackService } from "../../ai-engine/llm/model-fallback/model-fallback.service";
+import { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
 import {
   AICapabilityResolver,
   AICapabilityContext,

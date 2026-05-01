@@ -44,16 +44,16 @@ import { PromptCacheCoordinatorService } from "./llm/services/prompt-cache-coord
 import { SystemModelInventoryService } from "./llm/services/system-model-inventory.service";
 
 // Model Fallback
-import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
+import { ModelFallbackService } from "./llm/selection/model-fallback.service";
 
 // Auto-configure service (used by UserModelConfigsAutoController in ai-app/byok)
 import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
 
 // Long-term editable recommendation matrix (user + admin auto-configure share this)
-import { ModelRecommendationsService } from "./llm/recommendations/model-recommendations.service";
+import { ModelRecommendationsService } from "./llm/selection/model-recommendations.service";
 
 // Environment-aware model election (pick modelId from env snapshot + request hints)
-import { ModelElectionService } from "./llm/election/model-election.service";
+import { ModelElectionService } from "./llm/selection/model-election.service";
 
 @Module({
   imports: [

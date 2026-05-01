@@ -34,13 +34,13 @@ signatory. Reviewers, critics, and judges produce inputs; the leader makes the c
 
 Your independent score, separate from reviewers and critics.
 
-| Score range | Meaning                                                                        |
-| ----------- | ------------------------------------------------------------------------------ |
-| 100         | All criteria `yes`, no degraded dims, every qualityBar metric clears its bar   |
-| 80–95       | Most criteria `yes`, occasional `partial`, qualityBar overall clears           |
-| 60–80       | Half-and-half, multiple `partial`, occasional qualityBar miss                  |
-| 30–60       | Mostly `partial`/`no`, multiple qualityBar misses                              |
-| 0–30        | Mostly `no`, severe qualityBar misses                                          |
+| Score range | Meaning                                                                      |
+| ----------- | ---------------------------------------------------------------------------- |
+| 100         | All criteria `yes`, no degraded dims, every qualityBar metric clears its bar |
+| 80–95       | Most criteria `yes`, occasional `partial`, qualityBar overall clears         |
+| 60–80       | Half-and-half, multiple `partial`, occasional qualityBar miss                |
+| 30–60       | Mostly `partial`/`no`, multiple qualityBar misses                            |
+| 0–30        | Mostly `no`, severe qualityBar misses                                        |
 
 ### 2. `leaderVerdict`
 

@@ -27,7 +27,7 @@ import {
 } from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
 import { AgentFactory } from "./kernel/core/agent-factory";
-import { ModelElectionService } from "../ai-engine/llm/election";
+import { ModelElectionService } from "../ai-engine/llm/selection";
 import { SpecAgentRegistry } from "./kernel/core/spec-agent-registry";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
@@ -49,7 +49,7 @@ import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
 import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
 import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
 import { MemoryBridge } from "./memory/auto-index/memory-bridge.service";
-import { BuiltInReActSkillRegistry, SkillLoader, SkillActivator } from "./kernel/skills";
+import { BuiltInReActSkillRegistry, SkillLoader, SkillActivator } from "./kernel/builtin-skills";
 import { SKILL_PROVIDERS } from "./kernel/abstractions";
 import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider";
 import { AiEngineSkillsModule } from "../ai-engine/ai-engine-skills.module";

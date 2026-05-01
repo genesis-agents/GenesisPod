@@ -13,7 +13,7 @@
 export * from "../kernel/abstractions";
 export { AgentFactory } from "../kernel/core/agent-factory";
 export { SpecAgentRegistry } from "../kernel/core/spec-agent-registry";
-export { BuiltInReActSkillRegistry } from "../kernel/skills/skill-registry";
+export { BuiltInReActSkillRegistry } from "../kernel/builtin-skills/skill-registry";
 export {
   AgentRunner,
   AgentSpec,
@@ -735,8 +735,8 @@ export type {
 
 // Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
 export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
-export { ModelFallbackService } from "../../ai-engine/llm/model-fallback/model-fallback.service";
-export type { ModelFallbackOptions } from "../../ai-engine/llm/model-fallback/model-fallback.service";
+export { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
+export type { ModelFallbackOptions } from "../../ai-engine/llm/selection/model-fallback.service";
 export type { AIModelConfig } from "../../ai-engine/llm/services/ai-model-config.service";
 
 // Engine content/fetch helpers used by ai-app/social

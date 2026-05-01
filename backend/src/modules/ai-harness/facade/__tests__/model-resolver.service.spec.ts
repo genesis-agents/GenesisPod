@@ -16,7 +16,7 @@ import { AIModelType } from "@prisma/client";
 import { ModelResolverService } from "../model-resolver.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
-import { ModelFallbackService } from "../../../ai-engine/llm/model-fallback/model-fallback.service";
+import { ModelFallbackService } from "../../../ai-engine/llm/selection/model-fallback.service";
 import { ORCHESTRATION_FEATURE } from "../facade.providers";
 
 describe("ModelResolverService", () => {

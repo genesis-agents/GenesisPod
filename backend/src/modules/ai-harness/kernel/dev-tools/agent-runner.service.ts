@@ -25,7 +25,7 @@ import type {
   IRuntimeEnvironment,
 } from "../../kernel/abstractions";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
-import { BuiltInReActSkillRegistry } from "../../kernel/skills";
+import { BuiltInReActSkillRegistry } from "../../kernel/builtin-skills";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import {
   readDefineAgentMeta,

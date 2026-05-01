@@ -8,7 +8,7 @@ import { Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import type { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
-import type { ModelFallbackService } from "../../../ai-engine/llm/model-fallback/model-fallback.service";
+import type { ModelFallbackService } from "../../../ai-engine/llm/selection/model-fallback.service";
 import type { OrchestrationFeature } from "../facade.providers";
 import type { ModelResolverService } from "../model-resolver.service";
 import type { ModelInfo, ModelSelectionOptions } from "../types";

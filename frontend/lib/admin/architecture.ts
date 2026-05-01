@@ -438,7 +438,7 @@ const infrastructureLayer: ArchitectureLayer = {
       cards: [
         {
           id: 'users',
-          i18nKey: 'admin.nav.users',
+          i18nKey: 'admin.architecture.cards.infraUsers',
           href: '/admin/access/users',
           icon: Users,
           clickable: true,
@@ -449,7 +449,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'permissions',
-          i18nKey: 'admin.nav.permissions',
+          i18nKey: 'admin.architecture.cards.infraPermissions',
           href: '/admin/access/permissions',
           icon: Shield,
           clickable: true,
@@ -457,7 +457,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'secrets',
-          i18nKey: 'admin.nav.secrets',
+          i18nKey: 'admin.architecture.cards.infraSecrets',
           href: '/admin/access/secrets',
           icon: Key,
           clickable: true,
@@ -471,7 +471,7 @@ const infrastructureLayer: ArchitectureLayer = {
       cards: [
         {
           id: 'credits',
-          i18nKey: 'admin.nav.credits',
+          i18nKey: 'admin.architecture.cards.infraCredits',
           href: '/admin/access/credits',
           icon: Coins,
           clickable: true,
@@ -479,7 +479,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'billing',
-          i18nKey: 'admin.nav.billing',
+          i18nKey: 'admin.architecture.cards.infraBilling',
           href: '/admin/access/billing',
           icon: CreditCard,
           clickable: true,
@@ -487,7 +487,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'notifications',
-          i18nKey: 'admin.nav.notifications',
+          i18nKey: 'admin.architecture.cards.infraNotifications',
           href: '/admin/system/notifications',
           icon: Bell,
           clickable: true,
@@ -501,7 +501,7 @@ const infrastructureLayer: ArchitectureLayer = {
       cards: [
         {
           id: 'storage',
-          i18nKey: 'admin.nav.storage',
+          i18nKey: 'admin.architecture.cards.infraStorage',
           href: '/admin/storage',
           icon: HardDrive,
           clickable: true,
@@ -509,7 +509,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'dataManagement',
-          i18nKey: 'admin.nav.dataManagement',
+          i18nKey: 'admin.architecture.cards.infraDatabase',
           href: '/admin/data-management',
           icon: Layers,
           clickable: true,
@@ -517,7 +517,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'resourceManagement',
-          i18nKey: 'admin.nav.resourceManagement',
+          i18nKey: 'admin.architecture.cards.infraResources',
           href: '/admin/resources',
           icon: Database,
           clickable: true,
@@ -531,7 +531,7 @@ const infrastructureLayer: ArchitectureLayer = {
       cards: [
         {
           id: 'system',
-          i18nKey: 'admin.nav.systemManagement',
+          i18nKey: 'admin.architecture.cards.infraSystem',
           href: '/admin/system',
           icon: Settings,
           clickable: true,
@@ -539,7 +539,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'logs',
-          i18nKey: 'admin.nav.logs',
+          i18nKey: 'admin.architecture.cards.infraLogs',
           href: '/admin/system/logs',
           icon: ScrollText,
           clickable: true,
@@ -547,7 +547,7 @@ const infrastructureLayer: ArchitectureLayer = {
         },
         {
           id: 'monitoring',
-          i18nKey: 'admin.nav.monitoring',
+          i18nKey: 'admin.architecture.cards.infraMonitoring',
           href: '/admin/system/monitoring',
           icon: Activity,
           clickable: true,

@@ -24,7 +24,7 @@ import type {
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
 import type { MemoryBridge } from "../../memory/auto-index/memory-bridge.service";
-import type { SkillActivator } from "../../kernel/skills/skill-activator";
+import type { SkillActivator } from "../../kernel/builtin-skills/skill-activator";
 import type { ISubagentSpawner } from "../../kernel/abstractions";
 import type { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";

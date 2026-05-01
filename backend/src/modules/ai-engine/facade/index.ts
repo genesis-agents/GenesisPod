@@ -173,7 +173,7 @@ export { ContextEvolutionService } from "../knowledge/extraction/context-evoluti
 // AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
-export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
+export { ModelFallbackService } from "../llm/selection/model-fallback.service";
 
 // Content feature types
 export {
@@ -216,7 +216,7 @@ export type { IRAGPipelineService } from "../core/interfaces/rag.interface";
 export { RAG_PIPELINE_SERVICE_TOKEN } from "../core/interfaces/rag.interface";
 
 // LLM model fallback types
-export type { ModelFallbackOptions } from "../llm/model-fallback/model-fallback.service";
+export type { ModelFallbackOptions } from "../llm/selection/model-fallback.service";
 export type { AIModelConfig } from "../llm/services/ai-model-config.service";
 
 // TeamMemberInfo 是 L2.5 ai-harness/execution 类型，2026-05-01 PR-X-M2 下沉为
@@ -315,7 +315,7 @@ export type { ChatMessage } from "../llm/types";
 export { inferIsReasoning, getKnownModelLimit } from "../llm/types/model-utils";
 
 // ★ Model Election
-export { ModelElectionService } from "../llm/election";
+export { ModelElectionService } from "../llm/selection";
 export {
   NoEligibleModelError,
   type ElectionCandidate,
@@ -324,7 +324,7 @@ export {
   type ElectionRoleHint,
   type ElectionScore,
   type ElectionCostBias,
-} from "../llm/election";
+} from "../llm/selection";
 export { SearchService } from "../knowledge/search/search.service";
 export { SkillLoaderService } from "../skills/loader/skill-loader.service";
 export { SkillContentService } from "../skills/content/skill-content.service";

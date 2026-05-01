@@ -31,7 +31,7 @@ import {
   ITool,
 } from "../../../../ai-engine/tools/abstractions/tool.interface";
 import { ToolConcurrencyService } from "../../../../ai-engine/tools/concurrency/tool-concurrency.service";
-import { ModelFallbackService } from "../../../../ai-engine/llm/model-fallback/model-fallback.service";
+import { ModelFallbackService } from "../../../../ai-engine/llm/selection/model-fallback.service";
 import { ContextCompactionPipelineService } from "../../services/context-compaction-pipeline.service";
 import { QueryLoopService } from "../../services/query-loop.service";
 import { ExecutionCheckpointService } from "../../services/execution-checkpoint.service";

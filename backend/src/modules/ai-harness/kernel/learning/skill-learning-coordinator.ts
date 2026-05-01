@@ -23,8 +23,8 @@ import {
   type LearnFromTraceOptions,
   type SkillCandidate,
 } from "./skill-learner";
-import { BuiltInReActSkillRegistry } from "../../kernel/skills/skill-registry";
-import { parseSkillMarkdown, SkillParseError } from "../../kernel/skills/skill-parser";
+import { BuiltInReActSkillRegistry } from "../../kernel/builtin-skills/skill-registry";
+import { parseSkillMarkdown, SkillParseError } from "../../kernel/builtin-skills/skill-parser";
 import { JudgeService } from "../../governance/verify/judge.service";
 import type { BuiltInVerifierId } from "../../governance/verify/judge.service";
 import type { ISkill } from "../../kernel/abstractions";

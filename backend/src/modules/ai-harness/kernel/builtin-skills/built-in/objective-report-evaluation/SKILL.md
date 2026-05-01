@@ -31,28 +31,28 @@ chapter best.
 
 ## The 10 dimensions (fixed weights — do NOT renormalize)
 
-| # | id (canonical)         | Weight | What to score                                                          |
-| - | ---------------------- | ------ | ---------------------------------------------------------------------- |
-| 1 | `factual_accuracy`     | 0.15   | Are claims/data traceable to citations? Are citations accurate?       |
-| 2 | `analytical_depth`     | 0.15   | Causal reasoning + trend judgment, vs. fact restatement only          |
-| 3 | `evidence_coverage`    | 0.10   | High-credibility source diversity                                     |
-| 4 | `information_density`  | 0.10   | Useful info per unit length; redundancy penalty                       |
-| 5 | `logical_consistency`  | 0.10   | Self-consistent narrative; no internal data contradictions            |
-| 6 | `visual_quality`       | 0.10   | Figure source authority, fig-text correspondence, info gain           |
-| 7 | `writing_quality`      | 0.10   | Professional prose, no AI-tells, structured paragraphs                |
-| 8 | `originality`          | 0.05   | Cross-source synthesis, non-obvious insight                           |
-| 9 | `timeliness`           | 0.05   | Latest data and recent sources                                         |
-| 10| `actionability`        | 0.10   | Concrete recommendations, prioritization, risk callouts               |
+| #   | id (canonical)        | Weight | What to score                                                   |
+| --- | --------------------- | ------ | --------------------------------------------------------------- |
+| 1   | `factual_accuracy`    | 0.15   | Are claims/data traceable to citations? Are citations accurate? |
+| 2   | `analytical_depth`    | 0.15   | Causal reasoning + trend judgment, vs. fact restatement only    |
+| 3   | `evidence_coverage`   | 0.10   | High-credibility source diversity                               |
+| 4   | `information_density` | 0.10   | Useful info per unit length; redundancy penalty                 |
+| 5   | `logical_consistency` | 0.10   | Self-consistent narrative; no internal data contradictions      |
+| 6   | `visual_quality`      | 0.10   | Figure source authority, fig-text correspondence, info gain     |
+| 7   | `writing_quality`     | 0.10   | Professional prose, no AI-tells, structured paragraphs          |
+| 8   | `originality`         | 0.05   | Cross-source synthesis, non-obvious insight                     |
+| 9   | `timeliness`          | 0.05   | Latest data and recent sources                                  |
+| 10  | `actionability`       | 0.10   | Concrete recommendations, prioritization, risk callouts         |
 
 `chapterScore = round(Σ dim_i.score × dim_i.weight × 10)` — a 0–100 integer.
 
 ## Score calibration (each dim, 1–10)
 
 - **9–10** Exceptional. Other chapters using the same dim would learn from this.
-- **7–8**  Strong. Meets professional reporting standards on this dim.
-- **5–6**  Adequate. Done but not distinguishing.
-- **3–4**  Weak. Visible deficiency on this dim.
-- **1–2**  Poor / largely absent.
+- **7–8** Strong. Meets professional reporting standards on this dim.
+- **5–6** Adequate. Done but not distinguishing.
+- **3–4** Weak. Visible deficiency on this dim.
+- **1–2** Poor / largely absent.
 
 Calibration anchors:
 
@@ -92,13 +92,13 @@ suggest a fix. For dimensions ≥ 7, a one-line justification is sufficient.
 
 ## Grade thresholds
 
-| Score    | Grade |
-| -------- | ----- |
-| ≥ 90     | A     |
-| 80 – 89  | B     |
-| 70 – 79  | C     |
-| 60 – 69  | D     |
-| < 60     | F     |
+| Score   | Grade |
+| ------- | ----- |
+| ≥ 90    | A     |
+| 80 – 89 | B     |
+| 70 – 79 | C     |
+| 60 – 69 | D     |
+| < 60    | F     |
 
 ## Hard rules
 

@@ -21,7 +21,7 @@ import {
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
-import { ModelFallbackService } from "../../../ai-engine/llm/model-fallback/model-fallback.service";
+import { ModelFallbackService } from "../../../ai-engine/llm/selection/model-fallback.service";
 import { TaskCompletionType } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import {
   CreditsService,

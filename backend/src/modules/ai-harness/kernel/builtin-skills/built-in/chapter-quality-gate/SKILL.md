@@ -69,10 +69,10 @@ These signal stale boilerplate. Replace with content-specific openings.
 
 ## Decision
 
-| Outcome           | Score range | Conditions                            |
-| ----------------- | ----------- | ------------------------------------- |
-| `decision: pass`  | 80–100      | All 6 criteria satisfied              |
-| `decision: revise`| < 70        | Any one criterion fails               |
+| Outcome            | Score range | Conditions               |
+| ------------------ | ----------- | ------------------------ |
+| `decision: pass`   | 80–100      | All 6 criteria satisfied |
+| `decision: revise` | < 70        | Any one criterion fails  |
 
 `critique` (when revising) MUST be **paragraph-anchored**, naming which
 criterion failed where:

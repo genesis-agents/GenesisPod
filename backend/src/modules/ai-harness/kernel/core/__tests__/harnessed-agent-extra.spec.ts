@@ -22,7 +22,7 @@ import type {
   ILoopTerminationCriteria,
   IContextEnvelope,
 } from "../../abstractions";
-import type { SkillActivator } from "../../kernel/skills/skill-activator";
+import type { SkillActivator } from "../../kernel/builtin-skills/skill-activator";
 import type { MemoryBridge } from "../../memory/auto-index/memory-bridge.service";
 import type { AgentRegistry } from "../../process/handoff/agent-registry";
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
