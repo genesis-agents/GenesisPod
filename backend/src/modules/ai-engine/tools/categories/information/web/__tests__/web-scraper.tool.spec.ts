@@ -198,8 +198,8 @@ describe("WebScraperTool", () => {
       expect(result.data?.contentLength).toBe(shortContent.length);
     });
 
-    it("should use default maxLength of 10000 when not specified", async () => {
-      // Content shorter than 10000 chars should not be truncated
+    it("should apply summary-mode 5K cap by default (no maxLength specified)", async () => {
+      // Default extractMode is "summary" → content capped at 5000 chars
       const content = "B".repeat(9999);
       mockSearchService.fetchUrlContent.mockResolvedValue(
         makeFetchSuccess("Page", content),
@@ -210,8 +210,8 @@ describe("WebScraperTool", () => {
         makeContext(),
       );
 
-      expect(result.data?.content).toBe(content);
-      expect(result.data?.contentLength).toBe(9999);
+      expect(result.data?.content).toBe("B".repeat(5000));
+      expect(result.data?.contentLength).toBe(5000);
     });
 
     it("should truncate at exactly maxLength boundary", async () => {
@@ -227,6 +227,135 @@ describe("WebScraperTool", () => {
 
       // Exactly 200 chars: should NOT be truncated
       expect(result.data?.content).toBe(content);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // extractMode — summary / full modes + 8K hard cap
+  // -------------------------------------------------------------------------
+
+  describe("execute() - extractMode", () => {
+    it("should default to summary mode and cap content at 5000 chars", async () => {
+      const content = "X".repeat(10000);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com" },
+        makeContext(),
+      );
+
+      expect(result.data?.success).toBe(true);
+      expect(result.data?.content.length).toBeLessThanOrEqual(5000);
+    });
+
+    it("should cap summary mode output at 5K and NOT append '...' (clean slice)", async () => {
+      const content = "S".repeat(6000);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com", extractMode: "summary" },
+        makeContext(),
+      );
+
+      expect(result.data?.content).toBe("S".repeat(5000));
+      expect(result.data?.contentLength).toBe(5000);
+    });
+
+    it("should not truncate in summary mode when content is already under 5K", async () => {
+      const content = "S".repeat(3000);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com", extractMode: "summary" },
+        makeContext(),
+      );
+
+      expect(result.data?.content).toBe(content);
+      expect(result.data?.truncated).toBe(false);
+    });
+
+    it("should apply 8K hard cap in full mode and set truncated=true", async () => {
+      const content = "F".repeat(10000);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com", extractMode: "full" },
+        makeContext(),
+      );
+
+      expect(result.data?.success).toBe(true);
+      // 8K cap: content slice(0, 8000) + "\n…[truncated]"
+      expect(result.data?.content).toBe("F".repeat(8000) + "\n…[truncated]");
+      expect(result.data?.truncated).toBe(true);
+      expect(result.data?.originalLength).toBe(10000);
+    });
+
+    it("should not truncate in full mode when content is under 8K", async () => {
+      const content = "F".repeat(7000);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com", extractMode: "full" },
+        makeContext(),
+      );
+
+      expect(result.data?.content).toBe(content);
+      expect(result.data?.truncated).toBe(false);
+      expect(result.data?.originalLength).toBe(7000);
+    });
+
+    it("should append '…[truncated]' to content when 8K cap triggers", async () => {
+      const content = "Z".repeat(9000);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com", extractMode: "full" },
+        makeContext(),
+      );
+
+      expect(result.data?.content).toMatch(/…\[truncated\]$/);
+      expect(result.data?.truncated).toBe(true);
+    });
+
+    it("should include originalLength equal to pre-cap length", async () => {
+      const content = "A".repeat(9500);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com", extractMode: "full" },
+        makeContext(),
+      );
+
+      expect(result.data?.originalLength).toBe(9500);
+    });
+
+    it("summary mode: content under 5K should have truncated=false and correct originalLength", async () => {
+      const content = "Y".repeat(4000);
+      mockSearchService.fetchUrlContent.mockResolvedValue(
+        makeFetchSuccess("Title", content),
+      );
+
+      const result = await tool.execute(
+        { url: "https://example.com", extractMode: "summary" },
+        makeContext(),
+      );
+
+      expect(result.data?.truncated).toBe(false);
+      expect(result.data?.originalLength).toBe(4000);
     });
   });
 

@@ -34,6 +34,13 @@ export interface WebScraperInput {
   maxLength?: number;
 
   /**
+   * 抓取模式：
+   * - "summary"（默认）：抽 main content，限首 5K 字，节省 token
+   * - "full"：全文抓取，限 8K 字
+   */
+  extractMode?: "summary" | "full";
+
+  /**
    * 是否抽取页面图片（默认 false 兼容老调用方）
    * 启用后从 html 中扫描 <img>，过滤图标 / pixel / placeholder，
    * 在 output.images 字段返回结构化图片清单（含 alt / figcaption / src）。
@@ -90,6 +97,16 @@ export interface WebScraperOutput {
   success: boolean;
 
   /**
+   * 内容是否被 8K 兜底截断
+   */
+  truncated?: boolean;
+
+  /**
+   * 截断前的原始内容长度（字符数）
+   */
+  originalLength?: number;
+
+  /**
    * 错误信息
    */
   error?: string;
@@ -129,6 +146,13 @@ export class WebScraperTool extends BaseTool<
         description: "最大内容长度（字符数），默认 10000",
         default: 10000,
       },
+      extractMode: {
+        type: "string",
+        enum: ["summary", "full"],
+        default: "summary",
+        description:
+          "summary: 抽 main content + 首 5K 字（默认，节省 token）；full: 全文抓取，限 8K 字",
+      },
       extractImages: {
         type: "boolean",
         description:
@@ -162,6 +186,14 @@ export class WebScraperTool extends BaseTool<
         type: "boolean",
         description: "抓取是否成功",
       },
+      truncated: {
+        type: "boolean",
+        description: "内容是否被 8K 兜底截断",
+      },
+      originalLength: {
+        type: "number",
+        description: "截断前的原始内容长度（字符数）",
+      },
       error: {
         type: "string",
         description: "错误信息（如果失败）",
@@ -189,6 +221,11 @@ export class WebScraperTool extends BaseTool<
     },
   };
 
+  // 默认 summary 模式首段上限（字符数）
+  private static readonly SUMMARY_LIMIT = 5000;
+  // 所有模式的绝对兜底上限（字符数），防止 ToolInvoker 16K 截断
+  private static readonly MAX_OUTPUT = 8000;
+
   constructor(private readonly searchService: SearchService) {
     super();
     // defaultTimeout set in class property // 30 秒超时
@@ -212,7 +249,12 @@ export class WebScraperTool extends BaseTool<
     input: WebScraperInput,
     _context: ToolContext,
   ): Promise<WebScraperOutput> {
-    const { url, maxLength = 10000, extractImages = false } = input;
+    const {
+      url,
+      maxLength,
+      extractImages = false,
+      extractMode = "summary",
+    } = input;
 
     try {
       // 使用 SearchService 的 fetchUrlContent 方法
@@ -234,10 +276,28 @@ export class WebScraperTool extends BaseTool<
         };
       }
 
-      // 截断内容到最大长度
       let content = result.content || "";
-      if (content.length > maxLength) {
+
+      // Step 1: 按 extractMode 施加模式限制
+      // summary 模式：限首 5K 字，节省 LLM token
+      // full 模式：不在此处限制，由 Step 2/3 兜底
+      if (extractMode === "summary") {
+        if (content.length > WebScraperTool.SUMMARY_LIMIT) {
+          content = content.slice(0, WebScraperTool.SUMMARY_LIMIT);
+        }
+      }
+
+      // Step 2: 兼容老调用方传入的 maxLength（显式指定时优先于 extractMode 模式限）
+      if (maxLength !== undefined && content.length > maxLength) {
         content = content.substring(0, maxLength) + "...";
+      }
+
+      // Step 3: 8K 绝对兜底——防止 ToolInvoker truncatePayload 16K 截断造成 JSON 损坏
+      const originalLength = content.length;
+      const truncated = content.length > WebScraperTool.MAX_OUTPUT;
+      if (truncated) {
+        content =
+          content.slice(0, WebScraperTool.MAX_OUTPUT) + "\n…[truncated]";
       }
 
       const images =
@@ -252,6 +312,8 @@ export class WebScraperTool extends BaseTool<
         url,
         contentLength: content.length,
         success: true,
+        truncated,
+        originalLength,
         ...(images ? { images } : {}),
       };
     } catch (error) {
