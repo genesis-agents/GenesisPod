@@ -9296,8 +9296,20 @@ model AgentPlaygroundMission {
   /// Leader 对话历史（点击 Leader 节点弹出聊天框）
   leaderChats AgentPlaygroundLeaderChat[]
 
+  /// ★ PR-H v1 (2026-05-01): pod-aware mission lifecycle —— pod 重启检测 + 后续 resume 接续
+  /// lastCompletedStage: 0~12（S0~S12）；null = 还没完成 S1
+  ///   单调递增；用于 Pod 重启后判断从哪个 stage 续跑
+  lastCompletedStage Int?      @map("last_completed_stage")
+  /// 当前承载该 mission 的 pod ID（process.env.RAILWAY_REPLICA_ID || hostname）
+  ///   pod 重启后 podId 变化 + heartbeatAt 不再刷新 → recovery 服务标记 failed
+  podId              String?   @map("pod_id") @db.VarChar(120)
+  /// 心跳时间 —— runMission 主循环每 30s 刷新一次到 DB
+  ///   stale 90s + status=running → pod recycled → 标记 failed
+  heartbeatAt        DateTime? @map("heartbeat_at")
+
   @@index([userId, startedAt(sort: Desc)])
   @@index([status])
+  @@index([status, heartbeatAt]) // PR-H: pod recovery 扫描
   @@map("agent_playground_missions")
 }
 

@@ -341,6 +341,19 @@ export class TeamMission {
       } as Record<string, unknown>,
     });
 
+    // ★ PR-H v1 (2026-05-01): pod-aware heartbeat
+    //   每 30s 刷新 DB heartbeatAt + podId。pod 死后心跳停 → recoverPodCrashedRunning
+    //   扫到 stale 90s + status=running → markFailed，UI 看到明确失败状态。
+    //   PR-H v2 将基于 heartbeat + lastCompletedStage 实现 resume from checkpoint。
+    const podId =
+      process.env.RAILWAY_REPLICA_ID ??
+      process.env.HOSTNAME ??
+      `local-${process.pid}`;
+    void this.store.refreshHeartbeat(missionId, podId);
+    const heartbeatTimer = setInterval(() => {
+      void this.store.refreshHeartbeat(missionId, podId);
+    }, 30_000);
+
     // ★ 必须同时 wrap withUserContext —— BillingContext 不会自动让 RequestContext.getUserId() 看到 userId，
     //   reflexion / verifier 等异步内部调用 AiChatService 需要 RequestContext 拿 BYOK userId。
     return withUserContext(userId, () =>
@@ -393,6 +406,8 @@ export class TeamMission {
             );
             // ★ Phase 5 (2026-04-29): persist 成功后清理 checkpoint，避免被 listResumable 误识别
             await this.missionCheckpoint.clear(missionId);
+            // ★ PR-H v1: S11 完成 = mission terminal 之前最后状态点
+            await this.store.markStageComplete(missionId, 11);
             // ── Stage 100: S12 self-evolution（best-effort，不阻塞返回）──
             //   异步执行，让用户立即拿到 result；evolved 事件后续 emit 给前端
             //   ★ P1-NEW-A (round 2): 把 abortSignal 传进 S12，让 wallTimer 触发 / 用户取消
@@ -423,6 +438,7 @@ export class TeamMission {
             ).catch(() => {});
             void s12Promise.finally(() => {
               clearTimeout(wallTimer);
+              clearInterval(heartbeatTimer);
               this.abortRegistry.unregister(missionId);
             });
             return result;
@@ -452,6 +468,7 @@ export class TeamMission {
               // wallTimer）emit；DB markCancelled 也已在那里执行。这里**不**重复
               // emit mission:failed，避免 schema_mismatch 这种派生错误盖住真因。
               clearTimeout(wallTimer);
+              clearInterval(heartbeatTimer);
               this.abortRegistry.unregister(missionId);
               throw err;
             }
@@ -527,6 +544,7 @@ export class TeamMission {
               leaderVerdict: partial.leaderSignOff?.leaderVerdict,
             });
             clearTimeout(wallTimer);
+            clearInterval(heartbeatTimer);
             this.abortRegistry.unregister(missionId);
             throw err;
           }
@@ -606,6 +624,8 @@ export class TeamMission {
           this.buildStageDeps(),
           workspaceId,
         );
+        // ★ PR-H v1: stage 1 完成
+        await this.store.markStageComplete(missionId, 1);
 
         // ── Stage S2: Leader plans the mission（已抽到 stages/s2-leader-plan-mission.stage.ts）──
         // Leader 全程在场 —— 创建 SupervisedMission，整 mission 复用
@@ -634,6 +654,7 @@ export class TeamMission {
         });
         await runLeaderPlanStage(m0Ctx, this.buildStageDeps());
         const plan = m0Ctx.plan!;
+        await this.store.markStageComplete(missionId, 2);
         // ★ Phase 5 (2026-04-29): 关键 stage 完成后保存 checkpoint
         await this.missionCheckpoint.save(
           missionId,
@@ -657,6 +678,7 @@ export class TeamMission {
         checkAbort("s3-researchers");
         await runResearcherDispatchStage(s3Ctx, this.buildStageDeps());
         const researcherResults = s3Ctx.researcherResults!;
+        await this.store.markStageComplete(missionId, 3);
         // ★ Phase 5: 最重 stage 完成后保存 checkpoint（researcher 数据是 mission 价值核心）
         await this.missionCheckpoint.save(
           missionId,
@@ -685,6 +707,7 @@ export class TeamMission {
           sharedState,
         });
         await runLeaderAssessResearchStage(s4Ctx, this.buildStageDeps());
+        await this.store.markStageComplete(missionId, 4);
         // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 写到本 ctx 的 s4PatchFailures
         //   要回写到 mission-level sharedState，让下游 S10 读到
         if (s4Ctx.s4PatchFailures && s4Ctx.s4PatchFailures.length > 0) {
@@ -708,6 +731,7 @@ export class TeamMission {
         await runReconcilerStage(reconCtx, this.buildStageDeps());
         const reconciliationReport = reconCtx.reconciliationReport;
         if (partial) partial.reconciliationReport = reconciliationReport;
+        await this.store.markStageComplete(missionId, 5);
 
         checkAbort("s6-analyst");
         // ── Stage 3: Analyst 反思整合（已抽到 stages/s6-analyst-synthesize-insights.stage.ts）──
@@ -727,6 +751,7 @@ export class TeamMission {
           }),
           this.buildStageDeps(),
         );
+        await this.store.markStageComplete(missionId, 6);
 
         // Stage S7: Writer plans mission outline（已抽到 stages/s7-writer-plan-outline.stage.ts）
         checkAbort("s7-writer-outline");
@@ -746,6 +771,7 @@ export class TeamMission {
           }),
           this.buildStageDeps(),
         );
+        await this.store.markStageComplete(missionId, 7);
 
         // ── Stage S8: Writer + L3 reviewer + memory + assemble（已抽到 stages/s8-writer-draft-report.stage.ts）──
         const s8Ctx = this.buildStageCtx({
@@ -817,6 +843,7 @@ export class TeamMission {
           ],
           "running",
         );
+        await this.store.markStageComplete(missionId, 8);
 
         // ── Stage S8B: Section quality enhancement (沉淀消费 v3, 2026-04-29)
         //    4 维写中自评 + 弱维度合并补救 + 强制重评（auditLayers !== "minimal" 时启用）
@@ -838,6 +865,8 @@ export class TeamMission {
           verifierVerdicts,
         });
         await runSectionQualityEnhancementStage(s8bCtx, this.buildStageDeps());
+        // S8B uses 8.5 to keep monotonic ordering with S8 / S9
+        await this.store.markStageComplete(missionId, 8);
 
         // ── Stage S9: Reviewer L4 critic（已抽到 stages/s9-reviewer-critic-l4.stage.ts）
         await runCriticStage(
@@ -860,6 +889,7 @@ export class TeamMission {
           }),
           this.buildStageDeps(),
         );
+        await this.store.markStageComplete(missionId, 9);
 
         // ── Stage S9B: 10 维客观评审 (沉淀消费 v3, 2026-04-29)
         //    EVALUATOR 模型独立打分，给 leader signoff 提供客观证据
@@ -881,6 +911,8 @@ export class TeamMission {
           verifierVerdicts,
         });
         await runReportObjectiveEvaluationStage(s9bCtx, this.buildStageDeps());
+        // S9B uses 9 to keep monotonic ordering
+        await this.store.markStageComplete(missionId, 9);
 
         // ── Stage S10: Leader foreword + signoff
         // services/mission/workflow/stages/s10-leader-foreword-and-signoff.stage.ts
@@ -908,6 +940,7 @@ export class TeamMission {
         await runLeaderForewordAndSignoffStage(stageCtx, stageDeps);
         const leaderSignOff = stageCtx.leaderSignOff;
         if (partial && leaderSignOff) partial.leaderSignOff = leaderSignOff;
+        await this.store.markStageComplete(missionId, 10);
 
         // ★ Phase 6 (2026-04-29): 拒签 revision 推荐事件 —— 给前端展示"立即修订重跑"按钮
         // 不在主流程自动重跑（避免无限循环 + mission 资源失控），而是让前端用户决定

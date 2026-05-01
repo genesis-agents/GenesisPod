@@ -124,6 +124,14 @@ export class AgentPlaygroundModule implements OnModuleInit {
     //    wall-time 可达 150min (resolveMissionWallTimeMs)。原 30min 触发 mission
     //    在 55min 处被误标 orphan。改 240min（覆盖 3h hard cap + 1h buffer）。
     void this.store.recoverOrphanedRunning(240);
+    // 3a. ★ PR-H v1 (2026-05-01): heartbeat-driven pod recovery
+    //    新版 runMission 每 30s 刷 DB heartbeatAt。pod 死后 90s 仍是 status=running
+    //    且 heartbeatAt < now-90s → 立即 markFailed（替代 240min 长等待）。
+    //    模块启动时扫一次（清理上一波死掉的 mission），之后每 60s 扫一次。
+    void this.store.recoverPodCrashedRunning(90);
+    setInterval(() => {
+      void this.store.recoverPodCrashedRunning(90);
+    }, 60_000);
     // 4. ★ Phase 9 (2026-04-30): 注册 orphan detector callbacks —— 跨 pod 接管基于 heartbeat 的快速检测
     this.orphanDetector.registerCallbacks({
       fetchRunningMissions: () =>

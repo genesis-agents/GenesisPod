@@ -193,6 +193,10 @@ function buildTeamMission() {
     create: jest.fn().mockResolvedValue(undefined),
     markFailed: jest.fn().mockResolvedValue(undefined),
     markCompleted: jest.fn().mockResolvedValue(undefined),
+    // ★ PR-H v1: heartbeat + stage progress tracking
+    refreshHeartbeat: jest.fn().mockResolvedValue(undefined),
+    markStageComplete: jest.fn().mockResolvedValue(undefined),
+    recoverPodCrashedRunning: jest.fn().mockResolvedValue(0),
   };
 
   const mockLeaderService = {

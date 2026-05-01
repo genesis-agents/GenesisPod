@@ -489,4 +489,124 @@ describe("MissionStore", () => {
     expect(call.data.status).toBe("quality-failed");
     expect(call.data.reportFull).toBeDefined();
   });
+
+  // ─────────────────────────────────────────────
+  // PR-H v1: heartbeat + stage progress + pod recovery
+  // ─────────────────────────────────────────────
+
+  describe("PR-H v1 heartbeat lifecycle", () => {
+    it("refreshHeartbeat: updates heartbeatAt and podId", async () => {
+      await store.refreshHeartbeat("m1", "pod-abc");
+      expect(prisma.agentPlaygroundMission.update).toHaveBeenCalledWith({
+        where: { id: "m1" },
+        data: expect.objectContaining({
+          heartbeatAt: expect.any(Date),
+          podId: "pod-abc",
+        }),
+      });
+    });
+
+    it("refreshHeartbeat: silently swallows DB errors (debug log only)", async () => {
+      prisma.agentPlaygroundMission.update.mockRejectedValueOnce(
+        new Error("DB down"),
+      );
+      await expect(
+        store.refreshHeartbeat("m1", "pod-abc"),
+      ).resolves.toBeUndefined();
+    });
+
+    it("markStageComplete: writes lastCompletedStage + heartbeat refresh", async () => {
+      await store.markStageComplete("m1", 7);
+      const call = prisma.agentPlaygroundMission.update.mock.calls[0][0];
+      expect(call.where).toEqual({ id: "m1" });
+      expect(call.data.lastCompletedStage).toBe(7);
+      expect(call.data.heartbeatAt).toBeInstanceOf(Date);
+    });
+
+    it("markStageComplete: silently swallows DB errors", async () => {
+      prisma.agentPlaygroundMission.update.mockRejectedValueOnce(
+        new Error("conflict"),
+      );
+      await expect(store.markStageComplete("m1", 3)).resolves.toBeUndefined();
+    });
+
+    it("recoverPodCrashedRunning: returns 0 when no orphans", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([]);
+      const n = await store.recoverPodCrashedRunning(90);
+      expect(n).toBe(0);
+      expect(prisma.agentPlaygroundMission.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("recoverPodCrashedRunning: marks orphans failed with PR-H error message", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        {
+          id: "m1",
+          heartbeatAt: new Date(Date.now() - 200_000),
+          startedAt: new Date(Date.now() - 600_000),
+          podId: "old-pod",
+        },
+      ]);
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      const n = await store.recoverPodCrashedRunning(90);
+      expect(n).toBe(1);
+      const call = prisma.agentPlaygroundMission.updateMany.mock.calls[0][0];
+      expect(call.where.id).toEqual({ in: ["m1"] });
+      expect(call.where.status).toBe("running");
+      expect(call.data.status).toBe("failed");
+      expect(call.data.errorMessage).toContain("pod 重启");
+    });
+
+    it("recoverPodCrashedRunning: filters by stale threshold (heartbeatAt < cutoff)", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([]);
+      await store.recoverPodCrashedRunning(60);
+      const findCall = prisma.agentPlaygroundMission.findMany.mock.calls[0][0];
+      expect(findCall.where.status).toBe("running");
+      expect(findCall.where.heartbeatAt.lt).toBeInstanceOf(Date);
+      // cutoff should be ~60s ago
+      const cutoffMs = (findCall.where.heartbeatAt.lt as Date).getTime();
+      const expected = Date.now() - 60_000;
+      expect(Math.abs(cutoffMs - expected)).toBeLessThan(2000);
+    });
+
+    it("recoverPodCrashedRunning: clears checkpoint JSONB key for each orphan", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        {
+          id: "m1",
+          heartbeatAt: new Date(Date.now() - 200_000),
+          startedAt: new Date(),
+          podId: null,
+        },
+        {
+          id: "m2",
+          heartbeatAt: new Date(Date.now() - 200_000),
+          startedAt: new Date(),
+          podId: null,
+        },
+      ]);
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 2,
+      });
+      await store.recoverPodCrashedRunning(90);
+      // 2 orphans → 2 $executeRaw calls (one per checkpoint clear)
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+    });
+
+    it("recoverPodCrashedRunning: swallows updateMany errors and returns 0", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        {
+          id: "m1",
+          heartbeatAt: new Date(Date.now() - 200_000),
+          startedAt: new Date(),
+          podId: null,
+        },
+      ]);
+      prisma.agentPlaygroundMission.updateMany.mockRejectedValueOnce(
+        new Error("DB conflict"),
+      );
+      const n = await store.recoverPodCrashedRunning(90);
+      expect(n).toBe(0);
+    });
+  });
 });

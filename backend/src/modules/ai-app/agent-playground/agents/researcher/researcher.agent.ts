@@ -110,6 +110,13 @@ const Output = z.object({
   // category 下所有 enabled 工具。Leader 给 dim 提供 toolHint 时进一步收窄。
   // 工具 CRUD 自动跟进，无需改 spec。
   toolCategories: ["information"],
+  // ★ rag-search 必入白名单（2026-05-01 fix）：
+  //   performToolRecall Step 2 路径 B 用 tool.tags 做 sub-category 匹配，
+  //   Leader hint.categories 给 ['academic'/'community'/...] 时 rag-search 的
+  //   tags=['knowledge','rag','vector','internal','embedding'] 不交集 → 被排除。
+  //   显式列在 tools 里，Step 2 路径 B 的 `for (const id of declaredIds) refined.add(id)`
+  //   会保底加回，hint 收窄不会再踢它。
+  tools: ["rag-search"],
   // PR-X-skill-bridge: dimension-research 协议 + web-research 工具使用规范
   skills: ["dimension-research", "web-research"],
   taskProfile: {
