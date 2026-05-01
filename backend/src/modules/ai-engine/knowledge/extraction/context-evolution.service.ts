@@ -16,8 +16,8 @@ import {
   DEFAULT_CONTEXT_EVOLUTION_CONFIG,
   FACT_CATEGORIES,
   FACT_IMPORTANCE_LEVELS,
-  AiCallerFn,
-} from "../../../ai-harness/execution/executor/interfaces";
+} from "./context-evolution.types";
+import type { AiCallerFn } from "../../llm/types/ai-caller.types";
 
 @Injectable()
 export class ContextEvolutionService implements IContextEvolutionService {

@@ -23,8 +23,8 @@ import {
   HardConstraint,
   CoreEntity,
   WorldBuildingResult,
-  AiCallerFn,
-} from "../../../ai-harness/execution/executor/interfaces";
+} from "./world-building.types";
+import type { AiCallerFn } from "../../llm/types/ai-caller.types";
 
 @Injectable()
 export class ContextInitializationService implements IContextInitializationService {

@@ -26,7 +26,7 @@ import {
   CompressionResult,
   CompressionOptions,
   IContextCompressionService,
-} from "../../../ai-harness/execution/executor/interfaces";
+} from "./context-compression.types";
 import { AIModelType } from "@prisma/client";
 
 @Injectable()

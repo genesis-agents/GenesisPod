@@ -7,7 +7,6 @@
 
 // ==================== 通用类型 ====================
 
-import { AIModelType } from "@prisma/client";
 import { TaskProfile } from "../../../ai-engine/llm/types";
 
 // 2026-05-01 (PR-X-M2): AiCallerFn 已搬到 ai-engine/llm/types/ai-caller.types.ts
@@ -454,287 +453,42 @@ export interface ResearchContext {
 }
 
 // ==================== 上下文演进服务接口 ====================
+// 2026-05-01 (PR-X-M3): 全部类型已搬到 ai-engine/knowledge/extraction/
+// context-evolution.types.ts。此处 re-export 保 ai-harness 内部既有 import 路径稳定。
+export {
+  DEFAULT_CONTEXT_EVOLUTION_CONFIG,
+  FACT_CATEGORIES,
+  FACT_IMPORTANCE_LEVELS,
+} from "../../../ai-engine/knowledge/extraction/context-evolution.types";
+export type {
+  ContextEvolutionConfig,
+  EstablishedFact,
+  ContextState,
+  FactExtractionRequest,
+  FactExtractionResult,
+  IContextEvolutionService,
+} from "../../../ai-engine/knowledge/extraction/context-evolution.types";
 
-/**
- * 上下文演进配置
- */
-export interface ContextEvolutionConfig {
-  /** 最小输出长度（低于此值跳过提取） */
-  minOutputLength: number;
-  /** 提取时的最大输出长度（截断） */
-  maxOutputForExtraction: number;
-  /** 事实总数上限 */
-  maxFactsCount: number;
-  /** 中等重要性事实显示数量上限 */
-  maxMediumFactsDisplay: number;
-  /** 最小事实陈述长度 */
-  minFactStatementLength: number;
-  /** 是否启用异步提取 */
-  asyncExtraction: boolean;
-  /** 用于事实提取的模型 */
-  extractionModel: string;
-}
-
-/**
- * 默认上下文演进配置
- */
-export const DEFAULT_CONTEXT_EVOLUTION_CONFIG: ContextEvolutionConfig = {
-  minOutputLength: 200,
-  maxOutputForExtraction: 6000,
-  maxFactsCount: 100,
-  maxMediumFactsDisplay: 10,
-  minFactStatementLength: 5,
-  asyncExtraction: false,
-  extractionModel: AIModelType.CHAT_FAST,
-};
-
-/**
- * 已确立的事实 - 在任务执行过程中被确定下来的信息
- *
- * 通用设计：适用于任何类型的任务
- * - 小说：人物出场、情节发展、时间线推进
- * - 技术文档：API定义、术语确定、架构决策
- * - 研究报告：数据来源、结论推导、论点演进
- */
-export interface EstablishedFact {
-  /** 唯一ID */
-  id: string;
-  /** 来源任务ID */
-  sourceTaskId: string;
-  /** 来源任务标题 */
-  sourceTaskTitle: string;
-  /** 确立时间 */
-  establishedAt: string;
-  /** 事实陈述 */
-  statement: string;
-  /**
-   * 事实类别（领域无关）
-   * - entity_state: 实体状态变化（人物状态、系统状态等）
-   * - sequence_point: 序列点（时间线、版本、阶段）
-   * - decision: 决策（架构选择、情节走向）
-   * - definition: 定义确定（术语、概念、规格）
-   * - relationship: 关系建立（人物关系、组件依赖）
-   * - constraint_added: 新增约束
-   */
-  category:
-    | "entity_state"
-    | "sequence_point"
-    | "decision"
-    | "definition"
-    | "relationship"
-    | "constraint_added";
-  /** 相关实体名称 */
-  relatedEntities?: string[];
-  /** 重要程度: high=必须遵守, medium=应该遵守, low=参考信息 */
-  importance: "high" | "medium" | "low";
-}
-
-/**
- * 事实类别常量
- */
-export const FACT_CATEGORIES = [
-  "entity_state",
-  "sequence_point",
-  "decision",
-  "definition",
-  "relationship",
-  "constraint_added",
-] as const;
-
-/**
- * 事实重要程度常量
- */
-export const FACT_IMPORTANCE_LEVELS = ["high", "medium", "low"] as const;
-
-/**
- * 上下文状态（通用结构，适用于任何任务类型）
- */
-export interface ContextState {
-  /** 版本号 */
-  version: string;
-  /** 生成时间 */
-  generatedAt: string;
-  /** 生成者（Leader ID） */
-  generatedBy: string;
-  /** 已确立的事实 */
-  establishedFacts: EstablishedFact[];
-}
-
-/**
- * 事实提取请求
- */
-export interface FactExtractionRequest {
-  /** 任务ID */
-  taskId: string;
-  /** 任务标题 */
-  taskTitle: string;
-  /** 任务输出内容 */
-  taskOutput: string;
-  /** 现有的已确立事实（避免重复） */
-  existingFacts?: EstablishedFact[];
-  /** 现有的实体名称（避免重复） */
-  existingEntities?: string[];
-}
-
-/**
- * 事实提取结果
- */
-export interface FactExtractionResult {
-  /** 提取出的新事实 */
-  facts: EstablishedFact[];
-  /** Token 使用量 */
-  tokensUsed: number;
-}
-
-/**
- * 上下文演进服务接口
- */
-export interface IContextEvolutionService {
-  /**
-   * 从任务输出中提取已确立的事实
-   * @param request 提取请求
-   * @param aiCaller AI 调用函数（注入上层执行上下文）
-   * @param config 可选配置
-   */
-  extractFacts(
-    request: FactExtractionRequest,
-    aiCaller: AiCallerFn,
-    config?: Partial<ContextEvolutionConfig>,
-  ): Promise<FactExtractionResult>;
-
-  /**
-   * 合并新事实到现有上下文
-   * @param existingFacts 现有事实
-   * @param newFacts 新事实
-   * @param config 可选配置（用于限制总数）
-   */
-  mergeFacts(
-    existingFacts: EstablishedFact[],
-    newFacts: EstablishedFact[],
-    config?: Partial<ContextEvolutionConfig>,
-  ): EstablishedFact[];
-
-  /**
-   * 构建已确立事实的提示词片段（用于审核）
-   * @param facts 事实列表
-   * @param config 可选配置
-   */
-  buildFactsPromptSection(
-    facts: EstablishedFact[],
-    config?: Partial<ContextEvolutionConfig>,
-  ): string;
-}
+// （上述类型已全部 re-export 自 ai-engine/knowledge/extraction/context-evolution.types）
 
 // ==================== 上下文初始化服务接口（世界观设定） ====================
-
-/**
- * 世界观设定 - 时代背景
- */
-export interface WorldSettingsEra {
-  /** 时期（如：明朝天启年间） */
-  period: string;
-  /** 具体年份（可选，如：天启六年） */
-  year?: string;
-  /** 时代特征描述 */
-  description: string;
-}
-
-/**
- * 世界观设定 - 人物
- */
-export interface WorldSettingsCharacter {
-  /** 人物名 */
-  name: string;
-  /** 角色定位（如：女主、男主、反派） */
-  role: string;
-  /** 身份（如：宫女、太子、大太监） */
-  identity: string;
-  /** 性格特征 */
-  traits: string[];
-  /** 特殊约束（如：不能说话、左手有胎记） */
-  constraints: string[];
-}
-
-/**
- * 世界观设定 - 阵营
- */
-export interface WorldSettingsFaction {
-  /** 阵营名 */
-  name: string;
-  /** 阵营描述 */
-  description: string;
-  /** 核心成员 */
-  keyMembers: string[];
-}
-
-/**
- * 世界观设定（完整结构）
- */
-export interface WorldSettings {
-  /** 时代背景 */
-  era: WorldSettingsEra;
-  /** 核心人物 */
-  characters: WorldSettingsCharacter[];
-  /** 阵营/组织 */
-  factions: WorldSettingsFaction[];
-  /** 核心规则/设定 */
-  coreRules: string[];
-  /** 禁止事项 */
-  prohibitions: string[];
-}
-
-/**
- * 内容类型
- */
-export type ContentType = "novel" | "document" | "research" | "other";
-
-/**
- * 硬性约束（与 AI Teams 兼容）
- */
-export interface HardConstraint {
-  /** 约束ID */
-  id: string;
-  /** 约束规则 */
-  rule: string;
-  /** 原因 */
-  reason?: string;
-  /** 严重程度 */
-  severity: "MUST" | "SHOULD";
-}
-
-/**
- * 核心实体（与 AI Teams 兼容）
- */
-export interface CoreEntity {
-  /** 实体名称 */
-  name: string;
-  /** 类型：人物/概念/术语/指标/组织/地点/... */
-  type: string;
-  /** 定义说明 */
-  definition: string;
-  /** 附加属性 */
-  attributes?: Record<string, string>;
-}
-
-/**
- * 世界观构建结果
- */
-export interface WorldBuildingResult {
-  /** 是否需要世界观设定 */
-  needed: boolean;
-  /** 检测到的内容类型 */
-  contentType: ContentType;
-  /** 生成的世界观设定 */
-  settings?: WorldSettings;
-  /** 转换后的硬性约束 */
-  hardConstraints?: HardConstraint[];
-  /** 转换后的核心实体 */
-  entities?: CoreEntity[];
-  /** 消耗的 tokens */
-  tokensUsed: number;
-}
+// 2026-05-01 (PR-X-M3): 全部类型已搬到 ai-engine/knowledge/world-building/
+// world-building.types.ts。此处 re-export 保 ai-harness 内部既有 import 路径稳定。
+export type {
+  WorldSettingsEra,
+  WorldSettingsCharacter,
+  WorldSettingsFaction,
+  WorldSettings,
+  ContentType,
+  HardConstraint,
+  CoreEntity,
+  WorldBuildingResult,
+  IContextInitializationService,
+} from "../../../ai-engine/knowledge/world-building/world-building.types";
 
 // ==================== 约束强制服务接口 ====================
+// IConstraintEnforcementService 引用 HardConstraint，需 type-only 引入便于本地用
+import type { HardConstraint } from "../../../ai-engine/knowledge/world-building/world-building.types";
 
 /**
  * 约束类型
@@ -809,130 +563,18 @@ export interface IConstraintEnforcementService {
   toHardConstraints(constraints: ExtractedConstraint[]): HardConstraint[];
 }
 
-/**
- * 上下文初始化服务接口（世界观设定）
- */
-export interface IContextInitializationService {
-  /**
-   * 检测任务内容类型
-   */
-  detectContentType(
-    title: string,
-    description: string,
-  ): { needed: boolean; contentType: ContentType };
-
-  /**
-   * 生成世界观设定
-   */
-  generateWorldSettings(
-    title: string,
-    description: string,
-    contentType: ContentType,
-    aiCaller: AiCallerFn,
-    aiModel: string,
-  ): Promise<{ settings: WorldSettings; tokensUsed: number }>;
-
-  /**
-   * 将世界观设定转换为硬性约束
-   */
-  settingsToConstraints(settings: WorldSettings): HardConstraint[];
-
-  /**
-   * 将世界观设定转换为核心实体
-   */
-  settingsToEntities(settings: WorldSettings): CoreEntity[];
-
-  /**
-   * 完整的世界观构建流程
-   */
-  buildWorldContext(
-    title: string,
-    description: string,
-    aiCaller: AiCallerFn,
-    aiModel: string,
-  ): Promise<WorldBuildingResult>;
-}
+// IContextInitializationService 已 re-export 自 ai-engine/knowledge/world-building（上方）
 
 // ==================== 上下文压缩服务接口 ====================
-
-/**
- * 数据块
- */
-export interface DataChunk {
-  id: string;
-  content: string;
-  index: number;
-  source: string;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * 摘要块
- */
-export interface SummaryChunk {
-  chunkId: string;
-  summary: string;
-  keyPoints: string[];
-  sourceChunks: string[];
-  embedding?: number[];
-  wordCount: number;
-}
-
-/**
- * 压缩结果
- */
-export interface CompressionResult {
-  compressedContext: string;
-  globalSummary: string;
-  chunkSummaries: SummaryChunk[];
-  stats: {
-    originalLength: number;
-    compressedLength: number;
-    compressionRatio: number;
-    chunkCount: number;
-    processingTimeMs: number;
-  };
-  integrityCheck: {
-    allChunksProcessed: boolean;
-    coveragePercentage: number;
-    missingChunks: string[];
-  };
-}
-
-/**
- * 压缩选项
- */
-export interface CompressionOptions {
-  targetSize?: number;
-  chunkSize?: number;
-  generateEmbeddings?: boolean;
-  summaryStyle?: "brief" | "detailed" | "analytical";
-  model?: string;
-  modelType?: AIModelType;
-  concurrency?: number;
-}
-
-/**
- * 上下文压缩服务接口
- */
-export interface IContextCompressionService {
-  /**
-   * 压缩大上下文
-   */
-  compress(
-    content: string,
-    options?: CompressionOptions,
-  ): Promise<CompressionResult>;
-
-  /**
-   * 基于查询检索相关上下文
-   */
-  retrieveRelevantContext(
-    query: string,
-    summaries: SummaryChunk[],
-    topK?: number,
-  ): Promise<string[]>;
-}
+// 2026-05-01 (PR-X-M3): 全部类型已搬到 ai-engine/llm/context/context-compression.types.ts。
+// 此处 re-export 保 ai-harness 内部既有 import 路径稳定。
+export type {
+  DataChunk,
+  SummaryChunk,
+  CompressionResult,
+  CompressionOptions,
+  IContextCompressionService,
+} from "../../../ai-engine/llm/context/context-compression.types";
 
 // ==================== 意图检测服务接口 ====================
 // 2026-05-01 (PR-X-M): 5 个意图检测类型已搬到 ai-engine/llm/intent/intent.types.ts
