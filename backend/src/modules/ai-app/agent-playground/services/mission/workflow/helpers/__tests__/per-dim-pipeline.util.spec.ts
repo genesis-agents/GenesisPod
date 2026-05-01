@@ -1299,3 +1299,386 @@ describe("runPerDimPipeline — L1 anti-loop guards (MAX_ATTEMPTS=1)", () => {
     expect(result.chapters!.length).toBeGreaterThan(0);
   });
 });
+
+// ─── RTK 风格优化：dim 层 finding 去重 ───────────────────────────────────────
+//
+// 验证 firstUseByChapter 预计算 + chapterSources 构造逻辑：
+//   D1. 单 chapter 用 finding 0,1,2 → 全部首发，无 _deduplicated
+//   D2. 2 chapter 共享 finding 1 → chapter 1 全文，chapter 2 brief(_deduplicated=true)
+//   D3. 3 chapter 各自独立 sourceIndices → 全无 _deduplicated
+//   D4. 并发场景（pLimit mock 透传）→ chapter 1 先发，chapter 2 brief，结果稳定（无 race）
+
+describe("runPerDimPipeline — RTK finding deduplication", () => {
+  // findings with distinct evidence text
+  const dedupResearcherOut = {
+    dimension: "Technology",
+    findings: [
+      {
+        claim: "Claim 0",
+        evidence: "Evidence text 0 (long)",
+        source: "src0.com",
+      },
+      {
+        claim: "Claim 1",
+        evidence: "Evidence text 1 (long)",
+        source: "src1.com",
+      },
+      {
+        claim: "Claim 2",
+        evidence: "Evidence text 2 (long)",
+        source: "src2.com",
+      },
+    ],
+    summary: "Summary",
+  };
+
+  const dedupBaseArgs: PerDimPipelineArgs = {
+    ...baseArgs,
+    researcherOut: dedupResearcherOut,
+  };
+
+  /**
+   * Capture the `sources` argument passed to ChapterWriterAgent for each chapter.
+   * Returns an array indexed by chapter invocation order (0 = first chapter writer call).
+   */
+  function captureWriterSources(invoker: { invoke: jest.Mock }) {
+    const { ChapterWriterAgent } = jest.requireMock(
+      "../../../../../agents/writer/chapter-writer.agent",
+    );
+    const captured: Array<
+      Array<{ claim: string; evidence?: string; _deduplicated?: boolean }>
+    > = [];
+    invoker.invoke.mockImplementation(
+      (AgentClass: { new (): unknown }, input: { sources?: unknown[] }) => {
+        if (AgentClass === ChapterWriterAgent) {
+          captured.push((input?.sources ?? []) as (typeof captured)[0]);
+          return Promise.resolve({
+            state: "completed",
+            output: makeWriterOutput(1000),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 100,
+          });
+        }
+        // reviewer
+        const { ChapterReviewerAgent } = jest.requireMock(
+          "../../../../../agents/writer/chapter-reviewer.agent",
+        );
+        if (AgentClass === ChapterReviewerAgent) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeReviewerOutput("pass", 85),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 50,
+          });
+        }
+        // integrator
+        return Promise.resolve({
+          state: "completed",
+          output: makeIntegratorOutput(),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 200,
+        });
+      },
+    );
+    return captured;
+  }
+
+  // ── D1: single chapter, all findings unique → no _deduplicated ────────────
+  it("D1: single chapter uses all findings as first-use — no _deduplicated", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          chapters: [
+            {
+              index: 1,
+              heading: "Chapter 1",
+              thesis: "Thesis",
+              keyPoints: ["p1"],
+              sourceIndices: [0, 1, 2], // all three findings
+            },
+          ],
+        },
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = {
+      invoke: jest.fn(),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const captured = captureWriterSources(invoker);
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+    });
+
+    await runPerDimPipeline(dedupBaseArgs, deps);
+
+    expect(captured.length).toBeGreaterThan(0);
+    const ch1Sources = captured[0];
+    expect(ch1Sources.length).toBe(3);
+    // All first-use → no _deduplicated flag
+    for (const src of ch1Sources) {
+      expect(
+        (src as { _deduplicated?: boolean })._deduplicated,
+      ).toBeUndefined();
+    }
+    // evidence preserved on all
+    for (const src of ch1Sources) {
+      expect(src.evidence).toBeDefined();
+    }
+  });
+
+  // ── D2: 2 chapters share finding 1 → chapter 2 gets brief ────────────────
+  it("D2: shared finding 1 → chapter 1 full text, chapter 2 brief (_deduplicated=true)", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          chapters: [
+            {
+              index: 1,
+              heading: "Chapter 1",
+              thesis: "Thesis 1",
+              keyPoints: ["p1"],
+              sourceIndices: [0, 1], // finding 0 + 1
+            },
+            {
+              index: 2,
+              heading: "Chapter 2",
+              thesis: "Thesis 2",
+              keyPoints: ["p2"],
+              sourceIndices: [1, 2], // finding 1 shared! + 2
+            },
+          ],
+        },
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = {
+      invoke: jest.fn(),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const captured = captureWriterSources(invoker);
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+    });
+
+    await runPerDimPipeline(dedupBaseArgs, deps);
+
+    // 2 writer invocations (one per chapter)
+    expect(captured.length).toBe(2);
+
+    // chapter 1 sources: finding 0 and 1 — both first-use
+    const ch1Sources = captured[0];
+    expect(ch1Sources.length).toBe(2);
+    const ch1Finding1 = ch1Sources.find((s) => s.claim === "Claim 1");
+    expect(ch1Finding1).toBeDefined();
+    expect(
+      (ch1Finding1 as { _deduplicated?: boolean })._deduplicated,
+    ).toBeUndefined();
+    expect(ch1Finding1!.evidence).toBe("Evidence text 1 (long)");
+
+    // chapter 2 sources: finding 1 is deduplicated, finding 2 is first-use
+    const ch2Sources = captured[1];
+    expect(ch2Sources.length).toBe(2);
+    const ch2Finding1 = ch2Sources.find((s) => s.claim === "Claim 1");
+    expect(ch2Finding1).toBeDefined();
+    expect((ch2Finding1 as { _deduplicated?: boolean })._deduplicated).toBe(
+      true,
+    );
+    // evidence stripped on deduplicated
+    expect(ch2Finding1!.evidence).toBe("");
+    // claim and source preserved for citation
+    expect(ch2Finding1!.claim).toBe("Claim 1");
+    expect(ch2Finding1!.source).toBe("src1.com");
+
+    const ch2Finding2 = ch2Sources.find((s) => s.claim === "Claim 2");
+    expect(ch2Finding2).toBeDefined();
+    expect(
+      (ch2Finding2 as { _deduplicated?: boolean })._deduplicated,
+    ).toBeUndefined();
+    expect(ch2Finding2!.evidence).toBe("Evidence text 2 (long)");
+  });
+
+  // ── D3: 3 chapters with distinct sourceIndices → all first-use ───────────
+  it("D3: 3 chapters with non-overlapping sourceIndices — no _deduplicated anywhere", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          chapters: [
+            {
+              index: 1,
+              heading: "Chapter 1",
+              thesis: "T1",
+              keyPoints: [],
+              sourceIndices: [0],
+            },
+            {
+              index: 2,
+              heading: "Chapter 2",
+              thesis: "T2",
+              keyPoints: [],
+              sourceIndices: [1],
+            },
+            {
+              index: 3,
+              heading: "Chapter 3",
+              thesis: "T3",
+              keyPoints: [],
+              sourceIndices: [2],
+            },
+          ],
+        },
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = {
+      invoke: jest.fn(),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const captured = captureWriterSources(invoker);
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+    });
+
+    await runPerDimPipeline(dedupBaseArgs, deps);
+
+    expect(captured.length).toBe(3);
+    for (const chSources of captured) {
+      for (const src of chSources) {
+        expect(
+          (src as { _deduplicated?: boolean })._deduplicated,
+        ).toBeUndefined();
+        expect(src.evidence).toBeDefined();
+      }
+    }
+  });
+
+  // ── D4: parallel (pLimit mock is pass-through) → chapter 1 first, stable ─
+  it("D4: concurrent execution — firstUseByChapter pre-computed, chapter 1 always gets full text", async () => {
+    // Both chapters reference finding 0 — chapter 1 (lower index) should always
+    // get full text; chapter 2 should always get brief. Pre-computation guarantees
+    // this regardless of pLimit scheduling order.
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          chapters: [
+            {
+              index: 1,
+              heading: "Chapter 1",
+              thesis: "T1",
+              keyPoints: [],
+              sourceIndices: [0],
+            },
+            {
+              index: 2,
+              heading: "Chapter 2",
+              thesis: "T2",
+              keyPoints: [],
+              sourceIndices: [0], // same finding 0
+            },
+          ],
+        },
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = {
+      invoke: jest.fn(),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+
+    // Capture per-chapter-index to avoid relying on invocation order
+    const { ChapterWriterAgent } = jest.requireMock(
+      "../../../../../agents/writer/chapter-writer.agent",
+    );
+    const { ChapterReviewerAgent } = jest.requireMock(
+      "../../../../../agents/writer/chapter-reviewer.agent",
+    );
+    const sourcesPerChapterIndex = new Map<
+      number,
+      Array<{ claim: string; evidence?: string; _deduplicated?: boolean }>
+    >();
+
+    invoker.invoke.mockImplementation(
+      (
+        AgentClass: { new (): unknown },
+        input: { chapter?: { index?: number }; sources?: unknown[] },
+      ) => {
+        if (AgentClass === ChapterWriterAgent) {
+          const idx = input?.chapter?.index ?? 0;
+          sourcesPerChapterIndex.set(
+            idx,
+            (input?.sources ?? []) as Array<{
+              claim: string;
+              evidence?: string;
+              _deduplicated?: boolean;
+            }>,
+          );
+          return Promise.resolve({
+            state: "completed",
+            output: makeWriterOutput(1000),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 100,
+          });
+        }
+        if (AgentClass === ChapterReviewerAgent) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeReviewerOutput("pass", 85),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 50,
+          });
+        }
+        // integrator
+        return Promise.resolve({
+          state: "completed",
+          output: makeIntegratorOutput(),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 200,
+        });
+      },
+    );
+
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+    });
+    await runPerDimPipeline(dedupBaseArgs, deps);
+
+    // chapter 1: finding 0 is first-use → full evidence
+    const ch1Src = sourcesPerChapterIndex.get(1);
+    expect(ch1Src).toBeDefined();
+    expect(ch1Src!.length).toBe(1);
+    expect(ch1Src![0]._deduplicated).toBeUndefined();
+    expect(ch1Src![0].evidence).toBeDefined();
+
+    // chapter 2: finding 0 is duplicate → brief only
+    const ch2Src = sourcesPerChapterIndex.get(2);
+    expect(ch2Src).toBeDefined();
+    expect(ch2Src!.length).toBe(1);
+    expect(ch2Src![0]._deduplicated).toBe(true);
+    expect(ch2Src![0].evidence).toBe("");
+    // claim and source still present for citation
+    expect(ch2Src![0].claim).toBe("Claim 0");
+    expect(ch2Src![0].source).toBe("src0.com");
+  });
+});

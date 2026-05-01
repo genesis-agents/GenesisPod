@@ -255,6 +255,27 @@ export async function runPerDimPipeline(
   //   - integrator 阶段仍然串行（需要所有 chapter 的最终内容）。
   const CHAPTER_CONCURRENCY = 2;
 
+  // ★ RTK 风格优化：dim 层 finding 去重，避免同一 finding 在多 chapter prompt 中重复全文嵌入
+  //   策略：按 chapter.index 升序预先遍历，决定每个 finding 的"首发章节"。
+  //   首次出现 → 全文给 writer（含 evidence/content）；后续出现 → 仅给 brief（title/url/claim 保留）。
+  //   预计算在 pLimit 启动前完成，避免并发下的 race condition（每章查表而非写表）。
+  const firstUseByChapter = new Map<number, Set<number>>(); // chapterIdx → 首发 finding globalIdx Set
+  {
+    const allSeen = new Set<number>();
+    for (const chapter of [...outline.chapters].sort(
+      (a, b) => a.index - b.index,
+    )) {
+      const firstUse = new Set<number>();
+      for (const globalIdx of chapter.sourceIndices) {
+        if (!allSeen.has(globalIdx)) {
+          firstUse.add(globalIdx);
+          allSeen.add(globalIdx);
+        }
+      }
+      firstUseByChapter.set(chapter.index, firstUse);
+    }
+  }
+
   // ★ Round 3 真问题修复 (2026-04-29):
   //   原 MAX=2 (最多 1+2=3 attempts)。配合 outputLength=long 截断，2 次 revise 不够把字数补回。
   //   chapter-writer 已升到 outputLength=extended (16K maxTokens)，再加 1 次 revise 机会
@@ -291,8 +312,25 @@ export async function runPerDimPipeline(
     chapter: (typeof outline.chapters)[0],
     previousHeadingsSnapshot: readonly string[],
   ): Promise<WrittenChapter | null> {
+    // ★ RTK 去重：首发 finding 给全文，非首发只给 brief（裁掉 evidence，保留 claim/source/url）
+    const chapterFirstUse =
+      firstUseByChapter.get(chapter.index) ?? new Set<number>();
     const chapterSources = chapter.sourceIndices
-      .map((i) => researcherOut.findings[i])
+      .map((globalIdx) => {
+        const finding = researcherOut.findings[globalIdx];
+        if (finding == null) return null;
+        if (!chapterFirstUse.has(globalIdx)) {
+          // 非首发：裁掉长字段，仅留 claim/source 供 writer 引用；加 _deduplicated 标记
+          return {
+            claim: finding.claim,
+            source: finding.source,
+            evidence: "", // 空字符串而非 undefined，保持 type 兼容
+            _deduplicated: true,
+            _briefHint: `[已在前章节使用，引用编号 [${globalIdx + 1}]]`,
+          };
+        }
+        return finding;
+      })
       .filter((s): s is NonNullable<typeof s> => s != null);
 
     let attempt = 0;
