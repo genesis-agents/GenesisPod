@@ -1633,7 +1633,59 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     }
   }
 
-  return order.map((id) => todos.get(id)!);
+  // ★ 2026-04-30 (#63 截图 17 任务顺序混乱): 按"逻辑流程顺序"重排，避免按事件追加顺序
+  //   导致 dim todo（leader plan 后才创建）排在所有 system stage 占位之后。
+  //   排序 key = (stageOrder, originSubOrder, createdAt) 三元组。
+  const STAGE_ORDER: Record<SystemStageId, number> = {
+    's1-budget': 100,
+    's2-leader-plan': 200,
+    // dim leader-plan todos 排在 s2 后、s3 前
+    's3-researchers': 400,
+    's4-leader-assess': 500,
+    // dim retry todos (leader-assess-retry/replace/extend) 排在 s4 后、s5 前
+    's5-reconciler': 700,
+    's6-analyst': 800,
+    's7-writer-outline': 900,
+    's8-writer-draft': 1000,
+    's8b-quality-enhancement': 1100,
+    's9-critic-l4': 1200,
+    's9b-objective-evaluation': 1300,
+    's10-leader-signoff': 1400,
+    's11-persist': 1500,
+    's12-self-evolution': 1600,
+  };
+  const ORIGIN_SUBORDER: Record<MissionTodoOrigin, number> = {
+    'system-stage': 0, // 系统阶段卡按 stageOrder 直接排
+    'leader-plan': 300, // s2 之后, s3 之前
+    'leader-chat-create': 350,
+    'leader-assess-retry': 600, // s4 之后, s5 之前
+    'leader-assess-replace': 600,
+    'leader-assess-extend': 600,
+    'leader-assess-abort': 600,
+    'self-heal-retry': 600,
+    'reviewer-revise': 1050, // s8 之后
+    'critic-blindspot': 1250, // s9 之后（理论上已不再创建独立 todo，仅向后兼容）
+    'reconciler-gap': 750, // s5 之后
+  };
+  const sortKeyOf = (td: MissionTodo): number => {
+    if (td.scope === 'system' && td.systemStageId) {
+      return STAGE_ORDER[td.systemStageId] ?? 9999;
+    }
+    return ORIGIN_SUBORDER[td.origin] ?? 9999;
+  };
+  return order
+    .map((id) => todos.get(id)!)
+    .map((td, i) => ({ td, i }))
+    .sort((a, b) => {
+      const ka = sortKeyOf(a.td);
+      const kb = sortKeyOf(b.td);
+      if (ka !== kb) return ka - kb;
+      // 同组内按 createdAt 升序，相等保持原 order（稳定排序 fallback）
+      if (a.td.createdAt !== b.td.createdAt)
+        return a.td.createdAt - b.td.createdAt;
+      return a.i - b.i;
+    })
+    .map(({ td }) => td);
 }
 
 export interface MissionTodoLayer {
