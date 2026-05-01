@@ -3,7 +3,6 @@
  * 验证中间件
  */
 
-import { Logger } from "@nestjs/common";
 import { z } from "zod";
 import { ValidationError } from "../../core/errors";
 import {
@@ -62,7 +61,8 @@ export class ValidationMiddleware implements IToolMiddleware {
   constructor(private readonly config: ValidationMiddlewareConfig = {}) {
     this.config = {
       validateInput: true,
-      validateOutput: process.env.STRICT_OUTPUT_VALIDATION === "1",
+      // Default strict; STRICT_OUTPUT_VALIDATION=0 disables (production escape hatch)
+      validateOutput: process.env.STRICT_OUTPUT_VALIDATION !== "0",
       allowAdditionalProperties: true,
       ...config,
     };
@@ -135,15 +135,9 @@ export class ValidationMiddleware implements IToolMiddleware {
       tool.outputSchema,
     );
     if (!schemaResult.valid) {
-      if (process.env.STRICT_OUTPUT_VALIDATION === "1") {
-        throw new ValidationError(
-          schemaResult.errors ?? [],
-          `Output validation failed for tool '${tool.id}'`,
-        );
-      }
-      Logger.warn(
-        `Output validation warning for tool '${tool.id}': ${JSON.stringify(schemaResult.errors)}`,
-        "ValidationMiddleware",
+      throw new ValidationError(
+        schemaResult.errors ?? [],
+        `Output validation failed for tool '${tool.id}'`,
       );
     }
 
