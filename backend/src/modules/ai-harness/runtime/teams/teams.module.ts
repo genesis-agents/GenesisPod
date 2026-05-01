@@ -20,6 +20,8 @@ import { ConstraintEngine } from "../../governance/resource/constraint-engine";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
 import { MissionRuntimeStateStore } from "./orchestrator/mission-runtime-state.store";
 import { MissionOrphanDetectorService } from "./orchestrator/mission-orphan-detector.service";
+import { MissionAbortRegistry } from "./orchestrator/mission-abort.registry";
+import { MissionOwnershipRegistry } from "./orchestrator/mission-ownership.registry";
 import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.service";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
@@ -59,6 +61,9 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
     MissionRuntimeStateStore,
     // ★ Phase 9: 基于 heartbeat 的快速 orphan 检测（callback 由 ai-app 注入）
     MissionOrphanDetectorService,
+    // ★ 2026-05-01 (PR-X-E): 通用 mission registry primitive（从 playground 上提）
+    MissionAbortRegistry,
+    MissionOwnershipRegistry,
     // ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来 (跨层搬迁)
     AdaptiveReplannerService,
     // ConstraintEngine 依赖 CostController
@@ -186,6 +191,8 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
     A2AMessageBusService,
     MissionRuntimeStateStore,
     MissionOrphanDetectorService,
+    MissionAbortRegistry,
+    MissionOwnershipRegistry,
     AdaptiveReplannerService,
   ],
 })

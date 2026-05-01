@@ -31,13 +31,13 @@ import {
   RunMissionInputSchema,
   type RunMissionInput,
 } from "./dto/run-mission.dto";
-import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
+import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 // ★ Phase 5 (2026-04-29): 接入 ai-harness 沉淀的 MissionCheckpointService
 import { MissionCheckpointService } from "../../ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
-import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
+import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 
 @Controller("agent-playground")

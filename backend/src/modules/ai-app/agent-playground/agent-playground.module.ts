@@ -19,7 +19,6 @@ import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
 import { TeamMission } from "./services/mission/workflow/team.mission";
-import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
@@ -30,7 +29,6 @@ import {
 } from "../../ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
-import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
@@ -72,7 +70,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
   providers: [
     AgentPlaygroundGateway,
     TeamMission,
-    MissionOwnershipRegistry,
+    // MissionOwnershipRegistry / MissionAbortRegistry 由 @Global HarnessModule 提供（PR-X-E 上提）
     MissionEventBuffer,
     MissionStore,
     // ★ Phase 5 (2026-04-29): playground 接入 ai-harness 沉淀的 MissionCheckpointService
@@ -88,7 +86,6 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     LeaderChatService,
     // FailureLearnerService / ReportArtifactAssembler 由 @Global HarnessModule 提供（PR-X-failure-learner 上提 / PR-X-report-artifact 上提）
     MissionStateService,
-    MissionAbortRegistry,
     // ── Per-role services（Phase Lead-Services）──
     AgentInvoker,
     LeaderService,

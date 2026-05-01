@@ -182,6 +182,12 @@ export {
   SocketBroadcastAdapter,
   type SocketBroadcastAdapterOptions,
 } from "../protocol/realtime/socket-broadcast.adapter";
+
+// ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/agent-playground 上提
+//   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
+//   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
+export { MissionAbortRegistry } from "../runtime/teams/orchestrator/mission-abort.registry";
+export { MissionOwnershipRegistry } from "../runtime/teams/orchestrator/mission-ownership.registry";
 export type {
   ArtifactCitation,
   ArtifactFactTriple,

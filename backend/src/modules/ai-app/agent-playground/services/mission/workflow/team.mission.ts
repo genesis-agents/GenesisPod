@@ -66,7 +66,7 @@ import {
 } from "../../roles";
 import { ReportArtifactAssembler } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact-assembler.service";
 import { MissionStateService } from "../lifecycle/mission-state.service";
-import { MissionAbortRegistry } from "../lifecycle/mission-abort.registry";
+import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 // MissionReviewerAgent: 当前 mission 评审走 VerifierService（多 judge 投票），
 // MissionReviewerAgent class 已声明但 orchestrator 暂未直接调用，保留为后续替换 path。
 import {

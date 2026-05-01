@@ -6,9 +6,9 @@
 
 import { UnauthorizedException } from "@nestjs/common";
 import { AgentPlaygroundGateway } from "../agent-playground.gateway";
-import { SocketBroadcastAdapter } from "../adapters/socket-broadcast.adapter";
+import { SocketBroadcastAdapter } from "@/modules/ai-harness/protocol/realtime/socket-broadcast.adapter";
 
-jest.mock("../adapters/socket-broadcast.adapter");
+jest.mock("@/modules/ai-harness/protocol/realtime/socket-broadcast.adapter");
 
 function makeMockEventBus() {
   return {
@@ -86,13 +86,17 @@ describe("AgentPlaygroundGateway", () => {
       );
     });
 
-    it("passes the io server to SocketBroadcastAdapter constructor", () => {
+    it("passes the io server + options to SocketBroadcastAdapter constructor", () => {
       const MockAdapter = SocketBroadcastAdapter as jest.MockedClass<
         typeof SocketBroadcastAdapter
       >;
       MockAdapter.mockClear();
       gateway.afterInit();
-      expect(MockAdapter).toHaveBeenCalledWith(mockIo);
+      expect(MockAdapter).toHaveBeenCalledWith(mockIo, {
+        id: "agent-playground.socket",
+        eventTypePrefix: "agent-playground.",
+        roomPrefix: "playground",
+      });
     });
   });
 

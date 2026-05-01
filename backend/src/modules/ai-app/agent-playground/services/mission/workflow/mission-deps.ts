@@ -23,7 +23,7 @@ import type {
 } from "../../roles";
 import type { MissionStore } from "../lifecycle/mission-store.service";
 import type { MissionStateService } from "../lifecycle/mission-state.service";
-import type { MissionAbortRegistry } from "../lifecycle/mission-abort.registry";
+import type { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import type {
   ReportArtifactAssembler,
   FailureLearnerService,

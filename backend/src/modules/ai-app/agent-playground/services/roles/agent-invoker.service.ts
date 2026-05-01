@@ -24,7 +24,7 @@ import {
   type IAgentEvent,
 } from "../../../../ai-harness/facade";
 import { BillingRuntimeEnvAdapter } from "../../../../ai-harness/facade";
-import { MissionAbortRegistry } from "../mission/lifecycle/mission-abort.registry";
+import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";
 
 /** 每次 invoke 时给到 invoker 的 context，统一所有 role service 入参 shape */
