@@ -15,35 +15,19 @@ import { Module, forwardRef } from "@nestjs/common";
 import { AiEngineToolsModule } from "./ai-engine-tools.module";
 import { AiEngineSkillsModule } from "./ai-engine-skills.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
-import { ToolRegistry } from "./tools/registry/tool-registry";
-import { SkillRegistry } from "./skills/registry/skill-registry";
 
-// Executors
-import { SequentialExecutor } from "./planning/executors/sequential-executor";
-import { DAGExecutor } from "./planning/executors/dag-executor";
-import { ParallelExecutor } from "./planning/executors/parallel-executor";
+// Executors —— 2026-04-30 (C2-step2) 删除 4 个死代码 (BaseExecutor / DAGExecutor /
+// SequentialExecutor / ParallelExecutor)；DAG 业务实际用 ai-harness/execution/dag/
+// 165行轻量版替代。保留 FunctionCallingExecutor (1340行 teams/ai-response 真用)
 import { FunctionCallingExecutor } from "./planning/executors/function-calling-executor";
 
-// PR-X18: Engine 端 DI tokens (避免反向 import ai-harness)
-// harness 的 AgentRegistry / CheckpointManager / ProgressTracker / TraceCollector /
-// ConstraintEnforcement / ProcessSupervisor / AgentOrchestrator / AgentConfig 等
-// 通过 @Global HarnessModule 用 useExisting 绑到这些 token，engine 通过 token 注入
-import {
-  AGENT_REGISTRY_PORT,
-  CHECKPOINT_MANAGER_PORT,
-  PROGRESS_TRACKER_PORT,
-  TRACE_COLLECTOR_PORT,
-  type IAgentRegistryPort,
-  type ICheckpointManagerPort,
-  type IProgressTrackerPort,
-  type ITraceCollectorPort,
-} from "./abstractions/runtime-deps.tokens";
-
-// Orchestration Services
+// Orchestration Services —— 2026-04-30 (C2-step2) 删除 3 个真死代码:
+//   - IterationManagerService (in-memory store 但 0 调用)
+//   - IntelligentModelRouterService ("支柱四"未接入)
+//   - ComplexityAnalyzerService (仅被 IntelligentModelRouter 用 → 绑死)
 import { TaskDecomposerService } from "./planning/services/task-decomposer.service";
 import { AgentExecutorService } from "./planning/services/agent-executor.service";
 import { OutputReviewerService } from "./planning/services/output-reviewer.service";
-import { IterationManagerService } from "./planning/services/iteration-manager.service";
 import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
 import { TokenBudgetService } from "./planning/services/token-budget.service";
 import { ContextEvolutionService } from "./planning/services/context-evolution.service";
@@ -52,8 +36,6 @@ import { ContextInitializationService } from "./planning/services/context-initia
 import { ContextCompressionService } from "./planning/services/context-compression.service";
 import { IntentDetectionService } from "./planning/services/intent-detection.service";
 import { ReflectionService } from "./planning/services/reflection.service";
-import { ComplexityAnalyzerService } from "./planning/services/complexity-analyzer.service";
-import { IntelligentModelRouterService } from "./planning/services/intelligent-model-router.service";
 import { TaskPlannerService } from "./planning/services/task-planner.service";
 import { IntentRouterService } from "./planning/services/intent-router.service";
 // ★ Phase 1-4: 基础设施升级新增服务
@@ -70,105 +52,16 @@ import { SessionMemorySidecarService } from "./planning/services/session-memory-
 
 // State Machine — PR-X18: 通过 EXECUTION_STATE_MANAGER_PORT token 注入
 
-// Handlers
-import { WorkflowHandlerRegistry } from "./planning/handlers/handler-registry";
+// Handlers —— 2026-04-30 (C2-step2) 删除（仅被 BaseExecutor 用，BaseExecutor 死）
 
 // Agents — PR-X18: 通过 AGENT_REGISTRY_PORT / AGENT_ORCHESTRATOR_PORT /
 // AGENT_CONFIG_SERVICE_PORT token 注入；AgentsService 不再 re-export
 import { AgentsService } from "../open-api/agents-api";
 
-/**
- * Sequential Executor Factory（PR-X18: AgentRegistry 通过 token 注入）
- */
-const sequentialExecutorFactory = {
-  provide: SequentialExecutor,
-  useFactory: (
-    toolRegistry: ToolRegistry,
-    skillRegistry: SkillRegistry,
-    agentRegistry: IAgentRegistryPort,
-    handlerRegistry: WorkflowHandlerRegistry,
-    circuitBreaker: CircuitBreakerService,
-  ) => {
-    const executor = new SequentialExecutor();
-    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry as never);
-    executor.setHandlerRegistry(handlerRegistry);
-    executor.setCircuitBreaker(circuitBreaker);
-    return executor;
-  },
-  inject: [
-    ToolRegistry,
-    SkillRegistry,
-    AGENT_REGISTRY_PORT,
-    WorkflowHandlerRegistry,
-    CircuitBreakerService,
-  ],
-};
-
-/**
- * DAG Executor Factory（PR-X18: harness 服务通过 tokens 注入）
- */
-const dagExecutorFactory = {
-  provide: DAGExecutor,
-  useFactory: (
-    toolRegistry: ToolRegistry,
-    skillRegistry: SkillRegistry,
-    agentRegistry: IAgentRegistryPort,
-    handlerRegistry: WorkflowHandlerRegistry,
-    checkpointManager: ICheckpointManagerPort,
-    circuitBreaker: CircuitBreakerService,
-    progressTracker: IProgressTrackerPort,
-    traceCollector: ITraceCollectorPort,
-  ) => {
-    const executor = new DAGExecutor();
-    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry as never);
-    executor.setHandlerRegistry(handlerRegistry);
-    executor.setCheckpointManager(checkpointManager as never);
-    executor.setCircuitBreaker(circuitBreaker);
-    executor.setProgressTracker(progressTracker as never);
-    executor.setTraceCollector(traceCollector as never);
-    return executor;
-  },
-  inject: [
-    ToolRegistry,
-    SkillRegistry,
-    AGENT_REGISTRY_PORT,
-    WorkflowHandlerRegistry,
-    CHECKPOINT_MANAGER_PORT,
-    CircuitBreakerService,
-    PROGRESS_TRACKER_PORT,
-    TRACE_COLLECTOR_PORT,
-  ],
-};
-
-/**
- * Parallel Executor Factory（PR-X18: AgentRegistry 通过 token 注入）
- */
-const parallelExecutorFactory = {
-  provide: ParallelExecutor,
-  useFactory: (
-    toolRegistry: ToolRegistry,
-    skillRegistry: SkillRegistry,
-    agentRegistry: IAgentRegistryPort,
-    handlerRegistry: WorkflowHandlerRegistry,
-    circuitBreaker: CircuitBreakerService,
-  ) => {
-    const executor = new ParallelExecutor();
-    executor.setRegistries(toolRegistry, skillRegistry, agentRegistry as never);
-    executor.setHandlerRegistry(handlerRegistry);
-    executor.setCircuitBreaker(circuitBreaker);
-    return executor;
-  },
-  inject: [
-    ToolRegistry,
-    SkillRegistry,
-    AGENT_REGISTRY_PORT,
-    WorkflowHandlerRegistry,
-    CircuitBreakerService,
-  ],
-};
-
-// CheckpointManager Factory removed — PR-X18: harness HarnessModule 提供
-// CHECKPOINT_MANAGER_PORT 绑定，engine 通过 token 注入
+// 2026-04-30 (C2-step2): 删除 sequentialExecutorFactory / dagExecutorFactory /
+// parallelExecutorFactory —— 这 3 个 factory 包装的 executor 已删（0 业务调用），
+// DAG 业务实际用 ai-harness/execution/dag/ 165行轻量版替代。
+// FunctionCallingExecutor 不需 factory（直接 NestJS 注入）。
 
 @Module({
   imports: [
@@ -183,24 +76,17 @@ const parallelExecutorFactory = {
     // 由 @Global HarnessModule 提供（绑到 *_PORT tokens），engine 不再注册
     AgentsService,
 
-    // Handlers
-    WorkflowHandlerRegistry,
-
-    // Executors
-    sequentialExecutorFactory,
-    dagExecutorFactory,
-    parallelExecutorFactory,
+    // Executors —— 仅保留 FunctionCallingExecutor (其他 4 个 + handlers 已删 C2-step2)
     FunctionCallingExecutor,
 
     // NOTE: harness 服务（ProgressTracker / TraceCollector / CheckpointManager
     // / CircuitBreaker / ConstraintEnforcement / ExecutionStateManager）come
     // from @Global() HarnessModule via DI tokens — engine 不直接 import
 
-    // Engine Orchestration Services
+    // Engine Orchestration Services —— C2-step2 删除 IterationManager / ComplexityAnalyzer / IntelligentModelRouter
     TaskDecomposerService,
     AgentExecutorService,
     OutputReviewerService,
-    IterationManagerService,
     CircuitBreakerService,
     TokenBudgetService,
     ContextEvolutionService,
@@ -208,8 +94,6 @@ const parallelExecutorFactory = {
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
-    ComplexityAnalyzerService,
-    IntelligentModelRouterService,
     TaskPlannerService,
     IntentRouterService,
     // ★ Phase 1-4: 基础设施升级
@@ -229,20 +113,13 @@ const parallelExecutorFactory = {
     // 由 HarnessModule (@Global) 导出，engine 不再 re-export
     AgentsService,
 
-    // Handlers
-    WorkflowHandlerRegistry,
-
     // Executors
-    SequentialExecutor,
-    DAGExecutor,
-    ParallelExecutor,
     FunctionCallingExecutor,
 
     // Engine Services
     TaskDecomposerService,
     AgentExecutorService,
     OutputReviewerService,
-    IterationManagerService,
     CircuitBreakerService,
     TokenBudgetService,
     ContextEvolutionService,
@@ -250,8 +127,6 @@ const parallelExecutorFactory = {
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
-    ComplexityAnalyzerService,
-    IntelligentModelRouterService,
     TaskPlannerService,
     IntentRouterService,
     // ★ Phase 1-4: 基础设施升级

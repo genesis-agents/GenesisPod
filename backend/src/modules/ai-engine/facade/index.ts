@@ -492,15 +492,10 @@ export type {
   WorkflowConfig as OrchestrationWorkflowConfig,
 } from "../planning/abstractions/orchestrator.interface";
 
-// Workflow Handlers
-export type {
-  WorkflowNodeHandler,
-  MapStepConfig,
-} from "../planning/handlers/workflow-node-handler.interface";
-export { WorkflowHandlerRegistry } from "../planning/handlers/handler-registry";
-
-// Executors
-export { DAGExecutor } from "../planning/executors/dag-executor";
+// Workflow Handlers / Executors —— 2026-04-30 (C2-step2) 删除死代码:
+//   - WorkflowHandlerRegistry / WorkflowNodeHandler / MapStepConfig (仅被 BaseExecutor 用，BaseExecutor 死)
+//   - DAGExecutor (engine 728行重型版，被 ai-harness/execution/dag/ 165行轻量版取代)
+//   保留: FunctionCallingExecutor (从 ai-engine/index.ts 单独 export)
 
 // Orchestration interfaces
 export type { IConstraintEnforcementService } from "../planning/services/interfaces";

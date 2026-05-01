@@ -9,10 +9,13 @@
 export * from "./interfaces";
 
 // 服务实现
+// 2026-04-30 (C2-step2): 删除 3 个真死代码 service
+//   - IterationManagerService (in-memory store 但 0 业务调用)
+//   - IntelligentModelRouterService ("支柱四"未接入)
+//   - ComplexityAnalyzerService (仅被 IntelligentModelRouter 用 → 绑死)
 export { TaskDecomposerService } from "./task-decomposer.service";
 export { AgentExecutorService } from "./agent-executor.service";
 export { OutputReviewerService } from "./output-reviewer.service";
-export { IterationManagerService } from "./iteration-manager.service";
 
 // 上下文演进服务
 export { ContextEvolutionService } from "./context-evolution.service";
@@ -50,21 +53,7 @@ export {
   type ReflectionConfig,
 } from "./reflection.service";
 
-// 支柱四：智能模型路由
-export {
-  ComplexityAnalyzerService,
-  type ComplexityLevel,
-  type TaskDescriptor,
-  type TaskComplexity,
-} from "./complexity-analyzer.service";
-
-export {
-  IntelligentModelRouterService,
-  type RoutingStrategy,
-  type RoutingResult,
-  type QualityFeedback,
-  type QualityStats,
-} from "./intelligent-model-router.service";
+// "支柱四：智能模型路由" —— 整个移除（ComplexityAnalyzer + IntelligentModelRouter 死代码 C2-step2）
 
 // 支柱二：GenesisAgent 编排层
 export {
