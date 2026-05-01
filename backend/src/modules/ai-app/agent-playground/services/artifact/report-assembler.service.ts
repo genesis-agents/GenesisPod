@@ -41,6 +41,7 @@ import { ReportQualityGateService } from "@/modules/ai-harness/facade";
 //   `mid-line glued ##` 由 detectAndPromoteHeadings 启发式修复。
 import {
   postProcessFinalReport,
+  formatDimensionContent,
   stripChartJsonFromContent,
   filterJunkReferences,
   deduplicateReferencesByUrl,
@@ -621,6 +622,24 @@ export class ReportAssemblerService {
 
     // ★ 维度章节优先用 per-dim-pipeline 的 fullMarkdown（含全部 chapter）
     //   如果 dim 没有 fullMarkdown（chapter pipeline 跳过），fallback 到 writerReport.sections
+    //   ★ 2026-04-30 (PR-D 全局连续编号): 每个 dim 内容拼入前过 formatDimensionContent
+    //   带 dimIndex —— numberSubHeadings 把 ### 升格为 ### N.1 / ### N.2 ...，
+    //   全局 8 章 H3 形成 1.1 1.2 ... 2.1 2.2 ... 8.1 8.2 连续序号。
+    //   globalSeenParagraphs 共享：跨 dim 段落级去重。
+    const globalSeenParagraphs = new Set<string>();
+    const dimNameToIndex = new Map<string, number>();
+    input.plan.dimensions.forEach((d, i) => dimNameToIndex.set(d.name, i));
+    const formatDim = (rawDimMd: string, dimName: string) => {
+      const idx = dimNameToIndex.get(dimName);
+      // dimIndex undefined → 仅清洗不编号；defined → 升格为 N.M 编号
+      return formatDimensionContent(rawDimMd, {
+        dimIndex: idx,
+        globalSeenParagraphs,
+        dimensionName: dimName,
+        logger: { warn: (m) => this.logger.warn(m) },
+      });
+    };
+
     const dimWithMarkdown = new Set<string>();
     for (const r of input.researcherResults) {
       if (r.fullMarkdown && r.fullMarkdown.trim().length > 200) {
@@ -629,7 +648,7 @@ export class ReportAssemblerService {
         for (const line of buildDimSectionHeader(r.dimension)) parts.push(line);
         // 去掉 dim-level fullMarkdown 顶部的 "# 维度名" 标题（避免重复 H1）
         const cleaned = r.fullMarkdown.replace(/^#\s+[^\n]+\n+/, "");
-        parts.push(cleaned);
+        parts.push(formatDim(cleaned, r.dimension));
         for (const line of buildDimSectionFooter(r.dimension)) parts.push(line);
         parts.push("");
         dimWithMarkdown.add(r.dimension);
@@ -647,7 +666,7 @@ export class ReportAssemblerService {
       if (matchedDim) {
         for (const line of buildDimSectionHeader(sec.heading)) parts.push(line);
       }
-      parts.push(sec.body);
+      parts.push(formatDim(sec.body, sec.heading));
       if (matchedDim) {
         for (const line of buildDimSectionFooter(sec.heading)) parts.push(line);
       }
