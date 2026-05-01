@@ -110,6 +110,8 @@ describe("A2AController", () => {
           provide: AgentCardRegistry,
           useValue: {
             getAgentCard: jest.fn().mockReturnValue(mockAgentCard),
+            // 2026-05-01 (PR-X-P): /.well-known/agent.json 现返回 v0.3 card
+            getAgentCardV03: jest.fn().mockReturnValue(mockAgentCard),
             getSkillById: jest.fn(),
             getSkills: jest.fn().mockReturnValue(mockAgentCard.skills),
           },
@@ -143,22 +145,19 @@ describe("A2AController", () => {
   // ===================== getAgentCard =====================
 
   describe("getAgentCard()", () => {
-    it("returns the agent card from the registry", () => {
-      agentCardRegistry.getAgentCard.mockReturnValue(mockAgentCard);
-
+    it("returns the v0.3 agent card from the registry (2026-05-01 PR-X-P)", () => {
       const result = controller.getAgentCard();
 
       expect(result).toEqual(mockAgentCard);
-      expect(agentCardRegistry.getAgentCard).toHaveBeenCalledTimes(1);
+      expect(agentCardRegistry.getAgentCardV03).toHaveBeenCalledTimes(1);
     });
 
-    it("logs the request", () => {
+    it("logs the request with v0.3 marker", () => {
       const logSpy = jest.spyOn(Logger.prototype, "log");
-      agentCardRegistry.getAgentCard.mockReturnValue(mockAgentCard);
 
       controller.getAgentCard();
 
-      expect(logSpy).toHaveBeenCalledWith("Agent Card requested");
+      expect(logSpy).toHaveBeenCalledWith("Agent Card requested (v0.3)");
     });
   });
 

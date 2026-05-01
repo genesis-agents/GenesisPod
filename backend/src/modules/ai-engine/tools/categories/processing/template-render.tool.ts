@@ -122,6 +122,7 @@ export class TemplateRenderTool extends BaseTool<
   private readonly logger = new Logger(TemplateRenderTool.name);
 
   readonly id = "template-render";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "processing";
   readonly tags = ["processing", "template", "render", "handlebars", "jinja"];
   readonly name = "模板渲染";

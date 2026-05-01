@@ -124,6 +124,7 @@ export class DatabaseQueryTool extends BaseTool<
 > {
   private readonly logger = new Logger(DatabaseQueryTool.name);
   readonly id = "database-query";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly tags = ["knowledge", "database", "sql", "internal", "structured"];
   readonly name = "数据库查询";

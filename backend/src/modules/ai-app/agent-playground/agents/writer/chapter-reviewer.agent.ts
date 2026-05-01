@@ -6,7 +6,11 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+import {
+  AgentSpec,
+  DefineAgent,
+  CHAPTER_REVIEWER_INTERNAL_MAX_ITERATIONS,
+} from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -68,7 +72,11 @@ const Output = z.object({
   taskProfile: { creativity: "deterministic", outputLength: "short" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 6_000, maxIterations: 3 },
+  // ★ 2026-05-01 (PR-G iter9): maxIterations 走集中常量
+  budget: {
+    maxTokens: 6_000,
+    maxIterations: CHAPTER_REVIEWER_INTERNAL_MAX_ITERATIONS,
+  },
 })
 export class ChapterReviewerAgent extends AgentSpec<
   typeof Input,

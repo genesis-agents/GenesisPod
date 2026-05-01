@@ -247,6 +247,7 @@ export class KnowledgeBaseTool extends BaseTool<
   private readonly logger = new Logger(KnowledgeBaseTool.name);
 
   readonly id = "knowledge-base";
+  readonly sideEffect = "idempotent" as const;
   readonly category: ToolCategory = "memory";
   readonly tags = ["memory", "knowledge", "kb", "documents", "internal"];
   readonly name = "知识库";

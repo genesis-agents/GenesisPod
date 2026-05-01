@@ -240,6 +240,7 @@ export class KnowledgeGraphTool extends BaseTool<
 > {
   private readonly logger = new Logger(KnowledgeGraphTool.name);
   readonly id = "knowledge-graph";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly tags = ["knowledge", "graph", "entity", "relationship", "internal"];
   readonly name = "知识图谱查询";

@@ -161,6 +161,7 @@ export class WeatherApiTool extends BaseTool<
   private static cooldownUntil = 0;
 
   readonly id = "weather-api";
+  readonly sideEffect = "none" as const;
   readonly name = "Weather API";
   readonly description =
     "获取天气数据：当前天气、天气预报、温度、湿度、风速等。数据来源：OpenWeatherMap API（需 API Key）。适合天气相关研究和数据获取。";

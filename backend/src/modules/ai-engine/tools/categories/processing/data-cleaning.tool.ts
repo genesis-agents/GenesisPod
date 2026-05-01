@@ -142,6 +142,7 @@ export class DataCleaningTool extends BaseTool<
   private readonly logger = new Logger(DataCleaningTool.name);
 
   readonly id = "data-cleaning";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "processing";
   readonly tags = ["processing", "data", "cleaning", "etl", "preprocessing"];
   readonly name = "数据清洗";

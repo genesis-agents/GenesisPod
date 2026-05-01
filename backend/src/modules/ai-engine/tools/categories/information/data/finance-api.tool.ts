@@ -121,6 +121,7 @@ export class FinanceApiTool extends BaseTool<
   private static cooldownUntil = 0;
 
   readonly id = "finance-api";
+  readonly sideEffect = "none" as const;
   readonly name = "Finance Data API";
   readonly description =
     "获取金融市场数据：股票报价、汇率、加密货币价格、经济指标。数据来源：Alpha Vantage API（需 API Key）。适合金融研究、市场分析。";

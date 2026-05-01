@@ -29,6 +29,7 @@ export class SerpAPIImageSearchTool extends BaseTool<
   private readonly logger = new Logger(SerpAPIImageSearchTool.name);
 
   readonly id = "serpapi-image-search";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly name = "SerpAPI 图片搜索";
   readonly description =

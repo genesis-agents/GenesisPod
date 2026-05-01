@@ -169,6 +169,7 @@ export class WebhookTriggerTool extends BaseTool<
   private readonly logger = new Logger(WebhookTriggerTool.name);
 
   readonly id = "webhook-trigger";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "webhook", "http", "trigger", "callback"];
   readonly name = "Webhook 触发";

@@ -65,6 +65,12 @@ export interface ChatCompletionOptions {
   cachePolicy?: "auto";
   /** Native structured output schema */
   outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
+  /**
+   * LLM Function Calling: tool schemas to expose to the model.
+   * Passed through transparently; actual provider support depends on the
+   * underlying adapter. Providers that do not support tools ignore this field.
+   */
+  tools?: import("../../tools/abstractions/tool.interface").FunctionDefinition[];
 }
 
 export interface ChatCompletionResult {
@@ -87,6 +93,15 @@ export interface ChatCompletionResult {
   errorType?: string;
   /** BYOK: API Key 来源（personal=用户自用, donated=共享池, system=系统） */
   apiKeySource?: "personal" | "donated" | "system";
+  /**
+   * LLM Function Calling: tool call requests returned by the model.
+   * Populated when the model responds with tool_use / function_call instead of plain text.
+   */
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }>;
 }
 
 // Re-export types for backward compatibility
@@ -156,6 +171,12 @@ export interface ChatOptions {
    * - 最小语义：signal.aborted 时抛 DOMException("...", "AbortError")
    */
   signal?: AbortSignal;
+  /**
+   * LLM Function Calling: tool schemas to expose to the model.
+   * Passed through to the underlying adapter transparently via [key: string] index.
+   * Providers that do not support tools silently ignore this field.
+   */
+  tools?: import("../../tools/abstractions/tool.interface").FunctionDefinition[];
 }
 
 /**
@@ -174,6 +195,15 @@ export interface ChatResult {
   finishReason?: string;
   isError?: boolean;
   apiKeySource?: "personal" | "donated" | "system";
+  /**
+   * LLM Function Calling: tool call requests returned by the model.
+   * Present only when the LLM decides to call one or more tools.
+   */
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }>;
 }
 
 /**
@@ -1164,6 +1194,7 @@ export class AiChatService {
       cachePolicy,
       outputSchema,
       sharedCachePrefix,
+      tools,
     } = options;
 
     // ★ BYOK v2 防呆：普通路径必须有 userId（来自参数或 RequestContext）。
@@ -1566,6 +1597,7 @@ export class AiChatService {
         reasoningDepth: effectiveReasoningDepth,
         cachePolicy: effectiveCachePolicy,
         outputSchema,
+        tools,
       });
       const duration = Date.now() - startTime;
 
@@ -1722,6 +1754,7 @@ export class AiChatService {
           finishReason: result.finishReason,
           isError: false,
           apiKeySource: result.apiKeySource,
+          toolCalls: result.toolCalls,
         };
       }
 

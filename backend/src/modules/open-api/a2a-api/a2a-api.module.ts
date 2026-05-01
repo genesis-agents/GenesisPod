@@ -10,10 +10,12 @@
 
 import { Module } from "@nestjs/common";
 import { A2AController } from "../a2a-server.controller";
+import { A2ARpcController } from "../a2a-rpc.controller";
 import { A2AModule } from "../../ai-harness/protocol/a2a/a2a.module";
 
 @Module({
   imports: [A2AModule],
-  controllers: [A2AController],
+  // 2026-05-01 (PR-X-P): 同时挂 v0.1 legacy controller + v0.3 JSON-RPC controller
+  controllers: [A2AController, A2ARpcController],
 })
 export class A2AApiModule {}

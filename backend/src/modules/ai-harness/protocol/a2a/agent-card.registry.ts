@@ -6,6 +6,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { A2AAgentCard, A2ASkill } from "./a2a.types";
+import type { AgentCard as AgentCardV03 } from "./a2a-spec.types";
 import { APP_CONFIG } from "@/common/config/app.config";
 
 @Injectable()
@@ -146,6 +147,63 @@ export class AgentCardRegistry {
    */
   getSkills(): A2ASkill[] {
     return this.buildSkills();
+  }
+
+  /**
+   * 2026-05-01 (PR-X-P): A2A v0.3 spec-compliant AgentCard
+   *
+   * 与旧 getAgentCard() 区别:
+   *   - url 指向 JSON-RPC 入口 /a2a/v1（不是 /a2a/tasks）
+   *   - protocolVersion: "0.3.0"
+   *   - capabilities.streaming: true（已加 SSE 端点）
+   *   - securitySchemes（OpenAPI-style）替代旧 authentication.schemes
+   *   - 完整 AgentCard 类型（A2A v0.3 spec）
+   */
+  getAgentCardV03(): AgentCardV03 {
+    const baseUrl = this.getBaseUrl();
+    return {
+      name: APP_CONFIG.brand.fullName,
+      description:
+        "Enterprise-grade AI research and content management platform with multi-agent collaboration, deep research, intelligent Q&A, document generation, and AI writing capabilities.",
+      url: `${baseUrl}/a2a/v1`,
+      protocolVersion: "0.3.0",
+      provider: {
+        organization: APP_CONFIG.brand.name,
+        url: baseUrl,
+      },
+      version: "1.0.0",
+      capabilities: {
+        streaming: true,
+        pushNotifications: true,
+        stateTransitionHistory: true,
+      },
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          description:
+            "API key as Bearer token: Authorization: Bearer <key>",
+        },
+        apiKeyHeader: {
+          type: "apiKey",
+          in: "header",
+          name: "X-API-Key",
+          description: "API key in X-API-Key header",
+        },
+      },
+      security: [{ bearerAuth: [] }, { apiKeyHeader: [] }],
+      defaultInputModes: ["text/plain"],
+      defaultOutputModes: ["text/markdown", "text/plain"],
+      skills: this.buildSkills().map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        tags: s.tags,
+        examples: s.examples,
+        inputModes: s.inputModes,
+        outputModes: s.outputModes,
+      })),
+    };
   }
 
   /**

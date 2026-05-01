@@ -295,6 +295,7 @@ export class EntityMemoryTool extends BaseTool<
   private readonly logger = new Logger(EntityMemoryTool.name);
 
   readonly id = "entity-memory";
+  readonly sideEffect = "idempotent" as const;
   readonly category: ToolCategory = "memory";
   readonly tags = ["memory", "entity", "person", "organization", "graph"];
   readonly name = "实体记忆";

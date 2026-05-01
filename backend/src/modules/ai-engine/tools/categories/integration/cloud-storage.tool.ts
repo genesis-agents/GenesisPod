@@ -516,6 +516,7 @@ export class CloudStorageTool extends BaseTool<
   private readonly logger = new Logger(CloudStorageTool.name);
 
   readonly id = "cloud-storage";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "storage", "s3", "cloud", "file"];
   readonly name = "云存储";

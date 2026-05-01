@@ -366,6 +366,7 @@ export class MessagePushTool extends BaseTool<
   private readonly logger = new Logger(MessagePushTool.name);
 
   readonly id = "message-push";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "notification", "push", "messaging", "slack", "feishu"];
   readonly name = "消息推送";

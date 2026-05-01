@@ -105,6 +105,7 @@ export class WebScraperTool extends BaseTool<
   WebScraperOutput
 > {
   readonly id = "web-scraper";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly tags = ["web", "scrape", "html", "general"];
   readonly name = "网页抓取";

@@ -118,6 +118,7 @@ export class FileConversionTool extends BaseTool<
   private readonly logger = new Logger(FileConversionTool.name);
 
   readonly id = "file-conversion";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "processing";
   readonly tags = ["processing", "file", "conversion", "format"];
   readonly name = "文件格式转换";

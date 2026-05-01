@@ -83,10 +83,37 @@ export interface ExpectedSecretsSummary {
   missing: number;
 }
 
+export interface LlmProviderSecret {
+  secretId: string;
+  name: string;
+  displayName: string;
+  category: string;
+  provider: string;
+}
+
+export interface CustomSecret {
+  secretId: string;
+  name: string;
+  displayName: string;
+  category: string;
+  provider: string | null;
+}
+
 export interface ExpectedSecretsResponse {
+  /** A class: platform tool keys */
+  presetTools: {
+    items: ExpectedSecretItem[];
+    summary: ExpectedSecretsSummary;
+  };
+  /** B class: LLM provider keys */
+  llmProviders: LlmProviderSecret[];
+  /** C class: user-defined custom secrets */
+  customSecrets: CustomSecret[];
+  /** D class: decommissioned orphans (reserved slot, always empty for now) */
+  orphans: ExpectedSecretsOrphan[];
+  /** Legacy flat shape — kept for backward compat */
   items: ExpectedSecretItem[];
   summary: ExpectedSecretsSummary;
-  orphans: ExpectedSecretsOrphan[];
 }
 
 export interface CreateSecretDto {

@@ -92,6 +92,7 @@ export class CodeGenerationTool extends BaseTool<
   CodeGenerationOutput
 > {
   readonly id = "code-generation";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "generation";
   readonly tags = ["generation", "code", "programming", "developer"];
   readonly name = "代码生成";

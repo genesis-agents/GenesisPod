@@ -119,6 +119,7 @@ export interface RAGSearchOutput {
 export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
   private readonly logger = new Logger(RAGSearchTool.name);
   readonly id = "rag-search";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly tags = ["knowledge", "rag", "vector", "internal", "embedding"];
   readonly name = "向量检索";

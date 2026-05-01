@@ -26,6 +26,7 @@ import {
   SYSTEM_SETTING_TO_SECRET_MAPPING,
   normalizeSecretName,
   getExpectedSecretsMetadata,
+  classifySecret,
 } from "./secret-name-mapping";
 import { EncryptionService } from "../encryption/encryption.service";
 
@@ -530,11 +531,49 @@ export class SecretsService {
   }
 
   /**
-   * 获取"预期应配置的 secret"清单 + 配置状态
-   * - items: 已登记在 mapping 里的 secret，标记 status: configured | missing
-   * - orphans: DB 有但 mapping 没登记的 secret（疑似遗留）
+   * 获取"预期应配置的 secret"4 区块清单
+   *
+   * - presetTools (A类): 平台预置工具 key，标记 configured / missing
+   * - llmProviders (B类): LLM provider key，命中 LLM_PROVIDER_NAME_PATTERNS
+   * - customSecrets (C类): 用户自定义 key，无警告
+   * - orphans (D类): 真孤儿保留位，本期永远空数组
    */
   async getExpectedSecrets(): Promise<{
+    presetTools: {
+      items: Array<{
+        name: string;
+        displayName: string;
+        category: string;
+        provider: string;
+        description?: string;
+        setupGuideUrl?: string;
+        freeTierAvailable: boolean;
+        status: "configured" | "missing";
+        secretId?: string;
+        relatedToolIds: string[];
+      }>;
+      summary: { total: number; configured: number; missing: number };
+    };
+    llmProviders: Array<{
+      secretId: string;
+      name: string;
+      displayName: string;
+      category: string;
+      provider: string;
+    }>;
+    customSecrets: Array<{
+      secretId: string;
+      name: string;
+      displayName: string;
+      category: string;
+      provider: string | null;
+    }>;
+    orphans: Array<{
+      secretId: string;
+      name: string;
+      displayName: string;
+    }>;
+    // Legacy flat fields kept for backward compat with existing callers
     items: Array<{
       name: string;
       displayName: string;
@@ -547,29 +586,24 @@ export class SecretsService {
       secretId?: string;
       relatedToolIds: string[];
     }>;
-    summary: {
-      total: number;
-      configured: number;
-      missing: number;
-    };
-    orphans: Array<{
-      name: string;
-      displayName: string;
-      secretId: string;
-    }>;
+    summary: { total: number; configured: number; missing: number };
   }> {
-    // 1. 拉所有 active secret（select 最少字段）
+    // 1. 拉所有 active secret
     const dbSecrets = await this.prisma.secret.findMany({
       where: { isActive: true, deletedAt: null },
-      select: { id: true, name: true, displayName: true },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        category: true,
+        provider: true,
+      },
     });
-    const dbByName = new Map(dbSecrets.map((s) => [s.name, s]));
 
-    // 2. 推导 expected
+    // 2. A 类：preset tools（现有逻辑）
     const expectedMetadata = getExpectedSecretsMetadata();
-    const expectedNames = new Set(expectedMetadata.map((m) => m.name));
-
-    const items = expectedMetadata.map((meta) => {
+    const dbByName = new Map(dbSecrets.map((s) => [s.name, s]));
+    const presetItems = expectedMetadata.map((meta) => {
       const dbRow = dbByName.get(meta.name);
       return {
         ...meta,
@@ -577,20 +611,76 @@ export class SecretsService {
         secretId: dbRow?.id,
       };
     });
+    const presetNames = new Set(expectedMetadata.map((m) => m.name));
 
-    // 3. orphan = DB 有但 expected 没登记
-    const orphans = dbSecrets
-      .filter((s) => !expectedNames.has(s.name))
-      .map((s) => ({ name: s.name, displayName: s.displayName, secretId: s.id }));
+    // 3. 分类剩余 secret 进 B / C / D 类
+    const llmProviders: Array<{
+      secretId: string;
+      name: string;
+      displayName: string;
+      category: string;
+      provider: string;
+    }> = [];
+    const customSecrets: Array<{
+      secretId: string;
+      name: string;
+      displayName: string;
+      category: string;
+      provider: string | null;
+    }> = [];
+    const orphans: Array<{
+      secretId: string;
+      name: string;
+      displayName: string;
+    }> = [];
+
+    for (const s of dbSecrets) {
+      if (presetNames.has(s.name)) continue; // 已进 A 类
+
+      const cls = classifySecret(s.name);
+      if (cls === "llm-provider") {
+        llmProviders.push({
+          secretId: s.id,
+          name: s.name,
+          displayName: s.displayName,
+          category: s.category as string,
+          provider: s.provider ?? "Unknown",
+        });
+      } else if (cls === "orphan") {
+        orphans.push({
+          secretId: s.id,
+          name: s.name,
+          displayName: s.displayName,
+        });
+      } else {
+        // "custom" (default)
+        customSecrets.push({
+          secretId: s.id,
+          name: s.name,
+          displayName: s.displayName,
+          category: s.category as string,
+          provider: s.provider,
+        });
+      }
+    }
+
+    const presetSummary = {
+      total: presetItems.length,
+      configured: presetItems.filter((i) => i.status === "configured").length,
+      missing: presetItems.filter((i) => i.status === "missing").length,
+    };
 
     return {
-      items,
-      summary: {
-        total: items.length,
-        configured: items.filter((i) => i.status === "configured").length,
-        missing: items.filter((i) => i.status === "missing").length,
+      presetTools: {
+        items: presetItems,
+        summary: presetSummary,
       },
+      llmProviders,
+      customSecrets,
       orphans,
+      // Legacy flat shape — kept so existing API consumers don't break
+      items: presetItems,
+      summary: presetSummary,
     };
   }
 

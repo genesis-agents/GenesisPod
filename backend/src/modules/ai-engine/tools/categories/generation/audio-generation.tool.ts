@@ -113,6 +113,7 @@ export class AudioGenerationTool extends BaseTool<
   AudioGenerationOutput
 > {
   readonly id = "audio-generation";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "generation";
   readonly tags = ["generation", "audio", "tts", "speech", "voice"];
   readonly name = "音频生成";

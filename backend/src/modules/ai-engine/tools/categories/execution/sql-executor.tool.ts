@@ -111,6 +111,7 @@ export class SQLExecutorTool extends BaseTool<
   private readonly logger = new Logger(SQLExecutorTool.name);
 
   readonly id = "sql-executor";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "execution";
   readonly tags = ["execution", "sql", "database", "query", "structured"];
   readonly name = "SQL 查询执行";

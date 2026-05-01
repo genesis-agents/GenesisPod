@@ -117,6 +117,7 @@ export class StructuredOutputTool extends BaseTool<
   StructuredOutputOutput
 > {
   readonly id = "structured-output";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "generation";
   readonly tags = ["generation", "structured", "json", "schema"];
   readonly name = "结构化输出";

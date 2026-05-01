@@ -175,6 +175,7 @@ export class EmailSenderTool extends BaseTool<
   }
 
   readonly id = "email-sender";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "email", "smtp", "messaging", "notification"];
   readonly name = "邮件发送";

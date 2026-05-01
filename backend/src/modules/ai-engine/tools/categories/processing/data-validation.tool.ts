@@ -150,6 +150,7 @@ export class DataValidationTool extends BaseTool<
   private readonly logger = new Logger(DataValidationTool.name);
 
   readonly id = "data-validation";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "processing";
   readonly tags = ["processing", "data", "validation", "schema", "check"];
   readonly name = "数据验证";

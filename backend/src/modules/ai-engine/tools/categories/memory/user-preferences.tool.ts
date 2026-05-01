@@ -107,6 +107,7 @@ export class UserPreferencesTool extends BaseTool<
   private preferencesStore: Map<string, Record<string, unknown>> = new Map();
 
   readonly id = "user-preferences";
+  readonly sideEffect = "idempotent" as const;
   readonly category: ToolCategory = "memory";
   readonly tags = ["memory", "preferences", "user", "settings", "profile"];
   readonly name = "用户偏好";

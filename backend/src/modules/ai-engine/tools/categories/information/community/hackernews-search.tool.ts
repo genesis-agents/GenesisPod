@@ -122,6 +122,7 @@ export class HackerNewsSearchTool extends BaseTool<
   private readonly logger = new Logger(HackerNewsSearchTool.name);
 
   readonly id = "hackernews-search";
+  readonly sideEffect = "none" as const;
   readonly name = "HackerNews Search";
   readonly description =
     "搜索 HackerNews（技术社区新闻和讨论）：技术文章、Show HN 项目、Ask HN 问题、社区评论。数据来源：Algolia HN Search API，无需 API Key。";

@@ -131,6 +131,7 @@ export class SemanticScholarSearchTool extends BaseTool<
   private static readonly requestQueue: Array<() => void> = [];
 
   readonly id = "semantic-scholar";
+  readonly sideEffect = "none" as const;
   readonly name = "Semantic Scholar Search";
   readonly description =
     "搜索 Semantic Scholar 学术论文数据库：覆盖计算机科学、生物医学、物理、经济等多学科，包含引用数量、摘要、DOI 等元数据。数据来源：semanticscholar.org。适合文献综述、引用影响力分析、跨学科研究。";

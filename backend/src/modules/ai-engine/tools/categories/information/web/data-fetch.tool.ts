@@ -87,6 +87,7 @@ export interface DataFetchOutput {
 @Injectable()
 export class DataFetchTool extends BaseTool<DataFetchInput, DataFetchOutput> {
   readonly id = "data-fetch";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly tags = ["web", "api", "json", "data", "general"];
   readonly name = "数据获取";

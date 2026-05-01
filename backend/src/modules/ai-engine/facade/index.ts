@@ -69,6 +69,8 @@ export interface IChatProvider {
     maxTokens?: number;
     temperature?: number;
     skipGuardrails?: boolean;
+    /** LLM Function Calling: tool schemas to expose to the model */
+    tools?: import("../tools/abstractions/tool.interface").FunctionDefinition[];
     [key: string]: unknown;
   }): Promise<{
     content: string;
@@ -77,6 +79,12 @@ export interface IChatProvider {
     inputTokens?: number;
     outputTokens?: number;
     finishReason?: string;
+    /** LLM Function Calling: tool call requests returned by the model */
+    toolCalls?: Array<{
+      id: string;
+      name: string;
+      arguments: Record<string, unknown>;
+    }>;
     [key: string]: unknown;
   }>;
 }

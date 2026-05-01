@@ -4,6 +4,7 @@
  */
 
 import { Logger } from "@nestjs/common";
+import { z } from "zod";
 import { ValidationError } from "../../core/errors";
 import {
   ITool,
@@ -150,21 +151,131 @@ export class ValidationMiddleware implements IToolMiddleware {
   }
 
   /**
-   * 简单的 JSON Schema 验证
-   * 注意：这是一个简化实现，生产环境建议使用 ajv 等专业库
+   * JSON Schema → zod schema 转译（支持项目现有子集）
+   *
+   * 支持：type / properties / required / items /
+   *       minLength / maxLength / minimum / maximum / enum
+   *
+   * 遇到不支持的字段（如 $ref）→ fallback z.unknown()，不 throw。
+   * 行数约 60 行。
+   */
+  private jsonSchemaToZod(schema: JSONSchema): z.ZodTypeAny {
+    // 含 $ref 或其他不支持字段 → fallback z.unknown()
+    if (schema.$ref !== undefined) {
+      return z.unknown();
+    }
+
+    const types = schema.type
+      ? Array.isArray(schema.type)
+        ? schema.type
+        : [schema.type]
+      : [];
+
+    // 无 type 声明 → 任意值（与手写 validateValue 一致）
+    if (types.length === 0) {
+      return z.unknown();
+    }
+
+    const buildSingleType = (t: string): z.ZodTypeAny => {
+      switch (t) {
+        case "string": {
+          let s = z.string();
+          if (schema.minLength !== undefined) s = s.min(schema.minLength);
+          if (schema.maxLength !== undefined) s = s.max(schema.maxLength);
+          if (schema.enum !== undefined) {
+            const vals = schema.enum as string[];
+            return z.enum(vals as [string, ...string[]]);
+          }
+          return s;
+        }
+        case "number":
+        case "integer": {
+          let n = t === "integer" ? z.number().int() : z.number();
+          if (schema.minimum !== undefined) n = n.min(schema.minimum as number);
+          if (schema.maximum !== undefined) n = n.max(schema.maximum as number);
+          return n;
+        }
+        case "boolean":
+          return z.boolean();
+        case "null":
+          return z.null();
+        case "array": {
+          const itemSchema = schema.items
+            ? this.jsonSchemaToZod(schema.items)
+            : z.unknown();
+          return z.array(itemSchema);
+        }
+        case "object": {
+          const shape: Record<string, z.ZodTypeAny> = {};
+          // Add known properties from schema.properties
+          if (schema.properties) {
+            for (const [key, propSchema] of Object.entries(schema.properties)) {
+              const isRequired = schema.required?.includes(key) ?? false;
+              const zodProp = this.jsonSchemaToZod(propSchema);
+              shape[key] = isRequired ? zodProp : zodProp.optional();
+            }
+          }
+          // Add required fields that are not in properties (as z.unknown())
+          if (schema.required) {
+            for (const key of schema.required) {
+              if (!(key in shape)) {
+                shape[key] = z.unknown();
+              }
+            }
+          }
+          return z.object(shape).passthrough();
+        }
+        default:
+          return z.unknown();
+      }
+    };
+
+    if (types.length === 1) {
+      return buildSingleType(types[0]);
+    }
+    // 多 type → z.union
+    const schemas = types.map((t) => buildSingleType(t)) as [
+      z.ZodTypeAny,
+      z.ZodTypeAny,
+      ...z.ZodTypeAny[],
+    ];
+    return z.union(schemas);
+  }
+
+  /**
+   * JSON Schema 验证 — zod 为主路径，fallback 到手写 validateValue。
+   *
+   * 当 jsonSchemaToZod 返回 z.unknown()（即含不支持字段，如 $ref）时，
+   * 退到旧的手写路径，保持渐进式迁移。
    */
   private validateAgainstSchema(
     data: unknown,
     schema: JSONSchema,
   ): ValidationResult {
-    const errors: Array<{ path: string; message: string; type: string }> = [];
+    const zodSchema = this.jsonSchemaToZod(schema);
 
-    this.validateValue(data, schema, "", errors);
+    // fallback：z.unknown() 表示无法转译，退到手写实现
+    if (zodSchema instanceof z.ZodUnknown) {
+      const errors: Array<{ path: string; message: string; type: string }> = [];
+      this.validateValue(data, schema, "", errors);
+      return {
+        valid: errors.length === 0,
+        errors: errors.length > 0 ? errors : undefined,
+      };
+    }
 
-    return {
-      valid: errors.length === 0,
-      errors: errors.length > 0 ? errors : undefined,
-    };
+    const result = zodSchema.safeParse(data);
+    if (result.success) {
+      return { valid: true };
+    }
+
+    // 把 ZodError 转成 { path, message, type } 格式
+    const errors = result.error.issues.map((issue) => ({
+      path: issue.path.join(".") || "root",
+      message: issue.message,
+      type: issue.code,
+    }));
+    return { valid: false, errors };
   }
 
   private validateValue(

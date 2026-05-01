@@ -276,6 +276,7 @@ export class ContainerExecutorTool extends BaseTool<
   private readonly logger = new Logger(ContainerExecutorTool.name);
 
   readonly id = "container-executor";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "execution";
   readonly tags = ["execution", "container", "docker", "code", "sandbox"];
   readonly name = "容器代码执行";

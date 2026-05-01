@@ -2,6 +2,8 @@
  * Unit tests for ValidationMiddleware
  */
 
+import * as fs from "fs";
+import * as path from "path";
 import { Logger } from "@nestjs/common";
 import {
   ValidationMiddleware,
@@ -633,5 +635,114 @@ describe("ValidationMiddleware", () => {
         mw.before(true, makeContext(), tool),
       ).resolves.toBeUndefined();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// zod-powered validation — new capabilities
+// ---------------------------------------------------------------------------
+
+describe("zod-powered validation", () => {
+  const mw = new ValidationMiddleware();
+
+  it("1. enum field: rejects value not in enum list", async () => {
+    const tool = makeTool("t", { type: "string", enum: ["a", "b"] });
+    await expect(mw.before("c", makeContext(), tool)).rejects.toThrow(
+      ValidationError,
+    );
+  });
+
+  it("2. nested properties: error path contains dotted key", async () => {
+    const tool = makeTool("t", {
+      type: "object",
+      properties: {
+        nested: {
+          type: "object",
+          properties: { leaf: { type: "number" } },
+        },
+      },
+    });
+    let caughtError: ValidationError | undefined;
+    try {
+      await mw.before({ nested: { leaf: "not-a-number" } }, makeContext(), tool);
+    } catch (e) {
+      caughtError = e as ValidationError;
+    }
+    expect(caughtError).toBeInstanceOf(ValidationError);
+    const errs = (caughtError as ValidationError).validationErrors;
+    expect(errs.some((e) => e.path.includes("nested") && e.path.includes("leaf"))).toBe(true);
+  });
+
+  it("3. minLength + maxLength together: too-long string is rejected", async () => {
+    const tool = makeTool("t", {
+      type: "string",
+      minLength: 2,
+      maxLength: 5,
+    });
+    await expect(mw.before("toolongstr", makeContext(), tool)).rejects.toThrow(
+      ValidationError,
+    );
+  });
+
+  it("4. array items type mismatch: each bad element produces an error", async () => {
+    const tool = makeTool("t", {
+      type: "array",
+      items: { type: "number" },
+    });
+    let caughtError: ValidationError | undefined;
+    try {
+      await mw.before(["a", "b"], makeContext(), tool);
+    } catch (e) {
+      caughtError = e as ValidationError;
+    }
+    expect(caughtError).toBeInstanceOf(ValidationError);
+  });
+
+  it("5. $ref in schema: falls back gracefully without throwing", async () => {
+    const tool = makeTool("t", { $ref: "#/definitions/Foo" } as JSONSchema);
+    // fallback to z.unknown() path — z.unknown() accepts anything, so no throw
+    await expect(
+      mw.before({ anything: true }, makeContext(), tool),
+    ).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sideEffect coverage audit
+// ---------------------------------------------------------------------------
+
+describe("sideEffect coverage audit", () => {
+  it("every .tool.ts file in categories/ declares readonly sideEffect =", () => {
+    const categoriesDir = path.resolve(
+      __dirname,
+      "../../../tools/categories",
+    );
+
+    const missing: string[] = [];
+
+    const walk = (dir: string): void => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(fullPath);
+        } else if (entry.isFile() && entry.name.endsWith(".tool.ts")) {
+          const source = fs.readFileSync(fullPath, "utf8");
+          if (!/readonly sideEffect\s*=/.test(source)) {
+            missing.push(
+              path.relative(categoriesDir, fullPath).replace(/\\/g, "/"),
+            );
+          }
+        }
+      }
+    };
+
+    walk(categoriesDir);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `${missing.length} tool(s) missing sideEffect field:\n  ${missing.join("\n  ")}`,
+      );
+    }
+    expect(missing).toHaveLength(0);
   });
 });

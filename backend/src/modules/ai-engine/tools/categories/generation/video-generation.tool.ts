@@ -180,6 +180,7 @@ export class VideoGenerationTool extends BaseTool<
   VideoGenerationOutput
 > {
   readonly id = "video-generation";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "generation";
   readonly tags = ["generation", "video", "ai-video", "synthesis"];
   readonly name = "视频生成";

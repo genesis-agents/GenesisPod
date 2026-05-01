@@ -175,6 +175,7 @@ export class FileParserTool extends BaseTool<
   private readonly logger = new Logger(FileParserTool.name);
 
   readonly id = "file-parser";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "processing";
   readonly tags = ["processing", "file", "parser", "pdf", "docx", "extract"];
   readonly name = "文件解析";

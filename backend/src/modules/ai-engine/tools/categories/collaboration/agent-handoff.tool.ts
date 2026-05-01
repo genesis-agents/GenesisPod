@@ -271,6 +271,12 @@ export class AgentHandoffTool extends BaseTool<
         type: "string",
         description: "错误信息（如果失败）",
       },
+      metadata: {
+        type: "object",
+        description:
+          "委派元数据（异步和同步路径均可能出现）。包含 handoffAt（Date）、completedAt（Date，仅同步成功时）、usedFallback（boolean，使用降级 Agent 时）",
+        additionalProperties: true,
+      },
     },
   };
 

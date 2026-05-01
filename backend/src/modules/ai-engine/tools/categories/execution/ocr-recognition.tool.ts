@@ -158,6 +158,7 @@ export class OCRRecognitionTool extends BaseTool<
   private readonly logger = new Logger(OCRRecognitionTool.name);
 
   readonly id = "ocr-recognition";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "execution";
   readonly tags = ["execution", "ocr", "image", "text-extraction", "vision"];
   readonly name = "OCR 文字识别";

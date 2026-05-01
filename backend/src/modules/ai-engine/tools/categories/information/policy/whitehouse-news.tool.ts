@@ -86,6 +86,7 @@ export class WhiteHouseNewsTool extends BaseTool<
   private readonly logger = new Logger(WhiteHouseNewsTool.name);
 
   readonly id = "whitehouse-news";
+  readonly sideEffect = "none" as const;
   readonly name = "White House News";
   readonly description =
     "获取美国白宫官方新闻、声明、新闻简报、行政命令。数据来源：whitehouse.gov，无需 API Key。";

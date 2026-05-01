@@ -142,6 +142,7 @@ export class CongressGovTool extends BaseTool<
   private readonly logger = new Logger(CongressGovTool.name);
 
   readonly id = "congress-gov";
+  readonly sideEffect = "none" as const;
   readonly name = "Congress Legislation Search";
   readonly description =
     "搜索美国国会法案、决议、立法进程。数据来源：Congress.gov API，需要 API Key（免费申请）。";

@@ -121,6 +121,7 @@ export class ArxivSearchTool extends BaseTool<
   private static cooldownUntil = 0;
 
   readonly id = "arxiv-search";
+  readonly sideEffect = "none" as const;
   readonly name = "ArXiv Search";
   readonly description =
     "搜索 ArXiv 学术论文预印本库：计算机科学、物理学、数学等领域的最新研究论文。数据来源：arxiv.org，无需 API Key。适合深度研究、文献调研、前沿技术追踪。";

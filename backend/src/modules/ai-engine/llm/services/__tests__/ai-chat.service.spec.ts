@@ -2154,4 +2154,59 @@ describe("AiChatService", () => {
       expect(result).toEqual([]);
     });
   });
+
+  // ==================== Function Calling — tools passthrough ====================
+
+  describe("Function Calling — tools passthrough via ChatOptions", () => {
+    const toolDefs = [
+      {
+        name: "web-search",
+        description: "Search the web",
+        parameters: { type: "object" as const, properties: { query: { type: "string" } } },
+      },
+    ];
+
+    it("tools field in ChatOptions flows into generateChatCompletion without error", async () => {
+      const mockConfig = createMockModelConfig({ modelId: "gpt-4o" });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "result",
+        model: "gpt-4o",
+        tokensUsed: 100,
+        finishReason: "stop",
+      });
+
+      await expect(
+        service.chat({
+          messages: [{ role: "user", content: "search TypeScript" }],
+          model: "gpt-4o",
+          tools: toolDefs,
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it("toolCalls returned from adapter are propagated back in ChatResult", async () => {
+      const mockConfig = createMockModelConfig({ modelId: "gpt-4o" });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "",
+        model: "gpt-4o",
+        tokensUsed: 50,
+        finishReason: "tool_calls",
+        toolCalls: [
+          { id: "call-1", name: "web-search", arguments: { query: "AI" } },
+        ],
+      });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "find AI info" }],
+        model: "gpt-4o",
+        tools: toolDefs,
+      });
+
+      expect(result.toolCalls).toEqual([
+        { id: "call-1", name: "web-search", arguments: { query: "AI" } },
+      ]);
+    });
+  });
 });

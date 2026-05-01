@@ -125,6 +125,7 @@ export class FederalRegisterTool extends BaseTool<
   private readonly logger = new Logger(FederalRegisterTool.name);
 
   readonly id = "federal-register";
+  readonly sideEffect = "none" as const;
   readonly name = "Federal Register Search";
   readonly description =
     "搜索美国联邦公报（Federal Register）：行政命令、联邦法规、拟议规则、机构通知。数据来源：federalregister.gov，无需 API Key。";

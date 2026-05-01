@@ -14,7 +14,13 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+import {
+  AgentSpec,
+  DefineAgent,
+  RESEARCHER_MAX_ITERATIONS,
+  RESEARCHER_MAX_ITERATIONS_HARD_CAP,
+  RESEARCHER_MAX_WALL_TIME_MS,
+} from "../../../../ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -123,11 +129,12 @@ const Output = z.object({
   //   触发 LLM 60+ 轮 parallel_tool_call 永不 finalize 的死循环（44 分钟单 dim retry）。
   //   硬上限 10 = base 5 × 2，给容错重试一轮但不给"再搜很多轮"的余地。
   //   maxTokens / maxWallTimeMs 仍允许放大（容错），只锁 maxIterations（决策边界）。
+  // ★ 2026-05-01 (PR-G iter9): 走集中常量。maxTokens 仍 dim 自治
   budget: {
     maxTokens: 30_000,
-    maxIterations: 5,
-    maxIterationsHardCap: 10,
-    maxWallTimeMs: 600_000,
+    maxIterations: RESEARCHER_MAX_ITERATIONS,
+    maxIterationsHardCap: RESEARCHER_MAX_ITERATIONS_HARD_CAP,
+    maxWallTimeMs: RESEARCHER_MAX_WALL_TIME_MS,
   },
 })
 export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {

@@ -29,6 +29,7 @@ export class GoogleImageSearchTool extends BaseTool<
   private readonly logger = new Logger(GoogleImageSearchTool.name);
 
   readonly id = "google-image-search";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly name = "Google 图片搜索";
   readonly description =

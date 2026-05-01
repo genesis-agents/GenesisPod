@@ -135,6 +135,7 @@ export class OpenAlexSearchTool extends BaseTool<
   private static cooldownUntil = 0;
 
   readonly id = "openalex-search";
+  readonly sideEffect = "none" as const;
   readonly name = "OpenAlex Search";
   readonly description =
     "搜索 OpenAlex 学术论文数据库：覆盖 2.5 亿+学术作品，跨学科元数据，引用分析，开放获取状态。数据来源：openalex.org，免费无需 API Key。适合大规模文献调研、引用网络分析、开放获取论文检索。";

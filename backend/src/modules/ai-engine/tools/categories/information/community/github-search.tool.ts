@@ -128,6 +128,7 @@ export class GithubSearchTool extends BaseTool<
   private readonly logger = new Logger(GithubSearchTool.name);
 
   readonly id = "github-search";
+  readonly sideEffect = "none" as const;
   readonly name = "GitHub Repository Search";
   readonly description =
     "搜索 GitHub 开源项目仓库：按关键词、编程语言、Stars 数等条件查找。用于技术调研、开源项目分析、趋势追踪。";

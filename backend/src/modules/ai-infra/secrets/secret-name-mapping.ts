@@ -329,6 +329,71 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
 ];
 
 /**
+ * LLM Provider 名称模式（小写，子串匹配）
+ *
+ * Secret name 包含其中任一 token → 归 LLM Provider 类
+ * 新增 LLM 接入时仅需在这里追加一行
+ */
+export const LLM_PROVIDER_NAME_PATTERNS: readonly string[] = [
+  "openai",
+  "claude",
+  "anthropic",
+  "gemini",
+  "google-ai", // 区分 google-cse / google-tts
+  "grok",
+  "xai",
+  "doubao",
+  "deepseek",
+  "openrouter",
+  "cohere",
+  "glm",
+  "groq",
+  "codex",
+  "qwen",
+  "mistral",
+  "llama",
+  "yi-",
+] as const;
+
+/**
+ * Secret 分类
+ *
+ * - "preset-tool": 在 SYSTEM_SETTING_TO_SECRET_MAPPING 里登记的平台工具 key
+ * - "llm-provider": 名称命中 LLM_PROVIDER_NAME_PATTERNS
+ * - "custom": 用户自定义（默认友好态，无警告）
+ * - "orphan": 真孤儿（保留位，目前判定逻辑：在 SYSTEM_SETTING 历史登记过但已下线，本期不实现）
+ */
+export type SecretClassification =
+  | "preset-tool"
+  | "llm-provider"
+  | "custom"
+  | "orphan";
+
+/**
+ * 对一个 secret name 进行 4 分类
+ *
+ * 优先级：preset-tool > llm-provider > custom
+ * orphan 保留位，本期永远不返回（需"下线工具列表"才能严格判定）
+ */
+export function classifySecret(name: string): SecretClassification {
+  const lower = name.toLowerCase();
+
+  // 1. preset tool（A 类）
+  if (SYSTEM_SETTING_TO_SECRET_MAPPING.some((m) => m.name === name)) {
+    return "preset-tool";
+  }
+
+  // 2. LLM provider（B 类）
+  if (LLM_PROVIDER_NAME_PATTERNS.some((p) => lower.includes(p))) {
+    return "llm-provider";
+  }
+
+  // 3. 默认归自定义（C 类，无警告）
+  // orphan（D 类）暂保留位不实现 — 需要"下线工具列表"才能严格判定
+  return "custom";
+}
+
+/**
  * 从 SYSTEM_SETTING_TO_SECRET_MAPPING 推导出"预期应配置的 secret"清单
  * 不查 DB，纯静态数据
  */

@@ -152,6 +152,7 @@ export class DocumentDiffTool extends BaseTool<
   private readonly logger = new Logger(DocumentDiffTool.name);
 
   readonly id = "document-diff";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "processing";
   readonly tags = ["processing", "document", "diff", "compare", "version"];
   readonly name = "文档对比";

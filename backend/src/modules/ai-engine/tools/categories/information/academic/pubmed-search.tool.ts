@@ -122,6 +122,7 @@ export class PubMedSearchTool extends BaseTool<
   private static cooldownUntil = 0;
 
   readonly id = "pubmed";
+  readonly sideEffect = "none" as const;
   readonly name = "PubMed Search";
   readonly description =
     "搜索 PubMed 生物医学文献库：医学、生命科学、生物技术等领域的同行评审论文。数据来源：NCBI PubMed，无需 API Key（可选提升限速）。";

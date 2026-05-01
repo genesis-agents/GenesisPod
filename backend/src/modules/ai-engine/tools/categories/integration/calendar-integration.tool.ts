@@ -204,6 +204,7 @@ export class CalendarIntegrationTool extends BaseTool<
   private readonly logger = new Logger(CalendarIntegrationTool.name);
 
   readonly id = "calendar-integration";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "calendar", "scheduling", "meeting"];
   readonly name = "日历集成";

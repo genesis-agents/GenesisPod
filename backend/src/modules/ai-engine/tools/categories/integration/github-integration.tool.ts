@@ -154,6 +154,7 @@ export class GitHubIntegrationTool extends BaseTool<
   private readonly logger = new Logger(GitHubIntegrationTool.name);
 
   readonly id = "github-integration";
+  readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "github", "git", "repository", "vcs"];
   readonly name = "GitHub 集成";

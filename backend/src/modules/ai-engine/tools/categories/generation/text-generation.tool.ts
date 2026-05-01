@@ -87,6 +87,7 @@ export class TextGenerationTool extends BaseTool<
   TextGenerationOutput
 > {
   readonly id = "text-generation";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "generation";
   readonly tags = ["generation", "text", "writing", "completion"];
   readonly name = "文本生成";

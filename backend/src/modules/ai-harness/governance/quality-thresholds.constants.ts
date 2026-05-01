@@ -51,3 +51,46 @@ export const MISSION_WRITER_MAX_ATTEMPTS = 2;
  * 超过此值 reviewer 视为持续故障，放弃该章节的复审循环，直接 accept 当前 draft。
  */
 export const MAX_CONSECUTIVE_REVIEWER_FAILURES = 2;
+
+// ============ Agent-level Budget Caps ============
+//
+// 这些 cap 之前散落在各 agent decorator 里硬编码，与 review pass 阈值组合时
+// 容易产生指数爆炸（mission 165c967f 70+min 卡死真因之一）。集中到此处统一
+// 调优，避免 chapter-writer × reflexion × outer revise loop 的乘积失控。
+
+/**
+ * Chapter writer 单次调用内部 reflexion 最大迭代数。
+ * - 1 = 写 1 次后就 finalize（不在 agent 内部再 self-critique）
+ *   外部已有 chapter-reviewer 评分 + revise loop（per-dim-pipeline），
+ *   再叠 reflexion 等于双层评审。把内部 reflexion 收敛到 1 让外部评审权重最大化。
+ * - 之前 4 → 与外部 4 次 revise 相乘 = 16 LLM calls/章节
+ */
+export const CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS = 1;
+
+/**
+ * Chapter reviewer simple-loop 最大迭代数。
+ * - 1 = 评分一次就出 verdict，不内部 self-critique
+ */
+export const CHAPTER_REVIEWER_INTERNAL_MAX_ITERATIONS = 1;
+
+/**
+ * Researcher ReAct loop 最大迭代数（柔性 cap）。
+ * - 5 = 1 search + 1-2 scrape + 1 finalize + buffer
+ * - 实际 framework 还会按 maxWallTimeMs / maxTokens 提前退出
+ */
+export const RESEARCHER_MAX_ITERATIONS = 5;
+
+/**
+ * Researcher 硬上限（无论 budgetMultiplier 如何放大都不可越过）。
+ * - 10 = base 5 × 2 容错系数
+ * - 这是防 leader-assess-research 用 budgetMultiplier 7× 把 base 5 放大到 35 触发
+ *   60+ 轮死循环（mission 8c7b4358 真因）的硬护栏
+ */
+export const RESEARCHER_MAX_ITERATIONS_HARD_CAP = 10;
+
+/**
+ * Researcher 单 dim wall-time 上限（毫秒）。
+ * - 600s = 10min，覆盖 1 search + 1-2 scrape + figure extraction
+ * - 框架通过 maxWallTimeMs 强制 abort，避免 reasoning 模型 232s/call × 多轮死等
+ */
+export const RESEARCHER_MAX_WALL_TIME_MS = 600_000;

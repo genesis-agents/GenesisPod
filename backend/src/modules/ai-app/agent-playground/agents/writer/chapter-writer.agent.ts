@@ -5,7 +5,11 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+import {
+  AgentSpec,
+  DefineAgent,
+  CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS,
+} from "../../../../ai-harness/facade";
 // ★ 沉淀接入: 外部 evidence 进 prompt 前用 XML 隔离 + sanitize（防 OWASP LLM01）
 //   + TI report-writing-standards（与 TI dimension-research.prompt.ts 同源）
 import {
@@ -71,7 +75,13 @@ const Output = z.object({
   taskProfile: { creativity: "medium", outputLength: "extended" },
   inputSchema: Input,
   outputSchema: Output,
-  budget: { maxTokens: 22_000, maxIterations: 4 },
+  // ★ 2026-05-01 (PR-G iter9): maxIterations 走集中常量。原 4 内嵌 reflexion ×
+  //   外部 4 attempt = 16 calls/章节产生指数爆炸。1 = 内部不再 self-critique，
+  //   外部 chapter-reviewer 评分是唯一权威 gate。
+  budget: {
+    maxTokens: 22_000,
+    maxIterations: CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS,
+  },
 })
 export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {

@@ -571,4 +571,237 @@ describe("PromptSkillAdapter", () => {
       expect(result.metadata.duration).toBeGreaterThanOrEqual(0);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // function calling
+  // -------------------------------------------------------------------------
+
+  describe("function calling", () => {
+    function makeTool(id: string, result: unknown = { answer: 42 }) {
+      return {
+        id,
+        name: id,
+        description: `Tool ${id}`,
+        category: "information",
+        inputSchema: { type: "object" },
+        outputSchema: { type: "object" },
+        toFunctionDefinition: jest.fn().mockReturnValue({
+          name: id,
+          description: `Tool ${id}`,
+          parameters: { type: "object" },
+        }),
+        execute: jest.fn().mockResolvedValue({ success: true, data: result }),
+        toCompactSummary: jest.fn(),
+      };
+    }
+
+    function makeToolRegistry(tools: ReturnType<typeof makeTool>[]) {
+      const map = new Map(tools.map((t) => [t.id, t]));
+      return {
+        tryGet: jest.fn((id: string) => map.get(id) ?? null),
+      };
+    }
+
+    it("allowedTools empty → prompt-only path, facade.chat not passed tools", async () => {
+      const facade = makeFacade('{"result":"ok"}');
+      const promptBuilder = makePromptBuilder();
+      const registry = makeToolRegistry([]);
+
+      const adapter = new PromptSkillAdapter(
+        makeDefinition({ allowedTools: [] }),
+        facade as any,
+        promptBuilder as any,
+        undefined,
+        registry as any,
+      );
+
+      await adapter.execute({}, makeContext());
+
+      expect(facade.chat).toHaveBeenCalledTimes(1);
+      const callArg = facade.chat.mock.calls[0][0];
+      expect(callArg.tools).toBeUndefined();
+    });
+
+    it("allowedTools set but toolRegistry not provided → fallback to prompt-only", async () => {
+      const facade = makeFacade('{"result":"ok"}');
+      const promptBuilder = makePromptBuilder();
+
+      // No toolRegistry (5th constructor arg) intentionally omitted
+      const adapter = new PromptSkillAdapter(
+        makeDefinition({ allowedTools: ["web-search"] }),
+        facade as any,
+        promptBuilder as any,
+        undefined,
+        undefined, // no toolRegistry
+      );
+
+      await adapter.execute({}, makeContext());
+
+      expect(facade.chat).toHaveBeenCalledTimes(1);
+      const callArg = facade.chat.mock.calls[0][0];
+      expect(callArg.tools).toBeUndefined();
+    });
+
+    it("allowedTools + toolRegistry: first LLM returns toolCalls → calls tool → second LLM returns final answer", async () => {
+      const tool = makeTool("web-search", { snippet: "TypeScript is great" });
+      const registry = makeToolRegistry([tool]);
+
+      const finalContent = '{"summary":"TypeScript is great"}';
+
+      const facade = {
+        chat: jest
+          .fn()
+          // First call: LLM returns tool_use
+          .mockResolvedValueOnce({
+            content: "",
+            tokensUsed: 50,
+            model: "gpt-4o",
+            toolCalls: [
+              {
+                id: "call-001",
+                name: "web-search",
+                arguments: { query: "TypeScript" },
+              },
+            ],
+          })
+          // Second call: LLM gives final text after seeing tool result
+          .mockResolvedValueOnce({
+            content: finalContent,
+            tokensUsed: 60,
+            model: "gpt-4o",
+          }),
+      };
+
+      const adapter = new PromptSkillAdapter(
+        makeDefinition({ allowedTools: ["web-search"] }),
+        facade as any,
+        makePromptBuilder() as any,
+        undefined,
+        registry as any,
+      );
+
+      const result = await adapter.execute({}, makeContext());
+
+      // Tool was executed
+      expect(tool.execute).toHaveBeenCalledTimes(1);
+      expect(tool.execute).toHaveBeenCalledWith(
+        { query: "TypeScript" },
+        expect.objectContaining({ toolId: "web-search", callerType: "skill" }),
+      );
+
+      // Second LLM call had no tools
+      expect(facade.chat).toHaveBeenCalledTimes(2);
+      const secondCallArg = facade.chat.mock.calls[1][0];
+      expect(secondCallArg.tools).toBeUndefined();
+
+      // Final result is parsed from the second LLM response
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ summary: "TypeScript is great" });
+      expect(result.metadata.tokensUsed).toBe(110); // 50 + 60
+    });
+
+    it("allowedTools + toolRegistry: LLM returns no toolCalls → treat first response as final", async () => {
+      const tool = makeTool("web-search");
+      const registry = makeToolRegistry([tool]);
+
+      const facade = {
+        chat: jest.fn().mockResolvedValueOnce({
+          content: '{"result":"direct answer"}',
+          tokensUsed: 80,
+          model: "gpt-4o",
+          toolCalls: [], // empty tool calls
+        }),
+      };
+
+      const adapter = new PromptSkillAdapter(
+        makeDefinition({ allowedTools: ["web-search"] }),
+        facade as any,
+        makePromptBuilder() as any,
+        undefined,
+        registry as any,
+      );
+
+      const result = await adapter.execute({}, makeContext());
+
+      expect(facade.chat).toHaveBeenCalledTimes(1);
+      expect(tool.execute).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ result: "direct answer" });
+    });
+
+    it("tool execution failure → error result passed as tool_result, second LLM still called", async () => {
+      const tool = makeTool("web-search");
+      // Override execute to fail
+      (tool.execute as jest.Mock).mockResolvedValue({
+        success: false,
+        error: { message: "Network timeout" },
+        metadata: { executionId: "x", startTime: new Date(), endTime: new Date(), duration: 0 },
+      });
+
+      const registry = makeToolRegistry([tool]);
+
+      const facade = {
+        chat: jest
+          .fn()
+          .mockResolvedValueOnce({
+            content: "",
+            tokensUsed: 50,
+            model: "gpt-4o",
+            toolCalls: [
+              { id: "call-002", name: "web-search", arguments: { query: "X" } },
+            ],
+          })
+          .mockResolvedValueOnce({
+            content: '{"fallback":"sorry, could not fetch"}',
+            tokensUsed: 40,
+            model: "gpt-4o",
+          }),
+      };
+
+      const adapter = new PromptSkillAdapter(
+        makeDefinition({ allowedTools: ["web-search"] }),
+        facade as any,
+        makePromptBuilder() as any,
+        undefined,
+        registry as any,
+      );
+
+      const result = await adapter.execute({}, makeContext());
+
+      // Second LLM call should have happened with the error as tool_result
+      expect(facade.chat).toHaveBeenCalledTimes(2);
+      const secondCallMessages: Array<{ role: string; content: string }> =
+        facade.chat.mock.calls[1][0].messages;
+      const toolResultMsg = secondCallMessages.find(
+        (m) => m.role === "user" && m.content.includes("Network timeout"),
+      );
+      expect(toolResultMsg).toBeDefined();
+
+      // Adapter still returns success with final LLM content
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ fallback: "sorry, could not fetch" });
+    });
+
+    it("allowedTools references tool not in registry → skip it, logger.warn, still calls LLM", async () => {
+      const registry = makeToolRegistry([]); // empty registry
+
+      const facade = makeFacade('{"result":"ok"}');
+
+      const adapter = new PromptSkillAdapter(
+        makeDefinition({ allowedTools: ["nonexistent-tool"] }),
+        facade as any,
+        makePromptBuilder() as any,
+        undefined,
+        registry as any,
+      );
+
+      const result = await adapter.execute({}, makeContext());
+
+      // Should fall back to prompt-only since no tools resolved
+      expect(facade.chat).toHaveBeenCalledTimes(1);
+      const callArg = facade.chat.mock.calls[0][0];
+      expect(callArg.tools).toBeUndefined();
+      expect(result.success).toBe(true);
+    });
+  });
 });

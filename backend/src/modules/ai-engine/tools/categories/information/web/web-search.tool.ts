@@ -74,6 +74,7 @@ export interface WebSearchOutput {
 @Injectable()
 export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
   readonly id = "web-search";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "information";
   readonly tags = ["web", "search", "general"];
   readonly name = "网络搜索";

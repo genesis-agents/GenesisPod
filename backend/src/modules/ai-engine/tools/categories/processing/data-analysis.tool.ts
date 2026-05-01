@@ -99,6 +99,7 @@ export class DataAnalysisTool extends BaseTool<
   DataAnalysisOutput
 > {
   readonly id = "data-analysis";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "processing";
   readonly tags = ["processing", "data", "analysis", "statistics"];
   readonly name = "数据分析";

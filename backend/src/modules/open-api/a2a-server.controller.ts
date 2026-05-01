@@ -116,17 +116,34 @@ export class A2AController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Get Agent Card",
+    summary: "Get Agent Card (A2A v0.3)",
     description:
-      "Returns the A2A Agent Card describing Genesis.ai capabilities. This is a public discovery endpoint.",
+      "Returns the A2A v0.3 spec-compliant Agent Card describing Genesis.ai capabilities. This is a public discovery endpoint.",
   })
   @ApiResponse({
     status: 200,
     description: "Agent Card retrieved successfully",
     type: Object,
   })
-  getAgentCard(): A2AAgentCard {
-    this.logger.log("Agent Card requested");
+  getAgentCard() {
+    this.logger.log("Agent Card requested (v0.3)");
+    // 2026-05-01 (PR-X-P): /.well-known/agent.json 默认返回 v0.3 spec card
+    return this.agentCardRegistry.getAgentCardV03();
+  }
+
+  /**
+   * Legacy v0.1 Agent Card endpoint
+   * 早期 client 兼容入口；新 client 用 /.well-known/agent.json（已升级到 v0.3）
+   */
+  @Get(".well-known/agent-v01.json")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Get Legacy Agent Card (v0.1, deprecated)",
+    description:
+      "Returns the legacy v0.1 Agent Card for backwards compatibility. Use /.well-known/agent.json for v0.3.",
+  })
+  getAgentCardLegacy(): A2AAgentCard {
     return this.agentCardRegistry.getAgentCard();
   }
 
