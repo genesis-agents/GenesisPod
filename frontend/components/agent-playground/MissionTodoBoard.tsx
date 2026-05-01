@@ -29,7 +29,7 @@ import {
   RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
-import { rerunTodo } from '@/services/agent-playground/api';
+import { rerunTodo, localRerunTodo } from '@/services/agent-playground/api';
 import { cn } from '@/lib/utils/common';
 import type {
   MissionTodo,
@@ -645,8 +645,36 @@ export function MissionTodoBoard({
 
   const handleRerunTodo = async (td: MissionTodo) => {
     if (!missionId || rerunningId) return;
+
+    // ★ 2026-05-01 防"跑了整个项目"：先尝试局部重跑（仅 s9b 后端真支持），
+    //   不支持的 scope 友好弹窗确认"另起新 mission（跑全 12 stage）"才走 rerunTodo。
+    const supportsLocalRerun =
+      td.scope === 'system' && td.id.endsWith('s9b-objective-evaluation');
+
     setRerunningId(td.id);
     try {
+      if (supportsLocalRerun) {
+        // 真正的局部重跑：单 stage 重跑 + patch 回原 mission，不跳转
+        await localRerunTodo(missionId, td.id, {
+          origin: td.origin,
+          scope: td.scope,
+          dimensionRef: td.dimensionRef,
+          todoTitle: td.title,
+          reasonText: td.reasonText,
+        });
+        // 局部重跑成功 → mission:rerun-completed 事件触发外层 re-fetch persisted
+        return;
+      }
+
+      // 非局部重跑：明确提示用户"将另起新 mission 跑完整流程"
+      const confirmed = window.confirm(
+        `此任务类型不支持局部重跑。\n\n` +
+          `点击"确定"会另起一个新 mission 重跑完整流程（约 5-15 分钟），` +
+          `并把此 todo 作为 leader 的 focus hint。\n\n` +
+          `点击"取消"放弃，不执行任何操作。`
+      );
+      if (!confirmed) return;
+
       const { missionId: newId } = await rerunTodo(missionId, td.id, {
         origin: td.origin,
         scope: td.scope,
