@@ -7,6 +7,7 @@ import { v4 as uuid } from "uuid";
 import { ITool, ToolContext, ToolResult } from "../abstractions/tool.interface";
 import { IToolMiddleware, IMiddlewareChain } from "./middleware.interface";
 import { ToolError } from "../../core/errors";
+import { ToolResultCacheService } from "../cache/tool-result-cache.service";
 
 /**
  * 工具执行管道
@@ -14,6 +15,8 @@ import { ToolError } from "../../core/errors";
  */
 export class ToolPipeline implements IMiddlewareChain {
   private middlewares: IToolMiddleware[] = [];
+
+  constructor(private readonly cacheService?: ToolResultCacheService) {}
 
   /**
    * 添加中间件
@@ -60,6 +63,16 @@ export class ToolPipeline implements IMiddlewareChain {
       context.executionId = uuid();
     }
 
+    // Resolve missionId from context (playground sets metadata.missionId)
+    const missionId =
+      (context.metadata?.missionId as string | undefined) ?? context.taskId;
+
+    // Determine whether this tool's results are cacheable
+    const cacheable = this.cacheService?.isCacheable(tool.sideEffect) ?? false;
+    const cacheKey = cacheable
+      ? this.cacheService!.buildKey(missionId, tool.id, input)
+      : "";
+
     try {
       // 执行所有 before 中间件
       for (const middleware of this.middlewares) {
@@ -71,8 +84,27 @@ export class ToolPipeline implements IMiddlewareChain {
         }
       }
 
+      // Cache lookup: skip tool.execute() on hit
+      if (cacheable) {
+        const cached =
+          await this.cacheService!.tryGet<ToolResult<TOutput>>(cacheKey);
+        if (cached !== null) {
+          // Stamp fromCache flag and return immediately (skip after-middlewares)
+          cached.metadata = {
+            ...cached.metadata,
+            extra: { ...(cached.metadata.extra ?? {}), fromCache: true },
+          };
+          return cached;
+        }
+      }
+
       // 执行工具
       let result = await tool.execute(currentInput as TInput, context);
+
+      // Write successful result to cache
+      if (cacheable && result.success) {
+        await this.cacheService!.set(cacheKey, result);
+      }
 
       // 执行所有 after 中间件（逆序）
       for (let i = this.middlewares.length - 1; i >= 0; i--) {

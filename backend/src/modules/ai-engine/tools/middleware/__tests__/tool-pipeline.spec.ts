@@ -14,6 +14,7 @@ import {
   ToolResult,
   ToolCategory,
 } from "../../abstractions/tool.interface";
+import { ToolResultCacheService } from "../../cache/tool-result-cache.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -575,5 +576,102 @@ describe("createDefaultPipeline()", () => {
   it("returns a pipeline with no middlewares by default", () => {
     const pipeline = createDefaultPipeline();
     expect(pipeline.getAll()).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ToolPipeline — cache integration
+// ---------------------------------------------------------------------------
+
+describe("ToolPipeline — cache integration", () => {
+  function createMockCacheService(
+    cachedValue: ToolResult | null,
+  ): ToolResultCacheService {
+    return {
+      isCacheable: jest.fn().mockReturnValue(true),
+      buildKey: jest.fn().mockReturnValue("tool:result:m:tool:abc123"),
+      tryGet: jest.fn().mockResolvedValue(cachedValue),
+      set: jest.fn().mockResolvedValue(undefined),
+    } as unknown as ToolResultCacheService;
+  }
+
+  it("returns cached result and does NOT call tool.execute on a cache hit", async () => {
+    const cachedResult: ToolResult = {
+      success: true,
+      data: { from: "cache" },
+      metadata: {
+        executionId: "cached-exec",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 0,
+      },
+    };
+
+    const mockCache = createMockCacheService(cachedResult);
+    const pipeline = new ToolPipeline(mockCache);
+
+    const executeFn = jest.fn();
+    const tool = createMockTool({ sideEffect: "none", execute: executeFn });
+    const context = createMockContext({
+      metadata: { missionId: "mission-1" },
+    });
+
+    const result = await pipeline.execute(tool, { q: "hello" }, context);
+
+    // tool.execute must not be called
+    expect(executeFn).not.toHaveBeenCalled();
+    // result data comes from cache
+    expect(result.data).toEqual({ from: "cache" });
+    // fromCache flag is set
+    expect(result.metadata.extra?.fromCache).toBe(true);
+  });
+
+  it("calls tool.execute and writes to cache on a cache miss", async () => {
+    const mockCache = createMockCacheService(null); // null = cache miss
+    const pipeline = new ToolPipeline(mockCache);
+
+    const freshResult: ToolResult = {
+      success: true,
+      data: { fresh: true },
+      metadata: {
+        executionId: "fresh-exec",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 10,
+      },
+    };
+
+    const executeFn = jest.fn().mockResolvedValue(freshResult);
+    const tool = createMockTool({ sideEffect: "none", execute: executeFn });
+    const context = createMockContext({
+      metadata: { missionId: "mission-2" },
+    });
+
+    const result = await pipeline.execute(tool, { q: "world" }, context);
+
+    expect(executeFn).toHaveBeenCalledTimes(1);
+    expect(result.data).toEqual({ fresh: true });
+    expect(mockCache.set).toHaveBeenCalledWith(
+      "tool:result:m:tool:abc123",
+      freshResult,
+    );
+  });
+
+  it("does not cache when isCacheable returns false", async () => {
+    const mockCache = {
+      isCacheable: jest.fn().mockReturnValue(false),
+      buildKey: jest.fn(),
+      tryGet: jest.fn(),
+      set: jest.fn(),
+    } as unknown as ToolResultCacheService;
+
+    const pipeline = new ToolPipeline(mockCache);
+    const tool = createMockTool({ sideEffect: "destructive" });
+    const context = createMockContext();
+
+    await pipeline.execute(tool, {}, context);
+
+    expect(mockCache.tryGet).not.toHaveBeenCalled();
+    expect(mockCache.set).not.toHaveBeenCalled();
   });
 });

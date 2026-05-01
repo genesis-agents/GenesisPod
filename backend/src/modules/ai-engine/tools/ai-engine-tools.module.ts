@@ -29,6 +29,8 @@ import { PolicyDataService } from "./categories/information/policy";
 import { ToolConcurrencyService } from "./concurrency/tool-concurrency.service";
 import { PermissionMiddleware } from "./middleware/permission.middleware";
 import { ProgressMiddleware } from "./middleware/progress.middleware";
+// ★ L2-7: Tool result cache
+import { ToolResultCacheService } from "./cache/tool-result-cache.service";
 
 // All Tools
 import {
@@ -45,15 +47,16 @@ const toolPipelineFactory = {
   useFactory: (
     permissionMiddleware: PermissionMiddleware,
     progressMiddleware: ProgressMiddleware,
+    toolResultCacheService: ToolResultCacheService,
   ) => {
-    const pipeline = new ToolPipeline();
+    const pipeline = new ToolPipeline(toolResultCacheService);
     pipeline.use(permissionMiddleware); // ★ Phase 3: permission check (priority 5, runs first)
     pipeline.use(new ValidationMiddleware()); // existing
     pipeline.use(new TimeoutMiddleware()); // existing
     pipeline.use(progressMiddleware); // ★ Phase 3: progress tracking (priority 90, runs last)
     return pipeline;
   },
-  inject: [PermissionMiddleware, ProgressMiddleware],
+  inject: [PermissionMiddleware, ProgressMiddleware, ToolResultCacheService],
 };
 
 /**
@@ -89,6 +92,8 @@ const toolExecutorFactory = {
     ToolConcurrencyService,
     PermissionMiddleware,
     ProgressMiddleware,
+    // ★ L2-7: Tool result cache
+    ToolResultCacheService,
 
     // All 46 Built-in Tools
     ...ALL_TOOL_PROVIDERS,
@@ -105,6 +110,8 @@ const toolExecutorFactory = {
     ToolConcurrencyService,
     PermissionMiddleware,
     ProgressMiddleware,
+    // ★ L2-7
+    ToolResultCacheService,
   ],
 })
 export class AiEngineToolsModule {}
