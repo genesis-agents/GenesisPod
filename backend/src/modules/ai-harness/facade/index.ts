@@ -192,11 +192,13 @@ export type {
   CompressionResult,
   CompressionOptions,
 } from "../execution/executor/interfaces";
+export { DEFAULT_CONTEXT_EVOLUTION_CONFIG } from "../execution/executor/interfaces";
+// ★ 2026-05-01 (PR-X-M): UserIntent / ContextStrategy 是 L2 LLM 能力概念，
+// owner 是 ai-engine/llm/intent；harness facade 仅 re-export 让 ai-app 透明
 export {
-  ContextStrategy,
   UserIntent,
-  DEFAULT_CONTEXT_EVOLUTION_CONFIG,
-} from "../execution/executor/interfaces";
+  ContextStrategy,
+} from "../../ai-engine/llm/intent/intent.types";
 
 // ★ 2026-05-01 (PR-X-L): execution/capabilities 类型同上下沉
 export type { AICapabilityContext } from "../execution/capabilities/ai-capability-resolver.service";

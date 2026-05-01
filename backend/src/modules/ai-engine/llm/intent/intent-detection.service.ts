@@ -17,7 +17,7 @@ import {
   IntentDetectionConfig,
   IntentDetectionResult,
   IIntentDetectionService,
-} from "../../../ai-harness/execution/executor/interfaces";
+} from "./intent.types";
 
 /**
  * 默认配置

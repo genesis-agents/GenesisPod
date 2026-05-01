@@ -944,98 +944,19 @@ export interface IContextCompressionService {
 }
 
 // ==================== 意图检测服务接口 ====================
-
-/**
- * 用户意图类型
- */
-export enum UserIntent {
-  /** 发起新会话（需要隔离历史） */
-  START_NEW_SESSION = "START_NEW_SESSION",
-  /** 总结 */
-  SUMMARIZE = "SUMMARIZE",
-  /** 生成内容 */
-  GENERATE = "GENERATE",
-  /** 分析 */
-  ANALYZE = "ANALYZE",
-  /** 继续/追问 */
-  CONTINUE = "CONTINUE",
-  /** 普通对话 */
-  GENERAL_CHAT = "GENERAL_CHAT",
-}
-
-/**
- * 上下文策略
- */
-export enum ContextStrategy {
-  /** 完全隔离，不使用历史 */
-  ISOLATED = "ISOLATED",
-  /** 引用最近内容 */
-  REFERENCE_RECENT = "REFERENCE_RECENT",
-  /** 标准上下文 */
-  STANDARD = "STANDARD",
-  /** 相关性检索 */
-  RELEVANCE_BASED = "RELEVANCE_BASED",
-}
-
-/**
- * 意图检测配置
- */
-export interface IntentDetectionConfig {
-  /** 新会话关键词 */
-  newSessionKeywords?: string[];
-  /** 总结关键词 */
-  summarizeKeywords?: string[];
-  /** 生成关键词 */
-  generateKeywords?: string[];
-  /** 分析关键词 */
-  analyzeKeywords?: string[];
-  /** 继续关键词 */
-  continueKeywords?: string[];
-  /** 引用关键词 */
-  referenceKeywords?: string[];
-  /** 自定义意图检测规则 */
-  customRules?: Array<{
-    intent: UserIntent;
-    condition: (content: string, metadata?: Record<string, unknown>) => boolean;
-  }>;
-}
-
-/**
- * 意图检测结果
- */
-export interface IntentDetectionResult {
-  /** 检测到的意图 */
-  intent: UserIntent;
-  /** 推荐的上下文策略 */
-  strategy: ContextStrategy;
-  /** 置信度 */
-  confidence: number;
-  /** 匹配的关键词 */
-  matchedKeywords?: string[];
-}
-
-/**
- * 意图检测服务接口
- */
-export interface IIntentDetectionService {
-  /**
-   * 检测用户意图
-   */
-  detectIntent(
-    content: string,
-    metadata?: Record<string, unknown>,
-  ): IntentDetectionResult;
-
-  /**
-   * 根据意图选择上下文策略
-   */
-  selectStrategy(intent: UserIntent): ContextStrategy;
-
-  /**
-   * 更新配置
-   */
-  updateConfig(config: Partial<IntentDetectionConfig>): void;
-}
+// 2026-05-01 (PR-X-M): 5 个意图检测类型已搬到 ai-engine/llm/intent/intent.types.ts
+// （L2 LLM 能力层 owned，避免 ai-engine intent-detection.service 反向 import 本文件）。
+// 此处 re-export 保 ai-harness 内部既有 import 路径稳定。新代码请 from
+// "@/modules/ai-engine/llm/intent/intent.types"（或 ai-harness/facade 间接走也行）。
+export {
+  UserIntent,
+  ContextStrategy,
+} from "../../../ai-engine/llm/intent/intent.types";
+export type {
+  IntentDetectionConfig,
+  IntentDetectionResult,
+  IIntentDetectionService,
+} from "../../../ai-engine/llm/intent/intent.types";
 
 /**
  * 迭代管理服务接口
