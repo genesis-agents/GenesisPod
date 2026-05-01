@@ -130,7 +130,7 @@ describe("runCriticStage (S9)", () => {
     const ctx = makeCtx({
       input: {
         ...makeCtx().input,
-        auditLayers: "paranoid",
+        auditLayers: "thorough+",
       } as MissionContext["input"],
     });
     const deps = makeDeps();

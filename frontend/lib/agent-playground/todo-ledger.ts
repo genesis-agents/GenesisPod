@@ -490,6 +490,23 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             t0.startedAt = ev.timestamp;
           }
         );
+      } else if (stage === 's7-writer-outline') {
+        // ★ 2026-04-30 (#62 截图 16): 补 s7-writer-outline stage:started handler
+        upsert(
+          'system:s7-writer-outline',
+          () =>
+            systemStageInit(
+              's7-writer-outline',
+              '撰写大纲',
+              'Writer 规划 mission-level 章节大纲（thorough+ 档位启用）',
+              'writer',
+              ev.timestamp
+            ),
+          (t0) => {
+            t0.status = 'in_progress';
+            t0.startedAt = ev.timestamp;
+          }
+        );
       } else if (stage === 'critic') {
         upsert(
           'system:s9-critic-l4',
@@ -684,6 +701,30 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
               tone: 'success',
             });
           }
+        }
+      } else if (stage === 's7-writer-outline') {
+        // ★ 2026-04-30 (#62 截图 16): s7-writer-outline stage:completed handler
+        const status = (p.status as string) ?? 'completed';
+        const s7 = upsert('system:s7-writer-outline', () =>
+          systemStageInit(
+            's7-writer-outline',
+            '撰写大纲',
+            'Writer 规划 mission-level 章节大纲',
+            'writer',
+            ev.timestamp
+          )
+        );
+        s7.status = status === 'failed' ? 'failed' : 'done';
+        s7.endedAt = ev.timestamp;
+        const chapterCount = p.chapterCount as number | undefined;
+        if (typeof chapterCount === 'number' && chapterCount > 0) {
+          s7.artifacts = [
+            {
+              kind: 'chapter',
+              label: '章节大纲',
+              value: `${chapterCount} 章`,
+            },
+          ];
         }
       } else if (stage === 'writer') {
         const s8 = upsert('system:s8-writer-draft', () =>

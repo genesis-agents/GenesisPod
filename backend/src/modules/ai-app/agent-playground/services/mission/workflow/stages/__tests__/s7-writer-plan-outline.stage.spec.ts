@@ -116,7 +116,7 @@ describe("runWriterOutlineStage (S7)", () => {
   });
 
   it("paranoid: runs planMissionOutline and writes ctx.outlinePlan", async () => {
-    const ctx = makeCtx("paranoid");
+    const ctx = makeCtx("thorough+");
     const deps = makeDeps();
     await runWriterOutlineStage(ctx, deps);
     expect(ctx.outlinePlan).toBeDefined();

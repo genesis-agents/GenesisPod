@@ -714,7 +714,7 @@ describe("TeamMission.runMission", () => {
       const { mission } = buildTeamMission();
       const result = await mission.runMission(
         "m-paranoid",
-        { ...VALID_INPUT, auditLayers: "paranoid", budgetProfile: "unlimited" },
+        { ...VALID_INPUT, auditLayers: "thorough+", budgetProfile: "unlimited" },
         "user-1",
       );
       expect(result.missionId).toBe("m-paranoid");

@@ -255,7 +255,7 @@ describe("AgentInvoker.resolveLoopOverride", () => {
 
   it("returns reflexion for paranoid/writer", () => {
     const { svc } = makeSvc();
-    expect(svc.resolveLoopOverride("paranoid", "writer")).toBe("reflexion");
+    expect(svc.resolveLoopOverride("thorough+", "writer")).toBe("reflexion");
   });
 
   it("returns undefined for thorough/researcher (exception)", () => {
@@ -265,7 +265,7 @@ describe("AgentInvoker.resolveLoopOverride", () => {
 
   it("returns undefined for paranoid/reconciler (exception)", () => {
     const { svc } = makeSvc();
-    expect(svc.resolveLoopOverride("paranoid", "reconciler")).toBeUndefined();
+    expect(svc.resolveLoopOverride("thorough+", "reconciler")).toBeUndefined();
   });
 
   it("returns reflexion for thorough/leader", () => {
@@ -275,7 +275,7 @@ describe("AgentInvoker.resolveLoopOverride", () => {
 
   it("returns reflexion for paranoid/reviewer", () => {
     const { svc } = makeSvc();
-    expect(svc.resolveLoopOverride("paranoid", "reviewer")).toBe("reflexion");
+    expect(svc.resolveLoopOverride("thorough+", "reviewer")).toBe("reflexion");
   });
 });
 

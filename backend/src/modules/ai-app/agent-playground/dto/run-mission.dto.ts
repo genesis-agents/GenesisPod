@@ -44,7 +44,7 @@ export const RunMissionInputSchema = z.object({
     .default("domain-expert"),
   withFigures: z.boolean().default(true),
   auditLayers: z
-    .enum(["minimal", "default", "thorough", "paranoid"])
+    .enum(["minimal", "default", "thorough", "thorough+"])
     .default("default"),
   concurrency: z.number().int().min(1).max(10).default(3),
   viewMode: z.enum(["continuous", "chapter", "quick"]).default("continuous"),
@@ -142,7 +142,7 @@ export function resolveMissionWallTimeMs(input: RunMissionInput): number {
     minimal: 0.7,
     default: 1.0,
     thorough: 1.5,
-    paranoid: 2.0,
+    "thorough+": 2.0,
   };
   const budgetMul: Record<BudgetProfile, number> = {
     low: 0.7,

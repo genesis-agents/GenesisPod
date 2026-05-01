@@ -42,7 +42,7 @@ export async function runCriticStage(
 
   const enableCritic =
     input.auditLayers === "thorough" ||
-    input.auditLayers === "paranoid" ||
+    input.auditLayers === "thorough+" ||
     (input.audienceProfile === "executive" && input.auditLayers !== "minimal");
   if (!enableCritic) return;
 
