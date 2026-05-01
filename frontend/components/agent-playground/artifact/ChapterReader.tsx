@@ -397,16 +397,32 @@ export function ChapterReader({
               .replace(/\n{2,}/g, '\n')
               .trim()
               .slice(0, 200);
-            const cardClasses = isInFlight
-              ? 'block w-full rounded-xl border border-amber-200 bg-amber-50/30 p-4 text-left transition-all hover:border-amber-300 hover:bg-amber-50/60'
-              : liveStatus === 'failed'
-                ? 'block w-full rounded-xl border border-red-200 bg-red-50/30 p-4 text-left transition-all hover:border-red-300 hover:bg-red-50/60'
-                : 'block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/50';
-            const numberCircleClass = isInFlight
-              ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-medium text-amber-700'
-              : liveStatus === 'failed'
-                ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm font-medium text-red-700'
-                : 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-medium text-green-700';
+            // ★ 2026-04-30 (#65 截图20 卡片高度不一): 用户明确要求所有卡片
+            //   外观完全统一。固定高度 = title 单行 + preview 强制 2 行
+            //   (line-clamp-2 + min-h)，preview 为空时塞 placeholder 占位，
+            //   word count badge 永远渲染（0 也显示），状态徽章统一占一槽。
+            //   颜色仅决定状态语义（左圈 / status badge），不影响布局尺寸。
+            const cardClasses =
+              'flex h-32 w-full items-stretch gap-3 rounded-xl border bg-white p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/50 ' +
+              (isInFlight
+                ? 'border-amber-200 bg-amber-50/30 hover:border-amber-300 hover:bg-amber-50/60'
+                : liveStatus === 'failed'
+                  ? 'border-red-200 bg-red-50/30 hover:border-red-300 hover:bg-red-50/60'
+                  : 'border-gray-100');
+            const numberCircleClass =
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ' +
+              (isInFlight
+                ? 'bg-amber-100 text-amber-700'
+                : liveStatus === 'failed'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-green-100 text-green-700');
+            const wordBadgeClass =
+              'shrink-0 self-start rounded-full px-2 py-0.5 text-xs ' +
+              (isInFlight
+                ? 'bg-amber-100 text-amber-700'
+                : liveStatus === 'failed'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-green-100 text-green-700');
             return (
               <button
                 key={s.id}
@@ -414,42 +430,30 @@ export function ChapterReader({
                 onClick={() => setSelectedId(s.id)}
                 className={cardClasses}
               >
-                <div className="flex items-start gap-3">
-                  <span className={numberCircleClass}>
-                    {isInFlight ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : liveStatus === 'failed' ? (
-                      <span className="font-bold">×</span>
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-base font-medium text-gray-800">
-                        第 {idx + 1} 章: {s.title}
-                      </div>
-                      <StatusBadge status={liveStatus} />
-                    </div>
-                    {preview && (
-                      <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-gray-500">
-                        {preview}
-                        {preview.length >= 200 ? '...' : ''}
-                      </div>
-                    )}
-                  </div>
-                  {s.wordCount > 0 && (
-                    <span
-                      className={
-                        isInFlight
-                          ? 'shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700'
-                          : 'shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700'
-                      }
-                    >
-                      {s.wordCount} 字
-                    </span>
+                <span className={numberCircleClass}>
+                  {isInFlight ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : liveStatus === 'failed' ? (
+                    <span className="font-bold">×</span>
+                  ) : (
+                    <Check className="h-4 w-4" />
                   )}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1 truncate text-base font-medium text-gray-800">
+                      第 {idx + 1} 章: {s.title}
+                    </div>
+                    <StatusBadge status={liveStatus} />
+                  </div>
+                  <div className="mt-2 line-clamp-2 min-h-[2.5rem] flex-1 overflow-hidden whitespace-pre-wrap text-sm leading-tight text-gray-500">
+                    {preview ||
+                      <span className="italic text-gray-300">
+                        （暂无预览内容）
+                      </span>}
+                  </div>
                 </div>
+                <span className={wordBadgeClass}>{s.wordCount ?? 0} 字</span>
               </button>
             );
           })}
