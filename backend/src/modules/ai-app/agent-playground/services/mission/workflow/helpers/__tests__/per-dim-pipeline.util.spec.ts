@@ -13,6 +13,15 @@ import type { MissionDeps } from "../../mission-deps";
 
 // ─── external module mocks ────────────────────────────────────────────────────
 
+// p-limit is an ESM-only module; ts-jest (isolatedModules) transpiles
+// `import pLimit from "p-limit"` → `p_limit_1.default(...)`.
+// We must return { __esModule: true, default: fn } so the default binding resolves.
+jest.mock("p-limit", () => {
+  const plimit = (_concurrency: number) => async (fn: () => Promise<unknown>) =>
+    fn();
+  return { __esModule: true, default: plimit };
+});
+
 // Mock agent classes that extend a base class (AgentSpec) — otherwise the
 // module load fails with "Class extends value undefined" because the test
 // environment can't satisfy the full DI graph.
@@ -142,49 +151,59 @@ function makeGradeOutput() {
 function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
   const emit = jest.fn().mockResolvedValue(undefined);
   const lifecycle = jest.fn().mockResolvedValue(undefined);
+  // With parallel chapter execution (pLimit(2)), both chapter writers are invoked
+  // before either reviewer runs (JS microtask interleaving). Use mockImplementation
+  // to dispatch by AgentClass: ChapterWriterAgent → writer output,
+  // ChapterReviewerAgent → reviewer output, DimensionIntegratorAgent → integrator output.
+  // This is order-independent and works regardless of concurrency scheduling.
+  const { ChapterWriterAgent } = jest.requireMock(
+    "../../../../../agents/writer/chapter-writer.agent",
+  );
+  const { ChapterReviewerAgent } = jest.requireMock(
+    "../../../../../agents/writer/chapter-reviewer.agent",
+  );
+  const { DimensionIntegratorAgent } = jest.requireMock(
+    "../../../../../agents/writer/dimension-integrator.agent",
+  );
+
   const invoker = {
-    invoke: jest
-      .fn()
-      .mockResolvedValueOnce({
-        // chapter writer
-        state: "completed",
-        output: makeWriterOutput(),
+    invoke: jest.fn().mockImplementation((AgentClass: { new (): unknown }) => {
+      if (AgentClass === ChapterWriterAgent) {
+        return Promise.resolve({
+          state: "completed",
+          output: makeWriterOutput(),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        });
+      }
+      if (AgentClass === ChapterReviewerAgent) {
+        return Promise.resolve({
+          state: "completed",
+          output: makeReviewerOutput(),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 50,
+        });
+      }
+      // DimensionIntegratorAgent
+      if (AgentClass === DimensionIntegratorAgent) {
+        return Promise.resolve({
+          state: "completed",
+          output: makeIntegratorOutput(),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 200,
+        });
+      }
+      return Promise.resolve({
+        state: "failed",
+        output: undefined,
         events: [],
         iterations: 1,
         wallTimeMs: 100,
-      })
-      .mockResolvedValueOnce({
-        // chapter reviewer
-        state: "completed",
-        output: makeReviewerOutput(),
-        events: [],
-        iterations: 1,
-        wallTimeMs: 50,
-      })
-      .mockResolvedValueOnce({
-        // chapter writer chapter 2
-        state: "completed",
-        output: makeWriterOutput(),
-        events: [],
-        iterations: 1,
-        wallTimeMs: 100,
-      })
-      .mockResolvedValueOnce({
-        // chapter reviewer chapter 2
-        state: "completed",
-        output: makeReviewerOutput(),
-        events: [],
-        iterations: 1,
-        wallTimeMs: 50,
-      })
-      .mockResolvedValueOnce({
-        // integrator
-        state: "completed",
-        output: makeIntegratorOutput(),
-        events: [],
-        iterations: 1,
-        wallTimeMs: 200,
-      }),
+      });
+    }),
     tickCost: jest.fn().mockResolvedValue(undefined),
   };
   const writer = {
@@ -735,6 +754,264 @@ describe("runPerDimPipeline", () => {
     expect(result.fullMarkdown).toBeUndefined();
     expect(result.grade).toBeUndefined();
     expect(reviewer.judgeDimension).not.toHaveBeenCalled();
+  });
+});
+
+// ─── 加速杠杆 2: 章节并发测试 ─────────────────────────────────────────────────
+//
+// 验证 4 个关键行为：
+//   C1. 3 章并发时 invoke 调用次数 = 3×(writer+reviewer) + 1 integrator = 7
+//   C2. 单章 writer 失败时其他章节仍正常 push 到 writtenChapters
+//   C3. writtenChapters 按 index 排序而非完成顺序
+//   C4. chapter:done 事件每章都有 emit，result.chapters 按 index 排序
+//
+// 注意：pLimit mock 在测试中是透传（直接执行 fn()），所以不测试"并发槽数"本身，
+// 而是验证并发后的语义：调用次数、失败隔离、排序、事件。
+// 所有 invoker mock 使用 AgentClass 分派（而非 mockResolvedValueOnce 顺序），
+// 因为并发执行时 writer/reviewer 调用顺序不确定。
+
+describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=2)", () => {
+  // 获取被 jest.mock 替换后的 mock class 引用，用于 mockImplementation 分派
+  const getAgentClasses = () => ({
+    ChapterWriterAgent: jest.requireMock(
+      "../../../../../agents/writer/chapter-writer.agent",
+    ).ChapterWriterAgent,
+    ChapterReviewerAgent: jest.requireMock(
+      "../../../../../agents/writer/chapter-reviewer.agent",
+    ).ChapterReviewerAgent,
+    DimensionIntegratorAgent: jest.requireMock(
+      "../../../../../agents/writer/dimension-integrator.agent",
+    ).DimensionIntegratorAgent,
+  });
+
+  /** Build invoker that dispatches by AgentClass (order-independent for parallel tests) */
+  function makeAgentDispatchInvoker(overrides?: {
+    /** Override response for ChapterWriterAgent by chapter index (1-based) */
+    writerOverrides?: Record<number, object>;
+  }) {
+    const {
+      ChapterWriterAgent,
+      ChapterReviewerAgent,
+      DimensionIntegratorAgent,
+    } = getAgentClasses();
+    const writerCallCount: Record<number, number> = {};
+    return {
+      invoke: jest
+        .fn()
+        .mockImplementation(
+          (
+            AgentClass: { new (): unknown },
+            input: { chapter?: { index?: number } },
+          ) => {
+            if (AgentClass === ChapterWriterAgent) {
+              const idx = input?.chapter?.index ?? 0;
+              writerCallCount[idx] = (writerCallCount[idx] ?? 0) + 1;
+              const override = overrides?.writerOverrides?.[idx];
+              if (override) return Promise.resolve(override);
+              return Promise.resolve({
+                state: "completed",
+                output: makeWriterOutput(1200),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            if (AgentClass === ChapterReviewerAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeReviewerOutput("pass", 85),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 50,
+              });
+            }
+            if (AgentClass === DimensionIntegratorAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeIntegratorOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 200,
+              });
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          },
+        ),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+  }
+
+  // ── C1: 3 章时 invoke 调用次数对 ─────────────────────────────────────────
+  it("C1: 3 chapters invoke exactly 3×writer + 3×reviewer + 1×integrator = 7 calls", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(3),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = makeAgentDispatchInvoker();
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    // 3 chapters × (1w + 1r) + 1 integrator = 7 invoke calls
+    expect(invoker.invoke.mock.calls.length).toBe(7);
+    expect(result.chapters?.length).toBe(3);
+  });
+
+  // ── C2: 单章 writer 失败时其他章节仍 push 到 writtenChapters ──────────────
+  it("C2: single chapter writer failure does not block other chapters", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(3),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    // Chapter index 2 writer fails; 1 and 3 succeed.
+    const invoker = makeAgentDispatchInvoker({
+      writerOverrides: {
+        2: {
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        },
+      },
+    });
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    // Chapter 2 failed → only chapters 1 and 3 produced
+    expect(result.chapters).toBeDefined();
+    expect(result.chapters!.length).toBe(2);
+    // Chapters 1 and 3 are still present
+    const chapterIndices = result.chapters!.map((c) => c.index);
+    expect(chapterIndices).toContain(1);
+    expect(chapterIndices).toContain(3);
+    expect(chapterIndices).not.toContain(2);
+    // Integrator still ran with the 2 successful chapters
+    expect(result.abstract).toBeDefined();
+  });
+
+  // ── C3: writtenChapters 按 index 排序而非完成顺序 ─────────────────────────
+  it("C3: writtenChapters are sorted by chapter.index regardless of completion order", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(3),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = makeAgentDispatchInvoker();
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters).toBeDefined();
+    expect(result.chapters!.length).toBe(3);
+    // Must be sorted ascending by index (1, 2, 3)
+    const indices = result.chapters!.map((c) => c.index);
+    for (let i = 1; i < indices.length; i++) {
+      expect(indices[i]).toBeGreaterThan(indices[i - 1]);
+    }
+  });
+
+  // ── C4: chapter:done 每章都有，result.chapters 按 index 排序 ──────────────
+  it("C4: chapter:done events exist for each produced chapter and result.chapters is index-sorted", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(3),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = makeAgentDispatchInvoker();
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+
+    // chapter:done emitted once per produced chapter (3 total)
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const doneCalls = emitCalls.filter(
+      (c) => c[0].type === "agent-playground.chapter:done",
+    );
+    expect(doneCalls.length).toBe(3);
+
+    // result.chapters is sorted by index
+    expect(result.chapters).toBeDefined();
+    const indices = result.chapters!.map((c) => c.index);
+    for (let i = 1; i < indices.length; i++) {
+      expect(indices[i]).toBeGreaterThan(indices[i - 1]);
+    }
+
+    // All chapters passed (score=85 >= PASS_THRESHOLD=60)
+    for (const ch of result.chapters!) {
+      expect(ch.qualified).toBe(true);
+      expect(ch.decision).toBe("passed");
+    }
   });
 });
 

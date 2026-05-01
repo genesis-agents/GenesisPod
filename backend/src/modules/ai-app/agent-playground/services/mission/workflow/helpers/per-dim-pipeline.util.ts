@@ -21,6 +21,7 @@
  *   grade failed           → 不返回 grade，其它字段照常返回
  */
 
+import pLimit from "p-limit";
 import { ChapterWriterAgent } from "../../../../agents/writer/chapter-writer.agent";
 import { ChapterReviewerAgent } from "../../../../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../../../../agents/writer/dimension-integrator.agent";
@@ -242,18 +243,18 @@ export async function runPerDimPipeline(
     },
   });
 
-  // ── 2. 逐章 write + review loop ──
-  const writtenChapters: {
-    index: number;
-    heading: string;
-    body: string;
-    wordCount: number;
-    finalized: boolean;
-    qualified: boolean;
-    decision: "passed" | "fallback-length" | "fallback-exhausted";
-    finalScore: number;
-  }[] = [];
-  const previousHeadings: string[] = [];
+  // ── 2. 章节 write + review loop（并发 2 章同时写）──
+  //
+  // ★ 加速杠杆 2 (2026-05-01): 把逐章串行改为 pLimit(2) 并发执行。
+  //   并发策略：
+  //   - CHAPTER_CONCURRENCY=2：2 章同时写，平衡速度与 LLM rate-limit。
+  //   - previousHeadings 在并发前 snapshot，所有并发 chapter 共用同一份前序
+  //     快照（每批任务启动前取当时已完成章节的 headings），避免 race condition。
+  //   - 单章失败隔离：try-catch 包裹整个 chapter pipeline，失败章节跳过不阻塞其他。
+  //   - 输出顺序：Promise.allSettled 全完成后按 chapter.index 排序再 push。
+  //   - integrator 阶段仍然串行（需要所有 chapter 的最终内容）。
+  const CHAPTER_CONCURRENCY = 2;
+
   // ★ Round 3 真问题修复 (2026-04-29):
   //   原 MAX=2 (最多 1+2=3 attempts)。配合 outputLength=long 截断，2 次 revise 不够把字数补回。
   //   chapter-writer 已升到 outputLength=extended (16K maxTokens)，再加 1 次 revise 机会
@@ -269,7 +270,27 @@ export async function runPerDimPipeline(
   const STUCK_SIMILARITY_THRESHOLD = 0.9;
   const MAX_STUCK_COUNT = 2;
 
-  for (const chapter of outline.chapters) {
+  type WrittenChapter = {
+    index: number;
+    heading: string;
+    body: string;
+    wordCount: number;
+    finalized: boolean;
+    qualified: boolean;
+    decision: "passed" | "fallback-length" | "fallback-exhausted";
+    finalScore: number;
+  };
+
+  /**
+   * runChapterPipeline — 单章 write+review 闭环（可并发）。
+   *
+   * previousHeadingsSnapshot：并发批次启动前的前序章节标题快照（只读）。
+   * 单章失败时返回 null（caller 用 Promise.allSettled 过滤掉 null）。
+   */
+  async function runChapterPipeline(
+    chapter: (typeof outline.chapters)[0],
+    previousHeadingsSnapshot: readonly string[],
+  ): Promise<WrittenChapter | null> {
     const chapterSources = chapter.sourceIndices
       .map((i) => researcherOut.findings[i])
       .filter((s): s is NonNullable<typeof s> => s != null);
@@ -316,7 +337,7 @@ export async function runPerDimPipeline(
           },
           sources: chapterSources,
           targetWords: targetWordsPerChapter,
-          previousChapterHeadings: previousHeadings,
+          previousChapterHeadings: previousHeadingsSnapshot,
           previousCritique: lastCritique,
           previousDraft: lastDraft?.body,
         },
@@ -354,7 +375,8 @@ export async function runPerDimPipeline(
             state: "failed",
           },
         });
-        break;
+        // 单章 writer 失败 → 返回 null，由外层过滤（不阻塞其他章节）
+        return null;
       }
       const rawDraft = writerRes.output as {
         body: string;
@@ -642,7 +664,7 @@ export async function runPerDimPipeline(
           });
         }
 
-        writtenChapters.push({
+        return {
           index: chapter.index,
           heading: chapter.heading,
           body: remappedBody,
@@ -651,9 +673,7 @@ export async function runPerDimPipeline(
           qualified: chapterDecision === "passed",
           decision: chapterDecision,
           finalScore: verdict.score,
-        });
-        previousHeadings.push(chapter.heading);
-        break;
+        };
       }
 
       // 字数 fail 时 critique 必须显式说出来，让下一轮 writer 知道扩写
@@ -678,7 +698,32 @@ export async function runPerDimPipeline(
         },
       });
     }
+
+    // while loop 耗尽但没有 return（理论上不会到这里，因为 attempt cap 必然触发）
+    return null;
   }
+
+  // ── 并发执行所有章节 ──
+  // previousHeadings snapshot：在整批并发启动前取已完成章节的标题列表。
+  // 由于所有章节一起跑（pLimit 控制并发数），每批 chapter 共用同一份空快照作为
+  // 前序上下文（首批并发无前序；实际场景下同维度章节互为独立，前序主要用于
+  // 提示 writer 避免重复话题）。
+  const headingsSnapshot: readonly string[] = [];
+  const limit = pLimit(CHAPTER_CONCURRENCY);
+  const settledResults = await Promise.allSettled(
+    outline.chapters.map((chapter) =>
+      limit(() => runChapterPipeline(chapter, headingsSnapshot)),
+    ),
+  );
+
+  // 收集成功章节，按 index 排序保证顺序（章节完成时间不等于章节序号顺序）
+  const writtenChapters: WrittenChapter[] = settledResults
+    .filter(
+      (r): r is PromiseFulfilledResult<WrittenChapter> =>
+        r.status === "fulfilled" && r.value !== null,
+    )
+    .map((r) => r.value)
+    .sort((a, b) => a.index - b.index);
 
   if (writtenChapters.length === 0) return researcherOut;
 
