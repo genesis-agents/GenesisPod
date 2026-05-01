@@ -549,4 +549,90 @@ describe("runResearcherDispatchStage (S3)", () => {
     await runResearcherDispatchStage(ctx, deps);
     expect(deps.failureLearner.recordFailure).toHaveBeenCalled();
   });
+
+  // ─── 杠杆 1: 并发行为测试 ─────────────────────────────────────────────────
+
+  it("concurrency=1 (serial compat): all dims complete in order", async () => {
+    const dims = [
+      { id: "d1", name: "Market", rationale: "r1" },
+      { id: "d2", name: "Tech", rationale: "r2" },
+      { id: "d3", name: "Policy", rationale: "r3" },
+    ];
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: dims },
+      input: { ...makeCtx().input, concurrency: 1 } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockImplementation(
+      (_: unknown, input: { dimension?: string }) =>
+        Promise.resolve(okResearcherResult(input?.dimension ?? "x")),
+    );
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults).toHaveLength(3);
+    expect(ctx.researcherResults!.every((r) => r.findings.length > 0)).toBe(
+      true,
+    );
+  });
+
+  it("concurrency=3 (parallel): all 3 dims complete regardless of dispatch order", async () => {
+    const dims = [
+      { id: "d1", name: "A", rationale: "r" },
+      { id: "d2", name: "B", rationale: "r" },
+      { id: "d3", name: "C", rationale: "r" },
+    ];
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: dims },
+      input: { ...makeCtx().input, concurrency: 3 } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockImplementation(
+      (_: unknown, input: { dimension?: string }) =>
+        Promise.resolve(okResearcherResult(input?.dimension ?? "x")),
+    );
+    await runResearcherDispatchStage(ctx, deps);
+    expect(ctx.researcherResults).toHaveLength(3);
+    const names = ctx.researcherResults!.map((r) => r.dimension);
+    expect(names).toContain("A");
+    expect(names).toContain("B");
+    expect(names).toContain("C");
+  });
+
+  it("single dim failure (concurrency=3): remaining dims complete, partial results returned", async () => {
+    const dims = [
+      { id: "d1", name: "Pass1", rationale: "r" },
+      { id: "d2", name: "Fail", rationale: "r" },
+      { id: "d3", name: "Pass2", rationale: "r" },
+    ];
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: dims },
+      input: { ...makeCtx().input, concurrency: 3 } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockImplementation(
+      (_: unknown, input: { dimension?: string }) => {
+        if (input?.dimension === "Fail") {
+          return Promise.resolve({
+            state: "failed" as const,
+            output: null,
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        return Promise.resolve(okResearcherResult(input?.dimension ?? "x"));
+      },
+    );
+    await runResearcherDispatchStage(ctx, deps);
+    // All 3 dims present: 2 with findings, 1 degraded to empty
+    expect(ctx.researcherResults).toHaveLength(3);
+    const passed = ctx.researcherResults!.filter(
+      (r) => r.findings.length > 0,
+    ).length;
+    const degraded = ctx.researcherResults!.filter(
+      (r) => r.findings.length === 0,
+    ).length;
+    expect(passed).toBe(2);
+    expect(degraded).toBe(1);
+  });
 });

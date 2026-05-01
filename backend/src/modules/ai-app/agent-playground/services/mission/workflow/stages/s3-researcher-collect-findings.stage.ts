@@ -24,6 +24,7 @@
  *                看到 findings=[] 自然过滤。
  */
 
+import pLimit from "p-limit";
 import { ResearcherAgent } from "../../../../agents/researcher/researcher.agent";
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
@@ -114,15 +115,30 @@ export async function runResearcherDispatchStage(
       },
     });
   }
-  const dispatch = hasDependencies
-    ? deps.invoker.runDagConcurrency.bind(deps.invoker)
-    : deps.invoker.runWithConcurrency.bind(deps.invoker);
 
-  const researcherResults = await dispatch(
-    plan.dimensions,
-    input.concurrency,
-    async (dim, idx) => runOneDim(ctx, deps, dim, idx),
-  );
+  // ★ 杠杆 1 (2026-05-01): dim 并行加速
+  //   DAG 路径保持原有 runDagConcurrency（含拓扑序分批）；
+  //   非 DAG 路径改为 pLimit + Promise.all，并发上限封顶 6 防 LLM API 突发。
+  //   concurrency 字段由 DTO default(3) 保证至少为 1，min(x,6) 不会出现 0。
+  //   每个 dim 的 runOneDim 已有完整 try/catch 兜底（降级为空 findings），
+  //   不会让单 dim 失败穿透 Promise.all。
+  const effectiveConcurrency = Math.max(1, Math.min(input.concurrency ?? 3, 6));
+
+  let researcherResults: ResearcherDimResult[];
+  if (hasDependencies) {
+    researcherResults = await deps.invoker.runDagConcurrency(
+      plan.dimensions,
+      effectiveConcurrency,
+      async (dim, idx) => runOneDim(ctx, deps, dim, idx),
+    );
+  } else {
+    const limit = pLimit(effectiveConcurrency);
+    researcherResults = await Promise.all(
+      plan.dimensions.map((dim, idx) =>
+        limit(() => runOneDim(ctx, deps, dim, idx)),
+      ),
+    );
+  }
 
   ctx.researcherResults = researcherResults;
   const okCount = researcherResults.filter((r) => r.findings.length > 0).length;
