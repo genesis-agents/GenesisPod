@@ -92,16 +92,10 @@ export {
   type ExecutionCheckpoint,
 } from "./execution-checkpoint.service";
 
-// 自适应重规划服务
-export {
-  AdaptiveReplannerService,
-  type ReplanTrigger,
-  type ReplanTriggerType,
-  type ReplanResult,
-  type StepExecutionResult,
-  type ReplanStep,
-  type ReplanContext,
-} from "./adaptive-replanner.service";
+// AdaptiveReplannerService 已搬到 ai-harness/runtime/teams/orchestrator/ (2026-04-30)
+//   engine 不能反向 import harness, re-export 已删除. 消费方:
+//   - harness 内部: 用相对路径
+//   - ai-app: 通过 ai-harness/facade barrel
 
 // 跨维度综合服务 (Phase 10 — Coordinator Synthesize-Before-Delegate)
 export {

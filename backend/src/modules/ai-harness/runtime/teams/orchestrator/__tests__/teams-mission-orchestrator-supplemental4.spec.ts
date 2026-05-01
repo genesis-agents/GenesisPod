@@ -19,7 +19,7 @@ import type { ConstraintProfile } from "../../constraints";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import type { HierarchicalMemoryCascadeService } from "@/modules/ai-harness/memory/working/hierarchical-memory-cascade.service";
 import type { AgentLifecycleProtocolService } from "@/modules/ai-harness/protocol/ipc/agent-lifecycle-protocol.service";
-import type { AdaptiveReplannerService } from "@/modules/ai-engine/planning/services/adaptive-replanner.service";
+import type { AdaptiveReplannerService } from "../adaptive-replanner.service";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

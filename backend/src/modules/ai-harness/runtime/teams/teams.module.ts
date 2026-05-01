@@ -20,6 +20,7 @@ import { ConstraintEngine } from "../../governance/resource/constraint-engine";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
 import { MissionRuntimeStateStore } from "./orchestrator/mission-runtime-state.store";
 import { MissionOrphanDetectorService } from "./orchestrator/mission-orphan-detector.service";
+import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.service";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
 import { MessageBusService as A2AMessageBusService } from "../../protocol/ipc/message-bus.service";
@@ -58,6 +59,8 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
     MissionRuntimeStateStore,
     // ★ Phase 9: 基于 heartbeat 的快速 orphan 检测（callback 由 ai-app 注入）
     MissionOrphanDetectorService,
+    // ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来 (跨层搬迁)
+    AdaptiveReplannerService,
     // ConstraintEngine 依赖 CostController
     {
       provide: ConstraintEngine,
@@ -183,6 +186,7 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
     A2AMessageBusService,
     MissionRuntimeStateStore,
     MissionOrphanDetectorService,
+    AdaptiveReplannerService,
   ],
 })
 export class TeamsModule implements OnModuleInit {

@@ -150,6 +150,17 @@ export {
   type OrphanDetectorCallbacks,
 } from "../runtime/teams/orchestrator/mission-orphan-detector.service";
 
+// ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来（跨层迁移）
+export {
+  AdaptiveReplannerService,
+  type ReplanTrigger,
+  type ReplanTriggerType,
+  type ReplanResult,
+  type StepExecutionResult,
+  type ReplanStep,
+  type ReplanContext,
+} from "../runtime/teams/orchestrator/adaptive-replanner.service";
+
 // ★ C2-step1 (2026-04-30): AutoDream（后台 memory 整合）从 ai-engine 搬入 harness
 export {
   AutoDreamService,

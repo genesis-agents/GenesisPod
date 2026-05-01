@@ -42,7 +42,7 @@ import { QueryLoopService } from "./planning/services/query-loop.service";
 import { TokenTrackerService } from "./planning/services/token-tracker.service";
 import { ContextCompactionPipelineService } from "./llm/context/context-compaction-pipeline.service";
 import { ExecutionCheckpointService } from "./planning/services/execution-checkpoint.service";
-import { AdaptiveReplannerService } from "./planning/services/adaptive-replanner.service";
+// AdaptiveReplannerService 已搬到 ai-harness/runtime/teams/orchestrator/ (2026-04-30)
 import { CrossCuttingSynthesisService } from "./knowledge/synthesis/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
 import { SessionMemorySidecarService } from "./planning/services/session-memory-sidecar.service";
@@ -97,7 +97,6 @@ import { AgentsService } from "../open-api/agents-api";
     TokenTrackerService,
     ContextCompactionPipelineService,
     ExecutionCheckpointService,
-    AdaptiveReplannerService,
     // ★ Phase 10: Coordinator Synthesize-Before-Delegate
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar
@@ -127,7 +126,6 @@ import { AgentsService } from "../open-api/agents-api";
     TokenTrackerService,
     ContextCompactionPipelineService,
     ExecutionCheckpointService,
-    AdaptiveReplannerService,
     // ★ Phase 10: Coordinator Synthesize-Before-Delegate
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar

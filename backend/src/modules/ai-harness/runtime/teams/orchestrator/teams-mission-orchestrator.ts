@@ -87,7 +87,7 @@ import {
 import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,
-} from "../../../../ai-engine/planning/services/adaptive-replanner.service";
+} from "./adaptive-replanner.service";
 import {
   MissionRuntimeStateStore,
   HEARTBEAT_INTERVAL_MS,

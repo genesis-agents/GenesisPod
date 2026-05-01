@@ -535,13 +535,8 @@ export {
   type ExecutionCheckpoint,
 } from "../planning/services";
 
-export {
-  AdaptiveReplannerService,
-  type ReplanTrigger,
-  type ReplanResult,
-  type ReplanContext,
-  type ReplanStep,
-} from "../planning/services";
+// AdaptiveReplannerService / ReplanTrigger / ... 已搬到 ai-harness (2026-04-30)
+//   消费方改 import "@/modules/ai-harness/facade"
 
 // ★ Phase 3: Tool Concurrency
 export { ToolConcurrencyService } from "../tools/concurrency/tool-concurrency.service";
