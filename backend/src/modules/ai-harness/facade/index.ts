@@ -164,6 +164,9 @@ export {
 // ★ 2026-04-30: AgentExecutorService 从 ai-engine/planning 搬来（跨层迁移）
 export { AgentExecutorService } from "../execution/executor/agent-executor.service";
 
+// ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
+export { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
+
 // ★ C2-step1 (2026-04-30): AutoDream（后台 memory 整合）从 ai-engine 搬入 harness
 export {
   AutoDreamService,

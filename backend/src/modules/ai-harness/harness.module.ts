@@ -43,6 +43,7 @@ import { ToolInvoker } from "./execution/executor/tool-invoker";
 import { ToolCircuitBreaker } from "./execution/executor/tool-circuit-breaker";
 import { LlmExecutor } from "./execution/executor/llm-executor";
 import { AgentExecutorService } from "./execution/executor/agent-executor.service";
+import { OutputReviewerService } from "./runtime/quality/output-reviewer.service";
 import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
 import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
 import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
@@ -188,6 +189,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     InMemoryVectorStore,
     LlmExecutor,
     AgentExecutorService,
+    OutputReviewerService,
     ReActLoop,
     PlanActLoop,
     ReflexionLoop,
@@ -309,6 +311,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     SpecAgentRegistry,
     LlmExecutor,
     AgentExecutorService,
+    OutputReviewerService,
     SkillRegistry,
     ContextManager,
     CheckpointService,

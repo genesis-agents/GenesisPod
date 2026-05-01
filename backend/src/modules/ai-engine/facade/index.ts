@@ -173,7 +173,7 @@ export type {
   EstablishedFact,
   ExecutionConfig,
 } from "../planning/services/interfaces";
-export { OutputReviewerService } from "../planning/services/output-reviewer.service";
+// OutputReviewerService 已搬到 ai-harness/runtime/quality/ (2026-04-30)
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 export type {
   FactExtractionRequest,

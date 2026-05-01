@@ -25,7 +25,7 @@ import { CostController } from "../governance/resource/cost-controller";
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
-import { OutputReviewerService } from "../../ai-engine/planning/services/output-reviewer.service";
+import { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { QueryLoopService } from "../../ai-engine/planning/services/query-loop.service";
 import { TokenTrackerService } from "../../ai-engine/planning/services/token-tracker.service";

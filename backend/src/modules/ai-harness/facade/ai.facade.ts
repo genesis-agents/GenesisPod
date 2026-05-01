@@ -178,7 +178,7 @@ import { FunctionCallingExecutor } from "../../ai-engine/planning/executors/func
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamFactory } from "../runtime/teams/factory/team-factory";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
-import { OutputReviewerService } from "../../ai-engine/planning/services/output-reviewer.service";
+import { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
 import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";

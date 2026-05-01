@@ -15,10 +15,10 @@ import {
   ExecutionResult,
   ReviewCriteria,
   AiCallerFn,
-} from "./interfaces";
-import { AiChatService } from "../../llm/services/ai-chat.service";
+} from "../../../ai-engine/planning/services/interfaces";
+import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import type { TaskProfile } from "../../llm/types/task-profile";
+import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
 
 /**
  * 默认审核标准
