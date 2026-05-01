@@ -24,7 +24,7 @@ export {
   MissionContextService,
   MissionInputService,
   MissionStateManager,
-  TaskBreakdownService,
+  // TaskBreakdownService 已删 (2026-04-30)
   MissionLifecycleService,
   MissionRetryService,
   MissionHealthCheckService,

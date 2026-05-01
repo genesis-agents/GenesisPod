@@ -170,7 +170,7 @@ import type {
 import type { SkillMdDefinition } from "../../ai-engine/skills/types/skill-md.types";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../../ai-engine/planning/services/agent-executor.service";
-import { TaskDecomposerService } from "../../ai-engine/planning/services/task-decomposer.service";
+// TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/planning/services/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
@@ -2814,10 +2814,7 @@ export class AIFacade {
     return this.orchestration?.agentExecutor;
   }
 
-  /** 获取 TaskDecomposerService（用于 Teams 任务分解） */
-  get taskDecomposer(): TaskDecomposerService | undefined {
-    return this.orchestration?.taskDecomposer;
-  }
+  // taskDecomposer getter 已删 (2026-04-30)
 
   /** 获取 IntentDetectionService（用于上下文意图识别） */
   get intentDetector(): IntentDetectionService | undefined {

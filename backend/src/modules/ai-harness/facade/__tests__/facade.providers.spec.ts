@@ -127,18 +127,16 @@ describe("facade.providers — factory functions", () => {
     it("includes all optional deps when provided", () => {
       const cb = stub();
       const ae = stub();
-      const td = stub();
       const id = stub();
       const esm = stub();
       const or = stub();
       const ce = stub();
       const ql = stub();
       const tt = stub();
-      const result = factory(cb, ae, td, id, esm, or, ce, ql, tt) as {
-        taskDecomposer: unknown;
+      // taskDecomposer 已删 (2026-04-30)
+      const result = factory(cb, ae, id, esm, or, ce, ql, tt) as {
         queryLoop: unknown;
       };
-      expect(result.taskDecomposer).toBe(td);
       expect(result.queryLoop).toBe(ql);
     });
   });

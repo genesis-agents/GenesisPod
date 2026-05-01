@@ -182,7 +182,7 @@ export type {
 } from "../planning/services/interfaces";
 export { AgentExecutorService } from "../planning/services/agent-executor.service";
 export { ContextInitializationService } from "../planning/services/context-initialization.service";
-export { TaskDecomposerService } from "../planning/services/task-decomposer.service";
+// TaskDecomposerService 已删 (2026-04-30) — 死代码
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 
 // Content feature types

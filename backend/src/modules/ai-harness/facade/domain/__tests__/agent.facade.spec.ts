@@ -75,7 +75,6 @@ describe("AgentFacade", () => {
           provide: ORCHESTRATION_FEATURE,
           useValue: {
             agentExecutor: mockAgentExecutor,
-            taskDecomposer: {},
             intentDetector: {},
             execStateManager: {},
             outputReviewer: {},
@@ -255,9 +254,7 @@ describe("AgentFacade", () => {
   // ==================== Additional orchestration getters ====================
 
   describe("additional orchestration getters", () => {
-    it("should expose taskDecomposer", () => {
-      expect(facade.taskDecomposer).toBeDefined();
-    });
+    // taskDecomposer 已删 (2026-04-30)
 
     it("should expose intentDetector", () => {
       expect(facade.intentDetector).toBeDefined();
@@ -319,7 +316,6 @@ describe("AgentFacade", () => {
 
     it("should return undefined for orchestration getters", () => {
       expect(minimalFacade.agentExecutor).toBeUndefined();
-      expect(minimalFacade.taskDecomposer).toBeUndefined();
       expect(minimalFacade.agentRegistry).toBeUndefined();
     });
   });

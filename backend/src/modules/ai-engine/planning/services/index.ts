@@ -13,7 +13,7 @@ export * from "./interfaces";
 //   - IterationManagerService (in-memory store 但 0 业务调用)
 //   - IntelligentModelRouterService ("支柱四"未接入)
 //   - ComplexityAnalyzerService (仅被 IntelligentModelRouter 用 → 绑死)
-export { TaskDecomposerService } from "./task-decomposer.service";
+// TaskDecomposerService 已删 (2026-04-30) — 死代码 (TaskBreakdown 0 注入)
 export { AgentExecutorService } from "./agent-executor.service";
 export { OutputReviewerService } from "./output-reviewer.service";
 

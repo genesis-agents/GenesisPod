@@ -25,7 +25,7 @@ import { FunctionCallingExecutor } from "./planning/executors/function-calling-e
 //   - IterationManagerService (in-memory store 但 0 调用)
 //   - IntelligentModelRouterService ("支柱四"未接入)
 //   - ComplexityAnalyzerService (仅被 IntelligentModelRouter 用 → 绑死)
-import { TaskDecomposerService } from "./planning/services/task-decomposer.service";
+// TaskDecomposerService 已删 (2026-04-30) — 死代码链路 (TaskBreakdown 0 注入)
 import { AgentExecutorService } from "./planning/services/agent-executor.service";
 import { OutputReviewerService } from "./planning/services/output-reviewer.service";
 import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
@@ -83,7 +83,6 @@ import { AgentsService } from "../open-api/agents-api";
     // from @Global() HarnessModule via DI tokens — engine 不直接 import
 
     // Engine Orchestration Services —— C2-step2 删除 IterationManager / ComplexityAnalyzer / IntelligentModelRouter
-    TaskDecomposerService,
     AgentExecutorService,
     OutputReviewerService,
     CircuitBreakerService,
@@ -114,7 +113,6 @@ import { AgentsService } from "../open-api/agents-api";
     FunctionCallingExecutor,
 
     // Engine Services
-    TaskDecomposerService,
     AgentExecutorService,
     OutputReviewerService,
     CircuitBreakerService,

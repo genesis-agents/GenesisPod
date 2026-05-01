@@ -9,7 +9,7 @@ export * from "./mission-query.service";
 export * from "./mission-context.service";
 export * from "./mission-input.service";
 export * from "./mission-state.manager";
-export * from "./task-breakdown.service";
+// task-breakdown.service 已删 (2026-04-30) — 0 处构造器注入死代码
 export * from "./mission-lifecycle.service";
 export * from "./mission-retry.service";
 export * from "./mission-health-check.service";

@@ -44,7 +44,7 @@ import type {
 } from "../../protocol/realtime/abstractions/event-emitter.interface";
 import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../../../ai-engine/planning/services/agent-executor.service";
-import { TaskDecomposerService } from "../../../ai-engine/planning/services/task-decomposer.service";
+// TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../../ai-engine/planning/services/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../../process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../../ai-engine/planning/services/output-reviewer.service";
@@ -189,9 +189,7 @@ export class AgentFacade {
     return this.orchestration?.agentExecutor;
   }
 
-  get taskDecomposer(): TaskDecomposerService | undefined {
-    return this.orchestration?.taskDecomposer;
-  }
+  // taskDecomposer getter 已删 (2026-04-30)
 
   get intentDetector(): IntentDetectionService | undefined {
     return this.orchestration?.intentDetector;

@@ -44,7 +44,7 @@ import {
   TeamMissionService,
   MissionExecutionService,
   MissionReviewService,
-  TaskBreakdownService,
+  // TaskBreakdownService 已删 (2026-04-30)
   TeamCollaborationService,
   MissionPromptService,
   MissionQueryService,
@@ -106,7 +106,7 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
     TeamMissionService,
     MissionExecutionService,
     MissionReviewService,
-    TaskBreakdownService,
+    // TaskBreakdownService 已删 (2026-04-30)
     TeamCollaborationService,
     MissionPromptService,
     MissionQueryService,

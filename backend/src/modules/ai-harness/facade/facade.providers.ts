@@ -22,7 +22,7 @@ import { ProgressTrackerService } from "../protocol/ipc/progress-tracker.service
 import { RateLimiter } from "../governance/resource/rate-limiter";
 import { CostController } from "../governance/resource/cost-controller";
 // ★ Orchestration 扩展依赖
-import { TaskDecomposerService } from "../../ai-engine/planning/services/task-decomposer.service";
+// TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/planning/services/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../ai-engine/planning/services/output-reviewer.service";
@@ -97,7 +97,7 @@ export interface ToolFeature {
 export interface OrchestrationFeature {
   circuitBreaker: CircuitBreakerService;
   agentExecutor: AgentExecutorService;
-  taskDecomposer?: TaskDecomposerService;
+  // taskDecomposer 已删 (2026-04-30)
   intentDetector?: IntentDetectionService;
   execStateManager?: ExecutionStateManager;
   outputReviewer?: OutputReviewerService;
@@ -295,7 +295,6 @@ export const orchestrationFeatureProvider: Provider = {
   useFactory: (
     circuitBreaker?: CircuitBreakerService,
     agentExecutor?: AgentExecutorService,
-    taskDecomposer?: TaskDecomposerService,
     intentDetector?: IntentDetectionService,
     execStateManager?: ExecutionStateManager,
     outputReviewer?: OutputReviewerService,
@@ -307,7 +306,6 @@ export const orchestrationFeatureProvider: Provider = {
     return {
       circuitBreaker,
       agentExecutor,
-      taskDecomposer,
       intentDetector,
       execStateManager,
       outputReviewer,
@@ -319,7 +317,6 @@ export const orchestrationFeatureProvider: Provider = {
   inject: [
     { token: CircuitBreakerService, optional: true },
     { token: AgentExecutorService, optional: true },
-    { token: TaskDecomposerService, optional: true },
     { token: IntentDetectionService, optional: true },
     { token: ExecutionStateManager, optional: true },
     { token: OutputReviewerService, optional: true },
