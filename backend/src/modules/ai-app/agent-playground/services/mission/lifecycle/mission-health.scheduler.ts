@@ -58,16 +58,19 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
-    // 启动 30s 后跑首次（避免与 recoverOrphanedRunning 撞车 + 让系统稳定）
-    setTimeout(() => {
-      void this.runScan();
-      // 之后每 5 min 扫一次
-      this.timer = setInterval(() => {
-        void this.runScan();
-      }, SCAN_INTERVAL_MS);
-      // unref 避免阻止 process exit
-      this.timer.unref?.();
-    }, STARTUP_DELAY_MS);
+    // ★ 2026-05-01 (PR-G iter6): 临时禁用自动扫描
+    //   mission 8d7aa245 跑 67min 持续 emit iteration:progress events，仍被
+    //   scheduler 误判为 "no activity for 61 min"。lastActivityAt 计算逻辑
+    //   有问题 —— 跟 orphan detector 同根因（heartbeat / event flush 不可靠）。
+    //   在补完观测性之前，连同 orphan detector 一起禁用，让 missions 能跑完。
+    //   forceRun() 测试入口保留。
+    this.log.warn(
+      "[health] auto scan DISABLED — false-positive 'no activity' kills missions. " +
+        "Re-enable after fixing event flush observability.",
+    );
+    // 不起 timer
+    void STARTUP_DELAY_MS;
+    void SCAN_INTERVAL_MS;
   }
 
   async onModuleDestroy(): Promise<void> {
