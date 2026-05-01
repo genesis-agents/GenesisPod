@@ -33,38 +33,20 @@ import {
 } from "../../utils/figure-filter.util";
 // ★ 沉淀消费（2026-04-29）：harness quality-gate 标杆实现
 import { ReportQualityGateService } from "@/modules/ai-harness/facade";
-// ★ 沉淀消费（2026-04-29）：engine LLM 输出后处理 — strip-chart-json
-// ★ Phase 2 (2026-04-29): 接入 TI 沉淀的 77 个 report-formatting 工具
+// ★ 沉淀消费（2026-04-30 REPORT QUALITY OVERHAUL）：
+//   playground 报告格式化全量复用 TI 沉淀的 `postProcessFinalReport`
+//   （TI ReportAssembler.postProcessFinalReport 类方法已晋升到 ai-engine 层）。
+//   原 27-step bespoke 管线下线 —— playground / TI 共用同一份后处理逻辑，
+//   保证两条产品线的报告格式行为完全一致，且 mission 4fd5efa1 暴露的
+//   `mid-line glued ##` 由 detectAndPromoteHeadings 启发式修复。
 import {
+  postProcessFinalReport,
   stripChartJsonFromContent,
   filterJunkReferences,
   deduplicateReferencesByUrl,
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-  removeHorizontalRules,
-  repairOrderedListContinuity,
-  repairBrokenListItems,
-  decodeHtmlEntities,
-  removeEmptyHeadings,
-  cleanupEmptyBullets,
-  // ★ P0-LIVE-REPORT-FORMAT (2026-04-30): 接入更多 TI 沉淀的 report-formatting
-  //   helpers，覆盖 LLM 输出常见 artifacts。共 27 个全 idempotent / non-destructive。
-  deduplicateParagraphs,
-  deduplicateHeadings,
-  deduplicateAdjacentCitations,
-  deduplicateTerminalSections,
-  deduplicateIdenticalSections,
-  stripLeakedHtmlComments,
-  stripFigureComments,
-  stripCitationsFromHeadings,
-  fixDoubleSourceLabels,
-  fixDuplicateHeadings,
-  mergeTelegramParagraphs,
-  repairBrokenBoldMarkers,
-  bulletifyBlockquoteItems,
-  boldSummaryPrefixes,
-  splitEnumerationToList,
 } from "@/modules/ai-engine/facade";
 
 interface AssembleInput {
@@ -149,26 +131,11 @@ export class ReportAssemblerService {
     //    把 [anchor](url) 全部替换为 [N]，并把发现的 url 同步进 writer.citations 头部，
     //    保证 buildCitations 编号与 body 中的 [N] 对齐。
     input = this.normalizeInlineCitations(input);
-    // 1) 构建主 markdown（无图占位符）+ 格式修复（Phase P1-9）
+    // 1) 构建主 markdown（无图占位符）+ TI 同源 full-report 后处理（含 quality-gate）
+    //    applyFormatFixes 内部会自动跑 ReportQualityGateService.validateFullReport，
+    //    无需在此重复调用。warnings 留待 buildQualityStub 后通过单次再调一次 gate
+    //    （只取 violations 不再 fix）注入到 quality.warnings。
     let fullMarkdown = this.applyFormatFixes(this.buildFullMarkdown(input));
-
-    // 1.5) ★ harness quality-gate（沉淀自 TI）：full-report 级硬性规则 + 自动修复
-    //      规则覆盖：分割线 / 加粗密度 / 引用块密度 / 语言一致性 / 主观表达 / 引用孤儿 / 单源声明
-    //      自动修复后内容覆盖 fullMarkdown，违规记录推到 quality.warnings
-    const gateLang = input.language?.startsWith("en") ? "en" : "zh";
-    const gateResult = this.qualityGate.validateFullReport(
-      fullMarkdown,
-      gateLang,
-    );
-    if (gateResult.wasAutoFixed) {
-      fullMarkdown = gateResult.fixedContent;
-    }
-    if (gateResult.violations.length > 0) {
-      this.logger.log(
-        `[QualityGate] full-report: ${gateResult.violations.length} violations` +
-          ` (passed=${gateResult.passed}): ${gateResult.violations.map((v) => v.rule).join(", ")}`,
-      );
-    }
 
     // ★ 2026-04-30: H2 滥用治理 —— buildSectionTree 之前 sanitize keyPoint 编号 H2 为 H3
     //   chapter-writer LLM 经常违反 prompt 把 "1./2./（一）/其一" 写成 ## H2 切分论点，
@@ -252,8 +219,14 @@ export class ReportAssemblerService {
       fullMarkdown,
     );
 
-    // 8.5) ★ 把 harness quality-gate 的违规推入 quality.warnings（前端可见）
-    for (const v of gateResult.violations) {
+    // 8.5) ★ 把最终 quality-gate violations 注入 quality.warnings（前端可见）
+    //    再跑一次 validateFullReport（only violations, not fix）拿最终违规列表。
+    const gateLang = input.language?.startsWith("en") ? "en" : "zh";
+    const finalGate = this.qualityGate.validateFullReport(
+      fullMarkdown,
+      gateLang,
+    );
+    for (const v of finalGate.violations) {
       quality.warnings.push({
         dimension: `quality_gate.${v.rule}`,
         message: v.message,
@@ -457,80 +430,57 @@ export class ReportAssemblerService {
     };
   }
 
+  /**
+   * ★ 2026-04-30 (REPORT QUALITY OVERHAUL): 委托给 TI 沉淀的 `postProcessFinalReport`
+   *
+   * 原 27-step bespoke 管线下线 — 现在直接调用 ai-engine 层的 pure function
+   * `postProcessFinalReport(content, { language, qualityGate, logger })`，
+   * 与 TI ReportAssembler.postProcessFinalReport 同源。共 60+ 规则覆盖：
+   *   - quality-gate 自动修复（excessive bold / horizontal rule / 主观语 等）
+   *   - mid-line glued `## ` 启发式提升（detectAndPromoteHeadings —— 修
+   *     mission 4fd5efa1 暴露的 §2 startOffset=-1 顽疾）
+   *   - 表格 / 列表 / 章节合并 / 全局 renumber / 第三道铁墙白名单
+   *
+   * playground 专属仅保留 4 项 assembly 后处理：
+   *   ① stripChartJsonFromContent（图表 JSON 残留，仅 playground writer 输出会有）
+   *   ② markOrphanCitations（孤儿 [N] 标注，依赖 mission ctx）
+   *   ③ 表格行尾缺 |（playground LLM 高频）
+   *   ④ LaTeX 跨段落 $$ 修复（playground LLM 高频）
+   */
   private applyFormatFixes(md: string): string {
-    let content = md;
-    // 0. ★ 沉淀消费：清理 LLM 泄漏的图表 JSON 块、Figure References 元数据、裸 JSON 行
-    content = stripChartJsonFromContent(content);
-    // ★ Phase 2 接入: 用沉淀工具替代手写（覆盖更全 + battle-tested）
-    // 1) HTML entities 解码（&amp; → &）
-    content = decodeHtmlEntities(content);
-    // 2) 空标题清理
-    content = removeEmptyHeadings(content);
-    // 3) 多余水平线（--- 在错误位置）清理
-    content = removeHorizontalRules(content);
-    // 4) 有序列表连续性修复（1 2 4 5 → 1 2 3 4）
-    content = repairOrderedListContinuity(content);
-    // 5) 破碎列表项修复（"- " 后空行 / 层级错乱）
-    content = repairBrokenListItems(content);
-    // 6) 空 bullet 清理
-    content = cleanupEmptyBullets(content);
-    // ★ 注 1：stripLLMMetaNotes 不适用于装配后 fullMarkdown（会误删合法标题），仅 LLM raw output 阶段用
-    // ★ 注 2：sanitizeHeadingLevels 是给 dimension-content 用（剥 H1/H2 留 H3+），
-    //   playground fullMarkdown 含 H1/H2 装配标题，不适用
-    // 7) HTML 注释泄漏（<!-- xxx -->）— LLM 偶尔泄漏推理痕迹
-    content = stripLeakedHtmlComments(content);
-    // 8) figure 备注块清理（"备注：图1 显示 ..."）
-    content = stripFigureComments(content);
-    // 9) 标题里的 [1] 引用清理（"## 市场分析 [1]" → "## 市场分析"）
-    content = stripCitationsFromHeadings(content);
-    // 10) 同一 source 重复标签合并（"(来源: a) (来源: a)" → "(来源: a)"）
-    content = fixDoubleSourceLabels(content);
-    // 11) 同名标题加序号（避免 anchor 冲突）
-    content = fixDuplicateHeadings(content);
-    // 12) 短电报段落合并（连续单句换行段→合并为正常段落）
-    content = mergeTelegramParagraphs(content);
-    // 13) 破碎粗体标记修复（**xxx → **xxx**）
-    content = repairBrokenBoldMarkers(content);
-    // 14) 引用块内的 dash → bullet
-    content = bulletifyBlockquoteItems(content);
-    // 15) 总结/要点等前缀加粗（"总结：xxx" → "**总结：** xxx"）
-    content = boldSummaryPrefixes(content);
-    // 16) 行内枚举拆 bullet（"包括：A、B、C" → "- A\n- B\n- C"）
-    content = splitEnumerationToList(content);
-    // 17) 段落级去重（fullMarkdown 全局，不带 dimIndex 上下文）
-    content = deduplicateParagraphs(content, new Set<string>());
-    // 18) 标题级去重 + 相邻引用合并 + 末段重复清理
-    content = deduplicateHeadings(content);
-    content = deduplicateAdjacentCitations(content);
-    content = deduplicateTerminalSections(content);
-    content = deduplicateIdenticalSections(content);
+    // 0) playground 专属预处理（TI 不需要）：图表 JSON 残留剥离
+    let content = stripChartJsonFromContent(md);
 
-    // ── 以下为 playground 专属（沉淀工具未覆盖）──
-    // 压缩 ≥3 个连续换行
-    content = content.replace(/\n{3,}/g, "\n\n");
-    // 表格行尾缺 |
+    // 1) 委托给 TI 同源 full-report 后处理管线
+    const { content: processed, warnings } = postProcessFinalReport(content, {
+      language: "zh", // playground 当前仅支持中文 mission
+      qualityGate: this.qualityGate,
+      logger: {
+        warn: (msg) => this.logger.warn(msg),
+        error: (msg) => this.logger.error(msg),
+      },
+    });
+    content = processed;
+    if (warnings.length > 0) {
+      this.logger.log(
+        `[applyFormatFixes] postProcessFinalReport: ${warnings.length} warnings`,
+      );
+    }
+
+    // 2) playground assembly 专属补丁：
+    //    ② 孤儿 [N] 标注（需要 mission ctx 中的 references，TI 在 synthesize 阶段已补）
+    content = this.markOrphanCitations(content);
+    //    ③ 表格行尾缺 |
     content = content.replace(
       /^(\|[^\n]+[^|\s])(\n|$)/gm,
       (_, p1: string, p2: string) => `${p1}|${p2}`,
     );
-    // 列表 tab → 4-space
-    content = content.replace(/^(\s*)\t+/gm, (_, sp: string) =>
-      sp.replace(/\t/g, "    "),
-    );
-    // 孤儿 [N] 标注
-    content = this.markOrphanCitations(content);
-    // LaTeX 跨段落 $$ 修复
+    //    ④ LaTeX 跨段落 $$ 修复
     const dollarCount = (content.match(/\$\$/g) ?? []).length;
     if (dollarCount % 2 !== 0) {
       content += "\n$$";
     }
-    // 单元格内换行
-    content = content.replace(/(\|[^|\n]*?)\\n([^|\n]*?\|)/g, "$1<br>$2");
-    // >>> 规范化
-    content = content.replace(/^>{3,}\s/gm, "> ");
-    // 文末空白 trim
-    content = content.replace(/[ \t]+$/gm, "").trimEnd();
-    return content;
+    return content.replace(/[ \t]+$/gm, "").trimEnd();
   }
 
   private markOrphanCitations(md: string): string {

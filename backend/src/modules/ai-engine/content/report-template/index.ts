@@ -10,3 +10,7 @@
 export * from "./constants/report-writing-standards";
 export * from "./pipeline/report-formatting.utils";
 export * from "./pipeline/formatting-pipeline";
+// ★ 2026-04-30 (REPORT QUALITY OVERHAUL): 沉淀 TI 第三道铁墙 + full-report
+//   后处理管线，让 playground / 任意 ai-app 都能复用同一份。
+export * from "./pipeline/sanitize-output.utils";
+export * from "./pipeline/post-process-final-report";
