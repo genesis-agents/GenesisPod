@@ -50,6 +50,10 @@ interface TraceStats {
   byStatus: Record<string, number>;
 }
 
+interface ApiEnvelope<T> {
+  data?: T | ApiEnvelope<T>;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   running: 'bg-blue-100 text-blue-800',
   success: 'bg-green-100 text-green-800',
@@ -72,6 +76,19 @@ function formatDuration(ms?: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function unwrapApiData<T>(payload: unknown): T | undefined {
+  let current = payload;
+  while (
+    current &&
+    typeof current === 'object' &&
+    'data' in current &&
+    (current as ApiEnvelope<T>).data !== undefined
+  ) {
+    current = (current as ApiEnvelope<T>).data;
+  }
+  return current as T | undefined;
+}
+
 function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<TraceDetail | null>(null);
@@ -85,8 +102,8 @@ function TraceRow({ trace, apiUrl }: { trace: TraceSummary; apiUrl: string }) {
         headers: getAuthHeader(),
       });
       if (!res.ok) throw new Error('Failed to fetch trace detail');
-      const data = await res.json();
-      setDetail(data.data as TraceDetail);
+      const data = unwrapApiData<TraceDetail>(await res.json());
+      setDetail(data ?? null);
     } catch (err) {
       logger.error('Failed to fetch trace detail:', err);
     } finally {
@@ -227,17 +244,19 @@ export default function TracesPage() {
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
       const [tracesRes, statsRes] = await Promise.all([
-        fetch(`${apiUrl}/admin/traces?${params}`, { headers: getAuthHeader() }),
+        fetch(`${apiUrl}/admin/traces?${params.toString()}`, {
+          headers: getAuthHeader(),
+        }),
         fetch(`${apiUrl}/admin/traces/stats`, { headers: getAuthHeader() }),
       ]);
 
       if (tracesRes.ok) {
-        const data = await tracesRes.json();
-        setTraces((data.data as TraceSummary[]) ?? []);
+        const data = unwrapApiData<TraceSummary[]>(await tracesRes.json());
+        setTraces(Array.isArray(data) ? data : []);
       }
       if (statsRes.ok) {
-        const data = await statsRes.json();
-        setStats(data.data as TraceStats);
+        const data = unwrapApiData<TraceStats>(await statsRes.json());
+        setStats(data ?? null);
       }
     } catch (err) {
       logger.error('Failed to fetch traces:', err);

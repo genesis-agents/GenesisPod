@@ -91,6 +91,14 @@ export class AIMetricsService {
     metadata?: Record<string, unknown>;
   }): Promise<string> {
     const totalTokens = (params.inputTokens || 0) + (params.outputTokens || 0);
+    const metadata = { ...(params.metadata || {}) };
+
+    if (
+      params.metricType === "llm_call" &&
+      (!metadata.module || metadata.module === "unknown")
+    ) {
+      metadata.module = "ai-engine";
+    }
 
     // 估算成本
     const estimatedCost = this.estimateCost(
@@ -116,7 +124,7 @@ export class AIMetricsService {
         success: params.success,
         errorCode: params.errorCode,
         errorMsg: params.errorMsg,
-        metadata: (params.metadata || {}) as Prisma.InputJsonValue,
+        metadata: metadata as Prisma.InputJsonValue,
       },
     });
 

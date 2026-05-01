@@ -283,7 +283,7 @@ describe("AiObservabilityService supplement — getDashboardFromDB branches", ()
 
     const svc = new AiObservabilityService(prismaMock);
     const dash = await svc.getDashboardWithFallback(60);
-    expect(dash.byModule["unknown"]).toBeDefined();
+    expect(dash.byModule["ai-engine"]).toBeDefined();
   });
 
   it("handles DB query failure gracefully", async () => {

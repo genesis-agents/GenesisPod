@@ -59,6 +59,7 @@ describe("AIMetricsService", () => {
             metricType: "llm_call",
             success: true,
             totalTokens: 300,
+            metadata: expect.objectContaining({ module: "ai-engine" }),
           }),
         }),
       );

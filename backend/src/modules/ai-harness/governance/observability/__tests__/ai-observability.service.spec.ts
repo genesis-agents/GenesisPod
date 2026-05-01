@@ -1260,8 +1260,8 @@ describe("AiObservabilityService (getDashboardWithFallback)", () => {
     ]);
 
     const dashboard = await service.getDashboardWithFallback(60);
-    expect(dashboard.byModule["unknown"]).toBeDefined();
-    expect(dashboard.byModule["unknown"].calls).toBe(1);
+    expect(dashboard.byModule["ai-engine"]).toBeDefined();
+    expect(dashboard.byModule["ai-engine"].calls).toBe(1);
   });
 });
 

@@ -221,6 +221,7 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       id: randomUUID(),
       timestamp: new Date(),
       ...event,
+      module: this.normalizeModuleName(event.module, event.operation),
     };
 
     // 环形缓冲区写入：未满时追加，满了后覆盖旧数据
@@ -314,15 +315,7 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     const p99LatencyMs = this.percentile(latencies, 0.99);
 
     // 最近错误（最多 10 条）
-    const recentErrors = recentEvents
-      .filter((e) => !e.success && e.error)
-      .slice(-10)
-      .reverse()
-      .map((e) => ({
-        timestamp: e.timestamp,
-        model: e.model,
-        error: e.error!,
-      }));
+    const recentErrors = this.buildRecentErrorsFromEvents(recentEvents);
 
     return {
       period: { start: startTime, end: now },
@@ -617,10 +610,14 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     const moduleMap = new Map<string, LLMCallEvent[]>();
 
     for (const event of events) {
-      if (!moduleMap.has(event.module)) {
-        moduleMap.set(event.module, []);
+      const moduleName = this.normalizeModuleName(
+        event.module,
+        event.operation,
+      );
+      if (!moduleMap.has(moduleName)) {
+        moduleMap.set(moduleName, []);
       }
-      moduleMap.get(event.module)!.push(event);
+      moduleMap.get(moduleName)!.push(event);
     }
 
     const result: Record<string, ModuleMetrics> = {};
@@ -694,6 +691,74 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
 
     const index = Math.ceil(sortedArray.length * p) - 1;
     return sortedArray[Math.max(0, index)];
+  }
+
+  private normalizeModuleName(
+    moduleName: string | null | undefined,
+    operation?: string | null,
+  ): string {
+    const trimmed = typeof moduleName === "string" ? moduleName.trim() : "";
+    if (trimmed && trimmed !== "unknown") return trimmed;
+
+    const normalizedOperation = (operation ?? "").toLowerCase();
+    if (normalizedOperation.includes("harness")) return "ai-harness";
+    if (normalizedOperation.includes("kernel")) return "ai-kernel";
+    if (normalizedOperation.includes("agent")) return "agents";
+
+    return "ai-engine";
+  }
+
+  private buildRecentErrorsFromEvents(
+    events: LLMCallEvent[],
+  ): ObservabilityDashboard["recentErrors"] {
+    const errors = events
+      .filter((e) => !e.success && e.error)
+      .map((e) => ({
+        timestamp: e.timestamp,
+        model: e.model,
+        error: e.error!,
+      }))
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    return this.dedupeRecentErrors(errors);
+  }
+
+  private dedupeRecentErrors(
+    errors: ObservabilityDashboard["recentErrors"],
+    limit = 10,
+  ): ObservabilityDashboard["recentErrors"] {
+    const detailedSlots = new Set(
+      errors
+        .filter((e) => !this.isGenericError(e.error))
+        .map((e) => this.errorSlotKey(e)),
+    );
+    const seen = new Set<string>();
+    const result: ObservabilityDashboard["recentErrors"] = [];
+
+    for (const error of errors) {
+      const slotKey = this.errorSlotKey(error);
+      if (this.isGenericError(error.error) && detailedSlots.has(slotKey)) {
+        continue;
+      }
+
+      const dedupeKey = `${slotKey}|${error.error}`;
+      if (seen.has(dedupeKey)) continue;
+
+      seen.add(dedupeKey);
+      result.push(error);
+      if (result.length >= limit) break;
+    }
+
+    return result;
+  }
+
+  private errorSlotKey(error: { timestamp: Date; model: string }): string {
+    const minuteBucket = Math.floor(error.timestamp.getTime() / 60000);
+    return `${error.model}|${minuteBucket}`;
+  }
+
+  private isGenericError(error: string): boolean {
+    return /^[A-Z0-9_:-]+$/.test(error.trim());
   }
 
   /**
@@ -787,7 +852,10 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       const moduleGroups = new Map<string, typeof metrics>();
       for (const m of metrics) {
         const meta = m.metadata as Record<string, unknown> | null;
-        const mod = (meta?.module as string) || "unknown";
+        const mod = this.normalizeModuleName(
+          meta?.module as string | undefined,
+          m.operationId,
+        );
         if (!moduleGroups.has(mod)) moduleGroups.set(mod, []);
         moduleGroups.get(mod)!.push(m);
       }
@@ -835,14 +903,15 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
         .sort((a, b) => a - b);
 
       // Recent errors
-      const recentErrors = metrics
-        .filter((m) => !m.success && m.errorCode)
-        .slice(0, 10)
-        .map((m) => ({
-          timestamp: m.createdAt,
-          model: m.modelId || "unknown",
-          error: m.errorCode || "Unknown error",
-        }));
+      const recentErrors = this.dedupeRecentErrors(
+        metrics
+          .filter((m) => !m.success && (m.errorMsg || m.errorCode))
+          .map((m) => ({
+            timestamp: m.createdAt,
+            model: m.modelId || "unknown",
+            error: m.errorMsg || m.errorCode || "Unknown error",
+          })),
+      );
 
       return {
         period: { start: startTime, end: now },

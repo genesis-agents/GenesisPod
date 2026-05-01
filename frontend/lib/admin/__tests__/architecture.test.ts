@@ -53,27 +53,26 @@ describe('AI Harness layer', () => {
     for (const card of layer.cards ?? []) {
       expect(card.clickable).toBe(true);
       expect(card.href).toBeTruthy();
-      expect(card.href).toMatch(/^\/admin\/ai\/harness#/);
     }
   });
 
   it('exposes governance and eval management', () => {
     const card = layer.cards?.find((item) => item.id === 'harnessGovernance');
     expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/admin/ai/harness#governance');
+    expect(card?.href).toBe('/admin/ai/eval');
     expect(card?.stats?.[0]?.key).toBe('harnessEvalRuns');
   });
 
-  it('routes harness cards to their dedicated overview anchors', () => {
+  it('routes harness cards directly to real admin pages', () => {
     const expectedCards: Array<{ id: string; href: string }> = [
-      { id: 'harnessFacade', href: '/admin/ai/harness#facade' },
-      { id: 'harnessKernel', href: '/admin/ai/harness#kernel' },
-      { id: 'harnessExecution', href: '/admin/ai/harness#execution' },
-      { id: 'harnessMemory', href: '/admin/ai/harness#memory' },
-      { id: 'harnessProcess', href: '/admin/ai/harness#process' },
-      { id: 'harnessProtocol', href: '/admin/ai/harness#protocol' },
-      { id: 'harnessGovernance', href: '/admin/ai/harness#governance' },
-      { id: 'harnessRuntime', href: '/admin/ai/harness#runtime' },
+      { id: 'harnessFacade', href: '/admin/ai/harness' },
+      { id: 'harnessKernel', href: '/admin/kernel/scheduler' },
+      { id: 'harnessExecution', href: '/admin/ai/traces' },
+      { id: 'harnessMemory', href: '/admin/kernel/memory' },
+      { id: 'harnessProcess', href: '/admin/kernel/processes' },
+      { id: 'harnessProtocol', href: '/admin/kernel/ipc' },
+      { id: 'harnessGovernance', href: '/admin/ai/eval' },
+      { id: 'harnessRuntime', href: '/admin/kernel/observability' },
     ];
 
     for (const { id, href } of expectedCards) {
