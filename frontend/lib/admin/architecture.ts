@@ -2,14 +2,13 @@
  * Admin Architecture Diagram Configuration
  *
  * Five-layer architecture visualization (matches backend modules/):
- * Layer 5: Intent Gateway         → modules/intent-gateway/
  * Layer 4: Open API               → modules/open-api/
  * Layer 3: AI Apps                → modules/ai-app/
+ * Layer 2.5: AI Harness           → modules/ai-harness/
+ *                                   (facade/kernel/execution/memory/process/
+ *                                    protocol/governance/runtime)
  * Layer 2: AI Engine              → modules/ai-engine/
- *            ├── Core Capabilities (llm/tools/skills/rag/agents/teams/safety)
- *            └── Runtime          → modules/ai-engine/runtime/
- *                                   (process/journal/memory/ipc/resource/
- *                                    observability/security/scheduler/...)
+ *                                   (llm/tools/skills/rag/agents/teams/safety)
  * Layer 1: Infrastructure         → modules/ai-infra/
  */
 
@@ -22,7 +21,6 @@ import {
   Users,
   Key,
   HardDrive,
-  MessageSquare,
   Compass,
   BookOpen,
   PenTool,
@@ -41,12 +39,16 @@ import {
   Radio,
   Webhook,
   Share2,
-  TrendingUp,
   Cpu,
-  Clock,
   Database,
   GitBranch,
-  Gauge,
+  Network,
+  Workflow,
+  ScanLine,
+  MemoryStick,
+  Shuffle,
+  Lock,
+  Globe,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -75,41 +77,15 @@ export interface CardGroup {
 }
 
 // Architecture layer type
+// level 5 slot is repurposed for L2.5 AI Harness (Intent Gateway was deleted)
 export interface ArchitectureLayer {
   id: string;
   titleKey: string; // i18n key for layer title
   subtitleKey?: string; // i18n key for subtitle
-  level: 1 | 2 | 3 | 4 | 5; // Layer level for styling
+  level: 1 | 2 | 3 | 4 | 5; // Layer level for styling (5 = AI Harness / L2.5)
   cards?: ArchitectureCard[];
   groups?: CardGroup[]; // For grouped cards (AI Engine, AI Apps, Infrastructure)
 }
-
-// Layer 5: Intent Gateway (Entry, Intent Routing, Traces)
-const intentGatewayLayer: ArchitectureLayer = {
-  id: 'intentGateway',
-  titleKey: 'admin.architecture.layers.intentGateway',
-  subtitleKey: 'admin.architecture.layers.intentGatewayDesc',
-  level: 5,
-  cards: [
-    {
-      id: 'aiAskEntry',
-      i18nKey: 'nav.aiAsk',
-      descriptionKey: 'admin.architecture.cards.aiAskEntryDesc',
-      icon: MessageSquare,
-      clickable: false,
-      stats: [{ label: '会话', key: 'askSessions' }],
-    },
-    {
-      id: 'intentRouter',
-      i18nKey: 'admin.architecture.cards.intentRouter',
-      descriptionKey: 'admin.architecture.cards.intentRouterDesc',
-      href: '/admin/ai/traces',
-      icon: TrendingUp,
-      clickable: true,
-      stats: [{ label: '追踪', key: 'agentTraces' }],
-    },
-  ],
-};
 
 // Layer 4: Open API (External access for agents and third parties)
 const openApiLayer: ArchitectureLayer = {
@@ -134,6 +110,27 @@ const openApiLayer: ArchitectureLayer = {
       icon: Webhook,
       clickable: false,
       stats: [{ label: '订阅', key: 'webhookSubscriptions' }],
+    },
+    {
+      id: 'publicApi',
+      i18nKey: 'admin.architecture.cards.openApiPublic',
+      descriptionKey: 'admin.architecture.cards.openApiPublicDesc',
+      icon: Globe,
+      clickable: false,
+    },
+    {
+      id: 'admin',
+      i18nKey: 'admin.architecture.cards.openApiAdmin',
+      descriptionKey: 'admin.architecture.cards.openApiAdminDesc',
+      icon: Lock,
+      clickable: false,
+    },
+    {
+      id: 'a2a',
+      i18nKey: 'admin.architecture.cards.openApiA2A',
+      descriptionKey: 'admin.architecture.cards.openApiA2ADesc',
+      icon: Share2,
+      clickable: false,
     },
   ],
 };
@@ -267,11 +264,74 @@ const aiAppsLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 2: AI Engine
-// Split into two sub-groups:
-//  - Core Capabilities: Models/Tools/Skills/RAG/Agents/Teams/Guardrails
-//  - Runtime: Processes/Journal/Memory/IPC/Resources/Observability/Security/Scheduler
-//    (formerly the standalone "AI Kernel" layer; now merged under ai-engine/runtime/)
+// Layer 2.5: AI Harness (Agent Runtime Scaffold)
+// Uses level: 5 slot in LAYER_STYLES (freed up by deletion of Intent Gateway)
+const aiHarnessLayer: ArchitectureLayer = {
+  id: 'aiHarness',
+  titleKey: 'admin.architecture.layers.aiHarness',
+  subtitleKey: 'admin.architecture.layers.aiHarnessDesc',
+  level: 5,
+  cards: [
+    {
+      id: 'harnessFacade',
+      i18nKey: 'admin.architecture.cards.harnessFacade',
+      descriptionKey: 'admin.architecture.cards.harnessFacadeDesc',
+      icon: Network,
+      clickable: false,
+    },
+    {
+      id: 'harnessKernel',
+      i18nKey: 'admin.architecture.cards.harnessKernel',
+      descriptionKey: 'admin.architecture.cards.harnessKernelDesc',
+      icon: Cpu,
+      clickable: false,
+    },
+    {
+      id: 'harnessExecution',
+      i18nKey: 'admin.architecture.cards.harnessExecution',
+      descriptionKey: 'admin.architecture.cards.harnessExecutionDesc',
+      icon: Workflow,
+      clickable: false,
+    },
+    {
+      id: 'harnessMemory',
+      i18nKey: 'admin.architecture.cards.harnessMemory',
+      descriptionKey: 'admin.architecture.cards.harnessMemoryDesc',
+      icon: MemoryStick,
+      clickable: false,
+    },
+    {
+      id: 'harnessProcess',
+      i18nKey: 'admin.architecture.cards.harnessProcess',
+      descriptionKey: 'admin.architecture.cards.harnessProcessDesc',
+      icon: GitBranch,
+      clickable: false,
+    },
+    {
+      id: 'harnessProtocol',
+      i18nKey: 'admin.architecture.cards.harnessProtocol',
+      descriptionKey: 'admin.architecture.cards.harnessProtocolDesc',
+      icon: Radio,
+      clickable: false,
+    },
+    {
+      id: 'harnessGovernance',
+      i18nKey: 'admin.architecture.cards.harnessGovernance',
+      descriptionKey: 'admin.architecture.cards.harnessGovernanceDesc',
+      icon: ScanLine,
+      clickable: false,
+    },
+    {
+      id: 'harnessRuntime',
+      i18nKey: 'admin.architecture.cards.harnessRuntime',
+      descriptionKey: 'admin.architecture.cards.harnessRuntimeDesc',
+      icon: Shuffle,
+      clickable: false,
+    },
+  ],
+};
+
+// Layer 2: AI Engine (Core Capabilities)
 const aiEngineLayer: ArchitectureLayer = {
   id: 'aiEngine',
   titleKey: 'admin.architecture.layers.aiEngine',
@@ -340,84 +400,6 @@ const aiEngineLayer: ArchitectureLayer = {
           icon: Shield,
           clickable: true,
           stats: [{ label: '规则', key: 'guardrailRules' }],
-        },
-      ],
-    },
-    {
-      id: 'engineRuntime',
-      titleKey: 'admin.architecture.groups.engineRuntime',
-      cards: [
-        {
-          id: 'runtimeProcesses',
-          i18nKey: 'admin.architecture.cards.runtimeProcesses',
-          descriptionKey: 'admin.architecture.cards.runtimeProcessesDesc',
-          href: '/admin/kernel/processes',
-          icon: Cpu,
-          clickable: true,
-          stats: [{ label: '进程', key: 'kernelProcesses' }],
-        },
-        {
-          id: 'runtimeJournal',
-          i18nKey: 'admin.architecture.cards.runtimeJournal',
-          descriptionKey: 'admin.architecture.cards.runtimeJournalDesc',
-          href: '/admin/kernel/journal',
-          icon: ScrollText,
-          clickable: true,
-          stats: [{ label: '事件', key: 'kernelEvents' }],
-        },
-        {
-          id: 'runtimeMemory',
-          i18nKey: 'admin.architecture.cards.runtimeMemory',
-          descriptionKey: 'admin.architecture.cards.runtimeMemoryDesc',
-          href: '/admin/kernel/memory',
-          icon: Database,
-          clickable: true,
-          stats: [{ label: '条目', key: 'kernelMemories' }],
-        },
-        {
-          id: 'runtimeIPC',
-          i18nKey: 'admin.architecture.cards.runtimeIPC',
-          descriptionKey: 'admin.architecture.cards.runtimeIPCDesc',
-          href: '/admin/kernel/ipc',
-          icon: GitBranch,
-          clickable: true,
-          stats: [{ label: '订阅', key: 'kernelSubscriptions' }],
-        },
-        {
-          id: 'runtimeResources',
-          i18nKey: 'admin.architecture.cards.runtimeResources',
-          descriptionKey: 'admin.architecture.cards.runtimeResourcesDesc',
-          href: '/admin/kernel/resources',
-          icon: Gauge,
-          clickable: true,
-          stats: [{ label: '熔断器', key: 'kernelBreakers' }],
-        },
-        {
-          id: 'runtimeObservability',
-          i18nKey: 'admin.architecture.cards.runtimeObservability',
-          descriptionKey: 'admin.architecture.cards.runtimeObservabilityDesc',
-          href: '/admin/kernel/observability',
-          icon: Activity,
-          clickable: true,
-          stats: [{ label: 'LLM调用', key: 'kernelLLMCalls' }],
-        },
-        {
-          id: 'runtimeSecurity',
-          i18nKey: 'admin.architecture.cards.runtimeSecurity',
-          descriptionKey: 'admin.architecture.cards.runtimeSecurityDesc',
-          href: '/admin/kernel/security',
-          icon: Shield,
-          clickable: true,
-          stats: [{ label: '受控进程', key: 'kernelProcesses' }],
-        },
-        {
-          id: 'runtimeScheduler',
-          i18nKey: 'admin.architecture.cards.runtimeScheduler',
-          descriptionKey: 'admin.architecture.cards.runtimeSchedulerDesc',
-          href: '/admin/kernel/scheduler',
-          icon: Clock,
-          clickable: true,
-          stats: [{ label: '运行中', key: 'kernelRunning' }],
         },
       ],
     },
@@ -563,25 +545,15 @@ const infrastructureLayer: ArchitectureLayer = {
 
 // Export all layers in order (top to bottom)
 export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
-  intentGatewayLayer,
   openApiLayer,
   aiAppsLayer,
+  aiHarnessLayer,
   aiEngineLayer,
   infrastructureLayer,
 ];
 
 // Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
-  5: {
-    // Intent Gateway - Cyan theme (top layer)
-    badge: 'bg-cyan-100 text-cyan-700',
-    border: 'border-cyan-200',
-    accent: 'text-cyan-600',
-    bg: 'bg-gradient-to-br from-cyan-50 to-sky-50/80',
-    accentBar: 'bg-gradient-to-b from-cyan-500 to-sky-600',
-    iconBg: 'bg-cyan-100 text-cyan-600',
-    hoverBorder: 'hover:border-cyan-300',
-  },
   4: {
     // Open API - Orange theme
     badge: 'bg-orange-100 text-orange-700',
@@ -602,8 +574,18 @@ export const LAYER_STYLES = {
     iconBg: 'bg-violet-100 text-violet-600',
     hoverBorder: 'hover:border-violet-300',
   },
+  5: {
+    // AI Harness (L2.5) - Teal/Indigo theme (distinct from L2 blue and L3 purple)
+    badge: 'bg-teal-100 text-teal-700',
+    border: 'border-teal-200',
+    accent: 'text-teal-600',
+    bg: 'bg-gradient-to-br from-teal-50 to-indigo-50/80',
+    accentBar: 'bg-gradient-to-b from-teal-500 to-indigo-600',
+    iconBg: 'bg-teal-100 text-teal-600',
+    hoverBorder: 'hover:border-teal-300',
+  },
   2: {
-    // AI Engine (Core + Runtime) - Blue theme
+    // AI Engine (Core) - Blue theme
     badge: 'bg-blue-100 text-blue-700',
     border: 'border-blue-200',
     accent: 'text-blue-600',
