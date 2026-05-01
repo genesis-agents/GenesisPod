@@ -67,6 +67,27 @@ interface EvalResult {
   evaluatedAt: string;
 }
 
+interface EvalRunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  errored: number;
+  passRate: number;
+  averageScore: number;
+}
+
+interface EvalRunResult {
+  id: string;
+  datasetId: string;
+  datasetName: string;
+  datasetVersion?: string;
+  status: 'completed' | 'failed';
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  summary: EvalRunSummary;
+}
+
 // ─── Helpers ─────────────────────────────────────────────
 
 function formatDuration(ms?: number): string {
@@ -343,6 +364,7 @@ function TraceRow({
 
 export default function EvalDashboardPage() {
   const [traces, setTraces] = useState<TraceSummary[]>([]);
+  const [evalRuns, setEvalRuns] = useState<EvalRunResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [evalResults, setEvalResults] = useState<Record<string, EvalResult>>(
     {}
@@ -365,9 +387,21 @@ export default function EvalDashboardPage() {
     }
   }, []);
 
+  const fetchEvalRuns = useCallback(async () => {
+    try {
+      const data = await apiClient.get<EvalRunResult[]>(
+        '/admin/evals/runs?limit=10'
+      );
+      setEvalRuns(Array.isArray(data) ? data : []);
+    } catch {
+      setEvalRuns([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTraces();
-  }, [fetchTraces]);
+    fetchEvalRuns();
+  }, [fetchTraces, fetchEvalRuns]);
 
   const handleEvaluate = useCallback(async (traceId: string) => {
     setEvaluating((prev) => ({ ...prev, [traceId]: true }));
@@ -398,7 +432,10 @@ export default function EvalDashboardPage() {
       domain="ai"
       actions={
         <button
-          onClick={fetchTraces}
+          onClick={() => {
+            fetchTraces();
+            fetchEvalRuns();
+          }}
           disabled={loading}
           className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
         >
@@ -431,6 +468,80 @@ export default function EvalDashboardPage() {
                   .length
               }
             </p>
+          </div>
+        </div>
+      )}
+
+      {evalRuns.length > 0 && (
+        <div className="mb-6 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Recent Eval Runs
+              </h2>
+              <p className="text-xs text-gray-500">
+                Stored dataset and experiment runs from the harness eval API
+              </p>
+            </div>
+            <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
+              {evalRuns.length} runs
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b text-xs uppercase text-gray-400">
+                <tr>
+                  <th className="py-2 pr-4">Dataset</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Score</th>
+                  <th className="py-2 pr-4">Pass Rate</th>
+                  <th className="py-2 pr-4">Cases</th>
+                  <th className="py-2 pr-4">Started</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {evalRuns.map((run) => (
+                  <tr key={run.id}>
+                    <td className="py-2 pr-4">
+                      <div className="font-medium text-gray-900">
+                        {run.datasetName}
+                      </div>
+                      <div className="font-mono text-xs text-gray-400">
+                        {run.datasetId}
+                        {run.datasetVersion ? `:${run.datasetVersion}` : ''}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-medium ${
+                          run.status === 'completed'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {run.status}
+                      </span>
+                    </td>
+                    <td
+                      className={`py-2 pr-4 font-semibold ${scoreColor(
+                        run.summary.averageScore
+                      )}`}
+                    >
+                      {run.summary.averageScore}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-700">
+                      {(run.summary.passRate * 100).toFixed(0)}%
+                    </td>
+                    <td className="py-2 pr-4 text-gray-500">
+                      {run.summary.passed}/{run.summary.total}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-500">
+                      {formatTime(run.startedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

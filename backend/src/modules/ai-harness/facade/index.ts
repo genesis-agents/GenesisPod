@@ -422,6 +422,35 @@ export { SessionLatencyTrackerService } from "../governance/observability/sessio
 export { LlmTracingService } from "../governance/observability/llm-tracing.service";
 export { EvalPipelineService } from "../governance/observability/eval-pipeline.service";
 export type { EvalResult } from "../governance/observability/eval-pipeline.service";
+export { EvalHarnessService } from "../governance/observability/eval-harness.service";
+export { EvalExperimentService } from "../governance/observability/eval-experiment.service";
+export {
+  EVAL_RUN_STORE,
+  InMemoryEvalRunStore,
+  PrismaEvalRunStore,
+} from "../governance/observability/eval-run.store";
+export type { EvalRunStore } from "../governance/observability/eval-run.store";
+export type {
+  EvalCaseDefinition,
+  EvalDataset,
+  EvalRunnerContext,
+  EvalCaseExecution,
+  EvalCaseRunner,
+  EvalMetric,
+  EvalScorer,
+  EvalHarnessRunRequest,
+  EvalCaseResult,
+  EvalRunSummary,
+  EvalRunResult,
+  EvalCaseStatus,
+  EvalRunStatus,
+  EvalRunComparison,
+  EvalExperimentStatus,
+  EvalExperimentPolicy,
+  EvalExperimentViolation,
+  EvalExperimentRunRequest,
+  EvalExperimentResult,
+} from "../governance/observability/eval-harness.types";
 export type { TraceType } from "../governance/observability/trace.interface";
 export type {
   SpanType,

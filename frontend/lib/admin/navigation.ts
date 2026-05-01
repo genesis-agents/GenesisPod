@@ -27,6 +27,7 @@ import {
   MessageSquare,
   ScrollText,
   Activity,
+  BarChart3,
   Radio,
   type LucideIcon,
 } from 'lucide-react';
@@ -100,6 +101,12 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.tools',
         href: '/admin/ai/tools',
         icon: Wrench,
+      },
+      {
+        key: 'eval',
+        labelKey: 'admin.nav.eval',
+        href: '/admin/ai/eval',
+        icon: BarChart3,
       },
       {
         key: 'infra-report',

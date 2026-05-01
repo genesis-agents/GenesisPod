@@ -8702,6 +8702,28 @@ model AgentConfig {
   @@map("agent_configs")
 }
 
+// ============ Harness Eval Runs ============
+
+model HarnessEvalRun {
+  id             String   @id
+  datasetId      String   @map("dataset_id") @db.VarChar(120)
+  datasetName    String   @map("dataset_name") @db.VarChar(200)
+  datasetVersion String?  @map("dataset_version") @db.VarChar(80)
+  status         String   @db.VarChar(32)
+  summary        Json     @db.JsonB
+  cases          Json     @db.JsonB
+  metadata       Json?    @db.JsonB
+  startedAt      DateTime @map("started_at")
+  completedAt    DateTime @map("completed_at")
+  durationMs     Int      @map("duration_ms")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([datasetId, startedAt], map: "harness_eval_runs_dataset_started_idx")
+  @@index([startedAt], map: "harness_eval_runs_started_at_idx")
+  @@index([status, startedAt], map: "harness_eval_runs_status_started_idx")
+  @@map("harness_eval_runs")
+}
+
 // ============ Agent Traces (AI Engine Observability) ============
 
 model AgentTrace {

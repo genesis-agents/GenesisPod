@@ -20,6 +20,14 @@ import { CostAttributionService } from "./cost-attribution.service";
 import { SessionLatencyTrackerService } from "./session-latency-tracker.service";
 import { LlmTracingService } from "./llm-tracing.service";
 import { EvalPipelineService } from "./eval-pipeline.service";
+import { EvalHarnessService } from "./eval-harness.service";
+import { EvalExperimentService } from "./eval-experiment.service";
+import {
+  EVAL_RUN_STORE,
+  InMemoryEvalRunStore,
+  PrismaEvalRunStore,
+  createEvalRunStore,
+} from "./eval-run.store";
 import { LlmEventsListener } from "./llm-events.listener";
 
 const OBSERVABILITY_PROVIDERS = [
@@ -29,6 +37,15 @@ const OBSERVABILITY_PROVIDERS = [
   SessionLatencyTrackerService,
   LlmTracingService,
   EvalPipelineService,
+  InMemoryEvalRunStore,
+  PrismaEvalRunStore,
+  {
+    provide: EVAL_RUN_STORE,
+    useFactory: createEvalRunStore,
+    inject: [InMemoryEvalRunStore, PrismaEvalRunStore],
+  },
+  EvalHarnessService,
+  EvalExperimentService,
 ];
 
 @Global()

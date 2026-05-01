@@ -61,6 +61,7 @@ export class StatisticsService {
       knowledgeBases,
       feedbackCount,
       agents,
+      harnessEvalRuns,
       // L4 Library-specific: bookmarked resources
       bookmarkedResources,
       // L3 Observability: DB-backed LLM call count (last 24h)
@@ -107,6 +108,7 @@ export class StatisticsService {
       this.safeCount(() => this.prisma.knowledgeBase.count()),
       this.safeCount(() => this.prisma.feedback.count()),
       this.safeCount(() => this.prisma.agentConfig.count()),
+      this.getHarnessEvalRunCount(),
       // L4 Library: user-saved items in collections
       this.safeCount(() => this.prisma.collectionItem.count()),
       // L3 Observability: LLM calls persisted in DB (last 24h)
@@ -179,6 +181,7 @@ export class StatisticsService {
       // L4 Apps
       feedbackCount,
       bookmarkedResources,
+      harnessEvalRuns,
     };
   }
 
@@ -237,6 +240,18 @@ export class StatisticsService {
       return Number(result[0]?.count ?? 0);
     } catch (e) {
       this.logger.warn(`Failed to query DB table count: ${e}`);
+      return 0;
+    }
+  }
+
+  private async getHarnessEvalRunCount(): Promise<number> {
+    try {
+      const result = await this.prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT count(*)::bigint as count
+        FROM "harness_eval_runs"
+      `;
+      return Number(result[0]?.count ?? 0);
+    } catch {
       return 0;
     }
   }
