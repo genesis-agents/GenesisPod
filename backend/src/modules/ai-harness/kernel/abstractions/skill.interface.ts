@@ -43,3 +43,25 @@ export interface ISkillLoader {
   loadById(id: string): Promise<ISkill | null>;
   loadAll(): Promise<readonly ISkill[]>;
 }
+
+/**
+ * Skill 提供者端口（2026-05-01）
+ *
+ * SkillActivator 在 BuiltInReActSkillRegistry 没命中时按序查询的二级源。
+ * ai-engine 侧（DB-backed SkillRegistry，含 Admin UI / API CRUD）通过实现这个
+ * 端口把用户自定义 skill 透出给 harness agent 运行时，无需 harness 反向
+ * 依赖 ai-engine。
+ */
+export interface ISkillProvider {
+  /** 提供者标识（日志 / observability 用） */
+  readonly id: string;
+  /**
+   * 按 name 查找；找不到返回 null。
+   * 同步实现优先（避免 SkillActivator 整链路 async），
+   * DB-backed 实现可返回 Promise。
+   */
+  resolveByName(name: string): ISkill | null | Promise<ISkill | null>;
+}
+
+/** DI token: SkillActivator 注入的 ISkillProvider 集合（可空） */
+export const SKILL_PROVIDERS = Symbol("SKILL_PROVIDERS");

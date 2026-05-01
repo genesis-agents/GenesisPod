@@ -158,4 +158,156 @@ describe("SkillActivator", () => {
       result.envelope.reminders.some((r) => r.content.includes("good body")),
     ).toBe(true);
   });
+
+  // ─── ISkillProvider fallback (PR-X-K, 2026-05-01) ────────────────────────────
+  describe("ISkillProvider fallback (用户自定义 skill)", () => {
+    it("falls back to provider when not found in built-in registry", async () => {
+      const registry = new BuiltInReActSkillRegistry();
+      const provider = {
+        id: "test-provider",
+        resolveByName: jest.fn((name: string) =>
+          name === "user-skill"
+            ? makeSkill("user-skill", { instructions: "user body" })
+            : null,
+        ),
+      };
+      const activator = new SkillActivator(registry, new HookRegistry(), [
+        provider,
+      ]);
+      const result = await activator.activate(
+        makeIdentity(["user-skill"]),
+        makeEnv(),
+      );
+      expect(provider.resolveByName).toHaveBeenCalledWith("user-skill");
+      expect(result.activatedSkills).toEqual(["user-skill"]);
+      expect(
+        result.envelope.reminders.some((r) => r.content.includes("user body")),
+      ).toBe(true);
+    });
+
+    it("built-in wins over provider for same name", async () => {
+      const registry = new BuiltInReActSkillRegistry();
+      registry.register(makeSkill("shared", { instructions: "built-in body" }));
+      const provider = {
+        id: "test-provider",
+        resolveByName: jest.fn(() =>
+          makeSkill("shared", { instructions: "user body" }),
+        ),
+      };
+      const activator = new SkillActivator(registry, new HookRegistry(), [
+        provider,
+      ]);
+      const result = await activator.activate(
+        makeIdentity(["shared"]),
+        makeEnv(),
+      );
+      expect(provider.resolveByName).not.toHaveBeenCalled();
+      expect(
+        result.envelope.reminders.some((r) =>
+          r.content.includes("built-in body"),
+        ),
+      ).toBe(true);
+    });
+
+    it("multiple providers queried in order; first hit wins", async () => {
+      const registry = new BuiltInReActSkillRegistry();
+      const p1 = {
+        id: "p1",
+        resolveByName: jest.fn(() => null),
+      };
+      const p2 = {
+        id: "p2",
+        resolveByName: jest.fn(() =>
+          makeSkill("k", { instructions: "from p2" }),
+        ),
+      };
+      const p3 = {
+        id: "p3",
+        resolveByName: jest.fn(() =>
+          makeSkill("k", { instructions: "from p3" }),
+        ),
+      };
+      const activator = new SkillActivator(registry, new HookRegistry(), [
+        p1,
+        p2,
+        p3,
+      ]);
+      const result = await activator.activate(makeIdentity(["k"]), makeEnv());
+      expect(p1.resolveByName).toHaveBeenCalled();
+      expect(p2.resolveByName).toHaveBeenCalled();
+      expect(p3.resolveByName).not.toHaveBeenCalled();
+      expect(
+        result.envelope.reminders.some((r) => r.content.includes("from p2")),
+      ).toBe(true);
+    });
+
+    it("provider thrown error skipped; remaining providers still queried", async () => {
+      const registry = new BuiltInReActSkillRegistry();
+      const p1 = {
+        id: "p1",
+        resolveByName: jest.fn(() => {
+          throw new Error("boom");
+        }),
+      };
+      const p2 = {
+        id: "p2",
+        resolveByName: jest.fn(() =>
+          makeSkill("k", { instructions: "rescued" }),
+        ),
+      };
+      const activator = new SkillActivator(registry, new HookRegistry(), [
+        p1,
+        p2,
+      ]);
+      const result = await activator.activate(makeIdentity(["k"]), makeEnv());
+      expect(p1.resolveByName).toHaveBeenCalled();
+      expect(p2.resolveByName).toHaveBeenCalled();
+      expect(
+        result.envelope.reminders.some((r) => r.content.includes("rescued")),
+      ).toBe(true);
+    });
+
+    it("supports async provider (Promise<ISkill | null>)", async () => {
+      const registry = new BuiltInReActSkillRegistry();
+      const provider = {
+        id: "async-provider",
+        resolveByName: jest.fn(
+          (name: string) =>
+            new Promise<ISkill | null>((resolve) =>
+              setTimeout(() => {
+                resolve(
+                  name === "k"
+                    ? makeSkill("k", { instructions: "async body" })
+                    : null,
+                );
+              }, 1),
+            ),
+        ),
+      };
+      const activator = new SkillActivator(registry, new HookRegistry(), [
+        provider,
+      ]);
+      const result = await activator.activate(makeIdentity(["k"]), makeEnv());
+      expect(
+        result.envelope.reminders.some((r) => r.content.includes("async body")),
+      ).toBe(true);
+    });
+
+    it("when no provider matches, skill is still skipped + warned", async () => {
+      const registry = new BuiltInReActSkillRegistry();
+      const provider = {
+        id: "p",
+        resolveByName: jest.fn(() => null),
+      };
+      const activator = new SkillActivator(registry, new HookRegistry(), [
+        provider,
+      ]);
+      const result = await activator.activate(
+        makeIdentity(["unknown"]),
+        makeEnv(),
+      );
+      expect(provider.resolveByName).toHaveBeenCalledWith("unknown");
+      expect(result.activatedSkills).toEqual([]);
+    });
+  });
 });

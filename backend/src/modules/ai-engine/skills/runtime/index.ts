@@ -13,3 +13,4 @@ export {
   InputBindingResolver,
   type BindingContext,
 } from "./input-binding-resolver";
+export { EngineSkillProvider } from "./engine-skill-provider";

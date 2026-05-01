@@ -50,6 +50,9 @@ import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
 import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
 import { MemoryBridge } from "./memory/auto-index/memory-bridge.service";
 import { BuiltInReActSkillRegistry, SkillLoader, SkillActivator } from "./kernel/skills";
+import { SKILL_PROVIDERS } from "./kernel/abstractions";
+import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider";
+import { AiEngineSkillsModule } from "../ai-engine/ai-engine-skills.module";
 import { SubagentSpawner } from "./process/subagent";
 import {
   ContextManager,
@@ -147,6 +150,9 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
   imports: [
     forwardRef(() => AiEngineLLMModule),
     forwardRef(() => AiEngineToolsModule),
+    // 2026-05-01 (PR-X-K): 让 SkillActivator 能 fallback 到 ai-engine SkillRegistry，
+    // 透出用户在 Admin UI / API 自定义的 skill 给 harness agent
+    forwardRef(() => AiEngineSkillsModule),
   ],
   providers: [
     // Cross-cutting
@@ -205,6 +211,13 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     BuiltInReActSkillRegistry,
     SkillLoader,
     SkillActivator,
+    // ★ 2026-05-01 (PR-X-K): SKILL_PROVIDERS 多源注入 — built-in miss 时 fallback
+    // 到 ai-engine SkillRegistry（DB-backed 用户自定义 skill）
+    {
+      provide: SKILL_PROVIDERS,
+      useFactory: (engineProvider: EngineSkillProvider) => [engineProvider],
+      inject: [EngineSkillProvider],
+    },
 
     // Subagent (Phase 4)
     SubagentSpawner,
