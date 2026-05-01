@@ -82,7 +82,6 @@ import { CreditsModule } from "../ai-infra/credits/credits.module";
 // MCPManager and MCPClientRegistryService are now provided by HarnessModule (@Global)
 
 // Capabilities
-import { AICapabilityResolver } from "./planning/capabilities/ai-capability-resolver.service";
 
 // Observability core 全部由 ai-harness/ObservabilityModule (@Global) 提供，
 // 包括 LlmTracingService / EvalPipelineService — engine 不再注册它们。
@@ -145,7 +144,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // MCPManager and MCPClientRegistryService now provided by HarnessModule (@Global)
 
     // === Capabilities ===
-    AICapabilityResolver,
 
     // === Observability (全部由 ai-harness/ObservabilityModule @Global 提供) ===
 
@@ -192,7 +190,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === MCP moved to ai-harness/protocol/mcp (PR-X7) — MCPManager exported by HarnessModule ===
 
     // === Capabilities ===
-    AICapabilityResolver,
 
     // === Observability (全部由 ai-harness/ObservabilityModule @Global 提供) ===
 

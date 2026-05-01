@@ -4,11 +4,11 @@ import {
   AICapabilityContext,
 } from "../ai-capability-resolver.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ToolRegistry } from "../../../tools/registry/tool-registry";
-import { SkillRegistry } from "../../../skills/registry/skill-registry";
-import { MCP_PROVIDER_PORT } from "../../../abstractions/runtime-deps.tokens";
-import { SkillLoaderService } from "../../../skills/loader/skill-loader.service";
-import { SkillPromptBuilder } from "../../../skills/builder/skill-prompt-builder.service";
+import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import { SkillRegistry } from "../../../../ai-engine/skills/registry/skill-registry";
+import { MCP_PROVIDER_PORT } from "../../../../ai-engine/abstractions/runtime-deps.tokens";
+import { SkillLoaderService } from "../../../../ai-engine/skills/loader/skill-loader.service";
+import { SkillPromptBuilder } from "../../../../ai-engine/skills/builder/skill-prompt-builder.service";
 
 describe("AICapabilityResolver", () => {
   let resolver: AICapabilityResolver;

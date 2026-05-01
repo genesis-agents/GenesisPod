@@ -76,7 +76,7 @@ import { MessageBusService as A2AMessageBusService } from "../../../protocol/ipc
 import {
   ExecutionContext,
   StepResult,
-} from "../../../../ai-engine/planning/abstractions/orchestrator.interface";
+} from "../../abstractions/orchestrator.interface";
 import { MissionExecutorService } from "../../mission/mission-executor.service";
 import { EventJournalService } from "../../../protocol/journal/event-journal.service";
 import { HierarchicalMemoryCascadeService } from "../../../memory/working/hierarchical-memory-cascade.service";

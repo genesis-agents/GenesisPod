@@ -19,8 +19,8 @@ import { TOOL_FEATURE, REGISTRY_FEATURE } from "../facade.providers";
 import type {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../../ai-engine/planning/capabilities/ai-capability-resolver.service";
-import type { CapabilitySummary } from "../../../ai-engine/planning/capabilities/types";
+} from "../../../ai-harness/execution/capabilities/ai-capability-resolver.service";
+import type { CapabilitySummary } from "../../../ai-harness/execution/capabilities/types";
 import type {
   ChatRequest,
   ChatResponse,
@@ -33,15 +33,15 @@ import type {
 import type {
   AgentEvent,
   ExecutionConfig,
-} from "../../../ai-engine/planning/executors/function-calling-executor";
+} from "../../../ai-harness/execution/executor/function-calling-executor";
 // IntentRouter / TaskPlanner 已删 (2026-04-30)
 import { MCPManager } from "../../protocol/mcp/manager/mcp-manager";
 import { FunctionCallingLLMAdapter } from "../../../ai-engine/llm/adapters/function-calling-llm-adapter";
-import { FunctionCallingExecutor } from "../../../ai-engine/planning/executors/function-calling-executor";
+import { FunctionCallingExecutor } from "../../../ai-harness/execution/executor/function-calling-executor";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../../../ai-engine/planning/capabilities/types";
+} from "../../../ai-harness/execution/capabilities/types";
 import type { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 
 @Injectable()

@@ -61,7 +61,7 @@ import type {
 import type {
   CompressionOptions,
   CompressionResult,
-} from "../../../ai-engine/planning/services/interfaces";
+} from "../../../ai-harness/execution/executor/interfaces";
 import type { SaveEvidenceRequest } from "../../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
 import type { VotingSession } from "../../process/collaboration/patterns/voting-pattern";
 import type {

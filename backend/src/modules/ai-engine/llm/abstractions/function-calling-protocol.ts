@@ -1,7 +1,7 @@
 /**
  * Function Calling LLM Protocol — engine 层抽象（2026-04-30 抽出）
  *
- * 此文件原定义在 ai-engine/planning/executors/function-calling-executor.ts 中。
+ * 此文件原定义在 ai-harness/execution/executor/function-calling-executor.ts 中。
  * 由于 fc-executor 是 L2.5 runtime executor 应搬至 ai-harness，但 llm-adapter
  * 实现 ILLMAdapter 接口需留在 engine 层（避免反向依赖），故抽出共享协议接口
  * 留在 engine/llm/abstractions/，供：

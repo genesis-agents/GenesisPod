@@ -17,7 +17,7 @@ import {
   FACT_CATEGORIES,
   FACT_IMPORTANCE_LEVELS,
   AiCallerFn,
-} from "../../planning/services/interfaces";
+} from "../../../ai-harness/execution/executor/interfaces";
 
 @Injectable()
 export class ContextEvolutionService implements IContextEvolutionService {

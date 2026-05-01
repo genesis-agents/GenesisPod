@@ -23,19 +23,19 @@ import {
   AgentEvent,
   ExecutionConfig,
 } from "../function-calling-executor";
-import { ToolRegistry } from "../../../tools/registry";
+import { ToolRegistry } from "../../../../ai-engine/tools/registry";
 import {
   ToolContext,
   ToolResult,
   FunctionDefinition,
   ITool,
-} from "../../../tools/abstractions/tool.interface";
-import { ToolConcurrencyService } from "../../../tools/concurrency/tool-concurrency.service";
-import { ModelFallbackService } from "../../../llm/model-fallback/model-fallback.service";
+} from "../../../../ai-engine/tools/abstractions/tool.interface";
+import { ToolConcurrencyService } from "../../../../ai-engine/tools/concurrency/tool-concurrency.service";
+import { ModelFallbackService } from "../../../../ai-engine/llm/model-fallback/model-fallback.service";
 import { ContextCompactionPipelineService } from "../../services/context-compaction-pipeline.service";
 import { QueryLoopService } from "../../services/query-loop.service";
 import { ExecutionCheckpointService } from "../../services/execution-checkpoint.service";
-import { SessionMemorySidecarService } from "../../../facade";
+import { SessionMemorySidecarService } from "../../../../ai-engine/facade";
 import { TokenTrackerService } from "../../services/token-tracker.service";
 
 // ---------------------------------------------------------------------------

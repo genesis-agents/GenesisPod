@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ToolRegistry } from "../../tools/registry/tool-registry";
-import { SkillRegistry } from "../../skills/registry/skill-registry";
-import type { IMCPProvider } from "../../facade";
-import { MCP_PROVIDER_PORT } from "../../abstractions/runtime-deps.tokens";
-import { SkillLoaderService } from "../../skills/loader/skill-loader.service";
-import { SkillPromptBuilder } from "../../skills/builder/skill-prompt-builder.service";
+import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
+import type { IMCPProvider } from "../../../ai-engine/facade";
+import { MCP_PROVIDER_PORT } from "../../../ai-engine/abstractions/runtime-deps.tokens";
+import { SkillLoaderService } from "../../../ai-engine/skills/loader/skill-loader.service";
+import { SkillPromptBuilder } from "../../../ai-engine/skills/builder/skill-prompt-builder.service";
 import {
   CapabilityUsageLog,
   SkillPromptBundle,
@@ -14,7 +14,7 @@ import {
   TokenBudgetConfig,
 } from "./types";
 // A2 Fix: 使用统一的 BUILTIN_TOOLS 常量，与 TeamMemberAgent 保持一致
-import { BUILTIN_TOOLS } from "../../core/types/agent.types";
+import { BUILTIN_TOOLS } from "../../../ai-engine/core/types/agent.types";
 
 /**
  * AI 能力解析上下文
@@ -306,7 +306,7 @@ export class AICapabilityResolver {
   async getToolFunctionDefinitions(
     context: AICapabilityContext,
   ): Promise<
-    import("../../tools/abstractions/tool.interface").FunctionDefinition[]
+    import("../../../ai-engine/tools/abstractions/tool.interface").FunctionDefinition[]
   > {
     // 1. 获取内置工具的 Function Definitions
     const toolIds = await this.resolveToolsForAgent(context);
@@ -328,9 +328,9 @@ export class AICapabilityResolver {
   private async getMCPToolFunctionDefinitions(
     mcpToolsInfo: MCPToolInfo[],
   ): Promise<
-    import("../../tools/abstractions/tool.interface").FunctionDefinition[]
+    import("../../../ai-engine/tools/abstractions/tool.interface").FunctionDefinition[]
   > {
-    const definitions: import("../../tools/abstractions/tool.interface").FunctionDefinition[] =
+    const definitions: import("../../../ai-engine/tools/abstractions/tool.interface").FunctionDefinition[] =
       [];
     const skippedTools: string[] = [];
 
@@ -359,7 +359,7 @@ export class AICapabilityResolver {
           name: `mcp_${info.serverId}_${tool.name}`,
           description: tool.description || info.description || tool.name,
           parameters:
-            tool.inputSchema as import("../../tools/abstractions/tool.interface").JSONSchema,
+            tool.inputSchema as import("../../../ai-engine/tools/abstractions/tool.interface").JSONSchema,
         });
       } catch (error) {
         skippedTools.push(`${info.serverId}:${info.toolName} (error)`);
@@ -748,7 +748,7 @@ export class AICapabilityResolver {
    */
   private validateSkillDomain(
     domain: string | undefined,
-  ): import("../../skills/types/skill-md.types").SkillDomain | null {
+  ): import("../../../ai-engine/skills/types/skill-md.types").SkillDomain | null {
     if (!domain || typeof domain !== "string") {
       return null;
     }

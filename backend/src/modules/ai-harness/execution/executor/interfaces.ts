@@ -8,7 +8,7 @@
 // ==================== 通用类型 ====================
 
 import { AIModelType } from "@prisma/client";
-import { TaskProfile } from "../../llm/types";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 
 /**
  * AI 调用函数类型

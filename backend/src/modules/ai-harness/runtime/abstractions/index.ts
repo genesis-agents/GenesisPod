@@ -94,7 +94,7 @@ export type { SkillId, ToolId } from "../../../ai-engine/facade";
 export type {
   Checkpoint,
   ExecutionContext,
-} from "../../../ai-engine/planning/abstractions/orchestrator.interface";
+} from "./orchestrator.interface";
 
 // ==================== Teams / Constraint Engine (harness-owned) ====================
 
@@ -127,7 +127,7 @@ export type {
   OutputValidationResult,
   HardConstraint,
   IConstraintEnforcementService,
-} from "../../../ai-engine/planning/services/interfaces";
+} from "../../../ai-harness/execution/executor/interfaces";
 
 // ==================== Teams / Constraints / Constraint Profile (harness-owned) ====================
 

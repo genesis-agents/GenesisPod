@@ -7,8 +7,8 @@ import {
   FunctionDefinition,
   ToolCategory,
   CompactToolSummary,
-} from "../../tools/abstractions/tool.interface";
-import { SkillLayer } from "../../skills/abstractions/skill.interface";
+} from "../../../ai-engine/tools/abstractions/tool.interface";
+import { SkillLayer } from "../../../ai-engine/skills/abstractions/skill.interface";
 
 /**
  * 能力使用日志

@@ -3,7 +3,7 @@
  * 编排器接口定义
  */
 
-import { JsonObject } from "../../core";
+import { JsonObject } from "../../../ai-engine/core";
 
 /**
  * 工作流定义

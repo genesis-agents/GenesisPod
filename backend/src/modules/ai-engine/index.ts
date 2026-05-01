@@ -104,7 +104,6 @@ export {
 export * as Core from "./core";
 export * as Tools from "./tools";
 export * as Skills from "./skills";
-export * as Orchestration from "./planning";
 export * as Constraint from "./safety/constraint";
 export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
@@ -118,7 +117,6 @@ export * as Image from "./content/image";
 
 // 常用服务导出（便于直接导入）
 export { ToolRegistry } from "./tools/registry";
-export { FunctionCallingExecutor } from "./planning/executors/function-calling-executor";
 // ShortTermMemoryService / LongTermMemoryService / MemoryCoordinatorService /
 // HierarchicalMemoryCascadeService / ProcessMemoryManagerService / ConstraintEngine
 // 都居住在 ai-harness — 消费方应从 "@/modules/ai-harness/facade" 或

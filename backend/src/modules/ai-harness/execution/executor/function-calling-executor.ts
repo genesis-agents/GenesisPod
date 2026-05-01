@@ -4,27 +4,27 @@
  */
 
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
-import { ToolRegistry } from "../../tools/registry";
+import { ToolRegistry } from "../../../ai-engine/tools/registry";
 import {
   ToolContext,
   ToolResult,
   FunctionDefinition,
-} from "../../tools/abstractions/tool.interface";
-import { ToolId } from "../../core/types/agent.types";
+} from "../../../ai-engine/tools/abstractions/tool.interface";
+import { ToolId } from "../../../ai-engine/core/types/agent.types";
 import { RetryStrategy } from "./retry-strategy";
 import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
-import type { IMCPProvider } from "../../facade";
-import { MCP_PROVIDER_PORT } from "../../abstractions/runtime-deps.tokens";
-import { QueryLoopService } from "../services/query-loop.service";
-import { TokenTrackerService } from "../services/token-tracker.service";
-import { ContextCompactionPipelineService } from "../../llm/context/context-compaction-pipeline.service";
-import { ExecutionCheckpointService } from "../services/execution-checkpoint.service";
-import { ToolConcurrencyService } from "../../tools/concurrency/tool-concurrency.service";
-import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.service";
-import { SessionMemorySidecarService } from "../../facade";
+import type { IMCPProvider } from "../../../ai-engine/facade";
+import { MCP_PROVIDER_PORT } from "../../../ai-engine/abstractions/runtime-deps.tokens";
+import { QueryLoopService } from "./query-loop.service";
+import { TokenTrackerService } from "./token-tracker.service";
+import { ContextCompactionPipelineService } from "../../../ai-engine/llm/context/context-compaction-pipeline.service";
+import { ExecutionCheckpointService } from "./execution-checkpoint.service";
+import { ToolConcurrencyService } from "../../../ai-engine/tools/concurrency/tool-concurrency.service";
+import { ModelFallbackService } from "../../../ai-engine/llm/model-fallback/model-fallback.service";
+import { SessionMemorySidecarService } from "../../../ai-engine/facade";
 
 // ============================================================================
 // Types — LLM 协议接口已抽到 ai-engine/llm/abstractions/function-calling-protocol
@@ -38,7 +38,7 @@ import type {
   LLMResponse,
   ToolCallRequest,
   ILLMAdapter,
-} from "../../llm/abstractions/function-calling-protocol";
+} from "../../../ai-engine/llm/abstractions/function-calling-protocol";
 export type {
   LLMMessage,
   LLMRequestOptions,
@@ -60,7 +60,7 @@ export interface ExecutionConfig {
   /** @deprecated Use taskProfile.outputLength instead */
   maxTokens?: number;
   /** ★ TaskProfile for semantic parameter mapping */
-  taskProfile?: import("../../llm/types").TaskProfile;
+  taskProfile?: import("../../../ai-engine/llm/types").TaskProfile;
   /** Enable auto-continuation when LLM output is truncated (default: false) */
   enableQueryLoop?: boolean;
   /** Enable fine-grained checkpointing per iteration (default: false) */

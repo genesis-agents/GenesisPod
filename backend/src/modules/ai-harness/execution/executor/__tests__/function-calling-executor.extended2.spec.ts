@@ -34,23 +34,23 @@ import {
   LLMRequestOptions,
   AgentEvent,
 } from "../function-calling-executor";
-import { ToolRegistry } from "../../../tools/registry";
+import { ToolRegistry } from "../../../../ai-engine/tools/registry";
 import {
   ToolContext,
   ToolResult,
   FunctionDefinition,
-} from "../../../tools/abstractions/tool.interface";
-import { ToolConcurrencyService } from "../../../tools/concurrency/tool-concurrency.service";
-import { ModelFallbackService } from "../../../llm/model-fallback/model-fallback.service";
+} from "../../../../ai-engine/tools/abstractions/tool.interface";
+import { ToolConcurrencyService } from "../../../../ai-engine/tools/concurrency/tool-concurrency.service";
+import { ModelFallbackService } from "../../../../ai-engine/llm/model-fallback/model-fallback.service";
 import { ContextCompactionPipelineService } from "../../services/context-compaction-pipeline.service";
 import { QueryLoopService } from "../../services/query-loop.service";
 import { ExecutionCheckpointService } from "../../services/execution-checkpoint.service";
-import { SessionMemorySidecarService } from "../../../facade";
+import { SessionMemorySidecarService } from "../../../../ai-engine/facade";
 import { TokenTrackerService } from "../../services/token-tracker.service";
 import {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../../abstractions/ai-capability-resolver.interface";
+} from "../../../../ai-engine/abstractions/ai-capability-resolver.interface";
 
 // ---------------------------------------------------------------------------
 // Mock LLM adapter

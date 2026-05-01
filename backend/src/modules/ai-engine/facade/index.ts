@@ -83,18 +83,18 @@ export interface IChatProvider {
 
 // ★ Engine internal types used across AI App modules
 export type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
-export type { AICapabilityContext } from "../planning/capabilities/ai-capability-resolver.service";
+export type { AICapabilityContext } from "../../ai-harness/execution/capabilities/ai-capability-resolver.service";
 export type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../planning/capabilities/types";
+} from "../../ai-harness/execution/capabilities/types";
 export type { SkillMdDefinition } from "../skills/types/skill-md.types";
 export type { EmbeddingResult } from "../knowledge/rag/embedding";
 export type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
-export { UserIntent } from "../planning/services/interfaces";
+export { UserIntent } from "../../ai-harness/execution/executor/interfaces";
 
 // ★ Registry classes — engine-owned registries only
 export { ToolRegistry } from "../tools/registry/tool-registry";
@@ -150,8 +150,8 @@ export type {
   SummaryChunk,
   CompressionResult,
   CompressionOptions,
-} from "../planning/services/interfaces";
-export { ContextStrategy } from "../planning/services/interfaces";
+} from "../../ai-harness/execution/executor/interfaces";
+export { ContextStrategy } from "../../ai-harness/execution/executor/interfaces";
 export type {
   ConstraintSeverity,
   ExtractedConstraint,
@@ -161,8 +161,8 @@ export type {
   ReviewRequest,
   ReviewResult,
   ReviewCriteria,
-} from "../planning/services/interfaces";
-export { TokenBudgetService } from "../planning/services";
+} from "../../ai-harness/execution/executor/interfaces";
+export { TokenBudgetService } from "../../ai-harness/execution/executor";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,
@@ -172,14 +172,14 @@ export type {
 export type {
   EstablishedFact,
   ExecutionConfig,
-} from "../planning/services/interfaces";
+} from "../../ai-harness/execution/executor/interfaces";
 // OutputReviewerService 已搬到 ai-harness/runtime/quality/ (2026-04-30)
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 export type {
   FactExtractionRequest,
   FactExtractionResult,
   ContextEvolutionConfig,
-} from "../planning/services/interfaces";
+} from "../../ai-harness/execution/executor/interfaces";
 // AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
@@ -230,10 +230,10 @@ export type { ModelFallbackOptions } from "../llm/model-fallback/model-fallback.
 export type { AIModelConfig } from "../llm/services/ai-model-config.service";
 
 // Orchestration interfaces
-export type { TeamMemberInfo } from "../planning/services/interfaces";
+export type { TeamMemberInfo } from "../../ai-harness/execution/executor/interfaces";
 
 // Error detection utilities
-export type { ErrorDetectionRetryConfig } from "../planning/utils/error-detection.utils";
+export type { ErrorDetectionRetryConfig } from "../core/utils/error-detection.utils";
 export {
   DEFAULT_RETRY_CONFIG,
   isRetryableError,
@@ -244,7 +244,7 @@ export {
   sleep,
   isApiErrorContent,
   parseErrorType,
-} from "../planning/utils/error-detection.utils";
+} from "../core/utils/error-detection.utils";
 
 // Skills interfaces
 export type { ISkillOutputManager } from "../skills/output-manager/skill-output-manager.interface";
@@ -345,7 +345,7 @@ export type {
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
-export { AICapabilityResolver } from "../planning/capabilities/ai-capability-resolver.service";
+export { AICapabilityResolver } from "../../ai-harness/execution/capabilities/ai-capability-resolver.service";
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
 
 // ★ Batch 2 — Safety
@@ -486,7 +486,7 @@ export type {
   StepResult,
   StepStatus,
   WorkflowConfig as OrchestrationWorkflowConfig,
-} from "../planning/abstractions/orchestrator.interface";
+} from "../../ai-harness/runtime/abstractions/orchestrator.interface";
 
 // Workflow Handlers / Executors —— 2026-04-30 (C2-step2) 删除死代码:
 //   - WorkflowHandlerRegistry / WorkflowNodeHandler / MapStepConfig (仅被 BaseExecutor 用，BaseExecutor 死)
@@ -494,7 +494,7 @@ export type {
 //   保留: FunctionCallingExecutor (从 ai-engine/index.ts 单独 export)
 
 // Orchestration interfaces
-export type { IConstraintEnforcementService } from "../planning/services/interfaces";
+export type { IConstraintEnforcementService } from "../../ai-harness/execution/executor/interfaces";
 
 // Memory abstractions 已移除（2026-04-30）—— Memory 整体迁到 ai-harness/memory，
 // 请从 "@/modules/ai-harness/memory/abstractions/memory.interface" 或
@@ -514,26 +514,26 @@ export {
   type QueryLoopConfig,
   type QueryLoopResult,
   type QueryLoopStopReason,
-} from "../planning/services";
+} from "../../ai-harness/execution/executor";
 
 // Token usage tracker
 export {
   TokenTrackerService,
   type TokenUsageSnapshot,
   type TokenUsageEntry,
-} from "../planning/services";
+} from "../../ai-harness/execution/executor";
 
 export {
   ContextCompactionPipelineService,
   type CompactionConfig,
   type CompactionResult,
   type CompactionLevel,
-} from "../planning/services";
+} from "../../ai-harness/execution/executor";
 
 export {
   ExecutionCheckpointService,
   type ExecutionCheckpoint,
-} from "../planning/services";
+} from "../../ai-harness/execution/executor";
 
 // AdaptiveReplannerService / ReplanTrigger / ... 已搬到 ai-harness (2026-04-30)
 //   消费方改 import "@/modules/ai-harness/facade"
@@ -568,7 +568,7 @@ export {
   type SidecarCategory,
   type SidecarEntry,
   type SidecarConfig,
-} from "../planning/services";
+} from "../../ai-harness/execution/executor";
 
 // ★ Phase 10: Coordinator Synthesize-Before-Delegate
 export { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutting-synthesis.service";

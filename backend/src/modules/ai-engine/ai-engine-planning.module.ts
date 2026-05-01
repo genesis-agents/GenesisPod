@@ -19,7 +19,6 @@ import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 // Executors —— 2026-04-30 (C2-step2) 删除 4 个死代码 (BaseExecutor / DAGExecutor /
 // SequentialExecutor / ParallelExecutor)；DAG 业务实际用 ai-harness/execution/dag/
 // 165行轻量版替代。保留 FunctionCallingExecutor (1340行 teams/ai-response 真用)
-import { FunctionCallingExecutor } from "./planning/executors/function-calling-executor";
 
 // Orchestration Services —— 2026-04-30 (C2-step2) 删除 3 个真死代码:
 //   - IterationManagerService (in-memory store 但 0 调用)
@@ -38,14 +37,10 @@ import { IntentDetectionService } from "./llm/intent/intent-detection.service";
 import { ReflectionService } from "./llm/reflection/reflection.service";
 // IntentRouterService / TaskPlannerService 已删 (2026-04-30) — 死代码，前端 0 消费
 // ★ Phase 1-4: 基础设施升级新增服务
-import { QueryLoopService } from "./planning/services/query-loop.service";
-import { TokenTrackerService } from "./planning/services/token-tracker.service";
 import { ContextCompactionPipelineService } from "./llm/context/context-compaction-pipeline.service";
-import { ExecutionCheckpointService } from "./planning/services/execution-checkpoint.service";
 // AdaptiveReplannerService 已搬到 ai-harness/runtime/teams/orchestrator/ (2026-04-30)
 import { CrossCuttingSynthesisService } from "./knowledge/synthesis/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
-import { SessionMemorySidecarService } from "./planning/services/session-memory-sidecar.service";
 // ★ Phase 9 → 已搬到 ai-harness/memory/dream/（C2-step1，2026-04-30）
 //   AutoDreamService / AutoDreamSchedulerService 不再由 engine 注册
 
@@ -76,7 +71,6 @@ import { AgentsService } from "../open-api/agents-api";
     AgentsService,
 
     // Executors —— 仅保留 FunctionCallingExecutor (其他 4 个 + handlers 已删 C2-step2)
-    FunctionCallingExecutor,
 
     // NOTE: harness 服务（ProgressTracker / TraceCollector / CheckpointManager
     // / CircuitBreaker / ConstraintEnforcement / ExecutionStateManager）come
@@ -91,14 +85,10 @@ import { AgentsService } from "../open-api/agents-api";
     IntentDetectionService,
     ReflectionService,
     // ★ Phase 1-4: 基础设施升级
-    QueryLoopService,
-    TokenTrackerService,
     ContextCompactionPipelineService,
-    ExecutionCheckpointService,
     // ★ Phase 10: Coordinator Synthesize-Before-Delegate
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar
-    SessionMemorySidecarService,
   ],
   exports: [
     // PR-X18: AgentRegistry / AgentOrchestrator / AgentConfigService /
@@ -107,7 +97,6 @@ import { AgentsService } from "../open-api/agents-api";
     AgentsService,
 
     // Executors
-    FunctionCallingExecutor,
 
     // Engine Services
     CircuitBreakerService,
@@ -118,14 +107,10 @@ import { AgentsService } from "../open-api/agents-api";
     IntentDetectionService,
     ReflectionService,
     // ★ Phase 1-4: 基础设施升级
-    QueryLoopService,
-    TokenTrackerService,
     ContextCompactionPipelineService,
-    ExecutionCheckpointService,
     // ★ Phase 10: Coordinator Synthesize-Before-Delegate
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar
-    SessionMemorySidecarService,
   ],
 })
 export class AiEnginePlanningModule {}

@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { FunctionCallingExecutor } from "../function-calling-executor";
-import { ToolRegistry } from "../../../tools/registry";
+import { ToolRegistry } from "../../../../ai-engine/tools/registry";
 import { AICapabilityResolver } from "../../capabilities/ai-capability-resolver.service";
-import { MCP_PROVIDER_PORT } from "../../../abstractions/runtime-deps.tokens";
+import { MCP_PROVIDER_PORT } from "../../../../ai-engine/abstractions/runtime-deps.tokens";
 import type { MCPManager } from "@/modules/ai-harness/facade";
 import {
   ILLMAdapter,
@@ -18,7 +18,7 @@ import {
   ToolResult,
   FunctionDefinition,
   ITool,
-} from "../../../tools/abstractions/tool.interface";
+} from "../../../../ai-engine/tools/abstractions/tool.interface";
 
 // Mock Tool Implementation
 class MockTool implements ITool {

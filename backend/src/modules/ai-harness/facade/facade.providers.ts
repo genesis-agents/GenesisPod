@@ -9,7 +9,7 @@ import { Logger, Provider } from "@nestjs/common";
 import { ShortTermMemoryService } from "../../ai-harness/memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "../../ai-harness/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
-import { FunctionCallingExecutor } from "../../ai-engine/planning/executors/function-calling-executor";
+import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../execution/executor/agent-executor.service";
@@ -27,15 +27,15 @@ import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detect
 import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
-import { QueryLoopService } from "../../ai-engine/planning/services/query-loop.service";
-import { TokenTrackerService } from "../../ai-engine/planning/services/token-tracker.service";
+import { QueryLoopService } from "../../ai-harness/execution/executor/query-loop.service";
+import { TokenTrackerService } from "../../ai-harness/execution/executor/token-tracker.service";
 // ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm-adapter";
 import { InputBindingResolver } from "../../ai-engine/skills/runtime/input-binding-resolver";
 import { SkillContentService } from "../../ai-engine/skills/content/skill-content.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖
-import { AICapabilityResolver } from "../../ai-engine/planning/capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "../../ai-harness/execution/capabilities/ai-capability-resolver.service";
 // ★ Teams Feature 依赖
 import { TeamsService } from "../runtime/teams/services/teams.service";
 import { TeamFactory } from "../runtime/teams/factory/team-factory";

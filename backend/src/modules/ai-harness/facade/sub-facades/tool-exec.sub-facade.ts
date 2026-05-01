@@ -10,8 +10,8 @@ import type { ToolFeature } from "../facade.providers";
 import type {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../../ai-engine/planning/capabilities/ai-capability-resolver.service";
-import type { CapabilitySummary } from "../../../ai-engine/planning/capabilities/types";
+} from "../../../ai-harness/execution/capabilities/ai-capability-resolver.service";
+import type { CapabilitySummary } from "../../../ai-harness/execution/capabilities/types";
 import type {
   ChatRequest,
   ChatResponse,
@@ -24,7 +24,7 @@ import type {
 import type {
   AgentEvent,
   ExecutionConfig,
-} from "../../../ai-engine/planning/executors/function-calling-executor";
+} from "../../../ai-harness/execution/executor/function-calling-executor";
 
 export class ToolExecSubFacade {
   private readonly logger = new Logger(ToolExecSubFacade.name);
