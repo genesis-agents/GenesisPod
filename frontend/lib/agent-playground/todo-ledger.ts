@@ -1673,8 +1673,13 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     }
     return ORIGIN_SUBORDER[td.origin] ?? 9999;
   };
+  // 系统内部自检类 todo 不进主任务列表（用户不需要操作，diagnostics / trace 侧仍保有数据）
+  // reconciler-gap = reconciler 跨维度 gap 检查（自动跑），由 Analyst 纳入综合分析，无需用户介入
+  const HIDDEN_ORIGINS = new Set<MissionTodoOrigin>(['reconciler-gap']);
+
   return order
     .map((id) => todos.get(id)!)
+    .filter((td) => !HIDDEN_ORIGINS.has(td.origin))
     .map((td, i) => ({ td, i }))
     .sort((a, b) => {
       const ka = sortKeyOf(a.td);
