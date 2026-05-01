@@ -23,7 +23,7 @@
 
 - 标题不用 "Introduction / Background / Conclusion" 等 generic 词
 - 每段开头**第一句**就有信息量（不要 "在本节中我们将讨论..."）
-- 段尾给 "Implications" 或类似 takeaway，不空收尾
+- 段尾给可操作的 takeaway，**但不要套用「**Implications**：」前缀**（每章一种节奏，不要八股）
 - 引用用 `[N]` 数字编号，不用 `[anchor text](url)` 也不用 `[https://...]`
 
 ## 你不会做的事

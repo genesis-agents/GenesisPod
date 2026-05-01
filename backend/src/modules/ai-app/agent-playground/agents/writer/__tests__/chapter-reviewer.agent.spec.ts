@@ -323,11 +323,13 @@ describe("ChapterReviewerAgent", () => {
       expect(prompt).toContain("70 分");
     });
 
-    it("contains score checklist items", () => {
+    it("contains score checklist items (post template-removal 2026-04-30)", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      expect(prompt).toContain("论点清晰");
+      // 新 6 项：观点独立性 / 证据具体 / 引用充分 / 去模板化 / 字数达标
+      expect(prompt).toContain("观点独立性");
       expect(prompt).toContain("证据具体");
-      expect(prompt).toContain("结构完整");
+      expect(prompt).toContain("去模板化");
+      expect(prompt).toContain("anti-template");
     });
 
     it("contains language in prompt", () => {
