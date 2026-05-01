@@ -210,6 +210,16 @@ const Output = z.discriminatedUnion("phase", [
         ]),
         critique: z.string().optional(),
         newAgentSpecId: z.string().optional(),
+        // ★ 2026-04-30 REDESIGN (task #61): retry 双路径策略
+        // fresh-collect: 重新跑 researcher（findings 不可信，需重新采集）→ 新 todo 行 + 独立 pipeline
+        // reuse-recompute: 利旧 findings（findings 可用，只是写作/评估有问题）→ 不新增 todo, 重跑 chapter+grade，原 dim todo 退回 in_progress 显示新 grade
+        // 仅 action=retry-with-critique/replace-spec 时有效，accept/accept-degraded/abort 忽略
+        strategy: z
+          .enum(["fresh-collect", "reuse-recompute"])
+          .optional()
+          .describe(
+            "retry 策略：fresh-collect=重新采集（findings 不可信）/ reuse-recompute=利旧重算（findings 可用，只重写章节+评分）",
+          ),
       }),
     ),
     newDimensions: z.array(Dimension).default([]),
@@ -377,6 +387,16 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
         if (p.action === "replace-spec" && !p.newAgentSpecId) {
           issues.push(
             `dim ${p.dimensionId} action=replace-spec 但 newAgentSpecId 缺失`,
+          );
+        }
+        // ★ 2026-04-30 REDESIGN (task #61): retry/replace 必须显式选 strategy
+        if (
+          (p.action === "retry-with-critique" ||
+            p.action === "replace-spec") &&
+          !p.strategy
+        ) {
+          issues.push(
+            `dim ${p.dimensionId} action=${p.action} 但 strategy 缺失（必须选 fresh-collect 或 reuse-recompute）`,
           );
         }
       }

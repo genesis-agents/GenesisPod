@@ -238,6 +238,10 @@ async function dispatchAssessActions(args: {
   let skipped = 0;
 
   // ── per-dim actions ──
+  // ★ 2026-04-30 REDESIGN (task #61): 双路径 retry job
+  //   strategy='fresh-collect' (默认) → 重新跑 researcher + chapter pipeline，独立 retryLabel pipeline
+  //   strategy='reuse-recompute' → 不跑 researcher，复用 findings，只重跑 chapter pipeline + grade，
+  //                                就地更新原 dim pipeline.grade，不新增 todo（前端原 dim todo 退回 in_progress）
   // 先处理同步动作（accept / abort / 找不到 dim），收集需要 retry/replace 的 action
   type RetryJob = {
     idx: number;
@@ -245,6 +249,7 @@ async function dispatchAssessActions(args: {
     critique: string;
     retryLabel: string;
     reason: "leader-assess-retry" | "leader-assess-replace";
+    strategy: "fresh-collect" | "reuse-recompute";
   };
   const retryJobs: RetryJob[] = [];
   for (const action of m1.perDimension) {
@@ -287,6 +292,10 @@ async function dispatchAssessActions(args: {
         ? `[Leader 在评审阶段要求换 spec → 当前只注册了 ResearcherAgent，请用更激进的搜索策略] ${action.critique ?? ""} ${action.newAgentSpecId ? `(原意换为 ${action.newAgentSpecId})` : ""}`.trim()
         : (action.critique ??
           "Leader 在评审阶段要求重做该维度，请提升覆盖率与来源质量");
+    // strategy 默认 fresh-collect（兼容旧路径），LLM 显式 reuse-recompute 才走利旧重算
+    const strategy: "fresh-collect" | "reuse-recompute" =
+      (action as { strategy?: "fresh-collect" | "reuse-recompute" }).strategy ??
+      "fresh-collect";
     retryJobs.push({
       idx,
       dim,
@@ -296,6 +305,7 @@ async function dispatchAssessActions(args: {
         action.action === "replace-spec"
           ? "leader-assess-replace"
           : "leader-assess-retry",
+      strategy,
     });
   }
 
@@ -316,6 +326,9 @@ async function dispatchAssessActions(args: {
             reason: job.reason,
             critique: job.critique,
             bumpedBudgetMultiplier: budgetMultiplier * 1.3,
+            // ★ 2026-04-30 REDESIGN (task #61): strategy + retryLabel 让前端区分两路径
+            strategy: job.strategy,
+            retryLabel: job.retryLabel,
           },
         })
         .catch(() => {});
@@ -371,6 +384,24 @@ async function dispatchAssessActions(args: {
         dispatched ? [] : ((dispatched = true), dagTasks),
       executor: async (task) => {
         try {
+          // ★ 2026-04-30 REDESIGN (task #61): reuse-recompute 路径不重跑 researcher
+          //   直接复用 researcherResults[idx]（旧 findings），下面 chapter pipeline 重跑 + grade
+          const slot = retryJobs.findIndex((j) => j.idx === task.idx);
+          if (slot < 0) return;
+          const job = retryJobs[slot];
+          if (job.strategy === "reuse-recompute") {
+            const existing = researcherResults[job.idx];
+            if (existing) {
+              results[slot] = {
+                dimension: existing.dimension,
+                findings: existing.findings,
+                summary:
+                  `${existing.summary ?? ""}\n[reuse-recompute] Leader 要求重写章节 + 重新评分（沿用原 findings）：${task.critique.slice(0, 200)}`.trim(),
+              };
+              return;
+            }
+            // 没有 existing → fallback to fresh-collect
+          }
           const out = await runResearcherWithCritique(ctx, deps, {
             dim: task.dim,
             idx: task.idx,
@@ -378,8 +409,6 @@ async function dispatchAssessActions(args: {
             critique: task.critique,
             retryLabel: task.retryLabel,
           });
-          // 找回 task 在 retryJobs 中的位置（dim-{idx} 直接定位）
-          const slot = retryJobs.findIndex((j) => j.idx === task.idx);
           if (slot >= 0) results[slot] = out;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -423,6 +452,11 @@ async function dispatchAssessActions(args: {
           researcherResults[job.idx] = newOut;
         } else {
           try {
+            // ★ 2026-04-30 REDESIGN (task #61): retryLabel 让 dimension:graded 携带；
+            //   reuse-recompute 路径 retryLabel=undefined → 就地更新原 dim pipeline.grade
+            //   fresh-collect 路径 retryLabel=job.retryLabel → 独立 pipeline 索引
+            const pipelineRetryLabel =
+              job.strategy === "fresh-collect" ? job.retryLabel : undefined;
             const dimPipelineOut = await runPerDimPipeline(
               {
                 missionId,
@@ -438,6 +472,7 @@ async function dispatchAssessActions(args: {
                 researcherOut: newOut,
                 billing: ctx.billing,
                 budgetMultiplier: ctx.budgetMultiplier * 1.3,
+                retryLabel: pipelineRetryLabel,
               },
               deps,
             );

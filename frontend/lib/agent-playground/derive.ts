@@ -188,11 +188,23 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
   const verdicts: VerifierVerdict[] = [];
   const reports: ReportDraft[] = [];
   const dimensionPipelines = new Map<string, DimensionPipelineState>();
-  const ensurePipeline = (name: string): DimensionPipelineState => {
-    let p = dimensionPipelines.get(name);
+  // ★ 2026-04-30 REDESIGN (task #61): retry 双路径 pipelineKey 路由
+  //   activeFreshRetry: dim → retryLabel，仅 strategy=fresh-collect 才进入
+  //   后续所有 chapter:* / dimension:* 事件按当前 active retry 决定写哪个 pipelineKey：
+  //     fresh-collect 进行中 → key = `${dim}:${retryLabel}`，独立 pipeline
+  //     无 active retry / strategy=reuse-recompute → key = dim，就地更新原 pipeline
+  //   dimension:graded with retryLabel → 关闭该 dim 的 active fresh retry 状态
+  const activeFreshRetry = new Map<string, string>();
+  const resolvePipelineKey = (dim: string): string => {
+    const retryLabel = activeFreshRetry.get(dim);
+    return retryLabel ? `${dim}:${retryLabel}` : dim;
+  };
+  const ensurePipeline = (dim: string): DimensionPipelineState => {
+    const key = resolvePipelineKey(dim);
+    let p = dimensionPipelines.get(key);
     if (!p) {
-      p = { dimension: name, chapters: [] };
-      dimensionPipelines.set(name, p);
+      p = { dimension: dim, chapters: [] };
+      dimensionPipelines.set(key, p);
     }
     return p;
   };
@@ -263,6 +275,21 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         cur.retryCount = (cur.retryCount ?? 0) + 1;
         cur.lastRetryReason = p?.reason as string | undefined;
         agents.set(agentId, cur);
+      }
+      // ★ 2026-04-30 REDESIGN (task #61): fresh-collect 路径开启 dim 的 retry pipeline 路由
+      //   reuse-recompute 路径不切，让后续事件继续写入原 dim pipeline（grade 就地更新）
+      const strategy = p?.strategy as
+        | 'fresh-collect'
+        | 'reuse-recompute'
+        | undefined;
+      const retryLabel = p?.retryLabel as string | undefined;
+      const dim = p?.dimension as string | undefined;
+      if (
+        dim &&
+        retryLabel &&
+        (strategy === 'fresh-collect' || strategy === undefined) // 默认 fresh-collect
+      ) {
+        activeFreshRetry.set(dim, retryLabel);
       }
     } else if (t === 'agent-playground.dimensions:appended') {
       // Leader chat 触发的动态追加：把新 dim 拼到 mission.dimensions 末尾
@@ -519,6 +546,12 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
               | undefined) ?? {},
           summary: (p?.summary as string | undefined) ?? '',
         };
+        // ★ 2026-04-30 REDESIGN (task #61): retryLabel 在 payload 表示 fresh-collect retry 完成
+        //   关闭该 dim 的 active fresh retry 路由，让后续事件回到原 dim pipeline
+        const retryLabel = p?.retryLabel as string | undefined;
+        if (retryLabel && activeFreshRetry.get(dim) === retryLabel) {
+          activeFreshRetry.delete(dim);
+        }
       }
     }
   }

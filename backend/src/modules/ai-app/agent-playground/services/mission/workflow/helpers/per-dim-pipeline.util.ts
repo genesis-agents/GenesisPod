@@ -57,6 +57,13 @@ export interface PerDimPipelineArgs {
   };
   billing: BillingRuntimeEnvAdapter;
   budgetMultiplier: number;
+  /**
+   * ★ 2026-04-30 REDESIGN (task #61): retry 双路径 pipeline 索引
+   * undefined → 原始 pipeline，dim name 索引（首次 S3 / reuse-recompute 就地更新）
+   * "leader-assess-retry" / "leader-assess-replace" → fresh-collect retry，dim:retryLabel 索引
+   * 前端 derive.ts 用此值组装 pipelineKey 索引 dimensionPipelines map
+   */
+  retryLabel?: string;
 }
 
 export interface PerDimPipelineResult {
@@ -698,6 +705,8 @@ export async function runPerDimPipeline(
           grade: g.grade,
           axes: g.axes,
           summary: g.summary,
+          // ★ 2026-04-30 REDESIGN (task #61): retryLabel 让前端区分原 dim grade vs retry 独立 grade
+          retryLabel: args.retryLabel,
         },
       });
       // ★ BUG-D: 维度评分 narrative

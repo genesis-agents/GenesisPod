@@ -81,6 +81,17 @@ hard constraints:
 | `replace-spec`        | 换不同 agent spec（filling newAgentSpecId）       |
 | `abort`               | 该 dim 放弃；foreword 必须列入 whatRemainsUnclear |
 
+### 2.5 retry/replace 必选策略 (perDimension[].strategy)
+
+`action=retry-with-critique` 或 `action=replace-spec` 时**必填** `strategy` 字段：
+
+| strategy           | 含义                                                                                                         | 适用场景                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `fresh-collect`    | **重新采集**：从头跑 researcher，重新拿 finding；新建独立任务行；独立打分                                    | finding 数量少 / 来源质量低 / 关键证据缺失 / 信息过时 → **findings 本身不可信**                |
+| `reuse-recompute` | **利旧重算**：复用现有 findings；只重写章节 + 重新评分；**不新建任务行**，原任务从"已完成"退回"进行中"显示新分 | finding 充分但章节质量差 / 论点弱 / 引用密度低 / 写作有 AI 痕迹 → **findings 可用，写作或评估有问题** |
+
+> 默认 `fresh-collect`（兼容旧行为）。LLM 应根据 critique 真实诊断主动选 strategy，**不要无脑选默认**。
+
 ### 3. rationale（必填）
 
 一段话解释为什么做出整体决策 + 每 dim 处理。
@@ -105,7 +116,8 @@ hard constraints:
           "dimensionId": "<from myPlan.dimensions>",
           "action": "accept",
           "critique": "<retry-with-critique 时填>",
-          "newAgentSpecId": "<replace-spec 时填>"
+          "newAgentSpecId": "<replace-spec 时填>",
+          "strategy": "<retry/replace 时必填: fresh-collect | reuse-recompute>"
         }
       ],
       "newDimensions": []

@@ -115,6 +115,17 @@ export interface MissionTodo {
   agentRefId?: string;
   dimensionRef?: string;
   systemStageId?: SystemStageId;
+  /**
+   * ★ 2026-04-30 REDESIGN (task #61): retry 双路径 pipelineKey 索引
+   * dimensionPipelines.get(pipelineKey) 取该 todo 自己的 pipeline：
+   *   - leader-plan origin: pipelineKey === dimensionRef（reuse-recompute 路径就地更新此 grade）
+   *   - leader-assess-retry (fresh-collect): pipelineKey === `${dim}:${retryLabel}`（独立 grade）
+   *   - leader-assess-retry (reuse-recompute): 不创建此 todo，复用原 dim todo
+   * undefined 表示沿用 dimensionRef 默认索引（兼容旧数据）
+   */
+  pipelineKey?: string;
+  /** retry 原始 strategy，仅 leader-assess-retry/replace/extend origin 设置 */
+  retryStrategy?: 'fresh-collect' | 'reuse-recompute';
 }
 
 export interface DeriveTodoArgs {
@@ -1043,6 +1054,29 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         );
         continue;
       }
+      // ★ 2026-04-30 REDESIGN (task #61): retry 双路径分流
+      const strategy =
+        (p.strategy as 'fresh-collect' | 'reuse-recompute' | undefined) ??
+        'fresh-collect';
+      const retryLabel = p.retryLabel as string | undefined;
+      // reuse-recompute 路径：不创建子 todo，原 dim todo 退回 in_progress + 清旧 grade artifacts
+      if (isLeaderTriggered && strategy === 'reuse-recompute' && parentTodo) {
+        if (parentTodo.status === 'done' || parentTodo.status === 'failed') {
+          parentTodo.status = 'in_progress';
+          parentTodo.endedAt = undefined;
+        }
+        parentTodo.artifacts = parentTodo.artifacts.filter(
+          (a) => a.kind !== 'verdict-score' && a.label !== '维度评分'
+        );
+        addNarrative(
+          parentTodo.id,
+          ev.timestamp,
+          `Leader 评审重派（利旧重算）：${critique?.slice(0, 200) ?? '复用 findings，重写章节 + 重新评分'}`,
+          'warn'
+        );
+        continue;
+      }
+      // fresh-collect 路径：创建独立子 todo，pipelineKey 隔离避免借用原 dim grade
       const childOrigin: MissionTodoOrigin = isLeaderTriggered
         ? reason === 'leader-assess-replace'
           ? 'leader-assess-replace'
@@ -1051,6 +1085,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             : 'leader-assess-retry'
         : 'self-heal-retry';
       const childId = `${parentTodo?.id ?? `dim:${dim}`}:retry@${ev.timestamp}`;
+      const pipelineKey = retryLabel ? `${dim}:${retryLabel}` : undefined;
       upsert(childId, () => ({
         id: childId,
         parentId: parentTodo?.id,
@@ -1072,16 +1107,16 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           {
             ts: ev.timestamp,
             text: isLeaderTriggered
-              ? `Leader 触发重派：${critique?.slice(0, 150) ?? '提升覆盖率与来源质量'}`
+              ? `Leader 触发重派（重新采集）：${critique?.slice(0, 150) ?? '提升覆盖率与来源质量'}`
               : `自愈重试（上一轮 ${reason}）`,
             tone: isLeaderTriggered ? 'info' : 'warn',
           },
         ],
         dimensionRef: dim,
+        pipelineKey,
+        retryStrategy: isLeaderTriggered ? strategy : undefined,
       }));
       if (parentTodo) {
-        // ★ 关键修复：Leader 重派时父 dim 从 done 回退到 in_progress，
-        //   sub-status 才能在 UI 上显示"重派采集中"，让用户看到 dim 真在重做
         if (
           isLeaderTriggered &&
           (parentTodo.status === 'done' || parentTodo.status === 'failed')
@@ -1093,7 +1128,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           parentTodo.id,
           ev.timestamp,
           isLeaderTriggered
-            ? `Leader 触发重派：${critique?.slice(0, 200) ?? '需要补充证据'}`
+            ? `Leader 触发重派（重新采集）：${critique?.slice(0, 200) ?? '需要补充证据'}`
             : '触发自愈重试',
           'warn'
         );

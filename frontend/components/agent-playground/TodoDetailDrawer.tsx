@@ -1044,11 +1044,15 @@ export function TodoDetailDrawer({
             </Section>
           )}
 
-          {/* 章节进度 + 维度评分 (仅 dim todos with chapter pipeline) — 信息采集后的下游产物，故置于"使用工具/引用来源/完整时间线"之后 */}
+          {/* 章节进度 + 维度评分 (仅 dim todos with chapter pipeline)
+              ★ 2026-04-30 REDESIGN (task #61)：retry 双路径 — pipeline 按 todo.pipelineKey 取
+              - leader-plan / reuse-recompute: pipelineKey === dim name（grade 就地更新）
+              - leader-assess-retry (fresh-collect): pipelineKey === `${dim}:${retryLabel}` 独立索引 */}
           {todo.scope === 'dimension' &&
             todo.dimensionRef &&
             (() => {
-              const pipeline = dimensionPipelines?.get(todo.dimensionRef);
+              const pipelineKey = todo.pipelineKey ?? todo.dimensionRef;
+              const pipeline = dimensionPipelines?.get(pipelineKey);
               if (!pipeline || pipeline.chapters.length === 0) return null;
               return (
                 <>
