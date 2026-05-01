@@ -1,26 +1,53 @@
 /**
  * SocketBroadcastAdapter — DomainEvent → Socket.IO room
  *
- * 业务方实现 IBroadcastAdapter 的参考。
- * 把 DomainEventBus 的事件按 scope.missionId 分发到对应 room。
+ * 通用 IBroadcastAdapter 实现：把 DomainEventBus 的事件按 scope.missionId
+ * 分发到对应 room。`eventTypePrefix` + `roomPrefix` 由调用方传入决定路由。
+ *
+ * 2026-05-01 上提: 原在 ai-app/agent-playground/adapters/，改用参数化 prefix
+ * 后跨 ai-app 通用（research / writing / topic-insights / 任何带 socket relay
+ * 的 ai-app 都可复用）。
+ *
+ * 用法（agent-playground 注册）:
+ * ```
+ * new SocketBroadcastAdapter(this.io, {
+ *   id: "agent-playground.socket",
+ *   eventTypePrefix: "agent-playground.",
+ *   roomPrefix: "playground",
+ * });
+ * ```
  */
 
 import { Logger } from "@nestjs/common";
 import type { Server as IoServer } from "socket.io";
-// 必修 #8: 走 facade，不穿透 harness/events 子路径
-import type {
-  DomainEvent,
-  IBroadcastAdapter,
-} from "../../../ai-harness/facade";
+import type { DomainEvent, IBroadcastAdapter } from "../../facade";
+
+export interface SocketBroadcastAdapterOptions {
+  /** Adapter id（用于日志 / EventBus 标识） */
+  id: string;
+  /** 事件类型前缀过滤，如 "agent-playground." */
+  eventTypePrefix: string;
+  /** Socket.IO room 前缀，如 "playground" → "playground:<missionId>" */
+  roomPrefix: string;
+}
 
 export class SocketBroadcastAdapter implements IBroadcastAdapter {
-  readonly id = "agent-playground.socket";
+  readonly id: string;
   private readonly log = new Logger(SocketBroadcastAdapter.name);
+  private readonly eventTypePrefix: string;
+  private readonly roomPrefix: string;
 
-  constructor(private readonly io: IoServer) {}
+  constructor(
+    private readonly io: IoServer,
+    options: SocketBroadcastAdapterOptions,
+  ) {
+    this.id = options.id;
+    this.eventTypePrefix = options.eventTypePrefix;
+    this.roomPrefix = options.roomPrefix;
+  }
 
   accepts(event: DomainEvent): boolean {
-    return event.type.startsWith("agent-playground.");
+    return event.type.startsWith(this.eventTypePrefix);
   }
 
   async broadcast(event: DomainEvent): Promise<void> {
@@ -49,8 +76,8 @@ export class SocketBroadcastAdapter implements IBroadcastAdapter {
         );
         // ★ P1-R3-D (round 3): 降级用独立 type 让前端能按类型分流处理，
         // 而不是与原 type 混淆破坏 schema 期望
-        const droppedType = "agent-playground.event:dropped";
-        this.io.to(`playground:${missionId}`).emit(droppedType, {
+        const droppedType = `${this.eventTypePrefix}event:dropped`;
+        this.io.to(`${this.roomPrefix}:${missionId}`).emit(droppedType, {
           type: droppedType,
           payload: {
             originalType: event.type,
@@ -68,8 +95,8 @@ export class SocketBroadcastAdapter implements IBroadcastAdapter {
           `event ${event.type} size ${serializedSize}B > ${SOFT_CAP_BYTES}B — emitting metadata only, client should pull replay`,
         );
         // ★ P1-R3-D (round 3): 降级独立 type
-        const oversizedType = "agent-playground.event:oversized";
-        this.io.to(`playground:${missionId}`).emit(oversizedType, {
+        const oversizedType = `${this.eventTypePrefix}event:oversized`;
+        this.io.to(`${this.roomPrefix}:${missionId}`).emit(oversizedType, {
           type: oversizedType,
           payload: {
             originalType: event.type,
@@ -83,7 +110,7 @@ export class SocketBroadcastAdapter implements IBroadcastAdapter {
         return;
       }
     }
-    this.io.to(`playground:${missionId}`).emit(event.type, envelope);
+    this.io.to(`${this.roomPrefix}:${missionId}`).emit(event.type, envelope);
   }
 
   /**

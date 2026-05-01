@@ -3,7 +3,7 @@
  */
 
 import { SocketBroadcastAdapter } from "../socket-broadcast.adapter";
-import type { DomainEvent } from "../../../../ai-harness/facade";
+import type { DomainEvent } from "../../../facade";
 
 function makeEvent(overrides: Partial<DomainEvent> = {}): DomainEvent {
   return {
@@ -30,7 +30,11 @@ describe("SocketBroadcastAdapter", () => {
       emit: jest.fn(),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    adapter = new SocketBroadcastAdapter(mockIo as any);
+    adapter = new SocketBroadcastAdapter(mockIo as any, {
+      id: "agent-playground.socket",
+      eventTypePrefix: "agent-playground.",
+      roomPrefix: "playground",
+    });
   });
 
   describe("id", () => {

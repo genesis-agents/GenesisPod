@@ -17,8 +17,7 @@ import {
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 // 必修 #8: 走 facade
-import { DomainEventBus } from "../../ai-harness/facade";
-import { SocketBroadcastAdapter } from "./adapters/socket-broadcast.adapter";
+import { DomainEventBus, SocketBroadcastAdapter } from "../../ai-harness/facade";
 import { MissionOwnershipRegistry } from "./services/mission/lifecycle/mission-ownership.registry";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 
@@ -45,7 +44,13 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
 
   afterInit(): void {
     // 必修 #7: 必须在 afterInit 注册（io 此时已绑定）；onModuleInit 时 io 是 undefined
-    this.eventBus.registerAdapter(new SocketBroadcastAdapter(this.io));
+    this.eventBus.registerAdapter(
+      new SocketBroadcastAdapter(this.io, {
+        id: "agent-playground.socket",
+        eventTypePrefix: "agent-playground.",
+        roomPrefix: "playground",
+      }),
+    );
     this.log.log(
       "AgentPlaygroundGateway initialized (namespace=agent-playground)",
     );

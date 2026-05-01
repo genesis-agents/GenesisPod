@@ -174,6 +174,14 @@ export { ReportArtifactAssembler } from "../runtime/quality/report-artifact/repo
 // ★ 2026-05-01: FailureLearnerService 从 ai-app/agent-playground 上提（governance/learning）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
 export { FailureLearnerService } from "../governance/learning/failure-learner.service";
+
+// ★ 2026-05-01: SocketBroadcastAdapter 从 ai-app/agent-playground/adapters/ 上提
+//   参数化 prefix 后跨 ai-app 通用（DomainEvent → Socket.IO room），任何带 socket relay
+//   的 ai-app 都可复用
+export {
+  SocketBroadcastAdapter,
+  type SocketBroadcastAdapterOptions,
+} from "../protocol/realtime/socket-broadcast.adapter";
 export type {
   ArtifactCitation,
   ArtifactFactTriple,
