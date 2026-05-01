@@ -3,7 +3,7 @@
  */
 
 import { SkillActivator } from "../skill-activator";
-import { SkillRegistry } from "../skill-registry";
+import { BuiltInReActSkillRegistry } from "../skill-registry";
 import { HookRegistry } from "../../core/hook-registry";
 import { ContextEnvelope } from "../../../kernel/core/context-envelope";
 import { AgentIdentity } from "../../core/agent-identity";
@@ -49,7 +49,7 @@ function makeIdentity(skills: string[]): IAgentIdentity {
 
 describe("SkillActivator", () => {
   it("returns envelope unchanged when identity has no skills", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const activator = new SkillActivator(registry, new HookRegistry());
     const env = makeEnv();
     const result = await activator.activate(makeIdentity([]), env);
@@ -58,7 +58,7 @@ describe("SkillActivator", () => {
   });
 
   it("injects skill instructions as high-priority reminders", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     registry.register(makeSkill("s1", { instructions: "do s1" }));
     registry.register(makeSkill("s2", { instructions: "do s2" }));
 
@@ -74,7 +74,7 @@ describe("SkillActivator", () => {
   });
 
   it("skips missing skills with a warning", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     registry.register(makeSkill("exists"));
     const activator = new SkillActivator(registry, new HookRegistry());
     const env = makeEnv();
@@ -86,7 +86,7 @@ describe("SkillActivator", () => {
   });
 
   it("calls skill.activate() and allows adding reminders", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     registry.register(
       makeSkill("s1", {
         activate: (ctx) => {
@@ -104,7 +104,7 @@ describe("SkillActivator", () => {
 
   it("skill.activate can register temporary hooks; cleanup removes them", async () => {
     const hooks = new HookRegistry();
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const handler = jest.fn();
     registry.register(
       makeSkill("s1", {
@@ -139,7 +139,7 @@ describe("SkillActivator", () => {
   });
 
   it("activate() errors in one skill do not prevent subsequent skills", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     registry.register(
       makeSkill("bad", {
         activate: () => {

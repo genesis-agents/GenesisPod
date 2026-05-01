@@ -48,7 +48,7 @@ import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
 import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
 import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
 import { MemoryBridge } from "./memory/auto-index/memory-bridge.service";
-import { SkillRegistry, SkillLoader, SkillActivator } from "./kernel/skills";
+import { BuiltInReActSkillRegistry, SkillLoader, SkillActivator } from "./kernel/skills";
 import { SubagentSpawner } from "./process/subagent";
 import {
   ContextManager,
@@ -198,7 +198,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     MemoryBridge,
 
     // Skills (Phase 3)
-    SkillRegistry,
+    BuiltInReActSkillRegistry,
     SkillLoader,
     SkillActivator,
 
@@ -312,7 +312,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     LlmExecutor,
     AgentExecutorService,
     OutputReviewerService,
-    SkillRegistry,
+    BuiltInReActSkillRegistry,
     ContextManager,
     CheckpointService,
     AgentEventStore,

@@ -3,11 +3,11 @@
  */
 
 import { SkillLoader } from "../skill-loader";
-import { SkillRegistry } from "../skill-registry";
+import { BuiltInReActSkillRegistry } from "../skill-registry";
 
 describe("SkillLoader (built-in skills)", () => {
   it("loads all built-in SKILL.md files", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const loader = new SkillLoader(registry);
     const skills = await loader.loadAll();
     const names = skills.map((s) => s.frontmatter.name).sort();
@@ -16,7 +16,7 @@ describe("SkillLoader (built-in skills)", () => {
   });
 
   it("loadById returns a known skill", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const loader = new SkillLoader(registry);
     const skill = await loader.loadById("web-research");
     expect(skill).not.toBeNull();
@@ -26,14 +26,14 @@ describe("SkillLoader (built-in skills)", () => {
   });
 
   it("loadById returns null for unknown skill", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const loader = new SkillLoader(registry);
     const skill = await loader.loadById("non-existent-skill-xyz");
     expect(skill).toBeNull();
   });
 
   it("onModuleInit populates the registry", async () => {
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const loader = new SkillLoader(registry);
     await loader.onModuleInit();
     expect(registry.size()).toBeGreaterThanOrEqual(2);

@@ -37,7 +37,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { LoopRegistry } from "../../ai-harness/execution/loop/loop-registry";
-import { SkillRegistry } from "../../ai-harness/kernel/skills/skill-registry";
+import { BuiltInReActSkillRegistry } from "../../ai-harness/kernel/skills/skill-registry";
 import { SpecAgentRegistry } from "../../ai-harness/kernel/core/spec-agent-registry";
 import { CheckpointService } from "../../ai-harness/memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../ai-harness/memory/checkpoint/agent-event-store";
@@ -47,7 +47,7 @@ import { SkillLearningCoordinator } from "../../ai-harness/kernel/learning/skill
 export class HarnessInspectorController {
   constructor(
     private readonly loops: LoopRegistry,
-    private readonly skills: SkillRegistry,
+    private readonly skills: BuiltInReActSkillRegistry,
     private readonly specs: SpecAgentRegistry,
     @Optional() private readonly checkpoints?: CheckpointService,
     @Optional() private readonly events?: AgentEventStore,

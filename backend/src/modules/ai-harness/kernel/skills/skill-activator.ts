@@ -20,7 +20,7 @@ import type {
   HookEvent,
 } from "../../kernel/abstractions";
 import { ContextEnvelope } from "../../kernel/core/context-envelope";
-import { SkillRegistry } from "./skill-registry";
+import { BuiltInReActSkillRegistry } from "./skill-registry";
 import { HookRegistry } from "../../kernel/core/hook-registry";
 
 export interface SkillActivationResult {
@@ -36,7 +36,7 @@ export class SkillActivator {
   private readonly logger = new Logger(SkillActivator.name);
 
   constructor(
-    private readonly registry: SkillRegistry,
+    private readonly registry: BuiltInReActSkillRegistry,
     private readonly hooks: HookRegistry,
   ) {}
 

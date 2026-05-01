@@ -1,28 +1,28 @@
 /**
- * SkillRegistry (ai-harness/kernel) — 内存级 SKILL.md 注册表
+ * BuiltInReActSkillRegistry (ai-harness/kernel) — ReAct/Agent runtime 内置 skill 注册表
  *
- * ⚠️ NAME COLLISION — there are TWO classes called `SkillRegistry` in
- * this codebase. The full distinction is documented in
- * `ai-engine/skills/registry/skill-registry.ts`. Quick summary:
+ * 2026-05-01 改名: 原叫 `SkillRegistry`，与 `ai-engine/skills/registry/SkillRegistry`
+ * 同名异构。本类是 ReAct loop 的内置 skill 容器（SKILL.md frontmatter 解析），
+ * engine 那个是业务 skill 的 CRUD store。改名后 IDE 自动补全 / 阅读不再混淆。
  *
- *   - THIS class: SKILL.md frontmatter parsed at boot, indexed by `name`,
- *     drives ReAct/Agent runtime instruction activation. Used via
- *     `@/modules/ai-harness/facade`.
+ * 用途:
+ *   - SKILL.md frontmatter 解析后注册（索引 by `name`）
+ *   - 驱动 ReAct/Agent runtime 的 instruction activation
+ *   - 通过 `@/modules/ai-harness/facade` 使用
  *
- *   - The ai-engine one: CRUD store of programmatic `ISkill` objects,
- *     DB-backed, drives the skills-api admin UI. Used via
- *     `@/modules/ai-engine/facade`.
+ * 与 ai-engine/skills/SkillRegistry 的区别:
+ *   - 本类: 内存级，启动时 load SKILL.md 文件，runtime 内置
+ *   - engine: DB 级，CRUD ISkill 对象，admin UI 驱动
  *
  * 支持按 id / tag / activateFor (Role id) 查找。
- * 与 ai-engine/skills/（旧 CRUD 风格）隔离，互不干扰。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import type { ISkill } from "../../kernel/abstractions";
 
 @Injectable()
-export class SkillRegistry {
-  private readonly logger = new Logger(SkillRegistry.name);
+export class BuiltInReActSkillRegistry {
+  private readonly logger = new Logger(BuiltInReActSkillRegistry.name);
   private readonly byName = new Map<string, ISkill>();
 
   register(skill: ISkill): void {

@@ -17,15 +17,15 @@
 
 import * as fs from "fs";
 import { SkillLoader } from "../skill-loader";
-import { SkillRegistry } from "../skill-registry";
+import { BuiltInReActSkillRegistry } from "../skill-registry";
 import { SkillParseError } from "../skill-parser";
 
 describe("SkillLoader — supplement (fs spies)", () => {
-  let registry: SkillRegistry;
+  let registry: BuiltInReActSkillRegistry;
   let loader: SkillLoader;
 
   beforeEach(() => {
-    registry = new SkillRegistry();
+    registry = new BuiltInReActSkillRegistry();
     loader = new SkillLoader(registry);
   });
 

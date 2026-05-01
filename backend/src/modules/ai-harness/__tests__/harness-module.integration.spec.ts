@@ -15,7 +15,7 @@ import { PlanActLoop } from "../execution/loop/plan-act-loop";
 import { ReflexionLoop } from "../execution/loop/reflexion-loop";
 import { LoopRegistry } from "../execution/loop/loop-registry";
 import { ToolInvoker } from "../execution/executor/tool-invoker";
-import { SkillRegistry } from "../kernel/skills/skill-registry";
+import { BuiltInReActSkillRegistry } from "../kernel/skills/skill-registry";
 import { SkillActivator } from "../kernel/skills/skill-activator";
 import { SkillLoader } from "../kernel/skills/skill-loader";
 import { SubagentSpawner } from "../process/subagent/subagent-spawner";
@@ -61,7 +61,7 @@ describe("HarnessModule (NestJS DI integration)", () => {
         ReflexionLoop,
         LoopRegistry,
         MemoryBridge,
-        SkillRegistry,
+        BuiltInReActSkillRegistry,
         SkillLoader,
         SkillActivator,
         SubagentSpawner,

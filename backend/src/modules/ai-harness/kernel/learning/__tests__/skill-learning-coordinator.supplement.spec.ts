@@ -15,7 +15,7 @@
 import { Logger } from "@nestjs/common";
 import { SkillLearningCoordinator } from "../skill-learning-coordinator";
 import { SkillLearner, type SkillCandidate } from "../skill-learner";
-import { SkillRegistry } from "../../skills/skill-registry";
+import { BuiltInReActSkillRegistry } from "../../skills/skill-registry";
 
 jest.spyOn(Logger.prototype, "warn").mockImplementation();
 jest.spyOn(Logger.prototype, "log").mockImplementation();
@@ -75,7 +75,7 @@ function fakeJudge(score: number) {
 describe("SkillLearningCoordinator supplement — sandboxReplayer empty samples", () => {
   it("skips replay blending when sample() returns empty array", async () => {
     const learner = { learn: jest.fn(async () => fakeCandidate()) };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(85);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const coord = new SkillLearningCoordinator(
@@ -106,7 +106,7 @@ describe("SkillLearningCoordinator supplement — sandboxReplayer empty samples"
 describe("SkillLearningCoordinator supplement — sandboxReplayer with samples", () => {
   it("blends judge score and replay score when samples exist", async () => {
     const learner = { learn: jest.fn(async () => fakeCandidate()) };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(80); // judge score = 80
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const coord = new SkillLearningCoordinator(
@@ -142,7 +142,7 @@ describe("SkillLearningCoordinator supplement — sandboxReplayer with samples",
 describe("SkillLearningCoordinator supplement — sandboxReplayer throws", () => {
   it("falls back to judge-only score when sandboxReplayer throws", async () => {
     const learner = { learn: jest.fn(async () => fakeCandidate()) };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(85);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const coord = new SkillLearningCoordinator(
@@ -173,7 +173,7 @@ describe("SkillLearningCoordinator supplement — sandboxReplayer throws", () =>
 describe("SkillLearningCoordinator supplement — judge throws", () => {
   it("sets score=0 when judge.judgeWithConsensus throws", async () => {
     const learner = { learn: jest.fn(async () => fakeCandidate()) };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const badJudge = {
       judgeWithConsensus: jest.fn(async () => {
         throw new Error("Judge service unavailable");
@@ -211,7 +211,7 @@ describe("SkillLearningCoordinator supplement — no judge (heuristic)", () => {
         },
       })),
     };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     // No judge injected
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
@@ -239,7 +239,7 @@ describe("SkillLearningCoordinator supplement — no judge (heuristic)", () => {
         },
       })),
     };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
       registry,
@@ -261,7 +261,7 @@ describe("SkillLearningCoordinator supplement — no judge (heuristic)", () => {
 describe("SkillLearningCoordinator supplement — staging management", () => {
   it("rejectStaged returns false when name not in staging", () => {
     const learner = { learn: jest.fn() };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
       registry,
@@ -273,7 +273,7 @@ describe("SkillLearningCoordinator supplement — staging management", () => {
 
   it("approveStaged returns false when name not in staging", () => {
     const learner = { learn: jest.fn() };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
       registry,
@@ -285,7 +285,7 @@ describe("SkillLearningCoordinator supplement — staging management", () => {
 
   it("rejectStaged returns true and removes staged skill", async () => {
     const learner = { learn: jest.fn(async () => fakeCandidate()) };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(70); // staged
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const coord = new SkillLearningCoordinator(
@@ -312,7 +312,7 @@ describe("SkillLearningCoordinator supplement — generic parse error", () => {
     // We simulate by having the markdown content be a non-frontmatter string
     const badMarkdown = ""; // empty string → parse will fail
     const learner = { learn: jest.fn(async () => fakeCandidate(badMarkdown)) };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
       registry,

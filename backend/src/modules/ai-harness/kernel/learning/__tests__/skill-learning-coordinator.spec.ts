@@ -10,7 +10,7 @@
 
 import { SkillLearningCoordinator } from "../skill-learning-coordinator";
 import { SkillLearner, type SkillCandidate } from "../skill-learner";
-import { SkillRegistry } from "../../skills/skill-registry";
+import { BuiltInReActSkillRegistry } from "../../skills/skill-registry";
 
 const VALID_MARKDOWN = `---
 name: web-search-protocol
@@ -58,7 +58,7 @@ describe("SkillLearningCoordinator (PR-F)", () => {
     const learner = {
       learn: jest.fn(async () => fakeCandidate(VALID_MARKDOWN)),
     };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(85);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const coord = new SkillLearningCoordinator(
@@ -82,7 +82,7 @@ describe("SkillLearningCoordinator (PR-F)", () => {
     const learner = {
       learn: jest.fn(async () => fakeCandidate(VALID_MARKDOWN)),
     };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(70);
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
@@ -107,7 +107,7 @@ describe("SkillLearningCoordinator (PR-F)", () => {
     const learner = {
       learn: jest.fn(async () => fakeCandidate(VALID_MARKDOWN)),
     };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(70);
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
@@ -132,7 +132,7 @@ describe("SkillLearningCoordinator (PR-F)", () => {
     const learner = {
       learn: jest.fn(async () => fakeCandidate(VALID_MARKDOWN)),
     };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const judge = fakeJudge(40);
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
@@ -156,7 +156,7 @@ describe("SkillLearningCoordinator (PR-F)", () => {
     const learner = {
       learn: jest.fn(async () => fakeCandidate(INVALID_MARKDOWN)),
     };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
       registry,
@@ -175,7 +175,7 @@ describe("SkillLearningCoordinator (PR-F)", () => {
 
   it("skipped when learner returns null", async () => {
     const learner = { learn: jest.fn(async () => null) };
-    const registry = new SkillRegistry();
+    const registry = new BuiltInReActSkillRegistry();
     const coord = new SkillLearningCoordinator(
       learner as unknown as SkillLearner,
       registry,

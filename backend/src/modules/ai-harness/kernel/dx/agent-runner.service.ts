@@ -25,7 +25,7 @@ import type {
   IRuntimeEnvironment,
 } from "../../kernel/abstractions";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
-import { SkillRegistry } from "../../kernel/skills";
+import { BuiltInReActSkillRegistry } from "../../kernel/skills";
 import { BillingContext } from "../../../ai-infra/credits/billing-context";
 import {
   readDefineAgentMeta,
@@ -257,7 +257,7 @@ export class AgentRunner {
   constructor(
     private readonly factory: AgentFactory,
     @Optional() private readonly toolRegistry?: ToolRegistry,
-    @Optional() private readonly skillRegistry?: SkillRegistry,
+    @Optional() private readonly skillRegistry?: BuiltInReActSkillRegistry,
   ) {}
 
   /**

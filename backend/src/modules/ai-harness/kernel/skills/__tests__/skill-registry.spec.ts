@@ -1,8 +1,8 @@
 /**
- * SkillRegistry 单元测试
+ * BuiltInReActSkillRegistry 单元测试
  */
 
-import { SkillRegistry } from "../skill-registry";
+import { BuiltInReActSkillRegistry } from "../skill-registry";
 import type { ISkill } from "../../abstractions";
 
 function makeSkill(
@@ -16,9 +16,9 @@ function makeSkill(
   };
 }
 
-describe("SkillRegistry", () => {
+describe("BuiltInReActSkillRegistry", () => {
   it("registers and retrieves by name", () => {
-    const reg = new SkillRegistry();
+    const reg = new BuiltInReActSkillRegistry();
     const skill = makeSkill("web-research");
     reg.register(skill);
     expect(reg.has("web-research")).toBe(true);
@@ -27,7 +27,7 @@ describe("SkillRegistry", () => {
   });
 
   it("overwrites on duplicate register", () => {
-    const reg = new SkillRegistry();
+    const reg = new BuiltInReActSkillRegistry();
     reg.register(makeSkill("s1", ["v1"]));
     reg.register(makeSkill("s1", ["v2"]));
     expect(reg.size()).toBe(1);
@@ -35,14 +35,14 @@ describe("SkillRegistry", () => {
   });
 
   it("registerAll bulk loads", () => {
-    const reg = new SkillRegistry();
+    const reg = new BuiltInReActSkillRegistry();
     reg.registerAll([makeSkill("a"), makeSkill("b"), makeSkill("c")]);
     expect(reg.size()).toBe(3);
     expect(reg.all().map((s) => s.frontmatter.name)).toEqual(["a", "b", "c"]);
   });
 
   it("listByTag filters correctly", () => {
-    const reg = new SkillRegistry();
+    const reg = new BuiltInReActSkillRegistry();
     reg.register(makeSkill("s1", ["research", "web"]));
     reg.register(makeSkill("s2", ["review"]));
     reg.register(makeSkill("s3", ["research"]));
@@ -53,7 +53,7 @@ describe("SkillRegistry", () => {
   });
 
   it("listForRole filters by activateFor", () => {
-    const reg = new SkillRegistry();
+    const reg = new BuiltInReActSkillRegistry();
     reg.register(makeSkill("s1", [], ["researcher", "analyst"]));
     reg.register(makeSkill("s2", [], ["critic"]));
     reg.register(makeSkill("s3", [], ["analyst"]));
@@ -64,7 +64,7 @@ describe("SkillRegistry", () => {
   });
 
   it("clear removes all", () => {
-    const reg = new SkillRegistry();
+    const reg = new BuiltInReActSkillRegistry();
     reg.registerAll([makeSkill("a"), makeSkill("b")]);
     reg.clear();
     expect(reg.size()).toBe(0);
