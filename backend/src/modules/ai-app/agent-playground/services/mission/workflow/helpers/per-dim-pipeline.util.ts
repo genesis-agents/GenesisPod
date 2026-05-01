@@ -577,14 +577,12 @@ export async function runPerDimPipeline(
         dimension: dimensionName,
       });
 
-      // ★ 字数硬门槛：实际产出 < target × 70% 时强制 revise（即使 reviewer 给 pass）
-      //   原因：观测到 extended (25K) mission 实际只产 5K 字（20%）—— reviewer 评分 ≥ PASS_THRESHOLD
-      //   但字数严重不达标。LLM 默认惜字如金，必须显式 retry 才能逼出长文。
-      //   ★ P0-R4-4 (round 4 真修): round 2 commit message 写了但 git add 漏文件，
-      //   实际仍是 `< MAX+1`。改为 `< MAX` 让最后一轮（attempt=MAX）真正放行，
-      //   避免最后一次 revise 是哑炮。
+      // ★ 字数硬门槛（2026-05-01 调整）：从 < 70% 放宽到 < 40%（极端不足才强制重写）。
+      //   理念：质量优先，字数仅参考。一段 800 字精炼论述胜过 2000 字注水。
+      //   仅当 LLM 严重偷懒（< 40% target）才显式 retry 逼出基本长度；
+      //   字数微差 / 略超不再触发 revise，与 reviewer prompt 评分维度对齐。
       const isLengthFail =
-        draft.wordCount < Math.round(targetWordsPerChapter * 0.7) &&
+        draft.wordCount < Math.round(targetWordsPerChapter * 0.4) &&
         attempt < MAX_REVISION_ATTEMPTS;
       // ★ L1-2: reviewer 阈值衰减 — 每次 attempt 降 10 分，最低 40
       //   attempt=1→60, attempt=2→50, attempt=3→40（后续全部 40）
@@ -678,7 +676,7 @@ export async function runPerDimPipeline(
 
       // 字数 fail 时 critique 必须显式说出来，让下一轮 writer 知道扩写
       const lengthCritiquePrefix = isLengthFail
-        ? `[字数严重不足] 上轮仅 ${draft.wordCount} 字（目标 ${targetWordsPerChapter} 字，仅 ${Math.round((draft.wordCount / targetWordsPerChapter) * 100)}%）。必须把章节扩到至少 ${Math.round(targetWordsPerChapter * 0.85)} 字：增加分析段落、补充案例数据、深化推理、加引用。不要重复已有内容。\n\n`
+        ? `[字数极度不足] 上轮仅 ${draft.wordCount} 字（目标 ${targetWordsPerChapter} 字，< 40%）。补充分析段落、案例数据、深化推理 —— 重点是质量内容（独立观点 / 具体证据 / 充分引用），不是单纯凑字数。目标 ${Math.round(targetWordsPerChapter * 0.6)} 字以上即可。\n\n`
         : "";
       // ★ P1-R4-C (round 4): critique 长度上限 2000 字，防多 attempt 累积爆 prompt
       const MAX_CRITIQUE_CHARS = 2000;

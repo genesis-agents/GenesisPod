@@ -312,24 +312,26 @@ describe("ChapterReviewerAgent", () => {
       expect(prompt).toContain("900");
     });
 
-    it("contains 70% hard rule threshold calculation", () => {
-      // 1000 * 0.7 = 700
+    it("emphasizes quality over word count (2026-05-01 调整)", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      expect(prompt).toContain("700");
+      // 字数权重最低 10/100，仅极端不足（< 40%）触发硬规则
+      expect(prompt).toContain("质量优先");
+      expect(prompt).toContain("字数权重最低");
+      expect(prompt).toContain("40%");
     });
 
-    it("contains pass threshold 70 in decision rules", () => {
+    it("contains pass threshold 60 in decision rules", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      expect(prompt).toContain("70 分");
+      expect(prompt).toContain("60 分");
     });
 
     it("contains score checklist items (post template-removal 2026-04-30)", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      // 新 6 项：观点独立性 / 证据具体 / 引用充分 / 去模板化 / 字数达标
+      // 新 5 项：观点独立性 / 证据具体 / 引用充分 / 去模板化 / 字数参考
       expect(prompt).toContain("观点独立性");
       expect(prompt).toContain("证据具体");
       expect(prompt).toContain("去模板化");
-      expect(prompt).toContain("anti-template");
+      expect(prompt).toContain("字数参考");
     });
 
     it("contains language in prompt", () => {
