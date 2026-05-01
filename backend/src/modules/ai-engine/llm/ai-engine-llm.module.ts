@@ -11,49 +11,49 @@
 
 import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
-import { SecretsModule } from "../ai-infra/secrets/secrets.module";
-import { UserApiKeysModule } from "../ai-infra/credentials/user-api-keys/user-api-keys.module";
-import { KeyResolverModule } from "../ai-infra/credentials/key-resolver/key-resolver.module";
-import { UserModelConfigsModule } from "../ai-infra/credentials/user-model-configs/user-model-configs.module";
-import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
+import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
+import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver/key-resolver.module";
+import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
+import { AiEngineConstraintModule } from "../safety/ai-engine-constraint.module";
 import { AiEnginePlanningModule } from "./ai-engine-planning.module";
 import * as http from "http";
 import * as https from "https";
 
 // LLM Core
-import { LLMFactory } from "./llm/factory/llm-factory";
-import { FunctionCallingLLMAdapter } from "./llm/adapters/function-calling-llm-adapter";
-import { AiChatLLMAdapter } from "./llm/adapters/ai-chat-llm-adapter";
-import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
-import { TaskProfileMapperService } from "./llm/services/task-profile-mapper.service";
+import { LLMFactory } from "./factory/llm-factory";
+import { FunctionCallingLLMAdapter } from "./adapters/function-calling-llm-adapter";
+import { AiChatLLMAdapter } from "./adapters/ai-chat-llm-adapter";
+import { UniversalLLMAdapter } from "./adapters/universal-llm-adapter";
+import { TaskProfileMapperService } from "./services/task-profile-mapper.service";
 
 // Core Services
-import { AiChatService } from "./llm/services/ai-chat.service";
-import { AiModelConfigService } from "./llm/services/ai-model-config.service";
-import { AiApiCallerService } from "./llm/services/ai-api-caller.service";
-import { AiStreamHandlerService } from "./llm/services/ai-stream-handler.service";
-import { AiChatPromptService } from "./llm/services/ai-chat-prompt.service";
-import { AiChatRetryService } from "./llm/services/ai-chat-retry.service";
+import { AiChatService } from "./services/ai-chat.service";
+import { AiModelConfigService } from "./services/ai-model-config.service";
+import { AiApiCallerService } from "./services/ai-api-caller.service";
+import { AiStreamHandlerService } from "./services/ai-stream-handler.service";
+import { AiChatPromptService } from "./services/ai-chat-prompt.service";
+import { AiChatRetryService } from "./services/ai-chat-retry.service";
 
 // Extracted Services (from ai-chat.service.ts God Object split)
-import { AiConnectionTestService } from "./llm/services/ai-connection-test.service";
-import { AiModelDiscoveryService } from "./llm/services/ai-model-discovery.service";
-import { AiDirectKeyService } from "./llm/services/ai-direct-key.service";
-import { AiImageGenerationService } from "./llm/services/ai-image-generation.service";
-import { PromptCacheCoordinatorService } from "./llm/services/prompt-cache-coordinator.service";
-import { SystemModelInventoryService } from "./llm/services/system-model-inventory.service";
+import { AiConnectionTestService } from "./services/ai-connection-test.service";
+import { AiModelDiscoveryService } from "./services/ai-model-discovery.service";
+import { AiDirectKeyService } from "./services/ai-direct-key.service";
+import { AiImageGenerationService } from "./services/ai-image-generation.service";
+import { PromptCacheCoordinatorService } from "./services/prompt-cache-coordinator.service";
+import { SystemModelInventoryService } from "./services/system-model-inventory.service";
 
 // Model Fallback
-import { ModelFallbackService } from "./llm/selection/model-fallback.service";
+import { ModelFallbackService } from "./selection/model-fallback.service";
 
 // Auto-configure service (used by UserModelConfigsAutoController in ai-app/byok)
-import { AutoConfigureService } from "./llm/user-models-auto-configure.service";
+import { AutoConfigureService } from "./user-models-auto-configure.service";
 
 // Long-term editable recommendation matrix (user + admin auto-configure share this)
-import { ModelRecommendationsService } from "./llm/selection/model-recommendations.service";
+import { ModelRecommendationsService } from "./selection/model-recommendations.service";
 
 // Environment-aware model election (pick modelId from env snapshot + request hints)
-import { ModelElectionService } from "./llm/selection/model-election.service";
+import { ModelElectionService } from "./selection/model-election.service";
 
 @Module({
   imports: [

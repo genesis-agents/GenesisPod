@@ -37,7 +37,7 @@ import { MCPStreamingBridge } from "./streaming/mcp-streaming-bridge";
 
 // Dependencies
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
-import { AiEngineConstraintModule } from "../../ai-engine/ai-engine-constraint.module";
+import { AiEngineConstraintModule } from "../../ai-engine/safety/ai-engine-constraint.module";
 
 @Module({
   imports: [

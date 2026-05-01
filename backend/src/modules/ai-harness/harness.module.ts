@@ -49,10 +49,14 @@ import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
 import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
 import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
 import { MemoryBridge } from "./memory/auto-index/memory-bridge.service";
-import { BuiltInReActSkillRegistry, SkillLoader, SkillActivator } from "./kernel/builtin-skills";
+import {
+  BuiltInReActSkillRegistry,
+  SkillLoader,
+  SkillActivator,
+} from "./kernel/builtin-skills";
 import { SKILL_PROVIDERS } from "./kernel/abstractions";
 import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider";
-import { AiEngineSkillsModule } from "../ai-engine/ai-engine-skills.module";
+import { AiEngineSkillsModule } from "../ai-engine/skills/ai-engine-skills.module";
 import { SubagentSpawner } from "./process/subagent";
 import {
   ContextManager,
@@ -107,8 +111,8 @@ import { DomainAdapterRegistry } from "./kernel/domain/domain-adapter";
 import { PromptRegistry } from "./execution/prompt/prompt-registry";
 import { ToolSelectorRegistry } from "./execution/tools-selector/tool-selector-registry";
 
-import { AiEngineLLMModule } from "../ai-engine/ai-engine-llm.module";
-import { AiEngineToolsModule } from "../ai-engine/ai-engine-tools.module";
+import { AiEngineLLMModule } from "../ai-engine/llm/ai-engine-llm.module";
+import { AiEngineToolsModule } from "../ai-engine/tools/ai-engine-tools.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 

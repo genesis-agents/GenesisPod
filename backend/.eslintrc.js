@@ -115,9 +115,11 @@ module.exports = {
         "**/*.spec.ts",
         "**/*.test.ts",
         "**/__tests__/**/*.ts",
-        // ★ Zero exclusions for production code — all ai-engine imports must go through facade
-        // Agent base classes: facade/base-classes.ts
-        // Config/Skill/Bridge files: facade/index.ts
+        // 2026-05-01 (PR-X-U): NestJS *.module.ts 装配 imports: [...] 必须用具体
+        // module class（facade re-export 类型不能装配）。Engine 6 个子 module 现已
+        // 收在子目录下（PR-X-U：llm/tools/skills/knowledge/safety），ai-app 模块
+        // 装配它们时必然指向子路径。Service 层访问仍走 facade —— 本例外只针对装配。
+        "**/modules/ai-app/**/*.module.ts",
       ],
       rules: {
         "no-restricted-imports": [

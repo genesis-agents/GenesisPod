@@ -18,9 +18,9 @@
 
 import { forwardRef, Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { AiEngineToolsModule } from "../../../ai-engine/ai-engine-tools.module";
-import { AiEngineSkillsModule } from "../../../ai-engine/ai-engine-skills.module";
-import { AiEnginePlanningModule } from "../../../ai-engine/ai-engine-planning.module";
+import { AiEngineToolsModule } from "../../../ai-engine/tools/ai-engine-tools.module";
+import { AiEngineSkillsModule } from "../../../ai-engine/skills/ai-engine-skills.module";
+import { AiEnginePlanningModule } from "../../../ai-engine/llm/ai-engine-planning.module";
 import { KeyResolverModule } from "../../../ai-infra/credentials/key-resolver/key-resolver.module";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";

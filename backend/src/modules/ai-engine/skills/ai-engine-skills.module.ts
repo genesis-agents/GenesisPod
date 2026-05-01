@@ -13,30 +13,30 @@ import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 
 // Registry
-import { SkillRegistry } from "./skills/registry/skill-registry";
+import { SkillRegistry } from "./registry/skill-registry";
 
 // Loader & Cache
-import { SkillLoaderService } from "./skills/loader/skill-loader.service";
-import { SkillCacheService } from "./skills/loader/skill-cache.service";
+import { SkillLoaderService } from "./loader/skill-loader.service";
+import { SkillCacheService } from "./loader/skill-cache.service";
 
 // Content - Prompt 内容和版本管理
-import { SkillContentService } from "./skills/content/skill-content.service";
+import { SkillContentService } from "./content/skill-content.service";
 
 // Analytics - 执行监控和分析
-import { SkillAnalyticsService } from "./skills/analytics/skill-analytics.service";
+import { SkillAnalyticsService } from "./analytics/skill-analytics.service";
 
 // Sandbox - 测试执行
-import { SkillSandboxService } from "./skills/sandbox/skill-sandbox.service";
+import { SkillSandboxService } from "./sandbox/skill-sandbox.service";
 
 // Builder
-import { SkillPromptBuilder } from "./skills/builder/skill-prompt-builder.service";
+import { SkillPromptBuilder } from "./builder/skill-prompt-builder.service";
 
 // Ecosystem
-import { SkillsMPClientService } from "./skills/ecosystem/skillsmp-client.service";
+import { SkillsMPClientService } from "./ecosystem/skillsmp-client.service";
 
 // 2026-05-01 (PR-X-K): EngineSkillProvider 适配到 harness ISkillProvider 端口，
 // 让用户在 Admin UI / API 创建的 skill 自动透出到 harness agent 运行时
-import { EngineSkillProvider } from "./skills/runtime/engine-skill-provider";
+import { EngineSkillProvider } from "./runtime/engine-skill-provider";
 
 // PR-X16: SkillsController + SkillsApiService 已迁移至 open-api/skills-api/
 // （HTTP Controller 上提，由 open-api 装配）

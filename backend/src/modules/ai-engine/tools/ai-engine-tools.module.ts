@@ -10,32 +10,32 @@
 
 import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
-import { PrismaModule } from "../../common/prisma/prisma.module";
-import { ExportModule } from "../../common/export/export.module";
-import { BrowserModule } from "../../common/browser/browser.module";
-import { SecretsModule } from "../ai-infra/secrets/secrets.module";
+import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { ExportModule } from "../../../common/export/export.module";
+import { BrowserModule } from "../../../common/browser/browser.module";
+import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 
 // Registry
-import { ToolRegistry } from "./tools/registry/tool-registry";
+import { ToolRegistry } from "./registry/tool-registry";
 
 // Middleware
-import { ToolPipeline, ToolExecutor } from "./tools/middleware/tool-pipeline";
-import { ValidationMiddleware } from "./tools/middleware/validation.middleware";
-import { TimeoutMiddleware } from "./tools/middleware/timeout.middleware";
+import { ToolPipeline, ToolExecutor } from "./middleware/tool-pipeline";
+import { ValidationMiddleware } from "./middleware/validation.middleware";
+import { TimeoutMiddleware } from "./middleware/timeout.middleware";
 
 // Policy Data Service
-import { PolicyDataService } from "./tools/categories/information/policy";
+import { PolicyDataService } from "./categories/information/policy";
 // ★ Phase 3: 工具并发 + 中间件
-import { ToolConcurrencyService } from "./tools/concurrency/tool-concurrency.service";
-import { PermissionMiddleware } from "./tools/middleware/permission.middleware";
-import { ProgressMiddleware } from "./tools/middleware/progress.middleware";
+import { ToolConcurrencyService } from "./concurrency/tool-concurrency.service";
+import { PermissionMiddleware } from "./middleware/permission.middleware";
+import { ProgressMiddleware } from "./middleware/progress.middleware";
 
 // All Tools
 import {
   ALL_TOOL_PROVIDERS,
   allToolsProvider,
   ALL_TOOLS_TOKEN,
-} from "./tools/tools.provider";
+} from "./tools.provider";
 
 /**
  * 工具管道工厂

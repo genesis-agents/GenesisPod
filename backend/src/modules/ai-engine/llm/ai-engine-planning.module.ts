@@ -12,9 +12,9 @@
 import { Module, forwardRef } from "@nestjs/common";
 
 // Registries (from other modules)
-import { AiEngineToolsModule } from "./ai-engine-tools.module";
-import { AiEngineSkillsModule } from "./ai-engine-skills.module";
-import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
+import { AiEngineToolsModule } from "../tools/ai-engine-tools.module";
+import { AiEngineSkillsModule } from "../skills/ai-engine-skills.module";
+import { AiEngineConstraintModule } from "../safety/ai-engine-constraint.module";
 
 // Executors —— 2026-04-30 (C2-step2) 删除 4 个死代码 (BaseExecutor / DAGExecutor /
 // SequentialExecutor / ParallelExecutor)；DAG 业务实际用 ai-harness/execution/dag/
@@ -27,19 +27,19 @@ import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码链路 (TaskBreakdown 0 注入)
 // AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
 // OutputReviewerService 已搬到 ai-harness/runtime/quality/ (2026-04-30)
-import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
-import { TokenBudgetService } from "./llm/budget/token-budget.service";
-import { ContextEvolutionService } from "./knowledge/extraction/context-evolution.service";
-import { ContextInitializationService } from "./knowledge/world-building/context-initialization.service";
+import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
+import { TokenBudgetService } from "./budget/token-budget.service";
+import { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
+import { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // PR-X18: ConstraintEnforcementService 通过 CONSTRAINT_ENFORCEMENT_PORT token 注入
-import { ContextCompressionService } from "./llm/context/context-compression.service";
-import { IntentDetectionService } from "./llm/intent/intent-detection.service";
-import { ReflectionService } from "./llm/reflection/reflection.service";
+import { ContextCompressionService } from "./context/context-compression.service";
+import { IntentDetectionService } from "./intent/intent-detection.service";
+import { ReflectionService } from "./reflection/reflection.service";
 // IntentRouterService / TaskPlannerService 已删 (2026-04-30) — 死代码，前端 0 消费
 // ★ Phase 1-4: 基础设施升级新增服务
-import { ContextCompactionPipelineService } from "./llm/context/context-compaction-pipeline.service";
+import { ContextCompactionPipelineService } from "./context/context-compaction-pipeline.service";
 // AdaptiveReplannerService 已搬到 ai-harness/runtime/teams/orchestrator/ (2026-04-30)
-import { CrossCuttingSynthesisService } from "./knowledge/synthesis/cross-cutting-synthesis.service";
+import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
 // ★ Phase 9 → 已搬到 ai-harness/memory/dream/（C2-step1，2026-04-30）
 //   AutoDreamService / AutoDreamSchedulerService 不再由 engine 注册
@@ -50,7 +50,7 @@ import { CrossCuttingSynthesisService } from "./knowledge/synthesis/cross-cuttin
 
 // Agents — PR-X18: 通过 AGENT_REGISTRY_PORT / AGENT_ORCHESTRATOR_PORT /
 // AGENT_CONFIG_SERVICE_PORT token 注入；AgentsService 不再 re-export
-import { AgentsService } from "../open-api/agents-api";
+import { AgentsService } from "../../open-api/agents-api";
 
 // 2026-04-30 (C2-step2): 删除 sequentialExecutorFactory / dagExecutorFactory /
 // parallelExecutorFactory —— 这 3 个 factory 包装的 executor 已删（0 业务调用），

@@ -12,19 +12,19 @@
 
 import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
-import { PrismaModule } from "../../common/prisma/prisma.module";
-import { SecretsModule } from "../ai-infra/secrets/secrets.module";
-import { UserApiKeysModule } from "../ai-infra/credentials/user-api-keys/user-api-keys.module";
-import { AiEngineLLMModule } from "./ai-engine-llm.module";
+import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
+import { AiEngineLLMModule } from "../llm/ai-engine-llm.module";
 
 // RAG
-import { EmbeddingService } from "./knowledge/rag/embedding";
-import { VectorService } from "./knowledge/rag/vector";
-import { DocumentChunker } from "./knowledge/rag/chunking";
-import { RAGPipelineService } from "./knowledge/rag/pipeline";
+import { EmbeddingService } from "./rag/embedding";
+import { VectorService } from "./rag/vector";
+import { DocumentChunker } from "./rag/chunking";
+import { RAGPipelineService } from "./rag/pipeline";
 
 // Search
-import { SearchService } from "./knowledge/search/search.service";
+import { SearchService } from "./search/search.service";
 
 @Module({
   imports: [

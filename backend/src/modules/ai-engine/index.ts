@@ -129,13 +129,13 @@ export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeli
 // NestJS 模块导出
 export { AiEngineModule } from "./ai-engine.module";
 // AiEngineLightModule removed (PR-X24): zero external consumers.
-export { AiEngineLLMModule } from "./ai-engine-llm.module";
-export { AiEngineToolsModule } from "./ai-engine-tools.module";
-export { AiEngineSkillsModule } from "./ai-engine-skills.module";
-export { AiEnginePlanningModule } from "./ai-engine-planning.module";
+export { AiEngineLLMModule } from "./llm/ai-engine-llm.module";
+export { AiEngineToolsModule } from "./tools/ai-engine-tools.module";
+export { AiEngineSkillsModule } from "./skills/ai-engine-skills.module";
+export { AiEnginePlanningModule } from "./llm/ai-engine-planning.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— 见 RuntimeMemoryModule
 // (ai-harness/memory/working/memory.module.ts)
-export { AiEngineConstraintModule } from "./ai-engine-constraint.module";
+export { AiEngineConstraintModule } from "./safety/ai-engine-constraint.module";
 
 // TeamsModule（PR-X4: 已迁移，从 ai-harness/runtime/teams 导入）
 
