@@ -12,5 +12,6 @@ export * from "./pipeline/report-formatting.utils";
 export * from "./pipeline/formatting-pipeline";
 // ★ 2026-04-30 (REPORT QUALITY OVERHAUL): 沉淀 TI 第三道铁墙 + full-report
 //   后处理管线，让 playground / 任意 ai-app 都能复用同一份。
-export * from "./pipeline/sanitize-output.utils";
+//   2026-05-01 (PR-X-R): sanitize-output 真身在 ../../llm/output-parsing/，
+//   本 barrel 不再重复 re-export（消费方应直接走 ai-engine/facade）。
 export * from "./pipeline/post-process-final-report";

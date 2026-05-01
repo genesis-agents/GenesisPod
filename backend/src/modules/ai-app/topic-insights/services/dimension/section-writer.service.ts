@@ -59,7 +59,7 @@ import {
   convertLongListItemsToParagraphs,
   normalizeBoldStyle,
   convertOrdinalBulletsToParagraphs,
-} from "../../utils/sanitize-output.utils";
+} from "@/modules/ai-engine/facade";
 import type {
   EvidenceData,
   GeneratedChart,

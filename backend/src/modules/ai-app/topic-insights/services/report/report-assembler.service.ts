@@ -65,7 +65,7 @@ import {
   repairBrokenBoldPairs,
   normalizeBoldStyle,
   convertOrdinalBulletsToParagraphs,
-} from "../../utils/sanitize-output.utils";
+} from "@/modules/ai-engine/facade";
 import {
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,

@@ -733,6 +733,18 @@ export type {
   SkillConfig,
 } from "../../ai-engine/skills/abstractions/skill.interface";
 
+// 2026-05-01 (PR-X-R): Harness Kernel SKILL.md-style 端口，供 ai-engine 适配器
+// 实现 ISkillProvider 把 DB-backed PromptSkill 透给 SkillActivator。
+// 与上面的 ISkill (engine CRUD-style) 区分：kernel 这个是 frontmatter+instructions。
+export type {
+  ISkill as IKernelSkill,
+  ISkillFrontmatter,
+  ISkillProvider,
+  ISkillLoader,
+  ISkillActivationContext,
+} from "../kernel/abstractions/skill.interface";
+export { SKILL_PROVIDERS } from "../kernel/abstractions/skill.interface";
+
 // Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
 export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 export { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";

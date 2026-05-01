@@ -32,9 +32,9 @@ ai-harness/
 ├── kernel/                    ★ Agent kernel —— "agent 是什么、怎么造"
 │   ├── abstractions/          IAgent / IAgentEvent / IAgentSpec / IContextEnvelope ...
 │   ├── core/                  AgentFactory / SpecAgentRegistry / HarnessedAgent / HookRegistry
-│   ├── dx/                    DefineAgent / AgentSpec / AgentRunner / FixtureStore / Inspector
+│   ├── dev-tools/             DefineAgent / AgentSpec / AgentRunner / FixtureStore / Inspector
 │   ├── domain/                DomainConceptRegistry / DomainAdapterRegistry
-│   ├── skills/                SkillRegistry / Loader / Activator
+│   ├── builtin-skills/        BuiltInReActSkillRegistry / SkillActivator / SkillResolver
 │   └── learning/              SkillLearner / SkillLearningCoordinator
 │
 ├── execution/                 ★ Agent execution —— "agent 怎么跑一次"
@@ -65,8 +65,7 @@ ai-harness/
 │
 ├── runtime/                   ★ Mission runtime —— "整个 mission 怎么活"
 │   ├── mission/               MissionOrchestrator / MissionBudgetPool / AgentExecutionContext
-│   ├── budget/                BudgetAccountant / ModelPricingRegistry
-│   ├── billing/               BillingRuntimeEnvAdapter
+│   ├── cost/                  BudgetAccountant / ModelPricingRegistry / BillingRuntimeEnvAdapter
 │   ├── tracer/                OtelTracer / SpanExporter / OtelSemanticConventions
 │   ├── env/                   NoopRuntimeEnvironment / ReactRunner / ToolRegistry / Stores /
 │   │                          DynamicReplanner / ProtocolRegistry / TaskQueue / Types

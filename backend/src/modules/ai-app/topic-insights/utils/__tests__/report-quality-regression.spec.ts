@@ -27,7 +27,7 @@ import { ReportQualityGateService } from "../../services/quality/report-quality-
 import {
   normalizeBoldStyle,
   convertOrdinalBulletsToParagraphs,
-} from "../sanitize-output.utils";
+} from "@/modules/ai-engine/facade";
 
 // ============================================================
 // 2. Markdown 残留问题防护

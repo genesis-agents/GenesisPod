@@ -49,6 +49,7 @@ import {
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import { ToolPipeline } from "../../../../ai-engine/tools/middleware/tool-pipeline";
 import { SkillRegistry } from "../../../../ai-engine/skills/registry/skill-registry";
 import {
   SkillContext,
@@ -57,7 +58,7 @@ import {
 import { LLMFactory } from "../../../../ai-engine/llm/factory/llm-factory";
 import { LLMToolDefinition } from "../../../../ai-engine/llm/abstractions/llm-adapter.interface";
 import { MCPManager } from "../../../protocol/mcp/manager/mcp-manager";
-import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "../../../memory/stores/short-term-memory.service";
 import {
   HandoffCoordinator,
   HandoffContextBuilder,
@@ -70,7 +71,7 @@ import {
 } from "../../../../ai-engine/llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
+import { TraceCollectorService } from "../../../governance/observability/trace-collector.service";
 import { CheckpointManager } from "../../../protocol/journal/checkpoint-manager";
 import { MessageBusService as A2AMessageBusService } from "../../../protocol/ipc/message-bus.service";
 import {
@@ -164,6 +165,9 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
   // ★ Phase 9 (2026-04-30): 运行时状态外置 —— Redis 持久化，跨 pod 接管
   private readonly runtimeStore?: MissionRuntimeStateStore;
 
+  // 2026-05-01 (PR-X-R): ToolPipeline 注入到支持 setToolPipeline() 的 skill
+  private readonly toolPipeline?: ToolPipeline;
+
   constructor(
     private readonly constraintEngine: ConstraintEngine,
     private readonly configService: ConfigService,
@@ -184,7 +188,10 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
     @Optional() hierarchicalMemory?: HierarchicalMemoryCascadeService,
     @Optional() lifecycleProtocol?: AgentLifecycleProtocolService,
     @Optional() runtimeStore?: MissionRuntimeStateStore,
+    @Optional() toolPipeline?: ToolPipeline,
   ) {
+    // 2026-05-01 (PR-X-R): 注入 ToolPipeline 到支持 setToolPipeline() 的 skill
+    this.toolPipeline = toolPipeline;
     // ★ 运行时状态外置（可选 — 不存在时退化为单实例内存）
     this.runtimeStore = runtimeStore;
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
@@ -1517,9 +1524,12 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               `[executeStepFull] No LLM adapter available for skill ${skillId}`,
             );
           }
-          // TODO(PR1-wiring): inject ToolPipeline once available in this scope
-          //   "setToolPipeline" in skill → skill.setToolPipeline(this.toolPipeline)
-          //   Blocked on TeamsMissionOrchestrator not yet carrying a ToolPipeline field.
+          // 2026-05-01 (PR-X-R): inject ToolPipeline if skill supports it
+          if (this.toolPipeline && "setToolPipeline" in skill) {
+            (
+              skill as { setToolPipeline: (p: ToolPipeline) => void }
+            ).setToolPipeline(this.toolPipeline);
+          }
 
           try {
             // ★ 优先使用 missionInput.metadata.sessionId（Slides 等应用传入的实际会话 ID）

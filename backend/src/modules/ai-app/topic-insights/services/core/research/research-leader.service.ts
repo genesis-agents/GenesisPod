@@ -18,7 +18,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
-import { sanitizeSectionOutput } from "../../../utils/sanitize-output.utils";
+import { sanitizeSectionOutput } from "@/modules/ai-engine/facade";
 import { LeaderActionResult } from "../../data/leader-tool.service";
 import { LeaderPlanningService } from "../leader/leader-planning.service";
 import { LeaderIntentService } from "../leader/leader-intent.service";

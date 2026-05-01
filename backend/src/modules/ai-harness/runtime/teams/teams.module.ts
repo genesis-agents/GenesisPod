@@ -30,6 +30,7 @@ import { MessageBusService as A2AMessageBusService } from "../../protocol/ipc/me
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import { ToolPipeline } from "../../../ai-engine/tools/middleware/tool-pipeline";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
 import { LLMFactory } from "../../../ai-engine/llm/factory/llm-factory";
 import { CostController } from "../../governance/resource/cost-controller";
@@ -112,6 +113,7 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
         missionExecutor?: MissionExecutorService,
         kernelJournal?: EventJournalService,
         runtimeStore?: MissionRuntimeStateStore,
+        toolPipeline?: ToolPipeline,
       ) => {
         return new MissionOrchestrator(
           constraintEngine,
@@ -133,6 +135,7 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
           undefined, // hierarchicalMemory (Phase 6, 当前未注入)
           undefined, // lifecycleProtocol (Phase 8, 当前未注入)
           runtimeStore, // ★ Phase 9: 跨 pod 状态外置
+          toolPipeline, // ★ 2026-05-01 (PR-X-R): skill 工具调用管线
         );
       },
       inject: [
@@ -151,6 +154,7 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
         { token: MissionExecutorService, optional: true },
         { token: EventJournalService, optional: true },
         { token: MissionRuntimeStateStore, optional: true },
+        { token: ToolPipeline, optional: true },
       ],
     },
     // TeamsService 依赖所有上层服务

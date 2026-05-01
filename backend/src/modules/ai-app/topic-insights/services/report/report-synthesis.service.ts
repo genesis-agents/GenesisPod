@@ -26,7 +26,7 @@ import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
 import {
   sanitizeSectionOutput,
   removeOrphanCitations,
-} from "../../utils/sanitize-output.utils";
+} from "@/modules/ai-engine/facade";
 import {
   getMinDataPoints,
   filterJunkReferences,

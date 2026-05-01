@@ -68,8 +68,7 @@ function extractImportTargets(filePath: string): string[] {
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "");
   // 抓 from "..." / from '...' / import("...") / require("...")
-  const re =
-    /(?:from\s+|import\s*\(\s*|require\s*\(\s*)["']([^"']+)["']/g;
+  const re = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)["']([^"']+)["']/g;
   const targets: string[] = [];
   let m;
   while ((m = re.exec(stripped)) !== null) {
@@ -101,10 +100,7 @@ function importLayer(spec: string): string | null {
 }
 
 /** 该 import 是否穿透了某层的内部路径（非 facade / 非 NestJS module 装配）。返回违规的内部子路径或 null */
-function detectInternalPenetration(
-  spec: string,
-  layer: string,
-): string | null {
+function detectInternalPenetration(spec: string, layer: string): string | null {
   const norm = spec.replace(/^(?:\.\.?\/)+/, "/").replace(/^@\//, "/");
   const re = new RegExp(`/modules/${layer}/([^"']+)`);
   const mm = norm.match(re) ?? spec.match(re);
@@ -133,9 +129,11 @@ const ALL_FILES = listTsFiles(SRC_ROOT);
 describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
   describe("Single-direction dependency", () => {
     it("ai-engine 不得 import ai-harness（除合法 adapter）", () => {
+      // K commit 的 engine-skill-provider 实现 harness ISkillProvider 端口
+      // 是 Dependency Inversion 模式的合法反向 import（即便走 facade，仍属
+      // ai-harness 层）。允许此一 adapter，禁止其他 ai-engine → ai-harness 路径。
       const violations: string[] = [];
       const allowlist = [
-        // K commit: engine implements harness ISkillProvider port
         "modules/ai-engine/skills/runtime/engine-skill-provider.ts",
       ];
       for (const file of ALL_FILES) {

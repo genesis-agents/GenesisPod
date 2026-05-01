@@ -9,6 +9,7 @@ import { Logger, Provider } from "@nestjs/common";
 import { ShortTermMemoryService } from "../../ai-harness/memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "../../ai-harness/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
+import { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
 import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
@@ -125,6 +126,8 @@ export interface SkillFeature {
   promptBuilder: SkillPromptBuilder;
   llmAdapter?: AiChatLLMAdapter;
   inputBindingResolver?: InputBindingResolver;
+  /** 2026-05-01 (PR-X-R): 注入到实现 setToolPipeline() 的 skill 实例 */
+  toolPipeline?: ToolPipeline;
   /** Fire-and-forget log skill usage for analytics dashboard */
   logUsage?: (params: SkillUsageLogParams) => void;
 }
@@ -339,6 +342,7 @@ export const skillFeatureProvider: Provider = {
     inputBindingResolver?: InputBindingResolver,
     prisma?: PrismaService,
     skillContentService?: SkillContentService,
+    toolPipeline?: ToolPipeline,
   ): SkillFeature | undefined => {
     if (!loader || !promptBuilder) return undefined;
 
@@ -387,6 +391,7 @@ export const skillFeatureProvider: Provider = {
       promptBuilder,
       llmAdapter,
       inputBindingResolver,
+      toolPipeline,
       logUsage,
     };
   },
@@ -397,6 +402,7 @@ export const skillFeatureProvider: Provider = {
     { token: InputBindingResolver, optional: true },
     { token: PrismaService, optional: true },
     { token: SkillContentService, optional: true },
+    { token: ToolPipeline, optional: true },
   ],
 };
 

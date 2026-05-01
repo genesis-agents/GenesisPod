@@ -378,6 +378,12 @@ module.exports = {
         "**/modules/ai-engine/**/*.spec.ts",
         "**/modules/ai-engine/**/*.test.ts",
         "**/modules/ai-engine/**/__tests__/**/*.ts",
+        // 2026-05-01 (PR-X-R): K commit 的 ai-engine → ai-harness 适配器
+        // 实现 harness ISkillProvider 端口（Dependency Inversion 模式）。
+        // 这是合法的反向 import：ai-engine 主动 expose 用户自定义 skill 给 harness，
+        // 不依赖任何 harness 实现，仅依赖 harness 抽象类型（IKernelSkill / ISkillProvider）。
+        // jest layer-boundaries.spec.ts 同步 allowlist。
+        "**/modules/ai-engine/skills/runtime/engine-skill-provider.ts",
       ],
       rules: {
         "no-restricted-imports": [

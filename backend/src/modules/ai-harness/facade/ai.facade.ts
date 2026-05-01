@@ -27,6 +27,7 @@ import type {
 } from "../runtime/teams/abstractions/a2a-message.interface";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../../ai-engine/tools/abstractions/tool.interface";
+import type { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
 import {
   TeamsService,
   MissionStatus,
@@ -1639,9 +1640,16 @@ export class AIFacade {
         );
       }
     }
-    // TODO(PR1-wiring): inject ToolPipeline once available in this scope
-    //   "setToolPipeline" in skill → skill.setToolPipeline(this.skills.toolPipeline)
-    //   Blocked on SkillFeature not yet carrying a toolPipeline field.
+    // 2026-05-01 (PR-X-R): inject ToolPipeline if skill supports it
+    const hasSetToolPipeline =
+      "setToolPipeline" in skill &&
+      typeof (skill as { setToolPipeline: unknown }).setToolPipeline ===
+        "function";
+    if (hasSetToolPipeline && this.skills?.toolPipeline) {
+      (
+        skill as { setToolPipeline: (p: ToolPipeline) => void }
+      ).setToolPipeline(this.skills.toolPipeline);
+    }
     return skill.execute(input, context);
   }
 

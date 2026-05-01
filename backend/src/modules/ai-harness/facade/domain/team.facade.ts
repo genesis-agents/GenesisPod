@@ -47,6 +47,7 @@ import type {
 } from "../../../ai-engine/skills/abstractions/skill.interface";
 import type { BindingContext } from "../../../ai-engine/skills/runtime/input-binding-resolver";
 import type { PromptSkillAdapter } from "../../../ai-engine/skills/runtime/prompt-skill-adapter";
+import type { ToolPipeline } from "../../../ai-engine/tools/middleware/tool-pipeline";
 import { AiChatLLMAdapter } from "../../../ai-engine/llm/adapters/ai-chat-llm-adapter";
 import type {
   A2AMessageType,
@@ -150,9 +151,16 @@ export class TeamFacade {
         );
       }
     }
-    // TODO(PR1-wiring): inject ToolPipeline once available in this scope
-    //   "setToolPipeline" in skill → skill.setToolPipeline(this.skills.toolPipeline)
-    //   Blocked on SkillFeature not yet carrying a toolPipeline field.
+    // 2026-05-01 (PR-X-R): inject ToolPipeline if skill supports it
+    const hasSetToolPipeline =
+      "setToolPipeline" in skill &&
+      typeof (skill as { setToolPipeline: unknown }).setToolPipeline ===
+        "function";
+    if (hasSetToolPipeline && this.skills?.toolPipeline) {
+      (
+        skill as { setToolPipeline: (p: ToolPipeline) => void }
+      ).setToolPipeline(this.skills.toolPipeline);
+    }
     return skill.execute(input, context);
   }
 

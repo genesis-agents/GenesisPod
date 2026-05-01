@@ -64,6 +64,8 @@ interface IKernelTeamsService {
     tokensUsed: number;
     metadata?: Record<string, unknown>;
   }>;
+  /** 2026-05-01 (PR-X-R): 接通 A2A v0.3 tasks/cancel 方法 */
+  cancelMission(missionId: string): boolean;
 }
 
 interface IKernelTraceCollector {
@@ -305,16 +307,28 @@ export class A2ARpcService {
     return task;
   }
 
-  /** tasks/cancel — 取消任务（暂未实现底层 cancel，先 reject） */
+  /** tasks/cancel — 取消运行中任务 */
   async tasksCancel(params: TaskIdParams): Promise<Task> {
     if (!params?.id) {
       throw new Error("missing params.id");
     }
-    // TODO: TeamsService.cancelMission 接口尚未暴露 — 先 reject
-    const error = new Error("Task cancellation not yet supported");
-    (error as Error & { code?: number }).code =
-      A2A_ERROR_CODES.TASK_NOT_CANCELABLE;
-    throw error;
+    let ok = false;
+    try {
+      ok = this.teamsService.cancelMission(params.id);
+    } catch {
+      // 底层 throw NotFoundException 视作 not-cancelable（已完成 / 不存在）
+      ok = false;
+    }
+    if (!ok) {
+      const error = new Error(
+        `Task '${params.id}' not found or not cancelable (already completed/failed)`,
+      );
+      (error as Error & { code?: number }).code =
+        A2A_ERROR_CODES.TASK_NOT_CANCELABLE;
+      throw error;
+    }
+    const contextId = this.contextByTask.get(params.id) ?? params.id;
+    return this.buildTask(params.id, contextId, TaskStateEnum.CANCELED);
   }
 
   // ─── 辅助 ─────────────────────────────────────────────────────────

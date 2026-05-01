@@ -34,6 +34,7 @@ describe("A2ARpcService (A2A v0.3 spec)", () => {
     executeMission: jest.Mock;
     getMissionStatus: jest.Mock;
     getMissionResult: jest.Mock;
+    cancelMission: jest.Mock;
   };
   let mockRegistry: {
     getSkillById: jest.Mock;
@@ -58,6 +59,7 @@ describe("A2ARpcService (A2A v0.3 spec)", () => {
         duration: 123,
         tokensUsed: 456,
       }),
+      cancelMission: jest.fn().mockReturnValue(true),
     };
     mockRegistry = {
       getSkillById: jest.fn((id: string) =>
@@ -314,7 +316,24 @@ describe("A2ARpcService (A2A v0.3 spec)", () => {
   });
 
   describe("tasks/cancel", () => {
-    it("returns TASK_NOT_CANCELABLE for now", async () => {
+    it("returns CANCELED Task when cancellation succeeds", async () => {
+      const res = await service.handle({
+        jsonrpc: "2.0",
+        id: 1,
+        method: A2A_METHODS.TASKS_CANCEL,
+        params: { id: "mission-123" },
+      });
+      expect(isError(res)).toBe(false);
+      if (!isError(res)) {
+        const task = res.result as { kind: string; status: { state: string } };
+        expect(task.kind).toBe("task");
+        expect(task.status.state).toBe(TaskState.CANCELED);
+      }
+      expect(mockTeamsService.cancelMission).toHaveBeenCalledWith("mission-123");
+    });
+
+    it("returns TASK_NOT_CANCELABLE when mission already finished or missing", async () => {
+      mockTeamsService.cancelMission.mockReturnValue(false);
       const res = await service.handle({
         jsonrpc: "2.0",
         id: 1,

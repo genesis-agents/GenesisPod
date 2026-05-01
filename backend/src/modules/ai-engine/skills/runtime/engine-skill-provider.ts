@@ -21,9 +21,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { SkillRegistry } from "../registry/skill-registry";
 import type {
-  ISkill as IHarnessSkill,
+  IKernelSkill as IHarnessSkill,
   ISkillProvider,
-} from "@/modules/ai-harness/kernel/abstractions";
+} from "@/modules/ai-harness/facade";
 import { PromptSkillAdapter } from "./prompt-skill-adapter";
 
 @Injectable()

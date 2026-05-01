@@ -23,7 +23,7 @@ import {
   ToolCategory,
 } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 
-import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
+import { ShortTermMemoryService } from "../stores/short-term-memory.service";
 
 // ============================================================================
 // Types

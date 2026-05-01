@@ -25,7 +25,7 @@ import {
   ToolCategory,
 } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 
-import { LongTermMemoryService } from "@/modules/ai-harness/memory/stores";
+import { LongTermMemoryService } from "../stores";
 
 // ============================================================================
 // Types
