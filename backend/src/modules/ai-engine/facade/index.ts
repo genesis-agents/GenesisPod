@@ -137,7 +137,7 @@ export type {
   AgentConfig,
 } from "../core/types/agent.types";
 export { BUILTIN_AGENTS } from "../core/types/agent.types";
-export type { ExecutionMode } from "../core/types/context.types";
+export type { ExecutionMode } from "../core/types/agent.types";
 // TaskPlan / IntentRouter / TaskPlanner 已删 (2026-04-30) — 死代码
 export type {
   ToolContext,

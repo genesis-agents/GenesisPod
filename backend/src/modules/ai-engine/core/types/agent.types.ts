@@ -124,6 +124,15 @@ export type AgentTaskStatus =
 // ==================== 产出物类型 ====================
 
 /**
+ * 执行模式（plan-based / reactive / hybrid）
+ *
+ * 2026-05-01 (PR-X-T): 从 core/types/context.types.ts 上提到这里。
+ * context.types.ts 整文件作废（同名 SkillContext 与 skills/abstractions/skill.interface.ts
+ * 冲突；其他类型 0 production consumer）。
+ */
+export type ExecutionMode = "plan-based" | "reactive" | "hybrid";
+
+/**
  * 产出物类型
  */
 export type ArtifactType =

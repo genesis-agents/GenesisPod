@@ -109,19 +109,6 @@ export class AiChatRetryService {
   }
 
   /**
-   * 验证 AI 服务可用性
-   */
-  async validateAIServiceAvailability(model?: string): Promise<void> {
-    // TODO: 实现服务可用性检查逻辑
-    // 例如：检查 API Key 是否配置，检查网络连接等
-    const modelInfo = model ? ` for model ${model}` : "";
-    this.logger.debug(`[validateAIServiceAvailability] Checking${modelInfo}`);
-
-    // 如果服务不可用，抛出异常
-    // throw new AiServiceUnavailableError(`AI service is unavailable${modelInfo}`);
-  }
-
-  /**
    * 构建错误响应（用于非严格模式）
    */
   buildErrorResponse(

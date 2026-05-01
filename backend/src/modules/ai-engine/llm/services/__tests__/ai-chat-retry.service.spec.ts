@@ -172,19 +172,8 @@ describe("AiChatRetryService", () => {
     });
   });
 
-  describe("validateAIServiceAvailability", () => {
-    it("should validate service availability without error", async () => {
-      await expect(
-        service.validateAIServiceAvailability(),
-      ).resolves.not.toThrow();
-    });
-
-    it("should validate specific model availability", async () => {
-      await expect(
-        service.validateAIServiceAvailability("gpt-4"),
-      ).resolves.not.toThrow();
-    });
-  });
+  // 2026-05-01 (PR-X-T): validateAIServiceAvailability 删除 — 该方法在 retry
+  // service 是空 TODO stub，真实现在 ai-chat.service.ts 上；0 caller 调用 retry 的版本。
 
   describe("buildErrorResponse", () => {
     it("should build error response for rate limit", () => {

@@ -6,8 +6,16 @@
 // 基础类型
 export * from "./common.types";
 
-// 上下文类型
-export * from "./context.types";
+// 2026-05-01 (PR-X-T): context.types.ts 已删
+//   - SkillContext 与 skills/abstractions/skill.interface.ts 重定义冲突
+//   - BaseContext / ToolContext / AgentContext / OrchestrationContext / ContextFactory
+//     等 0 production consumer（ToolContext 真身在 tools/abstractions/tool.interface.ts）
+//   - ExecutionMode 已上提到 agent.types.ts
+//
+// 2026-05-01 (PR-H 遗留收尾): IExecutable / IContextBuilder 仍 export 但
+//   constraint 用到 BaseContext —— 这两个 interface 全仓 0 implements，
+//   保留 export 以防外部消费（含未来 plugin），用 unknown alias 让 type 通过。
+export type BaseContext = unknown;
 
 // Agent 类型 (用于 Agent 实现)
 export * from "./agent.types";
