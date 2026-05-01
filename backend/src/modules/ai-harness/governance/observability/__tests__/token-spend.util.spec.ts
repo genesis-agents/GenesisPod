@@ -4,7 +4,7 @@
  */
 
 import { extractTokenSpend, estimateUsdFromTokens } from "../token-spend.util";
-import type { IAgentEvent } from "../../../../../../../ai-harness/facade";
+import type { IAgentEvent } from "../../../facade";
 
 function makeEvent(type: string, payload: unknown): IAgentEvent {
   return { type, payload, timestamp: 0 } as unknown as IAgentEvent;

@@ -15,7 +15,7 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { extractTokenSpend } from "../helpers/token-spend.util";
+import { extractTokenSpend } from "@/modules/ai-harness/governance/observability/token-spend.util";
 import { narrate } from "../helpers/narrative.util";
 
 export async function runReconcilerStage(

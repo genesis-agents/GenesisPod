@@ -2,7 +2,7 @@
  * Token / cost 抽取与估算 —— 纯函数。
  */
 
-import type { IAgentEvent } from "../../../../../../ai-harness/facade";
+import type { IAgentEvent } from "../../facade";
 
 /**
  * ★ P1-NEW-B (round 2): 容忍字符串数字 —— LLM provider 经 JSON 反序列化后

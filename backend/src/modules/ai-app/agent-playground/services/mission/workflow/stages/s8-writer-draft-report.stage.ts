@@ -38,10 +38,10 @@ import type {
   IContextEnvelope,
 } from "../../../../../../ai-harness/facade";
 import type { ResearchReport } from "../../../../dto/run-mission.dto";
-import { extractTokenSpend } from "../helpers/token-spend.util";
-import { extractFailureMessage } from "../helpers/failure-extraction.util";
+import { extractTokenSpend } from "@/modules/ai-harness/governance/observability/token-spend.util";
+import { extractFailureMessage } from "@/modules/ai-harness/governance/observability/failure-extraction.util";
 import { narrate } from "../helpers/narrative.util";
-import { clampScore, scaleScore } from "../helpers/quality-score.util";
+import { clampScore, scaleScore } from "@/modules/ai-harness/governance/critique/quality-score.util";
 
 const MAX_WRITER_ATTEMPTS = 2;
 

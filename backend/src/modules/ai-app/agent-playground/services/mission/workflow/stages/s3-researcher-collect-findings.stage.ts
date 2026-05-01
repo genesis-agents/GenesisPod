@@ -27,11 +27,11 @@
 import { ResearcherAgent } from "../../../../agents/researcher/researcher.agent";
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { extractTokenSpend } from "../helpers/token-spend.util";
+import { extractTokenSpend } from "@/modules/ai-harness/governance/observability/token-spend.util";
 import {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
-} from "../helpers/failure-extraction.util";
+} from "@/modules/ai-harness/governance/observability/failure-extraction.util";
 import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
 import { narrate } from "../helpers/narrative.util";
 

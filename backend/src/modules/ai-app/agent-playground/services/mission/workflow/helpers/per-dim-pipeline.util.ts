@@ -27,8 +27,8 @@ import { DimensionIntegratorAgent } from "../../../../agents/writer/dimension-in
 import type { MissionDeps } from "../mission-deps";
 import type { BillingRuntimeEnvAdapter } from "../../../../../../ai-harness/facade";
 import type { MissionBudgetPool } from "../../../../../../ai-harness/facade";
-import { extractTokenSpend } from "./token-spend.util";
-import { extractFailureMessage } from "./failure-extraction.util";
+import { extractTokenSpend } from "@/modules/ai-harness/governance/observability/token-spend.util";
+import { extractFailureMessage } from "@/modules/ai-harness/governance/observability/failure-extraction.util";
 import { narrate } from "./narrative.util";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
 import { restoreGlobalIndices } from "../../../../../../ai-engine/facade";

@@ -25,8 +25,8 @@
 import { ResearcherAgent } from "../../../../agents/researcher/researcher.agent";
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { extractTokenSpend } from "../helpers/token-spend.util";
-import { extractFailureMessage } from "../helpers/failure-extraction.util";
+import { extractTokenSpend } from "@/modules/ai-harness/governance/observability/token-spend.util";
+import { extractFailureMessage } from "@/modules/ai-harness/governance/observability/failure-extraction.util";
 import { narrate } from "../helpers/narrative.util";
 import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
 // ★ Phase 7 (2026-04-29): 用 ai-harness 沉淀的 DAGExecutor 替代 Promise.allSettled
