@@ -123,6 +123,7 @@ export type StewardOutput = z.infer<typeof Output>;
     creativity: "deterministic",
     outputLength: "short",
     taskKind: "sanity-check",
+    reasoningDepth: "minimal",
   },
   inputSchema: Input,
   outputSchema: Output,

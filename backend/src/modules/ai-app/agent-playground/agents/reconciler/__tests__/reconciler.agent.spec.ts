@@ -740,3 +740,12 @@ describe("ReconcilerAgent — buildSystemPrompt", () => {
     expect(result).toContain("Hard rules");
   });
 });
+
+// ── taskProfile — nothink Layer B ────────────────────────────────────
+
+describe("ReconcilerAgent — taskProfile", () => {
+  it("declares reasoningDepth minimal for fast mechanical check", () => {
+    const { taskProfile } = getMeta();
+    expect(taskProfile?.reasoningDepth).toBe("minimal");
+  });
+});

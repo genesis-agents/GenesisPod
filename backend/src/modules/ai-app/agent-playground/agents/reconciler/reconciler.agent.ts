@@ -162,6 +162,7 @@ const Output = z.object({
     creativity: "deterministic",
     outputLength: "medium",
     taskKind: "classify",
+    reasoningDepth: "minimal",
   },
   inputSchema: Input,
   outputSchema: Output,

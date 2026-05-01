@@ -129,6 +129,7 @@ export type VerifierOutput = z.infer<typeof Output>;
     creativity: "deterministic",
     outputLength: "medium",
     taskKind: "sanity-check",
+    reasoningDepth: "minimal",
   },
   inputSchema: Input,
   outputSchema: Output,

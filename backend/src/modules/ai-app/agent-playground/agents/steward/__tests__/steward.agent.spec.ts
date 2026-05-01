@@ -484,4 +484,14 @@ describe("StewardAgent", () => {
       expect(prompt.length).toBeGreaterThan(0);
     });
   });
+
+  // ─────────────────────────────────────────────
+  // taskProfile — nothink Layer B
+  // ─────────────────────────────────────────────
+
+  describe("taskProfile", () => {
+    it("declares reasoningDepth minimal for fast mechanical check", () => {
+      expect(meta.taskProfile?.reasoningDepth).toBe("minimal");
+    });
+  });
 });
