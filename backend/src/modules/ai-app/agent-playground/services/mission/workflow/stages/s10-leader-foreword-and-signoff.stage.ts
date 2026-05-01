@@ -26,6 +26,14 @@ import type { MissionDeps } from "../mission-deps";
 import { narrate } from "../helpers/narrative.util";
 import { lengthTargetFor } from "@/modules/ai-harness/facade";
 
+/**
+ * ★ 假完成防御：leader signoff 字数 hard floor。
+ * 即便 leader prompt 判定通过，也要看实际报告字数。
+ * 低于目标字数的 30% 强制 unsign，避免 mission 字数为 0 却标"已完成"。
+ * 数据路径：reportArtifact.metadata.wordCount（words） vs lengthTargetFor(input.lengthProfile)（words）
+ */
+const MIN_CONTENT_WORDS_RATIO = 0.3;
+
 export async function runLeaderForewordAndSignoffStage(
   ctx: MissionContext,
   deps: MissionDeps,
@@ -225,6 +233,34 @@ export async function runLeaderForewordAndSignoffStage(
             `Leader 自定 success criteria 不达 → signed=false`,
         );
       }
+
+      // ★ 假完成防御 post-validation：leader signoff 字数 hard floor
+      //   即便 leader prompt 判定通过，也要看实际报告字数。
+      //   低于目标字数的 MIN_CONTENT_WORDS_RATIO 强制 unsign。
+      //   数据路径：reportArtifact.metadata.wordCount（实际字数，单位 words）
+      //             lengthTargetFor(input.lengthProfile) （目标字数，单位 words）
+      if (leaderSignOff.signed === true) {
+        const actualWords = reportArtifact.metadata.wordCount ?? 0;
+        const targetWords = lengthTargetFor(input.lengthProfile);
+
+        if (
+          targetWords > 0 &&
+          actualWords < targetWords * MIN_CONTENT_WORDS_RATIO
+        ) {
+          deps.log.warn(
+            `[${ctx.missionId}] leader signoff overridden: actualWords=${actualWords} < ${MIN_CONTENT_WORDS_RATIO * 100}% of targetWords=${targetWords} → unsign`,
+          );
+          leaderSignOff.signed = false;
+          leaderSignOff.leaderVerdict = "failed";
+          leaderSignOff.accountabilityNote =
+            `${leaderSignOff.accountabilityNote ?? ""}\n\n` +
+            `[Insufficient-Content-Hard-Block] 报告实际字数 ${actualWords} 低于目标字数 ` +
+            `${targetWords} 的 ${MIN_CONTENT_WORDS_RATIO * 100}%（floor=${Math.ceil(targetWords * MIN_CONTENT_WORDS_RATIO)}）。` +
+            `强制拒签避免假完成（mission 字数 0 却标已完成）；` +
+            `用户可在前端选 重跑 / 修改 lengthProfile 后重启。`.trim();
+        }
+      }
+
       ctx.leaderSignOff = leaderSignOff;
       await deps
         .emit({

@@ -352,4 +352,97 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
       .calls[0][0];
     expect(forewordCall.qualitySnapshot.criticVerdict).toBe("concerns");
   });
+
+  describe("字数 hard floor post-validation (MIN_CONTENT_WORDS_RATIO=0.3)", () => {
+    it("signed=true + actualWords >= target×30% → signed stays true", async () => {
+      // standard profile = 8000 target; 2400 words = exactly 30% threshold
+      const ctx = makeCtx();
+      ctx.reportArtifact!.metadata = {
+        ...ctx.reportArtifact!.metadata,
+        wordCount: 2400,
+        lengthProfile: "standard",
+      } as (typeof ctx.reportArtifact)["metadata"];
+      const deps = makeDeps();
+      await runLeaderForewordAndSignoffStage(ctx, deps);
+      expect(ctx.leaderSignOff?.signed).toBe(true);
+    });
+
+    it("signed=true + actualWords < target×30% → override to signed=false, reason=Insufficient-Content-Hard-Block", async () => {
+      // standard profile = 8000 target; 100 words = far below 30% floor (2400)
+      const ctx = makeCtx();
+      ctx.reportArtifact!.metadata = {
+        ...ctx.reportArtifact!.metadata,
+        wordCount: 100,
+        lengthProfile: "standard",
+      } as (typeof ctx.reportArtifact)["metadata"];
+      const deps = makeDeps();
+      await runLeaderForewordAndSignoffStage(ctx, deps);
+      expect(ctx.leaderSignOff?.signed).toBe(false);
+      expect(ctx.leaderSignOff?.leaderVerdict).toBe("failed");
+      expect(ctx.leaderSignOff?.accountabilityNote).toContain(
+        "Insufficient-Content-Hard-Block",
+      );
+    });
+
+    it("signed=false → hard floor not applied (no double override)", async () => {
+      const ctx = makeCtx();
+      ctx.reportArtifact!.metadata = {
+        ...ctx.reportArtifact!.metadata,
+        wordCount: 0,
+        lengthProfile: "standard",
+      } as (typeof ctx.reportArtifact)["metadata"];
+      (ctx.leader.signOff as jest.Mock).mockResolvedValue({
+        signed: false,
+        leaderVerdict: "failed",
+        leaderOverallScore: 30,
+        accountabilityNote:
+          "Original refusal reason with sufficient length here.",
+        phase: "signoff",
+      });
+      const deps = makeDeps();
+      await runLeaderForewordAndSignoffStage(ctx, deps);
+      // signed was already false — accountabilityNote should NOT contain hard-block tag
+      expect(ctx.leaderSignOff?.accountabilityNote).not.toContain(
+        "Insufficient-Content-Hard-Block",
+      );
+    });
+
+    it("lengthProfile missing / target=0 → hard floor skipped (backward-compatible)", async () => {
+      const ctx = makeCtx();
+      ctx.reportArtifact!.metadata = {
+        ...ctx.reportArtifact!.metadata,
+        wordCount: 0,
+      } as (typeof ctx.reportArtifact)["metadata"];
+      // Override input to use a profile that maps to 0 is not possible via lengthTargetFor
+      // (it always returns ≥3000), so test that wordCount=0 with brief (3000) still triggers
+      // the floor. This verifies the actualWords=0 path works.
+      ctx.input = {
+        ...ctx.input,
+        lengthProfile: "brief",
+      } as typeof ctx.input;
+      const deps = makeDeps();
+      await runLeaderForewordAndSignoffStage(ctx, deps);
+      // 0 < 3000 * 0.3 = 900 → override fires
+      expect(ctx.leaderSignOff?.signed).toBe(false);
+      expect(ctx.leaderSignOff?.accountabilityNote).toContain(
+        "Insufficient-Content-Hard-Block",
+      );
+    });
+
+    it("chapters (sections) empty → wordCount=0 triggers override", async () => {
+      const ctx = makeCtx();
+      ctx.reportArtifact!.sections = [];
+      ctx.reportArtifact!.metadata = {
+        ...ctx.reportArtifact!.metadata,
+        wordCount: 0,
+        lengthProfile: "standard",
+      } as (typeof ctx.reportArtifact)["metadata"];
+      const deps = makeDeps();
+      await runLeaderForewordAndSignoffStage(ctx, deps);
+      expect(ctx.leaderSignOff?.signed).toBe(false);
+      expect(ctx.leaderSignOff?.accountabilityNote).toContain(
+        "Insufficient-Content-Hard-Block",
+      );
+    });
+  });
 });
