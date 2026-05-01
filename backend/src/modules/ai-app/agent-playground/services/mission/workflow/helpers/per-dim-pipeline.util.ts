@@ -29,6 +29,10 @@ import type { BillingRuntimeEnvAdapter } from "../../../../../../ai-harness/faca
 import type { MissionBudgetPool } from "../../../../../../ai-harness/facade";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
+import {
+  REVIEW_PASS_THRESHOLD,
+  CHAPTER_MAX_REVISION_ATTEMPTS,
+} from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
 import { restoreGlobalIndices } from "../../../../../../ai-engine/facade";
@@ -244,8 +248,11 @@ export async function runPerDimPipeline(
   //   chapter-writer 已升到 outputLength=extended (16K maxTokens)，再加 1 次 revise 机会
   //   让"prompt 强化扩写 + 模型有空间输出"组合发挥效果。
   //   预期：用户实测 25K 实际 5K (20%) → 期望提升到 ≥ 60%。
-  const MAX_REVISION_ATTEMPTS = 3;
-  const PASS_THRESHOLD = 75;
+  // ★ 2026-05-01 (PR-G iter8): 走 ai-harness 集中阈值常量，避免 3 处硬编码漂移。
+  //   mission 165c967f 70+min 死锁真因是 per-dim PASS=75 + reviewer 实测 66-68 →
+  //   永远 revise → 4 hours/mission。详见 quality-thresholds.constants.ts 注释。
+  const MAX_REVISION_ATTEMPTS = CHAPTER_MAX_REVISION_ATTEMPTS;
+  const PASS_THRESHOLD = REVIEW_PASS_THRESHOLD;
 
   for (const chapter of outline.chapters) {
     const chapterSources = chapter.sourceIndices

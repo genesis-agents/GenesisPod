@@ -40,10 +40,15 @@ import type {
 import type { ResearchReport } from "../../../../dto/run-mission.dto";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
+import {
+  REVIEW_PASS_THRESHOLD,
+  MISSION_WRITER_MAX_ATTEMPTS,
+} from "@/modules/ai-harness/facade";
 import { narrate } from "../helpers/narrative.util";
 import { clampScore, scaleScore } from "@/modules/ai-harness/facade";
 
-const MAX_WRITER_ATTEMPTS = 2;
+// ★ 2026-05-01 (PR-G iter8): 走 ai-harness 集中阈值（quality-thresholds.constants.ts）
+const MAX_WRITER_ATTEMPTS = MISSION_WRITER_MAX_ATTEMPTS;
 
 /** 给 memory indexer 用的 fallback proxy agent（writer 失败时用）。 */
 function makeProxyAgent(missionId: string, roleId: string): IAgent {
@@ -291,7 +296,9 @@ export async function runWriterStage(
       output: report,
       envelope: writerRes.agent.getEnvelope(),
       verifierIds: ["self", "external", "critical"],
-      passThreshold: 70,
+      // ★ 2026-05-01 (PR-G iter8): 走 ai-harness 集中阈值，与 reflexion +
+      //   per-dim-pipeline 同源（quality-thresholds.constants.ts）
+      passThreshold: REVIEW_PASS_THRESHOLD,
     });
     reviewScore = verdict.decision.score;
     verifierVerdicts = verdict.verdicts as unknown[];

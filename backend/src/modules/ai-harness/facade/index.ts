@@ -13,6 +13,7 @@
 export * from "../kernel/abstractions";
 export { AgentFactory } from "../kernel/core/agent-factory";
 export { SpecAgentRegistry } from "../kernel/core/spec-agent-registry";
+export { BuiltInReActSkillRegistry } from "../kernel/skills/skill-registry";
 export {
   AgentRunner,
   AgentSpec,
@@ -39,6 +40,13 @@ export type {
   ConcurrencyPlanOptions,
   ConcurrencyPlan,
 } from "../governance/resource/concurrency-planner.service";
+// ★ 2026-05-01 (PR-G iter8): 集中所有 review pass/attempt 阈值
+export {
+  REVIEW_PASS_THRESHOLD,
+  CHAPTER_MAX_REVISION_ATTEMPTS,
+  MISSION_WRITER_MAX_ATTEMPTS,
+  MAX_CONSECUTIVE_REVIEWER_FAILURES,
+} from "../governance/quality-thresholds.constants";
 export { ModelResolverService } from "./model-resolver.service";
 export {
   FACADE_FEATURE_PROVIDERS,
