@@ -129,6 +129,8 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       TABLE_STANDARDS,
       ``,
+      QUALITY_CHECKLIST,
+      ``,
       `## 章节结构（柔性，论点驱动而非固定模板）`,
       `1. **首段**：直接以独立判断开头（不必加 \`> **核心判断**：\` blockquote 模板；该模板每章重复就形成八股，禁止）`,
       input.targetWords >= 5000
