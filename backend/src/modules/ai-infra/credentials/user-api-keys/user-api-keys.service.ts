@@ -120,14 +120,27 @@ export class UserApiKeysService {
       : UserApiKeyMode.PERSONAL;
   }
 
+  /**
+   * SSRF protection: block private/internal IPs.
+   *
+   * For self-hosted local LLMs (e.g. vLLM/Ollama on the same host),
+   * set BYOK_ALLOWED_INTERNAL_HOSTS to a comma-separated allowlist
+   * of hostnames, e.g. "localhost,127.0.0.1,host.docker.internal".
+   */
   private validateEndpointUrl(url: string): void {
     try {
       const parsed = new URL(url);
       if (!["https:", "http:"].includes(parsed.protocol)) {
         throw new BadRequestException("Endpoint must use HTTP or HTTPS");
       }
-      // Block private/internal IPs (SSRF protection)
       const hostname = parsed.hostname;
+      const allowlist = (process.env.BYOK_ALLOWED_INTERNAL_HOSTS || "")
+        .split(",")
+        .map((h) => h.trim())
+        .filter(Boolean);
+      if (allowlist.includes(hostname)) {
+        return;
+      }
       if (this.isPrivateHost(hostname)) {
         throw new BadRequestException("Internal endpoints are not allowed");
       }
