@@ -13,11 +13,11 @@ import { ApiTags } from "@nestjs/swagger";
 import { KeyAssignmentStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { KeyAssignmentsService } from "../../ai-engine/credentials/key-assignments/key-assignments.service";
+import { KeyAssignmentsService } from "../../ai-infra/credentials/key-assignments/key-assignments.service";
 import {
   RevokeAssignmentDto,
   UpdateAssignmentDto,
-} from "../../ai-engine/credentials/distributable-keys/dto";
+} from "../../ai-infra/credentials/distributable-keys/dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

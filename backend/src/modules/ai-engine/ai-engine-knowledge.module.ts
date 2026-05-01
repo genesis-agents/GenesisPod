@@ -14,7 +14,7 @@ import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { SecretsModule } from "../ai-infra/secrets/secrets.module";
-import { UserApiKeysModule } from "../ai-engine/credentials/user-api-keys/user-api-keys.module";
+import { UserApiKeysModule } from "../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { AiEngineLLMModule } from "./ai-engine-llm.module";
 
 // RAG

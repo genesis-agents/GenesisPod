@@ -21,7 +21,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineToolsModule } from "../../../ai-engine/ai-engine-tools.module";
 import { AiEngineSkillsModule } from "../../../ai-engine/ai-engine-skills.module";
 import { AiEnginePlanningModule } from "../../../ai-engine/ai-engine-planning.module";
-import { KeyResolverModule } from "../../../ai-engine/credentials/key-resolver/key-resolver.module";
+import { KeyResolverModule } from "../../../ai-infra/credentials/key-resolver/key-resolver.module";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
 // CircuitBreakerService 已搬到 ai-engine/safety/resilience/（PR-X3）

@@ -21,7 +21,7 @@ import { AgentRegistry } from "../../kernel/registry/plan-based-agent-registry";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
 import { AiChatModelConfigService } from "../../../ai-engine/llm/services/ai-chat-model-config.service";
-import { KeyResolverService } from "../../../ai-engine/credentials/key-resolver/key-resolver.service";
+import { KeyResolverService } from "../../../ai-infra/credentials/key-resolver/key-resolver.service";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import {
   SPEC_AGENT_REGISTRY_PROBE,

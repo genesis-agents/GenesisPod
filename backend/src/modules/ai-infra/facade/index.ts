@@ -47,12 +47,25 @@ export { AIMetricsService } from "../monitoring/ai-metrics.service";
 export { ErrorTrackingService } from "../monitoring/error-tracking.service";
 export { HealthCheckService } from "../monitoring/health-check.service";
 
-// BYOK 相关服务（UserApiKeysService / UserModelConfigsService /
-// DistributableKeysService / KeyAssignmentsService / KeyRequestsService /
-// KeyResolverService 等）已迁移到 ai-engine/credentials/（PR-X9）。
-// 消费方应直接 import from "@/modules/ai-engine/credentials/..."。
-// ai-infra/facade 不再 re-export — ai-infra 是最底层 AI-agnostic 设施，
-// 不能反向依赖 ai-engine。
+// ─── BYOK / Credentials ─── (2026-05-01: 从 ai-engine/credentials 下沉到 ai-infra/credentials)
+// API key 凭证管理是基础设施（CRUD / 加解密 / BYOK 调度），不是 engine 核心能力。
+// 全部从 ai-infra/facade 暴露。ai-engine/facade 暂保留 re-export 兼容历史引用。
+export { KeyAssignmentsService } from "../credentials/key-assignments/key-assignments.service";
+export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
+export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";
+export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
+export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
+export { DistributableKeysService } from "../credentials/distributable-keys/distributable-keys.service";
+export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
+export {
+  SaveUserApiKeyDto,
+  ApiKeyMode,
+} from "../credentials/user-api-keys/dto/save-user-api-key.dto";
+export { TestApiKeyDto } from "../credentials/user-api-keys/dto/test-api-key.dto";
+export {
+  CreateUserModelConfigDto,
+  UpdateUserModelConfigDto,
+} from "../credentials/user-model-configs/dto/user-model-config.dto";
 
 // ─── Release ───
 export { ReleaseService } from "../release/release.service";
