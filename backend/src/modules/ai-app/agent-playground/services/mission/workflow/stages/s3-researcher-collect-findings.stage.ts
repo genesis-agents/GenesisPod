@@ -224,6 +224,21 @@ async function runOneDim(
       dimension: dim.name,
     });
 
+    // ── per-dim research:started（invoke 之前 emit，前端立刻看到该 dim 开始采集）──
+    await deps
+      .emit({
+        type: "agent-playground.dimension:research:started",
+        missionId,
+        userId,
+        agentId,
+        payload: {
+          dimension: dim.name,
+          dimensionId: dim.id,
+          dimensionIdx: idx,
+        },
+      })
+      .catch(() => {});
+
     const runResearcher = (
       attempt: number,
       bumpedMult: number,
@@ -348,6 +363,20 @@ async function runOneDim(
       r.state === "completed" && r.output
         ? ((r.output as { findings?: unknown[] }).findings ?? []).length
         : 0;
+    // ── per-dim research:completed（与 researcher:completed 并存，携带明确 dimensionRef）──
+    await deps
+      .emit({
+        type: "agent-playground.dimension:research:completed",
+        missionId,
+        userId,
+        agentId,
+        payload: {
+          dimension: dim.name,
+          state: r.state,
+          findingsCount: finalFindingsCount,
+        },
+      })
+      .catch(() => {});
     await deps.emit({
       type: "agent-playground.researcher:completed",
       missionId,

@@ -40,6 +40,9 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("draft:completed"), // S8 写作环节完成（区别于 mission:completed —— 此时还要跑 S8B/S9/S9B/S10/S11/S12）
   T("report:assembled"), // S8 reportArtifact v2 装配完成 light-payload 信号（前端用于触发 re-fetch）
   T("memory:indexed"),
+  // ── per-dim research lifecycle（并行 dim 状态映射，前端用 payload.dimension 显式匹配）──
+  T("dimension:research:started"), // 单 dim researcher 开始采集（invoke 之前 emit，保证 UI 立即看到）
+  T("dimension:research:completed"), // 单 dim research 阶段完成（含 dimension / state / findingsCount）
   // ── TI-style per-dimension 子流程事件 ──
   T("dimension:outline:planned"), // outline agent 产出 N 章节规划
   T("chapter:writing:started"), // chapter writer 开始写第 i 章

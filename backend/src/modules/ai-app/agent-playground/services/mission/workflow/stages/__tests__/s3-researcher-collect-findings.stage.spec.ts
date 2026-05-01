@@ -484,6 +484,107 @@ describe("runResearcherDispatchStage (S3)", () => {
     expect(ctx.researcherResults).toBeDefined();
   });
 
+  // ─── per-dim lifecycle events（dimension:research:started / completed）─────
+
+  it("single dim → emit chain contains dimension:research:started before researcher:completed", async () => {
+    const ctx = makeCtx({ plan: { ...makeCtx().plan!, dimensions: [DIM_A] } });
+    const deps = makeDeps();
+    await runResearcherDispatchStage(ctx, deps);
+    const emitCalls = (deps.emit as jest.Mock).mock.calls.map(
+      (c: [{ type: string; payload?: Record<string, unknown> }]) => c[0],
+    );
+    const startedIdx = emitCalls.findIndex(
+      (e) =>
+        e.type === "agent-playground.dimension:research:started" &&
+        e.payload?.dimension === DIM_A.name,
+    );
+    const completedIdx = emitCalls.findIndex(
+      (e) =>
+        e.type === "agent-playground.dimension:research:completed" &&
+        e.payload?.dimension === DIM_A.name,
+    );
+    const researcherIdx = emitCalls.findIndex(
+      (e) =>
+        e.type === "agent-playground.researcher:completed" &&
+        e.payload?.dimension === DIM_A.name,
+    );
+    expect(startedIdx).toBeGreaterThanOrEqual(0);
+    expect(completedIdx).toBeGreaterThanOrEqual(0);
+    // started must come before completed
+    expect(startedIdx).toBeLessThan(completedIdx);
+    // dimension:research:completed must come before researcher:completed
+    expect(completedIdx).toBeLessThanOrEqual(researcherIdx);
+  });
+
+  it("single dim → dimension:research:started payload contains dimension, dimensionId, dimensionIdx", async () => {
+    const ctx = makeCtx({ plan: { ...makeCtx().plan!, dimensions: [DIM_A] } });
+    const deps = makeDeps();
+    await runResearcherDispatchStage(ctx, deps);
+    const startedCall = (deps.emit as jest.Mock).mock.calls.find(
+      (c: [{ type: string; payload?: Record<string, unknown> }]) =>
+        c[0].type === "agent-playground.dimension:research:started",
+    );
+    expect(startedCall).toBeDefined();
+    expect(startedCall[0].payload.dimension).toBe(DIM_A.name);
+    expect(startedCall[0].payload.dimensionId).toBe(DIM_A.id);
+    expect(startedCall[0].payload.dimensionIdx).toBe(0);
+  });
+
+  it("single dim → dimension:research:completed payload.dimension matches dim.name", async () => {
+    const ctx = makeCtx({ plan: { ...makeCtx().plan!, dimensions: [DIM_A] } });
+    const deps = makeDeps();
+    await runResearcherDispatchStage(ctx, deps);
+    const completedCall = (deps.emit as jest.Mock).mock.calls.find(
+      (c: [{ type: string; payload?: Record<string, unknown> }]) =>
+        c[0].type === "agent-playground.dimension:research:completed",
+    );
+    expect(completedCall).toBeDefined();
+    expect(completedCall[0].payload.dimension).toBe(DIM_A.name);
+    expect(completedCall[0].payload.state).toBe("completed");
+    expect(typeof completedCall[0].payload.findingsCount).toBe("number");
+  });
+
+  it("3 dims concurrent → emits 3 dimension:research:started + 3 dimension:research:completed with correct dimension names", async () => {
+    const dims = [
+      { id: "d1", name: "Alpha", rationale: "r1" },
+      { id: "d2", name: "Beta", rationale: "r2" },
+      { id: "d3", name: "Gamma", rationale: "r3" },
+    ];
+    const ctx = makeCtx({
+      plan: { ...makeCtx().plan!, dimensions: dims },
+      input: { ...makeCtx().input, concurrency: 3 } as MissionContext["input"],
+    });
+    const deps = makeDeps();
+    (deps.invoker.invoke as jest.Mock).mockImplementation(
+      (_: unknown, input: { dimension?: string }) =>
+        Promise.resolve(okResearcherResult(input?.dimension ?? "x")),
+    );
+    await runResearcherDispatchStage(ctx, deps);
+    const emitCalls = (deps.emit as jest.Mock).mock.calls.map(
+      (c: [{ type: string; payload?: Record<string, unknown> }]) => c[0],
+    );
+    const startedEvents = emitCalls.filter(
+      (e) => e.type === "agent-playground.dimension:research:started",
+    );
+    const completedEvents = emitCalls.filter(
+      (e) => e.type === "agent-playground.dimension:research:completed",
+    );
+    expect(startedEvents).toHaveLength(3);
+    expect(completedEvents).toHaveLength(3);
+    const startedDims = startedEvents.map(
+      (e) => e.payload?.dimension as string,
+    );
+    const completedDims = completedEvents.map(
+      (e) => e.payload?.dimension as string,
+    );
+    expect(startedDims).toContain("Alpha");
+    expect(startedDims).toContain("Beta");
+    expect(startedDims).toContain("Gamma");
+    expect(completedDims).toContain("Alpha");
+    expect(completedDims).toContain("Beta");
+    expect(completedDims).toContain("Gamma");
+  });
+
   it("figure pipeline: filterRelevantFigures throws synchronously → outer catch logs warn", async () => {
     const ctx = makeCtx({
       plan: { ...makeCtx().plan!, dimensions: [DIM_A] },

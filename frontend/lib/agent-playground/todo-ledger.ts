@@ -1214,6 +1214,41 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         `Mission 标记 degraded：${reason} (${failedCount} 项失败)，下游 Leader signoff 将强制拒签`,
         'warn'
       );
+    } else if (t === 'agent-playground.dimension:research:started') {
+      // ── per-dim research started: 用 dimensionRef 显式匹配，不靠 idx 顺序推断 ──
+      const dim = p.dimension as string | undefined;
+      if (dim) {
+        for (const todo of todos.values()) {
+          if (todo.scope === 'dimension' && todo.dimensionRef === dim) {
+            if (todo.status === 'pending') {
+              todo.status = 'in_progress';
+              todo.startedAt = ev.timestamp;
+            }
+            break;
+          }
+        }
+      }
+    } else if (t === 'agent-playground.dimension:research:completed') {
+      // ── per-dim research completed: 仅追加 narrative log，不改 status ──
+      // dim 真正完成需要 chapter writing + grading 才算 done（由下方 dimensionPipelines 兜底）
+      const dim = p.dimension as string | undefined;
+      const state = p.state as string | undefined;
+      const findingsCount = (p.findingsCount as number | undefined) ?? 0;
+      if (dim) {
+        for (const todo of todos.values()) {
+          if (todo.scope === 'dimension' && todo.dimensionRef === dim) {
+            todo.narrativeLog.push({
+              ts: ev.timestamp,
+              text:
+                state === 'completed'
+                  ? `数据采集完成（${findingsCount} 条 finding），开始章节撰写`
+                  : `数据采集结束（state=${state ?? 'unknown'}），按降级数据继续`,
+              tone: state === 'completed' ? 'success' : 'warn',
+            });
+            break;
+          }
+        }
+      }
     } else if (t === 'agent-playground.researcher:completed') {
       const dim = (p.dimension as string | undefined) ?? '';
       const cnt = (p.findingsCount as number | undefined) ?? 0;
