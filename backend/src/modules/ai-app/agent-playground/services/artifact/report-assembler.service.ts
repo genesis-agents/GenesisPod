@@ -61,7 +61,16 @@ interface AssembleInput {
   };
   researcherResults: {
     dimension: string;
-    findings: { claim: string; evidence: string; source: string }[];
+    findings: {
+      claim: string;
+      evidence: string;
+      source: string;
+      // ★ 2026-04-30 (PR-C): 引用元数据补全，researcher 直接从 web-search /
+      //   web-scraper 结果里捎带，避免 buildCitations fallback 到 domain 占位。
+      sourceTitle?: string;
+      sourceSnippet?: string;
+      sourcePublishedAt?: string;
+    }[];
     summary: string;
     /** ★ per-dim chapter pipeline 产出 —— 装配时优先用，避免 81K 字章节被压成 3K 字摘要 */
     fullMarkdown?: string;
@@ -825,8 +834,28 @@ export class ReportAssemblerService {
     for (const s of input.writerReport.sections) {
       for (const url of s.sources ?? []) collectUrl(url);
     }
+    // ★ 2026-04-30 (PR-C): finding 携带的 sourceTitle / sourceSnippet /
+    //   sourcePublishedAt 在这里收集成 url → metadata 字典，下面 buildCitation
+    //   时优先用这些字段填 title/snippet/publishedAt，避免 86% citation
+    //   title=domain 的占位现象。
+    const urlMetadata = new Map<
+      string,
+      { title?: string; snippet?: string; publishedAt?: string }
+    >();
     for (const r of input.researcherResults) {
-      for (const f of r.findings) collectUrl(f.source);
+      for (const f of r.findings) {
+        collectUrl(f.source);
+        const existing = urlMetadata.get(f.source) ?? {};
+        const enriched = {
+          title: existing.title || f.sourceTitle,
+          snippet: existing.snippet || f.sourceSnippet,
+          publishedAt: existing.publishedAt || f.sourcePublishedAt,
+        };
+        // 只在至少有一个字段时存（节省内存）
+        if (enriched.title || enriched.snippet || enriched.publishedAt) {
+          urlMetadata.set(f.source, enriched);
+        }
+      }
     }
 
     // ★ Phase 2 移植 TI 沉淀工具：3 步链路
@@ -854,15 +883,29 @@ export class ReportAssemblerService {
     const citations: ArtifactCitation[] = finalUrls.map((url, idx) => {
       const num = idx + 1;
       const domain = extractDomain(url);
+      // ★ 2026-04-30 (PR-C): 优先用 finding 携带的真实 title/snippet/publishedAt，
+      //   找不到才回落到 domain 占位（之前 86% 引用都走占位）。
+      const meta = urlMetadata.get(url);
+      const richTitle = meta?.title?.trim();
+      const richSnippet = meta?.snippet?.trim();
+      const richPublishedAt = meta?.publishedAt?.trim();
       return {
         index: num,
         uuid: `cite-${num}`,
-        title: domain ?? url,
+        title: richTitle && richTitle.length > 0 ? richTitle : (domain ?? url),
         url,
         domain: domain ?? "unknown",
+        snippet:
+          richSnippet && richSnippet.length > 0
+            ? richSnippet.slice(0, 300)
+            : undefined,
+        publishedAt:
+          richPublishedAt && richPublishedAt.length > 0
+            ? richPublishedAt
+            : undefined,
         accessedAt: new Date().toISOString(),
-        sourceType: this.inferSourceType(domain),
-        credibilityScore: this.scoreCredibility(domain),
+        sourceType: this.inferSourceType(domain, url),
+        credibilityScore: this.scoreCredibility(domain, url),
         occurrences: [],
       };
     });
@@ -899,27 +942,77 @@ export class ReportAssemblerService {
     return { citations, fullMarkdown };
   }
 
+  /**
+   * ★ 2026-04-30 (PR-C): 同时看 domain + URL path
+   * 之前只看 TLD，平台型站点（platform.claude.com / docs.anthropic.com 等）
+   * 全部命中 default 分支 industry/65，导致 mission 4fd5efa1 24/29 引用 sourceType 单一、
+   * credibility 全打 65 → 可信度徽章颜色全统一、过滤毫无意义。
+   * 现在看 URL path 段：/docs/ /api/ /blog/ /research/ /press/ /paper/ 等。
+   */
   private inferSourceType(
     domain: string | null,
+    url?: string,
   ): ArtifactCitation["sourceType"] {
     if (!domain) return "other";
+    const path = (() => {
+      if (!url) return "";
+      try {
+        return new URL(url).pathname.toLowerCase();
+      } catch {
+        return "";
+      }
+    })();
+    // 1) TLD 强信号优先
     if (/\.gov(\.|$)/.test(domain)) return "gov";
-    if (/(arxiv|nature|science|nih|pubmed|scholar|openalex)\./.test(domain))
+    if (/\.edu(\.|$)/.test(domain)) return "academic";
+    if (/(arxiv|nature|science|nih|pubmed|scholar|openalex|ssrn|biorxiv)\./.test(domain))
       return "academic";
-    if (/(github|stackoverflow|hackernews)\./.test(domain)) return "community";
-    if (/(medium|substack|wordpress|blog)\./.test(domain)) return "blog";
-    if (/(news|nytimes|wsj|reuters|bloomberg|economist)\./.test(domain))
+    if (/(reuters|bloomberg|economist|wsj|nytimes|ft\.com|theguardian|bbc|wired)\./.test(domain))
       return "news";
+    if (/(github|stackoverflow|hackernews|reddit)\./.test(domain))
+      return "community";
+    if (/(medium|substack|wordpress|blogspot)\./.test(domain)) return "blog";
+    // 2) Path 信号（mission 4fd5efa1 解决 platform.claude.com 全归 industry 占位的问题）
+    if (/(^|\/)(paper|research|publication|journal|preprint)(\/|$)/.test(path))
+      return "academic";
+    if (/(^|\/)(blog|posts?|article)(\/|$)/.test(path)) return "blog";
+    if (/(^|\/)(news|press|announcement)(\/|$)/.test(path)) return "news";
+    if (/(^|\/)(forum|community|discuss)(\/|$)/.test(path)) return "community";
     return "industry";
   }
 
-  private scoreCredibility(domain: string | null): number {
+  /**
+   * ★ 2026-04-30 (PR-C): 同时看 domain + URL path
+   * 之前所有 platform.* / docs.* / api.* 都打 default 65；现在让 path 段
+   * /docs/ /research/ /paper/ 提分，/blog/ /forum/ 降分。
+   */
+  private scoreCredibility(domain: string | null, url?: string): number {
     if (!domain) return 50;
+    const path = (() => {
+      if (!url) return "";
+      try {
+        return new URL(url).pathname.toLowerCase();
+      } catch {
+        return "";
+      }
+    })();
+    // TLD 强信号
     if (/\.gov(\.|$)/.test(domain)) return 95;
-    if (/(arxiv|nature|science|nih|pubmed)\./.test(domain)) return 92;
+    if (/\.edu(\.|$)/.test(domain)) return 90;
+    if (/(arxiv|nature|science|nih|pubmed|biorxiv|ssrn)\./.test(domain)) return 92;
+    if (/(reuters|bloomberg|economist|wsj|nytimes|ft\.com|bbc)\./.test(domain))
+      return 85;
     if (/(github|wikipedia)\./.test(domain)) return 80;
-    if (/(reuters|bloomberg|economist|wsj|nytimes)\./.test(domain)) return 85;
-    if (/(medium|substack|wordpress|blog)\./.test(domain)) return 50;
+    if (/(medium|substack|wordpress|blogspot)\./.test(domain)) return 50;
+    // Path 信号
+    if (/(^|\/)(paper|research|publication|journal|preprint)(\/|$)/.test(path))
+      return 85;
+    // 厂商官方 docs / api 视为相对可信（提至 75，比 default 65 高）
+    if (/(^|\/)(docs?|api|reference|spec|whitepaper)(\/|$)/.test(path))
+      return 75;
+    if (/(^|\/)(news|press|announcement)(\/|$)/.test(path)) return 70;
+    if (/(^|\/)(blog|posts?|article)(\/|$)/.test(path)) return 55;
+    if (/(^|\/)(forum|community|discuss)(\/|$)/.test(path)) return 50;
     return 65;
   }
 

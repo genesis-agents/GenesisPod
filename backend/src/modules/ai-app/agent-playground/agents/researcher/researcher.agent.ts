@@ -44,6 +44,14 @@ const Output = z.object({
       evidence: z.string(),
       // 必修 #17: 放宽 URL 校验
       source: z.string().min(1),
+      // ★ 2026-04-30 (PR-C): 引用元数据补全（mission 4fd5efa1 暴露：86% citation
+      //   title=domain、0 条有 snippet、0 条有 publishedAt → hover tooltip 富信息
+      //   全部空转、时间过滤永远归到「未标日期」、可信度评分单一）。这里把
+      //   web-search / web-scraper / arxiv-search 等工具 observation 中已有的
+      //   字段透传到 finding，让下游 buildCitations 能还原完整元数据。
+      sourceTitle: z.string().optional(),
+      sourceSnippet: z.string().optional(),
+      sourcePublishedAt: z.string().optional(),
     }),
   ),
   summary: z.string(),
@@ -252,7 +260,18 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `  "findings": [`,
       `    { "claim": "<verifiable specific statement, include numbers/dates/entities>",`,
       `      "evidence": "<1 sentence quote or data point>",`,
-      `      "source": "<URL or DOI/arxiv id>" }`,
+      `      "source": "<URL or DOI/arxiv id>",`,
+      `      // ★ 引用元数据补全（必填，让下游 citation 不再 fallback 成 domain）：`,
+      `      // - sourceTitle: web-search/scrape 结果里的 page title 或 og:title`,
+      `      //   （e.g. "API Overview - Claude API"，不要写域名 "platform.claude.com"）`,
+      `      "sourceTitle": "<page 真实标题（必填，从 search 结果 title / scrape og:title 取）>",`,
+      `      // - sourceSnippet: 1-2 句关键摘要，从 search snippet / scrape og:description 取`,
+      `      //   或者本 finding 直接关联的原文片段（≤ 300 chars）`,
+      `      "sourceSnippet": "<原文摘要或 search snippet（必填，≤300 字）>",`,
+      `      // - sourcePublishedAt: ISO-8601 日期（如 "2025-08-15" 或 "2025-08-15T00:00:00Z"），`,
+      `      //   从 search 结果 date 字段 / scrape article:published_time / 页面正文中提取；`,
+      `      //   找不到就省略字段（不要瞎填）`,
+      `      "sourcePublishedAt": "<YYYY-MM-DD 或 ISO-8601，可选，找不到时省略>" }`,
       `    // 4-5 findings`,
       `  ],`,
       `  "summary": "<2-3 sentences synthesizing findings>",`,
