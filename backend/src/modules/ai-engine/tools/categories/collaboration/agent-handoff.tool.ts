@@ -183,6 +183,7 @@ export class AgentHandoffTool extends BaseTool<
   private readonly logger = new Logger(AgentHandoffTool.name);
 
   readonly id = "agent-handoff";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = ["collaboration", "handoff", "delegation", "agent"];
   readonly name = "Agent 委派";

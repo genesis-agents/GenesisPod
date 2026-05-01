@@ -239,6 +239,7 @@ export class HumanApprovalTool extends BaseTool<
   private readonly logger = new Logger(HumanApprovalTool.name);
 
   readonly id = "human-approval";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = ["collaboration", "human-in-loop", "approval", "review"];
   readonly name = "人类审批";

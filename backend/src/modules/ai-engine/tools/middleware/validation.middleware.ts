@@ -191,8 +191,8 @@ export class ValidationMiddleware implements IToolMiddleware {
         case "number":
         case "integer": {
           let n = t === "integer" ? z.number().int() : z.number();
-          if (schema.minimum !== undefined) n = n.min(schema.minimum as number);
-          if (schema.maximum !== undefined) n = n.max(schema.maximum as number);
+          if (schema.minimum !== undefined) n = n.min(schema.minimum);
+          if (schema.maximum !== undefined) n = n.max(schema.maximum);
           return n;
         }
         case "boolean":
@@ -215,11 +215,14 @@ export class ValidationMiddleware implements IToolMiddleware {
               shape[key] = isRequired ? zodProp : zodProp.optional();
             }
           }
-          // Add required fields that are not in properties (as z.unknown())
+          // Add required fields that are not in properties
+          // Use a non-undefined-accepting type so absent keys fail
           if (schema.required) {
             for (const key of schema.required) {
               if (!(key in shape)) {
-                shape[key] = z.unknown();
+                shape[key] = z.unknown().refine((v) => v !== undefined, {
+                  message: `Required property '${key}' is missing`,
+                });
               }
             }
           }

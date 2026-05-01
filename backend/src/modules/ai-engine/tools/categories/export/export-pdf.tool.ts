@@ -95,6 +95,7 @@ export interface ExportPDFOutput {
 @Injectable()
 export class ExportPDFTool extends BaseTool<ExportPDFInput, ExportPDFOutput> {
   readonly id = "export-pdf";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "export";
   readonly tags = ["export", "document", "pdf", "print"];
   readonly name = "导出 PDF";

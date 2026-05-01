@@ -313,6 +313,7 @@ export class AgentCommunicationTool
   private readonly logger = new Logger(AgentCommunicationTool.name);
 
   readonly id = "agent-communication";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = ["collaboration", "agent", "messaging", "communication"];
   readonly name = "Agent 通信";

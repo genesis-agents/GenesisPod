@@ -94,6 +94,7 @@ export class ExportDOCXTool extends BaseTool<
   ExportDOCXOutput
 > {
   readonly id = "export-docx";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "export";
   readonly tags = ["export", "document", "docx", "word", "office"];
   readonly name = "导出 DOCX";

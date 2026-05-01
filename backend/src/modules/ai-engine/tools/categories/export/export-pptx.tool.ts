@@ -87,6 +87,7 @@ export class ExportPPTXTool extends BaseTool<
   ExportPPTXOutput
 > {
   readonly id = "export-pptx";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "export";
   readonly tags = ["export", "presentation", "pptx", "powerpoint", "slides"];
   readonly name = "导出 PPTX";

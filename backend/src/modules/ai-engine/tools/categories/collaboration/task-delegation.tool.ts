@@ -179,6 +179,7 @@ export class TaskDelegationTool extends BaseTool<
   > = new Map();
 
   readonly id = "task-delegation";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = ["collaboration", "task", "delegation", "assignment"];
   readonly name = "任务委派";

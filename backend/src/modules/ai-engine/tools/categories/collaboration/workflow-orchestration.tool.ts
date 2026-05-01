@@ -279,6 +279,7 @@ export class WorkflowOrchestrationTool extends BaseTool<
   > = new Map();
 
   readonly id = "workflow-orchestration";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = [
     "collaboration",

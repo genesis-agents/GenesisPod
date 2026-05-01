@@ -111,6 +111,7 @@ export class ExportImageTool extends BaseTool<
   private readonly logger = new Logger(ExportImageTool.name);
 
   readonly id = "export-image";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "export";
   readonly tags = ["export", "image", "png", "jpeg", "raster"];
   readonly name = "导出图片";

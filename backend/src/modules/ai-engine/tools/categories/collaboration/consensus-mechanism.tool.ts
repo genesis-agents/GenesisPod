@@ -216,6 +216,7 @@ export class ConsensusMechanismTool extends BaseTool<
   > = new Map();
 
   readonly id = "consensus-mechanism";
+  readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = ["collaboration", "consensus", "voting", "agreement"];
   readonly name = "共识机制";
