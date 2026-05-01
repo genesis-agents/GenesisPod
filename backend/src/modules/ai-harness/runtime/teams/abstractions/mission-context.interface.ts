@@ -10,38 +10,16 @@
 
 // ==================== 基础类型定义 ====================
 
-/**
- * 硬性约束 - 必须遵循，违反将导致任务失败
- */
-export interface HardConstraint {
-  /** 约束ID，用于校验时引用 */
-  id: string;
-  /** 约束规则 */
-  rule: string;
-  /** 为什么有这个约束 */
-  reason?: string;
-  /** 严重程度：MUST=必须，SHOULD=应该 */
-  severity: "MUST" | "SHOULD";
-}
-
-/**
- * 核心实体定义 - 人物、概念、术语、指标等
- */
-export interface CoreEntity {
-  /** 实体名称 */
-  name: string;
-  /** 类型：人物/概念/术语/指标/组织/地点/... */
-  type: string;
-  /** 定义说明 */
-  definition: string;
-  /** 附加属性 */
-  attributes?: Record<string, string>;
-  /** 关系 */
-  relations?: Array<{
-    target: string;
-    relation: string;
-  }>;
-}
+// 2026-05-01 (PR-X-O): HardConstraint / CoreEntity / EstablishedFact 从此处搬到
+// ai-engine/knowledge/{world-building,extraction}/...types（owner = engine 提取/构建层），
+// 消除双定义。harness mission-context 通过 import + re-export 保持原 import 路径稳定。
+// CoreEntity.relations 字段已升级到 engine canonical 版本。
+import type {
+  HardConstraint,
+  CoreEntity,
+} from "@/modules/ai-engine/knowledge/world-building/world-building.types";
+import type { EstablishedFact } from "@/modules/ai-engine/knowledge/extraction/context-evolution.types";
+export type { HardConstraint, CoreEntity, EstablishedFact };
 
 /**
  * 禁止事项
@@ -65,46 +43,7 @@ export interface QualityStandard {
   metric?: string;
 }
 
-/**
- * 已确立的事实 - 在任务执行过程中被确定下来的信息
- *
- * 通用设计：适用于任何类型的任务
- * - 小说：人物出场、情节发展、时间线推进
- * - 技术文档：API定义、术语确定、架构决策
- * - 研究报告：数据来源、结论推导、论点演进
- */
-export interface EstablishedFact {
-  /** 唯一ID */
-  id: string;
-  /** 来源任务ID */
-  sourceTaskId: string;
-  /** 来源任务标题 */
-  sourceTaskTitle: string;
-  /** 确立时间 */
-  establishedAt: string;
-  /** 事实陈述 */
-  statement: string;
-  /**
-   * 事实类别（领域无关）
-   * - entity_state: 实体状态变化（人物状态、系统状态等）
-   * - sequence_point: 序列点（时间线、版本、阶段）
-   * - decision: 决策（架构选择、情节走向）
-   * - definition: 定义确定（术语、概念、规格）
-   * - relationship: 关系建立（人物关系、组件依赖）
-   * - constraint_added: 新增约束
-   */
-  category:
-    | "entity_state"
-    | "sequence_point"
-    | "decision"
-    | "definition"
-    | "relationship"
-    | "constraint_added";
-  /** 相关实体名称 */
-  relatedEntities?: string[];
-  /** 重要程度: high=必须遵守, medium=应该遵守, low=参考信息 */
-  importance: "high" | "medium" | "low";
-}
+// EstablishedFact 已 re-export 自 ai-engine（见上方 import）— 消除双定义
 
 /**
  * 任务理解

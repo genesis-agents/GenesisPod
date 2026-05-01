@@ -60,6 +60,15 @@ export interface CoreEntity {
   type: string;
   definition: string;
   attributes?: Record<string, string>;
+  /**
+   * 实体关系（2026-05-01 PR-X-O 从 harness mission-context 合并到这里，
+   * 消除双定义；harness side 改 re-export 自此）
+   * 例：人物 A 与 阵营 B 的从属关系；组件 X 依赖组件 Y。
+   */
+  relations?: Array<{
+    target: string;
+    relation: string;
+  }>;
 }
 
 /** 世界观构建结果 */
