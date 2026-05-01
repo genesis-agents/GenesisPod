@@ -50,8 +50,13 @@ import {
   StewardService,
 } from "./services/roles";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
-import { DomainEventBus, DomainEventRegistry } from "../../ai-harness/facade";
+import {
+  DomainEventBus,
+  DomainEventRegistry,
+  MissionOrphanDetectorService,
+} from "../../ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 
 @Module({
   imports: [
@@ -111,6 +116,8 @@ export class AgentPlaygroundModule implements OnModuleInit {
     private readonly registry: DomainEventRegistry,
     private readonly buffer: MissionEventBuffer,
     private readonly store: MissionStore,
+    private readonly prisma: PrismaService,
+    private readonly orphanDetector: MissionOrphanDetectorService,
   ) {}
 
   onModuleInit(): void {
@@ -120,5 +127,33 @@ export class AgentPlaygroundModule implements OnModuleInit {
     this.eventBus.registerAdapter(this.buffer);
     // 3. 启动恢复：清理 Railway recycle 后悬挂的 running missions
     void this.store.recoverOrphanedRunning(30);
+    // 4. ★ Phase 9 (2026-04-30): 注册 orphan detector callbacks —— 跨 pod 接管基于 heartbeat 的快速检测
+    this.orphanDetector.registerCallbacks({
+      fetchRunningMissions: () =>
+        this.prisma.agentPlaygroundMission
+          .findMany({
+            where: { status: "running" },
+            select: { id: true, userId: true },
+            take: 200,
+          })
+          .catch(() => []),
+      markOrphanFailed: async (missionId, userId, reason) => {
+        await this.store.markFailed(missionId, {
+          errorMessage: reason,
+        });
+        await this.eventBus
+          .emit({
+            type: "agent-playground.mission:failed",
+            scope: { missionId, userId },
+            payload: {
+              message: reason,
+              failureCode: "ORPHAN_HEARTBEAT_LOST",
+              source: "orphan-detector",
+            },
+            timestamp: Date.now(),
+          })
+          .catch(() => undefined);
+      },
+    });
   }
 }

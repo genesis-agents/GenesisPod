@@ -88,6 +88,10 @@ import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,
 } from "../../../../ai-engine/planning/services/adaptive-replanner.service";
+import {
+  MissionRuntimeStateStore,
+  HEARTBEAT_INTERVAL_MS,
+} from "./mission-runtime-state.store";
 
 /**
  * 步骤执行结果（内部使用）
@@ -154,6 +158,12 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
   // missionId → kernel processId 映射
   private readonly kernelProcessIds = new LruMap<string, string>(500);
 
+  // ★ 心跳定时器（pod-local，跟随 mission 生命周期）
+  private readonly heartbeatTimers = new Map<string, NodeJS.Timeout>();
+
+  // ★ Phase 9 (2026-04-30): 运行时状态外置 —— Redis 持久化，跨 pod 接管
+  private readonly runtimeStore?: MissionRuntimeStateStore;
+
   constructor(
     private readonly constraintEngine: ConstraintEngine,
     private readonly configService: ConfigService,
@@ -173,7 +183,10 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
     @Optional() adaptiveReplanner?: AdaptiveReplannerService,
     @Optional() hierarchicalMemory?: HierarchicalMemoryCascadeService,
     @Optional() lifecycleProtocol?: AgentLifecycleProtocolService,
+    @Optional() runtimeStore?: MissionRuntimeStateStore,
   ) {
+    // ★ 运行时状态外置（可选 — 不存在时退化为单实例内存）
+    this.runtimeStore = runtimeStore;
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
     this.handoffCoordinator = new HandoffCoordinator({
       timeout: 60000,
@@ -247,6 +260,71 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
         "AgentLifecycleProtocol initialized for task completion notifications",
       );
     }
+
+    // ★ Phase 9: Mission 运行时状态外置
+    if (this.runtimeStore) {
+      this.logger.log(
+        `MissionRuntimeStateStore initialized (podId=${this.runtimeStore.getPodId()}) — harness is now stateless across pods`,
+      );
+    }
+  }
+
+  // ==================== Runtime Store 同步辅助 ====================
+
+  /** state 写入后同步到 store（fire-and-forget，失败不影响主流程） */
+  private syncStateToStore(
+    missionId: string,
+    state: MissionExecutionState,
+  ): void {
+    if (!this.runtimeStore) return;
+    void this.runtimeStore
+      .setState(missionId, state)
+      .catch((err) =>
+        this.logger.debug(
+          `[runtimeStore] setState(${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
+  /** 启动 mission 时调用 —— claim 心跳 + 起 30s 续期定时器 */
+  private startHeartbeat(missionId: string): void {
+    if (!this.runtimeStore) return;
+    // 立即 claim 一次
+    void this.runtimeStore
+      .claimOrBeat(missionId)
+      .catch((err) =>
+        this.logger.debug(
+          `[runtimeStore] claimOrBeat(${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    // 起定时器（清掉旧的防泄漏）
+    const old = this.heartbeatTimers.get(missionId);
+    if (old) clearInterval(old);
+    const timer = setInterval(() => {
+      void this.runtimeStore?.claimOrBeat(missionId).catch(() => {
+        /* swallow — 心跳失败不阻塞执行 */
+      });
+    }, HEARTBEAT_INTERVAL_MS);
+    // Node 进程退出时不阻塞
+    if (typeof timer.unref === "function") timer.unref();
+    this.heartbeatTimers.set(missionId, timer);
+  }
+
+  /** mission 终态时调用 —— 停心跳 + 清 store key */
+  private stopHeartbeat(missionId: string): void {
+    const timer = this.heartbeatTimers.get(missionId);
+    if (timer) {
+      clearInterval(timer);
+      this.heartbeatTimers.delete(missionId);
+    }
+    if (!this.runtimeStore) return;
+    void this.runtimeStore
+      .clearAll(missionId)
+      .catch((err) =>
+        this.logger.debug(
+          `[runtimeStore] clearAll(${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
   }
 
   /**
@@ -269,9 +347,16 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
     // 初始化状态
     const state = this.initializeState(missionId);
     this.states.set(missionId, state);
+    this.syncStateToStore(missionId, state);
 
     // ★ 直接存储原始输入（不依赖 Memory 服务）
     this.originalInputs.set(missionId, input);
+    if (this.runtimeStore) {
+      void this.runtimeStore.setInput(missionId, input).catch(() => undefined);
+    }
+
+    // ★ 启动心跳（标识当前 pod 持有 mission，跨 pod 接管的依据）
+    this.startHeartbeat(missionId);
 
     // ★ AI Kernel: 创建进程记录（Durable Execution）
     if (this.missionExecutor) {
@@ -283,6 +368,11 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
           input: { prompt: input.prompt, requirements: input.requirements },
         });
         this.kernelProcessIds.set(missionId, kernelResult.processId);
+        if (this.runtimeStore) {
+          void this.runtimeStore
+            .setKernelProcessId(missionId, kernelResult.processId)
+            .catch(() => undefined);
+        }
       } catch (err) {
         this.logger.warn(
           `[Kernel] Failed to spawn process for mission ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
@@ -308,6 +398,11 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
 
     if (traceId) {
       this.missionTraces.set(missionId, traceId);
+      if (this.runtimeStore) {
+        void this.runtimeStore
+          .setTraceId(missionId, traceId)
+          .catch(() => undefined);
+      }
     }
 
     try {
@@ -394,6 +489,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       });
 
       yield this.createEvent("parsing_completed", missionId, { intent });
+      this.syncStateToStore(missionId, state);
 
       // Phase 2: Plan - 生成执行计划
       yield this.createEvent("planning_started", missionId);
@@ -437,6 +533,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       });
 
       yield this.createEvent("planning_completed", missionId, { plan });
+      this.syncStateToStore(missionId, state);
 
       // Phase 3: Execute - 执行计划（含委派和协作）
       state.phase = "executing";
@@ -496,6 +593,9 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
 
         // 更新资源使用
         state.resourceUsage = this.updateResourceUsage(state, startTime);
+
+        // ★ Phase 9: 每个 step 完成后同步到 runtime store（断点续跑用）
+        this.syncStateToStore(missionId, state);
 
         // 检查约束
         const canContinue = this.constraintEngine.canContinue(
@@ -685,6 +785,8 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
 
       // ★ 清理原始输入，防止内存泄漏
       this.originalInputs.delete(missionId);
+      // ★ 停心跳 + 清 runtime store
+      this.stopHeartbeat(missionId);
 
       return result;
     } catch (error) {
@@ -707,6 +809,8 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
 
       // ★ 清理原始输入，防止内存泄漏
       this.originalInputs.delete(missionId);
+      // ★ 停心跳 + 清 runtime store
+      this.stopHeartbeat(missionId);
 
       return this.createResult(state, startTime, false, errorMessage);
     }
@@ -2150,13 +2254,33 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     }
     this.a2aBus?.clearSession(missionId);
     this.originalInputs.delete(missionId);
+    // ★ 停心跳 + 清 runtime store
+    this.stopHeartbeat(missionId);
   }
 
   /**
-   * 获取执行状态
+   * 获取执行状态（同步路径 —— 仅 in-memory；跨 pod 请用 getStateAsync）
    */
   getState(missionId: string): MissionExecutionState | undefined {
     return this.states.get(missionId);
+  }
+
+  /**
+   * ★ Phase 9 (2026-04-30): 跨 pod 取 state —— in-memory miss 时降级到 runtime store。
+   * 用于 admin / recovery 场景，普通 mission 执行循环仍走同步 getState。
+   */
+  async getStateAsync(
+    missionId: string,
+  ): Promise<MissionExecutionState | undefined> {
+    const local = this.states.get(missionId);
+    if (local) return local;
+    if (!this.runtimeStore) return undefined;
+    const remote = await this.runtimeStore.getState(missionId);
+    if (remote) {
+      // 回填 in-memory（避免重复读 Redis）
+      this.states.set(missionId, remote);
+    }
+    return remote;
   }
 
   /**

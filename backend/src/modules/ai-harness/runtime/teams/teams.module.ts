@@ -18,6 +18,8 @@ import { TeamRegistry } from "./registry/team-registry";
 // ★ L2 internal — direct relative paths (禁 facade barrel)
 import { ConstraintEngine } from "../../governance/resource/constraint-engine";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
+import { MissionRuntimeStateStore } from "./orchestrator/mission-runtime-state.store";
+import { MissionOrphanDetectorService } from "./orchestrator/mission-orphan-detector.service";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
 import { MessageBusService as A2AMessageBusService } from "../../protocol/ipc/message-bus.service";
@@ -52,6 +54,10 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
     RoleRegistry,
     TeamRegistry,
     A2AMessageBusService,
+    // ★ Phase 9 (2026-04-30): Mission 运行时状态外置 → Redis（CacheService global）
+    MissionRuntimeStateStore,
+    // ★ Phase 9: 基于 heartbeat 的快速 orphan 检测（callback 由 ai-app 注入）
+    MissionOrphanDetectorService,
     // ConstraintEngine 依赖 CostController
     {
       provide: ConstraintEngine,
@@ -97,6 +103,7 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
         a2aBus: A2AMessageBusService,
         missionExecutor?: MissionExecutorService,
         kernelJournal?: EventJournalService,
+        runtimeStore?: MissionRuntimeStateStore,
       ) => {
         return new MissionOrchestrator(
           constraintEngine,
@@ -114,6 +121,10 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
           undefined, // config override (use defaults)
           missionExecutor, // ★ AI Kernel 进程追踪
           kernelJournal, // ★ AI Kernel 事件日志
+          undefined, // adaptiveReplanner (Phase 4, 当前未注入)
+          undefined, // hierarchicalMemory (Phase 6, 当前未注入)
+          undefined, // lifecycleProtocol (Phase 8, 当前未注入)
+          runtimeStore, // ★ Phase 9: 跨 pod 状态外置
         );
       },
       inject: [
@@ -131,6 +142,7 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
         A2AMessageBusService,
         { token: MissionExecutorService, optional: true },
         { token: EventJournalService, optional: true },
+        { token: MissionRuntimeStateStore, optional: true },
       ],
     },
     // TeamsService 依赖所有上层服务
@@ -169,6 +181,8 @@ import { EventJournalService } from "../../protocol/journal/event-journal.servic
     TeamsService,
     CheckpointManager,
     A2AMessageBusService,
+    MissionRuntimeStateStore,
+    MissionOrphanDetectorService,
   ],
 })
 export class TeamsModule implements OnModuleInit {

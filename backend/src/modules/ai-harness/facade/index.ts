@@ -139,6 +139,17 @@ export {
 // ★ 沉淀 Phase 3 (2026-04-29): 通用并发信号量
 export { ConcurrencyLimiter } from "../execution/concurrency";
 
+// ★ Phase 9 (2026-04-30): Mission 运行时状态外置 + Orphan 检测（harness 无状态化）
+export {
+  MissionRuntimeStateStore,
+  type MissionHeartbeat,
+  HEARTBEAT_INTERVAL_MS,
+} from "../runtime/teams/orchestrator/mission-runtime-state.store";
+export {
+  MissionOrphanDetectorService,
+  type OrphanDetectorCallbacks,
+} from "../runtime/teams/orchestrator/mission-orphan-detector.service";
+
 // ★ 沉淀 Phase 4 (2026-04-29): Checkpoint / Health / DAG 三件套
 export {
   MissionCheckpointService,
