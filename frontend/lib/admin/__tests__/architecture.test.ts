@@ -7,6 +7,12 @@ import {
   type ArchitectureLayer,
 } from '../architecture';
 
+function getLayer(id: string): ArchitectureLayer {
+  const layer = ARCHITECTURE_LAYERS.find((item) => item.id === id);
+  expect(layer).toBeDefined();
+  return layer as ArchitectureLayer;
+}
+
 describe('ARCHITECTURE_LAYERS', () => {
   it('contains the five backend-aligned layers', () => {
     expect(ARCHITECTURE_LAYERS).toHaveLength(5);
@@ -34,7 +40,7 @@ describe('AI Harness layer', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((item) => item.id === 'aiHarness')!;
+    layer = getLayer('aiHarness');
   });
 
   it('has eight subsystem cards', () => {
@@ -47,23 +53,27 @@ describe('AI Harness layer', () => {
     for (const card of layer.cards ?? []) {
       expect(card.clickable).toBe(true);
       expect(card.href).toBeTruthy();
+      expect(card.href).toMatch(/^\/admin\/ai\/harness#/);
     }
   });
 
   it('exposes governance and eval management', () => {
     const card = layer.cards?.find((item) => item.id === 'harnessGovernance');
     expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/admin/ai/eval');
+    expect(card?.href).toBe('/admin/ai/harness#governance');
     expect(card?.stats?.[0]?.key).toBe('harnessEvalRuns');
   });
 
-  it('routes operational harness cards to kernel admin pages', () => {
+  it('routes harness cards to their dedicated overview anchors', () => {
     const expectedCards: Array<{ id: string; href: string }> = [
-      { id: 'harnessFacade', href: '/admin/ai/agents' },
-      { id: 'harnessKernel', href: '/admin/kernel/scheduler' },
-      { id: 'harnessProcess', href: '/admin/kernel/processes' },
-      { id: 'harnessMemory', href: '/admin/kernel/memory' },
-      { id: 'harnessRuntime', href: '/admin/kernel/observability' },
+      { id: 'harnessFacade', href: '/admin/ai/harness#facade' },
+      { id: 'harnessKernel', href: '/admin/ai/harness#kernel' },
+      { id: 'harnessExecution', href: '/admin/ai/harness#execution' },
+      { id: 'harnessMemory', href: '/admin/ai/harness#memory' },
+      { id: 'harnessProcess', href: '/admin/ai/harness#process' },
+      { id: 'harnessProtocol', href: '/admin/ai/harness#protocol' },
+      { id: 'harnessGovernance', href: '/admin/ai/harness#governance' },
+      { id: 'harnessRuntime', href: '/admin/ai/harness#runtime' },
     ];
 
     for (const { id, href } of expectedCards) {
@@ -72,11 +82,24 @@ describe('AI Harness layer', () => {
       expect(card?.href).toBe(href);
     }
   });
+
+  it('uses harness-native stats instead of unrelated engine stats', () => {
+    const statsByCard = new Map(
+      layer.cards?.map((card) => [
+        card.id,
+        card.stats?.map((stat) => stat.key) ?? [],
+      ])
+    );
+
+    expect(statsByCard.get('harnessExecution')).toEqual(['agentTraces']);
+    expect(statsByCard.get('harnessProtocol')).toEqual(['kernelSubscriptions']);
+    expect(statsByCard.get('harnessFacade')).toEqual([]);
+  });
 });
 
 describe('Open API layer', () => {
   it('contains the externally visible API surface', () => {
-    const layer = ARCHITECTURE_LAYERS.find((item) => item.id === 'openApi')!;
+    const layer = getLayer('openApi');
     expect(layer.cards).toHaveLength(5);
     expect(layer.cards?.find((card) => card.id === 'mcpServer')?.href).toBe(
       '/admin/system/mcp-server'
@@ -88,7 +111,7 @@ describe('AI Engine layer', () => {
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
-    layer = ARCHITECTURE_LAYERS.find((item) => item.id === 'aiEngine')!;
+    layer = getLayer('aiEngine');
   });
 
   it('has an engineCore group with core capability cards', () => {
@@ -116,9 +139,7 @@ describe('AI Engine layer', () => {
 
 describe('Infrastructure layer', () => {
   it('keeps operational groups and monitoring stats', () => {
-    const layer = ARCHITECTURE_LAYERS.find(
-      (item) => item.id === 'infrastructure'
-    )!;
+    const layer = getLayer('infrastructure');
     expect(layer.groups).toHaveLength(4);
 
     const systemOps = layer.groups?.find((group) => group.id === 'systemOps');

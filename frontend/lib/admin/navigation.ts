@@ -8,7 +8,6 @@ import {
   Bot,
   UsersRound,
   Wrench,
-  Plug,
   Database,
   Shield,
   Sparkles,
@@ -29,6 +28,7 @@ import {
   Activity,
   BarChart3,
   Radio,
+  Network,
   type LucideIcon,
 } from 'lucide-react';
 import { type AdminDomain } from './styles';
@@ -101,6 +101,12 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.tools',
         href: '/admin/ai/tools',
         icon: Wrench,
+      },
+      {
+        key: 'harness',
+        labelKey: 'admin.nav.harness',
+        href: '/admin/ai/harness',
+        icon: Network,
       },
       {
         key: 'eval',
