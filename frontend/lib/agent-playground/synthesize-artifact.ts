@@ -186,16 +186,22 @@ export function synthesizeArtifactFromV1(v1: V1Report): ReportArtifact {
       warnings: [],
       qualityTrace: [],
     },
+    // ★ 2026-05-01 (PR-G iter5): quickView 必须填齐 schema 全部字段。
+    //   之前 synthesize 只塞 keyHighlights/topInsights（已废弃字段名），
+    //   实际 schema 要求 topHighlights/topTrends/keyRisks/topRecommendations
+    //   ChapterReader / QuickReader 访问 undefined.map → React error boundary。
     quickView: {
       executiveSummary: { markdown: summary, wordCount: summary.length },
-      whatYouWillLearn: [],
-      keyHighlights: [],
+      topHighlights: [],
+      topTrends: [],
+      keyRisks: [],
+      topRecommendations: [],
       keyCitations: [],
       keyFigures: [],
-      topInsights: [],
       estimatedReadingTime: Math.max(1, Math.ceil(fullMarkdown.length / 400)),
-    } as unknown as ReportArtifact['quickView'],
-  } as unknown as ReportArtifact;
+      whatYouWillLearn: [],
+    },
+  };
 }
 
 /**
