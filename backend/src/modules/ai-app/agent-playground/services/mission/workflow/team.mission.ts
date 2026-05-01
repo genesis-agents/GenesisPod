@@ -78,7 +78,7 @@ import {
 } from "../../../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
 import { MissionStore } from "../lifecycle/mission-store.service";
-import { HarnessFailureLearner } from "../../failure-learning/harness-failure-learner.service";
+import { FailureLearnerService } from "@/modules/ai-harness/facade";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
@@ -138,7 +138,7 @@ export class TeamMission {
     private readonly credits: CreditsService,
     private readonly runtimeEnv: RuntimeEnvironmentService,
     private readonly store: MissionStore,
-    private readonly failureLearner: HarnessFailureLearner,
+    private readonly failureLearner: FailureLearnerService,
     private readonly reportAssembler: ReportArtifactAssembler,
     private readonly missionState: MissionStateService,
     private readonly abortRegistry: MissionAbortRegistry,

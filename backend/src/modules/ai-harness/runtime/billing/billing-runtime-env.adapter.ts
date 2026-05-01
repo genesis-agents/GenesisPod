@@ -33,7 +33,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   private balanceCache: { acct: BalanceAcct; expiresAt: number } | null = null;
 
   /**
-   * ★ 跨 mission 失败模式接入点：mission 启动前由 HarnessFailureLearner.lookup
+   * ★ 跨 mission 失败模式接入点：mission 启动前由 FailureLearnerService.lookup
    * 喂入"已知会撞墙的 (modelId → 备选 modelId)"映射。
    * getModelAvailability 命中 disabled set 时返回 available=false + fallbackTo，
    * 现有 react-loop 的 tier-model fallback 链路自动接住。
@@ -123,7 +123,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   async getModelAvailability(modelId: string): Promise<IModelAvailability> {
-    // ★ 优先级 #1：本 mission 内已标记禁用（来自 HarnessFailureLearner 的
+    // ★ 优先级 #1：本 mission 内已标记禁用（来自 FailureLearnerService 的
     // 历史失败模式）—— 直接返回 fallback 候选，绕开浪费 token 重蹈覆辙。
     const disabledFallback = this.disabledModels.get(modelId);
     if (disabledFallback) {

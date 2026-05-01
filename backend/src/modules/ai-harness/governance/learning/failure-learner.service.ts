@@ -1,5 +1,5 @@
 /**
- * HarnessFailureLearner — 跨 mission 失败模式记忆
+ * FailureLearnerService — 跨 mission 失败模式记忆
  *
  * 不引入新模块、不创建新架构层。挂在 agent-playground 现有 services 下，
  * orchestrator 直接注入使用。功能：
@@ -14,7 +14,7 @@
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { createHash } from "crypto";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 export interface FailurePatternKey {
   agentSpecId: string;
@@ -34,8 +34,8 @@ export interface FailurePatternHit {
 }
 
 @Injectable()
-export class HarnessFailureLearner {
-  private readonly log = new Logger(HarnessFailureLearner.name);
+export class FailureLearnerService {
+  private readonly log = new Logger(FailureLearnerService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 

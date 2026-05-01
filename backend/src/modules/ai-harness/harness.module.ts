@@ -127,6 +127,7 @@ import { AgentConfigService } from "./kernel/config/agent-config.service";
 import { CheckpointManager } from "./protocol/journal/checkpoint-manager";
 import { ProgressTrackerService } from "./protocol/ipc/progress-tracker.service";
 import { TraceCollectorService } from "./governance/observability/trace-collector.service";
+import { FailureLearnerService } from "./governance/learning/failure-learner.service";
 import { ConstraintEnforcementService } from "./governance/resource/constraint-enforcement.service";
 import { ProcessSupervisorService } from "./process/supervisor/process-supervisor.service";
 
@@ -192,6 +193,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     AgentExecutorService,
     OutputReviewerService,
     ReportArtifactAssembler,
+    FailureLearnerService,
     ReActLoop,
     PlanActLoop,
     ReflexionLoop,
@@ -315,6 +317,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     AgentExecutorService,
     OutputReviewerService,
     ReportArtifactAssembler,
+    FailureLearnerService,
     BuiltInReActSkillRegistry,
     ContextManager,
     CheckpointService,

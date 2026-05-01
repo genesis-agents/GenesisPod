@@ -58,10 +58,10 @@ services/
 ├── artifact/                                      ← 输出物组装
 │   └── report-assembler.service.ts                ← per-dim findings → ReportArtifact v2 装配
 │
-├── failure-learning/                              ← 跨 mission 学习
-│   └── harness-failure-learner.service.ts         ← 跨 mission failure pattern 记忆
-│
 └── __tests__/                                     ← 单元测试
+
+跨 mission failure pattern 记忆已上提到 ai-harness/governance/learning/failure-learner.service.ts
+（FailureLearnerService），通过 @/modules/ai-harness/facade 注入。
 ```
 
 ## 三层架构
@@ -124,7 +124,7 @@ role service 执行。
 
 - 单 agent 的 self-heal 重试逻辑（属于 stage 文件 + role service）
 - prompt 拼装 / schema 解析（属于 agent class）
-- 跨 mission 失败学习（属于 `HarnessFailureLearner`）
+- 跨 mission 失败学习（属于 `FailureLearnerService` @ ai-harness/governance/learning）
 
 ### 2. Role service = agent class 的 NestJS 包装
 

@@ -29,8 +29,6 @@ import {
   type MissionCheckpointStore,
 } from "../../ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
-import { HarnessFailureLearner } from "./services/failure-learning/harness-failure-learner.service";
-import { ReportArtifactAssembler } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact-assembler.service";
 import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
 import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
@@ -88,8 +86,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     // ★ Phase 6 (2026-04-29): playground 接入 ai-harness 沉淀的 MissionHealthMonitor
     MissionHealthScheduler,
     LeaderChatService,
-    HarnessFailureLearner,
-    ReportArtifactAssembler,
+    // FailureLearnerService / ReportArtifactAssembler 由 @Global HarnessModule 提供（PR-X-failure-learner 上提 / PR-X-report-artifact 上提）
     MissionStateService,
     MissionAbortRegistry,
     // ── Per-role services（Phase Lead-Services）──

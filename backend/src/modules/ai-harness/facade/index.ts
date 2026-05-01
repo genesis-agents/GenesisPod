@@ -170,6 +170,10 @@ export { OutputReviewerService } from "../runtime/quality/output-reviewer.servic
 // ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/agent-playground 上提（跨 app 复用）
 //   playground v2 ReportArtifact (sections/citations/figures/quickView) 装配纯函数
 export { ReportArtifactAssembler } from "../runtime/quality/report-artifact/report-artifact-assembler.service";
+
+// ★ 2026-05-01: FailureLearnerService 从 ai-app/agent-playground 上提（governance/learning）
+//   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
+export { FailureLearnerService } from "../governance/learning/failure-learner.service";
 export type {
   ArtifactCitation,
   ArtifactFactTriple,

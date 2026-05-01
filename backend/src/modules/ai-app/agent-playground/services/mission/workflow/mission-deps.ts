@@ -24,8 +24,10 @@ import type {
 import type { MissionStore } from "../lifecycle/mission-store.service";
 import type { MissionStateService } from "../lifecycle/mission-state.service";
 import type { MissionAbortRegistry } from "../lifecycle/mission-abort.registry";
-import type { ReportArtifactAssembler } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact-assembler.service";
-import type { HarnessFailureLearner } from "../../failure-learning/harness-failure-learner.service";
+import type {
+  ReportArtifactAssembler,
+  FailureLearnerService,
+} from "@/modules/ai-harness/facade";
 import type {
   AgentRunner,
   JudgeService,
@@ -83,7 +85,7 @@ export interface MissionDeps {
   readonly eventBus: DomainEventBus;
   readonly credits: CreditsService;
   readonly runtimeEnv: RuntimeEnvironmentService;
-  readonly failureLearner: HarnessFailureLearner;
+  readonly failureLearner: FailureLearnerService;
   readonly reportAssembler: ReportArtifactAssembler;
   // ★ 沉淀（2026-04-29）: figure pipeline（agent-playground 复用，TI 暂保留私有实现）
   readonly figureExtractor: FigureExtractorService;

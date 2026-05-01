@@ -1,9 +1,9 @@
 /**
  * harness-failure-learner.service.spec.ts
- * Tests for HarnessFailureLearner (DB-backed failure pattern memory).
+ * Tests for FailureLearnerService (DB-backed failure pattern memory).
  */
 
-import { HarnessFailureLearner } from "../harness-failure-learner.service";
+import { FailureLearnerService } from "../failure-learner.service";
 
 function makePrisma() {
   return {
@@ -22,13 +22,13 @@ const baseKey = {
   failureCode: "PARSE_MALFORMED_JSON",
 };
 
-describe("HarnessFailureLearner", () => {
+describe("FailureLearnerService", () => {
   // ─── recordFailure ─────────────────────────────────────────────────────────
 
   describe("recordFailure", () => {
     it("calls prisma.upsert with correct key fields", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.recordFailure({
         key: baseKey,
         missionId: "m1",
@@ -47,7 +47,7 @@ describe("HarnessFailureLearner", () => {
 
     it("hashes systemPrompt deterministically (same prompt → same hash)", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.recordFailure({ key: baseKey, missionId: "m1", userId: "u1" });
       await svc.recordFailure({ key: baseKey, missionId: "m2", userId: "u1" });
       const hash1 =
@@ -61,7 +61,7 @@ describe("HarnessFailureLearner", () => {
 
     it("different prompts produce different hashes", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.recordFailure({
         key: { ...baseKey, systemPrompt: "prompt A" },
         missionId: "m1",
@@ -83,7 +83,7 @@ describe("HarnessFailureLearner", () => {
 
     it("includes diagnostic in create and update", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       const diagnostic = { modelId: "gpt-4o", completionTokens: 100 };
       await svc.recordFailure({
         key: baseKey,
@@ -101,7 +101,7 @@ describe("HarnessFailureLearner", () => {
       prisma.harnessFailurePattern.upsert.mockRejectedValue(
         new Error("DB down"),
       );
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await expect(
         svc.recordFailure({ key: baseKey, missionId: "m1", userId: "u1" }),
       ).resolves.toBeUndefined();
@@ -109,7 +109,7 @@ describe("HarnessFailureLearner", () => {
 
     it("sets count=1 in create", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.recordFailure({ key: baseKey, missionId: "m1", userId: "u1" });
       const call = prisma.harnessFailurePattern.upsert.mock.calls[0][0];
       expect(call.create.count).toBe(1);
@@ -117,7 +117,7 @@ describe("HarnessFailureLearner", () => {
 
     it("uses increment in update", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.recordFailure({ key: baseKey, missionId: "m1", userId: "u1" });
       const call = prisma.harnessFailurePattern.upsert.mock.calls[0][0];
       expect(call.update.count).toEqual({ increment: 1 });
@@ -129,7 +129,7 @@ describe("HarnessFailureLearner", () => {
   describe("lookup", () => {
     it("returns empty array when prisma returns nothing", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       const result = await svc.lookup({
         agentSpecId: "researcher",
         systemPrompt: "prompt A",
@@ -152,7 +152,7 @@ describe("HarnessFailureLearner", () => {
           lastSeenAt: now,
         },
       ]);
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       const result = await svc.lookup({
         agentSpecId: "researcher",
         systemPrompt: "prompt",
@@ -178,7 +178,7 @@ describe("HarnessFailureLearner", () => {
           lastSeenAt: new Date(),
         },
       ]);
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       const result = await svc.lookup({
         agentSpecId: "researcher",
         systemPrompt: "prompt",
@@ -188,7 +188,7 @@ describe("HarnessFailureLearner", () => {
 
     it("passes modelId filter when provided", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.lookup({
         agentSpecId: "researcher",
         modelId: "gpt-4o",
@@ -200,7 +200,7 @@ describe("HarnessFailureLearner", () => {
 
     it("omits modelId filter when not provided", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.lookup({ agentSpecId: "researcher", systemPrompt: "prompt" });
       const call = prisma.harnessFailurePattern.findMany.mock.calls[0][0];
       expect(call.where.modelId).toBeUndefined();
@@ -211,7 +211,7 @@ describe("HarnessFailureLearner", () => {
       prisma.harnessFailurePattern.findMany.mockRejectedValue(
         new Error("DB err"),
       );
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       const result = await svc.lookup({
         agentSpecId: "researcher",
         systemPrompt: "prompt",
@@ -221,7 +221,7 @@ describe("HarnessFailureLearner", () => {
 
     it("limits results to 20 records", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.lookup({ agentSpecId: "researcher", systemPrompt: "prompt" });
       const call = prisma.harnessFailurePattern.findMany.mock.calls[0][0];
       expect(call.take).toBe(20);
@@ -229,7 +229,7 @@ describe("HarnessFailureLearner", () => {
 
     it("orders by lastSeenAt desc", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.lookup({ agentSpecId: "researcher", systemPrompt: "prompt" });
       const call = prisma.harnessFailurePattern.findMany.mock.calls[0][0];
       expect(call.orderBy).toEqual({ lastSeenAt: "desc" });
@@ -241,7 +241,7 @@ describe("HarnessFailureLearner", () => {
   describe("recordSuccessfulFallback", () => {
     it("calls prisma.updateMany with resolved=true and fallbackModelId", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.recordSuccessfulFallback({
         key: baseKey,
         fallbackModelId: "claude-3-sonnet",
@@ -254,7 +254,7 @@ describe("HarnessFailureLearner", () => {
 
     it("uses correct where filter", async () => {
       const prisma = makePrisma();
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await svc.recordSuccessfulFallback({
         key: baseKey,
         fallbackModelId: "fallback-model",
@@ -270,7 +270,7 @@ describe("HarnessFailureLearner", () => {
       prisma.harnessFailurePattern.updateMany.mockRejectedValue(
         new Error("DB fail"),
       );
-      const svc = new HarnessFailureLearner(prisma as never);
+      const svc = new FailureLearnerService(prisma as never);
       await expect(
         svc.recordSuccessfulFallback({
           key: baseKey,
