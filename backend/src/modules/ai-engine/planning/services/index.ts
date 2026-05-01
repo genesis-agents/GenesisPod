@@ -144,18 +144,5 @@ export {
   type SidecarConfig,
 } from "./session-memory-sidecar.service";
 
-// Phase 9: 后台自主 Agent
-export {
-  AutoDreamService,
-  type DreamPhase,
-  type AutoDreamConfig,
-  type DreamStatus,
-  type DreamResult,
-} from "./auto-dream.service";
-
-export {
-  AutoDreamSchedulerService,
-  type SchedulerConfig,
-  type ScheduledScope,
-  type SchedulerStats,
-} from "./auto-dream-scheduler.service";
+// Phase 9: 后台自主 Agent —— 2026-04-30 (C2-step1) 已搬到 ai-harness/memory/dream/
+//   import 改为 "@/modules/ai-harness/facade"

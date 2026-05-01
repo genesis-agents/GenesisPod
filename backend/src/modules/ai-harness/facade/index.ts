@@ -150,6 +150,21 @@ export {
   type OrphanDetectorCallbacks,
 } from "../runtime/teams/orchestrator/mission-orphan-detector.service";
 
+// ★ C2-step1 (2026-04-30): AutoDream（后台 memory 整合）从 ai-engine 搬入 harness
+export {
+  AutoDreamService,
+  type DreamPhase,
+  type AutoDreamConfig,
+  type DreamStatus,
+  type DreamResult,
+} from "../memory/dream/auto-dream.service";
+export {
+  AutoDreamSchedulerService,
+  type SchedulerConfig as AutoDreamSchedulerConfig,
+  type ScheduledScope as AutoDreamScheduledScope,
+  type SchedulerStats as AutoDreamSchedulerStats,
+} from "../memory/dream/auto-dream-scheduler.service";
+
 // ★ 沉淀 Phase 4 (2026-04-29): Checkpoint / Health / DAG 三件套
 export {
   MissionCheckpointService,

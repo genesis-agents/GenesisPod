@@ -5,7 +5,7 @@ import { resolveResearchDepthConfig } from "../../../types/research-depth.types"
 import { ResearchEventEmitterService } from "../research/research-event-emitter.service";
 import { ReportSynthesisService } from "../../report/report-synthesis.service";
 import { ResearchReviewerService } from "../../collaboration/research-reviewer.service";
-import { AutoDreamSchedulerService } from "@/modules/ai-engine/facade";
+import { AutoDreamSchedulerService } from "@/modules/ai-harness/facade";
 import type { DimensionAnalysisResult } from "../../../types/research.types";
 import type {
   ITaskExecutor,

@@ -44,6 +44,10 @@ import { ShortTermMemoryTool } from "../tools/short-term-memory.tool";
 import { LongTermMemoryTool } from "../tools/long-term-memory.tool";
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
+// Dream (2026-04-30 C2-step1: 从 ai-engine/planning/services/ 搬来 — 后台 memory 整合)
+import { AutoDreamService } from "../dream/auto-dream.service";
+import { AutoDreamSchedulerService } from "../dream/auto-dream-scheduler.service";
+
 const inMemoryStoreFactory = {
   provide: InMemoryStore,
   useFactory: () => new InMemoryStore(),
@@ -70,6 +74,9 @@ const HARNESS_MEMORY_PROVIDERS = [
   // Tools (迁自 ai-engine/tools/categories/memory)
   ShortTermMemoryTool,
   LongTermMemoryTool,
+  // Dream (2026-04-30 C2-step1)
+  AutoDreamService,
+  AutoDreamSchedulerService,
 ];
 
 const HARNESS_MEMORY_EXPORTS = [
@@ -82,6 +89,8 @@ const HARNESS_MEMORY_EXPORTS = [
   MemoryCoordinatorService,
   ShortTermMemoryTool,
   LongTermMemoryTool,
+  AutoDreamService,
+  AutoDreamSchedulerService,
 ];
 
 @Global()

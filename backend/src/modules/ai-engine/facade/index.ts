@@ -599,20 +599,8 @@ export { PromptCacheCoordinatorService } from "../llm/services/prompt-cache-coor
 export type { CachePrefix } from "../llm/services/prompt-cache-coordinator.service";
 
 // ★ Phase 9: Background Autonomous Agents
-export {
-  AutoDreamService,
-  type DreamPhase,
-  type AutoDreamConfig,
-  type DreamStatus,
-  type DreamResult,
-} from "../planning/services";
-
-export {
-  AutoDreamSchedulerService,
-  type SchedulerConfig,
-  type ScheduledScope,
-  type SchedulerStats,
-} from "../planning/services";
+//   2026-04-30 (C2-step1): AutoDream 已搬到 ai-harness/memory/dream/，
+//   ai-app 调用方应改 from "@/modules/ai-harness/facade"
 
 // ════════════════════════════════════════════════════════════════════
 // Safety / Resilience / Security （PR-X15: engine 公开 API barrel

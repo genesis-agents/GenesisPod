@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from "@nestjs/common";
 import {
   AutoDreamService,
   AutoDreamConfig,
@@ -49,7 +54,9 @@ const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
  * The scheduler owns the setInterval timer and cleans it up on module destroy.
  */
 @Injectable()
-export class AutoDreamSchedulerService implements OnModuleInit, OnModuleDestroy {
+export class AutoDreamSchedulerService
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(AutoDreamSchedulerService.name);
 
   private readonly scopes = new Map<string, ScheduledScope>();
@@ -150,7 +157,9 @@ export class AutoDreamSchedulerService implements OnModuleInit, OnModuleDestroy 
       });
     }
 
-    this.logger.debug(`[notifySessionCompleted] Session recorded for ${scopeId}`);
+    this.logger.debug(
+      `[notifySessionCompleted] Session recorded for ${scopeId}`,
+    );
   }
 
   // ─── Manual Trigger ───

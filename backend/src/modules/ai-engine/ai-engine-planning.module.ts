@@ -65,9 +65,8 @@ import { AdaptiveReplannerService } from "./planning/services/adaptive-replanner
 import { CrossCuttingSynthesisService } from "./planning/services/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
 import { SessionMemorySidecarService } from "./planning/services/session-memory-sidecar.service";
-// ★ Phase 9: 后台自主 Agent
-import { AutoDreamService } from "./planning/services/auto-dream.service";
-import { AutoDreamSchedulerService } from "./planning/services/auto-dream-scheduler.service";
+// ★ Phase 9 → 已搬到 ai-harness/memory/dream/（C2-step1，2026-04-30）
+//   AutoDreamService / AutoDreamSchedulerService 不再由 engine 注册
 
 // State Machine — PR-X18: 通过 EXECUTION_STATE_MANAGER_PORT token 注入
 
@@ -223,9 +222,6 @@ const parallelExecutorFactory = {
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar
     SessionMemorySidecarService,
-    // ★ Phase 9: Background Autonomous Agents
-    AutoDreamService,
-    AutoDreamSchedulerService,
   ],
   exports: [
     // PR-X18: AgentRegistry / AgentOrchestrator / AgentConfigService /
@@ -268,9 +264,6 @@ const parallelExecutorFactory = {
     CrossCuttingSynthesisService,
     // ★ Phase 7: Session Memory Sidecar
     SessionMemorySidecarService,
-    // ★ Phase 9: Background Autonomous Agents
-    AutoDreamService,
-    AutoDreamSchedulerService,
   ],
 })
 export class AiEnginePlanningModule {}
