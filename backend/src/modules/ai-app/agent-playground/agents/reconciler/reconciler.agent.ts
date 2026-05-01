@@ -161,7 +161,7 @@ const Output = z.object({
   taskProfile: {
     creativity: "deterministic",
     outputLength: "medium",
-    reasoningDepth: "moderate",
+    taskKind: "classify",
   },
   inputSchema: Input,
   outputSchema: Output,

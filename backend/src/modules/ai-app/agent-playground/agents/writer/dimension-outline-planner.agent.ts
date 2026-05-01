@@ -51,7 +51,11 @@ const Output = z.object({
       "Plan N chapters for one dimension based on its source manifest",
   },
   loop: "reflexion",
-  taskProfile: { creativity: "low", outputLength: "medium" },
+  taskProfile: {
+    creativity: "low",
+    outputLength: "medium",
+    taskKind: "summarize",
+  },
   inputSchema: Input,
   outputSchema: Output,
   budget: { maxTokens: 12_000, maxIterations: 4 },
