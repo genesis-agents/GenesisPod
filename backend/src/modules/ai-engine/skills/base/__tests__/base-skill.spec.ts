@@ -8,6 +8,8 @@ import {
   SkillLayer,
   ISkill,
 } from "../../abstractions/skill.interface";
+import { ToolPipeline } from "../../../tools/middleware/tool-pipeline";
+import { SkillError } from "../../../core/errors";
 
 // Concrete implementation for testing
 class SimpleSkill extends BaseSkill<string, string> {
@@ -345,6 +347,117 @@ describe("BaseSkill", () => {
     expect(() => s.parse("not valid json")).toThrow(
       "Failed to parse JSON response",
     );
+  });
+});
+
+// --- callTool with ToolPipeline ---
+
+describe("BaseSkill.callTool with ToolPipeline", () => {
+  class CallToolSkill extends BaseSkill<string, string> {
+    readonly id = "call-tool-skill";
+    readonly name = "Call Tool Skill";
+    readonly description = "Skill that calls a tool";
+    readonly layer: SkillLayer = "content";
+    readonly domain = "test";
+
+    async doExecute(input: string, _context: SkillContext): Promise<string> {
+      return input;
+    }
+
+    // Expose callTool for testing
+    public async callToolPublic<T>(
+      toolId: string,
+      input: unknown,
+      context: SkillContext,
+    ): Promise<T> {
+      return this.callTool<T>(toolId, input, context);
+    }
+  }
+
+  function buildToolContext(): SkillContext {
+    return {
+      executionId: "exec-pipeline-test",
+      skillId: "call-tool-skill",
+      createdAt: new Date(),
+    };
+  }
+
+  it("routes callTool through pipeline.execute when pipeline is set", async () => {
+    const skill = new CallToolSkill();
+
+    const toolResult = {
+      success: true as const,
+      data: { answer: 42 },
+      metadata: {
+        executionId: "e",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 0,
+      },
+    };
+    const mockTool = { execute: jest.fn().mockResolvedValue(toolResult) };
+    const mockRegistry = { tryGet: jest.fn().mockReturnValue(mockTool) } as any;
+    skill.setToolRegistry(mockRegistry);
+
+    const mockPipeline = {
+      execute: jest.fn().mockResolvedValue(toolResult),
+    } as unknown as ToolPipeline;
+    skill.setToolPipeline(mockPipeline);
+
+    await skill.callToolPublic("my-tool", { q: "test" }, buildToolContext());
+
+    expect(mockPipeline.execute).toHaveBeenCalledTimes(1);
+    expect(mockTool.execute).not.toHaveBeenCalled();
+  });
+
+  it("falls back to tool.execute when no pipeline is set", async () => {
+    const skill = new CallToolSkill();
+
+    const toolResult = {
+      success: true as const,
+      data: "direct",
+      metadata: {
+        executionId: "e",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 0,
+      },
+    };
+    const mockTool = { execute: jest.fn().mockResolvedValue(toolResult) };
+    const mockRegistry = { tryGet: jest.fn().mockReturnValue(mockTool) } as any;
+    skill.setToolRegistry(mockRegistry);
+    // do NOT call setToolPipeline
+
+    await skill.callToolPublic("my-tool", {}, buildToolContext());
+
+    expect(mockTool.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws SkillError when pipeline returns a failure result", async () => {
+    const skill = new CallToolSkill();
+
+    const failResult = {
+      success: false as const,
+      error: { code: "TOOL_ERR", message: "pipeline error" },
+      metadata: {
+        executionId: "e",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 0,
+      },
+    };
+    const mockTool = { execute: jest.fn() };
+    const mockRegistry = { tryGet: jest.fn().mockReturnValue(mockTool) } as any;
+    skill.setToolRegistry(mockRegistry);
+
+    const mockPipeline = {
+      execute: jest.fn().mockResolvedValue(failResult),
+    } as unknown as ToolPipeline;
+    skill.setToolPipeline(mockPipeline);
+
+    await expect(
+      skill.callToolPublic("my-tool", {}, buildToolContext()),
+    ).rejects.toThrow(SkillError);
   });
 });
 

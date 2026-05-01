@@ -14,6 +14,7 @@ import {
 import { ExecutionMode } from "../../../core";
 import { ToolRegistry } from "../../../tools/registry";
 import { SkillRegistry } from "../../../skills/registry";
+import { ToolPipeline } from "../../../tools/middleware/tool-pipeline";
 import {
   ILLMAdapter,
   LLMResponse,
@@ -361,6 +362,100 @@ describe("BaseAgent", () => {
 
       expect(result).toEqual(toolResult);
       expect(tool.execute).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // callTool with ToolPipeline
+  // -------------------------------------------------------------------------
+
+  describe("callTool with ToolPipeline", () => {
+    it("routes callTool through pipeline.execute when pipeline is set", async () => {
+      const toolResult = {
+        success: true as const,
+        data: { answer: 42 },
+        metadata: {
+          executionId: "e",
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 0,
+        },
+      };
+      const tool = { execute: jest.fn().mockResolvedValue(toolResult) };
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
+      agent.setToolRegistry(registry);
+
+      const mockPipeline = {
+        execute: jest.fn().mockResolvedValue(toolResult),
+      } as unknown as ToolPipeline;
+      agent.setToolPipeline(mockPipeline);
+
+      const result = await agent.exposedCallTool<{ answer: number }>(
+        "my-tool",
+        { q: "test" },
+        makeContext(),
+      );
+
+      expect(mockPipeline.execute).toHaveBeenCalledTimes(1);
+      expect(tool.execute).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      // tool was called via pipeline → toolsCalled should include the id
+      expect(agent.getStats().toolsCalled).toContain("my-tool");
+    });
+
+    it("falls back to tool.execute when no pipeline is set", async () => {
+      const toolResult = {
+        success: true as const,
+        data: "direct",
+        metadata: {
+          executionId: "e",
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 0,
+        },
+      };
+      const tool = { execute: jest.fn().mockResolvedValue(toolResult) };
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
+      agent.setToolRegistry(registry);
+      // do NOT set pipeline
+
+      const result = await agent.exposedCallTool("my-tool", {}, makeContext());
+
+      expect(tool.execute).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(true);
+    });
+
+    it("returns failure result from pipeline without throwing, and does not push to toolsCalled", async () => {
+      const failResult = {
+        success: false as const,
+        error: { code: "TOOL_ERR", message: "pipeline error" },
+        metadata: {
+          executionId: "e",
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 0,
+        },
+      };
+      const tool = { execute: jest.fn() };
+      const registry = {
+        tryGet: jest.fn().mockReturnValue(tool),
+      } as unknown as ToolRegistry;
+      agent.setToolRegistry(registry);
+
+      const mockPipeline = {
+        execute: jest.fn().mockResolvedValue(failResult),
+      } as unknown as ToolPipeline;
+      agent.setToolPipeline(mockPipeline);
+
+      const result = await agent.exposedCallTool("my-tool", {}, makeContext());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.message).toBe("pipeline error");
+      expect(agent.getStats().toolsCalled).not.toContain("my-tool");
     });
   });
 

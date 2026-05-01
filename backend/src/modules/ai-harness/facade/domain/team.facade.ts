@@ -150,6 +150,9 @@ export class TeamFacade {
         );
       }
     }
+    // TODO(PR1-wiring): inject ToolPipeline once available in this scope
+    //   "setToolPipeline" in skill → skill.setToolPipeline(this.skills.toolPipeline)
+    //   Blocked on SkillFeature not yet carrying a toolPipeline field.
     return skill.execute(input, context);
   }
 

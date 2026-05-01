@@ -2,6 +2,7 @@
  * Unit tests for ValidationMiddleware
  */
 
+import { Logger } from "@nestjs/common";
 import {
   ValidationMiddleware,
   createValidationMiddleware,
@@ -465,7 +466,8 @@ describe("ValidationMiddleware", () => {
       expect(out).toBe(result);
     });
 
-    it("returns result (with warning) when output does not match schema — does not throw", async () => {
+    it("returns result (with warning) when output does not match schema — does not throw when flag is off", async () => {
+      delete process.env.STRICT_OUTPUT_VALIDATION;
       const tool = makeTool(
         "t",
         { type: "object" },
@@ -477,7 +479,96 @@ describe("ValidationMiddleware", () => {
       // data is an object, output schema says string
       const result = makeSuccessResult();
 
-      // ValidationMiddleware only warns on output failure, does NOT throw
+      // ValidationMiddleware only warns on output failure when flag is off, does NOT throw
+      const out = await mw.after(result, makeContext(), tool);
+      expect(out).toBe(result);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // STRICT_OUTPUT_VALIDATION flag behaviour
+  // -------------------------------------------------------------------------
+
+  describe("STRICT_OUTPUT_VALIDATION flag", () => {
+    afterEach(() => {
+      delete process.env.STRICT_OUTPUT_VALIDATION;
+    });
+
+    it("flag=undefined: output schema failure emits Logger.warn and still returns result", async () => {
+      delete process.env.STRICT_OUTPUT_VALIDATION;
+      const warnSpy = jest.spyOn(Logger, "warn").mockReturnValue(undefined);
+
+      const tool = makeTool(
+        "strict-off",
+        { type: "object" },
+        { outputSchema: { type: "string" } },
+      );
+      // Explicitly pass validateOutput:true so the path is exercised
+      const mw = new ValidationMiddleware({ validateOutput: true });
+      const result = makeSuccessResult();
+
+      const out = await mw.after(result, makeContext(), tool);
+
+      expect(out).toBe(result);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("strict-off"),
+        "ValidationMiddleware",
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it("flag=1: output schema failure throws ValidationError", async () => {
+      process.env.STRICT_OUTPUT_VALIDATION = "1";
+
+      const tool = makeTool(
+        "strict-on",
+        { type: "object" },
+        { outputSchema: { type: "string" } },
+      );
+      const mw = new ValidationMiddleware({ validateOutput: true });
+      const result = makeSuccessResult();
+
+      await expect(mw.after(result, makeContext(), tool)).rejects.toThrow(
+        ValidationError,
+      );
+    });
+
+    it("flag=1 but result.success=false: early-returns without schema check (no throw)", async () => {
+      process.env.STRICT_OUTPUT_VALIDATION = "1";
+
+      const tool = makeTool(
+        "strict-fail-skip",
+        { type: "object" },
+        { outputSchema: { type: "string" } },
+      );
+      const mw = new ValidationMiddleware({ validateOutput: true });
+      const failResult: ToolResult = {
+        success: false,
+        error: { code: "ERR", message: "upstream failure" },
+        metadata: {
+          executionId: "e",
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 0,
+        },
+      };
+
+      const out = await mw.after(failResult, makeContext(), tool);
+      expect(out).toBe(failResult);
+    });
+
+    it("flag=1 and output matches schema: returns result without throwing", async () => {
+      process.env.STRICT_OUTPUT_VALIDATION = "1";
+
+      const tool = makeTool(
+        "strict-pass",
+        { type: "object" },
+        { outputSchema: { type: "object" } },
+      );
+      const mw = new ValidationMiddleware({ validateOutput: true });
+      const result = makeSuccessResult();
+
       const out = await mw.after(result, makeContext(), tool);
       expect(out).toBe(result);
     });

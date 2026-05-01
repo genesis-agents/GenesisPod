@@ -1517,6 +1517,9 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               `[executeStepFull] No LLM adapter available for skill ${skillId}`,
             );
           }
+          // TODO(PR1-wiring): inject ToolPipeline once available in this scope
+          //   "setToolPipeline" in skill → skill.setToolPipeline(this.toolPipeline)
+          //   Blocked on TeamsMissionOrchestrator not yet carrying a ToolPipeline field.
 
           try {
             // ★ 优先使用 missionInput.metadata.sessionId（Slides 等应用传入的实际会话 ID）

@@ -13,8 +13,12 @@ import { ExecutionMode, JsonObject } from "../../../ai-engine/core";
 import { AgentError } from "../../../ai-engine/core/errors";
 import { ToolRegistry } from "../../../ai-engine/tools/registry";
 import { ToolContext, ToolResult } from "../../../ai-engine/tools/abstractions";
+import { ToolPipeline } from "../../../ai-engine/tools/middleware/tool-pipeline";
 import { SkillRegistry } from "../../../ai-engine/skills/registry";
-import { SkillContext, SkillResult } from "../../../ai-engine/skills/abstractions";
+import {
+  SkillContext,
+  SkillResult,
+} from "../../../ai-engine/skills/abstractions";
 import {
   IAgent,
   AgentContext,
@@ -90,6 +94,11 @@ export abstract class BaseAgent<
   protected toolRegistry?: ToolRegistry;
 
   /**
+   * 工具执行管道
+   */
+  protected toolPipeline?: ToolPipeline;
+
+  /**
    * 技能注册表
    */
   protected skillRegistry?: SkillRegistry;
@@ -125,6 +134,13 @@ export abstract class BaseAgent<
    */
   setToolRegistry(registry: ToolRegistry): void {
     this.toolRegistry = registry;
+  }
+
+  /**
+   * 设置工具执行管道
+   */
+  setToolPipeline(pipeline: ToolPipeline): void {
+    this.toolPipeline = pipeline;
   }
 
   /**
@@ -299,6 +315,7 @@ export abstract class BaseAgent<
 
   /**
    * 调用工具
+   * Pipeline 优先；无 pipeline 时降级到 direct execute（保留单测兼容 + setter 可选注入）
    */
   protected async callTool<T>(
     toolId: string,
@@ -325,9 +342,14 @@ export abstract class BaseAgent<
       createdAt: new Date(),
     };
 
-    const result = await (tool.execute(toolInput, toolContext) as Promise<
-      ToolResult<T>
-    >);
+    const result = this.toolPipeline
+      ? ((await this.toolPipeline.execute(
+          tool,
+          toolInput,
+          toolContext,
+        )) as ToolResult<T>)
+      : ((await tool.execute(toolInput, toolContext)) as ToolResult<T>);
+
     if (result.success) {
       this.stats.toolsCalled.push(toolId);
     }

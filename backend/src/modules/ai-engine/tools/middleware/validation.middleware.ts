@@ -61,7 +61,7 @@ export class ValidationMiddleware implements IToolMiddleware {
   constructor(private readonly config: ValidationMiddlewareConfig = {}) {
     this.config = {
       validateInput: true,
-      validateOutput: false,
+      validateOutput: process.env.STRICT_OUTPUT_VALIDATION === "1",
       allowAdditionalProperties: true,
       ...config,
     };
@@ -134,7 +134,12 @@ export class ValidationMiddleware implements IToolMiddleware {
       tool.outputSchema,
     );
     if (!schemaResult.valid) {
-      // 输出验证失败时，记录警告但不阻止
+      if (process.env.STRICT_OUTPUT_VALIDATION === "1") {
+        throw new ValidationError(
+          schemaResult.errors ?? [],
+          `Output validation failed for tool '${tool.id}'`,
+        );
+      }
       Logger.warn(
         `Output validation warning for tool '${tool.id}': ${JSON.stringify(schemaResult.errors)}`,
         "ValidationMiddleware",

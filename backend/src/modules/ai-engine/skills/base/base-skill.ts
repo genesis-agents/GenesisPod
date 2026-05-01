@@ -9,6 +9,7 @@ import { ValidationResult, JsonObject } from "../../core";
 import { SkillError } from "../../core/errors";
 import { ToolRegistry } from "../../tools/registry";
 import { ToolContext } from "../../tools/abstractions";
+import { ToolPipeline } from "../../tools/middleware/tool-pipeline";
 import {
   ISkill,
   SkillContext,
@@ -116,6 +117,11 @@ export abstract class BaseSkill<
   protected toolRegistry?: ToolRegistry;
 
   /**
+   * 工具执行管道
+   */
+  protected toolPipeline?: ToolPipeline;
+
+  /**
    * LLM 适配器
    */
   protected llmAdapter?: ILLMAdapter;
@@ -139,6 +145,13 @@ export abstract class BaseSkill<
    */
   setToolRegistry(registry: ToolRegistry): void {
     this.toolRegistry = registry;
+  }
+
+  /**
+   * 设置工具执行管道
+   */
+  setToolPipeline(pipeline: ToolPipeline): void {
+    this.toolPipeline = pipeline;
   }
 
   /**
@@ -290,6 +303,7 @@ export abstract class BaseSkill<
 
   /**
    * 调用工具
+   * Pipeline 优先；无 pipeline 时降级到 direct execute（保留单测兼容 + setter 可选注入）
    */
   protected async callTool<T>(
     toolId: string,
@@ -316,13 +330,15 @@ export abstract class BaseSkill<
       createdAt: new Date(),
     };
 
-    const result = await tool.execute(input, toolContext);
+    const result = this.toolPipeline
+      ? await this.toolPipeline.execute(tool, input, toolContext)
+      : await tool.execute(input, toolContext);
 
     if (!result.success) {
       throw SkillError.toolCallFailed(
         this.id,
         toolId,
-        new Error(result.error?.message || "Tool execution failed"),
+        new Error(result.error?.message ?? "Tool execution failed"),
       );
     }
 
