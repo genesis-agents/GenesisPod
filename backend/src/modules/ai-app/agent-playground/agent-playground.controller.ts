@@ -661,20 +661,17 @@ export class AgentPlaygroundController {
     }
     if (reasonText) hintLines.push(`Context: ${reasonText}`);
 
-    // 老 input 复用 + 把 hint 嵌进 topic 末尾（leader plan agent 看 topic 字符串）
+    // 老 input 复用
+    // ★ 2026-05-01：topic 完全保持原样，不再追加 [Re-run focus] hint 块
+    //   原 P1-21 把 hint 嵌进 topic 末尾导致前端 mission header truncate 失效，
+    //   多行 topic 把右上角设置按钮挤出可视区。
+    //   hint 已通过 mission:manual-rerun-from-todo 事件 emit 给前端 ledger 关联展示，
+    //   且 hintLines 内容仅日志记录，对 leader plan 行为影响有限（保持空 hint
+    //   不嵌 topic，leader 按原 topic 重新规划即可）。
     const originalProfile = (original as { userProfile?: unknown })
       .userProfile as Partial<RunMissionInput> | null | undefined;
-    // ★ P1-21 (2026-04-29): rerunTodo 拼接 topic 时给 hint 留足空间，
-    // 否则 hint 全被截掉，leader 看不到重跑意图
     const TOPIC_LIMIT = 200;
-    const HINT_BLOCK = `\n\n[Re-run focus]\n${hintLines.join("\n")}`;
-    const focusedTopic =
-      hintLines.length > 0
-        ? (
-            original.topic.slice(0, TOPIC_LIMIT - HINT_BLOCK.length - 3) +
-            HINT_BLOCK
-          ).slice(0, TOPIC_LIMIT)
-        : original.topic.slice(0, TOPIC_LIMIT);
+    const focusedTopic = original.topic.slice(0, TOPIC_LIMIT);
 
     const input: RunMissionInput = {
       topic: focusedTopic,

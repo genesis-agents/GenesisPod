@@ -500,9 +500,15 @@ export default function MissionDetailPage() {
                 />
               </svg>
             </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold text-gray-900">
-                {view.mission.topic ?? '研究 Mission'}
+            <div className="min-w-0 flex-1">
+              <h1
+                className="truncate text-lg font-bold text-gray-900"
+                title={view.mission.topic ?? '研究 Mission'}
+              >
+                {/* 兜底：把任意换行 / [Re-run focus] hint 块剥到首行，防 topic 撑爆 header 挤设置按钮 */}
+                {(view.mission.topic ?? '研究 Mission')
+                  .split(/\n|\[Re-run focus\]/i)[0]
+                  .trim() || '研究 Mission'}
               </h1>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                 {view.mission.depth && <span>{view.mission.depth}</span>}
