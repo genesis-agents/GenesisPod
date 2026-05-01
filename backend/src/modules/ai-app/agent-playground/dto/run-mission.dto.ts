@@ -114,19 +114,23 @@ export function resolveBudgetMultiplier(input: RunMissionInput): number {
 /**
  * Mission 级 wall-time 上限（ms）—— 按 depth × auditLayers × budgetProfile 三维联动。
  *
- * 旧实现固定 30 min，导致 depth=deep + auditLayers=thorough 必然撞墙。
- * 新规则：
- *   base depth: quick=10min / standard=25min / deep=50min
+ * ★ 2026-05-01 (PR-G iter11): standard 25min → 45min
+ *   12-stage pipeline 实测耗时（mission 981c0d21 标准档）：4 dim × (researcher
+ *   + 5 chapter writer + 5 chapter reviewer + integrator + grader) ≈ 25min；
+ *   再叠 reconciler + analyst + writer + critic + leader (S8~S12) ≈ 10-15min；
+ *   总计 35-45min，原 25min cap 必然在 S8 writer 阶段撞墙。新档位：
+ *
+ *   base depth: quick=15min / standard=45min / deep=90min
  *   × audit:    minimal=0.7 / default=1.0 / thorough=1.5 / paranoid=2.0
  *   × budget:   low=0.7 / medium=1.0 / high=1.4 / unlimited=2.0
- *   全局 cap:   3 小时（避免无限运行）
+ *   全局 cap:   3 小时
  *
  * 实际样例：
- *   quick + minimal + low                       ≈ 5 min
- *   standard + default + medium                 = 25 min
- *   deep + default + medium                     = 50 min  ← 默认深度档现在是 50min
- *   deep + thorough + high                      ≈ 105 min
- *   deep + paranoid + unlimited                 ≈ 200 min → cap 180 min
+ *   quick + minimal + low                       ≈ 7 min
+ *   standard + default + medium                 = 45 min  ← 默认档（覆盖 12-stage 实测耗时）
+ *   deep + default + medium                     = 90 min
+ *   deep + thorough + high                      ≈ 189 min → cap 180 min
+ *   deep + paranoid + unlimited                 ≈ 360 min → cap 180 min
  */
 export function resolveMissionWallTimeMs(input: RunMissionInput): number {
   if (input.wallTimeMs != null) {
@@ -134,9 +138,9 @@ export function resolveMissionWallTimeMs(input: RunMissionInput): number {
     return input.wallTimeMs;
   }
   const depthBase: Record<RunMissionInput["depth"], number> = {
-    quick: 10 * 60 * 1000,
-    standard: 25 * 60 * 1000,
-    deep: 50 * 60 * 1000,
+    quick: 15 * 60 * 1000,
+    standard: 45 * 60 * 1000,
+    deep: 90 * 60 * 1000,
   };
   const auditMul: Record<RunMissionInput["auditLayers"], number> = {
     minimal: 0.7,
