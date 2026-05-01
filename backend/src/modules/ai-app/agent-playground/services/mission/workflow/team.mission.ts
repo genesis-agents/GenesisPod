@@ -78,7 +78,9 @@ import {
 } from "../../../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
 import { MissionStore } from "../lifecycle/mission-store.service";
+import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";
+import { PostmortemClassifierService } from "../../postmortem/postmortem-classifier.service";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
@@ -161,6 +163,10 @@ export class TeamMission {
     private readonly qualityTraceCompute: QualityTraceComputeService,
     // ★ Phase 5 (2026-04-29): 接入 ai-harness 沉淀的 mission checkpoint
     private readonly missionCheckpoint: MissionCheckpointService,
+    // ── S12 postmortem 失败模式分类 ──
+    private readonly postmortemClassifier: PostmortemClassifierService,
+    // MissionEventBuffer: S12 需要事件快照做失败模式分类
+    private readonly missionEventBuffer: MissionEventBuffer,
   ) {}
 
   /**
@@ -433,6 +439,15 @@ export class TeamMission {
                   | undefined,
                 leaderSignOff: result.leaderSignOff,
                 abortSignal: missionAbort.signal,
+                // ── 事件快照注入，供 PostmortemClassifierService 做失败模式分类 ──
+                //   BufferedEvent 用 timestamp 字段，ClassifyInput 用 ts，map 一下
+                bufferedEvents: this.missionEventBuffer
+                  .read(missionId)
+                  .map((e) => ({
+                    type: e.type,
+                    ts: e.timestamp,
+                    payload: e.payload,
+                  })),
               },
               this.buildStageDeps(),
             ).catch(() => {});
@@ -1064,6 +1079,7 @@ export class TeamMission {
       sectionRemediation: this.sectionRemediation,
       reportEvaluation: this.reportEvaluation,
       qualityTraceCompute: this.qualityTraceCompute,
+      postmortemClassifier: this.postmortemClassifier,
       log: this.log,
       emit: this.invoker.emitEvent.bind(this.invoker),
       lifecycle: this.invoker.emitLifecycle.bind(this.invoker),

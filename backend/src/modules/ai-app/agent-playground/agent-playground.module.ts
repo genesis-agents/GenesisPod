@@ -34,6 +34,7 @@ import { LocalRerunService } from "./services/mission/rerun/local-rerun.service"
 import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
 import { RerunLockRegistry } from "./services/mission/rerun/rerun-lock.registry";
 import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
+import { PostmortemClassifierService } from "./services/postmortem/postmortem-classifier.service";
 import {
   AgentInvoker,
   LeaderService,
@@ -101,6 +102,8 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     CtxHydratorService,
     RerunLockRegistry,
     StageRerunDispatcher,
+    // ── S12 postmortem 失败模式分类 ──
+    PostmortemClassifierService,
   ],
   exports: [MissionEventBuffer],
 })

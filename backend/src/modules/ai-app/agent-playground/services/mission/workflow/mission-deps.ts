@@ -42,6 +42,7 @@ import type {
 import type { FigureExtractorService } from "../../../../../ai-engine/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
+import type { PostmortemClassifierService } from "../../postmortem/postmortem-classifier.service";
 
 /** 通用 emit 签名 — 2026-05-01 上提到 ai-harness/protocol/ipc/stage-emit.util */
 import type { EmitFn } from "@/modules/ai-harness/facade";
@@ -89,6 +90,9 @@ export interface MissionDeps {
   readonly sectionRemediation: SectionRemediationService;
   readonly reportEvaluation: ReportEvaluationService;
   readonly qualityTraceCompute: QualityTraceComputeService;
+
+  // ── S12 postmortem 失败模式分类 ──
+  readonly postmortemClassifier: PostmortemClassifierService;
 
   // ── bound helpers from trunk class（stage 不关心实现位置）──
   readonly log: Logger;

@@ -25,6 +25,13 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
     failureLearner: {
       recordFailure: jest.fn().mockResolvedValue(undefined),
     },
+    postmortemClassifier: {
+      classify: jest.fn().mockReturnValue({
+        mode: "success",
+        signals: [],
+        confidence: 1,
+      }),
+    },
     ...overrides,
   } as unknown as MissionDeps;
 }

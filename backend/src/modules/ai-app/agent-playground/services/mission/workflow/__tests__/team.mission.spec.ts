@@ -146,9 +146,12 @@ jest.mock("../../../../../../ai-engine/facade", () => ({
 }));
 
 // Mock the harness kernel so AgentSpec base class doesn't fail module loading
-jest.mock("../../../../../../ai-harness/kernel/dev-tools/agent-spec.base", () => ({
-  AgentSpec: class AgentSpec {},
-}));
+jest.mock(
+  "../../../../../../ai-harness/kernel/dev-tools/agent-spec.base",
+  () => ({
+    AgentSpec: class AgentSpec {},
+  }),
+);
 
 // Mock roles to avoid deep transitive agent imports
 jest.mock("../../../roles", () => ({
@@ -254,6 +257,18 @@ function buildTeamMission() {
       canResume: jest.fn(),
       listResumable: jest.fn().mockResolvedValue([]),
       isCompleted: jest.fn().mockReturnValue(false),
+    } as never,
+    // ★ postmortemClassifier mock — classify returns success result
+    {
+      classify: jest.fn().mockReturnValue({
+        mode: "success",
+        signals: [],
+        confidence: 1,
+      }),
+    } as never,
+    // ★ missionEventBuffer mock — read returns empty events array
+    {
+      read: jest.fn().mockReturnValue([]),
     } as never,
   );
 
@@ -718,7 +733,11 @@ describe("TeamMission.runMission", () => {
       const { mission } = buildTeamMission();
       const result = await mission.runMission(
         "m-paranoid",
-        { ...VALID_INPUT, auditLayers: "thorough+", budgetProfile: "unlimited" },
+        {
+          ...VALID_INPUT,
+          auditLayers: "thorough+",
+          budgetProfile: "unlimited",
+        },
         "user-1",
       );
       expect(result.missionId).toBe("m-paranoid");

@@ -276,9 +276,7 @@ export class MissionStore {
         },
       })
       .catch(() => ({ count: 0 }));
-    await Promise.all(
-      orphans.map((o) => this.clearCheckpointJsonbKey(o.id)),
-    );
+    await Promise.all(orphans.map((o) => this.clearCheckpointJsonbKey(o.id)));
     if (result.count > 0) {
       this.log.warn(
         `[recoverPodCrashed] marked ${result.count} pod-crashed missions as failed (heartbeat stale > ${staleSeconds}s)`,
@@ -637,6 +635,12 @@ export class MissionStore {
     qualityScore: number | null;
     tokensUsed: number;
     costUsd: number;
+    /** S12 postmortem classifier result — stored in metadata JSONB, no schema change */
+    failureClassification?: {
+      mode: string;
+      signals: string[];
+      confidence: number;
+    };
   }): Promise<void> {
     try {
       await this.prisma.harnessVectorMemory.create({
@@ -659,6 +663,9 @@ export class MissionStore {
             qualityScore: input.qualityScore,
             tokensUsed: input.tokensUsed,
             costUsd: input.costUsd,
+            ...(input.failureClassification
+              ? { failureClassification: input.failureClassification }
+              : {}),
           },
         },
       });

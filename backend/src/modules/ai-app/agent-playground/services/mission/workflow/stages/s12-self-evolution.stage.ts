@@ -51,6 +51,11 @@ interface SelfEvolutionInput {
    * 立即停手，防止 BYOK credits 超 wall-time 后被继续消耗。
    */
   abortSignal?: AbortSignal;
+  /**
+   * 来自 MissionEventBuffer.read() 的事件快照（caller 侧注入，S12 不直接读 bus）
+   * 用于 PostmortemClassifierService 扫描事件类型 → 失败模式分类。
+   */
+  bufferedEvents?: Array<{ type: string; ts: number; payload?: unknown }>;
 }
 
 interface PostmortemSummary {
@@ -234,6 +239,21 @@ export async function runSelfEvolutionStage(
       deps.log.warn(`[${missionId}] S12 aborted before postmortem write`);
       return;
     }
+    // ── 失败模式分类（2026-04-30）─────────────────────────────────────
+    //   基于 mission status + event 流扫描，将本次 mission 归类为 8 种 FailureMode 之一，
+    //   写入 harness_vector_memory metadata JSONB（不改 schema），
+    //   让下次 leader plan 阶段召回 postmortem 时能看到结构化失败原因。
+    //   bufferedEvents 由 caller（team.mission.ts）注入，S12 不直接读 bus。
+    const missionStatus = leaderSigned === true ? "completed" : "failed";
+    const classification = deps.postmortemClassifier.classify({
+      status: missionStatus,
+      events: args.bufferedEvents ?? [],
+      metrics: { totalTokens, wallTimeMs },
+    });
+    deps.log.log(
+      `[${missionId}] S12 postmortem classification: mode=${classification.mode} confidence=${classification.confidence.toFixed(2)} signals=[${classification.signals.join(",")}]`,
+    );
+
     // ── 真沉淀 2：mission postmortem 入 harness_vector_memory ─────────
     //   namespace=userId，tags=['agent-playground', 'mission-postmortem', 'signed'/'unsigned']
     //   下次 leader plan 阶段可调 store.listRecentPostmortems(userId, 3) 拿历史教训
@@ -241,6 +261,7 @@ export async function runSelfEvolutionStage(
       `Mission "${args.topic ?? missionId}" — ${leaderSigned === true ? "签字交付" : leaderSigned === false ? "Leader 拒签" : "未签字"}`,
       `质量 ${overallQuality ?? "-"}/100，命中率 ${qualityHitRate != null ? (qualityHitRate * 100).toFixed(0) + "%" : "n/a"}`,
       `Token ${totalTokens}，cost $${totalCostUsd.toFixed(2)}，墙时 ${Math.round(wallTimeMs / 60000)}min`,
+      `失败模式：${classification.mode}（confidence=${classification.confidence.toFixed(2)}）`,
       `经验：`,
       ...recommendations.map((r) => `- ${r}`),
     ].join("\n");
@@ -257,6 +278,8 @@ export async function runSelfEvolutionStage(
         qualityScore: overallQuality,
         tokensUsed: totalTokens,
         costUsd: totalCostUsd,
+        // ── 失败模式分类结果写入 metadata JSONB（不改 schema，复用 MissionStore.recordMissionPostmortem）
+        failureClassification: classification,
       })
       .catch((err: unknown) => {
         deps.log.warn(
