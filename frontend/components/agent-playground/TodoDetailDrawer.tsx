@@ -228,9 +228,23 @@ function extractRawOutputPreview(output: unknown): string | undefined {
   const o = output as Record<string, unknown>;
 
   // ★ 0) 后端 truncatePayload 包装态 { _truncated, preview }：preview 是 JSON
-  //    半截字符串，但仍能给用户看到部分内容（之前完全显示空白）
+  //    半截字符串。从中 regex 提取 results 数量 + 首条标题做双语摘要，
+  //    避免裸 JSON 直接糊脸（之前直接 slice 500 字 raw 用户极差）。
   if (o._truncated === true && typeof o.preview === 'string') {
-    return o.preview.trim().slice(0, 500);
+    const preview = o.preview;
+    const titles = [...preview.matchAll(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/g)]
+      .map((m) => m[1])
+      .filter((t) => t.length > 0);
+    const urlCount = [...preview.matchAll(/"url"\s*:\s*"https?:\/\//g)].length;
+    const hits = Math.max(titles.length, urlCount);
+    if (hits > 0) {
+      const firstTitle = titles[0]?.slice(0, 60);
+      const zh = `命中 ${hits} 条结果${firstTitle ? ` · 首条：「${firstTitle}」` : ''}（结果较多已截断，详见运行日志）`;
+      const en = `Matched ${hits} result${hits > 1 ? 's' : ''}${firstTitle ? ` · top: "${firstTitle}"` : ''} (truncated, see runtime log)`;
+      return `${zh}\n${en}`;
+    }
+    // 没匹配到结构化命中 → fallback 给精简提示而非塞 raw
+    return '工具返回内容较多已截断，详见运行日志\nTool output truncated, see runtime log';
   }
 
   // 1) 工具自报结论字段
@@ -434,6 +448,13 @@ function collectResultsDeep(
     }
     if (typeof n !== 'object') return;
     const o = n as Record<string, unknown>;
+    // ★ 2026-05-01: 后端 truncatePayload 包装态 {_truncated, preview} —— preview
+    //   是 JSON 半截字符串，对它跑 regexExtract 让前端能渲染成 SourceLink 卡片
+    //   而不是裸文本糊脸
+    if (o._truncated === true && typeof o.preview === 'string') {
+      regexExtract(o.preview);
+      return;
+    }
     // ★ 2026-04-30: 扩展识别 researcher findings 格式（{claim, evidence, source}）+
     //   通用 url 字段名（source / sourceUrl / link / href）+ title 字段名（claim / heading / name）
     const titleField =
