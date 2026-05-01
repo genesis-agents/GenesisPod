@@ -58,6 +58,37 @@ export interface SecretVersion {
   isCurrent: boolean;
 }
 
+export interface ExpectedSecretItem {
+  name: string;
+  displayName: string;
+  category: string;
+  provider: string;
+  description?: string;
+  setupGuideUrl?: string;
+  freeTierAvailable: boolean;
+  status: 'configured' | 'missing';
+  secretId?: string;
+  relatedToolIds: string[];
+}
+
+export interface ExpectedSecretsOrphan {
+  name: string;
+  displayName: string;
+  secretId: string;
+}
+
+export interface ExpectedSecretsSummary {
+  total: number;
+  configured: number;
+  missing: number;
+}
+
+export interface ExpectedSecretsResponse {
+  items: ExpectedSecretItem[];
+  summary: ExpectedSecretsSummary;
+  orphans: ExpectedSecretsOrphan[];
+}
+
 export interface CreateSecretDto {
   name: string;
   displayName: string;
@@ -102,6 +133,15 @@ export function useAdminSecrets() {
   const { data: secretNames, execute: refreshSecretNames } = useApiGet<
     string[]
   >('/admin/secrets/names', {
+    immediate: true,
+  });
+
+  // 预置卡槽查询
+  const {
+    data: expectedSecrets,
+    loading: expectedLoading,
+    execute: refreshExpectedSecrets,
+  } = useApiGet<ExpectedSecretsResponse>('/admin/secrets/expected', {
     immediate: true,
   });
 
@@ -249,6 +289,11 @@ export function useAdminSecrets() {
     // 数据
     secrets: secrets ?? [],
     secretNames: secretNames ?? [],
+
+    // 预置卡槽
+    expectedSecrets: expectedSecrets ?? null,
+    expectedLoading,
+    refreshExpectedSecrets,
 
     // 加载状态
     loading: listLoading || createLoading || updateLoading || deleteLoading,

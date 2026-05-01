@@ -20,7 +20,7 @@ import type {
   RunMissionInput,
   ResearchReport,
 } from "../../../dto/run-mission.dto";
-import type { ReportArtifact } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact.dto";
+import type { ReportArtifact } from "@/modules/ai-harness/facade";
 
 /**
  * Hydrated ctx 提供给 stage 函数 —— 缺装配期纯 runtime 字段（leader/billing/pool 等），

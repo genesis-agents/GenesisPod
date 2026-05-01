@@ -976,6 +976,70 @@ describe("SecretsService", () => {
     });
   });
 
+  // ==================== getExpectedSecrets ====================
+
+  describe("getExpectedSecrets", () => {
+    it("marks secrets as configured when they exist in DB and missing otherwise", async () => {
+      (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([
+        { id: "s1", name: "tavily-search-api-key", displayName: "Tavily Search API Key" },
+        { id: "s2", name: "perplexity-api-key", displayName: "Perplexity API Key" },
+      ]);
+
+      const result = await service.getExpectedSecrets();
+
+      const tavily = result.items.find((i) => i.name === "tavily-search-api-key");
+      const perplexity = result.items.find((i) => i.name === "perplexity-api-key");
+      const serper = result.items.find((i) => i.name === "serper-api-key");
+
+      expect(tavily?.status).toBe("configured");
+      expect(tavily?.secretId).toBe("s1");
+      expect(perplexity?.status).toBe("configured");
+      expect(perplexity?.secretId).toBe("s2");
+      expect(serper?.status).toBe("missing");
+      expect(serper?.secretId).toBeUndefined();
+
+      expect(result.summary.configured).toBe(2);
+      expect(result.summary.missing).toBe(result.summary.total - 2);
+      expect(result.summary.total).toBe(result.items.length);
+      expect(result.orphans).toEqual([]);
+    });
+
+    it("puts unknown DB secrets into orphans", async () => {
+      (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([
+        { id: "s1", name: "tavily-search-api-key", displayName: "Tavily Search API Key" },
+        { id: "s99", name: "legacy-foo-key", displayName: "Legacy Foo Key" },
+      ]);
+
+      const result = await service.getExpectedSecrets();
+
+      expect(result.orphans).toHaveLength(1);
+      expect(result.orphans[0]).toEqual({
+        name: "legacy-foo-key",
+        displayName: "Legacy Foo Key",
+        secretId: "s99",
+      });
+    });
+
+    it("returns relatedToolIds for each item", async () => {
+      (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getExpectedSecrets();
+
+      const tavily = result.items.find((i) => i.name === "tavily-search-api-key");
+      expect(tavily?.relatedToolIds).toContain("tavily");
+    });
+
+    it("returns empty orphans when DB only has expected secrets", async () => {
+      (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getExpectedSecrets();
+
+      expect(result.orphans).toEqual([]);
+      expect(result.summary.configured).toBe(0);
+      expect(result.summary.missing).toBe(result.summary.total);
+    });
+  });
+
   // ==================== migrateExistingKeys ====================
 
   describe("migrateExistingKeys", () => {

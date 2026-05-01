@@ -16,8 +16,8 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { extractTokenSpend } from "@/modules/ai-harness/governance/observability/token-spend.util";
-import { extractFailureMessage } from "@/modules/ai-harness/governance/observability/failure-extraction.util";
+import { extractTokenSpend } from "@/modules/ai-harness/facade";
+import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import { narrate } from "../helpers/narrative.util";
 
 export interface AnalystOutputShape {

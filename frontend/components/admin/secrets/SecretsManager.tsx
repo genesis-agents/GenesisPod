@@ -23,6 +23,8 @@ import { SecretForm } from './SecretForm';
 import { SecretAccessLogs } from './SecretAccessLogs';
 import { SecretVersions } from './SecretVersions';
 import { SecretValueModal } from './SecretValueModal';
+import { ExpectedSecretsPanel } from './ExpectedSecretsPanel';
+import type { ExpectedSecretItem } from '@/hooks/domain/useAdminSecrets';
 
 const CATEGORY_OPTIONS: {
   value: SecretCategory;

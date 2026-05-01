@@ -38,10 +38,10 @@ import type {
   IContextEnvelope,
 } from "../../../../../../ai-harness/facade";
 import type { ResearchReport } from "../../../../dto/run-mission.dto";
-import { extractTokenSpend } from "@/modules/ai-harness/governance/observability/token-spend.util";
-import { extractFailureMessage } from "@/modules/ai-harness/governance/observability/failure-extraction.util";
+import { extractTokenSpend } from "@/modules/ai-harness/facade";
+import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import { narrate } from "../helpers/narrative.util";
-import { clampScore, scaleScore } from "@/modules/ai-harness/governance/critique/quality-score.util";
+import { clampScore, scaleScore } from "@/modules/ai-harness/facade";
 
 const MAX_WRITER_ATTEMPTS = 2;
 
@@ -435,7 +435,7 @@ export async function runWriterStage(
 
   // ── 4. ReportArtifact v2 装配 ──
   let reportArtifact:
-    | import("@/modules/ai-harness/runtime/quality/report-artifact/report-artifact.dto").ReportArtifact
+    | import("@/modules/ai-harness/facade").ReportArtifact
     | undefined;
   try {
     const modelIds = new Set<string>();

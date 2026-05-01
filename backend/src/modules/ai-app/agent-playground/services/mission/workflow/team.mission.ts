@@ -64,7 +64,7 @@ import {
   StewardService,
   AgentInvoker,
 } from "../../roles";
-import { ReportArtifactAssembler } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact-assembler.service";
+import { ReportArtifactAssembler } from "@/modules/ai-harness/facade";
 import { MissionStateService } from "../lifecycle/mission-state.service";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 // MissionReviewerAgent: 当前 mission 评审走 VerifierService（多 judge 投票），
@@ -111,7 +111,7 @@ interface MissionResult {
     attempt?: number;
   }[];
   // ReportArtifact v2（结构化输出，三视图共享）
-  readonly reportArtifact?: import("@/modules/ai-harness/runtime/quality/report-artifact/report-artifact.dto").ReportArtifact;
+  readonly reportArtifact?: import("@/modules/ai-harness/facade").ReportArtifact;
   // Reconciler [3.5] 产物
   readonly reconciliationReport?: unknown;
   // 用户档位 merged 后快照

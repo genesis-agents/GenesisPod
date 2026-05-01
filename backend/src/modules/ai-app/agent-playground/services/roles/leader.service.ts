@@ -31,7 +31,7 @@ import { MissionStore } from "../mission/lifecycle/mission-store.service";
 import {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
-} from "@/modules/ai-harness/governance/observability/failure-extraction.util";
+} from "@/modules/ai-harness/facade";
 
 /**
  * Recoverable failure codes —— Leader 自愈重试时识别这些码做一次重跑（+50% budget），

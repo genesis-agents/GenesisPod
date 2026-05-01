@@ -43,6 +43,10 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
 
   // ==================== GitHub ====================
   "github-search": "github-token",
+  "github-integration": "github-token",
+
+  // ==================== Audio Generation ====================
+  "audio-generation": "elevenlabs-api-key",
 
   // ==================== Academic Research ====================
   openalex: "openalex-api-key", // provider ID alias (frontend uses 'openalex')
@@ -178,6 +182,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
   displayName: string;
   category: string;
   provider: string;
+  setupGuideUrl?: string;
+  freeTierAvailable: boolean;
+  description?: string;
 }> = [
   {
     key: "search.perplexity.apiKey",
@@ -185,6 +192,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Perplexity API Key",
     category: "SEARCH",
     provider: "Perplexity",
+    setupGuideUrl: "https://www.perplexity.ai/settings/api",
+    freeTierAvailable: false,
+    description: "Perplexity online search",
   },
   {
     key: "search.tavily.apiKey",
@@ -192,6 +202,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Tavily Search API Key",
     category: "SEARCH",
     provider: "Tavily",
+    setupGuideUrl: "https://app.tavily.com/home",
+    freeTierAvailable: true,
+    description: "Web search API for AI agents",
   },
   {
     key: "search.serper.apiKey",
@@ -199,6 +212,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Serper API Key",
     category: "SEARCH",
     provider: "Serper",
+    setupGuideUrl: "https://serper.dev/api-key",
+    freeTierAvailable: true,
+    description: "Google search results API",
   },
   {
     key: "extraction.jina.apiKey",
@@ -206,6 +222,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Jina Reader API Key",
     category: "EXTRACTION",
     provider: "Jina",
+    setupGuideUrl: "https://jina.ai/?sui=apikey",
+    freeTierAvailable: true,
+    description: "Web content extraction (Reader API)",
   },
   {
     key: "extraction.firecrawl.apiKey",
@@ -213,6 +232,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Firecrawl API Key",
     category: "EXTRACTION",
     provider: "Firecrawl",
+    setupGuideUrl: "https://www.firecrawl.dev/app/api-keys",
+    freeTierAvailable: true,
+    description: "Web scraping with JS rendering",
   },
   {
     key: "extraction.tavily.apiKey",
@@ -220,6 +242,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Tavily Extraction API Key",
     category: "EXTRACTION",
     provider: "Tavily",
+    setupGuideUrl: "",
+    freeTierAvailable: true,
+    description: "Tavily content extraction (same dashboard as search)",
   },
   {
     key: "youtube.supadata.apiKey",
@@ -227,6 +252,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Supadata YouTube API Key",
     category: "YOUTUBE",
     provider: "Supadata",
+    setupGuideUrl: "",
+    freeTierAvailable: false,
+    description: "YouTube transcript API",
   },
   {
     key: "tts.elevenlabs.apiKey",
@@ -234,6 +262,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "ElevenLabs TTS API Key",
     category: "TTS",
     provider: "ElevenLabs",
+    setupGuideUrl: "https://elevenlabs.io/app/settings/api-keys",
+    freeTierAvailable: true,
+    description: "High-quality TTS voices",
   },
   {
     key: "tts.google.apiKey",
@@ -241,6 +272,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Google Cloud TTS API Key",
     category: "TTS",
     provider: "Google",
+    setupGuideUrl: "",
+    freeTierAvailable: true,
+    description: "Google Cloud Text-to-Speech",
   },
   {
     key: "skillsmp.apiKey",
@@ -248,6 +282,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "SkillsMP API Key",
     category: "SKILLSMP",
     provider: "SkillsMP",
+    setupGuideUrl: "",
+    freeTierAvailable: false,
+    description: "Internal skills marketplace",
   },
   {
     key: "imageSearch.bing.apiKey",
@@ -255,6 +292,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Bing Image Search API Key",
     category: "IMAGE_SEARCH",
     provider: "Bing",
+    setupGuideUrl: "",
+    freeTierAvailable: false,
+    description: "Bing Image Search (deprecating)",
   },
   {
     key: "imageSearch.google.apiKey",
@@ -262,6 +302,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Google Custom Search API Key",
     category: "IMAGE_SEARCH",
     provider: "Google",
+    setupGuideUrl: "https://programmablesearchengine.google.com/",
+    freeTierAvailable: true,
+    description: "Google Custom Search Engine",
   },
   {
     key: "imageSearch.google.engineId",
@@ -269,6 +312,9 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "Google Custom Search Engine ID",
     category: "IMAGE_SEARCH",
     provider: "Google",
+    setupGuideUrl: "https://programmablesearchengine.google.com/",
+    freeTierAvailable: true,
+    description: "Google CSE Engine ID (paired with CSE API key)",
   },
   {
     key: "imageSearch.serpapi.apiKey",
@@ -276,5 +322,36 @@ export const SYSTEM_SETTING_TO_SECRET_MAPPING: Array<{
     displayName: "SerpAPI API Key",
     category: "IMAGE_SEARCH",
     provider: "SerpAPI",
+    setupGuideUrl: "https://serpapi.com/manage-api-key",
+    freeTierAvailable: true,
+    description: "SerpAPI multi-engine search",
   },
 ];
+
+/**
+ * 从 SYSTEM_SETTING_TO_SECRET_MAPPING 推导出"预期应配置的 secret"清单
+ * 不查 DB，纯静态数据
+ */
+export function getExpectedSecretsMetadata(): Array<{
+  name: string;
+  displayName: string;
+  category: string;
+  provider: string;
+  setupGuideUrl?: string;
+  freeTierAvailable: boolean;
+  description?: string;
+  relatedToolIds: string[];
+}> {
+  return SYSTEM_SETTING_TO_SECRET_MAPPING.map((m) => ({
+    name: m.name,
+    displayName: m.displayName,
+    category: m.category,
+    provider: m.provider,
+    setupGuideUrl: m.setupGuideUrl,
+    freeTierAvailable: m.freeTierAvailable,
+    description: m.description,
+    relatedToolIds: Object.entries(EXTERNAL_TOOL_SECRET_MAPPING)
+      .filter(([_, v]) => v === m.name)
+      .map(([k]) => k),
+  }));
+}

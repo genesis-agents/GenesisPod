@@ -258,7 +258,10 @@ export { OutputReviewerService } from "../runtime/quality/output-reviewer.servic
 
 // ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/agent-playground 上提（跨 app 复用）
 //   playground v2 ReportArtifact (sections/citations/figures/quickView) 装配纯函数
-export { ReportArtifactAssembler } from "../runtime/quality/report-artifact/report-artifact-assembler.service";
+export {
+  ReportArtifactAssembler,
+  lengthTargetFor,
+} from "../runtime/quality/report-artifact/report-artifact-assembler.service";
 
 // ★ 2026-05-01: FailureLearnerService 从 ai-app/agent-playground 上提（governance/learning）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
@@ -286,6 +289,22 @@ export {
   type StageTimerEmitOptions,
   type EmitFn,
 } from "../protocol/ipc/stage-emit.util";
+
+// ★ 2026-05-01 (PR-X-N): 让 ai-app 走 facade，不需穿透 harness 内部路径
+export {
+  extractTokenSpend,
+  estimateUsdFromTokens,
+} from "../governance/observability/token-spend.util";
+export {
+  extractAgentFailureDiagnostic,
+  extractFailureMessage,
+} from "../governance/observability/failure-extraction.util";
+export {
+  clampScore,
+  scaleScore,
+} from "../governance/critique/quality-score.util";
+// FunctionCallingExecutor.AgentEvent — 给 teams 服务用作 event 类型
+export type { AgentEvent as FunctionCallingAgentEvent } from "../execution/executor/function-calling-executor";
 export type {
   ArtifactCitation,
   ArtifactFactTriple,

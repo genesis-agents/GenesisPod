@@ -25,6 +25,7 @@ import { UpdateSecretDto } from "./dto/update-secret.dto";
 import {
   SYSTEM_SETTING_TO_SECRET_MAPPING,
   normalizeSecretName,
+  getExpectedSecretsMetadata,
 } from "./secret-name-mapping";
 import { EncryptionService } from "../encryption/encryption.service";
 
@@ -526,6 +527,71 @@ export class SecretsService {
       `Migration completed: ${imported.length} imported, ${skipped.length} skipped, ${errors.length} errors`,
     );
     return { imported: imported.length, skipped: skipped.length, errors };
+  }
+
+  /**
+   * 获取"预期应配置的 secret"清单 + 配置状态
+   * - items: 已登记在 mapping 里的 secret，标记 status: configured | missing
+   * - orphans: DB 有但 mapping 没登记的 secret（疑似遗留）
+   */
+  async getExpectedSecrets(): Promise<{
+    items: Array<{
+      name: string;
+      displayName: string;
+      category: string;
+      provider: string;
+      description?: string;
+      setupGuideUrl?: string;
+      freeTierAvailable: boolean;
+      status: "configured" | "missing";
+      secretId?: string;
+      relatedToolIds: string[];
+    }>;
+    summary: {
+      total: number;
+      configured: number;
+      missing: number;
+    };
+    orphans: Array<{
+      name: string;
+      displayName: string;
+      secretId: string;
+    }>;
+  }> {
+    // 1. 拉所有 active secret（select 最少字段）
+    const dbSecrets = await this.prisma.secret.findMany({
+      where: { isActive: true, deletedAt: null },
+      select: { id: true, name: true, displayName: true },
+    });
+    const dbByName = new Map(dbSecrets.map((s) => [s.name, s]));
+
+    // 2. 推导 expected
+    const expectedMetadata = getExpectedSecretsMetadata();
+    const expectedNames = new Set(expectedMetadata.map((m) => m.name));
+
+    const items = expectedMetadata.map((meta) => {
+      const dbRow = dbByName.get(meta.name);
+      return {
+        ...meta,
+        status: (dbRow ? "configured" : "missing") as "configured" | "missing",
+        secretId: dbRow?.id,
+      };
+    });
+
+    // 3. orphan = DB 有但 expected 没登记
+    const orphans = dbSecrets
+      .filter((s) => !expectedNames.has(s.name))
+      .map((s) => ({ name: s.name, displayName: s.displayName, secretId: s.id }));
+
+    return {
+      items,
+      summary: {
+        total: items.length,
+        configured: items.filter((i) => i.status === "configured").length,
+        missing: items.filter((i) => i.status === "missing").length,
+      },
+      orphans,
+    };
   }
 
   /**

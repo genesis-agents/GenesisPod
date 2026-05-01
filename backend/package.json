@@ -12,6 +12,7 @@
     "lint": "eslint \"{src,tests}/**/*.ts\"",
     "lint:fix": "eslint \"{src,tests}/**/*.ts\" --fix",
     "type-check": "tsc --noEmit",
+    "verify:arch": "jest src/__tests__/architecture --no-coverage --forceExit",
     "test": "jest",
     "test:quick": "jest --forceExit --testPathIgnorePatterns=\"python-executor|jwt-auth.guard|jwt.strategy|team-collaboration|team-member.agent|ai-image.service|proxy.controller|guardrails|mcp-adapter|mcp-server|ai-social|news-extractor|collection-task|openai.provider|file-conversion|planning-orchestrator.service.spec|topic-research.gateway.spec\"",
     "test:watch": "jest --watch",

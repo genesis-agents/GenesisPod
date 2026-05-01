@@ -70,6 +70,15 @@ export class SecretsController {
   }
 
   /**
+   * GET /admin/secrets/expected
+   * 返回平台预期应配置的 secret 列表 + 当前配置状态
+   */
+  @Get("expected")
+  async getExpected() {
+    return this.secretsService.getExpectedSecrets();
+  }
+
+  /**
    * Create a new secret
    * POST /api/v1/admin/secrets
    * M1 Fix: Rate limit 50 req/hour to prevent spam creation

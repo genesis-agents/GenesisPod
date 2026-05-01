@@ -335,6 +335,28 @@ module.exports = {
                   "Access AI Engine internals only through 'ai-engine/facade'. " +
                   "If a symbol is missing from facade/index.ts, add it there first.",
               },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 10 (2026-05-01 PR-X-N): ai-harness 内部路径锁定
+              //   ai-app 必须通过 ai-harness/facade 访问 harness 能力，不得穿透。
+              //   每个 export 都已通过 facade 暴露，ai-app 没有理由绕开。
+              // ════════════════════════════════════════════════════════════
+              {
+                group: [
+                  // 7 大聚合内部路径：kernel / execution / governance / memory /
+                  // process / protocol / runtime — 全部走 facade
+                  "**/ai-harness/kernel/**",
+                  "**/ai-harness/execution/**",
+                  "**/ai-harness/governance/**",
+                  "**/ai-harness/memory/**",
+                  "**/ai-harness/process/**",
+                  "**/ai-harness/protocol/**",
+                  "**/ai-harness/runtime/**",
+                ],
+                message:
+                  "Access AI Harness internals only through 'ai-harness/facade'. " +
+                  "If a symbol is missing from facade/index.ts, add it there first.",
+              },
             ],
           },
         ],

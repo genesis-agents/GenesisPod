@@ -42,6 +42,14 @@ jest.mock("../../../../../../../ai-harness/facade", () => ({
     longListItems: 0,
     trappedConclusions: 0,
   })),
+  // 2026-05-01 (PR-X-N): per-dim-pipeline 走 facade 后需补这些 mock
+  extractTokenSpend: jest.fn(() => ({ tokensUsed: 0, costUsd: 0 })),
+  extractFailureMessage: jest.fn(() => undefined),
+  extractAgentFailureDiagnostic: jest.fn(() => undefined),
+  clampScore: jest.fn((n: number) => Math.max(0, Math.min(100, Math.round(n || 0)))),
+  scaleScore: jest.fn((cur: number, factor: number) =>
+    Math.max(0, Math.min(100, Math.round((cur || 0) * factor))),
+  ),
 }));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

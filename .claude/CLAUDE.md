@@ -58,7 +58,20 @@ L2 AI Engine（核心能力层）→ LLM / Tools / RAG / Skills / Planning → m
 L1 Infrastructure（基础设施层）→ Auth、Credits、Storage、Encryption、Secrets、Email、Notifications → modules/ai-infra/
 ```
 
-> **依赖方向**：L4 → L3 → L2.5 → L2 → L1，严格单向（ESLint `no-restricted-imports` 强制）。AI Harness 编排 AI Engine 基元，不反向依赖 ai-app。
+> **依赖方向**：L4 → L3 → L2.5 → L2 → L1，严格单向。AI Harness 编排 AI Engine 基元，不反向依赖 ai-app。
+>
+> **三层看护机制（2026-05-01 PR-X-N，9.8/10 架构合规度锁定）**：
+> 1. **ESLint `no-restricted-imports`**（IDE 实时反馈 + lint-staged pre-commit 拦截）
+>    - `ai-engine/**` 不得 import `ai-harness/**`（除合法 adapter 如 `engine-skill-provider.ts` 实现 `ISkillProvider` 端口）
+>    - `ai-app/**` 不得穿透 `ai-engine/**` / `ai-harness/**` 内部路径，必须走各自 facade
+>    - 配置见 `backend/.eslintrc.js`
+> 2. **架构边界 spec 测试**（jest 拦截，覆盖 ESLint 漏掉的动态 import / 注释逃逸）
+>    - 文件：`backend/src/__tests__/architecture/layer-boundaries.spec.ts`
+>    - 7 项断言：单向依赖（4）+ facade 穿透（3）
+>    - 命令：`npm run verify:arch`
+> 3. **pre-push hook**（推送前最后防线，CI 二次执行）
+>    - `.husky/pre-push` 第 0 步先跑 `verify:arch`，违规直接拒推
+>    - 类型检查 / 构建 / 变更测试在后续步骤
 >
 > **历史包袱**：`modules/ai-kernel/`（已删，PR 7）+ `modules/ai-engine/runtime/`（已迁出，PR-X4~X10）—— 早期分层尝试，所有 Agent 运行时能力现在都集中在 `modules/ai-harness/` 这一层。
 >
