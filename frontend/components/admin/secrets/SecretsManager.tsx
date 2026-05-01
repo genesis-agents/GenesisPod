@@ -118,6 +118,8 @@ export function SecretsManager({
     isUpdating,
     isDeleting,
     isRollingBack,
+    expectedSecrets,
+    expectedLoading,
   } = useAdminSecrets();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -179,6 +181,16 @@ export function SecretsManager({
     }
   };
 
+  const handleConfigureExpected = (_item: ExpectedSecretItem) => {
+    setEditingSecret(null);
+    setShowAddModal(true);
+  };
+
+  const handleDeleteOrphan = async (secretId: string, name: string) => {
+    void secretId; // secretId not needed — deleteSecret uses name
+    await handleDelete(name);
+  };
+
   const getCategoryBadge = (category: SecretCategory) => {
     const option = CATEGORY_OPTIONS.find((o) => o.value === category);
     return option ? (
@@ -211,6 +223,16 @@ export function SecretsManager({
           </span>
         </div>
       )}
+
+      {/* 预置卡槽面板 */}
+      <ExpectedSecretsPanel
+        expected={expectedSecrets}
+        loading={expectedLoading}
+        onConfigure={handleConfigureExpected}
+        onDeleteOrphan={(secretId, name) => {
+          void handleDeleteOrphan(secretId, name);
+        }}
+      />
 
       {/* Search和过滤 */}
       <div className="flex gap-4">
