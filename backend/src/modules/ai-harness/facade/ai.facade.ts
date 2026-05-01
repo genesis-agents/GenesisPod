@@ -144,7 +144,7 @@ import type {
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
-} from "../../ai-engine/planning/services/reflection.service";
+} from "../../ai-engine/llm/reflection/reflection.service";
 import type {
   CompressionOptions,
   CompressionResult,
@@ -171,15 +171,15 @@ import type { SkillMdDefinition } from "../../ai-engine/skills/types/skill-md.ty
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../../ai-engine/planning/services/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
-import { IntentDetectionService } from "../../ai-engine/planning/services/intent-detection.service";
+import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../../ai-engine/planning/executors/function-calling-executor";
-import { ContextInitializationService } from "../../ai-engine/planning/services/context-initialization.service";
+import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamFactory } from "../runtime/teams/factory/team-factory";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
 import { OutputReviewerService } from "../../ai-engine/planning/services/output-reviewer.service";
-import { ContextEvolutionService } from "../../ai-engine/planning/services/context-evolution.service";
+import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
 import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../runtime/teams/registry/team-registry";

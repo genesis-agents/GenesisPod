@@ -57,7 +57,7 @@ import type {
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
-} from "../../../ai-engine/planning/services/reflection.service";
+} from "../../../ai-engine/llm/reflection/reflection.service";
 import type {
   CompressionOptions,
   CompressionResult,
@@ -71,7 +71,7 @@ import type {
 import type { SkillMdDefinition } from "../../../ai-engine/skills/types/skill-md.types";
 import { TeamsService } from "../../runtime/teams/services/teams.service";
 import { TeamFactory } from "../../runtime/teams/factory/team-factory";
-import { ContextInitializationService } from "../../../ai-engine/planning/services/context-initialization.service";
+import { ContextInitializationService } from "../../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../../runtime/teams/orchestrator/teams-mission-orchestrator";
 import { TeamRegistry } from "../../runtime/teams/registry/team-registry";
 import { RoleRegistry } from "../../runtime/teams/registry/role-registry";

@@ -24,7 +24,7 @@ import {
   CoreEntity,
   WorldBuildingResult,
   AiCallerFn,
-} from "./interfaces";
+} from "../../planning/services/interfaces";
 
 @Injectable()
 export class ContextInitializationService implements IContextInitializationService {

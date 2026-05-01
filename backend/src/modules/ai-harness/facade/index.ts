@@ -218,7 +218,7 @@ export type {
   RateLimitConfig,
 } from "../governance/resource/rate-limiter";
 // 注：harness 内部有一个 generic TokenBudgetService（mission-level token tracker），
-// 与 ai-engine/planning/services/token-budget.service.ts 同名但语义不同
+// 与 ai-engine/llm/budget/token-budget.service.ts 同名但语义不同
 // （后者带 smartTruncate 用于上下文窗口分配）。为避免 DI / import 歧义，
 // 不在 facade 导出 harness 版本；ai-app 需要 token 预算请用 ai-engine/facade 的 TokenBudgetService。
 export { HealthCheckRunner } from "../governance/resource/health-check-runner";

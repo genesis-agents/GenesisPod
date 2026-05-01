@@ -137,7 +137,14 @@ export class ReflectionService {
       // ChatFacade is injected at runtime by HarnessModule; we use IChatProvider type
       // to avoid a direct import of ChatFacade from ai-harness in ai-engine.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-member-access
-      forwardRef(() => (require("../../../ai-harness/facade/domain/chat.facade") as { ChatFacade: unknown }).ChatFacade),
+      forwardRef(
+        () =>
+          (
+            require("../../../ai-harness/facade/domain/chat.facade") as {
+              ChatFacade: unknown;
+            }
+          ).ChatFacade,
+      ),
     )
     private readonly aiFacade: IChatProvider,
   ) {}

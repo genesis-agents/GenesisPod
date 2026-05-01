@@ -18,40 +18,40 @@ export { AgentExecutorService } from "./agent-executor.service";
 export { OutputReviewerService } from "./output-reviewer.service";
 
 // 上下文演进服务
-export { ContextEvolutionService } from "./context-evolution.service";
+export { ContextEvolutionService } from "../../knowledge/extraction/context-evolution.service";
 
 // 上下文初始化服务（世界观设定）
-export { ContextInitializationService } from "./context-initialization.service";
+export { ContextInitializationService } from "../../knowledge/world-building/context-initialization.service";
 
 // 约束强制服务 — migrated to ai-harness/runtime
 // export { ConstraintEnforcementService } from "./constraint-enforcement.service";
 
 // 上下文压缩服务
-export { ContextCompressionService } from "./context-compression.service";
+export { ContextCompressionService } from "../../llm/context/context-compression.service";
 
 // 意图检测服务
-export { IntentDetectionService } from "./intent-detection.service";
+export { IntentDetectionService } from "../../llm/intent/intent-detection.service";
 
 // 熔断器服务 — migrated to ai-harness/runtime
 // export { CircuitBreakerService, TaskCompletionType } from "./circuit-breaker.service";
 
-// Token 预算服务
+// TokenBudgetService 已搬到 ai-engine/llm/budget/ (2026-04-30) — 真 L2 无状态算法
 export {
   TokenBudgetService,
   type ModelConfig,
   type TokenBudget,
   type ContentPriority,
   type BudgetAllocation,
-} from "./token-budget.service";
+} from "../../llm/budget/token-budget.service";
 
-// 反思服务 (★ P0 沉淀: 从 Deep Research 提取的通用反思能力)
+// ReflectionService 已搬到 ai-engine/llm/reflection/ (2026-04-30) — 真 L2 无状态算法
 export {
   ReflectionService,
   type ReflectionDecision,
   type ReflectionInput,
   type ReflectionResult,
   type ReflectionConfig,
-} from "./reflection.service";
+} from "../../llm/reflection/reflection.service";
 
 // "支柱四：智能模型路由" —— 整个移除 (ComplexityAnalyzer + IntelligentModelRouter 死代码 C2-step2)
 // "支柱二：GenesisAgent 编排层" —— 整个移除 (TaskPlanner + IntentRouter 死代码 2026-04-30)
@@ -84,7 +84,7 @@ export {
   type CompactionLevel,
   type LLMMessage,
   type SummarizeFn,
-} from "./context-compaction-pipeline.service";
+} from "../../llm/context/context-compaction-pipeline.service";
 
 // 执行断点服务
 export {
@@ -111,7 +111,7 @@ export {
   type Contradiction,
   type ResearchGap,
   type SynthesisResult,
-} from "./cross-cutting-synthesis.service";
+} from "../../knowledge/synthesis/cross-cutting-synthesis.service";
 
 // Phase 7: 会话记忆旁路服务
 export {

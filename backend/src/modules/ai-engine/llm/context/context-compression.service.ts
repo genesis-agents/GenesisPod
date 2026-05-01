@@ -26,7 +26,7 @@ import {
   CompressionResult,
   CompressionOptions,
   IContextCompressionService,
-} from "./interfaces";
+} from "../../planning/services/interfaces";
 import { AIModelType } from "@prisma/client";
 
 @Injectable()

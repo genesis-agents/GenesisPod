@@ -144,7 +144,7 @@ export type {
 // ★ Batch 1 supplemental exports
 
 // Orchestration services
-export { ContextCompressionService } from "../planning/services/context-compression.service";
+export { ContextCompressionService } from "../llm/context/context-compression.service";
 export type {
   DataChunk,
   SummaryChunk,
@@ -168,20 +168,20 @@ export type {
   TokenBudget,
   ContentPriority,
   BudgetAllocation,
-} from "../planning/services/token-budget.service";
+} from "../llm/budget/token-budget.service";
 export type {
   EstablishedFact,
   ExecutionConfig,
 } from "../planning/services/interfaces";
 export { OutputReviewerService } from "../planning/services/output-reviewer.service";
-export { ContextEvolutionService } from "../planning/services/context-evolution.service";
+export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 export type {
   FactExtractionRequest,
   FactExtractionResult,
   ContextEvolutionConfig,
 } from "../planning/services/interfaces";
 export { AgentExecutorService } from "../planning/services/agent-executor.service";
-export { ContextInitializationService } from "../planning/services/context-initialization.service";
+export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 
@@ -576,14 +576,14 @@ export {
 } from "../planning/services";
 
 // ★ Phase 10: Coordinator Synthesize-Before-Delegate
-export { CrossCuttingSynthesisService } from "../planning/services/cross-cutting-synthesis.service";
+export { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutting-synthesis.service";
 export type {
   DimensionResult,
   CrossCuttingTheme,
   Contradiction,
   ResearchGap,
   SynthesisResult,
-} from "../planning/services/cross-cutting-synthesis.service";
+} from "../knowledge/synthesis/cross-cutting-synthesis.service";
 
 // ★ Phase 5: Prompt Cache Coordination
 export { PromptCacheCoordinatorService } from "../llm/services/prompt-cache-coordinator.service";

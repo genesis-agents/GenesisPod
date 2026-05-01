@@ -17,7 +17,7 @@ import {
   IntentDetectionConfig,
   IntentDetectionResult,
   IIntentDetectionService,
-} from "./interfaces";
+} from "../../planning/services/interfaces";
 
 /**
  * 默认配置

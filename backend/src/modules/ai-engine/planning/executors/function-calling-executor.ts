@@ -20,7 +20,7 @@ import type { IMCPProvider } from "../../facade";
 import { MCP_PROVIDER_PORT } from "../../abstractions/runtime-deps.tokens";
 import { QueryLoopService } from "../services/query-loop.service";
 import { TokenTrackerService } from "../services/token-tracker.service";
-import { ContextCompactionPipelineService } from "../services/context-compaction-pipeline.service";
+import { ContextCompactionPipelineService } from "../../llm/context/context-compaction-pipeline.service";
 import { ExecutionCheckpointService } from "../services/execution-checkpoint.service";
 import { ToolConcurrencyService } from "../../tools/concurrency/tool-concurrency.service";
 import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.service";

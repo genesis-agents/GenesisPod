@@ -4,7 +4,7 @@ import {
   UserIntent,
   ContextStrategy,
   IntentDetectionConfig,
-} from "../interfaces";
+} from "../../../planning/services/interfaces";
 
 // ─── Notes on START_NEW_SESSION detection logic ──────────────────────────────
 //

@@ -49,7 +49,9 @@ function makeJsonResponse(
 // key in the testing module.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { ChatFacade } = require("../../../../ai-harness/facade/domain/chat.facade");
+const {
+  ChatFacade,
+} = require("../../../../ai-harness/facade/domain/chat.facade");
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

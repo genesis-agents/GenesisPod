@@ -45,10 +45,10 @@ import type {
 import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../../../ai-engine/planning/services/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
-import { IntentDetectionService } from "../../../ai-engine/planning/services/intent-detection.service";
+import { IntentDetectionService } from "../../../ai-engine/llm/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../../process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../../ai-engine/planning/services/output-reviewer.service";
-import { ContextEvolutionService } from "../../../ai-engine/planning/services/context-evolution.service";
+import { ContextEvolutionService } from "../../../ai-engine/knowledge/extraction/context-evolution.service";
 import { AgentRegistry } from "../../kernel/registry/plan-based-agent-registry";
 
 @Injectable()

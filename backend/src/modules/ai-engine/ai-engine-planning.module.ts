@@ -29,21 +29,21 @@ import { FunctionCallingExecutor } from "./planning/executors/function-calling-e
 import { AgentExecutorService } from "./planning/services/agent-executor.service";
 import { OutputReviewerService } from "./planning/services/output-reviewer.service";
 import { CircuitBreakerService } from "./safety/resilience/circuit-breaker.service";
-import { TokenBudgetService } from "./planning/services/token-budget.service";
-import { ContextEvolutionService } from "./planning/services/context-evolution.service";
-import { ContextInitializationService } from "./planning/services/context-initialization.service";
+import { TokenBudgetService } from "./llm/budget/token-budget.service";
+import { ContextEvolutionService } from "./knowledge/extraction/context-evolution.service";
+import { ContextInitializationService } from "./knowledge/world-building/context-initialization.service";
 // PR-X18: ConstraintEnforcementService 通过 CONSTRAINT_ENFORCEMENT_PORT token 注入
-import { ContextCompressionService } from "./planning/services/context-compression.service";
-import { IntentDetectionService } from "./planning/services/intent-detection.service";
-import { ReflectionService } from "./planning/services/reflection.service";
+import { ContextCompressionService } from "./llm/context/context-compression.service";
+import { IntentDetectionService } from "./llm/intent/intent-detection.service";
+import { ReflectionService } from "./llm/reflection/reflection.service";
 // IntentRouterService / TaskPlannerService 已删 (2026-04-30) — 死代码，前端 0 消费
 // ★ Phase 1-4: 基础设施升级新增服务
 import { QueryLoopService } from "./planning/services/query-loop.service";
 import { TokenTrackerService } from "./planning/services/token-tracker.service";
-import { ContextCompactionPipelineService } from "./planning/services/context-compaction-pipeline.service";
+import { ContextCompactionPipelineService } from "./llm/context/context-compaction-pipeline.service";
 import { ExecutionCheckpointService } from "./planning/services/execution-checkpoint.service";
 import { AdaptiveReplannerService } from "./planning/services/adaptive-replanner.service";
-import { CrossCuttingSynthesisService } from "./planning/services/cross-cutting-synthesis.service";
+import { CrossCuttingSynthesisService } from "./knowledge/synthesis/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
 import { SessionMemorySidecarService } from "./planning/services/session-memory-sidecar.service";
 // ★ Phase 9 → 已搬到 ai-harness/memory/dream/（C2-step1，2026-04-30）

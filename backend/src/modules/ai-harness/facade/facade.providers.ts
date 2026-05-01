@@ -23,10 +23,10 @@ import { RateLimiter } from "../governance/resource/rate-limiter";
 import { CostController } from "../governance/resource/cost-controller";
 // ★ Orchestration 扩展依赖
 // TaskDecomposerService 已删 (2026-04-30)
-import { IntentDetectionService } from "../../ai-engine/planning/services/intent-detection.service";
+import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../ai-engine/planning/services/output-reviewer.service";
-import { ContextEvolutionService } from "../../ai-engine/planning/services/context-evolution.service";
+import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { QueryLoopService } from "../../ai-engine/planning/services/query-loop.service";
 import { TokenTrackerService } from "../../ai-engine/planning/services/token-tracker.service";
 // ★ Skill 扩展依赖
@@ -39,7 +39,7 @@ import { AICapabilityResolver } from "../../ai-engine/planning/capabilities/ai-c
 // ★ Teams Feature 依赖
 import { TeamsService } from "../runtime/teams/services/teams.service";
 import { TeamFactory } from "../runtime/teams/factory/team-factory";
-import { ContextInitializationService } from "../../ai-engine/planning/services/context-initialization.service";
+import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
 // ★ Content Feature 依赖
 // ★ Phase 3→Phase 7: replaced L4 type imports with L2 abstractions (audit E-1)
@@ -52,8 +52,8 @@ import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch
 import { EmbeddingService } from "../../ai-engine/knowledge/rag/embedding";
 import { VectorService } from "../../ai-engine/knowledge/rag/vector";
 // ★ Intelligence Feature 依赖 (IntentRouter 已删 2026-04-30)
-import { ReflectionService } from "../../ai-engine/planning/services/reflection.service";
-import { ContextCompressionService } from "../../ai-engine/planning/services/context-compression.service";
+import { ReflectionService } from "../../ai-engine/llm/reflection/reflection.service";
+import { ContextCompressionService } from "../../ai-engine/llm/context/context-compression.service";
 // ★ Phase 3→Phase 7: replaced L4 type import with L2 abstraction (audit E-2)
 import type { IReportSynthesisEngine } from "../../ai-engine/content/abstractions/content-engine.interfaces";
 // ★ Collaboration Feature 依赖
