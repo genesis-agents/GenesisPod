@@ -120,7 +120,10 @@ export class AgentPlaygroundModule implements OnModuleInit {
     // 2. 注册缓冲 adapter，截获所有 agent-playground.* 事件入内存（给 /replay 用）
     this.eventBus.registerAdapter(this.buffer);
     // 3. 启动恢复：清理 Railway recycle 后悬挂的 running missions
-    void this.store.recoverOrphanedRunning(30);
+    //    ★ 2026-05-01 (PR-G iter5): 30min 太短 —— mission deep+extended+thorough+unlimited
+    //    wall-time 可达 150min (resolveMissionWallTimeMs)。原 30min 触发 mission
+    //    在 55min 处被误标 orphan。改 240min（覆盖 3h hard cap + 1h buffer）。
+    void this.store.recoverOrphanedRunning(240);
     // 4. ★ Phase 9 (2026-04-30): 注册 orphan detector callbacks —— 跨 pod 接管基于 heartbeat 的快速检测
     this.orphanDetector.registerCallbacks({
       fetchRunningMissions: () =>
