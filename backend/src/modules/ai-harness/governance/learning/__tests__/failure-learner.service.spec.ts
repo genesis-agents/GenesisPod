@@ -1,5 +1,5 @@
 /**
- * harness-failure-learner.service.spec.ts
+ * failure-learner.service.spec.ts
  * Tests for FailureLearnerService (DB-backed failure pattern memory).
  */
 

@@ -1,8 +1,12 @@
 /**
  * FailureLearnerService — 跨 mission 失败模式记忆
  *
- * 不引入新模块、不创建新架构层。挂在 agent-playground 现有 services 下，
- * orchestrator 直接注入使用。功能：
+ * 2026-05-01 上提: 原叫 HarnessFailureLearner，挂在 agent-playground/services/
+ * failure-learning/ 下。改名 + 上提到 ai-harness/governance/learning/，因为跨
+ * mission 失败模式不是 playground 专属能力，research / writing / teams 都可复用。
+ * ai-app 模块通过 `@/modules/ai-harness/facade` 注入。
+ *
+ * 功能：
  *
  *   1. recordFailure：每次单维度/单 agent 失败后记一条；同 (agent, model,
  *      prompt 前缀, failureCode) 已存在则 count++，更新 lastDiagnostic
