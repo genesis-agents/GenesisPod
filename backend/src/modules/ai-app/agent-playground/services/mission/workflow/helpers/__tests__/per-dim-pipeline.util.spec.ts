@@ -550,6 +550,134 @@ describe("runPerDimPipeline", () => {
     expect(result.chapters?.length).toBeGreaterThan(0);
   });
 
+  it("emits chapter:done for each written chapter (happy path)", async () => {
+    const deps = makeDeps();
+    await runPerDimPipeline(baseArgs, deps);
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const doneCalls = emitCalls.filter(
+      (c) => c[0].type === "agent-playground.chapter:done",
+    );
+    // 2 chapters in makeDeps → 2 chapter:done events
+    expect(doneCalls.length).toBe(2);
+    // pass path → qualified = true, decision = "passed"
+    expect(doneCalls[0][0].payload.qualified).toBe(true);
+    expect(doneCalls[0][0].payload.decision).toBe("passed");
+    expect(doneCalls[0][0].payload.finalized).toBe(true);
+  });
+
+  it("chapter:done payload includes finalScore, wordCount, chapterIndex", async () => {
+    const deps = makeDeps();
+    await runPerDimPipeline(baseArgs, deps);
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const doneCalls = emitCalls.filter(
+      (c) => c[0].type === "agent-playground.chapter:done",
+    );
+    const payload = doneCalls[0][0].payload as {
+      chapterIndex: number;
+      finalScore: number;
+      wordCount: number;
+    };
+    expect(typeof payload.chapterIndex).toBe("number");
+    expect(typeof payload.finalScore).toBe("number");
+    expect(typeof payload.wordCount).toBe("number");
+  });
+
+  it("writtenChapters entries include finalized/qualified/decision metadata", async () => {
+    const deps = makeDeps();
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters).toBeDefined();
+    for (const ch of result.chapters ?? []) {
+      expect(ch.finalized).toBe(true);
+      expect(ch.qualified).toBe(true);
+      expect(ch.decision).toBe("passed");
+      expect(typeof ch.finalScore).toBe("number");
+    }
+  });
+
+  it("emits chapter:done with fallback-exhausted when reviewer repeatedly fails", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(1),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    // reviewer always fails → consecutiveReviewerFailures hits MAX_REVIEWER_FAILURES → fallback-exhausted
+    const invoker = {
+      invoke: jest
+        .fn()
+        .mockResolvedValueOnce({
+          // writer attempt 1
+          state: "completed",
+          output: makeWriterOutput(1200),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        })
+        .mockResolvedValueOnce({
+          // reviewer attempt 1: fails
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 50,
+        })
+        .mockResolvedValueOnce({
+          // writer attempt 2 (revise)
+          state: "completed",
+          output: makeWriterOutput(1200),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        })
+        .mockResolvedValueOnce({
+          // reviewer attempt 2: fails again → exhausted
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 50,
+        })
+        .mockResolvedValueOnce({
+          // integrator
+          state: "completed",
+          output: makeIntegratorOutput(),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 200,
+        }),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    await runPerDimPipeline(baseArgs, deps);
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const doneCalls = emitCalls.filter(
+      (c) => c[0].type === "agent-playground.chapter:done",
+    );
+    expect(doneCalls.length).toBeGreaterThan(0);
+    const payload = doneCalls[0][0].payload as {
+      qualified: boolean;
+      decision: string;
+    };
+    expect(payload.qualified).toBe(false);
+    expect(payload.decision).toBe("fallback-exhausted");
+  });
+
   it("preserves findings and summary from researcherOut in result", async () => {
     const deps = makeDeps();
     const result = await runPerDimPipeline(baseArgs, deps);
@@ -607,5 +735,294 @@ describe("runPerDimPipeline", () => {
     expect(result.fullMarkdown).toBeUndefined();
     expect(result.grade).toBeUndefined();
     expect(reviewer.judgeDimension).not.toHaveBeenCalled();
+  });
+});
+
+// ─── L1-1 + L1-2 防"全部重写"循环测试 ──────────────────────────────────────────
+//
+// 注意: CHAPTER_MAX_REVISION_ATTEMPTS=1 (outer mock), 所以 while loop 最多跑 2 次
+// (attempt < MAX+1 = 2)。L1-2 的 threshold decay 在 attempt=2 就能验证 (50→pass)。
+// L1-1 的 stuckCount 需要 3 次 attempt，通过 similarity.util.spec.ts 在纯函数层验证，
+// per-dim 层验证"identical body 在 attempt=2 后 stuckCount=1 但未触发兜底"，
+// 以及"chapter 仍正常产出"（不循环崩溃）。
+
+describe("runPerDimPipeline — L1 anti-loop guards (MAX_ATTEMPTS=1)", () => {
+  const l1BaseResearcherOut = {
+    dimension: "Technology",
+    findings: [
+      { claim: "AI is growing", evidence: "paper", source: "arxiv.org" },
+      {
+        claim: "LLMs are powerful",
+        evidence: "benchmark",
+        source: "openai.com",
+      },
+    ],
+    summary: "AI is transforming everything",
+  };
+
+  const l1BaseArgs: PerDimPipelineArgs = {
+    missionId: "m-l1",
+    userId: "u-l1",
+    dimensionIdx: 0,
+    dimensionName: "Technology",
+    topic: "AI Trends",
+    language: "zh-CN",
+    depth: "standard",
+    pool: {
+      recordSpend: jest.fn(),
+      snapshot: jest.fn().mockReturnValue({}),
+    } as never,
+    researcherOut: l1BaseResearcherOut,
+    billing: {} as never,
+    budgetMultiplier: 1.0,
+  };
+
+  /** Build a single-chapter pipeline deps with a custom invoker sequence */
+  function makeL1Deps(invokerCalls: object[]): MissionDeps {
+    const invokerMock = {
+      invoke: jest.fn(),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    for (const call of invokerCalls) {
+      invokerMock.invoke.mockResolvedValueOnce(call);
+    }
+    return {
+      emit: jest.fn().mockResolvedValue(undefined),
+      lifecycle: jest.fn().mockResolvedValue(undefined),
+      invoker: invokerMock,
+      writer: {
+        planDimensionOutline: jest.fn().mockResolvedValue({
+          state: "completed",
+          output: {
+            chapters: [
+              {
+                index: 1,
+                heading: "Chapter 1",
+                thesis: "Thesis 1",
+                keyPoints: ["Point 1"],
+                sourceIndices: [0],
+              },
+            ],
+          },
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      },
+      reviewer: {
+        judgeDimension: jest.fn().mockResolvedValue({
+          state: "completed",
+          output: { overall: 75, grade: "B+", axes: {}, summary: "Good" },
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      },
+    } as unknown as MissionDeps;
+  }
+
+  const integratorOutput = {
+    abstract: "Abstract",
+    keyFindings: ["Finding 1"],
+    fullMarkdown: "# Content",
+    totalWordCount: 1200,
+  };
+
+  // ── L1-2: threshold decays — score=50 fails at attempt=1 (threshold=60) ────────
+  // but passes at attempt=2 (threshold=50). With MAX_ATTEMPTS=1, attempt=2 is the cap.
+  // The dynamic threshold ensures score=50 is accepted at cap instead of being stuck.
+
+  it("L1-2: score 50 fails threshold 60 at attempt 1, accepted at attempt 2 (decayed to 50)", async () => {
+    // attempt=1: dynamicThreshold=max(40, 60-0*10)=60, score=50 < 60 → revise
+    // attempt=2: dynamicThreshold=max(40, 60-1*10)=50, score=50 >= 50 → pass → finalize
+    // Total invoker calls: 1w + 1r + 1w + 1r + 1integrator = 5
+    const writerOutput = {
+      body: "artificial intelligence technology research findings analysis development modern",
+      wordCount: 1200,
+      citationsUsed: ["[1]"],
+    };
+    const score50 = {
+      decision: "revise" as const,
+      score: 50,
+      summary: "Acceptable",
+      issues: [],
+      critique: "Marginal quality",
+    };
+
+    const invokerCalls = [
+      {
+        state: "completed",
+        output: writerOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      },
+      {
+        state: "completed",
+        output: score50,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 50,
+      },
+      {
+        state: "completed",
+        output: writerOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      },
+      {
+        state: "completed",
+        output: score50,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 50,
+      },
+      {
+        state: "completed",
+        output: integratorOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 200,
+      },
+    ];
+
+    const deps = makeL1Deps(invokerCalls);
+    const result = await runPerDimPipeline(l1BaseArgs, deps);
+
+    expect(result.chapters).toBeDefined();
+    expect(result.chapters!.length).toBeGreaterThan(0);
+    // 2 writer + 2 reviewer + 1 integrator = 5 invoke calls
+    expect((deps.invoker.invoke as jest.Mock).mock.calls.length).toBe(5);
+  });
+
+  it("L1-2: score 44 fails at attempt 1 (threshold=60), finalized at attempt 2 (attempt cap=MAX+1)", async () => {
+    // With MAX_ATTEMPTS=1: attempt cap fires at attempt >= 2 (= MAX_REVISION_ATTEMPTS+1).
+    // score=44 < threshold(attempt=2)=50 but attempt >= cap → finalize anyway.
+    const writerOutput = {
+      body: "machine learning deep neural network training optimization dataset evaluation",
+      wordCount: 1200,
+      citationsUsed: ["[1]"],
+    };
+    const score44 = {
+      decision: "revise" as const,
+      score: 44,
+      summary: "Below avg",
+      issues: [],
+      critique: "Needs improvement",
+    };
+
+    const invokerCalls = [
+      {
+        state: "completed",
+        output: writerOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      },
+      {
+        state: "completed",
+        output: score44,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 50,
+      },
+      {
+        state: "completed",
+        output: writerOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      },
+      {
+        state: "completed",
+        output: score44,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 50,
+      },
+      {
+        state: "completed",
+        output: integratorOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 200,
+      },
+    ];
+
+    const deps = makeL1Deps(invokerCalls);
+    const result = await runPerDimPipeline(l1BaseArgs, deps);
+
+    // Chapter still produced — attempt cap finalizes regardless of score
+    expect(result.chapters).toBeDefined();
+    expect(result.chapters!.length).toBeGreaterThan(0);
+  });
+
+  it("L1-1: identical bodies on revision do not crash and chapter is still produced", async () => {
+    // With MAX_ATTEMPTS=1, identical bodies on attempt=2 yield stuckCount=1 (< MAX_STUCK_COUNT=2).
+    // No stuck guard fires, but the attempt cap (attempt >= 2) finalizes the chapter cleanly.
+    // Verifies that the similarity check code path doesn't throw or break the pipeline.
+    const sameBody =
+      "the quick brown fox jumps over the lazy dog with speed and determination";
+    const writerOutput = {
+      body: sameBody,
+      wordCount: 1200,
+      citationsUsed: ["[1]"],
+    };
+    const reviewerReject = {
+      decision: "revise" as const,
+      score: 30,
+      summary: "Needs full rewrite",
+      issues: [],
+      critique: "Completely redo",
+    };
+
+    const invokerCalls = [
+      // attempt 1: identical body, reviewer rejects
+      {
+        state: "completed",
+        output: writerOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      },
+      {
+        state: "completed",
+        output: reviewerReject,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 50,
+      },
+      // attempt 2: same body again (stuckCount=1, but cap fires: attempt >= 2)
+      {
+        state: "completed",
+        output: writerOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      },
+      {
+        state: "completed",
+        output: reviewerReject,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 50,
+      },
+      // integrator
+      {
+        state: "completed",
+        output: integratorOutput,
+        events: [],
+        iterations: 1,
+        wallTimeMs: 200,
+      },
+    ];
+
+    const deps = makeL1Deps(invokerCalls);
+    const result = await runPerDimPipeline(l1BaseArgs, deps);
+
+    // No crash — chapter produced
+    expect(result.chapters).toBeDefined();
+    expect(result.chapters!.length).toBeGreaterThan(0);
   });
 });

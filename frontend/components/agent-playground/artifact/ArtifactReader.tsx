@@ -111,6 +111,7 @@ export function ArtifactReader({
           ch.status === 'writing' ||
           ch.status === 'reviewing' ||
           ch.status === 'revising'
+          // 'done' / 'failed-finalized' / 'passed' / 'failed' 已落地，不进修订列表
         ) {
           revising.push({
             dim,

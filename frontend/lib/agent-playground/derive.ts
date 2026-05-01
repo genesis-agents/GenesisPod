@@ -136,6 +136,8 @@ export interface ChapterState {
     | 'reviewing'
     | 'revising'
     | 'passed'
+    | 'done'
+    | 'failed-finalized'
     | 'failed';
   attempts: number;
   wordCount?: number;
@@ -527,6 +529,21 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       }
     } else if (t === 'agent-playground.chapter:revision') {
       // 已在 writing:started 重置 attempts，这里仅作为补充信号
+    } else if (t === 'agent-playground.chapter:done') {
+      // ★ 治 mission "假完成" 根因（2026-05-01）：chapter 终态事件 — 把 status 切到
+      //   'done'（qualified=true）或 'failed-finalized'（兜底落地），
+      //   让 ArtifactReader banner 不再把已完成章节误判为"修订中"。
+      const dim = p?.dimension as string | undefined;
+      const idx = p?.chapterIndex as number | undefined;
+      const qualified = p?.qualified as boolean | undefined;
+      if (dim && idx != null) {
+        const pipeline = ensurePipeline(dim);
+        const ch = pipeline.chapters.find((c) => c.index === idx);
+        if (ch) {
+          ch.status = qualified ? 'done' : 'failed-finalized';
+          ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
+        }
+      }
     } else if (t === 'agent-playground.dimension:integrating:completed') {
       const dim = p?.dimension as string | undefined;
       if (dim) {

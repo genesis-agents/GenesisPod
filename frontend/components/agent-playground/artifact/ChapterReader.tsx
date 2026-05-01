@@ -26,7 +26,15 @@ interface Props {
 function lookupChapterLiveStatus(
   section: ArtifactSection,
   dimensionPipelines?: Map<string, DimensionPipelineState>
-): 'pending' | 'writing' | 'reviewing' | 'revising' | 'passed' | 'failed' {
+):
+  | 'pending'
+  | 'writing'
+  | 'reviewing'
+  | 'revising'
+  | 'passed'
+  | 'done'
+  | 'failed-finalized'
+  | 'failed' {
   if (!dimensionPipelines || dimensionPipelines.size === 0) return 'passed';
   // 多个 dim 的章节都有可能匹配 —— 优先用 sourceDimensionId
   const candidates: DimensionPipelineState[] = [];
@@ -85,9 +93,11 @@ function StatusBadge({
     | 'reviewing'
     | 'revising'
     | 'passed'
+    | 'done'
+    | 'failed-finalized'
     | 'failed';
 }) {
-  if (status === 'passed') {
+  if (status === 'passed' || status === 'done') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
         <Check className="h-3 w-3" />
@@ -108,6 +118,13 @@ function StatusBadge({
       <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-700">
         <Loader2 className="h-3 w-3 animate-spin" />
         评审中
+      </span>
+    );
+  }
+  if (status === 'failed-finalized') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700">
+        兜底落地
       </span>
     );
   }
@@ -376,10 +393,7 @@ export function ChapterReader({
               // ① 章首 H1~H6
               .replace(/^#{1,6}\s+[^\n]+\n+/, '')
               // ② 章首引导 emoji + 可选空格
-              .replace(
-                /^[\s]*[🎯📌🔑⭐💡✅🔍📊📈🧭🌟][\s]*/u,
-                ''
-              )
+              .replace(/^[\s]*[🎯📌🔑⭐💡✅🔍📊📈🧭🌟][\s]*/u, '')
               // ③ TI 沉淀小标题 (含 ** 加粗)
               .replace(
                 /^\s*(?:\*\*)?(核心观点|关键数据|关键发现|主要结论|主要观点|核心结论)(?:\*\*)?\s*[:：]\s*/,
@@ -447,10 +461,11 @@ export function ChapterReader({
                     <StatusBadge status={liveStatus} />
                   </div>
                   <div className="mt-2 line-clamp-2 min-h-[2.5rem] flex-1 overflow-hidden whitespace-pre-wrap text-sm leading-tight text-gray-500">
-                    {preview ||
+                    {preview || (
                       <span className="italic text-gray-300">
                         （暂无预览内容）
-                      </span>}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className={wordBadgeClass}>{s.wordCount ?? 0} 字</span>

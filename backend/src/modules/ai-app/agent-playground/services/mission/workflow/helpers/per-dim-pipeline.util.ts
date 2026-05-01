@@ -34,6 +34,7 @@ import {
   CHAPTER_MAX_REVISION_ATTEMPTS,
 } from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
+import { jaccardSimilarity } from "./similarity.util";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
 import { restoreGlobalIndices } from "../../../../../../ai-engine/facade";
 // ★ 沉淀 v2: 内容缺陷扫描（纯函数 utility，0 LLM）—— chapter draft 格式缺陷指标
@@ -79,6 +80,12 @@ export interface PerDimPipelineResult {
     heading: string;
     body: string;
     wordCount: number;
+    /** true = chapter went through the pipeline and was persisted */
+    finalized?: boolean;
+    /** true = reviewer gave pass (or score >= PASS_THRESHOLD); false = fallback landing */
+    qualified?: boolean;
+    decision?: "passed" | "fallback-length" | "fallback-exhausted";
+    finalScore?: number;
   }[];
   abstract?: string;
   keyFindings?: string[];
@@ -241,6 +248,10 @@ export async function runPerDimPipeline(
     heading: string;
     body: string;
     wordCount: number;
+    finalized: boolean;
+    qualified: boolean;
+    decision: "passed" | "fallback-length" | "fallback-exhausted";
+    finalScore: number;
   }[] = [];
   const previousHeadings: string[] = [];
   // ★ Round 3 真问题修复 (2026-04-29):
@@ -253,6 +264,10 @@ export async function runPerDimPipeline(
   //   永远 revise → 4 hours/mission。详见 quality-thresholds.constants.ts 注释。
   const MAX_REVISION_ATTEMPTS = CHAPTER_MAX_REVISION_ATTEMPTS;
   const PASS_THRESHOLD = REVIEW_PASS_THRESHOLD;
+  // ★ L1-1: stuck-revision 防循环
+  //   revision 完后 Jaccard(prev, new) > 0.9 视为无进展，连续 2 次即强制 finalize
+  const STUCK_SIMILARITY_THRESHOLD = 0.9;
+  const MAX_STUCK_COUNT = 2;
 
   for (const chapter of outline.chapters) {
     const chapterSources = chapter.sourceIndices
@@ -268,6 +283,9 @@ export async function runPerDimPipeline(
     // 反复重试导致 token 倍增（round 3 改 fallback 为 revise 引入的副作用）
     let consecutiveReviewerFailures = 0;
     const MAX_REVIEWER_FAILURES = 2;
+    // ★ L1-1: stuck-revision 防循环 — 追踪无进展 revision 次数
+    let stuckCount = 0;
+    let prevDraftBody: string | undefined;
 
     while (attempt < MAX_REVISION_ATTEMPTS + 1) {
       attempt += 1;
@@ -347,6 +365,16 @@ export async function runPerDimPipeline(
       //   去掉非内容行（编辑备注 / 字数统计 / 元注释 / 营销空话等）
       const cleanedBody = sanitizeSectionOutput(rawDraft.body);
       const draft = { ...rawDraft, body: cleanedBody };
+      // ★ L1-1: stuck-revision 检测 — revision 后 Jaccard 相似度 > 0.9 视为无进展
+      if (attempt > 1 && prevDraftBody !== undefined) {
+        const sim = jaccardSimilarity(prevDraftBody, draft.body);
+        if (sim > STUCK_SIMILARITY_THRESHOLD) {
+          stuckCount += 1;
+        } else {
+          stuckCount = 0;
+        }
+      }
+      prevDraftBody = draft.body;
       lastDraft = draft;
       // ★ 沉淀 v2 接入: defect-scanner 在 chapter 完成时扫描格式缺陷，emit 给前端可见
       const defects = scanContentDefects(draft.body);
@@ -536,15 +564,25 @@ export async function runPerDimPipeline(
       const isLengthFail =
         draft.wordCount < Math.round(targetWordsPerChapter * 0.7) &&
         attempt < MAX_REVISION_ATTEMPTS;
+      // ★ L1-2: reviewer 阈值衰减 — 每次 attempt 降 10 分，最低 40
+      //   attempt=1→60, attempt=2→50, attempt=3→40（后续全部 40）
+      const dynamicThreshold = Math.max(
+        40,
+        PASS_THRESHOLD - (attempt - 1) * 10,
+      );
+      // ★ L1-1: 连续无进展 stuck 兜底 — stuckCount >= MAX_STUCK_COUNT 立即 finalize
+      const isStuckRevision = stuckCount >= MAX_STUCK_COUNT;
 
       if (
         !isLengthFail &&
         (verdict.decision === "pass" ||
-          verdict.score >= PASS_THRESHOLD ||
+          verdict.score >= dynamicThreshold ||
           attempt >= MAX_REVISION_ATTEMPTS + 1 ||
           // ★ P1-R4-A (round 4): reviewer 连续故障超 MAX_REVIEWER_FAILURES，
           // 不再重试，按当前 draft 落地避免 token 倍增
-          reviewerExhausted)
+          reviewerExhausted ||
+          // ★ L1-1: 连续 2 次内容无变化，强制落地
+          isStuckRevision)
       ) {
         // ★ 沉淀接入: chapter 局部 [1][2] → dim 全局编号重映射
         //   chapter.sourceIndices 是 outline 阶段每章可引用的 dim findings 索引（0-based）。
@@ -555,11 +593,64 @@ export async function runPerDimPipeline(
           localToGlobal.set(localIdx + 1, globalIdx + 1);
         });
         const remappedBody = restoreGlobalIndices(draft.body, localToGlobal);
+
+        // ★ 治 mission "假完成" 根因（2026-05-01）：兜底落地必须显式 emit chapter:done，
+        //   让前端 derive.ts 能把 chapter.status 切到 'done' / 'failed-finalized'。
+        //   之前缺这条事件导致前端永远卡 'revising'。
+        //   pass 路径和兜底路径都走这段，确保每个 chapter 都有终态事件。
+        const chapterDecision:
+          | "passed"
+          | "fallback-length"
+          | "fallback-exhausted" =
+          verdict.decision === "pass" || verdict.score >= PASS_THRESHOLD
+            ? "passed"
+            : reviewerExhausted
+              ? "fallback-exhausted"
+              : "fallback-length";
+
+        await deps.emit({
+          type: "agent-playground.chapter:done",
+          missionId,
+          userId,
+          agentId: reviewerAgentId,
+          payload: {
+            dimension: dimensionName,
+            chapterIndex: chapter.index,
+            finalAttempt: attempt,
+            decision: chapterDecision,
+            finalScore: verdict.score,
+            wordCount: draft.wordCount,
+            targetWordCount: targetWordsPerChapter,
+            finalized: true,
+            qualified: chapterDecision === "passed",
+          },
+        });
+
+        // 仅当兜底（非 passed）emit warning narrative，让用户看到"质量未达标但被兜底"
+        if (chapterDecision !== "passed") {
+          await narrate(deps.emit, missionId, userId, {
+            stage: "s3-researchers",
+            role: "reviewer",
+            tag: "warning",
+            text: `${dimensionName} · §${chapter.index} 因评审 ${
+              chapterDecision === "fallback-exhausted"
+                ? "故障耗尽"
+                : "未通过且重试上限"
+            }，按当前 draft 兜底落地（${draft.wordCount}/${targetWordsPerChapter} 字）`,
+            agentId: reviewerAgentId,
+            dimension: dimensionName,
+          });
+        }
+
         writtenChapters.push({
           index: chapter.index,
           heading: chapter.heading,
           body: remappedBody,
           wordCount: draft.wordCount,
+          finalized: true,
+          qualified: chapterDecision === "passed",
+          decision: chapterDecision,
+          finalScore: verdict.score,
         });
         previousHeadings.push(chapter.heading);
         break;
