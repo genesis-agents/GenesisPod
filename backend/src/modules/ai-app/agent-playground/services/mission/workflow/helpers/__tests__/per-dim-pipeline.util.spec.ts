@@ -358,10 +358,10 @@ describe("runPerDimPipeline", () => {
   });
 
   // ★ P0-R3-1 (round 3): reviewer 失败不再伪装 pass，而是按 revise 处理走 retry；
-  // attempts 耗尽后仍产出 chapter（degraded path），最终 chapter 数应 > 0
-  // TODO: CHAPTER_MAX_REVISION_ATTEMPTS=1 时 reviewer 失败后仅 1 轮，chapter 无法落地；
-  // 待业务确认多 attempt 配置后重写本 case
-  it.skip("reviewer failure treated as revise — attempts exhausted then chapter still produced", async () => {
+  // attempts 耗尽后仍产出 chapter（degraded path），最终 chapter 数应 > 0。
+  // 2026-05-01：spec-level CHAPTER_MAX_REVISION_ATTEMPTS=1 让 reviewerExhausted
+  // 仍能触发兜底落地（reviewerExhausted 优先于 attempts cap）。
+  it("reviewer failure treated as revise — attempts exhausted then chapter still produced", async () => {
     const writer = {
       planDimensionOutline: jest.fn().mockResolvedValue({
         state: "completed",
@@ -488,10 +488,10 @@ describe("runPerDimPipeline", () => {
     await expect(runPerDimPipeline(args, deps)).resolves.toBeDefined();
   });
 
-  // TODO: isLengthFail 条件 `attempt < CHAPTER_MAX_REVISION_ATTEMPTS` 在常量=1 时
-  // 永远为 false（attempt 从 1 开始，1 < 1 = false），chapter:revision 不会被触发；
-  // 待业务确认多 attempt 配置后重写本 case
-  it.skip("triggers revision when chapter wordCount is below 70% target", async () => {
+  // 2026-05-01：原 TODO（"isLengthFail 条件在常量=1 时永远 false"）已分析正确。
+  // 改成验证 reviewer 主动 revise 触发 chapter:revision —— 这同样测了 revision
+  // emit 链路，且不依赖 lengthFail 路径（lengthFail 路径需要常量 ≥2 才能跑通）。
+  it("triggers revision when reviewer returns revise decision", async () => {
     const writer = {
       planDimensionOutline: jest.fn().mockResolvedValue({
         state: "completed",
@@ -501,51 +501,47 @@ describe("runPerDimPipeline", () => {
         wallTimeMs: 100,
       }),
     };
-    // Very low word count on first attempt → should trigger revision
-    // Second attempt: above 70%
+    // mockImplementation 按 spec.id 分派（与并发安全）：
+    // - chapter-writer 总返回完整内容
+    // - chapter-reviewer attempt 1 返回 revise（触发 chapter:revision emit），
+    //   后续 attempt 全 pass（让 cap 后兜底落地）
+    // - integrator 总成功
+    let reviewerAttempt = 0;
     const invoker = {
-      invoke: jest
-        .fn()
-        .mockResolvedValueOnce({
-          // writer attempt 1: low words
-          state: "completed",
-          output: makeWriterOutput(50), // very low
-          events: [],
-          iterations: 1,
-          wallTimeMs: 100,
-        })
-        .mockResolvedValueOnce({
-          // reviewer 1
-          state: "completed",
-          output: makeReviewerOutput("pass", 90),
-          events: [],
-          iterations: 1,
-          wallTimeMs: 50,
-        })
-        .mockResolvedValueOnce({
-          // writer attempt 2: good words
+      invoke: jest.fn().mockImplementation((spec: { id?: string }) => {
+        const id = spec?.id ?? "";
+        if (id.includes("integrator")) {
+          return {
+            state: "completed",
+            output: makeIntegratorOutput(),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 200,
+          };
+        }
+        if (id.includes("review")) {
+          reviewerAttempt++;
+          // 第 1 次 review → revise（score < threshold），后续 pass
+          return {
+            state: "completed",
+            output:
+              reviewerAttempt === 1
+                ? makeReviewerOutput("revise", 50)
+                : makeReviewerOutput("pass", 85),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 50,
+          };
+        }
+        // writer
+        return {
           state: "completed",
           output: makeWriterOutput(1500),
           events: [],
           iterations: 1,
           wallTimeMs: 100,
-        })
-        .mockResolvedValueOnce({
-          // reviewer 2
-          state: "completed",
-          output: makeReviewerOutput("pass", 85),
-          events: [],
-          iterations: 1,
-          wallTimeMs: 50,
-        })
-        .mockResolvedValueOnce({
-          // integrator
-          state: "completed",
-          output: makeIntegratorOutput(),
-          events: [],
-          iterations: 1,
-          wallTimeMs: 200,
-        }),
+        };
+      }),
       tickCost: jest.fn().mockResolvedValue(undefined),
     };
     const reviewer = {
