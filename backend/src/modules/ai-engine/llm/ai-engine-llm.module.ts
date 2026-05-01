@@ -74,9 +74,9 @@ import { ModelElectionService } from "./selection/model-election.service";
         maxFreeSockets: 10,
         maxHeaderSize: 64 * 1024,
       } as https.AgentOptions & { maxHeaderSize: number }),
-      // Axios config for large responses
-      maxContentLength: 10 * 1024 * 1024, // 10MB
-      maxBodyLength: 10 * 1024 * 1024, // 10MB
+      // Axios config for large responses（LLM 1M context + 长输出可达 30MB）
+      maxContentLength: 50 * 1024 * 1024, // 50MB
+      maxBodyLength: 50 * 1024 * 1024, // 50MB
     }),
     SecretsModule,
     UserApiKeysModule,

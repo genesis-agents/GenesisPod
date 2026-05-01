@@ -1409,7 +1409,10 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           },
           timeout,
           maxRedirects: 3, // Reduced to prevent header accumulation
-          maxContentLength: 5 * 1024 * 1024, // 5MB limit to prevent memory pressure
+          // 50MB（之前 5MB 太严，访问大型文档如 llms-full.txt 会触发
+          // "maxContentLength size of 5242880 exceeded"）。50MB 仍能防御 OOM。
+          maxContentLength: 50 * 1024 * 1024,
+          maxBodyLength: 50 * 1024 * 1024,
           decompress: true,
         }),
       );
