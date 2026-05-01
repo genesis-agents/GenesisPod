@@ -24,7 +24,7 @@ import type {
 } from "../../kernel/abstractions";
 import { ContextEnvelope } from "../../kernel/core/context-envelope";
 import { ReActLoop } from "./react-loop";
-import { BudgetAccountant } from "../../runtime/budget/budget-accountant";
+import { BudgetAccountant } from "../../runtime/cost/budget-accountant";
 
 /**
  * Verifier 抽象 — PR-B 的 JudgeService 实现此接口（可为 self/external/meta）。

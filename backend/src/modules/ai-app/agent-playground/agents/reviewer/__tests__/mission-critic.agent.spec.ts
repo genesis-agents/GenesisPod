@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dx";
+import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
 import { MissionCriticAgent } from "../mission-critic.agent";
 
 const meta = readDefineAgentMeta(MissionCriticAgent)!;

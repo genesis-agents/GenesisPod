@@ -78,7 +78,7 @@ import {
   ToolRegistry,
   MissionOrchestrator,
 } from "./runtime";
-import { ModelPricingRegistry } from "./runtime/budget/model-pricing-registry";
+import { ModelPricingRegistry } from "./runtime/cost/model-pricing-registry";
 import { SpanExporter } from "./runtime/tracer/span-exporter";
 import { JudgeService } from "./governance/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
@@ -96,7 +96,7 @@ import {
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
 import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";
-import { AgentRunner, FixtureStore } from "./kernel/dx";
+import { AgentRunner, FixtureStore } from "./kernel/dev-tools";
 // PR-J..P
 import { LeaderWorkerLoop } from "./execution/loop/leader-worker-loop";
 import { DomainEventRegistry } from "./protocol/events/domain-event-registry";

@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dx";
+import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
 import { ChapterWriterAgent } from "../chapter-writer.agent";
 
 const meta = readDefineAgentMeta(ChapterWriterAgent)!;

@@ -45,8 +45,8 @@ import { ToolInvoker } from "../../execution/executor/tool-invoker";
 import { ContextManager } from "../../execution/context/context-manager";
 import { CacheControlPlanner } from "../../execution/context/cache-control-planner";
 import { HookRegistry } from "../../kernel/core/hook-registry";
-import { BudgetAccountant } from "../../runtime/budget/budget-accountant";
-import { ModelPricingRegistry } from "../../runtime/budget/model-pricing-registry";
+import { BudgetAccountant } from "../../runtime/cost/budget-accountant";
+import { ModelPricingRegistry } from "../../runtime/cost/model-pricing-registry";
 import type { IAgent, ISubagentSpawner } from "../../kernel/abstractions";
 
 interface ParsedDecision {

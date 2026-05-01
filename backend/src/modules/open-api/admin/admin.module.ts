@@ -71,7 +71,7 @@ import {
     KernelAdminController, // /admin/kernel/* routes for AI Kernel process management
     AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
     ObservabilityAdminController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/governance/observability)
-    ...(process.env.NODE_ENV === "production" ? [] : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/kernel/dx)
+    ...(process.env.NODE_ENV === "production" ? [] : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/kernel/dev-tools)
   ],
   providers: [
     AdminService,

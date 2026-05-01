@@ -338,7 +338,7 @@ describe("ReActLoop (Phase 2)", () => {
   // ── v2: BudgetAccountant integration ──
   it("aborts loop when BudgetAccountant.exhausted() returns true", async () => {
     const { BudgetAccountant } =
-      await import("../../../runtime/budget/budget-accountant");
+      await import("../../../runtime/cost/budget-accountant");
     const budget = new BudgetAccountant({ maxTokens: 100, maxCostUsd: 0.01 });
     // Pre-exhaust
     budget.accountLLM(150, 0, 0);

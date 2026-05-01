@@ -410,7 +410,7 @@ export {
   // ★ 沉淀（2026-04-29）: 图表 JSON 块清理（LLM 泄漏 metadata 修复）
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
-} from "../llm/output-utils";
+} from "../llm/output-parsing";
 
 // ★ 沉淀（2026-04-29）: figure URL 有效性校验
 export { isValidFigureUrl } from "../safety/security/url-sanitizer.utils";

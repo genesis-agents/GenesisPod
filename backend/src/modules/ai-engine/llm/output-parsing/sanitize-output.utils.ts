@@ -1,4 +1,4 @@
-// Sediment from topic-insights (2026-04-29) — ai-engine/llm/output-utils/
+// Sediment from topic-insights (2026-04-29) — ai-engine/llm/output-parsing/
 // 来源: ai-app/topic-insights/utils/sanitize-output.utils.ts
 // 纯函数 utility，0 DI，0 LLM 调用。所有 ai-app 都可用。
 /**

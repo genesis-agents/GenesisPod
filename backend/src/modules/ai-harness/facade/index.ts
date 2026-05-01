@@ -19,8 +19,8 @@ export {
   AgentSpec,
   DefineAgent,
   FixtureStore,
-} from "../kernel/dx";
-export type { RunResult } from "../kernel/dx";
+} from "../kernel/dev-tools";
+export type { RunResult } from "../kernel/dev-tools";
 
 // Service facade
 export { HarnessFacade } from "./harness.facade";
@@ -360,7 +360,7 @@ export {
   type HealthVerdict,
   type HealthCheckResult,
   type MissionHealthMonitorOptions,
-} from "../process/health";
+} from "../runtime/teams/orchestrator/mission-health.monitor";
 export {
   DAGExecutor,
   type DAGTask,
@@ -634,14 +634,14 @@ export type {
 // Runtime: mission + budget + billing + kernel-api
 // ════════════════════════════════════════════════════════════════════
 export { MissionBudgetPool } from "../runtime/mission/mission-budget-pool";
-export { BillingRuntimeEnvAdapter } from "../runtime/billing/billing-runtime-env.adapter";
+export { BillingRuntimeEnvAdapter } from "../runtime/cost/billing-runtime-env.adapter";
 export { MissionExecutorService } from "../runtime/mission/mission-executor.service";
 export type {
   IMissionExecutor,
   MissionExecuteOptions,
   MissionExecuteResult,
 } from "../runtime/mission/mission-executor.interface";
-export { KernelApiService } from "../runtime/kernel-api/kernel-api.service";
+export { KernelApiService } from "../runtime/api/kernel-api.service";
 
 // ════════════════════════════════════════════════════════════════════
 // Common context (KernelContext lives in common/, surfaced here for ai-app DX)

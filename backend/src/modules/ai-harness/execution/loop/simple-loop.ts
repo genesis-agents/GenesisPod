@@ -38,7 +38,7 @@ import {
 } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
-import { BudgetAccountant } from "../../runtime/budget/budget-accountant";
+import { BudgetAccountant } from "../../runtime/cost/budget-accountant";
 
 export interface SimpleLoopRunOptions extends ILoopRunOptions {
   /** Spec 声明的 TaskProfile（透传给 chat()） */

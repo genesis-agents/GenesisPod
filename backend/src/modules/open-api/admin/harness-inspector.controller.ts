@@ -14,7 +14,7 @@
  *   /harness/inspector/events/:agentId
  *   /harness/inspector/staged-skills
  *
- * Migrated from ai-harness/kernel/dx/inspector.controller.ts (PR-X17).
+ * Migrated from ai-harness/kernel/dev-tools/inspector.controller.ts (PR-X17).
  */
 
 function assertInspectorEnabled(): void {

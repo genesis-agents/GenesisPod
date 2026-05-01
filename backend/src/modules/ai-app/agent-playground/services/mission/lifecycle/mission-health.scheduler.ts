@@ -44,7 +44,8 @@ export class MissionHealthScheduler implements OnModuleInit, OnModuleDestroy {
   ) {
     this.monitor = new MissionHealthMonitor({
       fetchRunningMissions: () => this.fetchRunningMissions(),
-      onTimeout: (v) => this.handleTimeout(v),
+      onTimeout: (v: import("@/modules/ai-harness/facade").HealthVerdict) =>
+        this.handleTimeout(v),
       config: {
         // ★ 2026-04-30: 60 min 无活动才算 stale（之前 30min 误判正常 deep/thorough mission）
         //   mission 跑 60min 是常见档位（每个 dim 10-15min × 4-6 个 dim），活动事件是

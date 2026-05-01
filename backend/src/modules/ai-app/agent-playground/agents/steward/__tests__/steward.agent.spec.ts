@@ -11,7 +11,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dx";
+import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
 import { StewardAgent } from "../steward.agent";
 import * as dutyLoader from "../../../utils/duty-loader";
 

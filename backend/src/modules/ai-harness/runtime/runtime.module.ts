@@ -28,7 +28,7 @@ import { MissionExecutorService } from "./mission/mission-executor.service";
 // CapabilityGuardService 已搬到 ai-engine/safety/security/（PR-X3）
 // 由 ai-engine-constraint.module 提供，@Global 全局可注入
 import { KernelSchedulerService } from "../process/scheduler/kernel-scheduler.service";
-import { KernelApiService } from "./kernel-api/kernel-api.service";
+import { KernelApiService } from "./api/kernel-api.service";
 
 const RUNTIME_LIFECYCLE_PROVIDERS = [
   ProcessManagerService,

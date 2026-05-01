@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dx";
+import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
 import { SingleShotWriterAgent } from "../single-shot-writer.agent";
 
 const meta = readDefineAgentMeta(SingleShotWriterAgent)!;

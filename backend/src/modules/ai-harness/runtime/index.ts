@@ -18,7 +18,7 @@ export {
   type ReActStores,
 } from "./env/react-runner";
 
-export { BudgetAccountant, type ModelTier } from "./budget/budget-accountant";
+export { BudgetAccountant, type ModelTier } from "./cost/budget-accountant";
 export { MissionBudgetPool } from "./mission/mission-budget-pool";
 export {
   AgentExecutionContext,
@@ -42,7 +42,7 @@ export { SpanExporter, type SpanRecord, type SpanSink } from "./tracer/span-expo
 export {
   ModelPricingRegistry,
   type ModelPricing,
-} from "./budget/model-pricing-registry";
+} from "./cost/model-pricing-registry";
 
 // 持久化抽象接口（App 层实现）
 export type {

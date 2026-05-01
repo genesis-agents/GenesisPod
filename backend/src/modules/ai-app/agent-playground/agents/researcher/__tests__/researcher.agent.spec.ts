@@ -5,7 +5,7 @@
  */
 
 import { ResearcherAgent } from "../researcher.agent";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dx/agent-spec.base";
+import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools/agent-spec.base";
 
 function getMeta() {
   const meta = readDefineAgentMeta(ResearcherAgent);

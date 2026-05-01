@@ -31,7 +31,7 @@ import type {
   ILoopTerminationCriteria,
   ISubagentSpawner,
 } from "../../kernel/abstractions";
-import type { BudgetAccountant } from "../../runtime/budget/budget-accountant";
+import type { BudgetAccountant } from "../../runtime/cost/budget-accountant";
 
 // ─── 五元环状态 ────────────────────────────────────────────
 
