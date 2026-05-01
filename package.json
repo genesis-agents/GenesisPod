@@ -89,6 +89,7 @@
     "husky": "^8.0.3",
     "lint-staged": "^15.2.0",
     "playwright": "^1.58.2",
+    "pm2": "^6.0.14",
     "prettier": "^3.0.0",
     "standard-version": "^9.5.0",
     "typescript": "^5.3.0"
@@ -111,9 +112,11 @@
   "author": "Genesis Team",
   "license": "MIT",
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.100",
     "@nestjs/cache-manager": "^3.1.0",
     "@tiptap/extensions": "^3.20.2",
-    "js-yaml": "^4.1.1"
+    "js-yaml": "^4.1.1",
+    "sharp": "^0.34.5"
   },
   "overrides": {
     "pdfjs-dist": "^5.4.394"

@@ -4,7 +4,7 @@
   "description": "Genesis.ai Backend API",
   "private": true,
   "scripts": {
-    "build": "prisma generate && nest build && node scripts/copy-build-assets.js",
+    "build": "prisma generate && nest build && tsc-alias -p tsconfig.json && node scripts/copy-build-assets.js",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "start": "nest start",
     "dev": "nest start --watch",
@@ -167,6 +167,7 @@
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.5.0",
     "ts-node": "^10.9.0",
+    "tsc-alias": "^1.8.17",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"
   },

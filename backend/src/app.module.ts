@@ -118,7 +118,9 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // 配置模块
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ".env",
+      // Load backend-specific .env first (highest precedence), then fall
+      // back to the workspace root .env for shared values (DB, JWT, etc.).
+      envFilePath: [".env", "../.env"],
     }),
 
     // 全局事件模块（必须在 AppModule 中只调用一次 forRoot，设置 global: true 确保全局可用）
