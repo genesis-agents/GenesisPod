@@ -19,9 +19,12 @@ import { InsufficientCreditsException } from "../../types/research.exceptions";
 import {
   inferIsReasoning,
 } from "@/modules/ai-engine/facade";
-import type { QueryLoopConfig } from "@/modules/ai-engine/facade";
 import { PromptCacheCoordinatorService } from "@/modules/ai-engine/facade";
-import { ChatFacade, AIFacade } from "@/modules/ai-harness/facade";
+import {
+  ChatFacade,
+  AIFacade,
+  type QueryLoopConfig,
+} from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research/research-leader.service";
 import type { FigureRegistryEntry } from "./evidence-summary.utils";

@@ -28,3 +28,6 @@ export {
 } from "./task-profile";
 
 export { inferIsReasoning, getKnownModelLimit } from "./model-utils";
+
+// 2026-05-01 (PR-X-M2): AiCallerFn 通用 LLM 调用函数签名
+export type { AiCallerFn } from "./ai-caller.types";

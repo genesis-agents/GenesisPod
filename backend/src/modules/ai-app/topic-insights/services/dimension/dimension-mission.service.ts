@@ -84,12 +84,12 @@ import {
   ContextCompressionService,
   ContextEvolutionService,
   PromptCacheCoordinatorService,
-  SessionMemorySidecarService,
   TokenBudgetService,
 } from "@/modules/ai-engine/facade";
 import {
   ChatFacade,
   ExecutionCheckpointService,
+  SessionMemorySidecarService,
   type AICapabilityContext,
   type AiCallerFn,
   type EstablishedFact,

@@ -10,19 +10,10 @@
 import { AIModelType } from "@prisma/client";
 import { TaskProfile } from "../../../ai-engine/llm/types";
 
-/**
- * AI 调用函数类型
- * 用于依赖注入，允许上层传入带上下文的 AI 调用实现
- */
-export type AiCallerFn = (
-  model: string,
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
-  options?: {
-    maxTokens?: number;
-    temperature?: number;
-    taskProfile?: TaskProfile;
-  },
-) => Promise<{ content: string; tokensUsed: number }>;
+// 2026-05-01 (PR-X-M2): AiCallerFn 已搬到 ai-engine/llm/types/ai-caller.types.ts
+// （L2 LLM 能力概念）。此处 import + re-export 保 ai-harness 内部既有 import 路径稳定。
+import type { AiCallerFn as AiCallerFnImpl } from "../../../ai-engine/llm/types/ai-caller.types";
+export type AiCallerFn = AiCallerFnImpl;
 
 /**
  * 团队成员基础信息

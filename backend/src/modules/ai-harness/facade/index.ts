@@ -213,6 +213,46 @@ export {
   type ExecutionCheckpoint,
 } from "../execution/executor/execution-checkpoint.service";
 
+// ★ 2026-05-01 (PR-X-M2): 一组 L2.5 runtime 类型从 ai-engine/facade 反向 re-export 下沉过来
+export type { TeamMemberInfo } from "../execution/executor/interfaces";
+export type { IConstraintEnforcementService } from "../execution/executor/interfaces";
+export { AICapabilityResolver } from "../execution/capabilities/ai-capability-resolver.service";
+export {
+  QueryLoopService,
+  type QueryLoopConfig,
+  type QueryLoopResult,
+  type QueryLoopStopReason,
+} from "../execution/executor/query-loop.service";
+export {
+  TokenTrackerService,
+  type TokenUsageSnapshot,
+  type TokenUsageEntry,
+} from "../execution/executor/token-tracker.service";
+export {
+  SessionMemorySidecarService,
+  type SidecarCategory,
+  type SidecarEntry,
+  type SidecarConfig,
+} from "../execution/executor/session-memory-sidecar.service";
+export type {
+  Checkpoint,
+  ExecutionContext as OrchestrationExecutionContext,
+  Workflow,
+  WorkflowStep,
+  WorkflowMode,
+  StepType,
+  StepInput,
+  StepOutput,
+  StepCondition,
+  RetryConfig,
+  ErrorHandler,
+  ExecutionEvent,
+  ExecutionResult as OrchestrationExecutionResult,
+  StepResult,
+  StepStatus,
+  WorkflowConfig as OrchestrationWorkflowConfig,
+} from "../runtime/abstractions/orchestrator.interface";
+
 // ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
 export { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
 

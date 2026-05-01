@@ -211,8 +211,8 @@ export { RAG_PIPELINE_SERVICE_TOKEN } from "../core/interfaces/rag.interface";
 export type { ModelFallbackOptions } from "../llm/model-fallback/model-fallback.service";
 export type { AIModelConfig } from "../llm/services/ai-model-config.service";
 
-// Orchestration interfaces
-export type { TeamMemberInfo } from "../../ai-harness/execution/executor/interfaces";
+// TeamMemberInfo 是 L2.5 ai-harness/execution 类型，2026-05-01 PR-X-M2 下沉为
+// ai-harness/facade export，engine 不再 re-export
 
 // Error detection utilities
 export type { ErrorDetectionRetryConfig } from "../core/utils/error-detection.utils";
@@ -327,7 +327,8 @@ export type {
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
-export { AICapabilityResolver } from "../../ai-harness/execution/capabilities/ai-capability-resolver.service";
+// AICapabilityResolver 是 L2.5 ai-harness/execution 服务，2026-05-01 PR-X-M2
+// 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
 
 // ★ Batch 2 — Safety
@@ -450,33 +451,16 @@ export type { SkillId } from "../core/types/agent.types";
 // Common types
 export type { JsonObject, JsonValue } from "../core/types/common.types";
 
-// Orchestrator abstractions
-export type {
-  Checkpoint,
-  ExecutionContext,
-  Workflow,
-  WorkflowStep,
-  WorkflowMode,
-  StepType,
-  StepInput,
-  StepOutput,
-  StepCondition,
-  RetryConfig,
-  ErrorHandler,
-  ExecutionEvent,
-  ExecutionResult,
-  StepResult,
-  StepStatus,
-  WorkflowConfig as OrchestrationWorkflowConfig,
-} from "../../ai-harness/runtime/abstractions/orchestrator.interface";
+// Orchestrator abstractions — 2026-05-01 PR-X-M2: 16 个类型下沉到 ai-harness/facade
+// 因为 orchestrator.interface 是 L2.5 ai-harness/runtime 概念，engine facade 不
+// 再 re-export。ai-app 已改 from "@/modules/ai-harness/facade" 引入。
 
 // Workflow Handlers / Executors —— 2026-04-30 (C2-step2) 删除死代码:
 //   - WorkflowHandlerRegistry / WorkflowNodeHandler / MapStepConfig (仅被 BaseExecutor 用，BaseExecutor 死)
 //   - DAGExecutor (engine 728行重型版，被 ai-harness/execution/dag/ 165行轻量版取代)
 //   保留: FunctionCallingExecutor (从 ai-engine/index.ts 单独 export)
 
-// Orchestration interfaces
-export type { IConstraintEnforcementService } from "../../ai-harness/execution/executor/interfaces";
+// IConstraintEnforcementService 已下沉为 ai-harness/facade export (PR-X-M2)
 
 // Memory abstractions 已移除（2026-04-30）—— Memory 整体迁到 ai-harness/memory，
 // 请从 "@/modules/ai-harness/memory/abstractions/memory.interface" 或
@@ -490,20 +474,7 @@ export type {
   ImageSearchOutput,
 } from "../tools/categories/information/image-search/image-search.types";
 
-// Query Loop auto-continuation engine
-export {
-  QueryLoopService,
-  type QueryLoopConfig,
-  type QueryLoopResult,
-  type QueryLoopStopReason,
-} from "../../ai-harness/execution/executor";
-
-// Token usage tracker
-export {
-  TokenTrackerService,
-  type TokenUsageSnapshot,
-  type TokenUsageEntry,
-} from "../../ai-harness/execution/executor";
+// QueryLoopService / TokenTrackerService 已下沉为 ai-harness/facade export (PR-X-M2)
 
 // 2026-05-01 (PR-X-L): ContextCompactionPipelineService 是 engine 自有，从源头直接 import
 export {
@@ -543,13 +514,7 @@ export {
   evaluateSearchQuality,
 } from "../tools/search-fusion";
 
-// ★ Phase 7: Session Memory Sidecar
-export {
-  SessionMemorySidecarService,
-  type SidecarCategory,
-  type SidecarEntry,
-  type SidecarConfig,
-} from "../../ai-harness/execution/executor";
+// SessionMemorySidecarService 已下沉为 ai-harness/facade export (PR-X-M2)
 
 // ★ Phase 10: Coordinator Synthesize-Before-Delegate
 export { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutting-synthesis.service";

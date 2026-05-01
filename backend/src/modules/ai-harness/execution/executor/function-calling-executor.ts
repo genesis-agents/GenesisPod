@@ -24,7 +24,7 @@ import { ContextCompactionPipelineService } from "../../../ai-engine/llm/context
 import { ExecutionCheckpointService } from "./execution-checkpoint.service";
 import { ToolConcurrencyService } from "../../../ai-engine/tools/concurrency/tool-concurrency.service";
 import { ModelFallbackService } from "../../../ai-engine/llm/model-fallback/model-fallback.service";
-import { SessionMemorySidecarService } from "../../../ai-engine/facade";
+import { SessionMemorySidecarService } from "./session-memory-sidecar.service";
 
 // ============================================================================
 // Types — LLM 协议接口已抽到 ai-engine/llm/abstractions/function-calling-protocol
