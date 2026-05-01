@@ -12,7 +12,7 @@ import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../../ai-engine/planning/executors/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
-import { AgentExecutorService } from "../../ai-engine/planning/services/agent-executor.service";
+import { AgentExecutorService } from "../execution/executor/agent-executor.service";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖

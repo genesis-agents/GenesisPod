@@ -180,7 +180,7 @@ export type {
   FactExtractionResult,
   ContextEvolutionConfig,
 } from "../planning/services/interfaces";
-export { AgentExecutorService } from "../planning/services/agent-executor.service";
+// AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
 export { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";

@@ -14,7 +14,7 @@ export * from "./interfaces";
 //   - IntelligentModelRouterService ("支柱四"未接入)
 //   - ComplexityAnalyzerService (仅被 IntelligentModelRouter 用 → 绑死)
 // TaskDecomposerService 已删 (2026-04-30) — 死代码 (TaskBreakdown 0 注入)
-export { AgentExecutorService } from "./agent-executor.service";
+// AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
 export { OutputReviewerService } from "./output-reviewer.service";
 
 // 上下文演进服务

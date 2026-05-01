@@ -169,7 +169,7 @@ import type {
 } from "../../ai-engine/planning/capabilities/types";
 import type { SkillMdDefinition } from "../../ai-engine/skills/types/skill-md.types";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
-import { AgentExecutorService } from "../../ai-engine/planning/services/agent-executor.service";
+import { AgentExecutorService } from "../execution/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";

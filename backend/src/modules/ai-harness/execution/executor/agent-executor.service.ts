@@ -12,11 +12,11 @@ import {
   ExecutionContext,
   ExecutionConfig,
   ExecutionResult,
-} from "./interfaces";
-import { AiChatService } from "../../llm/services/ai-chat.service";
+} from "../../../ai-engine/planning/services/interfaces";
+import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 // ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../tools/registry/tool-registry";
-import type { ToolContext } from "../../tools/abstractions/tool.interface";
+import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 /**
