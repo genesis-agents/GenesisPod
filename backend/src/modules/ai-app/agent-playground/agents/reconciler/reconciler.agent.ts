@@ -154,6 +154,8 @@ const Output = z.object({
       "Reconcile cross-dimension findings: extract fact table, detect conflicts/overlaps/gaps, build figure candidate pool",
   },
   loop: "react",
+  // PR-X-skill-bridge: cross-dim-fact-check SKILL.md 提供完整对账协议
+  skills: ["cross-dim-fact-check"],
   // ★ 用 information 类二次确认（rag-search / web-search 验证存疑事实）
   toolCategories: ["information", "processing"],
   taskProfile: {

@@ -56,6 +56,8 @@ const Output = z.object({
     description: "5-axis quality grading for a dimension report",
   },
   loop: "simple",
+  // PR-X-skill-bridge: per-dim 5-axis 评分协议
+  skills: ["dimension-quality-review"],
   taskProfile: { creativity: "deterministic", outputLength: "medium" },
   inputSchema: Input,
   outputSchema: Output,

@@ -116,6 +116,8 @@ export type StewardOutput = z.infer<typeof Output>;
       "资源 / 合规 / 边界守门员。一个 class，4 种 scope 覆盖 budget / compliance / data-boundary / source-diversity。",
   },
   loop: "reflexion",
+  // PR-X-skill-bridge: budget guard 协议
+  skills: ["budget-stewardship"],
   toolCategories: [],
   taskProfile: {
     creativity: "deterministic",

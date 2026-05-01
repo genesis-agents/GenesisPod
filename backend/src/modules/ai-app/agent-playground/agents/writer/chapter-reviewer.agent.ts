@@ -63,6 +63,8 @@ const Output = z.object({
     description: "Quality gate for a single chapter draft",
   },
   loop: "simple",
+  // PR-X-skill-bridge: 6 项 chapter QA gate
+  skills: ["chapter-quality-gate"],
   taskProfile: { creativity: "deterministic", outputLength: "short" },
   inputSchema: Input,
   outputSchema: Output,

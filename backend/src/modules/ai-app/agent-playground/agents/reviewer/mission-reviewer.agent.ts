@@ -28,6 +28,8 @@ const Output = z.object({
     description: "Final QA reviewer — score the draft report on 4 dimensions",
   },
   loop: "simple",
+  // PR-X-skill-bridge: L3 multi-judge 评分协议
+  skills: ["multi-judge-mission-review"],
   taskProfile: { creativity: "deterministic", outputLength: "short" },
   inputSchema: Input,
   outputSchema: Output,

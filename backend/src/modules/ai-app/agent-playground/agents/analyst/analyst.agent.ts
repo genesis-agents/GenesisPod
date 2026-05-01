@@ -90,7 +90,7 @@ const Output = z.object({
     description: "Synthesize multi-dimension research into top insights",
   },
   loop: "reflexion",
-  skills: ["critical-review"],
+  skills: ["critical-review", "cross-dim-synthesis"],
   verifiers: ["self", "critical"],
   taskProfile: { creativity: "low", outputLength: "long" },
   inputSchema: Input,

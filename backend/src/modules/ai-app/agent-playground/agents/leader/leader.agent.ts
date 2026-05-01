@@ -270,6 +270,14 @@ export type LeaderSignoffOutput = Extract<LeaderOutput, { phase: "signoff" }>;
       "Mission 唯一最终负责对象。在 plan / assess-research / foreword / signoff 4 个 milestone 全程在场，对最终产物签字承担问责。",
   },
   loop: "react",
+  // PR-X-skill-bridge: Leader 4 个 phase 的协议都激活；SkillActivator 把
+  // SKILL.md instructions 注入为 high-priority reminder，LLM 按 phase 选用
+  skills: [
+    "mece-mission-planning", // M0
+    "leader-mid-mission-assess", // M1
+    "leader-foreword", // M6
+    "leader-signoff", // M7
+  ],
   toolCategories: ["information"],
   taskProfile: {
     creativity: "low",

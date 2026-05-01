@@ -104,7 +104,8 @@ const Output = z.object({
   // category 下所有 enabled 工具。Leader 给 dim 提供 toolHint 时进一步收窄。
   // 工具 CRUD 自动跟进，无需改 spec。
   toolCategories: ["information"],
-  // ★ 去 verifiers + 去 skills（critical-review 本来是 verifier 路径）
+  // PR-X-skill-bridge: dimension-research 协议 + web-research 工具使用规范
+  skills: ["dimension-research", "web-research"],
   taskProfile: {
     creativity: "low",
     outputLength: "long",

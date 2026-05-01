@@ -41,6 +41,8 @@ const Output = z.object({
       "Integrate multiple chapters into a coherent dimension report + abstract + key findings",
   },
   loop: "reflexion",
+  // PR-X-skill-bridge: per-dim 章节整合协议
+  skills: ["dim-chapter-integration"],
   // ★ Round 3 真问题修复 (2026-04-29):
   //   原 outputLength="long" → 8000 maxTokens，远小于多章拼接后字数 (epic 一个 dim 可能 30K+)。
   //   配合 commit fd78b3480 (assembler 优先用 chapter 拼) 已治标，但 integrator 输出本身仍被截。

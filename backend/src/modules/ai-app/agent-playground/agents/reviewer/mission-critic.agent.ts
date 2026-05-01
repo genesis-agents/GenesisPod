@@ -66,6 +66,8 @@ const Output = z.object({
       "L4 meta-critic — independent reviewer outside Writer/Reviewer loop, surfaces blindspots and biases",
   },
   loop: "simple",
+  // PR-X-skill-bridge: report-meta-critic L4 协议
+  skills: ["report-meta-critic"],
   toolCategories: [],
   taskProfile: {
     creativity: "low",

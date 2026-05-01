@@ -122,6 +122,8 @@ export type VerifierOutput = z.infer<typeof Output>;
       "客观事实核验员。一个 class，4 种 mode 覆盖引用 / 数字 / claim / 来源分级。",
   },
   loop: "simple",
+  // PR-X-skill-bridge: 引用工具核验协议
+  skills: ["citation-audit"],
   toolCategories: ["information"],
   taskProfile: {
     creativity: "deterministic",
