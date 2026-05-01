@@ -51,8 +51,55 @@ function lookupChapterLiveStatus(
       candidates.push(p);
     }
   }
+  // ★ 2026-05-01 杠杆 1+2 并行后修复：'pending' 真实含义会被事件流 race
+  //   破坏（chapter 已写但 chapter:writing:started 没匹配上 → 卡 pending）。
+  //   解决：'pending' 不直接显示，按所属 dim 推断 —— dim 还有 chapter 在跑
+  //   就显示 'revising'，dim 已收尾（无 in-flight）就显示 'passed'。
+  //   非 pending 状态直接信任事件流（writing/reviewing/revising/done/failed*）。
+  const isInFlight = (
+    s:
+      | 'pending'
+      | 'writing'
+      | 'reviewing'
+      | 'revising'
+      | 'passed'
+      | 'done'
+      | 'failed-finalized'
+      | 'failed'
+  ) => s === 'writing' || s === 'reviewing' || s === 'revising';
+  const dimHasInFlight = (p: DimensionPipelineState) =>
+    p.chapters.some((c) => isInFlight(c.status));
+  const resolveStatus = (
+    matched:
+      | {
+          status:
+            | 'pending'
+            | 'writing'
+            | 'reviewing'
+            | 'revising'
+            | 'passed'
+            | 'done'
+            | 'failed-finalized'
+            | 'failed';
+        }
+      | undefined,
+    pipeline: DimensionPipelineState
+  ):
+    | 'pending'
+    | 'writing'
+    | 'reviewing'
+    | 'revising'
+    | 'passed'
+    | 'done'
+    | 'failed-finalized'
+    | 'failed' => {
+    if (!matched) return dimHasInFlight(pipeline) ? 'revising' : 'passed';
+    if (matched.status !== 'pending') return matched.status;
+    // pending 时按 dim 状态推断
+    return dimHasInFlight(pipeline) ? 'revising' : 'passed';
+  };
+
   if (candidates.length === 0) {
-    // section title 模糊匹配 chapter heading
     for (const p of dimensionPipelines.values()) {
       const matched = p.chapters.find(
         (c) =>
@@ -60,7 +107,7 @@ function lookupChapterLiveStatus(
           c.heading.includes(section.title) ||
           section.title.includes(c.heading)
       );
-      if (matched) return matched.status;
+      if (matched) return resolveStatus(matched, p);
     }
     return 'passed';
   }
@@ -71,15 +118,11 @@ function lookupChapterLiveStatus(
         c.heading.includes(section.title) ||
         section.title.includes(c.heading)
     );
-    if (matched) return matched.status;
+    if (matched) return resolveStatus(matched, p);
   }
-  // 找不到具体章节但有匹配的 dim pipeline —— 看该 dim 是否有任何章节在跑
+  // 找不到具体章节但有匹配的 dim pipeline → 用 dim 整体状态
   for (const p of candidates) {
-    if (
-      p.chapters.some((c) => c.status === 'revising' || c.status === 'writing')
-    ) {
-      return 'revising';
-    }
+    if (dimHasInFlight(p)) return 'revising';
   }
   return 'passed';
 }
