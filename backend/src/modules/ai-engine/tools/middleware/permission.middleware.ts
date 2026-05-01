@@ -31,8 +31,11 @@ export class PermissionMiddleware implements IToolMiddleware {
   /**
    * Check whether the caller has permission to execute this tool.
    *
-   * Default implementation permits all calls. Override `isAllowed` in a subclass
-   * or replace this middleware with a custom implementation to enforce access control.
+   * Runs two checks in order:
+   *   1. Entitlement check (D13 ToolACL, fail-closed) — verifies the caller holds
+   *      all keys declared in `tool.requiredEntitlements` via `context.environment`.
+   *   2. RBAC / capability extension hook (`isAllowed`) — default permits all;
+   *      override in a subclass to add role or scope enforcement.
    *
    * @throws Error if access is denied
    */
@@ -41,6 +44,33 @@ export class PermissionMiddleware implements IToolMiddleware {
     context: ToolContext,
     tool: ITool,
   ): Promise<void> {
+    // 1. Entitlement check (fail-closed)
+    const required = tool.requiredEntitlements ?? [];
+    if (required.length > 0) {
+      let keys: string[];
+      try {
+        const ents = await context.environment?.getUserEntitlements?.();
+        keys = ents?.keys ?? [];
+      } catch (err) {
+        this.logger.warn(
+          `[entitlement_query_failed] tool=${tool.id} userId=${context.userId ?? "anonymous"} err=${(err as Error).message}`,
+        );
+        throw new Error(
+          `[PermissionMiddleware] Entitlement check failed for tool '${tool.id}' (fail-closed)`,
+        );
+      }
+      const missing = required.filter((r) => !keys.includes(r));
+      if (missing.length > 0) {
+        this.logger.warn(
+          `[entitlement_denied] tool=${tool.id} userId=${context.userId ?? "anonymous"} missing=${missing.join(",")}`,
+        );
+        throw new Error(
+          `[PermissionMiddleware] Missing entitlements for tool '${tool.id}': ${missing.join(", ")}`,
+        );
+      }
+    }
+
+    // 2. 保留原有的扩展检查（RBAC / rate limit 等）
     const allowed = await this.isAllowed(context, tool);
 
     if (!allowed.permitted) {

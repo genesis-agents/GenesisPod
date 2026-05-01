@@ -1021,6 +1021,16 @@ export class AgentRunner {
     }
 
     // Step 4. ToolACL（D13）—— 用户 entitlements 过滤
+    //
+    // ★ 双重防御策略（PR2，2026-05-01）：
+    //   - 召回阶段（这里）= UI/上下文过滤：让 LLM 看不到无权限工具，避免幻觉调用
+    //   - 运行时拦截 = PermissionMiddleware.before() 的 entitlement check：
+    //     即便 LLM 选了无权工具，pipeline 也会 fail-closed 拒绝
+    //   保留这一层是因为：
+    //     1. 让 LLM tool list 干净（不暴露用户买不到的能力）
+    //     2. agent-runner 之外的调用路径（直接 toolRegistry.tryGet().execute()）
+    //        不一定都进 ToolPipeline，召回阶段是兜底
+    //   单一真相源仍是 PermissionMiddleware；本层仅作 UX/防御加固
     if (opts.environment && pool.length > 0) {
       try {
         const ents = (await (

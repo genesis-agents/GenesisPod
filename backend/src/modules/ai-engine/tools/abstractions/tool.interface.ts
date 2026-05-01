@@ -70,6 +70,17 @@ export interface ToolContext {
   processId?: string;
 
   /**
+   * 运行时环境（结构类型，避免反向依赖 ai-harness）
+   *
+   * - 提供给 PermissionMiddleware 做 entitlement 检查
+   * - duck-typed 匹配 IRuntimeEnvironment 的 getUserEntitlements 子集
+   * - 不传 → entitlement 检查跳过（仅对 requiredEntitlements 为空的工具安全）
+   */
+  environment?: {
+    getUserEntitlements?: () => Promise<{ keys: string[] }>;
+  };
+
+  /**
    * 元数据
    */
   metadata?: JsonObject;
