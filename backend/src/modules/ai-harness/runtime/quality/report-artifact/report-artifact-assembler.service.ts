@@ -1,5 +1,5 @@
 /**
- * ReportAssemblerService —— Writer W4：纯代码组装 ReportArtifact
+ * ReportArtifactAssembler —— Writer W4：纯代码组装 ReportArtifact
  *
  * 上游：mission-pipeline-baseline.md §3.7 W4 / mission-pipeline-writer-artifact.md §3.4
  *
@@ -26,13 +26,13 @@ import type {
   ArtifactQuickView,
   ArtifactSection,
   ReportArtifact,
-} from "../../dto/report-artifact.dto";
+} from "./report-artifact.dto";
 import {
   dedupeFigureCandidates,
   isGarbageFigureUrl,
-} from "../../utils/figure-filter.util";
+} from "./figure-filter.util";
 // ★ 沉淀消费（2026-04-29）：harness quality-gate 标杆实现
-import { ReportQualityGateService } from "@/modules/ai-harness/facade";
+import { ReportQualityGateService } from "../../../facade";
 // ★ 沉淀消费（2026-04-30 REPORT QUALITY OVERHAUL）：
 //   playground 报告格式化全量复用 TI 沉淀的 `postProcessFinalReport`
 //   （TI ReportAssembler.postProcessFinalReport 类方法已晋升到 ai-engine 层）。
@@ -48,7 +48,7 @@ import {
   upgradeHttpToHttps,
   decodeUrlEntities,
   remapCitationIndices,
-} from "@/modules/ai-engine/facade";
+} from "../../../../ai-engine/facade";
 
 interface AssembleInput {
   topic: string;
@@ -128,8 +128,8 @@ interface AssembleInput {
 }
 
 @Injectable()
-export class ReportAssemblerService {
-  private readonly logger = new Logger(ReportAssemblerService.name);
+export class ReportArtifactAssembler {
+  private readonly logger = new Logger(ReportArtifactAssembler.name);
 
   constructor(private readonly qualityGate: ReportQualityGateService) {}
 

@@ -435,7 +435,7 @@ export async function runWriterStage(
 
   // ── 4. ReportArtifact v2 装配 ──
   let reportArtifact:
-    | import("../../../../dto/report-artifact.dto").ReportArtifact
+    | import("@/modules/ai-harness/runtime/quality/report-artifact/report-artifact.dto").ReportArtifact
     | undefined;
   try {
     const modelIds = new Set<string>();

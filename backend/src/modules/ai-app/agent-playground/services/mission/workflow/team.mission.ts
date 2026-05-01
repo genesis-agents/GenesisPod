@@ -64,7 +64,7 @@ import {
   StewardService,
   AgentInvoker,
 } from "../../roles";
-import { ReportAssemblerService } from "../../artifact/report-assembler.service";
+import { ReportArtifactAssembler } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact-assembler.service";
 import { MissionStateService } from "../lifecycle/mission-state.service";
 import { MissionAbortRegistry } from "../lifecycle/mission-abort.registry";
 // MissionReviewerAgent: 当前 mission 评审走 VerifierService（多 judge 投票），
@@ -111,7 +111,7 @@ interface MissionResult {
     attempt?: number;
   }[];
   // ReportArtifact v2（结构化输出，三视图共享）
-  readonly reportArtifact?: import("../../../dto/report-artifact.dto").ReportArtifact;
+  readonly reportArtifact?: import("@/modules/ai-harness/runtime/quality/report-artifact/report-artifact.dto").ReportArtifact;
   // Reconciler [3.5] 产物
   readonly reconciliationReport?: unknown;
   // 用户档位 merged 后快照
@@ -139,7 +139,7 @@ export class TeamMission {
     private readonly runtimeEnv: RuntimeEnvironmentService,
     private readonly store: MissionStore,
     private readonly failureLearner: HarnessFailureLearner,
-    private readonly reportAssembler: ReportAssemblerService,
+    private readonly reportAssembler: ReportArtifactAssembler,
     private readonly missionState: MissionStateService,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly leaderService: LeaderService,

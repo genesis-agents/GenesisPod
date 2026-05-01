@@ -297,7 +297,7 @@ export async function runSectionQualityEnhancementStage(
 /**
  * ★ P1-N (2026-04-29): 补救后 fullMarkdown 变更，重新定位 section offset。
  *
- * ★ P0-NEW-2/3 (round 2 修补)：与 ReportAssemblerService.buildSectionTree 严格对齐
+ * ★ P0-NEW-2/3 (round 2 修补)：与 ReportArtifactAssembler.buildSectionTree 严格对齐
  * 用行级扫描而非正则——只承认 `## ` 二级标题（不含 `### ` 三级），避免补救文本中的
  * 子标题 / 一级标题被误判。title 比较用 trim 严格相等，不放进 regex 避免元字符。
  *

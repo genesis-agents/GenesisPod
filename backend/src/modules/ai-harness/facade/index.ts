@@ -167,6 +167,21 @@ export { AgentExecutorService } from "../execution/executor/agent-executor.servi
 // ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
 export { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
 
+// ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/agent-playground 上提（跨 app 复用）
+//   playground v2 ReportArtifact (sections/citations/figures/quickView) 装配纯函数
+export { ReportArtifactAssembler } from "../runtime/quality/report-artifact/report-artifact-assembler.service";
+export type {
+  ArtifactCitation,
+  ArtifactFactTriple,
+  ArtifactFigure,
+  ArtifactHighlight,
+  ArtifactMetadata,
+  ArtifactQualityVerdicts,
+  ArtifactQuickView,
+  ArtifactSection,
+  ReportArtifact,
+} from "../runtime/quality/report-artifact/report-artifact.dto";
+
 // ★ C2-step1 (2026-04-30): AutoDream（后台 memory 整合）从 ai-engine 搬入 harness
 export {
   AutoDreamService,

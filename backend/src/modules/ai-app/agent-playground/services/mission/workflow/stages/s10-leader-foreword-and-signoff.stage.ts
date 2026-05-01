@@ -24,7 +24,7 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { narrate } from "../helpers/narrative.util";
-import { lengthTargetFor } from "../../../artifact/report-assembler.service";
+import { lengthTargetFor } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact-assembler.service";
 
 export async function runLeaderForewordAndSignoffStage(
   ctx: MissionContext,

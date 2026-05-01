@@ -1,7 +1,7 @@
 import {
-  ReportAssemblerService,
+  ReportArtifactAssembler,
   lengthTargetFor,
-} from "../report-assembler.service";
+} from "../report-artifact-assembler.service";
 
 function makeQualityGate() {
   return {
@@ -95,13 +95,13 @@ function makeBaseInput() {
   };
 }
 
-describe("ReportAssemblerService", () => {
+describe("ReportArtifactAssembler", () => {
   let qualityGate: ReturnType<typeof makeQualityGate>;
-  let service: ReportAssemblerService;
+  let service: ReportArtifactAssembler;
 
   beforeEach(() => {
     qualityGate = makeQualityGate();
-    service = new ReportAssemblerService(qualityGate as never);
+    service = new ReportArtifactAssembler(qualityGate as never);
   });
 
   // Core assembly

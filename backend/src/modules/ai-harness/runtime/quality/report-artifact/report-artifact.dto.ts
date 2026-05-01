@@ -184,11 +184,11 @@ export interface ArtifactMetadata {
    * 由 ai-harness/governance/critique/QualityTraceComputeService 汇总，
    * 写入 reportArtifact.metadata，前端可视化 + 离线评估都用同一份。
    */
-  pipelineQualityTrace?: import("../../../ai-harness/facade").QualityTrace;
+  pipelineQualityTrace?: import("../../../facade").QualityTrace;
   /**
    * ★ 沉淀消费 v3 (2026-04-29): 10 维 EVALUATOR 模型独立评分 + 模型对比
    */
-  pipelineEvaluation?: import("../../../ai-harness/facade").EvaluationResult;
+  pipelineEvaluation?: import("../../../facade").EvaluationResult;
 }
 
 /** 10 维质量评分 */
