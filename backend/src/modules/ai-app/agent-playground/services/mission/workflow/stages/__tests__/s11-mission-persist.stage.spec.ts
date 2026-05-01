@@ -261,4 +261,107 @@ describe("runPersistStage (S11)", () => {
       expect.stringContaining("persist failed"),
     );
   });
+
+  // ★ chapter content guard tests (2026-04-30)
+  describe("chapter content guard", () => {
+    /** Build a reportArtifact with N sections, each `charLen` chars long */
+    function makeArtifactWithSections(
+      sectionLengths: number[],
+    ): typeof BASE_RESULT.reportArtifact & {
+      sections: Array<{ startOffset: number; endOffset: number }>;
+      content: { fullMarkdown: string };
+    } {
+      // Build a fullMarkdown where each section is placed contiguously
+      let offset = 0;
+      const sections: Array<{ startOffset: number; endOffset: number }> = [];
+      const parts: string[] = [];
+      for (const len of sectionLengths) {
+        const body = "x".repeat(len);
+        sections.push({ startOffset: offset, endOffset: offset + len });
+        parts.push(body);
+        offset += len;
+      }
+      const fullMarkdown = parts.join("");
+      return {
+        ...BASE_RESULT.reportArtifact,
+        sections,
+        content: { fullMarkdown },
+      };
+    }
+
+    it("all sections >= 500 chars → markCompleted called normally", async () => {
+      const deps = makeDeps();
+      // 4 sections, each 600 chars → coverage 4/4 = 100%
+      const reportArtifact = makeArtifactWithSections([600, 600, 600, 600]);
+      await runPersistStage(
+        {
+          missionId: "m11",
+          t0: Date.now() - 5000,
+          result: { ...BASE_RESULT, reportArtifact },
+          pool: makePool(),
+        },
+        deps,
+      );
+      expect(deps.store.markCompleted).toHaveBeenCalled();
+      expect(deps.store.markFailed).not.toHaveBeenCalled();
+    });
+
+    it("< 50% sections have content → markFailed with chapter_content_below_threshold", async () => {
+      const deps = makeDeps();
+      // 4 sections: 1 long (600), 3 short (100) → coverage 1/4 = 25% < 50%
+      const reportArtifact = makeArtifactWithSections([600, 100, 100, 100]);
+      await runPersistStage(
+        {
+          missionId: "m11",
+          t0: Date.now() - 5000,
+          result: { ...BASE_RESULT, reportArtifact },
+          pool: makePool(),
+        },
+        deps,
+      );
+      expect(deps.store.markFailed).toHaveBeenCalled();
+      expect(deps.store.markCompleted).not.toHaveBeenCalled();
+      const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
+      expect(failArgs.errorMessage).toContain(
+        "chapter_content_below_threshold",
+      );
+    });
+
+    it("0 sections (no-chapter mode) → skips guard, markCompleted called normally", async () => {
+      const deps = makeDeps();
+      const reportArtifact = {
+        ...BASE_RESULT.reportArtifact,
+        sections: [] as Array<{ startOffset: number; endOffset: number }>,
+        content: { fullMarkdown: "" },
+      };
+      await runPersistStage(
+        {
+          missionId: "m11",
+          t0: Date.now() - 5000,
+          result: { ...BASE_RESULT, reportArtifact },
+          pool: makePool(),
+        },
+        deps,
+      );
+      expect(deps.store.markCompleted).toHaveBeenCalled();
+      expect(deps.store.markFailed).not.toHaveBeenCalled();
+    });
+
+    it("coverage exactly 50% → markCompleted (boundary: >= MIN_COVERAGE passes)", async () => {
+      const deps = makeDeps();
+      // 2 sections: 1 long (600), 1 short (100) → coverage 1/2 = 50% exactly
+      const reportArtifact = makeArtifactWithSections([600, 100]);
+      await runPersistStage(
+        {
+          missionId: "m11",
+          t0: Date.now() - 5000,
+          result: { ...BASE_RESULT, reportArtifact },
+          pool: makePool(),
+        },
+        deps,
+      );
+      expect(deps.store.markCompleted).toHaveBeenCalled();
+      expect(deps.store.markFailed).not.toHaveBeenCalled();
+    });
+  });
 });
