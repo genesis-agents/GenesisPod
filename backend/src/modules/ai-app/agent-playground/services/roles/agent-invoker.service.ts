@@ -519,12 +519,30 @@ export class AgentInvoker {
   private truncatePayload(payload: unknown): unknown {
     if (payload == null) return payload;
     if (typeof payload === "string") {
-      return payload.length > 1500 ? payload.slice(0, 1500) + "…" : payload;
+      // 8KB（之前 1.5KB 太小，web-scraper 抓的 markdown 整段被切，前端只能
+      // 显示"工具未返回可解析的结构化结果"）
+      return payload.length > 8000 ? payload.slice(0, 8000) + "…" : payload;
     }
     try {
       const s = JSON.stringify(payload);
-      if (s.length <= 4000) return payload;
-      return { _truncated: true, preview: s.slice(0, 4000) + "…" };
+      // 32KB（之前 4KB 触发 _truncated/preview 包装，破坏前端
+      // collectResultsDeep / extractRawOutputPreview 的字段识别）
+      if (s.length <= 32_000) return payload;
+      // 仍超限时尽量保结构：如果是 {results: [...]} 结构，截 results 数组
+      if (
+        typeof payload === "object" &&
+        payload !== null &&
+        Array.isArray((payload as { results?: unknown[] }).results)
+      ) {
+        const obj = payload as { results: unknown[]; [k: string]: unknown };
+        return {
+          ...obj,
+          results: obj.results.slice(0, 10),
+          _resultsTruncated: obj.results.length > 10,
+          _originalResultsCount: obj.results.length,
+        };
+      }
+      return { _truncated: true, preview: s.slice(0, 32_000) + "…" };
     } catch {
       return String(payload);
     }

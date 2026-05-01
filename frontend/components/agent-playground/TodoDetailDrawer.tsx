@@ -227,6 +227,12 @@ function extractRawOutputPreview(output: unknown): string | undefined {
   if (typeof output !== 'object') return undefined;
   const o = output as Record<string, unknown>;
 
+  // ★ 0) 后端 truncatePayload 包装态 { _truncated, preview }：preview 是 JSON
+  //    半截字符串，但仍能给用户看到部分内容（之前完全显示空白）
+  if (o._truncated === true && typeof o.preview === 'string') {
+    return o.preview.trim().slice(0, 500);
+  }
+
   // 1) 工具自报结论字段
   for (const key of ['outcome', 'conclusion', 'summary', 'answer', 'verdict']) {
     const v = o[key];

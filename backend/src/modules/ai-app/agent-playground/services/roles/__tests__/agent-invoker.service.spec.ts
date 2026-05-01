@@ -924,7 +924,7 @@ describe("AgentInvoker relay via invoke.onEvent", () => {
     expect(progressCall![0].payload.iteration).toBe(5);
   });
 
-  it("truncatePayload: large JSON object > 4000 chars → _truncated preview", async () => {
+  it("truncatePayload: large JSON object > 32000 chars → _truncated preview", async () => {
     const runner = makeRunner();
     const eventBus = makeEventBus();
     const svc = new AgentInvoker(
@@ -953,7 +953,7 @@ describe("AgentInvoker relay via invoke.onEvent", () => {
     );
 
     await svc.invoke({} as never, {}, baseCtx);
-    const largeOutput = { data: "x".repeat(5000) };
+    const largeOutput = { data: "x".repeat(35_000) };
     await capturedOnEvent!({
       type: "action_executed",
       payload: {
