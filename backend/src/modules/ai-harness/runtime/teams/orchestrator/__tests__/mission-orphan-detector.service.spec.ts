@@ -3,10 +3,13 @@
  *
  * 覆盖：
  *   - 心跳新鲜 → 不视为 orphan
- *   - 心跳过期（> 120s）→ 视为 orphan，触发 markOrphanFailed
+ *   - 心跳过期（> ORPHAN_GRACE_MS=360s）→ 视为 orphan，触发 markOrphanFailed
  *   - 没有心跳记录 → 视为 orphan
  *   - callbacks 未注册 → 不抛错（log + skip）
  *   - runtimeStore 未注入 → 完全跳过扫描
+ *
+ * 2026-05-01: 阈值从 120s 放宽到 360s（reasoning 模型单次 LLM call 232s/162s/156s
+ * 会被误判为 orphan），测试同步更新。
  */
 
 import { MissionOrphanDetectorService } from "../mission-orphan-detector.service";
@@ -45,13 +48,13 @@ function makeStore(heartbeats: Record<string, MissionHeartbeat>): {
 
 describe("MissionOrphanDetectorService", () => {
   describe("heartbeat 检查", () => {
-    it("心跳新鲜 (< 120s) → 不视为 orphan", async () => {
+    it("心跳新鲜 (< 360s) → 不视为 orphan", async () => {
       const now = Date.now();
       const { store } = makeStore({
         "m-fresh": {
           podId: "pod-A",
           lastBeatAt: now - 30_000,
-          startedAt: now - 60_000,
+          startedAt: now - 600_000, // 10min ago — past startup grace
         },
       });
       const detector = new MissionOrphanDetectorService(store);
@@ -68,13 +71,13 @@ describe("MissionOrphanDetectorService", () => {
       expect(markFailed).not.toHaveBeenCalled();
     });
 
-    it("心跳过期 (> 120s) → 视为 orphan", async () => {
+    it("心跳过期 (> 360s) → 视为 orphan", async () => {
       const now = Date.now();
       const { store, clearAllMock } = makeStore({
         "m-stale": {
           podId: "pod-X",
-          lastBeatAt: now - 200_000,
-          startedAt: now - 600_000,
+          lastBeatAt: now - 400_000, // 400s — past 360s ORPHAN_GRACE
+          startedAt: now - 700_000, // 11.6min — past 5min startup grace
         },
       });
       const detector = new MissionOrphanDetectorService(store);
@@ -101,7 +104,14 @@ describe("MissionOrphanDetectorService", () => {
       const markFailed = jest.fn(() => Promise.resolve(undefined));
       detector.registerCallbacks({
         fetchRunningMissions: () =>
-          Promise.resolve([{ id: "m-no-beat", userId: "u-3" }]),
+          Promise.resolve([
+            // startedAt > 5min ago to bypass startup grace
+            {
+              id: "m-no-beat",
+              userId: "u-3",
+              startedAt: new Date(Date.now() - 600_000),
+            },
+          ]),
         markOrphanFailed: markFailed,
       });
 
@@ -120,12 +130,12 @@ describe("MissionOrphanDetectorService", () => {
         "m-fresh": {
           podId: "A",
           lastBeatAt: now - 10_000,
-          startedAt: now - 30_000,
+          startedAt: now - 600_000, // 10min — past startup grace
         },
         "m-stale": {
           podId: "B",
-          lastBeatAt: now - 300_000,
-          startedAt: now - 500_000,
+          lastBeatAt: now - 400_000, // 400s — past 360s ORPHAN_GRACE
+          startedAt: now - 700_000, // 11.6min — past startup grace
         },
       });
       const detector = new MissionOrphanDetectorService(store);
