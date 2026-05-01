@@ -15,14 +15,12 @@ import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import { AgentSubFacade } from "../sub-facades/agent.sub-facade";
 import type {
   OrchestrationFeature,
-  IntelligenceFeature,
   ObservabilityFeature,
   RealtimeFeature,
   RegistryFeature,
 } from "../facade.providers";
 import {
   ORCHESTRATION_FEATURE,
-  INTELLIGENCE_FEATURE,
   OBSERVABILITY_FEATURE,
   REALTIME_FEATURE,
   REGISTRY_FEATURE,
@@ -39,10 +37,7 @@ import type {
   MemoryQuery,
   MemoryContext,
 } from "../../../ai-harness/memory/coordinator/memory-coordinator.service";
-import type {
-  AgentContext,
-  RouteResult,
-} from "../../../ai-engine/planning/services/intent-router.service";
+// IntentRouter 链路已删 (2026-04-30)
 import type {
   RoomConfig,
   ProgressEvent,
@@ -66,9 +61,7 @@ export class AgentFacade {
     @Optional()
     @Inject(ORCHESTRATION_FEATURE)
     private readonly orchestration?: OrchestrationFeature,
-    @Optional()
-    @Inject(INTELLIGENCE_FEATURE)
-    private readonly intelligence?: IntelligenceFeature,
+    // INTELLIGENCE_FEATURE 不再注入（routeIntent 已删 2026-04-30）
     @Optional()
     @Inject(OBSERVABILITY_FEATURE)
     private readonly observability?: ObservabilityFeature,
@@ -136,15 +129,6 @@ export class AgentFacade {
       userId,
       sessionId,
     );
-  }
-
-  // ==================== Intent Routing ====================
-
-  routeIntent(
-    userIntent: string,
-    context: AgentContext,
-  ): Promise<RouteResult> | undefined {
-    return this.intelligence?.intentRouter?.route(userIntent, context);
   }
 
   // ==================== Realtime ====================

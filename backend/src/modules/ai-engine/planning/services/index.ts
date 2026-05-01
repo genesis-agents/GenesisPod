@@ -53,22 +53,10 @@ export {
   type ReflectionConfig,
 } from "./reflection.service";
 
-// "支柱四：智能模型路由" —— 整个移除（ComplexityAnalyzer + IntelligentModelRouter 死代码 C2-step2）
-
-// 支柱二：GenesisAgent 编排层
-export {
-  TaskPlannerService,
-  type TaskPlan,
-  type TaskStep,
-  type AppModule,
-  type CapabilityRequirement,
-} from "./task-planner.service";
-
-export {
-  IntentRouterService,
-  type AgentContext,
-  type RouteResult,
-} from "./intent-router.service";
+// "支柱四：智能模型路由" —— 整个移除 (ComplexityAnalyzer + IntelligentModelRouter 死代码 C2-step2)
+// "支柱二：GenesisAgent 编排层" —— 整个移除 (TaskPlanner + IntentRouter 死代码 2026-04-30)
+//   理由：唯一调用方 ai-app/ask 生成 suggestedActions 字段，前端 0 处消费 (grep 验证)
+//   PR-X29 删除 modules/intent-gateway 时遗漏的"半截死代码"
 
 // Query Loop 自动续写引擎
 export {

@@ -34,8 +34,7 @@ import type {
   AgentEvent,
   ExecutionConfig,
 } from "../../../ai-engine/planning/executors/function-calling-executor";
-import type { AppModule } from "../../../ai-engine/planning/services/task-planner.service";
-import { IntentRouterService } from "../../../ai-engine/planning/services/intent-router.service";
+// IntentRouter / TaskPlanner 已删 (2026-04-30)
 import { MCPManager } from "../../protocol/mcp/manager/mcp-manager";
 import { FunctionCallingLLMAdapter } from "../../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../../../ai-engine/planning/executors/function-calling-executor";
@@ -124,17 +123,7 @@ export class ToolFacade {
     return this.toolExecSub.getAvailableCapabilities(context);
   }
 
-  listModuleCapabilities(): Array<{
-    module: AppModule;
-    description: string;
-    userDescription: string;
-    phase: 1 | 2;
-    label: string;
-    iconName: string;
-    urlTemplate: string;
-  }> {
-    return IntentRouterService.getRegisteredModules();
-  }
+  // listModuleCapabilities 已删 (2026-04-30) — IntentRouter 链路全删
 
   async capabilityResolveTools(
     context: AICapabilityContext,

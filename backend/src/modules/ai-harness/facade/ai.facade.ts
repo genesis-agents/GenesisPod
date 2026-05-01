@@ -19,12 +19,7 @@ import {
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
-import {
-  IntentRouterService,
-  AgentContext,
-  RouteResult,
-} from "../../ai-engine/planning/services/intent-router.service";
-import type { AppModule } from "../../ai-engine/planning/services/task-planner.service";
+// IntentRouterService / TaskPlanner 已删 (2026-04-30) — suggestedActions 前端 0 消费
 import type {
   A2AMessageType,
   A2APriority,
@@ -2343,29 +2338,8 @@ export class AIFacade {
     return this.toolExecSub.getAvailableCapabilities(context);
   }
 
-  /**
-   * Lists all registered AI module capabilities for dynamic UI/action card generation.
-   *
-   * Returns the unified module registry including description, phase, label, icon, and URL template.
-   * AI Apps can use this to build action cards without hardcoding module metadata.
-   *
-   * @returns Array of module capability descriptors
-   *
-   * @example
-   * const modules = facade.listModuleCapabilities();
-   * // Build action cards from modules (filter out 'ask' for suggestions)
-   */
-  listModuleCapabilities(): Array<{
-    module: AppModule;
-    description: string;
-    userDescription: string;
-    phase: 1 | 2;
-    label: string;
-    iconName: string;
-    urlTemplate: string;
-  }> {
-    return IntentRouterService.getRegisteredModules();
-  }
+  // listModuleCapabilities 已删 (2026-04-30) — 仅服务于 buildSuggestedActions
+  // (前端 0 消费的 suggestedActions 字段)，IntentRouter 链路全删
 
   /**
    * Chat with automatic tool calling based on available capabilities.
@@ -2670,19 +2644,6 @@ export class AIFacade {
       userId,
       sessionId,
     );
-  }
-
-  // ==================== 意图路由（IntentRouter）====================
-
-  /** 意图置信度阈值（低于此值需要用户确认） — mirrors IntentRouterService.CONFIRMATION_THRESHOLD */
-  static readonly INTENT_CONFIRMATION_THRESHOLD = 0.6;
-
-  /** 路由用户意图，返回 TaskPlan 和是否需要确认 */
-  routeIntent(
-    userIntent: string,
-    context: AgentContext,
-  ): Promise<RouteResult> | undefined {
-    return this.intelligence?.intentRouter?.route(userIntent, context);
   }
 
   // ==================== A2A 消息总线（A2ABus）====================

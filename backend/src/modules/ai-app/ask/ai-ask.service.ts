@@ -6,19 +6,12 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import {
-  ChatFacade,
-  ToolFacade,
-  RAGFacade,
-  AgentFacade,
-} from "../../ai-harness/facade";
+import { ChatFacade, ToolFacade, RAGFacade } from "../../ai-harness/facade";
 import {
   BUILTIN_TOOLS,
   type BuiltinToolId,
   type AICapabilityContext,
   type ExecutionConfig,
-  type TaskPlan,
-  IntentRouterService,
   RAGPipelineService,
 } from "../../ai-engine/facade";
 import { MissionExecutorService } from "../../ai-harness/facade";
@@ -48,17 +41,9 @@ import {
 } from "./prompts/ask-system.prompt";
 import { CreateSessionDto, SendMessageDto } from "./dto";
 
-export interface SuggestedAction {
-  id: string;
-  label: string;
-  description: string;
-  module: string;
-  iconName: string;
-  url: string;
-}
-
-// MODULE_ACTION_CONFIG 已迁移至 IntentRouterService.MODULE_REGISTRY（统一数据来源）
-// buildSuggestedActions 通过 aiFacade.listModuleCapabilities() 动态获取配置
+// 2026-04-30: SuggestedAction / detectIntent / buildSuggestedActions / IntentRouter
+// 链路全部删除 —— 后端往响应里塞 suggestedActions 字段但前端 0 处消费（grep 验证）。
+// 这是 PR-X29 删除 intent-gateway 时遗留的"半截死代码"。
 
 interface MessageWithContext {
   role: "user" | "assistant" | "system";
@@ -88,7 +73,6 @@ export class AiAskService {
     private readonly chatFacade: ChatFacade,
     private readonly toolFacade: ToolFacade,
     private readonly ragFacade: RAGFacade,
-    private readonly agentFacade: AgentFacade,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
@@ -593,21 +577,12 @@ export class AiAskService {
             );
           }
 
-          // 串行检测意图（AI 回复写入数据库后执行，所有异常静默捕获）
-          const suggestedActions = await this.detectIntent(
-            dto.content,
-            userId,
-            sessionId,
-          );
-
           return {
             userMessage,
             assistantMessage,
             toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
             // Include RAG sources for frontend display
             ragSources: ragSources.length > 0 ? ragSources : undefined,
-            suggestedActions:
-              suggestedActions.length > 0 ? suggestedActions : undefined,
           };
         } catch (error) {
           this.logger.error(`Failed to get AI response: ${error}`);
@@ -1177,79 +1152,9 @@ export class AiAskService {
     return truncated;
   }
 
-  /**
-   * 检测用户意图并生成建议行动卡片
-   * 所有异常静默捕获，不影响主流程
-   */
-  private async detectIntent(
-    userInput: string,
-    userId: string,
-    sessionId: string,
-  ): Promise<SuggestedAction[]> {
-    try {
-      const result = await this.agentFacade.routeIntent(userInput, {
-        userId,
-        sessionId,
-      });
-
-      if (!result) return [];
-
-      if (result.plan.confidence < IntentRouterService.CONFIRMATION_THRESHOLD)
-        return [];
-
-      return this.buildSuggestedActions(userInput, result.plan);
-    } catch (err) {
-      this.logger.warn(
-        `[detectIntent] Intent detection failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return [];
-    }
-  }
-
-  /**
-   * 将 TaskPlan 转换为前端 SuggestedAction 列表
-   * - 过滤 ask 模块（自身就是 ask）
-   * - 每模块最多 1 张，总数 ≤ 3 张
-   * - 从 aiFacade.listModuleCapabilities() 动态获取模块配置
-   */
-  private buildSuggestedActions(
-    userInput: string,
-    plan: TaskPlan,
-  ): SuggestedAction[] {
-    const seen = new Set<string>();
-    const actions: SuggestedAction[] = [];
-
-    // 从 Facade 动态获取模块配置（单一数据来源）
-    const moduleCapabilities = this.toolFacade.listModuleCapabilities();
-    const capabilityMap = new Map(moduleCapabilities.map((c) => [c.module, c]));
-
-    for (const step of plan.steps) {
-      if (step.module === "ask") continue;
-      if (seen.has(step.module)) continue;
-
-      const config = capabilityMap.get(step.module);
-      if (!config?.urlTemplate) continue;
-
-      // 优先用 LLM 从对话中提取的精炼话题（step.input），
-      // 而非原始用户消息（userInput），避免把长消息作为话题名
-      const topicInput = step.input?.trim() || userInput;
-      const encodedInput = encodeURIComponent(topicInput);
-
-      seen.add(step.module);
-      actions.push({
-        id: `action-${step.module}`,
-        label: config.label,
-        description: config.userDescription ?? config.description,
-        module: step.module,
-        iconName: config.iconName,
-        url: config.urlTemplate.replace("{input}", encodedInput),
-      });
-
-      if (actions.length >= 3) break;
-    }
-
-    return actions;
-  }
+  // 2026-04-30: detectIntent / buildSuggestedActions 已删
+  //   suggestedActions 字段前端 0 处消费（grep frontend 验证），属 PR-X29
+  //   intent-gateway 删除时的死代码尾巴。底层 IntentRouter / TaskPlanner 同步删除。
 
   /**
    * 搜索会话

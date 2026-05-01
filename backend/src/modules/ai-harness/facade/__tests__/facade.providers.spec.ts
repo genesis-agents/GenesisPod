@@ -434,22 +434,12 @@ describe("facade.providers — factory functions", () => {
     );
 
     it("returns undefined when all missing", () => {
-      expect(
-        factory(undefined, undefined, undefined, undefined),
-      ).toBeUndefined();
-    });
-
-    it("returns IntelligenceFeature when intentRouter present", () => {
-      const ir = stub();
-      const result = factory(ir, undefined, undefined, undefined) as {
-        intentRouter: unknown;
-      };
-      expect(result.intentRouter).toBe(ir);
+      expect(factory(undefined, undefined, undefined)).toBeUndefined();
     });
 
     it("returns IntelligenceFeature when synthesisEngine present", () => {
       const se = stub();
-      const result = factory(undefined, undefined, undefined, se) as {
+      const result = factory(undefined, undefined, se) as {
         synthesisEngine: unknown;
       };
       expect(result.synthesisEngine).toBe(se);

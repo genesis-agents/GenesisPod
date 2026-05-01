@@ -36,8 +36,7 @@ import { ContextInitializationService } from "./planning/services/context-initia
 import { ContextCompressionService } from "./planning/services/context-compression.service";
 import { IntentDetectionService } from "./planning/services/intent-detection.service";
 import { ReflectionService } from "./planning/services/reflection.service";
-import { TaskPlannerService } from "./planning/services/task-planner.service";
-import { IntentRouterService } from "./planning/services/intent-router.service";
+// IntentRouterService / TaskPlannerService 已删 (2026-04-30) — 死代码，前端 0 消费
 // ★ Phase 1-4: 基础设施升级新增服务
 import { QueryLoopService } from "./planning/services/query-loop.service";
 import { TokenTrackerService } from "./planning/services/token-tracker.service";
@@ -94,8 +93,6 @@ import { AgentsService } from "../open-api/agents-api";
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
-    TaskPlannerService,
-    IntentRouterService,
     // ★ Phase 1-4: 基础设施升级
     QueryLoopService,
     TokenTrackerService,
@@ -127,8 +124,6 @@ import { AgentsService } from "../open-api/agents-api";
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
-    TaskPlannerService,
-    IntentRouterService,
     // ★ Phase 1-4: 基础设施升级
     QueryLoopService,
     TokenTrackerService,

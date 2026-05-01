@@ -16,7 +16,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AgentFacade } from "../agent.facade";
 import {
   ORCHESTRATION_FEATURE,
-  INTELLIGENCE_FEATURE,
   OBSERVABILITY_FEATURE,
   REALTIME_FEATURE,
   REGISTRY_FEATURE,
@@ -26,7 +25,6 @@ describe("AgentFacade", () => {
   let facade: AgentFacade;
   let mockTraceCollector: any;
   let mockMemoryCoordinator: any;
-  let mockIntentRouter: any;
   let mockProgressTracker: any;
   let mockEventEmitter: any;
   let mockAgentExecutor: any;
@@ -45,12 +43,6 @@ describe("AgentFacade", () => {
       recall: jest
         .fn()
         .mockResolvedValue({ memories: [], relevantContext: "" }),
-    };
-
-    mockIntentRouter = {
-      route: jest
-        .fn()
-        .mockResolvedValue({ module: "research", confidence: 0.95 }),
     };
 
     mockProgressTracker = {
@@ -90,10 +82,7 @@ describe("AgentFacade", () => {
             contextEvolution: {},
           },
         },
-        {
-          provide: INTELLIGENCE_FEATURE,
-          useValue: { intentRouter: mockIntentRouter },
-        },
+        // INTELLIGENCE_FEATURE 不再使用 (intentRouter 已删 2026-04-30)
         {
           provide: OBSERVABILITY_FEATURE,
           useValue: {
@@ -198,19 +187,7 @@ describe("AgentFacade", () => {
     });
   });
 
-  // ==================== Intent Routing ====================
-
-  describe("intent routing", () => {
-    it("should route user intent", async () => {
-      const result = await facade.routeIntent("Research AI trends", {
-        userId: "user-1",
-        sessionId: "session-1",
-      } as any);
-
-      expect(result).toEqual({ module: "research", confidence: 0.95 });
-      expect(mockIntentRouter.route).toHaveBeenCalled();
-    });
-  });
+  // routeIntent 已删 (2026-04-30) — IntentRouter 死代码链路
 
   // ==================== Realtime ====================
 
@@ -326,11 +303,6 @@ describe("AgentFacade", () => {
 
     it("should return undefined for coordinatorStore", () => {
       const result = minimalFacade.coordinatorStore({} as any, "user-1");
-      expect(result).toBeUndefined();
-    });
-
-    it("should return undefined for routeIntent", () => {
-      const result = minimalFacade.routeIntent("test", {} as any);
       expect(result).toBeUndefined();
     });
 

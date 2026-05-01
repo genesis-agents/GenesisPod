@@ -51,8 +51,7 @@ import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch
 // ★ Knowledge Feature 依赖
 import { EmbeddingService } from "../../ai-engine/knowledge/rag/embedding";
 import { VectorService } from "../../ai-engine/knowledge/rag/vector";
-// ★ Intelligence Feature 依赖
-import { IntentRouterService } from "../../ai-engine/planning/services/intent-router.service";
+// ★ Intelligence Feature 依赖 (IntentRouter 已删 2026-04-30)
 import { ReflectionService } from "../../ai-engine/planning/services/reflection.service";
 import { ContextCompressionService } from "../../ai-engine/planning/services/context-compression.service";
 // ★ Phase 3→Phase 7: replaced L4 type import with L2 abstraction (audit E-2)
@@ -189,7 +188,6 @@ export interface KnowledgeFeature {
  * 智能分析特性
  */
 export interface IntelligenceFeature {
-  intentRouter?: IntentRouterService;
   reflection?: ReflectionService;
   contextCompression?: ContextCompressionService;
   synthesisEngine?: IReportSynthesisEngine;
@@ -515,17 +513,15 @@ export const knowledgeFeatureProvider: Provider = {
 export const intelligenceFeatureProvider: Provider = {
   provide: INTELLIGENCE_FEATURE,
   useFactory: (
-    intentRouter?: IntentRouterService,
     reflection?: ReflectionService,
     contextCompression?: ContextCompressionService,
     synthesisEngine?: IReportSynthesisEngine,
   ): IntelligenceFeature | undefined => {
-    if (!intentRouter && !reflection && !contextCompression && !synthesisEngine)
+    if (!reflection && !contextCompression && !synthesisEngine)
       return undefined;
-    return { intentRouter, reflection, contextCompression, synthesisEngine };
+    return { reflection, contextCompression, synthesisEngine };
   },
   inject: [
-    { token: IntentRouterService, optional: true },
     { token: ReflectionService, optional: true },
     { token: ContextCompressionService, optional: true },
     { token: REPORT_SYNTHESIS_ENGINE_TOKEN, optional: true },

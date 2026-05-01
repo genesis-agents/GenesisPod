@@ -184,14 +184,7 @@ describe("ToolFacade", () => {
     });
   });
 
-  describe("listModuleCapabilities()", () => {
-    it("should return static list of module capabilities", () => {
-      const modules = facade.listModuleCapabilities();
-
-      expect(Array.isArray(modules)).toBe(true);
-      // This is a static method, should always return something
-    });
-  });
+  // listModuleCapabilities 已删 (2026-04-30) — IntentRouter 死代码链路
 
   describe("isToolExecutionAvailable()", () => {
     it("should return true when executor is available", () => {

@@ -134,7 +134,7 @@ export type {
 } from "../core/types/agent.types";
 export { BUILTIN_AGENTS } from "../core/types/agent.types";
 export type { ExecutionMode } from "../core/types/context.types";
-export type { TaskPlan } from "../planning/services/task-planner.service";
+// TaskPlan / IntentRouter / TaskPlanner 已删 (2026-04-30) — 死代码
 export type {
   ToolContext,
   ITool,
@@ -346,11 +346,7 @@ export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
 export { AICapabilityResolver } from "../planning/capabilities/ai-capability-resolver.service";
-export { IntentRouterService } from "../planning/services/intent-router.service";
-export type {
-  RouteResult,
-  AgentContext as IntentAgentContext,
-} from "../planning/services/intent-router.service";
+// IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
 
 // ★ Batch 2 — Safety
 export { GuardrailsPipelineService } from "../safety/guardrails/guardrails-pipeline.service";
