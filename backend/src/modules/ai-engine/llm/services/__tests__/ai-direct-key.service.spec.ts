@@ -418,6 +418,80 @@ describe("AiDirectKeyService", () => {
       expect(body).toHaveProperty("reasoning_effort", "low");
     });
 
+    it("should downgrade minimal → low for BYOK model that does not support minimal (gpt-5.4-mini)", async () => {
+      // gpt-5.4-mini BYOK variant rejects 'minimal' → safeReasoningEffort downgrades to 'low'
+      const apiResponse = {
+        choices: [
+          {
+            message: { content: "downgraded response" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      mockModelConfigService.isReasoningModel.mockReturnValue(true);
+
+      await service.generateChatCompletionWithKey({
+        ...baseOptions,
+        modelId: "gpt-5.4-mini",
+        taskProfile: { reasoningDepth: "minimal" },
+      });
+
+      const callArgs = mockHttpService.post.mock.calls[0];
+      const body = callArgs[1];
+      expect(body).toHaveProperty("reasoning_effort", "low");
+    });
+
+    it("should keep minimal for BYOK model that supports it (gpt-5)", async () => {
+      // gpt-5 (no dot-digit suffix) is on the allowlist → minimal is preserved
+      const apiResponse = {
+        choices: [
+          { message: { content: "minimal ok" }, finish_reason: "stop" },
+        ],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      mockModelConfigService.isReasoningModel.mockReturnValue(true);
+
+      await service.generateChatCompletionWithKey({
+        ...baseOptions,
+        modelId: "gpt-5",
+        taskProfile: { reasoningDepth: "minimal" },
+      });
+
+      const callArgs = mockHttpService.post.mock.calls[0];
+      const body = callArgs[1];
+      expect(body).toHaveProperty("reasoning_effort", "minimal");
+    });
+
+    it("should not affect non-minimal depths for unsupported model (moderate → medium)", async () => {
+      const apiResponse = {
+        choices: [
+          { message: { content: "medium effort" }, finish_reason: "stop" },
+        ],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      mockModelConfigService.isReasoningModel.mockReturnValue(true);
+
+      await service.generateChatCompletionWithKey({
+        ...baseOptions,
+        modelId: "gpt-5.4",
+        taskProfile: { reasoningDepth: "moderate" },
+      });
+
+      const callArgs = mockHttpService.post.mock.calls[0];
+      const body = callArgs[1];
+      expect(body).toHaveProperty("reasoning_effort", "medium");
+    });
+
     it("should detect image generation request for OpenAI", async () => {
       mockImageGenerationService.isImageGenerationRequest.mockReturnValue(true);
       mockImageGenerationService.callDallE3.mockResolvedValue({

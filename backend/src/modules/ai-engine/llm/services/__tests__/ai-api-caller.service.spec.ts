@@ -2,6 +2,84 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
+import {
+  safeReasoningEffort,
+  isMinimalEffortSupported,
+} from "../../types/task-profile";
+
+// ==================== safeReasoningEffort / isMinimalEffortSupported ====================
+
+describe("isMinimalEffortSupported", () => {
+  it("returns true for gpt-5 (official API variant)", () => {
+    expect(isMinimalEffortSupported("gpt-5")).toBe(true);
+  });
+
+  it("returns true for gpt-5o", () => {
+    expect(isMinimalEffortSupported("gpt-5o")).toBe(true);
+  });
+
+  it("returns false for gpt-5.4-mini (BYOK variant with dot-digit suffix)", () => {
+    expect(isMinimalEffortSupported("gpt-5.4-mini")).toBe(false);
+  });
+
+  it("returns true for o3-mini", () => {
+    expect(isMinimalEffortSupported("o3-mini")).toBe(true);
+  });
+
+  it("returns true for o4-mini", () => {
+    expect(isMinimalEffortSupported("o4-mini")).toBe(true);
+  });
+
+  it("returns true for gpt-4.1-mini", () => {
+    expect(isMinimalEffortSupported("gpt-4.1-mini")).toBe(true);
+  });
+
+  it("returns true for gemini-2.5-flash-thinking", () => {
+    expect(isMinimalEffortSupported("gemini-2.5-flash-thinking")).toBe(true);
+  });
+
+  it("returns false for undefined", () => {
+    expect(isMinimalEffortSupported(undefined)).toBe(false);
+  });
+
+  it("returns false for empty string", () => {
+    expect(isMinimalEffortSupported("")).toBe(false);
+  });
+
+  it("returns false for gpt-4o (non-reasoning model)", () => {
+    expect(isMinimalEffortSupported("gpt-4o")).toBe(false);
+  });
+});
+
+describe("safeReasoningEffort", () => {
+  it("modelId=gpt-5, depth=minimal → effort=minimal (supported)", () => {
+    expect(safeReasoningEffort("minimal", "gpt-5")).toBe("minimal");
+  });
+
+  it("modelId=gpt-5.4-mini, depth=minimal → effort=low (downgrade)", () => {
+    expect(safeReasoningEffort("minimal", "gpt-5.4-mini")).toBe("low");
+  });
+
+  it("modelId undefined, depth=minimal → effort=low (conservative)", () => {
+    expect(safeReasoningEffort("minimal", undefined)).toBe("low");
+  });
+
+  it("depth=moderate + modelId=gpt-5.4 → effort=medium (non-minimal unaffected)", () => {
+    expect(safeReasoningEffort("moderate", "gpt-5.4")).toBe("medium");
+  });
+
+  it("depth=deep + any model → effort=high (non-minimal unaffected)", () => {
+    expect(safeReasoningEffort("deep", "gpt-5.4-mini")).toBe("high");
+  });
+
+  it("depth=light + any model → effort=low (non-minimal unaffected)", () => {
+    expect(safeReasoningEffort("light", "gpt-5.4-mini")).toBe("low");
+  });
+
+  it("depth undefined → effort=low (default fallback)", () => {
+    expect(safeReasoningEffort(undefined, "gpt-5")).toBe("low");
+  });
+});
 
 describe("AiApiCallerService", () => {
   let service: AiApiCallerService;
@@ -514,6 +592,66 @@ describe("AiApiCallerService", () => {
 
       const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
       expect(callArgs[1]).toHaveProperty("reasoning_effort", "high");
+    });
+
+    it("should downgrade minimal → low for unsupported model (gpt-5.4-mini)", async () => {
+      // gpt-5.4-mini is a BYOK variant that does NOT support 'minimal'
+      // safeReasoningEffort should downgrade it to 'low'
+      const apiResponse = {
+        choices: [{ message: { content: "downgraded" } }],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-5.4-mini",
+        messages,
+        25000,
+        undefined,
+        120000,
+        "max_completion_tokens",
+        undefined,
+        "minimal", // depth=minimal → triggers downgrade for this model
+        undefined,
+        undefined,
+        true,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "low");
+    });
+
+    it("should keep minimal for model that supports it (gpt-5)", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "minimal ok" } }],
+        usage: { total_tokens: 100 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-5",
+        messages,
+        25000,
+        undefined,
+        120000,
+        "max_completion_tokens",
+        undefined,
+        "minimal",
+        undefined,
+        undefined,
+        true,
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0];
+      expect(callArgs[1]).toHaveProperty("reasoning_effort", "minimal");
     });
 
     // ==================== outputSchema (Strict Structured Output) tests ====================

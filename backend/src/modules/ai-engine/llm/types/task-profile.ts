@@ -169,6 +169,49 @@ export function reasoningDepthToEffort(depth?: string): string {
 }
 
 /**
+ * 已知支持 reasoning_effort='minimal' 的模型 ID 模式（白名单）。
+ *
+ * 不支持 minimal 的 reasoning 模型（如 gpt-5.x BYOK 部分变体、o1/o3 老版）
+ * 收到 minimal 会直接 INVALID_REQUEST 拒绝，让 mission 挂。
+ *
+ * 默认保守：未在白名单的模型，minimal 降级到 low。
+ *
+ * 当前已知支持 minimal 的（基于官方文档 + 实测）：
+ * - gpt-5* (官方 API，非 BYOK)
+ * - gpt-4.1-mini, o3-mini, o4-mini
+ * - gemini-2.5-flash-thinking
+ *
+ * 未来扩展：把这张表搬到 DB AIModelConfig.supportsMinimalEffort 字段。
+ */
+const MINIMAL_EFFORT_SUPPORTED_PATTERNS: RegExp[] = [
+  /^gpt-5(?!\.\d)/, // gpt-5 / gpt-5o，但不含 gpt-5.x BYOK 变体
+  /^gpt-4\.1-mini/,
+  /^o3-mini/,
+  /^o4-mini/,
+  /^gemini-2\.5-flash-thinking/,
+];
+
+export function isMinimalEffortSupported(modelId: string | undefined): boolean {
+  if (!modelId) return false;
+  return MINIMAL_EFFORT_SUPPORTED_PATTERNS.some((re) => re.test(modelId));
+}
+
+/**
+ * 安全把 reasoningDepth 映射成 reasoning_effort，自动降级 minimal 到 low
+ * （当 model 不支持 minimal 时）。
+ */
+export function safeReasoningEffort(
+  depth: string | undefined,
+  modelId: string | undefined,
+): string {
+  const effort = reasoningDepthToEffort(depth);
+  if (effort === "minimal" && !isMinimalEffortSupported(modelId)) {
+    return "low";
+  }
+  return effort;
+}
+
+/**
  * 多模态内容部分 — 用于 Vision 场景（图片审查、多模态分析）
  *
  * 兼容 OpenAI / Anthropic / Google / xAI 的多模态消息格式：

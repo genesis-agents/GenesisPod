@@ -24,6 +24,8 @@ export {
   REASONING_DEPTH_TO_EFFORT,
   FAST_TASK_KINDS,
   reasoningDepthToEffort,
+  safeReasoningEffort,
+  isMinimalEffortSupported,
   getReasoningMinTokens,
   JSON_OUTPUT_MAX_TEMPERATURE,
   MODEL_KNOWN_LIMITS,

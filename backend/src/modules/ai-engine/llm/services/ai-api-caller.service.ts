@@ -2,7 +2,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { ChatMessage } from "../types/task-profile";
-import { reasoningDepthToEffort } from "../types/task-profile";
+import {
+  reasoningDepthToEffort,
+  safeReasoningEffort,
+} from "../types/task-profile";
 
 /**
  * 解析 ChatMessage 的有效内容：优先使用 contentParts（多模态），回退到 content（纯文本）
@@ -180,13 +183,18 @@ export class AiApiCallerService {
     // 不再用模型名 startsWith 字符串匹配（模型每月新增，硬编码必然过时）
     // 新接 BYOK 的推理模型（gpt-5/6/o5/...），管理员在 DB 把 isReasoning 设为 true 即可
     const modelLower = modelId.toLowerCase();
-    const reasoningParam = isReasoning
-      ? { reasoning_effort: reasoningDepthToEffort(reasoningDepth) }
-      : {};
-
+    let reasoningParam: { reasoning_effort?: string } = {};
     if (isReasoning) {
+      const effort = safeReasoningEffort(reasoningDepth, modelId);
+      const origEffort = reasoningDepthToEffort(reasoningDepth);
+      if (origEffort !== effort) {
+        this.logger.warn(
+          `[callOpenAICompatibleAPI] minimal effort not supported by ${modelId}, downgrading to ${effort}`,
+        );
+      }
+      reasoningParam = { reasoning_effort: effort };
       this.logger.debug(
-        `[callOpenAICompatibleAPI] reasoning model (${modelId}), reasoning_effort=${reasoningParam.reasoning_effort}`,
+        `[callOpenAICompatibleAPI] reasoning model (${modelId}), reasoning_effort=${effort}`,
       );
     }
 

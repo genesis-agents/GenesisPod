@@ -4,7 +4,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { ChatMessage, ChatCompletionResult } from "./ai-chat.service";
 import type { TaskProfile } from "../types";
-import { reasoningDepthToEffort } from "../types";
+import { reasoningDepthToEffort, safeReasoningEffort } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService } from "./ai-model-config.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
@@ -230,9 +230,19 @@ export class AiDirectKeyService {
           // ★ reasoning_effort 由 task profile reasoningDepth 决定（共享映射），
           //   不再 hardcode "low"。caller 传 deep → high effort（多步推理任务）；
           //   不传 → 缺省 low（最省 token，避免 CoT 吃光 max_completion_tokens）。
-          const reasoningEffort = reasoningDepthToEffort(
+          //   safeReasoningEffort 自动降级不支持 minimal 的模型（如 gpt-5.x BYOK 变体）。
+          const reasoningEffort = safeReasoningEffort(
+            taskProfile?.reasoningDepth,
+            effectiveModelId,
+          );
+          const origEffort = reasoningDepthToEffort(
             taskProfile?.reasoningDepth,
           );
+          if (isReasoning && origEffort !== reasoningEffort) {
+            this.logger.warn(
+              `[OpenAI BYOK] minimal effort not supported by ${effectiveModelId}, downgrading to ${reasoningEffort}`,
+            );
+          }
           const reasoningParam = isReasoning
             ? { reasoning_effort: reasoningEffort }
             : {};
