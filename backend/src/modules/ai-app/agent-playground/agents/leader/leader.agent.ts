@@ -389,16 +389,8 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
             `dim ${p.dimensionId} action=replace-spec 但 newAgentSpecId 缺失`,
           );
         }
-        // ★ 2026-04-30 REDESIGN (task #61): retry/replace 必须显式选 strategy
-        if (
-          (p.action === "retry-with-critique" ||
-            p.action === "replace-spec") &&
-          !p.strategy
-        ) {
-          issues.push(
-            `dim ${p.dimensionId} action=${p.action} 但 strategy 缺失（必须选 fresh-collect 或 reuse-recompute）`,
-          );
-        }
+        // ★ 2026-04-30 REDESIGN (task #61): strategy 缺省 fresh-collect 向后兼容旧路径
+        // schema 已声明 strategy 为 optional，不强制业务校验避免老 case 被拒签
       }
     }
 
