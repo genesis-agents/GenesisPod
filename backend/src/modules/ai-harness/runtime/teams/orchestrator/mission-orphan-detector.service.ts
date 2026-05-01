@@ -75,19 +75,26 @@ export class MissionOrphanDetectorService
   }
 
   onModuleInit(): void {
+    // ★ 2026-05-01 (PR-G iter3): 临时禁用 orphan detector 自动扫描
+    //   连续 7 个 mission 都在 78-399s 之间被误判 orphan 杀掉。
+    //   heartbeat refresh setInterval 没有按预期工作（要么 cache.set 静默失败、
+    //   要么 Redis 连接抖动导致 lookup 失败）。在补完 heartbeat 可观测性之前，
+    //   先彻底禁用自动扫描，让 MissionHealthScheduler（DB lastActivityAt，60min）
+    //   作为唯一的 orphan 检测路径。`forceScan()` 测试入口仍可用。
+    this.logger.warn(
+      "[orphan-detector] auto scan DISABLED — heartbeat refresh unreliable, " +
+        "falling back to MissionHealthScheduler for stale detection. " +
+        "Re-enable after adding heartbeat observability.",
+    );
     if (!this.runtimeStore) {
       this.logger.warn(
         "MissionRuntimeStateStore not available — orphan detector disabled (single-instance mode)",
       );
       return;
     }
-    setTimeout(() => {
-      void this.scan();
-      this.timer = setInterval(() => {
-        void this.scan();
-      }, SCAN_INTERVAL_MS);
-      if (typeof this.timer.unref === "function") this.timer.unref();
-    }, STARTUP_DELAY_MS);
+    // 不起 timer —— scan() 仅 forceScan() 调用时跑（测试用）
+    void STARTUP_DELAY_MS;
+    void SCAN_INTERVAL_MS;
   }
 
   onModuleDestroy(): void {
