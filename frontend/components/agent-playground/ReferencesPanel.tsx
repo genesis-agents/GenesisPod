@@ -29,6 +29,9 @@ import {
   Megaphone,
   Users,
   Star,
+  Search,
+  X as XIcon,
+  ArrowUpDown,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
@@ -43,6 +46,17 @@ interface Props {
 }
 
 type GroupKey = 'type' | 'year' | 'credibility' | 'domain';
+type SortKey =
+  | 'index'
+  | 'credibility-desc'
+  | 'credibility-asc'
+  | 'date-desc'
+  | 'date-asc'
+  | 'occurrences-desc'
+  | 'domain-asc';
+type SourceTypeFilter = ArtifactCitation['sourceType'] | 'all';
+type CredibilityFilter = 'all' | 'high' | 'medium' | 'low';
+type TimeFilter = 'all' | '7d' | '30d' | '180d' | '365d' | 'older' | 'undated';
 
 const SOURCE_TYPE_META: Record<
   ArtifactCitation['sourceType'],
@@ -316,11 +330,145 @@ function StatRow({ citations }: { citations: readonly ArtifactCitation[] }) {
   );
 }
 
+// ─── Filter / Sort 工具 ─────────────────────────────
+function publishedAgeMs(c: ArtifactCitation): number | null {
+  if (!c.publishedAt) return null;
+  const t = Date.parse(c.publishedAt);
+  if (Number.isNaN(t)) return null;
+  return Date.now() - t;
+}
+
+function passesTimeFilter(c: ArtifactCitation, f: TimeFilter): boolean {
+  if (f === 'all') return true;
+  const ageMs = publishedAgeMs(c);
+  if (f === 'undated') return ageMs == null;
+  if (ageMs == null) return false;
+  const day = 86_400_000;
+  if (f === '7d') return ageMs <= 7 * day;
+  if (f === '30d') return ageMs <= 30 * day;
+  if (f === '180d') return ageMs <= 180 * day;
+  if (f === '365d') return ageMs <= 365 * day;
+  if (f === 'older') return ageMs > 365 * day;
+  return true;
+}
+
+function passesCredibilityFilter(
+  c: ArtifactCitation,
+  f: CredibilityFilter
+): boolean {
+  if (f === 'all') return true;
+  if (f === 'high') return c.credibilityScore >= 70;
+  if (f === 'medium')
+    return c.credibilityScore >= 40 && c.credibilityScore < 70;
+  return c.credibilityScore < 40;
+}
+
+function applySearch(
+  c: ArtifactCitation,
+  q: string,
+): boolean {
+  if (!q) return true;
+  const needle = q.toLowerCase();
+  return (
+    (c.title ?? '').toLowerCase().includes(needle) ||
+    (c.snippet ?? '').toLowerCase().includes(needle) ||
+    (c.url ?? '').toLowerCase().includes(needle) ||
+    (c.domain ?? '').toLowerCase().includes(needle)
+  );
+}
+
+function sortCitations(
+  list: readonly ArtifactCitation[],
+  by: SortKey,
+): ArtifactCitation[] {
+  const arr = list.slice();
+  switch (by) {
+    case 'index':
+      return arr.sort((a, b) => a.index - b.index);
+    case 'credibility-desc':
+      return arr.sort(
+        (a, b) => (b.credibilityScore ?? 0) - (a.credibilityScore ?? 0)
+      );
+    case 'credibility-asc':
+      return arr.sort(
+        (a, b) => (a.credibilityScore ?? 0) - (b.credibilityScore ?? 0)
+      );
+    case 'date-desc':
+      return arr.sort((a, b) => {
+        const ta = a.publishedAt ? Date.parse(a.publishedAt) : -Infinity;
+        const tb = b.publishedAt ? Date.parse(b.publishedAt) : -Infinity;
+        return tb - ta;
+      });
+    case 'date-asc':
+      return arr.sort((a, b) => {
+        const ta = a.publishedAt ? Date.parse(a.publishedAt) : Infinity;
+        const tb = b.publishedAt ? Date.parse(b.publishedAt) : Infinity;
+        return ta - tb;
+      });
+    case 'occurrences-desc':
+      return arr.sort(
+        (a, b) =>
+          (b.occurrences?.length ?? 0) - (a.occurrences?.length ?? 0)
+      );
+    case 'domain-asc':
+      return arr.sort((a, b) =>
+        (a.domain ?? '').localeCompare(b.domain ?? '')
+      );
+    default:
+      return arr;
+  }
+}
+
 // ─── 主组件 ──────────────────────────────────────────
 export function ReferencesPanel({ citations, fallbackSources }: Props) {
   const [groupBy, setGroupBy] = useState<GroupKey>('type');
+  const [sortBy, setSortBy] = useState<SortKey>('index');
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<SourceTypeFilter>('all');
+  const [credFilter, setCredFilter] = useState<CredibilityFilter>('all');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+
   const list = useMemo(() => citations ?? [], [citations]);
-  const grouped = useMemo(() => groupCitations(list, groupBy), [list, groupBy]);
+
+  // 1) 过滤 → 2) 搜索 → 3) 排序
+  const filtered = useMemo(() => {
+    return list.filter(
+      (c) =>
+        (typeFilter === 'all' || c.sourceType === typeFilter) &&
+        passesCredibilityFilter(c, credFilter) &&
+        passesTimeFilter(c, timeFilter) &&
+        applySearch(c, search.trim())
+    );
+  }, [list, typeFilter, credFilter, timeFilter, search]);
+
+  const sorted = useMemo(
+    () => sortCitations(filtered, sortBy),
+    [filtered, sortBy]
+  );
+  const grouped = useMemo(
+    () => groupCitations(sorted, groupBy),
+    [sorted, groupBy]
+  );
+
+  // 仅在当前 list 中实际出现的 sourceType 才进过滤下拉
+  const presentTypes = useMemo(() => {
+    const s = new Set<ArtifactCitation['sourceType']>();
+    for (const c of list) s.add(c.sourceType);
+    return Array.from(s);
+  }, [list]);
+
+  const hasActiveFilter =
+    typeFilter !== 'all' ||
+    credFilter !== 'all' ||
+    timeFilter !== 'all' ||
+    !!search.trim();
+
+  const resetFilters = () => {
+    setTypeFilter('all');
+    setCredFilter('all');
+    setTimeFilter('all');
+    setSearch('');
+  };
 
   // ─── 降级路径：没有结构化 citations，只有裸 URL ───
   if (list.length === 0) {
@@ -413,34 +561,164 @@ export function ReferencesPanel({ citations, fallbackSources }: Props) {
     <div className="space-y-4">
       <StatRow citations={list} />
       <Card className="overflow-hidden" bordered>
+        {/* Header: title + group tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-violet-500" />
             <h3 className="text-sm font-semibold text-gray-900">参考文献</h3>
-            <span className="text-xs text-gray-500">· 共 {list.length} 条</span>
+            <span className="text-xs text-gray-500">
+              · 共 {list.length} 条
+              {hasActiveFilter && filtered.length !== list.length && (
+                <span className="ml-1 text-violet-600">
+                  / 筛后 {filtered.length}
+                </span>
+              )}
+            </span>
           </div>
           <div className="ml-auto">
             <GroupTabs active={groupBy} onChange={setGroupBy} />
           </div>
         </div>
+
+        {/* 过滤 + 排序 + 搜索 row（对齐 TI ReferencePanel） */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50/40 px-4 py-2">
+          {/* 搜索框 */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="搜索 标题 / 摘要 / 域名"
+              className="w-56 rounded-md border border-gray-200 bg-white py-1 pl-7 pr-7 text-[11px] text-gray-700 placeholder:text-gray-400 focus:border-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-200"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                title="清空搜索"
+              >
+                <XIcon className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          {/* 来源类型过滤 */}
+          <select
+            value={typeFilter}
+            onChange={(e) =>
+              setTypeFilter(e.target.value as SourceTypeFilter)
+            }
+            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-200"
+            title="按来源类型过滤"
+          >
+            <option value="all">全部类型</option>
+            {presentTypes.map((tk) => (
+              <option key={tk} value={tk}>
+                {SOURCE_TYPE_META[tk]?.label ?? tk}
+              </option>
+            ))}
+          </select>
+
+          {/* 可信度过滤 */}
+          <select
+            value={credFilter}
+            onChange={(e) =>
+              setCredFilter(e.target.value as CredibilityFilter)
+            }
+            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-200"
+            title="按可信度过滤"
+          >
+            <option value="all">全部权威度</option>
+            <option value="high">高 (≥ 70)</option>
+            <option value="medium">中 (40 ~ 70)</option>
+            <option value="low">低 (&lt; 40)</option>
+          </select>
+
+          {/* 时间窗过滤 */}
+          <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
+            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-200"
+            title="按发布时间过滤"
+          >
+            <option value="all">全部时间</option>
+            <option value="7d">近 7 天</option>
+            <option value="30d">近 30 天</option>
+            <option value="180d">近 6 月</option>
+            <option value="365d">近 1 年</option>
+            <option value="older">1 年前</option>
+            <option value="undated">未标日期</option>
+          </select>
+
+          {/* 排序 */}
+          <div className="ml-auto flex items-center gap-1">
+            <ArrowUpDown className="h-3 w-3 text-gray-400" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortKey)}
+              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-200"
+              title="排序方式"
+            >
+              <option value="index">按原序号</option>
+              <option value="credibility-desc">可信度 ↓</option>
+              <option value="credibility-asc">可信度 ↑</option>
+              <option value="date-desc">日期 ↓ 新</option>
+              <option value="date-asc">日期 ↑ 旧</option>
+              <option value="occurrences-desc">引用次数 ↓</option>
+              <option value="domain-asc">域名 A→Z</option>
+            </select>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
+                title="清除所有过滤 / 搜索"
+              >
+                重置
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-4 p-4">
-          {grouped.map((g) => (
-            <section key={g.label}>
-              <header className="mb-2 flex items-center gap-2">
-                <h4 className="text-[12.5px] font-semibold text-gray-800">
-                  {g.label}
-                </h4>
-                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700">
-                  {g.items.length}
-                </span>
-              </header>
-              <ul className="space-y-1.5">
-                {g.items.map((c) => (
-                  <CitationCard key={`${c.uuid}-${c.index}`} c={c} />
-                ))}
-              </ul>
-            </section>
-          ))}
+          {filtered.length === 0 ? (
+            <div className="px-4 py-12 text-center">
+              <Search className="mx-auto mb-2 h-6 w-6 text-gray-300" />
+              <p className="text-sm font-medium text-gray-700">
+                未匹配到引用
+              </p>
+              <p className="mt-1 text-[11px] text-gray-500">
+                试着调整搜索词或过滤条件
+              </p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="mt-3 rounded-md border border-gray-200 bg-white px-3 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
+              >
+                重置过滤
+              </button>
+            </div>
+          ) : (
+            grouped.map((g) => (
+              <section key={g.label}>
+                <header className="mb-2 flex items-center gap-2">
+                  <h4 className="text-[12.5px] font-semibold text-gray-800">
+                    {g.label}
+                  </h4>
+                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                    {g.items.length}
+                  </span>
+                </header>
+                <ul className="space-y-1.5">
+                  {g.items.map((c) => (
+                    <CitationCard key={`${c.uuid}-${c.index}`} c={c} />
+                  ))}
+                </ul>
+              </section>
+            ))
+          )}
         </div>
       </Card>
     </div>
