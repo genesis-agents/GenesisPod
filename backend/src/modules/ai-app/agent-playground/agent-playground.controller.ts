@@ -9,6 +9,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  Headers,
   Logger,
   Param,
   Patch,
@@ -17,7 +18,7 @@ import {
   Request,
   UseGuards,
 } from "@nestjs/common";
-import { randomUUID } from "crypto";
+import { randomUUID, timingSafeEqual } from "crypto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import {
   RateLimit,
@@ -56,6 +57,17 @@ export class AgentPlaygroundController {
     private readonly checkpoint: MissionCheckpointService,
     private readonly localRerun: LocalRerunService,
   ) {}
+
+  private isDevTriggerAuthorized(presentedToken?: string): boolean {
+    const expectedToken = process.env.AGENT_PLAYGROUND_DEV_TRIGGER_TOKEN;
+    if (!expectedToken || !presentedToken) return false;
+    const expected = Buffer.from(expectedToken);
+    const presented = Buffer.from(presentedToken);
+    return (
+      expected.length === presented.length &&
+      timingSafeEqual(expected, presented)
+    );
+  }
 
   /**
    * GET /api/v1/agent-playground/missions
@@ -407,10 +419,21 @@ export class AgentPlaygroundController {
    * 不公开访问（id 是 UUID v4，不可猜测，且需要数据库直接读取才能拿到）。
    */
   @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 3,
+    windowSeconds: 60,
+    keyType: "ip",
+  })
   @Post("dev/trigger-mission")
   async devTriggerMission(
-    @Body() body: { userApiKeyId: string; input: unknown },
-  ): Promise<{ missionId: string; userId: string }> {
+    @Body()
+    body: { userApiKeyId: string; input: unknown; internalToken?: string },
+    @Headers("x-agent-playground-token") headerToken?: string,
+  ): Promise<{ missionId: string }> {
+    if (!this.isDevTriggerAuthorized(headerToken ?? body?.internalToken)) {
+      throw new ForbiddenException("dev trigger disabled or unauthorized");
+    }
     if (!body?.userApiKeyId) {
       throw new BadRequestException("userApiKeyId required");
     }
@@ -443,7 +466,7 @@ export class AgentPlaygroundController {
           `dev-trigger mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
-    return { missionId, userId };
+    return { missionId };
   }
 
   /**
@@ -885,6 +908,12 @@ export class AgentPlaygroundController {
    *   - 初次进页面用此端点 hydrate（防 socket 断线/掉包）
    *   - WS 失败时 polling 兜底
    */
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    maxRequests: 60,
+    windowSeconds: 60,
+    keyType: "user",
+  })
   @Get("replay/:missionId")
   async replay(
     @Param("missionId") missionId: string,

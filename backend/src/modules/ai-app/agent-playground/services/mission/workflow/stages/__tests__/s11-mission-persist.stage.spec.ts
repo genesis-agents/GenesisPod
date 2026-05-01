@@ -84,14 +84,17 @@ describe("runPersistStage (S11)", () => {
     expect(failArgs.errorMessage).toContain("Coverage too low");
   });
 
-  it("no leaderSignOff → calls markCompleted", async () => {
+  it("no leaderSignOff → calls markFailed to avoid unsigned fake completion", async () => {
     const deps = makeDeps();
     const result = { ...BASE_RESULT, leaderSignOff: undefined };
     await runPersistStage(
       { missionId: "m11", t0: Date.now() - 5000, result, pool: makePool() },
       deps,
     );
-    expect(deps.store.markCompleted).toHaveBeenCalled();
+    expect(deps.store.markFailed).toHaveBeenCalled();
+    expect(deps.store.markCompleted).not.toHaveBeenCalled();
+    const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
+    expect(failArgs.errorMessage).toContain("leader_signoff_missing");
   });
 
   it("markCompleted called with finalScore and tokensUsed", async () => {

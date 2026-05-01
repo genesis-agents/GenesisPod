@@ -306,10 +306,38 @@ describe("AgentPlaygroundController", () => {
   });
 
   describe("devTriggerMission", () => {
+    const previousToken = process.env.AGENT_PLAYGROUND_DEV_TRIGGER_TOKEN;
+
+    beforeEach(() => {
+      process.env.AGENT_PLAYGROUND_DEV_TRIGGER_TOKEN = "test-dev-token";
+    });
+
+    afterEach(() => {
+      if (previousToken === undefined) {
+        delete process.env.AGENT_PLAYGROUND_DEV_TRIGGER_TOKEN;
+      } else {
+        process.env.AGENT_PLAYGROUND_DEV_TRIGGER_TOKEN = previousToken;
+      }
+    });
+
+    it("throws ForbiddenException when internal token is missing", async () => {
+      const { controller } = buildController();
+      await expect(
+        controller.devTriggerMission({
+          userApiKeyId: "some-id",
+          input: VALID_INPUT,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it("throws BadRequestException when userApiKeyId is missing", async () => {
       const { controller } = buildController();
       await expect(
-        controller.devTriggerMission({ userApiKeyId: "", input: {} }),
+        controller.devTriggerMission({
+          userApiKeyId: "",
+          input: {},
+          internalToken: "test-dev-token",
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -320,6 +348,7 @@ describe("AgentPlaygroundController", () => {
         controller.devTriggerMission({
           userApiKeyId: "some-id",
           input: VALID_INPUT,
+          internalToken: "test-dev-token",
         }),
       ).rejects.toThrow(ForbiddenException);
     });
@@ -331,20 +360,22 @@ describe("AgentPlaygroundController", () => {
         controller.devTriggerMission({
           userApiKeyId: "some-id",
           input: { topic: "x" }, // topic < 2 chars at validation time? let's use empty
+          internalToken: "test-dev-token",
         }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("returns missionId and userId for valid request", async () => {
+    it("returns missionId without leaking userId for valid request", async () => {
       const { controller, prisma, orchestrator } = buildController();
       prisma.userApiKey.findUnique.mockResolvedValue({ userId: "user-42" });
       orchestrator.runMission.mockResolvedValue({});
       const result = await controller.devTriggerMission({
         userApiKeyId: "some-id",
         input: VALID_INPUT,
+        internalToken: "test-dev-token",
       });
       expect(result.missionId).toBeDefined();
-      expect(result.userId).toBe("user-42");
+      expect(result).not.toHaveProperty("userId");
     });
   });
 

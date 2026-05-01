@@ -113,25 +113,31 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
 }
 
 describe("runLeaderForewordAndSignoffStage (S10)", () => {
-  it("skips if reportArtifact is undefined", async () => {
+  it("forces unsigned signoff if reportArtifact is undefined", async () => {
     const ctx = makeCtx({ reportArtifact: undefined });
     const deps = makeDeps();
     await runLeaderForewordAndSignoffStage(ctx, deps);
     expect(ctx.leader.writeForeword).not.toHaveBeenCalled();
+    expect(ctx.leaderSignOff?.signed).toBe(false);
+    expect(ctx.leaderSignOff?.refusalReason).toBe("report_artifact_missing");
   });
 
-  it("skips if plan is undefined", async () => {
+  it("forces unsigned signoff if plan is undefined", async () => {
     const ctx = makeCtx({ plan: undefined });
     const deps = makeDeps();
     await runLeaderForewordAndSignoffStage(ctx, deps);
     expect(ctx.leader.writeForeword).not.toHaveBeenCalled();
+    expect(ctx.leaderSignOff?.signed).toBe(false);
+    expect(ctx.leaderSignOff?.refusalReason).toBe("plan_missing");
   });
 
-  it("skips if researcherResults is undefined", async () => {
+  it("forces unsigned signoff if researcherResults is undefined", async () => {
     const ctx = makeCtx({ researcherResults: undefined });
     const deps = makeDeps();
     await runLeaderForewordAndSignoffStage(ctx, deps);
     expect(ctx.leader.writeForeword).not.toHaveBeenCalled();
+    expect(ctx.leaderSignOff?.signed).toBe(false);
+    expect(ctx.leaderSignOff?.refusalReason).toBe("researcher_results_missing");
   });
 
   it("happy path: writes ctx.leaderForeword and ctx.leaderSignOff", async () => {
@@ -172,7 +178,7 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
     expect(signedCall).toBeDefined();
   });
 
-  it("foreword failure → skips signoff, logs warn", async () => {
+  it("foreword failure → forces unsigned signoff and skips signoff call", async () => {
     const ctx = makeCtx();
     (ctx.leader.writeForeword as jest.Mock).mockRejectedValue(
       new Error("LLM error"),
@@ -180,19 +186,22 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
     const deps = makeDeps();
     await runLeaderForewordAndSignoffStage(ctx, deps);
     expect(ctx.leader.signOff).not.toHaveBeenCalled();
+    expect(ctx.leaderSignOff?.signed).toBe(false);
+    expect(ctx.leaderSignOff?.refusalReason).toBe("foreword_failed");
     expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
       expect.stringContaining("foreword failed"),
     );
   });
 
-  it("signoff failure → logs warn, leaderSignOff stays undefined", async () => {
+  it("signoff failure → logs warn and forces unsigned signoff", async () => {
     const ctx = makeCtx();
     (ctx.leader.signOff as jest.Mock).mockRejectedValue(
       new Error("signoff error"),
     );
     const deps = makeDeps();
     await runLeaderForewordAndSignoffStage(ctx, deps);
-    expect(ctx.leaderSignOff).toBeUndefined();
+    expect(ctx.leaderSignOff?.signed).toBe(false);
+    expect(ctx.leaderSignOff?.refusalReason).toBe("signoff_failed");
     expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
       expect.stringContaining("signoff failed"),
     );

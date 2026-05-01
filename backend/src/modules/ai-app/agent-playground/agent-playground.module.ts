@@ -132,9 +132,10 @@ export class AgentPlaygroundModule implements OnModuleInit {
     //    且 heartbeatAt < now-90s → 立即 markFailed（替代 240min 长等待）。
     //    模块启动时扫一次（清理上一波死掉的 mission），之后每 60s 扫一次。
     void this.store.recoverPodCrashedRunning(90);
-    setInterval(() => {
+    const podRecoveryTimer = setInterval(() => {
       void this.store.recoverPodCrashedRunning(90);
     }, 60_000);
+    podRecoveryTimer.unref?.();
     // 4. ★ Phase 9 (2026-04-30): 注册 orphan detector callbacks —— 跨 pod 接管基于 heartbeat 的快速检测
     this.orphanDetector.registerCallbacks({
       fetchRunningMissions: () =>

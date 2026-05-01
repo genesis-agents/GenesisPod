@@ -15,7 +15,7 @@
  *               judge (judgeWithConsensus —— self/external/critical 三路评分),
  *               indexer (indexAgentTrajectory),
  *               reportAssembler (assemble v2),
- *               credits (consumeCredits 终结扣费),
+ *               per-call BillingContext handles credits,
  *               missionState (compressIfNeeded for analyst handoff),
  *               emit, lifecycle, log
  *
@@ -423,24 +423,10 @@ export async function runWriterStage(
     },
   });
 
-  // ── 3. Credits 终态扣费 ──
-  await deps.credits
-    .consumeCredits({
-      userId,
-      moduleType: "agent-playground",
-      operationType: "team",
-      tokenCount: snap.poolTokensUsed,
-      referenceId: missionId,
-      description: `Research mission: ${input.topic}`,
-      idempotencyKey: missionId,
-    })
-    .catch((err: unknown) => {
-      deps.log.warn(
-        `[credits] consume failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    });
-
-  // ── 4. ReportArtifact v2 装配 ──
+  // ── 3. ReportArtifact v2 装配 ──
+  // Credits are charged per model call by the AI facade BillingContext. A
+  // second mission-total charge here would double-bill platform-key users and
+  // incorrectly charge personal BYOK users.
   let reportArtifact:
     | import("@/modules/ai-harness/facade").ReportArtifact
     | undefined;

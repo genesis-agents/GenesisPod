@@ -374,13 +374,11 @@ describe("runWriterStage (S8)", () => {
     expect(ctx.report).toBeDefined();
   });
 
-  it("credits.consumeCredits called with correct params", async () => {
+  it("does not apply a second mission-total credit charge", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runWriterStage(ctx, deps, analyst, undefined);
-    expect(deps.credits.consumeCredits).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "u1", moduleType: "agent-playground" }),
-    );
+    expect(deps.credits.consumeCredits).not.toHaveBeenCalled();
   });
 
   it("outlinePlan in ctx injected into writer invoke call", async () => {

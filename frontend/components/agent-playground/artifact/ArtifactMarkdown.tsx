@@ -5,7 +5,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import rehypeRaw from 'rehype-raw';
 import type {
   ArtifactCitation,
   ArtifactFigure,
@@ -55,7 +54,7 @@ const StableFigureBlock = React.memo(
     prev.figure.imageUrl === next.figure.imageUrl &&
     prev.figure.title === next.figure.title &&
     prev.figure.caption === next.figure.caption &&
-    (prev.citation?.uuid ?? null) === (next.citation?.uuid ?? null),
+    (prev.citation?.uuid ?? null) === (next.citation?.uuid ?? null)
 );
 
 /**
@@ -164,9 +163,8 @@ function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
           const figure = figures.find((f) => f.id === figId);
           if (figure) {
             const cite =
-              citations.find(
-                (c) => c.index === figure.evidenceCitationIndex
-              ) ?? null;
+              citations.find((c) => c.index === figure.evidenceCitationIndex) ??
+              null;
             return (
               <StableFigureBlock
                 key={figure.id}
@@ -200,7 +198,7 @@ function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
     <article className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, [rehypeKatex, KATEX_OPTIONS]]}
+        rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
         components={components as never}
       >
         {cleaned}

@@ -16,6 +16,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("mission:completed"),
   T("mission:failed"),
   T("mission:rejected"),
+  T("mission:warning"),
+  T("mission:degraded"),
   T("mission:cancelled"), // controller.ts manual cancel — 之前未注册被 bus drop（同类 bug 与 P1 修复）
   T("mission:manual-rerun-from-todo"), // controller.ts 手动 rerun — 同上
   // ── 2026-04-30: 单 stage 局部重跑（B 路线）──
@@ -45,6 +47,7 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("chapter:review:started"), // chapter reviewer 开始评
   T("chapter:review:completed"), // chapter reviewer 出 decision
   T("chapter:revision"), // 触发重写（critique 反馈）
+  T("chapter:done"),
   T("dimension:integrating:started"),
   T("dimension:integrating:completed"),
   T("dimension:integrating:failed"), // P1-R4-B (round 4): integrator 失败前端切错误态
@@ -72,6 +75,7 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("leader:foreword"), // M6 Leader 写完 meta-level Foreword
   T("leader:signed"), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
   T("dimension:retrying"), // researcher self-heal 重试触发
+  T("dimension:retry-failed"),
   // ── 人话叙事事件（agent-narrative.md）──
   // 每个 stage 在关键节点 emit 一条 short 自然语言句子，前端任务详情主时间线
   // 直接渲染（不再事后翻译 raw JSON）。

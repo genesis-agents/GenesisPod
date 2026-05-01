@@ -263,6 +263,23 @@ describe("LeaderChatService.send", () => {
     expect(result.appendedDimensionIds).toBeUndefined();
   });
 
+  it("does NOT append dimensions after S3 has already dispatched research", async () => {
+    const { service, prisma, chat, store } = buildService();
+    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([]);
+    store.getById.mockResolvedValue(
+      makeMission({ status: "running", lastCompletedStage: 3 }),
+    );
+    chat.chat.mockResolvedValue({
+      content:
+        '{"decisionType":"CREATE_TODO","response":"Added dim","todo":[{"name":"LateDim","rationale":"why"}]}',
+      usage: { totalTokens: 100 },
+    });
+    const result = await service.send("m-1", "u-1", "add a late dimension");
+    expect(store.appendDimensions).not.toHaveBeenCalled();
+    expect(result.appendedDimensionIds).toBeUndefined();
+    expect(result.assistant.content).toContain("不会自动并入本次运行");
+  });
+
   it("truncates content > 4000 chars to 4000", async () => {
     const { service, prisma } = buildService();
     prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([]);

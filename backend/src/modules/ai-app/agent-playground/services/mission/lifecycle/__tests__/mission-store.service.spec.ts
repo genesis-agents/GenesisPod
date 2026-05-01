@@ -65,7 +65,7 @@ describe("MissionStore", () => {
     expect(createArg.topic.length).toBeLessThanOrEqual(500);
   });
 
-  it("create: swallows prisma error (non-fatal)", async () => {
+  it("create: propagates prisma error so mission does not run without a DB row", async () => {
     prisma.agentPlaygroundMission.create.mockRejectedValue(
       new Error("DB down"),
     );
@@ -78,7 +78,7 @@ describe("MissionStore", () => {
         language: "zh-CN",
         maxCredits: 100,
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow("DB down");
   });
 
   // recoverOrphanedRunning（2026-04-30 重构后：先 findMany 拉 super-aged candidates

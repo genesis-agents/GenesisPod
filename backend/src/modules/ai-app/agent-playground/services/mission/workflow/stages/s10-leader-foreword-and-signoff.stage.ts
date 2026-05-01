@@ -34,6 +34,32 @@ import { lengthTargetFor } from "@/modules/ai-harness/facade";
  */
 const MIN_CONTENT_WORDS_RATIO = 0.3;
 
+function forcedUnsigned(refusalReason: string, accountabilityNote: string) {
+  return {
+    phase: "signoff" as const,
+    signed: false,
+    leaderVerdict: "failed" as const,
+    leaderOverallScore: 0,
+    refusalReason,
+    accountabilityNote,
+  };
+}
+
+async function emitLeaderSigned(
+  ctx: MissionContext,
+  deps: MissionDeps,
+): Promise<void> {
+  if (!ctx.leaderSignOff) return;
+  await deps
+    .emit({
+      type: "agent-playground.leader:signed",
+      missionId: ctx.missionId,
+      userId: ctx.userId,
+      payload: ctx.leaderSignOff,
+    })
+    .catch(() => {});
+}
+
 export async function runLeaderForewordAndSignoffStage(
   ctx: MissionContext,
   deps: MissionDeps,
@@ -46,27 +72,30 @@ export async function runLeaderForewordAndSignoffStage(
       `[${ctx.missionId}] S10 entered without reportArtifact — likely S8 assembler failed. ` +
         `Forcing signOff=false to surface as quality-failed (was silent skip → fake completion).`,
     );
-    ctx.leaderSignOff = {
-      phase: "signoff",
-      signed: false,
-      leaderVerdict: "failed",
-      leaderOverallScore: 0,
-      accountabilityNote:
-        "[S8-Assembler-Failed-Hard-Block] reportArtifact 装配失败，无可签字依据，强制拒签。" +
+    ctx.leaderSignOff = forcedUnsigned(
+      "report_artifact_missing",
+      "[S8-Assembler-Failed-Hard-Block] reportArtifact 装配失败，无可签字依据，强制拒签。" +
         "用户可在前端选 重跑 / 修改 lengthProfile 后重启。",
-    };
-    await deps
-      .emit({
-        type: "agent-playground.leader:signed",
-        missionId: ctx.missionId,
-        userId: ctx.userId,
-        payload: ctx.leaderSignOff,
-      })
-      .catch(() => {});
+    );
+    await emitLeaderSigned(ctx, deps);
     return;
   }
-  if (!ctx.plan) return;
-  if (!ctx.researcherResults) return;
+  if (!ctx.plan) {
+    ctx.leaderSignOff = forcedUnsigned(
+      "plan_missing",
+      "[S10-Plan-Missing-Hard-Block] Leader signoff 缺少 mission plan，上游规划产物不可用，强制拒签。",
+    );
+    await emitLeaderSigned(ctx, deps);
+    return;
+  }
+  if (!ctx.researcherResults) {
+    ctx.leaderSignOff = forcedUnsigned(
+      "researcher_results_missing",
+      "[S10-Research-Missing-Hard-Block] Leader signoff 缺少 researcher results，上游研究产物不可用，强制拒签。",
+    );
+    await emitLeaderSigned(ctx, deps);
+    return;
+  }
 
   const { reportArtifact, plan, researcherResults, leader, input } = ctx;
   const reconciliationReport = ctx.reconciliationReport;
@@ -180,6 +209,14 @@ export async function runLeaderForewordAndSignoffStage(
     deps.log.warn(
       `[${ctx.missionId}] foreword failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
+    ctx.leaderSignOff = forcedUnsigned(
+      "foreword_failed",
+      `[S10-Foreword-Failed-Hard-Block] Leader foreword 生成失败，无法形成签收依据：${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    await emitLeaderSigned(ctx, deps);
+    return;
   }
 
   // ── signoff: leader.signOff() —— 仅在 foreword 成功时跑 ──
@@ -274,6 +311,13 @@ export async function runLeaderForewordAndSignoffStage(
       deps.log.warn(
         `[${ctx.missionId}] signoff failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
       );
+      ctx.leaderSignOff = forcedUnsigned(
+        "signoff_failed",
+        `[S10-Signoff-Failed-Hard-Block] Leader signoff 调用失败，报告未通过最终负责人签收：${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      await emitLeaderSigned(ctx, deps);
     }
   }
 }

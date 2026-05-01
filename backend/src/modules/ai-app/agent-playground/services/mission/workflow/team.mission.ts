@@ -246,6 +246,7 @@ export class TeamMission {
         .catch(() => {});
       missionAbort.abort("mission_wall_time_exceeded");
     }, MISSION_WALL_TIME_MS);
+    wallTimer.unref?.();
     const billing = new BillingRuntimeEnvAdapter(
       userId,
       workspaceId,
@@ -261,91 +262,98 @@ export class TeamMission {
       maxCostUsd: effectiveMaxCredits * 0.002,
     });
 
-    // 预检 1：模型可用性 —— 用户 BYOK 默认模型必须真实可用。
-    // 否则 mission 会跑到第一次 LLM 调用才空响应，浪费 1-2 分钟才报错。
     try {
-      const allModels = await billing.listAvailableModels();
-      const healthy = allModels.filter((m) => m.available);
-      if (allModels.length > 0 && healthy.length === 0) {
-        const ids = allModels.map((m) => m.modelId).join(", ");
-        const msg = `用户 BYOK 配置的所有模型均不可用：${ids}。请前往 设置 → 模型 检查 model id 是否真实存在 / API key 是否有效`;
+      // 预检 1：模型可用性 —— 用户 BYOK 默认模型必须真实可用。
+      // 否则 mission 会跑到第一次 LLM 调用才空响应，浪费 1-2 分钟才报错。
+      try {
+        const allModels = await billing.listAvailableModels();
+        const healthy = allModels.filter((m) => m.available);
+        if (allModels.length > 0 && healthy.length === 0) {
+          const ids = allModels.map((m) => m.modelId).join(", ");
+          const msg = `用户 BYOK 配置的所有模型均不可用：${ids}。请前往 设置 → 模型 检查 model id 是否真实存在 / API key 是否有效`;
+          await this.invoker.emitEvent({
+            type: "agent-playground.mission:rejected",
+            missionId,
+            userId,
+            payload: {
+              reason: "no_healthy_model",
+              availableCount: 0,
+              totalCount: allModels.length,
+              userMessage: msg,
+            },
+          });
+          throw new Error(msg);
+        }
+        // ★ P0-CONFIG-MODEL (2026-04-30): 仅 1 个 healthy 模型时给 warning event，
+        //   让前端能展示"无 fallback"提示。任一模型 rate-limit/失败时整个 mission
+        //   会全 fail。non-blocking warning，不抛错。
+        if (healthy.length === 1) {
+          await this.invoker
+            .emitEvent({
+              type: "agent-playground.mission:warning",
+              missionId,
+              userId,
+              payload: {
+                code: "SINGLE_MODEL_NO_FALLBACK",
+                modelId: healthy[0].modelId,
+                userMessage:
+                  `当前仅启用 1 个模型 (${healthy[0].modelId})，` +
+                  `若该模型 rate-limit 或临时故障，mission 将无 fallback。` +
+                  `建议在 设置 → 模型 启用 2+ 模型作为备份`,
+              },
+            })
+            .catch(() => {});
+        }
+      } catch (err) {
+        // 仅 reject-throw 抛出；env 查询失败不阻断（partial info ok）
+        if (err instanceof Error && err.message.includes("BYOK 配置"))
+          throw err;
+      }
+
+      const credit = await billing.getCreditState();
+      if (credit.balance <= (credit.hardLimit ?? 0)) {
+        const hint = await billing.suggestFallback({ reason: "no_credit" });
         await this.invoker.emitEvent({
           type: "agent-playground.mission:rejected",
           missionId,
           userId,
           payload: {
-            reason: "no_healthy_model",
-            availableCount: 0,
-            totalCount: allModels.length,
-            userMessage: msg,
+            reason: "no_credit",
+            balance: credit.balance,
+            userMessage: hint.userMessage,
           },
         });
-        throw new Error(msg);
+        throw new Error(hint.userMessage ?? "Credit balance too low");
       }
-      // ★ P0-CONFIG-MODEL (2026-04-30): 仅 1 个 healthy 模型时给 warning event，
-      //   让前端能展示"无 fallback"提示。任一模型 rate-limit/失败时整个 mission
-      //   会全 fail。non-blocking warning，不抛错。
-      if (healthy.length === 1) {
-        await this.invoker
-          .emitEvent({
-            type: "agent-playground.mission:warning",
-            missionId,
-            userId,
-            payload: {
-              code: "SINGLE_MODEL_NO_FALLBACK",
-              modelId: healthy[0].modelId,
-              userMessage:
-                `当前仅启用 1 个模型 (${healthy[0].modelId})，` +
-                `若该模型 rate-limit 或临时故障，mission 将无 fallback。` +
-                `建议在 设置 → 模型 启用 2+ 模型作为备份`,
-            },
-          })
-          .catch(() => {});
-      }
-    } catch (err) {
-      // 仅 reject-throw 抛出；env 查询失败不阻断（partial info ok）
-      if (err instanceof Error && err.message.includes("BYOK 配置")) throw err;
-    }
 
-    const credit = await billing.getCreditState();
-    if (credit.balance <= (credit.hardLimit ?? 0)) {
-      const hint = await billing.suggestFallback({ reason: "no_credit" });
-      await this.invoker.emitEvent({
-        type: "agent-playground.mission:rejected",
-        missionId,
+      // 先持久化 mission record (status=running)
+      // 同时把 userProfile 快照写进去，cancelled/failed 时也能看到配置
+      await this.store.create({
+        id: missionId,
         userId,
-        payload: {
-          reason: "no_credit",
-          balance: credit.balance,
-          userMessage: hint.userMessage,
-        },
-      });
-      throw new Error(hint.userMessage ?? "Credit balance too low");
-    }
-
-    // 先持久化 mission record (status=running)
-    // 同时把 userProfile 快照写进去，cancelled/failed 时也能看到配置
-    await this.store.create({
-      id: missionId,
-      userId,
-      workspaceId,
-      topic: input.topic,
-      depth: input.depth,
-      language: input.language,
-      maxCredits: effectiveMaxCredits,
-      userProfile: {
+        workspaceId,
+        topic: input.topic,
         depth: input.depth,
         language: input.language,
-        budgetProfile: input.budgetProfile,
-        styleProfile: input.styleProfile,
-        lengthProfile: input.lengthProfile,
-        audienceProfile: input.audienceProfile,
-        withFigures: input.withFigures,
-        auditLayers: input.auditLayers,
-        concurrency: input.concurrency,
-        viewMode: input.viewMode,
-      } as Record<string, unknown>,
-    });
+        maxCredits: effectiveMaxCredits,
+        userProfile: {
+          depth: input.depth,
+          language: input.language,
+          budgetProfile: input.budgetProfile,
+          styleProfile: input.styleProfile,
+          lengthProfile: input.lengthProfile,
+          audienceProfile: input.audienceProfile,
+          withFigures: input.withFigures,
+          auditLayers: input.auditLayers,
+          concurrency: input.concurrency,
+          viewMode: input.viewMode,
+        } as Record<string, unknown>,
+      });
+    } catch (err) {
+      clearTimeout(wallTimer);
+      this.abortRegistry.unregister(missionId);
+      throw err;
+    }
 
     // ★ PR-H v1 (2026-05-01): pod-aware heartbeat
     //   每 30s 刷新 DB heartbeatAt + podId。pod 死后心跳停 → recoverPodCrashedRunning
@@ -359,6 +367,7 @@ export class TeamMission {
     const heartbeatTimer = setInterval(() => {
       void this.store.refreshHeartbeat(missionId, podId);
     }, 30_000);
+    heartbeatTimer.unref?.();
 
     // ★ 必须同时 wrap withUserContext —— BillingContext 不会自动让 RequestContext.getUserId() 看到 userId，
     //   reflexion / verifier 等异步内部调用 AiChatService 需要 RequestContext 拿 BYOK userId。

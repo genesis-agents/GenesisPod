@@ -41,6 +41,7 @@ export interface MissionDetail extends MissionListItem {
   leaderOverallScore: number | null;
   leaderSigned: boolean | null;
   leaderVerdict: string | null;
+  lastCompletedStage?: number | null;
 }
 
 @Injectable()
@@ -60,25 +61,19 @@ export class MissionStore {
     /** 用户档位快照 —— 在创建时就写入，避免 cancelled/failed 时丢失配置可见性 */
     userProfile?: Record<string, unknown>;
   }): Promise<void> {
-    await this.prisma.agentPlaygroundMission
-      .create({
-        data: {
-          id: input.id,
-          userId: input.userId,
-          workspaceId: input.workspaceId,
-          topic: input.topic.slice(0, 500),
-          depth: input.depth,
-          language: input.language,
-          maxCredits: input.maxCredits,
-          status: "running",
-          userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
-        },
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[create] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
+    await this.prisma.agentPlaygroundMission.create({
+      data: {
+        id: input.id,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        topic: input.topic.slice(0, 500),
+        depth: input.depth,
+        language: input.language,
+        maxCredits: input.maxCredits,
+        status: "running",
+        userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
+      },
+    });
   }
 
   /**
@@ -874,6 +869,7 @@ export class MissionStore {
       leaderOverallScore: row.leaderOverallScore,
       leaderSigned: row.leaderSigned,
       leaderVerdict: row.leaderVerdict,
+      lastCompletedStage: row.lastCompletedStage,
     };
   }
 }

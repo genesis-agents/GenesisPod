@@ -173,6 +173,29 @@ export class LeaderChatService {
       assistantText = `Leader 暂时无法回复（${err instanceof Error ? err.message : "unknown error"}）。请稍后重试。`;
     }
 
+    const wantsCreateTodo =
+      decision?.type === "CREATE_TODO" &&
+      decision.todo &&
+      decision.todo.length > 0;
+    const canAppendToCurrentRun =
+      mission?.status === "running" && (mission.lastCompletedStage ?? 0) < 3;
+    if (wantsCreateTodo && !canAppendToCurrentRun) {
+      const reason =
+        mission?.status !== "running"
+          ? "mission 已不在运行中"
+          : "当前 mission 已完成研究派发阶段";
+      assistantText =
+        `${assistantText}\n\n（${reason}，这些新研究方向不会自动并入本次运行。请通过重跑/新 mission 执行。）`.slice(
+          0,
+          8000,
+        );
+      decision = {
+        ...decision,
+        type: "DIRECT_ANSWER",
+        todo: undefined,
+      };
+    }
+
     // 4) 持久化 assistant 回复（含 decision JSON）—— Prisma JSON 字段
     //    上游 prisma generate 后 decision 字段类型可知；保持显式 unknown→Prisma cast
     const assistantMsg = await this.prisma.agentPlaygroundLeaderChat.create({
@@ -192,7 +215,7 @@ export class LeaderChatService {
       decision?.type === "CREATE_TODO" &&
       decision.todo &&
       decision.todo.length > 0 &&
-      mission?.status === "running"
+      canAppendToCurrentRun
     ) {
       try {
         appendedIds = await this.store.appendDimensions(

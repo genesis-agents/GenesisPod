@@ -89,7 +89,7 @@ describe("runBudgetEstimateStage (S1)", () => {
     expect(emitTypes).toContain("agent-playground.mission:budget-warning-soft");
   });
 
-  it("hard abort: affordable=false + suggestion=abort → emits budget-warning-hard (throw caught internally)", async () => {
+  it("hard abort: affordable=false + suggestion=abort → emits budget-warning-hard and throws", async () => {
     const ctx = makeCtx();
     (ctx.billing.estimateAffordable as jest.Mock).mockResolvedValue({
       affordable: false,
@@ -99,13 +99,14 @@ describe("runBudgetEstimateStage (S1)", () => {
       suggestion: "abort",
     });
     const deps = makeDeps();
-    // The abort throw is caught by the internal try/catch (non-fatal at stage level)
-    await expect(runBudgetEstimateStage(ctx, deps)).resolves.toBeUndefined();
+    await expect(runBudgetEstimateStage(ctx, deps)).rejects.toThrow(
+      "余额不足以启动 mission",
+    );
     const emitTypes = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
     expect(emitTypes).toContain("agent-playground.mission:budget-warning-hard");
   });
 
-  it("hard abort: warn logged with shortfall info", async () => {
+  it("hard abort: does not swallow abort as non-fatal warning", async () => {
     const ctx = makeCtx();
     (ctx.billing.estimateAffordable as jest.Mock).mockResolvedValue({
       affordable: false,
@@ -115,11 +116,10 @@ describe("runBudgetEstimateStage (S1)", () => {
       suggestion: "abort",
     });
     const deps = makeDeps();
-    await runBudgetEstimateStage(ctx, deps);
-    // The internal throw is caught → logs warn with the error message
-    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
-      expect.stringContaining("budget estimate failed"),
+    await expect(runBudgetEstimateStage(ctx, deps)).rejects.toThrow(
+      "余额不足以启动 mission",
     );
+    expect(deps.log.warn as jest.Mock).not.toHaveBeenCalled();
   });
 
   it("estimateAffordable throws → logs warn and continues (non-fatal)", async () => {

@@ -12,7 +12,7 @@
  * 分流逻辑：
  *   leaderSignOff.signed === false  → markFailed（Lead 拒签 → "quality-failed"）
  *   leaderSignOff.signed === true   → markCompleted + 写 leaderVerdict/Score
- *   未跑到 M7（reportArtifact 为空等）→ markCompleted（leaderSigned=undefined）
+ *   未跑到 M7 / 无 signoff       → markFailed（避免无负责人签收的假成功）
  *   chapter content guard 未过      → markFailed（"chapter_content_below_threshold"）
  *
  * 注：异常路径（catch handler 里的 markFailed）不在本 stage —— 它需要 errorMessage /
@@ -125,7 +125,42 @@ export async function runPersistStage(
       }
     }
 
-    if (result.leaderSignOff && !result.leaderSignOff.signed) {
+    if (!result.leaderSignOff) {
+      await deps.store.markFailed(missionId, {
+        errorMessage:
+          "leader_signoff_missing: report reached persist without final Leader signoff",
+        tokensUsed: snap.poolTokensUsed,
+        costUsd: snap.poolCostUsd,
+        wallTimeMs: Date.now() - t0,
+        trajectoryStored: result.trajectoryStored,
+        themeSummary: result.themeSummary,
+        dimensions: result.dimensions as never,
+        report: reportPayload as unknown as {
+          title?: string;
+          summary?: string;
+        },
+        reportArtifactVersion: result.reportArtifact ? 2 : 1,
+        userProfile: (result.userProfile ?? null) as never,
+        reconciliationReport: (result.reconciliationReport ?? null) as never,
+        verdicts: result.verdicts as never,
+        leaderSigned: false,
+        leaderVerdict: "failed",
+      });
+      await deps
+        .emit({
+          type: "agent-playground.mission:failed",
+          missionId,
+          userId,
+          payload: {
+            reason: "leader_signoff_missing",
+            wallTimeMs: Date.now() - t0,
+          },
+        })
+        .catch(() => {});
+      return;
+    }
+
+    if (!result.leaderSignOff.signed) {
       await deps.store.markFailed(missionId, {
         wallTimeMs: Date.now() - t0,
         errorMessage: `Lead 拒绝签字: ${result.leaderSignOff.refusalReason ?? "未达 qualityBar / successCriteria 不全回答"}`,

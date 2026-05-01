@@ -42,54 +42,57 @@ export async function runBudgetEstimateStage(
   const estimateBudget = Math.round(
     baseEstimate * Math.max(0.1, budgetMultiplier),
   );
+  let estimate: Awaited<ReturnType<typeof billing.estimateAffordable>>;
   try {
-    const estimate = await billing.estimateAffordable({
+    estimate = await billing.estimateAffordable({
       maxTokens: estimateBudget,
     });
-    if (!estimate.affordable) {
-      const warningType =
-        estimate.suggestion === "abort"
-          ? "agent-playground.mission:budget-warning-hard"
-          : "agent-playground.mission:budget-warning-soft";
-      await deps.emit({
-        type: warningType,
-        missionId,
-        userId,
-        payload: {
-          shortfall: estimate.shortfall,
-          suggestion: estimate.suggestion,
-          estimatedCredits: estimate.estimatedCredits,
-          currentBalance: estimate.currentBalance,
-        },
-      });
-      if (estimate.suggestion === "abort") {
-        await narrate(deps.emit, missionId, userId, {
-          stage: "s1-budget",
-          role: "mission",
-          tag: "warning",
-          text: `余额不足以启动（短缺 ${estimate.shortfall} credits），mission 终止`,
-        });
-        throw new Error(
-          `余额不足以启动 mission（短缺 ${estimate.shortfall} credits），请充值后重试`,
-        );
-      }
-      await narrate(deps.emit, missionId, userId, {
-        stage: "s1-budget",
-        role: "mission",
-        tag: "warning",
-        text: `预算软告警：估算 ${estimate.estimatedCredits} credits，余额 ${estimate.currentBalance}（建议 ${estimate.suggestion}），mission 继续`,
-      });
-    } else {
-      await narrate(deps.emit, missionId, userId, {
-        stage: "s1-budget",
-        role: "mission",
-        tag: "success",
-        text: `预算校验通过 · 估算 ${estimate.estimatedCredits} credits 内可完成`,
-      });
-    }
   } catch (err) {
     deps.log.warn(
       `[${missionId}] budget estimate failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
+    return;
+  }
+
+  if (!estimate.affordable) {
+    const warningType =
+      estimate.suggestion === "abort"
+        ? "agent-playground.mission:budget-warning-hard"
+        : "agent-playground.mission:budget-warning-soft";
+    await deps.emit({
+      type: warningType,
+      missionId,
+      userId,
+      payload: {
+        shortfall: estimate.shortfall,
+        suggestion: estimate.suggestion,
+        estimatedCredits: estimate.estimatedCredits,
+        currentBalance: estimate.currentBalance,
+      },
+    });
+    if (estimate.suggestion === "abort") {
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s1-budget",
+        role: "mission",
+        tag: "warning",
+        text: `余额不足以启动（短缺 ${estimate.shortfall} credits），mission 终止`,
+      });
+      throw new Error(
+        `余额不足以启动 mission（短缺 ${estimate.shortfall} credits），请充值后重试`,
+      );
+    }
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s1-budget",
+      role: "mission",
+      tag: "warning",
+      text: `预算软告警：估算 ${estimate.estimatedCredits} credits，余额 ${estimate.currentBalance}（建议 ${estimate.suggestion}），mission 继续`,
+    });
+  } else {
+    await narrate(deps.emit, missionId, userId, {
+      stage: "s1-budget",
+      role: "mission",
+      tag: "success",
+      text: `预算校验通过 · 估算 ${estimate.estimatedCredits} credits 内可完成`,
+    });
   }
 }
