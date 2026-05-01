@@ -122,8 +122,8 @@ export {
   type ReplanTriggerType,
   type ReplanResult,
   type StepExecutionResult,
-  type ExecutionStep,
-  type MissionExecutionPlan,
+  type ReplanStep,
+  type ReplanContext,
 } from "./adaptive-replanner.service";
 
 // 跨维度综合服务 (Phase 10 — Coordinator Synthesize-Before-Delegate)

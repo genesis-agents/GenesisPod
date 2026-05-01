@@ -6,8 +6,8 @@ import { Logger } from "@nestjs/common";
 import {
   AdaptiveReplannerService,
   ReplanTrigger,
-  MissionExecutionPlan,
-  ExecutionStep,
+  ReplanContext,
+  ReplanStep,
   StepExecutionResult,
 } from "../adaptive-replanner.service";
 
@@ -24,9 +24,9 @@ function makeService(): AdaptiveReplannerService {
 
 function makeStep(
   id: string,
-  status: ExecutionStep["status"] = "pending",
+  status: ReplanStep["status"] = "pending",
   dependencies?: string[],
-): ExecutionStep {
+): ReplanStep {
   return {
     id,
     name: `Step ${id}`,
@@ -36,7 +36,7 @@ function makeStep(
   };
 }
 
-function makePlan(steps: ExecutionStep[]): MissionExecutionPlan {
+function makePlan(steps: ReplanStep[]): ReplanContext {
   const completed = steps.filter((s) => s.status === "completed").length;
   return { steps, totalSteps: steps.length, completedSteps: completed };
 }

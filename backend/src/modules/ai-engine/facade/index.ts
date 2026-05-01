@@ -548,7 +548,8 @@ export {
   AdaptiveReplannerService,
   type ReplanTrigger,
   type ReplanResult,
-  type MissionExecutionPlan,
+  type ReplanContext,
+  type ReplanStep,
 } from "../planning/services";
 
 // ★ Phase 3: Tool Concurrency

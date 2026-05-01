@@ -27,7 +27,17 @@ export interface StepExecutionResult {
   qualityScore?: number;
 }
 
-export interface ExecutionStep {
+/**
+ * 单步骤（replan 输入快照视图）
+ *
+ * ⚠️ 命名说明：与 ai-harness/runtime/teams/orchestrator/orchestrator.interface.ts
+ * 的 ExecutionStep 同名异物 —— 后者表达的是 mission "plan 描述"（含 executor /
+ * type / estimatedDuration / estimatedCost / timeout / input），本类型表达的是
+ * "replan 进度视图"（含 status 状态机）。
+ *
+ * 为消除阅读歧义，本类型显式命名为 ReplanStep。
+ */
+export interface ReplanStep {
   id: string;
   name: string;
   description: string;
@@ -36,8 +46,15 @@ export interface ExecutionStep {
   status: "pending" | "running" | "completed" | "failed" | "skipped";
 }
 
-export interface MissionExecutionPlan {
-  steps: ExecutionStep[];
+/**
+ * Replan 输入：当前 plan 的进度视图（步骤 + 完成进度）
+ *
+ * ⚠️ 命名说明：harness/orchestrator.interface.ts 也有 MissionExecutionPlan，
+ * 是 mission 完整 plan（含 id / parsedIntent / estimatedCost 等）。本类型只是
+ * replan 模块用来评估"是否需要重规划"的进度快照，故命名为 ReplanContext。
+ */
+export interface ReplanContext {
+  steps: ReplanStep[];
   totalSteps: number;
   completedSteps: number;
 }
@@ -46,7 +63,7 @@ export interface ReplanResult {
   /** Whether replanning was performed */
   replanned: boolean;
   /** Steps added to the plan */
-  addedSteps: ExecutionStep[];
+  addedSteps: ReplanStep[];
   /** Step IDs removed from the plan */
   removedSteps: string[];
   /** Steps with modifications */
@@ -84,7 +101,7 @@ export class AdaptiveReplannerService {
    */
   shouldReplan(
     trigger: ReplanTrigger,
-    currentPlan: MissionExecutionPlan,
+    currentPlan: ReplanContext,
     _executionHistory: StepExecutionResult[],
   ): boolean {
     const { type, qualityScore } = trigger;
@@ -148,7 +165,7 @@ export class AdaptiveReplannerService {
    */
   replan(
     trigger: ReplanTrigger,
-    currentPlan: MissionExecutionPlan,
+    currentPlan: ReplanContext,
     _executionHistory: StepExecutionResult[],
   ): ReplanResult {
     switch (trigger.type) {
@@ -175,7 +192,7 @@ export class AdaptiveReplannerService {
 
   private replanForFailure(
     trigger: ReplanTrigger,
-    plan: MissionExecutionPlan,
+    plan: ReplanContext,
   ): ReplanResult {
     // Skip dependents of the failed step
     const stepsToSkip = plan.steps
@@ -186,7 +203,7 @@ export class AdaptiveReplannerService {
       .map((s) => s.id);
 
     // Add a retry step for the failed task
-    const retryStep: ExecutionStep = {
+    const retryStep: ReplanStep = {
       id: `retry-${trigger.taskId}-${Date.now()}`,
       name: `Retry: ${trigger.taskId}`,
       description: `Retry after failure: ${trigger.details}`,
@@ -205,10 +222,10 @@ export class AdaptiveReplannerService {
 
   private replanForQuality(
     trigger: ReplanTrigger,
-    _plan: MissionExecutionPlan,
+    _plan: ReplanContext,
   ): ReplanResult {
     // Add a revision step
-    const revisionStep: ExecutionStep = {
+    const revisionStep: ReplanStep = {
       id: `revise-${trigger.taskId}-${Date.now()}`,
       name: `Revise: ${trigger.taskId}`,
       description: `Quality too low (${trigger.qualityScore}/100): ${trigger.details}`,
@@ -227,7 +244,7 @@ export class AdaptiveReplannerService {
 
   private replanForBudget(
     _trigger: ReplanTrigger,
-    plan: MissionExecutionPlan,
+    plan: ReplanContext,
   ): ReplanResult {
     // Skip low-priority pending steps
     const pendingSteps = plan.steps.filter((s) => s.status === "pending");
@@ -247,7 +264,7 @@ export class AdaptiveReplannerService {
 
   private replanForNewInfo(
     trigger: ReplanTrigger,
-    plan: MissionExecutionPlan,
+    plan: ReplanContext,
   ): ReplanResult {
     // Mark all pending steps as needing re-evaluation
     const modified = plan.steps
