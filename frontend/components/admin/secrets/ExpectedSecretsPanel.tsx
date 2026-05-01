@@ -13,6 +13,9 @@ import { useState } from 'react';
 import {
   ExpectedSecretItem,
   ExpectedSecretsResponse,
+  LlmProviderSecret,
+  CustomSecret,
+  ExpectedSecretsOrphan,
 } from '@/hooks/domain/useAdminSecrets';
 
 export interface ExpectedSecretsPanelProps {
@@ -86,7 +89,7 @@ function MissingSecretCard({
             {item.description}
           </p>
         )}
-        <p className="mt-0.5 font-mono text-xs text-gray-400 dark:text-gray-500">
+        <p className="font-mono mt-0.5 text-xs text-gray-400 dark:text-gray-500">
           {item.name}
         </p>
       </div>
@@ -123,13 +126,107 @@ function MissingSecretCard({
   );
 }
 
+/** Collapsible section wrapper used by all 4 blocks */
+function Section({
+  title,
+  badge,
+  variant = 'neutral',
+  defaultExpanded = true,
+  children,
+}: {
+  title: string;
+  badge?: string;
+  variant?: 'neutral' | 'info' | 'warning';
+  defaultExpanded?: boolean;
+  children: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  const headerColors: Record<string, string> = {
+    neutral:
+      'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50',
+    info: 'border-blue-200 bg-blue-50 dark:border-blue-800/40 dark:bg-blue-900/10',
+    warning:
+      'border-yellow-200 bg-yellow-50 dark:border-yellow-800/40 dark:bg-yellow-900/10',
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className={`flex w-full items-center justify-between rounded-t-lg px-4 py-3 ${headerColors[variant]}`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+            {title}
+          </span>
+          {badge && (
+            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+              {badge}
+            </span>
+          )}
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-gray-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+      {expanded && (
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Read-only row for B and C class entries — no action buttons */
+function ReadOnlySecretRow({
+  name,
+  displayName,
+  category,
+  provider,
+}: {
+  name: string;
+  displayName: string;
+  category: string;
+  provider?: string | null;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+            {displayName}
+          </span>
+          {provider && (
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+              {provider}
+            </span>
+          )}
+          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-700 dark:text-gray-500">
+            <CategoryLabel category={category} />
+          </span>
+        </div>
+        <p className="font-mono mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+          {name}
+        </p>
+      </div>
+      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+        Active
+      </span>
+    </div>
+  );
+}
+
 export function ExpectedSecretsPanel({
   expected,
   loading,
   onConfigure,
   onDeleteOrphan,
 }: ExpectedSecretsPanelProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [presetExpanded, setPresetExpanded] = useState(true);
 
   if (loading && !expected) {
     return (
@@ -138,18 +235,27 @@ export function ExpectedSecretsPanel({
         className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
       >
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-        <span className="text-sm text-gray-500">Loading expected secrets...</span>
+        <span className="text-sm text-gray-500">
+          Loading expected secrets...
+        </span>
       </div>
     );
   }
 
   if (!expected) return null;
 
-  const { summary, orphans } = expected;
-  const missingItems = expected.items.filter((i) => i.status === 'missing');
-  const allConfigured = summary.missing === 0;
+  const { presetTools, llmProviders, customSecrets, orphans } = expected;
+  const { summary } = presetTools;
+  const missingItems = presetTools.items.filter((i) => i.status === 'missing');
+  const allPresetConfigured = summary.missing === 0;
 
-  if (allConfigured && orphans.length === 0) {
+  // Top-level "all done" shortcut: all preset configured + no orphans
+  if (
+    allPresetConfigured &&
+    orphans.length === 0 &&
+    llmProviders.length === 0 &&
+    customSecrets.length === 0
+  ) {
     return (
       <div
         data-testid="expected-all-configured"
@@ -167,61 +273,132 @@ export function ExpectedSecretsPanel({
 
   return (
     <div className="space-y-3">
-      {/* Summary header */}
-      <div className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800/40 dark:bg-orange-900/10">
-        <div className="flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 shrink-0 text-orange-500" />
-          <span className="text-sm text-gray-700 dark:text-gray-300">
-            Expected{' '}
-            <span className="font-semibold text-gray-900 dark:text-white">
-              {summary.total}
-            </span>{' '}
-            secrets &mdash; configured{' '}
-            <span className="font-semibold text-green-700 dark:text-green-400">
-              {summary.configured}
+      {/* Top-level overview bar */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-800/50">
+        <span className="text-gray-500 dark:text-gray-400">
+          Platform:{' '}
+          <span className="font-semibold text-gray-800 dark:text-gray-200">
+            {summary.configured}/{summary.total}
+          </span>
+          {summary.missing > 0 && (
+            <span className="ml-1 font-semibold text-orange-600 dark:text-orange-400">
+              ({summary.missing} pending)
             </span>
-            , pending{' '}
-            <span className="font-semibold text-orange-600 dark:text-orange-400">
-              {summary.missing}
+          )}
+        </span>
+        {llmProviders.length > 0 && (
+          <span className="text-gray-500 dark:text-gray-400">
+            Providers:{' '}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">
+              {llmProviders.length}
             </span>
           </span>
-        </div>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="rounded p-1 hover:bg-orange-100 dark:hover:bg-orange-900/30"
-          aria-label={expanded ? 'Collapse' : 'Expand'}
-        >
-          {expanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-500" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          )}
-        </button>
+        )}
+        {customSecrets.length > 0 && (
+          <span className="text-gray-500 dark:text-gray-400">
+            Custom:{' '}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">
+              {customSecrets.length}
+            </span>
+          </span>
+        )}
       </div>
 
-      {/* Missing items grouped by category */}
-      {expanded && missingItems.length > 0 && (
-        <div className="space-y-4">
-          {Object.entries(grouped).map(([category, items]) => (
-            <div key={category}>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                <CategoryLabel category={category} />
-              </h4>
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <MissingSecretCard
-                    key={item.name}
-                    item={item}
-                    onConfigure={onConfigure}
-                  />
-                ))}
-              </div>
+      {/* Section A: Platform Tool Keys */}
+      {summary.total > 0 && (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+          {/* Header */}
+          <button
+            onClick={() => setPresetExpanded((v) => !v)}
+            className="flex w-full items-center justify-between rounded-t-lg border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
+          >
+            <div className="flex items-center gap-2">
+              <Settings className="h-4 w-4 text-gray-400" />
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Platform Tool Keys
+              </span>
+              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                {summary.configured}/{summary.total}
+              </span>
             </div>
-          ))}
+            {presetExpanded ? (
+              <ChevronUp className="h-4 w-4 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            )}
+          </button>
+
+          {presetExpanded && (
+            <div className="p-4">
+              {allPresetConfigured ? (
+                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                  <CheckCircle className="h-4 w-4" />
+                  All {summary.total} platform tool keys configured
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(grouped).map(([category, items]) => (
+                    <div key={category}>
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                        <CategoryLabel category={category} />
+                      </h4>
+                      <div className="space-y-2">
+                        {items.map((item) => (
+                          <MissingSecretCard
+                            key={item.name}
+                            item={item}
+                            onConfigure={onConfigure}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Orphans alert */}
+      {/* Section B: Model Provider Keys */}
+      {llmProviders.length > 0 && (
+        <Section
+          title="Model Provider Keys"
+          badge={String(llmProviders.length)}
+          variant="info"
+        >
+          {llmProviders.map((p: LlmProviderSecret) => (
+            <ReadOnlySecretRow
+              key={p.secretId}
+              name={p.name}
+              displayName={p.displayName}
+              category={p.category}
+              provider={p.provider}
+            />
+          ))}
+        </Section>
+      )}
+
+      {/* Section C: Custom Secrets */}
+      {customSecrets.length > 0 && (
+        <Section
+          title="Custom Secrets"
+          badge={String(customSecrets.length)}
+          variant="neutral"
+        >
+          {customSecrets.map((c: CustomSecret) => (
+            <ReadOnlySecretRow
+              key={c.secretId}
+              name={c.name}
+              displayName={c.displayName}
+              category={c.category}
+              provider={c.provider}
+            />
+          ))}
+        </Section>
+      )}
+
+      {/* Section D: Decommissioned (only shown when non-empty) */}
       {orphans.length > 0 && (
         <div
           data-testid="orphans-alert"
@@ -230,19 +407,19 @@ export function ExpectedSecretsPanel({
           <div className="mb-2 flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
             <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-              {orphans.length} secret{orphans.length > 1 ? 's' : ''} not in the
-              preset list
+              Decommissioned — {orphans.length} secret
+              {orphans.length > 1 ? 's' : ''} from retired tools
             </span>
           </div>
           <ul className="space-y-1">
-            {orphans.map((orphan) => (
+            {orphans.map((orphan: ExpectedSecretsOrphan) => (
               <li
                 key={orphan.secretId}
                 className="flex items-center justify-between gap-2"
               >
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   {orphan.displayName}
-                  <span className="ml-1 font-mono text-xs text-gray-400">
+                  <span className="font-mono ml-1 text-xs text-gray-400">
                     ({orphan.name})
                   </span>
                 </span>
