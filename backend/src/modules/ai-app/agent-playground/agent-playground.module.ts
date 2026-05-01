@@ -30,7 +30,7 @@ import {
 } from "../../ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { HarnessFailureLearner } from "./services/failure-learning/harness-failure-learner.service";
-import { ReportAssemblerService } from "./services/artifact/report-assembler.service";
+import { ReportArtifactAssembler } from "@/modules/ai-harness/runtime/quality/report-artifact/report-artifact-assembler.service";
 import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
 import { MissionAbortRegistry } from "./services/mission/lifecycle/mission-abort.registry";
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
@@ -89,7 +89,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     MissionHealthScheduler,
     LeaderChatService,
     HarnessFailureLearner,
-    ReportAssemblerService,
+    ReportArtifactAssembler,
     MissionStateService,
     MissionAbortRegistry,
     // ── Per-role services（Phase Lead-Services）──
@@ -133,7 +133,8 @@ export class AgentPlaygroundModule implements OnModuleInit {
         this.prisma.agentPlaygroundMission
           .findMany({
             where: { status: "running" },
-            select: { id: true, userId: true },
+            // ★ 2026-05-01 (PR-G): 加 startedAt 让 detector 能给新启动 mission 5min 恩典
+            select: { id: true, userId: true, startedAt: true },
             take: 200,
           })
           .catch(() => []),

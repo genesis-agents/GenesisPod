@@ -31,7 +31,9 @@ import { MissionRuntimeStateStore } from "./mission-runtime-state.store";
  */
 export interface OrphanDetectorCallbacks {
   /** 拉取所有当前 running 的 missionId（不含 cancelled / completed / failed） */
-  fetchRunningMissions: () => Promise<{ id: string; userId: string }[]>;
+  fetchRunningMissions: () => Promise<
+    { id: string; userId: string; startedAt?: Date | null }[]
+  >;
   /** 标记 orphan 为 failed，并 emit 用户可见事件 */
   markOrphanFailed: (
     missionId: string,
@@ -42,8 +44,17 @@ export interface OrphanDetectorCallbacks {
 
 const SCAN_INTERVAL_MS = 60_000; // 1 min — 比 HealthScheduler 5min 更快感知
 const STARTUP_DELAY_MS = 30_000; // 启动 30s 后首扫，给 mission 资源稳定时间
-// heartbeat TTL 是 90s；这里宽容一点，给 redis 抖动 + clock skew 留缓冲
-const ORPHAN_GRACE_MS = 120_000;
+// ★ 2026-05-01 (PR-G heartbeat fix): 阈值放宽
+//   原 ORPHAN_GRACE_MS = 120s 对 reasoning 模型单次 LLM call (232s/162s/156s)
+//   太紧，触发系统性 false orphan 杀掉所有 deep / extended mission。
+//   放宽到 360s = 6min，给单次 LLM call 留充足缓冲。
+const ORPHAN_GRACE_MS = 360_000;
+// ★ 2026-05-01 (PR-G heartbeat fix): mission 启动后的"初始恩典"窗口
+//   如果 mission started_at < 5min，即使 heartbeat 缺失也不视为 orphan。
+//   避免初始 claimOrBeat 写 Redis 失败（transient error）→ 后续 scan
+//   立即标 orphan → 用户体验：mission 几十秒就死，毫无 ramp-up 时间。
+//   只在 mission 跑过这个窗口后才严格按 heartbeat 判断。
+const STARTUP_GRACE_FROM_MISSION_START_MS = 300_000; // 5 min
 
 @Injectable()
 export class MissionOrphanDetectorService
@@ -95,7 +106,7 @@ export class MissionOrphanDetectorService
     if (!this.runtimeStore || !this.callbacks) {
       return { checked: 0, orphans: 0 };
     }
-    let running: { id: string; userId: string }[] = [];
+    let running: { id: string; userId: string; startedAt?: Date | null }[] = [];
     try {
       running = await this.callbacks.fetchRunningMissions();
     } catch (err) {
@@ -109,13 +120,21 @@ export class MissionOrphanDetectorService
     const now = Date.now();
     const orphans: { id: string; userId: string }[] = [];
     for (const m of running) {
+      // ★ 2026-05-01 (PR-G): mission 启动 < 5min 一律给恩典，无视 heartbeat
+      //   这避免：初始 claimOrBeat 写 Redis 偶发失败 → 立即被标 orphan
+      //   只在 mission 跑过 STARTUP_GRACE_FROM_MISSION_START_MS 后才严格判断
+      const ageSinceStart = m.startedAt
+        ? now - new Date(m.startedAt).getTime()
+        : Number.POSITIVE_INFINITY; // 没 startedAt 信息时按 严格 走（保守）
+      if (ageSinceStart < STARTUP_GRACE_FROM_MISSION_START_MS) {
+        continue;
+      }
       const beat = await this.runtimeStore.getHeartbeat(m.id).catch(() => null);
       if (!beat) {
-        // 没有心跳记录：可能是
+        // 跑过 5min grace 后仍无心跳记录 → 三种 orphan 场景：
         //   (a) Redis 重启丢失（极少）
         //   (b) heartbeat TTL 90s 已过期（默认场景）
         //   (c) mission 在 store 落地之前 pod 崩溃
-        // 三种情况都视为 orphan
         orphans.push(m);
         continue;
       }
@@ -149,7 +168,7 @@ export class MissionOrphanDetectorService
   private async handleOrphan(missionId: string, userId: string): Promise<void> {
     if (!this.callbacks) return;
     const reason =
-      "Mission 进程在执行过程中被回收（pod 心跳丢失 > 2min，可能由部署或资源回收触发）。" +
+      "Mission 进程在执行过程中被回收（pod 心跳丢失 > 6min，可能由部署或资源回收触发）。" +
       "运行时状态已保存到 Redis，可从顶部「重新运行」按钮重启 —— 后续版本将支持自动断点续跑。";
     await this.callbacks.markOrphanFailed(missionId, userId, reason);
     // 清掉 store 残留 key（避免重复扫描）
