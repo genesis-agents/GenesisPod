@@ -26,7 +26,7 @@ import { TeamMemberAgent } from "../../agents";
 import type { BuiltinToolId } from "../../../../ai-engine/facade";
 // AgentEvent type matches the executor's emitted events (tool field, not toolId)
 import type { AgentEvent } from "../../../../ai-harness/execution/executor/function-calling-executor";
-import type { AICapabilityContext } from "../../../../ai-engine/facade";
+import type { AICapabilityContext } from "../../../../ai-harness/facade";
 import { TopicEventEmitterService } from "../events";
 import {
   CreditsService,

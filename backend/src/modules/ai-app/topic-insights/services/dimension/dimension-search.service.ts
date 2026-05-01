@@ -37,7 +37,7 @@ import {
   buildFiguresSummary,
   type FigureRegistryEntry,
 } from "./evidence-summary.utils";
-import type { AICapabilityContext } from "@/modules/ai-engine/facade";
+import type { AICapabilityContext } from "@/modules/ai-harness/facade";
 import type { TemporalContext } from "./section-writer.service";
 
 /**

@@ -32,8 +32,8 @@ import {
   MissionContextPackage,
   HardConstraint,
 } from "../../../../../ai-harness/facade";
-// Types only needed from engine internals
-import type { AiCallerFn } from "../../../../../ai-engine/facade";
+// AiCallerFn 是 L2.5 ai-harness/execution 类型（2026-05-01 PR-X-L 从 engine 下移）
+import type { AiCallerFn } from "../../../../../ai-harness/facade";
 
 /**
  * 审核服务回调接口

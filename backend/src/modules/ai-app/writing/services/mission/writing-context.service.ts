@@ -8,7 +8,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ToolFacade } from "../../../../ai-harness/facade";
-import type { AICapabilityContext } from "../../../../ai-engine/facade";
+import type { AICapabilityContext } from "../../../../ai-harness/facade";
 import { StyleTemplateService } from "../style/style-template.service";
 import { WriterAgent } from "../../agents";
 

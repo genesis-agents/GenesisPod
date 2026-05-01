@@ -83,18 +83,14 @@ export interface IChatProvider {
 
 // ★ Engine internal types used across AI App modules
 export type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evidence.interface";
-export type { AICapabilityContext } from "../../ai-harness/execution/capabilities/ai-capability-resolver.service";
-export type {
-  SkillPromptBundle,
-  SkillPromptOptions,
-} from "../../ai-harness/execution/capabilities/types";
+// AICapabilityContext / SkillPromptBundle / SkillPromptOptions / UserIntent
+// 已移至 @/modules/ai-harness/facade（属于 L2.5 execution 层，2026-05-01 PR-X-L 修反向依赖）
 export type { SkillMdDefinition } from "../skills/types/skill-md.types";
 export type { EmbeddingResult } from "../knowledge/rag/embedding";
 export type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../knowledge/rag/vector/vector.service";
-export { UserIntent } from "../../ai-harness/execution/executor/interfaces";
 
 // ★ Registry classes — engine-owned registries only
 export { ToolRegistry } from "../tools/registry/tool-registry";
@@ -145,41 +141,27 @@ export type {
 
 // Orchestration services
 export { ContextCompressionService } from "../llm/context/context-compression.service";
-export type {
-  DataChunk,
-  SummaryChunk,
-  CompressionResult,
-  CompressionOptions,
-} from "../../ai-harness/execution/executor/interfaces";
-export { ContextStrategy } from "../../ai-harness/execution/executor/interfaces";
-export type {
-  ConstraintSeverity,
-  ExtractedConstraint,
-  ConstraintViolation,
-  OutputValidationResult,
-  AiCallerFn,
-  ReviewRequest,
-  ReviewResult,
-  ReviewCriteria,
-} from "../../ai-harness/execution/executor/interfaces";
-export { TokenBudgetService } from "../../ai-harness/execution/executor";
+// 2026-05-01 (PR-X-L): 以下 type / class 都属于 L2.5 ai-harness/execution，
+// 已下沉为 ai-harness/facade 直接导出，engine facade 不再 re-export 走反向依赖：
+//   - DataChunk / SummaryChunk / CompressionResult / CompressionOptions
+//   - ContextStrategy
+//   - ConstraintSeverity / ExtractedConstraint / ConstraintViolation
+//     / OutputValidationResult / AiCallerFn / ReviewRequest / ReviewResult / ReviewCriteria
+//   - EstablishedFact / ExecutionConfig
+//   - FactExtractionRequest / FactExtractionResult / ContextEvolutionConfig
+// ai-app 改从 @/modules/ai-harness/facade 引入这些符号。
+
+// TokenBudgetService 是 engine 自有（llm/budget/token-budget.service.ts），
+// 修复原 reverse path（engine→harness→engine 绕一圈）为直接 engine 自身
+export { TokenBudgetService } from "../llm/budget/token-budget.service";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,
   ContentPriority,
   BudgetAllocation,
 } from "../llm/budget/token-budget.service";
-export type {
-  EstablishedFact,
-  ExecutionConfig,
-} from "../../ai-harness/execution/executor/interfaces";
 // OutputReviewerService 已搬到 ai-harness/runtime/quality/ (2026-04-30)
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
-export type {
-  FactExtractionRequest,
-  FactExtractionResult,
-  ContextEvolutionConfig,
-} from "../../ai-harness/execution/executor/interfaces";
 // AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
@@ -523,17 +505,16 @@ export {
   type TokenUsageEntry,
 } from "../../ai-harness/execution/executor";
 
+// 2026-05-01 (PR-X-L): ContextCompactionPipelineService 是 engine 自有，从源头直接 import
 export {
   ContextCompactionPipelineService,
   type CompactionConfig,
   type CompactionResult,
   type CompactionLevel,
-} from "../../ai-harness/execution/executor";
+} from "../llm/context/context-compaction-pipeline.service";
 
-export {
-  ExecutionCheckpointService,
-  type ExecutionCheckpoint,
-} from "../../ai-harness/execution/executor";
+// ExecutionCheckpointService 是 L2.5 ai-harness/execution 概念，
+// 已下沉为 ai-harness/facade 直接 export，engine facade 不再 re-export
 
 // AdaptiveReplannerService / ReplanTrigger / ... 已搬到 ai-harness (2026-04-30)
 //   消费方改 import "@/modules/ai-harness/facade"

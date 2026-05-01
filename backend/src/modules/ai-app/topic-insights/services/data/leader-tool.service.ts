@@ -31,7 +31,7 @@ import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
 } from "../../prompts/dimension-research.prompt";
-import type { AICapabilityContext } from "@/modules/ai-engine/facade";
+import type { AICapabilityContext } from "@/modules/ai-harness/facade";
 
 // ==================== Action Tool Types ====================
 

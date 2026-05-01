@@ -11,13 +11,13 @@ import {
   ContextEvolutionService,
   CrossCuttingSynthesisService,
   type SynthesisResult,
-  type EstablishedFact,
   TokenBudgetService,
 } from "@/modules/ai-engine/facade";
 import {
   ChatFacade,
   TeamFacade,
   OutputReviewerService,
+  type EstablishedFact,
 } from "@/modules/ai-harness/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";

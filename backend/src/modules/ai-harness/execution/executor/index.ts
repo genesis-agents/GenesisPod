@@ -12,8 +12,8 @@ export {
 } from "./llm-executor";
 export type { LlmExecutorInput, LlmExecutorResult } from "./llm-executor";
 
-// 2026-04-30: 从 ai-engine/planning 搬来的 service
-export { TokenBudgetService } from "../../../ai-engine/llm/budget/token-budget.service";
+// TokenBudgetService 属 engine 自有，ai-app 应从 @/modules/ai-engine/facade 导入；
+// 此处不再 re-export 避免跨层间接路径
 export { QueryLoopService } from "./query-loop.service";
 export { TokenTrackerService } from "./token-tracker.service";
 export { ExecutionCheckpointService } from "./execution-checkpoint.service";
@@ -23,7 +23,7 @@ export { AgentExecutorService } from "./agent-executor.service";
 
 export type { QueryLoopConfig, QueryLoopResult, QueryLoopStopReason } from "./query-loop.service";
 export type { TokenUsageSnapshot, TokenUsageEntry } from "./token-tracker.service";
-export { ContextCompactionPipelineService } from "../../../ai-engine/llm/context/context-compaction-pipeline.service";
-export type { CompactionConfig, CompactionResult, CompactionLevel } from "../../../ai-engine/llm/context/context-compaction-pipeline.service";
+// ContextCompactionPipelineService 属 engine 自有 — 已从此处移除 re-export，
+// ai-app 应从 @/modules/ai-engine/facade 导入
 export type { ExecutionCheckpoint } from "./execution-checkpoint.service";
 export type { SidecarCategory, SidecarEntry, SidecarConfig } from "./session-memory-sidecar.service";

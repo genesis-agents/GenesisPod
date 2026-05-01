@@ -82,16 +82,18 @@ import { hintToWeightProfile } from "../../config/evidence-weight-profiles.confi
 import type { EvidenceWeightProfile } from "../../types/evidence-weight-profile.types";
 import {
   ContextCompressionService,
-  type AICapabilityContext,
   ContextEvolutionService,
-  type AiCallerFn,
-  type EstablishedFact,
   PromptCacheCoordinatorService,
-  ExecutionCheckpointService,
   SessionMemorySidecarService,
   TokenBudgetService,
 } from "@/modules/ai-engine/facade";
-import { ChatFacade } from "@/modules/ai-harness/facade";
+import {
+  ChatFacade,
+  ExecutionCheckpointService,
+  type AICapabilityContext,
+  type AiCallerFn,
+  type EstablishedFact,
+} from "@/modules/ai-harness/facade";
 import { MissionObservabilityService } from "../core/mission/mission-observability.service";
 import { ReportQualityGateService } from "../quality/report-quality-gate.service";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";

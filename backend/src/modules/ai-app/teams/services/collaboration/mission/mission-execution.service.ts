@@ -56,7 +56,7 @@ import {
   TaskAssignee,
 } from "../interfaces";
 import { MissionContextPackage } from "../../../../../ai-harness/facade";
-import type { AICapabilityContext } from "../../../../../ai-engine/facade";
+import type { AICapabilityContext } from "../../../../../ai-harness/facade";
 
 /**
  * 执行服务回调接口

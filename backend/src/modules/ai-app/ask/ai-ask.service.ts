@@ -10,10 +10,12 @@ import { ChatFacade, ToolFacade, RAGFacade } from "../../ai-harness/facade";
 import {
   BUILTIN_TOOLS,
   type BuiltinToolId,
-  type AICapabilityContext,
-  type ExecutionConfig,
   RAGPipelineService,
 } from "../../ai-engine/facade";
+import type {
+  AICapabilityContext,
+  ExecutionConfig,
+} from "../../ai-harness/facade";
 import { MissionExecutorService } from "../../ai-harness/facade";
 import { ProcessMemoryManagerService } from "@/modules/ai-harness/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";

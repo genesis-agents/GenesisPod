@@ -11,7 +11,7 @@ export type {
   ExtractedConstraint,
   ConstraintViolation,
   OutputValidationResult,
-} from "../../../../../ai-engine/facade";
+} from "../../../../../ai-harness/facade";
 export {
   TokenBudgetService,
   type TokenBudgetModelConfig as ModelConfig,

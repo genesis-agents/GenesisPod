@@ -5,8 +5,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContextRouterService } from "../context-router.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { AgentFacade } from "../../../../../ai-harness/facade";
-import { UserIntent, ContextStrategy } from "../../../../../ai-engine/facade";
+import {
+  AgentFacade,
+  UserIntent,
+  ContextStrategy,
+} from "../../../../../ai-harness/facade";
 
 const mockMessages = [
   {

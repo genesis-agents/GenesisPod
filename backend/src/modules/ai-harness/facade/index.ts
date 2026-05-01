@@ -164,6 +164,53 @@ export {
 // ★ 2026-04-30: AgentExecutorService 从 ai-engine/planning 搬来（跨层迁移）
 export { AgentExecutorService } from "../execution/executor/agent-executor.service";
 
+// ★ 2026-05-01 (PR-X-L): execution/executor/interfaces.ts 类型从 ai-engine/facade
+//   下沉过来 — 它们是 L2.5 ai-harness/execution 层 owned，原 engine facade 反向
+//   re-export 违反单向规则
+//   注：EstablishedFact 已由下方 mission-context.interface re-export，故此处不再重复
+export type {
+  AiCallerFn,
+  ExecutionConfig,
+  ExecutionResult,
+  ReviewRequest,
+  ReviewCriteria,
+  ReviewResult,
+  RevisionRequest,
+  IterationRequest,
+  IterationResult,
+  IterationRequestType,
+  ResearchContext,
+  ContextEvolutionConfig,
+  FactExtractionRequest,
+  FactExtractionResult,
+  ConstraintSeverity,
+  ExtractedConstraint,
+  ConstraintViolation,
+  OutputValidationResult,
+  DataChunk,
+  SummaryChunk,
+  CompressionResult,
+  CompressionOptions,
+} from "../execution/executor/interfaces";
+export {
+  ContextStrategy,
+  UserIntent,
+  DEFAULT_CONTEXT_EVOLUTION_CONFIG,
+} from "../execution/executor/interfaces";
+
+// ★ 2026-05-01 (PR-X-L): execution/capabilities 类型同上下沉
+export type { AICapabilityContext } from "../execution/capabilities/ai-capability-resolver.service";
+export type {
+  SkillPromptBundle,
+  SkillPromptOptions,
+} from "../execution/capabilities/types";
+
+// ★ 2026-05-01 (PR-X-L): ExecutionCheckpointService 也是 L2.5 ai-harness 概念
+export {
+  ExecutionCheckpointService,
+  type ExecutionCheckpoint,
+} from "../execution/executor/execution-checkpoint.service";
+
 // ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
 export { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
 
