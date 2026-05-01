@@ -188,6 +188,15 @@ export {
 //   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
 export { MissionAbortRegistry } from "../runtime/teams/orchestrator/mission-abort.registry";
 export { MissionOwnershipRegistry } from "../runtime/teams/orchestrator/mission-ownership.registry";
+
+// ★ 2026-05-01: stage-emit util 从 ai-app/agent-playground 上提
+//   通用 stage:completed 事件封装，含 durationMs / tokensUsed / agentInvocations 等度量
+export {
+  startStageTimer,
+  type StageTimer,
+  type StageTimerEmitOptions,
+  type EmitFn,
+} from "../protocol/ipc/stage-emit.util";
 export type {
   ArtifactCitation,
   ArtifactFactTriple,

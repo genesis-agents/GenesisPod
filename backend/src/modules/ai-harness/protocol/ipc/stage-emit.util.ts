@@ -1,24 +1,37 @@
 /**
- * stage-emit util — stage:started / stage:completed 事件统一封装
+ * stage-emit util — stage:completed 事件统一封装
  *
  * ★ OBSERVABILITY (2026-04-30): 之前各 stage 自己手写 emit stage:completed，
  *   payload 字段五花八门、缺 durationMs / tokensUsed / agentInvocations 等共用度量。
  *   新建 emitStageCompleted helper 统一注入这些字段，让 UI 时间线 / monitoring
  *   能在一个地方拿到 stage 性能数据。stage 自己的业务字段仍可叠加。
  *
- * 用法：
- *   const stage = startStageTimer();
- *   await emit({ type: "stage:started", missionId, userId, payload: { stage: "leader" }});
+ * 2026-05-01 上提: 从 ai-app/agent-playground 上提到 ai-harness/protocol/ipc/。
+ * `EmitFn` / `eventType` 参数化后跨 ai-app 通用。
+ *
+ * 用法（playground 调用方）:
+ *   const stageTimer = startStageTimer();
  *   ... 业务代码 ...
- *   await stage.emitCompleted(emit, missionId, userId, {
+ *   await stageTimer.emitCompleted(emit, missionId, userId, {
+ *     eventType: "agent-playground.stage:completed",
  *     stage: "leader",
- *     custom: { dimensions: 5 },
+ *     tokensUsed: 1234,
  *   });
  */
 
-import type { EmitFn } from "../mission-deps";
+/** 通用 emit 签名 — 任何 ai-app 的 mission 编排都可用 */
+export type EmitFn = (args: {
+  type: string;
+  missionId: string;
+  userId: string;
+  agentId?: string;
+  traceId?: string;
+  payload: unknown;
+}) => Promise<void>;
 
 export interface StageTimerEmitOptions {
+  /** 完整事件 type，由 ai-app 决定（如 "agent-playground.stage:completed"）*/
+  eventType: string;
   /** stage 业务名（leader / researchers / analyst 等） */
   stage: string;
   /** stage 自己的业务 payload，会与公共字段合并 */
@@ -50,7 +63,7 @@ export function startStageTimer(): StageTimer {
     async emitCompleted(emit, missionId, userId, opts) {
       const durationMs = Date.now() - startedAtMs;
       await emit({
-        type: "agent-playground.stage:completed",
+        type: opts.eventType,
         missionId,
         userId,
         payload: {

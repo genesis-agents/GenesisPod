@@ -18,7 +18,7 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { narrate } from "../helpers/narrative.util";
-import { startStageTimer } from "../helpers/stage-emit.util";
+import { startStageTimer } from "@/modules/ai-harness/protocol/ipc/stage-emit.util";
 
 export async function runLeaderPlanStage(
   ctx: MissionContext,
@@ -116,6 +116,7 @@ export async function runLeaderPlanStage(
     .catch(() => {});
   const tokensAfter = ctx.pool?.snapshot?.()?.poolTokensUsed ?? 0;
   await stageTimer.emitCompleted(deps.emit, missionId, userId, {
+    eventType: "agent-playground.stage:completed",
     stage: "leader",
     tokensUsed: tokensAfter - tokensBefore,
     agentInvocations: 1,

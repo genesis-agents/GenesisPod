@@ -43,15 +43,9 @@ import type { FigureExtractorService } from "../../../../../ai-engine/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 
-/** 通用 emit 签名（来自 mission class） */
-export type EmitFn = (args: {
-  type: string;
-  missionId: string;
-  userId: string;
-  agentId?: string;
-  traceId?: string;
-  payload: unknown;
-}) => Promise<void>;
+/** 通用 emit 签名 — 2026-05-01 上提到 ai-harness/protocol/ipc/stage-emit.util */
+import type { EmitFn } from "@/modules/ai-harness/protocol/ipc/stage-emit.util";
+export type { EmitFn };
 
 export type LifecycleFn = (
   missionId: string,
