@@ -7,13 +7,14 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import {
+// 直接 import 协议接口（避免依赖 fc-executor，让 fc-executor 可搬 harness）
+import type {
   ILLMAdapter as FunctionCallingILLMAdapter,
   LLMMessage,
   LLMRequestOptions,
   LLMResponse,
   ToolCallRequest,
-} from "../../planning/executors/function-calling-executor";
+} from "../abstractions/function-calling-protocol";
 import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";

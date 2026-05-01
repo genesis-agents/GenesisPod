@@ -27,103 +27,25 @@ import { ModelFallbackService } from "../../llm/model-fallback/model-fallback.se
 import { SessionMemorySidecarService } from "../../facade";
 
 // ============================================================================
-// Types
+// Types — LLM 协议接口已抽到 ai-engine/llm/abstractions/function-calling-protocol
+// (2026-04-30) — 让 llm-adapter 与 fc-executor 共享，fc-executor 后续可搬 harness
 // ============================================================================
 
-/**
- * LLM 消息格式
- */
-export interface LLMMessage {
-  role: "system" | "user" | "assistant" | "function" | "tool";
-  content: string | null;
-  name?: string;
-  function_call?: {
-    name: string;
-    arguments: string;
-  };
-  tool_calls?: Array<{
-    id: string;
-    type: "function";
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }>;
-  tool_call_id?: string;
-}
-
-/**
- * LLM 请求选项
- */
-export interface LLMRequestOptions {
-  messages: LLMMessage[];
-  functions?: FunctionDefinition[];
-  tools?: Array<{
-    type: "function";
-    function: FunctionDefinition;
-  }>;
-  function_call?: "auto" | "none" | { name: string };
-  tool_choice?:
-    | "auto"
-    | "none"
-    | "required"
-    | { type: "function"; function: { name: string } };
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-  /** ★ TaskProfile for semantic parameter mapping */
-  taskProfile?: import("../../llm/types").TaskProfile;
-}
-
-/**
- * LLM 响应格式
- */
-export interface LLMResponse {
-  content: string | null;
-  function_call?: {
-    name: string;
-    arguments: string;
-  };
-  tool_calls?: Array<{
-    id: string;
-    type: "function";
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }>;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-  model?: string;
-  finishReason?: "stop" | "function_call" | "tool_calls" | "length";
-}
-
-/**
- * 工具调用请求
- */
-export interface ToolCallRequest {
-  id: string;
-  name: string;
-  arguments: string;
-}
-
-/**
- * LLM 适配器接口
- */
-export interface ILLMAdapter {
-  readonly provider: string;
-  formatTools(functions: FunctionDefinition[]): unknown;
-  parseToolCalls(response: LLMResponse): ToolCallRequest[];
-  buildToolResultMessage(
-    toolCallId: string,
-    toolName: string,
-    result: unknown,
-  ): LLMMessage;
-  chat(options: LLMRequestOptions): Promise<LLMResponse>;
-}
+// 内部使用 + Re-export 协议类型保持向后兼容（外部 import 不变）
+import type {
+  LLMMessage,
+  LLMRequestOptions,
+  LLMResponse,
+  ToolCallRequest,
+  ILLMAdapter,
+} from "../../llm/abstractions/function-calling-protocol";
+export type {
+  LLMMessage,
+  LLMRequestOptions,
+  LLMResponse,
+  ToolCallRequest,
+  ILLMAdapter,
+};
 
 /**
  * 执行配置
