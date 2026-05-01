@@ -13,7 +13,46 @@ export interface CitationBadgeProps {
     url?: string | null;
     snippet?: string | null;
     domain?: string | null;
+    /** Optional richer metadata (parity with TI tooltip footer) */
+    sourceType?: string | null;
+    credibilityScore?: number | null;
+    publishedAt?: string | null;
+    accessedAt?: string | null;
   };
+}
+
+/** Map sourceType enum to short Chinese label + tone */
+function sourceTypeBadge(t?: string | null): {
+  label: string;
+  cls: string;
+} | null {
+  if (!t) return null;
+  const map: Record<string, { label: string; cls: string }> = {
+    gov: { label: '政府', cls: 'bg-blue-100 text-blue-700' },
+    academic: { label: '学术', cls: 'bg-indigo-100 text-indigo-700' },
+    industry: { label: '行业', cls: 'bg-emerald-100 text-emerald-700' },
+    news: { label: '新闻', cls: 'bg-orange-100 text-orange-700' },
+    blog: { label: '博客', cls: 'bg-amber-100 text-amber-700' },
+    community: { label: '社区', cls: 'bg-pink-100 text-pink-700' },
+    other: { label: '其他', cls: 'bg-gray-100 text-gray-600' },
+  };
+  return map[t] ?? { label: t, cls: 'bg-gray-100 text-gray-600' };
+}
+
+/** Credibility colorization (0-1) */
+function credibilityClass(score?: number | null): string {
+  if (score == null) return 'bg-gray-100 text-gray-600';
+  if (score >= 0.8) return 'bg-emerald-100 text-emerald-700';
+  if (score >= 0.6) return 'bg-amber-100 text-amber-700';
+  return 'bg-rose-100 text-rose-700';
+}
+
+/** Format ISO date to YYYY-MM-DD; tolerate invalid */
+function shortDate(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
 }
 
 export function CitationBadge({ index, evidence }: CitationBadgeProps) {
@@ -174,11 +213,34 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
                 <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
                   {evidence.title || t('topicResearch.citation.unknownSource')}
                 </h4>
-                {evidence.domain && (
-                  <span className="mt-0.5 inline-block text-xs text-gray-400">
-                    {evidence.domain}
-                  </span>
-                )}
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {evidence.domain && (
+                    <span className="text-gray-400">{evidence.domain}</span>
+                  )}
+                  {(() => {
+                    const b = sourceTypeBadge(evidence.sourceType);
+                    return b ? (
+                      <span
+                        className={`rounded px-1.5 py-0.5 font-medium ${b.cls}`}
+                      >
+                        {b.label}
+                      </span>
+                    ) : null;
+                  })()}
+                  {evidence.credibilityScore != null && (
+                    <span
+                      className={`rounded px-1.5 py-0.5 font-medium ${credibilityClass(evidence.credibilityScore)}`}
+                      title="可信度评分"
+                    >
+                      可信 {Math.round(evidence.credibilityScore * 100)}%
+                    </span>
+                  )}
+                  {shortDate(evidence.publishedAt) && (
+                    <span className="text-gray-500" title="发布时间">
+                      {shortDate(evidence.publishedAt)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -38,6 +38,10 @@ export interface FigureEvidenceInfo {
   url?: string | null;
   snippet?: string | null;
   domain?: string | null;
+  sourceType?: string | null;
+  credibilityScore?: number | null;
+  publishedAt?: string | null;
+  accessedAt?: string | null;
 }
 
 interface FigureRendererProps {
