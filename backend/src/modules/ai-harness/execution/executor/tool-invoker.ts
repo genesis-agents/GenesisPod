@@ -30,7 +30,11 @@ import { AgentTracer } from "../../runtime/tracer/otel-tracer";
  * PR-I 修复 #6：tool result 默认截断阈值（约 4K tokens for cl100k）
  * 大输出（DB 查询、API 列表）超此长度被压缩为 "<head>…<truncated>"。
  */
-const DEFAULT_RESULT_MAX_CHARS = 16_000;
+// 32K：之前 16K 对 web-scraper 抓的技术文档（llms-full.txt / API docs）太严，
+// JSON.stringify 后 16K 几乎一定截到 results 数组中段，下游 reviewer 拿不到完整
+// evidence 反复 reject 触发"全部重写"循环。32K 仍能保护 LLM context（GPT-5
+// 200K 总窗口里占 16%），但能装下大多数单页文档。
+const DEFAULT_RESULT_MAX_CHARS = 32_000;
 
 function truncateResult(
   value: unknown,

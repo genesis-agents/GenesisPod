@@ -102,7 +102,7 @@ describe("ToolInvoker supplement — truncateResult null output", () => {
 
 describe("ToolInvoker supplement — string output truncation", () => {
   it("truncates large string output", async () => {
-    const largeOutput = "x".repeat(20000); // > DEFAULT_RESULT_MAX_CHARS (16000)
+    const largeOutput = "x".repeat(35_000); // > DEFAULT_RESULT_MAX_CHARS (32000)
     const registry = makeToolRegistry({
       "large-tool": { success: true, data: largeOutput },
     });
@@ -117,7 +117,7 @@ describe("ToolInvoker supplement — string output truncation", () => {
   });
 
   it("does not truncate when maxResultChars=0", async () => {
-    const largeOutput = "x".repeat(20000);
+    const largeOutput = "x".repeat(35_000);
     const registry = makeToolRegistry({
       "large-tool": { success: true, data: largeOutput },
     });
