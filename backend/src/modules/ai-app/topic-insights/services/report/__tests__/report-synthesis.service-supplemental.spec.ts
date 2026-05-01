@@ -18,8 +18,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { ReportSynthesisService } from "../report-synthesis.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ChatFacade, TeamFacade } from "@/modules/ai-harness/facade";
-import { OutputReviewerService, ContextEvolutionService } from "@/modules/ai-engine/facade";
+import {
+  ChatFacade,
+  TeamFacade,
+  OutputReviewerService,
+} from "@/modules/ai-harness/facade";
+import { ContextEvolutionService } from "@/modules/ai-engine/facade";
 import { TokenBudgetService } from "@/modules/ai-engine/facade";
 import { ReportEditorService } from "../report-editor.service";
 import { ReportAssemblerService } from "../report-assembler.service";
