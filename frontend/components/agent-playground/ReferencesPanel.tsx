@@ -85,26 +85,30 @@ const SOURCE_TYPE_META: Record<
   },
 };
 
+/**
+ * Backend 输出 0-100 整数 scale (gov=95, arxiv=92, default=65, blog=50)
+ * 阈值与 TI ReferencePanel 对齐：≥70 高 / ≥40 中 / <40 低
+ */
 function credibilityBucket(score: number): {
   key: 'high' | 'medium' | 'low';
   label: string;
   tone: string;
 } {
-  if (score >= 0.75)
+  if (score >= 70)
     return {
       key: 'high',
-      label: '高权威 (≥ 0.75)',
+      label: '高权威 (≥ 70)',
       tone: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
     };
-  if (score >= 0.5)
+  if (score >= 40)
     return {
       key: 'medium',
-      label: '中权威 (0.5 ~ 0.75)',
+      label: '中权威 (40 ~ 70)',
       tone: 'bg-amber-50 text-amber-700 ring-amber-200',
     };
   return {
     key: 'low',
-    label: '低权威 (< 0.5)',
+    label: '低权威 (< 40)',
     tone: 'bg-rose-50 text-rose-700 ring-rose-200',
   };
 }
@@ -170,7 +174,7 @@ function CitationCard({ c }: { c: ArtifactCitation }) {
               )}
             >
               <Star className="h-2.5 w-2.5" />
-              {(c.credibilityScore * 100).toFixed(0)}
+              {Math.round(c.credibilityScore)}
             </span>
             <span className="font-mono text-gray-500">{c.domain}</span>
             {c.publishedAt && (
@@ -270,7 +274,7 @@ function StatRow({ citations }: { citations: readonly ArtifactCitation[] }) {
   let withDate = 0;
   for (const c of citations) {
     byType[c.sourceType] = (byType[c.sourceType] ?? 0) + 1;
-    if (c.credibilityScore >= 0.75) highCred += 1;
+    if (c.credibilityScore >= 70) highCred += 1;
     if (c.publishedAt) withDate += 1;
   }
   const domains = new Set(citations.map((c) => c.domain)).size;

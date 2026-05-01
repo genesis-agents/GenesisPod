@@ -364,12 +364,37 @@ export function ChapterReader({
               liveStatus === 'writing' ||
               liveStatus === 'reviewing' ||
               liveStatus === 'revising';
+            // ★ 2026-04-30 (#65 截图19 卡片不齐): 维度章节注入了
+            //   "🎯 核心观点：..." / "📌 关键数据：..." 而非维度章节没有，
+            //   导致每张卡片正文起首结构截然不同。这里在 preview 阶段统一剥掉：
+            //   ① 章首一级标题  ② 引导 emoji（🎯 📌 🔑 ⭐ 💡 ✅）
+            //   ③ "核心观点 / 关键数据 / 关键发现 / 主要结论" 等 TI 沉淀小标题
+            //   ④ 加粗、引文、blockquote、list bullet（- • · em-dash）
+            //   保证所有 chapter card 的预览段开头都是纯散文，第一眼对齐。
             const preview = artifact.content.fullMarkdown
               .slice(s.startOffset, s.endOffset)
+              // ① 章首 H1~H6
               .replace(/^#{1,6}\s+[^\n]+\n+/, '')
+              // ② 章首引导 emoji + 可选空格
+              .replace(
+                /^[\s]*[🎯📌🔑⭐💡✅🔍📊📈🧭🌟][\s]*/u,
+                ''
+              )
+              // ③ TI 沉淀小标题 (含 ** 加粗)
+              .replace(
+                /^\s*(?:\*\*)?(核心观点|关键数据|关键发现|主要结论|主要观点|核心结论)(?:\*\*)?\s*[:：]\s*/,
+                ''
+              )
+              // ④ 任何剩余加粗
               .replace(/\*\*([^*]+)\*\*/g, '$1')
+              // [N] 引用
               .replace(/\[(\d+)\]/g, '')
+              // blockquote 前缀
               .replace(/^>\s*/gm, '')
+              // 列表 bullet（- / * / • / · / em-dash + 空格）
+              .replace(/^[\s]*[-*•·—–]\s+/gm, '')
+              // 多个连续空行 → 单空行
+              .replace(/\n{2,}/g, '\n')
               .trim()
               .slice(0, 200);
             const cardClasses = isInFlight

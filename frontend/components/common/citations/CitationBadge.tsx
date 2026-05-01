@@ -39,11 +39,15 @@ function sourceTypeBadge(t?: string | null): {
   return map[t] ?? { label: t, cls: 'bg-gray-100 text-gray-600' };
 }
 
-/** Credibility colorization (0-1) */
+/**
+ * Credibility colorization — backend 输出 0-100 整数 scale
+ * (gov=95, arxiv/nature=92, reuters/wsj=85, github/wikipedia=80, default=65, blog=50)
+ * 阈值与 TI ReferencePanel.getCredibilityDisplay 对齐：≥70 高 / ≥40 中 / <40 低
+ */
 function credibilityClass(score?: number | null): string {
   if (score == null) return 'bg-gray-100 text-gray-600';
-  if (score >= 0.8) return 'bg-emerald-100 text-emerald-700';
-  if (score >= 0.6) return 'bg-amber-100 text-amber-700';
+  if (score >= 70) return 'bg-emerald-100 text-emerald-700';
+  if (score >= 40) return 'bg-amber-100 text-amber-700';
   return 'bg-rose-100 text-rose-700';
 }
 
@@ -232,7 +236,7 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
                       className={`rounded px-1.5 py-0.5 font-medium ${credibilityClass(evidence.credibilityScore)}`}
                       title="可信度评分"
                     >
-                      可信 {Math.round(evidence.credibilityScore * 100)}%
+                      可信 {Math.round(evidence.credibilityScore)}%
                     </span>
                   )}
                   {shortDate(evidence.publishedAt) && (
