@@ -7,7 +7,19 @@
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
 // ★ 沉淀接入: 外部 evidence 进 prompt 前用 XML 隔离 + sanitize（防 OWASP LLM01）
-import { wrapExternalContent } from "../../../../ai-engine/facade";
+//   + TI report-writing-standards（与 TI dimension-research.prompt.ts 同源）
+import {
+  wrapExternalContent,
+  HEADING_HIERARCHY,
+  NARRATIVE_STRUCTURE,
+  PROFESSIONAL_TONE,
+  FORMATTING_LIMITS,
+  CITATION_STANDARDS,
+  ANALYSIS_DEPTH,
+  CHART_STANDARDS,
+  TABLE_STANDARDS,
+  QUALITY_CHECKLIST,
+} from "../../../../ai-engine/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -97,12 +109,25 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `3. **证据支撑**: 关键论点必须有引用，使用 \`[N]\` 格式（N 对应下方"可用资料"编号，从 1 开始）`,
       `4. **连贯性**: 与前置章节保持逻辑连贯，避免重复前文论点`,
       ``,
-      `## 写作风格规范`,
-      `- 专业、客观、简洁；用具体数据和事实说话`,
-      `- 全文以**段落论述**为主体，每段 100-300 字，围绕一个分析论点展开`,
-      `- 列表只用于并列同类项目；数据佐证和因果推理必须留在段落中展开，不要拆成独立列表项`,
-      `- **列表项不得超过 60 字**：超过 60 字的内容必须写成段落`,
-      `- 段落中可适当用 **加粗** 强调核心论点（必须是实质性名词/论断，嵌入句中，不独占一行）`,
+      // ★ 2026-04-30 (PR-F): 全量复用 TI report-writing-standards（与
+      //   topic-insights/prompts/dimension-research.prompt.ts 同源）。
+      //   原 inline "写作风格规范" 6 行下线 — TI 标准更全面（McKinsey Pyramid +
+      //   BCG So-What + 量化表达 + 因果区分 + 反箭头链 + 反教科书）。
+      HEADING_HIERARCHY,
+      ``,
+      NARRATIVE_STRUCTURE,
+      ``,
+      PROFESSIONAL_TONE,
+      ``,
+      FORMATTING_LIMITS,
+      ``,
+      CITATION_STANDARDS,
+      ``,
+      ANALYSIS_DEPTH,
+      ``,
+      CHART_STANDARDS,
+      ``,
+      TABLE_STANDARDS,
       ``,
       `## 章节结构（柔性，论点驱动而非固定模板）`,
       `1. **首段**：直接以独立判断开头（不必加 \`> **核心判断**：\` blockquote 模板；该模板每章重复就形成八股，禁止）`,
