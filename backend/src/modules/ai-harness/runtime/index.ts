@@ -37,8 +37,16 @@ export {
   type RetryPolicy,
 } from "./env/tool-registry";
 
-export { AgentTracer, type Span, type StartSpanOptions } from "./tracer/otel-tracer";
-export { SpanExporter, type SpanRecord, type SpanSink } from "./tracer/span-exporter";
+export {
+  AgentTracer,
+  type Span,
+  type StartSpanOptions,
+} from "../governance/observability/tracer/otel-tracer";
+export {
+  SpanExporter,
+  type SpanRecord,
+  type SpanSink,
+} from "../governance/observability/tracer/span-exporter";
 export {
   ModelPricingRegistry,
   type ModelPricing,

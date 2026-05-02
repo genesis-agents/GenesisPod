@@ -22,7 +22,7 @@
  * - HumanInLoopPause class
  */
 
-import { AgentTracer } from "../../tracer/otel-tracer";
+import { AgentTracer } from "../../../governance/observability/tracer/otel-tracer";
 import { ToolRegistry, type Tool } from "../tool-registry";
 import {
   ReActRunner,

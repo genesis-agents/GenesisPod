@@ -14,7 +14,7 @@
 
 import { Injectable, Optional } from "@nestjs/common";
 import { randomBytes } from "crypto";
-import { SpanExporter } from "../tracer/span-exporter";
+import { SpanExporter } from "./span-exporter";
 
 export interface Span {
   readonly traceId: string;
