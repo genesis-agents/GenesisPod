@@ -163,11 +163,10 @@ function deriveDimSubStatus(
     };
   }
   // 全部章节通过，但 grade 还没出来
-  // ★ 2026-05-01 真治根（mission da6e2af7 实证）：之前 dim todo 卡"等待评分"是 backend
-  //   per-dim-pipeline 在 integrator state=degraded（reflexion verifier <60 但已强制接受
-  //   次优产物）时静默不 emit dimension:graded → 前端永远拿不到 grade。
-  //   后端已修：degraded output 也走 grade 路径；grade 失败也 emit failed 事件。
-  //   前端这里仍保留 "等待评分" 显示作为短暂中间态（事件到达前 < 1 秒）。
+  // ★ 2026-05-01 真治根（mission da6e2af7 实证）：backend per-dim-pipeline 已用
+  //   try/finally INVARIANT 保证每个 dim 必发 graded 事件（成功 / 失败 / 跳过）。
+  //   前端"等待评分"仅作为 < 1 秒短暂中间态。grade.failed=true → 显示"评分失败"
+  //   而非误导的"已完成 · 0/100"；degraded 走通过路径标 "兜底完成"。
   if (passed === total && !pipeline.grade) {
     return {
       label: '等待评分',
@@ -175,6 +174,34 @@ function deriveDimSubStatus(
     };
   }
   if (passed === total && pipeline.grade) {
+    if (pipeline.grade.failed) {
+      const reason =
+        pipeline.grade.phase === 'no-findings'
+          ? '采集失败'
+          : pipeline.grade.phase === 'outline-failed'
+            ? '大纲失败'
+            : pipeline.grade.phase === 'no-chapters'
+              ? '章节失败'
+              : pipeline.grade.phase === 'integrator-failed'
+                ? '整合失败'
+                : pipeline.grade.phase === 'grade-failed'
+                  ? '评分失败'
+                  : pipeline.grade.phase === 'pipeline-exception'
+                    ? '流水线异常'
+                    : pipeline.grade.phase === 'research-failed'
+                      ? '研究失败'
+                      : '评分跳过';
+      return {
+        label: `${reason}`,
+        tone: 'bg-red-100 text-red-700 ring-red-200',
+      };
+    }
+    if (pipeline.integrationDegraded) {
+      return {
+        label: `兜底完成 · ${pipeline.grade.overall}/100`,
+        tone: 'bg-orange-100 text-orange-700 ring-orange-200',
+      };
+    }
     return {
       label: `已完成 · ${pipeline.grade.overall}/100`,
       tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',

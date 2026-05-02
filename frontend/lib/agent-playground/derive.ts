@@ -151,12 +151,20 @@ export interface DimensionPipelineState {
   chapters: ChapterState[];
   /** Integrator 完成后的 totalWordCount */
   totalWordCount?: number;
+  /** integrator state=degraded 走通过路径的标记（次优产物）*/
+  integrationDegraded?: boolean;
   /** Quality judge 5-axis 评分 */
   grade?: {
     overall: number;
     grade: string;
     axes: Record<string, { score: number; comment: string }>;
     summary: string;
+    /** 评分失败标记（backend INVARIANT 兜底事件携带）*/
+    failed?: boolean;
+    /** 跳过评分（research/integrator 上游失败）*/
+    skipped?: boolean;
+    /** 失败 phase（no-findings / outline-failed / no-chapters / integrator-failed / grade-failed / pipeline-exception / research-failed / fallback-finally）*/
+    phase?: string;
   };
 }
 
@@ -594,6 +602,17 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       if (dim) {
         const pipeline = ensurePipeline(dim);
         pipeline.totalWordCount = p?.totalWordCount as number | undefined;
+        // ★ 2026-05-01: backend integrator state=degraded 走通过路径时携 degraded:true
+        if (p?.degraded === true) {
+          pipeline.integrationDegraded = true;
+        }
+      }
+    } else if (t === 'agent-playground.dimension:integrating:failed') {
+      // ★ 2026-05-01 真因可见性：integrator 真失败（无 output）也设 degraded 标志
+      const dim = p?.dimension as string | undefined;
+      if (dim) {
+        const pipeline = ensurePipeline(dim);
+        pipeline.integrationDegraded = true;
       }
     } else if (t === 'agent-playground.dimension:graded') {
       const dim = p?.dimension as string | undefined;
@@ -607,6 +626,11 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
               | Record<string, { score: number; comment: string }>
               | undefined) ?? {},
           summary: (p?.summary as string | undefined) ?? '',
+          // ★ 2026-05-01 真因可见性：捕获 backend INVARIANT 兜底事件的 failed/
+          //   skipped/phase 标记，前端可区分"真评分 0 分"vs"评分失败 sentinel"
+          failed: (p?.failed as boolean | undefined) ?? false,
+          skipped: (p?.skipped as boolean | undefined) ?? false,
+          phase: p?.phase as string | undefined,
         };
         // ★ 2026-04-30 REDESIGN (task #61): retryLabel 在 payload 表示 fresh-collect retry 完成
         //   关闭该 dim 的 active fresh retry 路由，让后续事件回到原 dim pipeline
