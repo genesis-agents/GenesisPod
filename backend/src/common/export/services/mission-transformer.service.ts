@@ -12,6 +12,7 @@ import {
   Appendix,
   TableRow,
   ListItem,
+  Reference,
 } from "../types/unified-content";
 import { APP_CONFIG } from "../../config/app.config";
 import { marked } from "marked";
@@ -23,6 +24,7 @@ import {
   AgentTaskStatus,
   TaskPriority,
   TaskType,
+  AgentPlaygroundMission,
 } from "@prisma/client";
 
 // 扩展类型，包含关联数据
@@ -67,9 +69,15 @@ export class MissionTransformerService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * 将 TeamMission 转换为 UnifiedContent 格式
-   * @param missionId 任务 ID
-   * @param simplifiedMode 简化模式，只导出核心结果（用于避免复杂导出失败）
+   * 将 mission 转换为 UnifiedContent 格式
+   *
+   * ★ 2026-05-02 (#7 报告下载公共能力): 同时支持 TeamMission 与 AgentPlaygroundMission
+   * 两种模型 —— 先在 AgentPlaygroundMission 表查找，命中则走 playground 专用路径
+   * （从 reportFull.content.fullMarkdown 提取 markdown 渲染），否则走原有 TeamMission
+   * 路径（任务 + 子任务 + 统计 + 附录）。前端无需关心后端是哪种 mission，对齐 TI 同款体验。
+   *
+   * @param missionId 任务 ID（playground 与 teams 不重合，依次尝试即可）
+   * @param simplifiedMode 简化模式，只导出核心结果（仅 TeamMission 路径）
    */
   async transform(
     missionId: string,
@@ -79,6 +87,15 @@ export class MissionTransformerService {
       `Transforming mission: ${missionId}, simplified: ${simplifiedMode}`,
     );
     this.sectionCounter = 0;
+
+    // ★ 优先尝试 agent-playground mission（playground 路径），命中即返回
+    const playgroundMission =
+      await this.prisma.agentPlaygroundMission.findUnique({
+        where: { id: missionId },
+      });
+    if (playgroundMission) {
+      return this.transformPlaygroundMission(playgroundMission);
+    }
 
     // 1. 获取任务及其关联数据
     const mission = await this.fetchMissionWithRelations(missionId);
@@ -145,6 +162,118 @@ export class MissionTransformerService {
         title: "目录",
       },
       sections,
+      appendices: appendices.length > 0 ? appendices : undefined,
+    };
+  }
+
+  /**
+   * ★ 2026-05-02 (#7): agent-playground mission 专用转换路径
+   *
+   * playground mission 与 TeamMission 模型完全不同：
+   *   - 没有 tasks[] / leader（playground 是 8-stage 单线程 pipeline）
+   *   - 报告主体在 reportFull JSON 里（ReportArtifact v2: content.fullMarkdown + citations + figures）
+   *   - dimensions 是 JSON 数组 [{id, name, rationale, ...}]
+   *
+   * 转换策略：
+   *   - 元数据：title = reportTitle || topic, author = "AI Playground", date = completedAt
+   *   - 主体：解析 fullMarkdown 为 sections（继承 marked lexer 已有能力）
+   *   - 引用：从 reportFull.citations 抽出 references[]
+   *   - 附录：从 reportFull.factTable 生成事实表附录（如有）
+   */
+  private transformPlaygroundMission(
+    mission: AgentPlaygroundMission,
+  ): UnifiedContent {
+    const reportFull = (mission.reportFull as Record<string, unknown>) ?? {};
+    const content = (reportFull.content ?? {}) as { fullMarkdown?: string };
+    const fullMarkdown =
+      content.fullMarkdown ||
+      (reportFull.fullMarkdown as string | undefined) ||
+      mission.reportSummary ||
+      "";
+
+    // 元数据
+    const title =
+      mission.reportTitle ||
+      (typeof mission.topic === "string"
+        ? mission.topic
+        : "AI Playground 报告");
+    const metadata: ContentMetadata = {
+      title,
+      subtitle: "AI Agent Playground 任务报告",
+      author: "AI Playground",
+      organization: APP_CONFIG.brand.fullName,
+      date: mission.completedAt || mission.startedAt,
+      tags: ["AI Playground", "Mission Report", mission.depth],
+      language: mission.language || "zh-CN",
+    };
+
+    // 主体 sections —— 解析 markdown
+    const sections: ContentSection[] = fullMarkdown.trim()
+      ? this.parseMarkdown(fullMarkdown)
+      : [
+          {
+            id: this.nextSectionId(),
+            type: "callout",
+            content:
+              "报告内容为空。可能 mission 尚未生成 reportFull，或处于失败状态。",
+            calloutType: "warning",
+          },
+        ];
+
+    // 引用 —— 从 reportFull.citations 抽出
+    const citationsRaw = (reportFull.citations as unknown[]) ?? [];
+    const references: Reference[] = [];
+    for (let i = 0; i < citationsRaw.length; i++) {
+      const c = citationsRaw[i];
+      if (!c || typeof c !== "object") continue;
+      const cit = c as Record<string, unknown>;
+      const ref: Reference = {
+        id: typeof cit.index === "number" ? cit.index : i + 1,
+        title:
+          (cit.title as string) || (cit.url as string) || `Reference ${i + 1}`,
+      };
+      if (typeof cit.url === "string") ref.url = cit.url;
+      if (typeof cit.author === "string") ref.author = cit.author;
+      if (typeof cit.publishedDate === "string")
+        ref.publishedDate = cit.publishedDate;
+      if (typeof cit.snippet === "string") ref.snippet = cit.snippet;
+      if (typeof cit.domain === "string") ref.domain = cit.domain;
+      references.push(ref);
+    }
+
+    // 附录 —— factTable（事实表，对齐 TI 同款）
+    const factTable = (reportFull.factTable as unknown[]) ?? [];
+    const appendices: Appendix[] = [];
+    if (Array.isArray(factTable) && factTable.length > 0) {
+      const factRows = factTable
+        .filter(
+          (f): f is Record<string, unknown> => !!f && typeof f === "object",
+        )
+        .slice(0, 100); // 防止超大
+      const headerLine = "| 主题 | 关键事实 | 引用 |";
+      const sepLine = "| --- | --- | --- |";
+      const bodyLines = factRows.map((f) => {
+        const subject = (f.subject as string) || "-";
+        const fact = (f.fact as string) || "-";
+        const cites = Array.isArray(f.citations)
+          ? (f.citations as unknown[]).join(", ")
+          : "-";
+        return `| ${subject} | ${fact} | ${cites} |`;
+      });
+      appendices.push({
+        id: "playground-fact-table",
+        title: "事实表（Reconciler 抽取）",
+        content: [headerLine, sepLine, ...bodyLines].join("\n"),
+        type: "text",
+      });
+    }
+
+    return {
+      metadata,
+      cover: { showCover: true },
+      tableOfContents: { enabled: true, maxDepth: 3, title: "目录" },
+      sections,
+      references: references.length > 0 ? references : undefined,
       appendices: appendices.length > 0 ? appendices : undefined,
     };
   }

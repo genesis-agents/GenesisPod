@@ -64,7 +64,11 @@ export interface RawSource {
 export interface MissionSource {
   type: "MISSION";
   missionId: string;
-  topicId: string;
+  /**
+   * topicId 可选 —— 兼容 agent-playground (standalone mission, 无 topic 绑定)
+   * 与 AI Teams (mission 与 topic 绑定) 两条路径。空字符串/缺省即视为无 topic。
+   */
+  topicId?: string;
 }
 
 export interface PlanningSource {

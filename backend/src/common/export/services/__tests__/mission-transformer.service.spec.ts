@@ -72,6 +72,9 @@ function makeMission(overrides: Record<string, unknown> = {}) {
 
 const mockPrisma = {
   teamMission: { findUnique: jest.fn() },
+  // ★ 2026-05-02 (#7): transform() 同时支持 AgentPlaygroundMission（playground 路径），
+  //   未配置返回值时默认返回 null → fallback 到 teamMission 路径，保持原 spec 行为
+  agentPlaygroundMission: { findUnique: jest.fn().mockResolvedValue(null) },
 };
 
 // ─── tests ───────────────────────────────────────────────────────────────────
@@ -637,6 +640,173 @@ describe("MissionTransformerService", () => {
       const result = await service.transform("mission-1");
       const cellText = getAllTableCellText(result);
       expect(cellText).toContain("1 小时 30 分钟");
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ★ 2026-05-02 (#7): playground mission 路径
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("transform() playground mission path", () => {
+    function makePlaygroundMission(overrides: Record<string, unknown> = {}) {
+      return {
+        id: "pg-mission-1",
+        userId: "user-1",
+        topic: "AI Coding Agents",
+        depth: "deep",
+        language: "zh-CN",
+        status: "completed",
+        startedAt: new Date("2024-02-01T08:00:00Z"),
+        completedAt: new Date("2024-02-01T10:00:00Z"),
+        reportTitle: "AI Coding Agents 深度报告",
+        reportSummary: "Summary text",
+        reportFull: {
+          content: {
+            fullMarkdown:
+              "# AI Coding Agents\n\n## 第一章\n\n这是正文内容 [1]。\n\n## 第二章\n\n更多内容 [2]。",
+          },
+          citations: [
+            {
+              index: 1,
+              title: "Anthropic Blog",
+              url: "https://anthropic.com/post1",
+              author: "Anthropic",
+              snippet: "snippet1",
+              domain: "anthropic.com",
+            },
+            {
+              index: 2,
+              title: "OpenAI Blog",
+              url: "https://openai.com/post2",
+              domain: "openai.com",
+            },
+          ],
+          factTable: [
+            { subject: "Claude", fact: "released 2024", citations: [1] },
+            { subject: "GPT-4", fact: "released 2023", citations: [2] },
+          ],
+        },
+        ...overrides,
+      };
+    }
+
+    it("transforms playground mission via reportFull.content.fullMarkdown", async () => {
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(
+        makePlaygroundMission(),
+      );
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.metadata.title).toBe("AI Coding Agents 深度报告");
+      expect(result.metadata.subtitle).toBe("AI Agent Playground 任务报告");
+      expect(result.metadata.author).toBe("AI Playground");
+      expect(result.metadata.tags).toContain("AI Playground");
+      expect(result.metadata.language).toBe("zh-CN");
+      expect(result.sections.length).toBeGreaterThan(0);
+      // 不会 fallback 到 teamMission 路径
+      expect(mockPrisma.teamMission.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("extracts references from reportFull.citations", async () => {
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(
+        makePlaygroundMission(),
+      );
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.references).toBeDefined();
+      expect(result.references?.length).toBe(2);
+      expect(result.references?.[0]).toMatchObject({
+        id: 1,
+        title: "Anthropic Blog",
+        url: "https://anthropic.com/post1",
+        author: "Anthropic",
+        snippet: "snippet1",
+        domain: "anthropic.com",
+      });
+    });
+
+    it("includes factTable as appendix", async () => {
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(
+        makePlaygroundMission(),
+      );
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.appendices).toBeDefined();
+      expect(result.appendices?.length).toBe(1);
+      expect(result.appendices?.[0].title).toContain("事实表");
+      expect(result.appendices?.[0].content).toContain("Claude");
+      expect(result.appendices?.[0].content).toContain("GPT-4");
+    });
+
+    it("handles missing fullMarkdown gracefully (warning callout)", async () => {
+      const mission = makePlaygroundMission({
+        reportFull: { citations: [] },
+        reportSummary: null,
+      });
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(mission);
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.sections.length).toBe(1);
+      expect(result.sections[0].type).toBe("callout");
+      expect(result.sections[0].calloutType).toBe("warning");
+    });
+
+    it("falls back to topic when reportTitle is missing", async () => {
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(
+        makePlaygroundMission({ reportTitle: null }),
+      );
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.metadata.title).toBe("AI Coding Agents");
+    });
+
+    it("handles empty citations array", async () => {
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(
+        makePlaygroundMission({
+          reportFull: {
+            content: { fullMarkdown: "# Title\n\nbody" },
+            citations: [],
+          },
+        }),
+      );
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.references).toBeUndefined();
+    });
+
+    it("handles malformed citation entries (skips non-objects)", async () => {
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(
+        makePlaygroundMission({
+          reportFull: {
+            content: { fullMarkdown: "# Title\n\nbody" },
+            citations: [
+              null,
+              "string-not-object",
+              { index: 5, title: "Valid", url: "https://x.com" },
+            ],
+          },
+        }),
+      );
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.references?.length).toBe(1);
+      expect(result.references?.[0].id).toBe(5);
+    });
+
+    it("falls back to legacy reportFull.fullMarkdown shape (v1)", async () => {
+      mockPrisma.agentPlaygroundMission.findUnique.mockResolvedValue(
+        makePlaygroundMission({
+          reportFull: {
+            // v1: fullMarkdown at top level (no content wrapper)
+            fullMarkdown: "# Legacy v1\n\nbody",
+          },
+        }),
+      );
+      const result = await service.transform("pg-mission-1");
+
+      expect(result.sections.length).toBeGreaterThan(0);
+      // section 应包含 heading "Legacy v1"
+      const headings = result.sections.filter((s) => s.type === "heading");
+      expect(headings.some((h) => h.content === "Legacy v1")).toBe(true);
     });
   });
 });
