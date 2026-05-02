@@ -39,7 +39,7 @@ import type {
   IAgentPersona,
 } from "../../kernel/abstractions";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
-import type { BuiltInVerifierId } from "../../governance/verify/judge.service";
+import type { BuiltInVerifierId } from "../../evaluation/verify/judge.service";
 
 export interface DefineAgentOptions<
   TInputSchema extends z.ZodType = z.ZodType,

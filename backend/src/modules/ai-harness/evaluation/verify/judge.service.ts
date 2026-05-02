@@ -6,7 +6,7 @@
  *   - verify/primitives/  ← ReActRunner 内部 JudgeSpec 工厂（签名重 + 纯算法 consensus/MetaJudge）
  *
  * 共享算法（createConsensusResolver / MetaJudge / Verdict 类型）从
- * verify/primitives/ re-export 出去，App 永远只 `import from "@/ai-harness/governance/verify"`。
+ * verify/primitives/ re-export 出去，App 永远只 `import from "@/ai-harness/evaluation/verify"`。
  *
  * 内置 verifiers：
  *   - self      · 同模型严苛自评（低 temp）

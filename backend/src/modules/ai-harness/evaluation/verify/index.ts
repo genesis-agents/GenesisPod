@@ -2,7 +2,7 @@
  * verify/ — AI App 的唯一 verifier 入口
  *
  * 任何业务模块需要 multi-judge / consensus / Reflexion 闭环时，
- * 只 import from "@/modules/ai-harness/governance/verify"（或 facade）。
+ * 只 import from "@/modules/ai-harness/evaluation/verify"（或 facade）。
  *
  * 不要直接 import primitives/* —— 那是 ReActRunner 与 JudgeService 的内部实现。
  */

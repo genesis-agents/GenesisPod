@@ -92,8 +92,8 @@ export type {
 // ════════════════════════════════════════════════════════════════════
 // Governance: verify + resource + observability + security
 // ════════════════════════════════════════════════════════════════════
-export { JudgeService } from "../governance/verify";
-export type { BuiltInVerifierId } from "../governance/verify";
+export { JudgeService } from "../evaluation/verify";
+export type { BuiltInVerifierId } from "../evaluation/verify";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
 export { FigureRelevanceService } from "../evaluation/figure";
 // ★ 沉淀（2026-04-29）: Reflexion critique-refine + section-self-eval + defect-scanner

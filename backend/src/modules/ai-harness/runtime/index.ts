@@ -68,8 +68,8 @@ export type {
 } from "./env/task-queue-interface";
 
 // Verification (self / external / meta judge + consensus resolver)
-// 已迁至 governance/verify/primitives/，runtime/index 仍 re-export 保持对外 API 不变
-export * from "../governance/verify/primitives";
+// 已迁至 evaluation/verify/primitives/，runtime/index 仍 re-export 保持对外 API 不变
+export * from "../evaluation/verify/primitives";
 
 // Orchestration (thin mission orchestrator + replanner/registry 接口)
 export {
