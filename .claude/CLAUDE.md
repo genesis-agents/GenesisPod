@@ -38,29 +38,55 @@ Infra:    Docker + Railway + PM2 + Redis 7
 - **Redis 7**: 缓存和会话管理
 - 已移除 MongoDB、Neo4j、Qdrant（成本优化 70-75%）
 
-### AI 架构分层（4 层 + L2.5 Harness）
+### AI 架构分层（4 层 + L2.5 Harness，2026-05-02 MECE 重构后）
+
+> **目标态结构**（详见 [standards/16-ai-engine-harness-structure.md](standards/16-ai-engine-harness-structure.md)）。当前正在 W1-W16 分波次迁移，过渡期间按规范文档归位。
 
 ```
-L4 Open API（开放接口层）→ MCP Server、Public API、Webhooks、Admin、A2A → modules/open-api/
-L3 AI Apps（业务应用层）→ Research、Teams、Writing、Office、Topic-Insights、Image、Social、Library 等 → modules/ai-app/
-L2.5 AI Harness（Agent 运行时脚手架）                          → modules/ai-harness/
-      ├── facade/        ai-app 统一入口（AIFacade/ChatFacade/RAGFacade/AgentFacade/TeamFacade/ToolFacade）
-      ├── kernel/        Agent 规范、AgentFactory、HookRegistry、SkillRegistry（SKILL.md 风格）、DX、learning
-      ├── execution/     ReAct/PlanAct/Reflexion/LeaderWorker loops、ToolInvoker、Context engineering
-      ├── memory/        向量存储、CheckpointService、MemoryAutoIndexer
-      ├── process/       SubagentSpawner、ProcessSupervisor、Handoff、KernelScheduler
-      ├── protocol/      EventBus/Journal/IPC、Realtime（WS gateway）、MCP、A2A
-      ├── governance/    TraceCollector、Observability、Judge/verifiers、ConstraintEnforcement
-      └── runtime/       TeamsModule（TeamRegistry/RoleRegistry/MissionOrchestrator）、judge-primitives
-L2 AI Engine（核心能力层）→ LLM / Tools / RAG / Skills / Planning → modules/ai-engine/
-      ├── facade/       engine 公共桶
-      └── llm/ tools/ skills/ planning/ safety/ knowledge/ content/ credentials/ core/ abstractions/
-L1 Infrastructure（基础设施层）→ Auth、Credits、Storage、Encryption、Secrets、Email、Notifications → modules/ai-infra/
+L4 Open API → modules/open-api/
+L3 AI Apps  → modules/ai-app/
+
+L2.5 AI Harness（11 顶层聚合，全业界标准词）→ modules/ai-harness/
+      ├── facade/         对外门面（仅 re-export + thin delegation）
+      ├── agents/         Agent 定义（含 subagents、core、registry、domain、skills）
+      ├── runner/         运行循环（loop / executor / tool-invoker / tool-routing / scheduler / dag）
+      ├── teams/          团队业务模式（含 collaboration: voting/debate/review）
+      ├── handoffs/       Agent 切换（OpenAI 标准）
+      ├── memory/         状态（vector/working/checkpoint/event-store/consolidation/indexing）
+      ├── protocols/      仅 5 个 agent 层协议：a2a / ipc / events / realtime / journal
+      ├── evaluation/     质量评判（critique / verify / figure）
+      ├── guardrails/     资源限额（budget / billing / rate-limit / concurrency / constraint）
+      ├── tracing/        追踪（otel / eval / latency / llm-events / attribution）
+      └── lifecycle/      韧性（hooks / manager / supervisor / mission-lifecycle / learning）
+
+L2 AI Engine（10 顶层聚合）→ modules/ai-engine/
+      ├── facade/        engine 公共桶
+      ├── llm/           LLM 调用 + 模型适配 + 路由 + 定价 + intent
+      ├── tools/         项目唯一 tools（含 mcp/openapi/function adapter）
+      ├── rag/           检索基元
+      ├── knowledge/     知识抽取（fact/entity/relation/world-building）
+      ├── skills/        项目唯一 SkillRegistry
+      ├── planning/      任务分解（不含 agent loop）
+      ├── safety/        安全（pii/moderation/injection）
+      ├── content/       内容处理（fetch/cleaner/markdown）
+      └── credentials/   BYOK / secret resolver
+
+L1 Infrastructure → modules/ai-infra/
 ```
+
+> **MECE 强制原则**：
+>
+> 1. **engine 不知道 agent / mission**（无 agent 状态）；harness 必知 agent / mission
+> 2. **MCP 在 engine 不在 harness**（tool source adapter，与 OpenAPI / function 同层）
+> 3. **A2AMessage 接口源头在 `protocols/ipc/abstractions/`**，不在 teams（修循环依赖）
+> 4. **每个聚合自己 abstractions/**，禁止 `runtime/abstractions/` 大杂烩 re-export
+> 5. **同名概念全项目唯一**：tools 只在 engine、SkillRegistry 只 1 个、checkpoint 不分两处
+> 6. **顶层目录全是业界标准词**：禁止自造 kernel/execution/process/protocol/governance/runtime
 
 > **依赖方向**：L4 → L3 → L2.5 → L2 → L1，严格单向。AI Harness 编排 AI Engine 基元，不反向依赖 ai-app。
 >
 > **三层看护机制（2026-05-01 PR-X-N，9.8/10 架构合规度锁定）**：
+>
 > 1. **ESLint `no-restricted-imports`**（IDE 实时反馈 + lint-staged pre-commit 拦截）
 >    - `ai-engine/**` 不得 import `ai-harness/**`（除合法 adapter 如 `engine-skill-provider.ts` 实现 `ISkillProvider` 端口）
 >    - `ai-app/**` 不得穿透 `ai-engine/**` / `ai-harness/**` 内部路径，必须走各自 facade
