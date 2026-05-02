@@ -18,8 +18,8 @@ import {
 import { InsufficientCreditsException } from "../../types/research.exceptions";
 import {
   inferIsReasoning,
-} from "@/modules/ai-engine/facade";
-import { PromptCacheCoordinatorService } from "@/modules/ai-engine/facade";
+  PromptCacheCoordinatorService,
+} from "@/modules/ai-harness/facade";
 import {
   ChatFacade,
   AIFacade,
@@ -59,7 +59,7 @@ import {
   convertLongListItemsToParagraphs,
   normalizeBoldStyle,
   convertOrdinalBulletsToParagraphs,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import type {
   EvidenceData,
   GeneratedChart,

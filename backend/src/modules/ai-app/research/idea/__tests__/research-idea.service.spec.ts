@@ -4,10 +4,10 @@
  * All Prisma and AIFacade dependencies are fully mocked.
  */
 
-jest.mock("../../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn(),
 }));
-jest.mock("../../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn(),
 }));
 
@@ -20,7 +20,7 @@ import {
 import { AIModelType, ResearchIdeaType } from "@prisma/client";
 import { ResearchIdeaService } from "../research-idea.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   CreateResearchIdeaDto,
   UpdateResearchIdeaDto,

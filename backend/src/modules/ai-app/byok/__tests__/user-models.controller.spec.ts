@@ -10,7 +10,7 @@ import {
   UserApiKeysService,
   UserModelConfigsService,
   AutoConfigureService,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };

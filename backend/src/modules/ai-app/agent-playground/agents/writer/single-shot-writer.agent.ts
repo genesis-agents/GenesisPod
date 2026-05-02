@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 import { ResearchReportSchema } from "../../dto/run-mission.dto";
 // ★ 2026-04-30 (PR-F): 注入 TI report-writing-standards (EN 版)，与
 //   topic-insights/prompts/dimension-research.prompt.ts 同源。
@@ -16,7 +16,7 @@ import {
   PROFESSIONAL_TONE_EN,
   FORMATTING_LIMITS_EN,
   EXECUTIVE_SUMMARY_FORMAT_EN,
-} from "../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),

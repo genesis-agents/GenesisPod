@@ -26,7 +26,7 @@ import { MissionHealthScheduler } from "./services/mission/lifecycle/mission-hea
 import {
   MissionCheckpointService,
   type MissionCheckpointStore,
-} from "../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
@@ -51,7 +51,7 @@ import {
   DomainEventBus,
   DomainEventRegistry,
   MissionOrphanDetectorService,
-} from "../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 

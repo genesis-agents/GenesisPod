@@ -13,8 +13,8 @@
  * - Line 774: supplementFiguresViaImageSearch - error thrown
  */
 
-// Break the ai-engine/facade import chain
-jest.mock("@/modules/ai-engine/facade", () => ({
+// Break the ai-harness/facade import chain
+jest.mock("@/modules/ai-harness/facade", () => ({
   ToolRegistry: jest.fn(),
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
@@ -23,7 +23,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataEnrichmentService } from "../data-enrichment.service";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { FigureExtractorService } from "../../report/figure-extractor.service";
 import { FigureRelevanceService } from "../../report/figure-relevance.service";
 import { DataSourceType } from "../../../types/data-source.types";

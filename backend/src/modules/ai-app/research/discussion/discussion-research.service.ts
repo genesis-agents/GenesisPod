@@ -22,7 +22,7 @@ import {
 import {
   KernelContext,
   MissionExecutorService,
-} from "../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * 讨论式研究服务

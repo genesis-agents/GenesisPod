@@ -13,7 +13,7 @@ jest.mock("@prisma/client", () => ({
   },
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
     sanitizeReport: jest.fn((text: string) => text),

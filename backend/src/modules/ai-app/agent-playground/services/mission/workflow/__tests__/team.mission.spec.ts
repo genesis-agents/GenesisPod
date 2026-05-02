@@ -104,7 +104,7 @@ jest.mock("../stages/s12-self-evolution.stage", () => ({
 }));
 
 // ── mock BillingRuntimeEnvAdapter + MissionBudgetPool ─────────────────────
-jest.mock("../../../../../../ai-harness/facade", () => {
+jest.mock("@/modules/ai-harness/facade", () => {
   const mockAdapter = {
     userId: "user-1",
     workspaceId: undefined,
@@ -141,7 +141,7 @@ jest.mock("../../../../../../ai-harness/facade", () => {
   };
 });
 
-jest.mock("../../../../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   FigureExtractorService: jest.fn(),
 }));
 
@@ -172,7 +172,7 @@ jest.mock("../../../../agents/leader/leader.agent", () => ({
 
 // Now import after mocks are set up
 import { TeamMission } from "../team.mission";
-import * as facade from "../../../../../../ai-harness/facade";
+import * as facade from "@/modules/ai-harness/facade";
 
 const mockFacadeModule = facade as unknown as {
   __mockAdapter: {

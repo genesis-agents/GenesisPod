@@ -4,14 +4,14 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { IterativeSearchService } from "../discussion/iterative-search.service";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import type {
   ResearchPlan,
   ResearchPlanStep,
   SearchRound,
 } from "../discussion/types";
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ToolRegistry: jest.fn().mockImplementation(() => ({
     tryGet: jest.fn(),
     get: jest.fn(),

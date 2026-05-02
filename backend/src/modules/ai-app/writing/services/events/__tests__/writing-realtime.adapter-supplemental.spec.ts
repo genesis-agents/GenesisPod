@@ -1,5 +1,5 @@
 // Mock ai-engine facade to prevent loading of cache-manager / ioredis
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AgentFacade: class MockAgentFacade {},
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({

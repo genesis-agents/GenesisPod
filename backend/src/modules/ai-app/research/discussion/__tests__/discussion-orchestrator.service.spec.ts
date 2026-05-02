@@ -91,7 +91,7 @@ jest.mock("@prisma/client", () => ({
   },
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AIFacade: jest.fn().mockImplementation(() => ({})),
   AgentFacade: jest.fn().mockImplementation(() => ({})),
   TeamFacade: jest.fn().mockImplementation(() => ({})),
@@ -135,11 +135,11 @@ jest.mock("../../idea/research-idea.service", () => ({
   ResearchIdeaService: jest.fn(),
 }));
 
-jest.mock("../../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: jest.fn(),
   KernelContext: jest.fn(),
 }));
-jest.mock("../../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: jest.fn(),
   KernelContext: jest.fn(),
 }));

@@ -469,7 +469,7 @@ export class AgentCommunicationTool
           this.inboxes.set(agentId, merged);
           // 将合并结果写回 Redis，确保下次重启时不再丢失启动窗口期消息
           if (merged.length > inbox.length) {
-            this.saveInboxToCache(agentId as string);
+            this.saveInboxToCache(agentId);
           }
         }
       }

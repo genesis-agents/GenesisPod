@@ -608,27 +608,30 @@ ai-harness/
 
 ## 八、整改执行波次
 
-### 8.1 16 波次总览
+### 8.1 19 波次总览
 
-| 波次    | 内容                                                                                                          | 风险   | 状态 |
-| ------- | ------------------------------------------------------------------------------------------------------------- | ------ | ---- |
-| **W0**  | 沉淀规范文档 standards/16 + CLAUDE.md 同步                                                                    | LOW    | ✅   |
-| **W1**  | governance/learning → lifecycle/learning                                                                      | LOW    | ✅   |
-| **W2**  | governance/figure → evaluation/figure                                                                         | LOW    | ✅   |
-| **W3**  | governance/critique → evaluation/critique                                                                     | MEDIUM | ✅   |
-| **W4**  | governance/verify → evaluation/verify                                                                         | MEDIUM | ✅   |
-| **W5**  | governance/observability → tracing 顶层                                                                       | MEDIUM | ✅   |
-| **W6**  | governance/resource → guardrails 顶层 + 删 governance/                                                        | MEDIUM | ✅   |
-| **W7**  | process/handoff → handoffs 顶层                                                                               | LOW    | ✅   |
-| **W8**  | process/\* 拆分到 lifecycle/agents/runner/teams/memory + 删 process/                                          | MEDIUM | ✅   |
-| **W9**  | runtime/cost → guardrails/{budget,billing} + engine/llm/pricing（跨层）                                       | MEDIUM | ✅   |
-| **W10** | runtime/mission 拆 runner/lifecycle/guardrails                                                                | MEDIUM | ✅   |
-| **W11** | runtime/env → runner/env                                                                                      | MEDIUM | ✅   |
-| **W12** | runtime/api/kernel-api → facade/harness-api（rename）+ 解散 runtime/abstractions                              | MEDIUM | ✅   |
-| **W13** | kernel/ -> agents/ (rename + subtree move)                                                                    | HIGH   | ✅   |
-| **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | ✅   |
-| **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | ✅   |
-| **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 5 件套到 lifecycle/mission-lifecycle | HIGH   | ✅   |
+| 波次    | 内容                                                                                                          | 风险   | 状态   |
+| ------- | ------------------------------------------------------------------------------------------------------------- | ------ | ------ |
+| **W0**  | 沉淀规范文档 standards/16 + CLAUDE.md 同步                                                                    | LOW    | ✅     |
+| **W1**  | governance/learning → lifecycle/learning                                                                      | LOW    | ✅     |
+| **W2**  | governance/figure → evaluation/figure                                                                         | LOW    | ✅     |
+| **W3**  | governance/critique → evaluation/critique                                                                     | MEDIUM | ✅     |
+| **W4**  | governance/verify → evaluation/verify                                                                         | MEDIUM | ✅     |
+| **W5**  | governance/observability → tracing 顶层                                                                       | MEDIUM | ✅     |
+| **W6**  | governance/resource → guardrails 顶层 + 删 governance/                                                        | MEDIUM | ✅     |
+| **W7**  | process/handoff → handoffs 顶层                                                                               | LOW    | ✅     |
+| **W8**  | process/\* 拆分到 lifecycle/agents/runner/teams/memory + 删 process/                                          | MEDIUM | ✅     |
+| **W9**  | runtime/cost → guardrails/{budget,billing} + engine/llm/pricing（跨层）                                       | MEDIUM | ✅     |
+| **W10** | runtime/mission 拆 runner/lifecycle/guardrails                                                                | MEDIUM | ✅     |
+| **W11** | runtime/env → runner/env                                                                                      | MEDIUM | ✅     |
+| **W12** | runtime/api/kernel-api → facade/harness-api（rename）+ 解散 runtime/abstractions                              | MEDIUM | ✅     |
+| **W13** | kernel/ -> agents/ (rename + subtree move)                                                                    | HIGH   | ✅     |
+| **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | ✅     |
+| **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | ✅     |
+| **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 5 件套到 lifecycle/mission-lifecycle | HIGH   | ✅     |
+| **W17** | engine 顶层聚合整改（解散 core/abstractions，提拔 rag/planning/credentials）                                  | HIGH   | ✅     |
+| **W18** | engine 全量命名规范对齐（Module 去前缀、规范化扩展名及缺失后缀修正）                                          | LOW    | ⏳待办 |
+| **W19** | harness 全量命名规范对齐（收敛非标准扩展测试文件后缀、补齐领域概念文件后缀）                                  | LOW    | ⏳待办 |
 
 ### 8.2 单波次执行流程
 
@@ -659,6 +662,62 @@ const oldRoot = path.resolve(process.argv[3]);
 // 2. 如果绝对路径仍在 OLD subtree → 转成 NEW 位置的相对路径
 // 3. 否则转成 @/<src 子路径>
 ```
+
+---
+
+### 8.4 (W17-W19) 收尾波次执行细节明细
+
+#### W17: ai-engine 顶层架构重组
+
+严格对齐规范的 10 大顶级聚合（llm, tools, rag, knowledge, skills, planning, safety, content, credentials, facade）。
+
+- **拆除 `abstractions/` 违规顶层：**
+  - `abstractions/runtime-deps.tokens.ts` ➡️ `facade/abstractions/` 或 `planning/abstractions/`。
+- **解散 `core/` 违规大杂烩：**
+  - `core/errors/tool-error.ts` ➡️ `tools/abstractions/`
+  - `core/errors/skill-error.ts` ➡️ `skills/abstractions/`
+  - `core/exceptions/ai-service.exception.ts` ➡️ `facade/abstractions/` 或 `llm/abstractions/`
+  - `core/interfaces/rag.interface.ts` ➡️ `rag/abstractions/`
+  - `core/utils/error-detection.util.ts` ➡️ `safety/` 或 `llm/`
+  - _注：`agent.types.ts` / `agent-error.ts` 应迁出 engine，下沉至 `ai-harness/agents/`。_
+- **提拔 `rag/` 为一级聚合：**
+  - 将 `knowledge/rag/` 整体移动至 `ai-engine/rag/`。
+- **组建 `planning/` 一级聚合：**
+  - 创建 `ai-engine/planning/`，将现埋藏于 `llm/` 内的 `ai-engine-planning.module.ts` 及相关编排解耦逻辑迁移至此。
+- **补齐 `credentials/` 一级聚合：**
+  - 将 `llm/user-models-auto-configure.service.ts` 移动到新建的 `credentials/user-config/`。
+  - 将 `core/utils/multi-key-manager.ts` 移动到 `credentials/secret-resolver/`。
+
+#### W18: engine 全量命名规范严格对齐
+
+此波次在 W17 结构归位后执行，以新目录结构为基准进行彻底的重命名：
+
+- **移除 Module 冗余前缀**：
+  - `ai-engine-llm.module.ts` ➡️ `llm.module.ts`
+  - `ai-engine-planning.module.ts` ➡️ `planning.module.ts`
+  - `ai-engine-constraint.module.ts` ➡️ `constraint.module.ts`（视作 safety 对应的 module）
+  - `ai-engine-skills.module.ts` ➡️ `skills.module.ts`
+  - `ai-engine-tools.module.ts` ➡️ `tools.module.ts`
+  - `ai-engine-knowledge.module.ts` ➡️ `knowledge.module.ts`
+- **补齐缺失的描述性后缀**：
+  - `credentials/secret-resolver/multi-key-manager.ts` ➡️ `multi-key-manager.service.ts`（或 `.util.ts`）
+- **修复非标准复数后缀**：
+  - `*.utils.ts` ➡️ `*.util.ts`（如 `url-sanitizer.utils.ts`）
+  - `*.interfaces.ts` ➡️ `*.interface.ts`（如 `rag-pipeline.interfaces.ts`）
+- **统一测试文件扩展名**：
+  - 检查并对齐不规范的 `*.extended.spec.ts`（如 `knowledge-graph.extended.spec.ts` 等）。
+
+#### W19: ai-harness 全量命名规范严格对齐
+
+同理兜底 `ai-harness` 内部的不规范命名，主要包括：
+
+- **测试文件防碎片化清洗（非标准扩展名修剪）**：
+  - 项目内泛滥了大量 `*-expanded.spec.ts`、`*-supplemental.spec.ts`、`*-extra.spec.ts`（如 `teams-mission-orchestrator-supplemental.spec.ts`、`span-exporter-extra.spec.ts` 等），要求统统合并回主测试文件，或重命名为规范合法的测试后缀（如 `xxx.e2e-spec.ts` 或 `xxx.integration.spec.ts`）。
+- **缺失描述性后缀补齐**：
+  - `runner/abstractions/runtime-deps.ts` ➡️ `runtime-deps.token.ts`（或依据实际职责）
+  - 核心领域模型（如 `team.ts`, `role.ts`, `constraint-profile.ts`）补齐 `.model.ts` 或 `.entity.ts` 后缀。
+- **模块级去前缀**：
+  - 检查并移除不必要的领域前缀。
 
 这样保证子树内部 import 稳定，外部 import 用绝对别名免疫深度变化。
 
@@ -726,21 +785,27 @@ const oldRoot = path.resolve(process.argv[3]);
 
 ## 十一、进度跟踪
 
-### 11.1 已完成 commits（W0-W10，共 11 个）
+### 11.1 已完成 commits（W0-W16）
 
-| Commit        | 内容                                                  |
-| ------------- | ----------------------------------------------------- |
-| `bfdc35ea7`   | W0: 规范文档 standards/16 + CLAUDE.md 同步            |
-| `6dac1395e`   | W1: governance/learning → lifecycle/learning          |
-| `2e2f37c4f`   | W2: governance/figure → evaluation/figure             |
-| `a63bf3665`   | W3: governance/critique → evaluation/critique         |
-| `185583ce0`   | W4: governance/verify → evaluation/verify             |
-| `f7869060e`   | W5: governance/observability → tracing 顶层           |
-| `42f03814d`   | W6: governance/resource → guardrails + 删 governance/ |
-| `420ca03a4`   | W7: process/handoff → handoffs 顶层                   |
-| `95c51e5b3`   | W8: process/\* 拆分 + 删 process/                     |
-| `840f0dc61`   | W9: runtime/cost 拆三处（含跨层迁 engine）            |
-| `840f0dc61+1` | W10: runtime/mission 拆四处 + 删 mission/             |
+| Commit        | 内容                                                     |
+| ------------- | -------------------------------------------------------- |
+| `bfdc35ea7`   | W0: 规范文档 standards/16 + CLAUDE.md 同步               |
+| `6dac1395e`   | W1: governance/learning → lifecycle/learning             |
+| `2e2f37c4f`   | W2: governance/figure → evaluation/figure                |
+| `a63bf3665`   | W3: governance/critique → evaluation/critique            |
+| `185583ce0`   | W4: governance/verify → evaluation/verify                |
+| `f7869060e`   | W5: governance/observability → tracing 顶层              |
+| `42f03814d`   | W6: governance/resource → guardrails + 删 governance/    |
+| `420ca03a4`   | W7: process/handoff → handoffs 顶层                      |
+| `95c51e5b3`   | W8: process/\* 拆分 + 删 process/                        |
+| `840f0dc61`   | W9: runtime/cost 拆三处（含跨层迁 engine）               |
+| `840f0dc61+1` | W10: runtime/mission 拆四处 + 删 mission/                |
+| (待补充)      | W11: runtime/env → runner/env                            |
+| (待补充)      | W12: runtime/api/kernel-api → facade/harness-api         |
+| (待补充)      | W13: kernel/ -> agents/                                  |
+| (待补充)      | W14: execution/ → runner/                                |
+| (待补充)      | W15: protocol/ → protocols/ + MCP 跨层迁 engine          |
+| (待补充)      | W16: teams/abstractions 归位 + orchestrator 迁 lifecycle |
 
 ### 11.2 当前 ai-harness 顶层状态
 
@@ -760,7 +825,25 @@ ai-harness/
 └── runner/         （W14 complete: absorbed execution loop/executor/context/prompt/concurrency/dag/capabilities/tool-invoker/tool-routing）
 ```
 
-### 11.3 验收指标
+### 11.3 当前 ai-engine 顶层状态
+
+```text
+ai-engine/
+├── content/        （已保留）
+├── credentials/    （W17 完成：收纳 user-config 与 secret-resolver）
+├── facade/         （已保留）
+├── knowledge/      （已保留：聚焦知识抽取/组织）
+├── llm/            （已保留：聚焦模型调用/选型/定价）
+├── planning/       （W17 完成：承接与 agent 无关的规划基元）
+├── rag/            （W17 完成：从 knowledge/rag 提拔为一级聚合）
+├── safety/         （已保留）
+├── skills/         （已保留）
+└── tools/          （已保留）
+```
+
+目标 engine 顶层必须回到规范 10 聚合：`llm/tools/rag/knowledge/skills/planning/safety/content/credentials/facade`。
+
+### 11.4 验收指标
 
 | 指标                   | 当前                         | 目标 |
 | ---------------------- | ---------------------------- | ---- |

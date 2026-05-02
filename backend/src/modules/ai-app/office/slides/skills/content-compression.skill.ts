@@ -19,7 +19,7 @@ import {
   SkillLayer,
   SKILL_LAYERS,
   ChatMessage,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import {

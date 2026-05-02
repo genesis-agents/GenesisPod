@@ -15,12 +15,12 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import type {
   ToolContext,
   ImageSearchOutput,
   ImageSearchResult,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { withTimeoutFallback } from "@/common/utils/timeout.utils";
 import type { DataSourceResult } from "../../types/data-source.types";
 import type {

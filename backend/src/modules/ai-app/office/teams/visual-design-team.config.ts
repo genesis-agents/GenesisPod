@@ -17,10 +17,10 @@
 import {
   BUILTIN_TEAMS,
   BUILTIN_ROLES,
+  BUILTIN_TOOLS,
   createConstraintProfile,
-} from "../../../ai-harness/facade";
-import type { TeamConfig, WorkflowConfig } from "../../../ai-harness/facade";
-import { BUILTIN_TOOLS } from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 // ============================================================================
 // Agent System Prompts - 针对 Imagen 4 优化的专业提示词

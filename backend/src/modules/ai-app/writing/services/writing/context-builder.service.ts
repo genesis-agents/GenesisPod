@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { StoryBibleService } from "../bible/story-bible.service";
-import { ToolFacade } from "../../../../ai-harness/facade";
+import { ToolFacade } from "@/modules/ai-harness/facade";
 
 /**
  * Context Builder Service

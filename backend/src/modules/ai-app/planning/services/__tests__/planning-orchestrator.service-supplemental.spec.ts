@@ -35,7 +35,7 @@ jest.mock("../../../teams/ai-teams.service", () => ({
 jest.mock("../../../teams/services/ai/ai-response.service", () => ({
   AiResponseService: class {},
 }));
-jest.mock("../../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AIFacade: class {},
   ChatFacade: class {},
   TeamFacade: class {},
@@ -48,7 +48,7 @@ jest.mock("../../../../ai-engine/facade", () => ({
   EventBusService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
-jest.mock("../../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AIFacade: class {},
   ChatFacade: class {},
   TeamFacade: class {},
@@ -93,11 +93,11 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiTeamsService } from "../../../teams/ai-teams.service";
 import { AiResponseService } from "../../../teams/services/ai/ai-response.service";
 import { PlanningTemplateService } from "../planning-template.service";
-import { ChatFacade, TeamFacade, RAGFacade } from "../../../../ai-harness/facade";
+import { ChatFacade, TeamFacade, RAGFacade } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   EventJournalService,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { CreatePlanDto, PlanningDepth } from "../../dto/create-plan.dto";
 
 // ======================================================

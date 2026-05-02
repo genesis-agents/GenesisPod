@@ -34,8 +34,8 @@ import { MissionObservabilityService } from "../../core/mission/mission-observab
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";
 import { DimensionProgressService } from "../dimension-progress.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { ContextCompressionService, ContextEvolutionService } from "@/modules/ai-engine/facade";
-import { TokenBudgetService } from "@/modules/ai-engine/facade";
+import { ContextCompressionService, ContextEvolutionService } from "@/modules/ai-harness/facade";
+import { TokenBudgetService } from "@/modules/ai-harness/facade";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 

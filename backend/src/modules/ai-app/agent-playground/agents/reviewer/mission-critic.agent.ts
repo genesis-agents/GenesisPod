@@ -17,7 +17,7 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),
@@ -96,7 +96,7 @@ export class MissionCriticAgent extends AgentSpec<typeof Input, typeof Output> {
       `- Title: ${input.artifactSummary.title}`,
       `- ${input.artifactSummary.sectionCount} sections, ${input.artifactSummary.citationCount} citations, ${input.artifactSummary.factCount} facts, ${input.artifactSummary.figureCount} figures`,
       `- Section titles: ${input.artifactSummary.sectionTitles.join(" / ")}`,
-      `- Executive summary: """${input.artifactSummary.executiveSummary.slice(0, 500)}${input.artifactSummary.executiveSummary.length > 500 ? "…" : ""}"""`,
+      `- Executive summary: """${input.artifactSummary.executiveSummary.slice(0, 500)}${input.artifactSummary.executiveSummary.length > 500 ? "â€¦" : ""}"""`,
       `- Reviewer overall: ${input.artifactSummary.overallQuality}/100`,
       `- Quality dimensions: ${Object.entries(
         input.artifactSummary.qualityDimensions,

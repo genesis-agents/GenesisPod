@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import {
   ACADEMIC_STEP_OVERRIDE,
   DEFAULT_TOOL_RESOLUTIONS,

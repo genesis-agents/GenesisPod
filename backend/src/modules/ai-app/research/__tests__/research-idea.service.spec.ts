@@ -24,7 +24,7 @@ jest.mock("@prisma/client", () => ({
   PrismaClient: class MockPrismaClient {},
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
   })),

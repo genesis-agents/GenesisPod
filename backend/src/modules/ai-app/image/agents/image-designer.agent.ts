@@ -17,19 +17,19 @@ interface StepArtifact {
   url?: string;
   metadata?: Record<string, unknown>;
 }
-import { PlanBasedAgent } from "../../../ai-harness/facade";
+import { PlanBasedAgent } from "@/modules/ai-harness/facade";
 import {
   BUILTIN_AGENTS,
+  BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
-  type PlanAgentEvent as AgentEvent,
+  type AgentEvent,
   type AgentTemplate,
   type ToolId,
-  BUILTIN_TOOLS,
   type PlanStep,
   type IImageGenerationService,
   IMAGE_GENERATION_SERVICE_TOKEN,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * 信息图表风格 (从原 InfographicService 复制)

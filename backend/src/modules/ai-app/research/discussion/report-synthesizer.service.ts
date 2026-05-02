@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { ChatFacade, TeamFacade } from "../../../ai-harness/facade";
+import { ChatFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import {
   SearchRound,
   SearchSource,

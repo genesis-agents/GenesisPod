@@ -35,12 +35,12 @@ jest.mock("../../../../../agents/writer/dimension-integrator.agent", () => ({
   DimensionIntegratorAgent: class DimensionIntegratorAgent {},
 }));
 
-jest.mock("../../../../../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   restoreGlobalIndices: jest.fn((body: string) => body),
   sanitizeSectionOutput: jest.fn((body: string) => body),
 }));
 
-jest.mock("../../../../../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   scanContentDefects: jest.fn(() => ({
     bareLatexCount: 0,
     brokenDollarNesting: 0,

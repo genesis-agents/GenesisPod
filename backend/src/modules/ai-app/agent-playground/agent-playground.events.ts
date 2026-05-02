@@ -5,7 +5,7 @@
  * 所有 demo 事件必须在此声明。
  */
 
-import type { DomainEventTypeSpec } from "../../ai-harness/facade";
+import type { DomainEventTypeSpec } from "@/modules/ai-harness/facade";
 
 const T = (suffix: string): DomainEventTypeSpec => ({
   type: `agent-playground.${suffix}`,

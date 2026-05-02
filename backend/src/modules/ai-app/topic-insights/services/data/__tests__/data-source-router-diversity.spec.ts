@@ -16,7 +16,7 @@ import {
   WhiteHouseNewsTool,
   EmbeddingService,
   VectorService,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { AICapabilityResolver } from "@/modules/ai-harness/facade";
 import { DataSourcePlannerService } from "../data-source-planner.service";
 import { createMockAiEngineFacade } from "../../../__tests__/mocks";

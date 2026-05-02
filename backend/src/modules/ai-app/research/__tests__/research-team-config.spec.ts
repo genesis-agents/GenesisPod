@@ -8,7 +8,7 @@ import {
   createResearchTeamConfig,
 } from "../teams/research-team.config";
 
-jest.mock("../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   BUILTIN_TEAMS: {
     RESEARCH: "research",
     DEBATE: "debate",
@@ -34,7 +34,7 @@ jest.mock("../../../ai-engine/facade", () => ({
     overrides: _overrides,
   })),
 }));
-jest.mock("../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   BUILTIN_TEAMS: {
     RESEARCH: "research",
     DEBATE: "debate",

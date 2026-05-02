@@ -13,7 +13,7 @@
 
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { TeamFacade } from "../../../../ai-harness/facade";
+import { TeamFacade } from "@/modules/ai-harness/facade";
 
 @Injectable()
 export class WritingMissionQueryService {

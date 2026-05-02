@@ -16,7 +16,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { SelfReflectionService } from "../self-reflection.service";
-import { ChatFacade } from "../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import type {
   ResearchPlan,
   SearchRound,

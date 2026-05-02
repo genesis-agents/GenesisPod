@@ -26,7 +26,7 @@ import type {
   SelfEvalDimension,
   RemediationAction,
   RemediationActionType,
-} from "../../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 const REMEDIATION_GUIDANCE: Record<SelfEvalDimension, string> = {
   analytical_depth:

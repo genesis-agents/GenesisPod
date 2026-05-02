@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 @Injectable()
 export class ResearchDemoService {

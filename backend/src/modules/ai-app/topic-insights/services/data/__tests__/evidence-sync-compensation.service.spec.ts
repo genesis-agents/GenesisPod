@@ -12,7 +12,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EvidenceSyncCompensationService } from "../evidence-sync-compensation.service";
 import { TeamFacade } from "@/modules/ai-harness/facade";
-import { SaveEvidenceRequest } from "@/modules/ai-engine/facade";
+import { SaveEvidenceRequest } from "@/modules/ai-harness/facade";
 
 describe("EvidenceSyncCompensationService", () => {
   let service: EvidenceSyncCompensationService;

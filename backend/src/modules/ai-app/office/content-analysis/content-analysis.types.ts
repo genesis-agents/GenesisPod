@@ -14,21 +14,21 @@ export {
   DataDensity,
   TemporalDimension,
   HierarchyType,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 export type {
   ContentFeatures,
   ExtractedEntity,
   VisualizationOpportunity,
   ParagraphFeatures,
   SectionFeatures,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 // Re-import for local use in interfaces below
 import type {
   ContentFeatures,
   ParagraphFeatures,
   SectionFeatures,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 // ============================================================================
 // 内容分析请求/响应 (L4 业务类型)

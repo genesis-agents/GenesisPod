@@ -9,7 +9,7 @@
 jest.mock("@prisma/client", () => ({
   PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: { CHAT: "CHAT" },
 }));
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: class {},
   RAGFacade: class {},
   ToolRegistry: class {},

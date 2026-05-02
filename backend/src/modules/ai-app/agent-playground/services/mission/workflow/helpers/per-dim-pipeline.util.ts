@@ -26,8 +26,8 @@ import { ChapterWriterAgent } from "../../../../agents/writer/chapter-writer.age
 import { ChapterReviewerAgent } from "../../../../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../../../../agents/writer/dimension-integrator.agent";
 import type { MissionDeps } from "../mission-deps";
-import type { BillingRuntimeEnvAdapter } from "../../../../../../ai-harness/facade";
-import type { MissionBudgetPool } from "../../../../../../ai-harness/facade";
+import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
+import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
 import {
@@ -37,11 +37,11 @@ import {
 import { narrate } from "./narrative.util";
 import { jaccardSimilarity } from "./similarity.util";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
-import { restoreGlobalIndices } from "../../../../../../ai-engine/facade";
+import { restoreGlobalIndices } from "@/modules/ai-harness/facade";
 // ★ 沉淀 v2: 内容缺陷扫描（纯函数 utility，0 LLM）—— chapter draft 格式缺陷指标
-import { scanContentDefects } from "../../../../../../ai-harness/facade";
+import { scanContentDefects } from "@/modules/ai-harness/facade";
 // ★ 沉淀 v4: LLM 输出白名单清理（"铁墙函数"，13 个正交修复）
-import { sanitizeSectionOutput } from "../../../../../../ai-engine/facade";
+import { sanitizeSectionOutput } from "@/modules/ai-harness/facade";
 
 export interface PerDimPipelineArgs {
   missionId: string;

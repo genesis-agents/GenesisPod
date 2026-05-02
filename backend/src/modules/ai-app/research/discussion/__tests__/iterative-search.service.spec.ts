@@ -15,7 +15,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { IterativeSearchService } from "../iterative-search.service";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import type { ResearchPlanStep, ResearchPlan, SearchRound } from "../types";
 
 // ============================================================

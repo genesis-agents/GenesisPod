@@ -14,7 +14,7 @@ import type {
   CoreEntity,
   HardConstraint,
   EstablishedFact,
-} from "../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 // ==================== Story Bible 扩展类型 ====================
 

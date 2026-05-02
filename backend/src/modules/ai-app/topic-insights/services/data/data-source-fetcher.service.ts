@@ -4,7 +4,7 @@ import {
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { ChatFacade, RAGFacade } from "@/modules/ai-harness/facade";
 import {
   DataSourceType,
@@ -1033,7 +1033,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
    */
   private createToolContext(
     toolId: string,
-  ): import("@/modules/ai-engine/facade").ToolContext {
+  ): import("@/modules/ai-harness/facade").ToolContext {
     return {
       executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       toolId,

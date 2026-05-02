@@ -3,8 +3,8 @@
  */
 
 import { SkillError } from "../skill-error";
-import { EngineError } from "../base-error";
-import { SkillErrorCode } from "../error-codes";
+import { EngineError } from "@/modules/ai-engine/facade/abstractions/base-error";
+import { SkillErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes";
 
 describe("SkillError", () => {
   describe("constructor", () => {

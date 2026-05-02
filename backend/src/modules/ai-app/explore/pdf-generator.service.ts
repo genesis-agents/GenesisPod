@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PuppeteerPoolService } from "../../../common/browser/puppeteer-pool.service";
-import { TranscriptSegment } from "../../ai-engine/content/fetch/youtube.service";
+import type { TranscriptSegment } from "@/modules/ai-harness/facade";
 import { Readable } from "stream";
 
 export interface SubtitleExportOptions {

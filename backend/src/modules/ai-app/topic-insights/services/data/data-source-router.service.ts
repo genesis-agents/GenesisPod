@@ -17,7 +17,7 @@ import {
   CongressGovTool,
   WhiteHouseNewsTool,
   type ToolContext,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { ChatFacade, RAGFacade, ToolFacade } from "@/modules/ai-harness/facade";
 
 import {

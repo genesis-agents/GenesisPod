@@ -17,7 +17,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { getTheme } from "../templates/base/themes";
 import type {
   CompactDesignTokens,

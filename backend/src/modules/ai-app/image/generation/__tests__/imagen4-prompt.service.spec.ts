@@ -8,7 +8,7 @@ import {
   FourAgentOutputs,
   TeamProgressCallback,
 } from "../imagen4-prompt.service";
-import { TeamFacade } from "../../../../ai-harness/facade";
+import { TeamFacade } from "@/modules/ai-harness/facade";
 import { GenerateImageOptions } from "../../core/image.types";
 
 // ============================================================================

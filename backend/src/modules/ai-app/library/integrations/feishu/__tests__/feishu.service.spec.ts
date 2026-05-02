@@ -1,5 +1,5 @@
 // Mock heavy dependencies before imports
-jest.mock("../../../../../ai-engine/facade");
+jest.mock("@/modules/ai-harness/facade");
 jest.mock("../../../../../../common/prisma/prisma.service");
 jest.mock("../feishu-auth.service");
 jest.mock("../feishu-data-source.service");
@@ -9,7 +9,7 @@ jest.mock("../../../../../../common/config/app.config", () => ({
     brand: { name: "TestBrand" },
   },
 }));
-jest.mock("../../../../../ai-harness/facade");
+jest.mock("@/modules/ai-harness/facade");
 jest.mock("../../../../../../common/prisma/prisma.service");
 jest.mock("../feishu-auth.service");
 jest.mock("../feishu-data-source.service");
@@ -25,7 +25,7 @@ import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { FeishuService } from "../feishu.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { FeishuAuthService } from "../feishu-auth.service";
 import { FeishuDataSourceService } from "../feishu-data-source.service";
 import { UrlFetchService } from "../../../rag/services/url-fetch.service";

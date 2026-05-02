@@ -60,7 +60,7 @@ jest.mock("../../templates/base/themes", () => ({
   getAllThemes: jest.fn().mockReturnValue([]),
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: jest.fn(),
   KernelContext: {
     run: jest

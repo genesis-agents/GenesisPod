@@ -13,13 +13,13 @@ import {
   TeamFacade,
   TeamRegistry,
   RoleRegistry,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import type {
   TeamInfo,
   TeamConfig,
   ConstraintProfile,
   WorkflowConfig,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import {
   CreateCustomTeamDto,
   UpdateCustomTeamDto,

@@ -9,7 +9,7 @@ import {
   AgentSpec,
   DefineAgent,
   CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 // ★ 沉淀接入: 外部 evidence 进 prompt 前用 XML 隔离 + sanitize（防 OWASP LLM01）
 //   + TI report-writing-standards（与 TI dimension-research.prompt.ts 同源）
 import {
@@ -23,7 +23,7 @@ import {
   CHART_STANDARDS,
   TABLE_STANDARDS,
   QUALITY_CHECKLIST,
-} from "../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),

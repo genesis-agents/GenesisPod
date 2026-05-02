@@ -19,7 +19,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { FigureExtractorService } from "../figure-extractor.service";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Mock fixtures

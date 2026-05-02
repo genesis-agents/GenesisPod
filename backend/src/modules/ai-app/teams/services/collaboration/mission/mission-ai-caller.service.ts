@@ -12,11 +12,11 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade, ChatMessage } from "../../../../../ai-harness/facade";
+import { ChatFacade, ChatMessage } from "@/modules/ai-harness/facade";
 import type {
   CreativityLevel,
   OutputLengthLevel,
-} from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * TaskProfile 直接配置（推荐方式）

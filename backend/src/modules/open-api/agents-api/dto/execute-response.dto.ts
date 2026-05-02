@@ -3,7 +3,7 @@
  */
 
 import { ApiProperty } from "@nestjs/swagger";
-import { AgentTaskStatus } from "../../../ai-engine/core/types/agent.types";
+import { AgentTaskStatus } from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 /**
  * 任务状态值列表（用于 Swagger）

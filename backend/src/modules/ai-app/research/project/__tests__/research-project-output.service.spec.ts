@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import { ResearchProjectOutputService } from "../research-project-output.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { GenerateOutputDto } from "../dto";
 
 const mockPrisma = {

@@ -12,7 +12,7 @@ import { MissionReviewerAgent } from "../../agents/reviewer/mission-reviewer.age
 import { MissionCriticAgent } from "../../agents/reviewer/mission-critic.agent";
 import { DimensionQualityJudgeAgent } from "../../agents/reviewer/dimension-quality-judge.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
-import type { IAgentEvent } from "../../../../ai-harness/facade";
+import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "./runner-state.util";
 
 interface InvokeResult<TOut> {

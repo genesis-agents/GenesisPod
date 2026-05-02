@@ -13,9 +13,9 @@ import {
   SkillLayer,
   SKILL_LAYERS,
   ToolRegistry,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import type { ToolContext } from "@/modules/ai-engine/facade";
+import type { ToolContext } from "@/modules/ai-harness/facade";
 
 /**
  * 搜索结果类型（从工具返回数据中提取）

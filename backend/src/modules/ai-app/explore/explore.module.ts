@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { YoutubeController } from "./youtube.controller";
-import { YoutubeService } from "../../ai-engine/content/fetch/youtube.service";
+import { YoutubeService } from "@/modules/ai-harness/facade";
 import { PdfGeneratorService } from "./pdf-generator.service";
 import { YoutubeVideosController } from "./youtube-videos.controller";
 import { YoutubeVideosService } from "./youtube-videos.service";

@@ -36,12 +36,12 @@ export {
   type PlanningResult,
 } from "./template-selection.service";
 
-// 图文匹配服务 (PR-X25: shim removed, point to ai-engine/facade)
+// 图文匹配服务 (PR-X25: shim removed, point to ai-harness/facade)
 export {
   ImageMatchingService,
   type ImagePrompt,
   type ImageMatchingResult,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 // 阅读体验服务
 export {

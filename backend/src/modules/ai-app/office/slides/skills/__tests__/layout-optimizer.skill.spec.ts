@@ -13,7 +13,7 @@ import {
   RecommendedLayout,
 } from "../content-analyzer.skill";
 import { PageContent, ContentSection } from "../../checkpoint/checkpoint.types";
-import type { SkillContext } from "@/modules/ai-engine/facade";
+import type { SkillContext } from "@/modules/ai-harness/facade";
 
 // ============================================================================
 // Helpers

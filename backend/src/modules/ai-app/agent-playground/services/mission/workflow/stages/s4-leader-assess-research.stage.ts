@@ -33,7 +33,7 @@ import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
 import {
   DAGExecutor,
   type DAGAdapter,
-} from "../../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 interface PlanDimensionLite {
   id: string;

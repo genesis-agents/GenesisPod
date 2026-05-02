@@ -24,7 +24,7 @@ import {
 import type { AdapterSearchResult } from "../search.types";
 // ★ Phase 10 (2026-04-29): TI 已有自己的 normalizeUrl / extractDomain 行为
 // (强升 https / lowercase 整 URL / 保留 www.) — 与沉淀版的"标准化"行为不兼容
-// 沉淀版 (ai-engine/facade search-fusion) 给新业务用, TI 保持原实现避免回归
+// 沉淀版 (ai-harness/facade search-fusion) 给新业务用, TI 保持原实现避免回归
 // 备注: TI 行为已被 spec 锁定, 切换需配套 spec 调整, 暂不强迁
 
 /** Maximum number of items allowed from the same domain */

@@ -17,11 +17,11 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AgentFacade } from "../../../../ai-harness/facade";
-import { UserIntent, ContextStrategy } from "../../../../ai-harness/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
+import { UserIntent, ContextStrategy } from "@/modules/ai-harness/facade";
 
 // 重导出 ai-harness 类型（向后兼容；2026-05-01 PR-X-L 从 ai-engine 下移到 ai-harness）
-export { UserIntent, ContextStrategy } from "../../../../ai-harness/facade";
+export { UserIntent, ContextStrategy } from "@/modules/ai-harness/facade";
 
 // 上下文路由结果
 export interface ContextRouteResult {

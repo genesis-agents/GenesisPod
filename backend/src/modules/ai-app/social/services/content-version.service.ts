@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType, Prisma, SocialPlatformType } from "@prisma/client";
 import {
   PLATFORM_LIMITS,
@@ -414,13 +414,13 @@ export class ContentVersionService {
 
     // 截断标题
     if (result.title.length > limits.maxTitle) {
-      result.title = result.title.slice(0, limits.maxTitle - 1) + "…";
+      result.title = result.title.slice(0, limits.maxTitle - 1) + "â€¦";
     }
 
     // 截断摘要
     if (limits.maxDigest > 0 && result.digest) {
       if (result.digest.length > limits.maxDigest) {
-        result.digest = result.digest.slice(0, limits.maxDigest - 1) + "…";
+        result.digest = result.digest.slice(0, limits.maxDigest - 1) + "â€¦";
       }
     } else if (limits.maxDigest === 0) {
       // 平台不支持摘要
@@ -429,7 +429,7 @@ export class ContentVersionService {
 
     // 截断正文
     if (limits.maxContent > 0 && result.content.length > limits.maxContent) {
-      result.content = result.content.slice(0, limits.maxContent - 1) + "…";
+      result.content = result.content.slice(0, limits.maxContent - 1) + "â€¦";
     }
 
     return result;

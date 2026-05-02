@@ -20,7 +20,7 @@ import {
   RESEARCHER_MAX_ITERATIONS,
   RESEARCHER_MAX_ITERATIONS_HARD_CAP,
   RESEARCHER_MAX_WALL_TIME_MS,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),

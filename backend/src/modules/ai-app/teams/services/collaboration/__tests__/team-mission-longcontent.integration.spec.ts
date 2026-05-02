@@ -31,14 +31,14 @@ import {
   AIFacade,
   AgentFacade,
   TeamFacade,
-} from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import {
   AiChatService,
   SearchService,
   ContextInitializationService,
   ToolRegistry,
-} from "../../../../../ai-engine/facade";
-import { CircuitBreakerService } from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
+import { CircuitBreakerService } from "@/modules/ai-harness/facade";
 import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";
 import { TaskGranularityService } from "../../../../writing/content-engine/services/task-granularity.service";
@@ -48,7 +48,7 @@ import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { TopicEventEmitterService } from "../../events";
 import { LeaderModelService } from "../../ai/leader-model.service";
 import { MissionContextService } from "../mission/mission-context.service";
-import { ConstraintEnforcementService } from "../../../../../ai-harness/facade";
+import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
 import { EmailService } from "../../../../../ai-infra/email/email.service";
 import { MissionStateManager } from "../mission/mission-state.manager";
 import { MissionLifecycleService } from "../mission/mission-lifecycle.service";

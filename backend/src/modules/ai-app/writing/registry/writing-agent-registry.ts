@@ -17,7 +17,7 @@ import type {
   ExecutionPlan,
   AgentOutput,
   LegacyAgentEvent as AgentEvent,
-} from "../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 // ==================== Writing Agent 接口 ====================
 

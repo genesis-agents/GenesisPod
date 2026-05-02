@@ -14,11 +14,11 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { UserModelConfigsService } from "../../ai-engine/facade";
 import {
+  UserModelConfigsService,
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
-} from "../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

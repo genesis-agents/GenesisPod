@@ -18,8 +18,8 @@ import {
 } from "@prisma/client";
 import { CreateMissionDto } from "../../../dto/create-mission.dto";
 // ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../../../../ai-engine/facade";
-import type { ToolContext } from "../../../../../ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
+import type { ToolContext } from "@/modules/ai-harness/facade";
 import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,
@@ -28,7 +28,7 @@ import {
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIFacade 访问）
-import { TaskCompletionType } from "../../../../../ai-harness/facade";
+import { TaskCompletionType } from "@/modules/ai-harness/facade";
 import { EmailService } from "../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -43,8 +43,8 @@ import { MissionContextService } from "./mission-context.service";
 import {
   MissionContextPackage,
   HardConstraint,
-} from "../../../../../ai-harness/facade";
-import { ConstraintEnforcementService } from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
+import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
 import { MissionStateManager } from "./mission-state.manager";
 import { MissionLifecycleService } from "./mission-lifecycle.service";
 import { MissionRetryService } from "./mission-retry.service";
@@ -83,13 +83,13 @@ import {
   TaskBreakdownData,
   TaskAssignee,
 } from "../interfaces";
-import { AgentFacade, TeamFacade } from "../../../../../ai-harness/facade";
-import { ProgressTrackerService } from "../../../../../ai-harness/facade";
+import { AgentFacade, TeamFacade } from "@/modules/ai-harness/facade";
+import { ProgressTrackerService } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   EventJournalService,
   KernelContext,
-} from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts
@@ -4328,7 +4328,7 @@ ${taskBreakdown.executionPlan ? `\n执行计划：${taskBreakdown.executionPlan}
 
 【🌍 世界观设定 - 必须严格遵守】
 以下是本任务的世界观设定，所有创作内容必须与这些设定保持一致：
-${worldConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
+${worldConstraints.map((c) => `â€¢ [${c.id}] ${c.rule}`).join("\n")}
 
 ⚠️ 违反世界观设定将导致内容不一致，会被 Leader 打回修改。
 
@@ -4723,7 +4723,7 @@ ${truncatedResult}
       allConstraints.length > 0
         ? `
 【🚫 硬性约束 - 修改时必须遵守】
-${allConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
+${allConstraints.map((c) => `â€¢ [${c.id}] ${c.rule}`).join("\n")}
 
 ⚠️ 违反任何硬性约束将导致再次被驳回。
 `

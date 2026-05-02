@@ -23,7 +23,7 @@ import { ChapterWriterAgent } from "../../agents/writer/chapter-writer.agent";
 import { ChapterReviewerAgent } from "../../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../../agents/writer/dimension-integrator.agent";
 import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
-import type { IAgentEvent } from "../../../../ai-harness/facade";
+import type { IAgentEvent } from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "./runner-state.util";
 
 interface InvokeResult<TOut> {

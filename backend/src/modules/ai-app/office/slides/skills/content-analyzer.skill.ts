@@ -12,7 +12,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import {
   PageContent,
   ContentSection,

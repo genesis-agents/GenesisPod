@@ -8,7 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { AiCoreController } from "../ai-core.controller";
 import { AiCoreService } from "../ai-core.service";
 import { ChatFacade } from "../../../ai-harness/facade";
-import { RAGPipelineService } from "../../../ai-engine/knowledge/rag/pipeline";
+import { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { SearchService } from "../../../ai-engine/knowledge/search/search.service";
 

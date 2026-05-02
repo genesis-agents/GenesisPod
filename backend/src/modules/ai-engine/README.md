@@ -15,84 +15,91 @@ ai-engine/
 ├── README.md
 ├── ai-engine.module.ts           ← 顶层聚合 module（imports 所有子 module）
 ├── index.ts                       ← top-level barrel
-├── facade/                        ★ 外部消费者唯一入口（103 export，6 文件）
+├── facade/                        ★ 对外门面与共享抽象
 │
-├── llm/                           ★ LLM 适配层 ——「调一次模型」
-│   ├── llm.module.ts              NestJS 装配
-│   ├── planning.module.ts         Reflection / IntentDetection / Context Mgmt
-│   ├── abstractions/              ILLMAdapter / Message / TaskProfile
-│   ├── adapters/                  AiChat / FunctionCalling / Universal LLM Adapter
-│   ├── budget/                    TokenBudgetService
-│   ├── context/                   ContextCompression
-│   ├── factory/                   LLMFactory（按 modelType 选 adapter）
-│   ├── intent/                    IntentDetectionService
-│   ├── output-parsing/            sanitize-output（13 fix funcs）+ extract-json
-│   ├── prompt-adaptation/         按 model tier 适配 prompt
-│   ├── prompts/                   公共 prompt 常量
-│   ├── reflection/                Reflection / Self-critique
-│   ├── selection/                 ModelFallback / ModelElection / ModelRecommendations
-│   ├── services/                  AiChat / AiModelConfig / AiApiCaller / AiStreamHandler
-│   └── types/                     ChatMessage / TaskProfile / Creativity / OutputLength
+├── llm/                           ★ LLM 调用、适配、选型、定价
+│   ├── llm.module.ts
+│   ├── abstractions/
+│   ├── adapters/
+│   ├── factory/
+│   ├── output-parsing/
+│   ├── pricing/
+│   ├── prompt-adaptation/
+│   ├── prompts/
+│   ├── selection/
+│   ├── services/
+│   └── types/
 │
-├── tools/                         ★ Tool 系统 ——「一个工具怎么调一次」
+├── tools/                         ★ 工具目录、执行与 source adapters
 │   ├── tools.module.ts
-│   ├── abstractions/              ITool / ToolContext / ToolResult / JSONSchema
-│   ├── base/                      BaseTool
-│   ├── categories/                40+ built-in tools（按 category 组织）
-│   ├── concurrency/               ToolConcurrencyService
-│   ├── middleware/                Pipeline + Validation/Timeout/Permission/Progress
-│   ├── registry/                  ToolRegistry
-│   └── search-fusion/             多源搜索结果 dedup / rerank / fusion
+│   ├── abstractions/
+│   ├── adapters/                  含 mcp/
+│   ├── base/
+│   ├── categories/
+│   ├── concurrency/
+│   ├── middleware/
+│   ├── registry/
+│   └── search-fusion/
 │
-├── skills/                        ★ Skill 系统 ——「一个 SKILL.md 怎么 execute」
-│   ├── skills.module.ts
-│   ├── abstractions/              ISkill / SkillContext / SkillResult / SkillPermissions
-│   ├── analytics/                 SkillAnalytics（usage logs）
-│   ├── base/                      BaseSkill
-│   ├── builder/                   SkillPromptBuilder
-│   ├── content/                   SkillContentService（DB CRUD）
-│   ├── ecosystem/                 SkillsMP client（外部 skill 市场）
-│   ├── loader/                    SkillLoader / SkillCache（DB → Registry）
-│   ├── output-manager/            SkillOutputManager
-│   ├── registry/                  SkillRegistry（含 PromptSkillAdapter）
-│   ├── runtime/                   PromptSkillAdapter / EngineSkillProvider (★ ISkillProvider 端口实现)
-│   ├── sandbox/                   SkillSandboxService
-│   └── types/                     SkillMdDefinition
+├── rag/                           ★ RAG 基元
+│   ├── abstractions/
+│   ├── chunking/
+│   ├── embedding/
+│   ├── pipeline/
+│   └── vector/
 │
-├── knowledge/                     ★ 知识检索 ——「RAG / Search / Rerank」
+├── knowledge/                     ★ 知识抽取与组织
 │   ├── knowledge.module.ts
-│   ├── evidence/                  Evidence 抽取 + 指纹
-│   ├── extraction/                ContextEvolution / EntityExtraction
-│   ├── rag/                       Embedding / Vector / Chunking / RAGPipeline
-│   ├── rerank/                    Rerank adapters
-│   ├── search/                    SearchService（多源融合）
-│   ├── synthesis/                 Cross-source synthesis
-│   └── world-building/            ContextInitialization
+│   ├── evidence/
+│   ├── extraction/
+│   ├── rerank/
+│   ├── search/
+│   ├── synthesis/
+│   └── world-building/
 │
-├── content/                       ★ 内容处理 ——「URL → Markdown / 报告格式化」
-│   ├── abstractions/              IContentEngine / IContinuationProtocol
-│   ├── citation/                  Citation extraction + dedup
-│   ├── fetch/                     ContentFetch / Youtube / PDF
-│   ├── figure/                    FigureExtractor
-│   ├── image/                     Image 处理
-│   └── report-template/           13 类报告格式化标准（constants + pipeline）
+├── planning/                      ★ 与 agent 无关的规划能力
+│   ├── planning.module.ts
+│   ├── budget/
+│   ├── context/
+│   ├── intent/
+│   └── reflection/
 │
-├── safety/                        ★ 安全 ——「Guardrails / CircuitBreaker / 内容过滤」
+├── safety/                        ★ 安全、约束与韧性
 │   ├── constraint.module.ts
-│   ├── constraint/                SchemaValidator / ContentFilter
-│   ├── guardrails/                Input/Output 双向 guardrails pipeline
-│   ├── quality/                   Quality gate primitives
-│   ├── resilience/                CircuitBreaker
-│   └── security/                  CapabilityGuard / URLSanitizer
+│   ├── constraint/
+│   ├── guardrails/
+│   ├── quality/
+│   ├── resilience/
+│   ├── security/
+│   └── utils/
 │
-├── core/                          ★ 通用类型 + 错误码（无 service）
-│   ├── errors/                    ErrorCodes / 业务异常类
-│   ├── exceptions/                AiServiceUnavailable / 等
-│   ├── interfaces/                通用工厂 / 解析器接口
-│   ├── types/                     agent.types / common.types / event.types
-│   └── utils/                     纯函数工具
+├── content/                       ★ 内容处理与格式化
+│   ├── abstractions/
+│   ├── citation/
+│   ├── fetch/
+│   ├── figure/
+│   ├── image/
+│   ├── report-template/
+│   └── types/
 │
-└── abstractions/                  顶层公共抽象（runtime-deps tokens）
+├── credentials/                   ★ 用户配置与密钥解析
+│   ├── secret-resolver/
+│   └── user-config/
+│
+└── skills/                        ★ Skill 定义、注册与运行时桥接
+    ├── skills.module.ts
+    ├── abstractions/
+    ├── analytics/
+    ├── base/
+    ├── builder/
+    ├── content/
+    ├── ecosystem/
+    ├── loader/
+    ├── output-manager/
+    ├── registry/
+    ├── runtime/
+    ├── sandbox/
+    └── types/
 ```
 
 ## 设计原则
@@ -101,7 +108,8 @@ ai-engine/
 2. **0 反向依赖**：通过 verify:arch + ESLint no-restricted-imports 双重看护。
 3. **facade 为唯一公共入口**：ai-app / ai-harness 必须从 `@/modules/ai-engine/facade` import。
 4. **TaskProfile 优先**：所有 LLM 调用走 `aiChatService.chat({ taskProfile, modelType })`，禁止硬编码 modelId / temperature / maxTokens（CLAUDE.md 红线）。
-5. **NestJS module 按子目录就近**：每个能力子域有自己的 `*.module.ts`，集中在 `ai-engine.module.ts` 聚合。
+5. **顶层只保留 10 个规范聚合**：`llm/tools/rag/knowledge/skills/planning/safety/content/credentials/facade`。
+6. **NestJS module 按子目录就近**：每个能力子域有自己的 `*.module.ts`，集中在 `ai-engine.module.ts` 聚合。
 
 ## 与 L2.5 ai-harness 的边界
 
@@ -125,5 +133,6 @@ ai-engine/
 
 - 早期 `modules/ai-kernel/`（已删，PR-7）：第一代 agent 运行时尝试，能力混进 engine
 - `modules/ai-engine/runtime/`（已迁出，PR-X4 ~ PR-X10）：所有 agent 运行时下沉到 ai-harness
+- 2026-05-02（W17）：顶层 `core/` 与 `abstractions/` 解散，补齐 `rag/`、`planning/`、`credentials/`
 - 2026-05-01 (PR-X-Q ~ PR-X-U)：内部颗粒度统一 + 子 module 收到子目录
 - 当前架构合规度 **9.85/10**（详见 [CLAUDE.md L4→L3→L2.5→L2→L1 规则](../../../.claude/CLAUDE.md)）

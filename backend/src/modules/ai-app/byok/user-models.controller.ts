@@ -17,7 +17,7 @@ import {
   UserApiKeysService,
   UserModelConfigsService,
   AutoConfigureService,
-} from "../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

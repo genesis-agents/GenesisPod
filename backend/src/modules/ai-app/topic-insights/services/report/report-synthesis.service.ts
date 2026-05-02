@@ -12,7 +12,7 @@ import {
   CrossCuttingSynthesisService,
   type SynthesisResult,
   TokenBudgetService,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import {
   ChatFacade,
   TeamFacade,
@@ -26,7 +26,7 @@ import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
 import {
   sanitizeSectionOutput,
   removeOrphanCitations,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import {
   getMinDataPoints,
   filterJunkReferences,

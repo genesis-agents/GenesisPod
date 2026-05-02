@@ -18,10 +18,10 @@ export {
   type ImageMatchingRule,
   type ImageRequirement,
   IMAGE_MATCHING_RULES,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
-import { ImageType, ImagePlacement } from "../../../ai-engine/facade";
-import type { ImageRequirement } from "../../../ai-engine/facade";
+import { ImageType, ImagePlacement } from "@/modules/ai-harness/facade";
+import type { ImageRequirement } from "@/modules/ai-harness/facade";
 
 // ============================================================================
 // 模板类型定义

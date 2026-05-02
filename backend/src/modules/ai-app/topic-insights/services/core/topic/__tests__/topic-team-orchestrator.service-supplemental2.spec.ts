@@ -67,7 +67,7 @@ jest.mock("@prisma/client", () => ({
   },
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AgentFacade: class {},
   AIFacade: class {},
   ChatFacade: class {},

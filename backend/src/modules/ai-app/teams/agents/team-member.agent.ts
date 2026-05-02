@@ -9,11 +9,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AICapability, AgentWorkStyle } from "@prisma/client";
 import {
   BUILTIN_TOOLS,
-  BuiltinToolId,
+  type BuiltinToolId,
   ToolRegistry,
-  ITool,
-  ToolContext,
-} from "../../../ai-engine/facade";
+  type ITool,
+  type ToolContext,
+} from "@/modules/ai-harness/facade";
 
 /**
  * 团队成员角色类型

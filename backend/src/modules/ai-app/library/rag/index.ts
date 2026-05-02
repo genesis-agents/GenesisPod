@@ -21,20 +21,20 @@ export {
   ChildChunkData,
   ParentChunkData,
   ChunkedDocument,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 export type {
   EmbeddingModelConfig,
   ChunkingConfig,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 // 业务服务
 export * from "./services/document-processor.service";
 export * from "./services/embedding-processor.service";
 // rag-pipeline.service shim removed (PR-X25); consumers import RAGPipelineService
-// directly from "@/modules/ai-engine/facade".
+// directly from "@/modules/ai-harness/facade".
 export * from "./services/knowledge-base.service";
 export * from "./services/google-drive-rag.service";
 
 // rag.interfaces shim removed (PR-X25); consumers import RAG types directly
-// from "@/modules/ai-engine/facade".
+// from "@/modules/ai-harness/facade".
 export * from "./dto";

@@ -5,7 +5,7 @@
  * 使不同能力层级的模型都能产出高质量内容。
  */
 
-import type { TaskProfile } from "@/modules/ai-engine/facade";
+import type { TaskProfile } from "@/modules/ai-harness/facade";
 import { ModelTier } from "./model-tier.config";
 
 export interface TierAdaptation {

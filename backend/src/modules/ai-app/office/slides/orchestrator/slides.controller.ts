@@ -78,7 +78,7 @@ import { BillingContext } from "../../../../ai-infra/facade";
 import {
   KernelContext,
   MissionExecutorService,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { Prisma } from "@prisma/client"; // needed for Prisma.JsonNull
 import { PresetLoader } from "../skill-resolver";
 

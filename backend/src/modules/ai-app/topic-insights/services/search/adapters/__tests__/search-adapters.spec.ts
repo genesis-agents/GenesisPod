@@ -17,7 +17,7 @@ jest.mock("@prisma/client", () => ({
   PrismaClient: class {},
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   CircuitBreakerService: class {},
   TaskCompletionType: {
     TIMEOUT: "TIMEOUT",

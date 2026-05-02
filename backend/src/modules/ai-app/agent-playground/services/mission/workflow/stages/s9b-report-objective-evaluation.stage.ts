@@ -20,7 +20,7 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import type { ChapterInput } from "../../../../../../ai-harness/facade";
+import type { ChapterInput } from "@/modules/ai-harness/facade";
 import { narrate } from "../helpers/narrative.util";
 
 export async function runReportObjectiveEvaluationStage(

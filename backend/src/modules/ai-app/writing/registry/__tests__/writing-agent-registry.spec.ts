@@ -36,7 +36,7 @@ import {
 import type {
   AgentContext,
   AgentCapability,
-} from "../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 // ==================== Helpers ====================
 

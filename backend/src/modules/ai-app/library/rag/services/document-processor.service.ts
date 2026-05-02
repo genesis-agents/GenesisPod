@@ -14,9 +14,9 @@ import { KnowledgeBaseStatus, Prisma } from "@prisma/client";
 import {
   ProcessedDocument,
   ParentChunkData,
-} from "../../../../ai-engine/facade";
-import type { ChunkingConfig } from "../../../../ai-engine/facade";
-import { DEFAULT_CHUNKING_CONFIG } from "../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import type { ChunkingConfig } from "@/modules/ai-harness/facade";
+import { DEFAULT_CHUNKING_CONFIG } from "@/modules/ai-harness/facade";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { v4: uuidv4 } = require("uuid") as { v4: () => string };
 
@@ -102,7 +102,7 @@ export class DocumentProcessorService {
 
     this.logger.log(
       `Processed ${title}: ${processedParents.length} parent chunks, ` +
-        `${processedParents.reduce((sum, p) => sum + p.childChunks.length, 0)} child chunks`,
+        `${processedParents.reduce((sum: number, p: ParentChunkData) => sum + p.childChunks.length, 0)} child chunks`,
     );
 
     return result;
@@ -157,13 +157,15 @@ export class DocumentProcessorService {
           sectionTitle: parent.sectionTitle,
           metadata: (parent.metadata || {}) as Prisma.InputJsonValue,
           childChunks: {
-            create: parent.childChunks.map((child) => ({
+            create: parent.childChunks.map(
+              (child: ParentChunkData["childChunks"][number]) => ({
               id: child.id,
               content: child.content,
               tokenCount: child.tokenCount,
               position: child.position,
               documentId: child.documentId || documentId,
-            })),
+              }),
+            ),
           },
         },
       });
@@ -176,14 +178,14 @@ export class DocumentProcessorService {
         status: KnowledgeBaseStatus.READY,
         processedAt: new Date(),
         chunkCount: processed.parentChunks.reduce(
-          (sum, p) => sum + p.childChunks.length,
+          (sum: number, p: ParentChunkData) => sum + p.childChunks.length,
           0,
         ),
       },
     });
 
     const totalTokens = processed.parentChunks.reduce(
-      (sum, p) => sum + p.tokenCount,
+      (sum: number, p: ParentChunkData) => sum + p.tokenCount,
       0,
     );
     this.logger.log(

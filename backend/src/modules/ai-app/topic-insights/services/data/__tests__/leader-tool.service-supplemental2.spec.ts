@@ -13,7 +13,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderToolService, LeaderActionType } from "../leader-tool.service";
 import { ChatFacade, ToolFacade } from "@/modules/ai-harness/facade";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 const mockChatFacade = {

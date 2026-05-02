@@ -18,7 +18,7 @@ import { ConfigService } from "@nestjs/config";
 import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { ChatFacade } from "../../ai-harness/facade";
-import { RAGPipelineService } from "../../ai-engine/knowledge/rag/pipeline";
+import { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
 import { SecretsService, BillingContext } from "../../ai-infra/facade";
 import { SearchService } from "../../ai-engine/knowledge/search/search.service";
 import { ApiTags } from "@nestjs/swagger";

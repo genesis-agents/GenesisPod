@@ -9,17 +9,17 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PlanBasedAgent } from "../../../ai-harness/facade";
+import { PlanBasedAgent } from "@/modules/ai-harness/facade";
 import {
   BUILTIN_AGENTS,
+  BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
-  type PlanAgentEvent as AgentEvent,
+  type AgentEvent,
   type AgentTemplate,
   type ToolId,
-  BUILTIN_TOOLS,
   type PlanStep,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * 团队协作任务类型

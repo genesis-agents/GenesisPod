@@ -24,11 +24,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConflictException } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AutoConfigureService } from "../user-models-auto-configure.service";
+import { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
+import { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
+import { ModelRecommendationsService } from "@/modules/ai-engine/llm/selection/model-recommendations.service";
 import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
-import { AiModelDiscoveryService } from "../services/ai-model-discovery.service";
-import { AiConnectionTestService } from "../services/ai-connection-test.service";
-import { ModelRecommendationsService } from "../selection/model-recommendations.service";
 
 // ---------------------------------------------------------------------------
 // Mock factories

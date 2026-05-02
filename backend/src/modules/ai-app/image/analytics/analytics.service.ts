@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../ai-harness/facade";
-import type { TaskProfile } from "../../../ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
+import type { TaskProfile } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 
 /**

@@ -9,15 +9,15 @@ jest.mock("../../../../../common/cache/cache.module", () => ({}));
 jest.mock("../../../../../common/cache/cache.service", () => ({
   CacheService: jest.fn(),
 }));
-jest.mock("../../../../ai-engine/facade");
-jest.mock("../../../../ai-harness/facade");
+jest.mock("@/modules/ai-harness/facade");
+jest.mock("@/modules/ai-harness/facade");
 jest.mock("../../../../../common/prisma/prisma.service");
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { CollectionsService } from "../collections.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 const mockPrisma = {
   collection: {

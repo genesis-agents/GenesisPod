@@ -24,7 +24,7 @@ import { SourceIngestionService } from "../source-ingestion.service";
 import { SourceQueryService } from "../source-query.service";
 import { SourceMetadataService } from "../source-metadata.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ToolRegistry } from "../../../../ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { FileParserService } from "../services/file-parser.service";
 import { AddSourceDto, SearchSourcesDto } from "../dto";
 
@@ -44,7 +44,7 @@ jest.mock("@prisma/client", () => ({
   },
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ToolRegistry: jest.fn().mockImplementation(() => ({ tryGet: jest.fn() })),
   ToolContext: jest.fn(),
   AIFacade: jest.fn().mockImplementation(() => ({})),

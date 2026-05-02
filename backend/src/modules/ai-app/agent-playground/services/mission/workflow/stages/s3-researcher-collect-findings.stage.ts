@@ -643,7 +643,12 @@ async function runOneDim(
               .filterRelevantFigures(allFigures, dim.name)
               .catch(() => allFigures);
             // 取前 3 张高相关度图填到 figureCandidates
-            researcherOut.figureCandidates = relevant.slice(0, 3).map((f) => ({
+            researcherOut.figureCandidates = relevant.slice(0, 3).map((f: {
+              imageUrl: string;
+              caption?: string;
+              alt?: string;
+              type?: string;
+            }) => ({
               sourceUrl: f.imageUrl, // 沉淀实现里 imageUrl 是绝对 URL
               imageUrl: f.imageUrl,
               caption: f.caption || `(图自 ${dim.name})`,
@@ -652,7 +657,7 @@ async function runOneDim(
                 f.type === "chart" || f.type === "table" ? "high" : "medium",
             }));
             deps.log.log(
-              `[s3 figure-pipeline ${idx}] dim "${dim.name}" 抽 ${allFigures.length} 张 → 相关 ${relevant.length} → 用 ${researcherOut.figureCandidates.length}`,
+              `[s3 figure-pipeline ${idx}] dim "${dim.name}" 抽 ${allFigures.length} 张 → 相关 ${relevant.length} → 用 ${(researcherOut.figureCandidates ?? []).length}`,
             );
           }
         }

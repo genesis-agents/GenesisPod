@@ -4,12 +4,12 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionInputService } from "../mission-input.service";
-import { TokenBudgetService } from "../../../../../../ai-engine/facade";
-import { ConstraintEnforcementService } from "../../../../../../ai-harness/facade";
+import { TokenBudgetService } from "@/modules/ai-harness/facade";
+import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
 
 // PR-X25: shim files removed; mock the canonical facades instead
-jest.mock("../../../../../../ai-engine/facade", () => ({
-  ...jest.requireActual("../../../../../../ai-engine/facade"),
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ...jest.requireActual("@/modules/ai-harness/facade"),
   TokenBudgetService: jest.fn().mockImplementation(() => ({
     smartTruncate: jest
       .fn()
@@ -19,8 +19,8 @@ jest.mock("../../../../../../ai-engine/facade", () => ({
   })),
 }));
 
-jest.mock("../../../../../../ai-harness/facade", () => ({
-  ...jest.requireActual("../../../../../../ai-harness/facade"),
+jest.mock("@/modules/ai-harness/facade", () => ({
+  ...jest.requireActual("@/modules/ai-harness/facade"),
   ConstraintEnforcementService: jest.fn().mockImplementation(() => ({
     extractConstraints: jest.fn().mockReturnValue([]),
   })),

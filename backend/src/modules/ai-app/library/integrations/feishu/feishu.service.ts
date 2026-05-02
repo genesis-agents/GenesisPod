@@ -10,8 +10,8 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   ChatMessage,
   TaskProfile,
-} from "../../../../ai-engine/facade";
-import { ChatFacade } from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { FeishuAuthService } from "./feishu-auth.service";
 import { FeishuDataSourceService } from "./feishu-data-source.service";
 import { UrlFetchService } from "../../rag/services/url-fetch.service";

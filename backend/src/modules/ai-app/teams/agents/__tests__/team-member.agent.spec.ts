@@ -10,8 +10,8 @@ import {
   BUILTIN_TOOLS,
   ToolContext,
   JSONSchema,
-} from "../../../../ai-engine/facade";
-import { BaseTool } from "../../../../ai-harness/facade/base-classes";
+} from "@/modules/ai-harness/facade";
+import { BaseTool } from "@/modules/ai-harness/facade/base-classes";
 import { AICapability, AgentWorkStyle } from "@prisma/client";
 
 // ============================================================================

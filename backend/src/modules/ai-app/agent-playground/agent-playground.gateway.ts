@@ -17,7 +17,7 @@ import {
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 // 必修 #8: 走 facade
-import { DomainEventBus, SocketBroadcastAdapter } from "../../ai-harness/facade";
+import { DomainEventBus, SocketBroadcastAdapter } from "@/modules/ai-harness/facade";
 import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 

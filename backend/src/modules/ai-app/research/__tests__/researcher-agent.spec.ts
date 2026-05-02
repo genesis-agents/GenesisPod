@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearcherAgent, ResearchTaskType } from "../agents/researcher.agent";
-import { RESEARCH_SERVICE_TOKEN } from "../../../ai-engine/facade";
+import { RESEARCH_SERVICE_TOKEN } from "@/modules/ai-harness/facade";
 
 jest.mock("../../../ai-harness/agents/base/plan-based-agent", () => {
   class MockPlanBasedAgent {
@@ -34,22 +34,7 @@ jest.mock("../../../ai-harness/agents/base/plan-based-agent", () => {
   };
 });
 
-jest.mock("../../../ai-engine/facade", () => ({
-  BUILTIN_AGENTS: {
-    RESEARCHER: "researcher",
-  },
-  BUILTIN_TOOLS: {
-    WEB_SEARCH: "web-search",
-    RAG_SEARCH: "rag-search",
-    KNOWLEDGE_GRAPH: "knowledge-graph",
-    DATA_ANALYSIS: "data-analysis",
-    TEXT_GENERATION: "text-generation",
-    LONG_TERM_MEMORY: "long-term-memory",
-    DATA_FETCH: "data-fetch",
-  },
-  RESEARCH_SERVICE_TOKEN: "RESEARCH_SERVICE_TOKEN",
-}));
-jest.mock("../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   BUILTIN_AGENTS: {
     RESEARCHER: "researcher",
   },
@@ -74,18 +59,6 @@ jest.mock("../../../ai-harness/facade", () => ({
     }
   },
   BaseAgent: class {},
-}));
-
-jest.mock("../../../ai-engine/core/types/agent.types", () => ({
-  BUILTIN_TOOLS: {
-    WEB_SEARCH: "web-search",
-    RAG_SEARCH: "rag-search",
-    KNOWLEDGE_GRAPH: "knowledge-graph",
-    DATA_ANALYSIS: "data-analysis",
-    TEXT_GENERATION: "text-generation",
-    LONG_TERM_MEMORY: "long-term-memory",
-    DATA_FETCH: "data-fetch",
-  },
 }));
 
 describe("ResearcherAgent", () => {

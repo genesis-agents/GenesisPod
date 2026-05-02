@@ -14,7 +14,7 @@
  */
 
 // Mock the problematic module chain BEFORE any imports
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn(),
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({

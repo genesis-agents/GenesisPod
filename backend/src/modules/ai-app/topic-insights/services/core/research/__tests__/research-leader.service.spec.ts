@@ -756,7 +756,7 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should use quick response for CONTINUE intent with high confidence", async () => {
-      const { UserIntent } = jest.requireActual("@/modules/ai-engine/facade");
+      const { UserIntent } = jest.requireActual("@/modules/ai-harness/facade");
 
       mocks.mockFacade.intentDetector.detectIntent.mockReturnValue({
         intent: UserIntent?.CONTINUE ?? "CONTINUE",
@@ -779,7 +779,7 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should use quick response for SUMMARIZE intent when progress < 50", async () => {
-      const { UserIntent } = jest.requireActual("@/modules/ai-engine/facade");
+      const { UserIntent } = jest.requireActual("@/modules/ai-harness/facade");
 
       mocks.mockFacade.intentDetector.detectIntent.mockReturnValue({
         intent: UserIntent?.SUMMARIZE ?? "SUMMARIZE",
@@ -811,7 +811,7 @@ describe("ResearchLeaderService", () => {
     });
 
     it("should fall through to AI for SUMMARIZE when progress >= 50", async () => {
-      const { UserIntent } = jest.requireActual("@/modules/ai-engine/facade");
+      const { UserIntent } = jest.requireActual("@/modules/ai-harness/facade");
 
       mocks.mockFacade.intentDetector.detectIntent.mockReturnValue({
         intent: UserIntent?.SUMMARIZE ?? "SUMMARIZE",

@@ -17,7 +17,7 @@ import { Request } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
 import { Public } from "../../../../common/decorators/public.decorator";
-import { AiChatService } from "../../../ai-engine/facade";
+import { AiChatService } from "@/modules/ai-harness/facade";
 import { BillingContext } from "../../../ai-infra/facade";
 import { AIModelType } from "@prisma/client";
 

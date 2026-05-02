@@ -21,8 +21,8 @@ import {
   TeamTaskType,
   VotingStrategy,
 } from "../team-collaboration.agent";
-import { BUILTIN_AGENTS, BUILTIN_TOOLS } from "../../../../ai-engine/facade";
-import type { AgentInput, AgentPlan } from "../../../../ai-engine/facade";
+import { BUILTIN_AGENTS, BUILTIN_TOOLS } from "@/modules/ai-harness/facade";
+import type { AgentInput, AgentPlan } from "@/modules/ai-harness/facade";
 
 // ============================================================
 // Helpers

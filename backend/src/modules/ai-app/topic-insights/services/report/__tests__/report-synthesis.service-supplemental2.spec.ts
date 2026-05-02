@@ -23,8 +23,8 @@ import {
   TeamFacade,
   OutputReviewerService,
 } from "@/modules/ai-harness/facade";
-import { ContextEvolutionService } from "@/modules/ai-engine/facade";
-import { TokenBudgetService } from "@/modules/ai-engine/facade";
+import { ContextEvolutionService } from "@/modules/ai-harness/facade";
+import { TokenBudgetService } from "@/modules/ai-harness/facade";
 import { ReportEditorService } from "../report-editor.service";
 import { ReportAssemblerService } from "../report-assembler.service";
 import { ReportQualityGateService } from "../../quality/report-quality-gate.service";

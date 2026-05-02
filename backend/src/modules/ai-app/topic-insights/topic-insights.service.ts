@@ -51,11 +51,11 @@ import {
   ReportDataService,
   LatexRepairService,
 } from "./services";
-import { ChatFacade } from "../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   SessionLatencyTrackerService,
   type LatencySessionSummary,
-} from "../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import {
   REPORT_EDITING_SYSTEM_PROMPT,
   buildEditPrompt,

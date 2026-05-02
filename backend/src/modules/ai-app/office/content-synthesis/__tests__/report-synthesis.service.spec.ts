@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ReportSynthesisEngine } from "../report-synthesis.service";
-import { ChatFacade } from "../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 describe("ReportSynthesisEngine", () => {
   let service: ReportSynthesisEngine;

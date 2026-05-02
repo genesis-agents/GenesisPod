@@ -1,5 +1,5 @@
 import { MissionEventBuffer } from "../mission-event-buffer.service";
-import type { DomainEvent } from "../../../../../../ai-harness/facade";
+import type { DomainEvent } from "@/modules/ai-harness/facade";
 
 function makeEvent(
   missionId: string,

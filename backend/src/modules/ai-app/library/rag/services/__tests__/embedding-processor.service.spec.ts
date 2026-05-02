@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EmbeddingProcessorService } from "../embedding-processor.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { RAGFacade } from "../../../../../ai-harness/facade";
+import { RAGFacade } from "@/modules/ai-harness/facade";
 
 describe("EmbeddingProcessorService", () => {
   let service: EmbeddingProcessorService;

@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { KnowledgeGraphController } from "../knowledge-graph.controller";
 import { KnowledgeGraphService } from "../knowledge-graph.service.postgres";
-import { AiChatService } from "../../../../ai-engine/facade";
+import { AiChatService } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

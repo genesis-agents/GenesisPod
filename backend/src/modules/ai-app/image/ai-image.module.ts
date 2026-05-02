@@ -11,8 +11,8 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import {
   IMAGE_GENERATION_SERVICE,
   IMAGE_GENERATION_SERVICE_TOKEN,
-} from "../../ai-engine/facade";
-import { AgentRegistry } from "../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
+import { AgentRegistry } from "@/modules/ai-harness/facade";
 import { ImageDesignerAgent } from "./agents";
 
 // Generation

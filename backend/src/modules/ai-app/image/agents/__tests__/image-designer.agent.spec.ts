@@ -19,7 +19,7 @@ import { ImageDesignerAgent, ImageTaskType } from "../image-designer.agent";
 import {
   IMAGE_GENERATION_SERVICE_TOKEN,
   BUILTIN_TOOLS,
-} from "../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 describe("ImageDesignerAgent", () => {
   let agent: ImageDesignerAgent;

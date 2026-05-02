@@ -36,7 +36,7 @@ import type {
   IAgent,
   IAgentEvent,
   IContextEnvelope,
-} from "../../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import type { ResearchReport } from "../../../../dto/run-mission.dto";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";

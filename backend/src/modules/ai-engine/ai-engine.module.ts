@@ -1,25 +1,17 @@
 /**
  * AI Engine Module
- * AI 引擎 NestJS 模块
  *
- * 提供统一的 AI 引擎能力：
- * - 工具系统 (Tools)
- * - 技能系统 (Skills)
- * - Agent 框架 (Agents)
- * - 编排引擎 (Orchestration)
- * - 协作框架 (Collaboration)
- * - 约束引擎 (Constraint)
- * - LLM 适配层 (LLM)
- * - 记忆系统 (Memory)
- * - MCP 协议 (MCP)
+ * 聚合 L2 ai-engine 的原子能力：
+ * - llm
+ * - tools
+ * - skills
+ * - planning
+ * - knowledge / rag
+ * - safety
+ * - content
+ * - credentials
  *
- * 架构：模块化拆分为子模块
- * - AiEngineLLMModule: LLM 适配层
- * - AiEngineToolsModule: 工具系统
- * - AiEngineSkillsModule: 技能系统
- * - AiEnginePlanningModule: 编排引擎
- * - AiEngineConstraintModule: 约束引擎
- * - AiEngineKnowledgeModule: 知识能力 (RAG + Search)
+ * 本层不承载 agent / mission / team 运行时语义。
  */
 
 import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";

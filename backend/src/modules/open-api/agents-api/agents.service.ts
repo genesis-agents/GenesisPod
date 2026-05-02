@@ -23,7 +23,7 @@ import {
   Artifact,
   AgentTaskStatus,
   ArtifactType,
-} from "../../ai-engine/core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 /**
  * 创建任务输入

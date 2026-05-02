@@ -1,12 +1,11 @@
 /**
- * AI Engine Orchestration Module
- * 编排引擎子模块
+ * AI Engine Planning Module
  *
- * 提供:
- * - Executors (Sequential, DAG, Parallel, FunctionCalling)
- * - Checkpoint Manager
- * - Orchestration Services (12+ services)
- * - State Machine
+ * 提供与 agent 身份无关的规划基元：
+ * - budget estimation
+ * - context compression / compaction
+ * - intent detection
+ * - reflection
  */
 
 import { Module, forwardRef } from "@nestjs/common";
@@ -48,10 +47,6 @@ import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutti
 
 // Handlers —— 2026-04-30 (C2-step2) 删除（仅被 BaseExecutor 用，BaseExecutor 死）
 
-// Agents — PR-X18: 通过 AGENT_REGISTRY_PORT / AGENT_ORCHESTRATOR_PORT /
-// AGENT_CONFIG_SERVICE_PORT token 注入；AgentsService 不再 re-export
-import { AgentsService } from "../../open-api/agents-api";
-
 // 2026-04-30 (C2-step2): 删除 sequentialExecutorFactory / dagExecutorFactory /
 // parallelExecutorFactory —— 这 3 个 factory 包装的 executor 已删（0 业务调用），
 // DAG 业务实际用 ai-harness/runner/dag/ 165行轻量版替代。
@@ -65,11 +60,6 @@ import { AgentsService } from "../../open-api/agents-api";
   ],
   controllers: [],
   providers: [
-    // PR-X18: AgentRegistry / AgentOrchestrator / AgentConfigService /
-    // CheckpointManager / ConstraintEnforcementService / ExecutionStateManager
-    // 由 @Global HarnessModule 提供（绑到 *_PORT tokens），engine 不再注册
-    AgentsService,
-
     // Executors —— 仅保留 FunctionCallingExecutor (其他 4 个 + handlers 已删 C2-step2)
 
     // NOTE: harness 服务（ProgressTracker / TraceCollector / CheckpointManager
@@ -91,11 +81,6 @@ import { AgentsService } from "../../open-api/agents-api";
     // ★ Phase 7: Session Memory Sidecar
   ],
   exports: [
-    // PR-X18: AgentRegistry / AgentOrchestrator / AgentConfigService /
-    // CheckpointManager / ConstraintEnforcementService / ExecutionStateManager
-    // 由 HarnessModule (@Global) 导出，engine 不再 re-export
-    AgentsService,
-
     // Executors
 
     // Engine Services

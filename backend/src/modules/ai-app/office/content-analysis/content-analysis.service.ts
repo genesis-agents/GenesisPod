@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade } from "../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import {
   CONTENT_ANALYSIS_SYSTEM_PROMPT,
@@ -95,7 +95,7 @@ export class ContentAnalysisService {
     const paragraphCount = content
       .split(/\n\s*\n/)
       .filter((p) => p.trim()).length;
-    const listCount = (content.match(/^[\s]*[-*•]\s/gm) || []).length;
+    const listCount = (content.match(/^[\s]*[-*â€¢]\s/gm) || []).length;
     const tableCount = (content.match(/\|.*\|/g) || []).length > 2 ? 1 : 0;
     const imageCount = (content.match(/!\[.*?\]\(.*?\)/g) || []).length;
     const codeBlockCount = (content.match(/```/g) || []).length / 2;

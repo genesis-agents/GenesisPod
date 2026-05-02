@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),

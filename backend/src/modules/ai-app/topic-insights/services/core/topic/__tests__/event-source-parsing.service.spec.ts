@@ -37,7 +37,7 @@ jest.mock("@prisma/client", () => ({
   Prisma: { LogLevel: {}, LogDefinition: {} },
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: class {},
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({

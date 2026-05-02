@@ -15,7 +15,7 @@ jest.mock("@prisma/client", () => ({
   PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: { CHAT: "CHAT" },
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   CircuitBreakerService: class {},
   TaskCompletionType: {
     TIMEOUT: "TIMEOUT",
@@ -36,7 +36,7 @@ jest.mock("@/common/utils/timeout.utils", () => ({
   withTimeout: jest.fn(async (promise: Promise<unknown>) => promise),
 }));
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ToolRegistry: class {},
   ChatFacade: class {},
   RAGFacade: class {},
@@ -50,7 +50,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { FinanceSearchAdapter } from "../finance-search.adapter";
 import { WeatherSearchAdapter } from "../weather-search.adapter";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../../types/data-source.types";
 
 // Helper to build a mock ToolRegistry

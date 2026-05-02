@@ -85,7 +85,7 @@ import {
   ContextEvolutionService,
   PromptCacheCoordinatorService,
   TokenBudgetService,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import {
   ChatFacade,
   ExecutionCheckpointService,

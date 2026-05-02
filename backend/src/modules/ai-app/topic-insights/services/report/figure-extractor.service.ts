@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
-import type { ToolContext } from "@/modules/ai-engine/facade";
+import { ToolRegistry, type ToolContext } from "@/modules/ai-harness/facade";
 import { withTimeoutFallback } from "@/common/utils/timeout.utils";
 
 /**

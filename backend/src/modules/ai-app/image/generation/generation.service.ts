@@ -23,11 +23,11 @@ import {
   DataFetchingResult,
 } from "../../../../common/content-processing/data-fetching.service";
 import { AIModelType, Prisma } from "@prisma/client";
-import { ChatFacade } from "../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,
-} from "../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 import {
   ProcessingStep,

@@ -5,15 +5,15 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContentFetcherService } from "../services/content-fetcher.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { RAGFacade } from "../../../ai-harness/facade";
+import { RAGFacade } from "@/modules/ai-harness/facade";
 import { SocialContentSourceType } from "@prisma/client";
 
-jest.mock("../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   RAGFacade: jest.fn(),
   sanitizeForDb: jest.fn((str: string) => str || ""),
   sanitizeJson: jest.fn((obj: unknown) => obj),
 }));
-jest.mock("../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   RAGFacade: jest.fn(),
   sanitizeForDb: jest.fn((str: string) => str || ""),
   sanitizeJson: jest.fn((obj: unknown) => obj),

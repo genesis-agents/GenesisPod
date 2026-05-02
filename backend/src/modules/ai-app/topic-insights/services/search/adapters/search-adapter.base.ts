@@ -16,7 +16,7 @@ import {
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { KernelContext } from "@/modules/ai-harness/facade";
 import { withTimeout } from "@/common/utils/timeout.utils";
-import { ToolRegistry, type ToolContext } from "@/modules/ai-engine/facade";
+import { ToolRegistry, type ToolContext } from "@/modules/ai-harness/facade";
 import type { DataSourceResult } from "../../../types/data-source.types";
 import type {
   ISearchAdapter,

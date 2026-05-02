@@ -28,22 +28,22 @@ jest.mock("../utils/session-crypto", () => ({
   decryptSession: jest.fn((data: string) => JSON.parse(data) as unknown),
 }));
 
-jest.mock("../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
-jest.mock("../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   MissionExecutorService: class {},
   KernelContext: { run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()) },
 }));
 
-jest.mock("../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AIFacade: class {},
   AiChatService: class {},
   ChatFacade: class {},
   EmbeddingService: class {},
 }));
-jest.mock("../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AIFacade: class {},
   AiChatService: class {},
   ChatFacade: class {},

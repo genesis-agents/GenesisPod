@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AiSimulationEngineService } from "../ai-simulation.engine";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ExternalDataService } from "../external-data.service";
-import { ChatFacade } from "../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { SimulationRunStatus, SimulationTeam } from "@prisma/client";
 
 describe("AiSimulationEngineService", () => {

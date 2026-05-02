@@ -10,11 +10,11 @@ import {
   InsufficientCreditsException,
 } from "../../../ai-infra/facade";
 import { ResearchIdeaService } from "../idea/research-idea.service";
-import { AgentFacade, TeamFacade } from "../../../ai-harness/facade";
+import { AgentFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,
-} from "../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { ResearchReplannerService } from "./research-replanner.service";
 import { ResearchToolRouterService } from "../search/research-tool-router.service";
 import type { ResearchToolStrategy } from "../search/research-tool-router.types";

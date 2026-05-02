@@ -24,14 +24,14 @@ import type {
   LeaderPlanOutput,
   LeaderSignoffOutput,
 } from "../../../agents/leader/leader.agent";
-import type { MissionBudgetPool } from "../../../../../ai-harness/facade";
+import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import type { ReportArtifact } from "@/modules/ai-harness/facade";
 import type {
   RunMissionInput,
   ResearchReport,
 } from "../../../dto/run-mission.dto";
-import type { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
-import type { QualityTraceContext } from "../../../../../ai-harness/facade";
+import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
+import type { QualityTraceContext } from "@/modules/ai-harness/facade";
 
 export interface MissionContext {
   // ── 不变量（装配时确定）──
@@ -134,7 +134,7 @@ export interface MissionContext {
   /** ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace 收集 */
   qualityTraceCtx?: QualityTraceContext;
   /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */
-  reportEvaluation?: import("../../../../../ai-harness/facade").EvaluationResult;
+  reportEvaluation?: import("@/modules/ai-harness/facade").EvaluationResult;
   /**
    * ★ P1-E (2026-04-29): S7 outline 真消费
    * thorough+ 档位下 S7 产出的 mission-level chapter outline，由 S8 SingleShotWriter

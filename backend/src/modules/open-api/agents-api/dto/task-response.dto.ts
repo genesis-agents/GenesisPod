@@ -10,7 +10,7 @@ import {
   AgentInput,
   AgentPlan,
   AgentResult,
-} from "../../../ai-engine/core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 /**
  * 任务详情响应 DTO

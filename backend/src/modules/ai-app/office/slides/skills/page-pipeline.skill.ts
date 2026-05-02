@@ -19,7 +19,7 @@ import {
   SkillContext,
   SkillResult,
   SkillLayer,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 import {
   OutlinePlan,
   PageOutline,

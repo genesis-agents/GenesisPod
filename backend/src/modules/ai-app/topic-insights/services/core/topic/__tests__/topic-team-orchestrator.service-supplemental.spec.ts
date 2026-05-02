@@ -67,16 +67,16 @@ jest.mock("@prisma/client", () => ({
     $disconnect = jest.fn();
   },
 }));
-// Mock ai-engine/facade to prevent transitive imports from loading
+// Mock ai-harness/facade to prevent transitive imports from loading
 // AIModelType.CHAT_FAST at module initialization time
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   AgentFacade: class {},
   AIFacade: class {},
   ChatFacade: class {},
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-  // KernelContext moved from ai-kernel to ai-engine/facade in kernel-merge PR;
+  // KernelContext moved from ai-kernel to ai-harness/facade in kernel-merge PR;
   // tests need a pass-through run() so nested service logic still executes.
   KernelContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),
@@ -91,7 +91,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   TeamFacade: class {},
   RAGFacade: class {},
   ProgressTrackerService: class {},
-  // KernelContext moved from ai-kernel to ai-engine/facade in kernel-merge PR;
+  // KernelContext moved from ai-kernel to ai-harness/facade in kernel-merge PR;
   // tests need a pass-through run() so nested service logic still executes.
   KernelContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),

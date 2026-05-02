@@ -38,8 +38,8 @@ import type {
   SectionRemediationService,
   ReportEvaluationService,
   QualityTraceComputeService,
-} from "../../../../../ai-harness/facade";
-import type { FigureExtractorService } from "../../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import type { FigureExtractorService } from "@/modules/ai-harness/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import type { PostmortemClassifierService } from "../../postmortem/postmortem-classifier.service";

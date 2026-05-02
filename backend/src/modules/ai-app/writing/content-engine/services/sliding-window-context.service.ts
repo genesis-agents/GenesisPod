@@ -22,7 +22,7 @@ import {
   SummaryGenerationOptions,
   DEFAULT_SLIDING_WINDOW_CONFIG,
 } from "../interfaces";
-import { AiChatService } from "../../../../ai-engine/facade";
+import { AiChatService } from "@/modules/ai-harness/facade";
 
 @Injectable()
 export class SlidingWindowContextService {

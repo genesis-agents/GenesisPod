@@ -22,8 +22,8 @@ import {
   MissionBudgetPool,
   type DomainEvent,
   type IAgentEvent,
-} from "../../../../ai-harness/facade";
-import { BillingRuntimeEnvAdapter } from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
+import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";
 
@@ -575,7 +575,7 @@ export class AgentInvoker {
     if (typeof payload === "string") {
       // 8KB（之前 1.5KB 太小，web-scraper 抓的 markdown 整段被切，前端只能
       // 显示"工具未返回可解析的结构化结果"）
-      return payload.length > 8000 ? payload.slice(0, 8000) + "…" : payload;
+      return payload.length > 8000 ? payload.slice(0, 8000) + "â€¦" : payload;
     }
     try {
       const s = JSON.stringify(payload);

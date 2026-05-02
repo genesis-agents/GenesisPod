@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { WritingMissionExecutionService } from "../writing-mission-execution.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade, AgentFacade } from "../../../../../ai-harness/facade";
+import { ChatFacade, AgentFacade } from "@/modules/ai-harness/facade";
 import { WritingMissionLifecycleService } from "../writing-mission-lifecycle.service";
 import { WritingPersistence } from "../writing-persistence.service";
 import { WritingEventEmitterService } from "../../events/writing-event-emitter.service";

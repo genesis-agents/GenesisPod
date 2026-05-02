@@ -9,8 +9,8 @@
  * - lines 380-389: buildExtractionPrompt with object-format findings/trends/challenges
  */
 
-// Break the ai-engine/facade import chain
-jest.mock("@/modules/ai-engine/facade", () => ({
+// Break the ai-harness/facade import chain
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn(),
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({

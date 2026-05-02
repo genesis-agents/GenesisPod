@@ -11,7 +11,7 @@ import { AIModelType } from "@prisma/client";
 import { CircuitBreakerService } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 import type { DataSourceResult } from "../../../types/data-source.types";
 import type { AdapterSearchRequest } from "../search.types";

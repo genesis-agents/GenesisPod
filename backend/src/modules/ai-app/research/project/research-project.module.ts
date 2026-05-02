@@ -14,7 +14,7 @@ import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { StorageModule } from "../../../ai-infra/storage/storage.module";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 // ★ 依赖反转: 导入 token 用于提供 ITTSService 实现
-import { TTS_SERVICE } from "../../../ai-engine/facade";
+import { TTS_SERVICE } from "@/modules/ai-harness/facade";
 
 // 控制器和服务
 import { ResearchProjectController } from "./research-project.controller";

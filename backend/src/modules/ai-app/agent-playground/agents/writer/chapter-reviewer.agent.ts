@@ -10,7 +10,7 @@ import {
   AgentSpec,
   DefineAgent,
   CHAPTER_REVIEWER_INTERNAL_MAX_ITERATIONS,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 const Input = z.object({
   topic: z.string(),

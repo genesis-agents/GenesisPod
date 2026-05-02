@@ -5,8 +5,8 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ToolRegistry } from "@/modules/ai-engine/facade";
-import type { ToolContext } from "@/modules/ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
+import type { ToolContext } from "@/modules/ai-harness/facade";
 import { SearchSourcesDto } from "./dto";
 import { APP_CONFIG } from "@/common/config/app.config";
 

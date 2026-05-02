@@ -16,7 +16,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { BibleKeeperAgent, BibleKeeperInput } from "../bible-keeper.agent";
-import type { AgentContext } from "../../../../ai-harness/facade";
+import type { AgentContext } from "@/modules/ai-harness/facade";
 import type { WritingContextPackage } from "../../interfaces/writing-context.interface";
 
 // ==================== Helpers ====================

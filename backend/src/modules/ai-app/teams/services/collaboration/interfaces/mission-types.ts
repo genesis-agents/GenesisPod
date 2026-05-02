@@ -15,7 +15,7 @@ import {
 import {
   MissionContextPackage,
   HardConstraint,
-} from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 // ==================== Team Member Types ====================
 

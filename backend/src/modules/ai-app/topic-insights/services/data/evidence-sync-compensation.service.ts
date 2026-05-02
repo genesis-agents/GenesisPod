@@ -13,7 +13,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { TeamFacade } from "@/modules/ai-harness/facade";
-import type { SaveEvidenceRequest } from "@/modules/ai-engine/facade";
+import type { SaveEvidenceRequest } from "@/modules/ai-harness/facade";
 
 /**
  * 待补偿的证据记录

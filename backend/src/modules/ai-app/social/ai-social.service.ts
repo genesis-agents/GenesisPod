@@ -44,7 +44,7 @@ import { SessionData } from "./types/platform.types";
 import {
   MissionExecutorService,
   KernelContext,
-} from "../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 @Injectable()

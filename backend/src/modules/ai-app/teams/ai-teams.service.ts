@@ -28,12 +28,12 @@ import {
   ForwardMessagesDto,
   BookmarkMessageDto,
 } from "./dto";
-import { ChatFacade } from "../../ai-harness/facade";
-import type { ChatMessage } from "../../ai-engine/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
+import type { ChatMessage } from "@/modules/ai-harness/facade";
 import {
   KernelContext,
   MissionExecutorService,
-} from "../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 import {
   UrlParserService,

@@ -6,4 +6,4 @@
  */
 
 // 重新导出 AI Engine 的适配器以保持向后兼容
-export { FunctionCallingLLMAdapter } from "../../../ai-engine/facade";
+export { FunctionCallingLLMAdapter } from "@/modules/ai-harness/facade";

@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { TopicSummariesService } from "../topic-summaries.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { TopicCrudService } from "../topic-crud.service";
 
 const mockTopic = {

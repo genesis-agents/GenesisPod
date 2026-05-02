@@ -15,19 +15,19 @@ type ResearchSource = {
   snippet?: string;
   [key: string]: unknown;
 };
-import { PlanBasedAgent } from "../../../ai-harness/facade";
+import { PlanBasedAgent } from "@/modules/ai-harness/facade";
 import {
   BUILTIN_AGENTS,
+  BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
-  type PlanAgentEvent as AgentEvent,
+  type AgentEvent,
   type AgentTemplate,
   type ToolId,
-  BUILTIN_TOOLS,
   type PlanStep,
   type IResearchService,
   RESEARCH_SERVICE_TOKEN,
-} from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * 研究任务类型

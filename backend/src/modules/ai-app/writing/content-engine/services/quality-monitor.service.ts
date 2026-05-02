@@ -23,7 +23,7 @@ import {
   DEFAULT_QUALITY_MONITOR_CONFIG,
 } from "../interfaces";
 import { hasStructuredEnding } from "../constants";
-import { AiChatService } from "../../../../ai-engine/facade";
+import { AiChatService } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 
 /**

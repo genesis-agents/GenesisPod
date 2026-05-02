@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialContentSourceType } from "@prisma/client";
-import { RAGFacade } from "../../../ai-harness/facade";
-import { sanitizeForDb, sanitizeJson } from "../../../ai-harness/facade";
+import { RAGFacade } from "@/modules/ai-harness/facade";
+import { sanitizeForDb, sanitizeJson } from "@/modules/ai-harness/facade";
 
 export interface FetchedContent {
   title: string;

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { YoutubeController } from "../youtube.controller";
-import { YoutubeService } from "../../../ai-engine/content/fetch/youtube.service";
+import { YoutubeService } from "@/modules/ai-harness/facade";
 import { PdfGeneratorService } from "../pdf-generator.service";
 import { Response } from "express";
 

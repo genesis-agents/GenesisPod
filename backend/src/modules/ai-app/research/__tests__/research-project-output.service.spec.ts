@@ -8,7 +8,7 @@ import { ResearchProjectOutputService } from "../project/research-project-output
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 
-jest.mock("@/modules/ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn().mockImplementation(() => ({
     chat: jest.fn(),
   })),

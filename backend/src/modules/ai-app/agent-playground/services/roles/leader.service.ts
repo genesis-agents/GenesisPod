@@ -168,7 +168,7 @@ interface MissionContext {
 
 /**
  * 注入到 SupervisedMission 的 runner 抽象。
- * orchestrator 已经持有真实的 AgentRunner（来自 ai-engine/facade），
+ * orchestrator 已经持有真实的 AgentRunner（来自 ai-harness/facade），
  * 直接传函数避免循环依赖 + 让 supervisor 跟 orchestrator 共享 envAdapter / billing context。
  */
 export type LeaderRunFn = <TIn, TOut>(args: {

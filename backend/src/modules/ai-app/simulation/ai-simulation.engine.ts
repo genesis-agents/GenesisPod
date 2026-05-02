@@ -9,16 +9,16 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
-import { ChatFacade } from "../../ai-harness/facade";
-import type { ChatMessage } from "../../ai-engine/facade";
-import { ProgressTrackerService } from "../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
+import type { ChatMessage } from "@/modules/ai-harness/facade";
+import { ProgressTrackerService } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,
   EventJournalService,
   ResourceManagerService,
   EventBusService,
-} from "../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { ProcessMemoryManagerService } from "@/modules/ai-harness/facade";
 import { LruMap } from "@/common/utils/lru-map";
 

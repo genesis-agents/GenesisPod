@@ -23,14 +23,14 @@ import {
   ChatFacade,
   AgentFacade,
   ToolFacade,
-} from "../../../../../ai-harness/facade";
-import type { ChatMessage } from "../../../../../ai-engine/facade";
-import type { TaskProfile } from "../../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import type { ChatMessage } from "@/modules/ai-harness/facade";
+import type { TaskProfile } from "@/modules/ai-harness/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../../../../ai-engine/facade";
-import type { ToolContext } from "../../../../../ai-engine/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
+import type { ToolContext } from "@/modules/ai-harness/facade";
 // ★ IPC: Agent 间消息总线（Kernel L3）
-import { MessageBusService } from "../../../../../ai-harness/facade";
+import { MessageBusService } from "@/modules/ai-harness/facade";
 import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,
@@ -55,8 +55,8 @@ import {
   AgentTaskWithAssignee,
   TaskAssignee,
 } from "../interfaces";
-import { MissionContextPackage } from "../../../../../ai-harness/facade";
-import type { AICapabilityContext } from "../../../../../ai-harness/facade";
+import { MissionContextPackage } from "@/modules/ai-harness/facade";
+import type { AICapabilityContext } from "@/modules/ai-harness/facade";
 
 /**
  * 执行服务回调接口

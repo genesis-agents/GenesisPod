@@ -45,13 +45,13 @@ import {
   QualityTraceComputeService,
   // ★ Phase 5 (2026-04-29): mission checkpoint
   MissionCheckpointService,
-} from "../../../../../ai-harness/facade";
-import { FigureExtractorService } from "../../../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import { FigureExtractorService } from "@/modules/ai-harness/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
 import { withUserContext } from "../../../../../../common/context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 // ★ P2-R3-3 (round 3): 与同文件相邻 import 统一相对路径风格
-import { RuntimeEnvironmentService } from "../../../../../ai-harness/facade";
+import { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import { LeaderAgent } from "../../../agents/leader/leader.agent";
 import {
   LeaderService,
@@ -76,7 +76,7 @@ import {
   resolveMissionWallTimeMs,
   type RunMissionInput,
 } from "../../../dto/run-mission.dto";
-import { BillingRuntimeEnvAdapter } from "../../../../../ai-harness/facade";
+import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";

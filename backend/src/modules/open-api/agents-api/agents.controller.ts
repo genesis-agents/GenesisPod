@@ -25,7 +25,7 @@ import {
   BUILTIN_AGENTS,
   BuiltinAgentId,
   AgentInput,
-} from "../../ai-engine/core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { AgentsService } from "./agents.service";
 import {
   ExecuteRequestDto,

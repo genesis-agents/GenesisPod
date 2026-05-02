@@ -9,7 +9,7 @@ import {
   AgentFacade,
   UserIntent,
   ContextStrategy,
-} from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 
 const mockMessages = [
   {

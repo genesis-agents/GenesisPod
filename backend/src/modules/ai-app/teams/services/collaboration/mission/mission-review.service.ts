@@ -18,8 +18,8 @@ import { TopicEventEmitterService } from "../../events";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AIFacade 访问熔断器服务
-import { AgentFacade } from "../../../../../ai-harness/facade";
-import { TaskCompletionType } from "../../../../../ai-harness/facade";
+import { AgentFacade } from "@/modules/ai-harness/facade";
+import { TaskCompletionType } from "@/modules/ai-harness/facade";
 import { MissionStateManager } from "./mission-state.manager";
 import { parseReviewResult } from "../utils";
 import {
@@ -31,9 +31,9 @@ import {
 import {
   MissionContextPackage,
   HardConstraint,
-} from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 // AiCallerFn 是 L2.5 ai-harness/runner 类型（2026-05-01 PR-X-L 从 engine 下移）
-import type { AiCallerFn } from "../../../../../ai-harness/facade";
+import type { AiCallerFn } from "@/modules/ai-harness/facade";
 
 /**
  * 审核服务回调接口
@@ -1242,7 +1242,7 @@ ${truncatedResult}
       allConstraints.length > 0
         ? `
 【🚫 硬性约束 - 修改时必须遵守】
-${allConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
+${allConstraints.map((c) => `â€¢ [${c.id}] ${c.rule}`).join("\n")}
 
 ⚠️ 违反任何硬性约束将导致再次被驳回。
 `

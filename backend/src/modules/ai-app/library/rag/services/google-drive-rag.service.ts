@@ -10,7 +10,7 @@ import { KnowledgeBaseService } from "./knowledge-base.service";
 import { KnowledgeBaseStatus } from "@prisma/client";
 import { OAuth2Client } from "google-auth-library";
 import { drive, drive_v3 } from "@googleapis/drive";
-import { SyncResult, GoogleDriveFile } from "../../../../ai-engine/facade";
+import { SyncResult, GoogleDriveFile } from "@/modules/ai-harness/facade";
 import * as mammoth from "mammoth";
 
 // Supported MIME types for document processing

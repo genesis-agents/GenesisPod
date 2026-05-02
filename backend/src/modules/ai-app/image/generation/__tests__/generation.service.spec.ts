@@ -14,7 +14,7 @@ import { AiImageService } from "../generation.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ContentExtractorService } from "../../../../../common/content-processing/content-extractor.service";
 import { DataFetchingService } from "../../../../../common/content-processing/data-fetching.service";
-import { ChatFacade } from "../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { InfographicTemplateService } from "../../infographic/infographic.service";
 import { PromptEnhancementService } from "../prompt-enhancement.service";
 import { ImageGenerationService } from "../image-generation.service";

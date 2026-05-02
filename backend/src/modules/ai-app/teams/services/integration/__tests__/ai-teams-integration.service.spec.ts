@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiTeamsIntegrationService } from "../ai-teams-integration.service";
-import { TeamFacade, TeamRegistry, RoleRegistry } from "../../../../../ai-harness/facade";
+import { TeamFacade, TeamRegistry, RoleRegistry } from "@/modules/ai-harness/facade";
 
 const mockTeamInfo = {
   id: "custom-123",

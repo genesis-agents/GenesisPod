@@ -4,7 +4,7 @@
  * 实现已沉淀到 ai-engine/content/report-template (2026-04-29)。
  * 本 shim 维持原 import 路径不变，TI 等商用模块零改动。
  *
- * 新模块（Playground 等）请改从 `@/modules/ai-engine/facade` 或
+ * 新模块（Playground 等）请改从 `@/modules/ai-harness/facade` 或
  * `@/modules/ai-engine/content/report-template` 直接导入。
  */
 // 2026-05-01 (PR-X-N): contracts/* 是有意识的"backwards-compat 隧道"，

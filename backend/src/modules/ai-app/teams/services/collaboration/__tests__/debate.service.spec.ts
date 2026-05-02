@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DebateService } from "../debate.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { ChatFacade, TeamFacade } from "../../../../../ai-harness/facade";
+import { ChatFacade, TeamFacade } from "@/modules/ai-harness/facade";
 import { NotFoundException } from "@nestjs/common";
 import { DebateStatus, DebateRole } from "@prisma/client";
 

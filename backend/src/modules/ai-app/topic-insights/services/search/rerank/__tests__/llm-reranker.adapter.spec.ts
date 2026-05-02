@@ -1,9 +1,9 @@
 import { LlmRerankerAdapter } from "../llm-reranker.adapter";
 import type { RerankCandidate } from "../rerank.types";
-import type { ChatFacade } from "@/modules/ai-engine/facade";
+import type { ChatFacade } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../../types/data-source.types";
 
-jest.mock("@/modules/ai-engine/facade", () => ({}));
+jest.mock("@/modules/ai-harness/facade", () => ({}));
 jest.mock("@/modules/ai-harness/facade", () => ({}));
 
 function makeCandidate(i: number, title: string): RerankCandidate {

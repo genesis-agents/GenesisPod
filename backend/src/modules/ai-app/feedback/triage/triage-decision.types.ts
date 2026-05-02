@@ -5,7 +5,7 @@
  */
 
 import { AIModelType } from "@prisma/client";
-import { TaskProfile } from "../../../ai-engine/facade";
+import { TaskProfile } from "@/modules/ai-harness/facade";
 
 // ============================================
 // 基础类型

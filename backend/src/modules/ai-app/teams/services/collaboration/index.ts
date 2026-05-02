@@ -45,7 +45,7 @@ export {
   ExtractedConstraint,
   OutputValidationResult,
 } from "./context";
-export type { ConstraintViolation as ContextConstraintViolation } from "../../../../ai-harness/facade";
+export type { ConstraintViolation as ContextConstraintViolation } from "@/modules/ai-harness/facade";
 
 // 协作服务（根目录）
 export * from "./team-collaboration.service";

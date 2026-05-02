@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderModelService } from "../leader-model.service";
-import { ChatFacade } from "../../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 
 const mockModelConfig = {
   id: "model-1",

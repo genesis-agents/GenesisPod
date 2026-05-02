@@ -18,7 +18,7 @@ import { AgentInvoker, type InvocationContext } from "./agent-invoker.service";
 import {
   MissionBudgetPool,
   type IAgentEvent,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { normalizeRunnerState } from "./runner-state.util";
 
 export interface ResearcherDimSpec {

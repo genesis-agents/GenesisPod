@@ -11,8 +11,10 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { KeyRequestsService } from "../../ai-engine/facade";
-import { CreateKeyRequestDto } from "../../ai-engine/facade";
+import {
+  KeyRequestsService,
+  CreateKeyRequestDto,
+} from "@/modules/ai-harness/facade";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };

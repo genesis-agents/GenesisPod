@@ -16,7 +16,7 @@
  */
 
 import { z } from "zod";
-import { AgentSpec, DefineAgent } from "../../../../ai-harness/facade";
+import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 import { buildPromptFromDuty } from "../../utils/duty-loader";
 
 const Citation = z.object({

@@ -3,8 +3,8 @@
  */
 
 import { ToolError } from "../tool-error";
-import { EngineError } from "../base-error";
-import { ToolErrorCode } from "../error-codes";
+import { EngineError } from "@/modules/ai-engine/facade/abstractions/base-error";
+import { ToolErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes";
 
 describe("ToolError", () => {
   describe("constructor", () => {

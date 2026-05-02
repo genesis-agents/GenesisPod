@@ -22,17 +22,17 @@ import {
   ChatFacade,
   TeamFacade,
   RAGFacade,
-} from "../../../ai-harness/facade";
-import { ProgressTrackerService } from "../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
+import { ProgressTrackerService } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,
   EventJournalService,
   ResourceManagerService,
   EventBusService,
-} from "../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { ProcessMemoryManagerService } from "@/modules/ai-harness/facade";
-import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
+import type { ChatMessage, TaskProfile } from "@/modules/ai-harness/facade";
 import { BillingContext } from "../../../ai-infra/facade";
 import { LruMap } from "@/common/utils/lru-map";
 

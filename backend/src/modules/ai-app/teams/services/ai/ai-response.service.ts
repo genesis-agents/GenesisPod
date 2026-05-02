@@ -6,16 +6,14 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
-import { ChatFacade, ToolFacade } from "../../../../ai-harness/facade";
-import type { ChatMessage } from "../../../../ai-engine/facade";
+import { ChatFacade, ToolFacade, type ChatMessage } from "@/modules/ai-harness/facade";
 import {
   KernelContext,
   MissionExecutorService,
-} from "../../../../ai-harness/facade";
-// ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../../../ai-engine/facade";
-import { LruMap } from "@/common/utils/lru-map";
-import type { ToolContext } from "../../../../ai-engine/facade";
+  ToolRegistry,
+  type ToolContext,
+  type BuiltinToolId,
+} from "@/modules/ai-harness/facade";
 import {
   ContextRouterService,
   ContextStrategy,
@@ -23,12 +21,12 @@ import {
 import { TopicContextRetrievalService } from "./topic-context-retrieval.service";
 import { ParsedUrl } from "../../../../../common/content-processing";
 import { TeamMemberAgent } from "../../agents";
-import type { BuiltinToolId } from "../../../../ai-engine/facade";
+import { LruMap } from "@/common/utils/lru-map";
 // AgentEvent type matches the executor's emitted events (tool field, not toolId)
 import type {
   FunctionCallingAgentEvent as AgentEvent,
   AICapabilityContext,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { TopicEventEmitterService } from "../events";
 import {
   CreditsService,

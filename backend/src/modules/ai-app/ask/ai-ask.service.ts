@@ -6,18 +6,18 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { ChatFacade, ToolFacade, RAGFacade } from "../../ai-harness/facade";
 import {
+  ChatFacade,
+  ToolFacade,
+  RAGFacade,
   BUILTIN_TOOLS,
   type BuiltinToolId,
   RAGPipelineService,
-} from "../../ai-engine/facade";
-import type {
-  AICapabilityContext,
-  ExecutionConfig,
-} from "../../ai-harness/facade";
-import { MissionExecutorService } from "../../ai-harness/facade";
-import { ProcessMemoryManagerService } from "@/modules/ai-harness/facade";
+  type AICapabilityContext,
+  type ExecutionConfig,
+  MissionExecutorService,
+  ProcessMemoryManagerService,
+} from "@/modules/ai-harness/facade";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,
@@ -385,13 +385,13 @@ export class AiAskService {
               ) {
                 ragContext = ragResponse.context.text;
                 // Collect RAG sources to return to frontend
-                ragSources = ragResponse.context.sources.map((s) => ({
+                ragSources = ragResponse.context.sources.map((s: any) => ({
                   documentTitle: s.documentTitle,
                   excerpt: s.excerpt,
                   score: s.score,
                 }));
                 this.logger.log(
-                  `[sendMessage] RAG context added (${ragSources.length} sources): ${ragSources.map((s) => s.documentTitle).join(", ")}`,
+                  `[sendMessage] RAG context added (${ragSources.length} sources): ${ragSources.map((s: any) => s.documentTitle).join(", ")}`,
                 );
               } else {
                 this.logger.log(

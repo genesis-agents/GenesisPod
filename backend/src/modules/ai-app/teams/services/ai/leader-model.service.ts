@@ -14,7 +14,7 @@ import type {
   AIModelConfig,
 } from "@/modules/ai-harness/facade";
 import { ChatFacade } from "@/modules/ai-harness/facade";
-import { AIError } from "@/modules/ai-engine/facade";
+import { AIError } from "@/modules/ai-harness/facade";
 
 // ==================== 类型定义 (保持原有接口) ====================
 

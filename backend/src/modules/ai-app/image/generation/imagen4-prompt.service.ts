@@ -12,8 +12,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { TeamFacade } from "../../../ai-harness/facade";
-import type { MissionEvent } from "../../../ai-harness/facade";
+import { TeamFacade } from "@/modules/ai-harness/facade";
+import type { MissionEvent } from "@/modules/ai-harness/facade";
 import {
   GenerateImageOptions,
   PromptEngineeringInsights,

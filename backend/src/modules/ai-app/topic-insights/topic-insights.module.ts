@@ -5,9 +5,11 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { PromptSkillBridge } from "../../ai-engine/facade";
-import { TeamRegistry } from "../../ai-harness/facade";
-import { AgentRegistry } from "../../ai-harness/facade";
+import {
+  PromptSkillBridge,
+  TeamRegistry,
+  AgentRegistry,
+} from "@/modules/ai-harness/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";

@@ -12,7 +12,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SlidingWindowContextService } from "../sliding-window-context.service";
-import { AiChatService } from "../../../../../ai-engine/facade";
+import { AiChatService } from "@/modules/ai-harness/facade";
 import { DEFAULT_SLIDING_WINDOW_CONFIG } from "../../interfaces";
 
 const mockAiChatService = {

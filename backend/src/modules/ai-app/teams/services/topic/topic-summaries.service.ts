@@ -7,7 +7,7 @@ import {
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole, Prisma } from "@prisma/client";
 import { GenerateSummaryDto } from "../../dto";
-import { ChatFacade, ChatMessage } from "../../../../ai-harness/facade";
+import { ChatFacade, ChatMessage } from "@/modules/ai-harness/facade";
 import { TopicCrudService } from "./topic-crud.service";
 
 @Injectable()

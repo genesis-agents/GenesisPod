@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { TriageAgentService } from "../triage-agent.service";
 import { SimilarityMatcherService } from "../similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../../analyzer/screenshot-analyzer.service";
-import { ChatFacade } from "../../../../ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { TriageInput, SimilarIssue } from "../triage-decision.types";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────

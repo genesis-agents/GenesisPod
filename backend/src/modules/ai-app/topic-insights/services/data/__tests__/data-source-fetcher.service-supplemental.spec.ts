@@ -21,7 +21,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourceFetcherService } from "../data-source-fetcher.service";
 import { ChatFacade, RAGFacade } from "@/modules/ai-harness/facade";
-import { ToolRegistry, FederalRegisterTool, CongressGovTool, WhiteHouseNewsTool } from "@/modules/ai-engine/facade";
+import { ToolRegistry, FederalRegisterTool, CongressGovTool, WhiteHouseNewsTool } from "@/modules/ai-harness/facade";
 import { DataSourceType } from "../../../types/data-source.types";
 
 const mockToolRegistry = {

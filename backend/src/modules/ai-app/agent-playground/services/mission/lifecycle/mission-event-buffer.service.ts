@@ -15,7 +15,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type {
   DomainEvent,
   IBroadcastAdapter,
-} from "../../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
 const MAX_PER_MISSION = 5000;

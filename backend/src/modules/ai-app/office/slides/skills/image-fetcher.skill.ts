@@ -16,7 +16,7 @@ import {
   SkillResult,
   SkillLayer,
   SKILL_LAYERS,
-} from "@/modules/ai-engine/facade";
+} from "@/modules/ai-harness/facade";
 
 /**
  * 图片搜索结果

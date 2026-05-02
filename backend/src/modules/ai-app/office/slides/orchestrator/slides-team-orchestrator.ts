@@ -29,8 +29,8 @@ import {
   SlidesExecutionError,
 } from "./types";
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
-import { createSkillOutputManager } from "@/modules/ai-engine/facade";
-import type { ISkillOutputManager } from "@/modules/ai-engine/facade";
+import { createSkillOutputManager } from "@/modules/ai-harness/facade";
+import type { ISkillOutputManager } from "@/modules/ai-harness/facade";
 import { SkillResolver } from "../skill-resolver";
 
 @Injectable()

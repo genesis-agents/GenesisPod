@@ -20,11 +20,11 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade, TeamFacade, TeamRegistry, RoleRegistry } from "../../../../ai-harness/facade";
+import { ChatFacade, TeamFacade, TeamRegistry, RoleRegistry } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,
-} from "../../../../ai-harness/facade";
+} from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 import { BillingContext } from "../../../../ai-infra/facade";
 import { LruMap } from "@/common/utils/lru-map";

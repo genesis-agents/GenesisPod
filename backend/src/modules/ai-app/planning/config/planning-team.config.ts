@@ -4,10 +4,10 @@
 
 import {
   BUILTIN_ROLES,
+  BUILTIN_TOOLS,
   createConstraintProfile,
-} from "../../../ai-harness/facade";
-import type { TeamConfig, WorkflowConfig } from "../../../ai-harness/facade";
-import { BUILTIN_TOOLS } from "../../../ai-engine/facade";
+} from "@/modules/ai-harness/facade";
+import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 export const PLANNING_WORKFLOW: WorkflowConfig = {
   id: "planning-workflow",

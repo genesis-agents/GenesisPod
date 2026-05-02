@@ -24,9 +24,9 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { KnowledgeBaseService } from "./services/knowledge-base.service";
-import { RAGPipelineService } from "../../../ai-engine/facade";
+import { RAGPipelineService } from "@/modules/ai-harness/facade";
 import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
-import { RAGFacade } from "../../../ai-harness/facade";
+import { RAGFacade } from "@/modules/ai-harness/facade";
 import {
   CreateKnowledgeBaseDto,
   UpdateKnowledgeBaseDto,

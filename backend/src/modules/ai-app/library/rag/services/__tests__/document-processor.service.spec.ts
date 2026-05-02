@@ -18,7 +18,7 @@ import { DocumentProcessorService } from "../document-processor.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
 // Mock the ai-engine facade so the import doesn't fail in isolation
-jest.mock("../../../../../ai-engine/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   DEFAULT_CHUNKING_CONFIG: {
     parentChunkSize: 2000,
     parentChunkOverlap: 200,
@@ -26,7 +26,7 @@ jest.mock("../../../../../ai-engine/facade", () => ({
     childChunkOverlap: 50,
   },
 }));
-jest.mock("../../../../../ai-harness/facade", () => ({
+jest.mock("@/modules/ai-harness/facade", () => ({
   DEFAULT_CHUNKING_CONFIG: {
     parentChunkSize: 2000,
     parentChunkOverlap: 200,

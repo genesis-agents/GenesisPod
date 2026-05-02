@@ -13,12 +13,13 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseAgent } from "../../../ai-harness/facade";
+import { BaseAgent } from "@/modules/ai-harness/facade";
 import {
   type ExecutionMode,
   BUILTIN_TOOLS,
-} from "../../../ai-engine/facade";
-import type { AgentContext, AgentCapability } from "../../../ai-harness/facade";
+  type AgentContext,
+  type AgentCapability,
+} from "@/modules/ai-harness/facade";
 import {
   WritingContextPackage,
   ChapterWritingContext,

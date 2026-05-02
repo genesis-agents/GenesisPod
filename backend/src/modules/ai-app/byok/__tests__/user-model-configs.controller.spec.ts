@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { UserModelConfigsController } from "../user-model-configs.controller";
-import { UserModelConfigsService } from "../../../ai-engine/facade";
+import { UserModelConfigsService } from "@/modules/ai-harness/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
 const mockGuard = { canActivate: () => true };

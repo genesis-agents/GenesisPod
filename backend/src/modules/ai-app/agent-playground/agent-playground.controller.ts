@@ -36,7 +36,7 @@ import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 // ★ Phase 5 (2026-04-29): 接入 ai-harness 沉淀的 MissionCheckpointService
-import { MissionCheckpointService } from "../../ai-harness/facade";
+import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";

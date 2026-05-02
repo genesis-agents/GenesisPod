@@ -12,8 +12,8 @@
  * - extractFinalConclusion via generateComprehensiveReport: en language path
  */
 
-// Break the ai-engine/facade import chain
-jest.mock("@/modules/ai-engine/facade", () => ({
+// Break the ai-harness/facade import chain
+jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: jest.fn(),
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({

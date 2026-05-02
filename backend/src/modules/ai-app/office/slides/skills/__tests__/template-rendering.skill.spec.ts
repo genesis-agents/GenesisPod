@@ -20,7 +20,7 @@ import {
   PageContent,
   PageTemplateType,
 } from "../../checkpoint/checkpoint.types";
-import type { SkillContext } from "@/modules/ai-engine/facade";
+import type { SkillContext } from "@/modules/ai-harness/facade";
 import { templateRegistry } from "../../templates/base/template-registry";
 import {
   BIG_NUMBER_TEMPLATE,
