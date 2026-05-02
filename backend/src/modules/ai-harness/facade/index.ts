@@ -664,14 +664,14 @@ export type {
 // ════════════════════════════════════════════════════════════════════
 // Runtime: mission + budget + billing + kernel-api
 // ════════════════════════════════════════════════════════════════════
-export { MissionBudgetPool } from "../runtime/mission/mission-budget-pool";
+export { MissionBudgetPool } from "../guardrails/budget/mission-budget-pool";
 export { BillingRuntimeEnvAdapter } from "../guardrails/billing/billing-adapter";
-export { MissionExecutorService } from "../runtime/mission/mission-executor.service";
+export { MissionExecutorService } from "../lifecycle/manager/mission-executor.service";
 export type {
   IMissionExecutor,
   MissionExecuteOptions,
   MissionExecuteResult,
-} from "../runtime/mission/mission-executor.interface";
+} from "../lifecycle/manager/mission-executor.interface";
 export { KernelApiService } from "../runtime/api/kernel-api.service";
 
 // ════════════════════════════════════════════════════════════════════

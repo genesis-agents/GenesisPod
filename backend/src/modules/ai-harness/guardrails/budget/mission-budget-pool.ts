@@ -15,7 +15,7 @@
  */
 
 import { BudgetAccountant } from "@/modules/ai-harness/guardrails/budget/budget-accountant";
-import type { TokenBudget } from "../env/types";
+import type { TokenBudget } from "@/modules/ai-harness/runner/env/types";
 
 export class MissionBudgetPool {
   private poolTokensUsed = 0;

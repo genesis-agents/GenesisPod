@@ -20,10 +20,16 @@ import {
   type ConsensusResolver,
   type LLMCaller,
   type ReActStores,
-} from "../env/react-runner";
-import type { TaskQueue, QueueStats } from "../env/task-queue-interface";
-import type { ProtocolRegistry } from "../env/protocol-registry-interface";
-import { HumanInLoopPause, type AgentTask } from "../env/types";
+} from "@/modules/ai-harness/runner/env/react-runner";
+import type {
+  TaskQueue,
+  QueueStats,
+} from "@/modules/ai-harness/runner/env/task-queue-interface";
+import type { ProtocolRegistry } from "@/modules/ai-harness/runner/env/protocol-registry-interface";
+import {
+  HumanInLoopPause,
+  type AgentTask,
+} from "@/modules/ai-harness/runner/env/types";
 
 export interface FinalizerCallback<TMetadata extends Record<string, unknown>> {
   (scope: string, stats: QueueStats, metadata: TMetadata): Promise<void>;

@@ -24,7 +24,7 @@ import { ObservabilityModule } from "../tracing/observability.module";
 // Runtime lifecycle services
 import { ProcessManagerService } from "../lifecycle/manager/process-manager.service";
 import { ProcessSupervisorService } from "../lifecycle/supervisor/process-supervisor.service";
-import { MissionExecutorService } from "./mission/mission-executor.service";
+import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
 // CapabilityGuardService 已搬到 ai-engine/safety/security/（PR-X3）
 // 由 ai-engine-constraint.module 提供，@Global 全局可注入
 import { KernelSchedulerService } from "../runner/scheduler/kernel-scheduler.service";

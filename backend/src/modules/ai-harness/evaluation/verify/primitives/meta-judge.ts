@@ -10,8 +10,8 @@ import type {
   Message,
   Verdict,
   ConsensusDecision,
-} from "../../../runtime/env/types";
-import type { LLMCaller } from "../../../runtime/env/react-runner";
+} from "@/modules/ai-harness/runner/env/types";
+import type { LLMCaller } from "@/modules/ai-harness/runner/env/react-runner";
 import { callJudgeLLM } from "./self-judge";
 
 const META_JUDGE_SYSTEM_PROMPT = `你是一位 meta 级评审员。下面有多位 judge 对同一 draft 的评价，他们分数分歧明显。

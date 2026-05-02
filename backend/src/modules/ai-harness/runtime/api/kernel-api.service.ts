@@ -8,7 +8,7 @@ import { ProcessManagerService } from "../../../ai-harness/lifecycle/manager/pro
 import { EventJournalService } from "../../protocol/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
 import { ResourceManagerService } from "../../../ai-harness/guardrails/resource-manager.service";
-import { MissionExecutorService } from "../../../ai-harness/runtime/mission/mission-executor.service";
+import { MissionExecutorService } from "../../../ai-harness/lifecycle/manager/mission-executor.service";
 import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { EventBusService } from "../../../ai-harness/protocol/ipc/event-bus.service";
 import { MessageBusService } from "../../../ai-harness/protocol/ipc/message-bus.service";
@@ -31,7 +31,7 @@ import type { JournalEntry } from "../../../ai-harness/lifecycle/manager/process
 import type {
   MissionExecuteOptions,
   MissionExecuteResult,
-} from "../../../ai-harness/runtime/mission/mission-executor.interface";
+} from "../../../ai-harness/lifecycle/manager/mission-executor.interface";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 
 @Injectable()

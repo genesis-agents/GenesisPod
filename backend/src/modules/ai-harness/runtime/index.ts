@@ -16,19 +16,19 @@ export {
   type ReActHistory,
   type ReActExecutionContext,
   type ReActStores,
-} from "./env/react-runner";
+} from "@/modules/ai-harness/runner/env/react-runner";
 
 export {
   BudgetAccountant,
   type ModelTier,
 } from "@/modules/ai-harness/guardrails/budget/budget-accountant";
-export { MissionBudgetPool } from "./mission/mission-budget-pool";
+export { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
 export {
   AgentExecutionContext,
   classifyError,
   shouldRetry,
-} from "./mission/agent-execution-context";
-export { NoopRuntimeEnvironment } from "./env/noop-runtime-environment";
+} from "@/modules/ai-harness/runner/context/agent-execution-context";
+export { NoopRuntimeEnvironment } from "@/modules/ai-harness/runner/env/noop-runtime-environment";
 
 export {
   ToolRegistry,
@@ -38,7 +38,7 @@ export {
   type JsonSchemaProp,
   type RateLimitPolicy,
   type RetryPolicy,
-} from "./env/tool-registry";
+} from "@/modules/ai-harness/runner/env/tool-registry";
 
 export {
   AgentTracer,
@@ -61,14 +61,14 @@ export type {
   CheckpointStore,
   VerificationStore,
   TaskStore,
-} from "./env/stores";
+} from "@/modules/ai-harness/runner/env/stores";
 
 // TaskQueue 接口（App 层实现）
 export type {
   TaskQueue,
   QueueStats,
   EnqueueOptions,
-} from "./env/task-queue-interface";
+} from "@/modules/ai-harness/runner/env/task-queue-interface";
 
 // Verification (self / external / meta judge + consensus resolver)
 // 已迁至 evaluation/verify/primitives/，runtime/index 仍 re-export 保持对外 API 不变
@@ -80,16 +80,16 @@ export {
   type OrchestrateOptions,
   type FinalizerCallback,
   type TaskCompletedHook,
-} from "./mission/mission-orchestrator";
+} from "@/modules/ai-harness/runner/plan-execution/task-execution-orchestrator";
 
-export type { ProtocolRegistry } from "./env/protocol-registry-interface";
+export type { ProtocolRegistry } from "@/modules/ai-harness/runner/env/protocol-registry-interface";
 
 export type {
   DynamicReplanner,
   ReplanOperation,
   ReplanObservations,
   ReplanDecision,
-} from "./env/dynamic-replanner-interface";
+} from "@/modules/ai-harness/runner/env/dynamic-replanner-interface";
 
 // 通用 types / DSL
-export * from "./env/types";
+export * from "@/modules/ai-harness/runner/env/types";

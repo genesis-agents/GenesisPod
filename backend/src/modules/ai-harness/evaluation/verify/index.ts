@@ -19,4 +19,7 @@ export { MetaJudge } from "./primitives/meta-judge";
 export type { IVerifier } from "../../execution/loop/reflexion-loop";
 
 // 类型 re-export（App 不必跨目录引用）
-export type { Verdict, ConsensusDecision } from "../../runtime/env/types";
+export type {
+  Verdict,
+  ConsensusDecision,
+} from "@/modules/ai-harness/runner/env/types";

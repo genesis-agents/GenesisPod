@@ -18,12 +18,18 @@
 import {
   MissionOrchestrator,
   type OrchestrateOptions,
-} from "../mission-orchestrator";
-import { HumanInLoopPause } from "../../env/types";
-import type { ReActRunner, ReActStores } from "../../env/react-runner";
-import type { TaskQueue, QueueStats } from "../../env/task-queue-interface";
-import type { ProtocolRegistry } from "../../env/protocol-registry-interface";
-import type { AgentTask } from "../../env/types";
+} from "../task-execution-orchestrator";
+import { HumanInLoopPause } from "@/modules/ai-harness/runner/env/types";
+import type {
+  ReActRunner,
+  ReActStores,
+} from "@/modules/ai-harness/runner/env/react-runner";
+import type {
+  TaskQueue,
+  QueueStats,
+} from "@/modules/ai-harness/runner/env/task-queue-interface";
+import type { ProtocolRegistry } from "@/modules/ai-harness/runner/env/protocol-registry-interface";
+import type { AgentTask } from "@/modules/ai-harness/runner/env/types";
 
 // ─── Minimal fakes ────────────────────────────────────────────────────────────
 

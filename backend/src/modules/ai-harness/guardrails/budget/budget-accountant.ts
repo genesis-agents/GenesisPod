@@ -8,7 +8,7 @@
 import type {
   TokenBudget,
   BudgetSnapshot,
-} from "@/modules/ai-harness/runtime/env/types";
+} from "@/modules/ai-harness/runner/env/types";
 
 export type ModelTier = "strong" | "standard" | "basic";
 

@@ -14,7 +14,7 @@ import { ProcessManagerService } from "../../../lifecycle/manager/process-manage
 import { EventJournalService } from "../../../protocol/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../../memory/working/process-memory-manager.service";
 import { ResourceManagerService } from "../../../guardrails/resource-manager.service";
-import { MissionExecutorService } from "../../mission/mission-executor.service";
+import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
 import { CircuitBreakerService } from "../../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { EventBusService } from "../../../protocol/ipc/event-bus.service";
 import { MessageBusService } from "../../../protocol/ipc/message-bus.service";
