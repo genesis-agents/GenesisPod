@@ -210,7 +210,7 @@ export class AutoConfigureService {
             modelType,
             isDefault: true, // 每个 modelType 只建一个，直接设为默认
             maxTokens: this.inferMaxTokens(matchedId, modelType),
-            ...this.inferCapabilities(matchedId, modelType),
+            ...this.inferCapabilities(matchedId, modelType, provider),
           });
           existingKeys.add(dedupKey);
           defaultedTypes.add(modelType);
@@ -424,15 +424,64 @@ export class AutoConfigureService {
     return 8000;
   }
 
+  /**
+   * ★ 2026-05-01 (mission 9a3144fc 真因): 之前未返回 apiFormat / apiEndpoint，
+   *   auto-configure 出来的 BYOK 全部 api_format=openai / api_endpoint=NULL，
+   *   xAI 模型被错路由到 OpenAI 端 → "requested resource not found"。
+   *   现按 provider 推断这两个字段。
+   */
+  private inferProviderDefaults(provider: string): {
+    apiFormat: string;
+    apiEndpoint: string;
+  } {
+    const lower = (provider ?? "").toLowerCase();
+    if (lower === "anthropic" || lower === "claude") {
+      return {
+        apiFormat: "anthropic",
+        apiEndpoint: "https://api.anthropic.com/v1/messages",
+      };
+    }
+    if (lower === "google" || lower === "gemini") {
+      return {
+        apiFormat: "google",
+        apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
+      };
+    }
+    if (lower === "xai" || lower === "grok") {
+      return {
+        apiFormat: "xai",
+        apiEndpoint: "https://api.x.ai/v1/chat/completions",
+      };
+    }
+    if (lower === "cohere") {
+      return {
+        apiFormat: "cohere",
+        apiEndpoint: "https://api.cohere.com/v1/chat",
+      };
+    }
+    if (lower === "deepseek") {
+      return {
+        apiFormat: "openai",
+        apiEndpoint: "https://api.deepseek.com/v1/chat/completions",
+      };
+    }
+    return {
+      apiFormat: "openai",
+      apiEndpoint: "https://api.openai.com/v1/chat/completions",
+    };
+  }
+
   private inferCapabilities(
     modelId: string,
     modelType: AIModelType,
+    provider?: string,
   ): {
     isReasoning?: boolean;
     supportsTemperature?: boolean;
     tokenParamName?: string;
     supportsVision?: boolean;
     apiFormat?: string;
+    apiEndpoint?: string;
   } {
     const lower = modelId.toLowerCase();
 
@@ -463,6 +512,9 @@ export class AutoConfigureService {
     const supportsVision =
       modelType === AIModelType.MULTIMODAL ||
       /4o|vision|gemini|claude-3/i.test(lower);
+    const providerDefaults = provider
+      ? this.inferProviderDefaults(provider)
+      : { apiFormat: "openai", apiEndpoint: undefined as string | undefined };
     return {
       isReasoning: isReasoningCapable,
       supportsTemperature: !usesReasoningTokenProtocol,
@@ -470,6 +522,8 @@ export class AutoConfigureService {
         ? "max_completion_tokens"
         : "max_tokens",
       supportsVision,
+      apiFormat: providerDefaults.apiFormat,
+      apiEndpoint: providerDefaults.apiEndpoint,
     };
   }
 }

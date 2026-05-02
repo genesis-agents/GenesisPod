@@ -232,6 +232,10 @@ export class ModelFallbackService {
         });
         if (userRows.length > 0) {
           allModels = userRows.map(
+            // ★ 2026-05-01 (mission 9a3144fc 真因)：补齐 BYOK 全量字段透传 ——
+            //   之前只透 12 个字段，apiFormat / tokenParamName / supports_* 全丢，
+            //   下游 ai-chat 默认 apiFormat='openai' 把 xai 模型路由到 OpenAI 端，
+            //   触发 xAI "requested resource was not found" 404。
             (r): FallbackModel => ({
               id: r.id,
               name: r.modelId,
@@ -245,6 +249,16 @@ export class ModelFallbackService {
               isEnabled: r.isEnabled,
               isDefault: r.isDefault,
               isReasoning: r.isReasoning,
+              apiFormat: r.apiFormat,
+              tokenParamName: r.tokenParamName,
+              supportsTemperature: r.supportsTemperature,
+              supportsStreaming: r.supportsStreaming,
+              supportsFunctionCalling: r.supportsFunctionCalling,
+              supportsVision: r.supportsVision,
+              defaultTimeoutMs: r.defaultTimeoutMs,
+              priceInputPerMillion: r.priceInputPerMillion,
+              priceOutputPerMillion: r.priceOutputPerMillion,
+              priority: r.priority,
             }),
           );
           this.logger.debug(
@@ -700,6 +714,10 @@ export class ModelFallbackService {
 
   /**
    * 转换数据库模型为 AIModelConfig
+   *
+   * ★ 2026-05-01 (mission 9a3144fc 真因): 之前只透 12 个字段，apiFormat / tokenParamName /
+   *   supports_* 全丢，BYOK 路径下 ai-chat 默认 apiFormat='openai' 把 xai 模型错路由到
+   *   OpenAI 端，触发 xAI 404。补齐全部 capability + format + pricing 字段。
    */
   private toAIModelConfig(model: {
     id: string;
@@ -714,7 +732,24 @@ export class ModelFallbackService {
     isEnabled: boolean;
     isDefault: boolean;
     isReasoning: boolean;
+    apiFormat?: string | null;
+    tokenParamName?: string | null;
+    supportsTemperature?: boolean | null;
+    supportsStreaming?: boolean | null;
+    supportsFunctionCalling?: boolean | null;
+    supportsVision?: boolean | null;
+    defaultTimeoutMs?: number | null;
+    priceInputPerMillion?: unknown;
+    priceOutputPerMillion?: unknown;
+    priority?: number | null;
   }): AIModelConfig {
+    // ★ apiFormat 兜底：DB 没设 / 设错（如 xai 模型存了 openai）→ 按 provider 推断
+    const inferredFormat = this.inferApiFormatFromProvider(model.provider);
+    const apiFormat =
+      !model.apiFormat || model.apiFormat === "openai"
+        ? inferredFormat
+        : model.apiFormat;
+    const isReasoning = model.isReasoning;
     return {
       id: model.id,
       name: model.name,
@@ -727,8 +762,36 @@ export class ModelFallbackService {
       temperature: model.temperature,
       isEnabled: model.isEnabled,
       isDefault: model.isDefault,
-      isReasoning: model.isReasoning,
+      isReasoning,
+      apiFormat,
+      tokenParamName:
+        model.tokenParamName ??
+        (isReasoning ? "max_completion_tokens" : "max_tokens"),
+      supportsTemperature: model.supportsTemperature ?? !isReasoning,
+      supportsStreaming: model.supportsStreaming ?? true,
+      supportsFunctionCalling: model.supportsFunctionCalling ?? true,
+      supportsVision: model.supportsVision ?? false,
+      defaultTimeoutMs:
+        model.defaultTimeoutMs ?? (isReasoning ? 300000 : 120000),
+      priceInputPerMillion:
+        model.priceInputPerMillion != null
+          ? Number(model.priceInputPerMillion)
+          : undefined,
+      priceOutputPerMillion:
+        model.priceOutputPerMillion != null
+          ? Number(model.priceOutputPerMillion)
+          : undefined,
+      priority: model.priority ?? 50,
     };
+  }
+
+  private inferApiFormatFromProvider(provider: string): string {
+    const lower = (provider ?? "").toLowerCase();
+    if (lower === "anthropic" || lower === "claude") return "anthropic";
+    if (lower === "google" || lower === "gemini") return "google";
+    if (lower === "xai" || lower === "grok") return "xai";
+    if (lower === "cohere") return "cohere";
+    return "openai";
   }
 
   /**
