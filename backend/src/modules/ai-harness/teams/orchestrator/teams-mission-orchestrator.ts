@@ -35,7 +35,7 @@ import {
   ResourceUsage,
   mergeConstraintProfiles,
 } from "../constraints";
-import { ConstraintEngine } from "@/modules/ai-harness/governance/resource/constraint-engine";
+import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraint-engine";
 import {
   IMissionOrchestrator,
   MissionExecutionPlan,

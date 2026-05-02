@@ -13,7 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { ChatFacade } from "../../facade/domain/chat.facade";
+import { ChatFacade } from "@/modules/ai-harness/facade/domain/chat.facade";
 
 export interface ConcurrencyPlanOptions {
   /** 最小并发度 — 默认 4（即使只有 1 个 provider 也用 4） */

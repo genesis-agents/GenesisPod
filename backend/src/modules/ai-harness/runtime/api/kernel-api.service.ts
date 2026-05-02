@@ -7,7 +7,7 @@ import { Injectable } from "@nestjs/common";
 import { ProcessManagerService } from "../../../ai-harness/process/manager/process-manager.service";
 import { EventJournalService } from "../../protocol/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
-import { ResourceManagerService } from "../../../ai-harness/governance/resource/resource-manager.service";
+import { ResourceManagerService } from "../../../ai-harness/guardrails/resource-manager.service";
 import { MissionExecutorService } from "../../../ai-harness/runtime/mission/mission-executor.service";
 import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { EventBusService } from "../../../ai-harness/protocol/ipc/event-bus.service";

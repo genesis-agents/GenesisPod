@@ -17,7 +17,7 @@ import { TeamsModule } from "../teams/teams.module";
 // Cross-cutting runtime services
 import { RuntimeJournalModule } from "../protocol/journal/journal.module";
 import { RuntimeIpcModule } from "../protocol/ipc/ipc.module";
-import { RuntimeResourceModule } from "../governance/resource/resource.module";
+import { RuntimeResourceModule } from "../guardrails/resource.module";
 import { RuntimeMemoryModule } from "../memory/working/memory.module";
 import { ObservabilityModule } from "../tracing/observability.module";
 

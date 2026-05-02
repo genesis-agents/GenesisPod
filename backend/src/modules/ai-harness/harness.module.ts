@@ -32,7 +32,7 @@ import { SpecAgentRegistry } from "./kernel/core/spec-agent-registry";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
   TOOL_CIRCUIT_BREAKER_PROBE,
-} from "../ai-harness/governance/resource/runtime-resource.abstractions";
+} from "../ai-harness/guardrails/runtime-resource.abstractions";
 import { HookRegistry } from "./kernel/core/hook-registry";
 import { ReActLoop } from "./execution/loop/react-loop";
 import { PlanActLoop } from "./execution/loop/plan-act-loop";
@@ -135,13 +135,13 @@ import { CheckpointManager } from "./protocol/journal/checkpoint-manager";
 import { ProgressTrackerService } from "./protocol/ipc/progress-tracker.service";
 import { TraceCollectorService } from "./tracing/trace-collector.service";
 import { FailureLearnerService } from "./lifecycle/learning/failure-learner.service";
-import { ConstraintEnforcementService } from "./governance/resource/constraint-enforcement.service";
+import { ConstraintEnforcementService } from "./guardrails/constraint-enforcement.service";
 import { ProcessSupervisorService } from "./process/supervisor/process-supervisor.service";
 
 // ★ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
 import { AIFacade } from "./facade/ai.facade";
 import { ChatFacade } from "./facade/domain/chat.facade";
-import { ConcurrencyPlanner } from "./governance/resource/concurrency-planner.service";
+import { ConcurrencyPlanner } from "./guardrails/concurrency-planner.service";
 import { RAGFacade } from "./facade/domain/rag.facade";
 import { AgentFacade } from "./facade/domain/agent.facade";
 import { TeamFacade } from "./facade/domain/team.facade";
@@ -162,7 +162,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     // Cross-cutting
     HookRegistry,
 
-    // ai-harness/governance/resource (RuntimeResourceModule) 通过 DI token 拿 harness 能力探针，避免反向 import
+    // ai-harness/guardrails (RuntimeResourceModule) 通过 DI token 拿 harness 能力探针，避免反向 import
     {
       provide: SPEC_AGENT_REGISTRY_PROBE,
       useExisting: SpecAgentRegistry,
@@ -386,7 +386,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ToolCircuitBreaker,
     InMemoryVectorStore,
 
-    // ai-harness/governance/resource 探针 token（实际指向上面 useExisting）
+    // ai-harness/guardrails 探针 token（实际指向上面 useExisting）
     SPEC_AGENT_REGISTRY_PROBE,
     TOOL_CIRCUIT_BREAKER_PROBE,
 

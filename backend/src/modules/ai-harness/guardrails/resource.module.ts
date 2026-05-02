@@ -17,12 +17,12 @@
  */
 
 import { forwardRef, Global, Module } from "@nestjs/common";
-import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { AiEngineToolsModule } from "../../../ai-engine/tools/ai-engine-tools.module";
-import { AiEngineSkillsModule } from "../../../ai-engine/skills/ai-engine-skills.module";
-import { AiEnginePlanningModule } from "../../../ai-engine/llm/ai-engine-planning.module";
-import { KeyResolverModule } from "../../../ai-infra/credentials/key-resolver/key-resolver.module";
-import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
+import { PrismaModule } from "@/common/prisma/prisma.module";
+import { AiEngineToolsModule } from "@/modules/ai-engine/tools/ai-engine-tools.module";
+import { AiEngineSkillsModule } from "@/modules/ai-engine/skills/ai-engine-skills.module";
+import { AiEnginePlanningModule } from "@/modules/ai-engine/llm/ai-engine-planning.module";
+import { KeyResolverModule } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.module";
+import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
 // CircuitBreakerService 已搬到 ai-engine/safety/resilience/（PR-X3）
 import { ConstraintEngine } from "./constraint-engine";

@@ -20,8 +20,8 @@ import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-
 import { EventBusService as EngineEventEmitterService } from "../protocol/ipc/event-bus.service";
 import { ProgressTrackerService } from "../protocol/ipc/progress-tracker.service";
 // ★ Constraint Feature 依赖
-import { RateLimiter } from "../governance/resource/rate-limiter";
-import { CostController } from "../governance/resource/cost-controller";
+import { RateLimiter } from "../guardrails/rate-limiter";
+import { CostController } from "../guardrails/cost-controller";
 // ★ Orchestration 扩展依赖
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";

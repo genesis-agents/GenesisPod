@@ -13,7 +13,7 @@ import { KernelApiService } from "../kernel-api.service";
 import { ProcessManagerService } from "../../../process/manager/process-manager.service";
 import { EventJournalService } from "../../../protocol/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../../memory/working/process-memory-manager.service";
-import { ResourceManagerService } from "../../../governance/resource/resource-manager.service";
+import { ResourceManagerService } from "../../../guardrails/resource-manager.service";
 import { MissionExecutorService } from "../../mission/mission-executor.service";
 import { CircuitBreakerService } from "../../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { EventBusService } from "../../../protocol/ipc/event-bus.service";

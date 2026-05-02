@@ -35,11 +35,11 @@ export { RAGFacade } from "./domain/rag.facade";
 export { AgentFacade } from "./domain/agent.facade";
 export { TeamFacade } from "./domain/team.facade";
 export { ToolFacade } from "./domain/tool.facade";
-export { ConcurrencyPlanner } from "../governance/resource/concurrency-planner.service";
+export { ConcurrencyPlanner } from "../guardrails/concurrency-planner.service";
 export type {
   ConcurrencyPlanOptions,
   ConcurrencyPlan,
-} from "../governance/resource/concurrency-planner.service";
+} from "../guardrails/concurrency-planner.service";
 // ★ 2026-05-01 (PR-G iter8 + iter9): 集中所有 review pass/attempt 阈值 + agent budget cap
 export {
   REVIEW_PASS_THRESHOLD,
@@ -51,7 +51,7 @@ export {
   RESEARCHER_MAX_ITERATIONS,
   RESEARCHER_MAX_ITERATIONS_HARD_CAP,
   RESEARCHER_MAX_WALL_TIME_MS,
-} from "../governance/quality-thresholds.constants";
+} from "../evaluation/thresholds.constants";
 export { ModelResolverService } from "./model-resolver.service";
 export {
   FACADE_FEATURE_PROVIDERS,
@@ -372,7 +372,7 @@ export {
 } from "../execution/dag";
 
 // ── Resource ──
-export { ResourceManagerService } from "../governance/resource/resource-manager.service";
+export { ResourceManagerService } from "../guardrails/resource-manager.service";
 // PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
 export {
   CircuitBreakerService,
@@ -383,9 +383,9 @@ export type {
   CircuitBreakerConfig,
   HealthMetrics,
 } from "../../ai-engine/facade";
-export { ConstraintEngine } from "../governance/resource/constraint-engine";
-export { ConstraintEnforcementService } from "../governance/resource/constraint-enforcement.service";
-export { CostController } from "../governance/resource/cost-controller";
+export { ConstraintEngine } from "../guardrails/constraint-engine";
+export { ConstraintEnforcementService } from "../guardrails/constraint-enforcement.service";
+export { CostController } from "../guardrails/cost-controller";
 export type {
   CostRecord,
   CostCategory,
@@ -393,19 +393,19 @@ export type {
   CostCheckResult,
   BudgetPeriod,
   ModelPricing,
-} from "../governance/resource/cost-controller";
-export { RateLimiter, TokenBucket } from "../governance/resource/rate-limiter";
+} from "../guardrails/cost-controller";
+export { RateLimiter, TokenBucket } from "../guardrails/rate-limiter";
 export type {
   RateLimitResult,
   RateLimitConfig,
-} from "../governance/resource/rate-limiter";
+} from "../guardrails/rate-limiter";
 // 注：harness 内部有一个 generic TokenBudgetService（mission-level token tracker），
 // 与 ai-engine/llm/budget/token-budget.service.ts 同名但语义不同
 // （后者带 smartTruncate 用于上下文窗口分配）。为避免 DI / import 歧义，
 // 不在 facade 导出 harness 版本；ai-app 需要 token 预算请用 ai-engine/facade 的 TokenBudgetService。
-export { HealthCheckRunner } from "../governance/resource/health-check-runner";
-export type { HealthCheckRunnerConfig } from "../governance/resource/health-check-runner";
-export { RuntimeEnvironmentService } from "../governance/resource/runtime-environment.service";
+export { HealthCheckRunner } from "../guardrails/health-check-runner";
+export type { HealthCheckRunnerConfig } from "../guardrails/health-check-runner";
+export { RuntimeEnvironmentService } from "../guardrails/runtime-environment.service";
 export type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -414,7 +414,7 @@ export type {
   RuntimeToolCapability,
   RuntimeDepHealth,
   RuntimeUserKeyState,
-} from "../governance/resource/runtime-environment.types";
+} from "../guardrails/runtime-environment.types";
 
 // ── Observability ──
 export { TraceCollectorService } from "../tracing/trace-collector.service";

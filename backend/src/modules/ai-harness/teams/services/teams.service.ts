@@ -26,7 +26,7 @@ import {
   MissionResult,
   MissionInput,
 } from "../abstractions/mission.interface";
-import { ConstraintEngine } from "@/modules/ai-harness/governance/resource/constraint-engine";
+import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraint-engine";
 import { ITeam, TeamConfig, TeamId } from "../abstractions/team.interface";
 import { ConstraintProfile } from "../constraints/constraint-profile";
 import { LruMap } from "@/common/utils/lru-map";

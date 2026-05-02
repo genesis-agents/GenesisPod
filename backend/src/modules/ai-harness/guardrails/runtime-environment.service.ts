@@ -16,13 +16,13 @@
  */
 
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AgentRegistry } from "../../kernel/registry/plan-based-agent-registry";
-import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
-import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
-import { AiChatModelConfigService } from "../../../ai-engine/llm/services/ai-chat-model-config.service";
-import { KeyResolverService } from "../../../ai-infra/credentials/key-resolver/key-resolver.service";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { AgentRegistry } from "@/modules/ai-harness/kernel/registry/plan-based-agent-registry";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
+import { AiChatModelConfigService } from "@/modules/ai-engine/llm/services/ai-chat-model-config.service";
+import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
   TOOL_CIRCUIT_BREAKER_PROBE,

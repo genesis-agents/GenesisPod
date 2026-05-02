@@ -43,7 +43,10 @@ export class LlmEventsListener {
   }): void {
     if (!this.traceCollector) return;
     const { correlationId, traceId, ...input } = payload;
-    const spanId = this.traceCollector.addSpan(traceId, input as CreateSpanInput);
+    const spanId = this.traceCollector.addSpan(
+      traceId,
+      input as CreateSpanInput,
+    );
     if (spanId) {
       this.spanIdMap.set(correlationId, spanId);
     }
@@ -118,6 +121,9 @@ export class LlmEventsListener {
   }): void {
     if (!this.latencyTracker) return;
     const { sessionId, ...action } = payload;
-    this.latencyTracker.recordAction(sessionId, action as unknown as RecordActionInput);
+    this.latencyTracker.recordAction(
+      sessionId,
+      action as unknown as RecordActionInput,
+    );
   }
 }

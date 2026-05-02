@@ -16,7 +16,7 @@ import { ConfigService } from "@nestjs/config";
 import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
 // ★ L2 internal — direct relative paths (禁 facade barrel)
-import { ConstraintEngine } from "@/modules/ai-harness/governance/resource/constraint-engine";
+import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraint-engine";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
 import { MissionRuntimeStateStore } from "./orchestrator/mission-runtime-state.store";
 import { MissionOrphanDetectorService } from "./orchestrator/mission-orphan-detector.service";
@@ -33,7 +33,7 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 import { ToolPipeline } from "@/modules/ai-engine/tools/middleware/tool-pipeline";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
-import { CostController } from "@/modules/ai-harness/governance/resource/cost-controller";
+import { CostController } from "@/modules/ai-harness/guardrails/cost-controller";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import { MCPManager } from "@/modules/ai-harness/protocol/mcp/manager/mcp-manager";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
