@@ -33,6 +33,14 @@ import {
   GoogleImageSearchTool,
   SerpAPIImageSearchTool,
   ImageSearchAggregatorTool,
+  // Industry Report Tools
+  IndustryReportSearchTool,
+  // Social Tools
+  SocialXSearchTool,
+  // Job Tools
+  JobSearchTool,
+  // Video Tools
+  YouTubeSearchTool,
 } from "./categories/information";
 
 // ============================================================================
@@ -148,6 +156,10 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   GoogleImageSearchTool,
   SerpAPIImageSearchTool,
   ImageSearchAggregatorTool,
+  IndustryReportSearchTool,
+  SocialXSearchTool,
+  JobSearchTool,
+  YouTubeSearchTool,
 
   // Generation Tools
   TextGenerationTool,
@@ -249,6 +261,10 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "bing-image-search": BingImageSearchTool,
   "google-image-search": GoogleImageSearchTool,
   "serpapi-image-search": SerpAPIImageSearchTool,
+  "industry-report-search": IndustryReportSearchTool,
+  "social-x-search": SocialXSearchTool,
+  "job-search": JobSearchTool,
+  "youtube-search": YouTubeSearchTool,
 
   // Generation
   "text-generation": TextGenerationTool,

@@ -1671,6 +1671,65 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     }
   }
 
+  // ★ 2026-05-01 (Screenshot 50 用户实证)：Leader 评审 + 下游 reconciler/analyst
+  //   都已完成时，原 dim todo 仍卡"等待评分"。真因：fresh-collect retry 路径下
+  //   dimension:graded 携 retryLabel，被路由到 retry pipeline；原 dim 的 pipeline
+  //   永远没 grade，labelDimensionStatus 走 "passed===total && !grade → 等待评分"
+  //   分支。修法：S4 leader-assess 已 done = Leader 已对该 dim 的研究产出做完最终
+  //   决策，下游已经基于此往前推。原 dim todo 此时仍卡"等待评分"是 UI 滞留误导。
+  //   把 retry 子 todo 的 grade 借给 parent dim todo，让 parent 也能 done。
+  const s4Done = todos.get('system:s4-leader-assess')?.status === 'done';
+  const s5Done = todos.get('system:s5-reconciler')?.status === 'done';
+  if (s4Done || s5Done) {
+    for (const td of dimTodos) {
+      if (
+        td.origin !== 'leader-plan' ||
+        td.status === 'done' ||
+        td.status === 'failed' ||
+        td.status === 'cancelled' ||
+        !td.dimensionRef
+      ) {
+        continue;
+      }
+      // 找该 dim 任一 retry 子 todo 拿 effective grade
+      const retryChild = order
+        .map((id) => todos.get(id)!)
+        .find(
+          (t0) =>
+            t0.dimensionRef === td.dimensionRef &&
+            t0.parentId === td.id &&
+            (t0.origin === 'leader-assess-retry' ||
+              t0.origin === 'leader-assess-replace' ||
+              t0.origin === 'leader-assess-extend')
+        );
+      const retryKey = retryChild?.pipelineKey;
+      const retryPipeline = retryKey ? dimensionPipelines.get(retryKey) : null;
+      const retryGrade = retryPipeline?.grade;
+      // 把 retry 的 grade 借给 parent 渲染层
+      const ownPipeline = dimensionPipelines.get(td.dimensionRef);
+      if (retryGrade && ownPipeline && !ownPipeline.grade) {
+        ownPipeline.grade = retryGrade;
+      }
+      // chapters 全过 + (有 grade OR S4/S5 已认可) → done
+      if (ownPipeline && ownPipeline.chapters.length > 0) {
+        const allPassed = ownPipeline.chapters.every(
+          (c) => c.status === 'passed' || c.status === 'done'
+        );
+        if (allPassed) {
+          td.status = 'done';
+          td.endedAt = td.endedAt ?? Date.now();
+          td.narrativeLog.push({
+            ts: Date.now(),
+            text: retryGrade
+              ? `Leader 已基于重派后产出做最终决策，借用 retry grade ${retryGrade.overall}/100 收尾`
+              : 'Leader 已对该维度研究做最终决策（下游已推进），状态收尾',
+            tone: 'success',
+          });
+        }
+      }
+    }
+  }
+
   // ★ 2026-04-30 (#63 截图 17 任务顺序混乱): 按"逻辑流程顺序"重排，避免按事件追加顺序
   //   导致 dim todo（leader plan 后才创建）排在所有 system stage 占位之后。
   //   排序 key = (stageOrder, originSubOrder, createdAt) 三元组。

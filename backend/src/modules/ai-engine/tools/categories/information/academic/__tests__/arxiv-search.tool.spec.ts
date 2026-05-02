@@ -1,8 +1,9 @@
 /**
  * ArxivSearchTool Unit Tests
  *
- * Tests the arxiv-search tool in isolation by mocking PolicyDataService.
- * Uses tool.execute(input, context) to exercise the full BaseTool lifecycle.
+ * ★ 2026-05-01 改写：底层从直连 ArXiv API 切到 OpenAlex API
+ * (filter=primary_location.source.id:S4306400194)。
+ * 测试 mock OpenAlex JSON 响应而非 ArXiv XML。
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -17,10 +18,6 @@ import {
   ToolResult,
 } from "../../../../abstractions/tool.interface";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
     executionId: "exec-arxiv-001",
@@ -30,35 +27,58 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   };
 }
 
-function makeArxivXmlResponse(paperCount = 1): string {
-  const entries = Array.from(
-    { length: paperCount },
-    (_, i) => `
-    <entry>
-      <id>http://arxiv.org/abs/2301.0${i + 1}000v1</id>
-      <title>Test Paper ${i + 1}: Advances in Machine Learning</title>
-      <summary>This is the abstract for test paper ${i + 1}. It covers various ML topics.</summary>
-      <author><name>John Doe</name></author>
-      <author><name>Jane Smith</name></author>
-      <published>2023-01-${String(i + 1).padStart(2, "0")}T00:00:00Z</published>
-      <updated>2023-01-${String(i + 1).padStart(2, "0")}T00:00:00Z</updated>
-      <category term="cs.LG"/>
-      <category term="cs.AI"/>
-      <link href="http://arxiv.org/pdf/2301.0${i + 1}000v1.pdf" title="pdf"/>
-    </entry>
-  `,
-  ).join("");
-
-  return `<?xml version="1.0" encoding="utf-8"?>
-  <feed>
-    <opensearch:totalResults>42</opensearch:totalResults>
-    ${entries}
-  </feed>`;
+function makeOpenAlexWork(idx: number) {
+  // 用 ViT 论文（2010.11929）作为基准，按 idx 改 ID
+  const arxivId = `2401.0${idx + 1}000`;
+  return {
+    id: `https://openalex.org/W30945022${28 + idx}`,
+    title: `Test Paper ${idx + 1}: Advances in Machine Learning`,
+    display_name: `Test Paper ${idx + 1}`,
+    authorships: [
+      { author: { display_name: "John Doe" } },
+      { author: { display_name: "Jane Smith" } },
+    ],
+    abstract_inverted_index: {
+      Test: [0],
+      paper: [1],
+      abstract: [2],
+      content: [3],
+    },
+    publication_year: 2024,
+    publication_date: `2024-01-${String(idx + 1).padStart(2, "0")}`,
+    doi: `https://doi.org/10.48550/arxiv.${arxivId}`,
+    primary_location: {
+      source: {
+        id: "https://openalex.org/S4306400194",
+        display_name: "arXiv (Cornell University)",
+      },
+      landing_page_url: `http://arxiv.org/abs/${arxivId}`,
+      pdf_url: `https://arxiv.org/pdf/${arxivId}`,
+    },
+    open_access: {
+      oa_url: `https://arxiv.org/pdf/${arxivId}`,
+    },
+    topics: [
+      {
+        display_name: "Computer Vision",
+        subfield: { display_name: "cs.CV" },
+      },
+      {
+        display_name: "Machine Learning",
+        subfield: { display_name: "cs.LG" },
+      },
+    ],
+    updated_date: `2024-02-${String(idx + 1).padStart(2, "0")}`,
+    created_date: `2024-01-${String(idx + 1).padStart(2, "0")}`,
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Mock PolicyDataService
-// ---------------------------------------------------------------------------
+function makeOpenAlexResponse(paperCount = 1) {
+  return {
+    meta: { count: 109_000, db_response_time_ms: 25, page: 1, per_page: 10 },
+    results: Array.from({ length: paperCount }, (_, i) => makeOpenAlexWork(i)),
+  };
+}
 
 type PolicyDataServiceMock = Pick<PolicyDataService, "httpGet" | "getApiKey">;
 
@@ -69,257 +89,250 @@ function createMockPolicyDataService(): jest.Mocked<PolicyDataServiceMock> {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
-describe("ArxivSearchTool", () => {
+describe("ArxivSearchTool (via OpenAlex)", () => {
   let tool: ArxivSearchTool;
   let mockPolicyDataService: jest.Mocked<PolicyDataServiceMock>;
 
   beforeEach(async () => {
+    ArxivSearchTool.resetCircuitForTesting();
     mockPolicyDataService = createMockPolicyDataService();
-
-    const module: TestingModule = await Test.createTestingModule({
+    const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         ArxivSearchTool,
         { provide: PolicyDataService, useValue: mockPolicyDataService },
       ],
     }).compile();
-
-    tool = module.get<ArxivSearchTool>(ArxivSearchTool);
+    tool = moduleRef.get<ArxivSearchTool>(ArxivSearchTool);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    ArxivSearchTool.resetCircuitForTesting();
   });
-
-  // -------------------------------------------------------------------------
-  // Metadata
-  // -------------------------------------------------------------------------
 
   describe("tool metadata", () => {
-    it("should have id = 'arxiv-search'", () => {
+    it("has id 'arxiv-search'", () => {
       expect(tool.id).toBe("arxiv-search");
     });
-
-    it("should belong to the 'information' category", () => {
+    it("has 'information' category and arxiv tags", () => {
       expect(tool.category).toBe("information");
-    });
-
-    it("should have the arxiv-related tags", () => {
-      expect(tool.tags).toContain("academic");
       expect(tool.tags).toContain("arxiv");
+      expect(tool.tags).toContain("academic");
     });
   });
-
-  // -------------------------------------------------------------------------
-  // validateInput
-  // -------------------------------------------------------------------------
 
   describe("validateInput()", () => {
-    it("should return true for a valid non-empty query", () => {
+    it("accepts non-empty query", () => {
       expect(tool.validateInput({ query: "machine learning" })).toBe(true);
     });
-
-    it("should return false for an empty query string", () => {
+    it("rejects empty / whitespace-only query", () => {
       expect(tool.validateInput({ query: "" })).toBe(false);
-    });
-
-    it("should return false for a whitespace-only query", () => {
       expect(tool.validateInput({ query: "   " })).toBe(false);
-    });
-
-    it("should return true with optional params provided", () => {
-      expect(
-        tool.validateInput({
-          query: "transformer",
-          maxResults: 5,
-          category: "cs.AI",
-          sortBy: "submittedDate",
-        }),
-      ).toBe(true);
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Happy path
-  // -------------------------------------------------------------------------
-
-  describe("execute() - success path", () => {
-    it("should return success:true with papers array on valid XML response", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(2));
-
+  describe("execute() - success path (OpenAlex backend)", () => {
+    it("returns papers from OpenAlex ArXiv-filtered results", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(2));
       const input: ArxivSearchInput = { query: "machine learning" };
       const result: ToolResult<ArxivSearchOutput> = await tool.execute(
         input,
         makeContext(),
       );
-
       expect(result.success).toBe(true);
       expect(result.data?.success).toBe(true);
       expect(result.data?.papers).toHaveLength(2);
-      expect(result.data?.totalResults).toBe(42);
+      expect(result.data?.totalResults).toBe(109_000);
     });
 
-    it("should populate paper fields correctly from XML", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(1));
-
-      const result = await tool.execute(
-        { query: "deep learning" },
-        makeContext(),
-      );
-
-      const paper = result.data?.papers[0];
-      expect(paper).toBeDefined();
-      expect(paper?.id).toBeDefined();
-      expect(paper?.title).toContain("Test Paper");
-      expect(paper?.authors).toContain("John Doe");
-      expect(paper?.abstract).toBeDefined();
-      expect(paper?.categories).toContain("cs.LG");
-      expect(paper?.pdfUrl).toBeDefined();
-      expect(paper?.arxivUrl).toBeDefined();
-    });
-
-    it("should apply category filter to query when category is provided", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(1));
-
-      await tool.execute(
-        { query: "neural networks", category: "cs.AI" },
-        makeContext(),
-      );
-
+    it("calls OpenAlex API with correct base URL + filter", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
+      await tool.execute({ query: "transformer" }, makeContext());
       expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
-        "https://export.arxiv.org/api/query",
+        "https://api.openalex.org/works",
         expect.objectContaining({
-          search_query: "neural networks AND cat:cs.AI",
+          search: "transformer",
+          filter: "primary_location.source.id:S4306400194",
         }),
       );
     });
 
-    it("should respect maxResults parameter up to 100", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(0));
-
-      await tool.execute(
-        { query: "transformers", maxResults: 50 },
-        makeContext(),
-      );
-
-      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ max_results: 50 }),
-      );
-    });
-
-    it("should cap maxResults at 100", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(0));
-
-      await tool.execute({ query: "LLM", maxResults: 999 }, makeContext());
-
-      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ max_results: 100 }),
-      );
-    });
-
-    it("should pass sortBy parameter to API", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(0));
-
-      await tool.execute(
-        { query: "RL", sortBy: "submittedDate" },
-        makeContext(),
-      );
-
-      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ sortBy: "submittedDate" }),
-      );
-    });
-
-    it("should return empty papers when feed has no entries", async () => {
-      const emptyXml = `<?xml version="1.0"?>
-      <feed>
-        <opensearch:totalResults>0</opensearch:totalResults>
-      </feed>`;
-      mockPolicyDataService.httpGet.mockResolvedValue(emptyXml);
-
-      const result = await tool.execute({ query: "xyzzy" }, makeContext());
-
-      expect(result.success).toBe(true);
-      expect(result.data?.papers).toHaveLength(0);
-      expect(result.data?.totalResults).toBe(0);
-    });
-
-    it("should construct correct arxivUrl from paper id", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(1));
-
-      const result = await tool.execute({ query: "test" }, makeContext());
-
+    it("populates paper fields (id, title, authors, abstract, urls)", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(1));
+      const result = await tool.execute({ query: "x" }, makeContext());
       const paper = result.data?.papers[0];
-      expect(paper?.arxivUrl).toMatch(/^http:\/\/arxiv\.org\/abs\//);
+      expect(paper).toBeDefined();
+      expect(paper?.id).toMatch(/^2401\.\d+/);
+      expect(paper?.title).toContain("Test Paper");
+      expect(paper?.authors).toContain("John Doe");
+      expect(paper?.authors).toContain("Jane Smith");
+      expect(paper?.abstract).toContain("Test"); // reconstructed from inverted index
+      expect(paper?.pdfUrl).toMatch(/arxiv\.org\/pdf\//);
+      expect(paper?.arxivUrl).toMatch(/^https:\/\/arxiv\.org\/abs\//);
+    });
+
+    it("reconstructs abstract from abstract_inverted_index in correct order", async () => {
+      const w = makeOpenAlexWork(0);
+      w.abstract_inverted_index = { hello: [0], world: [1], "!": [2] };
+      mockPolicyDataService.httpGet.mockResolvedValue({
+        meta: { count: 1 },
+        results: [w],
+      });
+      const r = await tool.execute({ query: "x" }, makeContext());
+      expect(r.data?.papers[0].abstract).toBe("hello world !");
+    });
+
+    it("respects maxResults (caps at 100)", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
+      await tool.execute({ query: "x", maxResults: 999 }, makeContext());
+      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ per_page: 100 }),
+      );
+    });
+
+    it("respects custom maxResults below cap", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
+      await tool.execute({ query: "x", maxResults: 7 }, makeContext());
+      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ per_page: 7 }),
+      );
+    });
+
+    it("translates sortBy=submittedDate to OpenAlex sort=publication_date:desc", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
+      await tool.execute(
+        { query: "x", sortBy: "submittedDate" },
+        makeContext(),
+      );
+      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ sort: "publication_date:desc" }),
+      );
+    });
+
+    it("translates sortBy=lastUpdatedDate to OpenAlex sort=updated_date:desc", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
+      await tool.execute(
+        { query: "x", sortBy: "lastUpdatedDate" },
+        makeContext(),
+      );
+      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ sort: "updated_date:desc" }),
+      );
+    });
+
+    it("includes mailto when openalex-api-key is configured", async () => {
+      mockPolicyDataService.getApiKey.mockResolvedValue(
+        "researcher@example.com",
+      );
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
+      await tool.execute({ query: "x" }, makeContext());
+      expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ mailto: "researcher@example.com" }),
+      );
+    });
+
+    it("filters out non-ArXiv results (no arxivId in landing_page_url)", async () => {
+      const w = makeOpenAlexWork(0);
+      w.primary_location.landing_page_url = "https://random.example.com/paper";
+      w.open_access.oa_url = undefined as unknown as string;
+      w.doi = "https://doi.org/10.1234/something";
+      mockPolicyDataService.httpGet.mockResolvedValue({
+        meta: { count: 1 },
+        results: [w],
+      });
+      const r = await tool.execute({ query: "x" }, makeContext());
+      expect(r.data?.papers).toHaveLength(0);
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Error path
-  // -------------------------------------------------------------------------
-
   describe("execute() - error path", () => {
-    it("should return success:true with data.success=false when API throws", async () => {
+    it("returns success:false on OpenAlex network error", async () => {
       mockPolicyDataService.httpGet.mockRejectedValue(
         new Error("Network error"),
       );
-
       const result = await tool.execute({ query: "test" }, makeContext());
-
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(true); // BaseTool wraps
       expect(result.data?.success).toBe(false);
       expect(result.data?.error).toContain("ArXiv 搜索失败");
       expect(result.data?.papers).toHaveLength(0);
     });
 
-    it("should include the original error message in the error field", async () => {
+    it("preserves original error message", async () => {
       mockPolicyDataService.httpGet.mockRejectedValue(
         new Error("Connection refused"),
       );
-
-      const result = await tool.execute({ query: "AI" }, makeContext());
-
-      expect(result.data?.error).toContain("Connection refused");
+      const r = await tool.execute({ query: "x" }, makeContext());
+      expect(r.data?.error).toContain("Connection refused");
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Cancellation
-  // -------------------------------------------------------------------------
+  describe("execute() - circuit breaker", () => {
+    it("opens circuit after 3 consecutive failures", async () => {
+      mockPolicyDataService.httpGet.mockRejectedValue(new Error("API down"));
+
+      // 3 consecutive failures
+      await tool.execute({ query: "q1" }, makeContext());
+      await tool.execute({ query: "q2" }, makeContext());
+      await tool.execute({ query: "q3" }, makeContext());
+
+      // 4th call should be short-circuited (no httpGet call)
+      mockPolicyDataService.httpGet.mockClear();
+      const r = await tool.execute({ query: "q4" }, makeContext());
+
+      expect(mockPolicyDataService.httpGet).not.toHaveBeenCalled();
+      expect(r.data?.success).toBe(false);
+      expect(r.data?.error).toContain("熔断");
+    });
+
+    it("resets failure counter on successful call", async () => {
+      mockPolicyDataService.httpGet
+        .mockRejectedValueOnce(new Error("transient 1"))
+        .mockRejectedValueOnce(new Error("transient 2"))
+        .mockResolvedValueOnce(makeOpenAlexResponse(1)); // success resets
+
+      await tool.execute({ query: "q1" }, makeContext());
+      await tool.execute({ query: "q2" }, makeContext());
+      await tool.execute({ query: "q3" }, makeContext()); // success resets counter
+
+      // Now 2 more failures should NOT trip circuit (only 2 consecutive, counter was reset)
+      mockPolicyDataService.httpGet
+        .mockRejectedValueOnce(new Error("again 1"))
+        .mockRejectedValueOnce(new Error("again 2"));
+      await tool.execute({ query: "q4" }, makeContext());
+      await tool.execute({ query: "q5" }, makeContext());
+
+      // Circuit should still be closed
+      mockPolicyDataService.httpGet.mockClear();
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
+      await tool.execute({ query: "q6" }, makeContext());
+      expect(mockPolicyDataService.httpGet).toHaveBeenCalled();
+    });
+  });
 
   describe("execute() - cancellation", () => {
-    it("should return success:false immediately when signal is already aborted", async () => {
+    it("aborts immediately when signal pre-aborted", async () => {
       const controller = new AbortController();
       controller.abort();
-
-      const result = await tool.execute(
-        { query: "any" },
+      const r = await tool.execute(
+        { query: "x" },
         makeContext({ signal: controller.signal }),
       );
-
-      expect(result.success).toBe(false);
+      expect(r.success).toBe(false);
       expect(mockPolicyDataService.httpGet).not.toHaveBeenCalled();
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Metadata in result
-  // -------------------------------------------------------------------------
-
   describe("execute() - result metadata", () => {
-    it("should include executionId in result metadata", async () => {
-      mockPolicyDataService.httpGet.mockResolvedValue(makeArxivXmlResponse(1));
-
-      const result = await tool.execute({ query: "ml" }, makeContext());
-
-      expect(result.metadata?.executionId).toBe("exec-arxiv-001");
-      expect(result.metadata?.duration).toBeGreaterThanOrEqual(0);
+    it("includes executionId + duration", async () => {
+      mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(1));
+      const r = await tool.execute({ query: "x" }, makeContext());
+      expect(r.metadata?.executionId).toBe("exec-arxiv-001");
+      expect(r.metadata?.duration).toBeGreaterThanOrEqual(0);
     });
   });
 });

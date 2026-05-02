@@ -105,3 +105,31 @@ export type {
   ImageSearchOutput,
   ImageSearchResult,
 } from "./image-search";
+
+// Industry Report Tools
+export { IndustryReportSearchTool } from "./industry";
+export type {
+  IndustryReportSearchInput,
+  IndustryReportSearchOutput,
+  IndustryReportItem,
+} from "./industry";
+
+// Social Search Tools
+export { SocialXSearchTool } from "./social";
+export type {
+  SocialXSearchInput,
+  SocialXSearchOutput,
+  SocialXItem,
+} from "./social";
+
+// Job Search Tools
+export { JobSearchTool } from "./jobs";
+export type { JobSearchInput, JobSearchOutput, JobItem } from "./jobs";
+
+// Video Search Tools
+export { YouTubeSearchTool } from "./video";
+export type {
+  YouTubeSearchInput,
+  YouTubeSearchOutput,
+  VideoItem,
+} from "./video";

@@ -120,16 +120,21 @@ const Output = z.object({
   //   prod 实证：过去 7 天 playground 0 次调 OpenAlex/Semantic Scholar/PubMed，
   //   只 14 次 ArXiv（且全失败 timeout/429）。
   // ★ 2026-05-01 工具矩阵对齐 TI（Topic-Insights 已验证好用的数据源）：
-  //   academic 4 件套 + social-x 全部进 declaredIds 永远兜底，与 Leader hint
-  //   解耦。tool id 必须与 DB tool_configs.tool_id 完全一致（pubmed 不带 -search
-  //   后缀，是历史命名）。
+  //   academic 4 件套 + 行业研报 + 社媒 全部进 declaredIds 永远兜底，与 Leader
+  //   hint 解耦。tool id 必须与 ToolRegistry 注册的 id 完全一致：
+  //   - pubmed 不带 -search 后缀（历史命名）
+  //   - industry-report-search / social-x-search 是新沉淀的 BaseTool 包装
+  //     （原 TI SearchAdapter 不在 ToolRegistry，playground 调不到）
   tools: [
     "rag-search",
     "arxiv-search",
     "openalex-search",
     "semantic-scholar",
     "pubmed",
-    "social-x",
+    "industry-report-search",
+    "social-x-search",
+    "job-search",
+    "youtube-search",
   ],
   // PR-X-skill-bridge: dimension-research 协议 + web-research 工具使用规范
   skills: ["dimension-research", "web-research"],
