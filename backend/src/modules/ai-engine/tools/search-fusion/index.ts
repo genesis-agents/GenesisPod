@@ -14,7 +14,7 @@ export {
   computeRelevanceScore,
   extractDomain,
   enforceDomainDiversity,
-} from "./result-fusion.utils";
+} from "./result-fusion.util";
 
 export {
   type SuggestedSearchAction,
@@ -23,4 +23,4 @@ export {
   type QualityGateItem,
   type QualityVerdict,
   evaluateSearchQuality,
-} from "./quality-gate.utils";
+} from "./quality-gate.util";

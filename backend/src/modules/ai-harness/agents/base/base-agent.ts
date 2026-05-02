@@ -9,8 +9,9 @@
 
 import { v4 as uuid } from "uuid";
 import { Logger } from "@nestjs/common";
-import { ExecutionMode, JsonObject } from "../../../ai-engine/core";
-import { AgentError } from "../../../ai-engine/core/errors";
+import { JsonObject } from "@/modules/ai-engine/facade/index";
+import { ExecutionMode } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { AgentError } from "@/modules/ai-harness/agents/abstractions/agent-error";
 import { ToolRegistry } from "../../../ai-engine/tools/registry";
 import { ToolContext, ToolResult } from "../../../ai-engine/tools/abstractions";
 import { ToolPipeline } from "../../../ai-engine/tools/middleware/tool-pipeline";

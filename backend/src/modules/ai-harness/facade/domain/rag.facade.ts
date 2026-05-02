@@ -34,13 +34,13 @@ import type {
   RetrieveMemoryRequest,
   MemoryItem,
 } from "../types";
-import type { EmbeddingService } from "../../../ai-engine/knowledge/rag/embedding";
-import type { EmbeddingResult } from "../../../ai-engine/knowledge/rag/embedding";
+import type { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
+import type { EmbeddingResult } from "@/modules/ai-engine/rag/embedding";
 import type {
   VectorService,
   SimilaritySearchOptions,
   SimilarityResult,
-} from "../../../ai-engine/knowledge/rag/vector/vector.service";
+} from "@/modules/ai-engine/rag/vector/vector.service";
 import type { ContentFetchService } from "../../../ai-engine/content/fetch/content-fetch.service";
 import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
 

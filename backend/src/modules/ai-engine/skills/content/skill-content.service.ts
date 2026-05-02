@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import * as crypto from "crypto";
 import { Prisma } from "@prisma/client";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { SkillMdDefinition, SkillMdFrontmatter } from "../types/skill-md.types";
 import { parseSkillMd } from "../loader/skill-parser";
 

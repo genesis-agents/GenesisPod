@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
+import { PuppeteerPoolService } from "@/common/browser/puppeteer-pool.service";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -12,7 +12,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import { ExportOrchestratorService } from "../../../../../common/export";
+import { ExportOrchestratorService } from "@/common/export";
 import { ExportFormat } from "@prisma/client";
 
 // ============================================================================

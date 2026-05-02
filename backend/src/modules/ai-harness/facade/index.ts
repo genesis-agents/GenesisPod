@@ -32,14 +32,71 @@ export { HarnessFacade } from "./harness.facade";
 export { AIFacade } from "./ai.facade";
 export { ChatFacade } from "./domain/chat.facade";
 export { RAGFacade } from "./domain/rag.facade";
+export { RAGPipelineService } from "../../ai-engine/rag/pipeline/rag-pipeline.service";
 export { AgentFacade } from "./domain/agent.facade";
 export { TeamFacade } from "./domain/team.facade";
 export { ToolFacade } from "./domain/tool.facade";
+export { PromptSkillBridge } from "../../ai-engine/skills/runtime";
+export { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
+export { FederalRegisterTool } from "../../ai-engine/tools/categories/information/policy/federal-register.tool";
+export { CongressGovTool } from "../../ai-engine/tools/categories/information/policy/congress-gov.tool";
+export { WhiteHouseNewsTool } from "../../ai-engine/tools/categories/information/policy/whitehouse-news.tool";
+export type {
+  ITool,
+  ToolContext,
+  BuiltinToolId,
+  ToolId,
+} from "../../ai-engine/tools/abstractions/tool.interface";
+export type {
+  ImageSearchResult,
+  ImageSearchOutput,
+} from "../../ai-engine/tools/categories/information/image-search/image-search.types";
 export { ConcurrencyPlanner } from "../guardrails/concurrency-planner.service";
 export type {
   ConcurrencyPlanOptions,
   ConcurrencyPlan,
 } from "../guardrails/concurrency-planner.service";
+export type { IResearchService } from "../../ai-engine/facade/abstractions/research.interface";
+export { RESEARCH_SERVICE_TOKEN } from "../../ai-engine/facade/abstractions/research.interface";
+export type { ISimulationService } from "../../ai-engine/facade/abstractions/simulation.interface";
+export { SIMULATION_SERVICE_TOKEN } from "../../ai-engine/facade/abstractions/simulation.interface";
+export { YoutubeService } from "../../ai-engine/content/fetch/youtube.service";
+export type { TranscriptSegment } from "../../ai-engine/content/fetch/youtube.service";
+export {
+  IMAGE_GENERATION_SERVICE,
+  TTS_SERVICE,
+} from "../../ai-engine/tools/abstractions/generation-services.interface";
+export type { IImageGenerationService } from "../../ai-engine/tools/abstractions/generation-services.interface";
+export { IMAGE_GENERATION_SERVICE_TOKEN } from "../../ai-engine/content/abstractions/image.interface";
+
+// ★ LLM 输出后处理（白名单清理 + 修复函数）
+export {
+  sanitizeSectionOutput,
+  stripLeadingBulletLists,
+  stripAnalyticalInlineBullets,
+  stripSectionOpeningShortLines,
+  stripCitationStacking,
+  replaceMarketingLanguage,
+  repairBrokenBoldPairs,
+  normalizeTransitionHeadings,
+  normalizeBoldStyle,
+  convertOrdinalBulletsToParagraphs,
+  fixOrdinalBoldPosition,
+  convertLongListItemsToParagraphs,
+  removeOrphanCitations,
+  stripChartJsonFromContent,
+  extractMarkdownFromJsonString,
+} from "../../ai-engine/llm/output-parsing";
+
+// ★ Planning & Knowledge services
+export { TokenBudgetService } from "../../ai-engine/planning/budget/token-budget.service";
+export { ContextCompressionService } from "../../ai-engine/planning/context/context-compression.service";
+export { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
+export { CrossCuttingSynthesisService } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
+export type { SynthesisResult } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
+export { PromptCacheCoordinatorService } from "../../ai-engine/llm/services/prompt-cache-coordinator.service";
+export type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
+export { inferIsReasoning } from "../../ai-engine/llm/types/model-utils";
 // ★ 2026-05-01 (PR-G iter8 + iter9): 集中所有 review pass/attempt 阈值 + agent budget cap
 export {
   REVIEW_PASS_THRESHOLD,
@@ -211,7 +268,7 @@ export { DEFAULT_CONTEXT_EVOLUTION_CONFIG } from "../runner/executor/interfaces"
 export {
   UserIntent,
   ContextStrategy,
-} from "../../ai-engine/llm/intent/intent.types";
+} from "../../ai-engine/planning/intent/intent.types";
 
 // ★ 2026-05-01 (PR-X-L): runner/capabilities 类型同上下沉
 export type { AICapabilityContext } from "../runner/capabilities/ai-capability-resolver.service";
@@ -788,3 +845,24 @@ export {
   sanitizeForDb,
   sanitizeJson,
 } from "../../ai-engine/content/fetch/content-fetch.types";
+
+// ════════════════════════════════════════════════════════════════════
+// BYOK / Credentials (re-exported from ai-infra/facade)
+// ════════════════════════════════════════════════════════════════════
+export {
+  KeyAssignmentsService,
+  KeyRequestsService,
+  UserApiKeysService,
+  KeyResolverService,
+  UserModelConfigsService,
+  CreateKeyRequestDto,
+  SaveUserApiKeyDto,
+  ApiKeyMode,
+  TestApiKeyDto,
+  CreateUserModelConfigDto,
+  UpdateUserModelConfigDto,
+} from "../../ai-infra/facade";
+
+export { AiModelDiscoveryService } from "../../ai-engine/llm/services/ai-model-discovery.service";
+export { AiConnectionTestService } from "../../ai-engine/llm/services/ai-connection-test.service";
+export { AutoConfigureService } from "../../ai-engine/credentials/user-config/user-models-auto-configure.service";

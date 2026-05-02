@@ -12,7 +12,7 @@ import {
 } from "../../abstractions/tool.interface";
 
 import { AIModelType } from "@prisma/client";
-import { AiChatService } from "../../../llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 
 // ============================================================================
 // Types

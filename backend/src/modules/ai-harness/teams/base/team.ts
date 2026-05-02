@@ -4,7 +4,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { ToolId, SkillId } from "@/modules/ai-engine/core/types/agent.types";
+import { ToolId, SkillId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { RoleId, IRole } from "../abstractions/role.interface";
 import {
   ITeamMember,

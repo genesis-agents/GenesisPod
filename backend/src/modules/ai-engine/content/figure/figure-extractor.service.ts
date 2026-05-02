@@ -5,7 +5,7 @@ import { Injectable, Logger } from "@nestjs/common";
 // ★ 内部相对路径（避免 ai-engine 自循环 import facade）
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import type { ToolContext } from "../../tools/abstractions/tool.interface";
-import { withTimeoutFallback } from "../../../../common/utils/timeout.utils";
+import { withTimeoutFallback } from "@/common/utils/timeout.utils";
 
 /**
  * 提取的图表信息

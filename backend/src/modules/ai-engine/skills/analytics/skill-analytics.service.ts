@@ -5,7 +5,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 type TimeRange = "24h" | "7d" | "30d";
 

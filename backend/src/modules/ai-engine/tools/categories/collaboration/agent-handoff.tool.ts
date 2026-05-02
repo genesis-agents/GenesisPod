@@ -10,12 +10,14 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
-import {
-  BUILTIN_AGENTS,
-  AgentId,
-  AgentResult,
-} from "../../../core/types/agent.types";
-import { AiChatService } from "../../../llm/services/ai-chat.service";
+export interface AgentResult {
+  success: boolean;
+  artifacts?: any[];
+  summary?: string;
+  tokensUsed?: number;
+  duration?: number;
+}
+import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 
 import { randomUUID } from "crypto";
@@ -63,7 +65,7 @@ export interface HandoffOptions {
   /**
    * 降级 Agent（当目标 Agent 不可用或失败时）
    */
-  fallbackAgent?: AgentId;
+  fallbackAgent?: string;
 }
 
 /**
@@ -73,7 +75,7 @@ export interface AgentHandoffInput {
   /**
    * 目标 Agent 类型
    */
-  targetAgent: AgentId;
+  targetAgent: string;
 
   /**
    * 任务定义
@@ -108,7 +110,7 @@ export interface AgentHandoffOutput {
   /**
    * 目标 Agent
    */
-  targetAgent: AgentId;
+  targetAgent: string;
 
   /**
    * 委派状态
@@ -196,7 +198,7 @@ export class AgentHandoffTool extends BaseTool<
       targetAgent: {
         type: "string",
         description: "目标 Agent 类型",
-        enum: Object.values(BUILTIN_AGENTS),
+        
       },
       task: {
         type: "object",
@@ -236,7 +238,7 @@ export class AgentHandoffTool extends BaseTool<
           fallbackAgent: {
             type: "string",
             description: "降级 Agent，当目标 Agent 失败时使用",
-            enum: Object.values(BUILTIN_AGENTS),
+            
           },
         },
       },
@@ -291,11 +293,7 @@ export class AgentHandoffTool extends BaseTool<
    */
   validateInput(input: AgentHandoffInput) {
     // 验证目标 Agent
-    const builtinAgentValues = Object.values(BUILTIN_AGENTS) as string[];
-    if (!builtinAgentValues.includes(input.targetAgent)) {
-      this.logger.warn(`Invalid target agent: ${input.targetAgent}`);
-      return false;
-    }
+    if (!input.targetAgent) return false;
 
     // 验证任务提示词
     if (!input.task?.prompt || input.task.prompt.trim().length === 0) {
@@ -304,15 +302,7 @@ export class AgentHandoffTool extends BaseTool<
     }
 
     // 验证降级 Agent（如果提供）
-    if (
-      input.options?.fallbackAgent &&
-      !builtinAgentValues.includes(input.options.fallbackAgent)
-    ) {
-      this.logger.warn(
-        `Invalid fallback agent: ${input.options.fallbackAgent}`,
-      );
-      return false;
-    }
+    
 
     return true;
   }
@@ -447,7 +437,7 @@ export class AgentHandoffTool extends BaseTool<
    * 执行目标 Agent（通过 AiChatService 调用 LLM）
    */
   private async executeTargetAgent(
-    agentType: AgentId,
+    agentType: string,
     task: TaskDefinition,
     _context: ToolContext,
     timeout: number,

@@ -18,8 +18,8 @@ ai-engine/
 ├── facade/                        ★ 外部消费者唯一入口（103 export，6 文件）
 │
 ├── llm/                           ★ LLM 适配层 ——「调一次模型」
-│   ├── ai-engine-llm.module.ts    NestJS 装配
-│   ├── ai-engine-planning.module.ts  Reflection / IntentDetection / Context Mgmt
+│   ├── llm.module.ts              NestJS 装配
+│   ├── planning.module.ts         Reflection / IntentDetection / Context Mgmt
 │   ├── abstractions/              ILLMAdapter / Message / TaskProfile
 │   ├── adapters/                  AiChat / FunctionCalling / Universal LLM Adapter
 │   ├── budget/                    TokenBudgetService
@@ -35,7 +35,7 @@ ai-engine/
 │   └── types/                     ChatMessage / TaskProfile / Creativity / OutputLength
 │
 ├── tools/                         ★ Tool 系统 ——「一个工具怎么调一次」
-│   ├── ai-engine-tools.module.ts
+│   ├── tools.module.ts
 │   ├── abstractions/              ITool / ToolContext / ToolResult / JSONSchema
 │   ├── base/                      BaseTool
 │   ├── categories/                40+ built-in tools（按 category 组织）
@@ -45,7 +45,7 @@ ai-engine/
 │   └── search-fusion/             多源搜索结果 dedup / rerank / fusion
 │
 ├── skills/                        ★ Skill 系统 ——「一个 SKILL.md 怎么 execute」
-│   ├── ai-engine-skills.module.ts
+│   ├── skills.module.ts
 │   ├── abstractions/              ISkill / SkillContext / SkillResult / SkillPermissions
 │   ├── analytics/                 SkillAnalytics（usage logs）
 │   ├── base/                      BaseSkill
@@ -60,7 +60,7 @@ ai-engine/
 │   └── types/                     SkillMdDefinition
 │
 ├── knowledge/                     ★ 知识检索 ——「RAG / Search / Rerank」
-│   ├── ai-engine-knowledge.module.ts
+│   ├── knowledge.module.ts
 │   ├── evidence/                  Evidence 抽取 + 指纹
 │   ├── extraction/                ContextEvolution / EntityExtraction
 │   ├── rag/                       Embedding / Vector / Chunking / RAGPipeline
@@ -78,7 +78,7 @@ ai-engine/
 │   └── report-template/           13 类报告格式化标准（constants + pipeline）
 │
 ├── safety/                        ★ 安全 ——「Guardrails / CircuitBreaker / 内容过滤」
-│   ├── ai-engine-constraint.module.ts
+│   ├── constraint.module.ts
 │   ├── constraint/                SchemaValidator / ContentFilter
 │   ├── guardrails/                Input/Output 双向 guardrails pipeline
 │   ├── quality/                   Quality gate primitives

@@ -923,7 +923,7 @@ export type ToolCategory =
 export {
   BUILTIN_TOOLS,
   type BuiltinToolId,
-} from "../../../ai-engine/core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 export type { AICapabilityContext } from "../../../ai-harness/runner/capabilities/ai-capability-resolver.service";
 export type {
   ExecutionConfig,

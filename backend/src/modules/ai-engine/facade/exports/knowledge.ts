@@ -2,27 +2,27 @@
  * Knowledge & RAG exports
  */
 export type { SaveEvidenceRequest } from "../../knowledge/evidence/abstractions/evidence.interface";
-export type { EmbeddingResult } from "../../knowledge/rag/embedding";
+export type { EmbeddingResult } from "@/modules/ai-engine/rag/embedding";
 export type {
   SimilaritySearchOptions,
   SimilarityResult,
-} from "../../knowledge/rag/vector/vector.service";
-export { EmbeddingService } from "../../knowledge/rag/embedding";
+} from "@/modules/ai-engine/rag/vector/vector.service";
+export { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
 export type {
   EmbeddingModelConfig,
   EmbeddingBatch,
-} from "../../knowledge/rag/embedding";
-export { VectorService } from "../../knowledge/rag/vector";
-export type { VectorSearchResult } from "../../knowledge/rag/vector";
-export { DocumentChunker } from "../../knowledge/rag/chunking";
+} from "@/modules/ai-engine/rag/embedding";
+export { VectorService } from "@/modules/ai-engine/rag/vector";
+export type { VectorSearchResult } from "@/modules/ai-engine/rag/vector";
+export { DocumentChunker } from "@/modules/ai-engine/rag/chunking";
 export type {
   ChunkingConfig,
   ChildChunkData,
   ParentChunkData,
   ChunkedDocument,
-} from "../../knowledge/rag/chunking";
-export { DEFAULT_CHUNKING_CONFIG } from "../../knowledge/rag/chunking";
-export { RAGPipelineService } from "../../knowledge/rag/pipeline";
+} from "@/modules/ai-engine/rag/chunking";
+export { DEFAULT_CHUNKING_CONFIG } from "@/modules/ai-engine/rag/chunking";
+export { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
 export type {
   RAGQuery,
   RAGOptions,
@@ -35,5 +35,5 @@ export type {
   KnowledgeBaseStats,
   SyncResult,
   GoogleDriveFile,
-} from "../../knowledge/rag/pipeline/rag-pipeline.interfaces";
+} from "@/modules/ai-engine/rag/pipeline/rag-pipeline.interface";
 export { SearchService } from "../../knowledge/search/search.service";

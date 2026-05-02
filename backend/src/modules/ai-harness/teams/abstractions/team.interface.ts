@@ -3,7 +3,7 @@
  * 团队抽象接口定义
  */
 
-import { ToolId, SkillId } from "@/modules/ai-engine/core/types/agent.types";
+import { ToolId, SkillId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { RoleId } from "./role.interface";
 import { ITeamMember, TeamMemberId } from "./member.interface";
 import { IWorkflow, WorkflowConfig } from "./workflow.interface";

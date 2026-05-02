@@ -17,8 +17,8 @@ import {
   Optional,
   Inject,
 } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { WebContentExtractionService } from "../../../../common/content-processing/web-content-extraction.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { WebContentExtractionService } from "@/common/content-processing/web-content-extraction.service";
 import { FetchedContent, sanitizeForDb } from "./content-fetch.types";
 
 /**

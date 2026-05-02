@@ -10,8 +10,8 @@ import {
   ContentFetchService,
   YOUTUBE_SERVICE_TOKEN,
 } from "../content-fetch.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { WebContentExtractionService } from "../../../../../common/content-processing/web-content-extraction.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { WebContentExtractionService } from "@/common/content-processing/web-content-extraction.service";
 
 describe("ContentFetchService", () => {
   let service: ContentFetchService;

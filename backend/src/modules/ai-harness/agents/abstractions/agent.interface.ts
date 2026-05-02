@@ -10,9 +10,7 @@ import type { IAgentIdentity } from "./identity.interface";
 import type { IContextEnvelope } from "./context-envelope.interface";
 import type { IAgentEvent } from "./agent-event.interface";
 import type { ISubagentHandle, ISubagentSpec } from "./subagent.interface";
-
-/** Agent id（UUID） */
-export type AgentId = string;
+import type { AgentId } from "./agent.types";
 
 /** Agent 运行时状态 */
 export type AgentState =

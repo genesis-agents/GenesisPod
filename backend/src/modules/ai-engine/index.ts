@@ -50,7 +50,7 @@ export {
   MaybePromise,
   // Context
   BaseContext,
-  ExecutionMode,
+  EngineExecutionMode,
   // Interfaces
   IExecutable,
   IRegistry,
@@ -61,7 +61,6 @@ export {
   EngineError,
   ToolError,
   SkillError,
-  AgentError,
   TimeoutError,
   CancelledError,
   NotFoundError,
@@ -71,37 +70,12 @@ export {
   ToolErrorCode,
   SkillErrorCode,
   AgentErrorCode,
-} from "./core";
+} from "./facade/index";
 
 // Agent 类型系统
-export {
-  // ID Types
-  AgentId,
-  ToolId,
-  SkillId,
-  // Built-in Constants
-  BUILTIN_AGENTS,
-  BUILTIN_TOOLS,
-  BuiltinAgentId,
-  BuiltinToolId,
-  // Agent Types
-  AgentTaskStatus,
-  ArtifactType,
-  AIModelType,
-  UploadedFile,
-  AgentInput,
-  PlanStep,
-  AgentPlan,
-  AgentTemplate,
-  Artifact,
-  AgentResult,
-  AgentEvent,
-  AgentConfig,
-  AGENT_CONFIGS,
-} from "./core/types/agent.types";
 
 // 子模块命名空间导出
-export * as Core from "./core";
+export * as Core from "./facade/index";
 export * as Tools from "./tools";
 export * as Skills from "./skills";
 export * as Constraint from "./safety/constraint";
@@ -129,13 +103,13 @@ export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeli
 // NestJS 模块导出
 export { AiEngineModule } from "./ai-engine.module";
 // AiEngineLightModule removed (PR-X24): zero external consumers.
-export { AiEngineLLMModule } from "./llm/ai-engine-llm.module";
-export { AiEngineToolsModule } from "./tools/ai-engine-tools.module";
-export { AiEngineSkillsModule } from "./skills/ai-engine-skills.module";
-export { AiEnginePlanningModule } from "./llm/ai-engine-planning.module";
+export { AiEngineLLMModule } from "./llm/llm.module";
+export { AiEngineToolsModule } from "./tools/tools.module";
+export { AiEngineSkillsModule } from "./skills/skills.module";
+export { AiEnginePlanningModule } from "@/modules/ai-engine/planning/planning.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— 见 RuntimeMemoryModule
 // (ai-harness/memory/working/memory.module.ts)
-export { AiEngineConstraintModule } from "./safety/ai-engine-constraint.module";
+export { AiEngineConstraintModule } from "./safety/constraint.module";
 
 // TeamsModule（PR-X4: 已迁移，从 ai-harness/teams 导入）
 

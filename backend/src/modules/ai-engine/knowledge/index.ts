@@ -6,5 +6,5 @@
 
 // Sub-modules are imported directly by their paths to avoid name conflicts
 // (SearchResult, VectorSearchResult may overlap between search and rag)
-// Use: import { EmbeddingService } from './knowledge/rag/embedding'
+// Use: import { EmbeddingService } from "@/modules/ai-engine/rag/embedding"
 //      import { SearchService } from './knowledge/search'

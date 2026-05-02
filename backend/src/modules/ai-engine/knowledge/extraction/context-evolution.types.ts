@@ -10,7 +10,7 @@
  */
 
 import { AIModelType } from "@prisma/client";
-import type { AiCallerFn } from "../../llm/types/ai-caller.types";
+import type { AiCallerFn } from "@/modules/ai-engine/llm/types/ai-caller.types";
 
 /** 上下文演进配置 */
 export interface ContextEvolutionConfig {

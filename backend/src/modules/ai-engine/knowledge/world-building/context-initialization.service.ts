@@ -24,7 +24,7 @@ import {
   CoreEntity,
   WorldBuildingResult,
 } from "./world-building.types";
-import type { AiCallerFn } from "../../llm/types/ai-caller.types";
+import type { AiCallerFn } from "@/modules/ai-engine/llm/types/ai-caller.types";
 
 @Injectable()
 export class ContextInitializationService implements IContextInitializationService {

@@ -10,7 +10,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
-import { AgentId } from "../../../core/types/agent.types";
+
 
 // ============================================================================
 // Types
@@ -46,7 +46,7 @@ export interface DelegatedTask {
   /**
    * 目标 Agent ID
    */
-  targetAgent: AgentId;
+  targetAgent: string;
 
   /**
    * 优先级
@@ -98,7 +98,7 @@ export interface TaskDelegationInput {
   /**
    * 源 Agent ID
    */
-  sourceAgentId?: string;
+  sourcestring?: string;
 
   /**
    * 过滤条件（LIST 操作）
@@ -226,7 +226,7 @@ export class TaskDelegationTool extends BaseTool<
         type: "object",
         description: "更新数据",
       },
-      sourceAgentId: {
+      sourcestring: {
         type: "string",
         description: "源 Agent ID",
       },

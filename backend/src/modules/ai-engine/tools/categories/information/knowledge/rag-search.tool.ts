@@ -25,7 +25,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../../abstractions/tool.interface";
-import { RAGPipelineService } from "../../../../knowledge/rag/pipeline";
+import { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
 
 // ============================================================================
 // Types

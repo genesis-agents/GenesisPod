@@ -19,7 +19,7 @@ import {
   AgentEvent,
   AgentTemplate,
   AgentConfig,
-} from "../../../ai-engine/core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 /**
  * Plan-Based Agent 接口

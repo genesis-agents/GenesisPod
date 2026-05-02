@@ -28,15 +28,15 @@ import { PrismaService } from "../../common/prisma/prisma.service";
 import { SecretsModule } from "../ai-infra/secrets/secrets.module";
 
 // ★ 子模块导入
-import { AiEngineLLMModule } from "./llm/ai-engine-llm.module";
-import { AiEngineToolsModule } from "./tools/ai-engine-tools.module";
-import { AiEngineSkillsModule } from "./skills/ai-engine-skills.module";
-import { AiEnginePlanningModule } from "./llm/ai-engine-planning.module";
+import { AiEngineLLMModule } from "./llm/llm.module";
+import { AiEngineToolsModule } from "./tools/tools.module";
+import { AiEngineSkillsModule } from "./skills/skills.module";
+import { AiEnginePlanningModule } from "@/modules/ai-engine/planning/planning.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（CLAUDE.md L2.5 规定 memory 是 Harness 一等公民），
 // 由 RuntimeMemoryModule (@Global) 提供，无需 engine 层 forwardRef。
-import { AiEngineConstraintModule } from "./safety/ai-engine-constraint.module";
-import { AiEngineKnowledgeModule } from "./knowledge/ai-engine-knowledge.module";
+import { AiEngineConstraintModule } from "./safety/constraint.module";
+import { AiEngineKnowledgeModule } from "./knowledge/knowledge.module";
 // ★ P2 能力下沉：新增子模块导入
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";

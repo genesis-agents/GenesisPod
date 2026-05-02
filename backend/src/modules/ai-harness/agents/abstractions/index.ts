@@ -10,6 +10,7 @@
  */
 
 export * from "./identity.interface";
+export * from "./agent.types";
 export * from "./agent.interface";
 export * from "./agent-loop.interface";
 export * from "./context-envelope.interface";

@@ -3,7 +3,7 @@
  * 任务（Mission）抽象接口定义
  */
 
-import type { UploadedFile } from "@/modules/ai-engine/core/types/agent.types";
+import type { UploadedFile } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import type { ConstraintProfile } from "../../teams/constraints/constraint-profile";
 import type { TeamId } from "../../teams/abstractions/team.interface";
 

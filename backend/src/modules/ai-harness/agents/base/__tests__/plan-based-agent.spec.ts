@@ -12,7 +12,7 @@ import {
   AgentTemplate,
   BUILTIN_AGENTS,
 } from "../plan-based-agent";
-import { AgentId, ToolId } from "../../../core/types/agent.types";
+import { AgentId, ToolId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 // ---------------------------------------------------------------------------
 // Concrete test doubles

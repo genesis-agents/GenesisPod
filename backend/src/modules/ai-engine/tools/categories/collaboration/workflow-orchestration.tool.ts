@@ -10,7 +10,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
-// AgentId and AgentResult available from "../../../core/types/agent.types" if needed
+// AgentId and AgentResult available from "@/modules/ai-harness/agents/abstractions/agent.types" if needed
 
 // ============================================================================
 // Types

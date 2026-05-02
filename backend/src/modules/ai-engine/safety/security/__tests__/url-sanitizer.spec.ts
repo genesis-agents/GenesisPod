@@ -1,8 +1,8 @@
 /**
- * url-sanitizer.utils.ts unit tests
+ * url-sanitizer.util.ts unit tests
  * Covers: isValidFigureUrl function
  */
-import { isValidFigureUrl } from "../url-sanitizer.utils";
+import { isValidFigureUrl } from "../url-sanitizer.util";
 
 describe("isValidFigureUrl", () => {
   // Happy path - valid URLs

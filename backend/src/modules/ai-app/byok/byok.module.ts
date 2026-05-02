@@ -27,7 +27,7 @@ import { UserKeyRequestsController } from "./key-requests.controller";
 import { UserByokController } from "./user-byok.controller";
 import { UserApiKeysController } from "./user-api-keys.controller";
 import { UserModelConfigsController } from "./user-model-configs.controller";
-import { AiEngineLLMModule } from "../../ai-engine/llm/ai-engine-llm.module";
+import { AiEngineLLMModule } from "../../ai-engine/llm/llm.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
 import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments";

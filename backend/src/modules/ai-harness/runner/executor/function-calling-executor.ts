@@ -10,17 +10,17 @@ import {
   ToolResult,
   FunctionDefinition,
 } from "../../../ai-engine/tools/abstractions/tool.interface";
-import { ToolId } from "../../../ai-engine/core/types/agent.types";
+import { ToolId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { RetryStrategy } from "./retry-strategy";
 import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
 import type { IMCPProvider } from "../../../ai-engine/facade";
-import { MCP_PROVIDER_PORT } from "../../../ai-engine/abstractions/runtime-deps.tokens";
+import { MCP_PROVIDER_PORT } from "@/modules/ai-engine/facade/abstractions/runtime-deps.tokens";
 import { QueryLoopService } from "./query-loop.service";
 import { TokenTrackerService } from "./token-tracker.service";
-import { ContextCompactionPipelineService } from "../../../ai-engine/llm/context/context-compaction-pipeline.service";
+import { ContextCompactionPipelineService } from "../../../ai-engine/planning/context/context-compaction-pipeline.service";
 import { ExecutionCheckpointService } from "./execution-checkpoint.service";
 import { ToolConcurrencyService } from "../../../ai-engine/tools/concurrency/tool-concurrency.service";
 import { ModelFallbackService } from "../../../ai-engine/llm/selection/model-fallback.service";

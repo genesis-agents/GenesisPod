@@ -17,8 +17,8 @@ import type {
 } from "../abstractions/function-calling-protocol";
 import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../services/ai-chat.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../ai-infra/facade";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/ai-infra/facade";
 
 /**
  * Function Calling LLM 适配器配置

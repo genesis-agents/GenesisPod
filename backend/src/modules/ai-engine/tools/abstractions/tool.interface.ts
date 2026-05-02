@@ -3,7 +3,7 @@
  * 工具接口定义
  */
 
-import { ValidationResult, JsonObject } from "../../core";
+import { ValidationResult, JsonObject } from "@/modules/ai-engine/facade/index";
 
 /**
  * 工具上下文

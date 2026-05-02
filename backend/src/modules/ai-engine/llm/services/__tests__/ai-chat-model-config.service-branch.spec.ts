@@ -14,8 +14,8 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiChatModelConfigService } from "../ai-chat-model-config.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 
 function createMockDbModel(overrides: Record<string, unknown> = {}) {
   return {

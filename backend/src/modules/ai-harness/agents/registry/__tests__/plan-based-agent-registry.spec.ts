@@ -10,7 +10,7 @@ import {
   AgentConfig,
   AgentId,
   AgentPlan,
-} from "../../../core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 // ---------------------------------------------------------------------------
 // Helper: create a mock IPlanBasedAgent

@@ -19,7 +19,7 @@ import {
   PromptSkillExecutionCallback,
 } from "./prompt-skill-adapter";
 import { ISkill } from "../abstractions/skill.interface";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 export interface BridgeRegistrationResult {
   registered: string[];

@@ -58,7 +58,7 @@ import type {
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
-} from "../../../ai-engine/llm/reflection/reflection.service";
+} from "../../../ai-engine/planning/reflection/reflection.service";
 import type {
   CompressionOptions,
   CompressionResult,

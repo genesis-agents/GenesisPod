@@ -5,7 +5,7 @@ import {
   MessagePriority,
   MessageStatus,
 } from "../agent-communication.tool";
-import { BUILTIN_AGENTS } from "../../../../core/types/agent.types";
+import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

@@ -13,7 +13,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   AgentId,
   AgentConfig,
-} from "../../../ai-engine/core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { IPlanBasedAgent } from "../base/plan-based-agent";
 
 /**

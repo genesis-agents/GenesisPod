@@ -8,7 +8,7 @@ import {
   ValidationMiddleware,
   createValidationMiddleware,
 } from "../validation.middleware";
-import { ValidationError } from "../../../core/errors";
+import { ValidationError } from "@/modules/ai-engine/facade/abstractions/base-error";
 import {
   ITool,
   ToolCategory,

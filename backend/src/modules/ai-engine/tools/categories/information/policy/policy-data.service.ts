@@ -12,7 +12,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SecretsService } from "../../../../../ai-infra/facade";
+import { SecretsService } from "@/modules/ai-infra/facade";
 import { firstValueFrom } from "rxjs";
 import { APP_CONFIG } from "@/common/config/app.config";
 import * as crypto from "crypto";

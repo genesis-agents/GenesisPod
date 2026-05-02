@@ -5,7 +5,7 @@ import {
   TaskCompletionType,
   CircuitBreakerConfig,
 } from "../circuit-breaker.service";
-import { CacheService } from "../../../../../common/cache/cache.service";
+import { CacheService } from "@/common/cache/cache.service";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
 jest.spyOn(Logger.prototype, "debug").mockImplementation();

@@ -56,7 +56,7 @@ import {
 } from "./agents/builtin-skills";
 import { SKILL_PROVIDERS } from "./agents/abstractions";
 import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider";
-import { AiEngineSkillsModule } from "../ai-engine/skills/ai-engine-skills.module";
+import { AiEngineSkillsModule } from "../ai-engine/skills/skills.module";
 import { SubagentSpawner } from "./agents/subagents";
 import {
   ContextManager,
@@ -109,8 +109,8 @@ import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
 import { PromptRegistry } from "./runner/prompt/prompt-registry";
 import { ToolSelectorRegistry } from "./runner/tool-routing/tool-selector-registry";
 
-import { AiEngineLLMModule } from "../ai-engine/llm/ai-engine-llm.module";
-import { AiEngineToolsModule } from "../ai-engine/tools/ai-engine-tools.module";
+import { AiEngineLLMModule } from "../ai-engine/llm/llm.module";
+import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 
@@ -125,7 +125,7 @@ import {
   CONSTRAINT_ENFORCEMENT_PORT,
   EXECUTION_STATE_MANAGER_PORT,
   MCP_PROVIDER_PORT,
-} from "../ai-engine/abstractions/runtime-deps.tokens";
+} from "@/modules/ai-engine/facade/abstractions/runtime-deps.tokens";
 import { AgentRegistry as PlanBasedAgentRegistry } from "./agents/registry/plan-based-agent-registry";
 import { AgentOrchestrator } from "./agents/registry/agent-orchestrator";
 import { AgentConfigService } from "./agents/config/agent-config.service";
@@ -171,7 +171,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     },
 
     // PR-X18: 8 个 engine 端 DI tokens — harness 提供具体类的 useExisting 绑定
-    // 这样 ai-engine-planning.module 用 token 注入，避免反向 import harness 类
+    // 这样 planning.module 用 token 注入，避免反向 import harness 类
     PlanBasedAgentRegistry,
     AgentOrchestrator,
     AgentConfigService,

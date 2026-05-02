@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AiModelConfigService } from "../ai-model-config.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
-import { UserApiKeysService } from "../../../../ai-infra/credentials/user-api-keys/user-api-keys.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 import { AIModelType } from "@prisma/client";
 
 describe("AiModelConfigService", () => {

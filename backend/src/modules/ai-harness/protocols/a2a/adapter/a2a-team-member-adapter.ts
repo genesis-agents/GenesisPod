@@ -14,7 +14,7 @@ import type {
   IRole,
   WorkStyle,
 } from "../../../teams/abstractions/role.interface";
-import type { SkillId, ToolId } from "../../../../ai-engine/facade";
+import type { SkillId, ToolId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { A2AAgentCard, A2ATaskStatus } from "../a2a.types";
 
 /**

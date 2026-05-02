@@ -27,7 +27,7 @@ import {
   repairLatexCommands,
   stripInternalFigureNotation,
   stripLLMMetaNotes,
-} from "../report-formatting.utils";
+} from "../report-formatting.util";
 
 // ============================================================
 // Scenario 1: Chapter Numbering — The Core User Complaint

@@ -11,7 +11,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import { ExportOrchestratorService } from "../../../../../common/export";
+import { ExportOrchestratorService } from "@/common/export";
 import { ExportFormat } from "@prisma/client";
 
 // 兼容原有接口

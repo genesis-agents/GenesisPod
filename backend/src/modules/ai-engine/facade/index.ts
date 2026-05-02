@@ -94,11 +94,11 @@ export type { SaveEvidenceRequest } from "../knowledge/evidence/abstractions/evi
 // AICapabilityContext / SkillPromptBundle / SkillPromptOptions / UserIntent
 // 已移至 @/modules/ai-harness/facade（属于 L2.5 execution 层，2026-05-01 PR-X-L 修反向依赖）
 export type { SkillMdDefinition } from "../skills/types/skill-md.types";
-export type { EmbeddingResult } from "../knowledge/rag/embedding";
+export type { EmbeddingResult } from "@/modules/ai-engine/rag/embedding";
 export type {
   SimilaritySearchOptions,
   SimilarityResult,
-} from "../knowledge/rag/vector/vector.service";
+} from "@/modules/ai-engine/rag/vector/vector.service";
 
 // ★ Registry classes — engine-owned registries only
 export { ToolRegistry } from "../tools/registry/tool-registry";
@@ -116,28 +116,14 @@ export type {
 } from "../llm/types";
 
 // Model classification by id pattern (STRONG/STANDARD/BASIC) — cross-app utility
-export { classifyModelTier, ModelTier } from "../llm/types/model-tier";
+export { classifyModelTier, ModelTier } from "@/modules/ai-engine/llm/types/model-tier";
 
 // ★ Stream timing types (for TTFT/TTLT tracking)
 export type {
   StreamTiming,
   StreamChunk,
-} from "../llm/services/ai-stream-handler.service";
+} from "@/modules/ai-engine/llm/services/ai-stream-handler.service";
 
-export { BUILTIN_TOOLS } from "../core/types/agent.types";
-export type {
-  BuiltinToolId,
-  PlanStep,
-  AgentInput,
-  AgentPlan,
-  AgentEvent as PlanAgentEvent,
-  AgentEvent,
-  AgentTemplate,
-  ToolId,
-  AgentConfig,
-} from "../core/types/agent.types";
-export { BUILTIN_AGENTS } from "../core/types/agent.types";
-export type { ExecutionMode } from "../core/types/agent.types";
 // TaskPlan / IntentRouter / TaskPlanner 已删 (2026-04-30) — 死代码
 export type {
   ToolContext,
@@ -148,7 +134,7 @@ export type {
 // ★ Batch 1 supplemental exports
 
 // Orchestration services
-export { ContextCompressionService } from "../llm/context/context-compression.service";
+export { ContextCompressionService } from "../planning/context/context-compression.service";
 // 2026-05-01 (PR-X-L): 以下 type / class 都属于 L2.5 ai-harness/runner，
 // 已下沉为 ai-harness/facade 直接导出，engine facade 不再 re-export 走反向依赖：
 //   - DataChunk / SummaryChunk / CompressionResult / CompressionOptions
@@ -161,13 +147,13 @@ export { ContextCompressionService } from "../llm/context/context-compression.se
 
 // TokenBudgetService 是 engine 自有（llm/budget/token-budget.service.ts），
 // 修复原 reverse path（engine→harness→engine 绕一圈）为直接 engine 自身
-export { TokenBudgetService } from "../llm/budget/token-budget.service";
+export { TokenBudgetService } from "../planning/budget/token-budget.service";
 export type {
   ModelConfig as TokenBudgetModelConfig,
   TokenBudget,
   ContentPriority,
   BudgetAllocation,
-} from "../llm/budget/token-budget.service";
+} from "../planning/budget/token-budget.service";
 // OutputReviewerService 已搬到 ai-harness/evaluation/critique/ (2026-05-02)
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 // AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
@@ -207,23 +193,23 @@ export {
   TTS_SERVICE,
 } from "../tools/abstractions/generation-services.interface";
 export type { IImageGenerationService } from "../tools/abstractions/generation-services.interface";
-export { IMAGE_GENERATION_SERVICE_TOKEN } from "../core/interfaces/image.interface";
-export type { IResearchService } from "../core/interfaces/research.interface";
-export { RESEARCH_SERVICE_TOKEN } from "../core/interfaces/research.interface";
-export type { ISimulationService } from "../core/interfaces/simulation.interface";
-export { SIMULATION_SERVICE_TOKEN } from "../core/interfaces/simulation.interface";
-export type { IRAGPipelineService } from "../core/interfaces/rag.interface";
-export { RAG_PIPELINE_SERVICE_TOKEN } from "../core/interfaces/rag.interface";
+export { IMAGE_GENERATION_SERVICE_TOKEN } from "@/modules/ai-engine/content/abstractions/image.interface";
+export type { IResearchService } from "@/modules/ai-engine/facade/abstractions/research.interface";
+export { RESEARCH_SERVICE_TOKEN } from "@/modules/ai-engine/facade/abstractions/research.interface";
+export type { ISimulationService } from "@/modules/ai-engine/facade/abstractions/simulation.interface";
+export { SIMULATION_SERVICE_TOKEN } from "@/modules/ai-engine/facade/abstractions/simulation.interface";
+export type { IRAGPipelineService } from "@/modules/ai-engine/rag/abstractions/rag.interface";
+export { RAG_PIPELINE_SERVICE_TOKEN } from "@/modules/ai-engine/rag/abstractions/rag.interface";
 
 // LLM model fallback types
 export type { ModelFallbackOptions } from "../llm/selection/model-fallback.service";
-export type { AIModelConfig } from "../llm/services/ai-model-config.service";
+export type { AIModelConfig } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 
 // TeamMemberInfo 是 L2.5 ai-harness/runner 类型，2026-05-01 PR-X-M2 下沉为
 // ai-harness/facade export，engine 不再 re-export
 
 // Error detection utilities
-export type { ErrorDetectionRetryConfig } from "../core/utils/error-detection.utils";
+export type { ErrorDetectionRetryConfig } from "@/modules/ai-engine/safety/utils/error-detection.util";
 export {
   DEFAULT_RETRY_CONFIG,
   isRetryableError,
@@ -234,7 +220,7 @@ export {
   sleep,
   isApiErrorContent,
   parseErrorType,
-} from "../core/utils/error-detection.utils";
+} from "@/modules/ai-engine/safety/utils/error-detection.util";
 
 // Skills interfaces
 export type { ISkillOutputManager } from "../skills/output-manager/skill-output-manager.interface";
@@ -264,22 +250,22 @@ export {
 } from "../content/image/matching/image-matching.types";
 
 // RAG types & services
-export { EmbeddingService } from "../knowledge/rag/embedding";
+export { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
 export type {
   EmbeddingModelConfig,
   EmbeddingBatch,
-} from "../knowledge/rag/embedding";
-export { VectorService } from "../knowledge/rag/vector";
-export type { VectorSearchResult } from "../knowledge/rag/vector";
-export { DocumentChunker } from "../knowledge/rag/chunking";
+} from "@/modules/ai-engine/rag/embedding";
+export { VectorService } from "@/modules/ai-engine/rag/vector";
+export type { VectorSearchResult } from "@/modules/ai-engine/rag/vector";
+export { DocumentChunker } from "@/modules/ai-engine/rag/chunking";
 export type {
   ChunkingConfig,
   ChildChunkData,
   ParentChunkData,
   ChunkedDocument,
-} from "../knowledge/rag/chunking";
-export { DEFAULT_CHUNKING_CONFIG } from "../knowledge/rag/chunking";
-export { RAGPipelineService } from "../knowledge/rag/pipeline";
+} from "@/modules/ai-engine/rag/chunking";
+export { DEFAULT_CHUNKING_CONFIG } from "@/modules/ai-engine/rag/chunking";
+export { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
 export type {
   RAGQuery,
   RAGOptions,
@@ -293,7 +279,7 @@ export type {
   KnowledgeBaseStats,
   SyncResult,
   GoogleDriveFile,
-} from "../knowledge/rag/pipeline/rag-pipeline.interfaces";
+} from "@/modules/ai-engine/rag/pipeline/rag-pipeline.interface";
 
 // Policy research tools
 export {
@@ -304,15 +290,15 @@ export {
 } from "../tools/categories/information/policy";
 
 // ★ Batch 2 — Core services
-export { AiChatService } from "../llm/services/ai-chat.service";
+export { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 export type {
   ChatObserver,
   ChatObserverEvent,
   ChatOptions,
   ChatResult,
-} from "../llm/services/ai-chat.service";
+} from "@/modules/ai-engine/llm/services/ai-chat.service";
 export type { ChatMessage } from "../llm/types";
-export { inferIsReasoning, getKnownModelLimit } from "../llm/types/model-utils";
+export { inferIsReasoning, getKnownModelLimit } from "@/modules/ai-engine/llm/types/model-utils";
 
 // ★ Model Election
 export { ModelElectionService } from "../llm/selection";
@@ -333,8 +319,8 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
-export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
+export { MultiKeyRegistry } from "@/modules/ai-engine/credentials/secret-resolver/multi-key-manager";
+export type { KeyHealthStatus } from "@/modules/ai-engine/credentials/secret-resolver/multi-key-manager";
 // AICapabilityResolver 是 L2.5 ai-harness/runner 服务，2026-05-01 PR-X-M2
 // 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
@@ -413,7 +399,7 @@ export {
 } from "../llm/output-parsing";
 
 // ★ 沉淀（2026-04-29）: figure URL 有效性校验
-export { isValidFigureUrl } from "../safety/security/url-sanitizer.utils";
+export { isValidFigureUrl } from "../safety/security/url-sanitizer.util";
 
 // ★ 沉淀（2026-04-29）: Report Template — 13 类格式化标准（沉淀自 ai-app/contracts/report-template）
 export * from "../content/report-template";
@@ -451,13 +437,62 @@ export type {
   ILongContentEngine,
   IContinuationProtocol,
   IReportSynthesisEngine,
-} from "../content/abstractions/content-engine.interfaces";
+} from "../content/abstractions/content-engine.interface";
 
 // Agent types
-export type { SkillId } from "../core/types/agent.types";
 
 // Common types
-export type { JsonObject, JsonValue } from "../core/types/common.types";
+export type {
+  JsonObject,
+  JsonValue,
+  ValidationResult,
+  ValidationIssue,
+  ExecutionResult,
+  ExecutionMetadata,
+  ExecutionError,
+  BaseContext,
+  RetryConfig,
+  TimeoutConfig,
+  PaginationParams,
+  PaginatedResult,
+  DeepPartial,
+  Nullable,
+  Optional,
+  MaybePromise,
+} from "@/modules/ai-engine/facade/abstractions/common.types";
+
+export { EngineExecutionMode } from "@/modules/ai-engine/facade/abstractions/common.types";
+
+export {
+  EngineError,
+  ValidationError,
+  TimeoutError,
+  CancelledError,
+  NotFoundError,
+  RetryExhaustedError,
+  PreconditionError,
+  DependencyError,
+  RateLimitError,
+} from "./abstractions/base-error";
+
+export {
+  CommonErrorCode,
+  ToolErrorCode,
+  SkillErrorCode,
+  AgentErrorCode,
+} from "./abstractions/error-codes";
+
+export {
+  type IRegisterable,
+  type IRegistry,
+  BaseRegistry,
+  type RegistryStats,
+} from "./abstractions/registry.interface";
+
+export { type IExecutable } from "./abstractions/executable.interface";
+
+export { ToolError } from "../tools/abstractions/tool-error";
+export { SkillError } from "../skills/abstractions/skill-error";
 
 // Orchestrator abstractions — 2026-05-01 PR-X-M2: 16 个类型下沉到 ai-harness/facade
 // 因为 orchestrator.interface 是 L2.5 ai-harness 概念，engine facade 不
@@ -490,7 +525,7 @@ export {
   type CompactionConfig,
   type CompactionResult,
   type CompactionLevel,
-} from "../llm/context/context-compaction-pipeline.service";
+} from "../planning/context/context-compaction-pipeline.service";
 
 // ExecutionCheckpointService 是 L2.5 ai-harness/runner 概念，
 // 已下沉为 ai-harness/facade 直接 export，engine facade 不再 re-export
@@ -535,8 +570,8 @@ export type {
 } from "../knowledge/synthesis/cross-cutting-synthesis.service";
 
 // ★ Phase 5: Prompt Cache Coordination
-export { PromptCacheCoordinatorService } from "../llm/services/prompt-cache-coordinator.service";
-export type { CachePrefix } from "../llm/services/prompt-cache-coordinator.service";
+export { PromptCacheCoordinatorService } from "@/modules/ai-engine/llm/services/prompt-cache-coordinator.service";
+export type { CachePrefix } from "@/modules/ai-engine/llm/services/prompt-cache-coordinator.service";
 
 // ★ Phase 9: Background Autonomous Agents
 //   2026-04-30 (C2-step1): AutoDream 已搬到 ai-harness/memory/dream/，
@@ -585,6 +620,6 @@ export {
   CreateUserModelConfigDto,
   UpdateUserModelConfigDto,
 } from "../../ai-infra/facade";
-export { AiModelDiscoveryService } from "../llm/services/ai-model-discovery.service";
-export { AiConnectionTestService } from "../llm/services/ai-connection-test.service";
-export { AutoConfigureService } from "../llm/user-models-auto-configure.service";
+export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
+export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
+export { AutoConfigureService } from "@/modules/ai-engine/credentials/user-config/user-models-auto-configure.service";

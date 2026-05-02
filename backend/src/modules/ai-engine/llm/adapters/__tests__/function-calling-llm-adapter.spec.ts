@@ -2,8 +2,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { FunctionCallingLLMAdapter } from "../function-calling-llm-adapter";
 import { AiChatService } from "../../services/ai-chat.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 
 describe("FunctionCallingLLMAdapter", () => {
   let adapter: FunctionCallingLLMAdapter;

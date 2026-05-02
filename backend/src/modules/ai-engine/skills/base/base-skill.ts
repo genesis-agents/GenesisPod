@@ -5,8 +5,8 @@
 
 import { v4 as uuid } from "uuid";
 import { Logger } from "@nestjs/common";
-import { ValidationResult, JsonObject } from "../../core";
-import { SkillError } from "../../core/errors";
+import { ValidationResult, JsonObject } from "@/modules/ai-engine/facade/index";
+import { SkillError } from "@/modules/ai-engine/skills/abstractions/skill-error";
 import { ToolRegistry } from "../../tools/registry";
 import { ToolContext } from "../../tools/abstractions";
 import { ToolPipeline } from "../../tools/middleware/tool-pipeline";

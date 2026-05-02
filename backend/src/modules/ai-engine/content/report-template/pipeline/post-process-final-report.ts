@@ -64,7 +64,7 @@ import {
   truncateLongListItems,
   wrapBareDisplayMath,
   wrapPseudoCodeBlocks,
-} from "./report-formatting.utils";
+} from "./report-formatting.util";
 import {
   convertOrdinalBulletsToParagraphs,
   normalizeBoldStyle,
@@ -73,7 +73,7 @@ import {
   sanitizeSectionOutput,
   stripCitationStacking,
   stripLeadingBulletLists,
-} from "../../../llm/output-parsing/sanitize-output.utils";
+} from "../../../llm/output-parsing/sanitize-output.util";
 
 /**
  * Quality gate interface (decoupled from any specific service implementation).

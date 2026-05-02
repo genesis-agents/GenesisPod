@@ -145,7 +145,7 @@ import type {
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
-} from "../../ai-engine/llm/reflection/reflection.service";
+} from "../../ai-engine/planning/reflection/reflection.service";
 import type {
   CompressionOptions,
   CompressionResult,
@@ -156,13 +156,13 @@ import type {
   VoteRequest,
   VoteResult,
 } from "../teams/collaboration/abstractions/collaborator.interface";
-import { EmbeddingService } from "../../ai-engine/knowledge/rag/embedding";
-import type { EmbeddingResult } from "../../ai-engine/knowledge/rag/embedding";
-import { VectorService } from "../../ai-engine/knowledge/rag/vector";
+import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
+import type { EmbeddingResult } from "@/modules/ai-engine/rag/embedding";
+import { VectorService } from "@/modules/ai-engine/rag/vector";
 import type {
   SimilaritySearchOptions,
   SimilarityResult,
-} from "../../ai-engine/knowledge/rag/vector/vector.service";
+} from "@/modules/ai-engine/rag/vector/vector.service";
 import { MCPManager } from "../../ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import type {
   SkillPromptBundle,
@@ -172,7 +172,7 @@ import type { SkillMdDefinition } from "../../ai-engine/skills/types/skill-md.ty
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../runner/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
-import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
+import { IntentDetectionService } from "../../ai-engine/planning/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../../ai-harness/runner/executor/function-calling-executor";

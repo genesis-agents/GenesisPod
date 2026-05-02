@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
-import { ContentProcessingModule } from "../../../../common/content-processing/content-processing.module";
-import { SystemSettingModule } from "../../../../common/settings/system-setting.module";
+import { ContentProcessingModule } from "@/common/content-processing/content-processing.module";
+import { SystemSettingModule } from "@/common/settings/system-setting.module";
 import {
   ContentFetchService,
   YOUTUBE_SERVICE_TOKEN,

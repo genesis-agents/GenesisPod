@@ -3,7 +3,7 @@
  * 记忆系统接口定义
  */
 
-import { JsonObject } from "@/modules/ai-engine/core";
+import { JsonObject } from "@/modules/ai-engine/facade/index";
 
 /**
  * 记忆条目

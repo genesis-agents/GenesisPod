@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SystemSettingService } from "../../../../common/settings/system-setting.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SystemSettingService } from "@/common/settings/system-setting.service";
 import { Prisma } from "@prisma/client";
 
 type YoutubeModule = typeof import("youtubei.js");

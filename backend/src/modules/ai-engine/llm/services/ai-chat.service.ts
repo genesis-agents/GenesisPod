@@ -5,15 +5,15 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AiServiceUnavailableError } from "../../core/exceptions";
+import { AiServiceUnavailableError } from "@/modules/ai-engine/llm/abstractions/ai-service.exception";
 import { AIModelType } from "@prisma/client";
-import { RequestContext } from "../../../../common/context/request-context";
+import { RequestContext } from "@/common/context/request-context";
 import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
-import { AIMetricsService } from "../../../ai-infra/facade";
+import { AIMetricsService } from "@/modules/ai-infra/facade";
 import { GuardrailsPipelineService } from "../../safety/guardrails/guardrails-pipeline.service";
 // ★ L2 ai-engine 内部代码禁止从 @/modules/ai-engine/facade 导入 —— facade 是 L3
 // AI App 的单向入口，L2 自己走 facade barrel 会触发 barrel → 50+ 子模块 → L2
@@ -31,15 +31,15 @@ import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
-import { KernelContext } from "../../../../common/context/kernel-context";
-import { estimateCost } from "../budget/cost-calculator";
-import { KeyResolverService } from "../../../ai-infra/credentials/key-resolver/key-resolver.service";
+import { KernelContext } from "@/common/context/kernel-context";
+import { estimateCost } from "../../planning/budget/cost-calculator";
+import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import {
   BYOKError,
   InvalidApiKeyError,
   NoAvailableKeyError,
   QuotaExceededError,
-} from "../../../ai-infra/credentials/key-resolver/key-resolver.errors";
+} from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
 
 export interface ChatCompletionOptions {
   model: string;

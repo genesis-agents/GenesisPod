@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PuppeteerPoolService } from "../../../../../common/browser/puppeteer-pool.service";
+import { PuppeteerPoolService } from "@/common/browser/puppeteer-pool.service";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,

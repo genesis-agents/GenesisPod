@@ -17,7 +17,7 @@ import {
   FACT_CATEGORIES,
   FACT_IMPORTANCE_LEVELS,
 } from "./context-evolution.types";
-import type { AiCallerFn } from "../../llm/types/ai-caller.types";
+import type { AiCallerFn } from "@/modules/ai-engine/llm/types/ai-caller.types";
 
 @Injectable()
 export class ContextEvolutionService implements IContextEvolutionService {

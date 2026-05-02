@@ -5,13 +5,14 @@
 
 import { Logger } from "@nestjs/common";
 import { z } from "zod";
-import { ValidationError } from "../../core/errors";
+import { ValidationError } from "@/modules/ai-engine/facade/abstractions/base-error";
 import {
   ITool,
   ToolContext,
   ToolResult,
   JSONSchema,
 } from "../abstractions/tool.interface";
+import { ValidationResult } from "@/modules/ai-engine/facade/index";
 import { IToolMiddleware } from "./middleware.interface";
 
 /**
@@ -59,17 +60,7 @@ export interface ValidationMiddlewareConfig {
   customValidator?: (input: unknown, schema: JSONSchema) => ValidationResult;
 }
 
-/**
- * 验证结果
- */
-interface ValidationResult {
-  valid: boolean;
-  errors?: Array<{
-    path: string;
-    message: string;
-    type: string;
-  }>;
-}
+
 
 /**
  * 验证中间件
@@ -107,7 +98,7 @@ export class ValidationMiddleware implements IToolMiddleware {
         const errors =
           typeof result === "boolean"
             ? [{ path: "", message: "Validation failed", type: "unknown" }]
-            : result.errors?.map((e) => ({
+            : result.errors?.map((e: any) => ({
                 path: e.path,
                 message: e.message,
                 type: e.type,

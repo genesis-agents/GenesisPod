@@ -24,7 +24,7 @@ import { RateLimiter } from "../guardrails/rate-limiter";
 import { CostController } from "../guardrails/cost-controller";
 // ★ Orchestration 扩展依赖
 // TaskDecomposerService 已删 (2026-04-30)
-import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
+import { IntentDetectionService } from "../../ai-engine/planning/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
@@ -47,16 +47,16 @@ import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orches
 import type {
   ILongContentEngine,
   IContinuationProtocol,
-} from "../../ai-engine/content/abstractions/content-engine.interfaces";
+} from "../../ai-engine/content/abstractions/content-engine.interface";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
 // ★ Knowledge Feature 依赖
-import { EmbeddingService } from "../../ai-engine/knowledge/rag/embedding";
-import { VectorService } from "../../ai-engine/knowledge/rag/vector";
+import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
+import { VectorService } from "@/modules/ai-engine/rag/vector";
 // ★ Intelligence Feature 依赖 (IntentRouter 已删 2026-04-30)
-import { ReflectionService } from "../../ai-engine/llm/reflection/reflection.service";
-import { ContextCompressionService } from "../../ai-engine/llm/context/context-compression.service";
+import { ReflectionService } from "../../ai-engine/planning/reflection/reflection.service";
+import { ContextCompressionService } from "../../ai-engine/planning/context/context-compression.service";
 // ★ Phase 3→Phase 7: replaced L4 type import with L2 abstraction (audit E-2)
-import type { IReportSynthesisEngine } from "../../ai-engine/content/abstractions/content-engine.interfaces";
+import type { IReportSynthesisEngine } from "../../ai-engine/content/abstractions/content-engine.interface";
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../../ai-engine/knowledge/evidence/services/evidence-manager.service";
 import { VotingManager } from "../teams/collaboration/patterns/voting-pattern";

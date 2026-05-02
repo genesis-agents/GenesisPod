@@ -12,7 +12,7 @@ import {
   ROLE_DESCRIPTIONS,
 } from "../abstractions/role.interface";
 import { createRole } from "../base/role";
-import { BUILTIN_TOOLS } from "@/modules/ai-engine/core/types/agent.types";
+import { BUILTIN_TOOLS } from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 /**
  * 角色注册表服务

@@ -1,5 +1,5 @@
 import { ExportDOCXTool } from "../export-docx.tool";
-import { ExportOrchestratorService } from "../../../../../../common/export";
+import { ExportOrchestratorService } from "@/common/export";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

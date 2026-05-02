@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { PromptTemplateService } from "../prompt-template.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 describe("PromptTemplateService", () => {
   let service: PromptTemplateService;

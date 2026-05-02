@@ -46,12 +46,12 @@ export type { AiCallerFn } from "../../../ai-engine/llm/types/ai-caller.types";
 export {
   UserIntent,
   ContextStrategy,
-} from "../../../ai-engine/llm/intent/intent.types";
+} from "../../../ai-engine/planning/intent/intent.types";
 export type {
   IntentDetectionConfig,
   IntentDetectionResult,
   IIntentDetectionService,
-} from "../../../ai-engine/llm/intent/intent.types";
+} from "../../../ai-engine/planning/intent/intent.types";
 
 export {
   DEFAULT_CONTEXT_EVOLUTION_CONFIG,
@@ -85,4 +85,4 @@ export type {
   CompressionResult,
   CompressionOptions,
   IContextCompressionService,
-} from "../../../ai-engine/llm/context/context-compression.types";
+} from "../../../ai-engine/planning/context/context-compression.types";

@@ -23,11 +23,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
-import {
-  AgentId,
-  BUILTIN_AGENTS,
-  BuiltinAgentId,
-} from "../../../core/types/agent.types";
+
 import { CacheService } from "@/common/cache/cache.service";
 
 import { randomUUID } from "crypto";
@@ -84,12 +80,12 @@ export interface Message {
   /**
    * 发送者 Agent
    */
-  from: AgentId;
+  from: string;
 
   /**
    * 接收者 Agent（BROADCAST 时为空）
    */
-  to?: AgentId;
+  to?: string;
 
   /**
    * 消息类型
@@ -182,12 +178,12 @@ export interface AgentCommunicationInput {
   /**
    * 当前 Agent（发送者）
    */
-  fromAgent: AgentId;
+  fromAgent: string;
 
   /**
    * 目标 Agent（接收者，用于 send, reply）
    */
-  toAgent?: AgentId;
+  toAgent?: string;
 
   /**
    * 消息内容（用于 send, broadcast, reply）
@@ -331,12 +327,12 @@ export class AgentCommunicationTool
       fromAgent: {
         type: "string",
         description: "发送者 Agent",
-        enum: Object.values(BUILTIN_AGENTS),
+        
       },
       toAgent: {
         type: "string",
         description: "接收者 Agent（用于 send, reply 操作）",
-        enum: Object.values(BUILTIN_AGENTS),
+        
       },
       message: {
         type: "object",
@@ -439,16 +435,14 @@ export class AgentCommunicationTool
 
   // In-memory storage (L1 cache)
   private messages: Map<string, Message> = new Map();
-  private inboxes: Map<AgentId, string[]> = new Map(); // Agent -> messageIds
+  private inboxes: Map<string, string[]> = new Map(); // Agent -> messageIds
 
   constructor(@Optional() private readonly cacheService?: CacheService) {
     super();
     // defaultTimeout set in class property // 5 秒超时
 
     // 初始化收件箱
-    Object.values(BUILTIN_AGENTS).forEach((agentId) => {
-      this.inboxes.set(agentId, []);
-    });
+    
   }
 
   async onModuleInit(): Promise<void> {
@@ -463,7 +457,8 @@ export class AgentCommunicationTool
       // 1. Restore inboxes first (source of truth for which messages exist)
       //    合并策略：将 Redis 中的 messageId 列表与启动窗口期内已写入内存的合并，
       //    防止 onModuleInit 并发运行期间发送的消息因覆盖而丢失。
-      for (const agentId of Object.values(BUILTIN_AGENTS)) {
+      const knownAgents = ['DOCS', 'DESIGNER', 'CODER', 'RESEARCHER', 'WRITER', 'CRITIC', 'COORDINATOR'];
+      for (const agentId of knownAgents) {
         const inbox = await this.cacheService.get<string[]>(
           `${CACHE_PREFIX_INBOX}${agentId}`,
         );
@@ -474,7 +469,7 @@ export class AgentCommunicationTool
           this.inboxes.set(agentId, merged);
           // 将合并结果写回 Redis，确保下次重启时不再丢失启动窗口期消息
           if (merged.length > inbox.length) {
-            this.saveInboxToCache(agentId as AgentId);
+            this.saveInboxToCache(agentId as string);
           }
         }
       }
@@ -521,7 +516,7 @@ export class AgentCommunicationTool
       );
   }
 
-  private saveInboxToCache(agentId: AgentId): void {
+  private saveInboxToCache(agentId: string): void {
     if (!this.cacheService) return;
     const inbox = this.inboxes.get(agentId) || [];
     this.cacheService
@@ -542,10 +537,8 @@ export class AgentCommunicationTool
       return false;
     }
 
-    // 验证发送者 Agent
-    if (
-      !Object.values(BUILTIN_AGENTS).includes(input.fromAgent as BuiltinAgentId)
-    ) {
+    // Skip specific agent ID validation in engine layer to avoid harness dependency
+    if (!input.fromAgent) {
       return false;
     }
 
@@ -554,9 +547,6 @@ export class AgentCommunicationTool
       case CommunicationOperation.SEND:
         return (
           !!input.toAgent &&
-          Object.values(BUILTIN_AGENTS).includes(
-            input.toAgent as BuiltinAgentId,
-          ) &&
           !!input.message?.subject &&
           !!input.message?.content
         );
@@ -654,8 +644,8 @@ export class AgentCommunicationTool
    * 发送消息
    */
   private async sendMessage(
-    from: AgentId,
-    to: AgentId,
+    from: string,
+    to: string,
     messageData: AgentCommunicationInput["message"],
     _context: ToolContext,
   ): Promise<AgentCommunicationOutput> {
@@ -680,6 +670,7 @@ export class AgentCommunicationTool
     this.messages.set(messageId, message);
 
     // 添加到收件箱
+    if (!this.inboxes.has(to)) this.inboxes.set(to, []);
     const inbox = this.inboxes.get(to);
     if (inbox) {
       inbox.push(messageId);
@@ -716,7 +707,7 @@ export class AgentCommunicationTool
    * 接收消息
    */
   private async receiveMessages(
-    agent: AgentId,
+    agent: string,
     filter?: AgentCommunicationInput["filter"],
   ): Promise<AgentCommunicationOutput> {
     const inbox = this.inboxes.get(agent) || [];
@@ -773,14 +764,15 @@ export class AgentCommunicationTool
    * 广播消息
    */
   private async broadcastMessage(
-    from: AgentId,
+    from: string,
     messageData: AgentCommunicationInput["message"],
     context: ToolContext,
   ): Promise<AgentCommunicationOutput> {
     const messages: Message[] = [];
 
     // 发送给所有其他 Agent
-    for (const agentId of Object.values(BUILTIN_AGENTS)) {
+    const knownAgents = ['DOCS', 'DESIGNER', 'CODER', 'RESEARCHER', 'WRITER', 'CRITIC', 'COORDINATOR'];
+      for (const agentId of knownAgents) {
       if (agentId !== from) {
         const result = await this.sendMessage(
           from,
@@ -816,8 +808,8 @@ export class AgentCommunicationTool
    * 回复消息
    */
   private async replyMessage(
-    from: AgentId,
-    to: AgentId,
+    from: string,
+    to: string,
     replyToId: string,
     messageData: AgentCommunicationInput["message"],
     context: ToolContext,
@@ -887,7 +879,7 @@ export class AgentCommunicationTool
    * 列出收件箱
    */
   private async listInbox(
-    agent: AgentId,
+    agent: string,
     filter?: AgentCommunicationInput["filter"],
   ): Promise<AgentCommunicationOutput> {
     return this.receiveMessages(agent, filter);

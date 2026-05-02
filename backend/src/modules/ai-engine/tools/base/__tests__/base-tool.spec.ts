@@ -4,7 +4,7 @@ import {
   ToolContext,
   JSONSchema,
 } from "../../abstractions/tool.interface";
-import { ToolError } from "../../../core/errors";
+import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool-error";
 
 // ============================================================================
 // Helpers

@@ -6,7 +6,7 @@
  */
 
 import { SkillAnalyticsService } from "../skill-analytics.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 // ---------------------------------------------------------------------------
 // Mock PrismaService

@@ -5,7 +5,7 @@
  * Content Defect Scanner
  *
  * Scans LLM raw output for formatting/structural defects WITHOUT fixing them.
- * Each counter function corresponds to a fix function in report-formatting.utils.ts.
+ * Each counter function corresponds to a fix function in report-formatting.util.ts.
  * This is the "measurement" side; the fix functions are the "treatment" side.
  */
 

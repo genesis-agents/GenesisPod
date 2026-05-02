@@ -3,7 +3,7 @@
  * Covers: rerank, rerankInternal, failOpen, callLlmForScores (mocked LLM)
  */
 import { LlmRerankerAdapter } from "../llm-reranker.adapter";
-import { AiChatService } from "../../../llm/services/ai-chat.service";
+import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 import type { RerankRequest, RerankCandidate } from "../rerank.types";
 
 // ---------------------------------------------------------------------------

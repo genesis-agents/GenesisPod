@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseRegistry, IRegistry, RegistryStats } from "../../core/interfaces";
+import { BaseRegistry, IRegistry, RegistryStats } from "@/modules/ai-engine/facade/abstractions/registry.interface";
 import {
   ITool,
   ToolCategory,

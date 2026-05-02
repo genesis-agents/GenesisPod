@@ -28,8 +28,8 @@ import {
   mergeAdjacentMathBlocks,
   stripLLMMetaNotes,
   limitBoldFormatting,
-} from "../report-formatting.utils";
-import { sanitizeMarkdownContent } from "../../../../../../common/utils/sanitize-content.utils";
+} from "../report-formatting.util";
+import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 
 // ============================================================
 // Helper: assert content is unchanged (identity check)

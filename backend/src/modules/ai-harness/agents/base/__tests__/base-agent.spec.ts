@@ -11,7 +11,7 @@ import {
   AgentOutput,
   AgentCapability,
 } from "../../abstractions/agent.interface";
-import { ExecutionMode } from "../../../core";
+import { ExecutionMode } from "@/modules/ai-engine/facade/index";
 import { ToolRegistry } from "../../../tools/registry";
 import { SkillRegistry } from "../../../skills/registry";
 import { ToolPipeline } from "../../../tools/middleware/tool-pipeline";

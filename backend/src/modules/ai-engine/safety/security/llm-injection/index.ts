@@ -32,4 +32,4 @@ export {
   wrapExternalContent,
   wrapExternalContentBatch,
   type WrapExternalContentOptions,
-} from "./external-content-wrapper.utils";
+} from "./external-content-wrapper.util";

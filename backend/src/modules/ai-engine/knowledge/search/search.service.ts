@@ -35,8 +35,8 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService, SECRET_NAMES } from "../../../ai-infra/facade";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService, SECRET_NAMES } from "@/modules/ai-infra/facade";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";
 

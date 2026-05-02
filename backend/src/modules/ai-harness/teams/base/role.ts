@@ -3,7 +3,7 @@
  * 角色实现类
  */
 
-import { ToolId, SkillId } from "@/modules/ai-engine/core/types/agent.types";
+import { ToolId, SkillId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import {
   IRole,
   RoleId,

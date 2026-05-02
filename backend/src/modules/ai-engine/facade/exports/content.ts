@@ -38,4 +38,4 @@ export type {
   ILongContentEngine,
   IContinuationProtocol,
   IReportSynthesisEngine,
-} from "../../content/abstractions/content-engine.interfaces";
+} from "../../content/abstractions/content-engine.interface";

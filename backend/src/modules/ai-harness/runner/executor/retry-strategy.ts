@@ -4,7 +4,7 @@
  */
 
 import { Logger } from "@nestjs/common";
-import { ToolId } from "../../../ai-engine/core/types/agent.types";
+import { ToolId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 // ============================================================================
 // Types

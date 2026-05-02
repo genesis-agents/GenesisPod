@@ -8,7 +8,8 @@
  * Migrated: PR-X5 (ai-harness/agents/abstractions → ai-harness/agents/abstractions)
  */
 
-import { JsonObject, ExecutionMode } from "../../../ai-engine/core";
+import { JsonObject, } from "@/modules/ai-engine/facade/index";
+import { ExecutionMode } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import {
   BUILTIN_AGENTS,
   BuiltinAgentId,
@@ -18,7 +19,7 @@ import {
   AgentInput,
   UploadedFile,
   Artifact,
-} from "../../../ai-engine/core/types/agent.types";
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 // ==================== 重导出核心类型 ====================
 export {

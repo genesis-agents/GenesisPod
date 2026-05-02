@@ -15,7 +15,7 @@
 
 import { RAGSearchTool, RAGSearchInput } from "../rag-search.tool";
 import { ToolContext } from "../../../../abstractions/tool.interface";
-import type { SearchResult } from "@/modules/ai-engine/knowledge/rag/pipeline/rag-pipeline.interfaces";
+import type { SearchResult } from "@/modules/ai-engine/rag/pipeline/rag-pipeline.interface";
 
 type MockRAGPipeline = {
   simpleQuery: jest.MockedFunction<

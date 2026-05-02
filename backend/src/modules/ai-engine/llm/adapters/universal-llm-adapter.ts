@@ -14,7 +14,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AiChatService } from "../services/ai-chat.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ILLMAdapter,
   LLMRequestOptions,

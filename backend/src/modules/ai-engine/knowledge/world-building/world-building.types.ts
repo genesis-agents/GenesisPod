@@ -9,7 +9,7 @@
  * mission-context.interface.ts re-export from engine 消除双定义。
  */
 
-import type { AiCallerFn } from "../../llm/types/ai-caller.types";
+import type { AiCallerFn } from "@/modules/ai-engine/llm/types/ai-caller.types";
 
 /** 世界观设定 - 时代背景 */
 export interface WorldSettingsEra {

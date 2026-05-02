@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { AIModelType, ModelRecommendation } from "@prisma/client";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DEFAULT_RECOMMENDATIONS,
   MODEL_TYPE_ALIASES,

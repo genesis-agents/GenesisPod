@@ -3,7 +3,7 @@
  * 技能接口定义
  */
 
-import { ValidationResult, JsonObject } from "../../core";
+import { ValidationResult, JsonObject } from "@/modules/ai-engine/facade/index";
 
 /**
  * JSON Schema 类型（简化版）

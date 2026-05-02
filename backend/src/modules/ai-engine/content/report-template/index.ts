@@ -8,7 +8,7 @@
  * TI 商用基线零改动；Playground/新 ai-app 应通过本路径或 ai-engine/facade 消费。
  */
 export * from "./constants/report-writing-standards";
-export * from "./pipeline/report-formatting.utils";
+export * from "./pipeline/report-formatting.util";
 export * from "./pipeline/formatting-pipeline";
 // ★ 2026-04-30 (REPORT QUALITY OVERHAUL): 沉淀 TI 第三道铁墙 + full-report
 //   后处理管线，让 playground / 任意 ai-app 都能复用同一份。

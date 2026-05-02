@@ -1,5 +1,5 @@
 import { ExportPPTXTool } from "../export-pptx.tool";
-import { ExportOrchestratorService } from "../../../../../../common/export";
+import { ExportOrchestratorService } from "@/common/export";
 import { ToolContext } from "../../../abstractions/tool.interface";
 import { ExportFormat } from "@prisma/client";
 

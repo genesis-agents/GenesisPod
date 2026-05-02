@@ -1,6 +1,6 @@
 import { AgentOrchestrator } from "../agent-orchestrator";
 import { AgentRegistry } from "../plan-based-agent-registry";
-import { AgentId } from "../../../core/types/agent.types";
+import { AgentId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 // Create mock agent factory
 function createMockAgent(id: string, keywords: string[]) {

@@ -3,7 +3,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
 import type { IMCPProvider } from "../../../ai-engine/facade";
-import { MCP_PROVIDER_PORT } from "../../../ai-engine/abstractions/runtime-deps.tokens";
+import { MCP_PROVIDER_PORT } from "@/modules/ai-engine/facade/abstractions/runtime-deps.tokens";
 import { SkillLoaderService } from "../../../ai-engine/skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../../ai-engine/skills/builder/skill-prompt-builder.service";
 import {
@@ -14,7 +14,7 @@ import {
   TokenBudgetConfig,
 } from "./types";
 // A2 Fix: 使用统一的 BUILTIN_TOOLS 常量，与 TeamMemberAgent 保持一致
-import { BUILTIN_TOOLS } from "../../../ai-engine/core/types/agent.types";
+import { BUILTIN_TOOLS } from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 /**
  * AI 能力解析上下文

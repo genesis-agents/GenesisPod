@@ -5,8 +5,8 @@
  * Migrated: PR-X5 (ai-harness/agents/base → ai-harness/agents/base)
  */
 
-import { ExecutionMode } from "../../../ai-engine/core";
-import { AgentError } from "../../../ai-engine/core/errors";
+import { ExecutionMode } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { AgentError } from "@/modules/ai-harness/agents/abstractions/agent-error";
 import {
   AgentContext,
   AgentInput,

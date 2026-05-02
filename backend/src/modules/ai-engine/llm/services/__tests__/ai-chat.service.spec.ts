@@ -8,7 +8,7 @@ import {
 } from "../ai-model-config.service";
 import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
-import { AIMetricsService } from "../../../../ai-infra/monitoring";
+import { AIMetricsService } from "@/modules/ai-infra/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
 import { CircuitBreakerService } from "../../../../ai-harness/facade";
 import { AiConnectionTestService } from "../ai-connection-test.service";
@@ -18,8 +18,8 @@ import { AiImageGenerationService } from "../ai-image-generation.service";
 import { AiChatRetryService } from "../ai-chat-retry.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AIModelType } from "@prisma/client";
-import { AiServiceUnavailableError } from "../../../core/exceptions";
-import { RequestContext } from "../../../../../common/context/request-context";
+import { AiServiceUnavailableError } from "@/modules/ai-engine/llm/abstractions/ai-service.exception";
+import { RequestContext } from "@/common/context/request-context";
 
 // Helper to create mock AIModelConfig
 function createMockModelConfig(
