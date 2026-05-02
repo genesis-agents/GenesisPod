@@ -20,6 +20,7 @@ export * from "./action.interface";
 export * from "./agent-event.interface";
 export * from "./harness.interface";
 export * from "./runtime-env.interface";
+export * from "./mission.types";
 // Legacy ReAct-mode types — see plan-based-agent.interface.ts @deprecated notice
 export type {
   AgentContext,

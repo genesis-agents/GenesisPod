@@ -19,7 +19,7 @@ import { ConstraintEngine } from "@/modules/ai-harness/facade";
 import {
   MissionInput,
   MissionEventType,
-} from "../../abstractions/mission.interface";
+} from "../../../agents/abstractions/mission.types";
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";

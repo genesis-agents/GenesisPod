@@ -12,7 +12,7 @@ import {
   MissionEvent,
   ParsedIntent,
   MissionDeliverable,
-} from "../abstractions/mission.interface";
+} from "../../agents/abstractions/mission.types";
 import { ConstraintProfile, ResourceUsage } from "../constraints";
 import { WorkflowExecutionState } from "../abstractions/workflow.interface";
 

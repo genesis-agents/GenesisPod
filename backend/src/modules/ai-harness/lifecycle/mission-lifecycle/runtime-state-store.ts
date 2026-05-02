@@ -17,8 +17,8 @@ import { CacheService } from "@/common/cache/cache.service";
 import {
   MissionExecutionState,
   OrchestratorPhase,
-} from "./orchestrator.interface";
-import { MissionInput } from "../abstractions/mission.interface";
+} from "../../teams/orchestrator/orchestrator.interface";
+import type { MissionInput } from "../../agents/abstractions/mission.types";
 
 /**
  * 序列化后的 MissionExecutionState（Map 转 entries 数组以便 JSON 化）

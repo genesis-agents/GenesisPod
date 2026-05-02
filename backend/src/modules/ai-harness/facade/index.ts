@@ -157,11 +157,11 @@ export {
   MissionRuntimeStateStore,
   type MissionHeartbeat,
   HEARTBEAT_INTERVAL_MS,
-} from "../teams/orchestrator/mission-runtime-state.store";
+} from "../lifecycle/mission-lifecycle/runtime-state-store";
 export {
   MissionOrphanDetectorService,
   type OrphanDetectorCallbacks,
-} from "../teams/orchestrator/mission-orphan-detector.service";
+} from "../lifecycle/mission-lifecycle/orphan-detector.service";
 
 // ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来（跨层迁移）
 export {
@@ -293,8 +293,8 @@ export {
 // ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/agent-playground 上提
 //   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
 //   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
-export { MissionAbortRegistry } from "../teams/orchestrator/mission-abort.registry";
-export { MissionOwnershipRegistry } from "../teams/orchestrator/mission-ownership.registry";
+export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
+export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
 
 // ★ 2026-05-01: stage-emit util 从 ai-app/agent-playground 上提
 //   通用 stage:completed 事件封装，含 durationMs / tokensUsed / agentInvocations 等度量
@@ -362,7 +362,7 @@ export {
   type HealthVerdict,
   type HealthCheckResult,
   type MissionHealthMonitorOptions,
-} from "../teams/orchestrator/mission-health.monitor";
+} from "../lifecycle/mission-lifecycle/health-monitor";
 export {
   DAGExecutor,
   type DAGTask,
@@ -632,7 +632,7 @@ export type {
   MissionInput,
   MissionResult,
   MissionEvent,
-} from "../teams/abstractions/mission.interface";
+} from "../agents/abstractions/mission.types";
 export type {
   MissionContextPackage,
   HardConstraint,
@@ -652,7 +652,7 @@ export type {
   A2AMessageType as TeamA2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../teams/abstractions/a2a-message.interface";
+} from "../protocols/ipc/abstractions/a2a-message.types";
 export type { ConstraintProfile } from "../teams/constraints/constraint-profile";
 export { createConstraintProfile } from "../teams/constraints/constraint-profile";
 export type {

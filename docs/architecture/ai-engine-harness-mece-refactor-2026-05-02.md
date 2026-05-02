@@ -2,7 +2,7 @@
 
 **版本：** 1.0（最终方案）
 **生效日期：** 2026-05-02
-**状态：** 进行中（W0-W13 已完成，W14-W16 进行中）
+**状态：** 进行中（W0-W16 已完成）
 **关联规范：** [`.claude/standards/16-ai-engine-harness-structure.md`](../../.claude/standards/16-ai-engine-harness-structure.md)
 
 ---
@@ -628,7 +628,7 @@ ai-harness/
 | **W13** | kernel/ -> agents/ (rename + subtree move)                                                                    | HIGH   | ✅   |
 | **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | ✅   |
 | **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | ✅   |
-| **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 4 件套到 lifecycle/mission-lifecycle | HIGH   | 待办 |
+| **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 5 件套到 lifecycle/mission-lifecycle | HIGH   | ✅   |
 
 ### 8.2 单波次执行流程
 
@@ -750,11 +750,11 @@ ai-harness/
 
 ├── memory/         （保留，部分已整理）
 ├── protocols/       （W15 complete: protocol renamed; MCP moved to engine/tools/adapters/mcp）
-├── teams/          （顶层已建立，待 W16 整理 abstractions / orchestrator）
+├── teams/          （W16 complete: abstractions/orchestrator lifecycle files relocated）
 ├── tracing/        （★ W5 已建立）
 ├── guardrails/     （★ W6/W9/W10 已建立）
 ├── evaluation/     （★ W2-W4 已建立）
-├── lifecycle/      （★ W1/W8/W10 已建立）
+├── lifecycle/      （★ W1/W8/W10/W16 已建立；mission-lifecycle 已归位）
 ├── handoffs/       （★ W7 已建立）
 |-- agents/         (W13 complete: absorbed kernel abstractions/base/builtin-skills/config/core/dev-tools/domain/learning/registry/subagents)
 └── runner/         （W14 complete: absorbed execution loop/executor/context/prompt/concurrency/dag/capabilities/tool-invoker/tool-routing）
@@ -800,4 +800,4 @@ ai-harness/
 
 **最后更新**: 2026-05-02
 **维护者**: Claude Code
-**版本**: 1.0（W0-W12 完成）
+**版本**: 1.0（W0-W16 完成）

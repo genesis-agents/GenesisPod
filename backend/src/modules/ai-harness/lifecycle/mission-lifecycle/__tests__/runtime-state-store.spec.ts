@@ -9,10 +9,10 @@
  *   - cache=undefined 时所有方法为 no-op（不抛错）
  */
 
-import { MissionRuntimeStateStore } from "../mission-runtime-state.store";
+import { MissionRuntimeStateStore } from "../runtime-state-store";
 import type { CacheService } from "@/common/cache/cache.service";
 import type { MissionExecutionState } from "../orchestrator.interface";
-import type { MissionInput } from "../../abstractions/mission.interface";
+import type { MissionInput } from "../../../agents/abstractions/mission.types";
 
 function makeMockCache(): jest.Mocked<CacheService> {
   const store = new Map<string, unknown>();

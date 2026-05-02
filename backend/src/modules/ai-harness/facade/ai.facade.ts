@@ -24,7 +24,7 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessage,
-} from "../teams/abstractions/a2a-message.interface";
+} from "../protocols/ipc/abstractions/a2a-message.types";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../../ai-engine/tools/abstractions/tool.interface";
 import type { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
@@ -33,7 +33,7 @@ import {
   MissionStatus,
   CreateMissionDto,
 } from "../teams/services/teams.service";
-import type { MissionEvent } from "../teams/abstractions/mission.interface";
+import type { MissionEvent } from "../agents/abstractions/mission.types";
 import { TaskCompletionType } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";

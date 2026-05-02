@@ -26,7 +26,7 @@ import { getDefaultConstraintProfile } from "../../constraints/constraint-profil
 import {
   MissionEvent,
   MissionResult,
-} from "../../abstractions/mission.interface";
+} from "../../../agents/abstractions/mission.types";
 import { ITeam, TeamConfig, TeamId } from "../../abstractions/team.interface";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

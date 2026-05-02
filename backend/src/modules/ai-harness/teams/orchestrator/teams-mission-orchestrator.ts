@@ -29,7 +29,7 @@ import {
   MissionDeliverable,
   TaskType,
   ComplexityLevel,
-} from "../abstractions/mission.interface";
+} from "../../agents/abstractions/mission.types";
 import {
   ConstraintProfile,
   ResourceUsage,
@@ -92,7 +92,7 @@ import {
 import {
   MissionRuntimeStateStore,
   HEARTBEAT_INTERVAL_MS,
-} from "./mission-runtime-state.store";
+} from "../../lifecycle/mission-lifecycle/runtime-state-store";
 
 /**
  * 步骤执行结果（内部使用）

@@ -22,7 +22,7 @@ import { ITeam, TeamConfig, TeamId } from "../../abstractions/team.interface";
 import {
   MissionEvent,
   MissionResult,
-} from "../../abstractions/mission.interface";
+} from "../../../agents/abstractions/mission.types";
 
 // ==================== Helpers ====================
 

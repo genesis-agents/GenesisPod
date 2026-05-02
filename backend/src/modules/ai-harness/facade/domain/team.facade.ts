@@ -39,7 +39,7 @@ import type {
   CreateMissionDto,
   MissionStatus,
 } from "../../teams/services/teams.service";
-import type { MissionEvent } from "../../teams/abstractions/mission.interface";
+import type { MissionEvent } from "../../agents/abstractions/mission.types";
 import type {
   ISkill,
   SkillContext,
@@ -53,7 +53,7 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessage,
-} from "../../teams/abstractions/a2a-message.interface";
+} from "../../protocols/ipc/abstractions/a2a-message.types";
 import type {
   ReflectionInput,
   ReflectionResult,

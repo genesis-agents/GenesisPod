@@ -11,7 +11,7 @@ import type {
   MissionStatus,
 } from "../../teams/services/teams.service";
 import type { TeamId } from "../../teams/abstractions/team.interface";
-import type { MissionEvent } from "../../teams/abstractions/mission.interface";
+import type { MissionEvent } from "../../agents/abstractions/mission.types";
 import type {
   MissionInput,
   MissionResult,

@@ -12,7 +12,7 @@
 import { ConfigService } from "@nestjs/config";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams-mission-orchestrator";
 import { ConstraintEngine } from "@/modules/ai-harness/facade";
-import type { MissionInput } from "../../abstractions/mission.interface";
+import type { MissionInput } from "../../../agents/abstractions/mission.types";
 import type { ITeam } from "../../abstractions/team.interface";
 import type { ITeamMember } from "../../abstractions/member.interface";
 import type { ConstraintProfile } from "../../constraints";

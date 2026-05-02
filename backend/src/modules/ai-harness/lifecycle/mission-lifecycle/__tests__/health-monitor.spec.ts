@@ -1,7 +1,7 @@
 import {
   MissionHealthMonitor,
   type MissionHealthSnapshot,
-} from "../mission-health.monitor";
+} from "../health-monitor";
 
 const MIN = 60 * 1000;
 

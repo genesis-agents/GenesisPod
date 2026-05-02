@@ -12,11 +12,11 @@
  * 会被误判为 orphan），测试同步更新。
  */
 
-import { MissionOrphanDetectorService } from "../mission-orphan-detector.service";
+import { MissionOrphanDetectorService } from "../orphan-detector.service";
 import {
   MissionRuntimeStateStore,
   type MissionHeartbeat,
-} from "../mission-runtime-state.store";
+} from "../runtime-state-store";
 import type { CacheService } from "@/common/cache/cache.service";
 
 function makeStore(heartbeats: Record<string, MissionHeartbeat>): {

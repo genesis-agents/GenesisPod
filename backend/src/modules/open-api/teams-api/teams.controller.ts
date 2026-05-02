@@ -32,7 +32,7 @@ import {
   MissionStatus,
   TeamInfo,
 } from "../../ai-harness/teams/services/teams.service";
-import { MissionResult } from "../../ai-harness/teams/abstractions/mission.interface";
+import { MissionResult } from "../../ai-harness/agents/abstractions/mission.types";
 
 // ==================== Request DTOs ====================
 

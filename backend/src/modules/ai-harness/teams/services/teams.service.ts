@@ -25,7 +25,7 @@ import {
   MissionEvent,
   MissionResult,
   MissionInput,
-} from "../abstractions/mission.interface";
+} from "../../agents/abstractions/mission.types";
 import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraint-engine";
 import { ITeam, TeamConfig, TeamId } from "../abstractions/team.interface";
 import { ConstraintProfile } from "../constraints/constraint-profile";

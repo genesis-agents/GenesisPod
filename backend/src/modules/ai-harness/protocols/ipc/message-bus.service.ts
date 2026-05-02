@@ -5,12 +5,12 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../teams/abstractions/a2a-message.interface";
+} from "./abstractions/a2a-message.types";
 
 export type {
   A2AMessage,
   A2AMessageType,
-} from "../../teams/abstractions/a2a-message.interface";
+} from "./abstractions/a2a-message.types";
 
 /**
  * Message Bus Service

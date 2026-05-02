@@ -9,7 +9,7 @@ import {
   TeamInfo,
   MissionStatus,
 } from "../../services/teams.service";
-import { MissionResult } from "../../abstractions/mission.interface";
+import { MissionResult } from "../../../ai-harness/agents/abstractions/mission.types";
 import { TeamId } from "../../abstractions/team.interface";
 
 // ==================== Helpers ====================

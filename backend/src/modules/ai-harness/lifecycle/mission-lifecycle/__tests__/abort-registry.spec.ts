@@ -1,4 +1,4 @@
-import { MissionAbortRegistry } from "../mission-abort.registry";
+import { MissionAbortRegistry } from "../abort-registry";
 
 describe("MissionAbortRegistry", () => {
   let registry: MissionAbortRegistry;

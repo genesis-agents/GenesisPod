@@ -18,10 +18,10 @@ import { TeamRegistry } from "./registry/team-registry";
 // ★ L2 internal — direct relative paths (禁 facade barrel)
 import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraint-engine";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
-import { MissionRuntimeStateStore } from "./orchestrator/mission-runtime-state.store";
-import { MissionOrphanDetectorService } from "./orchestrator/mission-orphan-detector.service";
-import { MissionAbortRegistry } from "./orchestrator/mission-abort.registry";
-import { MissionOwnershipRegistry } from "./orchestrator/mission-ownership.registry";
+import { MissionRuntimeStateStore } from "../lifecycle/mission-lifecycle/runtime-state-store";
+import { MissionOrphanDetectorService } from "../lifecycle/mission-lifecycle/orphan-detector.service";
+import { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
+import { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
 import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.service";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";

@@ -1,4 +1,4 @@
-import { MissionOwnershipRegistry } from "../mission-ownership.registry";
+import { MissionOwnershipRegistry } from "../ownership-registry";
 
 describe("MissionOwnershipRegistry", () => {
   let registry: MissionOwnershipRegistry;

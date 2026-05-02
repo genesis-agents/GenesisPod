@@ -70,41 +70,6 @@ export {
   WorkflowStepConfig,
 } from "./workflow.interface";
 
-// Mission
-export {
-  MissionId,
-  MissionStatus,
-  MissionInput,
-  IMission,
-  ParsedIntent,
-  ExtractedInfo,
-  NamedEntity,
-  TimeRange,
-  TaskType,
-  ComplexityAssessment,
-  ComplexityLevel,
-  ExecutionStrategy,
-  MemberRecommendation,
-  MissionDeliverable,
-  DeliverableType,
-  MissionResult,
-  MissionError,
-  MissionStatistics,
-  MissionEventType,
-  MissionEvent,
-} from "./mission.interface";
-
-// A2A Message Protocol
-export {
-  A2AMessageType,
-  A2APriority,
-  A2AMessage,
-  TaskRequestPayload,
-  TaskResultPayload,
-  InfoSharePayload,
-  A2AMessageHandler,
-} from "./a2a-message.interface";
-
 // Mission Context Package
 export {
   HardConstraint,

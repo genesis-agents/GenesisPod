@@ -15,7 +15,7 @@ import { MessageBusService } from "../message-bus.service";
 import type {
   A2AMessage,
   A2AMessageHandler,
-} from "../../../teams/abstractions/a2a-message.interface";
+} from "../abstractions/a2a-message.types";
 
 // ---------------------------------------------------------------------------
 // Test helpers
