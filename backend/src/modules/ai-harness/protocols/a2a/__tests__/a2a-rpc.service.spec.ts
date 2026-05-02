@@ -20,9 +20,7 @@ function makeMessage(text: string, overrides: Partial<Message> = {}): Message {
   };
 }
 
-function isError(
-  response: JsonRpcResponse,
-): response is JsonRpcResponse & {
+function isError(response: JsonRpcResponse): response is JsonRpcResponse & {
   error: { code: number; message: string };
 } {
   return "error" in response;
@@ -329,7 +327,9 @@ describe("A2ARpcService (A2A v0.3 spec)", () => {
         expect(task.kind).toBe("task");
         expect(task.status.state).toBe(TaskState.CANCELED);
       }
-      expect(mockTeamsService.cancelMission).toHaveBeenCalledWith("mission-123");
+      expect(mockTeamsService.cancelMission).toHaveBeenCalledWith(
+        "mission-123",
+      );
     });
 
     it("returns TASK_NOT_CANCELABLE when mission already finished or missing", async () => {

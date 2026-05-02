@@ -11,7 +11,7 @@
 
 import axios, { AxiosInstance } from "axios";
 import { BaseMCPClient } from "./mcp-client";
-import { sanitizeError } from "../../../../../common/utils/log-sanitizer.utils";
+import { sanitizeError } from "@/common/utils/log-sanitizer.utils";
 
 /**
  * SSE 事件解析结果

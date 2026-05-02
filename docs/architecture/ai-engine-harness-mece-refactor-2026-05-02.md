@@ -31,7 +31,7 @@
 
 | 问题类别             | 具体表现                                                                                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **自造词命名**       | `kernel/` / `runner/` / `process/` / `protocol/` / `governance/` / `runtime/` 全是 OS 黑话或企业架构黑话，业界 agent SDK 完全不用                                                     |
+| **自造词命名**       | `kernel/` / `execution/` / `process/` / `protocol/` / `governance/` / `runtime/` 全是 OS 黑话或企业架构黑话，业界 agent SDK 完全不用                                                  |
 | **同名歧义**         | 两个 `SkillRegistry` / 两个 `tools/`（engine + harness）/ 两个 `checkpoint/`（memory + process）/ 两个 `MissionOrchestrator`（runtime + teams）                                       |
 | **大杂烩 re-export** | `runtime/abstractions/index.ts` 跨 5 个 owner 的接口塞一起，反模式                                                                                                                    |
 | **跨层错位**         | MCP 在 `harness/protocol/`（应是 `engine/tools/adapters/`）；ModelPricingRegistry 在 harness（应是 engine）                                                                           |
@@ -627,7 +627,7 @@ ai-harness/
 | **W12** | runtime/api/kernel-api → facade/harness-api（rename）+ 解散 runtime/abstractions                              | MEDIUM | ✅   |
 | **W13** | kernel/ -> agents/ (rename + subtree move)                                                                    | HIGH   | ✅   |
 | **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | ✅   |
-| **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | 待办 |
+| **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | ✅   |
 | **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 4 件套到 lifecycle/mission-lifecycle | HIGH   | 待办 |
 
 ### 8.2 单波次执行流程
@@ -749,7 +749,7 @@ ai-harness/
 ├── facade/         （保留，W12 已收编 harness-api）
 
 ├── memory/         （保留，部分已整理）
-├── protocol/       （★ 待 W15 → protocols + MCP 跨层迁）
+├── protocols/       （W15 complete: protocol renamed; MCP moved to engine/tools/adapters/mcp）
 ├── teams/          （顶层已建立，待 W16 整理 abstractions / orchestrator）
 ├── tracing/        （★ W5 已建立）
 ├── guardrails/     （★ W6/W9/W10 已建立）
@@ -764,9 +764,9 @@ ai-harness/
 
 | 指标                   | 当前                         | 目标 |
 | ---------------------- | ---------------------------- | ---- |
-| Top-level coined terms | 1 (protocol)                 | 0    |
+| Top-level coined terms | 0                            | 0    |
 | 同名歧义               | 已消除（governance/process） | 0    |
-| MECE completeness      | 90%                          | 95%+ |
+| MECE completeness      | 95%                          | 95%+ |
 | 架构边界测试           | 7/7 通过                     | 7/7  |
 | 全量测试               | 36000+ tests 全绿            | 全绿 |
 

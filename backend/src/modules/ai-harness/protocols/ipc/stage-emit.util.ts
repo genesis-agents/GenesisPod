@@ -6,7 +6,7 @@
  *   新建 emitStageCompleted helper 统一注入这些字段，让 UI 时间线 / monitoring
  *   能在一个地方拿到 stage 性能数据。stage 自己的业务字段仍可叠加。
  *
- * 2026-05-01 上提: 从 ai-app/agent-playground 上提到 ai-harness/protocol/ipc/。
+ * 2026-05-01 上提: 从 ai-app/agent-playground 上提到 ai-harness/protocols/ipc/。
  * `EmitFn` / `eventType` 参数化后跨 ai-app 通用。
  *
  * 用法（playground 调用方）:

@@ -4,7 +4,7 @@
 
 import { NotFoundException } from "@nestjs/common";
 import { MCPExternalAdminController } from "../mcp-external-admin.controller";
-import { MCPClientRegistryService } from "../../../ai-harness/protocol/mcp/registry/mcp-client-registry.service";
+import { MCPClientRegistryService } from "../../../ai-engine/tools/adapters/mcp/registry/mcp-client-registry.service";
 import {
   CreateExternalServerDto,
   UpdateExternalServerDto,

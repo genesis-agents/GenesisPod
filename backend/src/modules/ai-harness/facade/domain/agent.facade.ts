@@ -41,7 +41,7 @@ import type {
 import type {
   RoomConfig,
   ProgressEvent,
-} from "../../protocol/realtime/abstractions/event-emitter.interface";
+} from "../../protocols/realtime/abstractions/event-emitter.interface";
 import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../../runner/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)

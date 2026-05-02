@@ -85,7 +85,7 @@ import {
 import type {
   RoomConfig,
   ProgressEvent,
-} from "../protocol/realtime/abstractions/event-emitter.interface";
+} from "../protocols/realtime/abstractions/event-emitter.interface";
 import { CapabilitySummary } from "../../ai-harness/runner/capabilities/types";
 import type {
   ChatWithSkillsRequest,
@@ -163,7 +163,7 @@ import type {
   SimilaritySearchOptions,
   SimilarityResult,
 } from "../../ai-engine/knowledge/rag/vector/vector.service";
-import { MCPManager } from "../protocol/mcp/manager/mcp-manager";
+import { MCPManager } from "../../ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,

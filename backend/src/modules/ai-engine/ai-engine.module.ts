@@ -78,7 +78,7 @@ import { LlmRerankerAdapter } from "./knowledge/rerank";
 import { PromptsModule } from "./llm/prompts/prompts.module";
 import { CreditsModule } from "../ai-infra/credits/credits.module";
 
-// MCP moved to ai-harness/protocol/mcp (PR-X7)
+// MCP moved to ai-engine/tools/adapters/mcp (PR-X7)
 // MCPManager and MCPClientRegistryService are now provided by HarnessModule (@Global)
 
 // Capabilities
@@ -140,7 +140,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
 
-    // === MCP moved to ai-harness/protocol/mcp (PR-X7) ===
+    // === MCP moved to ai-engine/tools/adapters/mcp (PR-X7) ===
     // MCPManager and MCPClientRegistryService now provided by HarnessModule (@Global)
 
     // === Capabilities ===
@@ -187,7 +187,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // ★ VotingManager 和 HandoffCoordinator 通过 CollaborationModule 导出
 
-    // === MCP moved to ai-harness/protocol/mcp (PR-X7) — MCPManager exported by HarnessModule ===
+    // === MCP moved to ai-engine/tools/adapters/mcp (PR-X7) — MCPManager exported by HarnessModule ===
 
     // === Capabilities ===
 

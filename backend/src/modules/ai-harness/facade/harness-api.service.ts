@@ -5,14 +5,14 @@
  */
 import { Injectable } from "@nestjs/common";
 import { ProcessManagerService } from "../lifecycle/manager/process-manager.service";
-import { EventJournalService } from "../protocol/journal/event-journal.service";
+import { EventJournalService } from "../protocols/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../memory/working/process-memory-manager.service";
 import { ResourceManagerService } from "../guardrails/resource-manager.service";
 import { MissionExecutorService } from "../lifecycle/manager/mission-executor.service";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
-import { EventBusService } from "../protocol/ipc/event-bus.service";
-import { MessageBusService } from "../protocol/ipc/message-bus.service";
-import { ProgressTrackerService } from "../protocol/ipc/progress-tracker.service";
+import { EventBusService } from "../protocols/ipc/event-bus.service";
+import { MessageBusService } from "../protocols/ipc/message-bus.service";
+import { ProgressTrackerService } from "../protocols/ipc/progress-tracker.service";
 import { AiObservabilityService } from "../tracing/ai-observability.service";
 import { CostAttributionService } from "../tracing/cost-attribution.service";
 import { CapabilityGuardService } from "../../ai-engine/safety/security/capability-guard.service";

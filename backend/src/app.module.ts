@@ -48,7 +48,7 @@ import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 // 整体由 app.module.ts 装配（@Global，提供器全局可注入），ai-engine 不再反向依赖
 import { HarnessModule } from "./modules/ai-harness/harness.module";
 import { HarnessApiModule } from "./modules/ai-harness/facade/harness-api.module";
-import { RealtimeModule } from "./modules/ai-harness/protocol/realtime/realtime.module";
+import { RealtimeModule } from "./modules/ai-harness/protocols/realtime/realtime.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
@@ -99,7 +99,7 @@ import { AgentsApiModule } from "./modules/open-api/agents-api/agents-api.module
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
 import { SkillsApiModule } from "./modules/open-api/skills-api/skills-api.module";
 import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
-// A2A API module (open-api layer — PR-X17: controller moved from ai-harness/protocol/a2a)
+// A2A API module (open-api layer — PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
 // BYOK Admin module (open-api layer — PR-X17: 4 admin controllers moved from ai-infra/credentials)
 import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";

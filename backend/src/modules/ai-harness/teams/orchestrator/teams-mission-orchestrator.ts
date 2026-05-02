@@ -57,7 +57,7 @@ import {
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
 import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
 import { LLMToolDefinition } from "@/modules/ai-engine/llm/abstractions/llm-adapter.interface";
-import { MCPManager } from "@/modules/ai-harness/protocol/mcp/manager/mcp-manager";
+import { MCPManager } from "@/modules/ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import {
   HandoffCoordinator,
@@ -72,19 +72,19 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import { TraceCollectorService } from "@/modules/ai-harness/tracing/trace-collector.service";
-import { CheckpointManager } from "@/modules/ai-harness/protocol/journal/checkpoint-manager";
-import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/protocol/ipc/message-bus.service";
+import { CheckpointManager } from "@/modules/ai-harness/protocols/journal/checkpoint-manager";
+import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/protocols/ipc/message-bus.service";
 import {
   ExecutionContext,
   StepResult,
 } from "@/modules/ai-harness/teams/orchestrator/workflow-orchestrator.interface";
 import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
-import { EventJournalService } from "@/modules/ai-harness/protocol/journal/event-journal.service";
+import { EventJournalService } from "@/modules/ai-harness/protocols/journal/event-journal.service";
 import { HierarchicalMemoryCascadeService } from "@/modules/ai-harness/memory/working/hierarchical-memory-cascade.service";
 import {
   AgentLifecycleProtocolService,
   type TaskNotificationPayload,
-} from "@/modules/ai-harness/protocol/ipc/agent-lifecycle-protocol.service";
+} from "@/modules/ai-harness/protocols/ipc/agent-lifecycle-protocol.service";
 import {
   AdaptiveReplannerService,
   type StepExecutionResult as ReplanStepExecutionResult,

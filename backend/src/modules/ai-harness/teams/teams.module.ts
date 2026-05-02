@@ -25,7 +25,7 @@ import { MissionOwnershipRegistry } from "./orchestrator/mission-ownership.regis
 import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.service";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
-import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/protocol/ipc/message-bus.service";
+import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/protocols/ipc/message-bus.service";
 // PR-X16: TeamsController 已迁移至 open-api/teams-api（HTTP Controller 上提）
 
 // AI Engine 核心依赖
@@ -35,13 +35,13 @@ import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registr
 import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
 import { CostController } from "@/modules/ai-harness/guardrails/cost-controller";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
-import { MCPManager } from "@/modules/ai-harness/protocol/mcp/manager/mcp-manager";
+import { MCPManager } from "@/modules/ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { TraceCollectorService } from "@/modules/ai-harness/tracing/trace-collector.service";
-import { CheckpointManager } from "@/modules/ai-harness/protocol/journal/checkpoint-manager";
+import { CheckpointManager } from "@/modules/ai-harness/protocols/journal/checkpoint-manager";
 import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
-import { EventJournalService } from "@/modules/ai-harness/protocol/journal/event-journal.service";
+import { EventJournalService } from "@/modules/ai-harness/protocols/journal/event-journal.service";
 
 /**
  * Teams 模块

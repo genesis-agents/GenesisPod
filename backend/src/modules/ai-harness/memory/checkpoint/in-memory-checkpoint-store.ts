@@ -1,7 +1,7 @@
 /**
  * InMemoryCheckpointStore — 测试 + 开发用内存实现
  *
- * 生产环境应替换为 Prisma 持久化（已有 ai-harness/protocol/journal/checkpoint-manager
+ * 生产环境应替换为 Prisma 持久化（已有 ai-harness/protocols/journal/checkpoint-manager
  * 可作为适配层）。本 phase 只做 in-memory，保持 Phase 6 聚焦在 Harness 层协议。
  */
 

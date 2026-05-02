@@ -95,15 +95,15 @@ import {
   ReportEvaluationService,
   QualityTraceComputeService,
 } from "./evaluation/critique";
-import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
-import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
-import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";
+import { MCPRelay } from "../ai-engine/tools/adapters/mcp/mcp-relay.service";
+import { MCPManager } from "../ai-engine/tools/adapters/mcp/manager/mcp-manager";
+import { MCPClientRegistryService } from "../ai-engine/tools/adapters/mcp/registry/mcp-client-registry.service";
 import { AgentRunner, FixtureStore } from "./agents/dev-tools";
 // PR-J..P
 import { LeaderWorkerLoop } from "./runner/loop/leader-worker-loop";
-import { DomainEventRegistry } from "./protocol/events/domain-event-registry";
-import { DomainEventBus } from "./protocol/events/domain-event-bus";
-import { LoggerBroadcastAdapter } from "./protocol/events/broadcast-adapter";
+import { DomainEventRegistry } from "./protocols/events/domain-event-registry";
+import { DomainEventBus } from "./protocols/events/domain-event-bus";
+import { LoggerBroadcastAdapter } from "./protocols/events/broadcast-adapter";
 import { DomainConceptRegistry } from "./agents/domain/concept-registry";
 import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
 import { PromptRegistry } from "./runner/prompt/prompt-registry";
@@ -129,8 +129,8 @@ import {
 import { AgentRegistry as PlanBasedAgentRegistry } from "./agents/registry/plan-based-agent-registry";
 import { AgentOrchestrator } from "./agents/registry/agent-orchestrator";
 import { AgentConfigService } from "./agents/config/agent-config.service";
-import { CheckpointManager } from "./protocol/journal/checkpoint-manager";
-import { ProgressTrackerService } from "./protocol/ipc/progress-tracker.service";
+import { CheckpointManager } from "./protocols/journal/checkpoint-manager";
+import { ProgressTrackerService } from "./protocols/ipc/progress-tracker.service";
 import { TraceCollectorService } from "./tracing/trace-collector.service";
 import { FailureLearnerService } from "./lifecycle/learning/failure-learner.service";
 import { ConstraintEnforcementService } from "./guardrails/constraint-enforcement.service";

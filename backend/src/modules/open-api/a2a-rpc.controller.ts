@@ -26,12 +26,12 @@ import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Public } from "@/common/decorators/public.decorator";
 import { Observable, from } from "rxjs";
-import { A2AApiKeyGuard } from "../ai-harness/protocol/a2a/guards/a2a-api-key.guard";
-import { A2ARpcService } from "../ai-harness/protocol/a2a/a2a-rpc.service";
+import { A2AApiKeyGuard } from "../ai-harness/protocols/a2a/guards/a2a-api-key.guard";
+import { A2ARpcService } from "../ai-harness/protocols/a2a/a2a-rpc.service";
 import {
   type JsonRpcRequest,
   type JsonRpcResponse,
-} from "../ai-harness/protocol/a2a/a2a-spec.types";
+} from "../ai-harness/protocols/a2a/a2a-spec.types";
 
 @ApiTags("A2A Protocol v0.3")
 @Controller("a2a/v1")

@@ -6,7 +6,7 @@
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { ProcessManagerService } from "../../../ai-harness/lifecycle/manager/process-manager.service";
-import { EventJournalService } from "../../../ai-harness/protocol/journal/event-journal.service";
+import { EventJournalService } from "../../../ai-harness/protocols/journal/event-journal.service";
 import type { ProcessId } from "../../../ai-harness/lifecycle/manager/process.types";
 import type {
   IMissionExecutor,

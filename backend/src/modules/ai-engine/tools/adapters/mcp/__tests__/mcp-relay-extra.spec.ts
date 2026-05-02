@@ -3,7 +3,7 @@
  * Uses registerMockServer to bypass real network + dynamic import
  */
 
-import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../../registry/tool-registry";
 import { MCPRelay } from "../mcp-relay.service";
 import {
   MCPRelayToolAdapter,

@@ -1,7 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "@/common/prisma/prisma.module";
-import { RuntimeJournalModule } from "../protocol/journal/journal.module";
-import { RuntimeIpcModule } from "../protocol/ipc/ipc.module";
+import { RuntimeJournalModule } from "../protocols/journal/journal.module";
+import { RuntimeIpcModule } from "../protocols/ipc/ipc.module";
 import { RuntimeResourceModule } from "../guardrails/resource.module";
 import { RuntimeMemoryModule } from "../memory/working/memory.module";
 import { ObservabilityModule } from "../tracing/observability.module";

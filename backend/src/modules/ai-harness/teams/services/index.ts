@@ -9,4 +9,4 @@ export {
   TeamInfo,
 } from "./teams.service";
 
-// A2AMessageBusService — owned by ai-harness/protocol/ipc
+// A2AMessageBusService — owned by ai-harness/protocols/ipc

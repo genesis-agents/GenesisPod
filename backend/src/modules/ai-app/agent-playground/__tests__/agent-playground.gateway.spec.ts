@@ -6,9 +6,9 @@
 
 import { UnauthorizedException } from "@nestjs/common";
 import { AgentPlaygroundGateway } from "../agent-playground.gateway";
-import { SocketBroadcastAdapter } from "@/modules/ai-harness/protocol/realtime/socket-broadcast.adapter";
+import { SocketBroadcastAdapter } from "@/modules/ai-harness/protocols/realtime/socket-broadcast.adapter";
 
-jest.mock("@/modules/ai-harness/protocol/realtime/socket-broadcast.adapter");
+jest.mock("@/modules/ai-harness/protocols/realtime/socket-broadcast.adapter");
 
 function makeMockEventBus() {
   return {

@@ -20,7 +20,10 @@ export type {
   MCPTransportConfig,
 } from "./mcp-relay.service";
 export { MCPRelayToolAdapter } from "./mcp-relay-tool-adapter";
-export type { MCPClientLike, MCPToolDescriptor } from "./mcp-relay-tool-adapter";
+export type {
+  MCPClientLike,
+  MCPToolDescriptor,
+} from "./mcp-relay-tool-adapter";
 
 // Abstractions (PR-X7)
 export * from "./abstractions";

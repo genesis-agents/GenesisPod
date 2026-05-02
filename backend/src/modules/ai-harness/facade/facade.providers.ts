@@ -17,8 +17,8 @@ import { AgentExecutorService } from "../runner/executor/agent-executor.service"
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖
-import { EventBusService as EngineEventEmitterService } from "../protocol/ipc/event-bus.service";
-import { ProgressTrackerService } from "../protocol/ipc/progress-tracker.service";
+import { EventBusService as EngineEventEmitterService } from "../protocols/ipc/event-bus.service";
+import { ProgressTrackerService } from "../protocols/ipc/progress-tracker.service";
 // ★ Constraint Feature 依赖
 import { RateLimiter } from "../guardrails/rate-limiter";
 import { CostController } from "../guardrails/cost-controller";
@@ -60,7 +60,7 @@ import type { IReportSynthesisEngine } from "../../ai-engine/content/abstraction
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../../ai-engine/knowledge/evidence/services/evidence-manager.service";
 import { VotingManager } from "../teams/collaboration/patterns/voting-pattern";
-import { MessageBusService as A2AMessageBusService } from "../protocol/ipc/message-bus.service";
+import { MessageBusService as A2AMessageBusService } from "../protocols/ipc/message-bus.service";
 // ★ Observability Feature 依赖
 import { TraceCollectorService } from "../tracing/trace-collector.service";
 import { MemoryCoordinatorService } from "../../ai-harness/memory/coordinator/memory-coordinator.service";

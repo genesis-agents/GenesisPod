@@ -4,7 +4,7 @@ import { TraceCollectorService } from "./trace-collector.service";
 import { CostAttributionService } from "./cost-attribution.service";
 import { AiObservabilityService } from "./ai-observability.service";
 import { SessionLatencyTrackerService } from "./session-latency-tracker.service";
-import { EventJournalService } from "@/modules/ai-harness/protocol/journal/event-journal.service";
+import { EventJournalService } from "@/modules/ai-harness/protocols/journal/event-journal.service";
 import type { CreateSpanInput, EndSpanInput } from "./trace.interface";
 import type { CostEvent } from "./cost-attribution.service";
 import type { RecordActionInput } from "./session-latency.types";

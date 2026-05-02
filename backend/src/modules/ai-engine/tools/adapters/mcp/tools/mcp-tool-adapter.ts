@@ -10,7 +10,7 @@ import {
   ToolContext,
   ToolResult,
   CompactToolSummary,
-} from "../../../../ai-engine/tools/abstractions";
+} from "../../../abstractions";
 import { MCPTool, MCPToolResult } from "../abstractions/mcp.interface";
 import { MCPManager } from "../manager/mcp-manager";
 

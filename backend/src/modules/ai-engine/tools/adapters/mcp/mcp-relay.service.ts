@@ -17,7 +17,7 @@
  */
 
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
-import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../registry/tool-registry";
 import {
   MCPRelayToolAdapter,
   type MCPClientLike,

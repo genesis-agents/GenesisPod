@@ -56,7 +56,7 @@ ai-harness/
 │   ├── vector/                EmbeddingProvider / InMemoryVectorStore / PrismaVectorStore
 │   └── auto-index/            MemoryAutoIndexer / MemoryBridge
 │
-├── protocol/                  ★ Agent protocols —— "agent 跟外界 / 跟其它 agent 通信"
+├── protocols/                  ★ Agent protocols —— "agent 跟外界 / 跟其它 agent 通信"
 │   ├── events/                DomainEventBus + DomainEventRegistry + Adapters
 │   └── mcp/                   MCPRelay + MCP tool adapter
 │

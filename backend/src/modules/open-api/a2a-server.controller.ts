@@ -2,7 +2,7 @@
  * A2A Controller
  * Agent-to-Agent Protocol 端点实现
  *
- * Migrated from ai-harness/protocol/a2a/a2a.controller.ts (PR-X17).
+ * Migrated from ai-harness/protocols/a2a/a2a.controller.ts (PR-X17).
  */
 
 import {
@@ -30,21 +30,21 @@ import {
 } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Public } from "@/common/decorators/public.decorator";
-import { A2AApiKeyGuard } from "../ai-harness/protocol/a2a/guards/a2a-api-key.guard";
-import { AgentCardRegistry } from "../ai-harness/protocol/a2a/agent-card.registry";
+import { A2AApiKeyGuard } from "../ai-harness/protocols/a2a/guards/a2a-api-key.guard";
+import { AgentCardRegistry } from "../ai-harness/protocols/a2a/agent-card.registry";
 import {
   A2AAgentCard,
   A2ATaskRequest,
   A2ATaskResponse,
   A2ATaskStatusResponse,
   A2ATaskStatus,
-} from "../ai-harness/protocol/a2a/a2a.types";
+} from "../ai-harness/protocols/a2a/a2a.types";
 import type { ConstraintProfile } from "../ai-harness/teams/constraints/constraint-profile";
 import type { TeamId } from "../ai-harness/teams/abstractions/team.interface";
 import {
   TEAMS_SERVICE_TOKEN,
   TRACE_COLLECTOR_TOKEN,
-} from "../ai-harness/protocol/a2a/a2a.tokens";
+} from "../ai-harness/protocols/a2a/a2a.tokens";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**

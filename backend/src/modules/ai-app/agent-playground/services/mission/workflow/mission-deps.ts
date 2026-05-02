@@ -44,7 +44,7 @@ import type { CreditsService } from "../../../../../ai-infra/credits/credits.ser
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import type { PostmortemClassifierService } from "../../postmortem/postmortem-classifier.service";
 
-/** 通用 emit 签名 — 2026-05-01 上提到 ai-harness/protocol/ipc/stage-emit.util */
+/** 通用 emit 签名 — 2026-05-01 上提到 ai-harness/protocols/ipc/stage-emit.util */
 import type { EmitFn } from "@/modules/ai-harness/facade";
 export type { EmitFn };
 

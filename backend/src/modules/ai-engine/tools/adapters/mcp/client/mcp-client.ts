@@ -19,7 +19,7 @@ import {
 import {
   sanitizeForLog,
   sanitizeError,
-} from "../../../../../common/utils/log-sanitizer.utils";
+} from "@/common/utils/log-sanitizer.utils";
 
 /**
  * MCP 请求

@@ -15,7 +15,7 @@
  *
  * 已迁移子系统（PR-X4/X5/X7）：
  * - agents/teams → ai-harness/agents + ai-harness/teams
- * - mcp → ai-harness/protocol/mcp
+ * - mcp → ai-engine/tools/adapters/mcp
  * - lifecycle/runner/facade → ai-harness/*
  *
  * 使用方式：
@@ -109,7 +109,7 @@ export * as Guardrails from "./safety/guardrails";
 export * as LLM from "./llm";
 // Memory barrel 已迁移到 ai-harness/memory（2026-04-30）
 // 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/memory"
-// MCP moved to ai-harness/protocol/mcp (PR-X7)
+// MCP moved to ai-engine/tools/adapters/mcp (PR-X7)
 // export * as MCP from "./mcp"; — removed
 // Teams barrel 已迁移到 ai-harness/teams（PR-X4）
 // 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/teams"

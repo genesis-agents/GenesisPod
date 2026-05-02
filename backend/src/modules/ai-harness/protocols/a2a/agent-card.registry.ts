@@ -181,8 +181,7 @@ export class AgentCardRegistry {
         bearerAuth: {
           type: "http",
           scheme: "bearer",
-          description:
-            "API key as Bearer token: Authorization: Bearer <key>",
+          description: "API key as Bearer token: Authorization: Bearer <key>",
         },
         apiKeyHeader: {
           type: "apiKey",

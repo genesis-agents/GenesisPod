@@ -288,7 +288,7 @@ export { FailureLearnerService } from "../lifecycle/learning/failure-learner.ser
 export {
   SocketBroadcastAdapter,
   type SocketBroadcastAdapterOptions,
-} from "../protocol/realtime/socket-broadcast.adapter";
+} from "../protocols/realtime/socket-broadcast.adapter";
 
 // ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/agent-playground 上提
 //   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
@@ -303,7 +303,7 @@ export {
   type StageTimer,
   type StageTimerEmitOptions,
   type EmitFn,
-} from "../protocol/ipc/stage-emit.util";
+} from "../protocols/ipc/stage-emit.util";
 
 // ★ 2026-05-01 (PR-X-N): 让 ai-app 走 facade，不需穿透 harness 内部路径
 export {
@@ -495,42 +495,42 @@ export {
   DomainEventBus,
   DomainEventRegistry,
   LoggerBroadcastAdapter,
-} from "../protocol/events";
+} from "../protocols/events";
 export type {
   DomainEvent,
   IBroadcastAdapter,
   DomainEventTypeSpec,
-} from "../protocol/events";
+} from "../protocols/events";
 
 // ── IPC ──
-export { EventBusService } from "../protocol/ipc/event-bus.service";
-export { EventBusService as EngineEventEmitterService } from "../protocol/ipc/event-bus.service";
-export { ProgressTrackerService } from "../protocol/ipc/progress-tracker.service";
-export { MessageBusService } from "../protocol/ipc/message-bus.service";
+export { EventBusService } from "../protocols/ipc/event-bus.service";
+export { EventBusService as EngineEventEmitterService } from "../protocols/ipc/event-bus.service";
+export { ProgressTrackerService } from "../protocols/ipc/progress-tracker.service";
+export { MessageBusService } from "../protocols/ipc/message-bus.service";
 export type {
   A2AMessage,
   A2AMessageType,
-} from "../protocol/ipc/message-bus.service";
-export { MessagePersistenceService } from "../protocol/ipc/message-persistence.service";
-export type { PersistedMessage } from "../protocol/ipc/message-persistence.service";
-export { AgentLifecycleProtocolService } from "../protocol/ipc/agent-lifecycle-protocol.service";
+} from "../protocols/ipc/message-bus.service";
+export { MessagePersistenceService } from "../protocols/ipc/message-persistence.service";
+export type { PersistedMessage } from "../protocols/ipc/message-persistence.service";
+export { AgentLifecycleProtocolService } from "../protocols/ipc/agent-lifecycle-protocol.service";
 export type {
   LifecycleMessageType,
   ShutdownRequestPayload,
   PlanApprovalPayload,
   TaskNotificationPayload,
-} from "../protocol/ipc/agent-lifecycle-protocol.service";
+} from "../protocols/ipc/agent-lifecycle-protocol.service";
 
 // ── Journal ──
-export { EventJournalService } from "../protocol/journal/event-journal.service";
+export { EventJournalService } from "../protocols/journal/event-journal.service";
 export {
   CheckpointManager,
   InMemoryCheckpointStore,
-} from "../protocol/journal/checkpoint-manager";
+} from "../protocols/journal/checkpoint-manager";
 export type {
   ICheckpointStore,
   CheckpointManagerConfig,
-} from "../protocol/journal/checkpoint-manager";
+} from "../protocols/journal/checkpoint-manager";
 
 // ── Realtime ──
 export type {
@@ -538,14 +538,14 @@ export type {
   EngineEvent,
   IEngineEventEmitter,
   RoomType,
-} from "../protocol/realtime/abstractions/event-emitter.interface";
+} from "../protocols/realtime/abstractions/event-emitter.interface";
 export type {
   IProgressTracker,
   TrackedTask,
   CreateTrackedTaskRequest,
   TaskPhase,
-} from "../protocol/realtime/abstractions/progress-tracker.interface";
-export { calculateOverallProgress } from "../protocol/realtime/abstractions/progress-tracker.interface";
+} from "../protocols/realtime/abstractions/progress-tracker.interface";
+export { calculateOverallProgress } from "../protocols/realtime/abstractions/progress-tracker.interface";
 
 // ════════════════════════════════════════════════════════════════════
 // Memory: auto-index + checkpoint + working
@@ -730,13 +730,13 @@ export type {
 // ════════════════════════════════════════════════════════════════════
 // MCP Protocol (PR-X14: migrated from ai-engine/facade shims)
 // ════════════════════════════════════════════════════════════════════
-export { MCPManager } from "../protocol/mcp/manager/mcp-manager";
+export { MCPManager } from "../../ai-engine/tools/adapters/mcp/manager/mcp-manager";
 export type {
   MCPServerConfig,
   MCPToolResult,
   MCPServerInfo,
   MCPTool,
-} from "../protocol/mcp/abstractions/mcp.interface";
+} from "../../ai-engine/tools/adapters/mcp/abstractions/mcp.interface";
 
 // ════════════════════════════════════════════════════════════════════
 // Engine type forwards (PR-X14: harness 是 ai-app 的统一入口，

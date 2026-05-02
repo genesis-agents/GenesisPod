@@ -10,7 +10,7 @@
 
 import axios, { AxiosInstance } from "axios";
 import { BaseMCPClient } from "./mcp-client";
-import { sanitizeError } from "../../../../../common/utils/log-sanitizer.utils";
+import { sanitizeError } from "@/common/utils/log-sanitizer.utils";
 
 /**
  * SSE MCP 客户端

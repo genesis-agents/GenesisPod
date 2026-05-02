@@ -35,7 +35,7 @@ import type {
   ExecutionConfig,
 } from "../../../ai-harness/runner/executor/function-calling-executor";
 // IntentRouter / TaskPlanner 已删 (2026-04-30)
-import { MCPManager } from "../../protocol/mcp/manager/mcp-manager";
+import { MCPManager } from "../../../ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import { FunctionCallingLLMAdapter } from "../../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../../../ai-harness/runner/executor/function-calling-executor";
 import type {

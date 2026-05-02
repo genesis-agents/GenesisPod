@@ -14,8 +14,8 @@ import type {
   FunctionDefinition,
   CompactToolSummary,
   JSONSchema,
-} from "../../../ai-engine/tools/abstractions/tool.interface";
-import { ToolCategory } from "../../../ai-engine/tools/abstractions/tool.interface";
+} from "../../abstractions/tool.interface";
+import { ToolCategory } from "../../abstractions/tool.interface";
 
 /**
  * MCP Client 的最小子集 —— 解耦 SDK 版本，便于 mock 测试。

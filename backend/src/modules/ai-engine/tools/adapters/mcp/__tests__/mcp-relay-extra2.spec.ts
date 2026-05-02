@@ -12,7 +12,7 @@
  * Strategy: spy on private `connect()` to bypass real network/SDK import.
  */
 
-import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../../registry/tool-registry";
 import { MCPRelay, type MCPServerConfig } from "../mcp-relay.service";
 import type {
   MCPClientLike,
