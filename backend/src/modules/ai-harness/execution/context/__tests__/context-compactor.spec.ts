@@ -3,7 +3,7 @@
  */
 
 import { ContextCompactor } from "../context-compactor";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import type { IContextMessage } from "../../abstractions";
 
 function makeLongEnv(

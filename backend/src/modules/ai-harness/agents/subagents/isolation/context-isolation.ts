@@ -6,8 +6,8 @@
  * 适合：并行子任务，不需要父对话历史污染。
  */
 
-import type { IContextEnvelope } from "@/modules/ai-harness/kernel/abstractions";
-import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelope";
+import type { IContextEnvelope } from "@/modules/ai-harness/agents/abstractions";
+import { ContextEnvelope } from "@/modules/ai-harness/agents/core/context-envelope";
 import type { IsolationPolicy } from "./isolation.types";
 
 const DEFAULT_MAX_TOKENS = 20_000;

@@ -10,7 +10,7 @@ import type {
   AgentState,
   IAgentIdentity,
   IContextEnvelope,
-} from "../../kernel/abstractions";
+} from "../../agents/abstractions";
 
 /** 一个 checkpoint 记录 */
 export interface ICheckpoint {

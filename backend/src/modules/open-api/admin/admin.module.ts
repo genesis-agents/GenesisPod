@@ -75,7 +75,7 @@ import {
     EvalAdminController, // /admin/evals/* routes for eval runs and experiments
     ...(process.env.NODE_ENV === "production"
       ? []
-      : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/kernel/dev-tools)
+      : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/agents/dev-tools)
   ],
   providers: [
     AdminService,

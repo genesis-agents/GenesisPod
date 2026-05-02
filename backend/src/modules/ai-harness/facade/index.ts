@@ -10,17 +10,17 @@
 // ════════════════════════════════════════════════════════════════════
 // Kernel：abstractions + core + dx
 // ════════════════════════════════════════════════════════════════════
-export * from "../kernel/abstractions";
-export { AgentFactory } from "../kernel/core/agent-factory";
-export { SpecAgentRegistry } from "../kernel/core/spec-agent-registry";
-export { BuiltInReActSkillRegistry } from "../kernel/builtin-skills/skill-registry";
+export * from "../agents/abstractions";
+export { AgentFactory } from "../agents/core/agent-factory";
+export { SpecAgentRegistry } from "../agents/core/spec-agent-registry";
+export { BuiltInReActSkillRegistry } from "../agents/builtin-skills/skill-registry";
 export {
   AgentRunner,
   AgentSpec,
   DefineAgent,
   FixtureStore,
-} from "../kernel/dev-tools";
-export type { RunResult } from "../kernel/dev-tools";
+} from "../agents/dev-tools";
+export type { RunResult } from "../agents/dev-tools";
 
 // Service facade
 export { HarnessFacade } from "./harness.facade";
@@ -692,24 +692,24 @@ export {
 export {
   AgentRegistry,
   type AgentRegistryStats,
-} from "../kernel/registry/plan-based-agent-registry";
+} from "../agents/registry/plan-based-agent-registry";
 export {
   AgentOrchestrator,
   type AgentStatusReport,
-} from "../kernel/registry/agent-orchestrator";
+} from "../agents/registry/agent-orchestrator";
 
 // Agent config (DB-stored runtime overrides)
-export { AgentConfigService } from "../kernel/config/agent-config.service";
+export { AgentConfigService } from "../agents/config/agent-config.service";
 
 // Legacy base classes
 // @deprecated — use HarnessedAgent / SpecBasedAgent for new agents
-export { BaseAgent, createAgent } from "../kernel/base/base-agent";
-export { ReactiveAgent } from "../kernel/base/reactive-agent";
-export { PlanAgent } from "../kernel/base/plan-agent";
+export { BaseAgent, createAgent } from "../agents/base/base-agent";
+export { ReactiveAgent } from "../agents/base/reactive-agent";
+export { PlanAgent } from "../agents/base/plan-agent";
 export {
   PlanBasedAgent,
   type IPlanBasedAgent,
-} from "../kernel/base/plan-based-agent";
+} from "../agents/base/plan-based-agent";
 
 // ════════════════════════════════════════════════════════════════════
 // Process (Collaboration) — PR-X5
@@ -774,8 +774,8 @@ export type {
   ISkillProvider,
   ISkillLoader,
   ISkillActivationContext,
-} from "../kernel/abstractions/skill.interface";
-export { SKILL_PROVIDERS } from "../kernel/abstractions/skill.interface";
+} from "../agents/abstractions/skill.interface";
+export { SKILL_PROVIDERS } from "../agents/abstractions/skill.interface";
 
 // Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
 export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";

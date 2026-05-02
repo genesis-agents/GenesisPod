@@ -7,7 +7,7 @@ import type { ICheckpoint } from "../checkpoint.types";
 import type {
   IAgentIdentity,
   IContextEnvelope,
-} from "../../../kernel/abstractions";
+} from "../../../agents/abstractions";
 
 function makeCheckpoint(overrides?: Partial<ICheckpoint>): ICheckpoint {
   const envelope: IContextEnvelope = {

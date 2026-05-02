@@ -47,11 +47,11 @@ const SUBSYSTEMS: HarnessSubsystem[] = [
     ],
   },
   {
-    id: 'kernel',
-    title: 'Kernel',
+    id: 'agents',
+    title: 'Agents',
     description:
       'Agent abstractions, runtime primitives, scheduler capacity, and capability boundary.',
-    modulePath: 'backend/src/modules/ai-harness/kernel',
+    modulePath: 'backend/src/modules/ai-harness/agents',
     icon: Cpu,
     stats: [{ label: 'running', key: 'kernelRunning' }],
     actions: [

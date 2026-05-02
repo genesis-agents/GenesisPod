@@ -182,7 +182,7 @@ import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orches
 import { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
-import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
+import { AgentRegistry } from "../agents/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";

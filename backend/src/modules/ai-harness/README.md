@@ -29,7 +29,7 @@ ai-harness/
 ├── index.ts                   ← top-level barrel
 ├── facade/                    ← 外部消费者唯一入口（HarnessFacade + types re-export）
 │
-├── kernel/                    ★ Agent kernel —— "agent 是什么、怎么造"
+├── agents/                    ★ Agent definitions — "agent 是什么、怎么造"
 │   ├── abstractions/          IAgent / IAgentEvent / IAgentSpec / IContextEnvelope ...
 │   ├── core/                  AgentFactory / SpecAgentRegistry / HarnessedAgent / HookRegistry
 │   ├── dev-tools/             DefineAgent / AgentSpec / AgentRunner / FixtureStore / Inspector

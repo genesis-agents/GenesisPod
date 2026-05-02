@@ -14,7 +14,7 @@
  * - memory: 记忆系统
  *
  * 已迁移子系统（PR-X4/X5/X7）：
- * - agents/teams → ai-harness/kernel + ai-harness/teams
+ * - agents/teams → ai-harness/agents + ai-harness/teams
  * - mcp → ai-harness/protocol/mcp
  * - lifecycle/runner/facade → ai-harness/*
  *

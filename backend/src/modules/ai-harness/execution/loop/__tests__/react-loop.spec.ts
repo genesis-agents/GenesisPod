@@ -10,13 +10,13 @@
  */
 
 import { ReActLoop } from "../react-loop";
-import { HookRegistry } from "../../../kernel/core/hook-registry";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { HookRegistry } from "../../../agents/core/hook-registry";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import { ToolInvoker } from "../../executor/tool-invoker";
 import type {
   IAgentEvent,
   ILoopTerminationCriteria,
-} from "../../../kernel/abstractions";
+} from "../../../agents/abstractions";
 
 function makeEnvelope(tools: string[] = []): ContextEnvelope {
   return new ContextEnvelope({

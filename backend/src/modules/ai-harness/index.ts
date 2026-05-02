@@ -7,12 +7,12 @@
  *   - Module：import { HarnessModule } from "@/modules/ai-engine/harness"
  */
 
-export * from "./kernel/abstractions";
+export * from "./agents/abstractions";
 export { HarnessFacade } from "./facade";
 export { HarnessModule } from "./harness.module";
-export { AgentFactory } from "./kernel/core/agent-factory";
-export { SpecBasedAgent } from "./kernel/core/spec-based-agent";
-export { SpecAgentRegistry } from "./kernel/core/spec-agent-registry";
+export { AgentFactory } from "./agents/core/agent-factory";
+export { SpecBasedAgent } from "./agents/core/spec-based-agent";
+export { SpecAgentRegistry } from "./agents/core/spec-agent-registry";
 export {
   LlmExecutor,
   SchemaRetryExhaustedError,

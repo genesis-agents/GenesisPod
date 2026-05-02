@@ -9,7 +9,7 @@
  * 让 selector 决定"这次到底调哪几个 tool"。
  */
 
-import type { IContextEnvelope } from "../../kernel/abstractions";
+import type { IContextEnvelope } from "../../agents/abstractions";
 
 export interface ToolSelectionContext {
   readonly envelope: IContextEnvelope;

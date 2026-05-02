@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
+import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
 import { DimensionIntegratorAgent } from "../dimension-integrator.agent";
 
 const meta = readDefineAgentMeta(DimensionIntegratorAgent)!;

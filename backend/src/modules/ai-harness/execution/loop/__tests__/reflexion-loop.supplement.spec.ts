@@ -16,8 +16,8 @@ import { ReflexionLoop, IVerifier } from "../reflexion-loop";
 import type {
   IContextEnvelope,
   IAgentEvent,
-} from "../../../kernel/abstractions";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+} from "../../../agents/abstractions";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

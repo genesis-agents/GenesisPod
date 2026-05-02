@@ -8,16 +8,16 @@
 
 import { Test } from "@nestjs/testing";
 import { HarnessFacade } from "../facade/harness.facade";
-import { AgentFactory } from "../kernel/core/agent-factory";
-import { HookRegistry } from "../kernel/core/hook-registry";
+import { AgentFactory } from "../agents/core/agent-factory";
+import { HookRegistry } from "../agents/core/hook-registry";
 import { ReActLoop } from "../execution/loop/react-loop";
 import { PlanActLoop } from "../execution/loop/plan-act-loop";
 import { ReflexionLoop } from "../execution/loop/reflexion-loop";
 import { LoopRegistry } from "../execution/loop/loop-registry";
 import { ToolInvoker } from "../execution/executor/tool-invoker";
-import { BuiltInReActSkillRegistry } from "../kernel/builtin-skills/skill-registry";
-import { SkillActivator } from "../kernel/builtin-skills/skill-activator";
-import { SkillLoader } from "../kernel/builtin-skills/skill-loader";
+import { BuiltInReActSkillRegistry } from "../agents/builtin-skills/skill-registry";
+import { SkillActivator } from "../agents/builtin-skills/skill-activator";
+import { SkillLoader } from "../agents/builtin-skills/skill-loader";
 import { SubagentSpawner } from "../agents/subagents/subagent-spawner";
 import { ContextManager } from "../execution/context/context-manager";
 import { ContextCompactor } from "../execution/context/context-compactor";
@@ -25,7 +25,7 @@ import { PriorityPruner } from "../execution/context/priority-pruner";
 import { MemoryBridge } from "../memory/auto-index/memory-bridge.service";
 import { CheckpointService } from "../memory/checkpoint/checkpoint.service";
 import { InMemoryCheckpointStore } from "../memory/checkpoint/in-memory-checkpoint-store";
-import { SkillLearner } from "../kernel/learning/skill-learner";
+import { SkillLearner } from "../agents/learning/skill-learner";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 

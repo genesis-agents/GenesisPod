@@ -14,7 +14,7 @@
  *   /harness/inspector/events/:agentId
  *   /harness/inspector/staged-skills
  *
- * Migrated from ai-harness/kernel/dev-tools/inspector.controller.ts (PR-X17).
+ * Migrated from ai-harness/agents/dev-tools/inspector.controller.ts (PR-X17).
  */
 
 function assertInspectorEnabled(): void {
@@ -38,10 +38,10 @@ import {
 } from "@nestjs/common";
 import { LoopRegistry } from "../../ai-harness/execution/loop/loop-registry";
 import { BuiltInReActSkillRegistry } from "../../ai-harness/facade";
-import { SpecAgentRegistry } from "../../ai-harness/kernel/core/spec-agent-registry";
+import { SpecAgentRegistry } from "../../ai-harness/agents/core/spec-agent-registry";
 import { CheckpointService } from "../../ai-harness/memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../ai-harness/memory/checkpoint/agent-event-store";
-import { SkillLearningCoordinator } from "../../ai-harness/kernel/learning/skill-learning-coordinator";
+import { SkillLearningCoordinator } from "../../ai-harness/agents/learning/skill-learning-coordinator";
 
 @Controller("harness/inspector")
 export class HarnessInspectorController {

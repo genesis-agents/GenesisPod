@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
+import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
 import { DimensionOutlinePlannerAgent } from "../dimension-outline-planner.agent";
 
 const meta = readDefineAgentMeta(DimensionOutlinePlannerAgent)!;

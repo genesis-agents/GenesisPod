@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
+import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
 import { MissionReviewerAgent } from "../mission-reviewer.agent";
 
 const meta = readDefineAgentMeta(MissionReviewerAgent)!;

@@ -31,7 +31,7 @@ import type {
   IContextEnvelope,
   ILoopTerminationCriteria,
   ILoopRunOptions,
-} from "../../kernel/abstractions";
+} from "../../agents/abstractions";
 import {
   AiChatService,
   type ChatMessage,

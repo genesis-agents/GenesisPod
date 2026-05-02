@@ -14,7 +14,7 @@
  * Anthropic 限制：最多 4 个 cache breakpoint，本规划器最多输出 3 个，留 1 给业务方。
  */
 
-import type { IContextEnvelope } from "../../kernel/abstractions";
+import type { IContextEnvelope } from "../../agents/abstractions";
 
 export interface CacheBreakpoint {
   /** 在 messages/system 中的位置（'system' / index 数字） */

@@ -16,7 +16,7 @@ import type {
   AgentState,
   IAgentIdentity,
   IContextEnvelope,
-} from "../../kernel/abstractions";
+} from "../../agents/abstractions";
 import type {
   CheckpointReason,
   ICheckpoint,

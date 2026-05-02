@@ -15,10 +15,10 @@ import {
   SubagentSpawner,
   SubagentSpawnBlockedError,
 } from "../subagent-spawner";
-import { AgentFactory } from "@/modules/ai-harness/kernel/core/agent-factory";
-import { HookRegistry } from "@/modules/ai-harness/kernel/core/hook-registry";
-import { AgentIdentity } from "@/modules/ai-harness/kernel/core/agent-identity";
-import type { ISubagentSpec } from "@/modules/ai-harness/kernel/abstractions";
+import { AgentFactory } from "@/modules/ai-harness/agents/core/agent-factory";
+import { HookRegistry } from "@/modules/ai-harness/agents/core/hook-registry";
+import { AgentIdentity } from "@/modules/ai-harness/agents/core/agent-identity";
+import type { ISubagentSpec } from "@/modules/ai-harness/agents/abstractions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

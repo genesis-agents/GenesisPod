@@ -3,7 +3,7 @@
  */
 
 import { MemoryBridge } from "../auto-index/memory-bridge.service";
-import { ContextEnvelope } from "../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../agents/core/context-envelope";
 
 function makeEnvelope(userId?: string): ContextEnvelope {
   return new ContextEnvelope({

@@ -30,7 +30,7 @@ import type {
   IContextEnvelope,
   ILoopTerminationCriteria,
   ISubagentSpawner,
-} from "../../kernel/abstractions";
+} from "../../agents/abstractions";
 import type { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 
 // ─── 五元环状态 ────────────────────────────────────────────

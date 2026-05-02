@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ResearcherAgent, ResearchTaskType } from "../agents/researcher.agent";
 import { RESEARCH_SERVICE_TOKEN } from "../../../ai-engine/facade";
 
-jest.mock("../../../ai-harness/kernel/base/plan-based-agent", () => {
+jest.mock("../../../ai-harness/agents/base/plan-based-agent", () => {
   class MockPlanBasedAgent {
     protected templates: unknown[] = [];
     protected selectionKeywords: string[] = [];

@@ -26,14 +26,14 @@ import {
   Optional,
 } from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
-import { AgentFactory } from "./kernel/core/agent-factory";
+import { AgentFactory } from "./agents/core/agent-factory";
 import { ModelElectionService } from "../ai-engine/llm/selection";
-import { SpecAgentRegistry } from "./kernel/core/spec-agent-registry";
+import { SpecAgentRegistry } from "./agents/core/spec-agent-registry";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
   TOOL_CIRCUIT_BREAKER_PROBE,
 } from "../ai-harness/guardrails/runtime-resource.abstractions";
-import { HookRegistry } from "./kernel/core/hook-registry";
+import { HookRegistry } from "./agents/core/hook-registry";
 import { ReActLoop } from "./execution/loop/react-loop";
 import { PlanActLoop } from "./execution/loop/plan-act-loop";
 import { ReflexionLoop } from "./execution/loop/reflexion-loop";
@@ -53,8 +53,8 @@ import {
   BuiltInReActSkillRegistry,
   SkillLoader,
   SkillActivator,
-} from "./kernel/builtin-skills";
-import { SKILL_PROVIDERS } from "./kernel/abstractions";
+} from "./agents/builtin-skills";
+import { SKILL_PROVIDERS } from "./agents/abstractions";
 import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider";
 import { AiEngineSkillsModule } from "../ai-engine/skills/ai-engine-skills.module";
 import { SubagentSpawner } from "./agents/subagents";
@@ -73,7 +73,7 @@ import {
   AgentEventStore,
 } from "./memory/checkpoint";
 import type { ICheckpointStore } from "./memory/checkpoint/checkpoint.types";
-import { SkillLearner, SkillLearningCoordinator } from "./kernel/learning";
+import { SkillLearner, SkillLearningCoordinator } from "./agents/learning";
 
 // SOTA task-centric runner/planning services available to AI Apps.
 import { ReActRunner } from "./runner/env/react-runner";
@@ -98,14 +98,14 @@ import {
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
 import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";
-import { AgentRunner, FixtureStore } from "./kernel/dev-tools";
+import { AgentRunner, FixtureStore } from "./agents/dev-tools";
 // PR-J..P
 import { LeaderWorkerLoop } from "./execution/loop/leader-worker-loop";
 import { DomainEventRegistry } from "./protocol/events/domain-event-registry";
 import { DomainEventBus } from "./protocol/events/domain-event-bus";
 import { LoggerBroadcastAdapter } from "./protocol/events/broadcast-adapter";
-import { DomainConceptRegistry } from "./kernel/domain/concept-registry";
-import { DomainAdapterRegistry } from "./kernel/domain/domain-adapter";
+import { DomainConceptRegistry } from "./agents/domain/concept-registry";
+import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
 import { PromptRegistry } from "./execution/prompt/prompt-registry";
 import { ToolSelectorRegistry } from "./execution/tools-selector/tool-selector-registry";
 
@@ -126,9 +126,9 @@ import {
   EXECUTION_STATE_MANAGER_PORT,
   MCP_PROVIDER_PORT,
 } from "../ai-engine/abstractions/runtime-deps.tokens";
-import { AgentRegistry as PlanBasedAgentRegistry } from "./kernel/registry/plan-based-agent-registry";
-import { AgentOrchestrator } from "./kernel/registry/agent-orchestrator";
-import { AgentConfigService } from "./kernel/config/agent-config.service";
+import { AgentRegistry as PlanBasedAgentRegistry } from "./agents/registry/plan-based-agent-registry";
+import { AgentOrchestrator } from "./agents/registry/agent-orchestrator";
+import { AgentConfigService } from "./agents/config/agent-config.service";
 import { CheckpointManager } from "./protocol/journal/checkpoint-manager";
 import { ProgressTrackerService } from "./protocol/ipc/progress-tracker.service";
 import { TraceCollectorService } from "./tracing/trace-collector.service";

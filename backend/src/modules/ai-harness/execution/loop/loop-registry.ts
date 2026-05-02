@@ -10,7 +10,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import type { AgentLoopKind, IAgentLoop } from "../../kernel/abstractions";
+import type { AgentLoopKind, IAgentLoop } from "../../agents/abstractions";
 
 @Injectable()
 export class LoopRegistry {

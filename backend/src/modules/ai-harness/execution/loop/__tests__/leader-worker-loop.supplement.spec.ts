@@ -18,11 +18,11 @@ import {
   type ILeaderBrain,
   type LeaderTask,
 } from "../leader-worker-loop";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import type {
   IAgentEvent,
   ILoopTerminationCriteria,
-} from "../../../kernel/abstractions";
+} from "../../../agents/abstractions";
 import { Logger } from "@nestjs/common";
 
 jest.spyOn(Logger.prototype, "warn").mockImplementation();

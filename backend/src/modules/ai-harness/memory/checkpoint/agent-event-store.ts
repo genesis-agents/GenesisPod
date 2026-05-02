@@ -17,7 +17,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import type { IAgentEvent } from "../../kernel/abstractions";
+import type { IAgentEvent } from "../../agents/abstractions";
 
 export interface AgentEventRecord {
   readonly id: string;

@@ -65,7 +65,7 @@ import { MessageBusService as A2AMessageBusService } from "../protocol/ipc/messa
 import { TraceCollectorService } from "../tracing/trace-collector.service";
 import { MemoryCoordinatorService } from "../../ai-harness/memory/coordinator/memory-coordinator.service";
 // ★ Registry Feature 依赖
-import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
+import { AgentRegistry } from "../agents/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";

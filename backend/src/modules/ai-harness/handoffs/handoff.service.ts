@@ -16,14 +16,14 @@ import { randomUUID } from "crypto";
 import type {
   IAgent,
   IContextEnvelope,
-} from "@/modules/ai-harness/kernel/abstractions";
+} from "@/modules/ai-harness/agents/abstractions";
 import { AgentRegistry } from "./agent-registry";
 import type {
   HandoffContext,
   HandoffResult,
   IHandoffPolicy,
 } from "./handoff.types";
-import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelope";
+import { ContextEnvelope } from "@/modules/ai-harness/agents/core/context-envelope";
 
 class DefaultHandoffPolicy implements IHandoffPolicy {
   async authorize(
@@ -37,7 +37,7 @@ class DefaultHandoffPolicy implements IHandoffPolicy {
   }
   /** 默认 no-op；业务方自定义 policy 可覆盖以做脱敏 / budget 调整 */
   async shapeEnvelope(
-    env: import("@/modules/ai-harness/kernel/abstractions").IContextEnvelope,
+    env: import("@/modules/ai-harness/agents/abstractions").IContextEnvelope,
   ) {
     return env;
   }

@@ -13,7 +13,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import type { IAgent, IAgentEvent } from "../../kernel/abstractions";
+import type { IAgent, IAgentEvent } from "../../agents/abstractions";
 import { PrismaVectorStore } from "../vector/prisma-vector-store";
 import { InMemoryVectorStore } from "../vector/in-memory-vector-store";
 import {

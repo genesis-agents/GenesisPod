@@ -7,7 +7,7 @@ import {
   ToolNotFoundError,
   AgentAccessDeniedError,
 } from "../tool-invoker";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 
 function makeEnvelope(): ContextEnvelope {
   return new ContextEnvelope({

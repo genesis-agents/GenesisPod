@@ -14,7 +14,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import type { ICheckpoint, ICheckpointStore } from "./checkpoint.types";
-import type { IAgentIdentity, IContextEnvelope } from "../../kernel/abstractions";
+import type { IAgentIdentity, IContextEnvelope } from "../../agents/abstractions";
 
 @Injectable()
 export class PrismaCheckpointStore implements ICheckpointStore {

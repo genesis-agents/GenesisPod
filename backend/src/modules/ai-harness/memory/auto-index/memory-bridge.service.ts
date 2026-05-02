@@ -13,8 +13,8 @@ import type {
   IContextEnvelope,
   IMemoryBinding,
   ISystemReminder,
-} from "../../kernel/abstractions";
-import { ContextEnvelope } from "../../kernel/core/context-envelope";
+} from "../../agents/abstractions";
+import { ContextEnvelope } from "../../agents/core/context-envelope";
 import { MemoryCoordinatorService } from "../../../ai-harness/memory/coordinator/memory-coordinator.service";
 
 export interface RecallOptions {

@@ -10,7 +10,7 @@
 import type {
   IContextEnvelope,
   SubagentIsolation,
-} from "@/modules/ai-harness/kernel/abstractions";
+} from "@/modules/ai-harness/agents/abstractions";
 
 export interface IsolationPolicy {
   readonly kind: SubagentIsolation;

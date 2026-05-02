@@ -10,7 +10,7 @@
  * Anthropic 官方 tokenizer 暂未开源 JS 版；用 cl100k_base 估算误差 < 10%（够用）。
  */
 
-import type { IContextEnvelope, IContextMessage } from "../../kernel/abstractions";
+import type { IContextEnvelope, IContextMessage } from "../../agents/abstractions";
 
 const CHARS_PER_TOKEN_FALLBACK = 4;
 

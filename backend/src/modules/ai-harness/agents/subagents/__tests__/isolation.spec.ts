@@ -2,7 +2,7 @@
  * Isolation policy 单元测试
  */
 
-import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelope";
+import { ContextEnvelope } from "@/modules/ai-harness/agents/core/context-envelope";
 import {
   NoneIsolation,
   ContextIsolation,

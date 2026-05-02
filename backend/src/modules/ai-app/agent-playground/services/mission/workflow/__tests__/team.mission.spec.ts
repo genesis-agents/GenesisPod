@@ -147,7 +147,7 @@ jest.mock("../../../../../../ai-engine/facade", () => ({
 
 // Mock the harness kernel so AgentSpec base class doesn't fail module loading
 jest.mock(
-  "../../../../../../ai-harness/kernel/dev-tools/agent-spec.base",
+  "../../../../../../ai-harness/agents/dev-tools/agent-spec.base",
   () => ({
     AgentSpec: class AgentSpec {},
   }),

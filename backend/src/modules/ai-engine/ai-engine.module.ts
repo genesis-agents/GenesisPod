@@ -47,7 +47,7 @@ import { QualityModule } from "./safety/quality/quality.module";
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
-// AgentRegistry 在 ai-harness/kernel/registry，由 HarnessModule 装配；
+// AgentRegistry 在 ai-harness/agents/registry，由 HarnessModule 装配；
 // ai-engine.module 不再注入它，注册日志移至 HarnessModule onModuleInit。
 
 // LLM Factory & Adapter (用于初始化)

@@ -17,7 +17,7 @@
 
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { AgentRegistry } from "@/modules/ai-harness/kernel/registry/plan-based-agent-registry";
+import { AgentRegistry } from "@/modules/ai-harness/agents/registry/plan-based-agent-registry";
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 import { AiChatModelConfigService } from "@/modules/ai-engine/llm/services/ai-chat-model-config.service";

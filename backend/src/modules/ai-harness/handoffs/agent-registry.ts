@@ -11,7 +11,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import type { IAgent } from "@/modules/ai-harness/kernel/abstractions";
+import type { IAgent } from "@/modules/ai-harness/agents/abstractions";
 
 @Injectable()
 export class AgentRegistry {

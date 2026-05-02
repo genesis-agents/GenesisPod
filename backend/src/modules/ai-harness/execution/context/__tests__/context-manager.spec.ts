@@ -5,7 +5,7 @@
 import { ContextManager } from "../context-manager";
 import { ContextCompactor } from "../context-compactor";
 import { PriorityPruner } from "../priority-pruner";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import type { IContextMessage, ISystemReminder } from "../../abstractions";
 
 function makeEnv(opts: {

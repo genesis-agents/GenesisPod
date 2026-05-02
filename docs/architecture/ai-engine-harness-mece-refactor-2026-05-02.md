@@ -2,7 +2,7 @@
 
 **版本：** 1.0（最终方案）
 **生效日期：** 2026-05-02
-**状态：** 进行中（W0-W12 已完成，W13-W16 进行中）
+**状态：** 进行中（W0-W13 已完成，W14-W16 进行中）
 **关联规范：** [`.claude/standards/16-ai-engine-harness-structure.md`](../../.claude/standards/16-ai-engine-harness-structure.md)
 
 ---
@@ -161,7 +161,6 @@ L1 Infrastructure → modules/ai-infra/   （Auth / Credits / Storage / Encrypti
 | 8   | **内容能力** | 怎么处理文本（fetch/cleaner/markdown）       | `content/`     |
 | 9   | **凭证能力** | 怎么管密钥（BYOK / secret resolver）         | `credentials/` |
 | 10  | **门面**     | 怎么对外暴露                                 | `facade/`      |
-
 ### 4.2 Harness 关注点（11 个）
 
 按"Agent 运行时的所有关注点"做 MECE 划分：
@@ -625,7 +624,7 @@ ai-harness/
 | **W10** | runtime/mission 拆 runner/lifecycle/guardrails                                                                | MEDIUM | ✅   |
 | **W11** | runtime/env → runner/env                                                                                      | MEDIUM | ✅   |
 | **W12** | runtime/api/kernel-api → facade/harness-api（rename）+ 解散 runtime/abstractions                              | MEDIUM | ✅   |
-| **W13** | kernel/ → agents/（rename + 子目录重组）                                                                      | HIGH   | 待办 |
+| **W13** | kernel/ -> agents/ (rename + subtree move) | HIGH | ✅ |
 | **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | 待办 |
 | **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | 待办 |
 | **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 4 件套到 lifecycle/mission-lifecycle | HIGH   | 待办 |
@@ -720,7 +719,7 @@ const oldRoot = path.resolve(process.argv[3]);
 ### 10.3 已知风险案例
 
 - **W10 lint-staged 失败**：`process-supervisor.service.spec.ts` 残留 `@/modules/ai-harness/process/manager` 路径，因 sed 漏了 `__tests__` 目录。修复：单独 sed 一次 + 手动 verify。
-- **kernel → agents 重命名**（W13）：可能影响 280+ importer，建议拆 sub-PR：先建 `agents/` 作为 `kernel/` 的 re-export 别名，逐 sub-tree 迁移，最后删 `kernel/`。
+- **kernel -> agents** (W13): complete via full git mv + importer rewrite; next risks are W14 execution and W15 protocol.
 
 ---
 
@@ -747,7 +746,7 @@ const oldRoot = path.resolve(process.argv[3]);
 ```
 ai-harness/
 ├── facade/         （保留，W12 已收编 harness-api）
-├── kernel/         （★ 待 W13 → agents）
+
 ├── execution/      （★ 待 W14 → runner）
 ├── memory/         （保留，部分已整理）
 ├── protocol/       （★ 待 W15 → protocols + MCP 跨层迁）
@@ -757,7 +756,7 @@ ai-harness/
 ├── evaluation/     （★ W2-W4 已建立）
 ├── lifecycle/      （★ W1/W8/W10 已建立）
 ├── handoffs/       （★ W7 已建立）
-├── agents/         （部分已建立，待 W13 收编 kernel）
+|-- agents/         (W13 complete: absorbed kernel abstractions/base/builtin-skills/config/core/dev-tools/domain/learning/registry/subagents)
 └── runner/         （部分已建立，已收编 env/context/plan-execution，待 W14 收编 execution）
 ```
 
@@ -765,9 +764,9 @@ ai-harness/
 
 | 指标         | 当前                           | 目标 |
 | ------------ | ------------------------------ | ---- |
-| 顶层自造词   | 3（kernel/execution/protocol） | 0    |
+| Top-level coined terms | 2 (execution/protocol) | 0 |
 | 同名歧义     | 已消除（governance/process）   | 0    |
-| MECE 完备度  | 82%                            | 95%+ |
+| MECE completeness | 86% | 95%+ |
 | 架构边界测试 | 7/7 通过                       | 7/7  |
 | 全量测试     | 36000+ tests 全绿              | 全绿 |
 

@@ -20,7 +20,7 @@ import type {
   IContextEnvelope,
   IParallelToolCallAction,
   IToolCallAction,
-} from "../../kernel/abstractions";
+} from "../../agents/abstractions";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
 import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
 import { ToolCircuitBreaker } from "./tool-circuit-breaker";

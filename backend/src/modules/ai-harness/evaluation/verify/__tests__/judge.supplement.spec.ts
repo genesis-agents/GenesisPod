@@ -10,7 +10,7 @@
  */
 
 import { JudgeService } from "../judge.service";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import { Logger } from "@nestjs/common";
 
 jest.spyOn(Logger.prototype, "warn").mockImplementation();

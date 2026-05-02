@@ -23,7 +23,7 @@ import type {
   IModelAvailability,
   IQuotaSnapshot,
   IRuntimeEnvironment,
-} from "../../kernel/abstractions/runtime-env.interface";
+} from "../../agents/abstractions/runtime-env.interface";
 
 // 故意不加 @Injectable —— 防止误注册到 NestJS container。
 export class NoopRuntimeEnvironment implements IRuntimeEnvironment {

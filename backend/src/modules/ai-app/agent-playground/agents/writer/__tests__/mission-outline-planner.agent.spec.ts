@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { readDefineAgentMeta } from "../../../../../ai-harness/kernel/dev-tools";
+import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools";
 import { MissionOutlinePlannerAgent } from "../mission-outline-planner.agent";
 
 const meta = readDefineAgentMeta(MissionOutlinePlannerAgent)!;

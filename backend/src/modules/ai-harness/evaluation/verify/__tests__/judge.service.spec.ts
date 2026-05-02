@@ -8,7 +8,7 @@
  */
 
 import { JudgeService } from "../judge.service";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 
 function makeEnv(): ContextEnvelope {
   return new ContextEnvelope({

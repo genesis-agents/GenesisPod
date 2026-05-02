@@ -15,9 +15,9 @@ import type {
   ISubagentHandle,
   ISubagentSpec,
   ISubagentSpawner,
-} from "@/modules/ai-harness/kernel/abstractions";
-import { AgentFactory } from "@/modules/ai-harness/kernel/core/agent-factory";
-import { HookRegistry } from "@/modules/ai-harness/kernel/core/hook-registry";
+} from "@/modules/ai-harness/agents/abstractions";
+import { AgentFactory } from "@/modules/ai-harness/agents/core/agent-factory";
+import { HookRegistry } from "@/modules/ai-harness/agents/core/hook-registry";
 import { resolveIsolation } from "./isolation";
 import { SubagentHandle } from "./subagent-handle";
 

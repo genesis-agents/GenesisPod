@@ -3,7 +3,7 @@
  */
 
 import { CacheControlPlanner } from "../cache-control-planner";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 
 function mkEnv(
   overrides: Partial<{

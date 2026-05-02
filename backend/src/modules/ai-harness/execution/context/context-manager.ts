@@ -12,7 +12,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import type { IContextEnvelope } from "../../kernel/abstractions";
+import type { IContextEnvelope } from "../../agents/abstractions";
 import { ContextCompactor, type CompactionResult } from "./context-compactor";
 import { PriorityPruner } from "./priority-pruner";
 import { estimateEnvelopeTokens } from "./token-estimator";

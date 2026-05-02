@@ -5,11 +5,11 @@
  */
 
 import { PlanActLoop } from "../plan-act-loop";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import type {
   IAgentEvent,
   ILoopTerminationCriteria,
-} from "../../../kernel/abstractions";
+} from "../../../agents/abstractions";
 
 function makeEnvelope(): ContextEnvelope {
   return new ContextEnvelope({

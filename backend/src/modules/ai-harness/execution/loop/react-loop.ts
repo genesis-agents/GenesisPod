@@ -35,8 +35,8 @@ import type {
   ILoopTerminationCriteria,
   IParallelToolCallAction,
   IToolCallAction,
-} from "../../kernel/abstractions";
-import { ContextEnvelope } from "../../kernel/core/context-envelope";
+} from "../../agents/abstractions";
+import { ContextEnvelope } from "../../agents/core/context-envelope";
 import { extractJsonFromAIResponse } from "../../../../common/utils/json-extraction.utils";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
@@ -44,10 +44,10 @@ import { AIModelType } from "@prisma/client";
 import { ToolInvoker } from "../../execution/executor/tool-invoker";
 import { ContextManager } from "../../execution/context/context-manager";
 import { CacheControlPlanner } from "../../execution/context/cache-control-planner";
-import { HookRegistry } from "../../kernel/core/hook-registry";
+import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing-registry";
-import type { IAgent, ISubagentSpawner } from "../../kernel/abstractions";
+import type { IAgent, ISubagentSpawner } from "../../agents/abstractions";
 
 interface ParsedDecision {
   thinking: string;

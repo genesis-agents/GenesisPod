@@ -11,11 +11,11 @@ import {
   type LeaderTask,
   type WorkerResult,
 } from "../leader-worker-loop";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import type {
   IAgentEvent,
   ILoopTerminationCriteria,
-} from "../../../kernel/abstractions";
+} from "../../../agents/abstractions";
 import { LoopRegistry } from "../loop-registry";
 
 function makeEnvelope(): ContextEnvelope {

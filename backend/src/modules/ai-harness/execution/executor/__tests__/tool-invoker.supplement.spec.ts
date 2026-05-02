@@ -19,7 +19,7 @@ import { ToolCircuitBreaker } from "../tool-circuit-breaker";
 import type {
   IContextEnvelope,
   IParallelToolCallAction,
-} from "../../../kernel/abstractions";
+} from "../../../agents/abstractions";
 import { Logger } from "@nestjs/common";
 
 // Suppress logger

@@ -21,8 +21,8 @@ import type {
   IContextEnvelope,
   ILoopTerminationCriteria,
   IContextMessage,
-} from "../../kernel/abstractions";
-import { ContextEnvelope } from "../../kernel/core/context-envelope";
+} from "../../agents/abstractions";
+import { ContextEnvelope } from "../../agents/core/context-envelope";
 import { ReActLoop } from "./react-loop";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 
