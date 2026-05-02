@@ -1284,11 +1284,14 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
               value: summary.slice(0, 200),
             });
           }
-          retryTarget.status = 'done';
-          retryTarget.endedAt = ev.timestamp;
+          // ★ 2026-05-01 (Screenshot 46/47 用户实证): 不在此 emit 收尾 retry todo —
+          //   researcher 完成只是数据采集 done，下游 chapter pipeline (writing /
+          //   review / grade) 仍在跑。之前 status='done' 让 row 主状态立刻变"已完成"，
+          //   但章节 badge 同时显示"评审中"，逻辑矛盾。改为只追加 narrative，让
+          //   底部 dimensionPipelines 兜底循环按 pipelineKey 驱动终态。
           retryTarget.narrativeLog.push({
             ts: ev.timestamp,
-            text: `重派 researcher 完成 · ${cnt} 条新 finding（独立于第一次 grade）`,
+            text: `重派 researcher 完成 · ${cnt} 条新 finding，进入章节撰写与复审`,
             tone: 'success',
           });
         }
@@ -1612,21 +1615,18 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
   // 用 dimensionPipelines 给 dim todos 补 chapter 产出 + 校准真实完成状态
   // ★ 核心规则：dim 只有在「所有章节通过 + 5 轴评分出炉」后才算 done；
   //    否则一律保持 in_progress（包括"采集完成、撰写中"、"复审中"等中间态）。
-  // ★ 2026-04-30 fix (#37): 仅对原始 leader-plan dim todo 应用兜底，retry 子 todo
-  //   有自己的 lifecycle（researcher:completed with retryLabel → 直接 done）。
-  //   之前所有 dim-scope todo 都被 grade 驱动，导致 retry 子 todo 借用第一次的
-  //   grade 显示"已完成 80/100"，与原 dim 完全相同分数的假象。
+  // ★ 2026-05-01 fix (Screenshot 46/47): retry 子 todo 也走此循环 —— 之前 retry
+  //   todo 在 researcher:completed 时直接 done，但章节重写仍在跑（badge 评审中），
+  //   row 主状态卡"已完成"逻辑矛盾。现按 pipelineKey 索引各自 pipeline，避免
+  //   retry 借用原 dim grade（task #61 fresh-collect 已用 pipelineKey 隔离）。
+  //   leader-assess-abort 仍跳过 —— abort 直接终结，不走 chapter pipeline。
   for (const td of dimTodos) {
     if (!td.dimensionRef) continue;
-    if (
-      td.origin === 'leader-assess-retry' ||
-      td.origin === 'leader-assess-replace' ||
-      td.origin === 'leader-assess-extend' ||
-      td.origin === 'leader-assess-abort'
-    ) {
-      continue; // retry 子 todo 由自己的 researcher:completed 事件收尾
+    if (td.origin === 'leader-assess-abort') {
+      continue; // abort 终态由 leader 直接定（无 chapter pipeline）
     }
-    const pipeline = dimensionPipelines.get(td.dimensionRef);
+    const pipelineKey = td.pipelineKey ?? td.dimensionRef;
+    const pipeline = dimensionPipelines.get(pipelineKey);
     if (!pipeline || pipeline.chapters.length === 0) {
       // 还没起 outline → 维持 in_progress（researcher 在采集 / 等下游）
       if (td.status !== 'failed' && td.status !== 'cancelled') {
