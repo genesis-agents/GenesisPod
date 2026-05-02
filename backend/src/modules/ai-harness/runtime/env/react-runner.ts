@@ -13,7 +13,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BudgetAccountant } from "../cost/budget-accountant";
+import { BudgetAccountant } from "@/modules/ai-harness/guardrails/budget/budget-accountant";
 import { ToolRegistry, type ToolExecContext } from "../env/tool-registry";
 import { AgentTracer, type Span } from "../../tracing/tracer/otel-tracer";
 import type {

@@ -18,7 +18,10 @@ export {
   type ReActStores,
 } from "./env/react-runner";
 
-export { BudgetAccountant, type ModelTier } from "./cost/budget-accountant";
+export {
+  BudgetAccountant,
+  type ModelTier,
+} from "@/modules/ai-harness/guardrails/budget/budget-accountant";
 export { MissionBudgetPool } from "./mission/mission-budget-pool";
 export {
   AgentExecutionContext,
@@ -50,7 +53,7 @@ export {
 export {
   ModelPricingRegistry,
   type ModelPricing,
-} from "./cost/model-pricing-registry";
+} from "@/modules/ai-engine/llm/pricing/model-pricing-registry";
 
 // 持久化抽象接口（App 层实现）
 export type {

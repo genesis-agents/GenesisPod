@@ -665,7 +665,7 @@ export type {
 // Runtime: mission + budget + billing + kernel-api
 // ════════════════════════════════════════════════════════════════════
 export { MissionBudgetPool } from "../runtime/mission/mission-budget-pool";
-export { BillingRuntimeEnvAdapter } from "../runtime/cost/billing-runtime-env.adapter";
+export { BillingRuntimeEnvAdapter } from "../guardrails/billing/billing-adapter";
 export { MissionExecutorService } from "../runtime/mission/mission-executor.service";
 export type {
   IMissionExecutor,

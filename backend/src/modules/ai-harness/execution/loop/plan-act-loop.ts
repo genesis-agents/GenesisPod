@@ -30,7 +30,7 @@ import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { ReActLoop } from "./react-loop";
 import { AIModelType } from "@prisma/client";
-import type { BudgetAccountant } from "../../runtime/cost/budget-accountant";
+import type { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 
 interface PlanStep {
   readonly id: string;

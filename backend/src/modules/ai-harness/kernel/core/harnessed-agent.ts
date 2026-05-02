@@ -28,7 +28,7 @@ import type { SkillActivator } from "../../kernel/builtin-skills/skill-activator
 import type { ISubagentSpawner } from "../../kernel/abstractions";
 import type { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
-import { BudgetAccountant } from "../../runtime/cost/budget-accountant";
+import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import type { AgentRegistry } from "../../handoffs/agent-registry";
 
 export interface HarnessedAgentInit {

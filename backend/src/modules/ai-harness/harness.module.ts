@@ -82,7 +82,7 @@ import {
   ToolRegistry,
   MissionOrchestrator,
 } from "./runtime";
-import { ModelPricingRegistry } from "./runtime/cost/model-pricing-registry";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing-registry";
 import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）

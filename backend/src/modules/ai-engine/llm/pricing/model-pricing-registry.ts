@@ -25,7 +25,10 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import type { ModelTier } from "../cost/budget-accountant";
+
+// ★ ModelTier: pricing 层独立定义（符合 L2 不依赖 L2.5 harness）。
+//   harness/guardrails/budget 同名 type 字面一致，互不依赖。
+export type ModelTier = "strong" | "standard" | "basic";
 
 export interface ModelPricing {
   readonly modelId: string;

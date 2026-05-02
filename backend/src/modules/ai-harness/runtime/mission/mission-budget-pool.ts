@@ -14,7 +14,7 @@
  * 若池子超额，所有挂载的 BudgetAccountant.exhausted() 都返回 true。
  */
 
-import { BudgetAccountant } from "../cost/budget-accountant";
+import { BudgetAccountant } from "@/modules/ai-harness/guardrails/budget/budget-accountant";
 import type { TokenBudget } from "../env/types";
 
 export class MissionBudgetPool {
