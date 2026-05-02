@@ -29,7 +29,7 @@ import type { ISubagentSpawner } from "../../kernel/abstractions";
 import type { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { BudgetAccountant } from "../../runtime/cost/budget-accountant";
-import type { AgentRegistry } from "../../process/handoff/agent-registry";
+import type { AgentRegistry } from "../../handoffs/agent-registry";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;

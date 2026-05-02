@@ -64,8 +64,8 @@ import {
   PriorityPruner,
 } from "./execution/context";
 import { CacheControlPlanner } from "./execution/context/cache-control-planner";
-import { AgentRegistry } from "./process/handoff/agent-registry";
-import { HandoffService } from "./process/handoff/handoff.service";
+import { AgentRegistry } from "./handoffs/agent-registry";
+import { HandoffService } from "./handoffs/handoff.service";
 import {
   CheckpointService,
   InMemoryCheckpointStore,

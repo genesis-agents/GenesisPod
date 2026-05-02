@@ -687,7 +687,7 @@ export {
 // ════════════════════════════════════════════════════════════════════
 
 // Legacy registry (IPlanBasedAgent plan→execute model)
-// Note: Different from process/handoff/agent-registry (IAgent runtime model)
+// Note: Different from handoffs/agent-registry (IAgent runtime model)
 export {
   AgentRegistry,
   type AgentRegistryStats,

@@ -2,7 +2,7 @@
  * Legacy Agent Registry Module — PR-X5 (now in ai-harness/kernel/registry)
  *
  * AgentRegistry here = IPlanBasedAgent registry (old plan→execute model).
- * Distinguished from ai-harness/process/handoff/agent-registry (IAgent runtime registry).
+ * Distinguished from ai-harness/handoffs/agent-registry (IAgent runtime registry).
  *
  * @deprecated Use SpecAgentRegistry for new-style agents.
  */

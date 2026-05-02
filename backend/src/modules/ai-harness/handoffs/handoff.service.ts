@@ -13,14 +13,17 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import type { IAgent, IContextEnvelope } from "../../kernel/abstractions";
+import type {
+  IAgent,
+  IContextEnvelope,
+} from "@/modules/ai-harness/kernel/abstractions";
 import { AgentRegistry } from "./agent-registry";
 import type {
   HandoffContext,
   HandoffResult,
   IHandoffPolicy,
 } from "./handoff.types";
-import { ContextEnvelope } from "../../kernel/core/context-envelope";
+import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelope";
 
 class DefaultHandoffPolicy implements IHandoffPolicy {
   async authorize(
@@ -33,7 +36,9 @@ class DefaultHandoffPolicy implements IHandoffPolicy {
     return { allow: true };
   }
   /** 默认 no-op；业务方自定义 policy 可覆盖以做脱敏 / budget 调整 */
-  async shapeEnvelope(env: import("../../kernel/abstractions").IContextEnvelope) {
+  async shapeEnvelope(
+    env: import("@/modules/ai-harness/kernel/abstractions").IContextEnvelope,
+  ) {
     return env;
   }
 }

@@ -4,8 +4,11 @@
 
 import { AgentRegistry } from "../agent-registry";
 import { HandoffService } from "../handoff.service";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
-import type { IAgent, IContextEnvelope } from "../../abstractions";
+import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelope";
+import type {
+  IAgent,
+  IContextEnvelope,
+} from "@/modules/ai-harness/process/abstractions";
 
 function mkAgent(id: string): IAgent {
   const env = new ContextEnvelope({

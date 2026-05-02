@@ -34,7 +34,7 @@ import { SkillActivator } from "../../kernel/builtin-skills/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { LlmExecutor } from "../../execution/executor/llm-executor";
-import { AgentRegistry } from "../../process/handoff/agent-registry";
+import { AgentRegistry } from "../../handoffs/agent-registry";
 
 @Injectable()
 export class AgentFactory {

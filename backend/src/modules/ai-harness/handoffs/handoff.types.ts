@@ -13,7 +13,7 @@
  *   - 升级路径：Tier-1 agent → Tier-2 agent
  */
 
-import type { IContextEnvelope } from "../../kernel/abstractions";
+import type { IContextEnvelope } from "@/modules/ai-harness/kernel/abstractions";
 
 export interface HandoffContext {
   /** 来源 agent id */
