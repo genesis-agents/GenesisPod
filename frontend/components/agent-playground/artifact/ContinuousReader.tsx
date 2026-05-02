@@ -54,19 +54,51 @@ export function ContinuousReader({ artifact }: Props) {
     <div>
       {/* 主体：连续 markdown（去掉左侧 TOC，对齐 TI ChapterizedReportView preview 模式） */}
       <main className="min-w-0">
-        {/* Phase P18-3: 顶部 hardGate 警示条带（如有） */}
+        {/* ★ 2026-05-02 Screenshot 56: 原 single-line concat 拼接 dimension+message 在
+            多 violation 时变成 raw 字符串堆，用户看不懂。改为结构化 bullet 列表 +
+            friendly 类型标签（l4-critic→总体评判 / l4-blindspot→盲点 / l4-bias→偏见
+            / l4-suggestion→建议）。 */}
         {artifact.quality.hardGateViolations.length > 0 && (
-          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700">
-            <AlertTriangle className="mr-1 inline h-3 w-3" />
-            <span className="font-semibold">
-              {artifact.quality.hardGateViolations.length} 项硬卡违规
-            </span>
-            <span className="ml-2">
-              {artifact.quality.hardGateViolations
-                .slice(0, 2)
-                .map((v) => `${v.dimension}: ${v.message}`)
-                .join(' · ')}
-            </span>
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+            <div className="mb-1.5 flex items-center gap-1.5 font-semibold">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>
+                Critic 复审标记 {artifact.quality.hardGateViolations.length} 项
+                {artifact.quality.hardGateViolations.some(
+                  (v) => v.severity === 'error'
+                )
+                  ? '严重违规'
+                  : '需关注事项'}
+              </span>
+            </div>
+            <ul className="space-y-1 pl-4">
+              {artifact.quality.hardGateViolations.slice(0, 5).map((v, i) => {
+                const tag =
+                  v.dimension === 'l4-critic' || v.dimension === 'l4-fail'
+                    ? '总体评判'
+                    : v.dimension === 'l4-blindspot'
+                      ? '盲点'
+                      : v.dimension === 'l4-bias'
+                        ? '偏见'
+                        : v.dimension === 'l4-suggestion'
+                          ? '建议'
+                          : v.dimension;
+                return (
+                  <li key={i} className="leading-snug">
+                    <span className="mr-2 inline-block min-w-[3em] rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-800">
+                      {tag}
+                    </span>
+                    <span>{v.message}</span>
+                  </li>
+                );
+              })}
+              {artifact.quality.hardGateViolations.length > 5 && (
+                <li className="text-red-600/70">
+                  …还有 {artifact.quality.hardGateViolations.length - 5} 项见
+                  「质量评分」详情
+                </li>
+              )}
+            </ul>
           </div>
         )}
         {/* TI 同款极简包裹：bg-white + p-6，无 card shadow，让 prose 自己掌握排版 */}

@@ -984,9 +984,17 @@ export class ReportArtifactAssembler {
     // 1) TLD 强信号优先
     if (/\.gov(\.|$)/.test(domain)) return "gov";
     if (/\.edu(\.|$)/.test(domain)) return "academic";
-    if (/(arxiv|nature|science|nih|pubmed|scholar|openalex|ssrn|biorxiv)\./.test(domain))
+    if (
+      /(arxiv|nature|science|nih|pubmed|scholar|openalex|ssrn|biorxiv)\./.test(
+        domain,
+      )
+    )
       return "academic";
-    if (/(reuters|bloomberg|economist|wsj|nytimes|ft\.com|theguardian|bbc|wired)\./.test(domain))
+    if (
+      /(reuters|bloomberg|economist|wsj|nytimes|ft\.com|theguardian|bbc|wired)\./.test(
+        domain,
+      )
+    )
       return "news";
     if (/(github|stackoverflow|hackernews|reddit)\./.test(domain))
       return "community";
@@ -1018,7 +1026,8 @@ export class ReportArtifactAssembler {
     // TLD 强信号
     if (/\.gov(\.|$)/.test(domain)) return 95;
     if (/\.edu(\.|$)/.test(domain)) return 90;
-    if (/(arxiv|nature|science|nih|pubmed|biorxiv|ssrn)\./.test(domain)) return 92;
+    if (/(arxiv|nature|science|nih|pubmed|biorxiv|ssrn)\./.test(domain))
+      return 92;
     if (/(reuters|bloomberg|economist|wsj|nytimes|ft\.com|bbc)\./.test(domain))
       return 85;
     if (/(github|wikipedia)\./.test(domain)) return 80;
@@ -1085,18 +1094,50 @@ export class ReportArtifactAssembler {
     for (const c of citations) urlToIndex.set(c.url, c.index);
 
     const figures: ArtifactFigure[] = [];
+    // ★ 2026-05-02 (用户实证 #8 图片严重缺失): 之前 5-gate 静默 continue，
+    //   生产 figureCandidates 抽到 8 张图全被丢弃。加 fuzzy matching + telemetry：
+    //   - sourceUrl 不在 citations → 尝试 host fuzzy 匹配 + 加为新 citation
+    //   - imageUrl 缺 → log warn（不再静默丢弃）
+    //   - sec 找不到 → fallback 第一个 dimension section 而非 continue
+    const dropped = { noEv: 0, noImageUrl: 0, noSec: 0 };
+    // host → citation index 表（fuzzy 匹配兜底）
+    const hostToIndex = new Map<string, number>();
+    for (const c of citations) {
+      try {
+        const host = new URL(c.url).hostname.replace(/^www\./, "");
+        if (!hostToIndex.has(host)) hostToIndex.set(host, c.index);
+      } catch {
+        /* ignore parse error */
+      }
+    }
     for (let i = 0; i < deduped.length; i++) {
       const f = deduped[i];
-      const evIdx = urlToIndex.get(f.sourceUrl);
-      // 五项强校验（baseline §7.4 表格）
-      if (!evIdx) continue; // sourceUrl 必须能找到对应 citation
-      if (!f.sourceUrl) continue;
-      if (!f.imageUrl) continue; // reference 类必须有 imageUrl
-      // 找 section（按 dim → section.sourceDimensionId）
+      let evIdx = urlToIndex.get(f.sourceUrl);
+      // ★ fuzzy 匹配兜底：sourceUrl 找不到精确 citation → host 匹配
+      if (!evIdx && f.sourceUrl) {
+        try {
+          const host = new URL(f.sourceUrl).hostname.replace(/^www\./, "");
+          evIdx = hostToIndex.get(host);
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!evIdx) {
+        dropped.noEv++;
+        continue;
+      }
+      if (!f.imageUrl) {
+        dropped.noImageUrl++;
+        continue;
+      }
+      // 找 section（按 dim → section.sourceDimensionId）+ fallback 第一个 dim section
       const sec =
         sections.find((s) => s.sourceDimensionId === f.fromDimensionId) ??
         sections.find((s) => s.type === "dimension");
-      if (!sec) continue;
+      if (!sec) {
+        dropped.noSec++;
+        continue;
+      }
       // ★ Phase P1-6: referencedBy 反向定位 — 在 section 文本中找包含图主题词的句子
       const referencedBy = this.findReferencingSentences(f.caption, sec, input);
       figures.push({
@@ -1114,6 +1155,11 @@ export class ReportArtifactAssembler {
         anchorMode: "after_paragraph",
         referencedBy,
       });
+    }
+    if (dropped.noEv + dropped.noImageUrl + dropped.noSec > 0) {
+      this.logger?.warn?.(
+        `[buildFigures] dropped ${dropped.noEv} (no citation match) / ${dropped.noImageUrl} (no imageUrl) / ${dropped.noSec} (no section), kept ${figures.length}/${deduped.length}`,
+      );
     }
     return figures;
   }

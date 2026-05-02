@@ -51,11 +51,40 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Phase P19-6: hardGate 警示 */}
+      {/* ★ 2026-05-02 Screenshot 56: 结构化 Critic 复审标记 */}
       {artifact.quality.hardGateViolations.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700">
-          ⚠️ {artifact.quality.hardGateViolations.length}{' '}
-          项硬卡违规，请展开"质量评分"查看详情
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+          <div className="mb-1.5 font-semibold">
+            ⚠️ Critic 复审标记 {artifact.quality.hardGateViolations.length} 项
+          </div>
+          <ul className="space-y-1 pl-4">
+            {artifact.quality.hardGateViolations.slice(0, 3).map((v, i) => {
+              const tag =
+                v.dimension === 'l4-critic' || v.dimension === 'l4-fail'
+                  ? '总体评判'
+                  : v.dimension === 'l4-blindspot'
+                    ? '盲点'
+                    : v.dimension === 'l4-bias'
+                      ? '偏见'
+                      : v.dimension === 'l4-suggestion'
+                        ? '建议'
+                        : v.dimension;
+              return (
+                <li key={i} className="leading-snug">
+                  <span className="mr-2 inline-block min-w-[3em] rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-800">
+                    {tag}
+                  </span>
+                  <span>{v.message}</span>
+                </li>
+              );
+            })}
+            {artifact.quality.hardGateViolations.length > 3 && (
+              <li className="text-red-600/70">
+                …还有 {artifact.quality.hardGateViolations.length - 3}{' '}
+                项见「质量评分」详情
+              </li>
+            )}
+          </ul>
         </div>
       )}
       {/* 标题 + 阅读时长 */}
