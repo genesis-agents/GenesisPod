@@ -874,6 +874,96 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             : []),
         ];
       }
+    } else if (t === 'agent-playground.mission:evolved') {
+      // ★ 2026-05-01 真因可见性 (Screenshot 52 用户实证 S12 0s 没具体进化内容):
+      //   backend mission:evolved 携带完整 PostmortemSummary（recommendations 数组 +
+      //   qualityHitRate + retryTotal + classification 等），但前端没接 →
+      //   S12 todo drawer 空白。这里 emit s12 todo 拿到具体数据填充 artifacts +
+      //   narrativeLog 显示"本次学到了 N 条改进建议"。
+      const recommendations = (p.recommendations as string[] | undefined) ?? [];
+      const qualityHitRate = p.qualityHitRate as number | null | undefined;
+      const retryTotal = p.retryTotal as number | undefined;
+      const totalTokens = p.totalTokens as number | undefined;
+      const totalCostUsd = p.totalCostUsd as number | undefined;
+      const leaderSigned = p.leaderSigned as boolean | null | undefined;
+      upsert(
+        'system:s12-self-evolution',
+        () =>
+          systemStageInit(
+            's12-self-evolution',
+            '自我进化',
+            '复盘 + 入向量记忆',
+            'mission',
+            ev.timestamp
+          ),
+        (t0) => {
+          // 不改 status（由 stage:completed 决定），只补充内容
+          t0.artifacts = [
+            ...(recommendations.length > 0
+              ? [
+                  {
+                    kind: 'finding-count' as const,
+                    label: '改进建议',
+                    value: recommendations.length,
+                  },
+                ]
+              : []),
+            ...(qualityHitRate != null
+              ? [
+                  {
+                    kind: 'finding-count' as const,
+                    label: '质量命中率',
+                    value: `${(qualityHitRate * 100).toFixed(0)}%`,
+                  },
+                ]
+              : []),
+            ...(retryTotal != null && retryTotal > 0
+              ? [
+                  {
+                    kind: 'finding-count' as const,
+                    label: '本次重试',
+                    value: `${retryTotal} 次`,
+                  },
+                ]
+              : []),
+            ...(totalTokens != null
+              ? [
+                  {
+                    kind: 'finding-count' as const,
+                    label: 'Token',
+                    value: totalTokens.toLocaleString(),
+                  },
+                ]
+              : []),
+            ...(totalCostUsd != null
+              ? [
+                  {
+                    kind: 'finding-count' as const,
+                    label: '成本',
+                    value: `$${totalCostUsd.toFixed(2)}`,
+                  },
+                ]
+              : []),
+            ...(leaderSigned === false
+              ? [
+                  {
+                    kind: 'finding-count' as const,
+                    label: 'Leader 拒签',
+                    value: '已记入 FailureLearner',
+                  },
+                ]
+              : []),
+          ];
+          // 把每条 recommendation 加到 narrativeLog 让用户看到具体学到了什么
+          for (const rec of recommendations) {
+            t0.narrativeLog.push({
+              ts: ev.timestamp,
+              text: `📌 ${rec}`,
+              tone: 'info',
+            });
+          }
+        }
+      );
     } else if (t === 'agent-playground.dimensions:appended') {
       const items =
         (p.items as { id: string; name: string; rationale: string }[]) ?? [];
@@ -1021,6 +1111,8 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       const score = p.leaderOverallScore as number | undefined;
       const verdict = p.leaderVerdict as string | undefined;
       const signed = p.signed as boolean | undefined;
+      const refusalReason = p.refusalReason as string | undefined;
+      const accountabilityNote = p.accountabilityNote as string | undefined;
       upsert(
         'system:s10-leader-signoff',
         () =>
@@ -1046,6 +1138,23 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
               kind: 'finding-count',
               label: 'Verdict',
               value: verdict,
+            });
+          }
+          // ★ 2026-05-01 真因可见性 (Screenshot 51 用户实证): 失败时 drawer 必须看到
+          //   refusalReason 和 accountabilityNote。原代码只 push score/verdict，
+          //   失败原因藏在 ctx.leaderSignOff payload 里前端不渲染。
+          if (signed === false && refusalReason) {
+            t0.artifacts.push({
+              kind: 'finding-count',
+              label: '拒签原因',
+              value: refusalReason,
+            });
+          }
+          if (signed === false && accountabilityNote) {
+            t0.narrativeLog.push({
+              ts: ev.timestamp,
+              text: `Leader 拒签说明：${accountabilityNote.slice(0, 500)}${accountabilityNote.length > 500 ? '…' : ''}`,
+              tone: 'error',
             });
           }
         }
