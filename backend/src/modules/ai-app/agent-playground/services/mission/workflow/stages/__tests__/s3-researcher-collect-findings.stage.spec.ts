@@ -823,6 +823,42 @@ describe("runResearcherDispatchStage (S3)", () => {
       expect(ctx.researcherResults).toHaveLength(2);
     });
 
+    it("Phase A research 失败 → Phase B 透传时手动 emit graded(failed,research-failed) 保持 INVARIANT", async () => {
+      const ctx = makeCtx({
+        plan: {
+          ...makeCtx().plan!,
+          dimensions: [DIM_A, { ...DIM_A, id: "dim-b", name: "DimB" }],
+        },
+      });
+      const deps = makeDeps();
+      let cnt = 0;
+      (deps.invoker.invoke as jest.Mock).mockImplementation(() => {
+        cnt++;
+        if (cnt === 1) {
+          return Promise.resolve({
+            state: "failed",
+            output: null,
+            events: [],
+            wallTimeMs: 1000,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        return Promise.resolve(okResearcherResult("DimB"));
+      });
+      await runResearcherDispatchStage(ctx, deps);
+      // 关键不变量：research 失败的 dim 也必须 emit dimension:graded（即使 skipped）
+      const gradedEvents = (deps.emit as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .filter((e) => e.type === "agent-playground.dimension:graded");
+      const failedGraded = gradedEvents.find(
+        (e) =>
+          e.payload?.failed === true && e.payload?.phase === "research-failed",
+      );
+      expect(failedGraded).toBeDefined();
+      expect(failedGraded.payload.summary).toMatch(/research 阶段降级/);
+    });
+
     it("Phase A research 失败的 dim 跳过 Phase B (findings.length===0 → 透传)", async () => {
       const ctx = makeCtx({
         plan: {

@@ -232,8 +232,29 @@ async function runChapterPhase(
 ): Promise<ResearcherDimResult> {
   const { missionId, userId, input, billing, pool, budgetMultiplier } = ctx;
   const agentId = `researcher#${idx}`;
-  // research 阶段已经降级（findings=[]）→ 不再进 chapter pipeline，直接透传
+  // ★ 2026-05-01 深度仿真发现的漏洞补丁：research 阶段已降级（findings=[]）时
+  //   直接透传不调 per-dim-pipeline。但 per-dim-pipeline 是 dim:graded 终态事件
+  //   的唯一发射点，跳过它会让前端卡"等待评分"。这里手动发一个 graded(failed,
+  //   skipped, phase=research-failed)，保持 INVARIANT：每个 dim 必有终态事件。
   if (researchResult.findings.length === 0) {
+    await deps
+      .emit({
+        type: "agent-playground.dimension:graded",
+        missionId,
+        userId,
+        agentId: `quality-judge#${idx}`,
+        payload: {
+          dimension: dim.name,
+          overall: 0,
+          grade: "F",
+          axes: {},
+          summary: `${dim.name} · research 阶段降级（无 finding），跳过 chapter pipeline + 评分。`,
+          failed: true,
+          skipped: true,
+          phase: "research-failed",
+        },
+      })
+      .catch(() => {});
     return researchResult;
   }
   try {
