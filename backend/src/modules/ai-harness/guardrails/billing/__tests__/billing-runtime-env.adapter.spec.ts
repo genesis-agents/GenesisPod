@@ -1,4 +1,4 @@
-import { BillingRuntimeEnvAdapter } from "../billing-runtime-env.adapter";
+import { BillingRuntimeEnvAdapter } from "../billing-adapter";
 
 function makeCredits(balance = 1000, todaySpent = 100) {
   return {
