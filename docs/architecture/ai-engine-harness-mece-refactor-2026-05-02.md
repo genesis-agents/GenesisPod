@@ -31,7 +31,7 @@
 
 | 问题类别             | 具体表现                                                                                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **自造词命名**       | `kernel/` / `execution/` / `process/` / `protocol/` / `governance/` / `runtime/` 全是 OS 黑话或企业架构黑话，业界 agent SDK 完全不用                                                  |
+| **自造词命名**       | `kernel/` / `runner/` / `process/` / `protocol/` / `governance/` / `runtime/` 全是 OS 黑话或企业架构黑话，业界 agent SDK 完全不用                                                     |
 | **同名歧义**         | 两个 `SkillRegistry` / 两个 `tools/`（engine + harness）/ 两个 `checkpoint/`（memory + process）/ 两个 `MissionOrchestrator`（runtime + teams）                                       |
 | **大杂烩 re-export** | `runtime/abstractions/index.ts` 跨 5 个 owner 的接口塞一起，反模式                                                                                                                    |
 | **跨层错位**         | MCP 在 `harness/protocol/`（应是 `engine/tools/adapters/`）；ModelPricingRegistry 在 harness（应是 engine）                                                                           |
@@ -137,7 +137,7 @@ L1 Infrastructure → modules/ai-infra/   （Auth / Credits / Storage / Encrypti
 **没有任何 SDK 用过的词（自造词，禁用）：**
 
 - ❌ `kernel/` （Microsoft "Semantic Kernel" 是产品名，不是模块名）
-- ❌ `execution/` `process/` `runtime/` （OS 黑话）
+- ❌ `runner/` `process/` `runtime/` （OS 黑话）
 - ❌ `protocol/` （单数）（与 MCP/A2A 等具体协议名称撞名）
 - ❌ `governance/` （企业架构黑话，agent SDK 不用）
 
@@ -161,6 +161,7 @@ L1 Infrastructure → modules/ai-infra/   （Auth / Credits / Storage / Encrypti
 | 8   | **内容能力** | 怎么处理文本（fetch/cleaner/markdown）       | `content/`     |
 | 9   | **凭证能力** | 怎么管密钥（BYOK / secret resolver）         | `credentials/` |
 | 10  | **门面**     | 怎么对外暴露                                 | `facade/`      |
+
 ### 4.2 Harness 关注点（11 个）
 
 按"Agent 运行时的所有关注点"做 MECE 划分：
@@ -584,7 +585,7 @@ ai-harness/
 | 旧名（自造）                           | 新名（业界标准）                                                                                                                | 来源                            |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
 | `kernel/`                              | `agents/`                                                                                                                       | OpenAI / Google / Anthropic SDK |
-| `execution/`                           | `runner/`                                                                                                                       | OpenAI Runner / Google Runner   |
+| `runner/`                              | `runner/`                                                                                                                       | OpenAI Runner / Google Runner   |
 | `process/`                             | 拆 `lifecycle/` + `agents/subagents/` + `runner/scheduler/` + `handoffs/` + `teams/collaboration/` + `memory/state-checkpoint/` | `process` 不是 agent 域词       |
 | `protocol/`                            | `protocols/`（复数）+ MCP 移出                                                                                                  | 含多种协议                      |
 | `governance/`                          | 拆 `evaluation/` + `guardrails/` + `tracing/` + `lifecycle/learning/`                                                           | `governance` 不是 SDK 词        |
@@ -624,8 +625,8 @@ ai-harness/
 | **W10** | runtime/mission 拆 runner/lifecycle/guardrails                                                                | MEDIUM | ✅   |
 | **W11** | runtime/env → runner/env                                                                                      | MEDIUM | ✅   |
 | **W12** | runtime/api/kernel-api → facade/harness-api（rename）+ 解散 runtime/abstractions                              | MEDIUM | ✅   |
-| **W13** | kernel/ -> agents/ (rename + subtree move) | HIGH | ✅ |
-| **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | 待办 |
+| **W13** | kernel/ -> agents/ (rename + subtree move)                                                                    | HIGH   | ✅   |
+| **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | ✅   |
 | **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | 待办 |
 | **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 4 件套到 lifecycle/mission-lifecycle | HIGH   | 待办 |
 
@@ -747,7 +748,6 @@ const oldRoot = path.resolve(process.argv[3]);
 ai-harness/
 ├── facade/         （保留，W12 已收编 harness-api）
 
-├── execution/      （★ 待 W14 → runner）
 ├── memory/         （保留，部分已整理）
 ├── protocol/       （★ 待 W15 → protocols + MCP 跨层迁）
 ├── teams/          （顶层已建立，待 W16 整理 abstractions / orchestrator）
@@ -757,18 +757,18 @@ ai-harness/
 ├── lifecycle/      （★ W1/W8/W10 已建立）
 ├── handoffs/       （★ W7 已建立）
 |-- agents/         (W13 complete: absorbed kernel abstractions/base/builtin-skills/config/core/dev-tools/domain/learning/registry/subagents)
-└── runner/         （部分已建立，已收编 env/context/plan-execution，待 W14 收编 execution）
+└── runner/         （W14 complete: absorbed execution loop/executor/context/prompt/concurrency/dag/capabilities/tool-invoker/tool-routing）
 ```
 
 ### 11.3 验收指标
 
-| 指标         | 当前                           | 目标 |
-| ------------ | ------------------------------ | ---- |
-| Top-level coined terms | 2 (execution/protocol) | 0 |
-| 同名歧义     | 已消除（governance/process）   | 0    |
-| MECE completeness | 86% | 95%+ |
-| 架构边界测试 | 7/7 通过                       | 7/7  |
-| 全量测试     | 36000+ tests 全绿              | 全绿 |
+| 指标                   | 当前                         | 目标 |
+| ---------------------- | ---------------------------- | ---- |
+| Top-level coined terms | 1 (protocol)                 | 0    |
+| 同名歧义               | 已消除（governance/process） | 0    |
+| MECE completeness      | 90%                          | 95%+ |
+| 架构边界测试           | 7/7 通过                     | 7/7  |
+| 全量测试               | 36000+ tests 全绿            | 全绿 |
 
 ---
 

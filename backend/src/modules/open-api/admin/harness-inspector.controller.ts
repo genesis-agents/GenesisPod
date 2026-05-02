@@ -36,7 +36,7 @@ import {
   Param,
   Query,
 } from "@nestjs/common";
-import { LoopRegistry } from "../../ai-harness/execution/loop/loop-registry";
+import { LoopRegistry } from "../../ai-harness/runner/loop/loop-registry";
 import { BuiltInReActSkillRegistry } from "../../ai-harness/facade";
 import { SpecAgentRegistry } from "../../ai-harness/agents/core/spec-agent-registry";
 import { CheckpointService } from "../../ai-harness/memory/checkpoint/checkpoint.service";

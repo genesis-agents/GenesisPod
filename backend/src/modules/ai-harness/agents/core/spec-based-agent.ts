@@ -46,7 +46,7 @@ import type {
 } from "../abstractions";
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
-import { LlmExecutor } from "../../execution/executor/llm-executor";
+import { LlmExecutor } from "../../runner/executor/llm-executor";
 
 /**
  * SpecBasedAgent 的强类型结果（与 IAgentResult 相似但带泛型 TOutput）

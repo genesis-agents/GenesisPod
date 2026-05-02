@@ -41,9 +41,9 @@ import { extractJsonFromAIResponse } from "../../../../common/utils/json-extract
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
-import { ToolInvoker } from "../../execution/executor/tool-invoker";
-import { ContextManager } from "../../execution/context/context-manager";
-import { CacheControlPlanner } from "../../execution/context/cache-control-planner";
+import { ToolInvoker } from "../tool-invoker/tool-invoker";
+import { ContextManager } from "../context/context-manager";
+import { CacheControlPlanner } from "../context/cache-control-planner";
 import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing-registry";

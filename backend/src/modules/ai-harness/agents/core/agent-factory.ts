@@ -27,13 +27,13 @@ import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
 import { HarnessedAgent } from "./harnessed-agent";
 import { SpecBasedAgent } from "./spec-based-agent";
-import { ReActLoop } from "../../execution/loop/react-loop";
-import { LoopRegistry } from "../../execution/loop/loop-registry";
+import { ReActLoop } from "../../runner/loop/react-loop";
+import { LoopRegistry } from "../../runner/loop/loop-registry";
 import { MemoryBridge } from "../../memory/auto-index/memory-bridge.service";
 import { SkillActivator } from "../builtin-skills/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
-import { LlmExecutor } from "../../execution/executor/llm-executor";
+import { LlmExecutor } from "../../runner/executor/llm-executor";
 import { AgentRegistry } from "../../handoffs/agent-registry";
 
 @Injectable()

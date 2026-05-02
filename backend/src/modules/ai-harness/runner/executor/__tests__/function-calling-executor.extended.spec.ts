@@ -32,11 +32,11 @@ import {
 } from "../../../../ai-engine/tools/abstractions/tool.interface";
 import { ToolConcurrencyService } from "../../../../ai-engine/tools/concurrency/tool-concurrency.service";
 import { ModelFallbackService } from "../../../../ai-engine/llm/selection/model-fallback.service";
-import { ContextCompactionPipelineService } from "../../services/context-compaction-pipeline.service";
-import { QueryLoopService } from "../../services/query-loop.service";
-import { ExecutionCheckpointService } from "../../services/execution-checkpoint.service";
+import { ContextCompactionPipelineService } from "../../../../ai-engine/llm/context/context-compaction-pipeline.service";
+import { QueryLoopService } from "../query-loop.service";
+import { ExecutionCheckpointService } from "../execution-checkpoint.service";
 import { SessionMemorySidecarService } from "../../../../ai-engine/facade";
-import { TokenTrackerService } from "../../services/token-tracker.service";
+import { TokenTrackerService } from "../token-tracker.service";
 
 // ---------------------------------------------------------------------------
 // Minimal MockTool

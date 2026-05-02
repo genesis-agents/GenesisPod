@@ -17,7 +17,7 @@ import { AiEngineSkillsModule } from "../skills/ai-engine-skills.module";
 import { AiEngineConstraintModule } from "../safety/ai-engine-constraint.module";
 
 // Executors —— 2026-04-30 (C2-step2) 删除 4 个死代码 (BaseExecutor / DAGExecutor /
-// SequentialExecutor / ParallelExecutor)；DAG 业务实际用 ai-harness/execution/dag/
+// SequentialExecutor / ParallelExecutor)；DAG 业务实际用 ai-harness/runner/dag/
 // 165行轻量版替代。保留 FunctionCallingExecutor (1340行 teams/ai-response 真用)
 
 // Orchestration Services —— 2026-04-30 (C2-step2) 删除 3 个真死代码:
@@ -25,7 +25,7 @@ import { AiEngineConstraintModule } from "../safety/ai-engine-constraint.module"
 //   - IntelligentModelRouterService ("支柱四"未接入)
 //   - ComplexityAnalyzerService (仅被 IntelligentModelRouter 用 → 绑死)
 // TaskDecomposerService 已删 (2026-04-30) — 死代码链路 (TaskBreakdown 0 注入)
-// AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
+// AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
 // OutputReviewerService 已搬到 ai-harness/evaluation/critique/ (2026-05-02)
 import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
 import { TokenBudgetService } from "./budget/token-budget.service";
@@ -54,7 +54,7 @@ import { AgentsService } from "../../open-api/agents-api";
 
 // 2026-04-30 (C2-step2): 删除 sequentialExecutorFactory / dagExecutorFactory /
 // parallelExecutorFactory —— 这 3 个 factory 包装的 executor 已删（0 业务调用），
-// DAG 业务实际用 ai-harness/execution/dag/ 165行轻量版替代。
+// DAG 业务实际用 ai-harness/runner/dag/ 165行轻量版替代。
 // FunctionCallingExecutor 不需 factory（直接 NestJS 注入）。
 
 @Module({

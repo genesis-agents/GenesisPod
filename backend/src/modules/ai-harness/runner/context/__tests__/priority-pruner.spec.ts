@@ -4,7 +4,7 @@
 
 import { PriorityPruner } from "../priority-pruner";
 import { ContextEnvelope } from "../../../agents/core/context-envelope";
-import type { ISystemReminder } from "../../abstractions";
+import type { ISystemReminder } from "../../../agents/abstractions";
 
 function makeEnv(reminders: ISystemReminder[]): ContextEnvelope {
   return new ContextEnvelope({

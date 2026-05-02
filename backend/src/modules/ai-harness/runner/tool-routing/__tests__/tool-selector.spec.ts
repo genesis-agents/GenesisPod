@@ -5,7 +5,7 @@
 import { ToolSelectorRegistry } from "../tool-selector-registry";
 import { SimpleAllowlistSelector, type IToolSelector } from "../tool-selector";
 import { SimpleConcatFusion } from "../result-fusion";
-import type { IContextEnvelope } from "../../abstractions";
+import type { IContextEnvelope } from "../../../agents/abstractions";
 
 const fakeEnv = (tools: string[]): IContextEnvelope => ({
   id: "x",

@@ -748,7 +748,9 @@ export class AICapabilityResolver {
    */
   private validateSkillDomain(
     domain: string | undefined,
-  ): import("../../../ai-engine/skills/types/skill-md.types").SkillDomain | null {
+  ):
+    | import("../../../ai-engine/skills/types/skill-md.types").SkillDomain
+    | null {
     if (!domain || typeof domain !== "string") {
       return null;
     }

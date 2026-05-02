@@ -10,7 +10,10 @@
  * Anthropic 官方 tokenizer 暂未开源 JS 版；用 cl100k_base 估算误差 < 10%（够用）。
  */
 
-import type { IContextEnvelope, IContextMessage } from "../../agents/abstractions";
+import type {
+  IContextEnvelope,
+  IContextMessage,
+} from "../../agents/abstractions";
 
 const CHARS_PER_TOKEN_FALLBACK = 4;
 
@@ -56,11 +59,7 @@ function pickEncoderName(modelId?: string): EncoderName {
   // o200k_base 适用于：gpt-4o / gpt-5+ / o-series（OpenAI 公开映射）。
   // o-series 用 /^o\d/ 覆盖未来型号 (o4/o5/o6...)，避免每次新模型改代码。
   // gpt 主版本号 >= 4 也算 o200k_base（gpt-4 老版用 cl100k 已罕见）。
-  if (
-    m.startsWith("gpt-4o") ||
-    /^gpt-[5-9]/.test(m) ||
-    /^o\d/.test(m)
-  ) {
+  if (m.startsWith("gpt-4o") || /^gpt-[5-9]/.test(m) || /^o\d/.test(m)) {
     return "o200k_base";
   }
   return "cl100k_base";

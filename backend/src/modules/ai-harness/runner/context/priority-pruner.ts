@@ -9,7 +9,10 @@
  */
 
 import { Injectable, Optional, Inject } from "@nestjs/common";
-import type { IContextEnvelope, ISystemReminder } from "../../agents/abstractions";
+import type {
+  IContextEnvelope,
+  ISystemReminder,
+} from "../../agents/abstractions";
 import { ContextEnvelope } from "../../agents/core/context-envelope";
 
 export const PRUNER_CONFIG_TOKEN = "HARNESS_PRUNER_CONFIG";

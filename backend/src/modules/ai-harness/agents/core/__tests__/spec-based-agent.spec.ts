@@ -22,7 +22,7 @@ import { AgentIdentity } from "../agent-identity";
 import type {
   LlmExecutor,
   LlmExecutorResult,
-} from "../../../execution/executor/llm-executor";
+} from "../../../runner/executor/llm-executor";
 import type { IAgentSpec, IAgentTask, IAgentEvent } from "../../abstractions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

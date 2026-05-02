@@ -6,7 +6,10 @@ import { ContextManager } from "../context-manager";
 import { ContextCompactor } from "../context-compactor";
 import { PriorityPruner } from "../priority-pruner";
 import { ContextEnvelope } from "../../../agents/core/context-envelope";
-import type { IContextMessage, ISystemReminder } from "../../abstractions";
+import type {
+  IContextMessage,
+  ISystemReminder,
+} from "../../../agents/abstractions";
 
 function makeEnv(opts: {
   messages?: number;

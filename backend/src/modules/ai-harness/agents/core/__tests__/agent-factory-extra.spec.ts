@@ -28,8 +28,8 @@ import type {
 import type {
   LlmExecutor,
   LlmExecutorResult,
-} from "../../../execution/executor/llm-executor";
-import { LoopRegistry } from "../../../execution/loop/loop-registry";
+} from "../../../runner/executor/llm-executor";
+import { LoopRegistry } from "../../../runner/loop/loop-registry";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

@@ -34,15 +34,15 @@ import {
   TOOL_CIRCUIT_BREAKER_PROBE,
 } from "../ai-harness/guardrails/runtime-resource.abstractions";
 import { HookRegistry } from "./agents/core/hook-registry";
-import { ReActLoop } from "./execution/loop/react-loop";
-import { PlanActLoop } from "./execution/loop/plan-act-loop";
-import { ReflexionLoop } from "./execution/loop/reflexion-loop";
-import { SimpleLoop } from "./execution/loop/simple-loop";
-import { LoopRegistry } from "./execution/loop/loop-registry";
-import { ToolInvoker } from "./execution/executor/tool-invoker";
-import { ToolCircuitBreaker } from "./execution/executor/tool-circuit-breaker";
-import { LlmExecutor } from "./execution/executor/llm-executor";
-import { AgentExecutorService } from "./execution/executor/agent-executor.service";
+import { ReActLoop } from "./runner/loop/react-loop";
+import { PlanActLoop } from "./runner/loop/plan-act-loop";
+import { ReflexionLoop } from "./runner/loop/reflexion-loop";
+import { SimpleLoop } from "./runner/loop/simple-loop";
+import { LoopRegistry } from "./runner/loop/loop-registry";
+import { ToolInvoker } from "./runner/tool-invoker/tool-invoker";
+import { ToolCircuitBreaker } from "./runner/tool-invoker/tool-circuit-breaker";
+import { LlmExecutor } from "./runner/executor/llm-executor";
+import { AgentExecutorService } from "./runner/executor/agent-executor.service";
 import { OutputReviewerService } from "./evaluation/critique/output-reviewer.service";
 import { ReportArtifactAssembler } from "./evaluation/critique/report-artifact/report-artifact-assembler.service";
 import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
@@ -62,8 +62,8 @@ import {
   ContextManager,
   ContextCompactor,
   PriorityPruner,
-} from "./execution/context";
-import { CacheControlPlanner } from "./execution/context/cache-control-planner";
+} from "./runner/context";
+import { CacheControlPlanner } from "./runner/context/cache-control-planner";
 import { AgentRegistry } from "./handoffs/agent-registry";
 import { HandoffService } from "./handoffs/handoff.service";
 import {
@@ -100,14 +100,14 @@ import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";
 import { AgentRunner, FixtureStore } from "./agents/dev-tools";
 // PR-J..P
-import { LeaderWorkerLoop } from "./execution/loop/leader-worker-loop";
+import { LeaderWorkerLoop } from "./runner/loop/leader-worker-loop";
 import { DomainEventRegistry } from "./protocol/events/domain-event-registry";
 import { DomainEventBus } from "./protocol/events/domain-event-bus";
 import { LoggerBroadcastAdapter } from "./protocol/events/broadcast-adapter";
 import { DomainConceptRegistry } from "./agents/domain/concept-registry";
 import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
-import { PromptRegistry } from "./execution/prompt/prompt-registry";
-import { ToolSelectorRegistry } from "./execution/tools-selector/tool-selector-registry";
+import { PromptRegistry } from "./runner/prompt/prompt-registry";
+import { ToolSelectorRegistry } from "./runner/tool-routing/tool-selector-registry";
 
 import { AiEngineLLMModule } from "../ai-engine/llm/ai-engine-llm.module";
 import { AiEngineToolsModule } from "../ai-engine/tools/ai-engine-tools.module";

@@ -1,8 +1,8 @@
 /**
  * World Building Types — engine 自有
  *
- * 2026-05-01 (PR-X-M3): 从 ai-harness/execution/executor/interfaces.ts 搬到
- * engine。harness/execution/executor/interfaces.ts re-export 保兼容。
+ * 2026-05-01 (PR-X-M3): 从 ai-harness/runner/executor/interfaces.ts 搬到
+ * engine。harness/runner/executor/interfaces.ts re-export 保兼容。
  *
  * 注：HardConstraint / CoreEntity 是跨层共享 domain entity，
  * owner = engine（world-building 是 entity 提取者）。harness 那边的

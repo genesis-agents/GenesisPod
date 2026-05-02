@@ -16,7 +16,7 @@ export type { ConsensusOptions } from "./primitives/consensus";
 export { MetaJudge } from "./primitives/meta-judge";
 
 // IVerifier 契约（ReflexionLoop 在 spec.verifiers 接受这个类型）
-export type { IVerifier } from "../../execution/loop/reflexion-loop";
+export type { IVerifier } from "../../runner/loop/reflexion-loop";
 
 // 类型 re-export（App 不必跨目录引用）
 export type {

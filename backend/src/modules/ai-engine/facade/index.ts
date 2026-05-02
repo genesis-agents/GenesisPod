@@ -149,7 +149,7 @@ export type {
 
 // Orchestration services
 export { ContextCompressionService } from "../llm/context/context-compression.service";
-// 2026-05-01 (PR-X-L): 以下 type / class 都属于 L2.5 ai-harness/execution，
+// 2026-05-01 (PR-X-L): 以下 type / class 都属于 L2.5 ai-harness/runner，
 // 已下沉为 ai-harness/facade 直接导出，engine facade 不再 re-export 走反向依赖：
 //   - DataChunk / SummaryChunk / CompressionResult / CompressionOptions
 //   - ContextStrategy
@@ -170,7 +170,7 @@ export type {
 } from "../llm/budget/token-budget.service";
 // OutputReviewerService 已搬到 ai-harness/evaluation/critique/ (2026-05-02)
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
-// AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
+// AgentExecutorService 已搬到 ai-harness/runner/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
 export { ModelFallbackService } from "../llm/selection/model-fallback.service";
@@ -219,7 +219,7 @@ export { RAG_PIPELINE_SERVICE_TOKEN } from "../core/interfaces/rag.interface";
 export type { ModelFallbackOptions } from "../llm/selection/model-fallback.service";
 export type { AIModelConfig } from "../llm/services/ai-model-config.service";
 
-// TeamMemberInfo 是 L2.5 ai-harness/execution 类型，2026-05-01 PR-X-M2 下沉为
+// TeamMemberInfo 是 L2.5 ai-harness/runner 类型，2026-05-01 PR-X-M2 下沉为
 // ai-harness/facade export，engine 不再 re-export
 
 // Error detection utilities
@@ -335,7 +335,7 @@ export type {
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
 export { MultiKeyRegistry } from "../core/utils/multi-key-manager";
 export type { KeyHealthStatus } from "../core/utils/multi-key-manager";
-// AICapabilityResolver 是 L2.5 ai-harness/execution 服务，2026-05-01 PR-X-M2
+// AICapabilityResolver 是 L2.5 ai-harness/runner 服务，2026-05-01 PR-X-M2
 // 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
 
@@ -465,7 +465,7 @@ export type { JsonObject, JsonValue } from "../core/types/common.types";
 
 // Workflow Handlers / Executors —— 2026-04-30 (C2-step2) 删除死代码:
 //   - WorkflowHandlerRegistry / WorkflowNodeHandler / MapStepConfig (仅被 BaseExecutor 用，BaseExecutor 死)
-//   - DAGExecutor (engine 728行重型版，被 ai-harness/execution/dag/ 165行轻量版取代)
+//   - DAGExecutor (engine 728行重型版，被 ai-harness/runner/dag/ 165行轻量版取代)
 //   保留: FunctionCallingExecutor (从 ai-engine/index.ts 单独 export)
 
 // IConstraintEnforcementService 已下沉为 ai-harness/facade export (PR-X-M2)
@@ -492,7 +492,7 @@ export {
   type CompactionLevel,
 } from "../llm/context/context-compaction-pipeline.service";
 
-// ExecutionCheckpointService 是 L2.5 ai-harness/execution 概念，
+// ExecutionCheckpointService 是 L2.5 ai-harness/runner 概念，
 // 已下沉为 ai-harness/facade 直接 export，engine facade 不再 re-export
 
 // AdaptiveReplannerService / ReplanTrigger / ... 已搬到 ai-harness (2026-04-30)

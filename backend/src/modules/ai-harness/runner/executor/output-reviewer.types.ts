@@ -6,10 +6,7 @@
 
 import type { AiCallerFn } from "../../../ai-engine/llm/types/ai-caller.types";
 import type { TeamMemberInfo } from "./team-member.types";
-import type {
-  ExecutionContext,
-  ExecutionResult,
-} from "./agent-executor.types";
+import type { ExecutionContext, ExecutionResult } from "./agent-executor.types";
 
 /** 审核请求 */
 export interface ReviewRequest {

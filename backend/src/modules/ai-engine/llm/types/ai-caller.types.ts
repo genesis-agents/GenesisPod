@@ -1,9 +1,9 @@
 /**
  * AiCallerFn — 通用 LLM 调用函数签名
  *
- * 2026-05-01 (PR-X-M2): 从 ai-harness/execution/executor/interfaces.ts 上移到
+ * 2026-05-01 (PR-X-M2): 从 ai-harness/runner/executor/interfaces.ts 上移到
  * ai-engine/llm/types/，因为 LLM 调用函数签名是 L2 LLM 能力概念，不是
- * L2.5 runtime concern。harness/execution/executor/interfaces.ts re-export 保兼容。
+ * L2.5 runtime concern。harness/runner/executor/interfaces.ts re-export 保兼容。
  */
 import type { TaskProfile } from "./index";
 

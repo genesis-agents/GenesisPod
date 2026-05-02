@@ -10,10 +10,10 @@ import { ShortTermMemoryService } from "../../ai-harness/memory/stores/short-ter
 import { LongTermMemoryService } from "../../ai-harness/memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
 import { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
-import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/function-calling-executor";
+import { FunctionCallingExecutor } from "../../ai-harness/runner/executor/function-calling-executor";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
-import { AgentExecutorService } from "../execution/executor/agent-executor.service";
+import { AgentExecutorService } from "../runner/executor/agent-executor.service";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖
@@ -28,15 +28,15 @@ import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detect
 import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
-import { QueryLoopService } from "../../ai-harness/execution/executor/query-loop.service";
-import { TokenTrackerService } from "../../ai-harness/execution/executor/token-tracker.service";
+import { QueryLoopService } from "../../ai-harness/runner/executor/query-loop.service";
+import { TokenTrackerService } from "../../ai-harness/runner/executor/token-tracker.service";
 // ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm-adapter";
 import { InputBindingResolver } from "../../ai-engine/skills/runtime/input-binding-resolver";
 import { SkillContentService } from "../../ai-engine/skills/content/skill-content.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖
-import { AICapabilityResolver } from "../../ai-harness/execution/capabilities/ai-capability-resolver.service";
+import { AICapabilityResolver } from "../../ai-harness/runner/capabilities/ai-capability-resolver.service";
 // ★ Teams Feature 依赖
 import { TeamsService } from "../teams/services/teams.service";
 import { TeamFactory } from "../teams/factory/team-factory";

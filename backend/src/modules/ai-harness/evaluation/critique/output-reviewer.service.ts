@@ -15,7 +15,7 @@ import {
   ExecutionResult,
   ReviewCriteria,
   AiCallerFn,
-} from "../../../ai-harness/execution/executor/interfaces";
+} from "../../../ai-harness/runner/executor/interfaces";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";

@@ -32,7 +32,7 @@ import {
   MissionContextPackage,
   HardConstraint,
 } from "../../../../../ai-harness/facade";
-// AiCallerFn 是 L2.5 ai-harness/execution 类型（2026-05-01 PR-X-L 从 engine 下移）
+// AiCallerFn 是 L2.5 ai-harness/runner 类型（2026-05-01 PR-X-L 从 engine 下移）
 import type { AiCallerFn } from "../../../../../ai-harness/facade";
 
 /**

@@ -44,7 +44,7 @@ import {
   CONSTRAINT_FEATURE,
 } from "../facade.providers";
 import type { CreditBillingInfo } from "../types/facade.types";
-import type { QueryLoopConfig } from "../../../ai-harness/execution/executor/query-loop.service";
+import type { QueryLoopConfig } from "../../../ai-harness/runner/executor/query-loop.service";
 import type {
   ChatRequest,
   ChatResponse,

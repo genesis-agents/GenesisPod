@@ -4,7 +4,7 @@
 
 import { ContextCompactor } from "../context-compactor";
 import { ContextEnvelope } from "../../../agents/core/context-envelope";
-import type { IContextMessage } from "../../abstractions";
+import type { IContextMessage } from "../../../agents/abstractions";
 
 function makeLongEnv(
   messageCount: number,

@@ -98,7 +98,7 @@
 | ----------------------- | ------ | ---------------------------------------------------------------------------------------------- |
 | ai-app-scaffolding      | HIGH   | 13 个 mission-\* 服务分层清晰，TeamCollaborationAgent/TeamMemberAgent 已注册                   |
 | leader-agent-pattern    | HIGH   | Leader-Agent 角色分离明确，leader-model.service 独立管理 Leader 模型选择                       |
-| mission-driven-workflow | HIGH   | team-mission/mission-execution/mission-lifecycle/mission-query 完整实现了 FSM                  |
+| mission-driven-workflow | HIGH   | team-mission/mission-runner/mission-lifecycle/mission-query 完整实现了 FSM                     |
 | realtime-event-bridge   | HIGH   | ai-teams.gateway.ts 提供 WebSocket，topic-event-emitter.service 事件双发                       |
 | checkpoint-recovery     | MED    | 通过 mission 的 resultJson 保存状态，但未达到标准 checkpoint-recovery 的增量模式和故障自动恢复 |
 | interactive-workflow    | MED    | 有 mission retry 和 health-check，但缺少显式的用户审批/暂停节点                                |

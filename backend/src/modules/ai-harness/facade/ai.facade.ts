@@ -40,14 +40,14 @@ import { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallba
 import {
   AICapabilityResolver,
   AICapabilityContext,
-} from "../../ai-harness/execution/capabilities/ai-capability-resolver.service";
+} from "../../ai-harness/runner/capabilities/ai-capability-resolver.service";
 import { CreditsService, BillingContext } from "../../ai-infra/facade";
 import { RequestContext } from "../../../common/context/request-context";
 import type { CreditBillingInfo } from "./types/facade.types";
 import type {
   AgentEvent,
   ExecutionConfig,
-} from "../../ai-harness/execution/executor/function-calling-executor";
+} from "../../ai-harness/runner/executor/function-calling-executor";
 
 // ★ P1 重构：使用分组的 Feature Providers
 import {
@@ -86,7 +86,7 @@ import type {
   RoomConfig,
   ProgressEvent,
 } from "../protocol/realtime/abstractions/event-emitter.interface";
-import { CapabilitySummary } from "../../ai-harness/execution/capabilities/types";
+import { CapabilitySummary } from "../../ai-harness/runner/capabilities/types";
 import type {
   ChatWithSkillsRequest,
   ChatWithSkillsResponse,
@@ -149,7 +149,7 @@ import type {
 import type {
   CompressionOptions,
   CompressionResult,
-} from "../../ai-harness/execution/executor/interfaces";
+} from "../../ai-harness/runner/executor/interfaces";
 import type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
 import type { VotingSession } from "../teams/collaboration/patterns/voting-pattern";
 import type {
@@ -167,15 +167,15 @@ import { MCPManager } from "../protocol/mcp/manager/mcp-manager";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../../ai-harness/execution/capabilities/types";
+} from "../../ai-harness/runner/capabilities/types";
 import type { SkillMdDefinition } from "../../ai-engine/skills/types/skill-md.types";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
-import { AgentExecutorService } from "../execution/executor/agent-executor.service";
+import { AgentExecutorService } from "../runner/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
-import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/function-calling-executor";
+import { FunctionCallingExecutor } from "../../ai-harness/runner/executor/function-calling-executor";
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamFactory } from "../teams/factory/team-factory";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orchestrator/teams-mission-orchestrator";

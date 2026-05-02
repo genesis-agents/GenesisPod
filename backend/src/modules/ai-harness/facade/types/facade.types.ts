@@ -924,8 +924,8 @@ export {
   BUILTIN_TOOLS,
   type BuiltinToolId,
 } from "../../../ai-engine/core/types/agent.types";
-export type { AICapabilityContext } from "../../../ai-harness/execution/capabilities/ai-capability-resolver.service";
+export type { AICapabilityContext } from "../../../ai-harness/runner/capabilities/ai-capability-resolver.service";
 export type {
   ExecutionConfig,
   AgentEvent,
-} from "../../../ai-harness/execution/executor/function-calling-executor";
+} from "../../../ai-harness/runner/executor/function-calling-executor";

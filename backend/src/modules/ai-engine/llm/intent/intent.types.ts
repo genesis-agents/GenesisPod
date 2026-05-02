@@ -1,7 +1,7 @@
 /**
  * Intent Detection Types — engine 自有
  *
- * 2026-05-01 (PR-X-L2): 从 ai-harness/execution/executor/interfaces.ts 搬到
+ * 2026-05-01 (PR-X-L2): 从 ai-harness/runner/executor/interfaces.ts 搬到
  * engine（intent detection 是 L2 LLM 能力，不是 L2.5 runtime concern）。
  * harness/facade 通过 re-export 保持 ai-app 调用向后兼容。
  */

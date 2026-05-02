@@ -1,8 +1,8 @@
 /**
  * Context Compression Types — engine 自有
  *
- * 2026-05-01 (PR-X-M3): 从 ai-harness/execution/executor/interfaces.ts 搬到
- * engine。harness/execution/executor/interfaces.ts re-export 保兼容。
+ * 2026-05-01 (PR-X-M3): 从 ai-harness/runner/executor/interfaces.ts 搬到
+ * engine。harness/runner/executor/interfaces.ts re-export 保兼容。
  */
 
 import { AIModelType } from "@prisma/client";

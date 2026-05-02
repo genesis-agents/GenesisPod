@@ -150,7 +150,7 @@ export {
 } from "../evaluation/critique";
 
 // ★ 沉淀 Phase 3 (2026-04-29): 通用并发信号量
-export { ConcurrencyLimiter } from "../execution/concurrency";
+export { ConcurrencyLimiter } from "../runner/concurrency";
 
 // ★ Phase 9 (2026-04-30): Mission 运行时状态外置 + Orphan 检测（harness 无状态化）
 export {
@@ -175,10 +175,10 @@ export {
 } from "../teams/orchestrator/adaptive-replanner.service";
 
 // ★ 2026-04-30: AgentExecutorService 从 ai-engine/planning 搬来（跨层迁移）
-export { AgentExecutorService } from "../execution/executor/agent-executor.service";
+export { AgentExecutorService } from "../runner/executor/agent-executor.service";
 
-// ★ 2026-05-01 (PR-X-L): execution/executor/interfaces.ts 类型从 ai-engine/facade
-//   下沉过来 — 它们是 L2.5 ai-harness/execution 层 owned，原 engine facade 反向
+// ★ 2026-05-01 (PR-X-L): runner/executor/interfaces.ts 类型从 ai-engine/facade
+//   下沉过来 — 它们是 L2.5 ai-harness/runner 层 owned，原 engine facade 反向
 //   re-export 违反单向规则
 //   注：EstablishedFact 已由下方 mission-context.interface re-export，故此处不再重复
 export type {
@@ -204,8 +204,8 @@ export type {
   SummaryChunk,
   CompressionResult,
   CompressionOptions,
-} from "../execution/executor/interfaces";
-export { DEFAULT_CONTEXT_EVOLUTION_CONFIG } from "../execution/executor/interfaces";
+} from "../runner/executor/interfaces";
+export { DEFAULT_CONTEXT_EVOLUTION_CONFIG } from "../runner/executor/interfaces";
 // ★ 2026-05-01 (PR-X-M): UserIntent / ContextStrategy 是 L2 LLM 能力概念，
 // owner 是 ai-engine/llm/intent；harness facade 仅 re-export 让 ai-app 透明
 export {
@@ -213,40 +213,40 @@ export {
   ContextStrategy,
 } from "../../ai-engine/llm/intent/intent.types";
 
-// ★ 2026-05-01 (PR-X-L): execution/capabilities 类型同上下沉
-export type { AICapabilityContext } from "../execution/capabilities/ai-capability-resolver.service";
+// ★ 2026-05-01 (PR-X-L): runner/capabilities 类型同上下沉
+export type { AICapabilityContext } from "../runner/capabilities/ai-capability-resolver.service";
 export type {
   SkillPromptBundle,
   SkillPromptOptions,
-} from "../execution/capabilities/types";
+} from "../runner/capabilities/types";
 
 // ★ 2026-05-01 (PR-X-L): ExecutionCheckpointService 也是 L2.5 ai-harness 概念
 export {
   ExecutionCheckpointService,
   type ExecutionCheckpoint,
-} from "../execution/executor/execution-checkpoint.service";
+} from "../runner/executor/execution-checkpoint.service";
 
 // ★ 2026-05-01 (PR-X-M2): 一组 L2.5 runtime 类型从 ai-engine/facade 反向 re-export 下沉过来
-export type { TeamMemberInfo } from "../execution/executor/interfaces";
-export type { IConstraintEnforcementService } from "../execution/executor/interfaces";
-export { AICapabilityResolver } from "../execution/capabilities/ai-capability-resolver.service";
+export type { TeamMemberInfo } from "../runner/executor/interfaces";
+export type { IConstraintEnforcementService } from "../runner/executor/interfaces";
+export { AICapabilityResolver } from "../runner/capabilities/ai-capability-resolver.service";
 export {
   QueryLoopService,
   type QueryLoopConfig,
   type QueryLoopResult,
   type QueryLoopStopReason,
-} from "../execution/executor/query-loop.service";
+} from "../runner/executor/query-loop.service";
 export {
   TokenTrackerService,
   type TokenUsageSnapshot,
   type TokenUsageEntry,
-} from "../execution/executor/token-tracker.service";
+} from "../runner/executor/token-tracker.service";
 export {
   SessionMemorySidecarService,
   type SidecarCategory,
   type SidecarEntry,
   type SidecarConfig,
-} from "../execution/executor/session-memory-sidecar.service";
+} from "../runner/executor/session-memory-sidecar.service";
 export type {
   Checkpoint,
   ExecutionContext as OrchestrationExecutionContext,
@@ -319,7 +319,7 @@ export {
   scaleScore,
 } from "../evaluation/critique/quality-score.util";
 // FunctionCallingExecutor.AgentEvent — 给 teams 服务用作 event 类型
-export type { AgentEvent as FunctionCallingAgentEvent } from "../execution/executor/function-calling-executor";
+export type { AgentEvent as FunctionCallingAgentEvent } from "../runner/executor/function-calling-executor";
 export type {
   ArtifactCitation,
   ArtifactFactTriple,
@@ -369,7 +369,7 @@ export {
   type DAGAdapter,
   type DAGSchedulerConfig,
   type DAGExecutionResult,
-} from "../execution/dag";
+} from "../runner/dag";
 
 // ── Resource ──
 export { ResourceManagerService } from "../guardrails/resource-manager.service";

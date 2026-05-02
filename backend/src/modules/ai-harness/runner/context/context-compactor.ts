@@ -13,7 +13,10 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
-import type { IContextEnvelope, IContextMessage } from "../../agents/abstractions";
+import type {
+  IContextEnvelope,
+  IContextMessage,
+} from "../../agents/abstractions";
 import { ContextEnvelope } from "../../agents/core/context-envelope";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { estimateEnvelopeTokens } from "./token-estimator";

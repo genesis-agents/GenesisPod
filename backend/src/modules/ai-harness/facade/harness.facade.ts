@@ -18,7 +18,7 @@ import type {
 } from "../agents/abstractions";
 import { AgentFactory } from "../agents/core/agent-factory";
 import { HookRegistry } from "../agents/core/hook-registry";
-import { LoopRegistry } from "../execution/loop/loop-registry";
+import { LoopRegistry } from "../runner/loop/loop-registry";
 import { CheckpointService } from "../memory/checkpoint/checkpoint.service";
 import type { ICheckpoint } from "../memory/checkpoint/checkpoint.types";
 import {
