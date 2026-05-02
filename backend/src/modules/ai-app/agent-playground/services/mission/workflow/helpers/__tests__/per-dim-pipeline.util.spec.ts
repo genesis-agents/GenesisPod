@@ -1681,4 +1681,553 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
     expect(ch2Src![0].claim).toBe("Claim 0");
     expect(ch2Src![0].source).toBe("src0.com");
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INVARIANT 矩阵覆盖 — 100% 业务分支
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 关键不变量：每个 dim 必发一次 dimension:graded 事件（无论何种路径），杜绝
+  // 静默黑洞（mission da6e2af7 实证 5/8 dim 卡"等待评分"的真因）。
+  describe("INVARIANT — every dim emits exactly one dimension:graded event", () => {
+    function getGradedEmits(deps: MissionDeps) {
+      return (deps.emit as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .filter(
+          (e: { type: string }) =>
+            e.type === "agent-playground.dimension:graded",
+        );
+    }
+
+    it("[A1] findings empty → emits graded(failed,skipped,phase=no-findings)", async () => {
+      const deps = makeDeps();
+      await runPerDimPipeline(
+        { ...baseArgs, researcherOut: { ...baseResearcherOut, findings: [] } },
+        deps,
+      );
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.skipped).toBe(true);
+      expect(graded[0].payload.phase).toBe("no-findings");
+      expect(graded[0].payload.overall).toBe(0);
+      expect(graded[0].payload.summary).toMatch(/未采集到 finding/);
+    });
+
+    it("[A2] outline failed (no output) → emits graded(failed,skipped,phase=outline-failed)", async () => {
+      const writer = {
+        planDimensionOutline: jest.fn().mockResolvedValue({
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({ writer: writer as never });
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.skipped).toBe(true);
+      expect(graded[0].payload.phase).toBe("outline-failed");
+      expect(graded[0].payload.summary).toMatch(/outline 未产出/);
+    });
+
+    it("[A3] outline degraded + output → continues to chapter pipeline (existing behavior preserved)", async () => {
+      const writer = {
+        planDimensionOutline: jest.fn().mockResolvedValue({
+          state: "degraded",
+          output: makeOutlineOutput(1),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({ writer: writer as never });
+      const result = await runPerDimPipeline(baseArgs, deps);
+      // outline degraded but pipeline continues → chapter exists
+      expect(result.chapters).toBeDefined();
+      expect(result.chapters!.length).toBeGreaterThan(0);
+      const graded = getGradedEmits(deps);
+      // Some terminal event fires (success or failed depending on integrator)
+      expect(graded.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("[A4] 0 chapters written → emits graded(failed,skipped,phase=no-chapters)", async () => {
+      const { ChapterWriterAgent } = jest.requireMock(
+        "../../../../../agents/writer/chapter-writer.agent",
+      );
+      const invoker = {
+        invoke: jest
+          .fn()
+          .mockImplementation((AgentClass: { new (): unknown }) => {
+            if (AgentClass === ChapterWriterAgent) {
+              return Promise.resolve({
+                state: "failed",
+                output: undefined,
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }),
+        tickCost: jest.fn().mockResolvedValue(undefined),
+      };
+      const deps = makeDeps({ invoker: invoker as never });
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.skipped).toBe(true);
+      expect(graded[0].payload.phase).toBe("no-chapters");
+      expect(graded[0].payload.summary).toMatch(/0\/.*章节产出/);
+    });
+
+    it("[A5] integrator completed + grade success → emits graded(ok=true,overall>0)", async () => {
+      const deps = makeDeps();
+      const result = await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBeUndefined();
+      expect(graded[0].payload.overall).toBe(82);
+      expect(result.grade?.overall).toBe(82);
+    });
+
+    it("[A6] integrator degraded + output → integrating:completed(degraded:true) + grade still runs", async () => {
+      const {
+        ChapterWriterAgent,
+        ChapterReviewerAgent,
+        DimensionIntegratorAgent,
+      } = {
+        ChapterWriterAgent: jest.requireMock(
+          "../../../../../agents/writer/chapter-writer.agent",
+        ).ChapterWriterAgent,
+        ChapterReviewerAgent: jest.requireMock(
+          "../../../../../agents/writer/chapter-reviewer.agent",
+        ).ChapterReviewerAgent,
+        DimensionIntegratorAgent: jest.requireMock(
+          "../../../../../agents/writer/dimension-integrator.agent",
+        ).DimensionIntegratorAgent,
+      };
+      const invoker = {
+        invoke: jest
+          .fn()
+          .mockImplementation((AgentClass: { new (): unknown }) => {
+            if (AgentClass === ChapterWriterAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeWriterOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            if (AgentClass === ChapterReviewerAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeReviewerOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 50,
+              });
+            }
+            if (AgentClass === DimensionIntegratorAgent) {
+              // ★ 这是真因测试：integrator state=degraded 但 output 已"强制接受次优产物"
+              return Promise.resolve({
+                state: "degraded",
+                output: makeIntegratorOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 200,
+              });
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }),
+        tickCost: jest.fn().mockResolvedValue(undefined),
+      };
+      const deps = makeDeps({ invoker: invoker as never });
+      const result = await runPerDimPipeline(baseArgs, deps);
+      // integrating:completed 应当 emit 且带 degraded:true
+      const integratingCompleted = (deps.emit as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find(
+          (e: { type: string }) =>
+            e.type === "agent-playground.dimension:integrating:completed",
+        );
+      expect(integratingCompleted).toBeDefined();
+      expect(integratingCompleted!.payload.degraded).toBe(true);
+      // grade 应当跑（这正是真因修复 — 之前 degraded 不走 grade）
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.overall).toBe(82);
+      expect(result.fullMarkdown).toBeDefined();
+    });
+
+    it("[A7] integrator failed (no output) → emits graded(failed,skipped,phase=integrator-failed)", async () => {
+      const { DimensionIntegratorAgent } = jest.requireMock(
+        "../../../../../agents/writer/dimension-integrator.agent",
+      );
+      const { ChapterWriterAgent } = jest.requireMock(
+        "../../../../../agents/writer/chapter-writer.agent",
+      );
+      const { ChapterReviewerAgent } = jest.requireMock(
+        "../../../../../agents/writer/chapter-reviewer.agent",
+      );
+      const invoker = {
+        invoke: jest
+          .fn()
+          .mockImplementation((AgentClass: { new (): unknown }) => {
+            if (AgentClass === ChapterWriterAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeWriterOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            if (AgentClass === ChapterReviewerAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeReviewerOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 50,
+              });
+            }
+            if (AgentClass === DimensionIntegratorAgent) {
+              return Promise.resolve({
+                state: "failed",
+                output: undefined,
+                events: [],
+                iterations: 1,
+                wallTimeMs: 200,
+              });
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }),
+        tickCost: jest.fn().mockResolvedValue(undefined),
+      };
+      const deps = makeDeps({ invoker: invoker as never });
+      await runPerDimPipeline(baseArgs, deps);
+      const integratingFailed = (deps.emit as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .find(
+          (e: { type: string }) =>
+            e.type === "agent-playground.dimension:integrating:failed",
+        );
+      expect(integratingFailed).toBeDefined();
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.skipped).toBe(true);
+      expect(graded[0].payload.phase).toBe("integrator-failed");
+      expect(graded[0].payload.summary).toMatch(
+        /integrator 未产出 fullMarkdown/,
+      );
+    });
+
+    it("[A8] grade !completed (judge state=failed) → emits graded(failed,phase=grade-failed)", async () => {
+      const reviewer = {
+        judgeDimension: jest.fn().mockResolvedValue({
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({ reviewer: reviewer as never });
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.phase).toBe("grade-failed");
+      expect(graded[0].payload.summary).toMatch(/grade 阶段失败/);
+    });
+
+    it("[A9] integrator throws → catch emits graded(failed,phase=pipeline-exception) + rethrows", async () => {
+      const { DimensionIntegratorAgent } = jest.requireMock(
+        "../../../../../agents/writer/dimension-integrator.agent",
+      );
+      const { ChapterWriterAgent } = jest.requireMock(
+        "../../../../../agents/writer/chapter-writer.agent",
+      );
+      const { ChapterReviewerAgent } = jest.requireMock(
+        "../../../../../agents/writer/chapter-reviewer.agent",
+      );
+      const invoker = {
+        invoke: jest
+          .fn()
+          .mockImplementation((AgentClass: { new (): unknown }) => {
+            if (AgentClass === ChapterWriterAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeWriterOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            if (AgentClass === ChapterReviewerAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeReviewerOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 50,
+              });
+            }
+            if (AgentClass === DimensionIntegratorAgent) {
+              throw new Error("INTEGRATOR_LLM_TIMEOUT");
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }),
+        tickCost: jest.fn().mockResolvedValue(undefined),
+      };
+      const deps = makeDeps({ invoker: invoker as never });
+      await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+        /INTEGRATOR_LLM_TIMEOUT/,
+      );
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.phase).toBe("pipeline-exception");
+      expect(graded[0].payload.summary).toMatch(/INTEGRATOR_LLM_TIMEOUT/);
+    });
+
+    it("[A10] grade throws → catch emits graded(failed,phase=pipeline-exception)", async () => {
+      const reviewer = {
+        judgeDimension: jest
+          .fn()
+          .mockRejectedValue(new Error("JUDGE_LLM_REFUSED")),
+      };
+      const deps = makeDeps({ reviewer: reviewer as never });
+      await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+        /JUDGE_LLM_REFUSED/,
+      );
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.phase).toBe("pipeline-exception");
+      expect(graded[0].payload.summary).toMatch(/JUDGE_LLM_REFUSED/);
+    });
+
+    it("[A11] retryLabel propagated to graded events (success path)", async () => {
+      const deps = makeDeps();
+      await runPerDimPipeline(
+        { ...baseArgs, retryLabel: "leader-assess-retry" },
+        deps,
+      );
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.retryLabel).toBe("leader-assess-retry");
+    });
+
+    it("[A12] retryLabel propagated to graded events (failed path)", async () => {
+      const writer = {
+        planDimensionOutline: jest.fn().mockResolvedValue({
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({ writer: writer as never });
+      await runPerDimPipeline(
+        { ...baseArgs, retryLabel: "leader-assess-replace" },
+        deps,
+      );
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.retryLabel).toBe("leader-assess-replace");
+      expect(graded[0].payload.failed).toBe(true);
+    });
+
+    it("[A13] terminalEmitted guard — only ONE graded event per dim under any path", async () => {
+      const deps = makeDeps();
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1); // happy path → exactly 1
+    });
+
+    it("[A14] partial chapter failure (1/2 writer fail) → still proceeds, eventually graded ok", async () => {
+      const {
+        ChapterWriterAgent,
+        ChapterReviewerAgent,
+        DimensionIntegratorAgent,
+      } = {
+        ChapterWriterAgent: jest.requireMock(
+          "../../../../../agents/writer/chapter-writer.agent",
+        ).ChapterWriterAgent,
+        ChapterReviewerAgent: jest.requireMock(
+          "../../../../../agents/writer/chapter-reviewer.agent",
+        ).ChapterReviewerAgent,
+        DimensionIntegratorAgent: jest.requireMock(
+          "../../../../../agents/writer/dimension-integrator.agent",
+        ).DimensionIntegratorAgent,
+      };
+      let writerCallCount = 0;
+      const invoker = {
+        invoke: jest
+          .fn()
+          .mockImplementation((AgentClass: { new (): unknown }) => {
+            if (AgentClass === ChapterWriterAgent) {
+              writerCallCount++;
+              // 第 1 次 writer fail，第 2 次 writer 成功
+              if (writerCallCount === 1) {
+                return Promise.resolve({
+                  state: "failed",
+                  output: undefined,
+                  events: [],
+                  iterations: 1,
+                  wallTimeMs: 100,
+                });
+              }
+              return Promise.resolve({
+                state: "completed",
+                output: makeWriterOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            if (AgentClass === ChapterReviewerAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeReviewerOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 50,
+              });
+            }
+            if (AgentClass === DimensionIntegratorAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeIntegratorOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 200,
+              });
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }),
+        tickCost: jest.fn().mockResolvedValue(undefined),
+      };
+      const deps = makeDeps({ invoker: invoker as never });
+      const result = await runPerDimPipeline(baseArgs, deps);
+      // Pipeline 不卡死，至少 1/2 chapters 产出
+      expect(result.chapters?.length).toBeGreaterThanOrEqual(1);
+      // 仍然有 graded 事件（happy 终态）
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBeUndefined();
+    });
+
+    it("[A15] outline state=completed but output=undefined → graded(outline-failed)", async () => {
+      const writer = {
+        planDimensionOutline: jest.fn().mockResolvedValue({
+          state: "completed",
+          output: undefined, // schema 应该 reject 但 mock 模拟 LLM schema bug
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({ writer: writer as never });
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.phase).toBe("outline-failed");
+    });
+
+    it("[A16] grade state=completed but output=undefined → graded(grade-failed)", async () => {
+      const reviewer = {
+        judgeDimension: jest.fn().mockResolvedValue({
+          state: "completed",
+          output: undefined, // judge LLM 返回但 schema 缺字段
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({ reviewer: reviewer as never });
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.phase).toBe("grade-failed");
+    });
+
+    it("[A17] outline.chapters=[] (empty array but valid schema) → graded(no-chapters)", async () => {
+      const writer = {
+        planDimensionOutline: jest.fn().mockResolvedValue({
+          state: "completed",
+          output: { chapters: [] }, // 合法 schema 但 0 章
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({ writer: writer as never });
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBe(true);
+      expect(graded[0].payload.phase).toBe("no-chapters");
+    });
+
+    it("[A18] verify graded event always carries dimension name + agentId", async () => {
+      // 不论失败 / 成功 / 异常，graded 事件都必须有 dimension + quality-judge#X agentId
+      // 让前端能精确路由到对应 dim pipeline
+      const deps = makeDeps();
+      await runPerDimPipeline(baseArgs, deps);
+      const graded = getGradedEmits(deps);
+      expect(graded[0].payload.dimension).toBe("Technology");
+      expect(graded[0].agentId).toBe("quality-judge#0");
+    });
+
+    it("[A19] dimensionIdx propagated to gradeAgentId for parallel dims", async () => {
+      const deps = makeDeps();
+      await runPerDimPipeline(
+        { ...baseArgs, dimensionIdx: 5, dimensionName: "Security" },
+        deps,
+      );
+      const graded = getGradedEmits(deps);
+      expect(graded[0].payload.dimension).toBe("Security");
+      expect(graded[0].agentId).toBe("quality-judge#5");
+    });
+  });
 });

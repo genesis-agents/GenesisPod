@@ -1671,16 +1671,11 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     }
   }
 
-  // ★ 2026-05-01 (Screenshot 50 用户实证)：Leader 评审 + 下游 reconciler/analyst
-  //   都已完成时，原 dim todo 仍卡"等待评分"。真因：fresh-collect retry 路径下
-  //   dimension:graded 携 retryLabel，被路由到 retry pipeline；原 dim 的 pipeline
-  //   永远没 grade，labelDimensionStatus 走 "passed===total && !grade → 等待评分"
-  //   分支。修法：S4 leader-assess 已 done = Leader 已对该 dim 的研究产出做完最终
-  //   决策，下游已经基于此往前推。原 dim todo 此时仍卡"等待评分"是 UI 滞留误导。
-  //   把 retry 子 todo 的 grade 借给 parent dim todo，让 parent 也能 done。
+  // ★ 2026-05-01 真因修复后此 patch 仅作 watchdog：backend per-dim-pipeline 用
+  //   try/finally 保证每个 dim 必发 dimension:graded 事件（成功 / failed / skipped），
+  //   正常路径前端 graded 事件就拿到了终态。这里只防极端情况（pod 中断 / 事件丢失）。
   const s4Done = todos.get('system:s4-leader-assess')?.status === 'done';
-  const s5Done = todos.get('system:s5-reconciler')?.status === 'done';
-  if (s4Done || s5Done) {
+  if (s4Done) {
     for (const td of dimTodos) {
       if (
         td.origin !== 'leader-plan' ||
@@ -1691,27 +1686,13 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       ) {
         continue;
       }
-      // 找该 dim 任一 retry 子 todo 拿 effective grade
-      const retryChild = order
-        .map((id) => todos.get(id)!)
-        .find(
-          (t0) =>
-            t0.dimensionRef === td.dimensionRef &&
-            t0.parentId === td.id &&
-            (t0.origin === 'leader-assess-retry' ||
-              t0.origin === 'leader-assess-replace' ||
-              t0.origin === 'leader-assess-extend')
-        );
-      const retryKey = retryChild?.pipelineKey;
-      const retryPipeline = retryKey ? dimensionPipelines.get(retryKey) : null;
-      const retryGrade = retryPipeline?.grade;
-      // 把 retry 的 grade 借给 parent 渲染层
       const ownPipeline = dimensionPipelines.get(td.dimensionRef);
-      if (retryGrade && ownPipeline && !ownPipeline.grade) {
-        ownPipeline.grade = retryGrade;
-      }
-      // chapters 全过 + (有 grade OR S4/S5 已认可) → done
-      if (ownPipeline && ownPipeline.chapters.length > 0) {
+      // 正常 backend 已发 graded → pipeline.grade 有值。这里只在 grade 缺失时兜底
+      if (
+        ownPipeline &&
+        ownPipeline.chapters.length > 0 &&
+        !ownPipeline.grade
+      ) {
         const allPassed = ownPipeline.chapters.every(
           (c) => c.status === 'passed' || c.status === 'done'
         );
@@ -1720,10 +1701,8 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           td.endedAt = td.endedAt ?? Date.now();
           td.narrativeLog.push({
             ts: Date.now(),
-            text: retryGrade
-              ? `Leader 已基于重派后产出做最终决策，借用 retry grade ${retryGrade.overall}/100 收尾`
-              : 'Leader 已对该维度研究做最终决策（下游已推进），状态收尾',
-            tone: 'success',
+            text: '⚠ 评分事件未到达，Leader 已基于该维度推进下游（watchdog 兜底）',
+            tone: 'warn',
           });
         }
       }

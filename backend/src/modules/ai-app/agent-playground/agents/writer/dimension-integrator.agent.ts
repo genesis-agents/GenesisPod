@@ -40,8 +40,15 @@ const Output = z.object({
     description:
       "Integrate multiple chapters into a coherent dimension report + abstract + key findings",
   },
-  loop: "reflexion",
-  // PR-X-skill-bridge: per-dim 章节整合协议
+  // ★ 2026-05-01 真因修复 (mission da6e2af7 实证 5/8 dim 卡死):
+  //   原 loop="reflexion" → verifier 阈值 60，对纯整合任务（章节已逐个 review 过）
+  //   是冗余二次判分。prod 实测 verifier 给 53-58 分常态，使 5 个 dim integrator
+  //   全部 degraded/failed 但 output 已"强制接受次优产物"。
+  //   chapter quality 已由 chapter reviewer 担保（threshold 75/100），integrator
+  //   只做"拼装 + 抽 abstract/keyFindings"，不需要再判 LLM 文学性分数。
+  //   切 react loop → 直接 finalize 不再 reflexion，省 token 省时间。
+  //   5-axis quality-judge 仍是 dim 唯一权威评分（整合后跑）。
+  loop: "react",
   skills: ["dim-chapter-integration"],
   // ★ Round 3 真问题修复 (2026-04-29):
   //   原 outputLength="long" → 8000 maxTokens，远小于多章拼接后字数 (epic 一个 dim 可能 30K+)。

@@ -163,16 +163,15 @@ function deriveDimSubStatus(
     };
   }
   // 全部章节通过，但 grade 还没出来
-  // ★ 2026-05-01 (Screenshot 50)：td.status 已是 done（todo-ledger 末尾兜底逻辑
-  //   把 retry grade 借给 parent OR S4/S5 已 done 强制收尾），label 也跟着走"已完成"
-  //   而不是"等待评分" —— 否则 UI 矛盾（todo dot 显示 done 但 pill 显示等待评分）。
+  // ★ 2026-05-01 真治根（mission da6e2af7 实证）：之前 dim todo 卡"等待评分"是 backend
+  //   per-dim-pipeline 在 integrator state=degraded（reflexion verifier <60 但已强制接受
+  //   次优产物）时静默不 emit dimension:graded → 前端永远拿不到 grade。
+  //   后端已修：degraded output 也走 grade 路径；grade 失败也 emit failed 事件。
+  //   前端这里仍保留 "等待评分" 显示作为短暂中间态（事件到达前 < 1 秒）。
   if (passed === total && !pipeline.grade) {
     return {
-      label: td.status === 'done' ? '已完成' : '等待评分',
-      tone:
-        td.status === 'done'
-          ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
-          : 'bg-amber-100 text-amber-700 ring-amber-200',
+      label: '等待评分',
+      tone: 'bg-amber-100 text-amber-700 ring-amber-200',
     };
   }
   if (passed === total && pipeline.grade) {
