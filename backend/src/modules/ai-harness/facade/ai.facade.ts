@@ -179,7 +179,7 @@ import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/fun
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamFactory } from "../runtime/teams/factory/team-factory";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
-import { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
+import { OutputReviewerService } from "../governance/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
 import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
@@ -1646,9 +1646,9 @@ export class AIFacade {
       typeof (skill as { setToolPipeline: unknown }).setToolPipeline ===
         "function";
     if (hasSetToolPipeline && this.skills?.toolPipeline) {
-      (
-        skill as { setToolPipeline: (p: ToolPipeline) => void }
-      ).setToolPipeline(this.skills.toolPipeline);
+      (skill as { setToolPipeline: (p: ToolPipeline) => void }).setToolPipeline(
+        this.skills.toolPipeline,
+      );
     }
     return skill.execute(input, context);
   }

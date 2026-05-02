@@ -267,14 +267,15 @@ export type {
 } from "../runtime/abstractions/orchestrator.interface";
 
 // ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
-export { OutputReviewerService } from "../runtime/quality/output-reviewer.service";
+// ★ 2026-05-02 (#1 MECE): runtime/quality → governance/critique 收敛
+export { OutputReviewerService } from "../governance/critique/output-reviewer.service";
 
 // ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/agent-playground 上提（跨 app 复用）
 //   playground v2 ReportArtifact (sections/citations/figures/quickView) 装配纯函数
 export {
   ReportArtifactAssembler,
   lengthTargetFor,
-} from "../runtime/quality/report-artifact/report-artifact-assembler.service";
+} from "../governance/critique/report-artifact/report-artifact-assembler.service";
 
 // ★ 2026-05-01: FailureLearnerService 从 ai-app/agent-playground 上提（governance/learning）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
@@ -328,7 +329,7 @@ export type {
   ArtifactQuickView,
   ArtifactSection,
   ReportArtifact,
-} from "../runtime/quality/report-artifact/report-artifact.dto";
+} from "../governance/critique/report-artifact/report-artifact.dto";
 
 // ★ C2-step1 (2026-04-30): AutoDream（后台 memory 整合）从 ai-engine 搬入 harness
 export {

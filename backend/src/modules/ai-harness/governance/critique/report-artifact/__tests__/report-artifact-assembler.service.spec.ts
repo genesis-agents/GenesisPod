@@ -432,9 +432,8 @@ describe("ReportArtifactAssembler", () => {
     expect(result.content.fullMarkdown).toMatch(/##\s+参考文献/);
     expect(result.sections.find((s) => s.title === "参考文献")).toBeDefined();
     // each citation has a corresponding [N] line in the references section
-    const refSectionMatch = result.content.fullMarkdown.match(
-      /##\s+参考文献[\s\S]*$/,
-    );
+    const refSectionMatch =
+      result.content.fullMarkdown.match(/##\s+参考文献[\s\S]*$/);
     expect(refSectionMatch).not.toBeNull();
     for (const c of result.citations) {
       expect(refSectionMatch![0]).toContain(`[${c.index}]`);
