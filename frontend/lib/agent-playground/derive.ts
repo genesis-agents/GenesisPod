@@ -477,16 +477,29 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           | undefined) ?? [];
       if (dim) {
         const pipeline = ensurePipeline(dim);
-        // 初始化 chapters 为 pending 状态（只在还没建过时）
-        if (pipeline.chapters.length === 0) {
-          pipeline.chapters = chapters.map((c) => ({
-            index: c.index,
-            heading: c.heading,
-            thesis: c.thesis,
-            status: 'pending',
-            attempts: 0,
-          }));
+        // ★ 2026-05-01 修：merge 而非"只建一次" — 杠杆 1 维度并行后，多 dim 可能
+        //   先后命中同一 pipelineKey；旧 guard "length === 0 才填" 让后续 dim
+        //   的 chapters 永远空，下游所有 chapter:* 事件 find by index 失败 →
+        //   chapter.status 永远卡 pending（截图 42 的真因）。
+        //   改为：按 chapter.index 增量 upsert，已有则保留 status，新增则 pending。
+        for (const c of chapters) {
+          const existing = pipeline.chapters.find((x) => x.index === c.index);
+          if (existing) {
+            // 保留 live status，只更新 heading/thesis（outline 重新规划场景）
+            existing.heading = c.heading;
+            existing.thesis = c.thesis;
+          } else {
+            pipeline.chapters.push({
+              index: c.index,
+              heading: c.heading,
+              thesis: c.thesis,
+              status: 'pending',
+              attempts: 0,
+            });
+          }
         }
+        // 按 index 排序保持显示顺序稳定
+        pipeline.chapters.sort((a, b) => a.index - b.index);
       }
     } else if (t === 'agent-playground.chapter:writing:started') {
       const dim = p?.dimension as string | undefined;

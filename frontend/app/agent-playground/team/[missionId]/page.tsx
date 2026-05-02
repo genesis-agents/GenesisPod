@@ -101,13 +101,31 @@ export default function MissionDetailPage() {
   useEffect(() => {
     if (invalidId) return;
     let cancelled = false;
-    getMissionDetail(missionId)
-      .then((d) => {
-        if (!cancelled) setPersisted(d);
-      })
-      .catch(() => {});
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    // ★ 2026-05-01: starting 占位（DB 行还没落地）时持续轮询直到拿到真 row。
+    //   之前只 mount fetch 一次 → topic="" + status="starting" 永远卡住，
+    //   header 显示"研究 Mission"兜底文案，stage 占位 todo 因 mission:started
+    //   事件还没到也不显示。
+    const fetchAndMaybePoll = () => {
+      getMissionDetail(missionId)
+        .then((d) => {
+          if (cancelled) return;
+          setPersisted(d);
+          const m = d as unknown as { status?: string; topic?: string };
+          if (m?.status === 'starting' || !m?.topic) {
+            pollTimer = setTimeout(fetchAndMaybePoll, 1500);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // 错误也轮询（mission ID 在 in-memory ownership 但 DB 还没建）
+          pollTimer = setTimeout(fetchAndMaybePoll, 2000);
+        });
+    };
+    fetchAndMaybePoll();
     return () => {
       cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
     };
   }, [missionId, invalidId]);
 
@@ -503,12 +521,19 @@ export default function MissionDetailPage() {
             <div className="min-w-0 flex-1">
               <h1
                 className="truncate text-lg font-bold text-gray-900"
-                title={view.mission.topic ?? '研究 Mission'}
+                title={view.mission.topic ?? '研究中…'}
               >
                 {/* 兜底：把任意换行 / [Re-run focus] hint 块剥到首行，防 topic 撑爆 header 挤设置按钮 */}
-                {(view.mission.topic ?? '研究 Mission')
-                  .split(/\n|\[Re-run focus\]/i)[0]
-                  .trim() || '研究 Mission'}
+                {(() => {
+                  const raw = view.mission.topic ?? '';
+                  const cleaned = raw.split(/\n|\[Re-run focus\]/i)[0].trim();
+                  // 启动早期 starting 占位无 topic → 显示"研究中…"提示等待
+                  if (!cleaned) {
+                    const status = (view.mission as { status?: string }).status;
+                    return status === 'starting' ? '研究中…' : '未命名研究';
+                  }
+                  return cleaned;
+                })()}
               </h1>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                 {view.mission.depth && <span>{view.mission.depth}</span>}

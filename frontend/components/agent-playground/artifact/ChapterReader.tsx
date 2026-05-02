@@ -178,9 +178,12 @@ function StatusBadge({
       </span>
     );
   }
+  // status === 'pending' fallback：section 已经渲染说明章节已落地，pending 是
+  // 事件流 race / heading mismatch 的副作用，不应显示给用户
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
-      待启动
+    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
+      <Check className="h-3 w-3" />
+      已完成
     </span>
   );
 }
