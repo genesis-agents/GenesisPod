@@ -732,11 +732,19 @@ const oldRoot = path.resolve(process.argv[3]);
 此三波次不是“额外重构”，而是 W18/W19 之后必须承接的结构治理收尾。原则上：
 
 - **W18/W19 解决命名与表层目录一致性**
-- **W20/W21/W22 解决契约唯一性、扩展边界与定制代码归位**
+- **W20/W21/W22 先解决 `ai-engine / ai-harness / ai-infra` 的契约唯一性、扩展边界与目录归位**
+- **`ai-app` 不属于这一阶段的主整改对象，只在基础层归位完成后再做消费侧复核**
 
 #### W20: 扩展治理契约落地
 
 以 [`.claude/standards/17-extension-governance.md`](../../.claude/standards/17-extension-governance.md) 为准，把扩展从“约定俗成”变成“项目必须遵守的 contract”。
+
+**执行优先级：**
+
+1. `ai-engine`
+2. `ai-harness`
+3. `ai-infra`
+4. `ai-app`（仅在前三层稳定后再进入）
 
 - **唯一主线注册中心：**
   - `ToolRegistry` 保持唯一主线实现
@@ -756,6 +764,14 @@ const oldRoot = path.resolve(process.argv[3]);
 
 这一波次专门解决“memory 是否独立一层”的争议：结论是不升层，但必须收敛成**跨层状态能力轴**。
 
+本波次只处理：
+
+- `ai-harness/memory/**`
+- 必要的 `ai-engine/tools/**` / `ai-engine/skills/**` 接口面
+- 必要的 `ai-infra` store substrate
+
+不处理 `ai-app` 侧 memory consumer 清理。
+
 - **checkpoint 主 contract 唯一化：**
   - 对齐 `memory/checkpoint/` 与 `memory/state-checkpoint/`
   - 抽统一 `CheckpointStore` / `CheckpointScope(agent|mission|session)` 主契约
@@ -774,7 +790,15 @@ const oldRoot = path.resolve(process.argv[3]);
 
 #### W22: 定制代码归位与目录优化
 
-这一波次解决“看起来在 core，实际是单业务定制”的历史债，原则是：**伪通用不许继续留在 core**。
+这一波次解决“看起来在 core，实际是单业务定制”的历史债，原则是：**先清理 core，再看 app**。
+
+本波次优先范围：
+
+- `ai-engine/**`
+- `ai-harness/**`
+- `ai-infra/**`
+
+`ai-app/**` 中的定制代码暂不作为主目标；只有当它污染了 core 边界时，才作为归位依据引用。
 
 - **built-in skill pack 收敛：**
   - `agents/builtin-skills/skill-registry.ts` 降格为 `catalog` / `source` 语义
@@ -782,10 +806,10 @@ const oldRoot = path.resolve(process.argv[3]);
   - `leader-mid-mission-assess`、`mece-mission-planning`、`multi-judge-mission-review` 这类玩法型 skill 明确归入 built-in packs，而不是 runtime core
 - **伪通用能力复核：**
   - 复核 `engine/content/figure/`、`tools/categories/processing/template-render.tool.ts` 等“由单业务上浮”的能力
-  - 不满足跨 bounded context 复用条件的，一律下沉回 `ai-app/<domain>/`
+  - 不满足跨 bounded context 复用条件的，先从 core 波次中剔除并标记为“待下沉到 app”，不在本波次直接展开 app 整改
 - **facade 稳定面瘦身：**
   - 复核 `engine/facade/abstractions/research.interface.ts`、`simulation.interface.ts`
-  - 仅保留稳定跨域能力接口，业务导向接口迁回 app 端 port
+  - 仅保留稳定跨域能力接口；如确认属于 app 领域接口，先从 core 稳定面移除，再在后续 app 波次中落位
 - **碎片测试归并：**
   - 批量清理 `supplemental` / `extra` / `legacy`
   - 同一主题测试优先合并回主 spec，无法合并者改为 `integration`

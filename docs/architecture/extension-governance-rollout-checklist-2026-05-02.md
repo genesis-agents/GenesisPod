@@ -14,6 +14,15 @@
 
 本清单用于把扩展治理标准转化为可执行整改项，并确保目录优化与能力边界同步推进。
 
+**执行顺序强约束：**
+
+1. 先 `ai-engine`
+2. 再 `ai-harness`
+3. 再 `ai-infra`
+4. 最后才是 `ai-app` 消费侧收敛
+
+在基础层（engine / harness / infra）未完成归类、命名、契约唯一化前，**不展开 app 主体整改**。
+
 ---
 
 ## 2. P0 清单
@@ -111,7 +120,7 @@
 
 ## 3. P1 清单
 
-### P1-1. facade 稳定面中的领域接口复核
+### P1-1. facade 稳定面中的领域接口复核（仍属 core 范围）
 
 候选：
 
@@ -120,8 +129,8 @@
 
 目标：
 
-- 判断是否为跨 app 能力接口
-- 否则迁回 app port/interface
+- 判断是否为跨域稳定能力接口
+- 如否，先从 core facade 稳定面移出；app 落位留到基础层收敛后再做
 
 ### P1-2. engine 中的“业务线沉淀能力”复核
 
@@ -250,13 +259,91 @@ agents/
 
 ## 6. 逐项登记模板
 
-| 文件/目录 | 分类       | 当前问题                   | 目标位置/目标语义   | 动作                           | 优先级 | 波次 |
-| --------- | ---------- | -------------------------- | ------------------- | ------------------------------ | ------ | ---- |
-| 示例      | C 业务定制 | 位于 core 但只服务单一业务 | 下沉回 app 领域目录 | move + rename + import rewrite | P1     | W18  |
+| 文件/目录 | 分类       | 当前问题                   | 目标位置/目标语义              | 动作                                        | 优先级 | 波次 |
+| --------- | ---------- | -------------------------- | ------------------------------ | ------------------------------------------- | ------ | ---- |
+| 示例      | C 业务定制 | 位于 core 但只服务单一业务 | 先从 core 波次剔除，标记待下沉 | move/remove-from-core + later app placement | P1     | W18  |
 
 ---
 
-## 7. 完成判定
+## 7. 首批整改台账
+
+下表是基于 2026-05-02 首轮审计整理出的**第一批基础层必须处理对象**。后续执行时，按波次逐项关闭，不再从零散审计笔记里回溯。
+
+| 文件/目录                                                                                           | 分类             | 当前问题                                                                                         | 目标位置/目标语义                                | 动作                                         | 优先级 | 波次 |
+| --------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ | -------------------------------------------- | ------ | ---- |
+| `backend/src/modules/ai-harness/agents/builtin-skills/skill-registry.ts`                            | D 过渡残留       | 仍承担 registry 命名与主线语义，和 engine 主注册中心并存                                         | `catalog/` 或 `source/` 语义                     | rename + API 收窄 + 调整引用                 | P0     | W20  |
+| `backend/src/modules/ai-harness/agents/builtin-skills/skill-loader.ts`                              | B 领域装配       | 当前围绕旧 registry 语义组织                                                                     | `builtin-skills/loader/`                         | move + import rewrite                        | P1     | W22  |
+| `backend/src/modules/ai-harness/agents/builtin-skills/skill-activator.ts`                           | B 领域装配       | fallback 到 engine 主 SkillRegistry，但边界仍偏过渡态                                            | `builtin-skills/activator/`                      | move + contract 对齐                         | P1     | W22  |
+| `backend/src/modules/ai-harness/agents/builtin-skills/built-in/`                                    | D 过渡残留       | `built-in` 目录表达弱，不利于区分 runtime core 与 skill packs                                    | `builtin-skills/packs/`                          | rename subtree + import rewrite              | P1     | W22  |
+| `backend/src/modules/ai-harness/agents/learning/skill-learning-coordinator.ts`                      | B 领域装配       | 仍直接面向 harness built-in registry 写入                                                        | engine 主 skill registration contract            | contract rewrite                             | P0     | W20  |
+| `backend/src/modules/ai-harness/memory/working/memory.module.ts`                                    | D 结构过渡       | `onModuleInit()` 反向注册 memory tools 到 engine ToolRegistry                                    | `tools-provider/` 或 provider contract 入口      | split responsibilities + rewire registration | P0     | W21  |
+| `backend/src/modules/ai-harness/memory/tools/`                                                      | D 结构过渡       | 长期作为反向注册入口，不是稳定 provider surface                                                  | `memory/tools-provider/` 或等价 provider subtree | move + rename + contract 对齐                | P0     | W21  |
+| `backend/src/modules/ai-harness/memory/dream/`                                                      | D 命名不规范     | `dream` 不是目标标准词                                                                           | `memory/consolidation/`                          | subtree rename                               | P0     | W21  |
+| `backend/src/modules/ai-harness/memory/auto-index/`                                                 | D 命名不规范     | `auto-index` 不是目标标准词                                                                      | `memory/indexing/`                               | subtree rename                               | P0     | W21  |
+| `backend/src/modules/ai-harness/memory/checkpoint/`                                                 | A 通用内核       | 与 `state-checkpoint/` 并存，主 contract 未统一                                                  | `checkpoint/` scoped implementation              | contract extraction + rename cleanup         | P0     | W21  |
+| `backend/src/modules/ai-harness/memory/state-checkpoint/`                                           | D 过渡残留       | mission/job checkpoint 成为第二套主语义                                                          | 合并到统一 `checkpoint/` 语义下                  | merge contract + scope-based rename          | P0     | W21  |
+| `backend/src/modules/ai-engine/facade/abstractions/research.interface.ts`                           | C 高疑似业务定制 | facade 稳定面中出现 app 领域命名                                                                 | 保留为能力导向接口，或从 core facade 稳定面移除  | review + move/rename                         | P1     | W22  |
+| `backend/src/modules/ai-engine/facade/abstractions/simulation.interface.ts`                         | C 高疑似业务定制 | facade 稳定面中出现 app 领域命名                                                                 | 保留为能力导向接口，或从 core facade 稳定面移除  | review + move/rename                         | P1     | W22  |
+| `backend/src/modules/ai-engine/content/figure/figure-extractor.service.ts`                          | C 高疑似伪通用   | 来源于 `topic-insights`，需证明已通用化                                                          | 保留在 engine，或从本波次剔除并标记待下沉        | importer audit + capability review           | P1     | W18  |
+| `backend/src/modules/ai-engine/tools/categories/processing/template-render.tool.ts`                 | C 高疑似伪通用   | 需证明其不是单业务模板渲染能力                                                                   | 保留在 engine 或下沉到 app 域                    | importer audit + capability review           | P1     | W18  |
+| `backend/src/modules/ai-harness/teams/collaboration/todo/`                                          | C 高疑似业务定制 | TODO 语义未证明是通用协作原语                                                                    | app 团队域或保留为通用协作原语                   | review + move if needed                      | P1     | W22  |
+| `backend/src/modules/ai-harness/lifecycle/manager/mission-executor.service.ts`                      | B 领域装配       | `mission-executor` 命名稳定，但需确认是否属于 lifecycle 还是 runner orchestration                | 保留在 lifecycle 或归并至 runner plan-execution  | ownership review                             | P1     | W22  |
+| `backend/src/modules/ai-harness/agents/builtin-skills/built-in/leader-mid-mission-assess/SKILL.md`  | C 玩法型 skill   | 玩法/流程色彩强，不应伪装成 runtime core                                                         | built-in skill pack                              | keep but recategorize                        | P1     | W22  |
+| `backend/src/modules/ai-harness/agents/builtin-skills/built-in/mece-mission-planning/SKILL.md`      | C 玩法型 skill   | 同上                                                                                             | built-in skill pack                              | keep but recategorize                        | P1     | W22  |
+| `backend/src/modules/ai-harness/agents/builtin-skills/built-in/multi-judge-mission-review/SKILL.md` | C 玩法型 skill   | 同上                                                                                             | built-in skill pack                              | keep but recategorize                        | P1     | W22  |
+| `backend/src/modules/ai-infra/abstractions/ai-services.interfaces.ts`                               | D 命名不规范     | 使用非标准复数后缀 `.interfaces.ts`，且位于 infra 稳定抽象面                                     | `ai-services.interface.ts` 或按职责拆分          | rename + interface surface review            | P1     | W20  |
+| `backend/src/modules/ai-infra/storage/__tests__/storage.service-supplemental.spec.ts`               | D 测试碎片       | `supplemental` 后缀不允许继续保留                                                                | 合并回主 spec 或改为 `integration`               | merge/rename                                 | P0     | W19  |
+| `backend/src/modules/ai-infra/auth/__tests__/auth.service.supplemental.spec.ts`                     | D 测试碎片       | `supplemental` 后缀不允许继续保留                                                                | 合并回主 spec 或改为 `integration`               | merge/rename                                 | P0     | W19  |
+| `backend/src/modules/ai-infra/auth/__tests__/auth.service.legacy.spec.ts`                           | D 测试碎片       | `legacy` 后缀不允许继续保留                                                                      | 合并回主 spec、删除或改为 `integration`          | merge/delete/rename                          | P0     | W19  |
+| `backend/src/modules/ai-infra/credentials/key-resolver/`                                            | A 通用内核       | 属于基础层 provider/key resolution 核心能力，需确认其 contract 不被 app 语义污染                 | 保留在 infra credentials bounded context         | contract review + exporter audit             | P1     | W20  |
+| `backend/src/modules/ai-infra/credentials/user-model-configs/`                                      | B 领域装配       | 与 engine `credentials/` 存在跨层协作边界，需确认职责切分准确                                    | 保留在 infra user-owned configuration surface    | ownership review + boundary note             | P1     | W20  |
+| `backend/src/modules/ai-infra/storage/`                                                             | A 通用内核       | 聚合过大，同时承载对象存储、空间治理、slides/session/checkpoint 清理等多职责                     | 保留在 infra，但拆分责任边界                     | split review + submodule proposal            | P1     | W21  |
+| `backend/src/modules/ai-infra/table-management/`                                                    | B 基础设施治理   | 含大量 AI/office/custom table policy 映射，需确认其仍属 infra table governance，而非业务配置汇总 | 保留在 infra table governance                    | ownership review + policy boundary audit     | P1     | W21  |
+
+### 7.1 当前不展开的 app/open-api 清单
+
+以下目录确认存在碎片测试或消费侧结构债，但**当前不作为主整改对象**。它们只在 core 归位时提供反向证据，不进入本阶段主体任务：
+
+| 目录                                         | 现状                                 | 当前策略                 |
+| -------------------------------------------- | ------------------------------------ | ------------------------ |
+| `backend/src/modules/ai-app/topic-insights/` | `supplemental` 测试最密集            | 后置到 app 波次          |
+| `backend/src/modules/ai-app/office/slides/`  | orchestrator/controller 补丁 spec 多 | 后置到 app 波次          |
+| `backend/src/modules/ai-app/social/`         | adapter / service 碎片测试多         | 后置到 app 波次          |
+| `backend/src/modules/open-api/admin/`        | controller / service 补丁 spec 多    | 后置到 app/open-api 波次 |
+
+### 7.2 基础层测试碎片首批清理目录
+
+这些目录在 W19/W22 前应优先处理，因为它们属于基础层且集中携带 `supplemental` / `extra` / `legacy` 残留：
+
+| 目录                                                    | 现状                                           | 动作                       | 波次      |
+| ------------------------------------------------------- | ---------------------------------------------- | -------------------------- | --------- |
+| `backend/src/modules/ai-harness/agents/builtin-skills/` | supplement spec 残留                           | 合并 + registry 重命名同步 | W20 / W22 |
+| `backend/src/modules/ai-harness/memory/`                | checkpoint / provider 相关测试将随目录重构移动 | 合并 + 命名收敛            | W21       |
+| `backend/src/modules/ai-infra/auth/`                    | 存在 `supplemental` / `legacy` 测试残留        | 合并 + 命名收敛            | W19       |
+| `backend/src/modules/ai-infra/storage/`                 | 存在 `supplemental` 测试残留                   | 合并 + 命名收敛            | W19       |
+
+### 7.3 目录优化优先顺序
+
+执行顺序固定如下：
+
+1. 先统一 contract，再移动目录
+2. 先完成 engine / harness / infra 的归类正确性，再处理 app 消费侧
+3. 先清理基础层测试碎片，再做 harness 命名大波次
+4. 先确认伪通用是否剔出 core，再决定是否后续下沉到 app
+5. 任何 facade 稳定面变更都必须最后做，并同步 exporter/importer
+
+### 7.4 ai-infra 当前重点
+
+`ai-infra` 本阶段不是大规模 rename 主战场，但有四类基础工作必须跟上：
+
+1. **测试碎片命名清理**
+2. **抽象面后缀规范化**
+3. **credentials 与 engine credentials 的职责边界确认**
+4. **storage / table-management 的过大聚合复核**
+
+---
+
+## 8. 完成判定
 
 以下条件全部满足，才算“扩展治理与目录优化”完成：
 
