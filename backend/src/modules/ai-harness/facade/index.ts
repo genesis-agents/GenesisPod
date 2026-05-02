@@ -95,7 +95,7 @@ export type {
 export { JudgeService } from "../governance/verify";
 export type { BuiltInVerifierId } from "../governance/verify";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
-export { FigureRelevanceService } from "../governance/figure";
+export { FigureRelevanceService } from "../evaluation/figure";
 // ★ 沉淀（2026-04-29）: Reflexion critique-refine + section-self-eval + defect-scanner
 //   v3 (同日): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 export {

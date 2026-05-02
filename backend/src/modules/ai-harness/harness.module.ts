@@ -86,7 +86,7 @@ import { ModelPricingRegistry } from "./runtime/cost/model-pricing-registry";
 import { SpanExporter } from "./governance/observability/tracer/span-exporter";
 import { JudgeService } from "./governance/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
-import { FigureRelevanceService } from "./governance/figure";
+import { FigureRelevanceService } from "./evaluation/figure";
 // ★ 沉淀（2026-04-29）: Reflexion 批评-改进闭环（来自 topic-insights, TI 暂不切换）
 //   v3 (同日): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 import {
