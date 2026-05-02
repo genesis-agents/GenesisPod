@@ -469,64 +469,192 @@ function buildToolStats(agents: AgentLiveState[]): ToolRow[] {
 
 function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
   if (rows.length === 0) return null;
+  // ★ 2026-05-02 (#9 用户实证)：工具的使用应该是矩阵表 — 加成功率 + 总调用合计行
+  const totalCalls = rows.reduce((s, r) => s + r.callCount, 0);
+  const totalErrors = rows.reduce((s, r) => s + r.errorCount, 0);
+  const overallSuccessRate =
+    totalCalls > 0 ? (1 - totalErrors / totalCalls) * 100 : 0;
   return (
     <Card className="overflow-hidden" bordered>
       <div className="border-b border-gray-100 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <Wrench className="h-4 w-4 text-emerald-500" />
-          <h3 className="text-sm font-semibold text-gray-900">工具延迟</h3>
+          <h3 className="text-sm font-semibold text-gray-900">工具调用矩阵</h3>
           <span className="text-xs text-gray-500">
-            · 共 {rows.length} 个工具
+            · 共 {rows.length} 个工具 / {totalCalls} 次调用 ·{' '}
+            <span
+              className={cn(
+                'font-medium',
+                overallSuccessRate >= 90
+                  ? 'text-emerald-600'
+                  : overallSuccessRate >= 70
+                    ? 'text-amber-600'
+                    : 'text-red-600'
+              )}
+            >
+              成功率 {overallSuccessRate.toFixed(0)}%
+            </span>
           </span>
         </div>
       </div>
       <table className="w-full text-[12px]">
         <thead className="bg-gray-50/80">
           <tr>
-            <th className="w-[40%] px-3 py-2 text-left font-medium text-gray-600">
+            <th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
               工具 ID
             </th>
-            <th className="w-[15%] px-2 py-2 text-right font-medium text-gray-600">
+            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               调用
             </th>
-            <th className="w-[15%] px-2 py-2 text-right font-medium text-gray-600">
+            <th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
               总延迟
             </th>
-            <th className="w-[15%] px-2 py-2 text-right font-medium text-gray-600">
+            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               平均
             </th>
-            <th className="w-[15%] px-2 py-2 text-right font-medium text-gray-600">
+            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               失败
+            </th>
+            <th className="w-[16%] px-2 py-2 text-right font-medium text-gray-600">
+              成功率
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map((r) => {
+            const successRate =
+              r.callCount > 0 ? (1 - r.errorCount / r.callCount) * 100 : 0;
+            return (
+              <tr key={r.toolId} className="hover:bg-emerald-50/30">
+                <td
+                  className="font-mono truncate px-3 py-2 text-[11px] text-gray-700"
+                  title={r.toolId}
+                >
+                  {r.toolId}
+                </td>
+                <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                  {r.callCount}
+                </td>
+                <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                  {fmtLatency(r.totalLatencyMs)}
+                </td>
+                <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                  {fmtLatency(r.avgLatencyMs)}
+                </td>
+                <td
+                  className={cn(
+                    'font-mono px-2 py-2 text-right tabular-nums',
+                    r.errorCount > 0
+                      ? 'font-semibold text-red-600'
+                      : 'text-gray-400'
+                  )}
+                >
+                  {r.errorCount}
+                </td>
+                <td
+                  className={cn(
+                    'font-mono px-2 py-2 text-right tabular-nums',
+                    successRate >= 90
+                      ? 'text-emerald-600'
+                      : successRate >= 70
+                        ? 'text-amber-600'
+                        : 'text-red-600'
+                  )}
+                >
+                  {successRate.toFixed(0)}%
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
+// ─── Skill 使用矩阵 (#9 用户实证) ─────────────────────────────
+interface SkillRow {
+  agentRole: string;
+  agentId: string;
+  skills: string[];
+}
+function buildSkillRows(agents: AgentLiveState[]): SkillRow[] {
+  // 从 trace 提取 skillId 类的 action（toolId 以 'skill' 开头 或匹配已知 skill 命名）
+  const KNOWN_SKILL_PATTERNS =
+    /^(dimension-|web-research|chapter-|dim-|m\d+-|leader-|critic-|writer-|reviewer-|reflexion|react-|skill:)/i;
+  const result: SkillRow[] = [];
+  for (const a of agents) {
+    const skills = new Set<string>();
+    for (const t of a.trace) {
+      if (t.kind !== 'action' || !t.toolId) continue;
+      // skill 识别：toolId 满足 KNOWN_SKILL_PATTERNS
+      if (KNOWN_SKILL_PATTERNS.test(t.toolId)) {
+        skills.add(t.toolId);
+      }
+    }
+    if (skills.size > 0) {
+      result.push({
+        agentRole: a.role,
+        agentId: a.agentId,
+        skills: Array.from(skills),
+      });
+    }
+  }
+  return result;
+}
+
+function SkillUsageTable({ agents }: { agents: AgentLiveState[] }) {
+  const rows = buildSkillRows(agents);
+  if (rows.length === 0) return null;
+  const totalSkillsApplied = rows.reduce((s, r) => s + r.skills.length, 0);
+  return (
+    <Card className="overflow-hidden" bordered>
+      <div className="border-b border-gray-100 px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <Wrench className="h-4 w-4 text-violet-500" />
+          <h3 className="text-sm font-semibold text-gray-900">技能使用矩阵</h3>
+          <span className="text-xs text-gray-500">
+            · 共 {rows.length} 个 agent · {totalSkillsApplied} 次技能调用
+          </span>
+        </div>
+      </div>
+      <table className="w-full text-[12px]">
+        <thead className="bg-gray-50/80">
+          <tr>
+            <th className="w-[20%] px-3 py-2 text-left font-medium text-gray-600">
+              Agent 角色
+            </th>
+            <th className="w-[25%] px-2 py-2 text-left font-medium text-gray-600">
+              Agent ID
+            </th>
+            <th className="w-[55%] px-2 py-2 text-left font-medium text-gray-600">
+              已应用技能
             </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {rows.map((r) => (
-            <tr key={r.toolId} className="hover:bg-emerald-50/30">
-              <td
-                className="font-mono truncate px-3 py-2 text-[11px] text-gray-700"
-                title={r.toolId}
-              >
-                {r.toolId}
-              </td>
-              <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
-                {r.callCount}
-              </td>
-              <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
-                {fmtLatency(r.totalLatencyMs)}
-              </td>
-              <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
-                {fmtLatency(r.avgLatencyMs)}
+            <tr key={r.agentId} className="hover:bg-violet-50/30">
+              <td className="px-3 py-2 text-[11px] text-gray-700">
+                {r.agentRole}
               </td>
               <td
-                className={cn(
-                  'font-mono px-2 py-2 text-right tabular-nums',
-                  r.errorCount > 0
-                    ? 'font-semibold text-red-600'
-                    : 'text-gray-400'
-                )}
+                className="font-mono truncate px-2 py-2 text-[11px] text-gray-700"
+                title={r.agentId}
               >
-                {r.errorCount}
+                {r.agentId}
+              </td>
+              <td className="px-2 py-2 text-[11px] text-gray-700">
+                <div className="flex flex-wrap gap-1">
+                  {r.skills.map((s) => (
+                    <span
+                      key={s}
+                      className="font-mono rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
               </td>
             </tr>
           ))}
@@ -679,6 +807,7 @@ export function ComputeUsagePanel({
       </div>
       <AgentInstanceTable agents={agents} />
       <ToolLatencyTable rows={toolRows} />
+      <SkillUsageTable agents={agents} />
       <WasteAnalysis
         agents={agents}
         todos={todos}
