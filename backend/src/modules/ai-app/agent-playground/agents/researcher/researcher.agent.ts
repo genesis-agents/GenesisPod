@@ -110,13 +110,27 @@ const Output = z.object({
   // category 下所有 enabled 工具。Leader 给 dim 提供 toolHint 时进一步收窄。
   // 工具 CRUD 自动跟进，无需改 spec。
   toolCategories: ["information"],
-  // ★ rag-search 必入白名单（2026-05-01 fix）：
+  // ★ rag-search + 学术四件套必入白名单（2026-05-01 fix）：
   //   performToolRecall Step 2 路径 B 用 tool.tags 做 sub-category 匹配，
-  //   Leader hint.categories 给 ['academic'/'community'/...] 时 rag-search 的
-  //   tags=['knowledge','rag','vector','internal','embedding'] 不交集 → 被排除。
-  //   显式列在 tools 里，Step 2 路径 B 的 `for (const id of declaredIds) refined.add(id)`
-  //   会保底加回，hint 收窄不会再踢它。
-  tools: ["rag-search"],
+  //   Leader hint.categories 偏 ['web','policy','community'] 时（实际 prod 7 天
+  //   332 次 mission 全无 academic）academic 工具 tags=['academic','research',...]
+  //   不与 hint 交集 → 全部被排除。declaredIds 在路径 B 末尾保底加回，所以
+  //   显式列在 tools 里：academic 工具在所有 dim 都可见（不依赖 Leader hint），
+  //   rag-search 同理（tags=['knowledge','rag',...] 也不与 academic hint 交集）。
+  //   prod 实证：过去 7 天 playground 0 次调 OpenAlex/Semantic Scholar/PubMed，
+  //   只 14 次 ArXiv（且全失败 timeout/429）。
+  // ★ 2026-05-01 工具矩阵对齐 TI（Topic-Insights 已验证好用的数据源）：
+  //   academic 4 件套 + social-x 全部进 declaredIds 永远兜底，与 Leader hint
+  //   解耦。tool id 必须与 DB tool_configs.tool_id 完全一致（pubmed 不带 -search
+  //   后缀，是历史命名）。
+  tools: [
+    "rag-search",
+    "arxiv-search",
+    "openalex-search",
+    "semantic-scholar",
+    "pubmed",
+    "social-x",
+  ],
   // PR-X-skill-bridge: dimension-research 协议 + web-research 工具使用规范
   skills: ["dimension-research", "web-research"],
   taskProfile: {

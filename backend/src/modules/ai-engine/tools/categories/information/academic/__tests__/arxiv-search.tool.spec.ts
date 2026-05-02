@@ -190,7 +190,7 @@ describe("ArxivSearchTool", () => {
       );
 
       expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
-        "http://export.arxiv.org/api/query",
+        "https://export.arxiv.org/api/query",
         expect.objectContaining({
           search_query: "neural networks AND cat:cs.AI",
         }),

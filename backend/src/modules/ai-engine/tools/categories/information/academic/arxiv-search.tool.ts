@@ -207,7 +207,9 @@ export class ArxivSearchTool extends BaseTool<
       }
 
       // 构建 API URL 和参数
-      const baseUrl = "http://export.arxiv.org/api/query";
+      // ★ 2026-05-01 (prod 实证 timeout 30000ms exceeded)：plain HTTP 在 Railway 出站偶发
+      //   慢/被卡，arXiv 早就支持 HTTPS。改 https 触发 conn keep-alive + TLS 优化。
+      const baseUrl = "https://export.arxiv.org/api/query";
       const params: Record<string, string | number> = {
         search_query: searchQuery,
         max_results: Math.min(maxResults, 100),
@@ -223,7 +225,14 @@ export class ArxivSearchTool extends BaseTool<
       let xmlData: string | undefined;
       let lastError: Error | undefined;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        await this.acquireSlot();
+        const acquired = await this.acquireSlot();
+        if (!acquired) {
+          // 上层 timeout 25s 内拿不到槽位 → 快速失败而不是僵在队列被 axios 30s 砍
+          lastError = new Error(
+            "ArXiv 上游限速冷却中，本次请求未获得调度槽位（global cooldown 排队过长）",
+          );
+          break;
+        }
         try {
           xmlData = await this.policyDataService.httpGet<string>(
             baseUrl,
@@ -236,8 +245,9 @@ export class ArxivSearchTool extends BaseTool<
           lastError = err instanceof Error ? err : new Error(String(err));
           const is429 = lastError.message.includes("429");
           if (is429 && attempt < maxRetries) {
-            const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
-            // 设置全局冷却：所有排队的请求也必须等到冷却结束
+            // ★ 2026-05-01 实证：旧 backoff 2s/4s/8s 累计 ≥ axios 30s timeout，
+            //   排队请求几乎必死。压缩到 1s/2s/4s 共 7s 让单次 attempt 链 < 25s。
+            const backoff = Math.pow(2, attempt) * 1000;
             ArxivSearchTool.cooldownUntil = Date.now() + backoff;
             this.logger.warn(
               `[doExecute] ArXiv 429 rate limited, retry ${attempt + 1}/${maxRetries} after ${backoff}ms (global cooldown set)`,
@@ -246,10 +256,10 @@ export class ArxivSearchTool extends BaseTool<
             continue;
           }
           if (is429) {
-            // 3 次 retry 全部失败，设置 30s 长冷却让后续请求有恢复窗口
-            ArxivSearchTool.cooldownUntil = Date.now() + 30_000;
+            // 3 次 retry 全部失败，长冷却 10s（之前 30s 直接超过 axios timeout）
+            ArxivSearchTool.cooldownUntil = Date.now() + 10_000;
             this.logger.warn(
-              `[doExecute] ArXiv 429 exhausted all retries, setting 30s global cooldown for subsequent requests`,
+              `[doExecute] ArXiv 429 exhausted retries, setting 10s global cooldown`,
             );
           }
           throw err;
@@ -354,37 +364,59 @@ export class ArxivSearchTool extends BaseTool<
   }
 
   /**
-   * 获取并发槽位，等待全局冷却 + 最小请求间隔
-   * 其他请求在冷却期间会暂停排队等待，不会放弃
+   * 获取并发槽位，等待全局冷却 + 最小请求间隔。
+   *
+   * ★ 2026-05-01 (prod 实证)：之前冷却最长 30s + 上层 axios 30s timeout，排队请求
+   *   常被 axios 超时砍。返回 false 时调用方应快速失败（不等满 30s 又抢不到）。
+   *   增加 maxWaitMs 上限，防请求在槽位 / 冷却 / 间隔三段加起来超过单次 timeout。
    */
-  private async acquireSlot(): Promise<void> {
+  private async acquireSlot(maxWaitMs: number = 25_000): Promise<boolean> {
+    const deadline = Date.now() + maxWaitMs;
     // 等待并发槽位
     while (ArxivSearchTool.activeRequests >= ArxivSearchTool.MAX_CONCURRENT) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return false;
       await new Promise<void>((resolve) => {
-        ArxivSearchTool.requestQueue.push(resolve);
+        const t = setTimeout(resolve, remaining);
+        ArxivSearchTool.requestQueue.push(() => {
+          clearTimeout(t);
+          resolve();
+        });
       });
     }
     ArxivSearchTool.activeRequests++;
 
-    // 等待全局 429 冷却结束（其他请求排队等待，不放弃）
+    // 等待全局 429 冷却结束 — 但不能超过 deadline
     const cooldownRemaining = ArxivSearchTool.cooldownUntil - Date.now();
     if (cooldownRemaining > 0) {
+      const wait = Math.min(cooldownRemaining, deadline - Date.now());
+      if (wait <= 0) {
+        this.releaseSlot();
+        return false;
+      }
       this.logger.debug(
-        `[acquireSlot] Waiting ${cooldownRemaining}ms for global 429 cooldown`,
+        `[acquireSlot] Waiting ${wait}ms for global 429 cooldown (deadline-bounded)`,
       );
-      await new Promise((resolve) => setTimeout(resolve, cooldownRemaining));
+      await new Promise((resolve) => setTimeout(resolve, wait));
     }
 
     // 强制最小请求间隔
     const now = Date.now();
     const timeSinceLastRequest = now - ArxivSearchTool.lastRequestTime;
     if (timeSinceLastRequest < ArxivSearchTool.MIN_REQUEST_INTERVAL) {
-      const waitTime =
-        ArxivSearchTool.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      const waitTime = Math.min(
+        ArxivSearchTool.MIN_REQUEST_INTERVAL - timeSinceLastRequest,
+        deadline - Date.now(),
+      );
+      if (waitTime <= 0) {
+        this.releaseSlot();
+        return false;
+      }
       this.logger.debug(`[acquireSlot] Waiting ${waitTime}ms for rate limit`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
     ArxivSearchTool.lastRequestTime = Date.now();
+    return true;
   }
 
   /**
