@@ -20,7 +20,7 @@ import { CacheService } from "../../../common/cache/cache.service";
 import {
   type IAiObservability,
   AI_OBSERVABILITY_TOKEN,
-} from "../abstractions/ai-services.interfaces";
+} from "../abstractions/ai-services.interface";
 import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**

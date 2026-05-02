@@ -5,8 +5,8 @@ import {
   CreditsController,
   AdminCreditsController,
 } from "./credits.controller";
-import { CreditRulesService } from "./services/credit-rules.service";
-import { CheckinService } from "./services/checkin.service";
+import { CreditRulesService } from "./policy/credit-rules.service";
+import { CheckinService } from "./rewards/checkin.service";
 
 /**
  * 积分模块

@@ -22,16 +22,16 @@
 
 ---
 
-## 二、ai-engine 顶层（10 个聚合，业界标准词）
+## 二、ai-engine 顶层（9 个聚合，业界标准词）
 
 ```
 agents 域之外的"原子能力"，全部放 engine：
-llm · tools · rag · knowledge · skills · planning · safety · content · credentials · facade
+llm · tools · rag · knowledge · skills · planning · safety · content · facade
 ```
 
 | 聚合            | 职责                                         | 关键边界                                                      |
 | --------------- | -------------------------------------------- | ------------------------------------------------------------- |
-| **llm**         | LLM 调用 + 模型适配 + 路由 + 定价 + 意图识别 | 无 agent 状态；含 model pricing                               |
+| **llm**         | LLM 调用 + 模型适配 + 路由 + 定价 + user-config + key-health + 意图识别 | 无 agent 状态；含 model pricing                               |
 | **tools**       | 工具目录 + 单次执行 + 来源适配（含 MCP）     | **项目唯一的 tools/**；含 mcp/openapi/function adapter        |
 | **rag**         | 检索增强生成基元                             | embedding / vector / chunker / retriever / reranker           |
 | **knowledge**   | 知识抽取                                     | fact / entity / relation / context-evolution / world-building |
@@ -39,7 +39,6 @@ llm · tools · rag · knowledge · skills · planning · safety · content · c
 | **planning**    | 任务分解（不含 agent loop）                  | task-planner / decomposer                                     |
 | **safety**      | 输入输出安全                                 | pii / moderation / injection                                  |
 | **content**     | 内容处理基元                                 | fetch / cleaner / markdown                                    |
-| **credentials** | 凭证 / BYOK                                  | user-config / secret-resolver                                 |
 | **facade**      | engine 对外门面                              | 仅 re-export，无业务逻辑                                      |
 
 ---

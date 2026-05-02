@@ -32,7 +32,7 @@ import { NotificationModule } from "./modules/ai-infra/notifications/notificatio
 import { ReleaseModule } from "./modules/ai-infra/release/release.module";
 import { SettingsModule } from "./modules/ai-infra/settings/settings.module";
 import { StorageModule } from "./modules/ai-infra/storage/storage.module";
-import { TableManagementModule } from "./modules/ai-infra/table-management/table-management.module";
+import { DbGovernanceModule } from "./modules/ai-infra/db-governance/db-governance.module";
 import { CreditsModule } from "./modules/ai-infra/credits/credits.module";
 import { EncryptionModule } from "./modules/ai-infra/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/ai-infra/credentials/user-api-keys/user-api-keys.module";
@@ -109,7 +109,7 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
 import {
   AI_CHAT_TOKEN,
   AI_OBSERVABILITY_TOKEN,
-} from "./modules/ai-infra/abstractions/ai-services.interfaces";
+} from "./modules/ai-infra/abstractions/ai-services.interface";
 import { ChatFacade } from "./modules/ai-harness/facade";
 import { AiObservabilityService } from "./modules/ai-harness/facade";
 
@@ -169,7 +169,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     ReleaseModule,
     SettingsModule,
     StorageModule,
-    TableManagementModule,
+    DbGovernanceModule,
     CreditsModule,
     EncryptionModule, // 全局加密服务（必须先于依赖它的模块注册）
     UserApiKeysModule,

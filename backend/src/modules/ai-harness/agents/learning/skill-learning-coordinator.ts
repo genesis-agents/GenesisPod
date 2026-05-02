@@ -23,7 +23,7 @@ import {
   type LearnFromTraceOptions,
   type SkillCandidate,
 } from "./skill-learner";
-import { BuiltInReActSkillRegistry } from "../builtin-skills/skill-registry";
+import { BuiltinSkillCatalog } from "../builtin-skills/skill-registry";
 import {
   parseSkillMarkdown,
   SkillParseError,
@@ -84,7 +84,7 @@ export class SkillLearningCoordinator {
 
   constructor(
     private readonly learner: SkillLearner,
-    private readonly registry: BuiltInReActSkillRegistry,
+    private readonly registry: BuiltinSkillCatalog,
     @Optional() private readonly judge?: JudgeService,
   ) {}
 

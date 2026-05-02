@@ -20,11 +20,11 @@
  * 本模块是 @Global()，所有其他模块无需显式 import 即可注入这些 service。
  *
  * 历史：2026-04-30 把 ai-engine/knowledge/memory/{coordinator,stores,abstractions}
- * 整体迁入 ai-harness/memory/，与 working/vector/checkpoint/auto-index 平级，
+ * 整体迁入 ai-harness/memory/，与 working/vector/checkpoint/indexing 平级，
  * 解决 memory 错位嵌在 knowledge 子模块下的架构债（参见 audit P1）。
  */
 
-import { Global, Module, OnModuleInit, Logger } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 
 // Working
@@ -42,11 +42,11 @@ import { MemoryCoordinatorService } from "../coordinator/memory-coordinator.serv
 // Tools (迁自 ai-engine/tools/categories/memory，因 ESLint 单向依赖规则)
 import { ShortTermMemoryTool } from "../tools/short-term-memory.tool";
 import { LongTermMemoryTool } from "../tools/long-term-memory.tool";
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import { MemoryToolProviderService } from "../tools/memory-tool-provider.service";
 
 // Dream (2026-04-30 C2-step1: 从 ai-engine/planning/services/ 搬来 — 后台 memory 整合)
-import { AutoDreamService } from "../dream/auto-dream.service";
-import { AutoDreamSchedulerService } from "../dream/auto-dream-scheduler.service";
+import { AutoDreamService } from "../consolidation/memory-consolidation.service";
+import { AutoDreamSchedulerService } from "../consolidation/memory-consolidation-scheduler.service";
 
 const inMemoryStoreFactory = {
   provide: InMemoryStore,
@@ -74,6 +74,7 @@ const HARNESS_MEMORY_PROVIDERS = [
   // Tools (迁自 ai-engine/tools/categories/memory)
   ShortTermMemoryTool,
   LongTermMemoryTool,
+  MemoryToolProviderService,
   // Dream (2026-04-30 C2-step1)
   AutoDreamService,
   AutoDreamSchedulerService,
@@ -99,22 +100,4 @@ const HARNESS_MEMORY_EXPORTS = [
   providers: HARNESS_MEMORY_PROVIDERS,
   exports: HARNESS_MEMORY_EXPORTS,
 })
-export class RuntimeMemoryModule implements OnModuleInit {
-  private readonly logger = new Logger(RuntimeMemoryModule.name);
-
-  constructor(
-    private readonly toolRegistry: ToolRegistry,
-    private readonly shortTermMemoryTool: ShortTermMemoryTool,
-    private readonly longTermMemoryTool: LongTermMemoryTool,
-  ) {}
-
-  onModuleInit() {
-    // ★ 把迁自 ai-engine/tools 的 2 个 memory tool 注册到全局 ToolRegistry，
-    // 让它们与 engine 注册的 44 个 tool 一起被 agent 调用方发现。
-    this.toolRegistry.register(this.shortTermMemoryTool);
-    this.toolRegistry.register(this.longTermMemoryTool);
-    this.logger.log(
-      `[RuntimeMemoryModule] Registered 2 harness-side memory tools: short-term-memory, long-term-memory`,
-    );
-  }
-}
+export class RuntimeMemoryModule {}

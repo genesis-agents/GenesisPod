@@ -2,7 +2,7 @@
  * MemoryBridge 单元测试（Phase 2）
  */
 
-import { MemoryBridge } from "../auto-index/memory-bridge.service";
+import { MemoryBridge } from "../indexing/memory-bridge.service";
 import { ContextEnvelope } from "../../agents/core/context-envelope";
 
 function makeEnvelope(userId?: string): ContextEnvelope {

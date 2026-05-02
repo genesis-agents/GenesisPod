@@ -15,14 +15,14 @@ import { PlanActLoop } from "../runner/loop/plan-act-loop";
 import { ReflexionLoop } from "../runner/loop/reflexion-loop";
 import { LoopRegistry } from "../runner/loop/loop-registry";
 import { ToolInvoker } from "../runner/tool-invoker/tool-invoker";
-import { BuiltInReActSkillRegistry } from "../agents/builtin-skills/skill-registry";
+import { BuiltinSkillCatalog } from "../agents/builtin-skills/skill-registry";
 import { SkillActivator } from "../agents/builtin-skills/skill-activator";
 import { SkillLoader } from "../agents/builtin-skills/skill-loader";
 import { SubagentSpawner } from "../agents/subagents/subagent-spawner";
 import { ContextManager } from "../runner/context/context-manager";
 import { ContextCompactor } from "../runner/context/context-compactor";
 import { PriorityPruner } from "../runner/context/priority-pruner";
-import { MemoryBridge } from "../memory/auto-index/memory-bridge.service";
+import { MemoryBridge } from "../memory/indexing/memory-bridge.service";
 import { CheckpointService } from "../memory/checkpoint/checkpoint.service";
 import { InMemoryCheckpointStore } from "../memory/checkpoint/in-memory-checkpoint-store";
 import { SkillLearner } from "../agents/learning/skill-learner";
@@ -61,7 +61,7 @@ describe("HarnessModule (NestJS DI integration)", () => {
         ReflexionLoop,
         LoopRegistry,
         MemoryBridge,
-        BuiltInReActSkillRegistry,
+        BuiltinSkillCatalog,
         SkillLoader,
         SkillActivator,
         SubagentSpawner,

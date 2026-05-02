@@ -5,7 +5,8 @@
 > 上层 (L2.5 ai-harness) 编排这些原子能力组装出 agent 运行时。
 >
 > **依赖方向**：ai-engine → ai-infra（L1）。**禁止反向 import** ai-harness / ai-app / open-api。
-> 唯一例外：`skills/runtime/engine-skill-provider.ts` 实现 harness `ISkillProvider`
+> 运行时需要 harness chat 能力的服务统一通过 `CHAT_PROVIDER_PORT` 注入，不允许直接 import `ChatFacade`。
+> 目前唯一保留的直接 harness import 是 `skills/runtime/engine-skill-provider.ts`，它是 engine → harness 的窄口 provider adapter。
 > 端口（Dependency Inversion 模式 — adapter 必然 import 它实现的端口接口）。
 
 ## 目录结构
@@ -26,8 +27,10 @@ ai-engine/
 │   ├── pricing/
 │   ├── prompt-adaptation/
 │   ├── prompts/
+│   ├── key-health/
 │   ├── selection/
 │   ├── services/
+│   ├── user-config/
 │   └── types/
 │
 ├── tools/                         ★ 工具目录、执行与 source adapters
@@ -82,10 +85,6 @@ ai-engine/
 │   ├── report-template/
 │   └── types/
 │
-├── credentials/                   ★ 用户配置与密钥解析
-│   ├── secret-resolver/
-│   └── user-config/
-│
 └── skills/                        ★ Skill 定义、注册与运行时桥接
     ├── skills.module.ts
     ├── abstractions/
@@ -108,7 +107,7 @@ ai-engine/
 2. **0 反向依赖**：通过 verify:arch + ESLint no-restricted-imports 双重看护。
 3. **facade 为唯一公共入口**：ai-app / ai-harness 必须从 `@/modules/ai-engine/facade` import。
 4. **TaskProfile 优先**：所有 LLM 调用走 `aiChatService.chat({ taskProfile, modelType })`，禁止硬编码 modelId / temperature / maxTokens（CLAUDE.md 红线）。
-5. **顶层只保留 10 个规范聚合**：`llm/tools/rag/knowledge/skills/planning/safety/content/credentials/facade`。
+5. **顶层只保留 9 个规范聚合**：`llm/tools/rag/knowledge/skills/planning/safety/content/facade`。
 6. **NestJS module 按子目录就近**：每个能力子域有自己的 `*.module.ts`，集中在 `ai-engine.module.ts` 聚合。
 
 ## 与 L2.5 ai-harness 的边界
@@ -133,6 +132,7 @@ ai-engine/
 
 - 早期 `modules/ai-kernel/`（已删，PR-7）：第一代 agent 运行时尝试，能力混进 engine
 - `modules/ai-engine/runtime/`（已迁出，PR-X4 ~ PR-X10）：所有 agent 运行时下沉到 ai-harness
-- 2026-05-02（W17）：顶层 `core/` 与 `abstractions/` 解散，补齐 `rag/`、`planning/`、`credentials/`
+- 2026-05-02（W17）：顶层 `core/` 与 `abstractions/` 解散，补齐 `rag/`、`planning/`
+- 2026-05-02（W20）：撤销 engine 顶层 `credentials/`，并回 `llm/user-config` 与 `llm/key-health`
 - 2026-05-01 (PR-X-Q ~ PR-X-U)：内部颗粒度统一 + 子 module 收到子目录
 - 当前架构合规度 **9.85/10**（详见 [CLAUDE.md L4→L3→L2.5→L2→L1 规则](../../../.claude/CLAUDE.md)）

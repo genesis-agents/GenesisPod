@@ -4,11 +4,11 @@
  * 在隔离环境中测试 Skill，不影响生产指标。
  */
 
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Logger, Inject } from "@nestjs/common";
 import { SkillRegistry } from "../registry/skill-registry";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../content/skill-content.service";
-import type { IChatProvider } from "../../facade";
+import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
 import { PromptSkillAdapter } from "../runtime/prompt-skill-adapter";
 import { parseSkillMd } from "../loader/skill-parser";
 
@@ -51,10 +51,7 @@ export class SkillSandboxService {
     private readonly skillRegistry: SkillRegistry,
     private readonly promptBuilder: SkillPromptBuilder,
     private readonly skillContentService: SkillContentService,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-member-access
-    @Inject(
-      forwardRef(() => (require("../../../ai-harness/facade/domain/chat.facade") as { ChatFacade: unknown }).ChatFacade),
-    )
+    @Inject(CHAT_PROVIDER_PORT)
     private readonly facade: IChatProvider,
   ) {}
 

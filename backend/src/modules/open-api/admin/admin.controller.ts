@@ -21,8 +21,8 @@ import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { CreateUserDto } from "./dto/create-user.dto";
-import { StorageInventoryService } from "../../ai-infra/storage/storage-inventory.service";
-import { StorageOffloadService } from "../../ai-infra/storage/storage-offload.service";
+import { StorageInventoryService } from "../../ai-infra/storage/governance/storage-inventory.service";
+import { StorageOffloadService } from "../../ai-infra/storage/governance/storage-offload.service";
 import { SystemModelInventoryService } from "../../ai-engine/llm/services/system-model-inventory.service";
 
 /**
@@ -2375,3 +2375,4 @@ export class AdminController {
     );
   }
 }
+

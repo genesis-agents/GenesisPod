@@ -1,8 +1,8 @@
 /**
- * BuiltInReActSkillRegistry — extra branch coverage for describeForLLM + recommend
+ * BuiltinSkillCatalog — extra branch coverage for describeForLLM + recommend
  */
 
-import { BuiltInReActSkillRegistry } from "../skill-registry";
+import { BuiltinSkillCatalog } from "../skill-registry";
 import type { ISkill } from "../../abstractions";
 
 function makeSkill(
@@ -17,14 +17,14 @@ function makeSkill(
   };
 }
 
-describe("BuiltInReActSkillRegistry — describeForLLM", () => {
+describe("BuiltinSkillCatalog — describeForLLM", () => {
   it("returns no-skills message when registry is empty", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     expect(reg.describeForLLM()).toBe("(no skills available)");
   });
 
   it("returns no-skills when roleId filter matches nothing", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("s1", "desc", [], ["writer"]));
     expect(reg.describeForLLM({ roleId: "researcher" })).toBe(
       "(no skills available)",
@@ -32,7 +32,7 @@ describe("BuiltInReActSkillRegistry — describeForLLM", () => {
   });
 
   it("returns no-skills when tag filter matches nothing", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("s1", "desc", ["web"], []));
     expect(reg.describeForLLM({ tag: "citations" })).toBe(
       "(no skills available)",
@@ -40,7 +40,7 @@ describe("BuiltInReActSkillRegistry — describeForLLM", () => {
   });
 
   it("lists all skills with name and description when no filter", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("web-search", "search the web"));
     reg.register(makeSkill("summarize", "summarize text"));
     const txt = reg.describeForLLM();
@@ -50,21 +50,21 @@ describe("BuiltInReActSkillRegistry — describeForLLM", () => {
   });
 
   it("includes tags in brackets when present", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("s1", "desc", ["web", "research"]));
     const txt = reg.describeForLLM();
     expect(txt).toContain("[web, research]");
   });
 
   it("does not include tags section when tags is empty", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("s1", "desc", []));
     const txt = reg.describeForLLM();
     expect(txt).not.toContain("[");
   });
 
   it("filters by roleId correctly", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("r-skill", "r desc", [], ["researcher"]));
     reg.register(makeSkill("w-skill", "w desc", [], ["writer"]));
     const txt = reg.describeForLLM({ roleId: "researcher" });
@@ -73,7 +73,7 @@ describe("BuiltInReActSkillRegistry — describeForLLM", () => {
   });
 
   it("filters by tag correctly", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("s1", "d", ["citations"], []));
     reg.register(makeSkill("s2", "d", ["web"], []));
     const txt = reg.describeForLLM({ tag: "citations" });
@@ -82,7 +82,7 @@ describe("BuiltInReActSkillRegistry — describeForLLM", () => {
   });
 
   it("applies both roleId and tag filters (AND)", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("match", "d", ["web"], ["researcher"]));
     reg.register(makeSkill("no-role", "d", ["web"], ["writer"]));
     reg.register(makeSkill("no-tag", "d", ["other"], ["researcher"]));
@@ -93,14 +93,14 @@ describe("BuiltInReActSkillRegistry — describeForLLM", () => {
   });
 });
 
-describe("BuiltInReActSkillRegistry — recommend", () => {
+describe("BuiltinSkillCatalog — recommend", () => {
   it("returns empty when no skills registered", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     expect(reg.recommend("web search")).toHaveLength(0);
   });
 
   it("returns skills matching query keywords", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("web-search", "search the web internet", ["web"]));
     reg.register(makeSkill("text-analyze", "analyze text documents"));
     const results = reg.recommend("web internet");
@@ -108,14 +108,14 @@ describe("BuiltInReActSkillRegistry — recommend", () => {
   });
 
   it("does not return skills with no keyword overlap", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("unrelated", "something completely different"));
     const results = reg.recommend("quantum physics");
     expect(results).toHaveLength(0);
   });
 
   it("returns at most k results", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     for (let i = 0; i < 10; i++) {
       reg.register(makeSkill(`skill-${i}`, "research data analysis"));
     }
@@ -124,7 +124,7 @@ describe("BuiltInReActSkillRegistry — recommend", () => {
   });
 
   it("ignores short words (length <= 2) in query", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("s1", "web search"));
     // Query only has words of length <= 2 — no matches
     const results = reg.recommend("a b c");
@@ -132,7 +132,7 @@ describe("BuiltInReActSkillRegistry — recommend", () => {
   });
 
   it("sorts by relevance score descending", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     reg.register(makeSkill("high", "web search research analysis overview"));
     reg.register(makeSkill("low", "web documents"));
     const results = reg.recommend("web search research analysis");
@@ -140,7 +140,7 @@ describe("BuiltInReActSkillRegistry — recommend", () => {
   });
 
   it("uses default k=3", () => {
-    const reg = new BuiltInReActSkillRegistry();
+    const reg = new BuiltinSkillCatalog();
     for (let i = 0; i < 5; i++) {
       reg.register(
         makeSkill(`skill-${i}`, "research analysis web search data"),

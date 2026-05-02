@@ -5,7 +5,7 @@ import { ResourcesService } from "../resources.service";
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
 import { DynamicThumbnailService } from "../dynamic-thumbnail.service";
-import { R2StorageService } from "../../../../ai-infra/storage/r2-storage.service";
+import { R2StorageService } from "../../../../ai-infra/storage/runtime/r2-storage.service";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 // Guard mock – allow all requests through in tests
@@ -593,3 +593,4 @@ describe("ResourcesController", () => {
     });
   });
 });
+

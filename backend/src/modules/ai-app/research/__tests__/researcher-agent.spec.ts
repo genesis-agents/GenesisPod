@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResearcherAgent, ResearchTaskType } from "../agents/researcher.agent";
-import { RESEARCH_SERVICE_TOKEN } from "@/modules/ai-harness/facade";
+import { RESEARCH_SERVICE_TOKEN } from "../ports/research-service.port";
 
 jest.mock("../../../ai-harness/agents/base/plan-based-agent", () => {
   class MockPlanBasedAgent {

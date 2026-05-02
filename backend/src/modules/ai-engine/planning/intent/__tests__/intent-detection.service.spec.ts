@@ -4,7 +4,7 @@ import {
   UserIntent,
   ContextStrategy,
   IntentDetectionConfig,
-} from "../../../../ai-harness/runner/executor/interfaces";
+} from "../../intent.types";
 
 // ─── Notes on START_NEW_SESSION detection logic ──────────────────────────────
 //

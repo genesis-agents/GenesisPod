@@ -25,7 +25,7 @@ import { AiApiCallerService } from "../ai-api-caller.service";
 import { AiStreamHandlerService } from "../ai-stream-handler.service";
 import { AIMetricsService } from "@/modules/ai-infra/monitoring";
 import { GuardrailsPipelineService } from "../../../safety/guardrails/guardrails-pipeline.service";
-import { CircuitBreakerService } from "../../../../ai-harness/facade";
+import { CircuitBreakerService } from "../../../safety/resilience/circuit-breaker.service";
 import { AiConnectionTestService } from "../ai-connection-test.service";
 import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";

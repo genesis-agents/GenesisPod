@@ -22,7 +22,7 @@ import type {
 } from "../abstractions";
 import { SKILL_PROVIDERS } from "../abstractions";
 import { ContextEnvelope } from "../core/context-envelope";
-import { BuiltInReActSkillRegistry } from "./skill-registry";
+import { BuiltinSkillCatalog } from "./skill-registry";
 import { HookRegistry } from "../core/hook-registry";
 
 export interface SkillActivationResult {
@@ -39,7 +39,7 @@ export class SkillActivator {
   private readonly providers: readonly ISkillProvider[];
 
   constructor(
-    private readonly registry: BuiltInReActSkillRegistry,
+    private readonly registry: BuiltinSkillCatalog,
     private readonly hooks: HookRegistry,
     /**
      * 2026-05-01: 二级 skill 源（ai-engine DB-backed SkillRegistry / 远端 marketplace

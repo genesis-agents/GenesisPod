@@ -20,11 +20,10 @@ import {
   Injectable,
   Logger,
   Inject,
-  forwardRef,
   InternalServerErrorException,
 } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import type { IChatProvider } from "../../facade";
+import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
 
 // ==================== 类型定义 ====================
 
@@ -132,20 +131,7 @@ export class ReflectionService {
   private readonly logger = new Logger(ReflectionService.name);
 
   constructor(
-    @Inject(
-      // forwardRef breaks the circular import: ReflectionService ↔ ChatFacade.
-      // ChatFacade is injected at runtime by HarnessModule; we use IChatProvider type
-      // to avoid a direct import of ChatFacade from ai-harness in ai-engine.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-member-access
-      forwardRef(
-        () =>
-          (
-            require("../../../ai-harness/facade/domain/chat.facade") as {
-              ChatFacade: unknown;
-            }
-          ).ChatFacade,
-      ),
-    )
+    @Inject(CHAT_PROVIDER_PORT)
     private readonly aiFacade: IChatProvider,
   ) {}
 

@@ -7,12 +7,12 @@
  * - SkillsMP 安装的 skills 通过此桥接自动进入执行管线
  */
 
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Logger, Inject } from "@nestjs/common";
 import { SkillRegistry } from "../registry/skill-registry";
 import { SkillLoaderService } from "../loader/skill-loader.service";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../content/skill-content.service";
-import type { IChatProvider } from "../../facade";
+import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
 import { SkillMdDefinition } from "../types/skill-md.types";
 import {
   PromptSkillAdapter,
@@ -40,13 +40,7 @@ export class PromptSkillBridge {
     private readonly promptBuilder: SkillPromptBuilder,
     private readonly prisma: PrismaService,
     private readonly skillContentService: SkillContentService,
-    // forwardRef breaks the circular import: PromptSkillBridge ↔ ChatFacade.
-    // ChatFacade is injected at runtime by HarnessModule; IChatProvider type avoids
-    // a direct ai-engine → ai-harness type import.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-var-requires,@typescript-eslint/no-unsafe-member-access
-    @Inject(
-      forwardRef(() => (require("../../../ai-harness/facade/domain/chat.facade") as { ChatFacade: unknown }).ChatFacade),
-    )
+    @Inject(CHAT_PROVIDER_PORT)
     private readonly facade: IChatProvider,
   ) {
     // Create a shared callback that logs execution to AIUsageLog + updates usage count

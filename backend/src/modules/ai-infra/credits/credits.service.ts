@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreditTransactionType, Prisma } from "@prisma/client";
-import { CreditRulesService } from "./services/credit-rules.service";
+import { CreditRulesService } from "./policy/credit-rules.service";
 import {
   InsufficientCreditsException,
   AccountFrozenException,

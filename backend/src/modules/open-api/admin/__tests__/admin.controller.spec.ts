@@ -4,8 +4,8 @@ import { AdminController } from "../admin.controller";
 import { AdminService } from "../admin.service";
 import { ChatFacade } from "../../../ai-harness/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
-import { StorageInventoryService } from "../../../ai-infra/storage/storage-inventory.service";
-import { StorageOffloadService } from "../../../ai-infra/storage/storage-offload.service";
+import { StorageInventoryService } from "../../../ai-infra/storage/governance/storage-inventory.service";
+import { StorageOffloadService } from "../../../ai-infra/storage/governance/storage-offload.service";
 import { SystemModelInventoryService } from "../../../ai-engine/llm/services/system-model-inventory.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
@@ -1064,3 +1064,4 @@ describe("AdminController", () => {
     });
   });
 });
+

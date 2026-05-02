@@ -78,6 +78,19 @@
 3. 它是通用能力还是领域装配？
 4. 是否需要 facade / registry / manifest / arch test 同步更新？
 
+### 规则 5：数据库资产层与运行时持久化底座必须分层
+
+数据库相关内容必须区分两层：
+
+- `backend/prisma/**`：数据库资产层，只承载 schema / migrations / seed / diagnose / SQL scripts
+- `backend/src/common/prisma/**`：运行时持久化底座，只承载 Prisma module / service / startup wiring
+
+禁止：
+
+- 把 `backend/prisma/**` 并入 `modules/ai-infra/**`
+- 把 migrations / seed / schema 与 Nest runtime module 混放
+- 让 `ai-infra/**` 同时承担“数据库资产仓库”和“运行时基础设施模块”双重职责
+
 ---
 
 ## 三、扩展契约

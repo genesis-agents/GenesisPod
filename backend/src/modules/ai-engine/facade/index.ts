@@ -10,6 +10,7 @@
  */
 
 export { PromptSkillBridge } from "../skills/runtime";
+export { CHAT_PROVIDER_PORT } from "./abstractions/runtime-deps.tokens";
 
 /**
  * Minimal interface matching MCPManager for ai-engine internal use.
@@ -57,8 +58,8 @@ export interface IMCPProvider {
 /**
  * Minimal interface matching ChatFacade.chat() for ai-engine internal use.
  * ai-engine cannot import ChatFacade directly (would violate unidirectional dependency).
- * Internal services that need LLM access should use AiChatService; for services that
- * are injected ChatFacade at runtime via forwardRef DI, use this type for the constructor param.
+ * Internal services that need LLM access should use AiChatService; runtime adapters
+ * that need harness chat access should inject CHAT_PROVIDER_PORT.
  */
 export interface IChatProvider {
   chat(request: {
@@ -194,10 +195,6 @@ export {
 } from "../tools/abstractions/generation-services.interface";
 export type { IImageGenerationService } from "../tools/abstractions/generation-services.interface";
 export { IMAGE_GENERATION_SERVICE_TOKEN } from "@/modules/ai-engine/content/abstractions/image.interface";
-export type { IResearchService } from "@/modules/ai-engine/facade/abstractions/research.interface";
-export { RESEARCH_SERVICE_TOKEN } from "@/modules/ai-engine/facade/abstractions/research.interface";
-export type { ISimulationService } from "@/modules/ai-engine/facade/abstractions/simulation.interface";
-export { SIMULATION_SERVICE_TOKEN } from "@/modules/ai-engine/facade/abstractions/simulation.interface";
 export type { IRAGPipelineService } from "@/modules/ai-engine/rag/abstractions/rag.interface";
 export { RAG_PIPELINE_SERVICE_TOKEN } from "@/modules/ai-engine/rag/abstractions/rag.interface";
 
@@ -319,8 +316,8 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { MultiKeyRegistry } from "@/modules/ai-engine/credentials/secret-resolver/multi-key-manager";
-export type { KeyHealthStatus } from "@/modules/ai-engine/credentials/secret-resolver/multi-key-manager";
+export { MultiKeyRegistry } from "@/modules/ai-engine/llm/key-health/multi-key-manager";
+export type { KeyHealthStatus } from "@/modules/ai-engine/llm/key-health/multi-key-manager";
 // AICapabilityResolver 是 L2.5 ai-harness/runner 服务，2026-05-01 PR-X-M2
 // 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
@@ -574,7 +571,7 @@ export { PromptCacheCoordinatorService } from "@/modules/ai-engine/llm/services/
 export type { CachePrefix } from "@/modules/ai-engine/llm/services/prompt-cache-coordinator.service";
 
 // ★ Phase 9: Background Autonomous Agents
-//   2026-04-30 (C2-step1): AutoDream 已搬到 ai-harness/memory/dream/，
+//   2026-04-30 (C2-step1): AutoDream 已搬到 ai-harness/memory/consolidation/，
 //   ai-app 调用方应改 from "@/modules/ai-harness/facade"
 
 // ════════════════════════════════════════════════════════════════════
@@ -604,6 +601,7 @@ export {
 
 // ════════════════════════════════════════════════════════════════════
 // BYOK / Credentials — 2026-05-01 已下沉到 ai-infra/credentials/
+// Engine 仅保留 LLM 配置探测与多 Key 健康管理，统一挂在 llm/*
 //   ai-app/byok controllers 应改从 "@/modules/ai-infra/facade" 导入。
 //   本处的 re-export 保留是为向后兼容；新代码请直接走 ai-infra/facade。
 // ════════════════════════════════════════════════════════════════════
@@ -622,4 +620,4 @@ export {
 } from "../../ai-infra/facade";
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
-export { AutoConfigureService } from "@/modules/ai-engine/credentials/user-config/user-models-auto-configure.service";
+export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";

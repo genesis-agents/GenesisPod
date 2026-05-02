@@ -5,8 +5,17 @@ import {
   MessagePriority,
   MessageStatus,
 } from "../agent-communication.tool";
-import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { ToolContext } from "../../../abstractions/tool.interface";
+
+const BUILTIN_AGENTS = {
+  DOCS: "docs",
+  DESIGNER: "designer",
+  RESEARCHER: "researcher",
+  SLIDES: "slides",
+  SIMULATOR: "simulator",
+  IMAGE_DESIGNER: "image-designer",
+  TEAM_COLLABORATION: "team-collaboration",
+} as const;
 
 // ============================================================================
 // Mock factory

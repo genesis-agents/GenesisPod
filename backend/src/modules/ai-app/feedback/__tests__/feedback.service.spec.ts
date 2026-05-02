@@ -4,7 +4,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { FeedbackService } from "../feedback.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EmailService } from "../../../ai-infra/email/email.service";
-import { R2StorageService } from "../../../ai-infra/storage/r2-storage.service";
+import { R2StorageService } from "../../../ai-infra/storage/runtime/r2-storage.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService", () => {
@@ -370,3 +370,4 @@ describe("FeedbackService", () => {
     });
   });
 });
+

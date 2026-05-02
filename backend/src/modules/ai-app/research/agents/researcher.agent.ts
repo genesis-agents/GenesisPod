@@ -25,9 +25,11 @@ import {
   type AgentTemplate,
   type ToolId,
   type PlanStep,
+} from "@/modules/ai-harness/facade";
+import {
   type IResearchService,
   RESEARCH_SERVICE_TOKEN,
-} from "@/modules/ai-harness/facade";
+} from "../ports/research-service.port";
 
 /**
  * 研究任务类型

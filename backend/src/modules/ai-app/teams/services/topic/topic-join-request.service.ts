@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole, JoinRequestStatus } from "@prisma/client";
-import { NotificationService } from "../../../../ai-infra/facade";
+import { NotificationPresetsService } from "../../../../ai-infra/facade";
 
 /**
  * 处理团队加入申请
@@ -19,7 +19,7 @@ export class TopicJoinRequestService {
 
   constructor(
     private prisma: PrismaService,
-    private notificationService: NotificationService,
+    private notificationPresetsService: NotificationPresetsService,
   ) {}
 
   /**
@@ -90,7 +90,7 @@ export class TopicJoinRequestService {
           joinRequest.user.fullName ||
           joinRequest.user.username ||
           joinRequest.user.email;
-        await this.notificationService.notifyJoinRequest({
+        await this.notificationPresetsService.notifyJoinRequest({
           topicId,
           topicName: topic.name,
           applicantId: userId,
@@ -267,7 +267,7 @@ export class TopicJoinRequestService {
     this.logger.log(`Join request ${requestId} approved by ${reviewerId}`);
 
     // 通知申请者
-    await this.notificationService.notifyJoinRequestResult({
+    await this.notificationPresetsService.notifyJoinRequestResult({
       userId: request.userId,
       topicId,
       topicName: request.topic.name,
@@ -315,7 +315,7 @@ export class TopicJoinRequestService {
     this.logger.log(`Join request ${requestId} rejected by ${reviewerId}`);
 
     // 通知申请者
-    await this.notificationService.notifyJoinRequestResult({
+    await this.notificationPresetsService.notifyJoinRequestResult({
       userId: request.userId,
       topicId,
       topicName: request.topic.name,

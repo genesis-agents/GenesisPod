@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TopicJoinRequestService } from "../topic-join-request.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { NotificationService } from "../../../../../ai-infra/notifications/notification.service";
+import { NotificationPresetsService } from "../../../../../ai-infra/notifications/presets/notification-presets.service";
 import {
   NotFoundException,
   ForbiddenException,
@@ -48,7 +48,7 @@ const mockAdminMembership = {
 describe("TopicJoinRequestService", () => {
   let service: TopicJoinRequestService;
   let prisma: jest.Mocked<PrismaService>;
-  let notificationService: jest.Mocked<NotificationService>;
+  let notificationPresetsService: jest.Mocked<NotificationPresetsService>;
 
   const mockPrisma = {
     topic: {
@@ -84,7 +84,7 @@ describe("TopicJoinRequestService", () => {
     }),
   };
 
-  const mockNotificationService = {
+  const mockNotificationPresetsService = {
     notifyJoinRequest: jest.fn().mockResolvedValue(undefined),
     notifyJoinRequestResult: jest.fn().mockResolvedValue(undefined),
   };
@@ -94,13 +94,16 @@ describe("TopicJoinRequestService", () => {
       providers: [
         TopicJoinRequestService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: NotificationService, useValue: mockNotificationService },
+        {
+          provide: NotificationPresetsService,
+          useValue: mockNotificationPresetsService,
+        },
       ],
     }).compile();
 
     service = module.get<TopicJoinRequestService>(TopicJoinRequestService);
     prisma = module.get(PrismaService);
-    notificationService = module.get(NotificationService);
+    notificationPresetsService = module.get(NotificationPresetsService);
   });
 
   afterEach(() => {
@@ -158,7 +161,7 @@ describe("TopicJoinRequestService", () => {
 
       await service.createJoinRequest("topic-1", "user-2");
 
-      expect(notificationService.notifyJoinRequest).toHaveBeenCalledWith(
+      expect(notificationPresetsService.notifyJoinRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           topicId: "topic-1",
           applicantId: "user-2",
@@ -197,7 +200,9 @@ describe("TopicJoinRequestService", () => {
 
       await service.createJoinRequest("topic-1", "user-2");
 
-      expect(notificationService.notifyJoinRequest).not.toHaveBeenCalled();
+      expect(
+        notificationPresetsService.notifyJoinRequest,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -281,7 +286,9 @@ describe("TopicJoinRequestService", () => {
       );
 
       expect(prisma.$transaction).toHaveBeenCalled();
-      expect(notificationService.notifyJoinRequestResult).toHaveBeenCalledWith(
+      expect(
+        notificationPresetsService.notifyJoinRequestResult,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ approved: true }),
       );
     });
@@ -334,7 +341,9 @@ describe("TopicJoinRequestService", () => {
           data: expect.objectContaining({ status: JoinRequestStatus.REJECTED }),
         }),
       );
-      expect(notificationService.notifyJoinRequestResult).toHaveBeenCalledWith(
+      expect(
+        notificationPresetsService.notifyJoinRequestResult,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ approved: false, reason: "Not qualified" }),
       );
     });

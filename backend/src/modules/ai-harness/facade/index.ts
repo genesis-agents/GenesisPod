@@ -1,7 +1,8 @@
 /**
  * AI Harness Facade —— ai-app 唯一入口
  *
- * 7 大聚合：kernel / execution / process / memory / protocol / governance / runtime
+ * 当前顶层聚合：agents / evaluation / facade / guardrails / handoffs /
+ * lifecycle / memory / protocols / runner / teams / tracing
  *
  * ★ 单向依赖：ai-app → ai-harness → ai-engine。
  * ★ ai-app 任何 harness 符号必须从这里 import，禁止穿透 harness 内部路径。
@@ -13,7 +14,7 @@
 export * from "../agents/abstractions";
 export { AgentFactory } from "../agents/core/agent-factory";
 export { SpecAgentRegistry } from "../agents/core/spec-agent-registry";
-export { BuiltInReActSkillRegistry } from "../agents/builtin-skills/skill-registry";
+export { BuiltinSkillCatalog, BuiltInReActSkillRegistry } from "../agents/builtin-skills/skill-registry";
 export {
   AgentRunner,
   AgentSpec,
@@ -56,10 +57,6 @@ export type {
   ConcurrencyPlanOptions,
   ConcurrencyPlan,
 } from "../guardrails/concurrency-planner.service";
-export type { IResearchService } from "../../ai-engine/facade/abstractions/research.interface";
-export { RESEARCH_SERVICE_TOKEN } from "../../ai-engine/facade/abstractions/research.interface";
-export type { ISimulationService } from "../../ai-engine/facade/abstractions/simulation.interface";
-export { SIMULATION_SERVICE_TOKEN } from "../../ai-engine/facade/abstractions/simulation.interface";
 export { YoutubeService } from "../../ai-engine/content/fetch/youtube.service";
 export type { TranscriptSegment } from "../../ai-engine/content/fetch/youtube.service";
 export {
@@ -396,13 +393,13 @@ export {
   type AutoDreamConfig,
   type DreamStatus,
   type DreamResult,
-} from "../memory/dream/auto-dream.service";
+} from "../memory/consolidation/memory-consolidation.service";
 export {
   AutoDreamSchedulerService,
   type SchedulerConfig as AutoDreamSchedulerConfig,
   type ScheduledScope as AutoDreamScheduledScope,
   type SchedulerStats as AutoDreamSchedulerStats,
-} from "../memory/dream/auto-dream-scheduler.service";
+} from "../memory/consolidation/memory-consolidation-scheduler.service";
 
 // ★ 沉淀 Phase 4 (2026-04-29): Checkpoint / Health / DAG 三件套
 export {
@@ -411,7 +408,7 @@ export {
   type MissionCheckpointStore,
   type MissionResumeDecision,
   InMemoryMissionCheckpointStore,
-} from "../memory/state-checkpoint";
+} from "../memory/mission-checkpoint";
 export {
   MissionHealthMonitor,
   type MissionHealthSnapshot,
@@ -605,9 +602,9 @@ export type {
 export { calculateOverallProgress } from "../protocols/realtime/abstractions/progress-tracker.interface";
 
 // ════════════════════════════════════════════════════════════════════
-// Memory: auto-index + checkpoint + working
+// Memory: indexing + checkpoint + working
 // ════════════════════════════════════════════════════════════════════
-export { MemoryAutoIndexer } from "../memory/auto-index/memory-auto-indexer";
+export { MemoryAutoIndexer } from "../memory/indexing/memory-auto-indexer";
 export { AgentEventStore, CheckpointService } from "../memory/checkpoint";
 export type { ICheckpoint, AgentEventRecord } from "../memory/checkpoint";
 
@@ -865,7 +862,7 @@ export {
 
 export { AiModelDiscoveryService } from "../../ai-engine/llm/services/ai-model-discovery.service";
 export { AiConnectionTestService } from "../../ai-engine/llm/services/ai-connection-test.service";
-export { AutoConfigureService } from "../../ai-engine/credentials/user-config/user-models-auto-configure.service";
+export { AutoConfigureService } from "../../ai-engine/llm/user-config/user-models-auto-configure.service";
 
 // Compatibility forwards for ai-app imports that still use the harness facade
 // as the single public entrypoint while their implementations remain engine-owned.

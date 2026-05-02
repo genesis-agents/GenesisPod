@@ -9,7 +9,7 @@
  * - knowledge / rag
  * - safety
  * - content
- * - credentials
+ * - llm user-config / key-health
  *
  * 本层不承载 agent / mission / team 运行时语义。
  */

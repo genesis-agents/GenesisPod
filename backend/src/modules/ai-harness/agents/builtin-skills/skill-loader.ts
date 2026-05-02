@@ -14,7 +14,7 @@ import * as fs from "fs";
 import * as path from "path";
 import type { ISkillLoader, ISkill } from "../abstractions";
 import { parseSkillMarkdown, SkillParseError } from "./skill-parser";
-import { BuiltInReActSkillRegistry } from "./skill-registry";
+import { BuiltinSkillCatalog } from "./skill-registry";
 
 const BUILT_IN_DIR = path.resolve(__dirname, "built-in");
 const SKILL_FILENAME = "SKILL.md";
@@ -23,7 +23,7 @@ const SKILL_FILENAME = "SKILL.md";
 export class SkillLoader implements ISkillLoader, OnModuleInit {
   private readonly logger = new Logger(SkillLoader.name);
 
-  constructor(private readonly registry: BuiltInReActSkillRegistry) {}
+  constructor(private readonly registry: BuiltinSkillCatalog) {}
 
   async onModuleInit(): Promise<void> {
     try {

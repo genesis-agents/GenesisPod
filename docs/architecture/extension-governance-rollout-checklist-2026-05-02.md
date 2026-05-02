@@ -16,12 +16,12 @@
 
 **执行顺序强约束：**
 
-1. 先 `ai-engine`
-2. 再 `ai-harness`
-3. 再 `ai-infra`
+1. 先 `ai-infra`
+2. 再 `ai-engine`
+3. 再 `ai-harness`
 4. 最后才是 `ai-app` 消费侧收敛
 
-在基础层（engine / harness / infra）未完成归类、命名、契约唯一化前，**不展开 app 主体整改**。
+在基础层（infra / engine / harness）未完成归类、命名、契约唯一化前，**不展开 app 主体整改**。
 
 ---
 
@@ -232,22 +232,36 @@ agents/
 ### W18 前
 
 1. 固化 `17-extension-governance.md`
-2. 确认 P0-1 / P0-2 / P0-3 的目标命名和 contract
-3. 冻结新增碎片化测试命名
+2. 先冻结 `backend/prisma/**` 与 `src/common/prisma/**` 的双层归属
+3. 确认 ai-infra 首批边界裁决与目标命名
+4. 确认 P0-1 / P0-2 / P0-3 的目标命名和 contract
+5. 冻结新增碎片化测试命名
 
 ### W18
 
-1. engine 命名规范对齐
-2. 同时处理 engine 侧“伪通用”候选
+1. ai-infra 命名规范与边界说明先对齐
+2. 先处理 database / storage / credits / db-governance / credentials 首批对象
+3. 同步清理 ai-infra 测试碎片命名
 
 ### W19 前
 
-1. 先清理测试碎片命名
-2. 先收敛 harness built-in skill / memory 目录目标结构
+1. 先清理基础层测试碎片命名
+2. 完成 ai-engine 首批伪通用与 facade 稳定面候选复核
+3. 确认 harness built-in skill / memory 目录目标结构
 
 ### W19
 
-1. harness 命名规范对齐
+1. ai-engine 命名规范对齐
+2. 同时处理 engine 侧“伪通用”候选
+
+### W20 前
+
+1. 收敛 harness memory / builtin-skills / collaboration 目标结构
+2. 关闭 engine / infra 侧 blocker 后再进入 harness 主体波次
+
+### W20
+
+1. ai-harness 命名规范对齐
 2. 同时处理 memory / builtin-skills / collaboration 归位
 
 ### W20+
@@ -291,14 +305,18 @@ agents/
 | `backend/src/modules/ai-harness/agents/builtin-skills/built-in/leader-mid-mission-assess/SKILL.md`  | C 玩法型 skill   | 玩法/流程色彩强，不应伪装成 runtime core                                                         | built-in skill pack                              | keep but recategorize                        | P1     | W22  |
 | `backend/src/modules/ai-harness/agents/builtin-skills/built-in/mece-mission-planning/SKILL.md`      | C 玩法型 skill   | 同上                                                                                             | built-in skill pack                              | keep but recategorize                        | P1     | W22  |
 | `backend/src/modules/ai-harness/agents/builtin-skills/built-in/multi-judge-mission-review/SKILL.md` | C 玩法型 skill   | 同上                                                                                             | built-in skill pack                              | keep but recategorize                        | P1     | W22  |
+| `backend/prisma/`                                                                                   | A 数据库资产层   | 当前位于 backend 根目录；需明确它是 workspace 级 schema/migration/seed 资产，而不是 ai-infra runtime module | 保持 backend 根级数据库资产层                    | ownership note + standard freeze             | P0     | W20  |
+| `backend/src/common/prisma/`                                                                        | A 共享持久化底座 | Prisma runtime 供所有层复用；需明确它与 `backend/prisma/` 分层，不与 Nest 业务模块混放            | 保持 shared runtime substrate；后续如重组仅能收敛为 `persistence/database-runtime` 语义 | boundary note + naming proposal              | P0     | W20  |
 | `backend/src/modules/ai-infra/abstractions/ai-services.interfaces.ts`                               | D 命名不规范     | 使用非标准复数后缀 `.interfaces.ts`，且位于 infra 稳定抽象面                                     | `ai-services.interface.ts` 或按职责拆分          | rename + interface surface review            | P1     | W20  |
-| `backend/src/modules/ai-infra/storage/__tests__/storage.service-supplemental.spec.ts`               | D 测试碎片       | `supplemental` 后缀不允许继续保留                                                                | 合并回主 spec 或改为 `integration`               | merge/rename                                 | P0     | W19  |
+| `backend/src/modules/ai-infra/storage/governance/__tests__/storage-governance.service.edge-cases.spec.ts` | D 测试碎片       | 原 `supplemental` 已更名，但仍需继续评估是否并回主 spec                                          | 合并回主 spec 或改为 `integration`               | merge/rename                                 | P0     | W19  |
 | `backend/src/modules/ai-infra/auth/__tests__/auth.service.supplemental.spec.ts`                     | D 测试碎片       | `supplemental` 后缀不允许继续保留                                                                | 合并回主 spec 或改为 `integration`               | merge/rename                                 | P0     | W19  |
 | `backend/src/modules/ai-infra/auth/__tests__/auth.service.legacy.spec.ts`                           | D 测试碎片       | `legacy` 后缀不允许继续保留                                                                      | 合并回主 spec、删除或改为 `integration`          | merge/delete/rename                          | P0     | W19  |
 | `backend/src/modules/ai-infra/credentials/key-resolver/`                                            | A 通用内核       | 属于基础层 provider/key resolution 核心能力，需确认其 contract 不被 app 语义污染                 | 保留在 infra credentials bounded context         | contract review + exporter audit             | P1     | W20  |
-| `backend/src/modules/ai-infra/credentials/user-model-configs/`                                      | B 领域装配       | 与 engine `credentials/` 存在跨层协作边界，需确认职责切分准确                                    | 保留在 infra user-owned configuration surface    | ownership review + boundary note             | P1     | W20  |
-| `backend/src/modules/ai-infra/storage/`                                                             | A 通用内核       | 聚合过大，同时承载对象存储、空间治理、slides/session/checkpoint 清理等多职责                     | 保留在 infra，但拆分责任边界                     | split review + submodule proposal            | P1     | W21  |
-| `backend/src/modules/ai-infra/table-management/`                                                    | B 基础设施治理   | 含大量 AI/office/custom table policy 映射，需确认其仍属 infra table governance，而非业务配置汇总 | 保留在 infra table governance                    | ownership review + policy boundary audit     | P1     | W21  |
+| `backend/src/modules/ai-infra/credentials/user-model-configs/`                                      | B 领域装配       | 与 engine `llm/user-config` 存在跨层协作边界，需确认职责切分准确                                 | 保留在 infra user-owned configuration surface    | ownership review + boundary note             | P1     | W20  |
+| `backend/src/modules/ai-infra/storage/`                                                             | A 通用内核       | 聚合过大；虽已拆出 `runtime/` 与 `governance/`，但治理聚合仍较重                                 | 保留在 infra，但继续细分 runtime vs governance   | split review + submodule proposal            | P1     | W21  |
+| `backend/src/modules/ai-infra/storage/topic-report-storage.service.ts`                              | C 高疑似业务定制 | 明确围绕 `topic_reports.full_report` 提供领域包装；虽依赖 infra object storage，但语义属于 topic-insights/report | 迁出 infra core，改为 app 侧适配器或受控 bridge  | move candidate review + importer audit       | P0     | W22  |
+| `backend/src/modules/ai-infra/db-governance/`                                                      | B 基础设施治理   | 含大量 AI/office/custom table policy 映射，需确认其仍属 infra table governance，而非业务配置汇总 | 保留在 infra table governance                    | ownership review + policy boundary audit     | P1     | W21  |
+| `backend/src/modules/ai-infra/credits/`                                                             | B 基础设施治理   | 已拆出 `policy/` 与 `rewards/`，但产品线计费策略仍需继续从通用账本语义中隔离                      | 保留 infra ledger/quota core；策略侧逐步抽离为受控 policy surface | split ledger vs policy review                | P1     | W21  |
 
 ### 7.1 当前不展开的 app/open-api 清单
 
@@ -320,14 +338,14 @@ agents/
 | `backend/src/modules/ai-harness/agents/builtin-skills/` | supplement spec 残留                           | 合并 + registry 重命名同步 | W20 / W22 |
 | `backend/src/modules/ai-harness/memory/`                | checkpoint / provider 相关测试将随目录重构移动 | 合并 + 命名收敛            | W21       |
 | `backend/src/modules/ai-infra/auth/`                    | 存在 `supplemental` / `legacy` 测试残留        | 合并 + 命名收敛            | W19       |
-| `backend/src/modules/ai-infra/storage/`                 | 存在 `supplemental` 测试残留                   | 合并 + 命名收敛            | W19       |
+| `backend/src/modules/ai-infra/storage/`                 | 已改为 `governance/*edge-cases.spec.ts` 等命名 | 合并 + 命名收敛            | W19       |
 
 ### 7.3 目录优化优先顺序
 
 执行顺序固定如下：
 
 1. 先统一 contract，再移动目录
-2. 先完成 engine / harness / infra 的归类正确性，再处理 app 消费侧
+2. 先完成 infra / engine / harness 的归类正确性，再处理 app 消费侧
 3. 先清理基础层测试碎片，再做 harness 命名大波次
 4. 先确认伪通用是否剔出 core，再决定是否后续下沉到 app
 5. 任何 facade 稳定面变更都必须最后做，并同步 exporter/importer
@@ -338,8 +356,35 @@ agents/
 
 1. **测试碎片命名清理**
 2. **抽象面后缀规范化**
-3. **credentials 与 engine credentials 的职责边界确认**
-4. **storage / table-management 的过大聚合复核**
+3. **credentials 与 engine `llm/user-config` / `llm/key-health` 的职责边界确认**
+4. **storage / db-governance 的过大聚合复核**
+5. **database 资产层与 runtime 持久化底座的双层边界冻结**
+
+### 7.4.1 ai-infra 顶层目录裁决
+
+| 目录 | 裁决 | 说明 |
+| --- | --- | --- |
+| `abstractions/` | 保留 | 基础 DI token 与稳定抽象面 |
+| `auth/` | 保留 | 身份认证基础能力，继续防止 app 语义渗入 |
+| `credentials/` | 保留 | 唯一 credentials bounded context |
+| `credits/` | 保留并继续拆分 | 已拆出 `policy/` 与 `rewards/`，后续继续收敛产品线策略 |
+| `db-governance/` | 保留 | 基础设施治理边界，继续复核 policy 是否过宽 |
+| `email/` | 保留 | 基础通知通道 |
+| `encryption/` | 保留 | 基础加解密原语 |
+| `facade/` | 保留 | 对外稳定入口，不作为能力堆积点 |
+| `monitoring/` | 保留并复核 | 保留基础监控，但持续复核领域通知/保留策略是否过宽 |
+| `notifications/` | 保留并复核 | 保留站内通知基础能力，继续复核是否混入 app 级模板语义 |
+| `release/` | 保留并复核 | 保留版本/公告底座，继续复核是否混入产品线内容管理 |
+| `secrets/` | 保留 | 系统级密钥资产 |
+| `settings/` | 保留并复核 | 保留系统设置，继续防止产品专属配置无约束增长 |
+| `storage/` | 保留并继续拆分 | 已拆出 `runtime/` 与 `governance/`，治理聚合继续细化 |
+
+### 7.5 database / prisma 归属裁决
+
+1. `backend/prisma/**` 保持 backend 根级，不并入 `modules/ai-infra/**`
+2. `backend/prisma/**` 只承载 schema / migrations / seed / diagnose / SQL scripts
+3. `backend/src/common/prisma/**` 视为运行时共享底座，不与 migrations/seed 混放
+4. 若后续要把 runtime database 能力进一步显式化，只能收敛为 `common/persistence` 或 `ai-infra/persistence-adapters` 一类语义，不能把资产层和 runtime 层合并
 
 ---
 

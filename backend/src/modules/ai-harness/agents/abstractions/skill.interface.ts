@@ -47,7 +47,7 @@ export interface ISkillLoader {
 /**
  * Skill 提供者端口（2026-05-01）
  *
- * SkillActivator 在 BuiltInReActSkillRegistry 没命中时按序查询的二级源。
+ * SkillActivator 在 BuiltinSkillCatalog 没命中时按序查询的二级源。
  * ai-engine 侧（DB-backed SkillRegistry，含 Admin UI / API CRUD）通过实现这个
  * 端口把用户自定义 skill 透出给 harness agent 运行时，无需 harness 反向
  * 依赖 ai-engine。

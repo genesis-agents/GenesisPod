@@ -4,7 +4,7 @@
  * 实现策略：复用 AgentPlaygroundMission 表，把 checkpoint 数据塞到
  * leaderJournal JSONB 字段下的保留 key `__checkpoint`，避免新建表。
  *
- * 与 ai-harness/memory/state-checkpoint 的 MissionCheckpointStore 接口对齐。
+ * 与 ai-harness/memory/mission-checkpoint 的 MissionCheckpointStore 接口对齐。
  *
  * Phase 5 (2026-04-29) 接入：让 mission 中断后下次启动时可从 checkpoint 恢复。
  */

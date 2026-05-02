@@ -17,9 +17,11 @@ import {
   type AgentTemplate,
   type ToolId,
   type PlanStep,
+} from "@/modules/ai-harness/facade";
+import {
   type ISimulationService,
   SIMULATION_SERVICE_TOKEN,
-} from "@/modules/ai-harness/facade";
+} from "../ports/simulation-service.port";
 
 /**
  * 推演任务类型

@@ -162,8 +162,7 @@ L1 Infrastructure → modules/ai-infra/   （Auth / Credits / Storage / Encrypti
 | 6   | **规划能力** | 怎么分解任务（不含 agent loop）              | `planning/`    |
 | 7   | **安全能力** | 怎么过滤危险内容（pii/moderation/injection） | `safety/`      |
 | 8   | **内容能力** | 怎么处理文本（fetch/cleaner/markdown）       | `content/`     |
-| 9   | **凭证能力** | 怎么管密钥（BYOK / secret resolver）         | `credentials/` |
-| 10  | **门面**     | 怎么对外暴露                                 | `facade/`      |
+| 9   | **门面**     | 怎么对外暴露                                 | `facade/`      |
 
 ### 4.2 Harness 关注点（11 个）
 
@@ -270,9 +269,7 @@ ai-engine/
 │   ├── markdown/                 # markdown utilities
 │   └── content.module.ts
 │
-├── credentials/                  # 凭证 / BYOK
-│   ├── abstractions/
-│   ├── user-config/              # UserModelConfig
+├── facade/
 │   ├── secret-resolver/
 │   └── credentials.module.ts
 │
@@ -632,7 +629,7 @@ ai-harness/
 | **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | ✅     |
 | **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | ✅     |
 | **W16** | teams/abstractions/{a2a-message,mission} 跨聚合归位 + teams/orchestrator 5 件套到 lifecycle/mission-lifecycle | HIGH   | ✅     |
-| **W17** | engine 顶层聚合整改（解散 core/abstractions，提拔 rag/planning/credentials）                                  | HIGH   | ✅     |
+| **W17** | engine 顶层聚合整改（解散 core/abstractions，提拔 rag/planning）                                              | HIGH   | ✅     |
 | **W18** | engine 全量命名规范对齐（Module 去前缀、规范化扩展名及缺失后缀修正）                                          | LOW    | ⏳待办 |
 | **W19** | harness 全量命名规范对齐（收敛非标准扩展测试文件后缀、补齐领域概念文件后缀）                                  | LOW    | ⏳待办 |
 | **W20** | 扩展治理契约落地（唯一主线 registry、扩展点白名单、plugin-ready metadata、测试命名白名单）                    | HIGH   | ⏳待办 |
@@ -675,7 +672,7 @@ const oldRoot = path.resolve(process.argv[3]);
 
 #### W17: ai-engine 顶层架构重组
 
-严格对齐规范的 10 大顶级聚合（llm, tools, rag, knowledge, skills, planning, safety, content, credentials, facade）。
+严格对齐规范的 9 大顶级聚合（llm, tools, rag, knowledge, skills, planning, safety, content, facade）。
 
 - **拆除 `abstractions/` 违规顶层：**
   - `abstractions/runtime-deps.tokens.ts` ➡️ `facade/abstractions/` 或 `planning/abstractions/`。
@@ -690,9 +687,9 @@ const oldRoot = path.resolve(process.argv[3]);
   - 将 `knowledge/rag/` 整体移动至 `ai-engine/rag/`。
 - **组建 `planning/` 一级聚合：**
   - 创建 `ai-engine/planning/`，将现埋藏于 `llm/` 内的 `ai-engine-planning.module.ts` 及相关编排解耦逻辑迁移至此。
-- **补齐 `credentials/` 一级聚合：**
-  - 将 `llm/user-models-auto-configure.service.ts` 移动到新建的 `credentials/user-config/`。
-  - 将 `core/utils/multi-key-manager.ts` 移动到 `credentials/secret-resolver/`。
+- **撤销 engine 顶层 `credentials/` 聚合：**
+  - 将 `user-models-auto-configure.service.ts` 收敛到 `llm/user-config/`。
+  - 将 `multi-key-manager.ts` 收敛到 `llm/key-health/`。
 
 #### W18: engine 全量命名规范严格对齐
 
@@ -706,7 +703,7 @@ const oldRoot = path.resolve(process.argv[3]);
   - `ai-engine-tools.module.ts` ➡️ `tools.module.ts`
   - `ai-engine-knowledge.module.ts` ➡️ `knowledge.module.ts`
 - **补齐缺失的描述性后缀**：
-  - `credentials/secret-resolver/multi-key-manager.ts` ➡️ `multi-key-manager.service.ts`（或 `.util.ts`）
+  - `llm/key-health/multi-key-manager.ts` ➡️ `multi-key-manager.service.ts`（或 `.util.ts`）
 - **修复非标准复数后缀**：
   - `*.utils.ts` ➡️ `*.util.ts`（如 `url-sanitizer.utils.ts`）
   - `*.interfaces.ts` ➡️ `*.interface.ts`（如 `rag-pipeline.interfaces.ts`）
@@ -732,7 +729,7 @@ const oldRoot = path.resolve(process.argv[3]);
 此三波次不是“额外重构”，而是 W18/W19 之后必须承接的结构治理收尾。原则上：
 
 - **W18/W19 解决命名与表层目录一致性**
-- **W20/W21/W22 先解决 `ai-engine / ai-harness / ai-infra` 的契约唯一性、扩展边界与目录归位**
+- **W20/W21/W22 先解决 `ai-infra / ai-engine / ai-harness` 的契约唯一性、扩展边界与目录归位**
 - **`ai-app` 不属于这一阶段的主整改对象，只在基础层归位完成后再做消费侧复核**
 
 #### W20: 扩展治理契约落地
@@ -741,15 +738,19 @@ const oldRoot = path.resolve(process.argv[3]);
 
 **执行优先级：**
 
-1. `ai-engine`
-2. `ai-harness`
-3. `ai-infra`
+1. `ai-infra`
+2. `ai-engine`
+3. `ai-harness`
 4. `ai-app`（仅在前三层稳定后再进入）
 
 - **唯一主线注册中心：**
   - `ToolRegistry` 保持唯一主线实现
   - `SkillRegistry` 保持唯一主线实现
   - 禁止新增第二个主线 `checkpoint` contract
+- **数据库/持久化归属规则：**
+  - `backend/prisma/**` 保持为 backend 根级数据库资产层，承载 schema / migrations / seed / diagnose / SQL scripts
+  - `backend/src/common/prisma/**` 保持为运行时共享持久化底座；在完成基础层归位前，不直接搬入 `modules/ai-infra/**`
+  - `ai-infra/**` 只承载“运行时基础设施能力”，不承载 schema 资产仓库本身
 - **扩展点白名单：**
   - 仅允许新增能力进入 `engine/tools/`、`engine/skills/`、`engine/llm/providers/`、`harness/protocols/`、`harness/memory/`
   - 禁止在 `facade/`、`abstractions/`、`registry/` 中直接塞业务能力
@@ -794,11 +795,18 @@ const oldRoot = path.resolve(process.argv[3]);
 
 本波次优先范围：
 
+- `ai-infra/**`
 - `ai-engine/**`
 - `ai-harness/**`
-- `ai-infra/**`
 
 `ai-app/**` 中的定制代码暂不作为主目标；只有当它污染了 core 边界时，才作为归位依据引用。
+
+- **ai-infra 首轮边界裁决：**
+  - `backend/prisma/**` 不并入 `modules/ai-infra/`；它是 backend workspace 级数据库资产层，不是 Nest runtime module
+  - `src/common/prisma/**` 维持共享底座定位，后续如需收敛，只能以 `persistence`/`database-runtime` 命名重组，不能和 migrations/seed 混放
+  - `ai-infra/storage/` 保留在 infra，但要拆出“对象存储 runtime”与“存储治理/清理任务”；当前治理聚合已收敛到 `storage/governance/storage-governance.service.ts`，其中 `topic-report-storage.service.ts` 这类领域包装器属于高疑似 app 适配层候选
+  - `ai-infra/db-governance/` 保留在 infra；跨全域表分类与清理策略不应继续靠巨型硬编码常量扩张
+  - `ai-infra/credits/` 保留在 infra，但要区分“通用账本/额度能力”和“产品线计费策略”；后者不得无限制继续堆入 infra core
 
 - **built-in skill pack 收敛：**
   - `agents/builtin-skills/skill-registry.ts` 降格为 `catalog` / `source` 语义
@@ -941,7 +949,7 @@ ai-harness/
 ```text
 ai-engine/
 ├── content/        （已保留）
-├── credentials/    （W17 完成：收纳 user-config 与 secret-resolver）
+├── llm/            （W20 收敛：吸收 user-config 与 key-health）
 ├── facade/         （已保留）
 ├── knowledge/      （已保留：聚焦知识抽取/组织）
 ├── llm/            （已保留：聚焦模型调用/选型/定价）
@@ -952,7 +960,7 @@ ai-engine/
 └── tools/          （已保留）
 ```
 
-目标 engine 顶层必须回到规范 10 聚合：`llm/tools/rag/knowledge/skills/planning/safety/content/credentials/facade`。
+目标 engine 顶层必须回到规范 9 聚合：`llm/tools/rag/knowledge/skills/planning/safety/content/facade`。
 
 ### 11.4 验收指标
 

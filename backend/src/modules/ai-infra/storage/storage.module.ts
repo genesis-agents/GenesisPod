@@ -1,27 +1,27 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { StorageController } from "./storage.controller";
-import { StorageService } from "./storage.service";
-import { R2StorageService } from "./r2-storage.service";
-import { TopicReportStorageService } from "./topic-report-storage.service";
-import { StorageOffloadService } from "./storage-offload.service";
-import { StorageInventoryService } from "./storage-inventory.service";
+import { StorageGovernanceController } from "./governance/storage-governance.controller";
+import { StorageGovernanceService } from "./governance/storage-governance.service";
+import { R2StorageService } from "./runtime/r2-storage.service";
+import { StorageOffloadService } from "./governance/storage-offload.service";
+import { StorageInventoryService } from "./governance/storage-inventory.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 
 @Module({
   imports: [PrismaModule, ConfigModule],
-  controllers: [StorageController],
+  controllers: [StorageGovernanceController],
   providers: [
-    StorageService,
+    // Governance aggregate for storage admin/cleanup workflows.
+    StorageGovernanceService,
+    // Runtime object storage adapter.
     R2StorageService,
-    TopicReportStorageService,
+    // Governance-side storage jobs.
     StorageOffloadService,
     StorageInventoryService,
   ],
   exports: [
-    StorageService,
+    StorageGovernanceService,
     R2StorageService,
-    TopicReportStorageService,
     StorageOffloadService,
     StorageInventoryService,
   ],

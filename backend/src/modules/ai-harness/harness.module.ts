@@ -47,10 +47,10 @@ import { OutputReviewerService } from "./evaluation/critique/output-reviewer.ser
 import { ReportArtifactAssembler } from "./evaluation/critique/report-artifact/report-artifact-assembler.service";
 import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
 import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
-import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
-import { MemoryBridge } from "./memory/auto-index/memory-bridge.service";
+import { MemoryAutoIndexer } from "./memory/indexing/memory-auto-indexer";
+import { MemoryBridge } from "./memory/indexing/memory-bridge.service";
 import {
-  BuiltInReActSkillRegistry,
+  BuiltinSkillCatalog,
   SkillLoader,
   SkillActivator,
 } from "./agents/builtin-skills";
@@ -119,6 +119,7 @@ import {
   AGENT_REGISTRY_PORT,
   AGENT_ORCHESTRATOR_PORT,
   AGENT_CONFIG_SERVICE_PORT,
+  CHAT_PROVIDER_PORT,
   CHECKPOINT_MANAGER_PORT,
   PROGRESS_TRACKER_PORT,
   TRACE_COLLECTOR_PORT,
@@ -180,6 +181,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     { provide: AGENT_REGISTRY_PORT, useExisting: PlanBasedAgentRegistry },
     { provide: AGENT_ORCHESTRATOR_PORT, useExisting: AgentOrchestrator },
     { provide: AGENT_CONFIG_SERVICE_PORT, useExisting: AgentConfigService },
+    { provide: CHAT_PROVIDER_PORT, useExisting: ChatFacade },
     { provide: CHECKPOINT_MANAGER_PORT, useExisting: CheckpointManager },
     { provide: PROGRESS_TRACKER_PORT, useExisting: ProgressTrackerService },
     { provide: TRACE_COLLECTOR_PORT, useExisting: TraceCollectorService },
@@ -210,7 +212,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     MemoryBridge,
 
     // Skills (Phase 3)
-    BuiltInReActSkillRegistry,
+    BuiltinSkillCatalog,
     SkillLoader,
     SkillActivator,
     // ★ 2026-05-01 (PR-X-K): SKILL_PROVIDERS 多源注入 — built-in miss 时 fallback
@@ -234,7 +236,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     AgentRegistry,
     HandoffService,
 
-    // PR-S: Vector memory + auto-index
+    // PR-S: Vector memory + indexing
     PrismaVectorStore,
     MemoryAutoIndexer,
 
@@ -333,7 +335,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     OutputReviewerService,
     ReportArtifactAssembler,
     FailureLearnerService,
-    BuiltInReActSkillRegistry,
+    BuiltinSkillCatalog,
     ContextManager,
     CheckpointService,
     AgentEventStore,
@@ -354,6 +356,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     AGENT_REGISTRY_PORT,
     AGENT_ORCHESTRATOR_PORT,
     AGENT_CONFIG_SERVICE_PORT,
+    CHAT_PROVIDER_PORT,
     CHECKPOINT_MANAGER_PORT,
     PROGRESS_TRACKER_PORT,
     TRACE_COLLECTOR_PORT,
@@ -388,7 +391,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     SPEC_AGENT_REGISTRY_PROBE,
     TOOL_CIRCUIT_BREAKER_PROBE,
 
-    // PR-S: Vector memory + auto-index
+    // PR-S: Vector memory + indexing
     PrismaVectorStore,
     MemoryAutoIndexer,
 

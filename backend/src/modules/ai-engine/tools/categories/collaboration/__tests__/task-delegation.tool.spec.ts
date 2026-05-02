@@ -3,8 +3,13 @@ import {
   TaskDelegationInput,
   DelegatedTask,
 } from "../task-delegation.tool";
-import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { ToolContext } from "../../../abstractions/tool.interface";
+
+const BUILTIN_AGENTS = {
+  DOCS: "docs",
+  DESIGNER: "designer",
+  RESEARCHER: "researcher",
+} as const;
 
 // ============================================================================
 // Mock factory

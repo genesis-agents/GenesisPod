@@ -29,7 +29,7 @@ import { HarnessedAgent } from "./harnessed-agent";
 import { SpecBasedAgent } from "./spec-based-agent";
 import { ReActLoop } from "../../runner/loop/react-loop";
 import { LoopRegistry } from "../../runner/loop/loop-registry";
-import { MemoryBridge } from "../../memory/auto-index/memory-bridge.service";
+import { MemoryBridge } from "../../memory/indexing/memory-bridge.service";
 import { SkillActivator } from "../builtin-skills/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";

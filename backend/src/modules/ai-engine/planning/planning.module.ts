@@ -40,7 +40,7 @@ import { ContextCompactionPipelineService } from "./context/context-compaction-p
 // AdaptiveReplannerService 已搬到 ai-harness/teams/orchestrator/ (2026-04-30)
 import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
-// ★ Phase 9 → 已搬到 ai-harness/memory/dream/（C2-step1，2026-04-30）
+// ★ Phase 9 → 已搬到 ai-harness/memory/consolidation/（C2-step1，2026-04-30）
 //   AutoDreamService / AutoDreamSchedulerService 不再由 engine 注册
 
 // State Machine — PR-X18: 通过 EXECUTION_STATE_MANAGER_PORT token 注入

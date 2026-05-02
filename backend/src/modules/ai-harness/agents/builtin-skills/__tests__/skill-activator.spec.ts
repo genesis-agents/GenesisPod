@@ -3,7 +3,7 @@
  */
 
 import { SkillActivator } from "../skill-activator";
-import { BuiltInReActSkillRegistry } from "../skill-registry";
+import { BuiltinSkillCatalog } from "../skill-registry";
 import { HookRegistry } from "../../core/hook-registry";
 import { ContextEnvelope } from "../../core/context-envelope";
 import { AgentIdentity } from "../../core/agent-identity";
@@ -49,7 +49,7 @@ function makeIdentity(skills: string[]): IAgentIdentity {
 
 describe("SkillActivator", () => {
   it("returns envelope unchanged when identity has no skills", async () => {
-    const registry = new BuiltInReActSkillRegistry();
+    const registry = new BuiltinSkillCatalog();
     const activator = new SkillActivator(registry, new HookRegistry());
     const env = makeEnv();
     const result = await activator.activate(makeIdentity([]), env);
@@ -58,7 +58,7 @@ describe("SkillActivator", () => {
   });
 
   it("injects skill instructions as high-priority reminders", async () => {
-    const registry = new BuiltInReActSkillRegistry();
+    const registry = new BuiltinSkillCatalog();
     registry.register(makeSkill("s1", { instructions: "do s1" }));
     registry.register(makeSkill("s2", { instructions: "do s2" }));
 
@@ -74,7 +74,7 @@ describe("SkillActivator", () => {
   });
 
   it("skips missing skills with a warning", async () => {
-    const registry = new BuiltInReActSkillRegistry();
+    const registry = new BuiltinSkillCatalog();
     registry.register(makeSkill("exists"));
     const activator = new SkillActivator(registry, new HookRegistry());
     const env = makeEnv();
@@ -86,7 +86,7 @@ describe("SkillActivator", () => {
   });
 
   it("calls skill.activate() and allows adding reminders", async () => {
-    const registry = new BuiltInReActSkillRegistry();
+    const registry = new BuiltinSkillCatalog();
     registry.register(
       makeSkill("s1", {
         activate: (ctx) => {
@@ -104,7 +104,7 @@ describe("SkillActivator", () => {
 
   it("skill.activate can register temporary hooks; cleanup removes them", async () => {
     const hooks = new HookRegistry();
-    const registry = new BuiltInReActSkillRegistry();
+    const registry = new BuiltinSkillCatalog();
     const handler = jest.fn();
     registry.register(
       makeSkill("s1", {
@@ -139,7 +139,7 @@ describe("SkillActivator", () => {
   });
 
   it("activate() errors in one skill do not prevent subsequent skills", async () => {
-    const registry = new BuiltInReActSkillRegistry();
+    const registry = new BuiltinSkillCatalog();
     registry.register(
       makeSkill("bad", {
         activate: () => {
@@ -162,7 +162,7 @@ describe("SkillActivator", () => {
   // ─── ISkillProvider fallback (PR-X-K, 2026-05-01) ────────────────────────────
   describe("ISkillProvider fallback (用户自定义 skill)", () => {
     it("falls back to provider when not found in built-in registry", async () => {
-      const registry = new BuiltInReActSkillRegistry();
+      const registry = new BuiltinSkillCatalog();
       const provider = {
         id: "test-provider",
         resolveByName: jest.fn((name: string) =>
@@ -186,7 +186,7 @@ describe("SkillActivator", () => {
     });
 
     it("built-in wins over provider for same name", async () => {
-      const registry = new BuiltInReActSkillRegistry();
+      const registry = new BuiltinSkillCatalog();
       registry.register(makeSkill("shared", { instructions: "built-in body" }));
       const provider = {
         id: "test-provider",
@@ -210,7 +210,7 @@ describe("SkillActivator", () => {
     });
 
     it("multiple providers queried in order; first hit wins", async () => {
-      const registry = new BuiltInReActSkillRegistry();
+      const registry = new BuiltinSkillCatalog();
       const p1 = {
         id: "p1",
         resolveByName: jest.fn(() => null),
@@ -242,7 +242,7 @@ describe("SkillActivator", () => {
     });
 
     it("provider thrown error skipped; remaining providers still queried", async () => {
-      const registry = new BuiltInReActSkillRegistry();
+      const registry = new BuiltinSkillCatalog();
       const p1 = {
         id: "p1",
         resolveByName: jest.fn(() => {
@@ -268,7 +268,7 @@ describe("SkillActivator", () => {
     });
 
     it("supports async provider (Promise<ISkill | null>)", async () => {
-      const registry = new BuiltInReActSkillRegistry();
+      const registry = new BuiltinSkillCatalog();
       const provider = {
         id: "async-provider",
         resolveByName: jest.fn(
@@ -294,7 +294,7 @@ describe("SkillActivator", () => {
     });
 
     it("when no provider matches, skill is still skipped + warned", async () => {
-      const registry = new BuiltInReActSkillRegistry();
+      const registry = new BuiltinSkillCatalog();
       const provider = {
         id: "p",
         resolveByName: jest.fn(() => null),

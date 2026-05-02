@@ -12,7 +12,7 @@ import {
   SimulationTaskType,
   SimulationTeam,
 } from "../simulator.agent";
-import { SIMULATION_SERVICE_TOKEN } from "@/modules/ai-harness/facade";
+import { SIMULATION_SERVICE_TOKEN } from "../../ports/simulation-service.port";
 
 describe("SimulatorAgent", () => {
   let agent: SimulatorAgent;

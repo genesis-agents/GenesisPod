@@ -15,8 +15,8 @@ export { AuthService } from "../auth/auth.service";
 
 // ─── Credits & Billing ───
 export { CreditsService } from "../credits/credits.service";
-export { CreditRulesService } from "../credits/services/credit-rules.service";
-export { CheckinService } from "../credits/services/checkin.service";
+export { CreditRulesService } from "../credits/policy/credit-rules.service";
+export { CheckinService } from "../credits/rewards/checkin.service";
 export { BillingContext } from "../credits/billing-context";
 export { InsufficientCreditsException } from "../credits/exceptions/insufficient-credits.exception";
 
@@ -28,15 +28,15 @@ export {
 } from "../secrets/secret-name-mapping";
 
 // ─── Storage ───
-export { StorageService } from "../storage/storage.service";
-export { R2StorageService } from "../storage/r2-storage.service";
-export { TopicReportStorageService } from "../storage/topic-report-storage.service";
+export { StorageGovernanceService } from "../storage/governance/storage-governance.service";
+export { R2StorageService } from "../storage/runtime/r2-storage.service";
 
 // ─── Email ───
 export { EmailService } from "../email/email.service";
 
 // ─── Notifications ───
 export { NotificationService } from "../notifications/notification.service";
+export { NotificationPresetsService } from "../notifications/presets/notification-presets.service";
 export { NotificationTypeDto } from "../notifications/dto/notification.dto";
 
 // ─── Settings ───
@@ -54,6 +54,7 @@ export { KeyAssignmentsService } from "../credentials/key-assignments/key-assign
 export { KeyRequestsService } from "../credentials/key-requests/key-requests.service";
 export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.service";
 export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
+export { ByokMaintenanceScheduler } from "../credentials/scheduling/byok-maintenance.scheduler";
 export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
 export { DistributableKeysService } from "../credentials/distributable-keys/distributable-keys.service";
 export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
@@ -74,11 +75,12 @@ export { ReleaseService } from "../release/release.service";
 export type {
   IAiChat,
   IAiObservability,
-} from "../abstractions/ai-services.interfaces";
+} from "../abstractions/ai-services.interface";
 export {
   AI_CHAT_TOKEN,
   AI_OBSERVABILITY_TOKEN,
-} from "../abstractions/ai-services.interfaces";
+} from "../abstractions/ai-services.interface";
 
-// ─── Table Management ───
-export { TableManagementService } from "../table-management/table-management.service";
+// ─── Database Governance ───
+export { DbGovernanceService } from "../db-governance/db-governance.service";
+export { DataRetentionService } from "../db-governance/data-retention.service";

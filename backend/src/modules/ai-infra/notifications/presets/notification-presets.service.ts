@@ -1,0 +1,116 @@
+import { Injectable } from "@nestjs/common";
+import { NotificationService } from "../notification.service";
+import { NotificationTypeDto } from "../dto/notification.dto";
+
+@Injectable()
+export class NotificationPresetsService {
+  constructor(private readonly notificationService: NotificationService) {}
+
+  async notifyJoinRequest(params: {
+    topicId: string;
+    topicName: string;
+    applicantId: string;
+    applicantName: string;
+    adminUserIds: string[];
+  }) {
+    const { topicId, topicName, applicantId, applicantName, adminUserIds } =
+      params;
+
+    await this.notificationService.batchCreateNotifications({
+      userIds: adminUserIds,
+      type: NotificationTypeDto.JOIN_REQUEST,
+      title: "新的加入申请",
+      message: `${applicantName} 申请加入「${topicName}」`,
+      actionUrl: `/topics/${topicId}/settings/members`,
+      actionLabel: "查看申请",
+      metadata: { topicId, applicantId, applicantName },
+    });
+  }
+
+  async notifyJoinRequestResult(params: {
+    userId: string;
+    topicId: string;
+    topicName: string;
+    approved: boolean;
+    reason?: string;
+  }) {
+    const { userId, topicId, topicName, approved, reason } = params;
+
+    await this.notificationService.createNotification({
+      userId,
+      type: approved
+        ? NotificationTypeDto.JOIN_APPROVED
+        : NotificationTypeDto.JOIN_REJECTED,
+      title: approved ? "申请已通过" : "申请未通过",
+      message: approved
+        ? `你加入「${topicName}」的申请已通过`
+        : `你加入「${topicName}」的申请未通过${reason ? `：${reason}` : ""}`,
+      actionUrl: approved ? `/topics/${topicId}` : undefined,
+      actionLabel: approved ? "进入团队" : undefined,
+      relatedType: "topic",
+      relatedId: topicId,
+      metadata: { topicId, approved, reason },
+    });
+  }
+
+  async notifyInvitation(params: {
+    userId: string;
+    topicId: string;
+    topicName: string;
+    inviterName: string;
+    inviteCode?: string;
+  }) {
+    const { userId, topicId, topicName, inviterName, inviteCode } = params;
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.INVITATION,
+      title: "邀请加入团队",
+      message: `${inviterName} 邀请你加入「${topicName}」`,
+      actionUrl: inviteCode
+        ? `/invitations/${inviteCode}`
+        : `/topics/${topicId}`,
+      actionLabel: "查看邀请",
+      relatedType: "topic",
+      relatedId: topicId,
+      metadata: { topicId, inviterName, inviteCode },
+    });
+  }
+
+  async notifyResearchCompleted(params: {
+    userId: string;
+    researchId: string;
+    researchTitle: string;
+  }) {
+    const { userId, researchId, researchTitle } = params;
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.RESEARCH_COMPLETED,
+      title: "研究任务完成",
+      message: `研究「${researchTitle}」已完成`,
+      actionUrl: `/research/${researchId}`,
+      actionLabel: "查看报告",
+      relatedType: "research",
+      relatedId: researchId,
+    });
+  }
+
+  async notifyCreditsLow(params: {
+    userId: string;
+    balance: number;
+    threshold: number;
+  }) {
+    const { userId, balance, threshold } = params;
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.CREDITS_LOW,
+      title: "积分余额不足",
+      message: `你的积分余额仅剩 ${balance}，低于 ${threshold}`,
+      actionUrl: "/credits",
+      actionLabel: "查看积分",
+      metadata: { balance, threshold },
+    });
+  }
+}

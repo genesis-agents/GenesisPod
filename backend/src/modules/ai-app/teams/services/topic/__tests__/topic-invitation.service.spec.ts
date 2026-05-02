@@ -5,7 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { TopicInvitationService } from "../topic-invitation.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
-import { NotificationService } from "../../../../../ai-infra/notifications/notification.service";
+import { NotificationPresetsService } from "../../../../../ai-infra/notifications/presets/notification-presets.service";
 import {
   NotFoundException,
   ForbiddenException,
@@ -47,7 +47,7 @@ const mockAdminMembership = {
 describe("TopicInvitationService", () => {
   let service: TopicInvitationService;
   let prisma: jest.Mocked<PrismaService>;
-  let notificationService: jest.Mocked<NotificationService>;
+  let notificationPresetsService: jest.Mocked<NotificationPresetsService>;
 
   const mockPrisma = {
     topic: {
@@ -71,7 +71,7 @@ describe("TopicInvitationService", () => {
     }),
   };
 
-  const mockNotificationService = {
+  const mockNotificationPresetsService = {
     notifyInvitation: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -97,13 +97,16 @@ describe("TopicInvitationService", () => {
       providers: [
         TopicInvitationService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: NotificationService, useValue: mockNotificationService },
+        {
+          provide: NotificationPresetsService,
+          useValue: mockNotificationPresetsService,
+        },
       ],
     }).compile();
 
     service = module.get<TopicInvitationService>(TopicInvitationService);
     prisma = module.get(PrismaService);
-    notificationService = module.get(NotificationService);
+    notificationPresetsService = module.get(NotificationPresetsService);
   });
 
   it("should be defined", () => {
@@ -194,7 +197,7 @@ describe("TopicInvitationService", () => {
         inviteeId: "user-2",
       });
 
-      expect(notificationService.notifyInvitation).toHaveBeenCalledWith(
+      expect(notificationPresetsService.notifyInvitation).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: "user-2",
           topicId: "topic-1",

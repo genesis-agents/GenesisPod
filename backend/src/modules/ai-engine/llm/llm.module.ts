@@ -47,7 +47,7 @@ import { SystemModelInventoryService } from "./services/system-model-inventory.s
 import { ModelFallbackService } from "./selection/model-fallback.service";
 
 // Auto-configure service (used by UserModelConfigsAutoController in ai-app/byok)
-import { AutoConfigureService } from "../credentials/user-config/user-models-auto-configure.service";
+import { AutoConfigureService } from "./user-config/user-models-auto-configure.service";
 
 // Long-term editable recommendation matrix (user + admin auto-configure share this)
 import { ModelRecommendationsService } from "./selection/model-recommendations.service";

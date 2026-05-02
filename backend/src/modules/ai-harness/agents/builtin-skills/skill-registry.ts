@@ -1,5 +1,5 @@
 /**
- * BuiltInReActSkillRegistry (ai-harness/agents) — ReAct/Agent runtime 内置 skill 注册表
+ * BuiltinSkillCatalog (ai-harness/agents) — ReAct/Agent runtime 内置 skill 目录
  *
  * 2026-05-01 改名: 原叫 `SkillRegistry`，与 `ai-engine/skills/registry/SkillRegistry`
  * 同名异构。本类是 ReAct loop 的内置 skill 容器（SKILL.md frontmatter 解析），
@@ -15,14 +15,18 @@
  *   - engine: DB 级，CRUD ISkill 对象，admin UI 驱动
  *
  * 支持按 id / tag / activateFor (Role id) 查找。
+ *
+ * 兼容说明:
+ *   - `BuiltInReActSkillRegistry` 仅保留为向后兼容别名
+ *   - 新代码一律使用 `BuiltinSkillCatalog`
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import type { ISkill } from "../abstractions";
 
 @Injectable()
-export class BuiltInReActSkillRegistry {
-  private readonly logger = new Logger(BuiltInReActSkillRegistry.name);
+export class BuiltinSkillCatalog {
+  private readonly logger = new Logger(BuiltinSkillCatalog.name);
   private readonly byName = new Map<string, ISkill>();
 
   register(skill: ISkill): void {
@@ -123,3 +127,5 @@ export class BuiltInReActSkillRegistry {
     return this.byName.size;
   }
 }
+
+export { BuiltinSkillCatalog as BuiltInReActSkillRegistry };

@@ -1,11 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIModelType } from "@prisma/client";
 import {
-  ReflectionService,
+  CHAT_PROVIDER_PORT,
   ReflectionInput,
   ReflectionResult,
   ReflectionConfig,
-} from "../reflection.service";
+} from "../../../facade";
+import { ReflectionService } from "../reflection.service";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,18 +41,8 @@ function makeJsonResponse(
 
 // ─── Provide token ────────────────────────────────────────────────────────────
 //
-// ReflectionService uses:
-//   @Inject(forwardRef(() => require("../../facade/domain/chat.facade").ChatFacade))
-//
-// NestJS resolves the forwardRef by calling the factory function, which returns
-// the ChatFacade class. The injection token is therefore the ChatFacade class
-// itself.  We import it at module scope so it can be used as the `provide`
-// key in the testing module.
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const {
-  ChatFacade,
-} = require("../../../../ai-harness/facade/domain/chat.facade");
+// ReflectionService injects CHAT_PROVIDER_PORT, so tests can bind a plain
+// chat mock without importing ai-harness internals.
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -71,7 +62,7 @@ describe("ReflectionService", () => {
       providers: [
         ReflectionService,
         {
-          provide: ChatFacade,
+          provide: CHAT_PROVIDER_PORT,
           useValue: mockFacade,
         },
       ],

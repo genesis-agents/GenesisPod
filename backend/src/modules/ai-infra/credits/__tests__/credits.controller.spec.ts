@@ -39,8 +39,8 @@ import {
   AdminCreditsController,
 } from "../credits.controller";
 import { CreditsService } from "../credits.service";
-import { CheckinService } from "../services/checkin.service";
-import { CreditRulesService } from "../services/credit-rules.service";
+import { CheckinService } from "../rewards/checkin.service";
+import { CreditRulesService } from "../policy/credit-rules.service";
 import { TransactionQueryDto } from "../dto/transaction-query.dto";
 import {
   AdminGrantCreditsDto,

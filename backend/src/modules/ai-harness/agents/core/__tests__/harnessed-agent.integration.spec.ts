@@ -23,7 +23,7 @@ import type {
   IContextEnvelope,
 } from "../../abstractions";
 import type { SkillActivator } from "../../builtin-skills/skill-activator";
-import type { MemoryBridge } from "../../../memory/auto-index/memory-bridge.service";
+import type { MemoryBridge } from "../../../memory/indexing/memory-bridge.service";
 import type { AgentRegistry } from "../../../handoffs/agent-registry";
 import type { AgentEventStore } from "../../../memory/checkpoint/agent-event-store";
 import type { CheckpointService } from "../../../memory/checkpoint/checkpoint.service";

@@ -20,7 +20,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   type IAiChat,
   AI_CHAT_TOKEN,
-} from "../abstractions/ai-services.interfaces";
+} from "../abstractions/ai-services.interface";
 import { NotificationService } from "../notifications/notification.service";
 import { NotificationTypeDto } from "../notifications/dto/notification.dto";
 import { APP_CONFIG } from "../../../common/config/app.config";

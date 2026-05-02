@@ -19,6 +19,7 @@
 export const AGENT_REGISTRY_PORT = Symbol("AgentRegistryPort");
 export const AGENT_ORCHESTRATOR_PORT = Symbol("AgentOrchestratorPort");
 export const AGENT_CONFIG_SERVICE_PORT = Symbol("AgentConfigServicePort");
+export const CHAT_PROVIDER_PORT = Symbol("ChatProviderPort");
 export const CHECKPOINT_MANAGER_PORT = Symbol("CheckpointManagerPort");
 export const PROGRESS_TRACKER_PORT = Symbol("ProgressTrackerPort");
 export const TRACE_COLLECTOR_PORT = Symbol("TraceCollectorPort");

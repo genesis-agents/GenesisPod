@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { TopicRole } from "@prisma/client";
-import { NotificationService } from "../../../../ai-infra/facade";
+import { NotificationPresetsService } from "../../../../ai-infra/facade";
 import { randomBytes } from "crypto";
 
 // Type definitions for invitation (until Prisma client is regenerated)
@@ -44,7 +44,7 @@ export class TopicInvitationService {
 
   constructor(
     private prisma: PrismaService,
-    private notificationService: NotificationService,
+    private notificationPresetsService: NotificationPresetsService,
   ) {}
 
   /**
@@ -168,7 +168,7 @@ export class TopicInvitationService {
     // 如果被邀请人是已注册用户，发送通知
     if (targetUserId) {
       const inviterName = inviter?.fullName || inviter?.username || "Someone";
-      await this.notificationService.notifyInvitation({
+      await this.notificationPresetsService.notifyInvitation({
         userId: targetUserId,
         topicId,
         topicName: topic.name,
