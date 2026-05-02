@@ -247,6 +247,9 @@ ai-service/
 - [ ] 通过所有类型检查
 - [ ] 测试覆盖率 > 85%
 - [ ] 所有测试通过
+- [ ] 没有新增 `supplemental` / `extra` / `legacy` 测试命名
+- [ ] 新增能力已归类为 tool / skill / provider / protocol / memory 扩展点之一
+- [ ] 没有新增第二个主线 registry / checkpoint contract
 - [ ] 提交信息遵循Conventional Commits
 - [ ] 没有硬编码密钥
 - [ ] 没有console.log/print调试代码

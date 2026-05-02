@@ -43,15 +43,17 @@ Genesis.ai 采用系统化、自动化的开发规范体系，确保代码质量
 
 ### 🔄 流程规范
 
-| 编号 | 文档                                  | 描述                                 | 级别      |
-| ---- | ------------------------------------- | ------------------------------------ | --------- |
-| 08   | [Git 工作流](08-git-workflow.md)      | 分支策略、提交规范、PR 流程          | 🔴 MUST   |
-| 09   | [文档规范](09-documentation.md)       | 代码注释、技术文档、CHANGELOG        | 🔴 MUST   |
-| 10   | [安全规范](10-security.md)            | 密钥管理、数据安全、漏洞防护         | 🔴 MUST   |
-| 11   | [部署规范](11-deployment.md)          | CI/CD、环境配置、监控告警            | 🟡 SHOULD |
-| 12   | [脚本管理](12-scripts-management.md)  | 临时脚本归档、清理策略               | 🟡 SHOULD |
-| 13   | [模块依赖](13-module-dependencies.md) | NestJS 循环依赖防范、forwardRef 使用 | 🔴 MUST   |
-| 15   | [报告模板](15-report-template.md)     | 报告 13 种内容类型统一格式规范       | 🔴 MUST   |
+| 编号 | 文档                                                     | 描述                                       | 级别      |
+| ---- | -------------------------------------------------------- | ------------------------------------------ | --------- |
+| 08   | [Git 工作流](08-git-workflow.md)                         | 分支策略、提交规范、PR 流程                | 🔴 MUST   |
+| 09   | [文档规范](09-documentation.md)                          | 代码注释、技术文档、CHANGELOG              | 🔴 MUST   |
+| 10   | [安全规范](10-security.md)                               | 密钥管理、数据安全、漏洞防护               | 🔴 MUST   |
+| 11   | [部署规范](11-deployment.md)                             | CI/CD、环境配置、监控告警                  | 🟡 SHOULD |
+| 12   | [脚本管理](12-scripts-management.md)                     | 临时脚本归档、清理策略                     | 🟡 SHOULD |
+| 13   | [模块依赖](13-module-dependencies.md)                    | NestJS 循环依赖防范、forwardRef 使用       | 🔴 MUST   |
+| 15   | [报告模板](15-report-template.md)                        | 报告 13 种内容类型统一格式规范             | 🔴 MUST   |
+| 16   | [Engine/Harness 结构](16-ai-engine-harness-structure.md) | AI Engine / AI Harness 的 MECE 分层结构    | 🔴 MUST   |
+| 17   | [扩展治理](17-extension-governance.md)                   | 扩展契约、定制代码归位、memory/plugin 治理 | 🔴 MUST   |
 
 ### 🚀 快速参考
 

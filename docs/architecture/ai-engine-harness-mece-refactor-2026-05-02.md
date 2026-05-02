@@ -3,7 +3,10 @@
 **版本：** 1.0（最终方案）
 **生效日期：** 2026-05-02
 **状态：** 进行中（W0-W16 已完成）
-**关联规范：** [`.claude/standards/16-ai-engine-harness-structure.md`](../../.claude/standards/16-ai-engine-harness-structure.md)
+**关联规范：**
+
+- [`.claude/standards/16-ai-engine-harness-structure.md`](../../.claude/standards/16-ai-engine-harness-structure.md)
+- [`.claude/standards/17-extension-governance.md`](../../.claude/standards/17-extension-governance.md)
 
 ---
 
@@ -632,6 +635,9 @@ ai-harness/
 | **W17** | engine 顶层聚合整改（解散 core/abstractions，提拔 rag/planning/credentials）                                  | HIGH   | ✅     |
 | **W18** | engine 全量命名规范对齐（Module 去前缀、规范化扩展名及缺失后缀修正）                                          | LOW    | ⏳待办 |
 | **W19** | harness 全量命名规范对齐（收敛非标准扩展测试文件后缀、补齐领域概念文件后缀）                                  | LOW    | ⏳待办 |
+| **W20** | 扩展治理契约落地（唯一主线 registry、扩展点白名单、plugin-ready metadata、测试命名白名单）                    | HIGH   | ⏳待办 |
+| **W21** | memory 目录与契约收敛（checkpoint 主 contract 唯一化、memory tool provider 化、dream/auto-index 归位）        | HIGH   | ⏳待办 |
+| **W22** | 定制代码归位与目录优化（伪通用能力下沉、built-in skill pack 收敛、碎片测试归并、facade 稳定面瘦身）           | HIGH   | ⏳待办 |
 
 ### 8.2 单波次执行流程
 
@@ -721,6 +727,69 @@ const oldRoot = path.resolve(process.argv[3]);
 
 这样保证子树内部 import 稳定，外部 import 用绝对别名免疫深度变化。
 
+### 8.5 (W20-W22) 扩展治理与目录优化波次
+
+此三波次不是“额外重构”，而是 W18/W19 之后必须承接的结构治理收尾。原则上：
+
+- **W18/W19 解决命名与表层目录一致性**
+- **W20/W21/W22 解决契约唯一性、扩展边界与定制代码归位**
+
+#### W20: 扩展治理契约落地
+
+以 [`.claude/standards/17-extension-governance.md`](../../.claude/standards/17-extension-governance.md) 为准，把扩展从“约定俗成”变成“项目必须遵守的 contract”。
+
+- **唯一主线注册中心：**
+  - `ToolRegistry` 保持唯一主线实现
+  - `SkillRegistry` 保持唯一主线实现
+  - 禁止新增第二个主线 `checkpoint` contract
+- **扩展点白名单：**
+  - 仅允许新增能力进入 `engine/tools/`、`engine/skills/`、`engine/llm/providers/`、`harness/protocols/`、`harness/memory/`
+  - 禁止在 `facade/`、`abstractions/`、`registry/` 中直接塞业务能力
+- **plugin-ready 最小元数据：**
+  - 为 tool / skill / provider / protocol / memory 扩展定义统一 metadata 或 manifest 形态
+  - 新增能力必须有 owner、kind、entry、public/internal 标记
+- **测试命名白名单：**
+  - 只保留 `*.spec.ts`、`*.integration.spec.ts`、`*.e2e-spec.ts`
+  - 明确禁止新增 `*-supplemental.spec.ts`、`*-extra.spec.ts`、`*.legacy.spec.ts`
+
+#### W21: memory 目录与契约收敛
+
+这一波次专门解决“memory 是否独立一层”的争议：结论是不升层，但必须收敛成**跨层状态能力轴**。
+
+- **checkpoint 主 contract 唯一化：**
+  - 对齐 `memory/checkpoint/` 与 `memory/state-checkpoint/`
+  - 抽统一 `CheckpointStore` / `CheckpointScope(agent|mission|session)` 主契约
+- **memory tool provider 化：**
+  - 取消长期依赖 `memory.module.ts onModuleInit -> toolRegistry.register(...)` 的反向注册模式
+  - 改为 engine 可接纳的正式 provider/source contract
+- **目录归位优化：**
+  - `memory/dream/` ➡️ `memory/consolidation/`
+  - `memory/auto-index/` ➡️ `memory/indexing/`
+  - `memory/tools/` 长期目标不是直接反向注册入口，而是 `tools-provider/` 或等价正式 provider
+- **语义拆分：**
+  - `working/` 代表运行态 working memory
+  - `semantic/`（如需建立）代表语义召回协调
+  - `checkpoint/` 代表快照/恢复语义
+  - `stores/` 仅保留底层 store 实现
+
+#### W22: 定制代码归位与目录优化
+
+这一波次解决“看起来在 core，实际是单业务定制”的历史债，原则是：**伪通用不许继续留在 core**。
+
+- **built-in skill pack 收敛：**
+  - `agents/builtin-skills/skill-registry.ts` 降格为 `catalog` / `source` 语义
+  - `built-in/` 长期收敛为 `packs/`
+  - `leader-mid-mission-assess`、`mece-mission-planning`、`multi-judge-mission-review` 这类玩法型 skill 明确归入 built-in packs，而不是 runtime core
+- **伪通用能力复核：**
+  - 复核 `engine/content/figure/`、`tools/categories/processing/template-render.tool.ts` 等“由单业务上浮”的能力
+  - 不满足跨 bounded context 复用条件的，一律下沉回 `ai-app/<domain>/`
+- **facade 稳定面瘦身：**
+  - 复核 `engine/facade/abstractions/research.interface.ts`、`simulation.interface.ts`
+  - 仅保留稳定跨域能力接口，业务导向接口迁回 app 端 port
+- **碎片测试归并：**
+  - 批量清理 `supplemental` / `extra` / `legacy`
+  - 同一主题测试优先合并回主 spec，无法合并者改为 `integration`
+
 ---
 
 ## 九、自动化工具与守护机制
@@ -755,6 +824,24 @@ const oldRoot = path.resolve(process.argv[3]);
 | `npm run verify:quick`              | 类型检查 + 快速测试       |
 | `npm run verify:full`               | Lint + 类型 + 测试 + 构建 |
 | `npx tsc --noEmit -p tsconfig.json` | 单纯类型检查              |
+
+### 9.4 扩展治理守护（W20+ 必须补齐）
+
+在现有三层守护基础上，后续必须追加三类自动化看护：
+
+1. **`extension-boundaries.spec.ts`**
+   - 禁止新增第二个主线 registry
+   - 禁止扩展能力绕过正式 manifest/metadata 与注册入口
+
+2. **`memory-boundaries.spec.ts`**
+   - 检查 checkpoint 主 contract 唯一性
+   - 检查 memory 子树中是否继续扩散业务定制文件
+   - 检查 memory tool 是否仍依赖隐式反向注册
+
+3. **`customization-audit.spec.ts`**
+   - 扫描 `supplemental|extra|legacy|temp`
+   - 扫描 engine/harness 内高风险业务词
+   - 对未归类的定制代码直接告警或 fail
 
 ---
 
@@ -851,6 +938,10 @@ ai-engine/
 | 同名歧义               | 已消除（governance/process） | 0    |
 | MECE completeness      | 95%                          | 95%+ |
 | 架构边界测试           | 7/7 通过                     | 7/7  |
+| 主线 registry 唯一性   | 部分完成                     | 唯一 |
+| checkpoint 主契约唯一  | 未完成                       | 唯一 |
+| 碎片测试命名           | 大量残留                     | 0    |
+| 定制代码未归类         | 存在                         | 0    |
 | 全量测试               | 36000+ tests 全绿            | 全绿 |
 
 ---
@@ -874,10 +965,13 @@ ai-engine/
 ## 附录 B：参考文档
 
 - [`.claude/standards/16-ai-engine-harness-structure.md`](../../.claude/standards/16-ai-engine-harness-structure.md) —— 规范文件（强制级别 MUST）
+- [`.claude/standards/17-extension-governance.md`](../../.claude/standards/17-extension-governance.md) —— 扩展治理、定制代码归位、memory/plugin 边界
 - [`.claude/standards/13-module-dependencies.md`](../../.claude/standards/13-module-dependencies.md) —— 模块依赖关系总览
 - [`.claude/standards/14-skills-development.md`](../../.claude/standards/14-skills-development.md) —— Skill 开发规范
+- [`docs/audits/extension-governance-and-customization-audit-2026-05-02.md`](../audits/extension-governance-and-customization-audit-2026-05-02.md) —— 首轮审计清单
 - [`docs/architecture/system-architecture-overview.md`](system-architecture-overview.md) —— 系统架构总览
 - [`docs/architecture/ai-architecture-baseline-2026-01.md`](ai-architecture-baseline-2026-01.md) —— 2026-01 架构基线
+- [`docs/architecture/extension-governance-rollout-checklist-2026-05-02.md`](extension-governance-rollout-checklist-2026-05-02.md) —— 扩展治理与目录优化执行清单
 
 ---
 

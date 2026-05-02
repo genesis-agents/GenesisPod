@@ -5,6 +5,10 @@
 **生效日期：** 2026-05-02
 **维护者：** Claude Code
 
+> 本规范定义 `ai-engine` / `ai-harness` 的 MECE 结构边界。  
+> 扩展契约、定制代码归位、memory/plugin 治理，必须同时遵守
+> [17-extension-governance.md](17-extension-governance.md)。
+
 ---
 
 ## 一、定位与边界（架构唯一判别标准）
@@ -249,6 +253,7 @@ Genesis 选词：取业界共识的最常见词，且每个名字单一概念，
 ## 十、参考文档
 
 - [13-module-dependencies.md](13-module-dependencies.md) —— 模块依赖关系总览
+- [17-extension-governance.md](17-extension-governance.md) —— 扩展治理、定制代码归位、memory/plugin 边界
 - [14-skills-development.md](14-skills-development.md) —— Skill 开发规范
 - [02-directory-structure.md](02-directory-structure.md) —— 项目级目录规范
 - [skills/ai/ai-architecture-layering/SKILL.md](../skills/ai/ai-architecture-layering/SKILL.md) —— 详细分层文档
