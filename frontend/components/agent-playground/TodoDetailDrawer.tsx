@@ -53,6 +53,7 @@ import {
   type ToneKey,
   type RoleKey,
 } from '@/lib/playground-design/tokens';
+import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
 
 interface Props {
   todo: MissionTodo | undefined;
@@ -844,7 +845,11 @@ export function TodoDetailDrawer({
                 }
               >
                 <ExpandableText
-                  text={todo.reasonText}
+                  text={
+                    todo.origin === 'self-heal-retry'
+                      ? friendlyError(todo.reasonText)
+                      : todo.reasonText
+                  }
                   maxChars={800}
                   className="text-[13px] leading-relaxed text-amber-900"
                 />
@@ -947,7 +952,7 @@ export function TodoDetailDrawer({
           {todo.status === 'failed' && linkedAgent?.failureMessage && (
             <ToneCard tone="error" label="失败原因">
               <ExpandableText
-                text={linkedAgent.failureMessage}
+                text={friendlyError(linkedAgent.failureMessage)}
                 maxChars={400}
                 className="text-[13px] leading-relaxed text-red-800"
               />

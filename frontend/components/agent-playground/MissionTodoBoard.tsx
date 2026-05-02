@@ -42,6 +42,7 @@ import type {
 } from '@/lib/agent-playground/derive';
 import { Card, StatusPill, RoleChip } from '@/components/playground-ui';
 import { statusToken } from '@/lib/playground-design/tokens';
+import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
 import {
   AgentInspector,
   type AgentInspectorAgent,
@@ -898,9 +899,15 @@ export function MissionTodoBoard({
                         {td.reasonText && (
                           <p
                             className="line-clamp-1 text-[11px] text-gray-500"
-                            title={td.reasonText}
+                            title={
+                              td.origin === 'self-heal-retry'
+                                ? friendlyError(td.reasonText)
+                                : td.reasonText
+                            }
                           >
-                            {td.reasonText}
+                            {td.origin === 'self-heal-retry'
+                              ? friendlyError(td.reasonText)
+                              : td.reasonText}
                           </p>
                         )}
                       </div>
