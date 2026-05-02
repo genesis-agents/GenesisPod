@@ -1,5 +1,5 @@
 /**
- * ai-harness/governance/critique —— Reflexion 批评-改进闭环（沉淀自 topic-insights, 2026-04-29）
+ * ai-harness/evaluation/critique —— Reflexion 批评-改进闭环（沉淀自 topic-insights, 2026-04-29）
  *
  * 参考: Reflexion (Shinn et al., 2023) + Self-Consistency (Wang et al., 2022)
  *

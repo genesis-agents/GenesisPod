@@ -43,8 +43,8 @@ import { ToolInvoker } from "./execution/executor/tool-invoker";
 import { ToolCircuitBreaker } from "./execution/executor/tool-circuit-breaker";
 import { LlmExecutor } from "./execution/executor/llm-executor";
 import { AgentExecutorService } from "./execution/executor/agent-executor.service";
-import { OutputReviewerService } from "./governance/critique/output-reviewer.service";
-import { ReportArtifactAssembler } from "./governance/critique/report-artifact/report-artifact-assembler.service";
+import { OutputReviewerService } from "./evaluation/critique/output-reviewer.service";
+import { ReportArtifactAssembler } from "./evaluation/critique/report-artifact/report-artifact-assembler.service";
 import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
 import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
 import { MemoryAutoIndexer } from "./memory/auto-index/memory-auto-indexer";
@@ -96,7 +96,7 @@ import {
   SectionRemediationService,
   ReportEvaluationService,
   QualityTraceComputeService,
-} from "./governance/critique";
+} from "./evaluation/critique";
 import { MCPRelay } from "./protocol/mcp/mcp-relay.service";
 import { MCPManager } from "./protocol/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "./protocol/mcp/registry/mcp-client-registry.service";

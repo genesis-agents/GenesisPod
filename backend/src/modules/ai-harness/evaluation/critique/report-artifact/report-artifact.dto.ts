@@ -181,7 +181,7 @@ export interface ArtifactMetadata {
   };
   /**
    * ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace —— 5 探针 + 5 维评分 + Top issues
-   * 由 ai-harness/governance/critique/QualityTraceComputeService 汇总，
+   * 由 ai-harness/evaluation/critique/QualityTraceComputeService 汇总，
    * 写入 reportArtifact.metadata，前端可视化 + 离线评估都用同一份。
    */
   pipelineQualityTrace?: import("../../../facade").QualityTrace;

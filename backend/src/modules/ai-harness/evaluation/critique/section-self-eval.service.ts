@@ -1,4 +1,4 @@
-// Sediment from topic-insights (2026-04-29) — ai-harness/governance/critique/
+// Sediment from topic-insights (2026-04-29) — ai-harness/evaluation/critique/
 // 来源: ai-app/topic-insights/services/quality/section-self-eval.service.ts
 // TI 仍在使用原 service；本副本由 agent-playground 等新业务通过 ai-harness/facade 调用。
 /**

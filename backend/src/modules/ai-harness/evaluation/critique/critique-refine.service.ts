@@ -8,7 +8,7 @@
  *   合并 3 处重复的 shouldStop/getStopReason/determineStopReason 为 1 个方法。
  */
 
-// Sediment from topic-insights (2026-04-29) — ai-harness/governance/critique/
+// Sediment from topic-insights (2026-04-29) — ai-harness/evaluation/critique/
 // 来源: ai-app/topic-insights/services/quality/critique-refine.service.ts
 // + 类型来源: ai-app/topic-insights/types/quality.types.ts
 // TI 仍在使用原 service；本副本由 agent-playground 等新业务通过 ai-harness/facade 调用。

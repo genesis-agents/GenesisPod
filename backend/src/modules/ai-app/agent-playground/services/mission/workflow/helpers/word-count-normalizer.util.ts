@@ -1,7 +1,7 @@
 /**
  * 字数归一化（playground 薄 wrapper）
  *
- * 实现已沉淀到 ai-harness/governance/critique/word-count-balancer.ts (Phase 3)，
+ * 实现已沉淀到 ai-harness/evaluation/critique/word-count-balancer.ts (Phase 3)，
  * 此处仅做参数预设：playground epic 档位单章可达 12K（chapter 而非 section），
  * 故 maxFloor 提高到 8000，与 chapter-writer schema max=12000 对齐。
  *

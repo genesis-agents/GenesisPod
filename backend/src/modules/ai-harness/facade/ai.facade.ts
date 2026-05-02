@@ -179,7 +179,7 @@ import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/fun
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamFactory } from "../teams/factory/team-factory";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orchestrator/teams-mission-orchestrator";
-import { OutputReviewerService } from "../governance/critique/output-reviewer.service";
+import { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
 import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
