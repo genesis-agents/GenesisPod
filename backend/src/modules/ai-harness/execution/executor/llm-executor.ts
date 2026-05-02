@@ -21,7 +21,7 @@ import type { z } from "zod";
 // Nest DI 随后报 "LlmExecutor dependency at index [0]"。
 // 参考 8ac343b98（agent-factory / spec-based-agent 已同此修复）。
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { AiObservabilityService } from "../../../ai-harness/governance/observability/ai-observability.service";
+import { AiObservabilityService } from "../../../ai-harness/tracing/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
 import { AIModelType } from "@prisma/client";

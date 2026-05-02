@@ -62,7 +62,7 @@ import { EvidenceManagerService } from "../../ai-engine/knowledge/evidence/servi
 import { VotingManager } from "../process/collaboration/patterns/voting-pattern";
 import { MessageBusService as A2AMessageBusService } from "../protocol/ipc/message-bus.service";
 // ★ Observability Feature 依赖
-import { TraceCollectorService } from "../governance/observability/trace-collector.service";
+import { TraceCollectorService } from "../tracing/trace-collector.service";
 import { MemoryCoordinatorService } from "../../ai-harness/memory/coordinator/memory-coordinator.service";
 // ★ Registry Feature 依赖
 import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";

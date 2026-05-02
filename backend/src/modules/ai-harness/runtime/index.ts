@@ -41,12 +41,12 @@ export {
   AgentTracer,
   type Span,
   type StartSpanOptions,
-} from "../governance/observability/tracer/otel-tracer";
+} from "../tracing/tracer/otel-tracer";
 export {
   SpanExporter,
   type SpanRecord,
   type SpanSink,
-} from "../governance/observability/tracer/span-exporter";
+} from "../tracing/tracer/span-exporter";
 export {
   ModelPricingRegistry,
   type ModelPricing,

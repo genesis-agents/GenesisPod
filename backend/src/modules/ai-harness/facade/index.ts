@@ -309,11 +309,11 @@ export {
 export {
   extractTokenSpend,
   estimateUsdFromTokens,
-} from "../governance/observability/token-spend.util";
+} from "../tracing/token-spend.util";
 export {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
-} from "../governance/observability/failure-extraction.util";
+} from "../tracing/failure-extraction.util";
 export {
   clampScore,
   scaleScore,
@@ -417,21 +417,21 @@ export type {
 } from "../governance/resource/runtime-environment.types";
 
 // ── Observability ──
-export { TraceCollectorService } from "../governance/observability/trace-collector.service";
-export { AiObservabilityService } from "../governance/observability/ai-observability.service";
-export { CostAttributionService } from "../governance/observability/cost-attribution.service";
-export { SessionLatencyTrackerService } from "../governance/observability/session-latency-tracker.service";
-export { LlmTracingService } from "../governance/observability/llm-tracing.service";
-export { EvalPipelineService } from "../governance/observability/eval-pipeline.service";
-export type { EvalResult } from "../governance/observability/eval-pipeline.service";
-export { EvalHarnessService } from "../governance/observability/eval-harness.service";
-export { EvalExperimentService } from "../governance/observability/eval-experiment.service";
+export { TraceCollectorService } from "../tracing/trace-collector.service";
+export { AiObservabilityService } from "../tracing/ai-observability.service";
+export { CostAttributionService } from "../tracing/cost-attribution.service";
+export { SessionLatencyTrackerService } from "../tracing/session-latency-tracker.service";
+export { LlmTracingService } from "../tracing/llm-tracing.service";
+export { EvalPipelineService } from "../tracing/eval-pipeline.service";
+export type { EvalResult } from "../tracing/eval-pipeline.service";
+export { EvalHarnessService } from "../tracing/eval-harness.service";
+export { EvalExperimentService } from "../tracing/eval-experiment.service";
 export {
   EVAL_RUN_STORE,
   InMemoryEvalRunStore,
   PrismaEvalRunStore,
-} from "../governance/observability/eval-run.store";
-export type { EvalRunStore } from "../governance/observability/eval-run.store";
+} from "../tracing/eval-run.store";
+export type { EvalRunStore } from "../tracing/eval-run.store";
 export type {
   EvalCaseDefinition,
   EvalDataset,
@@ -452,8 +452,8 @@ export type {
   EvalExperimentViolation,
   EvalExperimentRunRequest,
   EvalExperimentResult,
-} from "../governance/observability/eval-harness.types";
-export type { TraceType } from "../governance/observability/trace.interface";
+} from "../tracing/eval-harness.types";
+export type { TraceType } from "../tracing/trace.interface";
 export type {
   SpanType,
   ExecutionStatus,
@@ -465,7 +465,7 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../governance/observability/trace.interface";
+} from "../tracing/trace.interface";
 export type {
   LatencySession,
   LatencyPhase,
@@ -481,7 +481,7 @@ export type {
   StartPhaseInput,
   RecordLLMLatencyInput,
   ListSessionsFilter,
-} from "../governance/observability/session-latency.types";
+} from "../tracing/session-latency.types";
 
 // ── Security ──
 // PR-X15: 通过 engine/facade barrel，不穿透 engine 私有路径

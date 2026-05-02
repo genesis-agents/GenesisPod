@@ -2,7 +2,7 @@
  * LLM Cost Calculator
  *
  * 纯函数模块：提供 LLM 调用成本估算能力。
- * 从 ai-harness/governance/observability/ai-observability.service.ts 提取，
+ * 从 ai-harness/tracing/ai-observability.service.ts 提取，
  * 以消除 ai-engine → ai-harness 的反向依赖。
  *
  * 无 NestJS 注入，可在 ai-engine 内部任意位置直接 import。
@@ -11,7 +11,10 @@
 /**
  * LLM 成本估算（美元/1K tokens）
  */
-export const COST_PER_1K_TOKENS: Record<string, { input: number; output: number }> = {
+export const COST_PER_1K_TOKENS: Record<
+  string,
+  { input: number; output: number }
+> = {
   "gpt-4o": { input: 0.0025, output: 0.01 },
   "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
   "claude-3.5-sonnet": { input: 0.003, output: 0.015 },

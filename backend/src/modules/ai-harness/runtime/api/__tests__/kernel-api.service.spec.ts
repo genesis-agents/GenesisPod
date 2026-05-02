@@ -19,8 +19,8 @@ import { CircuitBreakerService } from "../../../../ai-engine/safety/resilience/c
 import { EventBusService } from "../../../protocol/ipc/event-bus.service";
 import { MessageBusService } from "../../../protocol/ipc/message-bus.service";
 import { ProgressTrackerService } from "../../../protocol/ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../../governance/observability/ai-observability.service";
-import { CostAttributionService } from "../../../governance/observability/cost-attribution.service";
+import { AiObservabilityService } from "../../../tracing/ai-observability.service";
+import { CostAttributionService } from "../../../tracing/cost-attribution.service";
 import { CapabilityGuardService } from "../../../../ai-engine/safety/security/capability-guard.service";
 import { KernelSchedulerService } from "../../../process/scheduler/kernel-scheduler.service";
 

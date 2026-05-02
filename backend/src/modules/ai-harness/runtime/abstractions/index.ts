@@ -55,7 +55,7 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../../governance/observability/trace.interface";
+} from "../../tracing/trace.interface";
 
 // ==================== Teams / A2A Message (harness-owned) ====================
 

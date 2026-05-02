@@ -13,7 +13,7 @@
  */
 
 import { Global, Module } from "@nestjs/common";
-import { PrismaModule } from "../../../../common/prisma/prisma.module";
+import { PrismaModule } from "@/common/prisma/prisma.module";
 import { TraceCollectorService } from "./trace-collector.service";
 import { AiObservabilityService } from "./ai-observability.service";
 import { CostAttributionService } from "./cost-attribution.service";

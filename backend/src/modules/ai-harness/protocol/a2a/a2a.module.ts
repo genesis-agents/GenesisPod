@@ -23,7 +23,7 @@ import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
 import { TeamsModule } from "../../teams/teams.module";
 import { TeamsService } from "../../teams/services/teams.service";
-import { TraceCollectorService } from "../../../ai-harness/governance/observability/trace-collector.service";
+import { TraceCollectorService } from "../../../ai-harness/tracing/trace-collector.service";
 
 @Module({
   imports: [SecretsModule, TeamsModule],

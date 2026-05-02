@@ -19,7 +19,7 @@ import { RuntimeJournalModule } from "../protocol/journal/journal.module";
 import { RuntimeIpcModule } from "../protocol/ipc/ipc.module";
 import { RuntimeResourceModule } from "../governance/resource/resource.module";
 import { RuntimeMemoryModule } from "../memory/working/memory.module";
-import { ObservabilityModule } from "../governance/observability/observability.module";
+import { ObservabilityModule } from "../tracing/observability.module";
 
 // Runtime lifecycle services
 import { ProcessManagerService } from "../process/manager/process-manager.service";

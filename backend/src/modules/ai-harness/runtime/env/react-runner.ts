@@ -15,7 +15,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { BudgetAccountant } from "../cost/budget-accountant";
 import { ToolRegistry, type ToolExecContext } from "../env/tool-registry";
-import { AgentTracer, type Span } from "../../governance/observability/tracer/otel-tracer";
+import { AgentTracer, type Span } from "../../tracing/tracer/otel-tracer";
 import type {
   StepStore,
   CheckpointStore,

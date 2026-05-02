@@ -1,6 +1,6 @@
 /**
  * A2A DI Tokens
- * 被 A2AController 用于注入位于 ai-harness/teams 和 ai-harness/governance/observability 的服务，
+ * 被 A2AController 用于注入位于 ai-harness/teams 和 ai-harness/tracing 的服务，
  * 避免 runtime/a2a 直接耦合具体实现类。
  */
 

@@ -83,7 +83,7 @@ import {
   MissionOrchestrator,
 } from "./runtime";
 import { ModelPricingRegistry } from "./runtime/cost/model-pricing-registry";
-import { SpanExporter } from "./governance/observability/tracer/span-exporter";
+import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
 import { FigureRelevanceService } from "./evaluation/figure";
@@ -133,7 +133,7 @@ import { AgentOrchestrator } from "./kernel/registry/agent-orchestrator";
 import { AgentConfigService } from "./kernel/config/agent-config.service";
 import { CheckpointManager } from "./protocol/journal/checkpoint-manager";
 import { ProgressTrackerService } from "./protocol/ipc/progress-tracker.service";
-import { TraceCollectorService } from "./governance/observability/trace-collector.service";
+import { TraceCollectorService } from "./tracing/trace-collector.service";
 import { FailureLearnerService } from "./lifecycle/learning/failure-learner.service";
 import { ConstraintEnforcementService } from "./governance/resource/constraint-enforcement.service";
 import { ProcessSupervisorService } from "./process/supervisor/process-supervisor.service";

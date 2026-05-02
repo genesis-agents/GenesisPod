@@ -9,8 +9,8 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { TraceCollectorService } from "../../ai-harness/governance/observability/trace-collector.service";
-import type { TraceType } from "../../ai-harness/governance/observability/trace.interface";
+import { TraceCollectorService } from "../../ai-harness/tracing/trace-collector.service";
+import type { TraceType } from "../../ai-harness/tracing/trace.interface";
 
 /**
  * Admin Observability Controller
@@ -18,7 +18,7 @@ import type { TraceType } from "../../ai-harness/governance/observability/trace.
  * Exposes Agent Trace data for debugging and monitoring.
  * Requires admin authentication.
  *
- * Migrated from ai-harness/governance/observability/observability.controller.ts (PR-X17).
+ * Migrated from ai-harness/tracing/observability.controller.ts (PR-X17).
  *
  * GET /api/v1/admin/traces         - list recent traces
  * GET /api/v1/admin/traces/stats   - trace statistics

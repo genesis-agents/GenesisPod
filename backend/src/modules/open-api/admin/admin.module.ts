@@ -71,7 +71,7 @@ import {
     ApprovalsAdminController, // /admin/approvals/* routes for human-in-the-loop approvals
     KernelAdminController, // /admin/kernel/* routes for AI Kernel process management
     AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
-    ObservabilityAdminController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/governance/observability)
+    ObservabilityAdminController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/tracing)
     EvalAdminController, // /admin/evals/* routes for eval runs and experiments
     ...(process.env.NODE_ENV === "production"
       ? []

@@ -7,7 +7,7 @@ import {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
 } from "../failure-extraction.util";
-import type { IAgentEvent } from "../../../facade";
+import type { IAgentEvent } from "@/modules/ai-harness/facade";
 
 function makeEvent(type: string, payload: unknown, timestamp = 0): IAgentEvent {
   return { type, payload, timestamp } as unknown as IAgentEvent;

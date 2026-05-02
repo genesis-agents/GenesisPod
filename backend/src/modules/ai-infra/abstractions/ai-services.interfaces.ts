@@ -27,7 +27,7 @@ export const AI_CHAT_TOKEN = "InfraAiChatService";
 
 /**
  * Abstract observability interface used by HealthCheckService.
- * Implemented by: ai-harness/governance/observability/ai-observability.service.ts
+ * Implemented by: ai-harness/tracing/ai-observability.service.ts
  */
 export interface IAiObservability {
   getDashboard(minutes: number): {

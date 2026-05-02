@@ -71,7 +71,7 @@ import {
 } from "@/modules/ai-engine/llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
-import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
+import { TraceCollectorService } from "@/modules/ai-harness/tracing/trace-collector.service";
 import { CheckpointManager } from "@/modules/ai-harness/protocol/journal/checkpoint-manager";
 import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/protocol/ipc/message-bus.service";
 import {

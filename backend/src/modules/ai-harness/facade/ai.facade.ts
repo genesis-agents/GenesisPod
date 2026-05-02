@@ -135,7 +135,7 @@ import type {
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../governance/observability/trace.interface";
+} from "../tracing/trace.interface";
 import type {
   MemoryEvent,
   MemoryQuery,

@@ -13,8 +13,8 @@ import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circ
 import { EventBusService } from "../../../ai-harness/protocol/ipc/event-bus.service";
 import { MessageBusService } from "../../../ai-harness/protocol/ipc/message-bus.service";
 import { ProgressTrackerService } from "../../../ai-harness/protocol/ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../../ai-harness/governance/observability/ai-observability.service";
-import { CostAttributionService } from "../../../ai-harness/governance/observability/cost-attribution.service";
+import { AiObservabilityService } from "../../../ai-harness/tracing/ai-observability.service";
+import { CostAttributionService } from "../../../ai-harness/tracing/cost-attribution.service";
 import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
 import { KernelSchedulerService } from "../../../ai-harness/process/scheduler/kernel-scheduler.service";
 import type {

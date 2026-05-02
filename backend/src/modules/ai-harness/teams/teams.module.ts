@@ -38,7 +38,7 @@ import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short
 import { MCPManager } from "@/modules/ai-harness/protocol/mcp/manager/mcp-manager";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { TraceCollectorService } from "@/modules/ai-harness/governance/observability/trace-collector.service";
+import { TraceCollectorService } from "@/modules/ai-harness/tracing/trace-collector.service";
 import { CheckpointManager } from "@/modules/ai-harness/protocol/journal/checkpoint-manager";
 import { MissionExecutorService } from "@/modules/ai-harness/runtime/mission/mission-executor.service";
 import { EventJournalService } from "@/modules/ai-harness/protocol/journal/event-journal.service";

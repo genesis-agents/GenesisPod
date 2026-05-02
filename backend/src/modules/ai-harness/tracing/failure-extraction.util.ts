@@ -5,7 +5,7 @@
  * 纯函数，无副作用，无依赖。从 mission/workflow/team.mission.ts 抽出。
  */
 
-import type { IAgentEvent } from "../../facade";
+import type { IAgentEvent } from "@/modules/ai-harness/facade";
 
 /**
  * 抽取 RunResult.events 里最具体的 failure 快照。
