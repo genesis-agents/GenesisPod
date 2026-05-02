@@ -9,11 +9,11 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { ResourceManagerService } from "../resource-manager.service";
-import { ProcessManagerService } from "@/modules/ai-harness/process/manager/process-manager.service";
+import { ProcessManagerService } from "@/modules/ai-harness/lifecycle/manager/process-manager.service";
 import type {
   ProcessSnapshot,
   ResourceConsumption,
-} from "@/modules/ai-harness/process/manager/process.types";
+} from "@/modules/ai-harness/lifecycle/manager/process.types";
 import { ProcessState } from "@prisma/client";
 
 describe("ResourceManagerService", () => {

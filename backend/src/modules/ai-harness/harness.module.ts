@@ -57,7 +57,7 @@ import {
 import { SKILL_PROVIDERS } from "./kernel/abstractions";
 import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider";
 import { AiEngineSkillsModule } from "../ai-engine/skills/ai-engine-skills.module";
-import { SubagentSpawner } from "./process/subagent";
+import { SubagentSpawner } from "./agents/subagents";
 import {
   ContextManager,
   ContextCompactor,
@@ -136,7 +136,7 @@ import { ProgressTrackerService } from "./protocol/ipc/progress-tracker.service"
 import { TraceCollectorService } from "./tracing/trace-collector.service";
 import { FailureLearnerService } from "./lifecycle/learning/failure-learner.service";
 import { ConstraintEnforcementService } from "./guardrails/constraint-enforcement.service";
-import { ProcessSupervisorService } from "./process/supervisor/process-supervisor.service";
+import { ProcessSupervisorService } from "./lifecycle/supervisor/process-supervisor.service";
 
 // ★ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
 import { AIFacade } from "./facade/ai.facade";

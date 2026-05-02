@@ -6,7 +6,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { CapabilityCheckResult } from "./capability.types";
 
-// ProcessId 在 ai-harness/process/manager/process.types 同名定义
+// ProcessId 在 ai-harness/lifecycle/manager/process.types 同名定义
 // 这里 inline 一份避免 engine → harness 反向 import
 type ProcessId = string;
 

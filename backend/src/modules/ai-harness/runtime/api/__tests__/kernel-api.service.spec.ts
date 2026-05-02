@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { KernelApiService } from "../kernel-api.service";
-import { ProcessManagerService } from "../../../process/manager/process-manager.service";
+import { ProcessManagerService } from "../../../lifecycle/manager/process-manager.service";
 import { EventJournalService } from "../../../protocol/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../../memory/working/process-memory-manager.service";
 import { ResourceManagerService } from "../../../guardrails/resource-manager.service";
@@ -22,7 +22,7 @@ import { ProgressTrackerService } from "../../../protocol/ipc/progress-tracker.s
 import { AiObservabilityService } from "../../../tracing/ai-observability.service";
 import { CostAttributionService } from "../../../tracing/cost-attribution.service";
 import { CapabilityGuardService } from "../../../../ai-engine/safety/security/capability-guard.service";
-import { KernelSchedulerService } from "../../../process/scheduler/kernel-scheduler.service";
+import { KernelSchedulerService } from "../../../runner/scheduler/kernel-scheduler.service";
 
 // ─── Shared test fixtures ────────────────────────────────────────────────────
 

@@ -10,7 +10,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { Logger } from "@nestjs/common";
 import { KernelSchedulerService } from "../kernel-scheduler.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 // ---------------------------------------------------------------------------
 // Mock factories

@@ -46,7 +46,7 @@ import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circ
 import { AgentExecutorService } from "../../execution/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../../ai-engine/llm/intent/intent-detection.service";
-import { ProcessSupervisorService as ExecutionStateManager } from "../../process/supervisor/process-supervisor.service";
+import { ProcessSupervisorService as ExecutionStateManager } from "../../lifecycle/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../../ai-engine/knowledge/extraction/context-evolution.service";
 import { AgentRegistry } from "../../kernel/registry/plan-based-agent-registry";

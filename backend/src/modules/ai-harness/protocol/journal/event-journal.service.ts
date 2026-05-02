@@ -5,7 +5,7 @@ import {
   ProcessId,
   JournalEntry,
   StepResult,
-} from "../../../ai-harness/process/manager/process.types";
+} from "../../../ai-harness/lifecycle/manager/process.types";
 
 @Injectable()
 export class EventJournalService implements OnModuleInit {

@@ -15,9 +15,9 @@ import {
   ProcessSupervisorService,
   StateCategory,
 } from "../process-supervisor.service";
-import { CacheService } from "../../../../../common/cache/cache.service";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ProcessManagerService } from "../../manager/process-manager.service";
+import { CacheService } from "@/common/cache/cache.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { ProcessManagerService } from "@/modules/ai-harness/lifecycle/manager/process-manager.service";
 
 // ---------------------------------------------------------------------------
 // Mock factories

@@ -354,7 +354,7 @@ export {
   type MissionCheckpointStore,
   type MissionResumeDecision,
   InMemoryMissionCheckpointStore,
-} from "../process/checkpoint";
+} from "../memory/state-checkpoint";
 export {
   MissionHealthMonitor,
   type MissionHealthSnapshot,
@@ -568,33 +568,33 @@ export { SCOPE_PRIORITY } from "../memory/working/hierarchical-memory-cascade.se
 // ════════════════════════════════════════════════════════════════════
 // Process: manager + scheduler + supervisor
 // ════════════════════════════════════════════════════════════════════
-export { ProcessManagerService } from "../process/manager/process-manager.service";
+export { ProcessManagerService } from "../lifecycle/manager/process-manager.service";
 export type {
   ProcessId,
   SpawnOptions,
   ProcessSnapshot,
   ProcessTree,
   ProcessCapabilities,
-} from "../process/manager/process.types";
+} from "../lifecycle/manager/process.types";
 export {
   VALID_TRANSITIONS,
   TERMINAL_STATES,
-} from "../process/manager/process.types";
+} from "../lifecycle/manager/process.types";
 export {
   StateTransitionValidator,
   InvalidTransitionError,
-} from "../process/manager/state-transition-validator";
-export type { StateTransitionMap } from "../process/manager/state-transition-validator";
-export { ProcessSupervisorService } from "../process/supervisor/process-supervisor.service";
+} from "../lifecycle/manager/state-transition-validator";
+export type { StateTransitionMap } from "../lifecycle/manager/state-transition-validator";
+export { ProcessSupervisorService } from "../lifecycle/supervisor/process-supervisor.service";
 // Backwards-compatible alias for legacy imports
-export { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
+export { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 export {
   StateCategory,
   type StateEntry,
   type ExecutionStateStats,
   type ExecutionStateConfig,
-} from "../process/supervisor/process-supervisor.service";
-export { KernelSchedulerService } from "../process/scheduler/kernel-scheduler.service";
+} from "../lifecycle/supervisor/process-supervisor.service";
+export { KernelSchedulerService } from "../runner/scheduler/kernel-scheduler.service";
 
 // ════════════════════════════════════════════════════════════════════
 // Teams: registry + factory + orchestrator + service (PR-X4)
@@ -713,18 +713,18 @@ export {
 // ════════════════════════════════════════════════════════════════════
 // Process (Collaboration) — PR-X5
 // ════════════════════════════════════════════════════════════════════
-export { CollaborationModule } from "../process/collaboration/collaboration.module";
-export { ReviewWorkflowService } from "../process/collaboration/review/review-workflow.service";
-export { TodoService } from "../process/collaboration/todo/todo.service";
-export { VotingManager } from "../process/collaboration/patterns/voting-pattern";
+export { CollaborationModule } from "../teams/collaboration/collaboration.module";
+export { ReviewWorkflowService } from "../teams/collaboration/review/review-workflow.service";
+export { TodoService } from "../teams/collaboration/todo/todo.service";
+export { VotingManager } from "../teams/collaboration/patterns/voting-pattern";
 export {
   HandoffCoordinator,
   HandoffContextBuilder,
-} from "../process/collaboration/patterns/handoff-pattern";
+} from "../teams/collaboration/patterns/handoff-pattern";
 export type {
   CollaborationMessage,
   ICollaborator,
-} from "../process/collaboration/abstractions/collaborator.interface";
+} from "../teams/collaboration/abstractions/collaborator.interface";
 
 // ════════════════════════════════════════════════════════════════════
 // MCP Protocol (PR-X14: migrated from ai-engine/facade shims)

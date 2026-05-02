@@ -4,7 +4,7 @@
  * Aggregates process management, memory, resources, and event journal.
  */
 import { Injectable } from "@nestjs/common";
-import { ProcessManagerService } from "../../../ai-harness/process/manager/process-manager.service";
+import { ProcessManagerService } from "../../../ai-harness/lifecycle/manager/process-manager.service";
 import { EventJournalService } from "../../protocol/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
 import { ResourceManagerService } from "../../../ai-harness/guardrails/resource-manager.service";
@@ -16,18 +16,18 @@ import { ProgressTrackerService } from "../../../ai-harness/protocol/ipc/progres
 import { AiObservabilityService } from "../../../ai-harness/tracing/ai-observability.service";
 import { CostAttributionService } from "../../../ai-harness/tracing/cost-attribution.service";
 import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
-import { KernelSchedulerService } from "../../../ai-harness/process/scheduler/kernel-scheduler.service";
+import { KernelSchedulerService } from "../../../ai-harness/runner/scheduler/kernel-scheduler.service";
 import type {
   ProcessId,
   SpawnOptions,
   ProcessSnapshot,
   ResourceConsumption,
-} from "../../../ai-harness/process/manager/process.types";
+} from "../../../ai-harness/lifecycle/manager/process.types";
 import type {
   MemoryEntry,
   MemoryQuery as KernelMemoryQuery,
-} from "../../../ai-harness/process/manager/process.types";
-import type { JournalEntry } from "../../../ai-harness/process/manager/process.types";
+} from "../../../ai-harness/lifecycle/manager/process.types";
+import type { JournalEntry } from "../../../ai-harness/lifecycle/manager/process.types";
 import type {
   MissionExecuteOptions,
   MissionExecuteResult,

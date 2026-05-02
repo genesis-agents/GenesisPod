@@ -151,11 +151,11 @@ import type {
   CompressionResult,
 } from "../../ai-harness/execution/executor/interfaces";
 import type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
-import type { VotingSession } from "../process/collaboration/patterns/voting-pattern";
+import type { VotingSession } from "../teams/collaboration/patterns/voting-pattern";
 import type {
   VoteRequest,
   VoteResult,
-} from "../process/collaboration/abstractions/collaborator.interface";
+} from "../teams/collaboration/abstractions/collaborator.interface";
 import { EmbeddingService } from "../../ai-engine/knowledge/rag/embedding";
 import type { EmbeddingResult } from "../../ai-engine/knowledge/rag/embedding";
 import { VectorService } from "../../ai-engine/knowledge/rag/vector";
@@ -173,7 +173,7 @@ import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit
 import { AgentExecutorService } from "../execution/executor/agent-executor.service";
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
-import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
+import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/function-calling-executor";
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";

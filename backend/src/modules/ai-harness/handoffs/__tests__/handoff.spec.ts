@@ -8,7 +8,7 @@ import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelo
 import type {
   IAgent,
   IContextEnvelope,
-} from "@/modules/ai-harness/process/abstractions";
+} from "@/modules/ai-harness/kernel/abstractions";
 
 function mkAgent(id: string): IAgent {
   const env = new ContextEnvelope({

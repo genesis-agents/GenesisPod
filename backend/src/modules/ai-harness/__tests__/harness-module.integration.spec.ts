@@ -18,7 +18,7 @@ import { ToolInvoker } from "../execution/executor/tool-invoker";
 import { BuiltInReActSkillRegistry } from "../kernel/builtin-skills/skill-registry";
 import { SkillActivator } from "../kernel/builtin-skills/skill-activator";
 import { SkillLoader } from "../kernel/builtin-skills/skill-loader";
-import { SubagentSpawner } from "../process/subagent/subagent-spawner";
+import { SubagentSpawner } from "../agents/subagents/subagent-spawner";
 import { ContextManager } from "../execution/context/context-manager";
 import { ContextCompactor } from "../execution/context/context-compactor";
 import { PriorityPruner } from "../execution/context/priority-pruner";

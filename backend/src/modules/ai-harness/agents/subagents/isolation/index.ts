@@ -3,7 +3,7 @@ export { ContextIsolation, DEFAULT_CONTEXT_BUDGET } from "./context-isolation";
 export { WorktreeIsolation } from "./worktree-isolation";
 export type { IsolationPolicy } from "./isolation.types";
 
-import type { SubagentIsolation } from "../../../kernel/abstractions";
+import type { SubagentIsolation } from "@/modules/ai-harness/kernel/abstractions";
 import type { IsolationPolicy } from "./isolation.types";
 import { NoneIsolation } from "./none-isolation";
 import { ContextIsolation } from "./context-isolation";

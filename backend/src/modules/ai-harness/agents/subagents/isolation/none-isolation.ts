@@ -5,8 +5,8 @@
  * 适合：轻量委托（把一个子任务交给另一个 role 做），不需要独立状态。
  */
 
-import type { IContextEnvelope } from "../../../kernel/abstractions";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import type { IContextEnvelope } from "@/modules/ai-harness/kernel/abstractions";
+import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelope";
 import type { IsolationPolicy } from "./isolation.types";
 
 export class NoneIsolation implements IsolationPolicy {

@@ -25,7 +25,7 @@ import { CostController } from "../guardrails/cost-controller";
 // ★ Orchestration 扩展依赖
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/llm/intent/intent-detection.service";
-import { ProcessSupervisorService as ExecutionStateManager } from "../process/supervisor/process-supervisor.service";
+import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { QueryLoopService } from "../../ai-harness/execution/executor/query-loop.service";
@@ -59,7 +59,7 @@ import { ContextCompressionService } from "../../ai-engine/llm/context/context-c
 import type { IReportSynthesisEngine } from "../../ai-engine/content/abstractions/content-engine.interfaces";
 // ★ Collaboration Feature 依赖
 import { EvidenceManagerService } from "../../ai-engine/knowledge/evidence/services/evidence-manager.service";
-import { VotingManager } from "../process/collaboration/patterns/voting-pattern";
+import { VotingManager } from "../teams/collaboration/patterns/voting-pattern";
 import { MessageBusService as A2AMessageBusService } from "../protocol/ipc/message-bus.service";
 // ★ Observability Feature 依赖
 import { TraceCollectorService } from "../tracing/trace-collector.service";

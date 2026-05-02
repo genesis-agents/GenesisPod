@@ -7,8 +7,8 @@
  * 适合：运行不可信代码、需要最强 blast-radius 控制的子任务。
  */
 
-import type { IContextEnvelope } from "../../../kernel/abstractions";
-import { ContextEnvelope } from "../../../kernel/core/context-envelope";
+import type { IContextEnvelope } from "@/modules/ai-harness/kernel/abstractions";
+import { ContextEnvelope } from "@/modules/ai-harness/kernel/core/context-envelope";
 import type { IsolationPolicy } from "./isolation.types";
 
 const DEFAULT_MAX_TOKENS = 10_000;

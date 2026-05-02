@@ -62,8 +62,8 @@ import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short
 import {
   HandoffCoordinator,
   HandoffContextBuilder,
-} from "@/modules/ai-harness/process/collaboration/patterns/handoff-pattern";
-import { CollaborationMessage } from "@/modules/ai-harness/process/collaboration/abstractions/collaborator.interface";
+} from "@/modules/ai-harness/teams/collaboration/patterns/handoff-pattern";
+import { CollaborationMessage } from "@/modules/ai-harness/teams/collaboration/abstractions/collaborator.interface";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 import {
   AiChatLLMAdapter,

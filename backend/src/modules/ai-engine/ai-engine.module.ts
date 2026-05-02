@@ -122,7 +122,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块
     EvidenceModule,
     QualityModule,
-    // CollaborationModule 已搬到 ai-harness/process/collaboration（@Global），
+    // CollaborationModule 已搬到 ai-harness/teams/collaboration（@Global），
     // 由 harness.module 装配，无需在 engine 重复
 
     // Content Fetch (generic URL fetch capability)
@@ -174,7 +174,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块导出
     EvidenceModule,
     QualityModule,
-    // CollaborationModule 已搬到 ai-harness/process/collaboration（@Global），
+    // CollaborationModule 已搬到 ai-harness/teams/collaboration（@Global），
     // 由 harness.module 装配，无需在 engine 重复
 
     // Content Fetch (generic URL fetch capability)

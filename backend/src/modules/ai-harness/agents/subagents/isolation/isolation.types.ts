@@ -7,7 +7,10 @@
  *             (文件系统级 worktree 预留给 code-executing subagent，本 phase 不实际开 worktree)
  */
 
-import type { IContextEnvelope, SubagentIsolation } from "../../../kernel/abstractions";
+import type {
+  IContextEnvelope,
+  SubagentIsolation,
+} from "@/modules/ai-harness/kernel/abstractions";
 
 export interface IsolationPolicy {
   readonly kind: SubagentIsolation;

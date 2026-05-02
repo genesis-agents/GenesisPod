@@ -13,7 +13,7 @@ import type {
   IAgentEvent,
   ISubagentHandle,
   ISubagentSpec,
-} from "../../kernel/abstractions";
+} from "@/modules/ai-harness/kernel/abstractions";
 
 export class SubagentHandle implements ISubagentHandle {
   readonly id: string;
