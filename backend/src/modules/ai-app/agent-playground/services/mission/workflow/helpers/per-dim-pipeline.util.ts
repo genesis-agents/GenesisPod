@@ -944,6 +944,27 @@ export async function runPerDimPipeline(
       (integrateRes.state === "completed" ||
         integrateRes.state === "degraded") &&
       integrateRes.output;
+    // ★ 2026-05-02 真治根（用户实证 Screenshot 54/55 章节内容空但有字数）：
+    //   原 integrator LLM 生成 fullMarkdown 受 16000 token 限制，多章节 dim
+    //   （epic/mega 长度档位 25 章 × 4000 字 = 100K 字符）会被截断 → 部分章节
+    //   只剩"## 标题"无正文。chapter writer 已经写了 4978 字，但 integrator
+    //   重新生成时把 body 丢了。
+    //   彻底修法：fullMarkdown 由代码确定性拼接 chapter.body，**完全不依赖 LLM**
+    //   生成长文本。LLM 只产 abstract + keyFindings（短文本不会被截）。
+    const stitchedFullMarkdown = (() => {
+      const parts: string[] = [`# ${dimensionName}`, ""];
+      for (const ch of writtenChapters) {
+        parts.push(`## ${ch.index}. ${ch.heading}`);
+        parts.push("");
+        parts.push(ch.body);
+        parts.push("");
+      }
+      return parts.join("\n");
+    })();
+    const stitchedTotalWordCount = writtenChapters.reduce(
+      (s, c) => s + (c.wordCount ?? 0),
+      0,
+    );
     if (hasUsableOutput) {
       const integrated = integrateRes.output as {
         abstract: string;
@@ -953,7 +974,8 @@ export async function runPerDimPipeline(
       };
       abstract = integrated.abstract;
       keyFindings = integrated.keyFindings;
-      fullMarkdown = integrated.fullMarkdown;
+      // ★ 强制使用代码拼接的 fullMarkdown（LLM 输出可能被截）
+      fullMarkdown = stitchedFullMarkdown;
       await deps.emit({
         type: "agent-playground.dimension:integrating:completed",
         missionId,
@@ -961,23 +983,35 @@ export async function runPerDimPipeline(
         agentId: integratorAgentId,
         payload: {
           dimension: dimensionName,
-          totalWordCount: integrated.totalWordCount,
+          totalWordCount: stitchedTotalWordCount,
           chapterCount: writtenChapters.length,
           // ★ degraded 路径标记，前端可视化时区分
           degraded: integrateRes.state === "degraded",
         },
       });
     } else {
-      // 真正的 failed (无 output) 才算 integrator 失败
+      // ★ 2026-05-02 改进：integrator 失败时仍走"算法兜底" — 用代码拼接产出
+      //   fullMarkdown + 简化 abstract（用 chapter[0] 提取），不再丢章节内容。
+      //   用户红线："绝对不允许空章节"。
+      fullMarkdown = stitchedFullMarkdown;
+      abstract =
+        writtenChapters[0]?.body
+          ?.replace(/^#{1,6}\s+[^\n]+\n+/, "")
+          .slice(0, 200) ?? `${dimensionName} · 整合失败兜底摘要`;
+      keyFindings = writtenChapters
+        .slice(0, 3)
+        .map((ch) => ch.heading || `章节 ${ch.index}`);
       await deps.emit({
-        type: "agent-playground.dimension:integrating:failed",
+        type: "agent-playground.dimension:integrating:completed",
         missionId,
         userId,
         agentId: integratorAgentId,
         payload: {
           dimension: dimensionName,
-          state: integrateRes.state,
+          totalWordCount: stitchedTotalWordCount,
           chapterCount: writtenChapters.length,
+          degraded: true, // integrator LLM 失败但代码拼接兜底
+          fallback: "code-stitched-abstract", // 标记 abstract/keyFindings 是代码兜底
         },
       });
     }

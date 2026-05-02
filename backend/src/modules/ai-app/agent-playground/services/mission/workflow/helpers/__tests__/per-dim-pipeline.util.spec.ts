@@ -700,7 +700,11 @@ describe("runPerDimPipeline", () => {
     expect(result.summary).toBe(baseArgs.researcherOut.summary);
   });
 
-  it("does not include grade when integrator fails", async () => {
+  it("integrator fails → code-stitched fullMarkdown + fallback abstract → grade still runs (用户红线: 绝对不允许空章节)", async () => {
+    // ★ 2026-05-02: 之前 integrator 失败 → no fullMarkdown → 跳过 grade。
+    //   用户实证空章节问题：integrator LLM 受 token 限制截断 → fullMarkdown 部分章节空。
+    //   修法：fullMarkdown 由代码确定性拼接 chapter.body，LLM 失败时也不丢章节内容；
+    //   abstract / keyFindings 用代码兜底，grade 继续跑。
     const writer = {
       planDimensionOutline: jest.fn().mockResolvedValue({
         state: "completed",
@@ -714,7 +718,6 @@ describe("runPerDimPipeline", () => {
       invoke: jest
         .fn()
         .mockResolvedValueOnce({
-          // writer
           state: "completed",
           output: makeWriterOutput(1200),
           events: [],
@@ -722,7 +725,6 @@ describe("runPerDimPipeline", () => {
           wallTimeMs: 100,
         })
         .mockResolvedValueOnce({
-          // reviewer
           state: "completed",
           output: makeReviewerOutput("pass", 85),
           events: [],
@@ -730,7 +732,7 @@ describe("runPerDimPipeline", () => {
           wallTimeMs: 50,
         })
         .mockResolvedValueOnce({
-          // integrator fails
+          // integrator fails (no output)
           state: "failed",
           output: undefined,
           events: [],
@@ -739,17 +741,30 @@ describe("runPerDimPipeline", () => {
         }),
       tickCost: jest.fn().mockResolvedValue(undefined),
     };
-    const reviewer = { judgeDimension: jest.fn() };
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
     const deps = makeDeps({
       writer: writer as never,
       invoker: invoker as never,
       reviewer: reviewer as never,
     });
     const result = await runPerDimPipeline(baseArgs, deps);
-    expect(result.abstract).toBeUndefined();
-    expect(result.fullMarkdown).toBeUndefined();
-    expect(result.grade).toBeUndefined();
-    expect(reviewer.judgeDimension).not.toHaveBeenCalled();
+    // 代码兜底拼接 → fullMarkdown 非空且包含章节内容
+    expect(result.fullMarkdown).toBeDefined();
+    expect(result.fullMarkdown!.length).toBeGreaterThan(0);
+    expect(result.fullMarkdown).toContain("Chapter 1"); // 章节标题在
+    // abstract 是代码兜底（chapter[0] 前 200 字）
+    expect(result.abstract).toBeDefined();
+    // grade 仍然跑（用户红线："不允许空章节"，整合失败也要尝试评分）
+    expect(reviewer.judgeDimension).toHaveBeenCalled();
+    expect(result.grade).toBeDefined();
   });
 });
 
@@ -1875,7 +1890,10 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
       expect(result.fullMarkdown).toBeDefined();
     });
 
-    it("[A7] integrator failed (no output) → emits graded(failed,skipped,phase=integrator-failed)", async () => {
+    it("[A7] integrator LLM 失败 → code-stitched fullMarkdown 兜底 + grade 仍跑（用户红线：绝对不允许空章节）", async () => {
+      // ★ 2026-05-02 行为变更：integrator LLM 失败时，代码确定性拼接 chapter.body
+      //   产生 fullMarkdown，abstract / keyFindings 用代码兜底，grade 继续跑。
+      //   integrating:completed 携 fallback:'code-stitched-abstract' 标记。
       const { DimensionIntegratorAgent } = jest.requireMock(
         "../../../../../agents/writer/dimension-integrator.agent",
       );
@@ -1927,22 +1945,27 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
         tickCost: jest.fn().mockResolvedValue(undefined),
       };
       const deps = makeDeps({ invoker: invoker as never });
-      await runPerDimPipeline(baseArgs, deps);
-      const integratingFailed = (deps.emit as jest.Mock).mock.calls
+      const result = await runPerDimPipeline(baseArgs, deps);
+      // integrator 失败但 emit integrating:completed (degraded:true, fallback)
+      const integratingCompleted = (deps.emit as jest.Mock).mock.calls
         .map((c) => c[0])
         .find(
           (e: { type: string }) =>
-            e.type === "agent-playground.dimension:integrating:failed",
+            e.type === "agent-playground.dimension:integrating:completed",
         );
-      expect(integratingFailed).toBeDefined();
+      expect(integratingCompleted).toBeDefined();
+      expect(integratingCompleted!.payload.degraded).toBe(true);
+      expect(integratingCompleted!.payload.fallback).toBe(
+        "code-stitched-abstract",
+      );
+      // fullMarkdown 由代码确定性拼接，永不空
+      expect(result.fullMarkdown).toBeDefined();
+      expect(result.fullMarkdown!.length).toBeGreaterThan(0);
+      // grade 仍跑（不再 skipped）— happy path: judgeDimension default mock 返回 success
       const graded = getGradedEmits(deps);
       expect(graded).toHaveLength(1);
-      expect(graded[0].payload.failed).toBe(true);
-      expect(graded[0].payload.skipped).toBe(true);
-      expect(graded[0].payload.phase).toBe("integrator-failed");
-      expect(graded[0].payload.summary).toMatch(
-        /integrator 未产出 fullMarkdown/,
-      );
+      expect(graded[0].payload.failed).toBeUndefined(); // grade 成功
+      expect(graded[0].payload.overall).toBe(82);
     });
 
     it("[A8] grade !completed (judge state=failed) → emits graded(failed,phase=grade-failed)", async () => {

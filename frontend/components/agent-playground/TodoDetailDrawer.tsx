@@ -1084,7 +1084,16 @@ export function TodoDetailDrawer({
             todo.dimensionRef &&
             (() => {
               const pipelineKey = todo.pipelineKey ?? todo.dimensionRef;
-              const pipeline = dimensionPipelines?.get(pipelineKey);
+              // ★ 2026-05-02 修 Screenshot 53 章节进度 0/0 假统计：retry todo 用
+              //   独立 pipelineKey，但其 pipeline 可能为空（chapter pipeline 还没跑）
+              //   → fallback 到 dimensionRef 原 pipeline 拿章节数据，避免显示
+              //   误导的 "0/0 通过 4978 字"。
+              let pipeline = dimensionPipelines?.get(pipelineKey);
+              if (!pipeline || pipeline.chapters.length === 0) {
+                if (pipelineKey !== todo.dimensionRef) {
+                  pipeline = dimensionPipelines?.get(todo.dimensionRef);
+                }
+              }
               if (!pipeline || pipeline.chapters.length === 0) return null;
               return (
                 <>

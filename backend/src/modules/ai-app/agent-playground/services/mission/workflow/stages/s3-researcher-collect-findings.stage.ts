@@ -622,7 +622,10 @@ async function runOneDim(
                 (s): s is string =>
                   typeof s === "string" && /^https?:\/\//i.test(s),
               )
-              .slice(0, 3),
+              // ★ 2026-05-02 (用户实证图片严重缺失)：原 slice(0,3) 太严，每 dim
+              //   只抽 3 个 URL，半数 mission 抓不到合适图。提到 6 给 figure
+              //   relevance filter 更多候选。relevant.slice(0,3) 仍保留每 dim 上限。
+              .slice(0, 6),
           ),
         );
         if (sourceUrls.length > 0) {
