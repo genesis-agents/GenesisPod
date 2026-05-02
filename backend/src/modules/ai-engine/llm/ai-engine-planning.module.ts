@@ -26,7 +26,7 @@ import { AiEngineConstraintModule } from "../safety/ai-engine-constraint.module"
 //   - ComplexityAnalyzerService (仅被 IntelligentModelRouter 用 → 绑死)
 // TaskDecomposerService 已删 (2026-04-30) — 死代码链路 (TaskBreakdown 0 注入)
 // AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
-// OutputReviewerService 已搬到 ai-harness/runtime/quality/ (2026-04-30)
+// OutputReviewerService 已搬到 ai-harness/evaluation/critique/ (2026-05-02)
 import { CircuitBreakerService } from "../safety/resilience/circuit-breaker.service";
 import { TokenBudgetService } from "./budget/token-budget.service";
 import { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";

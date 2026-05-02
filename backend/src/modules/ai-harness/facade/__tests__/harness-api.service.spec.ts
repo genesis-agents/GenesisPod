@@ -1,7 +1,7 @@
 /**
- * KernelApiService Unit Tests
+ * HarnessApiService Unit Tests
  *
- * Verifies that every public method on KernelApiService is a thin delegation
+ * Verifies that every public method on HarnessApiService is a thin delegation
  * layer that forwards calls (with the correct arguments) to the matching
  * dependency service and returns whatever that service returns.
  *
@@ -9,20 +9,20 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { KernelApiService } from "../kernel-api.service";
-import { ProcessManagerService } from "../../../lifecycle/manager/process-manager.service";
-import { EventJournalService } from "../../../protocol/journal/event-journal.service";
-import { ProcessMemoryManagerService } from "../../../memory/working/process-memory-manager.service";
-import { ResourceManagerService } from "../../../guardrails/resource-manager.service";
+import { HarnessApiService, KernelApiService } from "../harness-api.service";
+import { ProcessManagerService } from "../../lifecycle/manager/process-manager.service";
+import { EventJournalService } from "../../protocol/journal/event-journal.service";
+import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
+import { ResourceManagerService } from "../../guardrails/resource-manager.service";
 import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
-import { CircuitBreakerService } from "../../../../ai-engine/safety/resilience/circuit-breaker.service";
-import { EventBusService } from "../../../protocol/ipc/event-bus.service";
-import { MessageBusService } from "../../../protocol/ipc/message-bus.service";
-import { ProgressTrackerService } from "../../../protocol/ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../../tracing/ai-observability.service";
-import { CostAttributionService } from "../../../tracing/cost-attribution.service";
-import { CapabilityGuardService } from "../../../../ai-engine/safety/security/capability-guard.service";
-import { KernelSchedulerService } from "../../../runner/scheduler/kernel-scheduler.service";
+import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EventBusService } from "../../protocol/ipc/event-bus.service";
+import { MessageBusService } from "../../protocol/ipc/message-bus.service";
+import { ProgressTrackerService } from "../../protocol/ipc/progress-tracker.service";
+import { AiObservabilityService } from "../../tracing/ai-observability.service";
+import { CostAttributionService } from "../../tracing/cost-attribution.service";
+import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
+import { KernelSchedulerService } from "../../runner/scheduler/kernel-scheduler.service";
 
 // ─── Shared test fixtures ────────────────────────────────────────────────────
 
@@ -162,13 +162,13 @@ const mockKernelScheduler = {
 
 // ─── Test suite ──────────────────────────────────────────────────────────────
 
-describe("KernelApiService", () => {
-  let service: KernelApiService;
+describe("HarnessApiService", () => {
+  let service: HarnessApiService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        KernelApiService,
+        HarnessApiService,
         { provide: ProcessManagerService, useValue: mockProcessManager },
         { provide: EventJournalService, useValue: mockEventJournal },
         { provide: ProcessMemoryManagerService, useValue: mockMemoryManager },
@@ -185,7 +185,11 @@ describe("KernelApiService", () => {
       ],
     }).compile();
 
-    service = module.get<KernelApiService>(KernelApiService);
+    service = module.get<HarnessApiService>(HarnessApiService);
+  });
+
+  it("keeps KernelApiService as a deprecated alias", () => {
+    expect(KernelApiService).toBe(HarnessApiService);
   });
 
   afterEach(() => {

@@ -16,7 +16,7 @@ import { MemoryLayer } from "@prisma/client";
 import type {
   MemoryEntry,
   MemoryQuery,
-} from "../../../../ai-engine/runtime/process/process.types";
+} from "../../../lifecycle/manager/process.types";
 
 describe("ProcessMemoryManagerService", () => {
   let service: ProcessMemoryManagerService;

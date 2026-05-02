@@ -168,7 +168,7 @@ export type {
   ContentPriority,
   BudgetAllocation,
 } from "../llm/budget/token-budget.service";
-// OutputReviewerService 已搬到 ai-harness/runtime/quality/ (2026-04-30)
+// OutputReviewerService 已搬到 ai-harness/evaluation/critique/ (2026-05-02)
 export { ContextEvolutionService } from "../knowledge/extraction/context-evolution.service";
 // AgentExecutorService 已搬到 ai-harness/execution/executor/ (2026-04-30)
 export { ContextInitializationService } from "../knowledge/world-building/context-initialization.service";
@@ -460,7 +460,7 @@ export type { SkillId } from "../core/types/agent.types";
 export type { JsonObject, JsonValue } from "../core/types/common.types";
 
 // Orchestrator abstractions — 2026-05-01 PR-X-M2: 16 个类型下沉到 ai-harness/facade
-// 因为 orchestrator.interface 是 L2.5 ai-harness/runtime 概念，engine facade 不
+// 因为 orchestrator.interface 是 L2.5 ai-harness 概念，engine facade 不
 // 再 re-export。ai-app 已改 from "@/modules/ai-harness/facade" 引入。
 
 // Workflow Handlers / Executors —— 2026-04-30 (C2-step2) 删除死代码:

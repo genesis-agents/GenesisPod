@@ -75,13 +75,11 @@ import {
 import type { ICheckpointStore } from "./memory/checkpoint/checkpoint.types";
 import { SkillLearner, SkillLearningCoordinator } from "./kernel/learning";
 
-// ★ SOTA task-centric runtime (Phase 2-5) — 通用 L2 组件，任何 AI App 可注入
-import {
-  ReActRunner,
-  AgentTracer,
-  ToolRegistry,
-  MissionOrchestrator,
-} from "./runtime";
+// SOTA task-centric runner/planning services available to AI Apps.
+import { ReActRunner } from "./runner/env/react-runner";
+import { AgentTracer } from "./tracing/tracer/otel-tracer";
+import { ToolRegistry } from "./runner/env/tool-registry";
+import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orchestrator";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing-registry";
 import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
@@ -265,7 +263,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     SpecAgentRegistry,
     HarnessFacade,
 
-    // ★ SOTA task-centric runtime (L2 generic — any AI App can inject)
+    // SOTA task-centric runner/planning services.
     AgentTracer,
     ToolRegistry,
     ReActRunner,

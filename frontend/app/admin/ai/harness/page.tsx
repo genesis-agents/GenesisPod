@@ -133,11 +133,11 @@ const SUBSYSTEMS: HarnessSubsystem[] = [
     ],
   },
   {
-    id: 'runtime',
-    title: 'Runtime',
+    id: 'harness-api',
+    title: 'Harness API',
     description:
-      'Mission orchestration, team runtime, cost accounting, runtime state, and LLM metrics.',
-    modulePath: 'backend/src/modules/ai-harness/runtime',
+      'Mission orchestration, team state, cost accounting, resources, and LLM metrics.',
+    modulePath: 'backend/src/modules/ai-harness/facade',
     icon: Shuffle,
     stats: [{ label: 'LLM calls', key: 'kernelLLMCalls' }],
     actions: [

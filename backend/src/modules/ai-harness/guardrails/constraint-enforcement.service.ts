@@ -16,11 +16,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import type {
   ConstraintSeverity,
   ExtractedConstraint,
-  OrchestrationConstraintViolation as ConstraintViolation,
+  ConstraintViolation,
   OutputValidationResult,
   HardConstraint,
   IConstraintEnforcementService,
-} from "@/modules/ai-harness/runtime/abstractions";
+} from "@/modules/ai-harness/execution/executor/interfaces";
 
 @Injectable()
 export class ConstraintEnforcementService implements IConstraintEnforcementService {

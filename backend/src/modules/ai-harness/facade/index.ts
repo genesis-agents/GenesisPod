@@ -264,7 +264,7 @@ export type {
   StepResult,
   StepStatus,
   WorkflowConfig as OrchestrationWorkflowConfig,
-} from "../runtime/abstractions/orchestrator.interface";
+} from "../teams/orchestrator/workflow-orchestrator.interface";
 
 // ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
 // ★ 2026-05-02 (#1 MECE): runtime/quality → evaluation/critique 收敛
@@ -672,7 +672,8 @@ export type {
   MissionExecuteOptions,
   MissionExecuteResult,
 } from "../lifecycle/manager/mission-executor.interface";
-export { KernelApiService } from "../runtime/api/kernel-api.service";
+export { HarnessApiService, KernelApiService } from "./harness-api.service";
+export { HarnessApiModule } from "./harness-api.module";
 
 // ════════════════════════════════════════════════════════════════════
 // Common context (KernelContext lives in common/, surfaced here for ai-app DX)

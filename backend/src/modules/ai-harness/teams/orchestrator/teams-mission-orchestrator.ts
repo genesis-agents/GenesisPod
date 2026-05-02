@@ -77,7 +77,7 @@ import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/
 import {
   ExecutionContext,
   StepResult,
-} from "@/modules/ai-harness/runtime/abstractions/orchestrator.interface";
+} from "@/modules/ai-harness/teams/orchestrator/workflow-orchestrator.interface";
 import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
 import { EventJournalService } from "@/modules/ai-harness/protocol/journal/event-journal.service";
 import { HierarchicalMemoryCascadeService } from "@/modules/ai-harness/memory/working/hierarchical-memory-cascade.service";

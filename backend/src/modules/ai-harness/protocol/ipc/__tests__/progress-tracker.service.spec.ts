@@ -11,11 +11,10 @@ jest.spyOn(Logger.prototype, "debug").mockImplementation();
 jest.spyOn(Logger.prototype, "warn").mockImplementation();
 jest.spyOn(Logger.prototype, "error").mockImplementation();
 
-// Mock calculateOverallProgress from the kernel abstractions barrel
-// Path is from __tests__/ directory: ../../abstractions
-jest.mock("../../../../ai-harness/runtime/abstractions", () => {
+// Mock calculateOverallProgress from the progress tracker owner.
+jest.mock("../../realtime/abstractions/progress-tracker.interface", () => {
   const actual = jest.requireActual(
-    "../../../../ai-harness/runtime/abstractions",
+    "../../realtime/abstractions/progress-tracker.interface",
   );
   return {
     ...actual,
@@ -41,10 +40,8 @@ jest.mock("../../../../ai-harness/runtime/abstractions", () => {
 
 import { ProgressTrackerService } from "../progress-tracker.service";
 import { EventBusService } from "../event-bus.service";
-import type {
-  CreateTrackedTaskRequest,
-  RoomConfig,
-} from "../../../../ai-harness/runtime/abstractions";
+import type { CreateTrackedTaskRequest } from "../../realtime/abstractions/progress-tracker.interface";
+import type { RoomConfig } from "../../realtime/abstractions/event-emitter.interface";
 
 const makeRoomConfig = (): RoomConfig => ({
   roomId: "room-1",

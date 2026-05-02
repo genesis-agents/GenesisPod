@@ -27,7 +27,7 @@ import {
 import type {
   Checkpoint,
   ExecutionContext,
-} from "../../../../ai-harness/runtime/abstractions";
+} from "../../../teams/orchestrator/workflow-orchestrator.interface";
 
 // Silence NestJS logger
 jest.spyOn(Logger.prototype, "log").mockImplementation();

@@ -1,41 +1,41 @@
 /**
- * Kernel API Service
- * Unified entry point for AI Kernel capabilities.
+ * Harness API Service
+ * Unified admin-oriented entry point for AI Harness capabilities.
  * Aggregates process management, memory, resources, and event journal.
  */
 import { Injectable } from "@nestjs/common";
-import { ProcessManagerService } from "../../../ai-harness/lifecycle/manager/process-manager.service";
-import { EventJournalService } from "../../protocol/journal/event-journal.service";
-import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
-import { ResourceManagerService } from "../../../ai-harness/guardrails/resource-manager.service";
-import { MissionExecutorService } from "../../../ai-harness/lifecycle/manager/mission-executor.service";
-import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
-import { EventBusService } from "../../../ai-harness/protocol/ipc/event-bus.service";
-import { MessageBusService } from "../../../ai-harness/protocol/ipc/message-bus.service";
-import { ProgressTrackerService } from "../../../ai-harness/protocol/ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../../ai-harness/tracing/ai-observability.service";
-import { CostAttributionService } from "../../../ai-harness/tracing/cost-attribution.service";
-import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
-import { KernelSchedulerService } from "../../../ai-harness/runner/scheduler/kernel-scheduler.service";
+import { ProcessManagerService } from "../lifecycle/manager/process-manager.service";
+import { EventJournalService } from "../protocol/journal/event-journal.service";
+import { ProcessMemoryManagerService } from "../memory/working/process-memory-manager.service";
+import { ResourceManagerService } from "../guardrails/resource-manager.service";
+import { MissionExecutorService } from "../lifecycle/manager/mission-executor.service";
+import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
+import { EventBusService } from "../protocol/ipc/event-bus.service";
+import { MessageBusService } from "../protocol/ipc/message-bus.service";
+import { ProgressTrackerService } from "../protocol/ipc/progress-tracker.service";
+import { AiObservabilityService } from "../tracing/ai-observability.service";
+import { CostAttributionService } from "../tracing/cost-attribution.service";
+import { CapabilityGuardService } from "../../ai-engine/safety/security/capability-guard.service";
+import { KernelSchedulerService } from "../runner/scheduler/kernel-scheduler.service";
 import type {
   ProcessId,
   SpawnOptions,
   ProcessSnapshot,
   ResourceConsumption,
-} from "../../../ai-harness/lifecycle/manager/process.types";
+} from "../lifecycle/manager/process.types";
 import type {
   MemoryEntry,
   MemoryQuery as KernelMemoryQuery,
-} from "../../../ai-harness/lifecycle/manager/process.types";
-import type { JournalEntry } from "../../../ai-harness/lifecycle/manager/process.types";
+} from "../lifecycle/manager/process.types";
+import type { JournalEntry } from "../lifecycle/manager/process.types";
 import type {
   MissionExecuteOptions,
   MissionExecuteResult,
-} from "../../../ai-harness/lifecycle/manager/mission-executor.interface";
+} from "../lifecycle/manager/mission-executor.interface";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 
 @Injectable()
-export class KernelApiService {
+export class HarnessApiService {
   constructor(
     private readonly processManager: ProcessManagerService,
     private readonly eventJournal: EventJournalService,
@@ -229,3 +229,9 @@ export class KernelApiService {
     return this.memoryManager.cleanup(processId);
   }
 }
+
+/**
+ * @deprecated Use HarnessApiService. Kept for one migration window so existing
+ * open-api/admin consumers do not need a same-PR rename.
+ */
+export { HarnessApiService as KernelApiService };

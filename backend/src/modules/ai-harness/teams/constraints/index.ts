@@ -38,5 +38,5 @@ export {
   DegradationStrategy,
 } from "./constraint-engine.interface";
 
-// Constraint Engine Implementation — migrated to ai-harness/runtime
+// Constraint Engine Implementation - owned by ai-harness/guardrails
 // export { ConstraintEngine } from "./constraint-engine";

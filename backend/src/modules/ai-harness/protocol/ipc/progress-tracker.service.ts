@@ -9,9 +9,9 @@ import type {
   TrackedTask,
   CreateTrackedTaskRequest,
   TaskPhase,
-  ProgressEvent,
-} from "../../../ai-harness/runtime/abstractions";
-import { calculateOverallProgress } from "../../../ai-harness/runtime/abstractions";
+} from "../realtime/abstractions/progress-tracker.interface";
+import type { ProgressEvent } from "../realtime/abstractions/event-emitter.interface";
+import { calculateOverallProgress } from "../realtime/abstractions/progress-tracker.interface";
 import { EventBusService } from "./event-bus.service";
 
 /**

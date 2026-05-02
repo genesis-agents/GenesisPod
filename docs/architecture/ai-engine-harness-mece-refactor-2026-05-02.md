@@ -2,7 +2,7 @@
 
 **版本：** 1.0（最终方案）
 **生效日期：** 2026-05-02
-**状态：** 进行中（W0-W11 已完成，W12-W16 进行中）
+**状态：** 进行中（W0-W12 已完成，W13-W16 进行中）
 **关联规范：** [`.claude/standards/16-ai-engine-harness-structure.md`](../../.claude/standards/16-ai-engine-harness-structure.md)
 
 ---
@@ -624,7 +624,7 @@ ai-harness/
 | **W9**  | runtime/cost → guardrails/{budget,billing} + engine/llm/pricing（跨层）                                       | MEDIUM | ✅   |
 | **W10** | runtime/mission 拆 runner/lifecycle/guardrails                                                                | MEDIUM | ✅   |
 | **W11** | runtime/env → runner/env                                                                                      | MEDIUM | ✅   |
-| **W12** | runtime/api/kernel-api → facade/harness-api（rename）+ 解散 runtime/abstractions                              | MEDIUM | 待办 |
+| **W12** | runtime/api/kernel-api → facade/harness-api（rename）+ 解散 runtime/abstractions                              | MEDIUM | ✅   |
 | **W13** | kernel/ → agents/（rename + 子目录重组）                                                                      | HIGH   | 待办 |
 | **W14** | execution/ → runner/（rename + tool-invoker / tool-routing 重组）                                             | HIGH   | 待办 |
 | **W15** | protocol/ → protocols/ + MCP 跨层迁 engine/tools/adapters                                                     | HIGH   | 待办 |
@@ -746,15 +746,11 @@ const oldRoot = path.resolve(process.argv[3]);
 
 ```
 ai-harness/
-├── facade/         （保留，待 W12 整理）
+├── facade/         （保留，W12 已收编 harness-api）
 ├── kernel/         （★ 待 W13 → agents）
 ├── execution/      （★ 待 W14 → runner）
 ├── memory/         （保留，部分已整理）
 ├── protocol/       （★ 待 W15 → protocols + MCP 跨层迁）
-├── runtime/        （★ 待 W12 全部解散）
-│   ├── abstractions/  （待 W12 删除）
-│   ├── api/        （待 W12 → facade/api）
-│   └── runtime.module.ts
 ├── teams/          （顶层已建立，待 W16 整理 abstractions / orchestrator）
 ├── tracing/        （★ W5 已建立）
 ├── guardrails/     （★ W6/W9/W10 已建立）
@@ -767,13 +763,13 @@ ai-harness/
 
 ### 11.3 验收指标
 
-| 指标         | 当前                                   | 目标 |
-| ------------ | -------------------------------------- | ---- |
-| 顶层自造词   | 4（kernel/execution/protocol/runtime） | 0    |
-| 同名歧义     | 已消除（governance/process）           | 0    |
-| MECE 完备度  | 75%                                    | 95%+ |
-| 架构边界测试 | 7/7 通过                               | 7/7  |
-| 全量测试     | 36000+ tests 全绿                      | 全绿 |
+| 指标         | 当前                           | 目标 |
+| ------------ | ------------------------------ | ---- |
+| 顶层自造词   | 3（kernel/execution/protocol） | 0    |
+| 同名歧义     | 已消除（governance/process）   | 0    |
+| MECE 完备度  | 82%                            | 95%+ |
+| 架构边界测试 | 7/7 通过                       | 7/7  |
+| 全量测试     | 36000+ tests 全绿              | 全绿 |
 
 ---
 
@@ -805,4 +801,4 @@ ai-harness/
 
 **最后更新**: 2026-05-02
 **维护者**: Claude Code
-**版本**: 1.0（W0-W11 完成）
+**版本**: 1.0（W0-W12 完成）

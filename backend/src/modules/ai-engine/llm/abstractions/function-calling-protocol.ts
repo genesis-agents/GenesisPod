@@ -6,7 +6,7 @@
  * 实现 ILLMAdapter 接口需留在 engine 层（避免反向依赖），故抽出共享协议接口
  * 留在 engine/llm/abstractions/，供：
  *   - ai-engine/llm/adapters/function-calling-llm-adapter.ts（实现端，留 engine）
- *   - ai-harness/runtime/...（消费端，使用端）
+ *   - ai-harness/runner/...（消费端，使用端）
  * 双向 import 而不引发反向依赖。
  */
 

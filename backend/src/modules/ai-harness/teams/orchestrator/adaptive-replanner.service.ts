@@ -30,7 +30,7 @@ export interface StepExecutionResult {
 /**
  * 单步骤（replan 输入快照视图）
  *
- * ⚠️ 命名说明：与 ai-harness/runtime/teams/orchestrator/orchestrator.interface.ts
+ * ⚠️ 命名说明：与 ai-harness/teams/orchestrator/orchestrator.interface.ts
  * 的 ExecutionStep 同名异物 —— 后者表达的是 mission "plan 描述"（含 executor /
  * type / estimatedDuration / estimatedCost / timeout / input），本类型表达的是
  * "replan 进度视图"（含 status 状态机）。

@@ -90,17 +90,17 @@ core/loop/executor 也搬过来后整体删除。
 
 ## 后续 PR 路线
 
-| PR        | 内容                                                     | 状态    |
-| --------- | -------------------------------------------------------- | ------- |
-| **H1+H2** | scaffold + abstractions 搬迁                             | ✅ 完成 |
-| **H3**    | 整个 harness/ 子树搬入 ai-harness（18 个子目录）         | ✅ 完成 |
-| **H4**    | runtime/resource 通过 DI token 与 ai-harness 解耦        | ✅ 完成 |
-| **H5**    | BillingRuntimeEnvAdapter 从 ai-app 抽到 ai-harness/runtime | ✅ 完成 |
-| **H6a**   | 删除 ai-engine/harness/ shim 目录（无 external 引用）     | ✅ 完成 |
-| **H6b**   | ai-app 全部从 ai-harness/facade 直接导入；ai-engine/facade 剥离 Harness* re-export；eslint 单向依赖在所有 ai-engine/** 文件无例外强制执行 | ✅ 完成 |
-| **R0..R3** | ai-engine/runtime/* 子树（journal / ipc / resource / memory / observability / mission / a2a / realtime / api / security / process / abstractions / runtime.module）整体搬入 ai-harness 各聚合，ai-engine/runtime/ 目录删除 | ✅ 完成 |
-| **X1**    | 消除 ai-engine.module.ts / ai-engine-core.module.ts / ai-engine-constraint.module.ts / ai-engine/index.ts 全部反向 import；HarnessModule + RuntimeModule + RealtimeModule 由 app.module.ts 直接装配；AiEngineTracingService + EvalPipelineService + CostController + RateLimiter 不再 engine 注册（@Global harness 模块自动可见） | ✅ 完成 |
-| **X2**    | ai-app + open-api ~60 文件从 ai-engine/facade 切换到 ai-harness/facade；ai-harness/facade 扩充 ~80 个 harness 符号；ai-engine/facade 删除全部 harness re-export shim | ✅ 完成 |
+| PR         | 内容                                                                                                                                                                                                                                                                                                                                 | 状态    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| **H1+H2**  | scaffold + abstractions 搬迁                                                                                                                                                                                                                                                                                                         | ✅ 完成 |
+| **H3**     | 整个 harness/ 子树搬入 ai-harness（18 个子目录）                                                                                                                                                                                                                                                                                     | ✅ 完成 |
+| **H4**     | runtime/resource 通过 DI token 与 ai-harness 解耦                                                                                                                                                                                                                                                                                    | ✅ 完成 |
+| **H5**     | BillingRuntimeEnvAdapter 从 ai-app 抽到 ai-harness/guardrails/billing                                                                                                                                                                                                                                                                | ✅ 完成 |
+| **H6a**    | 删除 ai-engine/harness/ shim 目录（无 external 引用）                                                                                                                                                                                                                                                                                | ✅ 完成 |
+| **H6b**    | ai-app 全部从 ai-harness/facade 直接导入；ai-engine/facade 剥离 Harness\* re-export；eslint 单向依赖在所有 ai-engine/\*\* 文件无例外强制执行                                                                                                                                                                                         | ✅ 完成 |
+| **R0..R3** | ai-engine/runtime/\* 子树（journal / ipc / resource / memory / observability / mission / a2a / realtime / api / security / process / abstractions / runtime.module）整体搬入 ai-harness 各聚合，ai-engine/runtime/ 目录删除                                                                                                          | ✅ 完成 |
+| **X1**     | 消除 ai-engine.module.ts / ai-engine-core.module.ts / ai-engine-constraint.module.ts / ai-engine/index.ts 全部反向 import；HarnessModule + HarnessApiModule + RealtimeModule 由 app.module.ts 直接装配；AiEngineTracingService + EvalPipelineService + CostController + RateLimiter 不再 engine 注册（@Global harness 模块自动可见） | ✅ 完成 |
+| **X2**     | ai-app + open-api ~60 文件从 ai-engine/facade 切换到 ai-harness/facade；ai-harness/facade 扩充 ~80 个 harness 符号；ai-engine/facade 删除全部 harness re-export shim                                                                                                                                                                 | ✅ 完成 |
 
 每个 PR 单独 mergeable + tsc EXIT=0。
 

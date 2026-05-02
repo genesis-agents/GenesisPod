@@ -15,7 +15,7 @@ import { MessageBusService } from "../message-bus.service";
 import type {
   A2AMessage,
   A2AMessageHandler,
-} from "../../../../ai-harness/runtime/abstractions";
+} from "../../../teams/abstractions/a2a-message.interface";
 
 // ---------------------------------------------------------------------------
 // Test helpers

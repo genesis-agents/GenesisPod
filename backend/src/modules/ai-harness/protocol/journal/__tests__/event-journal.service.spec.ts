@@ -12,7 +12,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventJournalService } from "../event-journal.service";
-import { JournalEntry } from "../../../../ai-engine/runtime/process/process.types";
+import { JournalEntry } from "../../../lifecycle/manager/process.types";
 
 // ---------------------------------------------------------------------------
 // Helpers

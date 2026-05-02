@@ -11,7 +11,7 @@ import type {
   EngineEvent,
   ProgressEvent,
   RoomConfig,
-} from "../../../ai-harness/runtime/abstractions";
+} from "../realtime/abstractions/event-emitter.interface";
 
 /**
  * 事件订阅
