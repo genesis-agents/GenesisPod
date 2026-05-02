@@ -116,28 +116,58 @@ export async function runResearcherDispatchStage(
     });
   }
 
-  // ★ 杠杆 1 (2026-05-01): dim 并行加速
-  //   DAG 路径保持原有 runDagConcurrency（含拓扑序分批）；
-  //   非 DAG 路径改为 pLimit + Promise.all，并发上限封顶 6 防 LLM API 突发。
-  //   concurrency 字段由 DTO default(3) 保证至少为 1，min(x,6) 不会出现 0。
-  //   每个 dim 的 runOneDim 已有完整 try/catch 兜底（降级为空 findings），
-  //   不会让单 dim 失败穿透 Promise.all。
-  const effectiveConcurrency = Math.max(1, Math.min(input.concurrency ?? 3, 6));
+  // ★ 2026-05-01 两阶段调度（治本：mission da6e2af7 用户实证 dim research 看似批量）
+  //   Phase A: research-only（researcher invoke + retry + figure 抽图）—— 高并发（默认 6）
+  //   Phase B: chapter pipeline（outline + chapter writers + integrator + grade）—— 中并发（默认 3）
+  //
+  //   原 runOneDim 把 research + chapter pipeline 一起跑在 pLimit(3) 下，
+  //   chapter pipeline 慢（5+ min）占住槽位，下一个 dim 的 research 要等满
+  //   chapter pipeline 完成才能 start，造成"伪批量"假象。
+  //
+  //   分两阶段：research 阶段所有 dim 真并行（research API 通常 1 min 以内），
+  //   chapter pipeline 阶段才控制并发。视觉上 dim research 真正全并行 start。
+  //
+  //   DAG 路径（hasDependencies）保持原有 runOneDim 单段，因为依赖关系跨阶段推断
+  //   太复杂；非 DAG 路径走两阶段。
+  const chapterPipelineConcurrency = Math.max(
+    1,
+    Math.min(input.concurrency ?? 3, 6),
+  );
+  const researchConcurrency = Math.max(
+    chapterPipelineConcurrency,
+    Math.min(plan.dimensions.length, 6),
+  );
 
   let researcherResults: ResearcherDimResult[];
   if (hasDependencies) {
     researcherResults = await deps.invoker.runDagConcurrency(
       plan.dimensions,
-      effectiveConcurrency,
+      chapterPipelineConcurrency,
       async (dim, idx) => runOneDim(ctx, deps, dim, idx),
     );
   } else {
-    const limit = pLimit(effectiveConcurrency);
-    researcherResults = await Promise.all(
+    // Phase A: research only（高并发）
+    const phaseALimit = pLimit(researchConcurrency);
+    const researchOnly = await Promise.all(
       plan.dimensions.map((dim, idx) =>
-        limit(() => runOneDim(ctx, deps, dim, idx)),
+        phaseALimit(() => runResearchPhase(ctx, deps, dim, idx)),
       ),
     );
+    // Phase B: chapter pipeline（中并发）
+    const skipChapterPipeline =
+      input.auditLayers === "minimal" || input.depth === "quick";
+    if (skipChapterPipeline) {
+      researcherResults = researchOnly;
+    } else {
+      const phaseBLimit = pLimit(chapterPipelineConcurrency);
+      researcherResults = await Promise.all(
+        researchOnly.map((res, idx) =>
+          phaseBLimit(() =>
+            runChapterPhase(ctx, deps, plan.dimensions[idx], idx, res),
+          ),
+        ),
+      );
+    }
   }
 
   ctx.researcherResults = researcherResults;
@@ -172,12 +202,100 @@ export async function runResearcherDispatchStage(
   });
 }
 
-/** 单个 dim 的 researcher 执行：cross-mission preDisable + self-heal + per-dim chapter pipeline。 */
+/**
+ * Phase A: 单 dim 仅跑 research（不跑 chapter pipeline）
+ * 用于两阶段调度，让 research 阶段所有 dim 真并行（pLimit 不被 chapter pipeline 占用）。
+ *
+ * 行为与 runOneDim 的前半段（步骤 1-4 + figure 抽图）等价，区别只是不调
+ * runPerDimPipeline。失败路径返回降级占位（与 runOneDim 一致）。
+ */
+async function runResearchPhase(
+  ctx: MissionContext,
+  deps: MissionDeps,
+  dim: NonNullable<MissionContext["plan"]>["dimensions"][number],
+  idx: number,
+): Promise<ResearcherDimResult> {
+  return runOneDim(ctx, deps, dim, idx, { skipChapterPipeline: true });
+}
+
+/**
+ * Phase B: 单 dim 仅跑 chapter pipeline（research 已在 Phase A 完成）
+ * 接收 Phase A 的 ResearcherDimResult，进入 per-dim-pipeline 做 outline + chapter
+ * writing + integrator + grade。降级 / 失败路径直接返回输入（保留 research 阶段产出）。
+ */
+async function runChapterPhase(
+  ctx: MissionContext,
+  deps: MissionDeps,
+  dim: NonNullable<MissionContext["plan"]>["dimensions"][number],
+  idx: number,
+  researchResult: ResearcherDimResult,
+): Promise<ResearcherDimResult> {
+  const { missionId, userId, input, billing, pool, budgetMultiplier } = ctx;
+  const agentId = `researcher#${idx}`;
+  // research 阶段已经降级（findings=[]）→ 不再进 chapter pipeline，直接透传
+  if (researchResult.findings.length === 0) {
+    return researchResult;
+  }
+  try {
+    return await runPerDimPipeline(
+      {
+        missionId,
+        userId,
+        dimensionIdx: idx,
+        dimensionName: dim.name,
+        topic: input.topic,
+        language: input.language,
+        depth: input.depth,
+        lengthProfile: input.lengthProfile,
+        dimensionCount: ctx.plan?.dimensions.length,
+        pool,
+        researcherOut: researchResult,
+        billing,
+        budgetMultiplier,
+      },
+      deps,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    deps.log.warn(
+      `[per-dim pipeline ${idx}] threw on "${dim.name}": ${message}`,
+    );
+    await deps
+      .emit({
+        type: "agent-playground.dimension:degraded",
+        missionId,
+        userId,
+        agentId,
+        payload: {
+          dimension: dim.name,
+          state: "chapter-pipeline-failed",
+          failureCode: "ORCH_CHAPTER_PIPELINE_FAILED",
+          innerMessage: message,
+          diagnostic: {
+            stage: "per-dim-chapter-pipeline",
+            errorMessage: message,
+          },
+        },
+      })
+      .catch(() => {});
+    return {
+      ...researchResult,
+      summary:
+        `${researchResult.summary ?? ""}\n\n[chapter-pipeline-failed] ${message.slice(0, 150)}`.trim(),
+    };
+  }
+}
+
+/** 单个 dim 的 researcher 执行：cross-mission preDisable + self-heal + per-dim chapter pipeline。
+ *
+ * @param opts.skipChapterPipeline 强制跳过 chapter pipeline（用于 Phase A 拆分）
+ */
 async function runOneDim(
   ctx: MissionContext,
   deps: MissionDeps,
   dim: NonNullable<MissionContext["plan"]>["dimensions"][number],
   idx: number,
+  opts: { skipChapterPipeline?: boolean } = {},
 ): Promise<ResearcherDimResult> {
   const { missionId, userId, input, billing, pool, budgetMultiplier } = ctx;
   const agentId = `researcher#${idx}`;
@@ -521,9 +639,11 @@ async function runOneDim(
       }
     }
 
-    // ── per-dim chapter pipeline (skip 在 minimal / quick 档位) ──
+    // ── per-dim chapter pipeline (skip 在 minimal / quick 档位 OR Phase A 强制跳过) ──
     const skipChapterPipeline =
-      input.auditLayers === "minimal" || input.depth === "quick";
+      opts.skipChapterPipeline === true ||
+      input.auditLayers === "minimal" ||
+      input.depth === "quick";
     if (skipChapterPipeline) return researcherOut;
 
     try {

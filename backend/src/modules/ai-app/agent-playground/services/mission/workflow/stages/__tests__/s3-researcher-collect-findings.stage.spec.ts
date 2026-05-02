@@ -736,4 +736,146 @@ describe("runResearcherDispatchStage (S3)", () => {
     expect(passed).toBe(2);
     expect(degraded).toBe(1);
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 两阶段调度 (Phase A research-only + Phase B chapter-pipeline)
+  // ═══════════════════════════════════════════════════════════════════════════
+  describe("Two-phase scheduling — Phase A research-only + Phase B chapter-pipeline", () => {
+    it("non-DAG path: all dim:research:started emit BEFORE any chapter:writing:started (proves Phase A 全并行 / chapter pipeline 不占 research 槽位)", async () => {
+      const ctx = makeCtx({
+        plan: {
+          ...makeCtx().plan!,
+          dimensions: [
+            { ...DIM_A, name: "DimA" },
+            { ...DIM_A, id: "dim-b", name: "DimB" },
+            { ...DIM_A, id: "dim-c", name: "DimC" },
+          ],
+        },
+      });
+      const deps = makeDeps();
+      await runResearcherDispatchStage(ctx, deps);
+      const events = (deps.emit as jest.Mock).mock.calls.map((c) => c[0]);
+      const researchStartedIdxs = events
+        .map((e, i) => ({ e, i }))
+        .filter(
+          ({ e }) => e.type === "agent-playground.dimension:research:started",
+        );
+      const chapterWritingStartedIdxs = events
+        .map((e, i) => ({ e, i }))
+        .filter(
+          ({ e }) => e.type === "agent-playground.chapter:writing:started",
+        );
+      // 至少 3 个 research:started
+      expect(researchStartedIdxs.length).toBe(3);
+      // 如果有 chapter:writing:started（per-dim-pipeline 跑了），所有 research:started
+      // 必须早于第一个 chapter:writing:started — 这是两阶段调度的关键不变量
+      if (chapterWritingStartedIdxs.length > 0) {
+        const lastResearchStartIdx =
+          researchStartedIdxs[researchStartedIdxs.length - 1].i;
+        const firstChapterIdx = chapterWritingStartedIdxs[0].i;
+        expect(lastResearchStartIdx).toBeLessThan(firstChapterIdx);
+      }
+    });
+
+    it("Phase A 高并发 (researchConcurrency=6) + Phase B 中并发 (chapterPipelineConcurrency=3)", async () => {
+      // 6 dims, concurrency=3 → researchConcurrency caps at min(6,6)=6, chapterPipelineConcurrency=3
+      const ctx = makeCtx({
+        input: { ...makeCtx().input, concurrency: 3, depth: "deep" } as never,
+        plan: {
+          ...makeCtx().plan!,
+          dimensions: Array.from({ length: 6 }, (_, i) => ({
+            ...DIM_A,
+            id: `dim-${i}`,
+            name: `Dim${i}`,
+          })),
+        },
+      });
+      const deps = makeDeps();
+      await runResearcherDispatchStage(ctx, deps);
+      // 6 dims 全 dispatch（不会因为 concurrency=3 漏 dispatch）
+      expect(ctx.researcherResults).toHaveLength(6);
+      const startedEvents = (deps.emit as jest.Mock).mock.calls
+        .map((c) => c[0])
+        .filter(
+          (e) => e.type === "agent-playground.dimension:research:started",
+        );
+      expect(startedEvents).toHaveLength(6);
+    });
+
+    it("skipChapterPipeline (minimal/quick) → Phase B 跳过，只跑 Phase A", async () => {
+      const ctx = makeCtx({
+        input: {
+          ...makeCtx().input,
+          depth: "quick",
+        } as never,
+        plan: {
+          ...makeCtx().plan!,
+          dimensions: [DIM_A, { ...DIM_A, id: "dim-b", name: "DimB" }],
+        },
+      });
+      const deps = makeDeps();
+      await runResearcherDispatchStage(ctx, deps);
+      const types = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
+      expect(types).toContain("agent-playground.dimension:research:started");
+      // skip 模式下 chapter:writing:started 不应出现
+      expect(types).not.toContain("agent-playground.chapter:writing:started");
+      // 但所有 dim 仍有 results
+      expect(ctx.researcherResults).toHaveLength(2);
+    });
+
+    it("Phase A research 失败的 dim 跳过 Phase B (findings.length===0 → 透传)", async () => {
+      const ctx = makeCtx({
+        plan: {
+          ...makeCtx().plan!,
+          dimensions: [DIM_A, { ...DIM_A, id: "dim-b", name: "DimB" }],
+        },
+      });
+      const deps = makeDeps();
+      let cnt = 0;
+      (deps.invoker.invoke as jest.Mock).mockImplementation(() => {
+        cnt++;
+        if (cnt === 1) {
+          // 第一个 dim research 失败 → findings=[]
+          return Promise.resolve({
+            state: "failed",
+            output: null,
+            events: [],
+            wallTimeMs: 1000,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        return Promise.resolve(okResearcherResult("DimB"));
+      });
+      await runResearcherDispatchStage(ctx, deps);
+      // 失败 dim 进入 Phase B 时直接透传，不会调 per-dim-pipeline
+      const degraded = ctx.researcherResults!.filter(
+        (r) => r.findings.length === 0,
+      );
+      expect(degraded.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("DAG 路径（hasDependencies）保持单段 runOneDim（不切两阶段）", async () => {
+      const ctx = makeCtx({
+        plan: {
+          ...makeCtx().plan!,
+          dimensions: [
+            { ...DIM_A, name: "DimA", dependsOn: [] } as never,
+            {
+              ...DIM_A,
+              id: "dim-b",
+              name: "DimB",
+              dependsOn: ["dim-a"],
+            } as never,
+          ],
+        },
+      });
+      const deps = makeDeps();
+      await runResearcherDispatchStage(ctx, deps);
+      // DAG 路径下 runDagConcurrency 应被调用
+      expect(
+        (deps.invoker.runDagConcurrency as jest.Mock).mock.calls.length,
+      ).toBe(1);
+    });
+  });
 });
