@@ -9,9 +9,9 @@ import type {
   TeamsService,
   CreateMissionDto,
   MissionStatus,
-} from "../../runtime/teams/services/teams.service";
-import type { TeamId } from "../../runtime/teams/abstractions/team.interface";
-import type { MissionEvent } from "../../runtime/teams/abstractions/mission.interface";
+} from "../../teams/services/teams.service";
+import type { TeamId } from "../../teams/abstractions/team.interface";
+import type { MissionEvent } from "../../teams/abstractions/mission.interface";
 import type {
   MissionInput,
   MissionResult,

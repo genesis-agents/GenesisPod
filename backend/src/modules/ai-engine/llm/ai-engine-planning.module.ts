@@ -38,7 +38,7 @@ import { ReflectionService } from "./reflection/reflection.service";
 // IntentRouterService / TaskPlannerService 已删 (2026-04-30) — 死代码，前端 0 消费
 // ★ Phase 1-4: 基础设施升级新增服务
 import { ContextCompactionPipelineService } from "./context/context-compaction-pipeline.service";
-// AdaptiveReplannerService 已搬到 ai-harness/runtime/teams/orchestrator/ (2026-04-30)
+// AdaptiveReplannerService 已搬到 ai-harness/teams/orchestrator/ (2026-04-30)
 import { CrossCuttingSynthesisService } from "../knowledge/synthesis/cross-cutting-synthesis.service";
 // ★ Phase 7: 会话记忆旁路
 // ★ Phase 9 → 已搬到 ai-harness/memory/dream/（C2-step1，2026-04-30）

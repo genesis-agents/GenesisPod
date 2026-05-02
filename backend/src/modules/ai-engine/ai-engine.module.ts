@@ -73,7 +73,7 @@ import { FigureExtractorService } from "./content/figure";
 //   位置严格遵守"rerank 是 RAG 第二阶段（knowledge 子领域）"+"单向依赖"两条原则：
 //   放 ai-engine/knowledge/rerank/ + 用 AiChatService（ai-engine 内层 LLM 调用）
 import { LlmRerankerAdapter } from "./knowledge/rerank";
-// ★ TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），由 RuntimeModule 统一装配
+// ★ TeamsModule 已迁移到 ai-harness/teams（PR-X4），由 RuntimeModule 统一装配
 // ★ Phase 3: LongContentModule moved to ai-app/writing/content-engine/
 import { PromptsModule } from "./llm/prompts/prompts.module";
 import { CreditsModule } from "../ai-infra/credits/credits.module";
@@ -130,7 +130,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // Other Modules
     ImageModule,
-    // TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），由 RuntimeModule 统一装配
+    // TeamsModule 已迁移到 ai-harness/teams（PR-X4），由 RuntimeModule 统一装配
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
@@ -182,7 +182,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // Other Modules
     ImageModule,
-    // TeamsModule 已迁移到 ai-harness/runtime/teams（PR-X4），不再由 ai-engine 导出
+    // TeamsModule 已迁移到 ai-harness/teams（PR-X4），不再由 ai-engine 导出
     PromptsModule,
 
     // ★ VotingManager 和 HandoffCoordinator 通过 CollaborationModule 导出

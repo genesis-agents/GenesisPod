@@ -24,7 +24,7 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessage,
-} from "../runtime/teams/abstractions/a2a-message.interface";
+} from "../teams/abstractions/a2a-message.interface";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../../ai-engine/tools/abstractions/tool.interface";
 import type { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
@@ -32,8 +32,8 @@ import {
   TeamsService,
   MissionStatus,
   CreateMissionDto,
-} from "../runtime/teams/services/teams.service";
-import type { MissionEvent } from "../runtime/teams/abstractions/mission.interface";
+} from "../teams/services/teams.service";
+import type { MissionEvent } from "../teams/abstractions/mission.interface";
 import { TaskCompletionType } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
@@ -177,14 +177,14 @@ import { ProcessSupervisorService as ExecutionStateManager } from "../process/su
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../../ai-harness/execution/executor/function-calling-executor";
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
-import { TeamFactory } from "../runtime/teams/factory/team-factory";
-import { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
+import { TeamFactory } from "../teams/factory/team-factory";
+import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orchestrator/teams-mission-orchestrator";
 import { OutputReviewerService } from "../governance/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch.service";
 import { AgentRegistry } from "../kernel/registry/plan-based-agent-registry";
-import { TeamRegistry } from "../runtime/teams/registry/team-registry";
-import { RoleRegistry } from "../runtime/teams/registry/role-registry";
+import { TeamRegistry } from "../teams/registry/team-registry";
+import { RoleRegistry } from "../teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)

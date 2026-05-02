@@ -14,7 +14,7 @@
  * - memory: 记忆系统
  *
  * 已迁移子系统（PR-X4/X5/X7）：
- * - agents/teams → ai-harness/kernel + ai-harness/runtime/teams
+ * - agents/teams → ai-harness/kernel + ai-harness/teams
  * - mcp → ai-harness/protocol/mcp
  * - runtime → ai-harness/runtime
  *
@@ -111,8 +111,8 @@ export * as LLM from "./llm";
 // 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/memory"
 // MCP moved to ai-harness/protocol/mcp (PR-X7)
 // export * as MCP from "./mcp"; — removed
-// Teams barrel 已迁移到 ai-harness/runtime/teams（PR-X4）
-// 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/runtime/teams"
+// Teams barrel 已迁移到 ai-harness/teams（PR-X4）
+// 消费方请使用 "@/modules/ai-harness/facade" 或 "@/modules/ai-harness/teams"
 export * as Image from "./content/image";
 
 // 常用服务导出（便于直接导入）
@@ -123,8 +123,8 @@ export { ToolRegistry } from "./tools/registry";
 // "@/modules/ai-harness/memory" 导入。engine 主 barrel 不再做反向 re-export。
 export { GuardrailsPipelineService } from "./safety/guardrails/guardrails-pipeline.service";
 
-// Teams 模块核心服务（PR-X4: 已迁移到 ai-harness/runtime/teams，不再从 ai-engine barrel 导出）
-// 消费方请使用 "@/modules/ai-harness/facade" 或直接 "@/modules/ai-harness/runtime/teams"
+// Teams 模块核心服务（PR-X4: 已迁移到 ai-harness/teams，不再从 ai-engine barrel 导出）
+// 消费方请使用 "@/modules/ai-harness/facade" 或直接 "@/modules/ai-harness/teams"
 
 // NestJS 模块导出
 export { AiEngineModule } from "./ai-engine.module";
@@ -137,7 +137,7 @@ export { AiEnginePlanningModule } from "./llm/ai-engine-planning.module";
 // (ai-harness/memory/working/memory.module.ts)
 export { AiEngineConstraintModule } from "./safety/ai-engine-constraint.module";
 
-// TeamsModule（PR-X4: 已迁移，从 ai-harness/runtime/teams 导入）
+// TeamsModule（PR-X4: 已迁移，从 ai-harness/teams 导入）
 
 // Facade (统一入口) — engine-only symbols
 // AIFacade / ModelResolverService 已迁移至 ai-harness/facade（PR-X13/PR-X14）

@@ -38,8 +38,8 @@ import type {
 import type {
   CreateMissionDto,
   MissionStatus,
-} from "../../runtime/teams/services/teams.service";
-import type { MissionEvent } from "../../runtime/teams/abstractions/mission.interface";
+} from "../../teams/services/teams.service";
+import type { MissionEvent } from "../../teams/abstractions/mission.interface";
 import type {
   ISkill,
   SkillContext,
@@ -53,7 +53,7 @@ import type {
   A2AMessageType,
   A2APriority,
   A2AMessage,
-} from "../../runtime/teams/abstractions/a2a-message.interface";
+} from "../../teams/abstractions/a2a-message.interface";
 import type {
   ReflectionInput,
   ReflectionResult,
@@ -70,12 +70,12 @@ import type {
   VoteResult,
 } from "../../process/collaboration/abstractions/collaborator.interface";
 import type { SkillMdDefinition } from "../../../ai-engine/skills/types/skill-md.types";
-import { TeamsService } from "../../runtime/teams/services/teams.service";
-import { TeamFactory } from "../../runtime/teams/factory/team-factory";
+import { TeamsService } from "../../teams/services/teams.service";
+import { TeamFactory } from "../../teams/factory/team-factory";
 import { ContextInitializationService } from "../../../ai-engine/knowledge/world-building/context-initialization.service";
-import { TeamsMissionOrchestrator as MissionOrchestrator } from "../../runtime/teams/orchestrator/teams-mission-orchestrator";
-import { TeamRegistry } from "../../runtime/teams/registry/team-registry";
-import { RoleRegistry } from "../../runtime/teams/registry/role-registry";
+import { TeamsMissionOrchestrator as MissionOrchestrator } from "../../teams/orchestrator/teams-mission-orchestrator";
+import { TeamRegistry } from "../../teams/registry/team-registry";
+import { RoleRegistry } from "../../teams/registry/role-registry";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
 
 @Injectable()
@@ -157,9 +157,9 @@ export class TeamFacade {
       typeof (skill as { setToolPipeline: unknown }).setToolPipeline ===
         "function";
     if (hasSetToolPipeline && this.skills?.toolPipeline) {
-      (
-        skill as { setToolPipeline: (p: ToolPipeline) => void }
-      ).setToolPipeline(this.skills.toolPipeline);
+      (skill as { setToolPipeline: (p: ToolPipeline) => void }).setToolPipeline(
+        this.skills.toolPipeline,
+      );
     }
     return skill.execute(input, context);
   }

@@ -11,8 +11,8 @@
 import { Global, Module } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 
-// Teams module (PR-X4)
-import { TeamsModule } from "./teams/teams.module";
+// Teams module (PR-X4 → 2026-05-02 #1 MECE: teams 上提到 ai-harness 顶层)
+import { TeamsModule } from "../teams/teams.module";
 
 // Cross-cutting runtime services
 import { RuntimeJournalModule } from "../protocol/journal/journal.module";

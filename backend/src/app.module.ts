@@ -256,7 +256,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // Skills API (PR-X16: moved from ai-engine/skills/api)
     SkillsApiModule,
 
-    // Teams API (PR-X16: moved from ai-harness/runtime/teams/controllers)
+    // Teams API (PR-X16: moved from ai-harness/teams/controllers)
     TeamsApiModule,
 
     // BYOK Admin API (PR-X17: 4 admin controllers moved from ai-infra/credentials)

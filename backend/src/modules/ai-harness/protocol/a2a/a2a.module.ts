@@ -21,8 +21,8 @@ import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
 import { A2ARpcService } from "./a2a-rpc.service";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
-import { TeamsModule } from "../../runtime/teams/teams.module";
-import { TeamsService } from "../../runtime/teams/services/teams.service";
+import { TeamsModule } from "../../teams/teams.module";
+import { TeamsService } from "../../teams/services/teams.service";
 import { TraceCollectorService } from "../../../ai-harness/governance/observability/trace-collector.service";
 
 @Module({

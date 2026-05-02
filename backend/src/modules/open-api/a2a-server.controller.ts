@@ -39,9 +39,12 @@ import {
   A2ATaskStatusResponse,
   A2ATaskStatus,
 } from "../ai-harness/protocol/a2a/a2a.types";
-import type { ConstraintProfile } from "../ai-harness/runtime/teams/constraints/constraint-profile";
-import type { TeamId } from "../ai-harness/runtime/teams/abstractions/team.interface";
-import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "../ai-harness/protocol/a2a/a2a.tokens";
+import type { ConstraintProfile } from "../ai-harness/teams/constraints/constraint-profile";
+import type { TeamId } from "../ai-harness/teams/abstractions/team.interface";
+import {
+  TEAMS_SERVICE_TOKEN,
+  TRACE_COLLECTOR_TOKEN,
+} from "../ai-harness/protocol/a2a/a2a.tokens";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**

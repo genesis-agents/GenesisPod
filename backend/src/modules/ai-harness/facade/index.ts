@@ -157,11 +157,11 @@ export {
   MissionRuntimeStateStore,
   type MissionHeartbeat,
   HEARTBEAT_INTERVAL_MS,
-} from "../runtime/teams/orchestrator/mission-runtime-state.store";
+} from "../teams/orchestrator/mission-runtime-state.store";
 export {
   MissionOrphanDetectorService,
   type OrphanDetectorCallbacks,
-} from "../runtime/teams/orchestrator/mission-orphan-detector.service";
+} from "../teams/orchestrator/mission-orphan-detector.service";
 
 // ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来（跨层迁移）
 export {
@@ -172,7 +172,7 @@ export {
   type StepExecutionResult,
   type ReplanStep,
   type ReplanContext,
-} from "../runtime/teams/orchestrator/adaptive-replanner.service";
+} from "../teams/orchestrator/adaptive-replanner.service";
 
 // ★ 2026-04-30: AgentExecutorService 从 ai-engine/planning 搬来（跨层迁移）
 export { AgentExecutorService } from "../execution/executor/agent-executor.service";
@@ -292,8 +292,8 @@ export {
 // ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/agent-playground 上提
 //   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
 //   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
-export { MissionAbortRegistry } from "../runtime/teams/orchestrator/mission-abort.registry";
-export { MissionOwnershipRegistry } from "../runtime/teams/orchestrator/mission-ownership.registry";
+export { MissionAbortRegistry } from "../teams/orchestrator/mission-abort.registry";
+export { MissionOwnershipRegistry } from "../teams/orchestrator/mission-ownership.registry";
 
 // ★ 2026-05-01: stage-emit util 从 ai-app/agent-playground 上提
 //   通用 stage:completed 事件封装，含 durationMs / tokensUsed / agentInvocations 等度量
@@ -361,7 +361,7 @@ export {
   type HealthVerdict,
   type HealthCheckResult,
   type MissionHealthMonitorOptions,
-} from "../runtime/teams/orchestrator/mission-health.monitor";
+} from "../teams/orchestrator/mission-health.monitor";
 export {
   DAGExecutor,
   type DAGTask,
@@ -598,40 +598,40 @@ export { KernelSchedulerService } from "../process/scheduler/kernel-scheduler.se
 // ════════════════════════════════════════════════════════════════════
 // Teams: registry + factory + orchestrator + service (PR-X4)
 // ════════════════════════════════════════════════════════════════════
-export { TeamRegistry } from "../runtime/teams/registry/team-registry";
-export { RoleRegistry } from "../runtime/teams/registry/role-registry";
-export { TeamFactory } from "../runtime/teams/factory/team-factory";
-export { TeamsMissionOrchestrator as MissionOrchestrator } from "../runtime/teams/orchestrator/teams-mission-orchestrator";
-export { TeamsService } from "../runtime/teams/services/teams.service";
+export { TeamRegistry } from "../teams/registry/team-registry";
+export { RoleRegistry } from "../teams/registry/role-registry";
+export { TeamFactory } from "../teams/factory/team-factory";
+export { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orchestrator/teams-mission-orchestrator";
+export { TeamsService } from "../teams/services/teams.service";
 export type {
   TeamInfo,
   CreateMissionDto,
   MissionStatus,
-} from "../runtime/teams/services/teams.service";
+} from "../teams/services/teams.service";
 export type {
   ITeam,
   TeamConfig,
   TeamId,
   TeamType,
-} from "../runtime/teams/abstractions/team.interface";
-export { BUILTIN_TEAMS } from "../runtime/teams/abstractions/team.interface";
+} from "../teams/abstractions/team.interface";
+export { BUILTIN_TEAMS } from "../teams/abstractions/team.interface";
 export type {
   IRole,
   RoleId,
   WorkStyle,
-} from "../runtime/teams/abstractions/role.interface";
-export { BUILTIN_ROLES } from "../runtime/teams/abstractions/role.interface";
+} from "../teams/abstractions/role.interface";
+export { BUILTIN_ROLES } from "../teams/abstractions/role.interface";
 export type {
   ITeamMember,
   TeamMemberId,
   MemberStatus,
-} from "../runtime/teams/abstractions/member.interface";
-export type { WorkflowConfig } from "../runtime/teams/abstractions/workflow.interface";
+} from "../teams/abstractions/member.interface";
+export type { WorkflowConfig } from "../teams/abstractions/workflow.interface";
 export type {
   MissionInput,
   MissionResult,
   MissionEvent,
-} from "../runtime/teams/abstractions/mission.interface";
+} from "../teams/abstractions/mission.interface";
 export type {
   MissionContextPackage,
   HardConstraint,
@@ -640,25 +640,25 @@ export type {
   QualityStandard,
   EstablishedFact,
   TaskUnderstanding,
-} from "../runtime/teams/abstractions/mission-context.interface";
+} from "../teams/abstractions/mission-context.interface";
 export {
   createEmptyContextPackage,
   validateContextPackage,
   mergeContextPackages,
-} from "../runtime/teams/abstractions/mission-context.interface";
+} from "../teams/abstractions/mission-context.interface";
 export type {
   A2AMessage as TeamA2AMessage,
   A2AMessageType as TeamA2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../runtime/teams/abstractions/a2a-message.interface";
-export type { ConstraintProfile } from "../runtime/teams/constraints/constraint-profile";
-export { createConstraintProfile } from "../runtime/teams/constraints/constraint-profile";
+} from "../teams/abstractions/a2a-message.interface";
+export type { ConstraintProfile } from "../teams/constraints/constraint-profile";
+export { createConstraintProfile } from "../teams/constraints/constraint-profile";
 export type {
   IConstraintEngine,
   ConstraintEvaluation,
   ConstraintViolation as ConstraintEngineViolation,
-} from "../runtime/teams/constraints/constraint-engine.interface";
+} from "../teams/constraints/constraint-engine.interface";
 
 // ════════════════════════════════════════════════════════════════════
 // Runtime: mission + budget + billing + kernel-api

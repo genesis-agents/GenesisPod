@@ -38,8 +38,8 @@ import {
 import { TaskState as TaskStateEnum } from "./a2a-spec.types";
 import { AgentCardRegistry } from "./agent-card.registry";
 import { TEAMS_SERVICE_TOKEN, TRACE_COLLECTOR_TOKEN } from "./a2a.tokens";
-import type { TeamId } from "../../runtime/teams/abstractions/team.interface";
-import type { ConstraintProfile } from "../../runtime/teams/constraints/constraint-profile";
+import type { TeamId } from "../../teams/abstractions/team.interface";
+import type { ConstraintProfile } from "../../teams/constraints/constraint-profile";
 
 interface IKernelTeamsService {
   executeMission(params: {
@@ -122,9 +122,7 @@ export class A2ARpcService {
   /**
    * 处理 JSON-RPC 2.0 请求 — 主入口
    */
-  async handle(
-    request: JsonRpcRequest,
-  ): Promise<JsonRpcResponse> {
+  async handle(request: JsonRpcRequest): Promise<JsonRpcResponse> {
     const { id = null, method, params } = request;
 
     // 校验 jsonrpc 版本
@@ -170,11 +168,7 @@ export class A2ARpcService {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`RPC ${method} failed: ${message}`);
-      return this.errorResponse(
-        id,
-        A2A_ERROR_CODES.INTERNAL_ERROR,
-        message,
-      );
+      return this.errorResponse(id, A2A_ERROR_CODES.INTERNAL_ERROR, message);
     }
   }
 
@@ -192,9 +186,7 @@ export class A2ARpcService {
     }
     const MAX_LEN = 100_000;
     if (goal.length > MAX_LEN) {
-      throw new Error(
-        `message text exceeds max length ${MAX_LEN}`,
-      );
+      throw new Error(`message text exceeds max length ${MAX_LEN}`);
     }
 
     const skillId =
@@ -333,11 +325,7 @@ export class A2ARpcService {
 
   // ─── 辅助 ─────────────────────────────────────────────────────────
 
-  private buildTask(
-    taskId: string,
-    contextId: string,
-    state: TaskState,
-  ): Task {
+  private buildTask(taskId: string, contextId: string, state: TaskState): Task {
     const status: TaskStatus = {
       state,
       timestamp: new Date().toISOString(),

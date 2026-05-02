@@ -64,7 +64,7 @@ export type {
   A2AMessageType,
   A2APriority,
   A2AMessageHandler,
-} from "../../runtime/teams/abstractions/a2a-message.interface";
+} from "../../teams/abstractions/a2a-message.interface";
 
 // ==================== Teams / Member (harness-owned) ====================
 
@@ -72,18 +72,15 @@ export type {
   ITeamMember,
   TeamMemberId,
   MemberStatus,
-} from "../../runtime/teams/abstractions/member.interface";
+} from "../../teams/abstractions/member.interface";
 
 // ==================== Teams / Role (harness-owned) ====================
 
-export type {
-  IRole,
-  WorkStyle,
-} from "../../runtime/teams/abstractions/role.interface";
+export type { IRole, WorkStyle } from "../../teams/abstractions/role.interface";
 
 // ==================== Teams / Team (harness-owned) ====================
 
-export type { TeamId } from "../../runtime/teams/abstractions/team.interface";
+export type { TeamId } from "../../teams/abstractions/team.interface";
 
 // ==================== Core / Agent Types (engine-owned, imported from ai-engine/facade) ====================
 
@@ -91,10 +88,7 @@ export type { SkillId, ToolId } from "../../../ai-engine/facade";
 
 // ==================== Orchestration / Abstractions (engine-owned) ====================
 
-export type {
-  Checkpoint,
-  ExecutionContext,
-} from "./orchestrator.interface";
+export type { Checkpoint, ExecutionContext } from "./orchestrator.interface";
 
 // ==================== Teams / Constraint Engine (harness-owned) ====================
 
@@ -113,10 +107,10 @@ export type {
   CostEstimate,
   CostBreakdown,
   DegradationStrategy,
-} from "../../runtime/teams/constraints/constraint-engine.interface";
+} from "../../teams/constraints/constraint-engine.interface";
 
 // Also re-export ConstraintViolation under its original name for kernel-internal use
-export type { ConstraintViolation } from "../../runtime/teams/constraints/constraint-engine.interface";
+export type { ConstraintViolation } from "../../teams/constraints/constraint-engine.interface";
 
 // ==================== Orchestration / Services / Interfaces (engine-owned) ====================
 
@@ -131,7 +125,7 @@ export type {
 
 // ==================== Teams / Constraints / Constraint Profile (harness-owned) ====================
 
-export type { ConstraintProfile } from "../../runtime/teams/constraints/constraint-profile";
+export type { ConstraintProfile } from "../../teams/constraints/constraint-profile";
 
 // ==================== Memory / Abstractions (harness-owned 2026-04-30) ====================
 
