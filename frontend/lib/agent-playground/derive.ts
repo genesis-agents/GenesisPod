@@ -210,6 +210,29 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
     }
     return p;
   };
+
+  // ★ 2026-05-01 治同毫秒事件 race（mission 8a55cc93 prod 实测）：
+  //   chapter:* 事件可能比 outline:planned 先到，find by idx 失败 → status 永
+  //   不更新（卡 pending）。lazy upsert 让任何 chapter:* 事件都能创建/找到 chapter，
+  //   后续 outline:planned 通过 merge 修正 heading/thesis（不覆盖 status）。
+  const upsertChapter = (
+    pipeline: DimensionPipelineState,
+    index: number
+  ): DimensionPipelineState['chapters'][number] => {
+    let ch = pipeline.chapters.find((c) => c.index === index);
+    if (!ch) {
+      ch = {
+        index,
+        heading: `Chapter ${index}`,
+        thesis: undefined,
+        status: 'pending',
+        attempts: 0,
+      };
+      pipeline.chapters.push(ch);
+      pipeline.chapters.sort((a, b) => a.index - b.index);
+    }
+    return ch;
+  };
   let memory: MemoryIndexState | null = null;
   const costByStage = new Map<
     string,
@@ -507,38 +530,49 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       const attempt = (p?.attempt as number | undefined) ?? 1;
       if (dim && idx != null) {
         const pipeline = ensurePipeline(dim);
-        const ch = pipeline.chapters.find((c) => c.index === idx);
-        if (ch) {
-          ch.status = attempt > 1 ? 'revising' : 'writing';
-          ch.attempts = attempt;
+        let ch = pipeline.chapters.find((c) => c.index === idx);
+        // ★ 2026-05-01 治 prod race（mission 8a55cc93）：
+        //   chapter:writing:started 与 outline:planned 同毫秒到达时 DB INSERT
+        //   顺序不保证，前端可能先收到 writing:started → ensurePipeline 建空
+        //   chapters[] → find idx 失败 → status 永不更新（卡 pending）。
+        //   解：找不到就 lazy upsert chapter（heading 暂用 idx 占位），
+        //   后续 outline:planned 到达时 merge 修正 heading（line 478 merge 逻辑）。
+        if (!ch) {
+          ch = {
+            index: idx,
+            heading: `Chapter ${idx}`,
+            thesis: undefined,
+            status: 'pending',
+            attempts: 0,
+          };
+          pipeline.chapters.push(ch);
+          pipeline.chapters.sort((a, b) => a.index - b.index);
         }
+        ch.status = attempt > 1 ? 'revising' : 'writing';
+        ch.attempts = attempt;
       }
     } else if (t === 'agent-playground.chapter:writing:completed') {
       const dim = p?.dimension as string | undefined;
       const idx = p?.chapterIndex as number | undefined;
       if (dim && idx != null) {
         const pipeline = ensurePipeline(dim);
-        const ch = pipeline.chapters.find((c) => c.index === idx);
-        if (ch) {
-          ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
-          ch.status = 'reviewing';
-        }
+        const ch = upsertChapter(pipeline, idx);
+        ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
+        ch.status = 'reviewing';
       }
     } else if (t === 'agent-playground.chapter:review:completed') {
       const dim = p?.dimension as string | undefined;
       const idx = p?.chapterIndex as number | undefined;
       if (dim && idx != null) {
         const pipeline = ensurePipeline(dim);
-        const ch = pipeline.chapters.find((c) => c.index === idx);
-        if (ch) {
-          ch.score = p?.score as number | undefined;
-          ch.critique = p?.critique as string | undefined;
-          ch.status =
-            p?.decision === 'pass' ||
-            ((p?.score as number | undefined) ?? 0) >= 75
-              ? 'passed'
-              : 'revising';
-        }
+        const ch = upsertChapter(pipeline, idx);
+        ch.score = p?.score as number | undefined;
+        ch.critique = p?.critique as string | undefined;
+        ch.status =
+          p?.decision === 'pass' ||
+          ((p?.score as number | undefined) ?? 0) >= 75
+            ? 'passed'
+            : 'revising';
       }
     } else if (t === 'agent-playground.chapter:revision') {
       // 已在 writing:started 重置 attempts，这里仅作为补充信号
@@ -551,11 +585,9 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       const qualified = p?.qualified as boolean | undefined;
       if (dim && idx != null) {
         const pipeline = ensurePipeline(dim);
-        const ch = pipeline.chapters.find((c) => c.index === idx);
-        if (ch) {
-          ch.status = qualified ? 'done' : 'failed-finalized';
-          ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
-        }
+        const ch = upsertChapter(pipeline, idx);
+        ch.status = qualified ? 'done' : 'failed-finalized';
+        ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
       }
     } else if (t === 'agent-playground.dimension:integrating:completed') {
       const dim = p?.dimension as string | undefined;

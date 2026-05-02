@@ -243,6 +243,15 @@ export async function runPerDimPipeline(
     },
   });
 
+  // ★ 2026-05-01 治 chapter status 卡 pending 真因：
+  //   prod 实测（mission 8a55cc93）outline:planned 与并发 chapter writer 的
+  //   chapter:writing:started 事件 timestamp 同毫秒 race，DB INSERT 顺序不保证。
+  //   前端按 created_at 排序拿到 writing:started 在 outline:planned 之前 →
+  //   ensurePipeline 建空 chapters → find by idx 失败 → status 永不更新。
+  //   sleep 2ms 让 outline:planned 时间戳严格小于后续 chapter writer 启动时间，
+  //   保证前端 derive.ts replay 时 outline 先 init chapters[]，再被 writing:started 命中。
+  await new Promise<void>((resolve) => setTimeout(resolve, 2));
+
   // ── 2. 章节 write + review loop（并发 2 章同时写）──
   //
   // ★ 加速杠杆 2 (2026-05-01): 把逐章串行改为 pLimit(2) 并发执行。
