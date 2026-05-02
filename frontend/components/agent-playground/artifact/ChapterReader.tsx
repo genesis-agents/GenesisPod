@@ -384,11 +384,12 @@ export function ChapterReader({
 
   // ─── 章节列表视图 ─────────────────────────────────────
   // ★ 2026-04-30: 用 live status 重算 stats，让 "已完成 N" 真实反映非修订中的章数
+  // ★ 2026-05-01: 'done' / 'failed-finalized' 也算终态，避免 chapter:done 后计数清零。
   const sectionLiveStatuses = sections.map((s) =>
     lookupChapterLiveStatus(s, dimensionPipelines)
   );
   const completedCount = sectionLiveStatuses.filter(
-    (st) => st === 'passed'
+    (st) => st === 'passed' || st === 'done' || st === 'failed-finalized'
   ).length;
   const inFlightCount = sectionLiveStatuses.filter(
     (st) => st === 'writing' || st === 'reviewing' || st === 'revising'

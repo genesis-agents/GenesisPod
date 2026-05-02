@@ -123,8 +123,14 @@ function deriveDimSubStatus(
   }
   const chs = pipeline.chapters;
   const total = chs.length;
-  const passed = chs.filter((c) => c.status === 'passed').length;
-  const failed = chs.filter((c) => c.status === 'failed').length;
+  // ★ 2026-05-01 (用户实证：评审通过后跳"待启动")：把 'done' / 'failed-finalized' 也算
+  //   终态，避免 chapter:done 事件到达后 passed 计数清零、所有章节看起来重新"待启动"。
+  const passed = chs.filter(
+    (c) => c.status === 'passed' || c.status === 'done'
+  ).length;
+  const failed = chs.filter(
+    (c) => c.status === 'failed' || c.status === 'failed-finalized'
+  ).length;
   const writing = chs.filter((c) => c.status === 'writing').length;
   const reviewing = chs.filter((c) => c.status === 'reviewing').length;
   const revising = chs.filter((c) => c.status === 'revising').length;

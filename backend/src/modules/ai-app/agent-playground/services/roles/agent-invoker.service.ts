@@ -249,8 +249,13 @@ export class AgentInvoker {
   }
 
   /**
-   * 拓扑序分批并行：每个 item 可声明 dependsOn:string[]；同 batch 并行，跨 batch 串行。
-   * 检测到循环时回退到全并行。
+   * 拓扑序滑动窗口：每个 item 可声明 dependsOn:string[]；
+   * 任一 item 完成后立即拉起下一个依赖已满足的 item（不等同批其他 item），
+   * 上限 `concurrency` 个并发槽。检测到循环时回退到全并行。
+   *
+   * ★ 2026-05-01：从原"拓扑分批 + 跨批串行"改造而来 —— 用户反馈
+   * "号称 3 并行，实际是 3 个全完成才启动下一批"。批 dispatch 等于
+   * 等最慢的拖慢全队，sliding window 才符合用户预期。
    */
   async runDagConcurrency<
     TIn extends { id: string; dependsOn?: string[] },
@@ -260,9 +265,12 @@ export class AgentInvoker {
     concurrency: number,
     fn: (item: TIn, idx: number) => Promise<TOut>,
   ): Promise<TOut[]> {
+    if (items.length === 0) return [];
     const ids = new Set(items.map((i) => i.id));
     const inDeg = new Map<string, number>();
     const adj = new Map<string, string[]>();
+    const idToIdx = new Map<string, number>();
+    items.forEach((it, i) => idToIdx.set(it.id, i));
     for (const it of items) {
       const deps = (it.dependsOn ?? []).filter((d) => ids.has(d));
       inDeg.set(it.id, deps.length);
@@ -272,44 +280,90 @@ export class AgentInvoker {
         adj.set(d, arr);
       }
     }
-    const batches: string[][] = [];
-    let pending = Array.from(inDeg.entries())
-      .filter(([, n]) => n === 0)
-      .map(([id]) => id);
-    const seen = new Set<string>();
-    while (pending.length > 0) {
-      batches.push([...pending]);
-      pending.forEach((id) => seen.add(id));
-      const next: string[] = [];
-      for (const id of pending) {
-        for (const child of adj.get(id) ?? []) {
-          inDeg.set(child, (inDeg.get(child) ?? 0) - 1);
-          if (inDeg.get(child) === 0) next.push(child);
+
+    // 无环检测（Kahn）：能拓扑排序到的节点数 === items.length 才是 DAG
+    const tmpInDeg = new Map(inDeg);
+    const reachable = new Set<string>();
+    const tmpQ: string[] = [];
+    for (const [id, n] of tmpInDeg) {
+      if (n === 0) {
+        reachable.add(id);
+        tmpQ.push(id);
+      }
+    }
+    while (tmpQ.length > 0) {
+      const id = tmpQ.shift()!;
+      for (const child of adj.get(id) ?? []) {
+        tmpInDeg.set(child, (tmpInDeg.get(child) ?? 0) - 1);
+        if (tmpInDeg.get(child) === 0) {
+          reachable.add(child);
+          tmpQ.push(child);
         }
       }
-      pending = next;
     }
-    if (seen.size < items.length) {
+    if (reachable.size < items.length) {
       this.log.warn(
         `[runDagConcurrency] cycle or missing deps detected — fallback to flat`,
       );
       return this.runWithConcurrency(items, concurrency, fn);
     }
+
+    // 滑动窗口调度
     const results: TOut[] = new Array(items.length);
-    const idToIdx = new Map<string, number>();
-    items.forEach((it, i) => idToIdx.set(it.id, i));
-    for (const batch of batches) {
-      const batchItems = batch.map((id) => items[idToIdx.get(id)!]);
-      const batchResults = await this.runWithConcurrency(
-        batchItems,
-        concurrency,
-        async (it) => fn(it, idToIdx.get(it.id)!),
-      );
-      batchItems.forEach((it, i) => {
-        results[idToIdx.get(it.id)!] = batchResults[i];
-      });
+    const ready: string[] = [];
+    for (const [id, n] of inDeg) {
+      if (n === 0) ready.push(id);
     }
-    return results;
+    let activeCount = 0;
+    let completed = 0;
+    let firstError: unknown = null;
+
+    return new Promise<TOut[]>((resolve, reject) => {
+      const tryDispatch = () => {
+        if (firstError) {
+          if (activeCount === 0) reject(firstError);
+          return;
+        }
+        while (activeCount < concurrency && ready.length > 0) {
+          const id = ready.shift()!;
+          const idx = idToIdx.get(id)!;
+          const item = items[idx];
+          activeCount++;
+          Promise.resolve()
+            .then(() => fn(item, idx))
+            .then(
+              (out) => {
+                results[idx] = out;
+                activeCount--;
+                completed++;
+                for (const child of adj.get(id) ?? []) {
+                  const next = (inDeg.get(child) ?? 0) - 1;
+                  inDeg.set(child, next);
+                  if (next === 0) ready.push(child);
+                }
+                if (completed === items.length) resolve(results);
+                else tryDispatch();
+              },
+              (err) => {
+                activeCount--;
+                if (!firstError) firstError = err;
+                tryDispatch();
+              },
+            );
+        }
+        if (
+          activeCount === 0 &&
+          ready.length === 0 &&
+          completed < items.length &&
+          !firstError
+        ) {
+          reject(
+            new Error("runDagConcurrency: scheduler stalled (unreachable)"),
+          );
+        }
+      };
+      tryDispatch();
+    });
   }
 
   // ── private ──

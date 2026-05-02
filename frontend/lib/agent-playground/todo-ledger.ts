@@ -1635,11 +1635,14 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       continue;
     }
     const total = pipeline.chapters.length;
+    // ★ 2026-05-01 (用户实证：评审通过后 dim todo 卡进行中)：'done' / 'failed-finalized'
+    //   也算终态。chapter:done 事件后 status='done'，之前只数 'passed' 导致计数清零，
+    //   dim 永远走不到 passed === total 分支 → 卡 in_progress。
     const passed = pipeline.chapters.filter(
-      (c) => c.status === 'passed'
+      (c) => c.status === 'passed' || c.status === 'done'
     ).length;
     const failed = pipeline.chapters.filter(
-      (c) => c.status === 'failed'
+      (c) => c.status === 'failed' || c.status === 'failed-finalized'
     ).length;
 
     td.artifacts.push({

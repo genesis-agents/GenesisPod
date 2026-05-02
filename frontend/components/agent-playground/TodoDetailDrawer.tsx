@@ -1094,8 +1094,11 @@ export function TodoDetailDrawer({
                   >
                     <ul className="space-y-1.5 p-3">
                       {pipeline.chapters.map((c) => {
+                        // ★ 2026-05-01 (Screenshot 45 + 用户实证：评审通过后跳到"待启动")：
+                        //   补齐 'done' / 'failed-finalized' 两种终态映射 —— 之前 fallthrough
+                        //   到 '待启动'，章节实际已落地却显示等待状态。
                         const cls =
-                          c.status === 'passed'
+                          c.status === 'passed' || c.status === 'done'
                             ? 'bg-emerald-50 ring-emerald-200 text-emerald-700'
                             : c.status === 'writing'
                               ? 'bg-blue-50 ring-blue-200 text-blue-700'
@@ -1105,10 +1108,12 @@ export function TodoDetailDrawer({
                                   ? 'bg-orange-50 ring-orange-200 text-orange-700'
                                   : c.status === 'failed'
                                     ? 'bg-red-50 ring-red-200 text-red-700'
-                                    : 'bg-gray-50 ring-gray-200 text-gray-600';
+                                    : c.status === 'failed-finalized'
+                                      ? 'bg-orange-50 ring-orange-200 text-orange-700'
+                                      : 'bg-gray-50 ring-gray-200 text-gray-600';
                         const statusLabel =
-                          c.status === 'passed'
-                            ? '已通过'
+                          c.status === 'passed' || c.status === 'done'
+                            ? '已完成'
                             : c.status === 'writing'
                               ? '撰写中'
                               : c.status === 'reviewing'
@@ -1117,7 +1122,9 @@ export function TodoDetailDrawer({
                                   ? `重写第 ${c.attempts} 轮`
                                   : c.status === 'failed'
                                     ? '失败'
-                                    : '待启动';
+                                    : c.status === 'failed-finalized'
+                                      ? '兜底落地'
+                                      : '待启动';
                         return (
                           <li
                             key={c.index}
