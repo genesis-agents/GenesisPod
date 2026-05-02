@@ -547,10 +547,29 @@ export class ReActLoop implements IAgentLoop {
           | "model_not_found"
           | "context_too_long"
           | "outage" = "outage";
-        if (/rate.?limit|429|too many requests/i.test(message)) {
+        // ★ 2026-05-01 (mission b791054e 真因)：quota/billing 错误必须独立编码 —
+        //   OpenAI insufficient_quota 文案是"You exceeded your current quota,
+        //   please check your plan and billing details" — 不含 "rate limit" / "429"，
+        //   原本兜底成 PROVIDER_API_ERROR + "Agent 内部错误"，掩盖了"账户余额耗尽"
+        //   这一关键真因。优先级最高（先于 rate_limit 判断）。
+        if (
+          /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance)/i.test(
+            message,
+          )
+        ) {
+          failureCode = "PROVIDER_QUOTA_EXCEEDED";
+          fallbackReason = "outage"; // 配额耗尽不能 fallback 到同 provider 其他模型
+        } else if (/rate.?limit|429|too many requests/i.test(message)) {
           failureCode = "PROVIDER_RATE_LIMIT";
           fallbackReason = "rate_limit";
-        } else if (/model.*not.*found|invalid model|404/i.test(message)) {
+        } else if (
+          // ★ 2026-05-01 (mission 9a3144fc 实证)：xAI grok 模型 ID 错误返回
+          //   "The requested resource was not found"，不含 "model" / "invalid model"，
+          //   原 regex 漏判。补 INVALID_MODEL / requested resource / docs\.x\.ai / openai 404 等。
+          /model.*not.*found|invalid[_\s-]?model|model_not_found|requested\s+resource\s+(was\s+)?not\s+found|docs\.x\.ai|model.*does.*not.*exist|404\b/i.test(
+            message,
+          )
+        ) {
           failureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
           fallbackReason = "model_not_found";
         } else if (/context.*length|too long|maximum context/i.test(message)) {

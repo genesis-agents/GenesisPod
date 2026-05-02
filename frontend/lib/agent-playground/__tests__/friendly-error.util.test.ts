@@ -39,6 +39,33 @@ describe('friendlyError', () => {
     );
   });
 
+  it('maps PROVIDER_QUOTA_EXCEEDED to actionable billing message', () => {
+    expect(
+      friendlyError(
+        '[PROVIDER_QUOTA_EXCEEDED] You exceeded your current quota, please check your plan and billing details.'
+      )
+    ).toBe(
+      'LLM 账户余额/配额已耗尽（请到所选模型 Provider（OpenAI / Anthropic 等）控制台充值或提升配额，再重新启动任务）'
+    );
+  });
+
+  it('maps PROVIDER_RATE_LIMIT', () => {
+    expect(friendlyError('[PROVIDER_RATE_LIMIT] 429')).toBe(
+      'LLM 触发限速（系统会自动退避重试，无需手动处理；持续失败请稍后再试）'
+    );
+  });
+
+  it('finds [CODE] anywhere in string (not just at start)', () => {
+    // Real backend message: "Leader.plan failed [CODE]: msg"
+    expect(
+      friendlyError(
+        'Leader.plan failed [PROVIDER_QUOTA_EXCEEDED]: Agent 内部错误'
+      )
+    ).toBe(
+      'LLM 账户余额/配额已耗尽（请到所选模型 Provider（OpenAI / Anthropic 等）控制台充值或提升配额，再重新启动任务）'
+    );
+  });
+
   it('maps AGENT_BUDGET_EXHAUSTED', () => {
     expect(friendlyError('[AGENT_BUDGET_EXHAUSTED]')).toBe('本任务预算耗尽');
   });

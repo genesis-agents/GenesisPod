@@ -118,6 +118,7 @@ export type HarnessFailureCode =
   // L5 Provider
   | "PROVIDER_API_ERROR"
   | "PROVIDER_RATE_LIMIT"
+  | "PROVIDER_QUOTA_EXCEEDED" // 余额/配额耗尽（402/insufficient_quota）
   | "PROVIDER_SAFETY_REFUSAL"
   | "PROVIDER_TRUNCATED"
   | "PROVIDER_BYOK_MODEL_NOT_FOUND"
