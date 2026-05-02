@@ -277,9 +277,10 @@ export {
   lengthTargetFor,
 } from "../governance/critique/report-artifact/report-artifact-assembler.service";
 
-// ★ 2026-05-01: FailureLearnerService 从 ai-app/agent-playground 上提（governance/learning）
+// ★ 2026-05-01: FailureLearnerService 从 ai-app/agent-playground 上提
+// ★ 2026-05-02 (W1 MECE): governance/learning → lifecycle/learning（失败学习是生命周期闭环）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
-export { FailureLearnerService } from "../governance/learning/failure-learner.service";
+export { FailureLearnerService } from "../lifecycle/learning/failure-learner.service";
 
 // ★ 2026-05-01: SocketBroadcastAdapter 从 ai-app/agent-playground/adapters/ 上提
 //   参数化 prefix 后跨 ai-app 通用（DomainEvent → Socket.IO room），任何带 socket relay
