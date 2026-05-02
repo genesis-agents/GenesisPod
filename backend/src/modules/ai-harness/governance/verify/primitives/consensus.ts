@@ -11,8 +11,8 @@
  *   - 分歧大 → escalate_to_human
  */
 
-import type { ConsensusDecision, Verdict } from "../env/types";
-import type { ConsensusResolver } from "../env/react-runner";
+import type { ConsensusDecision, Verdict } from "../../../runtime/env/types";
+import type { ConsensusResolver } from "../../../runtime/env/react-runner";
 
 export interface ConsensusOptions {
   /** 判 pass 的分数阈值（默认 70） */

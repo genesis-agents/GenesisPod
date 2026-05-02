@@ -9,12 +9,12 @@
  *   - 参考：Reflexion / Self-RAG / Constitutional AI
  */
 
-import type { AgentTask, Message, Verdict } from "../env/types";
+import type { AgentTask, Message, Verdict } from "../../../runtime/env/types";
 import type {
   JudgeSpec,
   LLMCaller,
   ReActExecutionContext,
-} from "../env/react-runner";
+} from "../../../runtime/env/react-runner";
 
 const SELF_EVAL_SYSTEM_PROMPT = `你是同一个 agent 的"严格评估员"身份。刚才你产出了一份 draft，
 现在用低温度、高标准重新审视。
@@ -102,9 +102,7 @@ export async function callJudgeLLM(
   return { score: 50, critique: "judge LLM 解析失败，fallback 50 分" };
 }
 
-function tryParseJson(
-  text: string,
-): {
+function tryParseJson(text: string): {
   score?: number;
   critique?: string;
   criteria?: Record<string, number>;

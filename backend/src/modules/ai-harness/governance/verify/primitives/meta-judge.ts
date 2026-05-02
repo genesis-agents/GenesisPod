@@ -6,8 +6,12 @@
  * 用更强的 model 读各 judge 的 critique 做最终裁决，产出 pass/fail + 解释。
  */
 
-import type { Message, Verdict, ConsensusDecision } from "../env/types";
-import type { LLMCaller } from "../env/react-runner";
+import type {
+  Message,
+  Verdict,
+  ConsensusDecision,
+} from "../../../runtime/env/types";
+import type { LLMCaller } from "../../../runtime/env/react-runner";
 import { callJudgeLLM } from "./self-judge";
 
 const META_JUDGE_SYSTEM_PROMPT = `你是一位 meta 级评审员。下面有多位 judge 对同一 draft 的评价，他们分数分歧明显。
