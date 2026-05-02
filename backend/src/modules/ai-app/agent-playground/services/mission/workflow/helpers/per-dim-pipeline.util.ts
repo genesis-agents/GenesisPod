@@ -180,48 +180,62 @@ export async function runPerDimPipeline(
   ): Promise<void> => {
     if (terminalEmitted) return;
     terminalEmitted = true;
-    if (payload.ok) {
-      const g = payload.g;
-      await deps.emit({
-        type: "agent-playground.dimension:graded",
-        missionId,
-        userId,
-        agentId: gradeAgentId,
-        payload: {
+    // ★ 2026-05-01 深度仿真发现：emit 失败时 terminalEmitted 已被设 true，无法
+    //   重发；应吞 emit 异常 + log，避免事件总线短暂故障让 finally 兜底也失效。
+    //   保留 terminalEmitted=true（已"尝试过"），下次 mission 重启或重 derive
+    //   会拉取持久化事件，本次失败留 telemetry 即可。
+    try {
+      if (payload.ok) {
+        const g = payload.g;
+        await deps.emit({
+          type: "agent-playground.dimension:graded",
+          missionId,
+          userId,
+          agentId: gradeAgentId,
+          payload: {
+            dimension: dimensionName,
+            overall: g.overall,
+            grade: g.grade,
+            axes: g.axes,
+            summary: g.summary,
+            retryLabel: args.retryLabel,
+          },
+        });
+        await narrate(deps.emit, missionId, userId, {
+          stage: "s3-researchers",
+          role: "reviewer",
+          tag:
+            g.overall >= 80 ? "success" : g.overall >= 60 ? "info" : "warning",
+          text: `${dimensionName} · 5 轴评分出炉 ${g.overall}/100（${g.grade}）`,
+          agentId: gradeAgentId,
           dimension: dimensionName,
-          overall: g.overall,
-          grade: g.grade,
-          axes: g.axes,
-          summary: g.summary,
-          retryLabel: args.retryLabel,
-        },
-      });
-      await narrate(deps.emit, missionId, userId, {
-        stage: "s3-researchers",
-        role: "reviewer",
-        tag: g.overall >= 80 ? "success" : g.overall >= 60 ? "info" : "warning",
-        text: `${dimensionName} · 5 轴评分出炉 ${g.overall}/100（${g.grade}）`,
-        agentId: gradeAgentId,
-        dimension: dimensionName,
-      });
-    } else {
-      await deps.emit({
-        type: "agent-playground.dimension:graded",
-        missionId,
-        userId,
-        agentId: gradeAgentId,
-        payload: {
-          dimension: dimensionName,
-          overall: 0,
-          grade: "F",
-          axes: {},
-          summary: payload.summary,
-          retryLabel: args.retryLabel,
-          failed: true,
-          skipped: payload.skipped ?? false,
-          phase: payload.phase,
-        },
-      });
+        });
+      } else {
+        await deps.emit({
+          type: "agent-playground.dimension:graded",
+          missionId,
+          userId,
+          agentId: gradeAgentId,
+          payload: {
+            dimension: dimensionName,
+            overall: 0,
+            grade: "F",
+            axes: {},
+            summary: payload.summary,
+            retryLabel: args.retryLabel,
+            failed: true,
+            skipped: payload.skipped ?? false,
+            phase: payload.phase,
+          },
+        });
+      }
+    } catch (emitErr) {
+      const msg = emitErr instanceof Error ? emitErr.message : String(emitErr);
+      // 不向外抛——避免 finally 兜底也失效。事件丢失留 telemetry。
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[per-dim-pipeline ${dimensionName}] emitGraded failed (event lost): ${msg}`,
+      );
     }
   };
 

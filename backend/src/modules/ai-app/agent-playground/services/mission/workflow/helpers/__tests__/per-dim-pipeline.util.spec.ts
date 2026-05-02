@@ -2229,5 +2229,21 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
       expect(graded[0].payload.dimension).toBe("Security");
       expect(graded[0].agentId).toBe("quality-judge#5");
     });
+
+    it("[A20] emit failure inside emitGraded → swallowed (event lost but pipeline doesn't throw)", async () => {
+      const deps = makeDeps();
+      // 让 emit 在 graded 事件抛错（其他事件正常）
+      const emitMock = deps.emit as jest.Mock;
+      emitMock.mockImplementation((ev: { type: string }) => {
+        if (ev.type === "agent-playground.dimension:graded") {
+          throw new Error("EVENT_BUS_DOWN");
+        }
+        return Promise.resolve(undefined);
+      });
+      // 不应该 throw
+      const result = await runPerDimPipeline(baseArgs, deps);
+      // pipeline 仍然返回结果（不阻断业务）
+      expect(result.dimension).toBe("Technology");
+    });
   });
 });

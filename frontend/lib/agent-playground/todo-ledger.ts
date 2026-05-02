@@ -1737,6 +1737,18 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     const pipelineKey = td.pipelineKey ?? td.dimensionRef;
     const pipeline = dimensionPipelines.get(pipelineKey);
     if (!pipeline || pipeline.chapters.length === 0) {
+      // ★ 2026-05-01 深度仿真发现：原代码无脑设 in_progress 会把 quick/minimal
+      //   档位（不跑 chapter pipeline）的 dim 永远卡"采集中"。修法：研究阶段
+      //   已经完成（agent.phase===completed）+ 没有 pipeline → quick 模式，尊重
+      //   agents reverse-cover 设的 done。还没研究完才走 in_progress 兜底。
+      const matchingAgent = agents.find(
+        (a) => a.dimension === td.dimensionRef && a.role === 'researcher'
+      );
+      const researcherDone = matchingAgent?.phase === 'completed';
+      if (researcherDone && td.status === 'done') {
+        // quick mode: research done + no pipeline → 保持 done（不走 in_progress 兜底）
+        continue;
+      }
       // 还没起 outline → 维持 in_progress（researcher 在采集 / 等下游）
       if (td.status !== 'failed' && td.status !== 'cancelled') {
         td.status = 'in_progress';
