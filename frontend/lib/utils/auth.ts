@@ -134,9 +134,16 @@ export function getAuthHeader(): Record<string, string> {
 /**
  * Initiate Google OAuth login
  */
-export function loginWithGoogle(): void {
+export function loginWithGoogle(input?: unknown): void {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-  window.location.href = `${apiUrl}/api/v1/auth/google`;
+  const googleUrl = new URL(`${apiUrl}/api/v1/auth/google`);
+  const email = typeof input === 'string' ? input.trim() : '';
+
+  if (email) {
+    googleUrl.searchParams.set('login_hint', email);
+  }
+
+  window.location.href = googleUrl.toString();
 }
 
 /**

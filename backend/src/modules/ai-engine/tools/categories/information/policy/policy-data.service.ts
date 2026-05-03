@@ -11,6 +11,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
+import { Prisma } from "@prisma/client";
+import { getToolIdAliases } from "@/common/ai/tool-id-aliases";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/facade";
 import { firstValueFrom } from "rxjs";
@@ -294,10 +296,18 @@ export class PolicyDataService {
    */
   async getAllApiKeys(toolId: string): Promise<string[]> {
     try {
-      // 1. 查找工具配置
-      const toolConfig = await this.prisma.toolConfig.findUnique({
-        where: { toolId },
-      });
+      // 1. 查找工具配置（支持 provider id / registry id 双向别名）
+      let toolConfig: {
+        secretKey: string | null;
+        config: Prisma.JsonValue;
+      } | null = null;
+      for (const candidateToolId of getToolIdAliases(toolId)) {
+        toolConfig = await this.prisma.toolConfig.findUnique({
+          where: { toolId: candidateToolId },
+          select: { secretKey: true, config: true },
+        });
+        if (toolConfig) break;
+      }
 
       // 2. 如果有 secretKey，从 Secret Manager 获取
       if (toolConfig?.secretKey) {

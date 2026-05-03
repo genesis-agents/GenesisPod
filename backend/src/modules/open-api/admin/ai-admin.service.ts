@@ -6,6 +6,10 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import {
+  getRegistryToolId,
+  TOOL_ID_ALIAS_TO_REGISTRY_ID,
+} from "@/common/ai/tool-id-aliases";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../ai-infra/secrets/secret-name.catalog";
 import { DEFAULT_PAGE_SIZE } from "../../../common/constants/pagination.constants";
@@ -660,45 +664,98 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       const providerSyncPromises: Promise<unknown>[] = [];
       // Re-fetch configs after step 1 & 2 mutations
       const updatedConfigs = await this.prisma.toolConfig.findMany({
-        select: { toolId: true, secretKey: true, enabled: true, config: true },
+        select: {
+          toolId: true,
+          displayName: true,
+          description: true,
+          category: true,
+          enabled: true,
+          tags: true,
+          secretKey: true,
+          config: true,
+          requiresAuth: true,
+          allowedRoles: true,
+        },
       });
       const updatedConfigMap = new Map(
         updatedConfigs.map((c) => [c.toolId, c]),
       );
 
       for (const [providerId, registryId] of Object.entries(
-        AIAdminService.PROVIDER_TO_TOOL_ID,
+        TOOL_ID_ALIAS_TO_REGISTRY_ID,
       )) {
         if (providerId === registryId) continue;
         const providerConfig = updatedConfigMap.get(providerId);
         const registryConfig = updatedConfigMap.get(registryId);
 
-        // Case A: registry has secretKey, provider row missing or no secretKey → create/update provider
-        if (registryConfig?.secretKey && !providerConfig?.secretKey) {
+        // Case A: registry row exists, provider alias row missing → materialize alias row
+        if (registryConfig && !providerConfig) {
           providerSyncPromises.push(
             this.prisma.toolConfig.upsert({
               where: { toolId: providerId },
               create: {
                 toolId: providerId,
+                displayName: registryConfig.displayName,
+                description: registryConfig.description,
+                category: registryConfig.category,
                 enabled: registryConfig.enabled,
+                tags: registryConfig.tags,
                 secretKey: registryConfig.secretKey,
+                config: registryConfig.config as
+                  | Prisma.InputJsonValue
+                  | undefined,
+                requiresAuth: registryConfig.requiresAuth,
+                allowedRoles: registryConfig.allowedRoles,
               },
-              update: { secretKey: registryConfig.secretKey },
+              update: {
+                displayName: registryConfig.displayName,
+                description: registryConfig.description,
+                category: registryConfig.category,
+                enabled: registryConfig.enabled,
+                tags: registryConfig.tags,
+                secretKey: registryConfig.secretKey,
+                config: registryConfig.config as
+                  | Prisma.InputJsonValue
+                  | undefined,
+                requiresAuth: registryConfig.requiresAuth,
+                allowedRoles: registryConfig.allowedRoles,
+              },
             }),
           );
         }
 
-        // Case B: provider has secretKey, registry row missing or no secretKey → update registry
-        if (providerConfig?.secretKey && !registryConfig?.secretKey) {
+        // Case B: provider alias row exists, registry row missing → materialize registry row
+        if (providerConfig && !registryConfig) {
           providerSyncPromises.push(
             this.prisma.toolConfig.upsert({
               where: { toolId: registryId },
               create: {
                 toolId: registryId,
+                displayName: providerConfig.displayName,
+                description: providerConfig.description,
+                category: providerConfig.category,
                 enabled: providerConfig.enabled,
+                tags: providerConfig.tags,
                 secretKey: providerConfig.secretKey,
+                config: providerConfig.config as
+                  | Prisma.InputJsonValue
+                  | undefined,
+                requiresAuth: providerConfig.requiresAuth,
+                allowedRoles: providerConfig.allowedRoles,
               },
-              update: { secretKey: providerConfig.secretKey },
+              update: {
+                displayName: providerConfig.displayName,
+                description: providerConfig.description,
+                category: providerConfig.category,
+                enabled: providerConfig.enabled,
+                tags: providerConfig.tags,
+                secretKey: providerConfig.secretKey,
+                config: providerConfig.config as
+                  | Prisma.InputJsonValue
+                  | undefined,
+                requiresAuth: providerConfig.requiresAuth,
+                allowedRoles: providerConfig.allowedRoles,
+              },
             }),
           );
         }
@@ -1631,13 +1688,21 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     // ★ 同步 Provider ID → Registry Tool ID 的关键字段
     // 前端用 provider ID（如 openalex）保存，运行时用 registry ID（如 openalex-search）查询
     // 需同步：secretKey、config（密钥读取）、enabled（能力开关）
-    const registryToolId = AIAdminService.PROVIDER_TO_TOOL_ID[toolId] || toolId;
+    const registryToolId = getRegistryToolId(toolId);
     if (registryToolId !== toolId) {
       const syncData: Record<string, unknown> = {};
       if (update.secretKey !== undefined) syncData.secretKey = update.secretKey;
       if (update.config !== undefined)
         syncData.config = update.config as Prisma.InputJsonValue;
       if (update.enabled !== undefined) syncData.enabled = update.enabled;
+      if (update.displayName !== undefined)
+        syncData.displayName = update.displayName;
+      if (update.description !== undefined)
+        syncData.description = update.description;
+      if (update.requiresAuth !== undefined)
+        syncData.requiresAuth = update.requiresAuth;
+      if (update.allowedRoles !== undefined)
+        syncData.allowedRoles = update.allowedRoles;
 
       if (Object.keys(syncData).length > 0) {
         await this.prisma.toolConfig.upsert({
@@ -1648,12 +1713,20 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
             ...(syncData as {
               secretKey?: string | null;
               config?: Prisma.InputJsonValue;
+              displayName?: string;
+              description?: string;
+              requiresAuth?: boolean;
+              allowedRoles?: string[];
             }),
           },
           update: syncData as {
             secretKey?: string | null;
             config?: Prisma.InputJsonValue;
             enabled?: boolean;
+            displayName?: string;
+            description?: string;
+            requiresAuth?: boolean;
+            allowedRoles?: string[];
           },
         });
         this.logger.log(
@@ -1664,42 +1737,6 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
 
     return { success: true, ...result };
   }
-
-  /**
-   * 前端 Provider ID → 后端 Tool Registry ID 映射
-   * 前端 capability-mapping 中的 provider.id 与 ToolRegistry 注册的 tool.id 不一定一致
-   */
-  private static readonly PROVIDER_TO_TOOL_ID: Record<string, string> = {
-    // Web Search providers → web-search tool
-    tavily: "web-search",
-    perplexity: "web-search",
-    serper: "web-search",
-    duckduckgo: "web-search",
-    // Extraction providers → web-scraper tool
-    jina: "web-scraper",
-    firecrawl: "web-scraper",
-    tavilyExtract: "web-scraper",
-    // Academic providers → respective tools
-    arxiv: "arxiv-search",
-    "semantic-scholar": "semantic-scholar",
-    pubmed: "pubmed",
-    openalex: "openalex-search",
-    // Community
-    hackernews: "hackernews-search",
-    // GitHub
-    "github-search": "github-search",
-    // YouTube (supadata is a service-level API used by YouTubeService, not a registry tool)
-    // Policy
-    "federal-register": "federal-register",
-    "congress-gov": "congress-gov",
-    "whitehouse-news": "whitehouse-news",
-    // Finance & Weather
-    "alpha-vantage": "finance-api",
-    "weather-api": "weather-api",
-    // Audio Generation
-    elevenlabs: "audio-generation",
-    googleTts: "audio-generation",
-  };
 
   /**
    * 每个工具的默认测试输入参数
@@ -1729,7 +1766,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
    */
   async testTool(toolId: string, input?: Record<string, unknown>) {
     // 将前端 provider ID 映射到后端 tool registry ID
-    const registryToolId = AIAdminService.PROVIDER_TO_TOOL_ID[toolId] || toolId;
+    const registryToolId = getRegistryToolId(toolId);
 
     const tool = this.toolRegistry.tryGet(registryToolId);
 
@@ -2902,4 +2939,3 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     return skillDefinitions;
   }
 }
-

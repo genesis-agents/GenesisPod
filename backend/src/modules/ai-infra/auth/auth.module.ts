@@ -7,6 +7,7 @@ import { AuthController } from "./auth.controller";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { GoogleAuthGuard } from "./guards/google-auth.guard";
 
 /**
  * 认证模块
@@ -36,7 +37,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, GoogleAuthGuard],
   exports: [AuthService, PassportModule, JwtModule],
 })
 export class AuthModule {}

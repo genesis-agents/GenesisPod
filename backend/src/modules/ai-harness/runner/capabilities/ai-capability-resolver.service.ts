@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { getToolIdAliases } from "@/common/ai/tool-id-aliases";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill.registry";
@@ -278,11 +279,17 @@ export class AICapabilityResolver {
    * 获取工具配置
    */
   async getToolConfig(toolId: string): Promise<Record<string, unknown> | null> {
-    const config = await this.prisma.toolConfig.findUnique({
-      where: { toolId },
-    });
+    for (const candidateToolId of getToolIdAliases(toolId)) {
+      const config = await this.prisma.toolConfig.findUnique({
+        where: { toolId: candidateToolId },
+      });
 
-    return config?.config as Record<string, unknown> | null;
+      if (config?.config) {
+        return config.config as Record<string, unknown>;
+      }
+    }
+
+    return null;
   }
 
   /**

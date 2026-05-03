@@ -626,6 +626,24 @@ describe("AICapabilityResolver", () => {
       expect(config).toEqual({ maxResults: 10 });
     });
 
+    it("should fall back across tool id aliases", async () => {
+      mockPrisma.toolConfig.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          toolId: "industry-report-search",
+          config: { sources: [{ id: "a16z" }] },
+        });
+
+      const config = await resolver.getToolConfig("industry-report");
+      expect(config).toEqual({ sources: [{ id: "a16z" }] });
+      expect(mockPrisma.toolConfig.findUnique).toHaveBeenNthCalledWith(1, {
+        where: { toolId: "industry-report" },
+      });
+      expect(mockPrisma.toolConfig.findUnique).toHaveBeenNthCalledWith(2, {
+        where: { toolId: "industry-report-search" },
+      });
+    });
+
     it("should return null/undefined when tool config not found", async () => {
       mockPrisma.toolConfig.findUnique.mockResolvedValue(null);
 

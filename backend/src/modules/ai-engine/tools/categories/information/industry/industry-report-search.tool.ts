@@ -12,6 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { getToolIdAliases } from "@/common/ai/tool-id-aliases";
 import { BaseTool } from "../../../base/base-tool";
 import { ToolRegistry } from "../../../registry/tool.registry";
 import {
@@ -275,14 +276,7 @@ export class IndustryReportSearchTool extends BaseTool<
     }
 
     try {
-      const cfg = await this.prisma.toolConfig.findUnique({
-        where: { toolId: "industry-report" },
-      });
-      const config = cfg?.config as
-        | { sources?: IndustryReportSourceConfig[] }
-        | undefined
-        | null;
-      this.cachedSources = config?.sources ?? [];
+      this.cachedSources = await this.loadConfiguredSources();
     } catch (err) {
       this.logger.warn(
         `Failed to load industry-report sources: ${err instanceof Error ? err.message : String(err)}`,
@@ -295,5 +289,23 @@ export class IndustryReportSearchTool extends BaseTool<
       ? enabled.filter((s) => s.topicTypes.includes(topicType))
       : enabled;
   }
-}
 
+  private async loadConfiguredSources(): Promise<IndustryReportSourceConfig[]> {
+    for (const toolId of getToolIdAliases(this.id)) {
+      const cfg = await this.prisma.toolConfig.findUnique({
+        where: { toolId },
+      });
+      const config = cfg?.config as
+        | { sources?: IndustryReportSourceConfig[] }
+        | undefined
+        | null;
+      const sources = config?.sources ?? [];
+
+      if (sources.length > 0) {
+        return sources;
+      }
+    }
+
+    return [];
+  }
+}

@@ -38,6 +38,7 @@ import {
 } from "./dto/auth-response.dto";
 import { AdminAuthService } from "../../../common/services";
 import { Public } from "../../../common/decorators/public.decorator";
+import { GoogleAuthGuard } from "./guards/google-auth.guard";
 
 /**
  * Auth rate limit configuration
@@ -191,7 +192,7 @@ export class AuthController {
    */
   @Public()
   @Get("google")
-  @UseGuards(AuthGuard("google"))
+  @UseGuards(GoogleAuthGuard)
   @ApiOperation({
     summary: "Google OAuth 登录",
     description: "重定向到 Google 进行 OAuth 认证",
@@ -207,7 +208,7 @@ export class AuthController {
    */
   @Public()
   @Get("google/callback")
-  @UseGuards(AuthGuard("google"))
+  @UseGuards(GoogleAuthGuard)
   @ApiOperation({
     summary: "Google OAuth 回调",
     description: "Google OAuth 认证成功后的回调地址",

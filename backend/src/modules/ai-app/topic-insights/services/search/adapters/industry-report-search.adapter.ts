@@ -8,6 +8,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { getToolIdAliases } from "@/common/ai/tool-id-aliases";
 import { CircuitBreakerService } from "@/modules/ai-harness/facade";
 import { SessionLatencyTrackerService } from "@/modules/ai-harness/facade";
 import { ToolRegistry } from "@/modules/ai-harness/facade";
@@ -63,18 +64,7 @@ export class IndustryReportSearchAdapter extends SearchAdapterBase {
 
     // Load from DB
     try {
-      const toolConfig = await this.prisma.toolConfig.findUnique({
-        where: { toolId: "industry-report" },
-      });
-
-      if (!toolConfig?.config) {
-        this.cachedSources = [];
-      } else {
-        const config = toolConfig.config as {
-          sources?: IndustryReportSource[];
-        };
-        this.cachedSources = config.sources || [];
-      }
+      this.cachedSources = await this.loadConfiguredSources();
       this.cacheExpiry = Date.now() + IndustryReportSearchAdapter.CACHE_TTL_MS;
     } catch (error) {
       this.logger.warn(`Failed to load industry report sources: ${error}`);
@@ -86,6 +76,25 @@ export class IndustryReportSearchAdapter extends SearchAdapterBase {
       return sources.filter((s) => s.topicTypes.includes(topicType));
     }
     return sources;
+  }
+
+  private async loadConfiguredSources(): Promise<IndustryReportSource[]> {
+    for (const toolId of getToolIdAliases(this.sourceId)) {
+      const toolConfig = await this.prisma.toolConfig.findUnique({
+        where: { toolId },
+      });
+      const config = toolConfig?.config as
+        | { sources?: IndustryReportSource[] }
+        | undefined
+        | null;
+      const sources = config?.sources ?? [];
+
+      if (sources.length > 0) {
+        return sources;
+      }
+    }
+
+    return [];
   }
 
   override async isAvailable(): Promise<boolean> {

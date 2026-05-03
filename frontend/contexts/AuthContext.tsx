@@ -19,7 +19,7 @@ import { logger } from '@/lib/utils/logger';
 interface AuthContextType extends AuthState {
   login: (user: User, accessToken: string, refreshToken: string) => void;
   logout: () => void;
-  loginWithGoogle: () => void;
+  loginWithGoogle: (input?: unknown) => void;
   isLoading: boolean;
   isAdmin: boolean;
 }
@@ -117,8 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authLogout();
   };
 
-  const loginWithGoogle = () => {
-    authLoginWithGoogle();
+  const loginWithGoogle = (input?: unknown) => {
+    authLoginWithGoogle(input);
   };
 
   return (

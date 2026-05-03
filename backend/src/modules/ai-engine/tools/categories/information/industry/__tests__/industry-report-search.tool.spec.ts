@@ -241,6 +241,28 @@ describe("IndustryReportSearchTool", () => {
   });
 
   describe("error path", () => {
+    it("falls back to registry tool config when provider alias row is missing", async () => {
+      prismaMock.toolConfig.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          config: { sources: SOURCES },
+        });
+      const webSearch = makeWebSearchTool([]);
+      registryMock.tryGet.mockReturnValue(webSearch);
+
+      const r = await tool.execute({ query: "AI" }, makeContext());
+      const data = r.data as { success: boolean; sourcesQueried: number };
+
+      expect(data.success).toBe(true);
+      expect(data.sourcesQueried).toBe(5);
+      expect(prismaMock.toolConfig.findUnique).toHaveBeenNthCalledWith(1, {
+        where: { toolId: "industry-report-search" },
+      });
+      expect(prismaMock.toolConfig.findUnique).toHaveBeenNthCalledWith(2, {
+        where: { toolId: "industry-report" },
+      });
+    });
+
     it("returns success:false with explicit error when DB has 0 enabled sources", async () => {
       prismaMock.toolConfig.findUnique.mockResolvedValue({
         config: { sources: [] },
@@ -302,4 +324,3 @@ describe("IndustryReportSearchTool", () => {
     });
   });
 });
-

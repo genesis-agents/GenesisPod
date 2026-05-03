@@ -466,6 +466,8 @@ export const PROVIDER_TO_TOOL_ID: Record<string, string> = {
   hackernews: 'hackernews-search',
   // GitHub
   'github-search': 'github-search',
+  // Curated content sources
+  'industry-report': 'industry-report-search',
   // YouTube
   supadata: 'web-scraper',
   // Policy
