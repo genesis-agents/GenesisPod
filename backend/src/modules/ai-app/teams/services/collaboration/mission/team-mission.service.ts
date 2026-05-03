@@ -126,8 +126,6 @@ export class TeamMissionService implements OnModuleInit {
     private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    @Optional()
-    private emailNotificationPresetsService?: EmailNotificationPresetsService,
     private configService: ConfigService,
     private missionContextService: MissionContextService,
     private constraintEnforcementService: ConstraintEnforcementService,
@@ -145,6 +143,8 @@ export class TeamMissionService implements OnModuleInit {
     private memberService: TeamMemberService,
     private agentFacade: AgentFacade,
     private teamFacade: TeamFacade,
+    @Optional()
+    private emailNotificationPresetsService?: EmailNotificationPresetsService,
     // ★ AI Kernel: 进程生命周期追踪（可选依赖）
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelJournal?: EventJournalService,
