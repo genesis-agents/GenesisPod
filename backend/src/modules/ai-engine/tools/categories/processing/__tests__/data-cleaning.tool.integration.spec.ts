@@ -17,7 +17,10 @@
  * - doExecute: error thrown by rule
  */
 
-import { DataCleaningTool, DataCleaningInput } from "../data-cleaning.tool";
+import {
+  DataCleaningInput,
+  DataCleaningTool,
+} from "../data/data-cleaning.tool";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 function createMockContext(overrides: Partial<ToolContext> = {}): ToolContext {

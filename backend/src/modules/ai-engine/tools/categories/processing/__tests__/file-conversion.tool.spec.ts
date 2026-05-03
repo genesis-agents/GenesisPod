@@ -5,7 +5,7 @@
 import {
   FileConversionTool,
   FileConversionInput,
-} from "../file-conversion.tool";
+} from "../documents/file-conversion.tool";
 import { ExportOrchestratorService } from "@/common/export";
 import { ToolContext } from "../../../abstractions/tool.interface";
 

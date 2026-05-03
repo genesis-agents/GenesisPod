@@ -332,6 +332,25 @@ Naming rule:
 - static standards belong in `*.constants.ts` or `*.catalog.ts`
 - pipeline entrypoints use `*.service.ts` only if they are DI services; pure processing modules may use stable noun files but must be adjudicated explicitly
 
+### `tools/categories/processing/`
+
+Allowed:
+
+- data transformation tools
+- document parsing and diff tools
+- template rendering tools
+
+Not allowed:
+
+- a flat catch-all bucket of unrelated processing tools
+
+Split rule:
+
+- data-oriented tools belong in `data/`
+- document-oriented tools belong in `documents/`
+- template rendering belongs in `templates/`
+- root keeps only `index.ts` and category-level documentation
+
 ## ai-harness
 
 ### `agents/abstractions/`

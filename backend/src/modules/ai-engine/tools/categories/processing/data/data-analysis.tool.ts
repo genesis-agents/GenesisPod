@@ -4,12 +4,12 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { BaseTool } from "../../base/base-tool";
+import { BaseTool } from "../../../base/base-tool";
 import {
   ToolContext,
   JSONSchema,
   ToolCategory,
-} from "../../abstractions/tool.interface";
+} from "../../../abstractions/tool.interface";
 
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 

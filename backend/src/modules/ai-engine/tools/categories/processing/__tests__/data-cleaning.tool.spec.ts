@@ -6,7 +6,7 @@ import {
   DataCleaningTool,
   DataCleaningInput,
   CleaningRule,
-} from "../data-cleaning.tool";
+} from "../data/data-cleaning.tool";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

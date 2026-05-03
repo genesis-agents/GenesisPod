@@ -5,7 +5,7 @@
 import {
   DataValidationTool,
   DataValidationInput,
-} from "../data-validation.tool";
+} from "../data/data-validation.tool";
 import { ToolContext, JSONSchema } from "../../../abstractions/tool.interface";
 
 // ============================================================================

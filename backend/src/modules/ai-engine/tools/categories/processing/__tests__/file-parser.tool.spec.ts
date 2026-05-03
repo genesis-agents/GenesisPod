@@ -2,7 +2,7 @@
  * FileParserTool Unit Tests
  */
 
-import { FileParserTool, FileParserInput } from "../file-parser.tool";
+import { FileParserTool, FileParserInput } from "../documents/file-parser.tool";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

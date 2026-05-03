@@ -2,7 +2,10 @@
  * DataAnalysisTool Unit Tests
  */
 
-import { DataAnalysisTool, DataAnalysisInput } from "../data-analysis.tool";
+import {
+  DataAnalysisInput,
+  DataAnalysisTool,
+} from "../data/data-analysis.tool";
 import { AiChatService } from "../../../../llm/services/ai-chat.service";
 import { ToolContext } from "../../../abstractions/tool.interface";
 

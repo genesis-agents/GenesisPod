@@ -74,7 +74,7 @@ npm install --save-dev @types/jszip
 ## 使用示例
 
 ```typescript
-import { FileParserTool } from "./tools/processing/file-parser.tool";
+import { FileParserTool } from "./tools/processing/documents/file-parser.tool";
 
 // 创建工具实例
 const fileParser = new FileParserTool();

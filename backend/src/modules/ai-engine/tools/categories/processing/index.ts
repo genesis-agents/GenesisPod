@@ -6,18 +6,21 @@
 // ============================================================================
 // Tool Classes
 // ============================================================================
-export { FileParserTool } from "./file-parser.tool";
-export { DataValidationTool } from "./data-validation.tool";
-export { DataCleaningTool } from "./data-cleaning.tool";
-export { DocumentDiffTool } from "./document-diff.tool";
-export { TemplateRenderTool } from "./template-render.tool";
-export { DataAnalysisTool } from "./data-analysis.tool";
-export { FileConversionTool } from "./file-conversion.tool";
+export { DataAnalysisTool } from "./data/data-analysis.tool";
+export { DataCleaningTool } from "./data/data-cleaning.tool";
+export { DataValidationTool } from "./data/data-validation.tool";
+export { DocumentDiffTool } from "./documents/document-diff.tool";
+export { FileConversionTool } from "./documents/file-conversion.tool";
+export { FileParserTool } from "./documents/file-parser.tool";
+export { TemplateRenderTool } from "./templates/template-render.tool";
 
 // ============================================================================
 // Types - File Parser
 // ============================================================================
-export type { FileParserInput, FileParserOutput } from "./file-parser.tool";
+export type {
+  FileParserInput,
+  FileParserOutput,
+} from "./documents/file-parser.tool";
 
 // ============================================================================
 // Types - Data Validation
@@ -27,7 +30,7 @@ export type {
   DataValidationInput,
   ValidationError,
   DataValidationOutput,
-} from "./data-validation.tool";
+} from "./data/data-validation.tool";
 
 // ============================================================================
 // Types - Data Cleaning
@@ -37,7 +40,7 @@ export type {
   DataCleaningInput,
   CleaningStatistics,
   DataCleaningOutput,
-} from "./data-cleaning.tool";
+} from "./data/data-cleaning.tool";
 
 // ============================================================================
 // Types - Document Diff
@@ -47,7 +50,7 @@ export type {
   DiffChange,
   DiffStatistics,
   DocumentDiffOutput,
-} from "./document-diff.tool";
+} from "./documents/document-diff.tool";
 
 // ============================================================================
 // Types - Template Render
@@ -55,7 +58,7 @@ export type {
 export type {
   TemplateRenderInput,
   TemplateRenderOutput,
-} from "./template-render.tool";
+} from "./templates/template-render.tool";
 
 // ============================================================================
 // Types - Data Analysis
@@ -63,7 +66,7 @@ export type {
 export type {
   DataAnalysisInput,
   DataAnalysisOutput,
-} from "./data-analysis.tool";
+} from "./data/data-analysis.tool";
 
 // ============================================================================
 // Types - File Conversion
@@ -73,4 +76,4 @@ export type {
   TargetFormat,
   FileConversionInput,
   FileConversionOutput,
-} from "./file-conversion.tool";
+} from "./documents/file-conversion.tool";

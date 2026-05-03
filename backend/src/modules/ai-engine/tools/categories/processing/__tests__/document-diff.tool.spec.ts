@@ -2,7 +2,10 @@
  * DocumentDiffTool Unit Tests
  */
 
-import { DocumentDiffTool, DocumentDiffInput } from "../document-diff.tool";
+import {
+  DocumentDiffInput,
+  DocumentDiffTool,
+} from "../documents/document-diff.tool";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

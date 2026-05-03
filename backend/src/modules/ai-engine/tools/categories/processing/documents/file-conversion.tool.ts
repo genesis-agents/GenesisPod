@@ -5,12 +5,12 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PuppeteerPoolService } from "@/common/browser/puppeteer-pool.service";
-import { BaseTool } from "../../base/base-tool";
+import { BaseTool } from "../../../base/base-tool";
 import {
   ToolContext,
   JSONSchema,
   ToolCategory,
-} from "../../abstractions/tool.interface";
+} from "../../../abstractions/tool.interface";
 
 import { ExportOrchestratorService } from "@/common/export";
 import { ExportFormat } from "@prisma/client";

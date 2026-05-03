@@ -5,7 +5,7 @@
 import {
   TemplateRenderTool,
   TemplateRenderInput,
-} from "../template-render.tool";
+} from "../templates/template-render.tool";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 // ============================================================================

@@ -17,7 +17,7 @@ import {
   DataValidationTool,
   DataValidationInput,
   ValidationRule,
-} from "../data-validation.tool";
+} from "../data/data-validation.tool";
 import { ToolContext } from "../../../abstractions/tool.interface";
 
 function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
